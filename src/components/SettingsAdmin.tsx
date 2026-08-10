@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from "react";
 import { auth } from "../firebase.js";
+import { authenticatedFetch } from "../lib/apiUtils.js";
 import { 
   User as UserIcon, 
   Building, 
@@ -121,15 +122,9 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
     setDeleteAccountError(null);
 
     try {
-      const { auth } = await import("../firebase");
-      const idToken = await auth.currentUser?.getIdToken();
-      const token = idToken || localStorage.getItem("zakir_auth_token") || "";
-      const res = await fetch("/api/auth/delete-account", {
+      const res = await authenticatedFetch("/api/auth/delete-account", {
         method: "DELETE",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}`
-        }
+        headers: { "Content-Type": "application/json" }
       });
       const data = await res.json();
       if (!res.ok || !data.success) {
@@ -164,13 +159,9 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
   const handleStripeCheckout = async (plan: "Starter" | "Professional" | "Enterprise") => {
     setIsProcessingPayment(true);
     try {
-      const idToken = auth.currentUser ? await auth.currentUser.getIdToken() : "";
-      const res = await fetch("/api/stripe/create-checkout-session", {
+      const res = await authenticatedFetch("/api/stripe/create-checkout-session", {
         method: "POST",
-        headers: { 
-          "Content-Type": "application/json",
-          ...(idToken ? { "Authorization": `Bearer ${idToken}` } : {})
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           plan,
           billingCycle,
@@ -201,11 +192,7 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
           const urlObj = new URL(data.url, window.location.origin);
           const sessionId = urlObj.searchParams.get("session_id") || `cs_${Date.now()}`;
           try {
-            const rcRes = await fetch(`/api/stripe/receipt/${sessionId}?plan=${plan}&cycle=${billingCycle}`, {
-              headers: {
-                ...(idToken ? { "Authorization": `Bearer ${idToken}` } : {})
-              }
-            });
+            const rcRes = await authenticatedFetch(`/api/stripe/receipt/${sessionId}?plan=${plan}&cycle=${billingCycle}`);
             const rcData = await rcRes.json();
             if (rcData.receipt) {
               setCompletedReceipt(rcData.receipt);
@@ -237,13 +224,9 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
 
   const handleOpenStripePortal = async () => {
     try {
-      const idToken = auth.currentUser ? await auth.currentUser.getIdToken() : "";
-      const res = await fetch("/api/stripe/create-portal-session", {
+      const res = await authenticatedFetch("/api/stripe/create-portal-session", {
         method: "POST",
-        headers: { 
-          "Content-Type": "application/json",
-          ...(idToken ? { "Authorization": `Bearer ${idToken}` } : {})
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           stripeCustomerId: currentUser.stripeCustomerId,
           userId: currentUser.id,

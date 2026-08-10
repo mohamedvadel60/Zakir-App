@@ -30,6 +30,7 @@ import {
   deleteObject 
 } from "firebase/storage";
 import { auth, db, storage } from "../firebase.js";
+import { authenticatedFetch } from "./apiUtils.js";
 import { 
   User, 
   Memory, 
@@ -1152,7 +1153,7 @@ export async function fetchAllUsersForAdmin(): Promise<AdminUserRecord[]> {
 
   // 1. First try fetching via authoritative admin backend endpoint
   try {
-    const response = await fetch("/api/admin/users");
+    const response = await authenticatedFetch("/api/admin/users");
     if (response.ok) {
       const data = await response.json();
       if (data && Array.isArray(data.users) && data.users.length > 0) {
@@ -1517,12 +1518,11 @@ export async function createSupportTicketApi(ticketData: {
   message: string;
   priority?: string;
 }) {
-  const token = auth.currentUser ? await auth.currentUser.getIdToken() : "";
   try {
     // 1. Post to Express API (Primary Server Persistence)
-    const res = await fetch("/api/support/tickets", {
+    const res = await authenticatedFetch("/api/support/tickets", {
       method: "POST",
-      headers: { "Content-Type": "application/json", ...(token ? { "Authorization": `Bearer ${token}` } : {}) },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify(ticketData)
     });
 

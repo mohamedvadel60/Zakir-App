@@ -105,6 +105,7 @@ import { WorldBankPortal } from "./components/WorldBankPortal";
 import { generateWorldBankFallbackData } from "./lib/worldBankFallback.js";
 import { ZakirLogo } from "./components/ZakirLogo";
 import { applyGlobalTheme, ThemeMode } from "./lib/themeUtils.js";
+import { authenticatedFetch } from "./lib/apiUtils.js";
 import { SettingsAdmin } from "./components/SettingsAdmin";
 import { InstallPrompt } from "./components/InstallPrompt";
 import { CustomerSupport } from "./components/CustomerSupport";
@@ -515,13 +516,9 @@ export default function App() {
 
   const handleLandingStripeCheckout = async (plan: "Starter" | "Professional" | "Enterprise") => {
     try {
-      const idToken = auth.currentUser ? await auth.currentUser.getIdToken() : "";
-      const res = await fetch("/api/stripe/create-checkout-session", {
+      const res = await authenticatedFetch("/api/stripe/create-checkout-session", {
         method: "POST",
-        headers: { 
-          "Content-Type": "application/json",
-          ...(idToken ? { "Authorization": `Bearer ${idToken}` } : {})
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           plan,
           billingCycle: landingBillingCycle,
@@ -541,9 +538,7 @@ export default function App() {
           const urlObj = new URL(data.url, window.location.origin);
           const sessionId = urlObj.searchParams.get("session_id") || `cs_${Date.now()}`;
           try {
-            const rcRes = await fetch(`/api/stripe/receipt/${sessionId}?plan=${plan}&cycle=${landingBillingCycle}`, {
-              headers: idToken ? { "Authorization": `Bearer ${idToken}` } : {}
-            });
+            const rcRes = await authenticatedFetch(`/api/stripe/receipt/${sessionId}?plan=${plan}&cycle=${landingBillingCycle}`);
             const rcData = await rcRes.json();
             if (rcData.receipt) {
               setStripeReceiptData(rcData.receipt);
@@ -1343,7 +1338,7 @@ This hosting domain (**${currentDomain}**) has not been authorized in your Fireb
             checkWorkspaceInvitation(currentUser.email),
             fetchFirebaseUserMemories(dataOwnerId),
             fetchFirebaseUserRiskAlerts(dataOwnerId),
-            fetch("/api/database/schema", { method: "POST" })
+            authenticatedFetch("/api/database/schema", { method: "POST" })
           ]);
 
           // Extract workspace invitation
@@ -1384,44 +1379,29 @@ This hosting domain (**${currentDomain}**) has not been authorized in your Fireb
 
           setMetrics([]);
         } else {
-          // Unauthenticated Guest Preview Mode (when not logged in) - load fallback endpoints in parallel
+          // Unauthenticated Guest Preview Mode (when not logged in) - load public endpoints in parallel
+          setMemories(FALLBACK_MEMORIES);
+          setSqlSchema(FALLBACK_SCHEMA);
+
           const results = await Promise.allSettled([
-            fetch("/api/memories"),
             fetch("/api/risk-alerts"),
-            fetch("/api/metrics"),
-            fetch("/api/database/schema", { method: "POST" })
+            fetch("/api/metrics")
           ]);
 
-          // Extract memories
+          // Extract alerts
           if (results[0].status === "fulfilled" && results[0].value.ok) {
             const data = await results[0].value.json().catch(() => []);
-            setMemories(data.length > 0 ? data : FALLBACK_MEMORIES);
-          } else {
-            setMemories(FALLBACK_MEMORIES);
-          }
-
-          // Extract alerts
-          if (results[1].status === "fulfilled" && results[1].value.ok) {
-            const data = await results[1].value.json().catch(() => []);
             setRiskAlerts(data.length > 0 ? data : FALLBACK_ALERTS);
           } else {
             setRiskAlerts(FALLBACK_ALERTS);
           }
 
           // Extract metrics
-          if (results[2].status === "fulfilled" && results[2].value.ok) {
-            const data = await results[2].value.json().catch(() => []);
+          if (results[1].status === "fulfilled" && results[1].value.ok) {
+            const data = await results[1].value.json().catch(() => []);
             setMetrics(data.length > 0 ? data : FALLBACK_METRICS);
           } else {
             setMetrics(FALLBACK_METRICS);
-          }
-
-          // Extract schema
-          if (results[3].status === "fulfilled" && results[3].value.ok) {
-            const data = await results[3].value.json().catch(() => ({ ddl: FALLBACK_SCHEMA }));
-            setSqlSchema(data.ddl || FALLBACK_SCHEMA);
-          } else {
-            setSqlSchema(FALLBACK_SCHEMA);
           }
         }
       } catch (e) {
@@ -1773,13 +1753,9 @@ This hosting domain (**${currentDomain}**) has not been authorized in your Fireb
       }
 
       // Sync server endpoint
-      const idToken = auth.currentUser ? await auth.currentUser.getIdToken() : "";
-      await fetch("/api/memories", {
+      await authenticatedFetch("/api/memories", {
         method: "POST",
-        headers: { 
-          "Content-Type": "application/json",
-          ...(idToken ? { "Authorization": `Bearer ${idToken}` } : {})
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ 
           ...memoryPayload, 
           id: savedMemory ? savedMemory.id : undefined,
@@ -1835,10 +1811,8 @@ This hosting domain (**${currentDomain}**) has not been authorized in your Fireb
         : currentUser.id;
       deleteFirebaseUserMemory(dataOwnerId, memoryId).catch(e => console.warn("Firestore delete memory warning:", e));
     }
-    const idToken = auth.currentUser ? await auth.currentUser.getIdToken() : "";
-    fetch(`/api/memories/${memoryId}`, {
-      method: "DELETE",
-      headers: idToken ? { "Authorization": `Bearer ${idToken}` } : {}
+    authenticatedFetch(`/api/memories/${memoryId}`, {
+      method: "DELETE"
     }).catch(e => console.warn("Server delete memory warning:", e));
   };
 
@@ -1868,13 +1842,9 @@ This hosting domain (**${currentDomain}**) has not been authorized in your Fireb
         .catch(e => console.warn("Firestore memory update warning:", e));
     }
 
-    const idToken = auth.currentUser ? await auth.currentUser.getIdToken() : "";
-    fetch(`/api/memories/${updatedMemory.id}`, {
+    authenticatedFetch(`/api/memories/${updatedMemory.id}`, {
       method: "PUT",
-      headers: { 
-        "Content-Type": "application/json",
-        ...(idToken ? { "Authorization": `Bearer ${idToken}` } : {})
-      },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify(updatedMemory)
     }).catch(e => console.warn("Server-side memory update warning:", e));
   };
@@ -2217,7 +2187,7 @@ Provide an executive, high-impact causal analysis in Arabic (and professional En
 
       // Sync server endpoint gracefully
       try {
-        await fetch("/api/memories", {
+        await authenticatedFetch("/api/memories", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ 
@@ -2251,7 +2221,7 @@ Provide an executive, high-impact causal analysis in Arabic (and professional En
   const executeSQLQuery = async () => {
     if (!sqlQuery.trim()) return;
     try {
-      const res = await fetch("/api/database/query", {
+      const res = await authenticatedFetch("/api/database/query", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ query: sqlQuery })

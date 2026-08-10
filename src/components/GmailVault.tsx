@@ -30,6 +30,7 @@ import {
 } from "lucide-react";
 import { googleSignIn, getAccessToken, logoutWorkspace } from "../lib/workspace-auth.js";
 import { auth } from "../firebase.js";
+import { authenticatedFetch } from "../lib/apiUtils.js";
 
 interface EmailDetail {
   id: string;
@@ -355,15 +356,9 @@ export default function GmailVault({ theme, lang }: GmailVaultProps) {
   // Log action to Cloud SQL database
   const logActionToSql = async (actionType: string, recipient: string | null, subject: string | null, status: string) => {
     try {
-      const idToken = await getFirebaseIdToken();
-      if (!idToken) return;
-
-      await fetch("/api/sql/gmail-logs", {
+      await authenticatedFetch("/api/sql/gmail-logs", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${idToken}`
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           actionType,
           recipient,
@@ -381,17 +376,7 @@ export default function GmailVault({ theme, lang }: GmailVaultProps) {
   const fetchSqlLogs = async () => {
     setIsLoadingLogs(true);
     try {
-      const idToken = await getFirebaseIdToken();
-      if (!idToken) {
-        setIsLoadingLogs(false);
-        return;
-      }
-
-      const res = await fetch("/api/sql/gmail-logs", {
-        headers: {
-          "Authorization": `Bearer ${idToken}`
-        }
-      });
+      const res = await authenticatedFetch("/api/sql/gmail-logs");
       if (res.ok) {
         const data = await res.json();
         setSqlLogs(data);
@@ -600,13 +585,9 @@ export default function GmailVault({ theme, lang }: GmailVaultProps) {
     setIsSending(true);
     setError(null);
     try {
-      const firebaseIdToken = auth.currentUser ? await auth.currentUser.getIdToken() : "";
-      const response = await fetch("/api/email/send", {
+      const response = await authenticatedFetch("/api/email/send", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(firebaseIdToken ? { "Authorization": `Bearer ${firebaseIdToken}` } : {})
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           to: composeTo,
           subject: composeSubject,
@@ -665,13 +646,9 @@ export default function GmailVault({ theme, lang }: GmailVaultProps) {
 
     try {
       const replySubject = selectedEmail.subject.startsWith("Re:") ? selectedEmail.subject : `Re: ${selectedEmail.subject}`;
-      const firebaseIdToken = auth.currentUser ? await auth.currentUser.getIdToken() : "";
-      const response = await fetch("/api/email/send", {
+      const response = await authenticatedFetch("/api/email/send", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(firebaseIdToken ? { "Authorization": `Bearer ${firebaseIdToken}` } : {})
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           to: selectedEmail.from,
           subject: replySubject,
