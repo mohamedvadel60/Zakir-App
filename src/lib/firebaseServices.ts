@@ -184,7 +184,7 @@ export async function registerFirebaseUser(
   pass: string,
   companyName: string,
   ownerName: string,
-  role: UserRole = "CEO",
+  role: UserRole = "Contributor",
   invitedWorkspaceId?: string,
   invitedWorkspace?: WorkspaceInfo,
   powers?: ModulePermissions
@@ -582,13 +582,8 @@ export function subscribeToFirebaseAuthState(callback: (user: User | null) => vo
         setLocalItem(`user_${fbUser.uid}`, userObj);
         callback(userObj);
       } else {
-        // If user profile does NOT exist in Firestore, do NOT automatically grant CEO/Admin role
-        const localUser = getLocalItem(`user_${fbUser.uid}`, null);
-        if (localUser && localUser.id === fbUser.uid && localUser.role !== "CEO" && localUser.role !== "Admin") {
-          callback(localUser);
-          return;
-        }
-
+        // Firestore is online and authoritative, and the user profile does not exist.
+        // We must never restore from local storage. Create a safe, default, non-privileged Contributor profile instead.
         const defaultUser: User = {
           id: fbUser.uid,
           email: fbUser.email || "",
@@ -598,24 +593,34 @@ export function subscribeToFirebaseAuthState(callback: (user: User | null) => vo
           createdAt: new Date().toISOString(),
           trialExpiresAt: new Date(Date.now() + 24 * 3600 * 1000).toISOString()
         };
+        try {
+          const { doc, setDoc } = await import("firebase/firestore");
+          await setDoc(doc(db, "users", fbUser.uid), defaultUser);
+        } catch (e) {
+          console.warn("Failed to create default non-admin profile in Firestore:", e);
+        }
+        setLocalItem(`user_${fbUser.uid}`, defaultUser);
         callback(defaultUser);
       }
     } catch (err) {
       console.warn("Fallback on user profile fetch error:", err);
-      const localUser = fbUser ? getLocalItem(`user_${fbUser.uid}`, null) : null;
-      if (localUser && localUser.role !== "CEO" && localUser.role !== "Admin") {
-        callback(localUser);
-      } else {
-        callback({
-          id: fbUser.uid,
-          email: fbUser.email || "",
-          companyName: "Personal Account",
-          ownerName: "User",
-          role: "Contributor",
-          createdAt: new Date().toISOString(),
-          trialExpiresAt: new Date(Date.now() + 24 * 3600 * 1000).toISOString()
-        });
+      // Fallback to local storage ONLY if Firestore is verified offline, and NEVER restore CEO or Admin roles.
+      if (isFirestoreOffline) {
+        const localUser = fbUser ? getLocalItem(`user_${fbUser.uid}`, null) : null;
+        if (localUser && localUser.role !== "CEO" && localUser.role !== "Admin") {
+          callback(localUser);
+          return;
+        }
       }
+      callback({
+        id: fbUser.uid,
+        email: fbUser.email || "",
+        companyName: "Personal Account",
+        ownerName: "User",
+        role: "Contributor",
+        createdAt: new Date().toISOString(),
+        trialExpiresAt: new Date(Date.now() + 24 * 3600 * 1000).toISOString()
+      });
     }
   });
 }

@@ -347,9 +347,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         throw new Error(errorData.error || `Server deletion failed with status ${response.status}`);
       }
 
-      // 2. Delete associated client-side data collections in Firestore
-      await deleteFirebaseUserAccount(userId);
-
       setUsers((prev) => prev.filter((u) => u.id !== userId));
       if (selectedUserRecord?.id === userId) {
         setSelectedUserRecord(null);
@@ -363,6 +360,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           ? `حدث خطأ أثناء حذف حساب المستخدم: ${errMsg}` 
           : `Error deleting user account: ${errMsg}`
       );
+      // Refresh the admin user list on failure
+      await loadAdminData();
     }
   };
 

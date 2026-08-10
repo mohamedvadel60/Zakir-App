@@ -2886,28 +2886,11 @@ app.delete("/api/admin/delete-user/:uid", requireAuth, async (req: AuthRequest, 
       if (targetSnap.exists) {
         targetEmail = targetSnap.data()?.email || "";
       }
-    } catch (e) {}
-
-    // 1. Revoke active refresh tokens
-    try {
-      await adminAuth.revokeRefreshTokens(targetUid);
-      console.log("USER_TOKENS_REVOKED", { targetUid });
-    } catch (tokenErr: any) {
-      console.warn("Revoke refresh tokens warning:", tokenErr?.message);
+    } catch (e) {
+      console.warn("Failed to retrieve target user email:", e);
     }
 
-    // 2. Delete from Firebase Authentication - MUST fail if deletion fails
-    try {
-      await adminAuth.deleteUser(targetUid);
-      console.log("USER_AUTH_DELETED", { targetUid });
-    } catch (authErr: any) {
-      if (authErr.code !== "auth/user-not-found") {
-        console.error("USER_AUTH_DELETE_FAILED", { targetUid, error: authErr?.message });
-        return res.status(500).json({ error: `Failed to delete user from Firebase Authentication: ${authErr.message}` });
-      }
-    }
-
-    // 3. Create authoritative deletedUsers marker
+    // 1. Create authoritative deletedUsers marker FIRST
     try {
       await adminDb.collection("deletedUsers").doc(targetUid).set({
         uid: targetUid,
@@ -2916,11 +2899,13 @@ app.delete("/api/admin/delete-user/:uid", requireAuth, async (req: AuthRequest, 
         deletedBy: callerUid,
         reason: "admin_deleted"
       });
+      console.log("USER_DELETED_MARKER_CREATED", { targetUid });
     } catch (delErr: any) {
-      console.warn("Firestore deletedUsers creation warning:", delErr?.message);
+      console.error("Firestore deletedUsers creation failed:", delErr?.message);
+      return res.status(500).json({ error: `Critical error: Failed to establish deletion marker in Firestore. Aborting deletion: ${delErr.message}` });
     }
 
-    // 4. Delete Firestore user document users/{targetUid}
+    // 2. Delete Firestore user-owned data and profile
     try {
       await adminDb.collection("users").doc(targetUid).delete();
       console.log("USER_FIRESTORE_DELETED", { targetUid });
@@ -2928,16 +2913,18 @@ app.delete("/api/admin/delete-user/:uid", requireAuth, async (req: AuthRequest, 
       console.warn("Firestore user doc delete warning:", fsErr?.message);
     }
 
-    // 5. Delete verification codes
+    // Delete verification codes
     try {
       await adminDb.collection("verification_codes").doc(targetUid).delete();
       const vcSnap = await adminDb.collection("verification_codes").where("userId", "==", targetUid).get();
       for (const doc of vcSnap.docs) {
         await doc.ref.delete();
       }
-    } catch (vcErr: any) {}
+    } catch (vcErr: any) {
+      console.warn("Verification codes deletion warning:", vcErr?.message);
+    }
 
-    // 6. Delete user files subcollection & top-level files
+    // Delete user files subcollection & top-level files
     try {
       const userFilesSnap = await adminDb.collection("users").doc(targetUid).collection("files").get();
       for (const fDoc of userFilesSnap.docs) {
@@ -2947,9 +2934,11 @@ app.delete("/api/admin/delete-user/:uid", requireAuth, async (req: AuthRequest, 
       for (const tfDoc of topFilesSnap.docs) {
         await tfDoc.ref.delete();
       }
-    } catch (filesErr: any) {}
+    } catch (filesErr: any) {
+      console.warn("Files metadata deletion warning:", filesErr?.message);
+    }
 
-    // 7. Delete user memories & risk alerts
+    // Delete user memories & risk alerts
     try {
       const memSnap = await adminDb.collection("users").doc(targetUid).collection("memories").get();
       for (const mDoc of memSnap.docs) {
@@ -2959,17 +2948,40 @@ app.delete("/api/admin/delete-user/:uid", requireAuth, async (req: AuthRequest, 
       for (const aDoc of alertSnap.docs) {
         await aDoc.ref.delete();
       }
-    } catch (memErr: any) {}
+    } catch (memErr: any) {
+      console.warn("Memories/alerts deletion warning:", memErr?.message);
+    }
 
-    // 8. Delete support tickets owned by user
+    // Delete support tickets owned by user
     try {
       const ticketSnap = await adminDb.collection("support_tickets").where("userId", "==", targetUid).get();
       for (const tDoc of ticketSnap.docs) {
         await tDoc.ref.delete();
       }
-    } catch (ticketErr: any) {}
+    } catch (ticketErr: any) {
+      console.warn("Support tickets deletion warning:", ticketErr?.message);
+    }
 
-    // 9. Synchronize deletion to the local JSON file database store
+    // 3. Delete from Firebase Authentication - must fail entire request if it fails
+    try {
+      await adminAuth.deleteUser(targetUid);
+      console.log("USER_AUTH_DELETED", { targetUid });
+    } catch (authErr: any) {
+      if (authErr.code !== "auth/user-not-found") {
+        console.error("USER_AUTH_DELETE_FAILED", { targetUid, error: authErr?.message });
+        return res.status(500).json({ error: `Failed to delete user account from Firebase Authentication: ${authErr.message}` });
+      }
+    }
+
+    // 4. Revoke active refresh tokens
+    try {
+      await adminAuth.revokeRefreshTokens(targetUid);
+      console.log("USER_TOKENS_REVOKED", { targetUid });
+    } catch (tokenErr: any) {
+      console.warn("Revoke refresh tokens warning:", tokenErr?.message);
+    }
+
+    // 5. Synchronize deletion to the local JSON file database store
     const dbData = readDb();
     if (dbData.users) dbData.users = dbData.users.filter((u: any) => u.id !== targetUid);
     if (dbData.verification_codes) dbData.verification_codes = dbData.verification_codes.filter((vc: any) => vc.id !== targetUid && vc.userId !== targetUid);

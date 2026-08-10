@@ -1614,6 +1614,11 @@ This hosting domain (**${currentDomain}**) has not been authorized in your Fireb
       await logoutFirebaseUser();
     } catch (e) {}
     setCurrentUser(null);
+    setMemories([]);
+    setRiskAlerts([]);
+    setAgentMessages([]);
+    setStripeReceiptData(null);
+    setIncomingInvitation(null);
     applyUserPreferences(null);
     setAuthMode("landing");
     setActiveTab("dashboard");

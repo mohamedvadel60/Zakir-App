@@ -60,6 +60,12 @@ service cloud.firestore {
       allow read, write: if isAdmin();
     }
 
+    // Authoritative deleted users list
+    match /deletedUsers/{userId} {
+      allow read: if isOwner(userId) || isAdmin();
+      allow write: if isAdmin();
+    }
+
     // Workspace Invitations
     match /invitations/{invitationId} {
       allow get: if isSignedIn() && (resource == null || resource.data.invitedBy == request.auth.uid || resource.data.inviteeEmail == request.auth.token.email || isAdmin());
