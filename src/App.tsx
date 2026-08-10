@@ -2677,7 +2677,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
   return (
     <div 
       id="zakir-app-root"
-      className={`min-h-screen transition-all duration-300 ${
+      className={`min-h-screen transition-colors duration-150 ${
         theme === "dark" ? "theme-dark bg-[#0B0F19] text-[#F8FAFC]" : "theme-light bg-[#F0F2F5] text-[#0F172A]"
       } ${
         isCustomThemeActive ? "custom-theme-active" : ""

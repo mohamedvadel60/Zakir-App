@@ -23,35 +23,33 @@ export const LandingAnimatedBackground: React.FC<{ theme?: "dark" | "light" | "c
         className="absolute inset-0 bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,rgba(212,175,55,0.08),rgba(2,6,23,0))]" 
       />
 
-      {/* Dynamic Animated Glowing Gradient Orbs (Zakir Amber/Gold Warm Ambient Glow) */}
-      {/* Using transform/opacity only for GPU acceleration. */}
+      {/* Dynamic Animated Glowing Gradient Orbs - Optimized GPU Radial Glow */}
       <motion.div 
         animate={reducedMotion ? {} : {
-          scale: [1, 1.1, 1],
-          opacity: [0.12, 0.20, 0.12],
+          opacity: [0.12, 0.22, 0.12],
         }}
         transition={{
-          duration: 20,
+          duration: 15,
           repeat: Infinity,
-          ease: "linear",
+          ease: "easeInOut",
         }}
         style={{ x: "-50%", y: "-10%" }}
-        className={`absolute top-0 left-1/2 w-[800px] h-[400px] rounded-full blur-[120px] pointer-events-none will-change-transform ${
-          isDark ? "bg-amber-500/20" : "bg-amber-400/15"
+        className={`absolute top-0 left-1/2 w-[700px] h-[350px] rounded-full blur-[60px] pointer-events-none ${
+          isDark ? "bg-amber-500/15" : "bg-amber-400/10"
         }`}
       />
 
       <motion.div 
         animate={reducedMotion ? {} : {
-          opacity: [0.06, 0.10, 0.06],
+          opacity: [0.05, 0.12, 0.05],
         }}
         transition={{
-          duration: 25,
+          duration: 20,
           repeat: Infinity,
-          ease: "linear",
+          ease: "easeInOut",
         }}
         style={{ x: "10%", y: "20%" }}
-        className="absolute top-[35%] left-[20%] w-[500px] h-[500px] rounded-full blur-[140px] bg-amber-600/10 pointer-events-none will-change-opacity"
+        className="absolute top-[35%] left-[20%] w-[450px] h-[450px] rounded-full blur-[70px] bg-amber-600/10 pointer-events-none"
       />
 
       {/* Precision Micro Technical Grid Overlay */}
