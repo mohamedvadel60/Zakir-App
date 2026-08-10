@@ -61,64 +61,7 @@ if (getApps().length > 0) {
 
 const rawAdminDb = getFirestore(app, "ai-studio-zakir1-7e6134f1-66d1-4393-82aa-9c7be9dad725");
 
-function createMockFirestoreResult(): any {
-  return {
-    exists: false,
-    empty: true,
-    docs: [],
-    data: () => null,
-    forEach: (cb: any) => {},
-    get: async () => createMockFirestoreResult(),
-    set: async () => {},
-    update: async () => {},
-    delete: async () => {},
-    collection: () => createMockFirestoreResult(),
-    doc: () => createMockFirestoreResult(),
-    where: () => createMockFirestoreResult(),
-    orderBy: () => createMockFirestoreResult(),
-    limit: () => createMockFirestoreResult()
-  };
-}
-
-function wrapFirestoreObject(obj: any): any {
-  if (!obj || typeof obj !== 'object') return obj;
-  return new Proxy(obj, {
-    get(target, prop, receiver) {
-      const value = Reflect.get(target, prop, receiver);
-      if (typeof value === 'function') {
-        return async function(...args: any[]) {
-          try {
-            const res = await value.apply(target, args);
-            return wrapFirestoreObject(res);
-          } catch (err: any) {
-            console.warn("[Firestore Fallback] Handled Firestore error:", err?.message || err);
-            return createMockFirestoreResult();
-          }
-        };
-      }
-      return wrapFirestoreObject(value);
-    }
-  });
-}
-
-export const adminDb: any = new Proxy(rawAdminDb, {
-  get(target, prop, receiver) {
-    const value = Reflect.get(target, prop, receiver);
-    if (typeof value === 'function') {
-      return function(...args: any[]) {
-        try {
-          const res = value.apply(target, args);
-          return wrapFirestoreObject(res);
-        } catch (err: any) {
-          console.warn("[Firestore Fallback] Handled Firestore method error:", err?.message || err);
-          return createMockFirestoreResult();
-        }
-      };
-    }
-    return wrapFirestoreObject(value);
-  }
-});
-
+export const adminDb = rawAdminDb;
 export const adminAuth = getAuth(app);
 
 

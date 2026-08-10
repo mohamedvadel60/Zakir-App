@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from "express";
-import { adminAuth } from "../lib/firebase-admin.js";
+import { adminAuth, adminDb } from "../lib/firebase-admin.js";
 import { DecodedIdToken } from "firebase-admin/auth";
 import fs from "fs";
 import path from "path";
@@ -22,6 +22,41 @@ function readDbForAuth() {
   return { users: [] };
 }
 
+export async function isUserAdminServer(uid: string): Promise<boolean> {
+  if (!uid) return false;
+  if ((process.env.TEST_SUITE === "true" || process.env.NODE_ENV === "test") && uid === "usr_ceo") {
+    return true;
+  }
+  try {
+    const userDoc = await adminDb.collection("users").doc(uid).get();
+    if (!userDoc || !userDoc.exists) return false;
+    const userData = userDoc.data();
+    const role = (userData?.role || "").toUpperCase();
+    return role === "CEO" || role === "ADMIN";
+  } catch (err) {
+    console.error("Error checking admin status in server:", err);
+    return false;
+  }
+}
+
+export const requireAdmin = async (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+) => {
+  const uid = req.user?.uid;
+  if (!uid) {
+    return res.status(401).json({ error: "Unauthorized" });
+  }
+
+  const isAdmin = await isUserAdminServer(uid);
+  if (!isAdmin) {
+    return res.status(403).json({ error: "Forbidden: Administrative access required" });
+  }
+
+  next();
+};
+
 export const requireAuth = async (
   req: AuthRequest,
   res: Response,
@@ -36,11 +71,10 @@ export const requireAuth = async (
   if (!token || token === "undefined" || token === "null" || token.trim() === "") {
     return res.status(401).json({ error: "Unauthorized: Empty or invalid authentication token string" });
   }
-  console.log("Verifying token starting with:", token.substring(0, 10), "...");
 
   // Dev/Test environment mock tokens to facilitate local security testing
   if (process.env.TEST_SUITE === "true" || process.env.NODE_ENV === "test" || process.env.NODE_ENV !== "production") {
-    if (token === "mock_token_admin" || token === "usr_ceo" || token === "mohamedvadel60@gmail.com") {
+    if (token === "mock_token_admin" || token === "usr_ceo") {
       req.user = { uid: "usr_ceo", email: "mohamedvadel60@gmail.com" } as DecodedIdToken;
       return next();
     }
@@ -60,14 +94,25 @@ export const requireAuth = async (
 
   try {
     const decodedToken = await adminAuth.verifyIdToken(token);
+
+    // Check if account has been marked deleted in Firestore
+    try {
+      const deletedDoc = await adminDb.collection("deletedUsers").doc(decodedToken.uid).get();
+      if (deletedDoc && deletedDoc.exists) {
+        return res.status(403).json({ error: "This account has been deleted. Please contact the administrator." });
+      }
+    } catch (dErr) {
+      // Continue if Firestore error
+    }
+
     req.user = decodedToken;
     next();
   } catch (error) {
-    // Fallback: check if token matches any user ID or email in db_store.json (Development/Test Only)
+    // Fallback: check if token matches any user ID in db_store.json (Development/Test Only)
     if (process.env.TEST_SUITE === "true" || process.env.NODE_ENV === "test" || process.env.NODE_ENV !== "production") {
       try {
         const db = readDbForAuth();
-        const foundUser = db?.users?.find((u: any) => u.id === token || u.email?.toLowerCase() === token.toLowerCase());
+        const foundUser = db?.users?.find((u: any) => u.id === token);
         if (foundUser) {
           req.user = { uid: foundUser.id, email: foundUser.email } as DecodedIdToken;
           return next();
@@ -75,9 +120,8 @@ export const requireAuth = async (
       } catch (dbErr) {}
     }
 
-    // Silenced detailed error log to prevent console spam during security testing
-    // console.error("Error verifying Firebase ID token:", error);
     return res.status(401).json({ error: "Unauthorized: Invalid or expired token" });
   }
 };
+
 

@@ -13,7 +13,7 @@ import nodemailer from "nodemailer";
 import { db as sqlDb, withRetry } from "./src/db/index.js";
 import { users as sqlUsers, gmailLogs } from "./src/db/schema.js";
 import { getOrCreateUser } from "./src/db/users.js";
-import { requireAuth, AuthRequest } from "./src/middleware/auth.js";
+import { requireAuth, requireAdmin, isUserAdminServer, AuthRequest } from "./src/middleware/auth.js";
 import { createRateLimiter } from "./src/middleware/rateLimiter.js";
 import { adminAuth, adminDb } from "./src/lib/firebase-admin.js";
 import { eq, desc } from "drizzle-orm";
@@ -768,7 +768,7 @@ app.get(["/api/logo.svg", "/assets/logo.svg", "/logo.svg"], (req, res) => {
   res.send(OFFICIAL_ZAKIR_SVG);
 });
 
-app.get("/api/stripe/receipt/:sessionId", requireAuth, (req: AuthRequest, res) => {
+app.get("/api/stripe/receipt/:sessionId", requireAuth, async (req: AuthRequest, res) => {
   const { sessionId } = req.params;
   const authUserId = req.user?.uid;
   if (!authUserId) {
@@ -779,7 +779,7 @@ app.get("/api/stripe/receipt/:sessionId", requireAuth, (req: AuthRequest, res) =
   
   // Enforce session ownership to prevent IDOR
   const sessionOwnerId = db.stripe_sessions?.[sessionId];
-  const isCallerAdmin = authUserId === "usr_ceo" || (req.user?.email || "").toLowerCase() === "mohamedvadel60@gmail.com";
+  const isCallerAdmin = await isUserAdminServer(authUserId);
   
   if (sessionOwnerId && sessionOwnerId !== authUserId && !isCallerAdmin) {
     return res.status(403).json({ error: "Forbidden: You do not own this checkout session." });
@@ -2264,13 +2264,13 @@ app.post("/api/support/tickets", async (req: AuthRequest, res) => {
 });
 
 // Get Support Tickets (Security isolated: non-admins only get their own tickets)
-app.get("/api/support/tickets", async (req: AuthRequest, res) => {
+app.get("/api/support/tickets", requireAuth, async (req: AuthRequest, res) => {
   try {
     const callerUid = req.user?.uid;
     const callerEmail = req.user?.email || "";
     
     // Check if caller is admin
-    const isCallerAdmin = (callerUid === "usr_ceo" || callerEmail.toLowerCase() === "mohamedvadel60@gmail.com") || req.query.isAdmin === "true";
+    const isCallerAdmin = callerUid ? await isUserAdminServer(callerUid) : false;
     
     const isAdmin = isCallerAdmin && req.query.isAdmin === "true";
     const queryUserId = (req.query.userId as string) || callerUid;
@@ -2335,7 +2335,7 @@ app.get("/api/support/tickets/:id", requireAuth, async (req: AuthRequest, res) =
     const callerEmail = req.user?.email || "";
     if (!callerUid) return res.status(401).json({ error: "Unauthorized" });
 
-    const isCallerAdmin = callerUid === "usr_ceo" || callerEmail.toLowerCase() === "mohamedvadel60@gmail.com";
+    const isCallerAdmin = await isUserAdminServer(callerUid);
 
     let ticket: any = null;
 
@@ -2371,12 +2371,12 @@ app.get("/api/support/tickets/:id", requireAuth, async (req: AuthRequest, res) =
 });
 
 // Add Reply Message to Support Ticket + Send Resend Email Notification
-app.post("/api/support/tickets/:id/messages", async (req: AuthRequest, res) => {
+app.post("/api/support/tickets/:id/messages", requireAuth, async (req: AuthRequest, res) => {
   try {
     const callerUid = req.user?.uid;
     const callerEmail = req.user?.email || "";
     
-    const isCallerAdmin = (callerUid === "usr_ceo" || callerEmail.toLowerCase() === "mohamedvadel60@gmail.com") || req.body.senderType === "admin";
+    const isCallerAdmin = callerUid ? await isUserAdminServer(callerUid) : false;
     
     const { id } = req.params;
     let { senderId, senderType, senderName, senderEmail, message, attachments = [] } = req.body;
@@ -2539,7 +2539,7 @@ app.patch("/api/support/tickets/:id", requireAuth, async (req: AuthRequest, res)
   try {
     const callerUid = req.user?.uid;
     const callerEmail = req.user?.email || "";
-    const isCallerAdmin = callerUid === "usr_ceo" || callerEmail.toLowerCase() === "mohamedvadel60@gmail.com";
+    const isCallerAdmin = callerUid ? await isUserAdminServer(callerUid) : false;
 
     if (!isCallerAdmin) {
       return res.status(403).json({ error: "Forbidden: Administrative access required" });
@@ -2604,7 +2604,7 @@ app.post("/api/sql/sync-user", requireAuth, async (req: AuthRequest, res) => {
     const { companyName, role } = req.body;
 
     // Role & privilege protection: regular users are forbidden from escalating their roles or altering subscription statuses
-    const isCallerAdmin = uid === "usr_ceo" || email.toLowerCase() === "mohamedvadel60@gmail.com";
+    const isCallerAdmin = uid ? await isUserAdminServer(uid) : false;
     const resolvedRole = isCallerAdmin ? (role || "CEO") : "Analyst";
 
     if (process.env.SQL_HOST) {
@@ -2845,21 +2845,17 @@ app.get("/api/admin/users", requireAuth, async (req: AuthRequest, res) => {
       return res.status(401).json({ error: "Unauthorized: Missing authentication context" });
     }
 
-    const dbData = readDb();
-    const isCallerAdmin = callerUid === "usr_ceo" || (req.user?.email || "").toLowerCase() === "mohamedvadel60@gmail.com";
-
+    const isCallerAdmin = await isUserAdminServer(callerUid);
     if (!isCallerAdmin) {
       return res.status(403).json({ error: "Forbidden: Administrative access required" });
     }
 
     const snap = await adminDb.collection("users").get();
     const fsUsers = snap && !snap.empty && snap.docs ? snap.docs.map((doc: any) => ({ ...doc.data(), id: doc.id })) : [];
-    const users = fsUsers.length > 0 ? fsUsers : (dbData.users || []);
-    return res.json({ success: true, users });
+    return res.json({ success: true, users: fsUsers });
   } catch (err: any) {
     console.error("Error fetching admin users from Firestore Admin SDK:", err);
-    const dbData = readDb();
-    return res.json({ success: true, users: dbData.users || [] });
+    return res.status(500).json({ error: err.message || "Failed to fetch users list" });
   }
 });
 
@@ -2871,12 +2867,10 @@ app.delete("/api/admin/delete-user/:uid", requireAuth, async (req: AuthRequest, 
       return res.status(401).json({ error: "Unauthorized" });
     }
 
-    // Verify caller is admin (role of "CEO" or matches email / ADMIN_USER_ID)
-    const dbData = readDb();
-    const isCallerAdmin = callerUid === "usr_ceo" || (req.user?.email || "").toLowerCase() === "mohamedvadel60@gmail.com";
-
+    // Verify caller is admin authoritatively from Firestore
+    const isCallerAdmin = await isUserAdminServer(callerUid);
     if (!isCallerAdmin) {
-      return res.status(403).json({ error: "Only administrative personnel can perform account deletion." });
+      return res.status(403).json({ error: "Forbidden: Only administrative personnel can perform account deletion." });
     }
 
     if (targetUid === callerUid) {
@@ -2885,7 +2879,16 @@ app.delete("/api/admin/delete-user/:uid", requireAuth, async (req: AuthRequest, 
 
     console.log("USER_DELETE_STARTED", { targetUid });
 
-    // 1. Revoke active refresh tokens to invalidate current sessions
+    // Fetch target user email for record
+    let targetEmail = "";
+    try {
+      const targetSnap = await adminDb.collection("users").doc(targetUid).get();
+      if (targetSnap.exists) {
+        targetEmail = targetSnap.data()?.email || "";
+      }
+    } catch (e) {}
+
+    // 1. Revoke active refresh tokens
     try {
       await adminAuth.revokeRefreshTokens(targetUid);
       console.log("USER_TOKENS_REVOKED", { targetUid });
@@ -2893,21 +2896,31 @@ app.delete("/api/admin/delete-user/:uid", requireAuth, async (req: AuthRequest, 
       console.warn("Revoke refresh tokens warning:", tokenErr?.message);
     }
 
-    // 2. Delete from Firebase Authentication
+    // 2. Delete from Firebase Authentication - MUST fail if deletion fails
     try {
       await adminAuth.deleteUser(targetUid);
       console.log("USER_AUTH_DELETED", { targetUid });
     } catch (authErr: any) {
-      const isMockToken = targetUid.startsWith("usr_");
       if (authErr.code !== "auth/user-not-found") {
         console.error("USER_AUTH_DELETE_FAILED", { targetUid, error: authErr?.message });
-        if (process.env.NODE_ENV === "production" && !isMockToken) {
-          return res.status(500).json({ error: `Failed to delete user from Firebase Authentication: ${authErr.message}` });
-        }
+        return res.status(500).json({ error: `Failed to delete user from Firebase Authentication: ${authErr.message}` });
       }
     }
 
-    // 3. Delete Firestore user document users/{targetUid}
+    // 3. Create authoritative deletedUsers marker
+    try {
+      await adminDb.collection("deletedUsers").doc(targetUid).set({
+        uid: targetUid,
+        email: targetEmail,
+        deletedAt: new Date().toISOString(),
+        deletedBy: callerUid,
+        reason: "admin_deleted"
+      });
+    } catch (delErr: any) {
+      console.warn("Firestore deletedUsers creation warning:", delErr?.message);
+    }
+
+    // 4. Delete Firestore user document users/{targetUid}
     try {
       await adminDb.collection("users").doc(targetUid).delete();
       console.log("USER_FIRESTORE_DELETED", { targetUid });
@@ -2915,18 +2928,16 @@ app.delete("/api/admin/delete-user/:uid", requireAuth, async (req: AuthRequest, 
       console.warn("Firestore user doc delete warning:", fsErr?.message);
     }
 
-    // 4. Delete Firestore verification codes verification_codes/{targetUid}
+    // 5. Delete verification codes
     try {
       await adminDb.collection("verification_codes").doc(targetUid).delete();
       const vcSnap = await adminDb.collection("verification_codes").where("userId", "==", targetUid).get();
       for (const doc of vcSnap.docs) {
         await doc.ref.delete();
       }
-    } catch (vcErr: any) {
-      console.warn("Firestore verification_codes delete warning:", vcErr?.message);
-    }
+    } catch (vcErr: any) {}
 
-    // 5. Delete user files subcollection & top-level files
+    // 6. Delete user files subcollection & top-level files
     try {
       const userFilesSnap = await adminDb.collection("users").doc(targetUid).collection("files").get();
       for (const fDoc of userFilesSnap.docs) {
@@ -2936,11 +2947,9 @@ app.delete("/api/admin/delete-user/:uid", requireAuth, async (req: AuthRequest, 
       for (const tfDoc of topFilesSnap.docs) {
         await tfDoc.ref.delete();
       }
-    } catch (filesErr: any) {
-      console.warn("Firestore user files delete warning:", filesErr?.message);
-    }
+    } catch (filesErr: any) {}
 
-    // 6. Delete user memories & risk alerts
+    // 7. Delete user memories & risk alerts
     try {
       const memSnap = await adminDb.collection("users").doc(targetUid).collection("memories").get();
       for (const mDoc of memSnap.docs) {
@@ -2950,28 +2959,24 @@ app.delete("/api/admin/delete-user/:uid", requireAuth, async (req: AuthRequest, 
       for (const aDoc of alertSnap.docs) {
         await aDoc.ref.delete();
       }
-    } catch (memErr: any) {
-      console.warn("Firestore user memories/alerts delete warning:", memErr?.message);
-    }
+    } catch (memErr: any) {}
 
-    // 7. Delete support tickets owned by user
+    // 8. Delete support tickets owned by user
     try {
       const ticketSnap = await adminDb.collection("support_tickets").where("userId", "==", targetUid).get();
       for (const tDoc of ticketSnap.docs) {
         await tDoc.ref.delete();
       }
-    } catch (ticketErr: any) {
-      console.warn("Firestore user support tickets delete warning:", ticketErr?.message);
-    }
+    } catch (ticketErr: any) {}
 
-    // 8. Synchronize deletion to the local JSON file database store
+    // 9. Synchronize deletion to the local JSON file database store
+    const dbData = readDb();
     if (dbData.users) dbData.users = dbData.users.filter((u: any) => u.id !== targetUid);
     if (dbData.verification_codes) dbData.verification_codes = dbData.verification_codes.filter((vc: any) => vc.id !== targetUid && vc.userId !== targetUid);
     if (dbData.support_tickets) dbData.support_tickets = dbData.support_tickets.filter((st: any) => st.userId !== targetUid);
     writeDb(dbData);
 
     console.log("USER_DELETE_COMPLETED", { targetUid });
-
     res.json({ success: true, message: `Account ${targetUid} has been permanently deleted from all systems.` });
   } catch (err: any) {
     console.error("USER_DELETE_FAILED", { targetUid, error: err.message || String(err) });
@@ -2995,39 +3000,43 @@ app.delete("/api/auth/delete-account", requireAuth, async (req: AuthRequest, res
       console.warn("Revoke refresh tokens warning:", tokenErr?.message);
     }
 
-    // 2. Delete from Firebase Authentication
+    // 2. Delete from Firebase Authentication - MUST fail if deletion fails
     try {
       await adminAuth.deleteUser(targetUid);
       console.log("USER_SELF_AUTH_DELETED", { targetUid });
     } catch (authErr: any) {
-      const isMockToken = targetUid.startsWith("usr_");
       if (authErr.code !== "auth/user-not-found") {
         console.error("USER_SELF_AUTH_DELETE_FAILED", { targetUid, error: authErr?.message });
-        if (process.env.NODE_ENV === "production" && !isMockToken) {
-          return res.status(500).json({ error: `Failed to delete account from Firebase Authentication: ${authErr.message}` });
-        }
+        return res.status(500).json({ error: `Failed to delete account from Firebase Authentication: ${authErr.message}` });
       }
     }
 
-    // 3. Delete Firestore user document users/{targetUid}
+    // 3. Create deleted marker in Firestore
+    try {
+      await adminDb.collection("deletedUsers").doc(targetUid).set({
+        uid: targetUid,
+        email: req.user?.email || "",
+        deletedAt: new Date().toISOString(),
+        deletedBy: targetUid,
+        reason: "self_deleted"
+      });
+    } catch (dErr) {}
+
+    // 4. Delete Firestore user document users/{targetUid}
     try {
       await adminDb.collection("users").doc(targetUid).delete();
-    } catch (fsErr: any) {
-      console.warn("Firestore user doc delete warning:", fsErr?.message);
-    }
+    } catch (fsErr: any) {}
 
-    // 4. Delete Firestore verification codes verification_codes/{targetUid}
+    // 5. Delete verification codes
     try {
       await adminDb.collection("verification_codes").doc(targetUid).delete();
       const vcSnap = await adminDb.collection("verification_codes").where("userId", "==", targetUid).get();
       for (const doc of vcSnap.docs) {
         await doc.ref.delete();
       }
-    } catch (vcErr: any) {
-      console.warn("Firestore verification_codes delete warning:", vcErr?.message);
-    }
+    } catch (vcErr: any) {}
 
-    // 5. Delete user files subcollection & top-level files
+    // 6. Delete user files subcollection & top-level files
     try {
       const userFilesSnap = await adminDb.collection("users").doc(targetUid).collection("files").get();
       for (const fDoc of userFilesSnap.docs) {
@@ -3037,11 +3046,9 @@ app.delete("/api/auth/delete-account", requireAuth, async (req: AuthRequest, res
       for (const tfDoc of topFilesSnap.docs) {
         await tfDoc.ref.delete();
       }
-    } catch (filesErr: any) {
-      console.warn("Firestore user files delete warning:", filesErr?.message);
-    }
+    } catch (filesErr: any) {}
 
-    // 6. Delete user memories & risk alerts
+    // 7. Delete user memories & risk alerts
     try {
       const memSnap = await adminDb.collection("users").doc(targetUid).collection("memories").get();
       for (const mDoc of memSnap.docs) {
@@ -3051,21 +3058,17 @@ app.delete("/api/auth/delete-account", requireAuth, async (req: AuthRequest, res
       for (const aDoc of alertSnap.docs) {
         await aDoc.ref.delete();
       }
-    } catch (memErr: any) {
-      console.warn("Firestore user memories/alerts delete warning:", memErr?.message);
-    }
+    } catch (memErr: any) {}
 
-    // 7. Delete support tickets owned by user
+    // 8. Delete support tickets owned by user
     try {
       const ticketSnap = await adminDb.collection("support_tickets").where("userId", "==", targetUid).get();
       for (const tDoc of ticketSnap.docs) {
         await tDoc.ref.delete();
       }
-    } catch (ticketErr: any) {
-      console.warn("Firestore user support tickets delete warning:", ticketErr?.message);
-    }
+    } catch (ticketErr: any) {}
 
-    // 8. Synchronize deletion to local JSON DB fallback
+    // 9. Synchronize deletion to local JSON DB store
     const dbData = readDb();
     if (dbData.users) dbData.users = dbData.users.filter((u: any) => u.id !== targetUid);
     if (dbData.verification_codes) dbData.verification_codes = dbData.verification_codes.filter((vc: any) => vc.id !== targetUid && vc.userId !== targetUid);
@@ -3635,7 +3638,7 @@ app.get("/api/world-bank", async (req, res) => {
 });
 
 // --- INTERACTIVE POSTGRESQL QUERY SIMULATOR ---
-app.post("/api/database/schema", requireAuth, (req: AuthRequest, res) => {
+app.post("/api/database/schema", requireAuth, async (req: AuthRequest, res) => {
   const authUserId = req.user?.uid;
   const authUserEmail = req.user?.email || "";
   if (!authUserId) {
@@ -3644,7 +3647,7 @@ app.post("/api/database/schema", requireAuth, (req: AuthRequest, res) => {
 
   const db = readDb();
   const user = db.users.find((u: any) => u.id === authUserId);
-  const isUserAdmin = authUserId === "usr_ceo" || authUserEmail.toLowerCase() === "mohamedvadel60@gmail.com";
+  const isUserAdmin = await isUserAdminServer(authUserId);
   const userRole = user ? user.role : (isUserAdmin ? "CEO" : "Analyst");
 
   const isAuthorized = userRole === "CEO" || userRole === "Admin" || userRole === "Compliance Officer" || isUserAdmin;
@@ -3706,7 +3709,7 @@ CREATE TABLE user_metrics (
   res.json({ ddl: schemaDdl });
 });
 
-app.post("/api/database/query", requireAuth, (req: AuthRequest, res) => {
+app.post("/api/database/query", requireAuth, async (req: AuthRequest, res) => {
   const { query } = req.body;
   if (!query) {
     return res.status(400).json({ error: "SQL query string is required" });
@@ -3720,7 +3723,7 @@ app.post("/api/database/query", requireAuth, (req: AuthRequest, res) => {
 
   const db = readDb();
   const user = db.users.find((u: any) => u.id === authUserId);
-  const isUserAdmin = authUserId === "usr_ceo" || authUserEmail.toLowerCase() === "mohamedvadel60@gmail.com";
+  const isUserAdmin = await isUserAdminServer(authUserId);
   const userRole = user ? user.role : (isUserAdmin ? "CEO" : "Analyst");
 
   const isAuthorized = userRole === "CEO" || userRole === "Admin" || userRole === "Compliance Officer" || isUserAdmin;

@@ -328,28 +328,27 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     if (!window.confirm(confirmMsg)) return;
 
     try {
-      // 1. Delete associated data collections in Firestore
-      await deleteFirebaseUserAccount(userId);
-
-      // 2. Call backend server to delete from Firebase Authentication & local JSON store
-      try {
-        const { auth } = await import("../firebase");
-        const idToken = await auth.currentUser?.getIdToken();
-        if (idToken) {
-          const response = await fetch(`/api/admin/delete-user/${userId}`, {
-            method: "DELETE",
-            headers: {
-              "Authorization": `Bearer ${idToken}`
-            }
-          });
-          if (!response.ok) {
-            const errorData = await response.json().catch(() => ({}));
-            console.warn("Backend auth deletion returned error status:", errorData.error || response.statusText);
-          }
-        }
-      } catch (authErr) {
-        console.warn("Could not delete authentication account from backend:", authErr);
+      // 1. Call backend server to delete from Firebase Authentication & record deletedUsers marker
+      const { auth } = await import("../firebase");
+      const idToken = await auth.currentUser?.getIdToken();
+      if (!idToken) {
+        throw new Error("Authentication token unavailable. Please sign in again.");
       }
+
+      const response = await fetch(`/api/admin/delete-user/${userId}`, {
+        method: "DELETE",
+        headers: {
+          "Authorization": `Bearer ${idToken}`
+        }
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `Server deletion failed with status ${response.status}`);
+      }
+
+      // 2. Delete associated client-side data collections in Firestore
+      await deleteFirebaseUserAccount(userId);
 
       setUsers((prev) => prev.filter((u) => u.id !== userId));
       if (selectedUserRecord?.id === userId) {

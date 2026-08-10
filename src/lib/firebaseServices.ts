@@ -250,6 +250,25 @@ export async function registerFirebaseUser(
   return newUser;
 }
 
+export function clearUserLocalCache(userId?: string): void {
+  try {
+    if (userId) {
+      localStorage.removeItem(`user_${userId}`);
+      localStorage.removeItem(`offline_db_user_${userId}`);
+      localStorage.removeItem(`offline_db_memories_${userId}`);
+      localStorage.removeItem(`offline_db_alerts_${userId}`);
+      localStorage.removeItem(`offline_db_files_${userId}`);
+    }
+    localStorage.removeItem("zakir_auth_token");
+    localStorage.removeItem("zakir_current_user");
+    localStorage.removeItem("offline_db_user");
+    localStorage.removeItem("user");
+    localStorage.removeItem("currentUser");
+  } catch (e) {
+    console.warn("clearUserLocalCache error:", e);
+  }
+}
+
 /**
  * Scenario 2: Existing User Login
  * - Fetches user profile from /users/{uid} in Firestore.
@@ -260,6 +279,18 @@ export async function loginFirebaseUser(email: string, pass: string): Promise<Us
   const uid = userCredential.user.uid;
 
   isFirestoreOffline = false; // Auth succeeded, reset offline flag!
+
+  // Check if account was marked deleted in /deletedUsers/{uid}
+  try {
+    const deletedSnap = await getDoc(doc(db, "deletedUsers", uid));
+    if (deletedSnap.exists()) {
+      await signOut(auth);
+      clearUserLocalCache(uid);
+      throw new Error("This account has been deleted. Please contact the administrator.");
+    }
+  } catch (dErr: any) {
+    if (dErr.message?.includes("deleted")) throw dErr;
+  }
 
   // Retrieve user document from /users/{uid}
   const userDocRef = doc(db, "users", uid);
@@ -310,26 +341,25 @@ export async function loginFirebaseUser(email: string, pass: string): Promise<Us
     setLocalItem(`user_${uid}`, userData);
     return userData;
   } else {
-    // Check local storage fallback
-    const localUser = getLocalItem(`user_${uid}`, null);
-    if (localUser) {
-      return localUser;
-    }
-
-    // If user document does not exist yet (edge case), create default profile
+    // If user document does not exist yet, create default non-admin profile (never CEO or Admin)
     const workspaceId = `ws_${uid.substring(0, 8)}_${Date.now().toString(36)}`;
     const defaultUser: User = {
       id: uid,
       email: email,
-      companyName: "Enterprise Account",
+      companyName: "Personal Account",
       ownerName: email.split("@")[0],
-      role: "CEO",
+      role: "Contributor",
       workspaceId: workspaceId,
       subscriptionStatus: "Pending Selection",
       userPreferences: { ...DEFAULT_USER_PREFERENCES },
       createdAt: new Date().toISOString(),
       trialExpiresAt: new Date(Date.now() + 24 * 3600 * 1000).toISOString()
     };
+    try {
+      await setDoc(userDocRef, defaultUser);
+    } catch (e) {
+      console.warn("Failed to create missing user profile doc:", e);
+    }
     setLocalItem(`user_${uid}`, defaultUser);
     return defaultUser;
   }
@@ -344,6 +374,18 @@ export async function loginWithGoogle(): Promise<User> {
 
   isFirestoreOffline = false;
   
+  // Check if account was marked deleted in /deletedUsers/{uid}
+  try {
+    const deletedSnap = await getDoc(doc(db, "deletedUsers", uid));
+    if (deletedSnap.exists()) {
+      await signOut(auth);
+      clearUserLocalCache(uid);
+      throw new Error("This account has been deleted. Please contact the administrator.");
+    }
+  } catch (dErr: any) {
+    if (dErr.message?.includes("deleted")) throw dErr;
+  }
+
   const userDocRef = doc(db, "users", uid);
   let userSnap;
   try {
@@ -378,19 +420,25 @@ export async function loginWithGoogle(): Promise<User> {
     setLocalItem(`user_${uid}`, userData);
     return userData;
   } else {
-    // New Google user, create profile
+    // New Google user, create default non-admin profile (never CEO or Admin)
     const workspaceId = `ws_${uid.substring(0, 8)}_${Date.now().toString(36)}`;
     const defaultUser: User = {
       id: uid,
       email: email,
-      companyName: "Enterprise Account",
+      companyName: "Personal Account",
       ownerName: displayName,
-      role: "CEO",
+      role: "Contributor",
       workspaceId: workspaceId,
       subscriptionStatus: "Pending Selection",
       userPreferences: { ...DEFAULT_USER_PREFERENCES },
       createdAt: new Date().toISOString(),
-      trialExpiresAt: new Date(Date.now() + 24 * 3600 * 1000).toISOString()
+      trialExpiresAt: new Date(Date.now() + 24 * 3600 * 1000).toISOString(),
+      isVerified: true,
+      isEmailVerified: true,
+      email_verified: true,
+      emailVerified: true,
+      verification_required: false,
+      verification_status: "verified"
     };
     
     try {
@@ -405,7 +453,9 @@ export async function loginWithGoogle(): Promise<User> {
 }
 
 export async function logoutFirebaseUser(): Promise<void> {
+  const uid = auth.currentUser?.uid;
   await signOut(auth);
+  clearUserLocalCache(uid);
 }
 
 export function sanitizeFirestoreData(obj: any): any {
@@ -496,12 +546,23 @@ export function subscribeToFirebaseAuthState(callback: (user: User | null) => vo
       return;
     }
     
-    // If the browser reports being online, always attempt to reset offline status and contact the server
+    // If the browser reports being online, attempt to reset offline status and contact server
     if (typeof navigator !== 'undefined' && navigator.onLine) {
       isFirestoreOffline = false;
     }
 
     try {
+      // Check if user account is marked deleted in /deletedUsers/{uid}
+      try {
+        const deletedSnap = await getDoc(doc(db, "deletedUsers", fbUser.uid));
+        if (deletedSnap.exists()) {
+          await signOut(auth);
+          clearUserLocalCache(fbUser.uid);
+          callback(null);
+          return;
+        }
+      } catch (dErr) {}
+
       let userSnap;
       try {
         userSnap = await getDoc(doc(db, "users", fbUser.uid));
@@ -509,7 +570,7 @@ export function subscribeToFirebaseAuthState(callback: (user: User | null) => vo
       } catch (error) {
         const errMessage = error instanceof Error ? error.message : String(error);
         if (errMessage.toLowerCase().includes('offline') || errMessage.toLowerCase().includes('network')) {
-          console.warn("Firestore offline during auth state fetch. Loading local profile fallback.");
+          console.warn("Firestore offline during auth state fetch.");
           isFirestoreOffline = true;
         } else {
           handleFirestoreError(error, OperationType.GET, `users/${fbUser.uid}`);
@@ -521,8 +582,9 @@ export function subscribeToFirebaseAuthState(callback: (user: User | null) => vo
         setLocalItem(`user_${fbUser.uid}`, userObj);
         callback(userObj);
       } else {
+        // If user profile does NOT exist in Firestore, do NOT automatically grant CEO/Admin role
         const localUser = getLocalItem(`user_${fbUser.uid}`, null);
-        if (localUser) {
+        if (localUser && localUser.id === fbUser.uid && localUser.role !== "CEO" && localUser.role !== "Admin") {
           callback(localUser);
           return;
         }
@@ -530,27 +592,30 @@ export function subscribeToFirebaseAuthState(callback: (user: User | null) => vo
         const defaultUser: User = {
           id: fbUser.uid,
           email: fbUser.email || "",
-          companyName: "Enterprise Account",
+          companyName: "Personal Account",
           ownerName: fbUser.email ? fbUser.email.split("@")[0] : "User",
-          role: "CEO",
+          role: "Contributor",
           createdAt: new Date().toISOString(),
           trialExpiresAt: new Date(Date.now() + 24 * 3600 * 1000).toISOString()
         };
-        setLocalItem(`user_${fbUser.uid}`, defaultUser);
         callback(defaultUser);
       }
     } catch (err) {
-      console.warn("Silent fallback on user profile fetch error:", err);
+      console.warn("Fallback on user profile fetch error:", err);
       const localUser = fbUser ? getLocalItem(`user_${fbUser.uid}`, null) : null;
-      callback(localUser || {
-        id: fbUser.uid,
-        email: fbUser.email || "",
-        companyName: "Enterprise Account",
-        ownerName: "User",
-        role: "CEO",
-        createdAt: new Date().toISOString(),
-        trialExpiresAt: new Date(Date.now() + 24 * 3600 * 1000).toISOString()
-      });
+      if (localUser && localUser.role !== "CEO" && localUser.role !== "Admin") {
+        callback(localUser);
+      } else {
+        callback({
+          id: fbUser.uid,
+          email: fbUser.email || "",
+          companyName: "Personal Account",
+          ownerName: "User",
+          role: "Contributor",
+          createdAt: new Date().toISOString(),
+          trialExpiresAt: new Date(Date.now() + 24 * 3600 * 1000).toISOString()
+        });
+      }
     }
   });
 }
@@ -1149,14 +1214,11 @@ export interface AdminUserRecord {
 }
 
 export async function fetchAllUsersForAdmin(): Promise<AdminUserRecord[]> {
-  const path = "users";
-
-  // 1. First try fetching via authoritative admin backend endpoint
   try {
     const response = await authenticatedFetch("/api/admin/users");
     if (response.ok) {
       const data = await response.json();
-      if (data && Array.isArray(data.users) && data.users.length > 0) {
+      if (data && Array.isArray(data.users)) {
         const records: AdminUserRecord[] = data.users.map((userData: any) => {
           const userId = userData.id || userData.uid;
           return {
@@ -1179,58 +1241,10 @@ export async function fetchAllUsersForAdmin(): Promise<AdminUserRecord[]> {
       }
     }
   } catch (apiErr) {
-    console.warn("Backend admin users endpoint fetch failed, attempting client Firestore fallback:", apiErr);
+    console.error("Backend admin users endpoint fetch failed:", apiErr);
   }
 
-  if (isFirestoreOffline) {
-    return [];
-  }
-
-  // 2. Client Firestore SDK Fallback
-  try {
-    const usersColRef = collection(db, "users");
-    const snap = await getDocs(usersColRef);
-    const records: AdminUserRecord[] = [];
-
-    for (const docSnap of snap.docs) {
-      const userData = docSnap.data() as User;
-      const userId = docSnap.id;
-      
-      let files: UserFile[] = [];
-      try {
-        files = await fetchFirebaseUserFiles(userId);
-      } catch (fErr) {
-        console.warn(`Could not load files for user ${userId}:`, fErr);
-      }
-
-      records.push({
-        id: userId,
-        email: userData.email || "No Email",
-        createdAt: userData.createdAt || new Date().toISOString(),
-        lastActiveAt: userData.lastActiveAt,
-        lastLoginAt: userData.lastLoginAt,
-        activityCount: userData.activityCount,
-        companyName: userData.companyName,
-        ownerName: userData.ownerName,
-        role: userData.role,
-        fileCount: files.length,
-        files: files,
-        verificationInfo: userData.verificationInfo,
-        fullUser: { ...userData, id: userId }
-      });
-    }
-
-    return records.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-  } catch (err) {
-    const errMessage = err instanceof Error ? err.message : String(err);
-    if (errMessage.toLowerCase().includes('offline') || errMessage.toLowerCase().includes('network')) {
-      isFirestoreOffline = true;
-      return [];
-    }
-    console.error("Failed to fetch admin users list:", err);
-    handleFirestoreError(err, OperationType.LIST, path);
-    return [];
-  }
+  return [];
 }
 
 /**
@@ -1240,20 +1254,22 @@ export async function deleteFirebaseUserAccount(userId: string): Promise<void> {
   if (!userId) return;
 
   // Clean local storage
-  try {
-    localStorage.removeItem(`offline_db_user_${userId}`);
-    localStorage.removeItem(`offline_db_memories_${userId}`);
-    localStorage.removeItem(`offline_db_alerts_${userId}`);
-    localStorage.removeItem(`offline_db_files_${userId}`);
-  } catch (e) {
-    console.warn("Local storage clean error:", e);
-  }
+  clearUserLocalCache(userId);
 
   if (isFirestoreOffline) {
     return;
   }
 
-  // 1. Delete user profile document /users/{userId}
+  // 1. Mark user in /deletedUsers/{userId} collection
+  try {
+    await setDoc(doc(db, "deletedUsers", userId), {
+      deletedAt: new Date().toISOString()
+    });
+  } catch (e) {
+    console.warn("Write deletedUsers marker error:", e);
+  }
+
+  // 2. Delete user profile document /users/{userId}
   try {
     await deleteDoc(doc(db, "users", userId));
   } catch (e) {
