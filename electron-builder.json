@@ -1,0 +1,34 @@
+{
+  "appId": "com.zakir.desktop",
+  "productName": "Zakir",
+  "directories": {
+    "output": "release",
+    "buildResources": "build"
+  },
+  "files": [
+    "dist/**/*",
+    "dist-electron/**/*"
+  ],
+  "publish": [
+    {
+      "provider": "github",
+      "owner": "mohamedvadel60",
+      "repo": "Zakir-Web-App"
+    }
+  ],
+  "nsis": {
+    "oneClick": false,
+    "perMachine": false,
+    "allowElevation": true,
+    "allowToChangeInstallationDirectory": true,
+    "artifactName": "Zakir-Setup-${version}.exe"
+  },
+  "win": {
+    "target": "nsis",
+    "icon": "src/assets/zakir-square-logo.png"
+  },
+  "mac": {
+    "target": "dmg",
+    "icon": "src/assets/zakir-square-logo.png"
+  }
+}

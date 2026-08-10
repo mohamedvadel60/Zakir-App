@@ -1,0 +1,298 @@
+@import "tailwindcss";
+
+/* System CSS Theme Variables & Clean Enterprise SaaS Design System */
+:root {
+  --bg-primary: #0b0f19;
+  --bg-secondary: #111827;
+  --bg-tertiary: #1f2937;
+  --text-primary: #f8fafc;
+  --text-secondary: #94a3b8;
+  --border-color: #1e293b;
+  --accent-color: #d4af37;
+  --accent-hover: #e5c158;
+  --accent-subtle: rgba(212, 175, 55, 0.12);
+  --accent-text: #0b0f19;
+  --card-bg: #111827;
+  --input-bg: #1f2937;
+}
+
+.theme-light, [data-theme="light"] {
+  --bg-primary: #f8fafc;
+  --bg-secondary: #ffffff;
+  --bg-tertiary: #f1f5f9;
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
+  --border-color: #e2e8f0;
+  --accent-color: #d4af37;
+  --accent-hover: #bca032;
+  --accent-subtle: rgba(212, 175, 55, 0.10);
+  --accent-text: #0f172a;
+  --card-bg: #ffffff;
+  --input-bg: #f8fafc;
+}
+
+.theme-dark, [data-theme="dark"] {
+  --bg-primary: #0b0f19;
+  --bg-secondary: #111827;
+  --bg-tertiary: #1f2937;
+  --text-primary: #f8fafc;
+  --text-secondary: #94a3b8;
+  --border-color: #1e293b;
+  --accent-color: #d4af37;
+  --accent-hover: #e5c158;
+  --accent-subtle: rgba(212, 175, 55, 0.12);
+  --accent-text: #0b0f19;
+  --card-bg: #111827;
+  --input-bg: #1f2937;
+}
+
+.custom-theme-active {
+  --bg-primary: var(--custom-bg, #0b0f19);
+  --bg-secondary: var(--custom-card, #111827);
+  --bg-tertiary: var(--custom-input, #1f2937);
+  --text-primary: var(--custom-text, #f8fafc);
+  --text-secondary: var(--custom-text-muted, #94a3b8);
+  --border-color: var(--custom-border, #1e293b);
+  --accent-color: var(--custom-accent, #d4af37);
+  --accent-hover: var(--custom-accent-hover, #e5c158);
+  --accent-subtle: var(--custom-accent-subtle, rgba(212, 175, 55, 0.12));
+  --accent-text: var(--custom-accent-text-contrast, #0b0f19);
+  --card-bg: var(--custom-card, #111827);
+  --input-bg: var(--custom-input, #1f2937);
+}
+
+/* Base Body and Typography */
+html, body, p, span, button, input, select, textarea, label, div {
+  font-family: 'Inter', 'Cairo', -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+h1, h2, h3, h4, h5, h6, .font-display {
+  font-family: 'Inter', 'Cairo', sans-serif;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+/* Crisp Clean Enterprise Utilities */
+.vault-bg {
+  background-color: var(--bg-primary);
+}
+
+.gold-glow {
+  box-shadow: 0 4px 20px -2px rgba(212, 175, 55, 0.12);
+}
+
+.gold-border-glow {
+  border-color: rgba(212, 175, 55, 0.3) !important;
+}
+
+html, body {
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+/* Container-based theme adaptation for components */
+.theme-container {
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+}
+
+.theme-container .border,
+.theme-container [class*="border-"],
+.theme-container table,
+.theme-container th,
+.theme-container td,
+.theme-container input,
+.theme-container select,
+.theme-container textarea,
+.theme-container .card-box {
+  border-color: var(--border-color);
+}
+
+/* ==========================================================================
+   HIGH CONTRAST LIGHT MODE OVERRIDES
+   ========================================================================== */
+
+.theme-light, 
+.theme-light body, 
+[data-theme="light"], 
+[data-theme="light"] body {
+  background-color: #f8fafc !important;
+  color: #0f172a !important;
+}
+
+.theme-light .bg-slate-950,
+.theme-light .bg-slate-900,
+.theme-light .bg-slate-850,
+.theme-light .bg-black,
+.theme-light [class*="bg-slate-950"],
+.theme-light [class*="bg-slate-900"] {
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+}
+
+.theme-light .bg-slate-800,
+.theme-light .bg-slate-750,
+.theme-light .bg-slate-700,
+.theme-light [class*="bg-slate-800"],
+.theme-light [class*="bg-slate-700"] {
+  background-color: #f1f5f9 !important;
+  color: #0f172a !important;
+}
+
+.theme-light .text-slate-50,
+.theme-light .text-slate-100,
+.theme-light .text-slate-200,
+.theme-light .text-slate-300,
+.theme-light .text-white,
+.theme-light [class*="text-slate-100"],
+.theme-light [class*="text-slate-200"],
+.theme-light [class*="text-slate-300"] {
+  color: #0f172a !important;
+}
+
+.theme-light .text-slate-400,
+.theme-light .text-slate-500,
+.theme-light [class*="text-slate-400"],
+.theme-light [class*="text-slate-500"] {
+  color: #475569 !important;
+}
+
+.theme-light .border-slate-900,
+.theme-light .border-slate-800,
+.theme-light .border-slate-700,
+.theme-light .border-slate-600,
+.theme-light [class*="border-slate-800"],
+.theme-light [class*="border-slate-700"] {
+  border-color: #cbd5e1 !important;
+}
+
+.theme-light .text-emerald-400,
+.theme-light .text-emerald-300 {
+  color: #047857 !important;
+}
+
+.theme-light .text-red-400,
+.theme-light .text-red-300,
+.theme-light .text-rose-400,
+.theme-light .text-rose-300 {
+  color: #be123c !important;
+}
+
+.theme-light .text-amber-400,
+.theme-light .text-amber-300 {
+  color: #b45309 !important;
+}
+
+.theme-light .text-indigo-400,
+.theme-light .text-blue-400 {
+  color: #1d4ed8 !important;
+}
+
+.theme-light .bg-amber-500,
+.theme-light .bg-amber-400,
+.theme-light .bg-amber-500 *,
+.theme-light .bg-amber-400 * {
+  color: #0f172a !important;
+}
+
+.theme-light .bg-emerald-500,
+.theme-light .bg-indigo-600,
+.theme-light .bg-blue-600,
+.theme-light .bg-red-600,
+.theme-light .bg-emerald-500 *,
+.theme-light .bg-indigo-600 *,
+.theme-light .bg-blue-600 *,
+.theme-light .bg-red-600 * {
+  color: #ffffff !important;
+}
+
+.dark-section,
+.theme-light .dark-section,
+.dark-section .bg-slate-950,
+.theme-light .dark-section .bg-slate-950,
+.dark-section .bg-slate-900,
+.theme-light .dark-section .bg-slate-900,
+.dark-section .bg-slate-800,
+.theme-light .dark-section .bg-slate-800 {
+  background-color: #0b0f19 !important;
+  color: #f8fafc !important;
+}
+
+.theme-light .dark-section .text-white,
+.theme-light .dark-section .text-slate-100,
+.theme-light .dark-section .text-slate-200,
+.theme-light .dark-section .text-slate-300 {
+  color: #f8fafc !important;
+}
+
+.theme-light .dark-section .text-slate-400,
+.theme-light .dark-section .text-slate-500 {
+  color: #94a3b8 !important;
+}
+
+.theme-light .dark-section .border-slate-800,
+.theme-light .dark-section .border-slate-700 {
+  border-color: #1e293b !important;
+}
+
+/* Printable Area Document Sheet Styles */
+.printable-area,
+.theme-light .printable-area,
+.theme-dark .printable-area {
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+}
+
+.printable-area h1, .printable-area h2, .printable-area h3, .printable-area h4 {
+  color: #0f172a !important;
+}
+
+.printable-area p, .printable-area td, .printable-area th, .printable-area div, .printable-area span {
+  color: #1e293b !important;
+}
+
+/* Print Media Styles */
+@media print {
+  html, body {
+    background: #ffffff !important;
+    color: #000000 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  header, nav, aside, footer, .no-print, button, select, input {
+    display: none !important;
+  }
+}
+
+/* Virtual Cursor Simulated Interactions - Framer-Inspired Restrained Precision */
+.simulated-hover {
+  transform: scale(1.01) !important;
+  border-color: rgba(245, 158, 11, 0.4) !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2) !important;
+  background-color: rgba(245, 158, 11, 0.05) !important;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+.simulated-focus {
+  transform: scale(1.005) !important;
+  border-color: rgba(245, 158, 11, 0.6) !important;
+  box-shadow: 0 0 0 1px rgba(245, 158, 11, 0.2) !important;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+.simulated-active {
+  transform: scale(0.985) !important;
+  border-color: rgba(245, 158, 11, 0.8) !important;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25) !important;
+  transition: transform 0.1s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+/* Global Input Glowing Focus */
+input:focus, textarea:focus, select:focus {
+  outline: none;
+  border-color: rgba(245, 158, 11, 0.6) !important;
+  box-shadow: 0 0 10px 0 rgba(245, 158, 11, 0.15), inset 0 0 4px 0 rgba(245, 158, 11, 0.05) !important;
+  transition: all 0.2s ease-in-out;
+}

@@ -1,0 +1,6 @@
+{
+  "name": "Zakir",
+  "description": "Zakir is the Organizational Causal Memory system that logs institutional decisions, connects causal factor chains, and eliminates strategic amnesia.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

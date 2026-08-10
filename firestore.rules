@@ -1,0 +1,95 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && (
+        request.auth.token.admin == true ||
+        request.auth.token.email == "mohamedvadel60@gmail.com" ||
+        request.auth.token.email == "mohamedvadhil0@gmail.com"
+      );
+    }
+
+    function isWorkspaceMember(userId) {
+      return isSignedIn() && (
+        request.auth.uid == userId ||
+        (
+          exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.workspace.ownerId == userId
+        )
+      );
+    }
+
+    // User profile document and user's private subcollections (memories, riskAlerts, files)
+    match /users/{userId} {
+      allow read: if isOwner(userId) || isWorkspaceMember(userId) || isAdmin();
+      allow create: if isOwner(userId) || isAdmin();
+      allow update: if (isOwner(userId) && (
+        !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'subscriptionPlan', 'trialExpiresAt', 'stripeSubscriptionId', 'subscriptionStatus'])
+      )) || isAdmin();
+      allow delete: if isAdmin();
+
+      match /memories/{memoryId} {
+        allow read, create, update, delete: if isOwner(userId) || isWorkspaceMember(userId) || isAdmin();
+      }
+
+      match /riskAlerts/{alertId} {
+        allow read, create, update, delete: if isOwner(userId) || isWorkspaceMember(userId) || isAdmin();
+      }
+
+      match /{document=**} {
+        allow read: if isOwner(userId) || isWorkspaceMember(userId) || isAdmin();
+        allow create: if isOwner(userId) || isWorkspaceMember(userId) || isAdmin();
+        allow update: if (isOwner(userId) && (
+          !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'subscriptionPlan', 'trialExpiresAt', 'stripeSubscriptionId', 'subscriptionStatus'])
+        )) || isWorkspaceMember(userId) || isAdmin();
+        allow delete: if isOwner(userId) || isWorkspaceMember(userId) || isAdmin();
+      }
+    }
+
+    // Verification codes collection - secure server-only / admin-only
+    match /verification_codes/{codeId} {
+      allow read, write: if isAdmin();
+    }
+
+    // Workspace Invitations
+    match /invitations/{invitationId} {
+      allow get: if isSignedIn() && (resource == null || resource.data.invitedBy == request.auth.uid || resource.data.inviteeEmail == request.auth.token.email || isAdmin());
+      allow list: if isSignedIn() && (resource.data.invitedBy == request.auth.uid || resource.data.inviteeEmail == request.auth.token.email || isAdmin());
+      allow create: if isSignedIn() && (request.resource.data.invitedBy == request.auth.uid || isAdmin());
+      allow update: if isSignedIn() && (resource.data.invitedBy == request.auth.uid || resource.data.inviteeEmail == request.auth.token.email || isAdmin()) && (request.resource.data.invitedBy == resource.data.invitedBy);
+      allow delete: if isSignedIn() && (resource.data.invitedBy == request.auth.uid || isAdmin());
+    }
+
+    // Top-level files metadata
+    match /files/{fileId} {
+      allow read: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if isSignedIn() && (request.resource.data.userId == request.auth.uid || isAdmin());
+      allow update, delete: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin()) && (request.resource == null || request.resource.data.userId == resource.data.userId);
+    }
+
+    // Customer Support Tickets
+    match /support_tickets/{ticketId} {
+      allow read: if (isSignedIn() && (resource.data.userId == request.auth.uid || resource.data.userEmail == request.auth.token.email)) || isAdmin();
+      allow create: if true;
+      allow update, delete: if (isSignedIn() && (resource.data.userId == request.auth.uid || resource.data.userEmail == request.auth.token.email)) || isAdmin();
+      
+      match /messages/{messageId} {
+        allow read, write: if true;
+      }
+    }
+
+    // Default fallback
+    match /{document=**} {
+      allow read, write: if isAdmin();
+    }
+  }
+}

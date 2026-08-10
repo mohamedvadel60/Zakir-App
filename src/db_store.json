@@ -1,0 +1,560 @@
+{
+  "users": [
+    {
+      "id": "usr_ceo",
+      "email": "ceo@zakir.ai",
+      "passwordHash": "ceo123",
+      "companyName": "Al-Futtaim Group",
+      "role": "CEO",
+      "isEmailVerified": true,
+      "isPhoneVerified": true,
+      "verificationInfo": {
+        "status": "verified",
+        "verifiedAt": "2026-01-15T09:00:00Z"
+      },
+      "createdAt": "2026-01-15T09:00:00Z",
+      "trialExpiresAt": "2026-08-05T17:22:39.654Z"
+    },
+    {
+      "id": "usr_analyst",
+      "email": "analyst@zakir.ai",
+      "passwordHash": "analyst123",
+      "companyName": "Al-Futtaim Group",
+      "role": "Analyst",
+      "isEmailVerified": true,
+      "isPhoneVerified": true,
+      "verificationInfo": {
+        "status": "verified",
+        "verifiedAt": "2026-02-10T11:30:00Z"
+      },
+      "createdAt": "2026-02-10T11:30:00Z",
+      "trialExpiresAt": "2026-08-05T17:22:39.654Z"
+    },
+    {
+      "id": "usr_5it21aafq",
+      "email": "mohamedvadel60@gmail.com",
+      "passwordHash": "Password123!",
+      "companyName": "Zakir Inc",
+      "ownerName": "Mohamed",
+      "role": "CEO",
+      "createdAt": "2026-08-04T18:50:58.786Z",
+      "trialExpiresAt": "2026-08-05T18:50:58.786Z"
+    },
+    {
+      "id": "usr_mfje6dwc8",
+      "email": "testuser99@example.com",
+      "passwordHash": "Password123!",
+      "companyName": "Test Company",
+      "ownerName": "Test User",
+      "role": "Admin",
+      "createdAt": "2026-08-04T19:13:20.513Z",
+      "trialExpiresAt": "2026-08-05T19:13:20.513Z"
+    },
+    {
+      "id": "usr_nbi68fj1k",
+      "email": "test-user-a-q3kyc@gmail.com",
+      "passwordHash": "SecureP@ss123",
+      "companyName": "Test Corp",
+      "ownerName": "test-user-a-q3kyc",
+      "role": "CEO",
+      "createdAt": "2026-08-07T13:55:15.376Z",
+      "trialExpiresAt": "2026-08-08T13:55:15.376Z"
+    },
+    {
+      "id": "usr_56pf377ki",
+      "email": "test-user-a-e7ffo@gmail.com",
+      "passwordHash": "SecureP@ss123",
+      "companyName": "Test Corp",
+      "ownerName": "test-user-a-e7ffo",
+      "role": "CEO",
+      "createdAt": "2026-08-07T13:55:26.457Z",
+      "trialExpiresAt": "2026-08-08T13:55:26.457Z"
+    },
+    {
+      "id": "usr_ckiqrj9sg",
+      "email": "test-user-b-hkrpm@gmail.com",
+      "passwordHash": "SecureP@ss123",
+      "companyName": "Test Corp",
+      "ownerName": "test-user-b-hkrpm",
+      "role": "CEO",
+      "createdAt": "2026-08-07T13:55:28.810Z",
+      "trialExpiresAt": "2026-08-08T13:55:28.810Z"
+    },
+    {
+      "id": "usr_71pj6bgr1",
+      "email": "test_user_resolution_1786116875767@gmail.com",
+      "passwordHash": "Password123!",
+      "companyName": "Zakir Test",
+      "ownerName": "Test User",
+      "role": "CEO",
+      "createdAt": "2026-08-07T15:34:36.061Z",
+      "trialExpiresAt": "2026-08-08T15:34:36.061Z",
+      "isVerified": false,
+      "isEmailVerified": false,
+      "verification_status": "unverified",
+      "verification_required": true
+    },
+    {
+      "id": "6nyRcsVZXwW8FWTjczrMo7sCZPO2",
+      "email": "test_flow_1786118404403@example.com",
+      "passwordHash": "Password123!",
+      "companyName": "Test Flow Corp",
+      "ownerName": "Test Owner",
+      "role": "CEO",
+      "workspaceId": "ws_6nyRcsVZ_msj4s7xq",
+      "workspace": {
+        "id": "ws_6nyRcsVZ_msj4s7xq",
+        "name": "Test Flow Corp Workspace",
+        "ownerId": "6nyRcsVZXwW8FWTjczrMo7sCZPO2",
+        "createdAt": "2026-08-07T16:00:07.982Z",
+        "memberCount": 1
+      },
+      "subscriptionStatus": "Pending Selection",
+      "createdAt": "2026-08-07T16:00:07.982Z",
+      "trialExpiresAt": "2026-08-08T16:00:07.982Z",
+      "lastActiveAt": "2026-08-07T16:00:07.982Z",
+      "lastLoginAt": "2026-08-07T16:00:07.982Z",
+      "isVerified": false,
+      "isEmailVerified": false,
+      "email_verified": false,
+      "emailVerified": false,
+      "verification_required": true,
+      "verification_status": "unverified"
+    },
+    {
+      "id": "fIsVsJHGuVRr64XgNmU5buSz1SC3",
+      "email": "mohamedmed11332+test9984@gmail.com",
+      "passwordHash": "Password123!",
+      "companyName": "Zakir Test Corp",
+      "ownerName": "Mohamed Test",
+      "role": "CEO",
+      "workspaceId": "ws_fIsVsJHG_msj4sr2b",
+      "workspace": {
+        "id": "ws_fIsVsJHG_msj4sr2b",
+        "name": "Zakir Test Corp Workspace",
+        "ownerId": "fIsVsJHGuVRr64XgNmU5buSz1SC3",
+        "createdAt": "2026-08-07T16:00:32.771Z",
+        "memberCount": 1
+      },
+      "subscriptionStatus": "Pending Selection",
+      "createdAt": "2026-08-07T16:00:32.771Z",
+      "trialExpiresAt": "2026-08-08T16:00:32.771Z",
+      "lastActiveAt": "2026-08-07T16:00:32.771Z",
+      "lastLoginAt": "2026-08-07T16:00:32.771Z",
+      "isVerified": false,
+      "isEmailVerified": false,
+      "email_verified": false,
+      "emailVerified": false,
+      "verification_required": true,
+      "verification_status": "unverified"
+    },
+    {
+      "id": "usr_a",
+      "email": "user_a@zakir.ai",
+      "companyName": "User A Corp",
+      "role": "Analyst",
+      "subscriptionPlan": "Starter",
+      "subscriptionStatus": "Active",
+      "createdAt": "2026-08-08T18:06:07.777Z"
+    },
+    {
+      "id": "usr_b",
+      "email": "user_b@zakir.ai",
+      "companyName": "User B Corp",
+      "role": "Analyst",
+      "subscriptionPlan": "Starter",
+      "subscriptionStatus": "Active",
+      "createdAt": "2026-08-08T18:06:07.777Z"
+    },
+    {
+      "id": "usr_compliance",
+      "email": "compliance@zakir.ai",
+      "companyName": "Compliance Corp",
+      "role": "Compliance Officer",
+      "subscriptionPlan": "Enterprise",
+      "subscriptionStatus": "Active",
+      "createdAt": "2026-08-08T18:06:07.777Z"
+    }
+  ],
+  "verification_codes": [
+    {
+      "id": "vc_1785869295776_baeue",
+      "userId": "",
+      "email": "mohamedvadel60@gmail.com",
+      "phone": "",
+      "codeHash": "4e70b126d8391452561fd822aa1082676dc1df48c33c14f19dc89694ca4def3a",
+      "type": "account_registration",
+      "expiresAt": "2026-08-04T18:58:15.776Z",
+      "attempts": 0,
+      "used": true,
+      "createdAt": "2026-08-04T18:48:15.776Z"
+    },
+    {
+      "id": "vc_1785869462780_te5t2",
+      "userId": "",
+      "email": "mohamedvadel60@gmail.com",
+      "phone": "",
+      "codeHash": "2b0e3d86332908c47b000b46eb9e930c2c7c012ef78e233dbefca9ff57673312",
+      "type": "account_registration",
+      "expiresAt": "2026-08-04T19:01:02.780Z",
+      "attempts": 0,
+      "used": false,
+      "createdAt": "2026-08-04T18:51:02.780Z"
+    },
+    {
+      "id": "pr_1785869467421_72lwi",
+      "userId": "usr_5it21aafq",
+      "email": "mohamedvadel60@gmail.com",
+      "phone": "",
+      "codeHash": "de7b8a780036a294c7861dec0a40e4e83a384c6c431051b5142c5cb0d5931b99",
+      "type": "password_reset",
+      "expiresAt": "2026-08-04T19:01:07.421Z",
+      "attempts": 0,
+      "used": false,
+      "createdAt": "2026-08-04T18:51:07.421Z"
+    },
+    {
+      "id": "vc_1785963014432_gomr2",
+      "userId": "",
+      "email": "mohamedvadhil0@gmail.com",
+      "phone": "",
+      "codeHash": "7c4f1463bd20cfa07fee23ffdd9eabf63b04019b9847d0f4acf00f9f3b0d741b",
+      "type": "password_reset",
+      "expiresAt": "2026-08-05T21:00:14.431Z",
+      "attempts": 0,
+      "used": true,
+      "createdAt": "2026-08-05T20:50:14.432Z"
+    },
+    {
+      "id": "vc_1785964472853_rfx65",
+      "userId": "",
+      "email": "mohamedvadhil0@gmail.com",
+      "phone": "",
+      "codeHash": "adca04ed264b65cfe09586f8b89973dfd173fbfa36182af6b802f3ffdff32b8c",
+      "type": "password_reset",
+      "expiresAt": "2026-08-05T21:24:32.853Z",
+      "attempts": 0,
+      "used": true,
+      "createdAt": "2026-08-05T21:14:32.853Z"
+    },
+    {
+      "id": "vc_1785965505414_uxt3b",
+      "userId": "",
+      "email": "mohamedvadhil0@gmail.com",
+      "phone": "",
+      "codeHash": "ad30b05ae826f503ba25cf553efb8eb2f567f9347b678a0ccedcf3aec7ac1cd8",
+      "type": "password_reset",
+      "expiresAt": "2026-08-05T21:41:45.414Z",
+      "attempts": 0,
+      "used": false,
+      "createdAt": "2026-08-05T21:31:45.414Z"
+    },
+    {
+      "id": "usr_nbi68fj1k",
+      "userId": "usr_nbi68fj1k",
+      "email": "test-user-a-q3kyc@gmail.com",
+      "phone": "",
+      "codeHash": "8a7cf90c7f5e0378e8a58f2e35c92c6eade5e84e242e9fc26cd055b7940a2036",
+      "type": "account_registration",
+      "expiresAt": "2026-08-07T14:05:16.386Z",
+      "attempts": 0,
+      "sendCount": 1,
+      "lastSentAt": "2026-08-07T13:55:16.574Z",
+      "used": false,
+      "createdAt": "2026-08-07T13:55:16.574Z"
+    },
+    {
+      "id": "usr_56pf377ki",
+      "userId": "usr_56pf377ki",
+      "email": "test-user-a-e7ffo@gmail.com",
+      "phone": "",
+      "codeHash": "20aa907d273afa87e76fd5648ca0af1770e3bf9216f71c806ea8a065ded1f6a8",
+      "type": "account_registration",
+      "expiresAt": "2026-08-07T14:05:26.654Z",
+      "attempts": 1,
+      "sendCount": 1,
+      "lastSentAt": "2026-08-07T13:55:27.279Z",
+      "used": false,
+      "createdAt": "2026-08-07T13:55:27.279Z"
+    },
+    {
+      "id": "usr_ckiqrj9sg",
+      "userId": "usr_ckiqrj9sg",
+      "email": "test-user-b-hkrpm@gmail.com",
+      "phone": "",
+      "codeHash": "300a70dee73b4a175680cc0772676d2f73c3d24d8fb2457aec071dd46cff5f7f",
+      "type": "account_registration",
+      "expiresAt": "2026-08-07T14:05:29.107Z",
+      "attempts": 0,
+      "sendCount": 1,
+      "lastSentAt": "2026-08-07T13:55:29.260Z",
+      "used": false,
+      "createdAt": "2026-08-07T13:55:29.260Z"
+    },
+    {
+      "id": "usr_71pj6bgr1",
+      "userId": "usr_71pj6bgr1",
+      "email": "test_user_resolution_1786116875767@gmail.com",
+      "phone": "",
+      "codeHash": "04d77d4d695b68218cb5078af8fef0c97222c7704351e1f7886f28a6a6aad98a",
+      "type": "account_registration",
+      "expiresAt": "2026-08-07T15:44:37.726Z",
+      "attempts": 1,
+      "sendCount": 1,
+      "cooldownUntil": null,
+      "lastSentAt": "2026-08-07T15:34:37.934Z",
+      "used": false,
+      "createdAt": "2026-08-07T15:34:37.934Z"
+    },
+    {
+      "id": "6nyRcsVZXwW8FWTjczrMo7sCZPO2",
+      "userId": "6nyRcsVZXwW8FWTjczrMo7sCZPO2",
+      "email": "test_flow_1786118404403@example.com",
+      "phone": "",
+      "codeHash": "6a353b1916cecaaaebc9b2264f83a85eeb6ebf28083420eb1917f30710f3d8cc",
+      "type": "account_registration",
+      "createdAt": "2026-08-07T16:00:08.839Z",
+      "expiresAt": "2026-08-07T16:10:08.839Z",
+      "attempts": 0,
+      "used": false,
+      "sendCount": 0,
+      "initialOtpSent": true,
+      "lastSentAt": "2026-08-07T16:00:08.839Z"
+    },
+    {
+      "id": "fIsVsJHGuVRr64XgNmU5buSz1SC3",
+      "userId": "fIsVsJHGuVRr64XgNmU5buSz1SC3",
+      "email": "mohamedmed11332+test9984@gmail.com",
+      "phone": "",
+      "codeHash": "7f382f1c5b7298e8e522bdaa1606cd1abd95f1f1bf847387d0c0cf26beae486c",
+      "type": "account_registration",
+      "createdAt": "2026-08-07T16:00:33.142Z",
+      "expiresAt": "2026-08-07T16:10:33.142Z",
+      "attempts": 1,
+      "used": false,
+      "sendCount": 0,
+      "initialOtpSent": true,
+      "lastSentAt": "2026-08-07T16:00:33.142Z"
+    },
+    {
+      "id": "usr_5it21aafq",
+      "userId": "usr_5it21aafq",
+      "email": "mohamedvadel60@gmail.com",
+      "phone": "",
+      "codeHash": "4a21c6f7b99f5f9fb518c3b12e6194a3f2e462f5ada1963e4c07d811d8779d03",
+      "type": "password_reset",
+      "expiresAt": "2026-08-08T15:03:49.977Z",
+      "attempts": 0,
+      "sendCount": 2,
+      "cooldownUntil": null,
+      "lastSentAt": "2026-08-08T14:53:50.296Z",
+      "used": false,
+      "createdAt": "2026-08-08T14:53:50.296Z"
+    }
+  ],
+  "support_tickets": [
+    {
+      "id": "ticket_init_1",
+      "userId": "usr_ceo",
+      "userEmail": "ceo@zakir.ai",
+      "userName": "Mohamed Vadel",
+      "companyName": "Al-Futtaim Group",
+      "category": "Verification Issue",
+      "subject": "Verification document status confirmation",
+      "message": "Hello support, we uploaded our commercial registration and trade license. Could you confirm if our institutional verification is active?",
+      "status": "In Progress",
+      "priority": "High",
+      "createdAt": "2026-07-28T10:00:00Z",
+      "updatedAt": "2026-07-28T11:30:00Z",
+      "messages": [
+        {
+          "id": "msg_init_1",
+          "ticketId": "ticket_init_1",
+          "senderType": "user",
+          "senderName": "Mohamed Vadel",
+          "senderEmail": "ceo@zakir.ai",
+          "message": "Hello support, we uploaded our commercial registration and trade license. Could you confirm if our institutional verification is active?",
+          "createdAt": "2026-07-28T10:00:00Z"
+        },
+        {
+          "id": "msg_init_2",
+          "ticketId": "ticket_init_1",
+          "senderType": "admin",
+          "senderName": "Zakir Compliance Team",
+          "senderEmail": "admin@zakir.ai",
+          "message": "Greetings Mohamed. We reviewed your documents and confirmed your institutional verification status as Verified. Thank you for using Zakir.",
+          "createdAt": "2026-07-28T11:30:00Z"
+        }
+      ]
+    },
+    {
+      "id": "ticket_a",
+      "userId": "usr_a",
+      "userEmail": "user_a@zakir.ai",
+      "userName": "User A",
+      "subject": "Ticket A Subject",
+      "description": "Ticket A Description",
+      "status": "Open",
+      "messages": []
+    },
+    {
+      "id": "ticket_b",
+      "userId": "usr_b",
+      "userEmail": "user_b@zakir.ai",
+      "userName": "User B",
+      "subject": "Ticket B Subject",
+      "description": "Ticket B Description",
+      "status": "Open",
+      "messages": []
+    }
+  ],
+  "memories": [
+    {
+      "id": "mem_1",
+      "title": "Sanctions List Update Delay - Correspondent Banking",
+      "category": "Financial Engineering",
+      "riskLevel": "High",
+      "tags": [
+        "sanctions",
+        "compliance",
+        "correspondent"
+      ],
+      "description": "Quarterly audit revealed a new sanctions list (OFAC SDN update, October 2024) had not been loaded into the screening system within the mandated 24-hour window.",
+      "decision": "The system operated for 72 hours using outdated lists, processing $340M in correspondent transactions.",
+      "causalFactors": "Standardized daily batch pull failed due to unannounced vendor API format changes. Compliance team had no automated alert.",
+      "outcomes": "An independent external warning was received, resulting in a retroactive review. Fortunately, no blocked entities were cleared, but regulatory friction increased.",
+      "lessonsLearned": "Implement real-time webhook endpoints instead of daily pull, and set up automatic health indicators for list freshness.",
+      "createdAt": "2026-06-02T10:30:00Z",
+      "userId": "usr_analyst",
+      "authorEmail": "analyst@zakir.ai",
+      "authorRole": "Analyst"
+    },
+    {
+      "id": "mem_2",
+      "title": "USD/EUR Hedge Failure during Q3 Earnings",
+      "category": "FX Risk Management",
+      "riskLevel": "Critical",
+      "tags": [
+        "hedging",
+        "currency",
+        "treasury"
+      ],
+      "description": "During Q3 2024, the multinational subsidiary faced a 12% adverse EUR/USD movement over 6 weeks. Our existing forward contracts covered only 40% of the exposure, leaving $18M unhedged.",
+      "decision": "Manually chose to restrict currency hedging based on speculative internal rate forecasts.",
+      "causalFactors": "Excessive operational trust in subjective qualitative advice over quantitative risk model suggestions.",
+      "outcomes": "Direct translation loss of $2.4M charged to earnings, triggering a covenant breach warning from our credit syndicate.",
+      "lessonsLearned": "Codify minimum mandatory hedging ranges (e.g. 70-90% for standard exposures) and automate rebalancing to eliminate human bias.",
+      "createdAt": "2026-05-18T16:00:00Z",
+      "userId": "usr_ceo",
+      "authorEmail": "ceo@zakir.ai",
+      "authorRole": "CEO"
+    },
+    {
+      "id": "mem_3",
+      "title": "Customs HS Code Misclassification - Industrial Components Import",
+      "category": "Customs Classification",
+      "riskLevel": "Medium",
+      "tags": [
+        "customs",
+        "tariffs",
+        "supply-chain"
+      ],
+      "description": "Shipment of 2,400 units of precision hydraulic actuators was classified under HS 8412.21 (hydraulic power engines) instead of the correct 8412.39 (linear actuators).",
+      "decision": "Rushed the customs declaration process to avoid port storage demurrage charges.",
+      "causalFactors": "Absence of a shared centralized tariff code database, relying on individual broker interpretation.",
+      "outcomes": "Resulted in a retroactive tariff surcharge of 7.5% ($112,000) and triggered a systematic customs audit review on other parts.",
+      "lessonsLearned": "Establish a mandatory pre-cleared product-to-HS mapping library, and conduct annual external audits.",
+      "createdAt": "2026-04-20T09:15:00Z",
+      "userId": "usr_analyst",
+      "authorEmail": "analyst@zakir.ai",
+      "authorRole": "Analyst"
+    },
+    {
+      "id": "mem_a",
+      "userId": "usr_a",
+      "title": "Memory A Title",
+      "description": "Memory A Description",
+      "category": "Strategic Decisions",
+      "riskLevel": "Medium",
+      "decision": "Go-to-market"
+    },
+    {
+      "id": "mem_b",
+      "userId": "usr_b",
+      "title": "Memory B Title",
+      "description": "Memory B Description",
+      "category": "Operational Risks",
+      "riskLevel": "High",
+      "decision": "Mitigate immediate data exposure"
+    }
+  ],
+  "risk_alerts": [
+    {
+      "id": "al_1",
+      "title": "Sanctions List Update Delay: 6 Hours",
+      "category": "Financial Engineering",
+      "severity": "High",
+      "description": "OFAC SDN update failed to sync due to regional network bottleneck. Manual verification triggered.",
+      "status": "Active",
+      "createdAt": "2026-07-21T08:00:00Z"
+    },
+    {
+      "id": "al_2",
+      "title": "TP Documentation Deadline: 3 Jurisdictions Pending",
+      "category": "Financial Engineering",
+      "severity": "Medium",
+      "description": "Transfer pricing document compliance filing pending for Brazil, Singapore, Netherlands subsidiaries.",
+      "status": "Active",
+      "createdAt": "2026-07-20T10:00:00Z"
+    },
+    {
+      "id": "al_3",
+      "title": "Counterparty Concentration: Top 3 Banks >65%",
+      "category": "Financial Engineering",
+      "severity": "Critical",
+      "description": "Bilateral credit exposures show dangerous systemic concentration in three primary correspondent banks.",
+      "status": "Active",
+      "createdAt": "2026-07-19T14:30:00Z"
+    },
+    {
+      "id": "al_4",
+      "title": "FX Policy Review Overdue",
+      "category": "FX Risk Management",
+      "severity": "Medium",
+      "description": "FX hedging policy limits require annual board review and re-certification. Due 30 days ago.",
+      "status": "Active",
+      "createdAt": "2026-07-15T09:00:00Z"
+    }
+  ],
+  "user_metrics": [
+    {
+      "id": "met_1",
+      "userId": "usr_analyst",
+      "actionType": "Log Memory",
+      "metricValue": 12,
+      "description": "Logged strategic causal memory on Sanctions Screening Gaps",
+      "createdAt": "2026-07-21T10:00:00Z"
+    },
+    {
+      "id": "met_2",
+      "userId": "usr_ceo",
+      "actionType": "Run Analysis",
+      "metricValue": 8,
+      "description": "Executed comprehensive risk-modeling analysis on FX hedger",
+      "createdAt": "2026-07-21T09:30:00Z"
+    },
+    {
+      "id": "met_3",
+      "userId": "usr_compliance",
+      "actionType": "Audit Review",
+      "metricValue": 15,
+      "description": "Resolved customs HS code compliance audit recommendations",
+      "createdAt": "2026-07-20T11:00:00Z"
+    }
+  ],
+  "gmail_logs": [],
+  "stripe_sessions": {
+    "sess_a": "usr_a",
+    "sess_b": "usr_b"
+  }
+}

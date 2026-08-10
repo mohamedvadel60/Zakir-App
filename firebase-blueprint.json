@@ -1,0 +1,87 @@
+{
+  "entities": {
+    "User": {
+      "path": "/users/{userId}",
+      "fields": {
+        "email": { "type": "string" },
+        "companyName": { "type": "string" },
+        "ownerName": { "type": "string" },
+        "role": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "trialExpiresAt": { "type": "string" }
+      }
+    },
+    "Memory": {
+      "path": "/users/{userId}/memories/{memoryId}",
+      "fields": {
+        "title": { "type": "string" },
+        "category": { "type": "string" },
+        "riskLevel": { "type": "string" },
+        "tags": { "type": "array", "items": { "type": "string" } },
+        "description": { "type": "string" },
+        "decision": { "type": "string" },
+        "causalFactors": { "type": "string" },
+        "outcomes": { "type": "string" },
+        "lessonsLearned": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "userId": { "type": "string" },
+        "authorEmail": { "type": "string" },
+        "authorRole": { "type": "string" }
+      }
+    },
+    "File": {
+      "path": "/files/{fileId}",
+      "fields": {
+        "fileName": { "type": "string" },
+        "fileUrl": { "type": "string" },
+        "fileSize": { "type": "number" },
+        "mimeType": { "type": "string" },
+        "uploadDate": { "type": "string" },
+        "userId": { "type": "string" },
+        "category": { "type": "string" },
+        "description": { "type": "string" },
+        "storagePath": { "type": "string" },
+        "isEncrypted": { "type": "boolean" }
+      }
+    },
+    "UserFile": {
+      "path": "/users/{userId}/files/{fileId}",
+      "fields": {
+        "fileName": { "type": "string" },
+        "fileUrl": { "type": "string" },
+        "fileSize": { "type": "number" },
+        "mimeType": { "type": "string" },
+        "uploadDate": { "type": "string" },
+        "userId": { "type": "string" },
+        "category": { "type": "string" },
+        "description": { "type": "string" }
+      }
+    },
+    "RiskAlert": {
+      "path": "/users/{userId}/riskAlerts/{alertId}",
+      "fields": {
+        "title": { "type": "string" },
+        "category": { "type": "string" },
+        "severity": { "type": "string" },
+        "description": { "type": "string" },
+        "status": { "type": "string" },
+        "createdAt": { "type": "string" }
+      }
+    },
+    "SupportTicket": {
+      "path": "/support_tickets/{ticketId}",
+      "fields": {
+        "userId": { "type": "string" },
+        "userEmail": { "type": "string" },
+        "userName": { "type": "string" },
+        "subject": { "type": "string" },
+        "category": { "type": "string" },
+        "priority": { "type": "string" },
+        "status": { "type": "string" },
+        "message": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      }
+    }
+  }
+}
