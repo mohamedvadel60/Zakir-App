@@ -124,19 +124,9 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
 }
 
 // Validate connection to Firestore on initial boot
-async function testConnection() {
-  try {
-    await getDocFromServer(doc(db, 'test', 'connection'));
+function testConnection() {
+  if (typeof navigator !== 'undefined' && navigator.onLine) {
     isFirestoreOffline = false;
-  } catch (error) {
-    const errMessage = error instanceof Error ? error.message : String(error);
-    const isPermissionError = errMessage.toLowerCase().includes('permission') || errMessage.toLowerCase().includes('denied');
-    if (isPermissionError) {
-      isFirestoreOffline = false;
-    } else if (errMessage.toLowerCase().includes('offline') || errMessage.toLowerCase().includes('network') || errMessage.toLowerCase().includes('unavailable')) {
-      isFirestoreOffline = true;
-      console.warn("Please check your Firebase configuration. Client is offline. Entering offline fallback mode.");
-    }
   }
 }
 testConnection();
@@ -290,6 +280,13 @@ export async function loginFirebaseUser(email: string, pass: string): Promise<Us
     }
   } catch (dErr: any) {
     if (dErr.message?.includes("deleted")) throw dErr;
+    console.error("Error verifying account status in /deletedUsers/ for loginFirebaseUser:", uid, dErr);
+    const errStr = dErr instanceof Error ? dErr.message : String(dErr);
+    if (errStr.toLowerCase().includes("permission") || errStr.toLowerCase().includes("denied")) {
+      await signOut(auth);
+      clearUserLocalCache(uid);
+      throw new Error("Access denied while verifying account status.");
+    }
   }
 
   // Retrieve user document from /users/{uid}
@@ -367,6 +364,7 @@ export async function loginFirebaseUser(email: string, pass: string): Promise<Us
 
 export async function loginWithGoogle(): Promise<User> {
   const provider = new GoogleAuthProvider();
+  provider.setCustomParameters({ prompt: 'select_account' });
   const userCredential = await signInWithPopup(auth, provider);
   const uid = userCredential.user.uid;
   const email = userCredential.user.email || "";
@@ -384,6 +382,13 @@ export async function loginWithGoogle(): Promise<User> {
     }
   } catch (dErr: any) {
     if (dErr.message?.includes("deleted")) throw dErr;
+    console.error("Error verifying account status in /deletedUsers/ for loginWithGoogle:", uid, dErr);
+    const errStr = dErr instanceof Error ? dErr.message : String(dErr);
+    if (errStr.toLowerCase().includes("permission") || errStr.toLowerCase().includes("denied")) {
+      await signOut(auth);
+      clearUserLocalCache(uid);
+      throw new Error("Access denied while verifying account status.");
+    }
   }
 
   const userDocRef = doc(db, "users", uid);
@@ -482,17 +487,33 @@ export async function saveFirebaseUserProfile(user: User): Promise<void> {
   // Store in local storage first
   setLocalItem(`user_${user.id}`, user);
 
+  if (!auth.currentUser || auth.currentUser.uid !== user.id) {
+    console.warn("Skipping client Firestore profile update: User not authenticated as owner.");
+    return;
+  }
+
   const userDocRef = doc(db, "users", user.id);
-  const sanitizedUser = sanitizeFirestoreData(user);
+
+  // Omit protected system fields that non-admin clients are not allowed to modify on update
+  const {
+    role,
+    subscriptionPlan,
+    trialExpiresAt,
+    stripeSubscriptionId,
+    subscriptionStatus,
+    ...updatableProfile
+  } = user;
+
+  const sanitizedUser = sanitizeFirestoreData(updatableProfile);
   try {
-    await setDoc(userDocRef, sanitizedUser, { merge: true });
+    await updateDoc(userDocRef, sanitizedUser);
     isFirestoreOffline = false; // Successfully connected!
   } catch (error) {
     const errMessage = error instanceof Error ? error.message : String(error);
     if (errMessage.toLowerCase().includes('offline') || errMessage.toLowerCase().includes('network')) {
       isFirestoreOffline = true;
     } else {
-      handleFirestoreError(error, OperationType.WRITE, `users/${user.id}`);
+      handleFirestoreError(error, OperationType.UPDATE, `users/${user.id}`);
     }
   }
 }
@@ -556,12 +577,22 @@ export function subscribeToFirebaseAuthState(callback: (user: User | null) => vo
       try {
         const deletedSnap = await getDoc(doc(db, "deletedUsers", fbUser.uid));
         if (deletedSnap.exists()) {
+          console.warn("User account is marked as deleted in /deletedUsers/", fbUser.uid);
           await signOut(auth);
           clearUserLocalCache(fbUser.uid);
           callback(null);
           return;
         }
-      } catch (dErr) {}
+      } catch (dErr: any) {
+        console.error("Error verifying account status in /deletedUsers/ for subscribeToFirebaseAuthState:", fbUser.uid, dErr);
+        const errStr = dErr instanceof Error ? dErr.message : String(dErr);
+        if (errStr.toLowerCase().includes("permission") || errStr.toLowerCase().includes("denied")) {
+          await signOut(auth);
+          clearUserLocalCache(fbUser.uid);
+          callback(null);
+          return;
+        }
+      }
 
       let userSnap;
       try {
