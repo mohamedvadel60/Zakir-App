@@ -3009,7 +3009,7 @@ app.patch("/api/admin/update-user/:uid", requireAuth, async (req: AuthRequest, r
       return res.status(400).json({ error: "Invalid update payload" });
     }
 
-    const sanitizedData = sanitizeFirestoreData(updateData);
+    const sanitizedData = updateData;
     await adminDb.collection("users").doc(targetUid).set(sanitizedData, { merge: true });
 
     // Sync to local JSON store if present

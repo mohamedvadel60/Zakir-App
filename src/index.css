@@ -343,3 +343,82 @@ input:focus, textarea:focus, select:focus {
 ::-webkit-scrollbar-thumb:hover {
   background: rgba(212, 175, 55, 0.5);
 }
+
+/* Zakir Original Design System Classes */
+.zakir-card {
+  background-color: var(--card-bg, #111827);
+  border: 1px solid var(--border-color, #1e293b);
+  border-radius: 1rem;
+  box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.15);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.zakir-card:hover {
+  border-color: rgba(212, 175, 55, 0.4);
+  box-shadow: 0 8px 30px -4px rgba(212, 175, 55, 0.12);
+  transform: translateY(-2px);
+}
+
+.zakir-btn-primary {
+  background: linear-gradient(135deg, #D4AF37 0%, #C5A059 100%);
+  color: #0b0f19;
+  font-weight: 700;
+  padding: 0.625rem 1.25rem;
+  border-radius: 0.75rem;
+  box-shadow: 0 4px 14px rgba(212, 175, 55, 0.25);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.55rem;
+  cursor: pointer;
+  user-select: none;
+}
+
+.zakir-btn-primary:hover {
+  filter: brightness(1.08);
+  box-shadow: 0 6px 20px rgba(212, 175, 55, 0.35);
+  transform: translateY(-1px);
+}
+
+.zakir-btn-primary:active {
+  transform: translateY(0) scale(0.98);
+}
+
+.zakir-btn-secondary {
+  background-color: var(--bg-tertiary, #1f2937);
+  color: var(--text-primary, #f8fafc);
+  border: 1px solid var(--border-color, #334155);
+  font-weight: 600;
+  padding: 0.625rem 1.25rem;
+  border-radius: 0.75rem;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.55rem;
+  cursor: pointer;
+}
+
+.zakir-btn-secondary:hover {
+  background-color: rgba(212, 175, 55, 0.1);
+  border-color: rgba(212, 175, 55, 0.3);
+  color: #D4AF37;
+}
+
+.zakir-input {
+  background-color: var(--input-bg, #1f2937);
+  border: 1px solid var(--border-color, #334155);
+  color: var(--text-primary, #f8fafc);
+  border-radius: 0.75rem;
+  padding: 0.65rem 0.95rem;
+  font-size: 0.875rem;
+  transition: all 0.2s ease;
+}
+
+.zakir-input:focus {
+  border-color: #D4AF37 !important;
+  box-shadow: 0 0 0 3px rgba(212, 175, 55, 0.2) !important;
+  outline: none;
+}
+
