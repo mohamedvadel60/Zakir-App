@@ -104,7 +104,6 @@ import { AnimatedLandingPage } from "./components/AnimatedLandingPage";
 import { WorldBankPortal } from "./components/WorldBankPortal";
 import { generateWorldBankFallbackData } from "./lib/worldBankFallback.js";
 import { ZakirLogo } from "./components/ZakirLogo";
-import { SignInPage } from "./components/ui/sign-in";
 import { applyGlobalTheme, ThemeMode } from "./lib/themeUtils.js";
 import { authenticatedFetch } from "./lib/apiUtils.js";
 import { SettingsAdmin } from "./components/SettingsAdmin";
@@ -2945,7 +2944,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
             <motion.div 
               initial={{ opacity: 0, y: 15 }}
               animate={{ opacity: 1, y: 0 }}
-              className="zakir-card w-full max-w-lg mx-auto p-6 sm:p-8 my-8 relative"
+              className="w-full max-w-lg mx-auto bg-slate-900/90 border border-slate-800/80 rounded-2xl p-6 sm:p-8 shadow-2xl my-8 relative"
             >
               {/* Branding Emblem */}
               <div className="text-center mb-6">
@@ -3015,7 +3014,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                     type="text" 
                     value={regOwnerName}
                     onChange={(e) => setRegOwnerName(e.target.value)}
-                    className="zakir-input w-full h-10 px-3"
+                    className="w-full h-10 px-3 bg-slate-950 border border-slate-800 rounded-xl text-white text-xs focus:outline-none focus:border-amber-500 transition-all placeholder:text-slate-600"
                     placeholder="e.g. Mohamed Aly"
                     required
                   />
@@ -3031,7 +3030,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                     type="text" 
                     value={regCompanyName}
                     onChange={(e) => setRegCompanyName(e.target.value)}
-                    className="zakir-input w-full h-10 px-3"
+                    className="w-full h-10 px-3 bg-slate-950 border border-slate-800 rounded-xl text-white text-xs focus:outline-none focus:border-amber-500 transition-all placeholder:text-slate-600"
                     placeholder="e.g. Mauritanian Finance Group"
                     required
                   />
@@ -3047,7 +3046,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                     type="email" 
                     value={regEmail}
                     onChange={(e) => setRegEmail(e.target.value)}
-                    className="zakir-input w-full h-10 px-3"
+                    className="w-full h-10 px-3 bg-slate-950 border border-slate-800 rounded-xl text-white text-xs focus:outline-none focus:border-amber-500 transition-all placeholder:text-slate-600"
                     placeholder="e.g. mohamedvadel60@entreprise8.com"
                     required
                   />
@@ -3066,7 +3065,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                       type={showRegPassword ? "text" : "password"} 
                       value={regPassword}
                       onChange={(e) => setRegPassword(e.target.value)}
-                      className="zakir-input w-full h-10 px-3 pr-10 font-mono"
+                      className="w-full h-10 px-3 pr-10 bg-slate-950 border border-slate-800 rounded-xl text-white text-xs focus:outline-none focus:border-amber-500 transition-all placeholder:text-slate-600 font-mono"
                       placeholder="••••••••"
                       required
                     />
@@ -3149,7 +3148,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                 <button 
                   type="submit" 
                   disabled={isSubmittingReg}
-                  className="zakir-btn-primary w-full h-11 mt-2 uppercase tracking-wider"
+                  className="w-full h-11 mt-2 bg-amber-500 hover:bg-amber-400 active:bg-amber-600 text-slate-950 font-bold text-xs rounded-xl shadow-lg shadow-amber-500/10 hover:shadow-amber-500/20 transition-all cursor-pointer flex items-center justify-center gap-2 uppercase tracking-wider"
                 >
                   {isSubmittingReg ? (
                     <RefreshCw className="w-4 h-4 animate-spin" />
@@ -3216,7 +3215,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
             <motion.div 
               initial={{ opacity: 0, y: 15 }}
               animate={{ opacity: 1, y: 0 }}
-              className="zakir-card w-full max-w-md mx-auto p-6 sm:p-8 my-8 relative"
+              className="w-full max-w-md mx-auto bg-slate-900/90 border border-slate-800/80 rounded-2xl p-6 sm:p-8 shadow-2xl my-8 relative"
             >
               {showForgotPassword ? (
                 /* FORGOT PASSWORD FORM */
@@ -3350,7 +3349,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                         className={`w-full h-11 mt-2 font-bold text-xs rounded-xl shadow-lg transition-all flex items-center justify-center gap-2 uppercase tracking-wider ${
                           resetStep === "forgot" && resetCooldownSeconds > 0
                             ? "bg-slate-800/90 text-slate-400 border border-slate-700/60 cursor-not-allowed opacity-80"
-                            : "zakir-btn-primary w-full h-11 mt-2 uppercase tracking-wider"
+                            : "bg-amber-500 hover:bg-amber-400 text-slate-950 cursor-pointer shadow-amber-500/20"
                         }`}
                       >
                         {isSendingReset ? (
@@ -3415,86 +3414,120 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                   )}
                 </div>
               ) : (
-                /* NEW SIGN-IN PAGE COMPONENT INTEGRATION */
-                <SignInPage
-                  title={
-                    <span className="font-bold text-white">
+                /* STANDARD LOGIN FORM */
+                <div>
+                  <div className="text-center mb-6">
+                    <div className="w-14 h-14 rounded-2xl bg-[#D4AF37]/5 border border-[#D4AF37]/15 flex items-center justify-center mx-auto mb-3 text-[#D4AF37]">
+                      <ZakirLogo iconOnly size={40} theme="dark" />
+                    </div>
+                    <h1 className="text-2xl font-bold tracking-tight text-white">
                       {lang === "fr" ? "Se connecter" : (lang === "ar" ? "تسجيل الدخول" : "Sign In")}
-                    </span>
-                  }
-                  description={
-                    lang === "fr" ? "Accédez à votre espace institutionnel" : (lang === "ar" ? "الدخول لبيئة ذاكرة المؤسسة" : "Access your organizational gateway")
-                  }
-                  heroImageSrc="https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=2160&q=80"
-                  testimonials={[
-                    {
-                      avatarSrc: "https://randomuser.me/api/portraits/men/32.jpg",
-                      name: "Mohamed Aly",
-                      handle: "@zakir_admin",
-                      text: lang === "ar" ? "نظام الذاكرة المؤسسية يضمن استمرارية القرارات بدقة فائقة." : "Organizational causal memory ensures absolute continuity."
-                    },
-                    {
-                      avatarSrc: "https://randomuser.me/api/portraits/women/44.jpg",
-                      name: "Fatima Zahra",
-                      handle: "@fin_director",
-                      text: lang === "ar" ? "إدارة الخزينة والامتثال باتت أسهل بكثير مع زاكير." : "Treasury management and compliance are exceptionally streamlined."
-                    }
-                  ]}
-                  error={loginError ? renderErrorContent(loginError) : undefined}
-                  onSignIn={async (e) => {
-                    e.preventDefault();
-                    const fd = new FormData(e.currentTarget);
-                    const em = fd.get("email") as string;
-                    const pw = fd.get("password") as string;
-                    setLoginError("");
-                    setIsSubmittingLogin(true);
-                    try {
-                      const userProfile = await loginFirebaseUser(em, pw);
-                      const isUserVerified = userProfile.isVerified === true || userProfile.isEmailVerified === true || userProfile.emailVerified === true || userProfile.verification_status === "verified" || userProfile.verification_required === false;
-                      const loggedInUser: User = {
-                        ...userProfile,
-                        isVerified: isUserVerified,
-                        isEmailVerified: isUserVerified,
-                        email_verified: isUserVerified,
-                        emailVerified: isUserVerified,
-                        verification_required: !isUserVerified,
-                        verification_status: isUserVerified ? "verified" : "unverified"
-                      };
-                      setCurrentUser(loggedInUser);
-                      applyUserPreferences(loggedInUser);
-                      setLoginEmail("");
-                      setLoginPassword("");
-                      setAuthMode("landing");
-                    } catch (err: any) {
-                      const errMsg = err?.message || String(err);
-                      if (err?.code === "auth/unauthorized-domain" || errMsg.includes("unauthorized-domain")) {
-                        setLoginError(formatAuthError(err));
-                      } else {
-                        setLoginError(lang === "ar" ? "بيانات الدخول غير صحيحة أو خطأ في الاتصال." : (err.message || "Firebase login failed."));
-                      }
-                    } finally {
-                      setIsSubmittingLogin(false);
-                    }
-                  }}
-                  onGoogleSignIn={async () => {
-                    try {
-                      const userProfile = await loginWithGoogle();
-                      setCurrentUser(userProfile);
-                      applyUserPreferences(userProfile);
-                      setAuthMode("landing");
-                    } catch (err: any) {
-                      setLoginError(formatAuthError(err));
-                    }
-                  }}
-                  onResetPassword={() => {
-                    setShowForgotPassword(true);
-                    setResetSuccessMsg("");
-                    setResetErrorMsg("");
-                  }}
-                  onCreateAccount={() => {
-                    setAuthMode("register");
-                  }}
-                />
+                    </h1>
+                    <p className="text-xs text-slate-400 mt-1">
+                      {lang === "fr" ? "Accédez à votre espace institutionnel" : (lang === "ar" ? "الدخول لبيئة ذاكرة المؤسسة" : "Access your organizational gateway")}
+                    </p>
+                  </div>
+
+                  <form onSubmit={handleLoginSubmit} className="space-y-4">
+                    {/* Google Sign In Button */}
+                    <button 
+                      type="button"
+                      onClick={async () => {
+                        try {
+                          const userProfile = await loginWithGoogle();
+                          setCurrentUser(userProfile);
+                          applyUserPreferences(userProfile);
+                          setAuthMode("landing");
+                        } catch (err: any) {
+                          setLoginError(formatAuthError(err));
+                        }
+                      }}
+                      className="w-full py-2.5 px-4 bg-slate-800 hover:bg-slate-750 text-white text-xs font-semibold rounded-xl border border-slate-700/80 transition-all cursor-pointer flex items-center justify-center gap-2.5 mb-5 shadow-sm"
+                    >
+                      <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24">
+                        <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                        <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                        <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
+                        <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
+                      </svg>
+                      <span>{lang === "fr" ? "Se connecter avec Google" : (lang === "ar" ? "تسجيل الدخول باستخدام Google" : "Sign in with Google")}</span>
+                    </button>
+
+                    {/* Divider */}
+                    <div className="relative flex items-center justify-center my-5">
+                      <div className="border-t border-slate-800 w-full"></div>
+                      <span className="bg-slate-900 px-3 text-[10px] uppercase font-semibold text-slate-500 tracking-widest relative z-10">
+                        {lang === "ar" ? "أو" : "OR"}
+                      </span>
+                    </div>
+
+                    {loginError && (
+                      <div className="p-3.5 bg-rose-500/10 border border-rose-500/20 rounded-xl text-rose-400 text-xs flex items-start gap-2.5">
+                        <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+                        {renderErrorContent(loginError)}
+                      </div>
+                    )}
+
+                    <div>
+                      <label className="block text-[11px] font-semibold text-slate-300 mb-1">{t.email}</label>
+                      <input 
+                        type="email" 
+                        value={loginEmail}
+                        onChange={(e) => setLoginEmail(e.target.value)}
+                        className="w-full h-10 px-3 bg-slate-950 border border-slate-800 rounded-xl text-white text-xs focus:outline-none focus:border-amber-500 transition-all placeholder:text-slate-600"
+                        placeholder="name@company.com"
+                        required
+                      />
+                    </div>
+
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="block text-[11px] font-semibold text-slate-300">{t.password}</label>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setShowForgotPassword(true);
+                            setResetEmail(loginEmail);
+                            setResetSuccessMsg("");
+                            setResetErrorMsg("");
+                          }}
+                          className="text-[11px] text-amber-400 hover:text-amber-300 font-semibold transition-colors cursor-pointer"
+                        >
+                          {lang === "fr" ? "Mot de passe oublié ?" : (lang === "ar" ? "نسيت كلمة السر؟" : "Forgot Password?")}
+                        </button>
+                      </div>
+                      <input 
+                        type="password" 
+                        value={loginPassword}
+                        onChange={(e) => setLoginPassword(e.target.value)}
+                        className="w-full h-10 px-3 bg-slate-950 border border-slate-800 rounded-xl text-white text-xs focus:outline-none focus:border-amber-500 transition-all placeholder:text-slate-600 font-mono"
+                        placeholder="••••••••"
+                        required
+                      />
+                    </div>
+
+                    <button 
+                      type="submit" 
+                      disabled={isSubmittingLogin}
+                      className="w-full h-11 mt-2 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs rounded-xl shadow-lg transition-all cursor-pointer flex items-center justify-center gap-2 uppercase tracking-wider"
+                    >
+                      {isSubmittingLogin ? (
+                        <RefreshCw className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <span>{lang === "fr" ? "Se connecter" : (lang === "ar" ? "تسجيل الدخول" : "Sign In")}</span>
+                      )}
+                    </button>
+                  </form>
+
+                  <div className="mt-6 text-center border-t border-slate-800/80 pt-4">
+                    <button 
+                      onClick={() => setAuthMode("register")}
+                      className="text-xs text-amber-500 hover:text-amber-400 font-medium transition-colors cursor-pointer"
+                    >
+                      {lang === "fr" ? "Pas encore de compte ? S'enregistrer" : (lang === "ar" ? "ليس لديك حساب؟ إنشاء حساب جديد" : "No account yet? Register here")}
+                    </button>
+                  </div>
+                </div>
               )}
             </motion.div>
 
@@ -3951,7 +3984,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
             )}
             
             {/* Module Loader bar (Includes last update time, page actions) */}
-            <header className={`zakir-header px-4 md:px-8 h-16 border-b flex items-center justify-between sticky top-0 z-20 backdrop-blur-md transition-colors ${
+            <header className={`px-4 md:px-8 h-16 border-b flex items-center justify-between sticky top-0 z-20 backdrop-blur-md transition-colors ${
               theme === "dark" ? "bg-[#0B0F19]/80 border-slate-800/60" : "bg-white/80 border-slate-200"
             }`}>
               <div className="flex items-center gap-3">
@@ -3967,9 +4000,9 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
 
                 
                 {/* Visual Accent Subscription Badge */}
-                <div className="zakir-badge hidden sm:inline-flex items-center gap-1">
+                <div className="hidden sm:inline-flex items-center gap-1 px-2.5 py-0.5 bg-[#D4AF37]/15 border border-[#D4AF37]/30 rounded-full">
                   <Award className="w-3 h-3 text-[#D4AF37]" />
-                  <span className="text-[10px] font-bold uppercase">{currentUser?.subscriptionPlan || "Starter"}</span>
+                  <span className="text-[10px] font-bold text-[#D4AF37] uppercase">{currentUser?.subscriptionPlan || "Starter"}</span>
                 </div>
               </div>
 
@@ -4154,532 +4187,734 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                   className="space-y-8"
                   id="dashboard-view"
                 >
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h1 className="text-3xl font-black tracking-tight">{lang === "ar" ? "لوحة التحكم التنفيذية" : (lang === "fr" ? "Tableau de Bord Exécutif" : "Executive Command Center")}</h1>
-                      <p className="text-slate-400 text-sm mt-1">{t.slogan}</p>
-                    </div>
-
-                    <div className="flex items-center gap-3">
-                      <button 
-                        onClick={() => setActiveTab("add")} 
-                        className="h-10 px-4 bg-[#D4AF37] hover:bg-[#B59410] text-slate-950 font-black text-xs rounded-xl flex items-center gap-1.5 shadow-md shadow-[#D4AF37]/10 transition-all cursor-pointer"
-                      >
-                        <PlusCircle className="w-4 h-4" />
-                        <span>{t.logMemoryBtn}</span>
-                      </button>
-
-                      <button 
-                        onClick={() => { setActiveTab("smart"); runSmartAnalysis(); }} 
-                        className={`h-10 px-4 border text-xs font-bold rounded-xl flex items-center gap-1.5 transition-all cursor-pointer ${
-                          theme === "dark"
-                            ? "bg-slate-900/60 border-[#D4AF37]/30 text-[#D4AF37] hover:border-[#D4AF37]/60"
-                            : "bg-white border-[#D4AF37]/40 text-[#D4AF37] hover:bg-[#D4AF37]/5"
-                        }`}
-                      >
-                        <Brain className="w-4 h-4" />
-                        <span>{t.runAnalysisBtn}</span>
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Executive Causal Intelligence Command Banner */}
-                  <div className={`p-6 rounded-2xl border relative overflow-hidden ${
-                    theme === "dark"
-                      ? "bg-gradient-to-r from-slate-950 via-slate-900 to-slate-950 border-[#D4AF37]/30 shadow-2xl"
-                      : "bg-gradient-to-r from-amber-50/80 via-white to-amber-50/80 border-[#D4AF37]/40 shadow-md"
-                  }`}>
-                    <div className="absolute top-0 right-0 w-96 h-96 bg-[#D4AF37]/5 rounded-full blur-3xl pointer-events-none" />
-                    
-                    <div className="relative z-10 grid grid-cols-1 md:grid-cols-3 gap-6 items-center">
-                      {/* Column 1: Organization & Security Status */}
-                      <div className="space-y-2 border-b md:border-b-0 md:border-l border-slate-800/80 pb-4 md:pb-0 pl-0 md:pl-6">
-                        <div className="flex items-center gap-2">
-                          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
-                          <span className="text-[10px] font-black uppercase tracking-widest text-[#D4AF37]">
-                            {lang === "ar" ? "الحالة الميدانية النشطة" : "Active Institutional Context"}
-                          </span>
-                        </div>
-                        <h2 className="text-xl font-extrabold text-slate-100 flex items-center gap-2">
-                          <Building2 className="w-5 h-5 text-[#D4AF37]" />
-                          <span>{currentUser?.companyName || "Zakir Enterprise Core"}</span>
-                        </h2>
-                        <div className="flex items-center gap-2 text-xs text-slate-400">
-                          <ShieldCheck className="w-4 h-4 text-emerald-400" />
-                          <span>{lang === "ar" ? "تشفير محلي وسحابي AES-256 معتمد" : "AES-256 Vault Encryption Active"}</span>
-                        </div>
-                      </div>
-
-                      {/* Column 2: Causal Intelligence Flow Summary */}
-                      <div className="space-y-2 border-b md:border-b-0 md:border-l border-slate-800/80 pb-4 md:pb-0 pl-0 md:pl-6">
-                        <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">
-                          {lang === "ar" ? "تسلسل التدفق السبي المعرفي" : "Causal Decision Chain"}
-                        </span>
-                        <div className="flex items-center gap-1.5 flex-wrap text-xs font-bold">
-                          <span className="px-2 py-1 rounded-md bg-rose-500/10 text-rose-400 border border-rose-500/20">{lang === "ar" ? "السبب" : "Cause"}</span>
-                          <span className="text-slate-600">→</span>
-                          <span className="px-2 py-1 rounded-md bg-amber-500/10 text-amber-400 border border-amber-500/20">{lang === "ar" ? "القرار" : "Decision"}</span>
-                          <span className="text-slate-600">→</span>
-                          <span className="px-2 py-1 rounded-md bg-blue-500/10 text-blue-400 border border-blue-500/20">{lang === "ar" ? "النتيجة" : "Outcome"}</span>
-                          <span className="text-slate-600">→</span>
-                          <span className="px-2 py-1 rounded-md bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">{lang === "ar" ? "الدرس" : "Lesson"}</span>
-                        </div>
-                        <p className="text-[11px] text-slate-400 leading-tight">
-                          {lang === "ar"
-                            ? "تحويل كل تجربة ميدانية إلى أصل معرفي يمنع تكرار الأخطاء."
-                            : "Transforming every operational scenario into structured future decision rules."}
-                        </p>
-                      </div>
-
-                      {/* Column 3: Top Risk Alert Status & Direct Action */}
-                      <div className="space-y-3">
-                        <div className="flex items-center justify-between">
-                          <span className="text-[10px] font-black uppercase tracking-widest text-rose-400 flex items-center gap-1.5">
-                            <ShieldAlert className="w-3.5 h-3.5" />
-                            {lang === "ar" ? "أعلى خطر مرصود" : "Primary Active Alert"}
-                          </span>
-                          <button
-                            onClick={() => setActiveTab("alerts")}
-                            className="text-[10px] text-[#D4AF37] hover:underline font-bold"
-                          >
-                            {lang === "ar" ? "عرض الكل" : "View All"}
-                          </button>
-                        </div>
-
-                        {riskAlerts.length > 0 ? (
-                          <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-xs">
-                            <p className="font-bold text-rose-300 truncate">{riskAlerts[0].title}</p>
-                            <p className="text-[11px] text-slate-400 line-clamp-1 mt-0.5">{riskAlerts[0].description}</p>
-                          </div>
-                        ) : (
-                          <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-xs text-emerald-400 font-bold flex items-center gap-2">
-                            <CheckCircle className="w-4 h-4" />
-                            <span>{lang === "ar" ? "لا توجد مخاطر حرجة نشطة حالياً" : "No Critical Active Risks Detected"}</span>
-                          </div>
-                        )}
-
-                        <div className="flex items-center gap-2 pt-1">
-                          <button
-                            onClick={() => { setActiveTab("smart"); runSmartAnalysis(); }}
-                            className="w-full py-2 bg-[#D4AF37]/15 hover:bg-[#D4AF37]/25 text-[#D4AF37] border border-[#D4AF37]/30 text-xs font-extrabold rounded-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer"
-                          >
-                            <Sparkles className="w-3.5 h-3.5" />
-                            <span>{lang === "ar" ? "تشغيل المحاكاة الذكية" : "Run Smart AI Simulation"}</span>
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Operational Metric KPI Cards */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                    {[
-                      { 
-                        title: lang === "ar" ? "إجمالي الذكريات" : "Total Memories", 
-                        value: statsCount.totalMemories, 
-                        label: "+12% " + (lang === "ar" ? "انقر للتعمق بالمكتبة" : "Click to view library"), 
-                        trendColor: "text-emerald-500",
-                        valColor: theme === "dark" ? "text-white" : "text-slate-900",
-                        targetTab: "library"
+                  {/* LOCALIZED TRANSLATIONS FOR REDESIGNED PREMIUM DASHBOARD */}
+                  {(() => {
+                    const dbt = {
+                      en: {
+                        welcome: `Welcome back, ${currentUser?.ownerName || "Leader"}`,
+                        subtitle: "Zakir Corporate Causal Memory & Intelligence Desk",
+                        activeContext: "Active Context",
+                        causalChain: "Causal Decision Flow",
+                        decisionOutcome: "Translating tactical incidents into permanent corporate intelligence heuristics.",
+                        primaryAlert: "Primary Critical Threat",
+                        noRisks: "No Critical Active Risks Detected",
+                        runSimulation: "Run AI Simulation",
+                        viewAll: "View All",
+                        knowledgeWealth: "Knowledge Assets",
+                        totalMemories: "Corporate Memories",
+                        retainedDocs: "Documents Retained",
+                        threatLevel: "Threat Levels",
+                        activeThreats: "Active Systemic Risks",
+                        aiDiagnostics: "AI Diagnostics",
+                        forecastsCount: "Predictive Models Run",
+                        distributionHub: "Cognitive Distribution Hub",
+                        quickHeuristics: "Strategic Decision Heuristics",
+                        alertDesk: "Active Alert Desk",
+                        resolve: "Resolve",
+                        noAlerts: "No active threat warnings",
+                        noLogs: "No recent activity logs recorded",
+                        viewFull: "View Full Diagnostics",
+                        recentLogs: "Corporate Activity Trail",
+                        clickExplore: "Click to explore memory vault",
+                        clickDocs: "Click to access documents",
+                        clickThreats: "Click to view active threats",
+                        clickAI: "Click to run AI models"
                       },
-                      { 
-                        title: lang === "ar" ? "المخاطر النشطة" : "Active Risks", 
-                        value: statsCount.activeRisks < 10 ? `0${statsCount.activeRisks}` : statsCount.activeRisks, 
-                        label: (lang === "ar" ? "تنبيهات حرجة • انقر للتفاصيل" : "Critical alerts • Click to view"), 
-                        trendColor: "text-rose-500",
-                        valColor: "text-rose-500",
-                        targetTab: "alerts"
+                      ar: {
+                        welcome: `مرحباً بك مجدداً، ${currentUser?.ownerName || "القائد"}`,
+                        subtitle: "منصة ذاكرة زاكير المؤسسية والذكاء السببي التراكمي",
+                        activeContext: "السياق المؤسسي النشط",
+                        causalChain: "التدفق السببي للقرارات",
+                        decisionOutcome: "تحويل الحوادث التشغيلية العابرة إلى قواعد معرفية راسخة للمستقبل.",
+                        primaryAlert: "التهديد الحرج الأبرز",
+                        noRisks: "لا توجد مخاطر حرجة نشطة حالياً",
+                        runSimulation: "تشغيل المحاكاة الذكية",
+                        viewAll: "عرض الكل",
+                        knowledgeWealth: "أصول المعرفة الاستراتيجية",
+                        totalMemories: "الذكريات المؤسسية المسجلة",
+                        retainedDocs: "المستندات والوثائق المؤمنة",
+                        threatLevel: "مستوى التهديدات الحالي",
+                        activeThreats: "المخاطر التشغيلية النشطة",
+                        aiDiagnostics: "التحليلات الذكية التنبؤية",
+                        forecastsCount: "نماذج التنبؤ المنفذة",
+                        distributionHub: "مركز التوزيع المعرفي والتصنيفات",
+                        quickHeuristics: "القواعد المعرفية السريعة للقرارات",
+                        alertDesk: "مكتب إدارة التنبيهات النشطة",
+                        resolve: "معالجة الخطر",
+                        noAlerts: "لا توجد تنبيهات نشطة حالياً",
+                        noLogs: "لا توجد أنشطة مسجلة بعد لهذا الحساب",
+                        viewFull: "عرض التحليل التنبؤي الكامل",
+                        recentLogs: "سجل الأنشطة والتدقيق والعمليات",
+                        clickExplore: "انقر للتعمق بمكتبة الذاكرة",
+                        clickDocs: "انقر للوصول لغرفة الملفات",
+                        clickThreats: "انقر لاستعراض رادار المخاطر",
+                        clickAI: "انقر لتشغيل نماذج التنبؤ"
                       },
-                      { 
-                        title: t.knowledgeRetained || "المعرفة المحتفظ بها", 
-                        value: statsCount.retainedKnowledge, 
-                        label: (lang === "ar" ? "خزينة المستندات • انقر للوصول" : "File Vault • Click to open"), 
-                        trendColor: "text-blue-500",
-                        valColor: theme === "dark" ? "text-white" : "text-slate-900",
-                        targetTab: "files"
-                      },
-                      { 
-                        title: lang === "ar" ? "توقعات الذكاء الاصطناعي" : "AI Forecasts", 
-                        value: statsCount.aiAnalyses < 10 ? `0${statsCount.aiAnalyses}` : statsCount.aiAnalyses, 
-                        label: (lang === "ar" ? "التطور الذكي • انقر للتحليل" : "Smart Evolution • Click to run"), 
-                        trendColor: "text-[#D4AF37]",
-                        valColor: "text-[#D4AF37]",
-                        targetTab: "smart"
+                      fr: {
+                        welcome: `Bienvenue, ${currentUser?.ownerName || "Leader"}`,
+                        subtitle: "Mémoire Causaliste & Intelligence Décisionnelle Zakir",
+                        activeContext: "Contexte Institutionnel Actif",
+                        causalChain: "Flux Décisionnel Causal",
+                        decisionOutcome: "Traduire les incidents opérationnels en heuristiques d'intelligence permanentes.",
+                        primaryAlert: "Menace Critique Principale",
+                        noRisks: "Aucun Risque Critique Détecté",
+                        runSimulation: "Lancer la Simulation IA",
+                        viewAll: "Voir Tout",
+                        knowledgeWealth: "Actifs de Connaissance",
+                        totalMemories: "Souvenirs Enregistrés",
+                        retainedDocs: "Documents Sécurisés",
+                        threatLevel: "Niveaux de Menace",
+                        activeThreats: "Risques Systémiques Actifs",
+                        aiDiagnostics: "Diagnostics Prédictifs",
+                        forecastsCount: "Modèles Prédictifs Lancés",
+                        distributionHub: "Centre de Distribution Cognitive",
+                        quickHeuristics: "Heuristiques de Décision Stratégique",
+                        alertDesk: "Bureau des Alertes Actives",
+                        resolve: "Résoudre",
+                        noAlerts: "Aucune alerte de menace active",
+                        noLogs: "Aucun journal d'activité enregistré",
+                        viewFull: "Voir les Diagnostics Complets",
+                        recentLogs: "Registre d'Activités & Audit",
+                        clickExplore: "Explorer la bibliothèque de souvenirs",
+                        clickDocs: "Accéder au coffre de fichiers",
+                        clickThreats: "Visualiser les alertes actives",
+                        clickAI: "Lancer les modèles d'IA"
                       }
-                    ].map((stat, i) => {
-                      return (
-                        <div 
-                          key={i} 
-                          onClick={() => setActiveTab(stat.targetTab as any)}
-                          className={`p-6 rounded-2xl border transition-all cursor-pointer group/kpi border-slate-800 ${
-                            theme === "dark" 
-                              ? "bg-slate-900/40 hover:bg-slate-800/80 hover:border-[#D4AF37]/50 shadow-black/20" 
-                              : "bg-white hover:bg-slate-50 hover:border-[#D4AF37]/50 shadow-sm shadow-slate-100"
-                          }`}
-                          title={`Click to open ${stat.title}`}
-                        >
-                          <div className="text-xs text-slate-400 font-bold uppercase tracking-widest mb-1 group-hover/kpi:text-[#D4AF37] transition-colors">
-                            {stat.title}
+                    };
+
+                    const activeLanguage = (lang === "ar" ? "ar" : lang === "fr" ? "fr" : "en") as "en" | "ar" | "fr";
+                    const dl = dbt[activeLanguage];
+                    const isRtl = lang === "ar";
+                    const alignClass = isRtl ? "text-right" : "text-left";
+
+                    return (
+                      <div className="space-y-8">
+                        
+                        {/* 1. SOPHISTICATED WELCOME HEADER & PRIMARY ACTIONS */}
+                        <div className={`flex flex-col md:flex-row md:items-center justify-between gap-6 pb-2 border-b ${
+                          theme === "dark" ? "border-slate-800/60" : "border-slate-100"
+                        }`}>
+                          <div className={alignClass}>
+                            <h1 className="text-3xl font-black tracking-tight flex items-center gap-2.5 flex-wrap">
+                              <span className="bg-gradient-to-r from-amber-200 via-[#D4AF37] to-amber-100 bg-clip-text text-transparent">
+                                {dl.welcome}
+                              </span>
+                              <span className={`text-xs font-bold px-2.5 py-0.5 rounded-full border shrink-0 ${
+                                theme === "dark" 
+                                  ? "bg-slate-900/80 border-[#D4AF37]/30 text-[#D4AF37]" 
+                                  : "bg-amber-50 border-[#D4AF37]/40 text-[#D4AF37]"
+                              }`}>
+                                {currentUser?.role || "CEO"}
+                              </span>
+                            </h1>
+                            <p className="text-slate-400 text-sm mt-1">{dl.subtitle}</p>
                           </div>
-                          <div className="text-3xl font-bold tracking-tight">
-                            <span className={stat.valColor}>{stat.value}</span>
-                          </div>
-                          <div className={`mt-2 flex items-center text-xs font-semibold ${stat.trendColor}`}>
-                            <span>{stat.label}</span>
+
+                          <div className={`flex items-center gap-3 ${isRtl ? "justify-start md:justify-end" : "justify-start"}`}>
+                            <button 
+                              onClick={() => setActiveTab("add")} 
+                              className="h-10 px-5 bg-[#D4AF37] hover:bg-[#B59410] text-slate-950 font-black text-xs rounded-xl flex items-center gap-2 shadow-md shadow-[#D4AF37]/10 hover:shadow-[#D4AF37]/20 transition-all cursor-pointer transform hover:-translate-y-0.5"
+                            >
+                              <PlusCircle className="w-4 h-4 shrink-0" />
+                              <span>{t.logMemoryBtn}</span>
+                            </button>
+
+                            <button 
+                              onClick={() => { setActiveTab("smart"); runSmartAnalysis(); }} 
+                              className={`h-10 px-5 border text-xs font-extrabold rounded-xl flex items-center gap-2 transition-all cursor-pointer transform hover:-translate-y-0.5 ${
+                                theme === "dark"
+                                  ? "bg-slate-900/60 border-[#D4AF37]/30 text-[#D4AF37] hover:border-[#D4AF37]/60 hover:bg-[#D4AF37]/10"
+                                  : "bg-white border-[#D4AF37]/40 text-[#D4AF37] hover:bg-[#D4AF37]/5"
+                              }`}
+                            >
+                              <Brain className="w-4 h-4 shrink-0" />
+                              <span>{t.runAnalysisBtn}</span>
+                            </button>
                           </div>
                         </div>
-                      );
-                    })}
-                  </div>
 
-                  {/* Charts & Analytical Widgets */}
-                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                    {/* Recharts Multi-Type Distribution Chart */}
-                    <div className={theme === "dark" ? "lg:col-span-2 bg-slate-900/40 border border-slate-800/80 rounded-2xl p-6" : "lg:col-span-2 bg-white border border-slate-200 shadow-sm rounded-2xl p-6"}>
-                      <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
-                        <h3 className={`text-base font-bold uppercase tracking-wider flex items-center gap-2 ${theme === "dark" ? "text-white" : "text-slate-900"}`}>
-                          <span className="w-1.5 h-4 bg-[#D4AF37] rounded-full"></span>
-                          <TrendingUp className="w-4 h-4 text-[#D4AF37]" />
-                          {t.categoryDistribution}
-                        </h3>
-
-                        {/* Chart Type Selector Switcher */}
-                        <div className={`flex items-center gap-1 p-1 rounded-xl border ${theme === "dark" ? "bg-slate-950/80 border-slate-800" : "bg-slate-100 border-slate-200"}`}>
-                          <button
-                            onClick={() => setCategoryChartType("bar")}
-                            title={lang === "ar" ? "أعمدة (Bar)" : (lang === "fr" ? "Barres" : "Bar Chart")}
-                            className={`p-2 rounded-lg transition-all cursor-pointer ${
-                              categoryChartType === "bar"
-                                ? "bg-[#D4AF37] text-slate-950 shadow-md shadow-[#D4AF37]/20 font-bold"
-                                : "text-slate-400 hover:text-white hover:bg-slate-800/50"
-                            }`}
-                          >
-                            <BarChart2 className="w-4 h-4" />
-                          </button>
-
-                          <button
-                            onClick={() => setCategoryChartType("line")}
-                            title={lang === "ar" ? "خطية (Linear)" : (lang === "fr" ? "Linéaire" : "Line Chart")}
-                            className={`p-2 rounded-lg transition-all cursor-pointer ${
-                              categoryChartType === "line"
-                                ? "bg-[#D4AF37] text-slate-950 shadow-md shadow-[#D4AF37]/20 font-bold"
-                                : "text-slate-400 hover:text-white hover:bg-slate-800/50"
-                            }`}
-                          >
-                            <Activity className="w-4 h-4" />
-                          </button>
-
-                          <button
-                            onClick={() => setCategoryChartType("area")}
-                            title={lang === "ar" ? "مساحية / كاداسترية (Cadastral / Area)" : (lang === "fr" ? "Aire" : "Area Chart")}
-                            className={`p-2 rounded-lg transition-all cursor-pointer ${
-                              categoryChartType === "area"
-                                ? "bg-[#D4AF37] text-slate-950 shadow-md shadow-[#D4AF37]/20 font-bold"
-                                : "text-slate-400 hover:text-white hover:bg-slate-800/50"
-                            }`}
-                          >
-                            <Layers className="w-4 h-4" />
-                          </button>
-
-                          <button
-                            onClick={() => setCategoryChartType("donut")}
-                            title={lang === "ar" ? "دائرية (Circular / Donut)" : (lang === "fr" ? "Circulaire" : "Donut Chart")}
-                            className={`p-2 rounded-lg transition-all cursor-pointer ${
-                              categoryChartType === "donut"
-                                ? "bg-[#D4AF37] text-slate-950 shadow-md shadow-[#D4AF37]/20 font-bold"
-                                : "text-slate-400 hover:text-white hover:bg-slate-800/50"
-                            }`}
-                          >
-                            <PieChartIcon className="w-4 h-4" />
-                          </button>
-                        </div>
-                      </div>
-
-                      <div className="h-80 relative">
-                        {chartDataCategory.length === 0 ? (
-                          <div className={`h-full flex flex-col items-center justify-center text-center p-6 border border-dashed rounded-xl ${
-                            theme === "dark" ? "border-slate-800 bg-slate-950/20" : "border-slate-200 bg-slate-50"
-                          }`}>
-                            <TrendingUp className="w-10 h-10 text-slate-500 mb-2 opacity-40" />
-                            <p className="text-xs text-slate-400 font-medium">
-                              {lang === "ar" ? "لا توجد بيانات تصنيفية مسجلة بعد. أضف ذكريات جديدة لعرض التوزيع البياني." : "No category distribution data yet. Add memories to populate the chart."}
-                            </p>
-                          </div>
-                        ) : (
-                          <ResponsiveContainer width="100%" height="100%">
-                            {categoryChartType === "bar" ? (
-                              <BarChart data={chartDataCategory} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                                <CartesianGrid strokeDasharray="3 3" stroke="var(--border-color)" />
-                                <XAxis dataKey="name" stroke="var(--text-secondary)" fontSize={12} tickLine={false} />
-                                <YAxis stroke="var(--text-secondary)" fontSize={12} tickLine={false} />
-                                <ChartTooltip 
-                                  contentStyle={{ 
-                                    backgroundColor: "var(--bg-secondary)", 
-                                    borderColor: "var(--border-color)",
-                                    borderRadius: "8px",
-                                    color: "var(--text-primary)",
-                                    fontSize: "12px"
-                                  }} 
-                                />
-                                <Bar dataKey="value" fill="#D4AF37" radius={[6, 6, 0, 0]}>
-                                  {chartDataCategory.map((entry, index) => (
-                                    <Cell key={`cell-${index}`} fill={entry.color || (index % 2 === 0 ? "#D4AF37" : "#B59410")} />
-                                  ))}
-                                </Bar>
-                              </BarChart>
-                            ) : categoryChartType === "line" ? (
-                              <LineChart data={chartDataCategory} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                                <CartesianGrid strokeDasharray="3 3" stroke="var(--border-color)" />
-                                <XAxis dataKey="name" stroke="var(--text-secondary)" fontSize={12} tickLine={false} />
-                                <YAxis stroke="var(--text-secondary)" fontSize={12} tickLine={false} />
-                                <ChartTooltip 
-                                  contentStyle={{ 
-                                    backgroundColor: "var(--bg-secondary)", 
-                                    borderColor: "var(--border-color)",
-                                    borderRadius: "8px",
-                                    color: "var(--text-primary)",
-                                    fontSize: "12px"
-                                  }} 
-                                />
-                                <Line 
-                                  type="natural" 
-                                  dataKey="value" 
-                                  stroke="#D4AF37" 
-                                  strokeWidth={3} 
-                                  dot={{ r: 6, fill: "#D4AF37", stroke: "var(--bg-primary)", strokeWidth: 2 }} 
-                                  activeDot={{ r: 8, fill: "#ffffff", stroke: "#D4AF37", strokeWidth: 3 }} 
-                                />
-                              </LineChart>
-                            ) : categoryChartType === "area" ? (
-                              <AreaChart data={chartDataCategory} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                                <defs>
-                                  <linearGradient id="colorValueCat" x1="0" y1="0" x2="0" y2="1">
-                                    <stop offset="5%" stopColor="#D4AF37" stopOpacity={0.6}/>
-                                    <stop offset="95%" stopColor="#D4AF37" stopOpacity={0.05}/>
-                                  </linearGradient>
-                                </defs>
-                                <CartesianGrid strokeDasharray="3 3" stroke="var(--border-color)" />
-                                <XAxis dataKey="name" stroke="var(--text-secondary)" fontSize={12} tickLine={false} />
-                                <YAxis stroke="var(--text-secondary)" fontSize={12} tickLine={false} />
-                                <ChartTooltip 
-                                  contentStyle={{ 
-                                    backgroundColor: "var(--bg-secondary)", 
-                                    borderColor: "var(--border-color)",
-                                    borderRadius: "8px",
-                                    color: "var(--text-primary)",
-                                    fontSize: "12px"
-                                  }} 
-                                />
-                                <Area 
-                                  type="natural" 
-                                  dataKey="value" 
-                                  stroke="#D4AF37" 
-                                  strokeWidth={3} 
-                                  fillOpacity={1} 
-                                  fill="url(#colorValueCat)" 
-                                />
-                              </AreaChart>
-                            ) : (
-                              <PieChart>
-                                <ChartTooltip 
-                                  contentStyle={{ 
-                                    backgroundColor: "var(--bg-secondary)", 
-                                    borderColor: "var(--border-color)",
-                                    borderRadius: "8px",
-                                    color: "var(--text-primary)",
-                                    fontSize: "12px"
-                                  }} 
-                                />
-                                <Pie
-                                  data={chartDataCategory}
-                                  cx="50%"
-                                  cy="45%"
-                                  innerRadius={65}
-                                  outerRadius={100}
-                                  paddingAngle={5}
-                                  dataKey="value"
-                                >
-                                  {chartDataCategory.map((entry, index) => (
-                                    <Cell key={`cell-${index}`} fill={entry.color || ["#D4AF37", "#B59410", "#0D7A82", "#14B8A6", "#8B5CF6"][index % 5]} />
-                                  ))}
-                                </Pie>
-                              </PieChart>
-                            )}
-                          </ResponsiveContainer>
-                        )}
-
-                        {/* Center Donut Label if in Donut mode */}
-                        {categoryChartType === "donut" && chartDataCategory.length > 0 && (
-                          <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none pb-8">
-                            <span className={`text-2xl font-extrabold font-mono ${theme === "dark" ? "text-white" : "text-slate-900"}`}>
-                              {chartDataCategory.reduce((acc, curr) => acc + curr.value, 0)}
-                            </span>
-                            <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">
-                              {lang === "ar" ? "إجمالي القرارات" : (lang === "fr" ? "Total Décisions" : "Total Decisions")}
-                            </span>
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Custom Legend for Donut Chart Mode */}
-                      {categoryChartType === "donut" && chartDataCategory.length > 0 && (
-                        <div className={`mt-2 pt-3 border-t flex flex-wrap items-center justify-center gap-4 text-xs font-medium ${theme === "dark" ? "border-slate-800/80 text-slate-300" : "border-slate-200 text-slate-600"}`}>
-                          {chartDataCategory.map((item, idx) => (
-                            <div key={idx} className="flex items-center gap-1.5">
-                              <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: item.color || ["#D4AF37", "#B59410", "#0D7A82", "#14B8A6"][idx % 4] }} />
-                              <span>{item.name}</span>
-                              <span className="font-mono text-slate-400">({item.value})</span>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Quick AI Insights List */}
-                    <div className={theme === "dark" ? "bg-slate-900/40 border border-slate-800/80 rounded-2xl p-6 flex flex-col justify-between" : "bg-white border border-slate-200 shadow-sm rounded-2xl p-6 flex flex-col justify-between"}>
-                      <div>
-                        <h3 className={`text-base font-bold uppercase tracking-wider mb-6 flex items-center gap-2 ${theme === "dark" ? "text-white" : "text-slate-900"}`}>
-                          <span className="w-1.5 h-4 bg-[#D4AF37] rounded-full"></span>
-                          <Brain className="w-4 h-4 text-[#D4AF37]" />
-                          {t.quickInsights}
-                        </h3>
-                        {memories.length === 0 ? (
-                          <div className={`p-6 text-center rounded-xl border border-dashed ${
-                            theme === "dark" ? "border-slate-800 bg-slate-950/20" : "border-slate-200 bg-slate-50"
-                          }`}>
-                            <Brain className="w-8 h-8 text-slate-500 mx-auto mb-2 opacity-40" />
-                            <p className="text-xs text-slate-400 font-medium">
-                              {lang === "ar" ? "لا توجد رؤى ذكاء اصطناعي بعد. أضف ذكريات وأحداث مؤسسية لتشخيص المخاطر وتوليد التوصيات." : "No quick AI insights yet. Add institutional memories to run AI diagnostics."}
-                            </p>
-                          </div>
-                        ) : (
-                          <div className="space-y-4">
-                            <div className="p-4 bg-[#D4AF37]/5 rounded-xl border border-[#D4AF37]/20">
-                              <h4 className="text-xs font-bold text-[#D4AF37]">{lang === "ar" ? "فجوة متكررة في تغطية مخاطر الصرف الأجنبي" : "Recurring Forex risk gap detected"}</h4>
-                              <p className="text-xs text-slate-400 mt-1.5 leading-relaxed">
-                                {lang === "ar" ? "يشير تكرار حوادث الخسارة السابقة إلى ضرورة تثبيت الحد الأدنى للتحوط عند 70%، مما يقضي تماماً على تفاوت أسعار الصرف غير المتوقعة." : "Previous patterns suggest a minimum hedging threshold of 70% to fully neutralize currency variance."}
-                              </p>
-                            </div>
-
-                            <div className="p-4 bg-rose-500/5 rounded-xl border border-rose-500/20">
-                              <h4 className="text-xs font-bold text-rose-500">{lang === "ar" ? "الأثر التراكمي للاستعانة بمستشاري الجمارك" : "Customs advisor dependency impact"}</h4>
-                              <p className="text-xs text-slate-400 mt-1.5 leading-relaxed">
-                                {lang === "ar" ? "أدى القرار المتخذ لتسريع تخليص جمركي سابق إلى مراجعة تفتيشية أوسع. إنشاء مكتبة مرجعية يبسط العملية بنسبة 80%." : "Recent fast-tracked clearance has triggered auditing reviews. A standard catalog reduces risks by 80%."}
-                              </p>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-
-                      <button 
-                        onClick={() => setActiveTab("smart")}
-                        className={`w-full h-10 mt-6 border text-xs font-bold rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+                        {/* 2. EXECUTIVE CAUSAL INTELLIGENCE ASYMMETRICAL COMMAND BANNER */}
+                        <div className={`p-6 rounded-2xl border relative overflow-hidden ${
                           theme === "dark"
-                            ? "border-slate-800 hover:border-[#D4AF37]/40 text-slate-400 hover:text-[#D4AF37]"
-                            : "border-slate-200 hover:border-[#D4AF37]/40 text-slate-500 hover:text-[#D4AF37]"
-                        }`}
-                      >
-                        <span>{lang === "ar" ? "عرض التحليل الكامل" : "View Full Diagnostics"}</span>
-                        <ChevronRight className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  </div>
+                            ? "bg-gradient-to-r from-slate-950 via-slate-900 to-slate-950 border-[#D4AF37]/20 shadow-2xl"
+                            : "bg-gradient-to-r from-amber-50/60 via-white to-amber-50/60 border-amber-200 shadow-md"
+                        }`}>
+                          {/* Top-right accent gradient glow */}
+                          <div className={`absolute top-0 right-0 w-96 h-96 rounded-full blur-3xl pointer-events-none ${
+                            theme === "dark" ? "bg-[#D4AF37]/5" : "bg-amber-100/40"
+                          }`} />
 
-                  {/* Active Risk Alerts & Recent Activities Grid */}
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                    
-                    {/* Systemic Risk Alerts (Quick action to resolve) */}
-                    <div className={theme === "dark" ? "bg-slate-900/40 border border-slate-800/80 rounded-2xl p-6" : "bg-white border border-slate-200 shadow-sm rounded-2xl p-6"}>
-                      <div className="flex items-center justify-between mb-4">
-                        <h3 className={`text-sm font-bold uppercase tracking-wider flex items-center gap-2 ${theme === "dark" ? "text-white" : "text-slate-900"}`}>
-                          <span className="w-1.5 h-4 bg-[#D4AF37] rounded-full"></span>
-                          <ShieldAlert className="w-4.5 h-4.5 text-rose-500" />
-                          {t.recentAlerts}
-                        </h3>
-                        <button
-                          onClick={() => setActiveTab("alerts")}
-                          className="text-xs font-bold text-[#D4AF37] hover:underline cursor-pointer flex items-center gap-1"
-                        >
-                          <span>{lang === "ar" ? "عرض الكل" : "View All"}</span>
-                        </button>
-                      </div>
-                      <div className="space-y-3">
-                        {riskAlerts.filter(a => a.status === "Active").length === 0 ? (
-                          <div className={`p-6 text-center rounded-xl border border-dashed ${
-                            theme === "dark" ? "border-slate-800 bg-slate-950/30" : "border-slate-200 bg-slate-50"
-                          }`}>
-                            <ShieldAlert className="w-8 h-8 text-slate-500 mx-auto mb-2 opacity-50" />
-                            <p className="text-xs text-slate-400 font-medium">
-                              {lang === "ar" ? "لا توجد تنبيهات مخاطر نشطة حالياً" : "No active risk alerts"}
-                            </p>
-                          </div>
-                        ) : (
-                          riskAlerts.filter(a => a.status === "Active").slice(0, 3).map((alert) => (
-                            <div key={alert.id} className={`p-4 rounded-xl border flex items-start justify-between gap-4 ${
-                              theme === "dark" ? "bg-slate-950/60 border-slate-800" : "bg-slate-50 border-slate-100"
-                            }`}>
-                              <div>
-                                <div className="flex items-center gap-2 mb-1">
-                                  <span className={`text-xs font-bold ${theme === "dark" ? "text-white" : "text-slate-900"}`}>{alert.title}</span>
-                                  <span className={`text-[9px] px-2 py-0.5 rounded-full font-bold uppercase ${
-                                    getSeverityBadgeClass(alert.severity)
-                                  }`}>
-                                    {alert.severity}
-                                  </span>
-                                </div>
-                                <p className="text-[11px] text-slate-400 leading-relaxed">{alert.description}</p>
+                          <div className="relative z-10 grid grid-cols-1 lg:grid-cols-3 gap-8 items-center">
+                            {/* Column 1: Institutional Context */}
+                            <div className={`space-y-2 lg:border-r border-slate-800/80 pb-4 lg:pb-0 ${isRtl ? "lg:border-r-0 lg:border-l lg:pl-8 lg:pr-0" : "lg:pr-8"}`}>
+                              <div className={`flex items-center gap-2 ${isRtl ? "justify-start" : "justify-start"}`}>
+                                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shrink-0" />
+                                <span className="text-[10px] font-black uppercase tracking-widest text-[#D4AF37]">
+                                  {dl.activeContext}
+                                </span>
                               </div>
+                              <h2 className={`text-xl font-extrabold flex items-center gap-2 ${
+                                theme === "dark" ? "text-slate-100" : "text-slate-800"
+                              }`}>
+                                <Building2 className="w-5 h-5 text-[#D4AF37] shrink-0" />
+                                <span className="truncate">{currentUser?.companyName || "Zakir Enterprise Core"}</span>
+                              </h2>
+                              <div className="flex items-center gap-2 text-xs text-slate-400">
+                                <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />
+                                <span>{isRtl ? "تشفير محلي وسحابي AES-256 معتمد" : "AES-256 Vault Encryption Active"}</span>
+                              </div>
+                            </div>
+
+                            {/* Column 2: Causal Intelligence Flow representation */}
+                            <div className={`space-y-3 lg:border-r border-slate-800/80 pb-4 lg:pb-0 ${isRtl ? "lg:border-r-0 lg:border-l lg:pl-8 lg:pr-0" : "lg:pr-8"}`}>
+                              <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                                {dl.causalChain}
+                              </span>
+                              <div className={`flex items-center gap-1.5 flex-wrap text-xs font-bold ${isRtl ? "flex-row-reverse" : "flex-row"}`}>
+                                <span className="px-2 py-0.5 rounded bg-rose-500/10 text-rose-400 border border-rose-500/20">{isRtl ? "السبب" : "Cause"}</span>
+                                <span className="text-slate-600 font-mono">→</span>
+                                <span className="px-2 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20">{isRtl ? "القرار" : "Decision"}</span>
+                                <span className="text-slate-600 font-mono">→</span>
+                                <span className="px-2 py-0.5 rounded bg-blue-500/10 text-blue-400 border border-blue-500/20">{isRtl ? "النتيجة" : "Outcome"}</span>
+                                <span className="text-slate-600 font-mono">→</span>
+                                <span className="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">{isRtl ? "الدرس" : "Lesson"}</span>
+                              </div>
+                              <p className={`text-[11px] leading-tight ${theme === "dark" ? "text-slate-400" : "text-slate-500"}`}>
+                                {dl.decisionOutcome}
+                              </p>
+                            </div>
+
+                            {/* Column 3: High-Priority Risk Spotlight */}
+                            <div className="space-y-3">
+                              <div className="flex items-center justify-between">
+                                <span className="text-[10px] font-black uppercase tracking-widest text-rose-400 flex items-center gap-1.5">
+                                  <ShieldAlert className="w-3.5 h-3.5 shrink-0 animate-bounce" />
+                                  {dl.primaryAlert}
+                                </span>
+                                <button
+                                  onClick={() => setActiveTab("alerts")}
+                                  className="text-[10px] text-[#D4AF37] hover:underline font-extrabold"
+                                >
+                                  {dl.viewAll}
+                                </button>
+                              </div>
+
+                              {riskAlerts.length > 0 ? (
+                                <div className={`p-3 rounded-xl text-xs border ${
+                                  theme === "dark"
+                                    ? "bg-rose-950/20 border-rose-500/20 text-rose-200"
+                                    : "bg-rose-50/60 border-rose-200 text-rose-800"
+                                }`}>
+                                  <p className="font-bold truncate">{riskAlerts[0].title}</p>
+                                  <p className="text-[11px] text-slate-400 line-clamp-1 mt-0.5">{riskAlerts[0].description}</p>
+                                </div>
+                              ) : (
+                                <div className={`p-3 rounded-xl border flex items-center gap-2 text-xs font-bold ${
+                                  theme === "dark"
+                                    ? "bg-emerald-950/10 border-emerald-500/20 text-emerald-400"
+                                    : "bg-emerald-50/50 border-emerald-200 text-emerald-700"
+                                }`}>
+                                  <CheckCircle className="w-4 h-4 text-emerald-500 shrink-0" />
+                                  <span>{dl.noRisks}</span>
+                                </div>
+                              )}
+
                               <button
-                                onClick={() => resolveRiskAlert(alert.id)}
-                                className="text-[10px] h-7 px-2.5 bg-rose-500/10 hover:bg-rose-500 text-rose-400 hover:text-white font-bold rounded border border-rose-500/25 transition-all shrink-0 cursor-pointer"
+                                onClick={() => { setActiveTab("smart"); runSmartAnalysis(); }}
+                                className="w-full py-1.5 bg-[#D4AF37]/15 hover:bg-[#D4AF37]/25 text-[#D4AF37] border border-[#D4AF37]/30 text-[11px] font-extrabold rounded-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer"
                               >
-                                {t.resolveAlert}
+                                <Sparkles className="w-3.5 h-3.5 shrink-0" />
+                                <span>{dl.runSimulation}</span>
                               </button>
                             </div>
-                          ))
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Timeline of user interactions & metrics */}
-                    <div className={theme === "dark" ? "bg-slate-900/40 border border-slate-800/80 rounded-2xl p-6" : "bg-white border border-slate-200 shadow-sm rounded-2xl p-6"}>
-                      <h3 className={`text-sm font-bold uppercase tracking-wider mb-4 flex items-center gap-2 ${theme === "dark" ? "text-white" : "text-slate-900"}`}>
-                        <span className="w-1.5 h-4 bg-[#D4AF37] rounded-full"></span>
-                        <Users className="w-4.5 h-4.5 text-[#D4AF37]" />
-                        {lang === "ar" ? "النشاط الأخير للأعضاء" : "Recent Active Logs"}
-                      </h3>
-                      {metrics.length === 0 ? (
-                        <div className={`p-6 text-center rounded-xl border border-dashed ${
-                          theme === "dark" ? "border-slate-800 bg-slate-950/30" : "border-slate-200 bg-slate-50"
-                        }`}>
-                          <Users className="w-8 h-8 text-slate-500 mx-auto mb-2 opacity-50" />
-                          <p className="text-xs text-slate-400 font-medium">
-                            {lang === "ar" ? "لا توجد أنشطة مسجلة بعد لهذا الحساب" : "No active member logs recorded yet"}
-                          </p>
+                          </div>
                         </div>
-                      ) : (
-                        <div className={`relative border-r pr-4 space-y-4 ${theme === "dark" ? "border-slate-800" : "border-slate-200"}`}>
-                          {metrics.slice(0, 4).map((m) => (
-                            <div key={m.id} className="relative flex items-start gap-3">
-                              {/* Bullet accent */}
-                              <div className="absolute -right-5.5 mt-1.5 w-2.5 h-2.5 rounded-full bg-[#D4AF37] border-2 border-[#0F172A]"></div>
-                              
-                              <div>
-                                <div className="flex items-center gap-2">
-                                  <span className="text-xs font-bold text-[#D4AF37] uppercase">{m.actionType}</span>
-                                  <span className="text-[10px] text-slate-400 font-mono">
-                                    {new Date(m.createdAt).toLocaleDateString()}
-                                  </span>
+
+                        {/* 3. BENTO STATS GRID — ASYMMETRIC VISUAL HIERARCHY */}
+                        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                          
+                          {/* CELL A: Strategic Knowledge Wealth (Spans 2 columns) */}
+                          <div 
+                            onClick={() => setActiveTab("library")}
+                            className={`md:col-span-2 p-6 rounded-2xl border transition-all cursor-pointer group/kpi border-slate-800 flex flex-col justify-between ${
+                              theme === "dark" 
+                                ? "bg-slate-900/40 hover:bg-slate-800/80 hover:border-[#D4AF37]/50 shadow-black/20" 
+                                : "bg-white hover:bg-slate-50 hover:border-[#D4AF37]/50 shadow-sm shadow-slate-100"
+                            }`}
+                            title={dl.clickExplore}
+                          >
+                            <div className="flex items-center justify-between">
+                              <span className="text-[10px] text-[#D4AF37] font-black uppercase tracking-wider">
+                                {dl.knowledgeWealth}
+                              </span>
+                              <FileText className="w-4 h-4 text-slate-500 group-hover/kpi:text-[#D4AF37] transition-colors" />
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4 my-4">
+                              <div className={alignClass}>
+                                <span className={`text-[10px] uppercase font-bold tracking-tight block ${
+                                  theme === "dark" ? "text-slate-400" : "text-slate-500"
+                                }`}>
+                                  {dl.totalMemories}
+                                </span>
+                                <div className="text-3xl font-black tracking-tight text-slate-100 mt-1 flex items-baseline gap-1">
+                                  <span className={theme === "dark" ? "text-white" : "text-slate-900"}>{statsCount.totalMemories}</span>
+                                  <span className="text-xs text-emerald-400 font-bold font-mono">+12%</span>
                                 </div>
-                                <p className={`text-[11px] mt-0.5 leading-relaxed ${theme === "dark" ? "text-slate-300" : "text-slate-600"}`}>{m.description}</p>
+                              </div>
+                              <div className={alignClass}>
+                                <span className={`text-[10px] uppercase font-bold tracking-tight block ${
+                                  theme === "dark" ? "text-slate-400" : "text-slate-500"
+                                }`}>
+                                  {dl.retainedDocs}
+                                </span>
+                                <div className="text-3xl font-black tracking-tight text-slate-100 mt-1">
+                                  <span className={theme === "dark" ? "text-white" : "text-slate-900"}>{statsCount.retainedKnowledge}</span>
+                                </div>
                               </div>
                             </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
 
-                  </div>
+                            <div className="text-[11px] text-slate-400 group-hover/kpi:text-[#D4AF37] transition-colors font-medium border-t border-slate-800/50 pt-2.5 flex items-center justify-between">
+                              <span>{dl.clickExplore}</span>
+                              <ChevronRight className={`w-3.5 h-3.5 transform group-hover/kpi:translate-x-1 transition-transform ${isRtl ? "rotate-180" : ""}`} />
+                            </div>
+                          </div>
+
+                          {/* CELL B: Active Institutional Threats */}
+                          <div 
+                            onClick={() => setActiveTab("alerts")}
+                            className={`p-6 rounded-2xl border transition-all cursor-pointer group/kpi flex flex-col justify-between ${
+                              theme === "dark" 
+                                ? "bg-slate-900/40 hover:bg-slate-800/80 border-slate-800 hover:border-rose-500/40" 
+                                : "bg-white hover:bg-rose-50/35 border-slate-200 hover:border-rose-300"
+                            }`}
+                            title={dl.clickThreats}
+                          >
+                            <div className="flex items-center justify-between">
+                              <span className="text-[10px] text-rose-500 font-black uppercase tracking-wider">
+                                {dl.threatLevel}
+                              </span>
+                              <ShieldAlert className="w-4 h-4 text-rose-500 shrink-0" />
+                            </div>
+
+                            <div className={`my-3 ${alignClass}`}>
+                              <div className="text-4xl font-black font-mono tracking-tight text-rose-500">
+                                {statsCount.activeRisks < 10 ? `0${statsCount.activeRisks}` : statsCount.activeRisks}
+                              </div>
+                              <span className={`text-[10px] uppercase font-bold block mt-1 ${
+                                theme === "dark" ? "text-slate-400" : "text-slate-500"
+                              }`}>
+                                {dl.activeThreats}
+                              </span>
+                            </div>
+
+                            <div className="text-[11px] text-slate-400 group-hover/kpi:text-rose-500 transition-colors font-medium border-t border-slate-800/50 pt-2.5 flex items-center justify-between">
+                              <span>{dl.clickThreats}</span>
+                              <ChevronRight className={`w-3.5 h-3.5 transform group-hover/kpi:translate-x-1 transition-transform ${isRtl ? "rotate-180" : ""}`} />
+                            </div>
+                          </div>
+
+                          {/* CELL C: AI Diagnostics */}
+                          <div 
+                            onClick={() => setActiveTab("smart")}
+                            className={`p-6 rounded-2xl border transition-all cursor-pointer group/kpi flex flex-col justify-between ${
+                              theme === "dark" 
+                                ? "bg-slate-900/40 hover:bg-slate-800/80 border-slate-800 hover:border-amber-500/40" 
+                                : "bg-white hover:bg-amber-50/30 border-slate-200 hover:border-amber-400"
+                            }`}
+                            title={dl.clickAI}
+                          >
+                            <div className="flex items-center justify-between">
+                              <span className="text-[10px] text-amber-500 font-black uppercase tracking-wider">
+                                {dl.aiDiagnostics}
+                              </span>
+                              <Sparkles className="w-4 h-4 text-amber-500 shrink-0" />
+                            </div>
+
+                            <div className={`my-3 ${alignClass}`}>
+                              <div className="text-4xl font-black font-mono tracking-tight text-amber-500">
+                                {statsCount.aiAnalyses < 10 ? `0${statsCount.aiAnalyses}` : statsCount.aiAnalyses}
+                              </div>
+                              <span className={`text-[10px] uppercase font-bold block mt-1 ${
+                                theme === "dark" ? "text-slate-400" : "text-slate-500"
+                              }`}>
+                                {dl.forecastsCount}
+                              </span>
+                            </div>
+
+                            <div className="text-[11px] text-slate-400 group-hover/kpi:text-amber-500 transition-colors font-medium border-t border-slate-800/50 pt-2.5 flex items-center justify-between">
+                              <span>{dl.clickAI}</span>
+                              <ChevronRight className={`w-3.5 h-3.5 transform group-hover/kpi:translate-x-1 transition-transform ${isRtl ? "rotate-180" : ""}`} />
+                            </div>
+                          </div>
+
+                        </div>
+
+                        {/* 4. ANALYTICAL CHARTS & COGNITIVE ADVICE DECISION BLOCK */}
+                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                          
+                          {/* Recharts Distribution Chart Column (Spans 2 columns) */}
+                          <div className={`lg:col-span-2 p-6 rounded-2xl border ${
+                            theme === "dark" 
+                              ? "bg-slate-900/40 border-slate-800/80" 
+                              : "bg-white border-slate-200 shadow-sm"
+                          }`}>
+                            <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
+                              <h3 className={`text-sm font-bold uppercase tracking-wider flex items-center gap-2 ${
+                                theme === "dark" ? "text-white" : "text-slate-900"
+                              }`}>
+                                <span className="w-1.5 h-4 bg-[#D4AF37] rounded-full"></span>
+                                <TrendingUp className="w-4 h-4 text-[#D4AF37] shrink-0" />
+                                {dl.distributionHub}
+                              </h3>
+
+                              {/* Chart Selector Switcher */}
+                              <div className={`flex items-center gap-1 p-1 rounded-xl border ${
+                                theme === "dark" ? "bg-slate-950/80 border-slate-800" : "bg-slate-100 border-slate-200"
+                              }`}>
+                                {[
+                                  { id: "bar", icon: BarChart2, label: "Bar" },
+                                  { id: "line", icon: Activity, label: "Line" },
+                                  { id: "area", icon: Layers, label: "Area" },
+                                  { id: "donut", icon: PieChartIcon, label: "Donut" }
+                                ].map((type) => {
+                                  const Icon = type.icon;
+                                  const isSelected = categoryChartType === type.id;
+                                  return (
+                                    <button
+                                      key={type.id}
+                                      onClick={() => setCategoryChartType(type.id as any)}
+                                      title={type.label}
+                                      className={`p-2 rounded-lg transition-all cursor-pointer ${
+                                        isSelected
+                                          ? "bg-[#D4AF37] text-slate-950 shadow-md shadow-[#D4AF37]/20 font-bold"
+                                          : "text-slate-400 hover:text-white hover:bg-slate-800/50"
+                                      }`}
+                                    >
+                                      <Icon className="w-4 h-4" />
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            </div>
+
+                            <div className="h-80 relative">
+                              {chartDataCategory.length === 0 ? (
+                                <div className={`h-full flex flex-col items-center justify-center text-center p-6 border border-dashed rounded-xl ${
+                                  theme === "dark" ? "border-slate-800 bg-slate-950/20" : "border-slate-200 bg-slate-50"
+                                }`}>
+                                  <TrendingUp className="w-10 h-10 text-slate-500 mb-2 opacity-40" />
+                                  <p className="text-xs text-slate-400 font-medium">
+                                    {isRtl 
+                                      ? "لا توجد بيانات تصنيفية مسجلة بعد. أضف ذكريات جديدة لعرض التوزيع البياني." 
+                                      : "No category distribution data yet. Add memories to populate the chart."}
+                                  </p>
+                                </div>
+                              ) : (
+                                <ResponsiveContainer width="100%" height="100%">
+                                  {categoryChartType === "bar" ? (
+                                    <BarChart data={chartDataCategory} margin={{ top: 10, right: 10, left: -25, bottom: 0 }}>
+                                      <CartesianGrid strokeDasharray="3 3" stroke={theme === "dark" ? "#1e293b" : "#e2e8f0"} />
+                                      <XAxis dataKey="name" stroke="#64748b" fontSize={11} tickLine={false} />
+                                      <YAxis stroke="#64748b" fontSize={11} tickLine={false} />
+                                      <ChartTooltip 
+                                        contentStyle={{ 
+                                          backgroundColor: theme === "dark" ? "#0f172a" : "#ffffff", 
+                                          borderColor: theme === "dark" ? "#1e293b" : "#e2e8f0",
+                                          borderRadius: "8px",
+                                          color: theme === "dark" ? "#f8fafc" : "#0f172a",
+                                          fontSize: "12px"
+                                        }} 
+                                      />
+                                      <Bar dataKey="value" fill="#D4AF37" radius={[4, 4, 0, 0]}>
+                                        {chartDataCategory.map((entry, index) => (
+                                          <Cell key={`cell-${index}`} fill={entry.color || (index % 2 === 0 ? "#D4AF37" : "#B59410")} />
+                                        ))}
+                                      </Bar>
+                                    </BarChart>
+                                  ) : categoryChartType === "line" ? (
+                                    <LineChart data={chartDataCategory} margin={{ top: 10, right: 10, left: -25, bottom: 0 }}>
+                                      <CartesianGrid strokeDasharray="3 3" stroke={theme === "dark" ? "#1e293b" : "#e2e8f0"} />
+                                      <XAxis dataKey="name" stroke="#64748b" fontSize={11} tickLine={false} />
+                                      <YAxis stroke="#64748b" fontSize={11} tickLine={false} />
+                                      <ChartTooltip 
+                                        contentStyle={{ 
+                                          backgroundColor: theme === "dark" ? "#0f172a" : "#ffffff", 
+                                          borderColor: theme === "dark" ? "#1e293b" : "#e2e8f0",
+                                          borderRadius: "8px",
+                                          color: theme === "dark" ? "#f8fafc" : "#0f172a",
+                                          fontSize: "12px"
+                                        }} 
+                                      />
+                                      <Line 
+                                        type="natural" 
+                                        dataKey="value" 
+                                        stroke="#D4AF37" 
+                                        strokeWidth={3} 
+                                        dot={{ r: 5, fill: "#D4AF37", stroke: theme === "dark" ? "#0b0f19" : "#ffffff", strokeWidth: 2 }} 
+                                        activeDot={{ r: 7, fill: "#ffffff", stroke: "#D4AF37", strokeWidth: 2 }} 
+                                      />
+                                    </LineChart>
+                                  ) : categoryChartType === "area" ? (
+                                    <AreaChart data={chartDataCategory} margin={{ top: 10, right: 10, left: -25, bottom: 0 }}>
+                                      <defs>
+                                        <linearGradient id="colorValueCat" x1="0" y1="0" x2="0" y2="1">
+                                          <stop offset="5%" stopColor="#D4AF37" stopOpacity={0.4}/>
+                                          <stop offset="95%" stopColor="#D4AF37" stopOpacity={0.01}/>
+                                        </linearGradient>
+                                      </defs>
+                                      <CartesianGrid strokeDasharray="3 3" stroke={theme === "dark" ? "#1e293b" : "#e2e8f0"} />
+                                      <XAxis dataKey="name" stroke="#64748b" fontSize={11} tickLine={false} />
+                                      <YAxis stroke="#64748b" fontSize={11} tickLine={false} />
+                                      <ChartTooltip 
+                                        contentStyle={{ 
+                                          backgroundColor: theme === "dark" ? "#0f172a" : "#ffffff", 
+                                          borderColor: theme === "dark" ? "#1e293b" : "#e2e8f0",
+                                          borderRadius: "8px",
+                                          color: theme === "dark" ? "#f8fafc" : "#0f172a",
+                                          fontSize: "12px"
+                                        }} 
+                                      />
+                                      <Area 
+                                        type="natural" 
+                                        dataKey="value" 
+                                        stroke="#D4AF37" 
+                                        strokeWidth={3} 
+                                        fillOpacity={1} 
+                                        fill="url(#colorValueCat)" 
+                                      />
+                                    </AreaChart>
+                                  ) : (
+                                    <PieChart>
+                                      <ChartTooltip 
+                                        contentStyle={{ 
+                                          backgroundColor: theme === "dark" ? "#0f172a" : "#ffffff", 
+                                          borderColor: theme === "dark" ? "#1e293b" : "#e2e8f0",
+                                          borderRadius: "8px",
+                                          color: theme === "dark" ? "#f8fafc" : "#0f172a",
+                                          fontSize: "12px"
+                                        }} 
+                                      />
+                                      <Pie
+                                        data={chartDataCategory}
+                                        cx="50%"
+                                        cy="45%"
+                                        innerRadius={65}
+                                        outerRadius={95}
+                                        paddingAngle={4}
+                                        dataKey="value"
+                                      >
+                                        {chartDataCategory.map((entry, index) => (
+                                          <Cell key={`cell-${index}`} fill={entry.color || ["#D4AF37", "#B59410", "#0D7A82", "#14B8A6", "#8B5CF6"][index % 5]} />
+                                        ))}
+                                      </Pie>
+                                    </PieChart>
+                                  )}
+                                </ResponsiveContainer>
+                              )}
+
+                              {categoryChartType === "donut" && chartDataCategory.length > 0 && (
+                                <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none pb-8">
+                                  <span className={`text-2xl font-black font-mono ${theme === "dark" ? "text-white" : "text-slate-900"}`}>
+                                    {chartDataCategory.reduce((acc, curr) => acc + curr.value, 0)}
+                                  </span>
+                                  <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">
+                                    {isRtl ? "إجمالي الأبحاث" : "Decisions Logged"}
+                                  </span>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Quick AI Diagnostics Insight Cell */}
+                          <div className={`p-6 rounded-2xl border flex flex-col justify-between ${
+                            theme === "dark" 
+                              ? "bg-slate-900/40 border-slate-800/80" 
+                              : "bg-white border-slate-200 shadow-sm"
+                          }`}>
+                            <div>
+                              <h3 className={`text-sm font-bold uppercase tracking-wider mb-6 flex items-center gap-2 ${
+                                theme === "dark" ? "text-white" : "text-slate-900"
+                              }`}>
+                                <span className="w-1.5 h-4 bg-[#D4AF37] rounded-full"></span>
+                                <Brain className="w-4 h-4 text-[#D4AF37] shrink-0" />
+                                {dl.quickHeuristics}
+                              </h3>
+
+                              {memories.length === 0 ? (
+                                <div className={`p-6 text-center rounded-xl border border-dashed ${
+                                  theme === "dark" ? "border-slate-800 bg-slate-950/20" : "border-slate-200 bg-slate-50"
+                                }`}>
+                                  <Brain className="w-8 h-8 text-slate-500 mx-auto mb-2 opacity-40" />
+                                  <p className="text-xs text-slate-400 font-medium">
+                                    {isRtl 
+                                      ? "لا توجد رؤى ذكاء اصطناعي بعد. أضف ذكريات وأحداث لتشخيص التوصيات." 
+                                      : "No decision insights yet. Log institutional memories to generate predictive heuristics."}
+                                  </p>
+                                </div>
+                              ) : (
+                                <div className="space-y-4">
+                                  <div className={`p-3.5 rounded-xl border ${
+                                    theme === "dark" ? "bg-[#D4AF37]/5 border-[#D4AF37]/20" : "bg-amber-50/50 border-amber-200"
+                                  }`}>
+                                    <h4 className="text-xs font-black text-[#D4AF37]">{isRtl ? "فجوة متكررة في مخاطر الصرف الأجنبي" : "Recurring Forex risk gap detected"}</h4>
+                                    <p className="text-xs text-slate-400 mt-1.5 leading-relaxed">
+                                      {isRtl 
+                                        ? "يشير تكرار حوادث الخسارة السابقة إلى ضرورة تثبيت الحد الأدنى للتحوط عند 70%، مما يقضي على التفاوت تماماً." 
+                                        : "Previous historical patterns suggest a minimum hedging threshold of 70% to fully neutralize currency variance."}
+                                    </p>
+                                  </div>
+
+                                  <div className={`p-3.5 rounded-xl border ${
+                                    theme === "dark" ? "bg-rose-500/5 border-rose-500/20" : "bg-rose-50/40 border-rose-100"
+                                  }`}>
+                                    <h4 className="text-xs font-black text-rose-500">{isRtl ? "الأثر التراكمي للاستعانة بمستشاري الجمارك" : "Customs advisor dependency impact"}</h4>
+                                    <p className="text-xs text-slate-400 mt-1.5 leading-relaxed">
+                                      {isRtl 
+                                        ? "أدى القرار السريع لتخليص جمركي سابق إلى تفتيش أوسع. إنشاء مكتبة مرجعية يبسط العملية بنسبة 80%." 
+                                        : "Recent fast-tracked clearance has triggered wider audits. A standardized customs catalog reduces risks by 80%."}
+                                    </p>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+
+                            <button 
+                              onClick={() => setActiveTab("smart")}
+                              className={`w-full h-10 mt-6 border text-xs font-bold rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+                                theme === "dark"
+                                  ? "border-slate-800 hover:border-[#D4AF37]/40 text-slate-400 hover:text-[#D4AF37]"
+                                  : "border-slate-200 hover:border-[#D4AF37]/40 text-slate-500 hover:text-[#D4AF37]"
+                              }`}
+                            >
+                              <span>{dl.viewFull}</span>
+                              <ChevronRight className={`w-3.5 h-3.5 ${isRtl ? "rotate-180" : ""}`} />
+                            </button>
+                          </div>
+
+                        </div>
+
+                        {/* 5. ACTIVE RISK ALERTS & COMPREHENSIVE RECENT ACTIVITY TIMELINE */}
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                          
+                          {/* Alert Desk Column */}
+                          <div className={`p-6 rounded-2xl border ${
+                            theme === "dark" 
+                              ? "bg-slate-900/40 border-slate-800/80" 
+                              : "bg-white border-slate-200 shadow-sm"
+                          }`}>
+                            <div className="flex items-center justify-between mb-4">
+                              <h3 className={`text-sm font-bold uppercase tracking-wider flex items-center gap-2 ${
+                                theme === "dark" ? "text-white" : "text-slate-900"
+                              }`}>
+                                <span className="w-1.5 h-4 bg-rose-500 rounded-full"></span>
+                                <ShieldAlert className="w-4.5 h-4.5 text-rose-500 shrink-0" />
+                                {dl.alertDesk}
+                              </h3>
+                              <button
+                                onClick={() => setActiveTab("alerts")}
+                                className="text-xs font-bold text-[#D4AF37] hover:underline cursor-pointer"
+                              >
+                                {dl.viewAll}
+                              </button>
+                            </div>
+
+                            <div className="space-y-3">
+                              {riskAlerts.filter(a => a.status === "Active").length === 0 ? (
+                                <div className={`p-6 text-center rounded-xl border border-dashed ${
+                                  theme === "dark" ? "border-slate-800 bg-slate-950/30" : "border-slate-200 bg-slate-50"
+                                }`}>
+                                  <ShieldAlert className="w-8 h-8 text-slate-500 mx-auto mb-2 opacity-50" />
+                                  <p className="text-xs text-slate-400 font-medium">
+                                    {dl.noAlerts}
+                                  </p>
+                                </div>
+                              ) : (
+                                riskAlerts.filter(a => a.status === "Active").slice(0, 3).map((alert) => (
+                                  <div key={alert.id} className={`p-4 rounded-xl border flex items-start justify-between gap-4 ${
+                                    theme === "dark" ? "bg-slate-950/60 border-slate-800/80" : "bg-slate-50 border-slate-100"
+                                  }`}>
+                                    <div className={alignClass}>
+                                      <div className="flex items-center gap-2 mb-1">
+                                        <span className={`text-xs font-black ${theme === "dark" ? "text-slate-200" : "text-slate-850"}`}>
+                                          {alert.title}
+                                        </span>
+                                        <span className={`text-[8px] px-1.5 py-0.2 rounded font-black uppercase tracking-wider shrink-0 ${
+                                          getSeverityBadgeClass(alert.severity)
+                                        }`}>
+                                          {alert.severity}
+                                        </span>
+                                      </div>
+                                      <p className="text-[11px] text-slate-400 leading-relaxed">{alert.description}</p>
+                                    </div>
+                                    <button
+                                      onClick={() => resolveRiskAlert(alert.id)}
+                                      className="text-[10px] h-7 px-3 bg-rose-500/10 hover:bg-rose-500 text-rose-400 hover:text-white font-extrabold rounded-lg border border-rose-500/25 transition-all shrink-0 cursor-pointer"
+                                    >
+                                      {t.resolveAlert || dl.resolve}
+                                    </button>
+                                  </div>
+                                ))
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Corporate Activity Log Column */}
+                          <div className={`p-6 rounded-2xl border ${
+                            theme === "dark" 
+                              ? "bg-slate-900/40 border-slate-800/80" 
+                              : "bg-white border-slate-200 shadow-sm"
+                          }`}>
+                            <h3 className={`text-sm font-bold uppercase tracking-wider mb-4 flex items-center gap-2 ${
+                              theme === "dark" ? "text-white" : "text-slate-900"
+                            }`}>
+                              <span className="w-1.5 h-4 bg-[#D4AF37] rounded-full"></span>
+                              <Users className="w-4.5 h-4.5 text-[#D4AF37] shrink-0" />
+                              {dl.recentLogs}
+                            </h3>
+
+                            {metrics.length === 0 ? (
+                              <div className={`p-6 text-center rounded-xl border border-dashed ${
+                                theme === "dark" ? "border-slate-800 bg-slate-950/30" : "border-slate-200 bg-slate-50"
+                              }`}>
+                                <Users className="w-8 h-8 text-slate-500 mx-auto mb-2 opacity-50" />
+                                <p className="text-xs text-slate-400 font-medium">
+                                  {dl.noLogs}
+                                </p>
+                              </div>
+                            ) : (
+                              <div className={`relative border-r pr-4 space-y-4 ${
+                                theme === "dark" ? "border-slate-800" : "border-slate-200"
+                              }`}>
+                                {metrics.slice(0, 4).map((m) => (
+                                  <div key={m.id} className="relative flex items-start gap-3">
+                                    {/* Bullet point alignment dynamically adapted */}
+                                    <div className="absolute -right-5.5 mt-1.5 w-2.5 h-2.5 rounded-full bg-[#D4AF37] border-2 border-[#0F172A] z-10"></div>
+                                    
+                                    <div className={alignClass}>
+                                      <div className={`flex items-center gap-2 flex-wrap ${isRtl ? "justify-start" : "justify-start"}`}>
+                                        <span className="text-xs font-black text-[#D4AF37] uppercase tracking-wider">{m.actionType}</span>
+                                        <span className="text-[10px] text-slate-500 font-mono">
+                                          {new Date(m.createdAt).toLocaleDateString()}
+                                        </span>
+                                      </div>
+                                      <p className={`text-[11px] mt-0.5 leading-relaxed ${
+                                        theme === "dark" ? "text-slate-300" : "text-slate-600"
+                                      }`}>
+                                        {m.description}
+                                      </p>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+
+                        </div>
+
+                      </div>
+                    );
+                  })()}
                 </motion.div>
               )}
 

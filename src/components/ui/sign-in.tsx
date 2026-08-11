@@ -37,7 +37,7 @@ interface SignInPageProps {
 // --- SUB-COMPONENTS ---
 
 const GlassInputWrapper = ({ children }: { children: React.ReactNode }) => (
-  <div className="rounded-2xl border border-border bg-foreground/5 backdrop-blur-sm transition-colors focus-within:border-violet-400/70 focus-within:bg-violet-500/10">
+  <div className="rounded-2xl border border-slate-800 bg-slate-900/40 backdrop-blur-sm transition-all focus-within:border-[#D4AF37]/70 focus-within:bg-[#D4AF37]/5">
     {children}
   </div>
 );
@@ -105,29 +105,29 @@ export const SignInPage: React.FC<SignInPageProps> = ({
 
               <div className="animate-element animate-delay-500 flex items-center justify-between text-sm">
                 <label className="flex items-center gap-3 cursor-pointer">
-                  <input type="checkbox" name="rememberMe" className="custom-checkbox" />
-                  <span className="text-foreground/90">Keep me signed in</span>
+                  <input type="checkbox" name="rememberMe" className="rounded border-slate-700 bg-slate-900 text-[#D4AF37] focus:ring-[#D4AF37]" />
+                  <span className="text-slate-300">Keep me signed in</span>
                 </label>
-                <a href="#" onClick={(e) => { e.preventDefault(); onResetPassword?.(); }} className="hover:underline text-violet-400 transition-colors">Reset password</a>
+                <a href="#" onClick={(e) => { e.preventDefault(); onResetPassword?.(); }} className="hover:underline text-[#D4AF37] font-medium transition-colors">Reset password</a>
               </div>
 
-              <button type="submit" className="animate-element animate-delay-600 w-full rounded-2xl bg-primary py-4 font-medium text-primary-foreground hover:bg-primary/90 transition-colors">
+              <button type="submit" className="animate-element animate-delay-600 w-full rounded-2xl bg-gradient-to-r from-[#D4AF37] to-[#B59410] py-4 font-black text-slate-950 hover:brightness-110 shadow-lg shadow-[#D4AF37]/10 hover:shadow-[#D4AF37]/20 transition-all transform active:scale-[0.98] cursor-pointer">
                 Sign In
               </button>
             </form>
 
             <div className="animate-element animate-delay-700 relative flex items-center justify-center">
-              <span className="w-full border-t border-border"></span>
-              <span className="px-4 text-sm text-muted-foreground bg-background absolute">Or continue with</span>
+              <span className="w-full border-t border-slate-800"></span>
+              <span className="px-4 text-xs font-bold uppercase tracking-wider text-slate-400 bg-slate-950 absolute">Or continue with</span>
             </div>
 
-            <button onClick={onGoogleSignIn} className="animate-element animate-delay-800 w-full flex items-center justify-center gap-3 border border-border rounded-2xl py-4 hover:bg-secondary transition-colors">
+            <button onClick={onGoogleSignIn} className="animate-element animate-delay-800 w-full flex items-center justify-center gap-3 border border-slate-800 bg-slate-900/40 text-slate-200 rounded-2xl py-4 hover:bg-slate-900 transition-colors cursor-pointer">
                 <GoogleIcon />
-                Continue with Google
+                <span className="font-bold text-sm">Continue with Google</span>
             </button>
 
-            <p className="animate-element animate-delay-900 text-center text-sm text-muted-foreground">
-              New to our platform? <a href="#" onClick={(e) => { e.preventDefault(); onCreateAccount?.(); }} className="text-violet-400 hover:underline transition-colors">Create Account</a>
+            <p className="animate-element animate-delay-900 text-center text-sm text-slate-400">
+              New to our platform? <a href="#" onClick={(e) => { e.preventDefault(); onCreateAccount?.(); }} className="text-[#D4AF37] hover:underline font-bold transition-colors">Create Account</a>
             </p>
           </div>
         </div>

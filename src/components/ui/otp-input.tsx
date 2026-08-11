@@ -400,7 +400,7 @@ export function OtpInput({
                     : success
                       ? "border-emerald-500 bg-white dark:border-emerald-400 dark:bg-[#252522]"
                       : active
-                        ? "border-[#4568FF] bg-white dark:border-[#93B0FF] dark:bg-[#252522]"
+                        ? "border-[#D4AF37] bg-white dark:border-[#D4AF37] dark:bg-[#252522]"
                         : char
                           ? "border-stone-300 bg-white dark:border-white/20 dark:bg-[#252522]"
                           : "border-stone-200 bg-stone-100/70 shadow-[inset_0_1px_2px_rgba(28,25,23,0.07)] dark:border-white/[0.08] dark:bg-[#1D1D1A] dark:shadow-[inset_0_1px_2px_rgba(0,0,0,0.45)]"
