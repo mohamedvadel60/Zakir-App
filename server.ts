@@ -890,8 +890,8 @@ async function sendSystemMail(
 
     const attachments: any[] = [...userAttachments];
 
-    // Attach official PNG logo as CID inline image if referenced in HTML or if no logo attachment present
-    if (html.includes("cid:zakir-logo") || !attachments.some((a) => a.contentId === "zakir-logo" || a.content_id === "zakir-logo")) {
+    // Attach official PNG logo as CID inline image ONLY if explicitly referenced in HTML
+    if (html.includes("cid:zakir-logo")) {
       const logoBuf = getOfficialPngLogo();
       if (logoBuf && logoBuf.length > 0) {
         attachments.push({
@@ -1036,31 +1036,24 @@ function buildOtpEmailHtml(options: BuildOtpEmailOptions): { subject: string; te
   <meta name="x-apple-disable-message-reformatting" />
   <title>${subject}</title>
 </head>
-<body style="margin: 0; padding: 0; background-color: #ffffff; font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #0f172a; -webkit-font-smoothing: antialiased; word-spacing: normal;">
-  <table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #ffffff; table-layout: fixed;">
+<body style="margin: 0; padding: 0; background-color: #f8fafc; font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #0f172a; -webkit-font-smoothing: antialiased; word-spacing: normal;">
+  <table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #f8fafc; table-layout: fixed;">
     <tr>
-      <td align="center" style="padding: 40px 16px;">
-        <table border="0" cellpadding="0" cellspacing="0" width="100%" style="max-width: 520px; background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);">
+      <td align="center" style="padding: 48px 16px;">
+        <table border="0" cellpadding="0" cellspacing="0" width="100%" style="max-width: 500px; background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 16px; overflow: hidden; box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.05);">
           
-          <!-- Top Gold Accent Line -->
+          <!-- Top Accent Bar -->
           <tr>
-            <td style="background-color: #d4af37; height: 5px; font-size: 0; line-height: 0;">&nbsp;</td>
+            <td style="background: linear-gradient(90deg, #0f172a 0%, #d4af37 100%); height: 4px; font-size: 0; line-height: 0;">&nbsp;</td>
           </tr>
 
           <!-- Header -->
           <tr>
-            <td style="padding: 32px 32px 20px 32px; text-align: center; border-bottom: 1px solid #f1f5f9;">
-              <table border="0" cellpadding="0" cellspacing="0" align="center" style="margin: 0 auto 12px auto;">
-                <tr>
-                  <td align="center" valign="middle" style="width: 80px; height: 80px; border-radius: 12px; padding: 10px;">
-                    <img src="cid:zakir-logo" alt="Zakir" width="80" height="auto" style="display: block; margin: 0 auto; width: 80px; height: auto; border: 0;" />
-                  </td>
-                </tr>
-              </table>
-              <div style="font-size: 26px; font-weight: 900; color: #0f172a; letter-spacing: 3px; font-family: 'Plus Jakarta Sans', -apple-system, sans-serif;">
+            <td style="padding: 32px 32px 24px 32px; text-align: center; border-bottom: 1px solid #f1f5f9;">
+              <div style="font-size: 24px; font-weight: 800; color: #0f172a; letter-spacing: 4px; font-family: 'Plus Jakarta Sans', -apple-system, sans-serif; margin-bottom: 8px;">
                 ZAKIR
               </div>
-              <div style="font-size: 13px; font-weight: 600; color: #d4af37; text-transform: uppercase; letter-spacing: 1.5px; margin-top: 6px;">
+              <div style="display: inline-block; background-color: #f1f5f9; color: #d4af37; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.5px; padding: 5px 14px; border-radius: 20px; border: 1px solid #e2e8f0;">
                 ${actionTitle}
               </div>
             </td>
@@ -1078,27 +1071,29 @@ function buildOtpEmailHtml(options: BuildOtpEmailOptions): { subject: string; te
                 ${introText}
               </p>
 
-              <!-- Gold Compact Single-Line OTP Container -->
+              <!-- Sleek Modern OTP Container -->
               <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin: 28px 0;">
                 <tr>
-                  <td align="center" style="padding: 18px 20px; background-color: #d4af37; border-radius: 12px; box-shadow: 0 4px 12px rgba(212, 175, 55, 0.25);">
-                    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 32px; font-weight: 800; color: #ffffff; letter-spacing: 4px; text-align: center; margin: 0; white-space: nowrap; text-shadow: 0 1px 2px rgba(0,0,0,0.15);">
+                  <td align="center" style="padding: 22px 20px; background-color: #0f172a; border-radius: 14px; border: 1px solid #1e293b; box-shadow: 0 4px 14px rgba(15, 23, 42, 0.12);">
+                    <div style="font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 36px; font-weight: 800; color: #d4af37; letter-spacing: 8px; text-align: center; margin: 0; white-space: nowrap;">
                       ${cleanCode}
                     </div>
                   </td>
                 </tr>
               </table>
 
-              <p style="color: #64748b; font-size: 13px; line-height: 1.5; margin: 0 0 16px 0; font-weight: 500;">
-                This code expires in <strong>10 minutes</strong>.
+              <p style="color: #64748b; font-size: 13px; line-height: 1.5; margin: 0 0 20px 0; font-weight: 500; text-align: center;">
+                This verification code expires in <strong style="color: #0f172a;">10 minutes</strong>.
               </p>
 
-              <!-- Security Warning Box (Clean, No Emoji Icons) -->
-              <p style="color: #475569; font-size: 13px; line-height: 1.5; margin: 0 0 16px 0; padding: 12px 16px; background-color: #f8fafc; border-left: 3px solid #d4af37; border-radius: 4px;">
-                <strong>For your security:</strong> Never share this code with anyone. The Zakir team will never ask for your verification code.
-              </p>
+              <!-- Security Notice -->
+              <div style="padding: 14px 18px; background-color: #f8fafc; border-left: 3px solid #d4af37; border-radius: 6px; margin-bottom: 24px;">
+                <p style="color: #475569; font-size: 13px; line-height: 1.5; margin: 0;">
+                  <strong style="color: #0f172a;">For your security:</strong> Never share this code with anyone. The Zakir team will never ask for your code.
+                </p>
+              </div>
 
-              <p style="color: #94a3b8; font-size: 13px; line-height: 1.5; margin: 0;">
+              <p style="color: #94a3b8; font-size: 12px; line-height: 1.5; margin: 0;">
                 If you didn't request this code, you can safely ignore this email.
               </p>
 
@@ -2484,25 +2479,24 @@ app.post("/api/support/tickets/:id/messages", requireAuth, async (req: AuthReque
     // Dispatch Email Notification via Resend (if admin reply)
     if (senderType === "admin" && recipientEmail) {
       try {
-        const supportLogoUrl = `${getAppBaseUrl(req)}/api/logo.png`;
         const emailHtml = `
-          <div style="font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif; background-color: #f8fafc; padding: 32px 16px; color: #0f172a;">
-            <div style="max-width: 580px; margin: 0 auto; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 16px; overflow: hidden; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05);">
-              <div style="background: #090d16; padding: 24px; text-align: center; border-bottom: 2px solid #f59e0b;">
-                <img src="cid:zakir-logo" alt="Zakir" width="40" height="40" style="display: block; margin: 0 auto 10px auto;" />
-                <h1 style="color: #ffffff; margin: 0; font-size: 20px; font-weight: 800; letter-spacing: -0.5px;">Zakir Support Center</h1>
+          <div style="font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif; background-color: #f8fafc; padding: 40px 16px; color: #0f172a;">
+            <div style="max-width: 540px; margin: 0 auto; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 16px; overflow: hidden; box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.05);">
+              <div style="background: #0f172a; padding: 28px 24px; text-align: center; border-bottom: 3px solid #d4af37;">
+                <div style="color: #ffffff; margin: 0 0 4px 0; font-size: 20px; font-weight: 800; letter-spacing: 3px;">ZAKIR</div>
+                <div style="color: #d4af37; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.5px;">Support Center</div>
               </div>
               <div style="padding: 32px; font-size: 14px; line-height: 1.6; color: #334155;">
                 <p style="margin-top: 0; font-size: 16px; font-weight: 700; color: #0f172a;">Hello ${recipientName},</p>
                 <p style="margin-bottom: 24px; color: #475569;">Our support team has replied to your request.</p>
                 
-                <div style="background-color: #fffbebfb; border: 1px solid #fef3c7; border-left: 4px solid #f59e0b; padding: 16px; border-radius: 8px; margin-bottom: 24px;">
-                  <p style="margin: 0; font-weight: 800; color: #92400e; font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px;">Ticket #${ticket.id}</p>
+                <div style="background-color: #fffbebfb; border: 1px solid #fef3c7; border-left: 4px solid #d4af37; padding: 16px; border-radius: 8px; margin-bottom: 24px;">
+                  <p style="margin: 0; font-weight: 800; color: #92400e; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px;">Ticket #${ticket.id}</p>
                   <p style="margin: 4px 0 0 0; font-weight: 700; color: #1e293b; font-size: 15px;">${ticket.subject}</p>
                 </div>
 
-                <div style="background: #f1f5f9; border-radius: 12px; padding: 20px; margin-bottom: 24px; border: 1px solid #e2e8f0;">
-                  <p style="margin: 0 0 8px 0; font-size: 11px; font-weight: 700; text-transform: uppercase; color: #64748b;">Latest Response from Support:</p>
+                <div style="background: #f8fafc; border-radius: 12px; padding: 20px; margin-bottom: 24px; border: 1px solid #e2e8f0;">
+                  <p style="margin: 0 0 8px 0; font-size: 11px; font-weight: 700; text-transform: uppercase; color: #64748b; letter-spacing: 0.5px;">Latest Response from Support:</p>
                   <p style="margin: 0; color: #1e293b; white-space: pre-wrap; font-size: 14px; line-height: 1.6;">${message}</p>
                 </div>
 
@@ -2993,6 +2987,96 @@ app.delete("/api/admin/delete-user/:uid", requireAuth, async (req: AuthRequest, 
   } catch (err: any) {
     console.error("USER_DELETE_FAILED", { targetUid, error: err.message || String(err) });
     res.status(500).json({ error: err.message || "Administrative deletion process failed." });
+  }
+});
+
+// Update user profile/verification status as Admin
+app.patch("/api/admin/update-user/:uid", requireAuth, async (req: AuthRequest, res) => {
+  const targetUid = req.params.uid;
+  try {
+    const callerUid = req.user?.uid;
+    if (!callerUid) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+
+    const isCallerAdmin = await isUserAdminServer(callerUid);
+    if (!isCallerAdmin) {
+      return res.status(403).json({ error: "Forbidden: Administrative access required" });
+    }
+
+    const updateData = req.body;
+    if (!updateData || typeof updateData !== "object") {
+      return res.status(400).json({ error: "Invalid update payload" });
+    }
+
+    const sanitizedData = sanitizeFirestoreData(updateData);
+    await adminDb.collection("users").doc(targetUid).set(sanitizedData, { merge: true });
+
+    // Sync to local JSON store if present
+    try {
+      const dbData = readDb();
+      if (dbData.users) {
+        const idx = dbData.users.findIndex((u: any) => u.id === targetUid);
+        if (idx !== -1) {
+          dbData.users[idx] = { ...dbData.users[idx], ...sanitizedData };
+          writeDb(dbData);
+        }
+      }
+    } catch (e) {}
+
+    return res.json({ success: true, message: "User updated successfully" });
+  } catch (err: any) {
+    console.error("ADMIN_UPDATE_USER_FAILED", { targetUid, error: err?.message || String(err) });
+    return res.status(500).json({ error: err?.message || "Failed to update user profile" });
+  }
+});
+
+// Delete user file/document as Admin
+app.delete("/api/admin/delete-file/:userId/:fileId", requireAuth, async (req: AuthRequest, res) => {
+  const { userId, fileId } = req.params;
+  try {
+    const callerUid = req.user?.uid;
+    if (!callerUid) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+
+    const isCallerAdmin = await isUserAdminServer(callerUid);
+    if (!isCallerAdmin) {
+      return res.status(403).json({ error: "Forbidden: Administrative access required" });
+    }
+
+    // 1. Delete top-level /files/{fileId}
+    try {
+      await adminDb.collection("files").doc(fileId).delete();
+    } catch (e) {}
+
+    // 2. Delete /users/{userId}/files/{fileId}
+    try {
+      await adminDb.collection("users").doc(userId).collection("files").doc(fileId).delete();
+    } catch (e) {}
+
+    // 3. Sync verificationInfo.documents array on user document
+    try {
+      const userRef = adminDb.collection("users").doc(userId);
+      const userSnap = await userRef.get();
+      if (userSnap.exists) {
+        const uData = userSnap.data();
+        if (uData?.verificationInfo?.documents) {
+          const remainingDocs = uData.verificationInfo.documents.filter(
+            (d: any) => d.id !== fileId && d.fileName !== fileId
+          );
+          await userRef.update({
+            "verificationInfo.documents": remainingDocs,
+            "verificationInfo.status": remainingDocs.length === 0 ? "action_required" : uData.verificationInfo.status
+          });
+        }
+      }
+    } catch (e) {}
+
+    return res.json({ success: true, message: "File deleted successfully" });
+  } catch (err: any) {
+    console.error("ADMIN_DELETE_FILE_FAILED", { userId, fileId, error: err?.message || String(err) });
+    return res.status(500).json({ error: err?.message || "Failed to delete file" });
   }
 });
 

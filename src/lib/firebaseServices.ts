@@ -343,16 +343,17 @@ export async function loginFirebaseUser(email: string, pass: string): Promise<Us
     userData.lastActiveAt = nowIso;
     userData.lastLoginAt = nowIso;
 
-    // Check if user has already successfully verified 
-    const isVerified = userData.isVerified === true || userData.isEmailVerified === true || userData.emailVerified === true || userData.verification_status === "verified" || userData.verification_required === false;
-    if (isVerified) {
-      userData.isVerified = true;
-      userData.isEmailVerified = true;
-      userData.email_verified = true;
-      userData.emailVerified = true;
-      userData.verification_required = false;
-      userData.verification_status = "verified";
-    }
+    // Decouple email verification from account document verification
+    const isDocVerified = userData.verificationInfo?.status === "verified" || userData.verification_status === "verified";
+    const isEmailVer = userData.isEmailVerified === true || userData.emailVerified === true || userData.email_verified === true;
+    
+    userData.isEmailVerified = isEmailVer;
+    userData.emailVerified = isEmailVer;
+    userData.email_verified = isEmailVer;
+
+    userData.isVerified = isDocVerified;
+    userData.verification_status = isDocVerified ? "verified" : (userData.verificationInfo?.status || "action_required");
+    userData.verification_required = !isDocVerified;
 
     if (!userData.userPreferences) {
       userData.userPreferences = { ...DEFAULT_USER_PREFERENCES };
@@ -541,15 +542,42 @@ export function sanitizeFirestoreData(obj: any): any {
   return obj;
 }
 
-export async function saveFirebaseUserProfile(user: User): Promise<void> {
+export async function saveFirebaseUserProfileAsAdmin(user: User): Promise<void> {
+  if (!user.id) return;
+
+  setLocalItem(`user_${user.id}`, user);
+
+  try {
+    const res = await authenticatedFetch(`/api/admin/update-user/${user.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(user)
+    });
+    if (res.ok) {
+      return;
+    }
+  } catch (e) {
+    console.warn("API update user as admin warning:", e);
+  }
+
+  try {
+    const userDocRef = doc(db, "users", user.id);
+    const sanitizedUser = sanitizeFirestoreData(user);
+    await setDoc(userDocRef, sanitizedUser, { merge: true });
+  } catch (fsErr) {
+    console.warn("Client Firestore update user as admin fallback notice:", fsErr);
+  }
+}
+
+export async function saveFirebaseUserProfile(user: User, isAdminOverride = false): Promise<void> {
   if (!user.id) return;
   
   // Store in local storage first
   setLocalItem(`user_${user.id}`, user);
 
-  if (!auth.currentUser || auth.currentUser.uid !== user.id) {
-    console.warn("Skipping client Firestore profile update: User not authenticated as owner.");
-    return;
+  // If user is not authenticated as owner or if caller is admin, use administrative update endpoint
+  if (isAdminOverride || !auth.currentUser || auth.currentUser.uid !== user.id) {
+    return saveFirebaseUserProfileAsAdmin(user);
   }
 
   const userDocRef = doc(db, "users", user.id);
@@ -1015,6 +1043,18 @@ export async function deleteFirebaseUserFile(userId: string, fileId: string, sto
   const currentFiles = getLocalItem(`files_${userId}`, []);
   const updatedFiles = currentFiles.filter((f: UserFile) => f.id !== fileId);
   setLocalItem(`files_${userId}`, updatedFiles);
+
+  // Try admin API endpoint if deleting as admin or owner
+  try {
+    const res = await authenticatedFetch(`/api/admin/delete-file/${userId}/${fileId}`, {
+      method: "DELETE"
+    });
+    if (res.ok) {
+      return;
+    }
+  } catch (apiErr) {
+    console.warn("Delete file API call warning:", apiErr);
+  }
 
   if (isFirestoreOffline) {
     return;
