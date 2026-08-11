@@ -995,35 +995,46 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
   return (
     <div className="space-y-8">
       {/* Settings Navigation Header Bar */}
-      <div className={`p-4 rounded-2xl border ${theme === "dark" ? "bg-slate-900/60 border-slate-800" : "bg-white border-slate-200 shadow-sm"}`}>
-        <div className="flex flex-wrap items-center justify-between gap-4">
+      <div className={`p-6 rounded-2xl border transition-all duration-300 relative overflow-hidden ${
+        theme === "dark" 
+          ? "bg-gradient-to-br from-slate-900/80 to-slate-950/90 border-slate-800/80 shadow-2xl shadow-black/40" 
+          : "bg-gradient-to-br from-slate-50 to-white border-slate-200 shadow-xl shadow-slate-100/40"
+      }`}>
+        <div className="absolute top-0 right-0 w-64 h-32 bg-[#D4AF37]/5 blur-3xl pointer-events-none rounded-full" />
+        
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 relative z-10">
           <div>
-            <h1 className={`text-2xl font-bold tracking-tight ${theme === "dark" ? "text-white" : "text-slate-900"}`}>
-              {lang === "ar" ? "إعدادات النظام والحساب" : "System & Account Settings"}
-            </h1>
-            <p className="text-xs text-slate-400 mt-1">
+            <div className="flex items-center gap-2.5 flex-wrap">
+              <h1 className={`text-xl font-black tracking-tight ${theme === "dark" ? "text-white" : "text-slate-900"}`}>
+                {lang === "ar" ? "لوحة التحكم وإعدادات النظام" : "System & Account Workspace"}
+              </h1>
+              <span className="px-2.5 py-0.5 text-[10px] rounded-full bg-[#D4AF37]/15 border border-[#D4AF37]/35 text-[#D4AF37] font-extrabold uppercase tracking-wider font-mono">
+                {currentUser.role} {lang === "ar" ? "المسؤول الأول" : "Control Desk"}
+              </span>
+            </div>
+            <p className="text-xs text-slate-400 mt-1 max-w-xl">
               {lang === "ar" 
-                ? "إدارة حسابك الشخصي، تخصيص مظهر الألوان، وخطط الاشتراكات والدفع الإلكتروني" 
-                : "Manage profile, custom theme colors, subscription plans, and secure payments"}
+                ? "إدارة حسابك الشخصي، تفويض الصلاحيات، تخصيص الهوية البصرية، واشتراكات الأمان الفائق." 
+                : "Configure administrative boundaries, assign workspace permissions, adjust themes, and audit billing states."}
             </p>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3 self-end md:self-auto">
             <button
               onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-              className={`p-2.5 rounded-xl border transition-all cursor-pointer ${
+              className={`p-2.5 rounded-xl border transition-all cursor-pointer shadow-sm ${
                 theme === "dark" 
-                  ? "bg-slate-800 border-slate-700 text-amber-400 hover:bg-slate-700" 
-                  : "bg-slate-100 border-slate-300 text-slate-700 hover:bg-slate-200"
+                  ? "bg-slate-900 hover:bg-slate-850 border-slate-800 text-[#D4AF37]" 
+                  : "bg-white border-slate-250 text-slate-700 hover:bg-slate-100"
               }`}
-              title={theme === "dark" ? "Light Mode" : "Dark Mode"}
+              title={theme === "dark" ? "Switch to Light Mode" : "Switch to Dark Mode"}
             >
               {theme === "dark" ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
             </button>
 
             <button
               onClick={onLogout}
-              className="px-4 py-2.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 text-xs font-bold rounded-xl flex items-center gap-2 transition-all cursor-pointer"
+              className="px-4 py-2.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 text-xs font-black rounded-xl flex items-center gap-2 transition-all cursor-pointer shadow-md"
             >
               <LogOut className="w-3.5 h-3.5" />
               <span>{lang === "ar" ? "تسجيل الخروج" : "Log Out"}</span>
@@ -1031,15 +1042,15 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
           </div>
         </div>
 
-        {/* Settings Navigation Sub-Tabs */}
-        <div className="flex items-center gap-2 mt-6 overflow-x-auto pb-1 border-b border-slate-800/60">
+        {/* Settings Navigation Sub-Tabs Strip */}
+        <div className="flex items-center gap-2 mt-6 overflow-x-auto pb-1 border-b border-slate-800/40 relative z-10 scrollbar-none">
           {[
-            { id: "account", label: lang === "ar" ? "الحساب والصورة" : "Account & Avatar", icon: UserIcon },
-            { id: "appearance", label: lang === "ar" ? "المظهر وتخصيص الألوان" : "Appearance & Theme", icon: Palette },
-            { id: "subscription", label: lang === "ar" ? "خطط الاشتراكات والدفع" : "Plans & Payment", icon: CreditCard },
-            { id: "team", label: lang === "ar" ? "فريق العمل والأدوار" : "Team & Roles", icon: Users },
-            { id: "security", label: lang === "ar" ? "الأمان النسخ الاحتياطي" : "Security & Backup", icon: ShieldCheck },
-            { id: "support", label: lang === "ar" ? "الدعم والتعليمات" : "Help & Support", icon: HelpCircle },
+            { id: "account", label: lang === "ar" ? "الملف الشخصي" : "Profile Details", icon: UserIcon },
+            { id: "appearance", label: lang === "ar" ? "الهوية البصرية والمظهر" : "Visual Theme", icon: Palette },
+            { id: "subscription", label: lang === "ar" ? "باقات الدفع والاشتراك" : "Plans & Payment", icon: CreditCard },
+            { id: "team", label: lang === "ar" ? "الفريق وإدارة الصلاحيات" : "Workspace Team", icon: Users },
+            { id: "security", label: lang === "ar" ? "التشفير والأمان الذاتي" : "Vault Encryption", icon: ShieldCheck },
+            { id: "support", label: lang === "ar" ? "الدعم والتوثيق" : "Help & Documentation", icon: HelpCircle },
           ].filter((tab) => {
             if (currentUser.role !== "CEO") {
               return tab.id === "account" || tab.id === "appearance" || tab.id === "support";
@@ -1052,15 +1063,15 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
               <button
                 key={tab.id}
                 onClick={() => handleTabChange(tab.id as any)}
-                className={`px-4 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap ${
+                className={`px-4.5 py-3 rounded-xl text-xs font-black flex items-center gap-2.5 transition-all cursor-pointer whitespace-nowrap border ${
                   isActive
-                    ? "bg-amber-500 text-slate-950 shadow-lg shadow-amber-500/20"
+                    ? "bg-[#D4AF37]/15 text-[#D4AF37] border-[#D4AF37]/35 shadow-lg shadow-[#D4AF37]/2 font-extrabold"
                     : theme === "dark"
-                    ? "text-slate-400 hover:text-white hover:bg-slate-800/60"
-                    : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
+                    ? "text-slate-400 hover:text-white hover:bg-slate-900 border-transparent"
+                    : "text-slate-600 hover:text-slate-900 hover:bg-slate-100 border-transparent"
                 }`}
               >
-                <Icon className="w-4 h-4" />
+                <Icon className={`w-4 h-4 ${isActive ? "text-[#D4AF37]" : "text-slate-400"}`} />
                 <span>{tab.label}</span>
               </button>
             );

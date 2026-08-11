@@ -3014,7 +3014,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                     type="text" 
                     value={regOwnerName}
                     onChange={(e) => setRegOwnerName(e.target.value)}
-                    className="w-full h-10 px-3 bg-slate-950 border border-slate-800 rounded-xl text-white text-xs focus:outline-none focus:border-amber-500 transition-all placeholder:text-slate-600"
+                    className="w-full h-10 px-3 bg-slate-900/40 border border-slate-800 rounded-xl text-white text-xs focus:outline-none focus:border-[#D4AF37]/70 focus:bg-[#D4AF37]/5 transition-all placeholder:text-slate-600"
                     placeholder="e.g. Mohamed Aly"
                     required
                   />
@@ -3030,7 +3030,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                     type="text" 
                     value={regCompanyName}
                     onChange={(e) => setRegCompanyName(e.target.value)}
-                    className="w-full h-10 px-3 bg-slate-950 border border-slate-800 rounded-xl text-white text-xs focus:outline-none focus:border-amber-500 transition-all placeholder:text-slate-600"
+                    className="w-full h-10 px-3 bg-slate-900/40 border border-slate-800 rounded-xl text-white text-xs focus:outline-none focus:border-[#D4AF37]/70 focus:bg-[#D4AF37]/5 transition-all placeholder:text-slate-600"
                     placeholder="e.g. Mauritanian Finance Group"
                     required
                   />
@@ -3046,7 +3046,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                     type="email" 
                     value={regEmail}
                     onChange={(e) => setRegEmail(e.target.value)}
-                    className="w-full h-10 px-3 bg-slate-950 border border-slate-800 rounded-xl text-white text-xs focus:outline-none focus:border-amber-500 transition-all placeholder:text-slate-600"
+                    className="w-full h-10 px-3 bg-slate-900/40 border border-slate-800 rounded-xl text-white text-xs focus:outline-none focus:border-[#D4AF37]/70 focus:bg-[#D4AF37]/5 transition-all placeholder:text-slate-600"
                     placeholder="e.g. mohamedvadel60@entreprise8.com"
                     required
                   />
@@ -3062,12 +3062,12 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                   </label>
                   <div className="relative">
                     <input 
-                      type={showRegPassword ? "text" : "password"} 
-                      value={regPassword}
-                      onChange={(e) => setRegPassword(e.target.value)}
-                      className="w-full h-10 px-3 pr-10 bg-slate-950 border border-slate-800 rounded-xl text-white text-xs focus:outline-none focus:border-amber-500 transition-all placeholder:text-slate-600 font-mono"
-                      placeholder="••••••••"
-                      required
+                       type={showRegPassword ? "text" : "password"} 
+                       value={regPassword}
+                       onChange={(e) => setRegPassword(e.target.value)}
+                       className="w-full h-10 px-3 pr-10 bg-slate-900/40 border border-slate-800 rounded-xl text-white text-xs focus:outline-none focus:border-[#D4AF37]/70 focus:bg-[#D4AF37]/5 transition-all placeholder:text-slate-600 font-mono"
+                       placeholder="••••••••"
+                       required
                     />
                     <button 
                       type="button"
@@ -3138,7 +3138,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                     type="password" 
                     value={regConfirmPassword}
                     onChange={(e) => setRegConfirmPassword(e.target.value)}
-                    className="w-full h-10 px-3 bg-slate-950 border border-slate-800 rounded-xl text-white text-xs focus:outline-none focus:border-amber-500 transition-all placeholder:text-slate-600 font-mono"
+                    className="w-full h-10 px-3 bg-slate-900/40 border border-slate-800 rounded-xl text-white text-xs focus:outline-none focus:border-[#D4AF37]/70 focus:bg-[#D4AF37]/5 transition-all placeholder:text-slate-600 font-mono"
                     placeholder="••••••••"
                     required
                   />
@@ -3148,7 +3148,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                 <button 
                   type="submit" 
                   disabled={isSubmittingReg}
-                  className="w-full h-11 mt-2 bg-amber-500 hover:bg-amber-400 active:bg-amber-600 text-slate-950 font-bold text-xs rounded-xl shadow-lg shadow-amber-500/10 hover:shadow-amber-500/20 transition-all cursor-pointer flex items-center justify-center gap-2 uppercase tracking-wider"
+                  className="w-full h-11 mt-2 bg-gradient-to-r from-[#D4AF37] to-[#B59410] hover:brightness-110 active:scale-[0.98] text-slate-950 font-bold text-xs rounded-xl shadow-lg shadow-amber-500/10 hover:shadow-amber-500/20 transition-all cursor-pointer flex items-center justify-center gap-2 uppercase tracking-wider"
                 >
                   {isSubmittingReg ? (
                     <RefreshCw className="w-4 h-4 animate-spin" />
@@ -3474,7 +3474,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                         type="email" 
                         value={loginEmail}
                         onChange={(e) => setLoginEmail(e.target.value)}
-                        className="w-full h-10 px-3 bg-slate-950 border border-slate-800 rounded-xl text-white text-xs focus:outline-none focus:border-amber-500 transition-all placeholder:text-slate-600"
+                        className="w-full h-10 px-3 bg-slate-900/40 border border-slate-800 rounded-xl text-white text-xs focus:outline-none focus:border-[#D4AF37]/70 focus:bg-[#D4AF37]/5 transition-all placeholder:text-slate-600"
                         placeholder="name@company.com"
                         required
                       />
@@ -3500,7 +3500,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                         type="password" 
                         value={loginPassword}
                         onChange={(e) => setLoginPassword(e.target.value)}
-                        className="w-full h-10 px-3 bg-slate-950 border border-slate-800 rounded-xl text-white text-xs focus:outline-none focus:border-amber-500 transition-all placeholder:text-slate-600 font-mono"
+                        className="w-full h-10 px-3 bg-slate-900/40 border border-slate-800 rounded-xl text-white text-xs focus:outline-none focus:border-[#D4AF37]/70 focus:bg-[#D4AF37]/5 transition-all placeholder:text-slate-600 font-mono"
                         placeholder="••••••••"
                         required
                       />
@@ -3509,7 +3509,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                     <button 
                       type="submit" 
                       disabled={isSubmittingLogin}
-                      className="w-full h-11 mt-2 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs rounded-xl shadow-lg transition-all cursor-pointer flex items-center justify-center gap-2 uppercase tracking-wider"
+                      className="w-full h-11 mt-2 bg-gradient-to-r from-[#D4AF37] to-[#B59410] hover:brightness-110 active:scale-[0.98] text-slate-950 font-bold text-xs rounded-xl shadow-lg transition-all cursor-pointer flex items-center justify-center gap-2 uppercase tracking-wider"
                     >
                       {isSubmittingLogin ? (
                         <RefreshCw className="w-4 h-4 animate-spin" />
