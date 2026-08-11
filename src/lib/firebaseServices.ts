@@ -407,24 +407,10 @@ export async function loginFirebaseUser(email: string, pass: string): Promise<Us
 }
 
 export async function loginWithGoogle(): Promise<User> {
-  if (typeof window !== "undefined") {
-    console.log(`[Google OAuth] Origin: ${window.location.origin}, Hostname: ${window.location.hostname}`);
-  }
   const provider = new GoogleAuthProvider();
   provider.setCustomParameters({ prompt: 'select_account' });
-
-  let userCredential;
-  try {
-    userCredential = await signInWithPopup(auth, provider);
-  } catch (popupErr: any) {
-    console.warn(`[Google OAuth Error] Code: ${popupErr?.code || 'unknown'}, Message: ${popupErr?.message || String(popupErr)}`);
-    throw popupErr;
-  }
-
+  const userCredential = await signInWithPopup(auth, provider);
   const uid = userCredential.user.uid;
-  if (typeof window !== "undefined") {
-    console.log(`[Google OAuth Success] Authenticated UID: ${uid}`);
-  }
   const email = userCredential.user.email || "";
   const displayName = userCredential.user.displayName || email.split("@")[0];
 
@@ -1289,12 +1275,40 @@ export async function checkWorkspaceInvitation(email: string): Promise<Workspace
     const invitations = getLocalItem("invitations", []);
     return invitations.find((i: WorkspaceInvitation) => i.email.trim().toLowerCase() === emailKey) || null;
   } catch (error) {
-    const errMessage = error instanceof Error ? error.message : String(error);
-    if (errMessage.toLowerCase().includes('offline') || errMessage.toLowerCase().includes('network')) {
+    const errorCode =
+      error && typeof error === "object" && "code" in error
+        ? String((error as { code?: unknown }).code)
+        : "";
+
+    const errMessage =
+      error instanceof Error ? error.message : String(error);
+
+    if (
+      (errorCode === "permission-denied" ||
+        errorCode === "7" ||
+        errMessage.toLowerCase().includes("missing or insufficient permissions")) &&
+      !auth.currentUser
+    ) {
+      console.warn(
+        "Invitation pre-check skipped because the visitor is not authenticated."
+      );
+      return null;
+    }
+
+    if (
+      errMessage.toLowerCase().includes("offline") ||
+      errMessage.toLowerCase().includes("network")
+    ) {
       isFirestoreOffline = true;
       const invitations = getLocalItem("invitations", []);
-      return invitations.find((i: WorkspaceInvitation) => i.email.trim().toLowerCase() === emailKey) || null;
+      return (
+        invitations.find(
+          (i: WorkspaceInvitation) =>
+            i.email.trim().toLowerCase() === emailKey
+        ) || null
+      );
     }
+
     handleFirestoreError(error, OperationType.GET, `invitations/${emailKey}`);
     return null;
   }
