@@ -2944,7 +2944,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
             <motion.div 
               initial={{ opacity: 0, y: 15 }}
               animate={{ opacity: 1, y: 0 }}
-              className="w-full max-w-lg mx-auto bg-slate-900/90 border border-slate-800/80 rounded-2xl p-6 sm:p-8 shadow-2xl my-8 relative"
+              className="zakir-card w-full max-w-lg mx-auto p-6 sm:p-8 my-8 relative"
             >
               {/* Branding Emblem */}
               <div className="text-center mb-6">
@@ -3014,7 +3014,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                     type="text" 
                     value={regOwnerName}
                     onChange={(e) => setRegOwnerName(e.target.value)}
-                    className="w-full h-10 px-3 bg-slate-950 border border-slate-800 rounded-xl text-white text-xs focus:outline-none focus:border-amber-500 transition-all placeholder:text-slate-600"
+                    className="zakir-input w-full h-10 px-3"
                     placeholder="e.g. Mohamed Aly"
                     required
                   />
@@ -3030,7 +3030,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                     type="text" 
                     value={regCompanyName}
                     onChange={(e) => setRegCompanyName(e.target.value)}
-                    className="w-full h-10 px-3 bg-slate-950 border border-slate-800 rounded-xl text-white text-xs focus:outline-none focus:border-amber-500 transition-all placeholder:text-slate-600"
+                    className="zakir-input w-full h-10 px-3"
                     placeholder="e.g. Mauritanian Finance Group"
                     required
                   />
@@ -3046,7 +3046,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                     type="email" 
                     value={regEmail}
                     onChange={(e) => setRegEmail(e.target.value)}
-                    className="w-full h-10 px-3 bg-slate-950 border border-slate-800 rounded-xl text-white text-xs focus:outline-none focus:border-amber-500 transition-all placeholder:text-slate-600"
+                    className="zakir-input w-full h-10 px-3"
                     placeholder="e.g. mohamedvadel60@entreprise8.com"
                     required
                   />
@@ -3065,7 +3065,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                       type={showRegPassword ? "text" : "password"} 
                       value={regPassword}
                       onChange={(e) => setRegPassword(e.target.value)}
-                      className="w-full h-10 px-3 pr-10 bg-slate-950 border border-slate-800 rounded-xl text-white text-xs focus:outline-none focus:border-amber-500 transition-all placeholder:text-slate-600 font-mono"
+                      className="zakir-input w-full h-10 px-3 pr-10 font-mono"
                       placeholder="••••••••"
                       required
                     />
@@ -3148,7 +3148,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                 <button 
                   type="submit" 
                   disabled={isSubmittingReg}
-                  className="w-full h-11 mt-2 bg-amber-500 hover:bg-amber-400 active:bg-amber-600 text-slate-950 font-bold text-xs rounded-xl shadow-lg shadow-amber-500/10 hover:shadow-amber-500/20 transition-all cursor-pointer flex items-center justify-center gap-2 uppercase tracking-wider"
+                  className="zakir-btn-primary w-full h-11 mt-2 uppercase tracking-wider"
                 >
                   {isSubmittingReg ? (
                     <RefreshCw className="w-4 h-4 animate-spin" />
@@ -3215,7 +3215,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
             <motion.div 
               initial={{ opacity: 0, y: 15 }}
               animate={{ opacity: 1, y: 0 }}
-              className="w-full max-w-md mx-auto bg-slate-900/90 border border-slate-800/80 rounded-2xl p-6 sm:p-8 shadow-2xl my-8 relative"
+              className="zakir-card w-full max-w-md mx-auto p-6 sm:p-8 my-8 relative"
             >
               {showForgotPassword ? (
                 /* FORGOT PASSWORD FORM */
@@ -3349,7 +3349,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                         className={`w-full h-11 mt-2 font-bold text-xs rounded-xl shadow-lg transition-all flex items-center justify-center gap-2 uppercase tracking-wider ${
                           resetStep === "forgot" && resetCooldownSeconds > 0
                             ? "bg-slate-800/90 text-slate-400 border border-slate-700/60 cursor-not-allowed opacity-80"
-                            : "bg-amber-500 hover:bg-amber-400 text-slate-950 cursor-pointer shadow-amber-500/20"
+                            : "zakir-btn-primary w-full h-11 mt-2 uppercase tracking-wider"
                         }`}
                       >
                         {isSendingReset ? (
@@ -3474,7 +3474,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                         type="email" 
                         value={loginEmail}
                         onChange={(e) => setLoginEmail(e.target.value)}
-                        className="w-full h-10 px-3 bg-slate-950 border border-slate-800 rounded-xl text-white text-xs focus:outline-none focus:border-amber-500 transition-all placeholder:text-slate-600"
+                        className="zakir-input w-full h-10 px-3"
                         placeholder="name@company.com"
                         required
                       />
@@ -3500,7 +3500,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                         type="password" 
                         value={loginPassword}
                         onChange={(e) => setLoginPassword(e.target.value)}
-                        className="w-full h-10 px-3 bg-slate-950 border border-slate-800 rounded-xl text-white text-xs focus:outline-none focus:border-amber-500 transition-all placeholder:text-slate-600 font-mono"
+                        className="zakir-input w-full h-10 px-3 font-mono"
                         placeholder="••••••••"
                         required
                       />
@@ -3509,7 +3509,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                     <button 
                       type="submit" 
                       disabled={isSubmittingLogin}
-                      className="w-full h-11 mt-2 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs rounded-xl shadow-lg transition-all cursor-pointer flex items-center justify-center gap-2 uppercase tracking-wider"
+                      className="bg-orange-500 text-black rounded-none text-[20px] font-extrabold py-4 px-8 border-4 border-black w-full mt-2 cursor-pointer"
                     >
                       {isSubmittingLogin ? (
                         <RefreshCw className="w-4 h-4 animate-spin" />
@@ -3984,7 +3984,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
             )}
             
             {/* Module Loader bar (Includes last update time, page actions) */}
-            <header className={`px-4 md:px-8 h-16 border-b flex items-center justify-between sticky top-0 z-20 backdrop-blur-md transition-colors ${
+            <header className={`zakir-header px-4 md:px-8 h-16 border-b flex items-center justify-between sticky top-0 z-20 backdrop-blur-md transition-colors ${
               theme === "dark" ? "bg-[#0B0F19]/80 border-slate-800/60" : "bg-white/80 border-slate-200"
             }`}>
               <div className="flex items-center gap-3">
@@ -4000,9 +4000,9 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
 
                 
                 {/* Visual Accent Subscription Badge */}
-                <div className="hidden sm:inline-flex items-center gap-1 px-2.5 py-0.5 bg-[#D4AF37]/15 border border-[#D4AF37]/30 rounded-full">
+                <div className="zakir-badge hidden sm:inline-flex items-center gap-1">
                   <Award className="w-3 h-3 text-[#D4AF37]" />
-                  <span className="text-[10px] font-bold text-[#D4AF37] uppercase">{currentUser?.subscriptionPlan || "Starter"}</span>
+                  <span className="text-[10px] font-bold uppercase">{currentUser?.subscriptionPlan || "Starter"}</span>
                 </div>
               </div>
 

@@ -1706,7 +1706,13 @@ export async function createSupportTicketApi(ticketData: {
  * Fetch Support Tickets
  */
 export async function fetchSupportTicketsApi(userId?: string, userEmail?: string, isAdmin = false) {
-  const token = auth.currentUser ? await auth.currentUser.getIdToken() : "";
+  let token = "";
+  try {
+    if (auth.currentUser) {
+      token = await auth.currentUser.getIdToken().catch(() => "");
+    }
+  } catch (e) {}
+
   try {
     let tickets: any[] = [];
 
@@ -1725,7 +1731,7 @@ export async function fetchSupportTicketsApi(userId?: string, userEmail?: string
         tickets = snap.docs.map(doc => doc.data());
       }
     } catch (fsErr) {
-      console.warn("Firestore support tickets query notice (falling back to REST API):", fsErr);
+      // Ignore Firestore permission errors when unauthenticated
     }
 
     // 2. Fallback to Express API endpoint
@@ -1743,16 +1749,15 @@ export async function fetchSupportTicketsApi(userId?: string, userEmail?: string
           const data = await res.json();
           tickets = data.tickets || [];
         } else if (res.status === 401) {
-          console.warn("Unauthorized ticket fetch attempt");
+          return [];
         }
       } catch (apiErr) {
-        console.warn("API support ticket fetch notice:", apiErr);
+        // network or server error, return empty array gracefully
       }
     }
 
     return tickets || [];
   } catch (err: any) {
-    console.error("fetchSupportTicketsApi error:", err);
     return [];
   }
 }
