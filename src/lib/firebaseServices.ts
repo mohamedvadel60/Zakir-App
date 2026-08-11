@@ -1773,4 +1773,3 @@ export function subscribeToSupportTickets(userId: string, isAdmin: boolean, call
     return () => {};
   }
 }
-
