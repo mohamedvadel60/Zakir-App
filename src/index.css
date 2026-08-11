@@ -14,6 +14,9 @@
   --accent-text: #0b0f19;
   --card-bg: #111827;
   --input-bg: #1f2937;
+  --color-primary: #7C3AED;
+  --color-secondary: #A78BFA;
+  --color-accent: #0891B2;
 }
 
 .theme-light, [data-theme="light"] {
@@ -421,4 +424,39 @@ input:focus, textarea:focus, select:focus {
   box-shadow: 0 0 0 3px rgba(212, 175, 55, 0.2) !important;
   outline: none;
 }
+
+.zakir-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.25rem 0.75rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  background-color: rgba(212, 175, 55, 0.12);
+  color: #D4AF37;
+  border: 1px solid rgba(212, 175, 55, 0.3);
+}
+
+.zakir-tab {
+  padding: 0.5rem 1rem;
+  border-radius: 0.65rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+.zakir-tab-active {
+  background: linear-gradient(135deg, #D4AF37 0%, #C5A059 100%);
+  color: #0b0f19;
+  box-shadow: 0 4px 12px rgba(212, 175, 55, 0.25);
+}
+
+.zakir-header {
+  backdrop-filter: blur(16px);
+  border-bottom: 1px solid var(--border-color, #1e293b);
+  background: var(--header-bg, rgba(11, 15, 25, 0.85));
+}
+
 

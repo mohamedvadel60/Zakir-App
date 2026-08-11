@@ -11,29 +11,15 @@ export async function authenticatedFetch(
   const currentUser = auth.currentUser;
   const headers = new Headers(options.headers || {});
 
-  let tokenAttached = false;
   if (currentUser) {
     try {
       const token = await currentUser.getIdToken();
       if (token) {
         headers.set("Authorization", `Bearer ${token}`);
-        tokenAttached = true;
       }
     } catch (err) {
       console.warn("[authenticatedFetch] Failed to retrieve Firebase auth token:", err);
     }
-  }
-
-  if (!tokenAttached) {
-    try {
-      const raw = localStorage.getItem("currentUser");
-      if (raw) {
-        const u = JSON.parse(raw);
-        if (u && (u.id || u.uid)) {
-          headers.set("Authorization", `Bearer ${u.id || u.uid}`);
-        }
-      }
-    } catch (e) {}
   }
 
   return fetch(url, {
@@ -47,24 +33,12 @@ export async function authenticatedFetch(
  */
 export async function getAuthHeader(): Promise<Record<string, string>> {
   const currentUser = auth.currentUser;
-  if (currentUser) {
-    try {
-      const token = await currentUser.getIdToken();
-      if (token) return { Authorization: `Bearer ${token}` };
-    } catch (err) {
-      console.warn("[getAuthHeader] Failed to retrieve Firebase ID token:", err);
-    }
-  }
-
+  if (!currentUser) return {};
   try {
-    const raw = localStorage.getItem("currentUser");
-    if (raw) {
-      const u = JSON.parse(raw);
-      if (u && (u.id || u.uid)) {
-        return { Authorization: `Bearer ${u.id || u.uid}` };
-      }
-    }
-  } catch (e) {}
-
-  return {};
+    const token = await currentUser.getIdToken();
+    return token ? { Authorization: `Bearer ${token}` } : {};
+  } catch (err) {
+    console.warn("[getAuthHeader] Failed to retrieve Firebase ID token:", err);
+    return {};
+  }
 }
