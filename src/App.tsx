@@ -104,6 +104,7 @@ import { AnimatedLandingPage } from "./components/AnimatedLandingPage";
 import { WorldBankPortal } from "./components/WorldBankPortal";
 import { generateWorldBankFallbackData } from "./lib/worldBankFallback.js";
 import { ZakirLogo } from "./components/ZakirLogo";
+import { SignInPage } from "./components/ui/sign-in";
 import { applyGlobalTheme, ThemeMode } from "./lib/themeUtils.js";
 import { authenticatedFetch } from "./lib/apiUtils.js";
 import { SettingsAdmin } from "./components/SettingsAdmin";
@@ -3414,120 +3415,86 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                   )}
                 </div>
               ) : (
-                /* STANDARD LOGIN FORM */
-                <div>
-                  <div className="text-center mb-6">
-                    <div className="w-14 h-14 rounded-2xl bg-[#D4AF37]/5 border border-[#D4AF37]/15 flex items-center justify-center mx-auto mb-3 text-[#D4AF37]">
-                      <ZakirLogo iconOnly size={40} theme="dark" />
-                    </div>
-                    <h1 className="text-2xl font-bold tracking-tight text-white">
+                /* NEW SIGN-IN PAGE COMPONENT INTEGRATION */
+                <SignInPage
+                  title={
+                    <span className="font-bold text-white">
                       {lang === "fr" ? "Se connecter" : (lang === "ar" ? "تسجيل الدخول" : "Sign In")}
-                    </h1>
-                    <p className="text-xs text-slate-400 mt-1">
-                      {lang === "fr" ? "Accédez à votre espace institutionnel" : (lang === "ar" ? "الدخول لبيئة ذاكرة المؤسسة" : "Access your organizational gateway")}
-                    </p>
-                  </div>
-
-                  <form onSubmit={handleLoginSubmit} className="space-y-4">
-                    {/* Google Sign In Button */}
-                    <button 
-                      type="button"
-                      onClick={async () => {
-                        try {
-                          const userProfile = await loginWithGoogle();
-                          setCurrentUser(userProfile);
-                          applyUserPreferences(userProfile);
-                          setAuthMode("landing");
-                        } catch (err: any) {
-                          setLoginError(formatAuthError(err));
-                        }
-                      }}
-                      className="w-full py-2.5 px-4 bg-slate-800 hover:bg-slate-750 text-white text-xs font-semibold rounded-xl border border-slate-700/80 transition-all cursor-pointer flex items-center justify-center gap-2.5 mb-5 shadow-sm"
-                    >
-                      <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24">
-                        <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-                        <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-                        <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
-                        <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
-                      </svg>
-                      <span>{lang === "fr" ? "Se connecter avec Google" : (lang === "ar" ? "تسجيل الدخول باستخدام Google" : "Sign in with Google")}</span>
-                    </button>
-
-                    {/* Divider */}
-                    <div className="relative flex items-center justify-center my-5">
-                      <div className="border-t border-slate-800 w-full"></div>
-                      <span className="bg-slate-900 px-3 text-[10px] uppercase font-semibold text-slate-500 tracking-widest relative z-10">
-                        {lang === "ar" ? "أو" : "OR"}
-                      </span>
-                    </div>
-
-                    {loginError && (
-                      <div className="p-3.5 bg-rose-500/10 border border-rose-500/20 rounded-xl text-rose-400 text-xs flex items-start gap-2.5">
-                        <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
-                        {renderErrorContent(loginError)}
-                      </div>
-                    )}
-
-                    <div>
-                      <label className="block text-[11px] font-semibold text-slate-300 mb-1">{t.email}</label>
-                      <input 
-                        type="email" 
-                        value={loginEmail}
-                        onChange={(e) => setLoginEmail(e.target.value)}
-                        className="zakir-input w-full h-10 px-3"
-                        placeholder="name@company.com"
-                        required
-                      />
-                    </div>
-
-                    <div>
-                      <div className="flex items-center justify-between mb-1">
-                        <label className="block text-[11px] font-semibold text-slate-300">{t.password}</label>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setShowForgotPassword(true);
-                            setResetEmail(loginEmail);
-                            setResetSuccessMsg("");
-                            setResetErrorMsg("");
-                          }}
-                          className="text-[11px] text-amber-400 hover:text-amber-300 font-semibold transition-colors cursor-pointer"
-                        >
-                          {lang === "fr" ? "Mot de passe oublié ?" : (lang === "ar" ? "نسيت كلمة السر؟" : "Forgot Password?")}
-                        </button>
-                      </div>
-                      <input 
-                        type="password" 
-                        value={loginPassword}
-                        onChange={(e) => setLoginPassword(e.target.value)}
-                        className="zakir-input w-full h-10 px-3 font-mono"
-                        placeholder="••••••••"
-                        required
-                      />
-                    </div>
-
-                    <button 
-                      type="submit" 
-                      disabled={isSubmittingLogin}
-                      className="bg-orange-500 text-black rounded-none text-[20px] font-extrabold py-4 px-8 border-4 border-black w-full mt-2 cursor-pointer"
-                    >
-                      {isSubmittingLogin ? (
-                        <RefreshCw className="w-4 h-4 animate-spin" />
-                      ) : (
-                        <span>{lang === "fr" ? "Se connecter" : (lang === "ar" ? "تسجيل الدخول" : "Sign In")}</span>
-                      )}
-                    </button>
-                  </form>
-
-                  <div className="mt-6 text-center border-t border-slate-800/80 pt-4">
-                    <button 
-                      onClick={() => setAuthMode("register")}
-                      className="text-xs text-amber-500 hover:text-amber-400 font-medium transition-colors cursor-pointer"
-                    >
-                      {lang === "fr" ? "Pas encore de compte ? S'enregistrer" : (lang === "ar" ? "ليس لديك حساب؟ إنشاء حساب جديد" : "No account yet? Register here")}
-                    </button>
-                  </div>
-                </div>
+                    </span>
+                  }
+                  description={
+                    lang === "fr" ? "Accédez à votre espace institutionnel" : (lang === "ar" ? "الدخول لبيئة ذاكرة المؤسسة" : "Access your organizational gateway")
+                  }
+                  heroImageSrc="https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=2160&q=80"
+                  testimonials={[
+                    {
+                      avatarSrc: "https://randomuser.me/api/portraits/men/32.jpg",
+                      name: "Mohamed Aly",
+                      handle: "@zakir_admin",
+                      text: lang === "ar" ? "نظام الذاكرة المؤسسية يضمن استمرارية القرارات بدقة فائقة." : "Organizational causal memory ensures absolute continuity."
+                    },
+                    {
+                      avatarSrc: "https://randomuser.me/api/portraits/women/44.jpg",
+                      name: "Fatima Zahra",
+                      handle: "@fin_director",
+                      text: lang === "ar" ? "إدارة الخزينة والامتثال باتت أسهل بكثير مع زاكير." : "Treasury management and compliance are exceptionally streamlined."
+                    }
+                  ]}
+                  error={loginError ? renderErrorContent(loginError) : undefined}
+                  onSignIn={async (e) => {
+                    e.preventDefault();
+                    const fd = new FormData(e.currentTarget);
+                    const em = fd.get("email") as string;
+                    const pw = fd.get("password") as string;
+                    setLoginError("");
+                    setIsSubmittingLogin(true);
+                    try {
+                      const userProfile = await loginFirebaseUser(em, pw);
+                      const isUserVerified = userProfile.isVerified === true || userProfile.isEmailVerified === true || userProfile.emailVerified === true || userProfile.verification_status === "verified" || userProfile.verification_required === false;
+                      const loggedInUser: User = {
+                        ...userProfile,
+                        isVerified: isUserVerified,
+                        isEmailVerified: isUserVerified,
+                        email_verified: isUserVerified,
+                        emailVerified: isUserVerified,
+                        verification_required: !isUserVerified,
+                        verification_status: isUserVerified ? "verified" : "unverified"
+                      };
+                      setCurrentUser(loggedInUser);
+                      applyUserPreferences(loggedInUser);
+                      setLoginEmail("");
+                      setLoginPassword("");
+                      setAuthMode("landing");
+                    } catch (err: any) {
+                      const errMsg = err?.message || String(err);
+                      if (err?.code === "auth/unauthorized-domain" || errMsg.includes("unauthorized-domain")) {
+                        setLoginError(formatAuthError(err));
+                      } else {
+                        setLoginError(lang === "ar" ? "بيانات الدخول غير صحيحة أو خطأ في الاتصال." : (err.message || "Firebase login failed."));
+                      }
+                    } finally {
+                      setIsSubmittingLogin(false);
+                    }
+                  }}
+                  onGoogleSignIn={async () => {
+                    try {
+                      const userProfile = await loginWithGoogle();
+                      setCurrentUser(userProfile);
+                      applyUserPreferences(userProfile);
+                      setAuthMode("landing");
+                    } catch (err: any) {
+                      setLoginError(formatAuthError(err));
+                    }
+                  }}
+                  onResetPassword={() => {
+                    setShowForgotPassword(true);
+                    setResetSuccessMsg("");
+                    setResetErrorMsg("");
+                  }}
+                  onCreateAccount={() => {
+                    setAuthMode("register");
+                  }}
+                />
               )}
             </motion.div>
 

@@ -27,6 +27,7 @@ interface SignInPageProps {
   description?: React.ReactNode;
   heroImageSrc?: string;
   testimonials?: Testimonial[];
+  error?: React.ReactNode;
   onSignIn?: (event: React.FormEvent<HTMLFormElement>) => void;
   onGoogleSignIn?: () => void;
   onResetPassword?: () => void;
@@ -59,6 +60,7 @@ export const SignInPage: React.FC<SignInPageProps> = ({
   description = "Access your account and continue your journey with us",
   heroImageSrc,
   testimonials = [],
+  error,
   onSignIn,
   onGoogleSignIn,
   onResetPassword,
@@ -74,6 +76,12 @@ export const SignInPage: React.FC<SignInPageProps> = ({
           <div className="flex flex-col gap-6">
             <h1 className="animate-element animate-delay-100 text-4xl md:text-5xl font-semibold leading-tight">{title}</h1>
             <p className="animate-element animate-delay-200 text-muted-foreground">{description}</p>
+
+            {error && (
+              <div className="p-3.5 bg-rose-500/10 border border-rose-500/20 rounded-2xl text-rose-400 text-xs flex items-start gap-2.5">
+                {error}
+              </div>
+            )}
 
             <form className="space-y-5" onSubmit={onSignIn}>
               <div className="animate-element animate-delay-300">
