@@ -608,6 +608,7 @@ export default function App() {
   const [loginPassword, setLoginPassword] = useState("");
   const [loginError, setLoginError] = useState("");
   const [isSubmittingLogin, setIsSubmittingLogin] = useState(false);
+  const [isGoogleSigningIn, setIsGoogleSigningIn] = useState(false);
 
   // Password Reset State
   const [showForgotPassword, setShowForgotPassword] = useState(false);
@@ -836,6 +837,37 @@ export default function App() {
   const formatAuthError = (err: any): string => {
     const errMsg = err?.message || String(err);
     const errCode = err?.code || "";
+
+    if (
+      errCode === "auth/popup-closed-by-user" ||
+      errCode === "auth/cancelled-popup-request" ||
+      errMsg.includes("popup-closed-by-user") ||
+      errMsg.includes("cancelled-popup-request")
+    ) {
+      return "";
+    }
+
+    if (
+      errCode === "auth/popup-blocked" ||
+      errMsg.includes("popup-blocked")
+    ) {
+      return lang === "ar"
+        ? "تم حظر النافذة المنبثقة بواسطة المتصفح. يرجى السماح بالنوافذ المنبثقة (Popups) لهذا الموقع والمحاولة مجدداً."
+        : lang === "fr"
+        ? "La fenêtre contextuelle a été bloquée par votre navigateur. Veuillez autoriser les fenêtres surgissantes pour ce site."
+        : "The sign-in popup was blocked by your browser. Please allow popups for this website and try again.";
+    }
+
+    if (
+      errCode === "auth/network-request-failed" ||
+      errMsg.includes("network-request-failed")
+    ) {
+      return lang === "ar"
+        ? "تعذر الاتصال بالشبكة. يرجى التحقق من اتصال الإنترنت والمحاولة مجدداً."
+        : lang === "fr"
+        ? "Échec de la connexion réseau. Veuillez vérifier votre connexion Internet et réessayer."
+        : "Network connection failed. Please check your internet connection and try again.";
+    }
 
     if (
       errCode === "auth/unauthorized-domain" || 
@@ -2966,17 +2998,26 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
               {/* Google Sign In Button */}
               <button 
                 type="button"
+                disabled={isGoogleSigningIn}
                 onClick={async () => {
+                  if (isGoogleSigningIn) return;
+                  setIsGoogleSigningIn(true);
+                  setRegError("");
                   try {
                     const userProfile = await loginWithGoogle();
                     setCurrentUser(userProfile);
                     applyUserPreferences(userProfile);
                     setAuthMode("landing");
                   } catch (err: any) {
-                    setRegError(formatAuthError(err));
+                    const formatted = formatAuthError(err);
+                    if (formatted) {
+                      setRegError(formatted);
+                    }
+                  } finally {
+                    setIsGoogleSigningIn(false);
                   }
                 }}
-                className="w-full py-2.5 px-4 bg-slate-800 hover:bg-slate-750 text-white text-xs font-semibold rounded-xl border border-slate-700/80 transition-all cursor-pointer flex items-center justify-center gap-2.5 mb-5 shadow-sm"
+                className={`w-full py-2.5 px-4 bg-slate-800 hover:bg-slate-750 text-white text-xs font-semibold rounded-xl border border-slate-700/80 transition-all cursor-pointer flex items-center justify-center gap-2.5 mb-5 shadow-sm ${isGoogleSigningIn ? 'opacity-50 cursor-not-allowed' : ''}`}
               >
                 <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24">
                   <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
@@ -3432,17 +3473,26 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                     {/* Google Sign In Button */}
                     <button 
                       type="button"
+                      disabled={isGoogleSigningIn}
                       onClick={async () => {
+                        if (isGoogleSigningIn) return;
+                        setIsGoogleSigningIn(true);
+                        setLoginError("");
                         try {
                           const userProfile = await loginWithGoogle();
                           setCurrentUser(userProfile);
                           applyUserPreferences(userProfile);
                           setAuthMode("landing");
                         } catch (err: any) {
-                          setLoginError(formatAuthError(err));
+                          const formatted = formatAuthError(err);
+                          if (formatted) {
+                            setLoginError(formatted);
+                          }
+                        } finally {
+                          setIsGoogleSigningIn(false);
                         }
                       }}
-                      className="w-full py-2.5 px-4 bg-slate-800 hover:bg-slate-750 text-white text-xs font-semibold rounded-xl border border-slate-700/80 transition-all cursor-pointer flex items-center justify-center gap-2.5 mb-5 shadow-sm"
+                      className={`w-full py-2.5 px-4 bg-slate-800 hover:bg-slate-750 text-white text-xs font-semibold rounded-xl border border-slate-700/80 transition-all cursor-pointer flex items-center justify-center gap-2.5 mb-5 shadow-sm ${isGoogleSigningIn ? 'opacity-50 cursor-not-allowed' : ''}`}
                     >
                       <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24">
                         <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>

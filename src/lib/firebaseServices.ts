@@ -407,10 +407,24 @@ export async function loginFirebaseUser(email: string, pass: string): Promise<Us
 }
 
 export async function loginWithGoogle(): Promise<User> {
+  if (typeof window !== "undefined") {
+    console.log(`[Google OAuth] Origin: ${window.location.origin}, Hostname: ${window.location.hostname}`);
+  }
   const provider = new GoogleAuthProvider();
   provider.setCustomParameters({ prompt: 'select_account' });
-  const userCredential = await signInWithPopup(auth, provider);
+
+  let userCredential;
+  try {
+    userCredential = await signInWithPopup(auth, provider);
+  } catch (popupErr: any) {
+    console.warn(`[Google OAuth Error] Code: ${popupErr?.code || 'unknown'}, Message: ${popupErr?.message || String(popupErr)}`);
+    throw popupErr;
+  }
+
   const uid = userCredential.user.uid;
+  if (typeof window !== "undefined") {
+    console.log(`[Google OAuth Success] Authenticated UID: ${uid}`);
+  }
   const email = userCredential.user.email || "";
   const displayName = userCredential.user.displayName || email.split("@")[0];
 
