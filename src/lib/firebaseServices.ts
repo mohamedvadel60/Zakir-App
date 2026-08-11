@@ -184,6 +184,20 @@ export async function registerFirebaseUser(
 
   isFirestoreOffline = false; // Auth succeeded, reset offline flag!
 
+  const userDocRef = doc(db, "users", uid);
+
+  // Check if profile was already created by authoritative server endpoint (/api/auth/register)
+  try {
+    const existingSnap = await getDoc(userDocRef);
+    if (existingSnap && existingSnap.exists()) {
+      const existingData = existingSnap.data() as User;
+      setLocalItem(`user_${uid}`, existingData);
+      return existingData;
+    }
+  } catch (e) {
+    console.warn("Notice: Checking existing user doc in registerFirebaseUser:", e);
+  }
+
   let workspaceId = invitedWorkspaceId;
   let workspace = invitedWorkspace;
 
@@ -198,14 +212,16 @@ export async function registerFirebaseUser(
     };
   }
 
-  // 2. Initialize new user profile with Free Tier status & Default System Preferences
+  // 2. Initialize new user profile with Free Tier status & Default System Preferences.
+  // Force safe non-privileged role ("Contributor") for client-initiated registration path.
+  const safeRole: UserRole = "Contributor";
   const nowIso = new Date().toISOString();
   const newUser: User = {
     id: uid,
     email: email,
     companyName: companyName,
     ownerName: ownerName,
-    role: role,
+    role: safeRole,
     powers: powers,
     workspaceId: workspaceId,
     workspace: workspace,
@@ -228,8 +244,20 @@ export async function registerFirebaseUser(
 
   // 3. Store new user document under /users/{uid} in Firestore
   try {
-    await setDoc(doc(db, "users", uid), newUser);
+    await setDoc(userDocRef, newUser);
   } catch (error) {
+    // If setDoc failed (e.g. race condition where server created profile concurrently), retry reading doc
+    try {
+      const retrySnap = await getDoc(userDocRef);
+      if (retrySnap && retrySnap.exists()) {
+        const retryData = retrySnap.data() as User;
+        setLocalItem(`user_${uid}`, retryData);
+        return retryData;
+      }
+    } catch (rErr) {
+      console.warn("Retry fetch failed in registerFirebaseUser:", rErr);
+    }
+
     const errMessage = error instanceof Error ? error.message : String(error);
     if (errMessage.toLowerCase().includes('offline') || errMessage.toLowerCase().includes('network')) {
       isFirestoreOffline = true;
@@ -270,7 +298,7 @@ export async function loginFirebaseUser(email: string, pass: string): Promise<Us
 
   isFirestoreOffline = false; // Auth succeeded, reset offline flag!
 
-  // Check if account was marked deleted in /deletedUsers/{uid}
+  // Check if account was marked deleted in /deletedUsers/{uid} — FAIL CLOSED
   try {
     const deletedSnap = await getDoc(doc(db, "deletedUsers", uid));
     if (deletedSnap.exists()) {
@@ -282,7 +310,7 @@ export async function loginFirebaseUser(email: string, pass: string): Promise<Us
     if (dErr.message?.includes("deleted")) throw dErr;
     console.error("Error verifying account status in /deletedUsers/ for loginFirebaseUser:", uid, dErr);
     const errStr = dErr instanceof Error ? dErr.message : String(dErr);
-    if (errStr.toLowerCase().includes("permission") || errStr.toLowerCase().includes("denied")) {
+    if (errStr.toLowerCase().includes("permission") || errStr.toLowerCase().includes("denied") || errStr.toLowerCase().includes("unauthenticated") || errStr.toLowerCase().includes("access")) {
       await signOut(auth);
       clearUserLocalCache(uid);
       throw new Error("Access denied while verifying account status.");
@@ -299,6 +327,12 @@ export async function loginFirebaseUser(email: string, pass: string): Promise<Us
     if (errMessage.toLowerCase().includes('offline') || errMessage.toLowerCase().includes('network')) {
       isFirestoreOffline = true;
     } else {
+      const isAuthPermissionError = errMessage.toLowerCase().includes("permission") || errMessage.toLowerCase().includes("denied") || errMessage.toLowerCase().includes("unauthenticated");
+      if (isAuthPermissionError) {
+        await signOut(auth);
+        clearUserLocalCache(uid);
+        throw new Error("Access denied: Insufficient permissions to access profile.");
+      }
       handleFirestoreError(error, OperationType.GET, `users/${uid}`);
     }
   }
@@ -326,7 +360,7 @@ export async function loginFirebaseUser(email: string, pass: string): Promise<Us
     if (!userData.subscriptionStatus) {
       userData.subscriptionStatus = "Active";
     }
-    // Update last active in background
+    // Update last active in background (non-protected fields)
     try {
       await updateDoc(userDocRef, {
         lastActiveAt: nowIso,
@@ -356,6 +390,16 @@ export async function loginFirebaseUser(email: string, pass: string): Promise<Us
       await setDoc(userDocRef, defaultUser);
     } catch (e) {
       console.warn("Failed to create missing user profile doc:", e);
+      try {
+        const retrySnap = await getDoc(userDocRef);
+        if (retrySnap && retrySnap.exists()) {
+          const rData = retrySnap.data() as User;
+          setLocalItem(`user_${uid}`, rData);
+          return rData;
+        }
+      } catch (rErr) {
+        console.warn("Retry fetch in loginFirebaseUser failed:", rErr);
+      }
     }
     setLocalItem(`user_${uid}`, defaultUser);
     return defaultUser;
@@ -372,7 +416,7 @@ export async function loginWithGoogle(): Promise<User> {
 
   isFirestoreOffline = false;
   
-  // Check if account was marked deleted in /deletedUsers/{uid}
+  // Check if account was marked deleted in /deletedUsers/{uid} — FAIL CLOSED
   try {
     const deletedSnap = await getDoc(doc(db, "deletedUsers", uid));
     if (deletedSnap.exists()) {
@@ -384,7 +428,7 @@ export async function loginWithGoogle(): Promise<User> {
     if (dErr.message?.includes("deleted")) throw dErr;
     console.error("Error verifying account status in /deletedUsers/ for loginWithGoogle:", uid, dErr);
     const errStr = dErr instanceof Error ? dErr.message : String(dErr);
-    if (errStr.toLowerCase().includes("permission") || errStr.toLowerCase().includes("denied")) {
+    if (errStr.toLowerCase().includes("permission") || errStr.toLowerCase().includes("denied") || errStr.toLowerCase().includes("unauthenticated") || errStr.toLowerCase().includes("access")) {
       await signOut(auth);
       clearUserLocalCache(uid);
       throw new Error("Access denied while verifying account status.");
@@ -400,6 +444,12 @@ export async function loginWithGoogle(): Promise<User> {
     if (errMessage.toLowerCase().includes('offline') || errMessage.toLowerCase().includes('network')) {
       isFirestoreOffline = true;
     } else {
+      const isAuthPermissionError = errMessage.toLowerCase().includes("permission") || errMessage.toLowerCase().includes("denied") || errMessage.toLowerCase().includes("unauthenticated");
+      if (isAuthPermissionError) {
+        await signOut(auth);
+        clearUserLocalCache(uid);
+        throw new Error("Access denied: Insufficient permissions to access profile.");
+      }
       handleFirestoreError(error, OperationType.GET, `users/${uid}`);
     }
   }
@@ -450,6 +500,16 @@ export async function loginWithGoogle(): Promise<User> {
       await setDoc(userDocRef, defaultUser);
     } catch (error) {
       console.warn("Failed to save new Google user to Firestore:", error);
+      try {
+        const retrySnap = await getDoc(userDocRef);
+        if (retrySnap && retrySnap.exists()) {
+          const rData = retrySnap.data() as User;
+          setLocalItem(`user_${uid}`, rData);
+          return rData;
+        }
+      } catch (rErr) {
+        console.warn("Retry fetch in loginWithGoogle failed:", rErr);
+      }
     }
     
     setLocalItem(`user_${uid}`, defaultUser);
@@ -573,7 +633,7 @@ export function subscribeToFirebaseAuthState(callback: (user: User | null) => vo
     }
 
     try {
-      // Check if user account is marked deleted in /deletedUsers/{uid}
+      // Check if user account is marked deleted in /deletedUsers/{uid} — FAIL CLOSED
       try {
         const deletedSnap = await getDoc(doc(db, "deletedUsers", fbUser.uid));
         if (deletedSnap.exists()) {
@@ -586,7 +646,7 @@ export function subscribeToFirebaseAuthState(callback: (user: User | null) => vo
       } catch (dErr: any) {
         console.error("Error verifying account status in /deletedUsers/ for subscribeToFirebaseAuthState:", fbUser.uid, dErr);
         const errStr = dErr instanceof Error ? dErr.message : String(dErr);
-        if (errStr.toLowerCase().includes("permission") || errStr.toLowerCase().includes("denied")) {
+        if (errStr.toLowerCase().includes("permission") || errStr.toLowerCase().includes("denied") || errStr.toLowerCase().includes("unauthenticated") || errStr.toLowerCase().includes("access")) {
           await signOut(auth);
           clearUserLocalCache(fbUser.uid);
           callback(null);
@@ -604,6 +664,13 @@ export function subscribeToFirebaseAuthState(callback: (user: User | null) => vo
           console.warn("Firestore offline during auth state fetch.");
           isFirestoreOffline = true;
         } else {
+          const isAuthPermissionError = errMessage.toLowerCase().includes("permission") || errMessage.toLowerCase().includes("denied") || errMessage.toLowerCase().includes("unauthenticated");
+          if (isAuthPermissionError) {
+            await signOut(auth);
+            clearUserLocalCache(fbUser.uid);
+            callback(null);
+            return;
+          }
           handleFirestoreError(error, OperationType.GET, `users/${fbUser.uid}`);
         }
       }
@@ -614,7 +681,7 @@ export function subscribeToFirebaseAuthState(callback: (user: User | null) => vo
         callback(userObj);
       } else {
         // Firestore is online and authoritative, and the user profile does not exist.
-        // We must never restore from local storage. Create a safe, default, non-privileged Contributor profile instead.
+        // Create a safe, default, non-privileged Contributor profile instead.
         const defaultUser: User = {
           id: fbUser.uid,
           email: fbUser.email || "",
@@ -625,16 +692,37 @@ export function subscribeToFirebaseAuthState(callback: (user: User | null) => vo
           trialExpiresAt: new Date(Date.now() + 24 * 3600 * 1000).toISOString()
         };
         try {
-          const { doc, setDoc } = await import("firebase/firestore");
           await setDoc(doc(db, "users", fbUser.uid), defaultUser);
         } catch (e) {
           console.warn("Failed to create default non-admin profile in Firestore:", e);
+          try {
+            const retrySnap = await getDoc(doc(db, "users", fbUser.uid));
+            if (retrySnap && retrySnap.exists()) {
+              const rData = retrySnap.data() as User;
+              setLocalItem(`user_${fbUser.uid}`, rData);
+              callback(rData);
+              return;
+            }
+          } catch (rErr) {
+            console.warn("Retry fetch in subscribeToFirebaseAuthState failed:", rErr);
+          }
         }
         setLocalItem(`user_${fbUser.uid}`, defaultUser);
         callback(defaultUser);
       }
     } catch (err) {
       console.warn("Fallback on user profile fetch error:", err);
+      const errStr = err instanceof Error ? err.message : String(err);
+      const isAuthPermissionError = errStr.toLowerCase().includes("permission") || errStr.toLowerCase().includes("denied") || errStr.toLowerCase().includes("unauthenticated");
+
+      if (isAuthPermissionError) {
+        console.error("Authorization failed in subscribeToFirebaseAuthState, signing out user.");
+        await signOut(auth);
+        clearUserLocalCache(fbUser.uid);
+        callback(null);
+        return;
+      }
+
       // Fallback to local storage ONLY if Firestore is verified offline, and NEVER restore CEO or Admin roles.
       if (isFirestoreOffline) {
         const localUser = fbUser ? getLocalItem(`user_${fbUser.uid}`, null) : null;
