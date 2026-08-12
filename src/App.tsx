@@ -3464,7 +3464,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                 <motion.div 
                   initial={{ opacity: 0, y: 15 }}
                   animate={{ opacity: 1, y: 0 }}
-                  className="w-full max-w-md mx-auto bg-[#0d1527]/90 border border-slate-800/80 rounded-2xl p-6 sm:p-8 shadow-2xl relative"
+                  className="w-full max-w-md mx-auto bg-[#070b13] border border-slate-800 rounded-sm p-6 sm:p-8 relative"
                 >
               {showForgotPassword ? (
                 /* FORGOT PASSWORD FORM */
@@ -3914,29 +3914,44 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
               {(
                 [
                   {
-                    group: lang === "ar" ? "بيئة العمل" : "WORKSPACE",
+                    group: "01 // WORKSPACE",
                     items: [
-                      { id: "dashboard", label: (t as any).refreshPage || (lang === "ar" ? "لوحة التحكم" : "Dashboard"), icon: Compass },
-                      { id: "library", label: t.allCategories || (lang === "ar" ? "مكتبة الذاكرة" : "Memory Library"), icon: FileText },
-                      { id: "add", label: t.logMemoryBtn || (lang === "ar" ? "إضافة ذاكرة" : "Add Memory"), icon: PlusCircle },
-                      { id: "files", label: lang === "ar" ? "إدارة الملفات" : (lang === "fr" ? "Fichiers & Vault" : "File Vault"), icon: Folder },
+                      { id: "dashboard", label: lang === "ar" ? "لوحة الإحاطة التنفيذية" : "Executive Brief", icon: Compass },
                     ]
                   },
                   {
-                    group: lang === "ar" ? "الذكاء والتحليل" : "INTELLIGENCE",
+                    group: "02 // MEMORY ARCHIVE",
                     items: [
-                      { id: "smart", label: t.smartEvolutionTitle || (lang === "ar" ? "التطور الذكي" : "Smart Evolution"), icon: Brain },
-                      { id: "market", label: t.marketIntelligenceTitle || (lang === "ar" ? "ذكاء السوق" : "Market Intelligence"), icon: TrendingUp },
-                      { id: "agent", label: t.aiAgentTitle || (lang === "ar" ? "المستشار المعرفي" : "Cognitive Advisor"), icon: Sparkles },
+                      { id: "library", label: lang === "ar" ? "مكتبة الذاكرة السببية" : "Memory Index", icon: FileText },
+                      { id: "add", label: lang === "ar" ? "تسجيل حدث ومعاملة" : "Log New Memory", icon: PlusCircle },
                     ]
                   },
                   {
-                    group: lang === "ar" ? "الإدارة والأمان" : "MANAGEMENT",
+                    group: "03 // VAULT & REGISTRY",
                     items: [
-                      { id: "alerts", label: t.riskAlertsTitle || (lang === "ar" ? "تنبيهات المخاطر" : "Risk Alerts"), icon: ShieldAlert, badge: statsCount.activeRisks },
-                      { id: "gmail", label: lang === "ar" ? "البريد" : (lang === "fr" ? "Messagerie" : "Email Vault"), icon: Mail },
-                      { id: "settings", label: t.settingsTitle || (lang === "ar" ? "الإعدادات" : "Settings"), icon: SettingsIcon },
-                      { id: "support", label: lang === "ar" ? "الدعم الفني" : (lang === "fr" ? "Support" : "Support Center"), icon: HelpCircle },
+                      { id: "files", label: lang === "ar" ? "خزنة الملفات والوثائق" : "Document Vault", icon: Folder },
+                      { id: "gmail", label: lang === "ar" ? "سجل المراسلات والبريد" : "Correspondence", icon: Mail },
+                    ]
+                  },
+                  {
+                    group: "04 // INTELLIGENCE & ADVISOR",
+                    items: [
+                      { id: "agent", label: lang === "ar" ? "المستشار السببي الذكي" : "Cognitive Advisor", icon: Sparkles },
+                      { id: "smart", label: lang === "ar" ? "محرك التطور المعرفي" : "Evolution Engine", icon: Brain },
+                      { id: "market", label: lang === "ar" ? "استخبارات الأسواق" : "Market Intel", icon: TrendingUp },
+                    ]
+                  },
+                  {
+                    group: "05 // RISK & COMPLIANCE",
+                    items: [
+                      { id: "alerts", label: lang === "ar" ? "سجل رادار المخاطر" : "Risk Registry", icon: ShieldAlert, badge: statsCount.activeRisks },
+                    ]
+                  },
+                  {
+                    group: "06 // CONTROL DESK",
+                    items: [
+                      { id: "settings", label: lang === "ar" ? "إعدادات النظام والأمان" : "System Settings", icon: SettingsIcon },
+                      { id: "support", label: lang === "ar" ? "دعم العمليات" : "Support Desk", icon: HelpCircle },
                     ]
                   }
                 ] as { group: string; items: { id: string; label: any; icon: any; badge?: number }[] }[]

@@ -1,103 +1,74 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
-@keyframes fadeSlideIn {
-  to {
-    opacity: 1;
-    filter: blur(0px);
-    transform: translateY(0px);
-  }
-}
-
-@keyframes slideRightIn {
-  to {
-    opacity: 1;
-    filter: blur(0px);
-    transform: translateX(0px);
-  }
-}
-
-@keyframes testimonialIn {
-  to {
-    opacity: 1;
-    filter: blur(0px);
-    transform: translateY(0px) scale(1);
-  }
-}
-
-/* System CSS Theme Variables & Clean Enterprise SaaS Design System */
+/* Zakir Institutional Intelligence Terminal Design System */
 :root {
-  --bg-primary: #0b0f19;
-  --bg-secondary: #111827;
-  --bg-tertiary: #1f2937;
-  --text-primary: #f8fafc;
+  --bg-primary: #070b13;
+  --bg-secondary: #0d1322;
+  --bg-tertiary: #131c31;
+  --text-primary: #f1f5f9;
   --text-secondary: #94a3b8;
   --border-color: #1e293b;
-  --accent-color: #d4af37;
+  --accent-color: #D4AF37;
   --accent-hover: #e5c158;
-  --accent-subtle: rgba(212, 175, 55, 0.12);
-  --accent-text: #0b0f19;
-  --card-bg: #111827;
-  --input-bg: #1f2937;
-  --color-primary: #7C3AED;
-  --color-secondary: #A78BFA;
-  --color-accent: #0891B2;
+  --accent-subtle: rgba(212, 175, 55, 0.08);
+  --card-bg: #0d1322;
+  --input-bg: #131c31;
 }
 
 .theme-light, [data-theme="light"] {
-  --bg-primary: #f8fafc;
+  --bg-primary: #f4f6f9;
   --bg-secondary: #ffffff;
-  --bg-tertiary: #f1f5f9;
-  --text-primary: #0f172a;
-  --text-secondary: #475569;
-  --border-color: #e2e8f0;
-  --accent-color: #d4af37;
-  --accent-hover: #bca032;
-  --accent-subtle: rgba(212, 175, 55, 0.10);
-  --accent-text: #0f172a;
+  --bg-tertiary: #eaedf3;
+  --text-primary: #090d16;
+  --text-secondary: #4a5568;
+  --border-color: #cbd5e1;
+  --accent-color: #b89728;
+  --accent-hover: #9c7d1e;
+  --accent-subtle: rgba(184, 151, 40, 0.08);
   --card-bg: #ffffff;
   --input-bg: #f8fafc;
 }
 
-.theme-dark, [data-theme="dark"] {
-  --bg-primary: #0b0f19;
-  --bg-secondary: #111827;
-  --bg-tertiary: #1f2937;
-  --text-primary: #f8fafc;
-  --text-secondary: #94a3b8;
-  --border-color: #1e293b;
-  --accent-color: #d4af37;
-  --accent-hover: #e5c158;
-  --accent-subtle: rgba(212, 175, 55, 0.12);
-  --accent-text: #0b0f19;
-  --card-bg: #111827;
-  --input-bg: #1f2937;
-}
-
-.custom-theme-active {
-  --bg-primary: var(--custom-bg, #0b0f19);
-  --bg-secondary: var(--custom-card, #111827);
-  --bg-tertiary: var(--custom-input, #1f2937);
-  --text-primary: var(--custom-text, #f8fafc);
-  --text-secondary: var(--custom-text-muted, #94a3b8);
-  --border-color: var(--custom-border, #1e293b);
-  --accent-color: var(--custom-accent, #d4af37);
-  --accent-hover: var(--custom-accent-hover, #e5c158);
-  --accent-subtle: var(--custom-accent-subtle, rgba(212, 175, 55, 0.12));
-  --accent-text: var(--custom-accent-text-contrast, #0b0f19);
-  --card-bg: var(--custom-card, #111827);
-  --input-bg: var(--custom-input, #1f2937);
-}
-
-/* Base Body and Typography */
-html, body, p, span, button, input, select, textarea, label, div {
+/* Institutional Monospace & Sans Typography */
+body {
   font-family: 'Inter', 'Cairo', -apple-system, BlinkMacSystemFont, sans-serif;
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  letter-spacing: -0.01em;
 }
 
-h1, h2, h3, h4, h5, h6, .font-display {
-  font-family: 'Inter', 'Cairo', sans-serif;
-  font-weight: 800;
-  letter-spacing: -0.02em;
+code, pre, .font-mono {
+  font-family: 'JetBrains Mono', 'Fira Code', monospace, sans-serif;
+}
+
+/* Structural 1px borders & zero large rounded corners for Zakir terminal aesthetic */
+.zakir-panel {
+  background-color: var(--card-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 2px;
+}
+
+.zakir-terminal-grid {
+  background-image: linear-gradient(to right, rgba(30, 41, 59, 0.2) 1px, transparent 1px),
+                    linear-gradient(to bottom, rgba(30, 41, 59, 0.2) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+/* Custom scrollbar for dense terminal viewports */
+::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+::-webkit-scrollbar-track {
+  background: var(--bg-primary);
+}
+::-webkit-scrollbar-thumb {
+  background: #334155;
+  border-radius: 0px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #D4AF37;
 }
 
 /* Crisp Clean Enterprise Utilities */
