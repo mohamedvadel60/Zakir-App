@@ -217,16 +217,20 @@ export const EmailVerificationView: React.FC<EmailVerificationViewProps> = ({
   const remainingAttempts = Math.max(0, 3 - resendAttempts);
 
   return (
-    <div className="min-h-screen bg-slate-950 flex flex-col justify-between p-4 sm:p-6 relative selection:bg-amber-500/30">
+    <div className="min-h-screen bg-[#070b13] flex flex-col justify-between p-4 sm:p-6 relative overflow-hidden selection:bg-violet-500/20">
+      {/* Ambient glow */}
+      <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-violet-600/[0.04] rounded-full blur-[140px] pointer-events-none" />
+      <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-cyan-500/[0.03] rounded-full blur-[140px] pointer-events-none" />
+
       {/* Top Bar */}
-      <div className="max-w-md mx-auto w-full flex items-center justify-between pt-2">
+      <div className="max-w-md mx-auto w-full flex items-center justify-between pt-2 relative z-10">
         <div className="flex items-center gap-2">
           <ZakirLogo iconOnly size={18} theme="dark" />
           <span className="text-xs font-semibold tracking-wider text-slate-400">ZAKIR</span>
         </div>
         <button
           onClick={onLogout}
-          className="text-xs text-slate-400 hover:text-rose-400 transition-colors flex items-center gap-1 cursor-pointer"
+          className="text-xs text-slate-400 hover:text-rose-400 transition-colors flex items-center gap-1 cursor-pointer rounded-md px-1.5 py-1 hover:bg-white/[0.04] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500/40"
         >
           <LogOut className="w-3.5 h-3.5" />
           <span>{lang === "ar" ? "تسجيل الخروج" : "Sign Out"}</span>
@@ -237,11 +241,12 @@ export const EmailVerificationView: React.FC<EmailVerificationViewProps> = ({
       <motion.div
         initial={{ opacity: 0, y: 15 }}
         animate={{ opacity: 1, y: 0 }}
-        className="max-w-md mx-auto w-full bg-slate-900/80 border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl relative overflow-hidden backdrop-blur-sm space-y-6"
+        transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
+        className="max-w-md mx-auto w-full bg-[#0d1527]/95 backdrop-blur-xl border border-white/[0.07] rounded-2xl p-6 sm:p-8 shadow-[0_20px_60px_-20px_rgba(0,0,0,0.7)] relative z-10 overflow-hidden space-y-6"
       >
         {/* Header */}
-        <div className="text-center space-y-2">
-          <div className="inline-flex p-3 bg-amber-500/10 rounded-2xl border border-amber-500/20 text-amber-400">
+        <div className="text-center space-y-2.5">
+          <div className="inline-flex p-3 bg-violet-500/10 rounded-2xl border border-violet-500/20 text-violet-400">
             <ShieldCheck className="w-6 h-6" />
           </div>
           <h2 className="text-xl font-bold text-white tracking-tight">
@@ -258,7 +263,7 @@ export const EmailVerificationView: React.FC<EmailVerificationViewProps> = ({
               ? "Nous avons envoyé un code à 6 chiffres à :"
               : "We've sent a 6-digit verification code to:"}
           </p>
-          <p className="text-sm font-semibold text-amber-400 break-all">{currentUser.email}</p>
+          <p className="text-sm font-semibold text-violet-300 break-all">{currentUser.email}</p>
         </div>
 
         {/* Error/Success Notifications */}
@@ -277,8 +282,8 @@ export const EmailVerificationView: React.FC<EmailVerificationViewProps> = ({
 
         {/* Code Input Form */}
         <form onSubmit={handleVerifySubmit} className="space-y-4">
-          <div className="space-y-1">
-            <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
+          <div className="space-y-1.5">
+            <label className="text-[10px] font-semibold uppercase tracking-widest text-slate-400">
               {lang === "ar" ? "رمز التحقق" : "Verification Code"}
             </label>
             <input
@@ -287,14 +292,14 @@ export const EmailVerificationView: React.FC<EmailVerificationViewProps> = ({
               placeholder="------"
               value={verificationCode}
               onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, ""))}
-              className="w-full text-center tracking-[12px] text-xl font-bold font-mono py-3.5 bg-slate-950/60 border border-slate-800 rounded-xl text-amber-400 placeholder:text-slate-800 focus:border-[#D4AF37] focus:outline-none focus:ring-1 focus:ring-[#D4AF37] transition-all"
+              className="w-full text-center tracking-[12px] text-xl font-bold font-mono py-3.5 bg-white/[0.03] border border-white/[0.08] rounded-lg text-violet-300 placeholder:text-slate-700 focus:border-violet-500/60 focus:outline-none focus:ring-[3px] focus:ring-violet-500/15 transition-[border-color,box-shadow] duration-150"
             />
           </div>
 
           <button
             type="submit"
             disabled={isVerifyingCode || verificationCode.length !== 6}
-            className="w-full py-3 bg-amber-500 hover:bg-amber-400 disabled:opacity-40 disabled:cursor-not-allowed text-slate-950 font-bold rounded-xl transition-all shadow-lg shadow-amber-500/10 hover:shadow-amber-500/20 flex items-center justify-center gap-2 cursor-pointer text-sm"
+            className="w-full py-3 bg-gradient-to-r from-violet-600 to-violet-500 hover:brightness-110 disabled:opacity-40 disabled:cursor-not-allowed text-white font-semibold rounded-lg transition-[filter,box-shadow,transform] duration-150 shadow-lg shadow-violet-600/25 hover:shadow-violet-600/35 active:scale-[0.98] flex items-center justify-center gap-2 cursor-pointer text-sm"
           >
             {isVerifyingCode ? <RefreshCw className="w-4 h-4 animate-spin" /> : <ShieldCheck className="w-4 h-4" />}
             <span>{lang === "ar" ? "تأكيد وتفعيل الحساب" : "Confirm & Activate Account"}</span>
@@ -307,7 +312,7 @@ export const EmailVerificationView: React.FC<EmailVerificationViewProps> = ({
             type="button"
             disabled={isResendingCode || resendCountdown > 0 || cooldownTimeLeft > 0 || resendAttempts >= 3}
             onClick={handleResendClick}
-            className="text-xs text-slate-400 hover:text-amber-400 font-medium transition-colors cursor-pointer inline-flex items-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed"
+            className="text-xs text-slate-400 hover:text-violet-300 font-medium transition-colors cursor-pointer inline-flex items-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed"
           >
             {isResendingCode && <RefreshCw className="w-3.5 h-3.5 animate-spin" />}
             <span>
@@ -352,7 +357,7 @@ export const EmailVerificationView: React.FC<EmailVerificationViewProps> = ({
       </motion.div>
 
       {/* Footer */}
-      <div className="text-center text-[10px] text-slate-600">
+      <div className="text-center text-[10px] text-slate-600 relative z-10">
         &copy; 2026 Zakir Enterprise. All rights reserved.
       </div>
     </div>
