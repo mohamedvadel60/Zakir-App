@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useEffect, useRef, lazy, Suspense } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { 
   Database, 
@@ -21,7 +21,7 @@ import { LandingAnimatedBackground } from "./LandingAnimatedBackground";
 import { AnimatedSection } from "./AnimatedSection";
 
 // Lazy load the heavy ProductShowcaseWindow demo component
-const ProductShowcaseWindow = React.lazy(() => import("./ProductShowcaseWindow"));
+const ProductShowcaseWindow = lazy(() => import("./ProductShowcaseWindow"));
 
 // Reusable Spring & Easing Presets
 const transitionSmooth = { duration: 0.6, ease: "easeOut" as const };
@@ -36,11 +36,11 @@ const StatCounterItem: React.FC<{
   sublabel?: string;
   theme: "dark" | "light";
 }> = ({ targetValue, suffix, prefix = "", decimals = 0, label, sublabel, theme }) => {
-  const [val, setVal] = React.useState(0);
-  const ref = React.useRef<HTMLDivElement>(null);
-  const hasAnimated = React.useRef(false);
+  const [val, setVal] = useState(0);
+  const ref = useRef<HTMLDivElement>(null);
+  const hasAnimated = useRef(false);
 
-  React.useEffect(() => {
+  useEffect(() => {
     const el = ref.current;
     if (!el) return;
     const observer = new IntersectionObserver(
@@ -159,12 +159,12 @@ export const AnimatedLandingPage: React.FC<AnimatedLandingPageProps> = ({
   onNavigateAuth,
   onStripeCheckout,
 }) => {
-  const [billingCycle, setBillingCycle] = React.useState<"annual" | "monthly">("annual");
-  const [isScrolled, setIsScrolled] = React.useState(false);
-  const [openFAQIndex, setOpenFAQIndex] = React.useState<number | null>(0);
+  const [billingCycle, setBillingCycle] = useState<"annual" | "monthly">("annual");
+  const [isScrolled, setIsScrolled] = useState(false);
+  const [openFAQIndex, setOpenFAQIndex] = useState<number | null>(0);
   const prefersReducedMotion = typeof window !== "undefined" ? window.matchMedia("(prefers-reduced-motion: reduce)").matches : false;
 
-  React.useEffect(() => {
+  useEffect(() => {
     const handleScroll = () => {
       setIsScrolled(window.scrollY > 40);
     };
@@ -430,7 +430,7 @@ export const AnimatedLandingPage: React.FC<AnimatedLandingPageProps> = ({
 
           {/* CINEMATIC INTERACTIVE PRODUCT SHOWCASE */}
           <motion.div variants={itemVariants} className="mt-12 max-w-5xl mx-auto w-full">
-            <React.Suspense fallback={
+            <Suspense fallback={
               <div className={`w-full aspect-[16/9] min-h-[460px] md:min-h-[560px] ${theme === 'light' ? 'bg-white border-slate-200' : 'bg-slate-950 border-slate-800/80'} rounded-3xl border flex items-center justify-center`}>
                 <div className="flex flex-col items-center gap-3">
                   <div className="w-8 h-8 rounded-full border-4 border-amber-500/20 border-t-amber-500 animate-spin" />
@@ -441,7 +441,7 @@ export const AnimatedLandingPage: React.FC<AnimatedLandingPageProps> = ({
               </div>
             }>
               <ProductShowcaseWindow lang={lang} />
-            </React.Suspense>
+            </Suspense>
           </motion.div>
         </section>
 

@@ -3529,8 +3529,8 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                               <Clock className="w-3.5 h-3.5 animate-pulse shrink-0" />
                               <span>
                                 {lang === "ar"
-                                  ? `وقت الانتظار المتبقي: ${formatCountdown(resetCooldownSeconds)}`
-                                  : `Time remaining: ${formatCountdown(resetCooldownSeconds)}`}
+                                  ? "وقت الانتظار المتبقي: " + formatCountdown(resetCooldownSeconds)
+                                  : "Time remaining: " + formatCountdown(resetCooldownSeconds)}
                               </span>
                             </div>
                           )}
@@ -3629,11 +3629,11 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                       <button 
                         type="submit" 
                         disabled={isSendingReset || (resetStep === "forgot" && resetCooldownSeconds > 0)}
-                        className={`w-full h-11 mt-2 font-bold text-xs rounded-xl shadow-lg transition-all flex items-center justify-center gap-2 uppercase tracking-wider ${
+                        className={"w-full h-11 mt-2 font-bold text-xs rounded-xl shadow-lg transition-all flex items-center justify-center gap-2 uppercase tracking-wider " + (
                           resetStep === "forgot" && resetCooldownSeconds > 0
                             ? "bg-slate-800/90 text-slate-400 border border-slate-700/60 cursor-not-allowed opacity-80"
                             : "bg-amber-500 hover:bg-amber-400 text-slate-950 cursor-pointer shadow-amber-500/20"
-                        }`}
+                        )}
                       >
                         {isSendingReset ? (
                           <RefreshCw className="w-4 h-4 animate-spin" />
@@ -3642,10 +3642,10 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                             {resetStep === "forgot" && (
                               resetCooldownSeconds > 0
                                 ? (lang === "ar"
-                                    ? `يمكنك إعادة الإرسال بعد ${formatCountdown(resetCooldownSeconds)}`
+                                    ? "يمكنك إعادة الإرسال بعد " + formatCountdown(resetCooldownSeconds)
                                     : lang === "fr"
-                                    ? `Réexpédier dans ${formatCountdown(resetCooldownSeconds)}`
-                                    : `Resend available in ${formatCountdown(resetCooldownSeconds)}`)
+                                    ? "Réexpédier dans " + formatCountdown(resetCooldownSeconds)
+                                    : "Resend available in " + formatCountdown(resetCooldownSeconds))
                                 : (lang === "ar" ? "إرسال رمز التوثيق" : "Request Reset Code")
                             )}
                             {resetStep === "verify_code" && (lang === "ar" ? "تأكيد الرمز والمتابعة" : "Verify & Continue")}
@@ -3861,15 +3861,15 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
 
           {/* DESKTOP & MOBILE RESPONSIVE SIDEBAR */}
           <aside 
-            className={`flex flex-col bg-[#070b13] border-r border-slate-800 h-full relative z-30 transition-all duration-300 ease-in-out shrink-0 overflow-y-auto custom-scrollbar ${
-              isSidebarCollapsed ? "md:w-16" : "md:w-60"
-            } ${
-              "max-md:fixed max-md:inset-y-0 max-md:z-50 max-md:w-64 max-md:" + (lang === "ar" ? "right-0 border-l" : "left-0 border-r") + " " + (
-                isMobileSidebarOpen 
-                  ? "max-md:translate-x-0" 
-                  : (lang === "ar" ? "max-md:translate-x-full" : "max-md:-translate-x-full")
-              )
-            }`} 
+            className={"flex flex-col bg-[#070b13] border-r border-slate-800 h-full relative z-30 transition-all duration-300 ease-in-out shrink-0 overflow-y-auto custom-scrollbar " + (
+              isSidebarCollapsed ? "md:w-16 " : "md:w-60 "
+            ) + "max-md:fixed max-md:inset-y-0 max-md:z-50 max-md:w-64 " + (
+              lang === "ar" ? "max-md:right-0 max-md:border-l " : "max-md:left-0 max-md:border-r "
+            ) + (
+              isMobileSidebarOpen 
+                ? "max-md:translate-x-0" 
+                : (lang === "ar" ? "max-md:translate-x-full" : "max-md:-translate-x-full")
+            )} 
             id="sidebar-container"
           >
             {/* Logo & Toggle Header */}

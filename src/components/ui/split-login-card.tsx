@@ -40,99 +40,103 @@ export function SplitLoginCard({
         </div>
 
         {/* Causal Path Interactive Console Representation */}
-        <div className="relative z-10 my-8 space-y-6">
-          <div className="p-4 rounded-xl border border-slate-800/80 bg-slate-900/40 backdrop-blur-sm space-y-3 shadow-lg">
-            <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-[#D4AF37]">
-              <Activity className="w-4 h-4 animate-pulse shrink-0" />
-              <span>
-                {lang === "ar"
-                  ? "سجل الحوكمة والترابط السببي"
-                  : lang === "fr"
-                  ? "Registre de Gouvernance Causale"
-                  : "Causal Governance Ledger"}
+        <div className="relative z-10 my-6 space-y-5">
+          <div className="p-4 rounded-xl border border-slate-800/80 bg-slate-900/50 backdrop-blur-sm space-y-3 shadow-lg">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-wider text-[#D4AF37]">
+                <Activity className="w-3.5 h-3.5 animate-pulse shrink-0" />
+                <span>
+                  {lang === "ar"
+                    ? "المسار السببي للقرارات المؤسسية"
+                    : lang === "fr"
+                    ? "Chaîne Causale Institutionnelle"
+                    : "Institutional Causal Pathway"}
+                </span>
+              </div>
+              <span className="text-[9px] font-mono px-2 py-0.5 rounded bg-[#D4AF37]/10 text-[#D4AF37] border border-[#D4AF37]/20">
+                ACTIVE LEDGER
               </span>
             </div>
+
             <p className="text-[11px] text-slate-400 leading-relaxed">
               {lang === "ar"
-                ? "منظومة معالجة وتحليل القرارات المؤسسية وربط الأنشطة والامتثال التنظيمي."
+                ? "منظومة معالجة وتحليل القرارات المؤسسية وربط المسببات بالنتائج والأثر المستقبلي."
                 : lang === "fr"
-                ? "Infrastructure de traitement des décisions institutionnelles et d'audit causale."
-                : "Real-time stateful analysis linking operational events, decision trails, and risk vectors."}
+                ? "Système d'analyse décisionnelle reliant déclencheurs, impacts et mémoire d'entreprise."
+                : "A unified system for causal memory, institutional knowledge, decision intelligence, risk awareness, and auditability."}
             </p>
 
-            {/* SVG Connector Animation */}
-            <div className="h-28 relative mt-3 border border-slate-800/60 rounded-lg bg-slate-950/70 overflow-hidden p-2">
-              <svg
-                className="w-full h-full absolute inset-0 text-slate-800"
-                xmlns="http://www.w3.org/2000/svg"
-              >
-                <path
-                  d="M 30,50 L 120,30 L 210,50"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1"
-                />
-                <path
-                  d="M 30,50 L 120,74 L 210,50"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1"
-                />
-                <circle r="3" fill="#D4AF37">
-                  <animateMotion
-                    dur="4s"
-                    repeatCount="indefinite"
-                    path="M 30,50 L 120,30 L 210,50"
-                  />
-                </circle>
-                <circle r="3" fill="#3b82f6">
-                  <animateMotion
-                    dur="5s"
-                    repeatCount="indefinite"
-                    path="M 30,50 L 120,74 L 210,50"
-                  />
-                </circle>
-              </svg>
-
-              <div className="absolute top-[38px] left-[10px] flex flex-col items-center">
-                <div className="w-6 h-6 rounded bg-slate-900 border border-slate-700 flex items-center justify-center text-[10px] font-bold text-slate-300">
-                  IN
+            {/* 5-Node Visual Causal Pathway Diagram */}
+            <div className="relative mt-4 pt-2 pb-3 px-3 border border-slate-800/70 rounded-xl bg-slate-950/80">
+              <div className="flex items-center justify-between relative z-10 gap-1">
+                {/* Node 1: TRIGGER */}
+                <div className="flex flex-col items-center">
+                  <div className="w-7 h-7 rounded-lg bg-slate-900 border border-slate-700 flex items-center justify-center text-[10px] font-bold text-slate-300 font-mono shadow-sm">
+                    TRG
+                  </div>
+                  <span className="text-[8px] font-mono text-slate-400 mt-1 uppercase tracking-tighter">
+                    {lang === "ar" ? "المُحرّك" : "Trigger"}
+                  </span>
                 </div>
-                <span className="text-[8px] text-slate-500 mt-1 uppercase tracking-wider">
-                  Event
-                </span>
-              </div>
 
-              <div className="absolute top-[18px] left-[105px] flex flex-col items-center">
-                <div className="w-6 h-6 rounded bg-[#D4AF37]/10 border border-[#D4AF37]/30 flex items-center justify-center text-[10px] font-bold text-[#D4AF37] animate-pulse">
-                  CA
+                {/* Arrow 1 */}
+                <div className="flex-1 h-[1px] bg-gradient-to-r from-slate-700 to-[#D4AF37]/50 relative top-[-6px]">
+                  <div className="w-1.5 h-1.5 rounded-full bg-[#D4AF37] absolute top-[-2px] left-1/2 -translate-x-1/2 animate-ping" />
                 </div>
-                <span className="text-[8px] text-[#D4AF37] mt-1 uppercase tracking-wider">
-                  Causal
-                </span>
-              </div>
 
-              <div className="absolute bottom-[10px] left-[105px] flex flex-col items-center">
-                <div className="w-6 h-6 rounded bg-blue-500/10 border border-blue-500/30 flex items-center justify-center text-[10px] font-bold text-blue-400">
-                  RG
+                {/* Node 2: CAUSE */}
+                <div className="flex flex-col items-center">
+                  <div className="w-7 h-7 rounded-lg bg-[#D4AF37]/10 border border-[#D4AF37]/40 flex items-center justify-center text-[10px] font-bold text-[#D4AF37] font-mono shadow-sm">
+                    CSE
+                  </div>
+                  <span className="text-[8px] font-mono text-[#D4AF37] mt-1 uppercase tracking-tighter">
+                    {lang === "ar" ? "السبب" : "Cause"}
+                  </span>
                 </div>
-                <span className="text-[8px] text-blue-400 mt-1 uppercase tracking-wider">
-                  Audit
-                </span>
-              </div>
 
-              <div className="absolute top-[38px] right-[10px] flex flex-col items-center">
-                <div className="w-6 h-6 rounded bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-[10px] font-bold text-emerald-400">
-                  OK
+                {/* Arrow 2 */}
+                <div className="flex-1 h-[1px] bg-gradient-to-r from-[#D4AF37]/50 to-blue-500/50 relative top-[-6px]" />
+
+                {/* Node 3: DECISION */}
+                <div className="flex flex-col items-center">
+                  <div className="w-7 h-7 rounded-lg bg-blue-500/10 border border-blue-500/40 flex items-center justify-center text-[10px] font-bold text-blue-400 font-mono shadow-sm">
+                    DEC
+                  </div>
+                  <span className="text-[8px] font-mono text-blue-400 mt-1 uppercase tracking-tighter">
+                    {lang === "ar" ? "القرار" : "Decision"}
+                  </span>
                 </div>
-                <span className="text-[8px] text-emerald-400 mt-1 uppercase tracking-wider">
-                  Secure
-                </span>
+
+                {/* Arrow 3 */}
+                <div className="flex-1 h-[1px] bg-gradient-to-r from-blue-500/50 to-amber-500/50 relative top-[-6px]" />
+
+                {/* Node 4: IMPACT */}
+                <div className="flex flex-col items-center">
+                  <div className="w-7 h-7 rounded-lg bg-amber-500/10 border border-amber-500/40 flex items-center justify-center text-[10px] font-bold text-amber-300 font-mono shadow-sm">
+                    IMP
+                  </div>
+                  <span className="text-[8px] font-mono text-amber-300 mt-1 uppercase tracking-tighter">
+                    {lang === "ar" ? "الأثر" : "Impact"}
+                  </span>
+                </div>
+
+                {/* Arrow 4 */}
+                <div className="flex-1 h-[1px] bg-gradient-to-r from-amber-500/50 to-emerald-500/50 relative top-[-6px]" />
+
+                {/* Node 5: MEMORY */}
+                <div className="flex flex-col items-center">
+                  <div className="w-7 h-7 rounded-lg bg-emerald-500/15 border border-emerald-500/50 flex items-center justify-center text-[10px] font-bold text-emerald-400 font-mono shadow-sm">
+                    MEM
+                  </div>
+                  <span className="text-[8px] font-mono text-emerald-400 mt-1 uppercase tracking-tighter">
+                    {lang === "ar" ? "الذاكرة" : "Memory"}
+                  </span>
+                </div>
               </div>
             </div>
           </div>
 
-          <div className="space-y-3.5">
+          <div className="space-y-3">
             <div className="flex items-start gap-3">
               <div className="w-8 h-8 rounded-lg bg-slate-900 border border-slate-800 flex items-center justify-center text-[#D4AF37] shrink-0">
                 <Database className="w-4 h-4" />
@@ -147,7 +151,7 @@ export function SplitLoginCard({
                 </h4>
                 <p className="text-[10px] text-slate-500 leading-relaxed mt-0.5">
                   {lang === "ar"
-                    ? "بيانات محمية برمجياً وفق معايير التشفير والامتثال المؤسسي."
+                    ? "توثيق آمن لجميع الأحداث والقرارات برمز تعقب معتمد."
                     : lang === "fr"
                     ? "Traçabilité sécurisée des opérations et contrôles d'accès."
                     : "Cryptographically verified ledger ensuring enterprise compliance."}
@@ -165,11 +169,11 @@ export function SplitLoginCard({
                     ? "ذكاء استشاري موجه"
                     : lang === "fr"
                     ? "Intelligence Décisionnelle"
-                    : "Cognitive Intelligence"}
+                    : "Decision Intelligence"}
                 </h4>
                 <p className="text-[10px] text-slate-500 leading-relaxed mt-0.5">
                   {lang === "ar"
-                    ? "استخلاص الأنماط وتقييم المخاطر التشغيلية والمالية تلقائياً."
+                    ? "تحليل وتقييم المخاطر التشغيلية والمالية بناءً على السجل المؤسسي."
                     : lang === "fr"
                     ? "Analyse automatisée des risques et dépendances stratégiques."
                     : "Grounded reasoning engine for institutional risk mitigation."}
