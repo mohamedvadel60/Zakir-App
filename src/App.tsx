@@ -104,6 +104,7 @@ import { AnimatedLandingPage } from "./components/AnimatedLandingPage";
 import { WorldBankPortal } from "./components/WorldBankPortal";
 import { generateWorldBankFallbackData } from "./lib/worldBankFallback.js";
 import { ZakirLogo } from "./components/ZakirLogo";
+import { AuthSwitch } from "./components/ui/auth-switch";
 import { applyGlobalTheme, ThemeMode } from "./lib/themeUtils.js";
 import { authenticatedFetch } from "./lib/apiUtils.js";
 import { SettingsAdmin } from "./components/SettingsAdmin";
@@ -3466,6 +3467,22 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                   animate={{ opacity: 1, y: 0 }}
                   className="w-full max-w-md mx-auto bg-[#070b13] border border-slate-800 rounded-sm p-6 sm:p-8 relative"
                 >
+                  <AuthSwitch 
+                    currentMode={showForgotPassword ? "forgot" : (authMode as string) === "register" ? "register" : "login"}
+                    onModeChange={(m) => {
+                      if (m === "forgot") {
+                        setShowForgotPassword(true);
+                      } else if (m === "register") {
+                        setShowForgotPassword(false);
+                        setAuthMode("register");
+                      } else {
+                        setShowForgotPassword(false);
+                        setAuthMode("login");
+                      }
+                    }}
+                    lang={lang}
+                  />
+
               {showForgotPassword ? (
                 /* FORGOT PASSWORD FORM */
                 <div>
