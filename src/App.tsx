@@ -2570,7 +2570,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
   // Compute dynamic style override from custom theme if approved
   const customThemeStyle = useMemo(() => {
     if (currentUser?.customTheme?.approvedAt) {
-      const { primaryBg = "#0B0F19", textColor = "#F8FAFC", secondaryColor = "#D4AF37" } = currentUser.customTheme;
+      const { primaryBg = "#0B0F19", textColor = "#F8FAFC", secondaryColor = "#7C3AED" } = currentUser.customTheme;
       
       const contrastText = getContrastColor(secondaryColor);
       const cardBg = adjustColorBrightness(primaryBg, textColor, 0.08); // 8% blend of text color
