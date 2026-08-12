@@ -3827,11 +3827,9 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
 
           {/* DESKTOP & MOBILE RESPONSIVE SIDEBAR */}
           <aside 
-            className={`flex flex-col bg-[#0F172A] border-r border-slate-800/60 shadow-2xl h-full relative z-30 transition-all duration-300 ease-in-out shrink-0 overflow-y-auto custom-scrollbar ${
-              /* Desktop sizing */
+            className={`flex flex-col bg-[#070b13] border-r border-slate-800 h-full relative z-30 transition-all duration-300 ease-in-out shrink-0 overflow-y-auto custom-scrollbar ${
               isSidebarCollapsed ? "md:w-16" : "md:w-60"
             } ${
-              /* Mobile drawer slide-over */
               "max-md:fixed max-md:inset-y-0 max-md:z-50 max-md:w-64 max-md:" + (lang === "ar" ? "right-0 border-l" : "left-0 border-r") + " " + (
                 isMobileSidebarOpen 
                   ? "max-md:translate-x-0" 
@@ -3841,7 +3839,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
             id="sidebar-container"
           >
             {/* Logo & Toggle Header */}
-            <div className={`p-4 border-b border-slate-800/50 flex items-center shrink-0 ${
+            <div className={`p-4 border-b border-slate-800 flex items-center shrink-0 ${
               isSidebarCollapsed ? "justify-center" : "justify-between"
             }`}>
               {!isSidebarCollapsed ? (
@@ -3853,75 +3851,66 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
               {/* Desktop Sidebar Collapse Toggle Button */}
               <button
                 onClick={toggleSidebarCollapse}
-                className="hidden md:flex p-1.5 rounded-lg bg-slate-800/50 hover:bg-[#D4AF37]/20 text-slate-400 hover:text-[#D4AF37] border border-slate-700/60 transition-all cursor-pointer items-center justify-center group/toggle"
+                className="hidden md:flex p-1 rounded bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-white border border-slate-800 transition-all cursor-pointer items-center justify-center"
                 title={isSidebarCollapsed ? (lang === "ar" ? "توسيع الشريط الجانبي" : "Expand Sidebar") : (lang === "ar" ? "طي الشريط الجانبي" : "Collapse Sidebar")}
               >
                 {isSidebarCollapsed ? (
-                  <PanelLeftOpen className="w-4 h-4" />
+                  <PanelLeftOpen className="w-3.5 h-3.5" />
                 ) : (
-                  <PanelLeftClose className="w-4 h-4" />
+                  <PanelLeftClose className="w-3.5 h-3.5" />
                 )}
               </button>
 
               {/* Mobile Close Button */}
               <button
                 onClick={() => setIsMobileSidebarOpen(false)}
-                className="md:hidden p-1.5 rounded-lg bg-slate-800/60 text-slate-400 hover:text-white"
+                className="md:hidden p-1 rounded bg-slate-900 text-slate-400 hover:text-white"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            {/* Connected User Account Info - Clicking turns to Settings Account tab */}
+            {/* Connected User Account Info - Editorial Index Style */}
             <div 
               onClick={() => {
                 setActiveTab("settings");
                 setSettingsActiveSubTab("account");
                 setIsMobileSidebarOpen(false);
               }}
-              className={`mx-2.5 my-2.5 bg-slate-800/30 hover:bg-slate-800/60 hover:border-[#D4AF37]/50 border border-slate-800/40 rounded-xl transition-all shrink-0 cursor-pointer group/profileCard ${
-                isSidebarCollapsed ? "p-2 text-center flex justify-center" : "p-2.5 flex items-center gap-3"
+              className={`p-3 border-b border-slate-800 hover:bg-slate-900/60 transition-all cursor-pointer group/profileCard ${
+                isSidebarCollapsed ? "text-center flex justify-center" : "flex items-center gap-3"
               }`}
-              title={lang === "ar" ? "انقر لإدارة الحساب والصورة الشخصية" : "Click to manage account & profile photo"}
+              title={lang === "ar" ? "إدارة الحساب" : "Account Settings"}
             >
-              <div className="relative group/user shrink-0">
+              <div className="relative shrink-0">
                 {currentUser.avatarUrl ? (
                   <img 
                     src={currentUser.avatarUrl} 
                     alt={currentUser.ownerName || currentUser.email} 
-                    className="w-8 h-8 rounded-lg object-cover border border-[#D4AF37]/60 shadow-md group-hover/profileCard:scale-105 transition-transform"
+                    className="w-7 h-7 object-cover border border-slate-700"
                   />
                 ) : (
-                  <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-[#D4AF37] to-[#F5E0A5] flex items-center justify-center text-[#0F172A] font-extrabold text-xs shadow-md group-hover/profileCard:scale-105 transition-transform">
+                  <div className="w-7 h-7 bg-slate-900 border border-slate-700 flex items-center justify-center text-slate-300 font-mono font-bold text-[10px]">
                     {(currentUser.ownerName || currentUser.email).slice(0, 2).toUpperCase()}
-                  </div>
-                )}
-
-                {isSidebarCollapsed && (
-                  <div className={`absolute top-1/2 -translate-y-1/2 z-50 pointer-events-none opacity-0 group-hover/user:opacity-100 transition-all duration-200 whitespace-nowrap shadow-xl rounded-lg px-3 py-2 bg-slate-900 text-white text-xs border border-slate-700 font-medium ${
-                    lang === "ar" ? "right-full mr-3" : "left-full ml-3"
-                  }`}>
-                    <p className="font-bold text-white text-xs">{currentUser.ownerName || currentUser.email}</p>
-                    <p className="text-[10px] text-slate-400">{currentUser.role} • {lang === "ar" ? "إعدادات الملف" : "Account Settings"}</p>
                   </div>
                 )}
               </div>
 
               {!isSidebarCollapsed && (
                 <div className="overflow-hidden flex-1">
-                  <h4 className="text-xs font-bold truncate text-white leading-snug group-hover/profileCard:text-[#D4AF37] transition-colors">
+                  <h4 className="text-[11px] font-bold truncate text-slate-200 leading-tight group-hover/profileCard:text-[#D4AF37] transition-colors">
                     {currentUser.ownerName || currentUser.email}
                   </h4>
-                  <div className="flex items-center gap-1.5 mt-0.5">
-                    <Shield className="w-3 h-3 text-[#D4AF37]" />
-                    <span className="text-[10px] text-slate-400 font-semibold truncate">{currentUser.role}</span>
+                  <div className="flex items-center gap-1 mt-0.5 font-mono text-[9px] text-slate-500 uppercase">
+                    <span className="text-[#D4AF37]">●</span>
+                    <span className="truncate">{currentUser.role}</span>
                   </div>
                 </div>
               )}
             </div>
 
-            {/* Navigation Tabs Menu */}
-            <nav className="px-2 py-1 space-y-3 shrink-0">
+            {/* Navigation Command Rail Menu */}
+            <nav className="p-2 space-y-4 shrink-0 font-sans">
               {(
                 [
                   {
@@ -3972,12 +3961,9 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                 return (
                   <div key={idx} className="space-y-1">
                     {!isSidebarCollapsed && (
-                      <div className="px-2.5 pt-1 pb-0.5 text-[9px] font-black uppercase tracking-widest text-[#D4AF37]/80">
+                      <div className="px-2 pt-2 pb-1 text-[9px] font-mono font-bold uppercase tracking-widest text-slate-500">
                         {section.group}
                       </div>
-                    )}
-                    {isSidebarCollapsed && idx > 0 && (
-                      <div className="my-1.5 border-t border-slate-800/60 mx-2" />
                     )}
                     {filteredItems.map((item) => {
                       const IconComponent = item.icon;
@@ -3989,56 +3975,32 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                               setActiveTab(item.id as any);
                               setIsMobileSidebarOpen(false);
                             }}
-                            className={`w-full h-9 rounded-lg text-xs font-semibold flex items-center transition-all cursor-pointer relative ${
-                              isSidebarCollapsed ? "justify-center px-0" : "justify-between px-2.5"
+                            className={`w-full h-8 text-xs font-medium flex items-center transition-all cursor-pointer relative overflow-hidden ${
+                              isSidebarCollapsed ? "justify-center px-0" : "justify-between px-3"
                             } ${
                               isActive 
-                                ? "bg-[#D4AF37]/15 text-[#D4AF37] border border-[#D4AF37]/30 font-bold shadow-sm shadow-[#D4AF37]/5" 
-                                : "text-slate-400 hover:text-white hover:bg-slate-800/60"
+                                ? "text-[#D4AF37] bg-slate-900 font-semibold" 
+                                : "text-slate-400 hover:text-slate-200 hover:bg-slate-900/40"
                             }`}
                           >
+                            {/* Razor-thin active indicator bar */}
+                            {isActive && (
+                              <div className={`absolute top-0 bottom-0 w-0.5 bg-[#D4AF37] ${lang === "ar" ? "right-0" : "left-0"}`} />
+                            )}
+
                             <div className={`flex items-center ${isSidebarCollapsed ? "justify-center" : "gap-2.5"}`}>
+                              <IconComponent className={`w-3.5 h-3.5 shrink-0 ${isActive ? "text-[#D4AF37]" : "text-slate-500 group-hover:text-slate-300"}`} />
                               {!isSidebarCollapsed && (
-                                <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${isActive ? "bg-[#D4AF37] shadow-sm shadow-[#D4AF37]" : "bg-slate-700"}`} />
-                              )}
-                              <IconComponent className={`w-4 h-4 shrink-0 transition-colors ${isActive ? "text-[#D4AF37]" : "text-slate-400 group-hover:text-white"}`} />
-                              
-                              {!isSidebarCollapsed && (
-                                <span className="truncate max-w-[125px] leading-tight text-[12px]">{item.label}</span>
+                                <span className="truncate max-w-[130px] leading-tight text-[11px]">{item.label}</span>
                               )}
                             </div>
 
-                            {/* Badge when expanded */}
                             {!isSidebarCollapsed && item.badge !== undefined && item.badge > 0 && (
-                              <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-extrabold ${
-                                isActive ? "bg-[#D4AF37] text-[#0F172A]" : "bg-rose-500 text-white"
-                              }`}>
+                              <span className="text-[9px] font-mono px-1 py-0.2 bg-rose-500/20 text-rose-400 border border-rose-500/30">
                                 {item.badge}
                               </span>
                             )}
-
-                            {/* Small active badge dot when collapsed */}
-                            {isSidebarCollapsed && item.badge !== undefined && item.badge > 0 && (
-                              <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-rose-500 ring-2 ring-[#0F172A]" />
-                            )}
                           </button>
-
-                          {/* Tooltip on Hover when Collapsed */}
-                          {isSidebarCollapsed && (
-                            <div className={`absolute top-1/2 -translate-y-1/2 z-50 pointer-events-none opacity-0 group-hover:opacity-100 transition-all duration-200 whitespace-nowrap shadow-xl rounded-lg px-3 py-1.5 bg-slate-900 text-white text-xs border border-slate-700/80 font-medium flex items-center gap-2 ${
-                              lang === "ar" ? "right-full mr-3" : "left-full ml-3"
-                            }`}>
-                              <span>{item.label}</span>
-                              {item.badge !== undefined && item.badge > 0 && (
-                                <span className="bg-rose-500 text-white text-[10px] px-1.5 py-0.2 rounded-full font-bold">
-                                  {item.badge}
-                                </span>
-                              )}
-                              <div className={`absolute top-1/2 -translate-y-1/2 w-2 h-2 bg-slate-900 border-slate-700/80 rotate-45 ${
-                                lang === "ar" ? "-right-1 border-t border-r" : "-left-1 border-b border-l"
-                              }`} />
-                            </div>
-                          )}
                         </div>
                       );
                     })}
@@ -4047,166 +4009,51 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
               })}
             </nav>
 
-            {/* Bottom Actions Area (Positioned directly under Settings with no empty space) */}
-            <div className={`pt-2.5 pb-4 px-2.5 mt-2 border-t border-slate-800/60 space-y-2.5 shrink-0 ${isSidebarCollapsed ? "text-center" : ""}`}>
-              
-              {!isSidebarCollapsed && <InstallPrompt lang={lang} />}
-              
-              {/* Active Subscription Pill Button */}
-              <div className="relative group/starter">
-                {!isSidebarCollapsed ? (
-                  <button
-                    onClick={() => {
-                      setActiveTab("settings");
-                      setSettingsActiveSubTab("subscription");
-                      setIsMobileSidebarOpen(false);
-                    }}
-                    className="w-full py-2 px-3 rounded-xl border border-slate-700/80 bg-slate-800/40 hover:bg-[#D4AF37]/15 hover:border-[#D4AF37]/60 text-slate-200 hover:text-[#D4AF37] transition-all flex items-center justify-between group/btn cursor-pointer shadow-sm"
-                  >
-                    <span className="text-xs font-bold tracking-wide">
-                      {currentUser?.subscriptionPlan || "Starter"}
-                    </span>
-                    <div className="flex items-center gap-1.5 text-[#D4AF37]">
-                      <CreditCard className="w-4 h-4" />
-                    </div>
-                  </button>
-                ) : (
-                  <button
-                    onClick={() => {
-                      setActiveTab("settings");
-                      setSettingsActiveSubTab("subscription");
-                    }}
-                    className="w-9 h-9 mx-auto rounded-xl bg-slate-800/50 hover:bg-[#D4AF37]/20 border border-slate-700/80 hover:border-[#D4AF37]/60 text-[#D4AF37] flex items-center justify-center transition-all cursor-pointer shadow-sm"
-                  >
-                    <CreditCard className="w-4 h-4" />
-                    {/* Tooltip on hover */}
-                    <div className={`absolute top-1/2 -translate-y-1/2 z-50 pointer-events-none opacity-0 group-hover/starter:opacity-100 transition-all duration-200 whitespace-nowrap shadow-xl rounded-lg px-3 py-1.5 bg-slate-900 text-white text-xs border border-slate-700 font-medium ${
-                      lang === "ar" ? "right-full mr-3" : "left-full ml-3"
-                    }`}>
-                      {lang === "ar" ? `اشتراك ${currentUser?.subscriptionPlan || "Starter"}` : `${currentUser?.subscriptionPlan || "Starter"} Subscription`}
-                    </div>
-                  </button>
-                )}
+            {/* Bottom Actions Area */}
+            <div className="mt-auto p-3 border-t border-slate-800 space-y-3 font-mono text-[10px]">
+              <div className="flex items-center justify-between text-slate-500">
+                <span>PLAN</span>
+                <span className="text-slate-300 uppercase">{currentUser?.subscriptionPlan || "Starter"}</span>
+              </div>
+              <div className="flex items-center justify-between text-slate-500">
+                <span>TRIAL</span>
+                <span className="text-[#D4AF37]">{timeLeftStr}</span>
               </div>
 
-              {/* 1-day Trial Countdown Widget */}
-              <div className="relative group/trial">
-                {!isSidebarCollapsed ? (
-                  <div className="p-2.5 bg-slate-800/30 border border-slate-800/50 rounded-xl">
-                    <div className="flex items-center justify-between text-[11px] font-bold text-[#D4AF37] mb-1">
-                      <span>{t.daysLeft}</span>
-                      <Clock className="w-3.5 h-3.5 text-[#D4AF37]" />
-                    </div>
-                    <div className="text-xs font-mono font-black text-center tracking-wider text-white">
-                      {timeLeftStr}
-                    </div>
-                    <span className="text-[9px] text-slate-500 mt-1 block leading-tight">
-                      {t.mandatoryPayAlert}
-                    </span>
-                  </div>
-                ) : (
-                  <div className="p-2.5 bg-slate-800/40 border border-slate-800/60 rounded-xl flex items-center justify-center cursor-pointer hover:border-[#D4AF37]/40 text-[#D4AF37]">
-                    <Clock className="w-4 h-4" />
-                    {/* Tooltip on hover */}
-                    <div className={`absolute top-1/2 -translate-y-1/2 z-50 pointer-events-none opacity-0 group-hover/trial:opacity-100 transition-all duration-200 whitespace-nowrap shadow-xl rounded-lg px-3 py-2 bg-slate-900 text-white text-xs border border-slate-700 font-medium ${
-                      lang === "ar" ? "right-full mr-3" : "left-full ml-3"
-                    }`}>
-                      <p className="font-bold text-[#D4AF37]">{t.daysLeft}: {timeLeftStr}</p>
-                      <p className="text-[10px] text-slate-400 mt-0.5">{t.mandatoryPayAlert}</p>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Theme & Language Selectors */}
-              {!isSidebarCollapsed ? (
-                <div className="flex items-center justify-between gap-1.5 text-xs">
-                  {/* Language Controls */}
-                  <div className="flex bg-slate-900/60 rounded-md p-0.5 border border-slate-800">
-                    {(["en", "ar", "fr"] as const).map((l) => (
-                      <button
-                        key={l}
-                        onClick={() => toggleLanguage(l)}
-                        className={`px-1.5 py-0.5 rounded text-[10px] font-bold transition-all ${
-                          lang === l ? "bg-[#D4AF37] text-[#0F172A]" : "text-slate-400"
-                        }`}
-                      >
-                        {l.toUpperCase()}
-                      </button>
-                    ))}
-                  </div>
-
-                  {/* Theme Toggles */}
-                  <div className="flex bg-slate-900/60 rounded-md p-0.5 border border-slate-800">
-                    {(["light", "dark"] as const).map((th) => (
-                      <button
-                        key={th}
-                        onClick={() => toggleTheme(th)}
-                        className={`px-1.5 py-0.5 rounded text-[10px] font-bold transition-all ${
-                          theme === th ? "bg-[#D4AF37] text-[#0F172A]" : "text-slate-400"
-                        }`}
-                      >
-                        {th === "light" ? t.light : t.dark}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              ) : (
-                <div className="flex flex-col gap-1.5 items-center">
-                  {/* Compact Language Cycling Button */}
-                  <div className="relative group/lang">
+              {/* Language & Theme switches */}
+              <div className="grid grid-cols-2 gap-1 pt-2 border-t border-slate-800/80">
+                <div className="flex bg-slate-900 border border-slate-800 p-0.5 justify-center">
+                  {(["en", "ar", "fr"] as const).map((l) => (
                     <button
-                      onClick={() => {
-                        const nextLang = lang === "ar" ? "en" : (lang === "en" ? "fr" : "ar");
-                        toggleLanguage(nextLang);
-                      }}
-                      className="w-9 h-9 rounded-lg bg-slate-800/50 hover:bg-slate-800 text-[#D4AF37] font-extrabold text-[11px] border border-slate-700/60 flex items-center justify-center transition-all cursor-pointer"
+                      key={l}
+                      onClick={() => toggleLanguage(l)}
+                      className={`px-1 py-0.5 text-[9px] font-bold ${lang === l ? "text-[#D4AF37]" : "text-slate-500 hover:text-slate-300"}`}
                     >
-                      {lang.toUpperCase()}
+                      {l.toUpperCase()}
                     </button>
-                    <div className={`absolute top-1/2 -translate-y-1/2 z-50 pointer-events-none opacity-0 group-hover/lang:opacity-100 transition-all duration-200 whitespace-nowrap shadow-xl rounded-lg px-3 py-1.5 bg-slate-900 text-white text-xs border border-slate-700 font-medium ${
-                      lang === "ar" ? "right-full mr-3" : "left-full ml-3"
-                    }`}>
-                      {lang === "ar" ? "العربية (انقر للتغيير)" : (lang === "fr" ? "Français (cliquer)" : "English (click to switch)")}
-                    </div>
-                  </div>
-
-                  {/* Compact Theme Toggle Button */}
-                  <div className="relative group/theme">
-                    <button
-                      onClick={() => toggleTheme(theme === "dark" ? "light" : "dark")}
-                      className="w-9 h-9 rounded-lg bg-slate-800/50 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-700/60 flex items-center justify-center transition-all cursor-pointer"
-                    >
-                      {theme === "dark" ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-slate-300" />}
-                    </button>
-                    <div className={`absolute top-1/2 -translate-y-1/2 z-50 pointer-events-none opacity-0 group-hover/theme:opacity-100 transition-all duration-200 whitespace-nowrap shadow-xl rounded-lg px-3 py-1.5 bg-slate-900 text-white text-xs border border-slate-700 font-medium ${
-                      lang === "ar" ? "right-full mr-3" : "left-full ml-3"
-                    }`}>
-                      {theme === "dark" ? (lang === "ar" ? "الوضع الفاتح" : "Light Mode") : (lang === "ar" ? "الوضع الداكن" : "Dark Mode")}
-                    </div>
-                  </div>
+                  ))}
                 </div>
-              )}
 
-              {/* Logout Button */}
-              <div className="relative group/logout">
-                <button
-                  onClick={handleLogout}
-                  className={`w-full border border-slate-800 hover:border-rose-500/50 hover:bg-rose-500/10 hover:text-rose-400 rounded-lg text-xs font-bold flex items-center justify-center transition-all cursor-pointer ${
-                    isSidebarCollapsed ? "h-9 w-9 px-0 mx-auto" : "h-9 px-3 gap-2 text-slate-400"
-                  }`}
-                >
-                  <LogOut className="w-3.5 h-3.5 text-slate-400 group-hover/logout:text-rose-400 transition-colors" />
-                  {!isSidebarCollapsed && <span>{t.logout}</span>}
-                </button>
-                {isSidebarCollapsed && (
-                  <div className={`absolute top-1/2 -translate-y-1/2 z-50 pointer-events-none opacity-0 group-hover/logout:opacity-100 transition-all duration-200 whitespace-nowrap shadow-xl rounded-lg px-3 py-1.5 bg-slate-900 text-rose-400 text-xs border border-slate-700 font-medium ${
-                    lang === "ar" ? "right-full mr-3" : "left-full ml-3"
-                  }`}>
-                    {t.logout}
-                  </div>
-                )}
+                <div className="flex bg-slate-900 border border-slate-800 p-0.5 justify-center">
+                  {(["light", "dark"] as const).map((th) => (
+                    <button
+                      key={th}
+                      onClick={() => toggleTheme(th)}
+                      className={`px-1.5 py-0.5 text-[9px] font-bold ${theme === th ? "text-[#D4AF37]" : "text-slate-500 hover:text-slate-300"}`}
+                    >
+                      {th === "light" ? "LGT" : "DRK"}
+                    </button>
+                  ))}
+                </div>
               </div>
+
+              <button
+                onClick={handleLogout}
+                className="w-full h-8 mt-1 border border-slate-800 hover:border-rose-500/40 hover:text-rose-400 text-slate-400 flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+                <span>LOGOUT</span>
+              </button>
             </div>
           </aside>
 
