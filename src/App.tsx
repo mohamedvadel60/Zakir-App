@@ -3914,44 +3914,29 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
               {(
                 [
                   {
-                    group: "01 // WORKSPACE",
+                    group: lang === "ar" ? "بيئة العمل" : "WORKSPACE",
                     items: [
-                      { id: "dashboard", label: lang === "ar" ? "لوحة الإحاطة التنفيذية" : "Executive Brief", icon: Compass },
+                      { id: "dashboard", label: (t as any).refreshPage || (lang === "ar" ? "لوحة التحكم" : "Dashboard"), icon: Compass },
+                      { id: "library", label: t.allCategories || (lang === "ar" ? "مكتبة الذاكرة" : "Memory Library"), icon: FileText },
+                      { id: "add", label: t.logMemoryBtn || (lang === "ar" ? "إضافة ذاكرة" : "Add Memory"), icon: PlusCircle },
+                      { id: "files", label: lang === "ar" ? "إدارة الملفات" : (lang === "fr" ? "Fichiers & Vault" : "File Vault"), icon: Folder },
                     ]
                   },
                   {
-                    group: "02 // MEMORY ARCHIVE",
+                    group: lang === "ar" ? "الذكاء والتحليل" : "INTELLIGENCE",
                     items: [
-                      { id: "library", label: lang === "ar" ? "مكتبة الذاكرة السببية" : "Memory Index", icon: FileText },
-                      { id: "add", label: lang === "ar" ? "تسجيل حدث ومعاملة" : "Log New Memory", icon: PlusCircle },
+                      { id: "smart", label: t.smartEvolutionTitle || (lang === "ar" ? "التطور الذكي" : "Smart Evolution"), icon: Brain },
+                      { id: "market", label: t.marketIntelligenceTitle || (lang === "ar" ? "ذكاء السوق" : "Market Intelligence"), icon: TrendingUp },
+                      { id: "agent", label: t.aiAgentTitle || (lang === "ar" ? "المستشار المعرفي" : "Cognitive Advisor"), icon: Sparkles },
                     ]
                   },
                   {
-                    group: "03 // VAULT & REGISTRY",
+                    group: lang === "ar" ? "الإدارة والأمان" : "MANAGEMENT",
                     items: [
-                      { id: "files", label: lang === "ar" ? "خزنة الملفات والوثائق" : "Document Vault", icon: Folder },
-                      { id: "gmail", label: lang === "ar" ? "سجل المراسلات والبريد" : "Correspondence", icon: Mail },
-                    ]
-                  },
-                  {
-                    group: "04 // INTELLIGENCE & ADVISOR",
-                    items: [
-                      { id: "agent", label: lang === "ar" ? "المستشار السببي الذكي" : "Cognitive Advisor", icon: Sparkles },
-                      { id: "smart", label: lang === "ar" ? "محرك التطور المعرفي" : "Evolution Engine", icon: Brain },
-                      { id: "market", label: lang === "ar" ? "استخبارات الأسواق" : "Market Intel", icon: TrendingUp },
-                    ]
-                  },
-                  {
-                    group: "05 // RISK & COMPLIANCE",
-                    items: [
-                      { id: "alerts", label: lang === "ar" ? "سجل رادار المخاطر" : "Risk Registry", icon: ShieldAlert, badge: statsCount.activeRisks },
-                    ]
-                  },
-                  {
-                    group: "06 // CONTROL DESK",
-                    items: [
-                      { id: "settings", label: lang === "ar" ? "إعدادات النظام والأمان" : "System Settings", icon: SettingsIcon },
-                      { id: "support", label: lang === "ar" ? "دعم العمليات" : "Support Desk", icon: HelpCircle },
+                      { id: "alerts", label: t.riskAlertsTitle || (lang === "ar" ? "تنبيهات المخاطر" : "Risk Alerts"), icon: ShieldAlert, badge: statsCount.activeRisks },
+                      { id: "gmail", label: lang === "ar" ? "البريد" : (lang === "fr" ? "Messagerie" : "Email Vault"), icon: Mail },
+                      { id: "settings", label: t.settingsTitle || (lang === "ar" ? "الإعدادات" : "Settings"), icon: SettingsIcon },
+                      { id: "support", label: lang === "ar" ? "الدعم الفني" : (lang === "fr" ? "Support" : "Support Center"), icon: HelpCircle },
                     ]
                   }
                 ] as { group: string; items: { id: string; label: any; icon: any; badge?: number }[] }[]

@@ -1,74 +1,64 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
-/* Zakir Institutional Intelligence Terminal Design System */
+/* Zakir System CSS Theme Variables & Clean Enterprise SaaS Design System */
 :root {
-  --bg-primary: #070b13;
-  --bg-secondary: #0d1322;
-  --bg-tertiary: #131c31;
-  --text-primary: #f1f5f9;
+  --bg-primary: #0b0f19;
+  --bg-secondary: #111827;
+  --bg-tertiary: #1f2937;
+  --text-primary: #f8fafc;
   --text-secondary: #94a3b8;
   --border-color: #1e293b;
-  --accent-color: #D4AF37;
+  --accent-color: #d4af37;
   --accent-hover: #e5c158;
-  --accent-subtle: rgba(212, 175, 55, 0.08);
-  --card-bg: #0d1322;
-  --input-bg: #131c31;
+  --accent-subtle: rgba(212, 175, 55, 0.12);
+  --accent-text: #0b0f19;
+  --card-bg: #111827;
+  --input-bg: #1f2937;
+  --color-primary: #7C3AED;
+  --color-secondary: #A78BFA;
+  --color-accent: #0891B2;
 }
 
 .theme-light, [data-theme="light"] {
-  --bg-primary: #f4f6f9;
+  --bg-primary: #f8fafc;
   --bg-secondary: #ffffff;
-  --bg-tertiary: #eaedf3;
-  --text-primary: #090d16;
-  --text-secondary: #4a5568;
-  --border-color: #cbd5e1;
-  --accent-color: #b89728;
-  --accent-hover: #9c7d1e;
-  --accent-subtle: rgba(184, 151, 40, 0.08);
+  --bg-tertiary: #f1f5f9;
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
+  --border-color: #e2e8f0;
+  --accent-color: #d4af37;
+  --accent-hover: #bca032;
+  --accent-subtle: rgba(212, 175, 55, 0.10);
+  --accent-text: #0f172a;
   --card-bg: #ffffff;
   --input-bg: #f8fafc;
 }
 
-/* Institutional Monospace & Sans Typography */
-body {
+.theme-dark, [data-theme="dark"] {
+  --bg-primary: #0b0f19;
+  --bg-secondary: #111827;
+  --bg-tertiary: #1f2937;
+  --text-primary: #f8fafc;
+  --text-secondary: #94a3b8;
+  --border-color: #1e293b;
+  --accent-color: #d4af37;
+  --accent-hover: #e5c158;
+  --accent-subtle: rgba(212, 175, 55, 0.12);
+  --accent-text: #0b0f19;
+  --card-bg: #111827;
+  --input-bg: #1f2937;
+}
+
+/* Base Body and Typography */
+html, body, p, span, button, input, select, textarea, label, div {
   font-family: 'Inter', 'Cairo', -apple-system, BlinkMacSystemFont, sans-serif;
-  background-color: var(--bg-primary);
-  color: var(--text-primary);
-  letter-spacing: -0.01em;
 }
 
-code, pre, .font-mono {
-  font-family: 'JetBrains Mono', 'Fira Code', monospace, sans-serif;
-}
-
-/* Structural 1px borders & zero large rounded corners for Zakir terminal aesthetic */
-.zakir-panel {
-  background-color: var(--card-bg);
-  border: 1px solid var(--border-color);
-  border-radius: 2px;
-}
-
-.zakir-terminal-grid {
-  background-image: linear-gradient(to right, rgba(30, 41, 59, 0.2) 1px, transparent 1px),
-                    linear-gradient(to bottom, rgba(30, 41, 59, 0.2) 1px, transparent 1px);
-  background-size: 24px 24px;
-}
-
-/* Custom scrollbar for dense terminal viewports */
-::-webkit-scrollbar {
-  width: 4px;
-  height: 4px;
-}
-::-webkit-scrollbar-track {
-  background: var(--bg-primary);
-}
-::-webkit-scrollbar-thumb {
-  background: #334155;
-  border-radius: 0px;
-}
-::-webkit-scrollbar-thumb:hover {
-  background: #D4AF37;
+h1, h2, h3, h4, h5, h6, .font-display {
+  font-family: 'Inter', 'Cairo', sans-serif;
+  font-weight: 800;
+  letter-spacing: -0.02em;
 }
 
 /* Crisp Clean Enterprise Utilities */
@@ -77,11 +67,11 @@ code, pre, .font-mono {
 }
 
 .gold-glow {
-  box-shadow: 0 4px 20px -2px rgba(212, 175, 55, 0.12);
+  box-shadow: 0 4px 20px -2px rgba(212, 175, 55, 0.15);
 }
 
 .gold-border-glow {
-  border-color: rgba(212, 175, 55, 0.3) !important;
+  border-color: rgba(212, 175, 55, 0.4) !important;
 }
 
 html, body {
