@@ -4430,42 +4430,42 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
 
                     return (
                       <div className="space-y-8">
-                        
+
                         {/* 1. SOPHISTICATED WELCOME HEADER & PRIMARY ACTIONS */}
-                        <div className={`flex flex-col md:flex-row md:items-center justify-between gap-6 pb-2 border-b ${
-                          theme === "dark" ? "border-slate-800/60" : "border-slate-100"
+                        <div className={`flex flex-col md:flex-row md:items-center justify-between gap-6 pb-5 border-b ${
+                          theme === "dark" ? "border-white/[0.06]" : "border-slate-100"
                         }`}>
                           <div className={alignClass}>
-                            <h1 className="text-3xl font-black tracking-tight flex items-center gap-2.5 flex-wrap">
-                              <span className="bg-gradient-to-r from-violet-300 via-violet-500 to-violet-300 bg-clip-text text-transparent">
+                            <h1 className="text-2xl md:text-3xl font-bold tracking-tight flex items-center gap-2.5 flex-wrap">
+                              <span className="bg-gradient-to-r from-violet-300 via-violet-400 to-violet-300 bg-clip-text text-transparent">
                                 {dl.welcome}
                               </span>
-                              <span className={`text-xs font-bold px-2.5 py-0.5 rounded-full border shrink-0 ${
-                                theme === "dark" 
-                                  ? "bg-slate-900/80 border-violet-500/30 text-violet-400" 
+                              <span className={`text-xs font-semibold px-2.5 py-0.5 rounded-full border shrink-0 ${
+                                theme === "dark"
+                                  ? "bg-white/[0.03] border-violet-500/30 text-violet-300"
                                   : "bg-violet-50 border-violet-500/40 text-violet-600"
                               }`}>
                                 {currentUser?.role || "CEO"}
                               </span>
                             </h1>
-                            <p className="text-slate-400 text-sm mt-1">{dl.subtitle}</p>
+                            <p className="text-slate-400 text-sm mt-1.5">{dl.subtitle}</p>
                           </div>
 
-                          <div className={`flex items-center gap-3 ${isRtl ? "justify-start md:justify-end" : "justify-start"}`}>
-                            <button 
-                              onClick={() => setActiveTab("add")} 
-                              className="h-10 px-5 bg-violet-600 hover:bg-violet-500 text-white font-black text-xs rounded-xl flex items-center gap-2 shadow-md shadow-violet-500/10 hover:shadow-violet-500/20 transition-all cursor-pointer transform hover:-translate-y-0.5"
+                          <div className={`flex items-center gap-2.5 ${isRtl ? "justify-start md:justify-end" : "justify-start"}`}>
+                            <button
+                              onClick={() => setActiveTab("add")}
+                              className="h-10 px-5 bg-violet-600 hover:bg-violet-500 text-white font-semibold text-xs rounded-lg flex items-center gap-2 shadow-md shadow-violet-600/20 hover:shadow-violet-600/30 transition-[background-color,box-shadow,transform] duration-150 cursor-pointer hover:-translate-y-0.5 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500/40"
                             >
                               <PlusCircle className="w-4 h-4 shrink-0" />
                               <span>{t.logMemoryBtn}</span>
                             </button>
 
-                            <button 
-                              onClick={() => { setActiveTab("smart"); runSmartAnalysis(); }} 
-                              className={`h-10 px-5 border text-xs font-extrabold rounded-xl flex items-center gap-2 transition-all cursor-pointer transform hover:-translate-y-0.5 ${
+                            <button
+                              onClick={() => { setActiveTab("smart"); runSmartAnalysis(); }}
+                              className={`h-10 px-5 border text-xs font-semibold rounded-lg flex items-center gap-2 transition-[background-color,border-color,transform] duration-150 cursor-pointer hover:-translate-y-0.5 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500/30 ${
                                 theme === "dark"
-                                  ? "bg-slate-900/60 border-violet-500/30 text-violet-400 hover:border-violet-500/60 hover:bg-violet-500/10"
-                                  : "bg-white border-violet-500/40 text-violet-400 hover:bg-violet-500/5"
+                                  ? "bg-white/[0.03] border-violet-500/30 text-violet-300 hover:border-violet-500/50 hover:bg-violet-500/10"
+                                  : "bg-white border-violet-500/40 text-violet-600 hover:bg-violet-500/5"
                               }`}
                             >
                               <Brain className="w-4 h-4 shrink-0" />
@@ -4477,24 +4477,24 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                         {/* 2. EXECUTIVE CAUSAL INTELLIGENCE ASYMMETRICAL COMMAND BANNER */}
                         <div className={`p-6 rounded-2xl border relative overflow-hidden ${
                           theme === "dark"
-                            ? "bg-gradient-to-r from-slate-950 via-slate-900 to-slate-950 border-violet-500/20 shadow-2xl"
-                            : "bg-gradient-to-r from-amber-50/60 via-white to-amber-50/60 border-amber-200 shadow-md"
+                            ? "bg-gradient-to-r from-[#0a0f1d] via-[#0d1527] to-[#0a0f1d] border-white/[0.06] shadow-md"
+                            : "bg-gradient-to-r from-slate-50 via-white to-slate-50 border-slate-200 shadow-sm"
                         }`}>
                           {/* Top-right accent gradient glow */}
                           <div className={`absolute top-0 right-0 w-96 h-96 rounded-full blur-3xl pointer-events-none ${
-                            theme === "dark" ? "bg-violet-500/5" : "bg-amber-100/40"
+                            theme === "dark" ? "bg-violet-500/5" : "bg-violet-100/30"
                           }`} />
 
                           <div className="relative z-10 grid grid-cols-1 lg:grid-cols-3 gap-8 items-center">
                             {/* Column 1: Institutional Context */}
-                            <div className={`space-y-2 lg:border-r border-slate-800/80 pb-4 lg:pb-0 ${isRtl ? "lg:border-r-0 lg:border-l lg:pl-8 lg:pr-0" : "lg:pr-8"}`}>
+                            <div className={`space-y-2 lg:border-r border-white/[0.06] pb-4 lg:pb-0 ${isRtl ? "lg:border-r-0 lg:border-l lg:pl-8 lg:pr-0" : "lg:pr-8"}`}>
                               <div className={`flex items-center gap-2 ${isRtl ? "justify-start" : "justify-start"}`}>
                                 <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shrink-0" />
-                                <span className="text-[10px] font-black uppercase tracking-widest text-violet-400">
+                                <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-violet-400">
                                   {dl.activeContext}
                                 </span>
                               </div>
-                              <h2 className={`text-xl font-extrabold flex items-center gap-2 ${
+                              <h2 className={`text-lg font-semibold flex items-center gap-2 ${
                                 theme === "dark" ? "text-slate-100" : "text-slate-800"
                               }`}>
                                 <Building2 className="w-5 h-5 text-violet-400 shrink-0" />
@@ -4507,18 +4507,18 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                             </div>
 
                             {/* Column 2: Causal Intelligence Flow representation */}
-                            <div className={`space-y-3 lg:border-r border-slate-800/80 pb-4 lg:pb-0 ${isRtl ? "lg:border-r-0 lg:border-l lg:pl-8 lg:pr-0" : "lg:pr-8"}`}>
-                              <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                            <div className={`space-y-3 lg:border-r border-white/[0.06] pb-4 lg:pb-0 ${isRtl ? "lg:border-r-0 lg:border-l lg:pl-8 lg:pr-0" : "lg:pr-8"}`}>
+                              <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400">
                                 {dl.causalChain}
                               </span>
-                              <div className={`flex items-center gap-1.5 flex-wrap text-xs font-bold ${isRtl ? "flex-row-reverse" : "flex-row"}`}>
-                                <span className="px-2 py-0.5 rounded bg-rose-500/10 text-rose-400 border border-rose-500/20">{isRtl ? "السبب" : "Cause"}</span>
-                                <span className="text-slate-600 font-mono">→</span>
-                                <span className="px-2 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20">{isRtl ? "القرار" : "Decision"}</span>
-                                <span className="text-slate-600 font-mono">→</span>
-                                <span className="px-2 py-0.5 rounded bg-blue-500/10 text-blue-400 border border-blue-500/20">{isRtl ? "النتيجة" : "Outcome"}</span>
-                                <span className="text-slate-600 font-mono">→</span>
-                                <span className="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">{isRtl ? "الدرس" : "Lesson"}</span>
+                              <div className={`flex items-center gap-1.5 flex-wrap text-xs font-semibold ${isRtl ? "flex-row-reverse" : "flex-row"}`}>
+                                <span className="px-2 py-0.5 rounded-md bg-rose-500/10 text-rose-400 border border-rose-500/20">{isRtl ? "السبب" : "Cause"}</span>
+                                <span className="text-slate-600">→</span>
+                                <span className="px-2 py-0.5 rounded-md bg-amber-500/10 text-amber-400 border border-amber-500/20">{isRtl ? "القرار" : "Decision"}</span>
+                                <span className="text-slate-600">→</span>
+                                <span className="px-2 py-0.5 rounded-md bg-blue-500/10 text-blue-400 border border-blue-500/20">{isRtl ? "النتيجة" : "Outcome"}</span>
+                                <span className="text-slate-600">→</span>
+                                <span className="px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">{isRtl ? "الدرس" : "Lesson"}</span>
                               </div>
                               <p className={`text-[11px] leading-tight ${theme === "dark" ? "text-slate-400" : "text-slate-500"}`}>
                                 {dl.decisionOutcome}
@@ -4528,13 +4528,13 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                             {/* Column 3: High-Priority Risk Spotlight */}
                             <div className="space-y-3">
                               <div className="flex items-center justify-between">
-                                <span className="text-[10px] font-black uppercase tracking-widest text-rose-400 flex items-center gap-1.5">
-                                  <ShieldAlert className="w-3.5 h-3.5 shrink-0 animate-bounce" />
+                                <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-rose-400 flex items-center gap-1.5">
+                                  <ShieldAlert className="w-3.5 h-3.5 shrink-0" />
                                   {dl.primaryAlert}
                                 </span>
                                 <button
                                   onClick={() => setActiveTab("alerts")}
-                                  className="text-[10px] text-violet-400 hover:underline font-extrabold"
+                                  className="text-[10px] text-violet-400 hover:text-violet-300 hover:underline font-semibold transition-colors"
                                 >
                                   {dl.viewAll}
                                 </button>
@@ -4572,20 +4572,20 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                         </div>
 
                         {/* 3. BENTO STATS GRID — ASYMMETRIC VISUAL HIERARCHY */}
-                        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                          
+                        <div className="grid grid-cols-1 md:grid-cols-4 gap-5">
+
                           {/* CELL A: Strategic Knowledge Wealth (Spans 2 columns) */}
-                          <div 
+                          <div
                             onClick={() => setActiveTab("library")}
-                            className={`md:col-span-2 p-6 rounded-2xl border transition-all cursor-pointer group/kpi border-slate-800 flex flex-col justify-between ${
-                              theme === "dark" 
-                                ? "bg-slate-900/40 hover:bg-slate-800/80 hover:border-violet-500/50 shadow-black/20" 
-                                : "bg-white hover:bg-slate-50 hover:border-violet-500/50 shadow-sm shadow-slate-100"
+                            className={`md:col-span-2 p-6 rounded-2xl border transition-[background-color,border-color,box-shadow,transform] duration-200 cursor-pointer group/kpi flex flex-col justify-between ${
+                              theme === "dark"
+                                ? "bg-white/[0.02] border-white/[0.06] hover:bg-white/[0.04] hover:border-violet-500/40 shadow-sm"
+                                : "bg-white hover:bg-slate-50/60 hover:border-violet-300 border-slate-200 shadow-xs"
                             }`}
                             title={dl.clickExplore}
                           >
                             <div className="flex items-center justify-between">
-                              <span className="text-[10px] text-violet-400 font-black uppercase tracking-wider">
+                              <span className="text-[10px] text-violet-400 font-semibold uppercase tracking-[0.14em]">
                                 {dl.knowledgeWealth}
                               </span>
                               <FileText className="w-4 h-4 text-slate-500 group-hover/kpi:text-violet-400 transition-colors" />
@@ -4593,97 +4593,97 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
 
                             <div className="grid grid-cols-2 gap-4 my-4">
                               <div className={alignClass}>
-                                <span className={`text-[10px] uppercase font-bold tracking-tight block ${
+                                <span className={`text-[10px] uppercase font-medium tracking-tight block ${
                                   theme === "dark" ? "text-slate-400" : "text-slate-500"
                                 }`}>
                                   {dl.totalMemories}
                                 </span>
-                                <div className="text-3xl font-black tracking-tight text-slate-100 mt-1 flex items-baseline gap-1">
+                                <div className="text-3xl font-bold tracking-tight mt-1 flex items-baseline gap-1.5">
                                   <span className={theme === "dark" ? "text-white" : "text-slate-900"}>{statsCount.totalMemories}</span>
-                                  <span className="text-xs text-emerald-400 font-bold font-mono">+12%</span>
+                                  <span className="text-xs text-emerald-400 font-semibold">+12%</span>
                                 </div>
                               </div>
                               <div className={alignClass}>
-                                <span className={`text-[10px] uppercase font-bold tracking-tight block ${
+                                <span className={`text-[10px] uppercase font-medium tracking-tight block ${
                                   theme === "dark" ? "text-slate-400" : "text-slate-500"
                                 }`}>
                                   {dl.retainedDocs}
                                 </span>
-                                <div className="text-3xl font-black tracking-tight text-slate-100 mt-1">
+                                <div className="text-3xl font-bold tracking-tight mt-1">
                                   <span className={theme === "dark" ? "text-white" : "text-slate-900"}>{statsCount.retainedKnowledge}</span>
                                 </div>
                               </div>
                             </div>
 
-                            <div className="text-[11px] text-slate-400 group-hover/kpi:text-violet-400 transition-colors font-medium border-t border-slate-800/50 pt-2.5 flex items-center justify-between">
+                            <div className="text-[11px] text-slate-400 group-hover/kpi:text-violet-400 transition-colors font-medium border-t border-white/[0.05] pt-3 flex items-center justify-between">
                               <span>{dl.clickExplore}</span>
                               <ChevronRight className={`w-3.5 h-3.5 transform group-hover/kpi:translate-x-1 transition-transform ${isRtl ? "rotate-180" : ""}`} />
                             </div>
                           </div>
 
                           {/* CELL B: Active Institutional Threats */}
-                          <div 
+                          <div
                             onClick={() => setActiveTab("alerts")}
-                            className={`p-6 rounded-2xl border transition-all cursor-pointer group/kpi flex flex-col justify-between ${
-                              theme === "dark" 
-                                ? "bg-slate-900/40 hover:bg-slate-800/80 border-slate-800 hover:border-rose-500/40" 
-                                : "bg-white hover:bg-rose-50/35 border-slate-200 hover:border-rose-300"
+                            className={`p-6 rounded-2xl border transition-[background-color,border-color,box-shadow,transform] duration-200 cursor-pointer group/kpi flex flex-col justify-between ${
+                              theme === "dark"
+                                ? "bg-white/[0.02] border-white/[0.06] hover:bg-white/[0.04] hover:border-rose-500/40"
+                                : "bg-white hover:bg-rose-50/40 border-slate-200 hover:border-rose-300 shadow-xs"
                             }`}
                             title={dl.clickThreats}
                           >
                             <div className="flex items-center justify-between">
-                              <span className="text-[10px] text-rose-500 font-black uppercase tracking-wider">
+                              <span className="text-[10px] text-rose-500 font-semibold uppercase tracking-[0.14em]">
                                 {dl.threatLevel}
                               </span>
                               <ShieldAlert className="w-4 h-4 text-rose-500 shrink-0" />
                             </div>
 
                             <div className={`my-3 ${alignClass}`}>
-                              <div className="text-4xl font-black font-mono tracking-tight text-rose-500">
+                              <div className="text-4xl font-bold tracking-tight text-rose-500 tabular-nums">
                                 {statsCount.activeRisks < 10 ? `0${statsCount.activeRisks}` : statsCount.activeRisks}
                               </div>
-                              <span className={`text-[10px] uppercase font-bold block mt-1 ${
+                              <span className={`text-[10px] uppercase font-medium block mt-1 ${
                                 theme === "dark" ? "text-slate-400" : "text-slate-500"
                               }`}>
                                 {dl.activeThreats}
                               </span>
                             </div>
 
-                            <div className="text-[11px] text-slate-400 group-hover/kpi:text-rose-500 transition-colors font-medium border-t border-slate-800/50 pt-2.5 flex items-center justify-between">
+                            <div className="text-[11px] text-slate-400 group-hover/kpi:text-rose-500 transition-colors font-medium border-t border-white/[0.05] pt-3 flex items-center justify-between">
                               <span>{dl.clickThreats}</span>
                               <ChevronRight className={`w-3.5 h-3.5 transform group-hover/kpi:translate-x-1 transition-transform ${isRtl ? "rotate-180" : ""}`} />
                             </div>
                           </div>
 
                           {/* CELL C: AI Diagnostics */}
-                          <div 
+                          <div
                             onClick={() => setActiveTab("smart")}
-                            className={`p-6 rounded-2xl border transition-all cursor-pointer group/kpi flex flex-col justify-between ${
-                              theme === "dark" 
-                                ? "bg-slate-900/40 hover:bg-slate-800/80 border-slate-800 hover:border-amber-500/40" 
-                                : "bg-white hover:bg-amber-50/30 border-slate-200 hover:border-amber-400"
+                            className={`p-6 rounded-2xl border transition-[background-color,border-color,box-shadow,transform] duration-200 cursor-pointer group/kpi flex flex-col justify-between ${
+                              theme === "dark"
+                                ? "bg-white/[0.02] border-white/[0.06] hover:bg-white/[0.04] hover:border-amber-500/40"
+                                : "bg-white hover:bg-amber-50/40 border-slate-200 hover:border-amber-400 shadow-xs"
                             }`}
                             title={dl.clickAI}
                           >
                             <div className="flex items-center justify-between">
-                              <span className="text-[10px] text-amber-500 font-black uppercase tracking-wider">
+                              <span className="text-[10px] text-amber-500 font-semibold uppercase tracking-[0.14em]">
                                 {dl.aiDiagnostics}
                               </span>
                               <Sparkles className="w-4 h-4 text-amber-500 shrink-0" />
                             </div>
 
                             <div className={`my-3 ${alignClass}`}>
-                              <div className="text-4xl font-black font-mono tracking-tight text-amber-500">
+                              <div className="text-4xl font-bold tracking-tight text-amber-500 tabular-nums">
                                 {statsCount.aiAnalyses < 10 ? `0${statsCount.aiAnalyses}` : statsCount.aiAnalyses}
                               </div>
-                              <span className={`text-[10px] uppercase font-bold block mt-1 ${
+                              <span className={`text-[10px] uppercase font-medium block mt-1 ${
                                 theme === "dark" ? "text-slate-400" : "text-slate-500"
                               }`}>
                                 {dl.forecastsCount}
                               </span>
                             </div>
 
-                            <div className="text-[11px] text-slate-400 group-hover/kpi:text-amber-500 transition-colors font-medium border-t border-slate-800/50 pt-2.5 flex items-center justify-between">
+                            <div className="text-[11px] text-slate-400 group-hover/kpi:text-amber-500 transition-colors font-medium border-t border-white/[0.05] pt-3 flex items-center justify-between">
                               <span>{dl.clickAI}</span>
                               <ChevronRight className={`w-3.5 h-3.5 transform group-hover/kpi:translate-x-1 transition-transform ${isRtl ? "rotate-180" : ""}`} />
                             </div>
@@ -4692,26 +4692,26 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                         </div>
 
                         {/* 4. ANALYTICAL CHARTS & COGNITIVE ADVICE DECISION BLOCK */}
-                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                          
+                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+
                           {/* Recharts Distribution Chart Column (Spans 2 columns) */}
                           <div className={`lg:col-span-2 p-6 rounded-2xl border ${
-                            theme === "dark" 
-                              ? "bg-slate-900/40 border-slate-800/80" 
-                              : "bg-white border-slate-200 shadow-sm"
+                            theme === "dark"
+                              ? "bg-white/[0.02] border-white/[0.06]"
+                              : "bg-white border-slate-200 shadow-xs"
                           }`}>
                             <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
-                              <h3 className={`text-sm font-bold uppercase tracking-wider flex items-center gap-2 ${
+                              <h3 className={`text-sm font-semibold uppercase tracking-[0.1em] flex items-center gap-2 ${
                                 theme === "dark" ? "text-white" : "text-slate-900"
                               }`}>
-                                <span className="w-1.5 h-4 bg-violet-600 rounded-full"></span>
+                                <span className="w-1 h-4 bg-violet-600 rounded-full"></span>
                                 <TrendingUp className="w-4 h-4 text-violet-400 shrink-0" />
                                 {dl.distributionHub}
                               </h3>
 
                               {/* Chart Selector Switcher */}
-                              <div className={`flex items-center gap-1 p-1 rounded-xl border ${
-                                theme === "dark" ? "bg-slate-950/80 border-slate-800" : "bg-slate-100 border-slate-200"
+                              <div className={`flex items-center gap-1 p-1 rounded-lg border ${
+                                theme === "dark" ? "bg-white/[0.03] border-white/[0.06]" : "bg-slate-100 border-slate-200"
                               }`}>
                                 {[
                                   { id: "bar", icon: BarChart2, label: "Bar" },
