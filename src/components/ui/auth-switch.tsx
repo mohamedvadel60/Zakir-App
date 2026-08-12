@@ -35,8 +35,8 @@ export function AuthSwitch({ currentMode, onModeChange, lang = "en" }: AuthSwitc
             className={cn(
               "flex-1 py-2 px-3 text-xs font-bold rounded-lg transition-all cursor-pointer text-center",
               isActive
-                ? "bg-[#D4AF37] text-slate-950 shadow-md"
-                : "text-slate-400 hover:text-white hover:bg-slate-900/50"
+                ? "bg-gradient-to-br from-violet-600 to-violet-500 text-white shadow-md shadow-violet-500/25"
+                : "text-slate-400 hover:text-white hover:bg-violet-500/10"
             )}
           >
             {m.label}

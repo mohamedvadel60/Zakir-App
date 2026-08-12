@@ -21,13 +21,13 @@ export function SplitLoginCard({
   return (
     <div
       className={cn(
-        "min-h-screen bg-[#070b13] text-slate-200 flex flex-col md:grid md:grid-cols-12 relative overflow-hidden selection:bg-amber-500/20",
+        "min-h-screen bg-[#070b13] text-slate-200 flex flex-col md:grid md:grid-cols-12 relative overflow-hidden selection:bg-violet-500/20",
         className
       )}
       dir={lang === "ar" ? "rtl" : "ltr"}
     >
       {/* GLOWING AMBIENT FIELD */}
-      <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-[#D4AF37]/5 rounded-full blur-[120px] pointer-events-none" />
+      <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-[#7C3AED]/8 rounded-full blur-[120px] pointer-events-none" />
       <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-blue-500/5 rounded-full blur-[120px] pointer-events-none" />
 
       {/* LEFT COLUMN: ZAKIR BRAND MONOLITH & CAUSAL LEDGER VISUAL */}
@@ -43,7 +43,7 @@ export function SplitLoginCard({
         <div className="relative z-10 my-6 space-y-5">
           <div className="p-4 rounded-xl border border-slate-800/80 bg-slate-900/50 backdrop-blur-sm space-y-3 shadow-lg">
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-wider text-[#D4AF37]">
+              <div className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-wider text-violet-400">
                 <Activity className="w-3.5 h-3.5 animate-pulse shrink-0" />
                 <span>
                   {lang === "ar"
@@ -53,7 +53,7 @@ export function SplitLoginCard({
                     : "Institutional Causal Pathway"}
                 </span>
               </div>
-              <span className="text-[9px] font-mono px-2 py-0.5 rounded bg-[#D4AF37]/10 text-[#D4AF37] border border-[#D4AF37]/20">
+              <span className="text-[9px] font-mono px-2 py-0.5 rounded bg-violet-500/10 text-violet-400 border border-violet-500/20">
                 ACTIVE LEDGER
               </span>
             </div>
@@ -80,22 +80,22 @@ export function SplitLoginCard({
                 </div>
 
                 {/* Arrow 1 */}
-                <div className="flex-1 h-[1px] bg-gradient-to-r from-slate-700 to-[#D4AF37]/50 relative top-[-6px]">
-                  <div className="w-1.5 h-1.5 rounded-full bg-[#D4AF37] absolute top-[-2px] left-1/2 -translate-x-1/2 animate-ping" />
+                <div className="flex-1 h-[1px] bg-gradient-to-r from-slate-700 to-violet-500/50 relative top-[-6px]">
+                  <div className="w-1.5 h-1.5 rounded-full bg-violet-500 absolute top-[-2px] left-1/2 -translate-x-1/2 animate-ping" />
                 </div>
 
                 {/* Node 2: CAUSE */}
                 <div className="flex flex-col items-center">
-                  <div className="w-7 h-7 rounded-lg bg-[#D4AF37]/10 border border-[#D4AF37]/40 flex items-center justify-center text-[10px] font-bold text-[#D4AF37] font-mono shadow-sm">
+                  <div className="w-7 h-7 rounded-lg bg-violet-500/10 border border-violet-500/40 flex items-center justify-center text-[10px] font-bold text-violet-400 font-mono shadow-sm">
                     CSE
                   </div>
-                  <span className="text-[8px] font-mono text-[#D4AF37] mt-1 uppercase tracking-tighter">
+                  <span className="text-[8px] font-mono text-violet-400 mt-1 uppercase tracking-tighter">
                     {lang === "ar" ? "السبب" : "Cause"}
                   </span>
                 </div>
 
                 {/* Arrow 2 */}
-                <div className="flex-1 h-[1px] bg-gradient-to-r from-[#D4AF37]/50 to-blue-500/50 relative top-[-6px]" />
+                <div className="flex-1 h-[1px] bg-gradient-to-r from-violet-500/50 to-blue-500/50 relative top-[-6px]" />
 
                 {/* Node 3: DECISION */}
                 <div className="flex flex-col items-center">
@@ -138,7 +138,7 @@ export function SplitLoginCard({
 
           <div className="space-y-3">
             <div className="flex items-start gap-3">
-              <div className="w-8 h-8 rounded-lg bg-slate-900 border border-slate-800 flex items-center justify-center text-[#D4AF37] shrink-0">
+              <div className="w-8 h-8 rounded-lg bg-slate-900 border border-slate-800 flex items-center justify-center text-violet-400 shrink-0">
                 <Database className="w-4 h-4" />
               </div>
               <div>
@@ -160,7 +160,7 @@ export function SplitLoginCard({
             </div>
 
             <div className="flex items-start gap-3">
-              <div className="w-8 h-8 rounded-lg bg-slate-900 border border-slate-800 flex items-center justify-center text-[#D4AF37] shrink-0">
+              <div className="w-8 h-8 rounded-lg bg-slate-900 border border-slate-800 flex items-center justify-center text-violet-400 shrink-0">
                 <Brain className="w-4 h-4" />
               </div>
               <div>
@@ -200,7 +200,7 @@ export function SplitLoginCard({
             <button
               onClick={onBackToHome}
               type="button"
-              className="flex items-center gap-2 text-xs font-bold text-slate-400 hover:text-amber-400 transition-colors cursor-pointer"
+              className="flex items-center gap-2 text-xs font-bold text-slate-400 hover:text-violet-400 transition-colors cursor-pointer"
             >
               {lang === "ar" ? (
                 <ArrowRight className="w-4 h-4" />
@@ -224,7 +224,7 @@ export function SplitLoginCard({
                 onClick={() => onToggleLanguage("ar")}
                 className={`text-[10px] font-black px-2.5 py-1 rounded transition-all cursor-pointer ${
                   lang === "ar"
-                    ? "bg-[#D4AF37] text-slate-950 font-bold"
+                    ? "bg-violet-600 text-white font-bold"
                     : "text-slate-400 hover:text-white"
                 }`}
               >
@@ -235,7 +235,7 @@ export function SplitLoginCard({
                 onClick={() => onToggleLanguage("fr")}
                 className={`text-[10px] font-black px-2.5 py-1 rounded transition-all cursor-pointer ${
                   lang === "fr"
-                    ? "bg-[#D4AF37] text-slate-950 font-bold"
+                    ? "bg-violet-600 text-white font-bold"
                     : "text-slate-400 hover:text-white"
                 }`}
               >
@@ -246,7 +246,7 @@ export function SplitLoginCard({
                 onClick={() => onToggleLanguage("en")}
                 className={`text-[10px] font-black px-2.5 py-1 rounded transition-all cursor-pointer ${
                   lang === "en"
-                    ? "bg-[#D4AF37] text-slate-950 font-bold"
+                    ? "bg-violet-600 text-white font-bold"
                     : "text-slate-400 hover:text-white"
                 }`}
               >

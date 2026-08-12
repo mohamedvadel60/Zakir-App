@@ -1,6 +1,28 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
+/* shadcn/ui token bridge — wires the shared Button/Input/Label primitives to the
+   violet-first Zakir accent system so they stay consistent if/when adopted. */
+@theme inline {
+  --color-background: var(--bg-primary);
+  --color-foreground: var(--text-primary);
+  --color-card: var(--card-bg);
+  --color-card-foreground: var(--text-primary);
+  --color-border: var(--border-color);
+  --color-input: var(--border-color);
+  --color-ring: #7c3aed;
+  --color-primary: #7c3aed;
+  --color-primary-foreground: #ffffff;
+  --color-secondary: #1f2937;
+  --color-secondary-foreground: #f8fafc;
+  --color-accent: rgba(124, 58, 237, 0.12);
+  --color-accent-foreground: #a78bfa;
+  --color-muted: #1f2937;
+  --color-muted-foreground: #94a3b8;
+  --color-destructive: #dc2626;
+  --color-destructive-foreground: #ffffff;
+}
+
 /* Zakir System CSS Theme Variables & Clean Enterprise SaaS Design System */
 :root {
   --bg-primary: #0b0f19;
@@ -9,15 +31,18 @@
   --text-primary: #f8fafc;
   --text-secondary: #94a3b8;
   --border-color: #1e293b;
-  --accent-color: #d4af37;
-  --accent-hover: #e5c158;
-  --accent-subtle: rgba(212, 175, 55, 0.12);
-  --accent-text: #0b0f19;
+  --accent-color: #7c3aed;
+  --accent-hover: #8b5cf6;
+  --accent-subtle: rgba(124, 58, 237, 0.12);
+  --accent-text: #ffffff;
   --card-bg: #111827;
   --input-bg: #1f2937;
   --color-primary: #7C3AED;
   --color-secondary: #A78BFA;
   --color-accent: #0891B2;
+  --accent-secondary: #0891b2;
+  --accent-tertiary: #a78bfa;
+  --premium-color: #d4af37;
 }
 
 .theme-light, [data-theme="light"] {
@@ -27,12 +52,15 @@
   --text-primary: #0f172a;
   --text-secondary: #475569;
   --border-color: #e2e8f0;
-  --accent-color: #d4af37;
-  --accent-hover: #bca032;
-  --accent-subtle: rgba(212, 175, 55, 0.10);
-  --accent-text: #0f172a;
+  --accent-color: #6d28d9;
+  --accent-hover: #7c3aed;
+  --accent-subtle: rgba(109, 40, 217, 0.10);
+  --accent-text: #ffffff;
   --card-bg: #ffffff;
   --input-bg: #f8fafc;
+  --accent-secondary: #0891b2;
+  --accent-tertiary: #7c3aed;
+  --premium-color: #b45309;
 }
 
 .theme-dark, [data-theme="dark"] {
@@ -42,12 +70,15 @@
   --text-primary: #f8fafc;
   --text-secondary: #94a3b8;
   --border-color: #1e293b;
-  --accent-color: #d4af37;
-  --accent-hover: #e5c158;
-  --accent-subtle: rgba(212, 175, 55, 0.12);
-  --accent-text: #0b0f19;
+  --accent-color: #7c3aed;
+  --accent-hover: #8b5cf6;
+  --accent-subtle: rgba(124, 58, 237, 0.12);
+  --accent-text: #ffffff;
   --card-bg: #111827;
   --input-bg: #1f2937;
+  --accent-secondary: #0891b2;
+  --accent-tertiary: #a78bfa;
+  --premium-color: #d4af37;
 }
 
 /* Base Body and Typography */
@@ -67,11 +98,11 @@ h1, h2, h3, h4, h5, h6, .font-display {
 }
 
 .gold-glow {
-  box-shadow: 0 4px 20px -2px rgba(212, 175, 55, 0.15);
+  box-shadow: 0 4px 20px -2px rgba(124, 58, 237, 0.18);
 }
 
 .gold-border-glow {
-  border-color: rgba(212, 175, 55, 0.4) !important;
+  border-color: rgba(124, 58, 237, 0.4) !important;
 }
 
 html, body {
@@ -258,22 +289,22 @@ html, body {
 /* Virtual Cursor Simulated Interactions - Framer-Inspired Restrained Precision */
 .simulated-hover {
   transform: scale(1.01) !important;
-  border-color: rgba(245, 158, 11, 0.4) !important;
+  border-color: rgba(124, 58, 237, 0.4) !important;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2) !important;
-  background-color: rgba(245, 158, 11, 0.05) !important;
+  background-color: rgba(124, 58, 237, 0.06) !important;
   transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
 }
 
 .simulated-focus {
   transform: scale(1.005) !important;
-  border-color: rgba(245, 158, 11, 0.6) !important;
-  box-shadow: 0 0 0 1px rgba(245, 158, 11, 0.2) !important;
+  border-color: rgba(124, 58, 237, 0.6) !important;
+  box-shadow: 0 0 0 1px rgba(124, 58, 237, 0.25) !important;
   transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
 }
 
 .simulated-active {
   transform: scale(0.985) !important;
-  border-color: rgba(245, 158, 11, 0.8) !important;
+  border-color: rgba(124, 58, 237, 0.8) !important;
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25) !important;
   transition: transform 0.1s cubic-bezier(0.16, 1, 0.3, 1) !important;
 }
@@ -281,8 +312,8 @@ html, body {
 /* Global Input Glowing Focus - Fast & Hardware Accelerated */
 input:focus, textarea:focus, select:focus {
   outline: none;
-  border-color: rgba(245, 158, 11, 0.6) !important;
-  box-shadow: 0 0 8px 0 rgba(245, 158, 11, 0.15) !important;
+  border-color: rgba(124, 58, 237, 0.6) !important;
+  box-shadow: 0 0 8px 0 rgba(124, 58, 237, 0.18) !important;
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
@@ -304,8 +335,8 @@ input:focus, textarea:focus, select:focus {
 
 .aesthetic-card-hover:hover {
   transform: translateY(-2px);
-  border-color: rgba(212, 175, 55, 0.4);
-  box-shadow: 0 8px 24px -4px rgba(212, 175, 55, 0.12);
+  border-color: rgba(124, 58, 237, 0.4);
+  box-shadow: 0 8px 24px -4px rgba(124, 58, 237, 0.14);
 }
 
 /* Fast Hardware Acceleration Helpers */
@@ -330,7 +361,7 @@ input:focus, textarea:focus, select:focus {
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(212, 175, 55, 0.5);
+  background: rgba(124, 58, 237, 0.5);
 }
 
 /* Zakir Original Design System Classes */
@@ -343,8 +374,8 @@ input:focus, textarea:focus, select:focus {
 }
 
 .zakir-card:hover {
-  border-color: rgba(212, 175, 55, 0.4);
-  box-shadow: 0 8px 30px -4px rgba(212, 175, 55, 0.12);
+  border-color: rgba(124, 58, 237, 0.4);
+  box-shadow: 0 8px 30px -4px rgba(124, 58, 237, 0.14);
   transform: translateY(-2px);
 }
 
@@ -360,17 +391,17 @@ input:focus, textarea:focus, select:focus {
 }
 
 .zakir-card-bento:hover {
-  border-color: rgba(212, 175, 55, 0.35);
-  box-shadow: 0 10px 32px -4px rgba(212, 175, 55, 0.1);
+  border-color: rgba(124, 58, 237, 0.35);
+  box-shadow: 0 10px 32px -4px rgba(124, 58, 237, 0.12);
 }
 
 .zakir-btn-primary {
-  background: linear-gradient(135deg, #D4AF37 0%, #C5A059 100%);
-  color: #0b0f19;
+  background: linear-gradient(135deg, #7C3AED 0%, #6D28D9 100%);
+  color: #ffffff;
   font-weight: 700;
   padding: 0.625rem 1.25rem;
   border-radius: 0.75rem;
-  box-shadow: 0 4px 14px rgba(212, 175, 55, 0.25);
+  box-shadow: 0 4px 14px rgba(124, 58, 237, 0.3);
   transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
   display: inline-flex;
   align-items: center;
@@ -382,7 +413,7 @@ input:focus, textarea:focus, select:focus {
 
 .zakir-btn-primary:hover {
   filter: brightness(1.08);
-  box-shadow: 0 6px 20px rgba(212, 175, 55, 0.35);
+  box-shadow: 0 6px 20px rgba(124, 58, 237, 0.4);
   transform: translateY(-1px);
 }
 
@@ -406,9 +437,9 @@ input:focus, textarea:focus, select:focus {
 }
 
 .zakir-btn-secondary:hover {
-  background-color: rgba(212, 175, 55, 0.1);
-  border-color: rgba(212, 175, 55, 0.3);
-  color: #D4AF37;
+  background-color: rgba(124, 58, 237, 0.1);
+  border-color: rgba(124, 58, 237, 0.3);
+  color: #A78BFA;
 }
 
 .zakir-input {
@@ -422,8 +453,8 @@ input:focus, textarea:focus, select:focus {
 }
 
 .zakir-input:focus {
-  border-color: #D4AF37 !important;
-  box-shadow: 0 0 0 3px rgba(212, 175, 55, 0.2) !important;
+  border-color: #7C3AED !important;
+  box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.22) !important;
   outline: none;
 }
 
@@ -435,8 +466,21 @@ input:focus, textarea:focus, select:focus {
   border-radius: 9999px;
   font-size: 0.75rem;
   font-weight: 700;
+  background-color: rgba(124, 58, 237, 0.12);
+  color: #A78BFA;
+  border: 1px solid rgba(124, 58, 237, 0.3);
+}
+
+.zakir-badge-premium {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.25rem 0.75rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 700;
   background-color: rgba(212, 175, 55, 0.12);
-  color: #D4AF37;
+  color: var(--premium-color, #D4AF37);
   border: 1px solid rgba(212, 175, 55, 0.3);
 }
 
@@ -450,9 +494,9 @@ input:focus, textarea:focus, select:focus {
 }
 
 .zakir-tab-active {
-  background: linear-gradient(135deg, #D4AF37 0%, #C5A059 100%);
-  color: #0b0f19;
-  box-shadow: 0 4px 12px rgba(212, 175, 55, 0.25);
+  background: linear-gradient(135deg, #7C3AED 0%, #6D28D9 100%);
+  color: #ffffff;
+  box-shadow: 0 4px 12px rgba(124, 58, 237, 0.3);
 }
 
 .zakir-header {
@@ -474,7 +518,7 @@ input:focus, textarea:focus, select:focus {
 }
 
 .zakir-kpi-block:hover {
-  border-color: rgba(212, 175, 55, 0.3);
+  border-color: rgba(124, 58, 237, 0.3);
   transform: translateY(-1px);
 }
 

@@ -189,7 +189,7 @@ const FALLBACK_MEMORIES: Memory[] = [
     riskLevel: "High",
     tags: ["procurement", "supply-chain", "insolvency", "metallurgy"],
     description: "الإعلان المفاجئ لإفلاس وتصفية مصهر المعادن المتكامل بالنمسا المسؤول عن توريد سبائك النيكل المقاومة للتآكل. Sudden financial insolvency and liquidation of our sole Austrian supplier for specialized metallurgy.",
-    decision: "تفعيل بروتوكول الطوارئ للشراء والتعاقد السريع مع مصهرين بديلين باليابان والولايات المتحدة. Triggered emergency supply protocols, securing sample batches from Japanese and US foundries.",
+    decision: "تفعيل بر����توكول الطوارئ للشراء والتعاقد السريع مع مصهرين بديلين باليابان والولايات المتحدة. Triggered emergency supply protocols, securing sample batches from Japanese and US foundries.",
     causalFactors: "الاعتماد الاستراتيجي الكلي على شريك توريد مفرد سعياً لخفض التكلفة دون تقييم مالي دوري للمورد. Total procurement dependency on a single-source foreign vendor without auditing balance sheets.",
     outcomes: "ارتفاع كلفة الشراء العاجل بـ 15% وتأخر جدول التوريد لـ 3 أسابيع، ولكن تم ضمان استمرار التصنيع. 15% increase in procurement costs and a 3-week lag, but avoided total production halt.",
     lessonsLearned: "تفعيل مبدأ التوريد المزدوج الإلزامي بنسبة لا تقل عن 70/30 لكافة المواد الخام الهامة والمكونات الأساسية. Mandate dual-sourcing strategies and hold 3 months of buffer stock.",
@@ -905,7 +905,7 @@ This hosting domain (**${currentDomain}**) has not been authorized in your Fireb
     }
     if (errCode === "auth/email-already-in-use") {
       return lang === "ar" 
-        ? "البريد الإلكتروني هذا مستخدم بالفعل في حساب آخر." 
+        ? "البريد الإلكتروني هذا مستخدم بالفع�� في حساب آخر." 
         : lang === "fr" 
         ? "Cet e-mail est déjà utilisé par un autre compte." 
         : "This email address is already in use by another account.";
@@ -1499,7 +1499,7 @@ This hosting domain (**${currentDomain}**) has not been authorized in your Fireb
 
       const regData = await safeParseJsonResponse(regRes);
       if (!regRes.ok || !regData || !regData.success) {
-        throw new Error(regData?.error || regData?.message || (lang === "ar" ? "فشل إنشاء الحساب. يرجى المحاولة مرة أخرى." : "Registration failed. Please try again."));
+        throw new Error(regData?.error || regData?.message || (lang === "ar" ? "فشل إنشاء الحساب. يرجى المحاولة ��رة أخرى." : "Registration failed. Please try again."));
       }
 
       const createdUser: User = regData.user;
@@ -1995,7 +1995,7 @@ This hosting domain (**${currentDomain}**) has not been authorized in your Fireb
       setWbData(fallbackRecords);
       setWbSourceInfo("fallback");
       setWbError({
-        message: `تعذر جلب البيانات اللحظية المباشرة (HTTP ${res.status}). تم تفعيل حزمة البيانات التقديرية المعتمدة للمؤشر.`,
+        message: `تعذر جلب البيانات اللحظية المباشرة (HTTP ${res.status}). تم تفعيل حزمة ��لبيانات التقديرية المعتمدة للمؤشر.`,
         statusCode: res.status,
         attemptedUrl: proxyUrl,
         isFallback: true,
@@ -2090,7 +2090,7 @@ Provide an executive, high-impact causal analysis in Arabic (and professional En
 
       if (!summaryResult) {
         summaryResult = lang === "ar"
-          ? `### ملخص تنفيذي والتحليل السببي للمخاطر الهيكلية (البنك الدولي):\n\nدراسة اتجاه مؤشر **"${currentIndicatorName}"** لدولة **"${wbCountry}"** توضح تقلبات رئيسية في بيئة الكلي والتشغيل.\n\n**الأثر السببي على المخاطر المؤسسية:**\n- تؤثر تغيرات التضخم والنمو مباشرة على تكاليف سلاسل التوريد وهوامش التشغيل للشركة.\n- تتطلب هذه المعطيات تكييف آليات التحوط وتحديث الخزائن المعرفية للحد من التعرض المالي.\n\n**القرارات الموصى بها للرئيس التنفيذي:**\n1. توثيق أسباب الشراء والتعاقدات بربطها بمستويات المخاطر الكلية للدولة.\n2. استخدام المزامنة التلقائية مع الذاكرة المؤسسية لمنع تكرار الانحرافات التقديرية.`
+          ? `### ملخص تنفيذي والتحليل السببي للمخاطر الهيكلية (البنك الدولي):\n\nدراسة اتجاه مؤشر **"${currentIndicatorName}"** لدولة **"${wbCountry}"** توضح تقلبات رئيسية في بيئة الكلي والتشغيل.\n\n**الأثر السببي على المخاطر المؤسسية:**\n- تؤثر تغيرات التضخم والنمو مباشرة على تكاليف سلاسل التوريد وهوامش التشغيل للشركة.\n- تتطلب هذه المعطيات تكييف آليات التحوط وتحديث الخزائن المعرفية للحد من التعرض المالي.\n\n**القرارات الموصى بها للرئيس التنفيذي:**\n1. توثيق أسباب الشراء والتعاقدات بربطها بمستويات المخاطر الكلية للدولة.\n2. استخدام المزامنة التلقائية مع الذاكر�� المؤسسية لمنع تكرار الانحرافات التقديرية.`
           : `### Executive & Structural Causal Risk Analysis (World Bank):\n\nEvaluation of **"${currentIndicatorName}"** for **"${wbCountry}"** indicates core shifts in the macroeconomic operating environment.\n\n**Causal Impact on Corporate Risk Profile:**\n- Inflation and GDP variances directly influence supply chain margins and procurement budgets.\n- Requires proactive hedging and updating knowledge vaults to contain exposure.\n\n**CEO Recommended Decisions:**\n1. Document procurement rationales against macroeconomic exposure caps.\n2. Utilize automated memory synchronization to prevent recurring forecasting errors.`;
       }
 
@@ -2672,10 +2672,10 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
           --text-primary: #0F172A; /* Crisp deep slate text */
           --text-secondary: #475569; /* Muted slate gray */
           --border-color: #CBD5E1; /* Professional crisp border (slate-300) for light mode */
-          --accent-color: #D4AF37; /* Default premium gold accent */
-          --accent-hover: #BCA032;
-          --accent-subtle: #D4AF3715;
-          --accent-text: #0F172A;
+          --accent-color: #6D28D9; /* Violet primary accent */
+          --accent-hover: #7C3AED;
+          --accent-subtle: #6D28D915;
+          --accent-text: #FFFFFF;
         }
 
         .theme-dark {
@@ -2685,10 +2685,10 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
           --text-primary: #F8FAFC; /* High-readability crisp off-white text */
           --text-secondary: #94A3B8; /* Muted cool gray text */
           --border-color: #334155; /* Sophisticated contrast border (slate-700) for dark mode */
-          --accent-color: #D4AF37; /* Default premium gold accent */
-          --accent-hover: #E5C158;
-          --accent-subtle: #D4AF3722;
-          --accent-text: #0B0F19;
+          --accent-color: #7C3AED; /* Violet primary accent */
+          --accent-hover: #8B5CF6;
+          --accent-subtle: #7C3AED22;
+          --accent-text: #FFFFFF;
         }
 
         .custom-theme-active {
@@ -2924,9 +2924,9 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
           />
         ) : authMode === "register" ? (
           /* REGISTRATION SCREEN (Video 2 Style with Password Checklist Requirements) */
-          <div className="min-h-screen bg-[#070b13] text-slate-200 flex flex-col md:grid md:grid-cols-12 relative overflow-hidden selection:bg-amber-500/20">
+          <div className="min-h-screen bg-[#070b13] text-slate-200 flex flex-col md:grid md:grid-cols-12 relative overflow-hidden selection:bg-violet-500/20">
             {/* GLOWING AMBIENT FIELD */}
-            <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-[#D4AF37]/5 rounded-full blur-[120px] pointer-events-none" />
+            <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-violet-500/5 rounded-full blur-[120px] pointer-events-none" />
             <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-blue-500/5 rounded-full blur-[120px] pointer-events-none" />
 
             {/* LEFT COLUMN: BRAND WORKSPACE MONOLITH & CAUSAL PATH CONSOLE */}
@@ -2941,7 +2941,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
               {/* Dynamic Interactive Causal Path Animation Console */}
               <div className="relative z-10 my-12 space-y-6">
                 <div className="zakir-card p-4 rounded-xl border border-slate-800/60 bg-slate-900/30 backdrop-blur-sm space-y-3">
-                  <div className="flex items-center gap-2 text-xs font-black uppercase tracking-widest text-[#D4AF37]">
+                  <div className="flex items-center gap-2 text-xs font-black uppercase tracking-widest text-violet-400">
                     <Activity className="w-3.5 h-3.5 animate-pulse" />
                     <span className="zakir-badge">{lang === "ar" ? "شاشة الترابط السببي النشطة" : "Active Causal Ledger"}</span>
                   </div>
@@ -2959,7 +2959,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                       <path d="M 30,50 L 120,74 L 210,50" fill="none" stroke="currentColor" strokeWidth="1" />
                       
                       {/* Pulse Animations along the paths */}
-                      <circle r="3" fill="#D4AF37">
+                      <circle r="3" fill="#7C3AED">
                         <animateMotion dur="4s" repeatCount="indefinite" path="M 30,50 L 120,30 L 210,50" />
                       </circle>
                       <circle r="3" fill="#3b82f6">
@@ -2976,10 +2976,10 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                     </div>
 
                     <div className="absolute top-[18px] left-[105px] flex flex-col items-center">
-                      <div className="w-6 h-6 rounded-md bg-[#D4AF37]/10 border border-[#D4AF37]/30 flex items-center justify-center text-[10px] font-bold text-[#D4AF37] animate-pulse">
+                      <div className="w-6 h-6 rounded-md bg-violet-500/10 border border-violet-500/30 flex items-center justify-center text-[10px] font-bold text-violet-400 animate-pulse">
                         CA
                       </div>
-                      <span className="text-[8px] text-[#D4AF37] mt-1 uppercase tracking-wider">Causal</span>
+                      <span className="text-[8px] text-violet-400 mt-1 uppercase tracking-wider">Causal</span>
                     </div>
 
                     <div className="absolute bottom-[10px] left-[105px] flex flex-col items-center">
@@ -3000,7 +3000,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
 
                 <div className="space-y-4">
                   <div className="flex items-start gap-3">
-                    <div className="w-8 h-8 rounded-lg bg-slate-900 border border-slate-800 flex items-center justify-center text-[#D4AF37] shrink-0">
+                    <div className="w-8 h-8 rounded-lg bg-slate-900 border border-slate-800 flex items-center justify-center text-violet-400 shrink-0">
                       <Database className="w-4 h-4" />
                     </div>
                     <div>
@@ -3014,7 +3014,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                   </div>
 
                   <div className="flex items-start gap-3">
-                    <div className="w-8 h-8 rounded-lg bg-slate-900 border border-slate-800 flex items-center justify-center text-[#D4AF37] shrink-0">
+                    <div className="w-8 h-8 rounded-lg bg-slate-900 border border-slate-800 flex items-center justify-center text-violet-400 shrink-0">
                       <Brain className="w-4 h-4" />
                     </div>
                     <div>
@@ -3042,7 +3042,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
               <div className="w-full flex items-center justify-between">
                 <button 
                   onClick={() => setAuthMode("landing")}
-                  className="flex items-center gap-2 text-xs font-bold text-slate-400 hover:text-amber-400 transition-colors cursor-pointer"
+                  className="flex items-center gap-2 text-xs font-bold text-slate-400 hover:text-violet-400 transition-colors cursor-pointer"
                 >
                   {lang === "ar" ? <ArrowRight className="w-4 h-4" /> : <ArrowLeft className="w-4 h-4" />}
                   <span>
@@ -3053,19 +3053,19 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                 <div className="flex items-center gap-1.5 bg-slate-950 p-1 rounded-lg border border-slate-800">
                   <button 
                     onClick={() => toggleLanguage("ar")}
-                    className={`text-[10px] font-black px-2.5 py-1 rounded transition-all ${lang === "ar" ? "bg-[#D4AF37] text-slate-950 font-bold" : "text-slate-400 hover:text-white"}`}
+                    className={`text-[10px] font-black px-2.5 py-1 rounded transition-all ${lang === "ar" ? "bg-violet-600 text-slate-950 font-bold" : "text-slate-400 hover:text-white"}`}
                   >
                     ع
                   </button>
                   <button 
                     onClick={() => toggleLanguage("fr")}
-                    className={`text-[10px] font-black px-2.5 py-1 rounded transition-all ${lang === "fr" ? "bg-[#D4AF37] text-slate-950 font-bold" : "text-slate-400 hover:text-white"}`}
+                    className={`text-[10px] font-black px-2.5 py-1 rounded transition-all ${lang === "fr" ? "bg-violet-600 text-slate-950 font-bold" : "text-slate-400 hover:text-white"}`}
                   >
                     FR
                   </button>
                   <button 
                     onClick={() => toggleLanguage("en")}
-                    className={`text-[10px] font-black px-2.5 py-1 rounded transition-all ${lang === "en" ? "bg-[#D4AF37] text-slate-950 font-bold" : "text-slate-400 hover:text-white"}`}
+                    className={`text-[10px] font-black px-2.5 py-1 rounded transition-all ${lang === "en" ? "bg-violet-600 text-slate-950 font-bold" : "text-slate-400 hover:text-white"}`}
                   >
                     EN
                   </button>
@@ -3097,7 +3097,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
 
               {/* Branding Emblem */}
               <div className="text-center mb-6">
-                <div className="w-14 h-14 rounded-2xl bg-[#D4AF37]/5 border border-[#D4AF37]/15 flex items-center justify-center mx-auto mb-3">
+                <div className="w-14 h-14 rounded-2xl bg-violet-500/5 border border-violet-500/15 flex items-center justify-center mx-auto mb-3">
                   <ZakirLogo iconOnly size={40} theme="dark" />
                 </div>
                 <h1 className="text-2xl font-bold tracking-tight text-white">
@@ -3156,14 +3156,14 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                 {/* Owner Name */}
                 <div>
                   <label className="block text-[11px] font-semibold text-slate-300 mb-1 flex items-center gap-1.5">
-                    <UserIcon className="w-3.5 h-3.5 text-amber-500" />
+                    <UserIcon className="w-3.5 h-3.5 text-violet-400" />
                     <span>{lang === "fr" ? "Nom complet du propriétaire" : (lang === "ar" ? "الاسم الكامل للمالك" : "Full Name of Owner")}</span>
                   </label>
                   <input 
                     type="text" 
                     value={regOwnerName}
                     onChange={(e) => setRegOwnerName(e.target.value)}
-                    className="w-full h-10 px-3 bg-slate-900/40 border border-slate-800 rounded-xl text-white text-xs focus:outline-none focus:border-[#D4AF37]/70 focus:bg-[#D4AF37]/5 transition-all placeholder:text-slate-600"
+                    className="w-full h-10 px-3 bg-slate-900/40 border border-slate-800 rounded-xl text-white text-xs focus:outline-none focus:border-violet-500/70 focus:bg-violet-500/5 transition-all placeholder:text-slate-600"
                     placeholder="e.g. Mohamed Aly"
                     required
                   />
@@ -3172,14 +3172,14 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                 {/* Company Name */}
                 <div>
                   <label className="block text-[11px] font-semibold text-slate-300 mb-1 flex items-center gap-1.5">
-                    <Building className="w-3.5 h-3.5 text-amber-500" />
+                    <Building className="w-3.5 h-3.5 text-violet-400" />
                     <span>{lang === "fr" ? "Nom de l'entreprise" : (lang === "ar" ? "اسم الشركة / المؤسسة" : "Company Name")}</span>
                   </label>
                   <input 
                     type="text" 
                     value={regCompanyName}
                     onChange={(e) => setRegCompanyName(e.target.value)}
-                    className="w-full h-10 px-3 bg-slate-900/40 border border-slate-800 rounded-xl text-white text-xs focus:outline-none focus:border-[#D4AF37]/70 focus:bg-[#D4AF37]/5 transition-all placeholder:text-slate-600"
+                    className="w-full h-10 px-3 bg-slate-900/40 border border-slate-800 rounded-xl text-white text-xs focus:outline-none focus:border-violet-500/70 focus:bg-violet-500/5 transition-all placeholder:text-slate-600"
                     placeholder="e.g. Mauritanian Finance Group"
                     required
                   />
@@ -3188,14 +3188,14 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                 {/* Company Email */}
                 <div>
                   <label className="block text-[11px] font-semibold text-slate-300 mb-1 flex items-center gap-1.5">
-                    <Globe className="w-3.5 h-3.5 text-amber-500" />
+                    <Globe className="w-3.5 h-3.5 text-violet-400" />
                     <span>{lang === "fr" ? "Email de l'entreprise" : (lang === "ar" ? "البريد الإلكتروني للشركة" : "Company Email")}</span>
                   </label>
                   <input 
                     type="email" 
                     value={regEmail}
                     onChange={(e) => setRegEmail(e.target.value)}
-                    className="w-full h-10 px-3 bg-slate-900/40 border border-slate-800 rounded-xl text-white text-xs focus:outline-none focus:border-[#D4AF37]/70 focus:bg-[#D4AF37]/5 transition-all placeholder:text-slate-600"
+                    className="w-full h-10 px-3 bg-slate-900/40 border border-slate-800 rounded-xl text-white text-xs focus:outline-none focus:border-violet-500/70 focus:bg-violet-500/5 transition-all placeholder:text-slate-600"
                     placeholder="e.g. mohamedvadel60@entreprise8.com"
                     required
                   />
@@ -3205,7 +3205,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                 <div>
                   <label className="block text-[11px] font-semibold text-slate-300 mb-1 flex items-center justify-between">
                     <span className="flex items-center gap-1.5">
-                      <Lock className="w-3.5 h-3.5 text-amber-500" />
+                      <Lock className="w-3.5 h-3.5 text-violet-400" />
                       <span>{lang === "fr" ? "Mot de passe" : (lang === "ar" ? "كلمة المرور" : "Password")}</span>
                     </span>
                   </label>
@@ -3214,7 +3214,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                        type={showRegPassword ? "text" : "password"} 
                        value={regPassword}
                        onChange={(e) => setRegPassword(e.target.value)}
-                       className="w-full h-10 px-3 pr-10 bg-slate-900/40 border border-slate-800 rounded-xl text-white text-xs focus:outline-none focus:border-[#D4AF37]/70 focus:bg-[#D4AF37]/5 transition-all placeholder:text-slate-600 font-mono"
+                       className="w-full h-10 px-3 pr-10 bg-slate-900/40 border border-slate-800 rounded-xl text-white text-xs focus:outline-none focus:border-violet-500/70 focus:bg-violet-500/5 transition-all placeholder:text-slate-600 font-mono"
                        placeholder="••••••••"
                        required
                     />
@@ -3232,7 +3232,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                 <div className="p-3 bg-slate-950/80 border border-slate-800/90 rounded-xl space-y-2">
                   <div className="text-[11px] font-bold text-slate-300 uppercase tracking-wider font-mono flex items-center justify-between">
                     <span>{lang === "fr" ? "Password requirements:" : (lang === "ar" ? "شروط كلمة المرور المطلوبة:" : "Password requirements:")}</span>
-                    <span className={`text-[10px] font-normal ${pwdValidation.isValid ? "text-emerald-400" : "text-amber-500"}`}>
+                    <span className={`text-[10px] font-normal ${pwdValidation.isValid ? "text-emerald-400" : "text-violet-400"}`}>
                       {pwdValidation.isValid ? (lang === "ar" ? "مستوفية جميع الشروط" : "All criteria met") : (lang === "ar" ? "مطلوبة" : "Required")}
                     </span>
                   </div>
@@ -3274,7 +3274,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                 <div>
                   <label className="block text-[11px] font-semibold text-slate-300 mb-1 flex items-center justify-between">
                     <span className="flex items-center gap-1.5">
-                      <ShieldCheck className="w-3.5 h-3.5 text-amber-500" />
+                      <ShieldCheck className="w-3.5 h-3.5 text-violet-400" />
                       <span>{lang === "fr" ? "Confirmer le mot de passe" : (lang === "ar" ? "تأكيد كلمة المرور" : "Confirm Password")}</span>
                     </span>
                     {regConfirmPassword.length > 0 && (
@@ -3287,7 +3287,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                     type="password" 
                     value={regConfirmPassword}
                     onChange={(e) => setRegConfirmPassword(e.target.value)}
-                    className="w-full h-10 px-3 bg-slate-900/40 border border-slate-800 rounded-xl text-white text-xs focus:outline-none focus:border-[#D4AF37]/70 focus:bg-[#D4AF37]/5 transition-all placeholder:text-slate-600 font-mono"
+                    className="w-full h-10 px-3 bg-slate-900/40 border border-slate-800 rounded-xl text-white text-xs focus:outline-none focus:border-violet-500/70 focus:bg-violet-500/5 transition-all placeholder:text-slate-600 font-mono"
                     placeholder="••••••••"
                     required
                   />
@@ -3297,7 +3297,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                 <button 
                   type="submit" 
                   disabled={isSubmittingReg}
-                  className="w-full h-11 mt-2 bg-gradient-to-r from-[#D4AF37] to-[#B59410] hover:brightness-110 active:scale-[0.98] text-slate-950 font-bold text-xs rounded-xl shadow-lg shadow-amber-500/10 hover:shadow-amber-500/20 transition-all cursor-pointer flex items-center justify-center gap-2 uppercase tracking-wider"
+                  className="w-full h-11 mt-2 bg-gradient-to-r from-violet-600 to-violet-500 hover:brightness-110 active:scale-[0.98] text-slate-950 font-bold text-xs rounded-xl shadow-lg shadow-violet-500/10 hover:shadow-violet-500/20 transition-all cursor-pointer flex items-center justify-center gap-2 uppercase tracking-wider"
                 >
                   {isSubmittingReg ? (
                     <RefreshCw className="w-4 h-4 animate-spin" />
@@ -3311,7 +3311,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
               <div className="mt-6 text-center border-t border-slate-800/80 pt-4">
                 <button 
                   onClick={() => setAuthMode("login")}
-                  className="text-xs text-amber-500 hover:text-amber-400 font-medium transition-colors cursor-pointer"
+                  className="text-xs text-violet-400 hover:text-violet-300 font-medium transition-colors cursor-pointer"
                 >
                   {lang === "fr" ? "Déjà un compte ? Se connecter" : (lang === "ar" ? "لديك حساب بالفعل؟ تسجيل الدخول" : "Already have an account? Sign In")}
                 </button>
@@ -3329,9 +3329,9 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
           </div>
         ) : (
           /* LOGIN SCREEN */
-          <div className="min-h-screen bg-[#070b13] text-slate-200 flex flex-col md:grid md:grid-cols-12 relative overflow-hidden selection:bg-amber-500/20">
+          <div className="min-h-screen bg-[#070b13] text-slate-200 flex flex-col md:grid md:grid-cols-12 relative overflow-hidden selection:bg-violet-500/20">
             {/* GLOWING AMBIENT FIELD */}
-            <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-[#D4AF37]/5 rounded-full blur-[120px] pointer-events-none" />
+            <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-violet-500/5 rounded-full blur-[120px] pointer-events-none" />
             <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-blue-500/5 rounded-full blur-[120px] pointer-events-none" />
 
             {/* LEFT COLUMN: BRAND WORKSPACE MONOLITH & CAUSAL PATH CONSOLE */}
@@ -3346,7 +3346,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
               {/* Dynamic Interactive Causal Path Animation Console */}
               <div className="relative z-10 my-12 space-y-6">
                 <div className="p-4 rounded-xl border border-slate-800/60 bg-slate-900/30 backdrop-blur-sm space-y-3">
-                  <div className="flex items-center gap-2 text-xs font-black uppercase tracking-widest text-[#D4AF37]">
+                  <div className="flex items-center gap-2 text-xs font-black uppercase tracking-widest text-violet-400">
                     <Activity className="w-3.5 h-3.5 animate-pulse" />
                     <span>{lang === "ar" ? "شاشة الترابط السببي النشطة" : "Active Causal Ledger"}</span>
                   </div>
@@ -3364,7 +3364,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                       <path d="M 30,50 L 120,74 L 210,50" fill="none" stroke="currentColor" strokeWidth="1" />
                       
                       {/* Pulse Animations along the paths */}
-                      <circle r="3" fill="#D4AF37">
+                      <circle r="3" fill="#7C3AED">
                         <animateMotion dur="4s" repeatCount="indefinite" path="M 30,50 L 120,30 L 210,50" />
                       </circle>
                       <circle r="3" fill="#3b82f6">
@@ -3381,10 +3381,10 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                     </div>
 
                     <div className="absolute top-[18px] left-[105px] flex flex-col items-center">
-                      <div className="w-6 h-6 rounded-md bg-[#D4AF37]/10 border border-[#D4AF37]/30 flex items-center justify-center text-[10px] font-bold text-[#D4AF37] animate-pulse">
+                      <div className="w-6 h-6 rounded-md bg-violet-500/10 border border-violet-500/30 flex items-center justify-center text-[10px] font-bold text-violet-400 animate-pulse">
                         CA
                       </div>
-                      <span className="text-[8px] text-[#D4AF37] mt-1 uppercase tracking-wider">Causal</span>
+                      <span className="text-[8px] text-violet-400 mt-1 uppercase tracking-wider">Causal</span>
                     </div>
 
                     <div className="absolute bottom-[10px] left-[105px] flex flex-col items-center">
@@ -3405,7 +3405,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
 
                 <div className="space-y-4">
                   <div className="flex items-start gap-3">
-                    <div className="w-8 h-8 rounded-lg bg-slate-900 border border-slate-800 flex items-center justify-center text-[#D4AF37] shrink-0">
+                    <div className="w-8 h-8 rounded-lg bg-slate-900 border border-slate-800 flex items-center justify-center text-violet-400 shrink-0">
                       <Database className="w-4 h-4" />
                     </div>
                     <div>
@@ -3419,7 +3419,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                   </div>
 
                   <div className="flex items-start gap-3">
-                    <div className="w-8 h-8 rounded-lg bg-slate-900 border border-slate-800 flex items-center justify-center text-[#D4AF37] shrink-0">
+                    <div className="w-8 h-8 rounded-lg bg-slate-900 border border-slate-800 flex items-center justify-center text-violet-400 shrink-0">
                       <Brain className="w-4 h-4" />
                     </div>
                     <div>
@@ -3447,7 +3447,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
               <div className="w-full flex items-center justify-between">
                 <button 
                   onClick={() => setAuthMode("landing")}
-                  className="flex items-center gap-2 text-xs font-bold text-slate-400 hover:text-amber-400 transition-colors cursor-pointer"
+                  className="flex items-center gap-2 text-xs font-bold text-slate-400 hover:text-violet-400 transition-colors cursor-pointer"
                 >
                   {lang === "ar" ? <ArrowRight className="w-4 h-4" /> : <ArrowLeft className="w-4 h-4" />}
                   <span>
@@ -3458,19 +3458,19 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                 <div className="flex items-center gap-1.5 bg-slate-950 p-1 rounded-lg border border-slate-800">
                   <button 
                     onClick={() => toggleLanguage("ar")}
-                    className={`text-[10px] font-black px-2.5 py-1 rounded transition-all ${lang === "ar" ? "bg-[#D4AF37] text-slate-950 font-bold" : "text-slate-400 hover:text-white"}`}
+                    className={`text-[10px] font-black px-2.5 py-1 rounded transition-all ${lang === "ar" ? "bg-violet-600 text-slate-950 font-bold" : "text-slate-400 hover:text-white"}`}
                   >
                     ع
                   </button>
                   <button 
                     onClick={() => toggleLanguage("fr")}
-                    className={`text-[10px] font-black px-2.5 py-1 rounded transition-all ${lang === "fr" ? "bg-[#D4AF37] text-slate-950 font-bold" : "text-slate-400 hover:text-white"}`}
+                    className={`text-[10px] font-black px-2.5 py-1 rounded transition-all ${lang === "fr" ? "bg-violet-600 text-slate-950 font-bold" : "text-slate-400 hover:text-white"}`}
                   >
                     FR
                   </button>
                   <button 
                     onClick={() => toggleLanguage("en")}
-                    className={`text-[10px] font-black px-2.5 py-1 rounded transition-all ${lang === "en" ? "bg-[#D4AF37] text-slate-950 font-bold" : "text-slate-400 hover:text-white"}`}
+                    className={`text-[10px] font-black px-2.5 py-1 rounded transition-all ${lang === "en" ? "bg-violet-600 text-slate-950 font-bold" : "text-slate-400 hover:text-white"}`}
                   >
                     EN
                   </button>
@@ -3504,7 +3504,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                 /* FORGOT PASSWORD FORM */
                 <div>
                   <div className="text-center mb-6">
-                    <div className="w-12 h-12 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-500 flex items-center justify-center mx-auto mb-3 font-bold text-xl">
+                    <div className="w-12 h-12 rounded-xl bg-violet-500/10 border border-violet-500/20 text-violet-400 flex items-center justify-center mx-auto mb-3 font-bold text-xl">
                       <KeyRound className="w-6 h-6" />
                     </div>
                     <h1 className="text-2xl font-bold tracking-tight text-white">
@@ -3525,7 +3525,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                         <div className="flex-1 space-y-1">
                           <p className="font-medium leading-relaxed whitespace-pre-line">{resetErrorMsg}</p>
                           {resetCooldownSeconds > 0 && (
-                            <div className="pt-1 flex items-center gap-1.5 text-amber-400 font-mono text-[11px] font-bold">
+                            <div className="pt-1 flex items-center gap-1.5 text-violet-400 font-mono text-[11px] font-bold">
                               <Clock className="w-3.5 h-3.5 animate-pulse shrink-0" />
                               <span>
                                 {lang === "ar"
@@ -3553,7 +3553,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                           type="email" 
                           value={resetEmail}
                           onChange={(e) => setResetEmail(e.target.value)}
-                          className="w-full h-10 px-3 bg-slate-950 border border-slate-800 rounded-xl text-white text-xs focus:outline-none focus:border-amber-500 transition-all placeholder:text-slate-600"
+                          className="w-full h-10 px-3 bg-slate-950 border border-slate-800 rounded-xl text-white text-xs focus:outline-none focus:border-violet-500 transition-all placeholder:text-slate-600"
                           placeholder="name@company.com"
                           required
                         />
@@ -3573,7 +3573,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                             placeholder="------"
                             value={resetCode}
                             onChange={(e) => setResetCode(e.target.value.replace(/\D/g, ""))}
-                            className="w-full text-center tracking-[8px] text-lg font-bold font-mono h-11 bg-slate-950 border border-slate-800 rounded-xl text-amber-400 placeholder:text-slate-700 focus:outline-none focus:border-amber-500 transition-all"
+                            className="w-full text-center tracking-[8px] text-lg font-bold font-mono h-11 bg-slate-950 border border-slate-800 rounded-xl text-violet-400 placeholder:text-slate-700 focus:outline-none focus:border-violet-500 transition-all"
                             required
                           />
                         </div>
@@ -3591,7 +3591,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                             type="password" 
                             value={newPassword}
                             onChange={(e) => setNewPassword(e.target.value)}
-                            className="w-full h-10 px-3 bg-slate-950 border border-slate-800 rounded-xl text-white text-xs focus:outline-none focus:border-amber-500 transition-all"
+                            className="w-full h-10 px-3 bg-slate-950 border border-slate-800 rounded-xl text-white text-xs focus:outline-none focus:border-violet-500 transition-all"
                             placeholder="••••••••"
                             required
                           />
@@ -3604,7 +3604,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                             type="password" 
                             value={confirmNewPassword}
                             onChange={(e) => setConfirmNewPassword(e.target.value)}
-                            className="w-full h-10 px-3 bg-slate-950 border border-slate-800 rounded-xl text-white text-xs focus:outline-none focus:border-amber-500 transition-all"
+                            className="w-full h-10 px-3 bg-slate-950 border border-slate-800 rounded-xl text-white text-xs focus:outline-none focus:border-violet-500 transition-all"
                             placeholder="••••••••"
                             required
                           />
@@ -3632,7 +3632,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                         className={"w-full h-11 mt-2 font-bold text-xs rounded-xl shadow-lg transition-all flex items-center justify-center gap-2 uppercase tracking-wider " + (
                           resetStep === "forgot" && resetCooldownSeconds > 0
                             ? "bg-slate-800/90 text-slate-400 border border-slate-700/60 cursor-not-allowed opacity-80"
-                            : "bg-amber-500 hover:bg-amber-400 text-slate-950 cursor-pointer shadow-amber-500/20"
+                            : "bg-violet-600 hover:bg-violet-500 text-white cursor-pointer shadow-violet-500/20"
                         )}
                       >
                         {isSendingReset ? (
@@ -3667,7 +3667,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                           setResetErrorMsg("");
                           setResetCooldownSeconds(0);
                         }}
-                        className="w-full h-11 mt-2 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs rounded-xl shadow-lg transition-all cursor-pointer flex items-center justify-center gap-2 uppercase tracking-wider"
+                        className="w-full h-11 mt-2 bg-violet-600 hover:bg-violet-500 text-white font-bold text-xs rounded-xl shadow-lg transition-all cursor-pointer flex items-center justify-center gap-2 uppercase tracking-wider"
                       >
                         {lang === "ar" ? "العودة لتسجيل الدخول" : "Back to Sign In"}
                       </button>
@@ -3688,7 +3688,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                           setResetSuccessMsg("");
                           setResetCooldownSeconds(0);
                         }}
-                        className="text-xs text-amber-500 hover:text-amber-400 font-medium transition-colors cursor-pointer flex items-center justify-center gap-1.5 mx-auto"
+                        className="text-xs text-violet-400 hover:text-violet-300 font-medium transition-colors cursor-pointer flex items-center justify-center gap-1.5 mx-auto"
                       >
                         {lang === "ar" ? <ArrowRight className="w-3.5 h-3.5" /> : <ArrowLeft className="w-3.5 h-3.5" />}
                         <span>{lang === "fr" ? "Retour à la connexion" : (lang === "ar" ? "العودة لتسجيل الدخول" : "Back to Sign In")}</span>
@@ -3700,7 +3700,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                 /* STANDARD LOGIN FORM */
                 <div>
                   <div className="text-center mb-6">
-                    <div className="w-14 h-14 rounded-2xl bg-[#D4AF37]/5 border border-[#D4AF37]/15 flex items-center justify-center mx-auto mb-3 text-[#D4AF37]">
+                    <div className="w-14 h-14 rounded-2xl bg-violet-500/5 border border-violet-500/15 flex items-center justify-center mx-auto mb-3 text-violet-400">
                       <ZakirLogo iconOnly size={40} theme="dark" />
                     </div>
                     <h1 className="text-2xl font-bold tracking-tight text-white">
@@ -3757,7 +3757,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                         type="email" 
                         value={loginEmail}
                         onChange={(e) => setLoginEmail(e.target.value)}
-                        className="w-full h-10 px-3 bg-slate-900/40 border border-slate-800 rounded-xl text-white text-xs focus:outline-none focus:border-[#D4AF37]/70 focus:bg-[#D4AF37]/5 transition-all placeholder:text-slate-600"
+                        className="w-full h-10 px-3 bg-slate-900/40 border border-slate-800 rounded-xl text-white text-xs focus:outline-none focus:border-violet-500/70 focus:bg-violet-500/5 transition-all placeholder:text-slate-600"
                         placeholder="name@company.com"
                         required
                       />
@@ -3774,7 +3774,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                             setResetSuccessMsg("");
                             setResetErrorMsg("");
                           }}
-                          className="text-[11px] text-amber-400 hover:text-amber-300 font-semibold transition-colors cursor-pointer"
+                          className="text-[11px] text-violet-400 hover:text-violet-300 font-semibold transition-colors cursor-pointer"
                         >
                           {lang === "fr" ? "Mot de passe oublié ?" : (lang === "ar" ? "نسيت كلمة السر؟" : "Forgot Password?")}
                         </button>
@@ -3783,7 +3783,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                         type="password" 
                         value={loginPassword}
                         onChange={(e) => setLoginPassword(e.target.value)}
-                        className="w-full h-10 px-3 bg-slate-900/40 border border-slate-800 rounded-xl text-white text-xs focus:outline-none focus:border-[#D4AF37]/70 focus:bg-[#D4AF37]/5 transition-all placeholder:text-slate-600 font-mono"
+                        className="w-full h-10 px-3 bg-slate-900/40 border border-slate-800 rounded-xl text-white text-xs focus:outline-none focus:border-violet-500/70 focus:bg-violet-500/5 transition-all placeholder:text-slate-600 font-mono"
                         placeholder="••••••••"
                         required
                       />
@@ -3792,7 +3792,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                     <button 
                       type="submit" 
                       disabled={isSubmittingLogin}
-                      className="w-full h-11 mt-2 bg-gradient-to-r from-[#D4AF37] to-[#B59410] hover:brightness-110 active:scale-[0.98] text-slate-950 font-bold text-xs rounded-xl shadow-lg transition-all cursor-pointer flex items-center justify-center gap-2 uppercase tracking-wider"
+                      className="w-full h-11 mt-2 bg-gradient-to-r from-violet-600 to-violet-500 hover:brightness-110 active:scale-[0.98] text-slate-950 font-bold text-xs rounded-xl shadow-lg transition-all cursor-pointer flex items-center justify-center gap-2 uppercase tracking-wider"
                     >
                       {isSubmittingLogin ? (
                         <RefreshCw className="w-4 h-4 animate-spin" />
@@ -3805,7 +3805,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                   <div className="mt-6 text-center border-t border-slate-800/80 pt-4">
                     <button 
                       onClick={() => setAuthMode("register")}
-                      className="text-xs text-amber-500 hover:text-amber-400 font-medium transition-colors cursor-pointer"
+                      className="text-xs text-violet-400 hover:text-violet-300 font-medium transition-colors cursor-pointer"
                     >
                       {lang === "fr" ? "Pas encore de compte ? S'enregistrer" : (lang === "ar" ? "ليس لديك حساب؟ إنشاء حساب جديد" : "No account yet? Register here")}
                     </button>
@@ -3932,11 +3932,11 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
 
               {!isSidebarCollapsed && (
                 <div className="overflow-hidden flex-1">
-                  <h4 className="text-[11px] font-bold truncate text-slate-200 leading-tight group-hover/profileCard:text-[#D4AF37] transition-colors">
+                  <h4 className="text-[11px] font-bold truncate text-slate-200 leading-tight group-hover/profileCard:text-violet-400 transition-colors">
                     {currentUser.ownerName || currentUser.email}
                   </h4>
                   <div className="flex items-center gap-1 mt-0.5 font-mono text-[9px] text-slate-500 uppercase">
-                    <span className="text-[#D4AF37]">●</span>
+                    <span className="text-violet-400">•</span>
                     <span className="truncate">{currentUser.role}</span>
                   </div>
                 </div>
@@ -4013,17 +4013,17 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                               isSidebarCollapsed ? "justify-center px-0" : "justify-between px-3"
                             } ${
                               isActive 
-                                ? "text-[#D4AF37] bg-slate-900 font-semibold" 
+                                ? "text-violet-400 bg-slate-900 font-semibold" 
                                 : "text-slate-400 hover:text-slate-200 hover:bg-slate-900/40"
                             }`}
                           >
                             {/* Razor-thin active indicator bar */}
                             {isActive && (
-                              <div className={`absolute top-0 bottom-0 w-0.5 bg-[#D4AF37] ${lang === "ar" ? "right-0" : "left-0"}`} />
+                              <div className={`absolute top-0 bottom-0 w-0.5 bg-violet-500 ${lang === "ar" ? "right-0" : "left-0"}`} />
                             )}
 
                             <div className={`flex items-center ${isSidebarCollapsed ? "justify-center" : "gap-2.5"}`}>
-                              <IconComponent className={`w-3.5 h-3.5 shrink-0 ${isActive ? "text-[#D4AF37]" : "text-slate-500 group-hover:text-slate-300"}`} />
+                              <IconComponent className={`w-3.5 h-3.5 shrink-0 ${isActive ? "text-violet-400" : "text-slate-500 group-hover:text-slate-300"}`} />
                               {!isSidebarCollapsed && (
                                 <span className="truncate max-w-[130px] leading-tight text-[11px]">{item.label}</span>
                               )}
@@ -4051,7 +4051,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
               </div>
               <div className="flex items-center justify-between text-slate-500">
                 <span>TRIAL</span>
-                <span className="text-[#D4AF37]">{timeLeftStr}</span>
+                <span className="text-violet-400">{timeLeftStr}</span>
               </div>
 
               {/* Language & Theme switches */}
@@ -4061,7 +4061,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                     <button
                       key={l}
                       onClick={() => toggleLanguage(l)}
-                      className={`px-1 py-0.5 text-[9px] font-bold ${lang === l ? "text-[#D4AF37]" : "text-slate-500 hover:text-slate-300"}`}
+                      className={`px-1 py-0.5 text-[9px] font-bold ${lang === l ? "text-violet-400" : "text-slate-500 hover:text-slate-300"}`}
                     >
                       {l.toUpperCase()}
                     </button>
@@ -4073,7 +4073,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                     <button
                       key={th}
                       onClick={() => toggleTheme(th)}
-                      className={`px-1.5 py-0.5 text-[9px] font-bold ${theme === th ? "text-[#D4AF37]" : "text-slate-500 hover:text-slate-300"}`}
+                      className={`px-1.5 py-0.5 text-[9px] font-bold ${theme === th ? "text-violet-400" : "text-slate-500 hover:text-slate-300"}`}
                     >
                       {th === "light" ? "LGT" : "DRK"}
                     </button>
@@ -4096,7 +4096,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
             {/* Smooth Top Progress Bar */}
             {isLoading && (
               <div className="absolute top-0 left-0 right-0 h-1 bg-transparent overflow-hidden z-[999] pointer-events-none">
-                <div className="h-full bg-gradient-to-r from-amber-500 via-amber-300 to-amber-500 w-1/3 rounded-full animate-[loading-bar_1.2s_infinite_linear]"></div>
+                <div className="h-full bg-gradient-to-r from-violet-600 via-violet-400 to-violet-600 w-1/3 rounded-full animate-[loading-bar_1.2s_infinite_linear]"></div>
               </div>
             )}
             
@@ -4111,7 +4111,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                   className="md:hidden p-2 rounded-lg bg-slate-800/40 border border-slate-700/50 text-slate-300 hover:text-white"
                   aria-label="Toggle Mobile Sidebar"
                 >
-                  <Menu className="w-5 h-5 text-[#D4AF37]" />
+                  <Menu className="w-5 h-5 text-violet-400" />
                 </button>
 
 
@@ -4152,14 +4152,14 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                     <img 
                       src={currentUser.avatarUrl} 
                       alt={currentUser.ownerName || currentUser.email} 
-                      className="w-6 h-6 rounded-full object-cover border border-[#D4AF37]"
+                      className="w-6 h-6 rounded-full object-cover border border-violet-500"
                     />
                   ) : (
-                    <div className="w-6 h-6 rounded-full bg-[#D4AF37] text-[#0F172A] font-black text-[10px] flex items-center justify-center">
+                    <div className="w-6 h-6 rounded-full bg-violet-600 text-white font-black text-[10px] flex items-center justify-center">
                       {(currentUser.ownerName || currentUser.email).slice(0, 2).toUpperCase()}
                     </div>
                   )}
-                  <span className="hidden md:inline text-xs font-bold text-white group-hover/topAvatar:text-[#D4AF37] transition-colors">
+                  <span className="hidden md:inline text-xs font-bold text-white group-hover/topAvatar:text-violet-400 transition-colors">
                     {currentUser.ownerName || currentUser.email.split("@")[0]}
                   </span>
                 </button>
@@ -4349,7 +4349,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                         viewAll: "عرض الكل",
                         knowledgeWealth: "أصول المعرفة الاستراتيجية",
                         totalMemories: "الذكريات المؤسسية المسجلة",
-                        retainedDocs: "المستندات والوثائق المؤمنة",
+                        retainedDocs: "المستندات والوث��ئق المؤمنة",
                         threatLevel: "مستوى التهديدات الحالي",
                         activeThreats: "المخاطر التشغيلية النشطة",
                         aiDiagnostics: "التحليلات الذكية التنبؤية",
@@ -5762,7 +5762,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                               className={`w-full h-28 p-3 border rounded-xl text-xs focus:outline-none focus:border-[#D4AF37] focus:ring-1 focus:ring-[#D4AF37]/20 ${
                                 theme === "dark" ? "bg-slate-950 border-slate-800 text-white" : "bg-slate-50 border-slate-200 text-slate-850"
                               }`}
-                              placeholder={lang === "ar" ? "التأثيرات المالية، التأخيرات الميدانية، أو النتائج المباشرة..." : (lang === "fr" ? "Impacts financiers, juridiques ou opérationnels quantifiables observés..." : "Quantifiable financial, legal, or operational impacts observed...")}
+                              placeholder={lang === "ar" ? "الت��ثيرات المالية، التأخيرات الميدانية، أو النتا��ج المباشرة..." : (lang === "fr" ? "Impacts financiers, juridiques ou opérationnels quantifiables observés..." : "Quantifiable financial, legal, or operational impacts observed...")}
                             ></textarea>
                           </div>
                         </div>
