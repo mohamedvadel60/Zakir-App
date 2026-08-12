@@ -105,6 +105,7 @@ import { WorldBankPortal } from "./components/WorldBankPortal";
 import { generateWorldBankFallbackData } from "./lib/worldBankFallback.js";
 import { ZakirLogo } from "./components/ZakirLogo";
 import { AuthSwitch } from "./components/ui/auth-switch";
+import { SplitLoginCard } from "./components/ui/split-login-card";
 import { applyGlobalTheme, ThemeMode } from "./lib/themeUtils.js";
 import { authenticatedFetch } from "./lib/apiUtils.js";
 import { SettingsAdmin } from "./components/SettingsAdmin";
@@ -3078,6 +3079,22 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                   animate={{ opacity: 1, y: 0 }}
                   className="w-full max-w-lg mx-auto bg-[#0d1527]/90 border border-slate-800/80 rounded-2xl p-6 sm:p-8 shadow-2xl relative"
                 >
+                  <AuthSwitch 
+                    currentMode={showForgotPassword ? "forgot" : (authMode as string) === "register" ? "register" : "login"}
+                    onModeChange={(m) => {
+                      if (m === "forgot") {
+                        setShowForgotPassword(true);
+                      } else if (m === "register") {
+                        setShowForgotPassword(false);
+                        setAuthMode("register");
+                      } else {
+                        setShowForgotPassword(false);
+                        setAuthMode("login");
+                      }
+                    }}
+                    lang={lang}
+                  />
+
               {/* Branding Emblem */}
               <div className="text-center mb-6">
                 <div className="w-14 h-14 rounded-2xl bg-[#D4AF37]/5 border border-[#D4AF37]/15 flex items-center justify-center mx-auto mb-3">
