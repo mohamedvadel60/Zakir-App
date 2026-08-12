@@ -2617,34 +2617,33 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
 
   if (isAuthChecking || (currentUser && !isInitialDataLoaded)) {
     return (
-      <div 
+      <div
         id="zakir-auth-loading"
-        className={`min-h-screen flex flex-col items-center justify-center transition-all duration-300 ${
-          theme === "dark" ? "theme-dark bg-[#0B0F19] text-[#F8FAFC]" : "theme-light bg-[#F0F2F5] text-[#0F172A]"
+        className={`min-h-screen flex flex-col items-center justify-center transition-colors duration-300 ${
+          theme === "dark" ? "theme-dark bg-[#0b0f19] text-[#f8fafc]" : "theme-light bg-[#f6f7fb] text-[#0f172a]"
         }`}
       >
-        <div className="flex flex-col items-center gap-5">
+        <div className="flex flex-col items-center gap-6">
           <div className="relative flex items-center justify-center">
-            <div className={`w-20 h-20 rounded-2xl flex items-center justify-center ${
-              theme === "light" 
-                ? "bg-slate-200 border border-slate-400 text-black" 
-                : "bg-violet-500/5 border border-violet-500/15 text-violet-400"
+            <div className={`w-20 h-20 rounded-2xl flex items-center justify-center border ${
+              theme === "light"
+                ? "bg-white border-border-strong"
+                : "bg-violet-500/5 border-violet-500/15"
             }`}>
               <ZakirLogo size={56} iconOnly theme={isCustomThemeActive ? "custom" : theme} />
             </div>
-            <div className="absolute inset-0 w-20 h-20 rounded-2xl border-2 border-slate-400 dark:border-violet-500/20 animate-ping opacity-20 pointer-events-none"></div>
+            <div className="absolute inset-0 w-20 h-20 rounded-2xl border-2 border-primary/20 animate-ping opacity-20 pointer-events-none" />
           </div>
-          <div className="text-center space-y-1">
-            <span className={`text-2xl font-black tracking-widest block font-sans ${
-              theme === "light" ? "text-black" : "text-white"
-            }`}>
+          <div className="text-center space-y-1.5">
+            <span className="text-xl font-bold tracking-[0.2em] block font-sans text-foreground">
               ZAKIR
             </span>
-            <span className={`text-[10px] tracking-widest font-mono uppercase block ${
-              theme === "light" ? "text-slate-800 font-bold" : "text-slate-400"
-            }`}>
+            <span className="text-[10px] tracking-[0.18em] font-mono uppercase block text-muted-foreground">
               {lang === "ar" ? "الذاكرة السببية المؤسسية" : "The Organizational Causal Memory"}
             </span>
+          </div>
+          <div className="w-32 h-0.5 rounded-full bg-border overflow-hidden">
+            <div className="h-full w-1/3 rounded-full bg-primary animate-[loading-bar_1.2s_infinite_linear]" />
           </div>
         </div>
       </div>
@@ -2655,7 +2654,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
     <div 
       id="zakir-app-root"
       className={`min-h-screen transition-colors duration-150 ${
-        theme === "dark" ? "theme-dark bg-[#0B0F19] text-[#F8FAFC]" : "theme-light bg-[#F0F2F5] text-[#0F172A]"
+        theme === "dark" ? "theme-dark bg-[#0B0F19] text-[#F8FAFC]" : "theme-light bg-[#f6f7fb] text-[#0F172A]"
       } ${
         isCustomThemeActive ? "custom-theme-active" : ""
       }`} 
@@ -2664,31 +2663,49 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
     >
       {/* GLOBAL DYNAMIC CSS PALETTE OVERRIDES */}
       <style dangerouslySetInnerHTML={{ __html: `
-        /* 1. Global CSS Variables Definition */
+        /* 1. Global CSS Variables Definition — aligned with the violet-first Zakir token system */
         .theme-light {
-          --bg-primary: #F0F2F5; /* Facebook-style smooth off-white body background */
-          --bg-secondary: #FFFFFF; /* Pure white cards, sidebars, headers */
-          --bg-tertiary: #F8FAFC; /* Inputs, tables, tag backgrounds */
-          --text-primary: #0F172A; /* Crisp deep slate text */
+          --bg-primary: #f6f7fb; /* Soft institutional off-white body background */
+          --bg-secondary: #ffffff; /* Pure white cards, sidebars, headers */
+          --bg-tertiary: #f1f5f9; /* Inputs, tables, tag backgrounds */
+          --bg-elevated: #ffffff;
+          --text-primary: #0f172a; /* Crisp deep slate text */
           --text-secondary: #475569; /* Muted slate gray */
-          --border-color: #CBD5E1; /* Professional crisp border (slate-300) for light mode */
-          --accent-color: #6D28D9; /* Violet primary accent */
-          --accent-hover: #7C3AED;
-          --accent-subtle: #6D28D915;
-          --accent-text: #FFFFFF;
+          --text-tertiary: #94a3b8;
+          --border-color: #e2e8f0; /* Professional crisp border (slate-200) for light mode */
+          --border-strong: #cbd5e1;
+          --accent-color: #6d28d9; /* Violet primary accent */
+          --accent-hover: #7c3aed;
+          --accent-pressed: #5b21b6;
+          --accent-subtle: rgba(109, 40, 217, 0.10);
+          --accent-text: #ffffff;
+          --accent-tertiary: #6d28d9;
+          --card-bg: #ffffff;
+          --input-bg: #f8fafc;
+          --premium-color: #b45309;
+          --header-bg: rgba(255, 255, 255, 0.80);
         }
 
         .theme-dark {
-          --bg-primary: #0B0F19; /* Modern ultra-safe dark canvas */
+          --bg-primary: #0b0f19; /* Modern ultra-safe dark canvas */
           --bg-secondary: #111827; /* Sophisticated card backgrounds */
-          --bg-tertiary: #1F2937; /* Elegant inputs & tab hover states */
-          --text-primary: #F8FAFC; /* High-readability crisp off-white text */
-          --text-secondary: #94A3B8; /* Muted cool gray text */
-          --border-color: #334155; /* Sophisticated contrast border (slate-700) for dark mode */
-          --accent-color: #7C3AED; /* Violet primary accent */
-          --accent-hover: #8B5CF6;
-          --accent-subtle: #7C3AED22;
-          --accent-text: #FFFFFF;
+          --bg-tertiary: #1f2937; /* Elegant inputs & tab hover states */
+          --bg-elevated: #161e2e;
+          --text-primary: #f8fafc; /* High-readability crisp off-white text */
+          --text-secondary: #94a3b8; /* Muted cool gray text */
+          --text-tertiary: #64748b;
+          --border-color: #1e293b; /* Sophisticated contrast border for dark mode */
+          --border-strong: #334155;
+          --accent-color: #7c3aed; /* Violet primary accent */
+          --accent-hover: #8b5cf6;
+          --accent-pressed: #6d28d9;
+          --accent-subtle: rgba(124, 58, 237, 0.12);
+          --accent-text: #ffffff;
+          --accent-tertiary: #a78bfa;
+          --card-bg: #111827;
+          --input-bg: #1f2937;
+          --premium-color: #d4af37;
+          --header-bg: rgba(11, 15, 25, 0.80);
         }
 
         .custom-theme-active {
@@ -2926,11 +2943,11 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
           /* REGISTRATION SCREEN (Video 2 Style with Password Checklist Requirements) */
           <div className="min-h-screen bg-[#070b13] text-slate-200 flex flex-col md:grid md:grid-cols-12 relative overflow-hidden selection:bg-violet-500/20">
             {/* GLOWING AMBIENT FIELD */}
-            <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-violet-500/5 rounded-full blur-[120px] pointer-events-none" />
-            <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-blue-500/5 rounded-full blur-[120px] pointer-events-none" />
+            <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-violet-600/[0.04] rounded-full blur-[140px] pointer-events-none" />
+            <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-cyan-500/[0.03] rounded-full blur-[140px] pointer-events-none" />
 
             {/* LEFT COLUMN: BRAND WORKSPACE MONOLITH & CAUSAL PATH CONSOLE */}
-            <div className="hidden md:flex md:col-span-5 lg:col-span-4 bg-[#0a0f1d] border-r border-slate-800/40 p-10 flex-col justify-between relative overflow-hidden shrink-0">
+            <div className="hidden md:flex md:col-span-5 lg:col-span-4 bg-[#0a0f1d] border-r border-white/[0.06] p-10 flex-col justify-between relative overflow-hidden shrink-0">
               <div className="absolute inset-0 opacity-[0.02] bg-[radial-gradient(#fff_1px,transparent_1px)] [background-size:16px_16px] pointer-events-none" />
               
               {/* Header: Brand Identity */}
@@ -3050,22 +3067,22 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                   </span>
                 </button>
 
-                <div className="flex items-center gap-1.5 bg-slate-950 p-1 rounded-lg border border-slate-800">
+                <div className="flex items-center gap-1 bg-white/[0.04] p-1 rounded-lg border border-white/[0.08]">
                   <button 
                     onClick={() => toggleLanguage("ar")}
-                    className={`text-[10px] font-black px-2.5 py-1 rounded transition-all ${lang === "ar" ? "bg-violet-600 text-slate-950 font-bold" : "text-slate-400 hover:text-white"}`}
+                    className={`text-[11px] font-semibold px-2.5 py-1 rounded-md transition-[background-color,color] duration-150 ${lang === "ar" ? "bg-violet-600 text-white shadow-sm shadow-violet-600/30" : "text-slate-400 hover:text-white hover:bg-white/[0.05]"}`}
                   >
                     ع
                   </button>
                   <button 
                     onClick={() => toggleLanguage("fr")}
-                    className={`text-[10px] font-black px-2.5 py-1 rounded transition-all ${lang === "fr" ? "bg-violet-600 text-slate-950 font-bold" : "text-slate-400 hover:text-white"}`}
+                    className={`text-[11px] font-semibold px-2.5 py-1 rounded-md transition-[background-color,color] duration-150 ${lang === "fr" ? "bg-violet-600 text-white shadow-sm shadow-violet-600/30" : "text-slate-400 hover:text-white hover:bg-white/[0.05]"}`}
                   >
                     FR
                   </button>
                   <button 
                     onClick={() => toggleLanguage("en")}
-                    className={`text-[10px] font-black px-2.5 py-1 rounded transition-all ${lang === "en" ? "bg-violet-600 text-slate-950 font-bold" : "text-slate-400 hover:text-white"}`}
+                    className={`text-[11px] font-semibold px-2.5 py-1 rounded-md transition-[background-color,color] duration-150 ${lang === "en" ? "bg-violet-600 text-white shadow-sm shadow-violet-600/30" : "text-slate-400 hover:text-white hover:bg-white/[0.05]"}`}
                   >
                     EN
                   </button>
@@ -3074,10 +3091,11 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
 
               {/* Form Container Card */}
               <div className="max-w-md mx-auto w-full my-auto py-8">
-                <motion.div 
+                <motion.div
                   initial={{ opacity: 0, y: 15 }}
                   animate={{ opacity: 1, y: 0 }}
-                  className="w-full max-w-lg mx-auto bg-[#0d1527]/90 border border-slate-800/80 rounded-2xl p-6 sm:p-8 shadow-2xl relative"
+                  transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
+                  className="w-full max-w-lg mx-auto bg-[#0d1527]/95 backdrop-blur-xl border border-white/[0.07] rounded-2xl p-6 sm:p-8 shadow-[0_20px_60px_-20px_rgba(0,0,0,0.7)] relative"
                 >
                   <AuthSwitch 
                     currentMode={showForgotPassword ? "forgot" : (authMode as string) === "register" ? "register" : "login"}
@@ -3125,7 +3143,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                     setRegError(formatAuthError(err));
                   }
                 }}
-                className="w-full py-2.5 px-4 bg-slate-800 hover:bg-slate-750 text-white text-xs font-semibold rounded-xl border border-slate-700/80 transition-all cursor-pointer flex items-center justify-center gap-2.5 mb-5 shadow-sm"
+                className="w-full py-2.5 px-4 bg-white/[0.06] hover:bg-white/[0.1] text-white text-xs font-semibold rounded-lg border border-white/[0.1] transition-[background-color,border-color] duration-150 cursor-pointer flex items-center justify-center gap-2.5 mb-5 active:scale-[0.99]"
               >
                 <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24">
                   <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
@@ -3138,8 +3156,8 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
 
               {/* Divider */}
               <div className="relative flex items-center justify-center my-5">
-                <div className="border-t border-slate-800 w-full"></div>
-                <span className="bg-slate-900 px-3 text-[10px] uppercase font-semibold text-slate-500 tracking-widest relative z-10">
+                <div className="border-t border-white/[0.08] w-full"></div>
+                <span className="bg-[#0d1527] px-3 text-[10px] uppercase font-semibold text-slate-500 tracking-widest relative z-10">
                   {lang === "ar" ? "أو" : "OR"}
                 </span>
               </div>
@@ -3163,7 +3181,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                     type="text" 
                     value={regOwnerName}
                     onChange={(e) => setRegOwnerName(e.target.value)}
-                    className="w-full h-10 px-3 bg-slate-900/40 border border-slate-800 rounded-xl text-white text-xs focus:outline-none focus:border-violet-500/70 focus:bg-violet-500/5 transition-all placeholder:text-slate-600"
+                    className="w-full h-10 px-3 bg-white/[0.03] border border-white/[0.08] rounded-lg text-white text-sm focus:outline-none focus:border-violet-500/60 focus:bg-violet-500/[0.04] focus:ring-[3px] focus:ring-violet-500/15 transition-[border-color,box-shadow,background-color] duration-150 placeholder:text-slate-600"
                     placeholder="e.g. Mohamed Aly"
                     required
                   />
@@ -3179,7 +3197,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                     type="text" 
                     value={regCompanyName}
                     onChange={(e) => setRegCompanyName(e.target.value)}
-                    className="w-full h-10 px-3 bg-slate-900/40 border border-slate-800 rounded-xl text-white text-xs focus:outline-none focus:border-violet-500/70 focus:bg-violet-500/5 transition-all placeholder:text-slate-600"
+                    className="w-full h-10 px-3 bg-white/[0.03] border border-white/[0.08] rounded-lg text-white text-sm focus:outline-none focus:border-violet-500/60 focus:bg-violet-500/[0.04] focus:ring-[3px] focus:ring-violet-500/15 transition-[border-color,box-shadow,background-color] duration-150 placeholder:text-slate-600"
                     placeholder="e.g. Mauritanian Finance Group"
                     required
                   />
@@ -3195,7 +3213,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                     type="email" 
                     value={regEmail}
                     onChange={(e) => setRegEmail(e.target.value)}
-                    className="w-full h-10 px-3 bg-slate-900/40 border border-slate-800 rounded-xl text-white text-xs focus:outline-none focus:border-violet-500/70 focus:bg-violet-500/5 transition-all placeholder:text-slate-600"
+                    className="w-full h-10 px-3 bg-white/[0.03] border border-white/[0.08] rounded-lg text-white text-sm focus:outline-none focus:border-violet-500/60 focus:bg-violet-500/[0.04] focus:ring-[3px] focus:ring-violet-500/15 transition-[border-color,box-shadow,background-color] duration-150 placeholder:text-slate-600"
                     placeholder="e.g. mohamedvadel60@entreprise8.com"
                     required
                   />
@@ -3214,7 +3232,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                        type={showRegPassword ? "text" : "password"} 
                        value={regPassword}
                        onChange={(e) => setRegPassword(e.target.value)}
-                       className="w-full h-10 px-3 pr-10 bg-slate-900/40 border border-slate-800 rounded-xl text-white text-xs focus:outline-none focus:border-violet-500/70 focus:bg-violet-500/5 transition-all placeholder:text-slate-600 font-mono"
+                       className="w-full h-10 px-3 pr-10 bg-white/[0.03] border border-white/[0.08] rounded-lg text-white text-sm focus:outline-none focus:border-violet-500/60 focus:bg-violet-500/[0.04] focus:ring-[3px] focus:ring-violet-500/15 transition-[border-color,box-shadow,background-color] duration-150 placeholder:text-slate-600 font-mono"
                        placeholder="••••••••"
                        required
                     />
@@ -3287,7 +3305,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                     type="password" 
                     value={regConfirmPassword}
                     onChange={(e) => setRegConfirmPassword(e.target.value)}
-                    className="w-full h-10 px-3 bg-slate-900/40 border border-slate-800 rounded-xl text-white text-xs focus:outline-none focus:border-violet-500/70 focus:bg-violet-500/5 transition-all placeholder:text-slate-600 font-mono"
+                    className="w-full h-10 px-3 bg-white/[0.03] border border-white/[0.08] rounded-lg text-white text-sm focus:outline-none focus:border-violet-500/60 focus:bg-violet-500/[0.04] focus:ring-[3px] focus:ring-violet-500/15 transition-[border-color,box-shadow,background-color] duration-150 placeholder:text-slate-600 font-mono"
                     placeholder="••••••••"
                     required
                   />
@@ -3297,7 +3315,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                 <button 
                   type="submit" 
                   disabled={isSubmittingReg}
-                  className="w-full h-11 mt-2 bg-gradient-to-r from-violet-600 to-violet-500 hover:brightness-110 active:scale-[0.98] text-slate-950 font-bold text-xs rounded-xl shadow-lg shadow-violet-500/10 hover:shadow-violet-500/20 transition-all cursor-pointer flex items-center justify-center gap-2 uppercase tracking-wider"
+                  className="w-full h-11 mt-2 bg-gradient-to-r from-violet-600 to-violet-500 hover:brightness-110 active:scale-[0.98] text-white font-semibold text-xs rounded-lg shadow-lg shadow-violet-600/25 hover:shadow-violet-600/35 transition-[filter,box-shadow,transform] duration-150 cursor-pointer flex items-center justify-center gap-2 uppercase tracking-wider"
                 >
                   {isSubmittingReg ? (
                     <RefreshCw className="w-4 h-4 animate-spin" />
@@ -3331,11 +3349,11 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
           /* LOGIN SCREEN */
           <div className="min-h-screen bg-[#070b13] text-slate-200 flex flex-col md:grid md:grid-cols-12 relative overflow-hidden selection:bg-violet-500/20">
             {/* GLOWING AMBIENT FIELD */}
-            <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-violet-500/5 rounded-full blur-[120px] pointer-events-none" />
-            <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-blue-500/5 rounded-full blur-[120px] pointer-events-none" />
+            <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-violet-600/[0.04] rounded-full blur-[140px] pointer-events-none" />
+            <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-cyan-500/[0.03] rounded-full blur-[140px] pointer-events-none" />
 
             {/* LEFT COLUMN: BRAND WORKSPACE MONOLITH & CAUSAL PATH CONSOLE */}
-            <div className="hidden md:flex md:col-span-5 lg:col-span-4 bg-[#0a0f1d] border-r border-slate-800/40 p-10 flex-col justify-between relative overflow-hidden shrink-0">
+            <div className="hidden md:flex md:col-span-5 lg:col-span-4 bg-[#0a0f1d] border-r border-white/[0.06] p-10 flex-col justify-between relative overflow-hidden shrink-0">
               <div className="absolute inset-0 opacity-[0.02] bg-[radial-gradient(#fff_1px,transparent_1px)] [background-size:16px_16px] pointer-events-none" />
               
               {/* Header: Brand Identity */}
@@ -3455,22 +3473,22 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                   </span>
                 </button>
 
-                <div className="flex items-center gap-1.5 bg-slate-950 p-1 rounded-lg border border-slate-800">
+                <div className="flex items-center gap-1 bg-white/[0.04] p-1 rounded-lg border border-white/[0.08]">
                   <button 
                     onClick={() => toggleLanguage("ar")}
-                    className={`text-[10px] font-black px-2.5 py-1 rounded transition-all ${lang === "ar" ? "bg-violet-600 text-slate-950 font-bold" : "text-slate-400 hover:text-white"}`}
+                    className={`text-[11px] font-semibold px-2.5 py-1 rounded-md transition-[background-color,color] duration-150 ${lang === "ar" ? "bg-violet-600 text-white shadow-sm shadow-violet-600/30" : "text-slate-400 hover:text-white hover:bg-white/[0.05]"}`}
                   >
                     ع
                   </button>
                   <button 
                     onClick={() => toggleLanguage("fr")}
-                    className={`text-[10px] font-black px-2.5 py-1 rounded transition-all ${lang === "fr" ? "bg-violet-600 text-slate-950 font-bold" : "text-slate-400 hover:text-white"}`}
+                    className={`text-[11px] font-semibold px-2.5 py-1 rounded-md transition-[background-color,color] duration-150 ${lang === "fr" ? "bg-violet-600 text-white shadow-sm shadow-violet-600/30" : "text-slate-400 hover:text-white hover:bg-white/[0.05]"}`}
                   >
                     FR
                   </button>
                   <button 
                     onClick={() => toggleLanguage("en")}
-                    className={`text-[10px] font-black px-2.5 py-1 rounded transition-all ${lang === "en" ? "bg-violet-600 text-slate-950 font-bold" : "text-slate-400 hover:text-white"}`}
+                    className={`text-[11px] font-semibold px-2.5 py-1 rounded-md transition-[background-color,color] duration-150 ${lang === "en" ? "bg-violet-600 text-white shadow-sm shadow-violet-600/30" : "text-slate-400 hover:text-white hover:bg-white/[0.05]"}`}
                   >
                     EN
                   </button>
@@ -3479,10 +3497,11 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
 
               {/* Form Container Card */}
               <div className="max-w-md mx-auto w-full my-auto py-8">
-                <motion.div 
+                <motion.div
                   initial={{ opacity: 0, y: 15 }}
                   animate={{ opacity: 1, y: 0 }}
-                  className="w-full max-w-md mx-auto bg-[#070b13] border border-slate-800 rounded-sm p-6 sm:p-8 relative"
+                  transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
+                  className="w-full max-w-md mx-auto bg-[#0d1527]/95 backdrop-blur-xl border border-white/[0.07] rounded-2xl p-6 sm:p-8 shadow-[0_20px_60px_-20px_rgba(0,0,0,0.7)] relative"
                 >
                   <AuthSwitch 
                     currentMode={showForgotPassword ? "forgot" : (authMode as string) === "register" ? "register" : "login"}
@@ -3553,7 +3572,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                           type="email" 
                           value={resetEmail}
                           onChange={(e) => setResetEmail(e.target.value)}
-                          className="w-full h-10 px-3 bg-slate-950 border border-slate-800 rounded-xl text-white text-xs focus:outline-none focus:border-violet-500 transition-all placeholder:text-slate-600"
+                          className="w-full h-10 px-3 bg-white/[0.03] border border-white/[0.08] rounded-lg text-white text-sm focus:outline-none focus:border-violet-500/60 focus:ring-[3px] focus:ring-violet-500/15 transition-[border-color,box-shadow] duration-150 placeholder:text-slate-600"
                           placeholder="name@company.com"
                           required
                         />
@@ -3573,7 +3592,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                             placeholder="------"
                             value={resetCode}
                             onChange={(e) => setResetCode(e.target.value.replace(/\D/g, ""))}
-                            className="w-full text-center tracking-[8px] text-lg font-bold font-mono h-11 bg-slate-950 border border-slate-800 rounded-xl text-violet-400 placeholder:text-slate-700 focus:outline-none focus:border-violet-500 transition-all"
+                            className="w-full text-center tracking-[8px] text-lg font-bold font-mono h-11 bg-white/[0.03] border border-white/[0.08] rounded-lg text-violet-300 placeholder:text-slate-700 focus:outline-none focus:border-violet-500/60 focus:ring-[3px] focus:ring-violet-500/15 transition-[border-color,box-shadow] duration-150"
                             required
                           />
                         </div>
@@ -3591,7 +3610,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                             type="password" 
                             value={newPassword}
                             onChange={(e) => setNewPassword(e.target.value)}
-                            className="w-full h-10 px-3 bg-slate-950 border border-slate-800 rounded-xl text-white text-xs focus:outline-none focus:border-violet-500 transition-all"
+                            className="w-full h-10 px-3 bg-white/[0.03] border border-white/[0.08] rounded-lg text-white text-sm focus:outline-none focus:border-violet-500/60 focus:ring-[3px] focus:ring-violet-500/15 transition-[border-color,box-shadow] duration-150"
                             placeholder="••••••••"
                             required
                           />
@@ -3604,7 +3623,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                             type="password" 
                             value={confirmNewPassword}
                             onChange={(e) => setConfirmNewPassword(e.target.value)}
-                            className="w-full h-10 px-3 bg-slate-950 border border-slate-800 rounded-xl text-white text-xs focus:outline-none focus:border-violet-500 transition-all"
+                            className="w-full h-10 px-3 bg-white/[0.03] border border-white/[0.08] rounded-lg text-white text-sm focus:outline-none focus:border-violet-500/60 focus:ring-[3px] focus:ring-violet-500/15 transition-[border-color,box-shadow] duration-150"
                             placeholder="••••••••"
                             required
                           />
@@ -3725,7 +3744,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                           setLoginError(formatAuthError(err));
                         }
                       }}
-                      className="w-full py-2.5 px-4 bg-slate-800 hover:bg-slate-750 text-white text-xs font-semibold rounded-xl border border-slate-700/80 transition-all cursor-pointer flex items-center justify-center gap-2.5 mb-5 shadow-sm"
+                      className="w-full py-2.5 px-4 bg-white/[0.06] hover:bg-white/[0.1] text-white text-xs font-semibold rounded-lg border border-white/[0.1] transition-[background-color,border-color] duration-150 cursor-pointer flex items-center justify-center gap-2.5 mb-5 active:scale-[0.99]"
                     >
                       <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24">
                         <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
@@ -3738,8 +3757,8 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
 
                     {/* Divider */}
                     <div className="relative flex items-center justify-center my-5">
-                      <div className="border-t border-slate-800 w-full"></div>
-                      <span className="bg-slate-900 px-3 text-[10px] uppercase font-semibold text-slate-500 tracking-widest relative z-10">
+                      <div className="border-t border-white/[0.08] w-full"></div>
+                      <span className="bg-[#0d1527] px-3 text-[10px] uppercase font-semibold text-slate-500 tracking-widest relative z-10">
                         {lang === "ar" ? "أو" : "OR"}
                       </span>
                     </div>
@@ -3757,7 +3776,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                         type="email" 
                         value={loginEmail}
                         onChange={(e) => setLoginEmail(e.target.value)}
-                        className="w-full h-10 px-3 bg-slate-900/40 border border-slate-800 rounded-xl text-white text-xs focus:outline-none focus:border-violet-500/70 focus:bg-violet-500/5 transition-all placeholder:text-slate-600"
+                        className="w-full h-10 px-3 bg-white/[0.03] border border-white/[0.08] rounded-lg text-white text-sm focus:outline-none focus:border-violet-500/60 focus:bg-violet-500/[0.04] focus:ring-[3px] focus:ring-violet-500/15 transition-[border-color,box-shadow,background-color] duration-150 placeholder:text-slate-600"
                         placeholder="name@company.com"
                         required
                       />
@@ -3783,7 +3802,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                         type="password" 
                         value={loginPassword}
                         onChange={(e) => setLoginPassword(e.target.value)}
-                        className="w-full h-10 px-3 bg-slate-900/40 border border-slate-800 rounded-xl text-white text-xs focus:outline-none focus:border-violet-500/70 focus:bg-violet-500/5 transition-all placeholder:text-slate-600 font-mono"
+                        className="w-full h-10 px-3 bg-white/[0.03] border border-white/[0.08] rounded-lg text-white text-sm focus:outline-none focus:border-violet-500/60 focus:bg-violet-500/[0.04] focus:ring-[3px] focus:ring-violet-500/15 transition-[border-color,box-shadow,background-color] duration-150 placeholder:text-slate-600 font-mono"
                         placeholder="••••••••"
                         required
                       />
@@ -3792,7 +3811,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                     <button 
                       type="submit" 
                       disabled={isSubmittingLogin}
-                      className="w-full h-11 mt-2 bg-gradient-to-r from-violet-600 to-violet-500 hover:brightness-110 active:scale-[0.98] text-slate-950 font-bold text-xs rounded-xl shadow-lg transition-all cursor-pointer flex items-center justify-center gap-2 uppercase tracking-wider"
+                      className="w-full h-11 mt-2 bg-gradient-to-r from-violet-600 to-violet-500 hover:brightness-110 active:scale-[0.98] text-white font-semibold text-xs rounded-lg shadow-lg shadow-violet-600/25 hover:shadow-violet-600/35 transition-[filter,box-shadow,transform] duration-150 cursor-pointer flex items-center justify-center gap-2 uppercase tracking-wider"
                     >
                       {isSubmittingLogin ? (
                         <RefreshCw className="w-4 h-4 animate-spin" />

@@ -23,33 +23,48 @@ export const applyGlobalTheme = (
   root.classList.remove("theme-light", "theme-dark", "custom-theme-active");
   root.classList.add(`theme-${mode}`);
   
-  // 4. Centrally set CSS variables for consistent component inheritance
+  // 4. Centrally set CSS variables for consistent component inheritance.
+  // Violet-first institutional palette (presentation only — no business logic).
   if (mode === "light") {
-    root.style.setProperty("--bg-primary", "#F0F2F5");
-    root.style.setProperty("--bg-secondary", "#FFFFFF");
-    root.style.setProperty("--bg-tertiary", "#F8FAFC");
-    root.style.setProperty("--text-primary", "#0F172A");
+    root.style.setProperty("--bg-primary", "#f6f7fb");
+    root.style.setProperty("--bg-secondary", "#ffffff");
+    root.style.setProperty("--bg-tertiary", "#f1f5f9");
+    root.style.setProperty("--bg-elevated", "#ffffff");
+    root.style.setProperty("--text-primary", "#0f172a");
     root.style.setProperty("--text-secondary", "#475569");
-    root.style.setProperty("--border-color", "#CBD5E1"); // High-contrast slate-300 for light mode
-    root.style.setProperty("--accent-color", "#D4AF37");
-    root.style.setProperty("--accent-hover", "#BCA032");
-    root.style.setProperty("--accent-subtle", "rgba(212, 175, 55, 0.12)");
-    root.style.setProperty("--accent-text", "#0F172A");
-    root.style.setProperty("--card-bg", "#FFFFFF");
-    root.style.setProperty("--input-bg", "#F8FAFC");
+    root.style.setProperty("--text-tertiary", "#94a3b8");
+    root.style.setProperty("--border-color", "#e2e8f0");
+    root.style.setProperty("--border-strong", "#cbd5e1");
+    root.style.setProperty("--accent-color", "#6d28d9");
+    root.style.setProperty("--accent-hover", "#7c3aed");
+    root.style.setProperty("--accent-pressed", "#5b21b6");
+    root.style.setProperty("--accent-subtle", "rgba(109, 40, 217, 0.10)");
+    root.style.setProperty("--accent-text", "#ffffff");
+    root.style.setProperty("--accent-tertiary", "#6d28d9");
+    root.style.setProperty("--card-bg", "#ffffff");
+    root.style.setProperty("--input-bg", "#f8fafc");
+    root.style.setProperty("--premium-color", "#b45309");
+    root.style.setProperty("--header-bg", "rgba(255, 255, 255, 0.80)");
   } else {
-    root.style.setProperty("--bg-primary", "#0B0F19");
+    root.style.setProperty("--bg-primary", "#0b0f19");
     root.style.setProperty("--bg-secondary", "#111827");
-    root.style.setProperty("--bg-tertiary", "#1F2937");
-    root.style.setProperty("--text-primary", "#F8FAFC");
-    root.style.setProperty("--text-secondary", "#94A3B8");
-    root.style.setProperty("--border-color", "#334155"); // High-contrast slate-700 for dark mode
-    root.style.setProperty("--accent-color", "#D4AF37");
-    root.style.setProperty("--accent-hover", "#E5C158");
-    root.style.setProperty("--accent-subtle", "rgba(212, 175, 55, 0.18)");
-    root.style.setProperty("--accent-text", "#0B0F19");
+    root.style.setProperty("--bg-tertiary", "#1f2937");
+    root.style.setProperty("--bg-elevated", "#161e2e");
+    root.style.setProperty("--text-primary", "#f8fafc");
+    root.style.setProperty("--text-secondary", "#94a3b8");
+    root.style.setProperty("--text-tertiary", "#64748b");
+    root.style.setProperty("--border-color", "#1e293b");
+    root.style.setProperty("--border-strong", "#334155");
+    root.style.setProperty("--accent-color", "#7c3aed");
+    root.style.setProperty("--accent-hover", "#8b5cf6");
+    root.style.setProperty("--accent-pressed", "#6d28d9");
+    root.style.setProperty("--accent-subtle", "rgba(124, 58, 237, 0.12)");
+    root.style.setProperty("--accent-text", "#ffffff");
+    root.style.setProperty("--accent-tertiary", "#a78bfa");
     root.style.setProperty("--card-bg", "#111827");
-    root.style.setProperty("--input-bg", "#1F2937");
+    root.style.setProperty("--input-bg", "#1f2937");
+    root.style.setProperty("--premium-color", "#d4af37");
+    root.style.setProperty("--header-bg", "rgba(11, 15, 25, 0.80)");
   }
 
   // 5. Simultaneously save user preference to Firestore backend
