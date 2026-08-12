@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { 
   Database, 
@@ -26,19 +26,6 @@ const ProductShowcaseWindow = React.lazy(() => import("./ProductShowcaseWindow")
 // Reusable Spring & Easing Presets
 const transitionSmooth = { duration: 0.6, ease: "easeOut" as const };
 
-// Respect prefers-reduced-motion
-const usePrefersReducedMotion = () => {
-  const [reducedMotion, setReducedMotion] = useState(false);
-  useEffect(() => {
-    const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
-    setReducedMotion(mq.matches);
-    const handler = (e: MediaQueryListEvent) => setReducedMotion(e.matches);
-    mq.addEventListener("change", handler);
-    return () => mq.removeEventListener("change", handler);
-  }, []);
-  return reducedMotion;
-};
-
 // Count-Up Stat Component
 const StatCounterItem: React.FC<{
   targetValue: number;
@@ -49,11 +36,11 @@ const StatCounterItem: React.FC<{
   sublabel?: string;
   theme: "dark" | "light";
 }> = ({ targetValue, suffix, prefix = "", decimals = 0, label, sublabel, theme }) => {
-  const [val, setVal] = useState(0);
-  const ref = useRef<HTMLDivElement>(null);
-  const hasAnimated = useRef(false);
+  const [val, setVal] = React.useState(0);
+  const ref = React.useRef<HTMLDivElement>(null);
+  const hasAnimated = React.useRef(false);
 
-  useEffect(() => {
+  React.useEffect(() => {
     const el = ref.current;
     if (!el) return;
     const observer = new IntersectionObserver(
@@ -172,12 +159,12 @@ export const AnimatedLandingPage: React.FC<AnimatedLandingPageProps> = ({
   onNavigateAuth,
   onStripeCheckout,
 }) => {
-  const [billingCycle, setBillingCycle] = useState<"annual" | "monthly">("annual");
-  const [isScrolled, setIsScrolled] = useState(false);
-  const [openFAQIndex, setOpenFAQIndex] = useState<number | null>(0);
-  const prefersReducedMotion = usePrefersReducedMotion();
+  const [billingCycle, setBillingCycle] = React.useState<"annual" | "monthly">("annual");
+  const [isScrolled, setIsScrolled] = React.useState(false);
+  const [openFAQIndex, setOpenFAQIndex] = React.useState<number | null>(0);
+  const prefersReducedMotion = typeof window !== "undefined" ? window.matchMedia("(prefers-reduced-motion: reduce)").matches : false;
 
-  useEffect(() => {
+  React.useEffect(() => {
     const handleScroll = () => {
       setIsScrolled(window.scrollY > 40);
     };

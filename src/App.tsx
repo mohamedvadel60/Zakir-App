@@ -2922,30 +2922,161 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
           />
         ) : authMode === "register" ? (
           /* REGISTRATION SCREEN (Video 2 Style with Password Checklist Requirements) */
-          <div className="min-h-screen bg-slate-950 flex flex-col justify-between p-4 sm:p-6 relative selection:bg-amber-500/30">
-            {/* Top Back Navigation & Logo */}
-            <div className="max-w-xl mx-auto w-full flex items-center justify-between pt-2">
-              <button 
-                onClick={() => setAuthMode("landing")}
-                className="flex items-center gap-2 text-xs font-semibold text-slate-400 hover:text-amber-400 transition-colors cursor-pointer"
-              >
-                {lang === "ar" ? <ArrowRight className="w-4 h-4" /> : <ArrowLeft className="w-4 h-4" />}
-                <span>
-                  {lang === "ar" ? "العودة للرئيسية" : (lang === "fr" ? "Retour à l'accueil" : "Back to Home")}
-                </span>
-              </button>
+          <div className="min-h-screen bg-[#070b13] text-slate-200 flex flex-col md:grid md:grid-cols-12 relative overflow-hidden selection:bg-amber-500/20">
+            {/* GLOWING AMBIENT FIELD */}
+            <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-[#D4AF37]/5 rounded-full blur-[120px] pointer-events-none" />
+            <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-blue-500/5 rounded-full blur-[120px] pointer-events-none" />
 
-              <div className="flex items-center gap-2">
-                <ZakirLogo iconOnly size={18} theme="dark" />
+            {/* LEFT COLUMN: BRAND WORKSPACE MONOLITH & CAUSAL PATH CONSOLE */}
+            <div className="hidden md:flex md:col-span-5 lg:col-span-4 bg-[#0a0f1d] border-r border-slate-800/40 p-10 flex-col justify-between relative overflow-hidden shrink-0">
+              <div className="absolute inset-0 opacity-[0.02] bg-[radial-gradient(#fff_1px,transparent_1px)] [background-size:16px_16px] pointer-events-none" />
+              
+              {/* Header: Brand Identity */}
+              <div className="relative z-10 flex items-center gap-3">
+                <ZakirLogo theme="dark" />
+              </div>
+
+              {/* Dynamic Interactive Causal Path Animation Console */}
+              <div className="relative z-10 my-12 space-y-6">
+                <div className="zakir-card p-4 rounded-xl border border-slate-800/60 bg-slate-900/30 backdrop-blur-sm space-y-3">
+                  <div className="flex items-center gap-2 text-xs font-black uppercase tracking-widest text-[#D4AF37]">
+                    <Activity className="w-3.5 h-3.5 animate-pulse" />
+                    <span className="zakir-badge">{lang === "ar" ? "شاشة الترابط السببي النشطة" : "Active Causal Ledger"}</span>
+                  </div>
+                  <p className="text-[11px] text-slate-400 leading-relaxed">
+                    {lang === "ar" 
+                      ? "رسم بياني يوضح مسببات القرارات وربطها التلقائي بالامتثال والتخفيف من المخاطر التشغيلية." 
+                      : "Visual schematic mapping corporate events, trigger conditions, regulatory compliance, and resolution vectors."}
+                  </p>
+
+                  {/* SVG Nodes Connector Animation */}
+                  <div className="h-28 relative mt-3 border border-slate-800/50 rounded-lg bg-slate-950/50 overflow-hidden p-2">
+                    <svg className="w-full h-full absolute inset-0 text-slate-800" xmlns="http://www.w3.org/2000/svg">
+                      {/* Animated Connector Lines */}
+                      <path d="M 30,50 L 120,30 L 210,50" fill="none" stroke="currentColor" strokeWidth="1" />
+                      <path d="M 30,50 L 120,74 L 210,50" fill="none" stroke="currentColor" strokeWidth="1" />
+                      
+                      {/* Pulse Animations along the paths */}
+                      <circle r="3" fill="#D4AF37">
+                        <animateMotion dur="4s" repeatCount="indefinite" path="M 30,50 L 120,30 L 210,50" />
+                      </circle>
+                      <circle r="3" fill="#3b82f6">
+                        <animateMotion dur="5s" repeatCount="indefinite" path="M 30,50 L 120,74 L 210,50" />
+                      </circle>
+                    </svg>
+
+                    {/* Nodes */}
+                    <div className="absolute top-[38px] left-[10px] flex flex-col items-center">
+                      <div className="w-6 h-6 rounded-md bg-slate-900 border border-slate-700 flex items-center justify-center text-[10px] font-bold text-slate-300">
+                        IN
+                      </div>
+                      <span className="text-[8px] text-slate-500 mt-1 uppercase tracking-wider">Trigger</span>
+                    </div>
+
+                    <div className="absolute top-[18px] left-[105px] flex flex-col items-center">
+                      <div className="w-6 h-6 rounded-md bg-[#D4AF37]/10 border border-[#D4AF37]/30 flex items-center justify-center text-[10px] font-bold text-[#D4AF37] animate-pulse">
+                        CA
+                      </div>
+                      <span className="text-[8px] text-[#D4AF37] mt-1 uppercase tracking-wider">Causal</span>
+                    </div>
+
+                    <div className="absolute bottom-[10px] left-[105px] flex flex-col items-center">
+                      <div className="w-6 h-6 rounded-md bg-blue-500/10 border border-blue-500/30 flex items-center justify-center text-[10px] font-bold text-blue-400">
+                        RG
+                      </div>
+                      <span className="text-[8px] text-blue-400 mt-1 uppercase tracking-wider">Audit</span>
+                    </div>
+
+                    <div className="absolute top-[38px] right-[10px] flex flex-col items-center">
+                      <div className="w-6 h-6 rounded-md bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-[10px] font-bold text-emerald-400">
+                        OK
+                      </div>
+                      <span className="text-[8px] text-emerald-400 mt-1 uppercase tracking-wider">Resolve</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <div className="flex items-start gap-3">
+                    <div className="w-8 h-8 rounded-lg bg-slate-900 border border-slate-800 flex items-center justify-center text-[#D4AF37] shrink-0">
+                      <Database className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <h4 className="text-xs font-bold text-white">{lang === "ar" ? "تتبع وحوكمة مركزية" : "Verifiable Corporate Ledger"}</h4>
+                      <p className="text-[10px] text-slate-500 leading-relaxed mt-0.5">
+                        {lang === "ar"
+                          ? "بيانات غير قابلة للتعديل لضمان الالتزام بمعايير الحوكمة المالية والإدارية."
+                          : "Stateful causal record matching business logic directly with regulatory and financial milestones."}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-start gap-3">
+                    <div className="w-8 h-8 rounded-lg bg-slate-900 border border-slate-800 flex items-center justify-center text-[#D4AF37] shrink-0">
+                      <Brain className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <h4 className="text-xs font-bold text-white">{lang === "ar" ? "ذكاء اصطناعي موجه بمؤشرات دقيقة" : "Augmented Business Intelligence"}</h4>
+                      <p className="text-[10px] text-slate-500 leading-relaxed mt-0.5">
+                        {lang === "ar"
+                          ? "محرك استشاري يستند بالكامل إلى البيانات السببية المدخلة."
+                          : "Fully grounded reasoning capabilities targeting operational risks, risk mitigation, and systemic gaps."}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Footer Credentials */}
+              <div className="relative z-10 text-[10px] text-slate-600 font-mono">
+                <span>ZAKIR INTELLIGENCE SUITE v2.9</span>
+                <span className="block mt-0.5">© {new Date().getFullYear()} Zakir Systems Corp.</span>
               </div>
             </div>
 
-            {/* Centered Sign Up Form Card */}
-            <motion.div 
-              initial={{ opacity: 0, y: 15 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="w-full max-w-lg mx-auto bg-slate-900/90 border border-slate-800/80 rounded-2xl p-6 sm:p-8 shadow-2xl my-8 relative"
-            >
+            {/* RIGHT COLUMN: INTERACTIVE FORM WORKSPACE */}
+            <div className="flex-1 md:col-span-7 lg:col-span-8 flex flex-col justify-between p-6 sm:p-10 relative">
+              {/* Back to Home & Language Selection Top bar */}
+              <div className="w-full flex items-center justify-between">
+                <button 
+                  onClick={() => setAuthMode("landing")}
+                  className="flex items-center gap-2 text-xs font-bold text-slate-400 hover:text-amber-400 transition-colors cursor-pointer"
+                >
+                  {lang === "ar" ? <ArrowRight className="w-4 h-4" /> : <ArrowLeft className="w-4 h-4" />}
+                  <span>
+                    {lang === "ar" ? "العودة للرئيسية" : (lang === "fr" ? "Retour à l'accueil" : "Back to Home")}
+                  </span>
+                </button>
+
+                <div className="flex items-center gap-1.5 bg-slate-950 p-1 rounded-lg border border-slate-800">
+                  <button 
+                    onClick={() => toggleLanguage("ar")}
+                    className={`text-[10px] font-black px-2.5 py-1 rounded transition-all ${lang === "ar" ? "bg-[#D4AF37] text-slate-950 font-bold" : "text-slate-400 hover:text-white"}`}
+                  >
+                    ع
+                  </button>
+                  <button 
+                    onClick={() => toggleLanguage("fr")}
+                    className={`text-[10px] font-black px-2.5 py-1 rounded transition-all ${lang === "fr" ? "bg-[#D4AF37] text-slate-950 font-bold" : "text-slate-400 hover:text-white"}`}
+                  >
+                    FR
+                  </button>
+                  <button 
+                    onClick={() => toggleLanguage("en")}
+                    className={`text-[10px] font-black px-2.5 py-1 rounded transition-all ${lang === "en" ? "bg-[#D4AF37] text-slate-950 font-bold" : "text-slate-400 hover:text-white"}`}
+                  >
+                    EN
+                  </button>
+                </div>
+              </div>
+
+              {/* Form Container Card */}
+              <div className="max-w-md mx-auto w-full my-auto py-8">
+                <motion.div 
+                  initial={{ opacity: 0, y: 15 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="w-full max-w-lg mx-auto bg-[#0d1527]/90 border border-slate-800/80 rounded-2xl p-6 sm:p-8 shadow-2xl relative"
+                >
               {/* Branding Emblem */}
               <div className="text-center mb-6">
                 <div className="w-14 h-14 rounded-2xl bg-[#D4AF37]/5 border border-[#D4AF37]/15 flex items-center justify-center mx-auto mb-3">
@@ -3168,55 +3299,173 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                 </button>
               </div>
             </motion.div>
+              </div>
 
-            {/* Bottom Language Selector matching Video 2 */}
-            <div className="max-w-xl mx-auto w-full flex items-center justify-center gap-3 pt-2">
-              <button 
-                onClick={() => toggleLanguage("ar")}
-                className={`text-xs px-3 py-1 rounded-lg border transition-colors ${lang === "ar" ? "bg-amber-500 text-slate-950 font-bold border-amber-500" : "bg-slate-900 border-slate-800 text-slate-400 hover:text-white"}`}
-              >
-                ع
-              </button>
-              <button 
-                onClick={() => toggleLanguage("fr")}
-                className={`text-xs px-3 py-1 rounded-lg border transition-colors ${lang === "fr" ? "bg-amber-500 text-slate-950 font-bold border-amber-500" : "bg-slate-900 border-slate-800 text-slate-400 hover:text-white"}`}
-              >
-                FR
-              </button>
-              <button 
-                onClick={() => toggleLanguage("en")}
-                className={`text-xs px-3 py-1 rounded-lg border transition-colors ${lang === "en" ? "bg-amber-500 text-slate-950 font-bold border-amber-500" : "bg-slate-900 border-slate-800 text-slate-400 hover:text-white"}`}
-              >
-                EN
-              </button>
+              {/* Legal terms footer bar */}
+              <div className="w-full text-center text-[10px] text-slate-600 font-mono mt-8">
+                {lang === "ar" 
+                  ? "باستخدام هذا النظام، فإنك توافق على سياسة الاستخدام والامتثال التنظيمي للشركة." 
+                  : "Authorized operational access only. All system actions are securely audited in the PostgreSQL ledger."}
+              </div>
             </div>
           </div>
         ) : (
           /* LOGIN SCREEN */
-          <div className="min-h-screen bg-slate-950 flex flex-col justify-between p-4 sm:p-6 relative selection:bg-amber-500/30">
-            {/* Top Back Navigation & Logo */}
-            <div className="max-w-md mx-auto w-full flex items-center justify-between pt-2">
-              <button 
-                onClick={() => setAuthMode("landing")}
-                className="flex items-center gap-2 text-xs font-semibold text-slate-400 hover:text-amber-400 transition-colors cursor-pointer"
-              >
-                {lang === "ar" ? <ArrowRight className="w-4 h-4" /> : <ArrowLeft className="w-4 h-4" />}
-                <span>
-                  {lang === "ar" ? "العودة للرئيسية" : (lang === "fr" ? "Retour à l'accueil" : "Back to Home")}
-                </span>
-              </button>
+          <div className="min-h-screen bg-[#070b13] text-slate-200 flex flex-col md:grid md:grid-cols-12 relative overflow-hidden selection:bg-amber-500/20">
+            {/* GLOWING AMBIENT FIELD */}
+            <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-[#D4AF37]/5 rounded-full blur-[120px] pointer-events-none" />
+            <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-blue-500/5 rounded-full blur-[120px] pointer-events-none" />
 
-              <div className="flex items-center gap-2">
-                <ZakirLogo iconOnly size={18} theme="dark" />
+            {/* LEFT COLUMN: BRAND WORKSPACE MONOLITH & CAUSAL PATH CONSOLE */}
+            <div className="hidden md:flex md:col-span-5 lg:col-span-4 bg-[#0a0f1d] border-r border-slate-800/40 p-10 flex-col justify-between relative overflow-hidden shrink-0">
+              <div className="absolute inset-0 opacity-[0.02] bg-[radial-gradient(#fff_1px,transparent_1px)] [background-size:16px_16px] pointer-events-none" />
+              
+              {/* Header: Brand Identity */}
+              <div className="relative z-10 flex items-center gap-3">
+                <ZakirLogo theme="dark" />
+              </div>
+
+              {/* Dynamic Interactive Causal Path Animation Console */}
+              <div className="relative z-10 my-12 space-y-6">
+                <div className="p-4 rounded-xl border border-slate-800/60 bg-slate-900/30 backdrop-blur-sm space-y-3">
+                  <div className="flex items-center gap-2 text-xs font-black uppercase tracking-widest text-[#D4AF37]">
+                    <Activity className="w-3.5 h-3.5 animate-pulse" />
+                    <span>{lang === "ar" ? "شاشة الترابط السببي النشطة" : "Active Causal Ledger"}</span>
+                  </div>
+                  <p className="text-[11px] text-slate-400 leading-relaxed">
+                    {lang === "ar" 
+                      ? "رسم بياني يوضح مسببات القرارات وربطها التلقائي بالامتثال والتخفيف من المخاطر التشغيلية." 
+                      : "Visual schematic mapping corporate events, trigger conditions, regulatory compliance, and resolution vectors."}
+                  </p>
+
+                  {/* SVG Nodes Connector Animation */}
+                  <div className="h-28 relative mt-3 border border-slate-800/50 rounded-lg bg-slate-950/50 overflow-hidden p-2">
+                    <svg className="w-full h-full absolute inset-0 text-slate-800" xmlns="http://www.w3.org/2000/svg">
+                      {/* Animated Connector Lines */}
+                      <path d="M 30,50 L 120,30 L 210,50" fill="none" stroke="currentColor" strokeWidth="1" />
+                      <path d="M 30,50 L 120,74 L 210,50" fill="none" stroke="currentColor" strokeWidth="1" />
+                      
+                      {/* Pulse Animations along the paths */}
+                      <circle r="3" fill="#D4AF37">
+                        <animateMotion dur="4s" repeatCount="indefinite" path="M 30,50 L 120,30 L 210,50" />
+                      </circle>
+                      <circle r="3" fill="#3b82f6">
+                        <animateMotion dur="5s" repeatCount="indefinite" path="M 30,50 L 120,74 L 210,50" />
+                      </circle>
+                    </svg>
+
+                    {/* Nodes */}
+                    <div className="absolute top-[38px] left-[10px] flex flex-col items-center">
+                      <div className="w-6 h-6 rounded-md bg-slate-900 border border-slate-700 flex items-center justify-center text-[10px] font-bold text-slate-300">
+                        IN
+                      </div>
+                      <span className="text-[8px] text-slate-500 mt-1 uppercase tracking-wider">Trigger</span>
+                    </div>
+
+                    <div className="absolute top-[18px] left-[105px] flex flex-col items-center">
+                      <div className="w-6 h-6 rounded-md bg-[#D4AF37]/10 border border-[#D4AF37]/30 flex items-center justify-center text-[10px] font-bold text-[#D4AF37] animate-pulse">
+                        CA
+                      </div>
+                      <span className="text-[8px] text-[#D4AF37] mt-1 uppercase tracking-wider">Causal</span>
+                    </div>
+
+                    <div className="absolute bottom-[10px] left-[105px] flex flex-col items-center">
+                      <div className="w-6 h-6 rounded-md bg-blue-500/10 border border-blue-500/30 flex items-center justify-center text-[10px] font-bold text-blue-400">
+                        RG
+                      </div>
+                      <span className="text-[8px] text-blue-400 mt-1 uppercase tracking-wider">Audit</span>
+                    </div>
+
+                    <div className="absolute top-[38px] right-[10px] flex flex-col items-center">
+                      <div className="w-6 h-6 rounded-md bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-[10px] font-bold text-emerald-400">
+                        OK
+                      </div>
+                      <span className="text-[8px] text-emerald-400 mt-1 uppercase tracking-wider">Resolve</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <div className="flex items-start gap-3">
+                    <div className="w-8 h-8 rounded-lg bg-slate-900 border border-slate-800 flex items-center justify-center text-[#D4AF37] shrink-0">
+                      <Database className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <h4 className="text-xs font-bold text-white">{lang === "ar" ? "تتبع وحوكمة مركزية" : "Verifiable Corporate Ledger"}</h4>
+                      <p className="text-[10px] text-slate-500 leading-relaxed mt-0.5">
+                        {lang === "ar"
+                          ? "بيانات غير قابلة للتعديل لضمان الالتزام بمعايير الحوكمة المالية والإدارية."
+                          : "Stateful causal record matching business logic directly with regulatory and financial milestones."}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-start gap-3">
+                    <div className="w-8 h-8 rounded-lg bg-slate-900 border border-slate-800 flex items-center justify-center text-[#D4AF37] shrink-0">
+                      <Brain className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <h4 className="text-xs font-bold text-white">{lang === "ar" ? "ذكاء اصطناعي موجه بمؤشرات دقيقة" : "Augmented Business Intelligence"}</h4>
+                      <p className="text-[10px] text-slate-500 leading-relaxed mt-0.5">
+                        {lang === "ar"
+                          ? "محرك استشاري يستند بالكامل إلى البيانات السببية المدخلة."
+                          : "Fully grounded reasoning capabilities targeting operational risks, risk mitigation, and systemic gaps."}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Footer Credentials */}
+              <div className="relative z-10 text-[10px] text-slate-600 font-mono">
+                <span>ZAKIR INTELLIGENCE SUITE v2.9</span>
+                <span className="block mt-0.5">© {new Date().getFullYear()} Zakir Systems Corp.</span>
               </div>
             </div>
 
-            {/* Login or Forgot Password Card */}
-            <motion.div 
-              initial={{ opacity: 0, y: 15 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="w-full max-w-md mx-auto bg-slate-900/90 border border-slate-800/80 rounded-2xl p-6 sm:p-8 shadow-2xl my-8 relative"
-            >
+            {/* RIGHT COLUMN: INTERACTIVE FORM WORKSPACE */}
+            <div className="flex-1 md:col-span-7 lg:col-span-8 flex flex-col justify-between p-6 sm:p-10 relative">
+              {/* Back to Home & Language Selection Top bar */}
+              <div className="w-full flex items-center justify-between">
+                <button 
+                  onClick={() => setAuthMode("landing")}
+                  className="flex items-center gap-2 text-xs font-bold text-slate-400 hover:text-amber-400 transition-colors cursor-pointer"
+                >
+                  {lang === "ar" ? <ArrowRight className="w-4 h-4" /> : <ArrowLeft className="w-4 h-4" />}
+                  <span>
+                    {lang === "ar" ? "العودة للرئيسية" : (lang === "fr" ? "Retour à l'accueil" : "Back to Home")}
+                  </span>
+                </button>
+
+                <div className="flex items-center gap-1.5 bg-slate-950 p-1 rounded-lg border border-slate-800">
+                  <button 
+                    onClick={() => toggleLanguage("ar")}
+                    className={`text-[10px] font-black px-2.5 py-1 rounded transition-all ${lang === "ar" ? "bg-[#D4AF37] text-slate-950 font-bold" : "text-slate-400 hover:text-white"}`}
+                  >
+                    ع
+                  </button>
+                  <button 
+                    onClick={() => toggleLanguage("fr")}
+                    className={`text-[10px] font-black px-2.5 py-1 rounded transition-all ${lang === "fr" ? "bg-[#D4AF37] text-slate-950 font-bold" : "text-slate-400 hover:text-white"}`}
+                  >
+                    FR
+                  </button>
+                  <button 
+                    onClick={() => toggleLanguage("en")}
+                    className={`text-[10px] font-black px-2.5 py-1 rounded transition-all ${lang === "en" ? "bg-[#D4AF37] text-slate-950 font-bold" : "text-slate-400 hover:text-white"}`}
+                  >
+                    EN
+                  </button>
+                </div>
+              </div>
+
+              {/* Form Container Card */}
+              <div className="max-w-md mx-auto w-full my-auto py-8">
+                <motion.div 
+                  initial={{ opacity: 0, y: 15 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="w-full max-w-md mx-auto bg-[#0d1527]/90 border border-slate-800/80 rounded-2xl p-6 sm:p-8 shadow-2xl relative"
+                >
               {showForgotPassword ? (
                 /* FORGOT PASSWORD FORM */
                 <div>
@@ -3530,27 +3779,14 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                 </div>
               )}
             </motion.div>
+              </div>
 
-            {/* Language switch */}
-            <div className="max-w-md mx-auto w-full flex items-center justify-center gap-3 pt-2">
-              <button 
-                onClick={() => toggleLanguage("ar")}
-                className={`text-xs px-3 py-1 rounded-lg border transition-colors ${lang === "ar" ? "bg-amber-500 text-slate-950 font-bold border-amber-500" : "bg-slate-900 border-slate-800 text-slate-400 hover:text-white"}`}
-              >
-                ع
-              </button>
-              <button 
-                onClick={() => toggleLanguage("fr")}
-                className={`text-xs px-3 py-1 rounded-lg border transition-colors ${lang === "fr" ? "bg-amber-500 text-slate-950 font-bold border-amber-500" : "bg-slate-900 border-slate-800 text-slate-400 hover:text-white"}`}
-              >
-                FR
-              </button>
-              <button 
-                onClick={() => toggleLanguage("en")}
-                className={`text-xs px-3 py-1 rounded-lg border transition-colors ${lang === "en" ? "bg-amber-500 text-slate-950 font-bold border-amber-500" : "bg-slate-900 border-slate-800 text-slate-400 hover:text-white"}`}
-              >
-                EN
-              </button>
+              {/* Legal terms footer bar */}
+              <div className="w-full text-center text-[10px] text-slate-600 font-mono mt-8">
+                {lang === "ar" 
+                  ? "باستخدام هذا النظام، فإنك توافق على سياسة الاستخدام والامتثال التنظيمي للشركة." 
+                  : "Authorized operational access only. All system actions are securely audited in the PostgreSQL ledger."}
+              </div>
             </div>
           </div>
         )

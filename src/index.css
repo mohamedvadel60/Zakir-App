@@ -387,6 +387,22 @@ input:focus, textarea:focus, select:focus {
   transform: translateY(-2px);
 }
 
+.zakir-card-bento {
+  background-color: var(--card-bg, #111827);
+  border: 1px solid var(--border-color, #1e293b);
+  border-radius: 1.25rem;
+  padding: 1.5rem;
+  box-shadow: 0 4px 24px -4px rgba(0, 0, 0, 0.2);
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  position: relative;
+  overflow: hidden;
+}
+
+.zakir-card-bento:hover {
+  border-color: rgba(212, 175, 55, 0.35);
+  box-shadow: 0 10px 32px -4px rgba(212, 175, 55, 0.1);
+}
+
 .zakir-btn-primary {
   background: linear-gradient(135deg, #D4AF37 0%, #C5A059 100%);
   color: #0b0f19;
@@ -482,6 +498,35 @@ input:focus, textarea:focus, select:focus {
   backdrop-filter: blur(16px);
   border-bottom: 1px solid var(--border-color, #1e293b);
   background: var(--header-bg, rgba(11, 15, 25, 0.85));
+}
+
+.zakir-kpi-block {
+  background-color: var(--bg-secondary, #111827);
+  border: 1px solid var(--border-color, #1e293b);
+  border-radius: 1rem;
+  padding: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 0.75rem;
+  transition: all 0.2s ease;
+}
+
+.zakir-kpi-block:hover {
+  border-color: rgba(212, 175, 55, 0.3);
+  transform: translateY(-1px);
+}
+
+.zakir-causal-node {
+  border-radius: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  border: 1px solid var(--border-color, #334155);
+  background: var(--bg-tertiary, #1f2937);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
 }
 
 

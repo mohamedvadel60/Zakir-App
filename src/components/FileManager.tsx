@@ -371,7 +371,7 @@ export const FileManager: React.FC<FileManagerProps> = ({
         
         {/* Left Side: Upload Control Desk (lg:col-span-4) */}
         <div className="lg:col-span-5 space-y-6">
-          <div className={`p-6 rounded-2xl border transition-all duration-300 ${
+          <div className={`zakir-card p-6 rounded-2xl border transition-all duration-300 ${
             theme === "dark" 
               ? "bg-slate-900/30 border-slate-800/80 backdrop-blur-md shadow-xl" 
               : "bg-white border-slate-200 shadow-md"
