@@ -121,6 +121,7 @@ export default function GmailVault({ theme, lang }: GmailVaultProps) {
   const [enteredCode, setEnteredCode] = useState("");
   const [pendingAccount, setPendingAccount] = useState<ConnectedAccount | null>(null);
   const [verificationError, setVerificationError] = useState<string | null>(null);
+  const [isSendingVerification, setIsSendingVerification] = useState(false);
 
   // Quick Reply
   const [quickReplyText, setQuickReplyText] = useState("");
@@ -395,6 +396,48 @@ export default function GmailVault({ theme, lang }: GmailVaultProps) {
     }
   };
 
+  // Send security verification OTP via backend Resend system
+  const sendVerificationOtpEmail = async (emailToVerify: string, codeToVerify: string) => {
+    setIsSendingVerification(true);
+    setVerificationError(null);
+    try {
+      const response = await authenticatedFetch("/api/email/send-verification-otp", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email: emailToVerify,
+          otpCode: codeToVerify,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || (lang === "ar" ? "فشل إرسال الرمز للبريد" : "Failed to deliver email code."));
+      }
+    } catch (err: any) {
+      console.error("Error dispatching verification code:", err);
+      setVerificationError(
+        lang === "ar"
+          ? `فشل في إرسال الرمز للبريد الإلكتروني: ${err.message}`
+          : `Failed to transmit security code to email: ${err.message}`
+      );
+    } finally {
+      setIsSendingVerification(false);
+    }
+  };
+
+  // Resend code trigger
+  const handleResendCode = async () => {
+    if (pendingAccount) {
+      const code = Math.floor(100000 + Math.random() * 900000).toString();
+      setGeneratedCode(code);
+      setEnteredCode("");
+      await sendVerificationOtpEmail(pendingAccount.email, code);
+    }
+  };
+
   // Perform Google OAuth connection
   const handleConnectGoogle = async () => {
     setIsLoading(true);
@@ -419,6 +462,9 @@ export default function GmailVault({ theme, lang }: GmailVaultProps) {
         setGeneratedCode(code);
         setPendingAccount(newAcc);
         setShowVerificationStep(true);
+
+        // Send actual verification code email
+        await sendVerificationOtpEmail(newEmail, code);
       }
     } catch (err: any) {
       if (err?.code === "auth/popup-closed-by-user" || err?.code === "auth/cancelled-popup-request") {
@@ -432,7 +478,7 @@ export default function GmailVault({ theme, lang }: GmailVaultProps) {
   };
 
   // Add Custom IMAP/SMTP Account
-  const handleAddCustomAccount = (e: React.FormEvent) => {
+  const handleAddCustomAccount = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!imapEmail || !imapEmail.includes("@")) {
       setError(lang === "ar" ? "يرجى إدخال عنوان بريد إلكتروني صحيح" : "Please enter a valid email address");
@@ -441,23 +487,26 @@ export default function GmailVault({ theme, lang }: GmailVaultProps) {
 
     setIsAddingAccount(true);
     setVerificationError(null);
-    setTimeout(() => {
-      const newAcc: ConnectedAccount = {
-        id: `acc_imap_${Date.now()}`,
-        email: imapEmail.trim(),
-        provider: addAccountType,
-        providerName: addAccountType === "outlook" ? "Microsoft 365 / Outlook" : "Custom IMAP/SMTP Corporate",
-        serverHost: imapHost || (addAccountType === "outlook" ? "outlook.office365.com" : "mail." + imapEmail.split("@")[1]),
-        status: "connected",
-        isPrimary: accounts.length === 0
-      };
 
-      const code = Math.floor(100000 + Math.random() * 900000).toString();
-      setGeneratedCode(code);
-      setPendingAccount(newAcc);
-      setShowVerificationStep(true);
-      setIsAddingAccount(false);
-    }, 600);
+    const targetEmail = imapEmail.trim();
+    const newAcc: ConnectedAccount = {
+      id: `acc_imap_${Date.now()}`,
+      email: targetEmail,
+      provider: addAccountType,
+      providerName: addAccountType === "outlook" ? "Microsoft 365 / Outlook" : "Custom IMAP/SMTP Corporate",
+      serverHost: imapHost || (addAccountType === "outlook" ? "outlook.office365.com" : "mail." + imapEmail.split("@")[1]),
+      status: "connected",
+      isPrimary: accounts.length === 0
+    };
+
+    const code = Math.floor(100000 + Math.random() * 900000).toString();
+    setGeneratedCode(code);
+    setPendingAccount(newAcc);
+    setShowVerificationStep(true);
+    setIsAddingAccount(false);
+
+    // Send actual verification code email
+    await sendVerificationOtpEmail(targetEmail, code);
   };
 
   // Confirm Verification Code and actually link the account
@@ -1290,7 +1339,7 @@ export default function GmailVault({ theme, lang }: GmailVaultProps) {
           } shadow-2xl animate-in fade-in zoom-in-95 duration-200`}>
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-base font-extrabold flex items-center gap-2">
-                <Mail className="w-5 h-5 text-amber-500" />
+                <Mail className="w-5 h-5 text-[#0075DE]" />
                 {t.addAccountTitle}
               </h3>
               <button onClick={() => handleCloseAddAccountModal()} className="p-1 hover:opacity-80">
@@ -1299,30 +1348,52 @@ export default function GmailVault({ theme, lang }: GmailVaultProps) {
             </div>
 
             {showVerificationStep ? (
-              <form onSubmit={handleVerifyCodeAndConnect} className="space-y-5">
-                <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/20 text-xs leading-relaxed text-amber-500 space-y-2">
-                  <p className="font-semibold text-center flex items-center justify-center gap-1.5">
-                    <Shield className="w-4 h-4" />
+              <form onSubmit={handleVerifyCodeAndConnect} className="space-y-5 animate-in fade-in slide-in-from-bottom-3 duration-300">
+                <div className="p-5 rounded-2xl bg-blue-500/10 border border-blue-500/20 text-xs leading-relaxed text-[#0075DE] space-y-3 shadow-sm">
+                  <p className="font-extrabold text-sm text-center flex items-center justify-center gap-2 text-blue-600">
+                    <Shield className="w-5 h-5 text-[#0075DE] animate-pulse" />
                     {lang === "ar" 
                       ? "إجراء التحقق الأمني الإجباري لمنصة ذاكر"
                       : "Mandatory Security Verification for Zakir"}
                   </p>
-                  <p>
-                    {lang === "ar"
-                      ? `تم إرسال رمز التحقق المكون من 6 أرقام بنجاح إلى البريد المدخل: ${pendingAccount?.email}`
-                      : `A 6-digit security verification code has been transmitted to: ${pendingAccount?.email}`}
-                  </p>
-                  <p className="text-[10px] opacity-90 font-mono text-center bg-black/35 py-1 px-2 rounded-lg">
-                    {lang === "ar"
-                      ? `رمز التحقق الآمن المحاكي الخاص بك هو: ${generatedCode}`
-                      : `Your simulated secure verification code is: ${generatedCode}`}
-                  </p>
+                  
+                  {isSendingVerification ? (
+                    <div className="flex flex-col items-center justify-center py-3 gap-2">
+                      <Loader2 className="w-6 h-6 animate-spin text-[#0075DE]" />
+                      <span className="font-semibold text-[11px]">
+                        {lang === "ar" ? "جاري إرسال رمز التحقق الفعلي..." : "Transmitting actual secure verification code..."}
+                      </span>
+                    </div>
+                  ) : (
+                    <>
+                      <p className="text-center text-slate-400 font-medium">
+                        {lang === "ar"
+                          ? `لقد أرسلنا رمز أمان فعلي إلى عنوان بريدك الإلكتروني المكتوب أدناه لضمان أمان ملكية الحساب:`
+                          : `We have dispatched an actual security verification code to your email below to guarantee account ownership:`}
+                      </p>
+                      <p className="text-center font-bold text-sm bg-blue-500/5 py-1 px-3 rounded-lg border border-blue-500/10 text-blue-700 font-mono">
+                        {pendingAccount?.email}
+                      </p>
+                    </>
+                  )}
                 </div>
 
-                <div className="space-y-1">
-                  <label className="text-xs font-bold text-slate-400">
-                    {lang === "ar" ? "أدخل رمز التحقق (6 أرقام)" : "Enter Verification Code (6 digits)"}
-                  </label>
+                <div className="space-y-2">
+                  <div className="flex justify-between items-center">
+                    <label className="text-xs font-bold text-slate-400">
+                      {lang === "ar" ? "أدخل رمز التحقق (6 أرقام)" : "Enter Verification Code (6 digits)"}
+                    </label>
+                    <button
+                      type="button"
+                      disabled={isSendingVerification}
+                      onClick={handleResendCode}
+                      className="text-xs font-bold text-[#0075DE] hover:underline flex items-center gap-1 cursor-pointer disabled:opacity-50"
+                    >
+                      <Loader2 className={`w-3.5 h-3.5 ${isSendingVerification ? "animate-spin" : ""}`} />
+                      <span>{lang === "ar" ? "إعادة إرسال الرمز" : "Resend Code"}</span>
+                    </button>
+                  </div>
+                  
                   <input
                     type="text"
                     required
@@ -1330,12 +1401,14 @@ export default function GmailVault({ theme, lang }: GmailVaultProps) {
                     value={enteredCode}
                     onChange={(e) => setEnteredCode(e.target.value.replace(/\D/g, ""))}
                     placeholder="e.g. 123456"
-                    className="w-full h-11 px-4 text-center tracking-widest font-mono text-lg rounded-xl bg-slate-950 border border-slate-800 text-white outline-none focus:border-amber-500"
+                    className="w-full h-12 px-4 text-center tracking-widest font-mono text-xl rounded-xl bg-slate-950/60 border border-slate-800 text-white outline-none focus:border-[#0075DE] focus:ring-1 focus:ring-[#0075DE] transition-all"
                   />
                 </div>
 
                 {verificationError && (
-                  <p className="text-xs font-semibold text-rose-500">{verificationError}</p>
+                  <p className="text-xs font-semibold text-rose-500 bg-rose-500/10 py-1.5 px-3 rounded-lg border border-rose-500/20 text-center">
+                    {verificationError}
+                  </p>
                 )}
 
                 <div className="flex items-center gap-3">
@@ -1346,13 +1419,14 @@ export default function GmailVault({ theme, lang }: GmailVaultProps) {
                       setPendingAccount(null);
                       setEnteredCode("");
                     }}
-                    className="flex-1 h-11 rounded-xl text-xs font-bold bg-slate-800 hover:bg-slate-700 text-slate-300 transition-all cursor-pointer border border-slate-700"
+                    className="flex-1 h-11 rounded-xl text-xs font-bold bg-slate-800/80 hover:bg-slate-700 text-slate-300 transition-all cursor-pointer border border-slate-700"
                   >
                     {lang === "ar" ? "رجوع" : "Back"}
                   </button>
                   <button
                     type="submit"
-                    className="flex-1 h-11 bg-gradient-to-r from-amber-500 to-amber-600 text-slate-950 font-bold text-xs rounded-xl shadow-lg hover:from-amber-400 hover:to-amber-500 transition-all flex items-center justify-center gap-2 cursor-pointer"
+                    disabled={isSendingVerification}
+                    className="flex-1 h-11 bg-gradient-to-r from-[#0075DE] to-blue-600 text-white font-bold text-xs rounded-xl shadow-lg hover:from-blue-500 hover:to-blue-600 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
                   >
                     <Check className="w-4 h-4" />
                     <span>{lang === "ar" ? "تأكيد وإتمام الربط" : "Verify & Complete"}</span>

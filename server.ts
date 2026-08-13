@@ -993,13 +993,13 @@ export interface BuildOtpEmailOptions {
   email: string;
   userName?: string;
   otpCode: string;
-  type?: "account_registration" | "password_reset" | "email_verification" | string;
+  type?: "account_registration" | "password_reset" | "email_verification" | "email_link" | string;
   baseUrl?: string;
 }
 
 /**
  * Generates clean, high-precision, 100% English SaaS HTML email template matching Zakir's visual identity.
- * Specifications: White background (#FFFFFF), dark text (#0F172A / #334155), Zakir gold (#D4AF37) rectangular OTP container.
+ * Specifications: White background (#FFFFFF), dark text (#0F172A / #334155), Zakir brand blue (#0075DE) rectangular OTP container.
  */
 function buildOtpEmailHtml(options: BuildOtpEmailOptions): { subject: string; text: string; html: string } {
   const { email, userName, otpCode, type = "account_registration" } = options;
@@ -1008,18 +1008,33 @@ function buildOtpEmailHtml(options: BuildOtpEmailOptions): { subject: string; te
   const emailLogoUrl = `${appBaseUrl}/api/logo.png`;
 
   const isReset = type === "password_reset";
+  const isLink = type === "email_link";
 
   // Subject (100% English ONLY)
-  const subject = isReset ? "Reset your Zakir password" : "Your Zakir Verification Code";
+  let subject = "Your Zakir Verification Code";
+  if (isReset) {
+    subject = "Reset your Zakir password";
+  } else if (isLink) {
+    subject = "Link your Email Account to Zakir";
+  }
 
   // Greeting
   const greeting = cleanName ? `Hello ${cleanName},` : `Hello,`;
 
   // Dynamic Titles & Introductions
-  const actionTitle = isReset ? "Reset Your Password" : "Verify Your Email";
-  const introText = isReset
-    ? "We received a request to reset the password for your Zakir account. Use the verification code below to set a new password:"
-    : "Welcome to Zakir. Use the verification code below to complete your verification and activate your account:";
+  let actionTitle = "Verify Your Email";
+  if (isReset) {
+    actionTitle = "Reset Your Password";
+  } else if (isLink) {
+    actionTitle = "Link Email Account";
+  }
+
+  let introText = "Welcome to Zakir. Use the verification code below to complete your verification and activate your account:";
+  if (isReset) {
+    introText = "We received a request to reset the password for your Zakir account. Use the verification code below to set a new password:";
+  } else if (isLink) {
+    introText = "We received a request to link this email account to your Zakir profile. Use the verification code below to complete the secure verification:";
+  }
 
   // OTP Code without spaces
   const cleanCode = otpCode.trim();
@@ -1042,9 +1057,9 @@ function buildOtpEmailHtml(options: BuildOtpEmailOptions): { subject: string; te
       <td align="center" style="padding: 40px 16px;">
         <table border="0" cellpadding="0" cellspacing="0" width="100%" style="max-width: 520px; background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);">
           
-          <!-- Top Gold Accent Line -->
+          <!-- Top Blue Accent Line -->
           <tr>
-            <td style="background-color: #d4af37; height: 5px; font-size: 0; line-height: 0;">&nbsp;</td>
+            <td style="background-color: #0075DE; height: 5px; font-size: 0; line-height: 0;">&nbsp;</td>
           </tr>
 
           <!-- Header -->
@@ -1060,7 +1075,7 @@ function buildOtpEmailHtml(options: BuildOtpEmailOptions): { subject: string; te
               <div style="font-size: 26px; font-weight: 900; color: #0f172a; letter-spacing: 3px; font-family: 'Plus Jakarta Sans', -apple-system, sans-serif;">
                 ZAKIR
               </div>
-              <div style="font-size: 13px; font-weight: 600; color: #d4af37; text-transform: uppercase; letter-spacing: 1.5px; margin-top: 6px;">
+              <div style="font-size: 13px; font-weight: 600; color: #0075DE; text-transform: uppercase; letter-spacing: 1.5px; margin-top: 6px;">
                 ${actionTitle}
               </div>
             </td>
@@ -1078,10 +1093,10 @@ function buildOtpEmailHtml(options: BuildOtpEmailOptions): { subject: string; te
                 ${introText}
               </p>
 
-              <!-- Gold Compact Single-Line OTP Container -->
+              <!-- Blue Compact Single-Line OTP Container -->
               <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin: 28px 0;">
                 <tr>
-                  <td align="center" style="padding: 18px 20px; background-color: #d4af37; border-radius: 12px; box-shadow: 0 4px 12px rgba(212, 175, 55, 0.25);">
+                  <td align="center" style="padding: 18px 20px; background-color: #0075DE; border-radius: 12px; box-shadow: 0 4px 12px rgba(0, 117, 222, 0.25);">
                     <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 32px; font-weight: 800; color: #ffffff; letter-spacing: 4px; text-align: center; margin: 0; white-space: nowrap; text-shadow: 0 1px 2px rgba(0,0,0,0.15);">
                       ${cleanCode}
                     </div>
@@ -1094,7 +1109,7 @@ function buildOtpEmailHtml(options: BuildOtpEmailOptions): { subject: string; te
               </p>
 
               <!-- Security Warning Box (Clean, No Emoji Icons) -->
-              <p style="color: #475569; font-size: 13px; line-height: 1.5; margin: 0 0 16px 0; padding: 12px 16px; background-color: #f8fafc; border-left: 3px solid #d4af37; border-radius: 4px;">
+              <p style="color: #475569; font-size: 13px; line-height: 1.5; margin: 0 0 16px 0; padding: 12px 16px; background-color: #f8fafc; border-left: 3px solid #0075DE; border-radius: 4px;">
                 <strong>For your security:</strong> Never share this code with anyone. The Zakir team will never ask for your verification code.
               </p>
 
@@ -2834,6 +2849,51 @@ app.post("/api/email/send", requireAuth, emailLimiter, async (req: AuthRequest, 
   } catch (err: any) {
     console.error("Error sending email:", err);
     res.status(500).json({ error: err.message || "Failed to deliver email" });
+  }
+});
+
+// Endpoint to send real email verification code for linking accounts
+app.post("/api/email/send-verification-otp", requireAuth, async (req: AuthRequest, res: express.Response) => {
+  try {
+    const { email, otpCode } = req.body;
+    if (!email || !otpCode) {
+      return res.status(400).json({ error: "Missing email or verification code" });
+    }
+
+    const cleanEmail = String(email).trim().toLowerCase();
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(cleanEmail)) {
+      return res.status(400).json({ error: "Invalid email address" });
+    }
+
+    const { subject, text, html } = buildOtpEmailHtml({
+      email: cleanEmail,
+      otpCode: String(otpCode).trim(),
+      type: "email_link"
+    });
+
+    console.log(`[EMAIL OTP SEND] Sending verification code to ${cleanEmail}`);
+    const mailResult = await sendSystemMail({
+      to: cleanEmail,
+      subject,
+      html,
+      text
+    });
+
+    if (!mailResult.success) {
+      return res.status(500).json({
+        success: false,
+        error: mailResult.userFriendlyMessage || mailResult.error?.message || "Failed to send email verification code"
+      });
+    }
+
+    return res.json({
+      success: true,
+      message: "Verification code sent successfully to " + cleanEmail
+    });
+  } catch (err: any) {
+    console.error("Error sending verification email:", err);
+    res.status(500).json({ error: err.message || "Failed to send verification code" });
   }
 });
 
