@@ -808,7 +808,7 @@ export default function GmailVault({ theme, lang }: GmailVaultProps) {
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
           <div className="flex items-center gap-3.5">
             <div className={`p-3.5 rounded-2xl ${
-              theme === "dark" ? "bg-amber-500/10 text-amber-400 border border-amber-500/20" : "bg-amber-50 text-amber-700 border border-amber-200"
+              theme === "dark" ? "bg-[#0075DE]/10 text-blue-400 border border-[#0075DE]/20" : "bg-blue-50 text-blue-700 border border-blue-200"
             }`}>
               <Mail className="w-7 h-7" />
             </div>
@@ -822,7 +822,7 @@ export default function GmailVault({ theme, lang }: GmailVaultProps) {
                 </span>
               </div>
               <p className={`text-xs ${theme === "dark" ? "text-slate-400" : "text-slate-500"} mt-0.5 flex items-center gap-1.5`}>
-                <Shield className="w-3.5 h-3.5 text-amber-500" />
+                <Shield className="w-3.5 h-3.5 text-[#0075DE]" />
                 {t.subtitle}
               </p>
             </div>
@@ -855,7 +855,7 @@ export default function GmailVault({ theme, lang }: GmailVaultProps) {
 
             <button
               onClick={() => setShowAddAccountModal(true)}
-              className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 text-slate-950 font-bold text-xs shadow-lg shadow-amber-900/20 hover:from-amber-400 hover:to-amber-500 transition-all flex items-center gap-2 cursor-pointer"
+              className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-[#0075DE] to-blue-600 text-white font-bold text-xs shadow-lg shadow-blue-900/20 hover:from-blue-500 hover:to-blue-600 transition-all flex items-center gap-2 cursor-pointer"
             >
               <Plus className="w-4 h-4" />
               {t.connectBtn}
@@ -982,7 +982,7 @@ export default function GmailVault({ theme, lang }: GmailVaultProps) {
                       onClick={() => setFilterCategory(f.id as any)}
                       className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer shrink-0 ${
                         filterCategory === f.id
-                          ? "bg-amber-500 text-slate-950 font-black"
+                          ? "bg-[#0075DE] text-white font-black"
                           : (theme === "dark" ? "bg-slate-800 text-slate-400 hover:text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200")
                       }`}
                     >
@@ -1013,13 +1013,13 @@ export default function GmailVault({ theme, lang }: GmailVaultProps) {
                       onClick={() => setSelectedEmail(email)}
                       className={`w-full text-right p-3 rounded-xl border transition-all cursor-pointer block ${
                         selectedEmail?.id === email.id
-                          ? (theme === "dark" ? "bg-[#0075DE]/10 border-[#0075DE]/40 shadow-sm" : "bg-amber-50/70 border-amber-300")
+                          ? (theme === "dark" ? "bg-[#0075DE]/10 border-[#0075DE]/40 shadow-sm" : "bg-blue-50/70 border-blue-300")
                           : (theme === "dark" ? "bg-slate-950/40 border-slate-800/80 hover:bg-slate-800/30" : "bg-slate-50 border-slate-100 hover:bg-slate-100/50")
                       }`}
                     >
                       <div className="flex items-center justify-between mb-1.5">
                         <div className="flex items-center gap-1.5 truncate max-w-[150px]">
-                          <span className={`text-[10px] font-bold truncate ${theme === "dark" ? "text-[#0075DE]" : "text-amber-800"}`}>
+                          <span className={`text-[10px] font-bold truncate ${theme === "dark" ? "text-[#0075DE]" : "text-blue-800"}`}>
                             {email.from.split("<")[0].trim() || email.from}
                           </span>
                         </div>
@@ -1444,7 +1444,7 @@ export default function GmailVault({ theme, lang }: GmailVaultProps) {
                       onClick={() => setAddAccountType("gmail")}
                       className={`p-3 rounded-xl border flex flex-col items-center gap-2 text-xs font-bold transition-all cursor-pointer ${
                         addAccountType === "gmail"
-                          ? "bg-amber-500/10 border-amber-500 text-amber-500"
+                          ? "bg-[#0075DE]/10 border-[#0075DE] text-[#0075DE]"
                           : "bg-slate-950/40 border-slate-800 text-slate-400 hover:text-white"
                       }`}
                     >
@@ -1456,7 +1456,7 @@ export default function GmailVault({ theme, lang }: GmailVaultProps) {
                       onClick={() => setAddAccountType("outlook")}
                       className={`p-3 rounded-xl border flex flex-col items-center gap-2 text-xs font-bold transition-all cursor-pointer ${
                         addAccountType === "outlook"
-                          ? "bg-amber-500/10 border-amber-500 text-amber-500"
+                          ? "bg-[#0075DE]/10 border-[#0075DE] text-[#0075DE]"
                           : "bg-slate-950/40 border-slate-800 text-slate-400 hover:text-white"
                       }`}
                     >
@@ -1468,7 +1468,7 @@ export default function GmailVault({ theme, lang }: GmailVaultProps) {
                       onClick={() => setAddAccountType("imap")}
                       className={`p-3 rounded-xl border flex flex-col items-center gap-2 text-xs font-bold transition-all cursor-pointer ${
                         addAccountType === "imap"
-                          ? "bg-amber-500/10 border-amber-500 text-amber-500"
+                          ? "bg-[#0075DE]/10 border-[#0075DE] text-[#0075DE]"
                           : "bg-slate-950/40 border-slate-800 text-slate-400 hover:text-white"
                       }`}
                     >
@@ -1504,7 +1504,7 @@ export default function GmailVault({ theme, lang }: GmailVaultProps) {
                         value={imapEmail}
                         onChange={(e) => setImapEmail(e.target.value)}
                         placeholder="e.g. executive@firm.org"
-                        className="w-full h-10 px-4 rounded-xl text-xs bg-slate-950 border border-slate-800 text-white outline-none focus:border-amber-500"
+                        className="w-full h-10 px-4 rounded-xl text-xs bg-slate-950 border border-slate-800 text-white outline-none focus:border-[#0075DE]"
                       />
                     </div>
 
@@ -1516,7 +1516,7 @@ export default function GmailVault({ theme, lang }: GmailVaultProps) {
                           value={imapHost}
                           onChange={(e) => setImapHost(e.target.value)}
                           placeholder="e.g. mail.company.com"
-                          className="w-full h-10 px-4 rounded-xl text-xs bg-slate-950 border border-slate-800 text-white outline-none focus:border-amber-500"
+                          className="w-full h-10 px-4 rounded-xl text-xs bg-slate-950 border border-slate-800 text-white outline-none focus:border-[#0075DE]"
                         />
                       </div>
                       <div className="space-y-1">
@@ -1525,7 +1525,7 @@ export default function GmailVault({ theme, lang }: GmailVaultProps) {
                           type="text"
                           value={imapPort}
                           onChange={(e) => setImapPort(e.target.value)}
-                          className="w-full h-10 px-4 rounded-xl text-xs bg-slate-950 border border-slate-800 text-white outline-none focus:border-amber-500 text-center"
+                          className="w-full h-10 px-4 rounded-xl text-xs bg-slate-950 border border-slate-800 text-white outline-none focus:border-[#0075DE] text-center"
                         />
                       </div>
                     </div>
@@ -1537,14 +1537,14 @@ export default function GmailVault({ theme, lang }: GmailVaultProps) {
                         value={imapPassword}
                         onChange={(e) => setImapPassword(e.target.value)}
                         placeholder="••••••••••••"
-                        className="w-full h-10 px-4 rounded-xl text-xs bg-slate-950 border border-slate-800 text-white outline-none focus:border-amber-500"
+                        className="w-full h-10 px-4 rounded-xl text-xs bg-slate-950 border border-slate-800 text-white outline-none focus:border-[#0075DE]"
                       />
                     </div>
 
                     <button
                       type="submit"
                       disabled={isAddingAccount}
-                      className="w-full h-11 bg-gradient-to-r from-amber-500 to-amber-600 text-slate-950 font-bold text-xs rounded-xl shadow-lg hover:from-amber-400 hover:to-amber-500 transition-all flex items-center justify-center gap-2 cursor-pointer"
+                      className="w-full h-11 bg-gradient-to-r from-[#0075DE] to-blue-600 text-white font-bold text-xs rounded-xl shadow-lg hover:from-blue-500 hover:to-blue-600 transition-all flex items-center justify-center gap-2 cursor-pointer"
                     >
                       {isAddingAccount ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
                       <span>{t.saveConnect}</span>

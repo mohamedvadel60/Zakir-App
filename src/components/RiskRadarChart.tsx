@@ -201,7 +201,7 @@ export const RiskRadarChart: React.FC<RiskRadarChartProps> = ({
       {/* Background ambient gradient glow */}
       <div
         className={`absolute -top-24 -right-24 w-72 h-72 rounded-full blur-3xl pointer-events-none ${
-          isDark ? "bg-amber-500/10" : "bg-amber-400/10"
+          isDark ? "bg-[#0075DE]/10" : "bg-blue-400/10"
         }`}
       />
       <div
@@ -217,8 +217,8 @@ export const RiskRadarChart: React.FC<RiskRadarChartProps> = ({
             <div
               className={`p-2 rounded-xl flex items-center justify-center border ${
                 isDark
-                  ? "bg-amber-500/10 text-amber-400 border-amber-500/20"
-                  : "bg-amber-50 text-amber-600 border-amber-200"
+                  ? "bg-[#0075DE]/10 text-[#0075DE] border-[#0075DE]/20"
+                  : "bg-blue-50 text-[#0075DE] border-blue-200"
               }`}
             >
               <Activity className="w-5 h-5" />

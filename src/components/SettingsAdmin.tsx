@@ -1753,7 +1753,7 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
                   type="button"
                   onClick={() => handleStripeCheckout("Professional")}
                   disabled={isProcessingPayment}
-                  className="w-full py-4 bg-gradient-to-r from-[#0075DE] via-blue-400 to-[#005BAB] hover:from-[#005BAB] hover:to-[#005BAB] text-white font-black text-xs rounded-xl shadow-xl shadow-amber-500/25 flex items-center justify-center gap-2 transition-all transform hover:scale-[1.02] active:scale-95 cursor-pointer"
+                  className="w-full py-4 bg-gradient-to-r from-[#0075DE] via-blue-400 to-[#005BAB] hover:from-[#005BAB] hover:to-[#005BAB] text-white font-black text-xs rounded-xl shadow-xl shadow-blue-500/25 flex items-center justify-center gap-2 transition-all transform hover:scale-[1.02] active:scale-95 cursor-pointer"
                 >
                   <span>{translations[lang as keyof typeof translations]?.subscribePayNow || (lang === "ar" ? "الاشتراك بالخطة الاحترافية - Stripe" : "Subscribe Professional - Stripe Checkout")}</span>
                   <ArrowRight className="w-4 h-4" />

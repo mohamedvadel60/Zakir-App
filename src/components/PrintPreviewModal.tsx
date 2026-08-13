@@ -111,7 +111,7 @@ export function PrintPreviewModal({
     setLineSpacing(1.15);
     setPageMargins(40);
     setCustomFontScale(100);
-    setDocumentTheme("amber");
+    setDocumentTheme("blue");
     setIncludeHeader(true);
     setIncludeFooter(true);
     setIncludeCausal(true);
@@ -196,7 +196,7 @@ export function PrintPreviewModal({
   const [includeSignatureBlock, setIncludeSignatureBlock] = useState(false);
   const [watermark, setWatermark] = useState<"none" | "confidential" | "internal" | "official">("none");
   const [pageBreakBetween, setPageBreakBetween] = useState(false);
-  const [documentTheme, setDocumentTheme] = useState<"slate" | "amber" | "emerald" | "rose">("amber");
+  const [documentTheme, setDocumentTheme] = useState<"slate" | "blue" | "emerald" | "rose">("blue");
   const [includeSummaryTable, setIncludeSummaryTable] = useState(true);
 
   // Watermark details customization state
@@ -351,11 +351,11 @@ export function PrintPreviewModal({
     const usableHeightMm = pHeightMm - (2 * marginMm);
 
     const themeCss = {
-      amber: `
-        .memory-card-item h4 { color: #92400e !important; }
-        .lessons-box { background: #fffbeb !important; border-color: #fef3c7 !important; }
-        .lessons-box h4 { color: #78350f !important; }
-        .theme-marker { background-color: #d97706 !important; }
+      blue: `
+        .memory-card-item h4 { color: #1e40af !important; }
+        .lessons-box { background: #eff6ff !important; border-color: #dbeafe !important; }
+        .lessons-box h4 { color: #1e3a8a !important; }
+        .theme-marker { background-color: #2563eb !important; }
       `,
       slate: `
         .memory-card-item h4 { color: #1e293b !important; }
@@ -680,14 +680,14 @@ export function PrintPreviewModal({
 
   // Dynamic theme styling classes mapping
   const themeColors = {
-    amber: {
-      primary: "text-amber-800 border-amber-200",
-      accentText: "text-amber-800",
-      badge: "bg-amber-50 text-amber-900 border-amber-200",
-      lessonsBg: "bg-amber-50/50 border border-amber-100",
-      lessonsHeader: "text-amber-900 border-amber-200",
-      headerLine: "border-amber-600",
-      marker: "bg-amber-600"
+    blue: {
+      primary: "text-blue-800 border-blue-200",
+      accentText: "text-blue-800",
+      badge: "bg-blue-50 text-blue-900 border-blue-200",
+      lessonsBg: "bg-blue-50/50 border border-blue-100",
+      lessonsHeader: "text-blue-900 border-blue-200",
+      headerLine: "border-blue-600",
+      marker: "bg-blue-600"
     },
     slate: {
       primary: "text-slate-800 border-slate-200",
@@ -1089,7 +1089,7 @@ export function PrintPreviewModal({
             onChange(e.currentTarget.innerText || "");
           }
         }}
-        className={`w-full bg-transparent border-none outline-none focus:ring-1 focus:ring-amber-500/40 rounded p-0.5 hover:bg-slate-100/60 focus:bg-amber-50/20 text-slate-900 transition-all whitespace-pre-wrap break-words ${className}`}
+        className={`w-full bg-transparent border-none outline-none focus:ring-1 focus:ring-blue-500/40 rounded p-0.5 hover:bg-slate-100/60 focus:bg-blue-50/20 text-slate-900 transition-all whitespace-pre-wrap break-words ${className}`}
       >
         {value}
       </div>
@@ -1347,7 +1347,7 @@ export function PrintPreviewModal({
     // If it's the summary table block
     if (block.type === "summary") {
       return (
-        <div className={`mb-8 border-2 border-slate-300 rounded-xl p-5 bg-slate-50 relative z-10 page-break-inside-avoid shadow-sm text-right rtl:text-right ${!isMeasuring ? "group hover:border-amber-400 hover:shadow-md transition-all duration-200" : ""}`} dir={lang === "ar" ? "rtl" : "ltr"}>
+        <div className={`mb-8 border-2 border-slate-300 rounded-xl p-5 bg-slate-50 relative z-10 page-break-inside-avoid shadow-sm text-right rtl:text-right ${!isMeasuring ? "group hover:border-blue-400 hover:shadow-md transition-all duration-200" : ""}`} dir={lang === "ar" ? "rtl" : "ltr"}>
           {!isMeasuring && (
             <div className="no-print absolute top-3 ltr:right-3 rtl:left-3 flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
               <button
@@ -1411,7 +1411,7 @@ export function PrintPreviewModal({
                         m.riskLevel === "Critical" 
                           ? "bg-rose-100 text-rose-950 border border-rose-300" 
                           : m.riskLevel === "High"
-                          ? "bg-amber-100 text-amber-950 border border-amber-300"
+                          ? "bg-blue-100 text-blue-950 border border-blue-300"
                           : "bg-slate-200 text-slate-900 border border-slate-300"
                       }`}>
                         {m.riskLevel}
@@ -1431,7 +1431,7 @@ export function PrintPreviewModal({
 
     if (block.type === "signature") {
       return (
-        <div className={`mt-6 pt-5 border-t border-slate-300 relative z-10 page-break-inside-avoid signature-block text-right rtl:text-right ${!isMeasuring ? "group hover:border-amber-300 hover:shadow-sm p-4 rounded-xl transition-all duration-200" : ""}`} dir={lang === "ar" ? "rtl" : "ltr"}>
+        <div className={`mt-6 pt-5 border-t border-slate-300 relative z-10 page-break-inside-avoid signature-block text-right rtl:text-right ${!isMeasuring ? "group hover:border-blue-300 hover:shadow-sm p-4 rounded-xl transition-all duration-200" : ""}`} dir={lang === "ar" ? "rtl" : "ltr"}>
           {!isMeasuring && (
             <div className="no-print absolute top-3 ltr:right-3 rtl:left-3 flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
               <button
@@ -1553,7 +1553,7 @@ export function PrintPreviewModal({
                     m.riskLevel === "Critical" 
                       ? "bg-rose-100 text-rose-950 border-rose-300" 
                       : m.riskLevel === "High"
-                      ? "bg-amber-100 text-amber-950 border-amber-300"
+                      ? "bg-blue-100 text-blue-950 border-blue-300"
                       : m.riskLevel === "Medium"
                       ? "bg-blue-100 text-blue-950 border-blue-300"
                       : "bg-slate-200 text-slate-900 border-slate-300"
@@ -1690,7 +1690,7 @@ export function PrintPreviewModal({
           renderedElements.push(
             <div 
               key={`group-${m.id}-${group[0].subType}`}
-              className={`memory-card-item bg-white border-2 border-slate-300 rounded-xl text-slate-950 shadow-sm ${cardSpacing.cardMargin} ${cardSpacing.cardPadding} text-right rtl:text-right group relative hover:border-amber-400 hover:shadow-md transition-all duration-200`}
+              className={`memory-card-item bg-white border-2 border-slate-300 rounded-xl text-slate-950 shadow-sm ${cardSpacing.cardMargin} ${cardSpacing.cardPadding} text-right rtl:text-right group relative hover:border-blue-400 hover:shadow-md transition-all duration-200`}
               dir={lang === "ar" ? "rtl" : "ltr"}
             >
               {/* Exclude entire memory card hover button */}
@@ -1710,7 +1710,7 @@ export function PrintPreviewModal({
 
               {isContinuation && (
                 <div className="pb-1.5 mb-2 border-b border-dashed border-slate-200 flex justify-between items-center">
-                  <span className="text-[8.5pt] font-black text-amber-600 uppercase tracking-wider">
+                  <span className="text-[8.5pt] font-black text-blue-600 uppercase tracking-wider">
                     {lang === "ar" ? `${m.title} (متابعة)` : `${m.title} (Continued)`}
                   </span>
                   <span className="text-[7.5pt] text-slate-400 font-mono">
@@ -1746,7 +1746,7 @@ export function PrintPreviewModal({
   if (!isOpen) return null;
 
   return (
-    <div className="print-modal-overlay dark-section fixed inset-0 z-50 overflow-y-auto bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-2 sm:p-4 selection:bg-amber-500/30">
+    <div className="print-modal-overlay dark-section fixed inset-0 z-50 overflow-y-auto bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-2 sm:p-4 selection:bg-[#0075DE]/30">
       <style>{`
         /* Dynamic font scaling overrides to support Tailwind's rem classes */
         #print-scratchpad-measurer, .print-page {
@@ -1776,13 +1776,13 @@ export function PrintPreviewModal({
         {/* Modal Top Bar (No Print) */}
         <div className="no-print p-4 sm:p-5 border-b border-[var(--border-color)] flex items-center justify-between gap-4 bg-[var(--bg-tertiary)]">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-500 flex items-center justify-center font-bold">
+            <div className="w-10 h-10 rounded-xl bg-[#0075DE]/10 border border-[#0075DE]/20 text-[#0075DE] flex items-center justify-center font-bold">
               <Printer className="w-5 h-5" />
             </div>
             <div>
               <h2 className="text-lg font-bold text-white flex items-center gap-2">
                 <span>{t.title}</span>
-                <span className="text-[10px] px-2 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20 font-mono">
+                <span className="text-[10px] px-2 py-0.5 rounded bg-[#0075DE]/10 text-blue-400 border border-[#0075DE]/20 font-mono">
                   {selectedMemories.length} {lang === "ar" ? "مستندات" : "Items"}
                 </span>
               </h2>
@@ -1797,14 +1797,14 @@ export function PrintPreviewModal({
               className="px-5 py-2.5 rounded-xl bg-slate-850 hover:bg-slate-800 active:bg-slate-900 border border-slate-700 hover:border-slate-600 text-slate-100 font-bold text-xs shadow-lg transition-all cursor-pointer flex items-center gap-2"
               title={lang === "ar" ? "تصدير كـ PDF" : (lang === "fr" ? "Exporter en PDF" : "Export as PDF")}
             >
-              <FileDown className="w-4 h-4 text-amber-500" />
+              <FileDown className="w-4 h-4 text-blue-500" />
               <span>{lang === "ar" ? "تصدير كـ PDF" : (lang === "fr" ? "Exporter en PDF" : "Export as PDF")}</span>
             </button>
 
             <button
               type="button"
               onClick={handlePrint}
-              className="px-5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 active:bg-amber-600 text-slate-950 font-bold text-xs shadow-lg shadow-amber-500/10 transition-all cursor-pointer flex items-center gap-2"
+              className="px-5 py-2.5 rounded-xl bg-[#0075DE] hover:bg-blue-500 active:bg-blue-700 text-white font-bold text-xs shadow-lg shadow-blue-500/10 transition-all cursor-pointer flex items-center gap-2"
             >
               <Printer className="w-4 h-4" />
               <span>{t.printBtn}</span>
@@ -1829,14 +1829,14 @@ export function PrintPreviewModal({
             {/* 1. Memory Items Selector */}
             <div className="space-y-3 bg-slate-900/80 border border-slate-800 rounded-xl p-4">
               <div className="flex items-center justify-between border-b border-slate-800 pb-2">
-                <span className="text-xs font-bold uppercase tracking-wider text-amber-400 flex items-center gap-1.5">
+                <span className="text-xs font-bold uppercase tracking-wider text-blue-400 flex items-center gap-1.5">
                   <FileText className="w-4 h-4" />
                   <span>{t.selectMemories}</span>
                 </span>
                 <button
                   type="button"
                   onClick={toggleSelectAll}
-                  className="text-[11px] text-amber-400 hover:underline font-semibold cursor-pointer"
+                  className="text-[11px] text-blue-400 hover:underline font-semibold cursor-pointer"
                 >
                   {t.selectAll} ({selectedIds.length}/{filteredMemories.length})
                 </button>
@@ -1848,7 +1848,7 @@ export function PrintPreviewModal({
                   <select
                     value={categoryFilter}
                     onChange={(e) => setCategoryFilter(e.target.value)}
-                    className="w-full h-8 px-2 bg-slate-950 border border-slate-800 rounded-lg text-xs text-slate-300 focus:outline-none focus:border-amber-500"
+                    className="w-full h-8 px-2 bg-slate-950 border border-slate-800 rounded-lg text-xs text-slate-300 focus:outline-none focus:border-blue-500"
                   >
                     <option value="all">{lang === "ar" ? "كل الفئات" : "All Categories"}</option>
                     {categories.map(cat => (
@@ -1868,13 +1868,13 @@ export function PrintPreviewModal({
                       onClick={() => toggleSelectMemory(m.id)}
                       className={`p-2 rounded-lg border text-xs cursor-pointer transition-all flex items-start gap-2.5 ${
                         isSelected 
-                          ? "bg-amber-500/10 border-amber-500/40 text-amber-200" 
+                          ? "bg-[#0075DE]/10 border-[#0075DE]/40 text-blue-200" 
                           : "bg-slate-950/60 border-slate-800/80 text-slate-400 hover:text-slate-200"
                       }`}
                     >
                       <div className="mt-0.5 shrink-0">
                         {isSelected ? (
-                          <CheckSquare className="w-4 h-4 text-amber-400" />
+                          <CheckSquare className="w-4 h-4 text-blue-400" />
                         ) : (
                           <Square className="w-4 h-4 text-slate-600" />
                         )}
@@ -1893,7 +1893,7 @@ export function PrintPreviewModal({
 
             {/* 2. Formatting & Layout Settings */}
             <div className="space-y-4 bg-slate-900/80 border border-slate-800 rounded-xl p-4">
-              <span className="text-xs font-bold uppercase tracking-wider text-amber-400 flex items-center justify-between border-b border-slate-800 pb-2 flex-wrap gap-2">
+              <span className="text-xs font-bold uppercase tracking-wider text-blue-400 flex items-center justify-between border-b border-slate-800 pb-2 flex-wrap gap-2">
                 <div className="flex items-center gap-1.5">
                   <Sliders className="w-4 h-4" />
                   <span>{t.layoutSettings}</span>
@@ -1906,7 +1906,7 @@ export function PrintPreviewModal({
                     className="p-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 hover:border-slate-600 transition-all cursor-pointer flex items-center gap-1"
                     title={lang === "ar" ? "تحديث المعاينة" : "Refresh Preview"}
                   >
-                    <RefreshCw className={`w-3 h-3 text-amber-500 ${isRefreshing ? "animate-spin" : ""}`} />
+                    <RefreshCw className={`w-3 h-3 text-blue-500 ${isRefreshing ? "animate-spin" : ""}`} />
                     <span className="text-[10px] font-bold px-0.5">{lang === "ar" ? "تحديث" : "Refresh"}</span>
                   </button>
                   <button
@@ -1932,7 +1932,7 @@ export function PrintPreviewModal({
                       onClick={() => setDensity(d)}
                       className={`py-1.5 px-2 text-[10px] font-bold rounded-lg border transition-all cursor-pointer ${
                         density === d 
-                          ? "bg-amber-500 text-slate-950 border-amber-500" 
+                          ? "bg-[#0075DE] text-white border-[#0075DE]" 
                           : "bg-slate-950 border-slate-800 text-slate-400 hover:text-white"
                       }`}
                     >
@@ -1957,7 +1957,7 @@ export function PrintPreviewModal({
                       onClick={() => setFontSize(f.id as any)}
                       className={`py-1.5 px-2 text-[10px] font-bold rounded-lg border transition-all cursor-pointer ${
                         fontSize === f.id 
-                          ? "bg-amber-500 text-slate-950 border-amber-500" 
+                          ? "bg-[#0075DE] text-white border-[#0075DE]" 
                           : "bg-slate-950 border-slate-800 text-slate-400 hover:text-white"
                       }`}
                     >
@@ -1972,7 +1972,7 @@ export function PrintPreviewModal({
                 <label className="block text-[11px] font-semibold text-slate-400 mb-1.5">{t.documentThemeLabel}</label>
                 <div className="grid grid-cols-4 gap-1.5">
                   {[
-                    { id: "amber", name: lang === "ar" ? "ذهبي" : "Amber", color: "bg-amber-500 border-amber-600" },
+                    { id: "blue", name: lang === "ar" ? "أزرق" : "Blue", color: "bg-blue-500 border-blue-600" },
                     { id: "slate", name: lang === "ar" ? "رمادي" : "Slate", color: "bg-slate-500 border-slate-600" },
                     { id: "emerald", name: lang === "ar" ? "أخضر" : "Emerald", color: "bg-emerald-500 border-emerald-600" },
                     { id: "rose", name: lang === "ar" ? "أحمر" : "Rose", color: "bg-rose-500 border-rose-600" }
@@ -1984,7 +1984,7 @@ export function PrintPreviewModal({
                       title={theme.name}
                       className={`py-1 rounded-lg border transition-all cursor-pointer flex flex-col items-center justify-center gap-1.5 ${
                         documentTheme === theme.id 
-                          ? "bg-slate-800 border-amber-500 text-white" 
+                          ? "bg-slate-800 border-blue-500 text-white" 
                           : "bg-slate-950 border-slate-800 text-slate-400 hover:text-slate-200"
                       }`}
                     >
@@ -2002,7 +2002,7 @@ export function PrintPreviewModal({
                   <select
                     value={orientation}
                     onChange={(e) => setOrientation(e.target.value as any)}
-                    className="w-full h-8 px-2 bg-slate-950 border border-slate-800 rounded-lg text-xs text-slate-300 focus:outline-none focus:border-amber-500"
+                    className="w-full h-8 px-2 bg-slate-950 border border-slate-800 rounded-lg text-xs text-slate-300 focus:outline-none focus:border-blue-500"
                   >
                     <option value="portrait">{t.portrait}</option>
                     <option value="landscape">{t.landscape}</option>
@@ -2014,7 +2014,7 @@ export function PrintPreviewModal({
                   <select
                     value={columns}
                     onChange={(e) => setColumns(e.target.value as any)}
-                    className="w-full h-8 px-2 bg-slate-950 border border-slate-800 rounded-lg text-xs text-slate-300 focus:outline-none focus:border-amber-500"
+                    className="w-full h-8 px-2 bg-slate-950 border border-slate-800 rounded-lg text-xs text-slate-300 focus:outline-none focus:border-blue-500"
                   >
                     <option value="1">{t.singleCol}</option>
                     <option value="2">{t.doubleCol}</option>
@@ -2031,7 +2031,7 @@ export function PrintPreviewModal({
                   <select
                     value={pageSize}
                     onChange={(e) => setPageSize(e.target.value as any)}
-                    className="w-full h-8 px-2 bg-slate-950 border border-slate-800 rounded-lg text-xs text-slate-300 focus:outline-none focus:border-amber-500"
+                    className="w-full h-8 px-2 bg-slate-950 border border-slate-800 rounded-lg text-xs text-slate-300 focus:outline-none focus:border-blue-500"
                   >
                     <option value="A4">A4 (210 x 297 mm)</option>
                     <option value="A3">A3 (297 x 420 mm)</option>
@@ -2048,7 +2048,7 @@ export function PrintPreviewModal({
                   <select
                     value={lineSpacing}
                     onChange={(e) => setLineSpacing(parseFloat(e.target.value))}
-                    className="w-full h-8 px-2 bg-slate-950 border border-slate-800 rounded-lg text-xs text-slate-300 focus:outline-none focus:border-amber-500"
+                    className="w-full h-8 px-2 bg-slate-950 border border-slate-800 rounded-lg text-xs text-slate-300 focus:outline-none focus:border-blue-500"
                   >
                     <option value="1.0">1.0 ({lang === "ar" ? "مفرد" : "Single"})</option>
                     <option value="1.15">1.15 ({lang === "ar" ? "افتراضي" : "Default"})</option>
@@ -2062,7 +2062,7 @@ export function PrintPreviewModal({
               <div className="space-y-3 pt-2 border-t border-slate-800">
                 <div className="flex justify-between items-center text-[10px] text-slate-400">
                   <span>{lang === "ar" ? "هوامش الورقة المخصصة:" : "Custom Page Margins:"}</span>
-                  <span className="font-mono text-amber-400 font-bold">{pageMargins}px</span>
+                  <span className="font-mono text-blue-400 font-bold">{pageMargins}px</span>
                 </div>
                 <input 
                   type="range" 
@@ -2070,12 +2070,12 @@ export function PrintPreviewModal({
                   max="80" 
                   value={pageMargins} 
                   onChange={(e) => setPageMargins(parseInt(e.target.value))} 
-                  className="w-full h-1 bg-slate-950 rounded-lg appearance-none cursor-pointer accent-amber-500"
+                  className="w-full h-1 bg-slate-950 rounded-lg appearance-none cursor-pointer accent-blue-500"
                 />
 
                 <div className="flex justify-between items-center text-[10px] text-slate-400">
                   <span>{lang === "ar" ? "مقياس الخط المخصص (حر):" : "Custom Font Scale:"}</span>
-                  <span className="font-mono text-amber-400 font-bold">{customFontScale}%</span>
+                  <span className="font-mono text-blue-400 font-bold">{customFontScale}%</span>
                 </div>
                 <input 
                   type="range" 
@@ -2083,7 +2083,7 @@ export function PrintPreviewModal({
                   max="150" 
                   value={customFontScale} 
                   onChange={(e) => setCustomFontScale(parseInt(e.target.value))} 
-                  className="w-full h-1 bg-slate-950 rounded-lg appearance-none cursor-pointer accent-amber-500"
+                  className="w-full h-1 bg-slate-950 rounded-lg appearance-none cursor-pointer accent-blue-500"
                 />
               </div>
 
@@ -2091,7 +2091,7 @@ export function PrintPreviewModal({
 
             {/* Branding & Header Layout Controls */}
             <div className="space-y-3 bg-slate-900/80 border border-slate-800 rounded-xl p-4">
-              <span className="text-xs font-bold uppercase tracking-wider text-amber-400 flex items-center gap-1.5 border-b border-slate-800 pb-2">
+              <span className="text-xs font-bold uppercase tracking-wider text-blue-400 flex items-center gap-1.5 border-b border-slate-800 pb-2">
                 <Building2 className="w-4 h-4" />
                 <span>{lang === "ar" ? "هوية المؤسسة وترويسة التقرير" : "Company Branding & Header"}</span>
               </span>
@@ -2104,7 +2104,7 @@ export function PrintPreviewModal({
                 <div className="w-full h-8 px-2.5 bg-slate-950 border border-slate-850 rounded-lg text-xs text-slate-400 flex items-center cursor-not-allowed opacity-85 font-semibold">
                   {companyName}
                 </div>
-                <span className="text-[9px] text-amber-500/80 block font-semibold mt-0.5">
+                <span className="text-[9px] text-blue-500/80 block font-semibold mt-0.5">
                   {lang === "ar" 
                     ? "🔒 يسحب الاسم تلقائياً من الإعدادات ولا يمكن تغييره هنا" 
                     : "🔒 Pulls automatically from account settings & immutable here"}
@@ -2125,7 +2125,7 @@ export function PrintPreviewModal({
                         localStorage.setItem("zakir_department_name", e.target.value);
                       } catch (err) {}
                     }}
-                    className="w-full h-8 px-2.5 bg-slate-950 border border-slate-800 rounded-lg text-xs text-slate-100 focus:outline-none focus:border-amber-500"
+                    className="w-full h-8 px-2.5 bg-slate-950 border border-slate-800 rounded-lg text-xs text-slate-100 focus:outline-none focus:border-blue-500"
                     placeholder={lang === "ar" ? "اسم الإدارة..." : "Department Name..."}
                   />
                 </div>
@@ -2139,7 +2139,7 @@ export function PrintPreviewModal({
                     type="text"
                     value={documentRef}
                     onChange={(e) => setDocumentRef(e.target.value)}
-                    className="w-full h-8 px-2.5 bg-slate-950 border border-slate-800 rounded-lg text-xs text-amber-400 font-mono focus:outline-none focus:border-amber-500"
+                    className="w-full h-8 px-2.5 bg-slate-950 border border-slate-800 rounded-lg text-xs text-blue-400 font-mono focus:outline-none focus:border-blue-500"
                   />
                 </div>
 
@@ -2160,7 +2160,7 @@ export function PrintPreviewModal({
                         onClick={() => setHeaderStyle(style.id as any)}
                         className={`py-1.5 px-2 text-[10px] font-bold rounded-lg border transition-all cursor-pointer ${
                           headerStyle === style.id
-                            ? "bg-amber-500 text-slate-950 border-amber-500 shadow"
+                            ? "bg-[#0075DE] text-white border-[#0075DE] shadow"
                             : "bg-slate-950 border-slate-800 text-slate-400 hover:text-white"
                         }`}
                       >
@@ -2184,7 +2184,7 @@ export function PrintPreviewModal({
                           onClick={() => setLogoSize(sz)}
                           className={`px-1.5 py-0.5 text-[9px] font-bold rounded border transition-all cursor-pointer ${
                             logoSize === sz
-                              ? "bg-amber-500/20 text-amber-400 border-amber-500"
+                              ? "bg-[#0075DE]/20 text-blue-400 border-[#0075DE]"
                               : "bg-slate-950 text-slate-500 border-slate-800 hover:text-slate-300"
                           }`}
                         >
@@ -2204,7 +2204,7 @@ export function PrintPreviewModal({
                         {lang === "ar" ? "لا يوجد شعار للمؤسسة" : "No institutional logo set"}
                       </span>
                     )}
-                    <span className="text-[9px] text-amber-500/80 block font-semibold">
+                    <span className="text-[9px] text-blue-500/80 block font-semibold">
                       {lang === "ar" 
                         ? "🔒 يُعدل شعار الشركة من إعدادات الحساب فقط" 
                         : "🔒 Logo editable only via account settings"}
@@ -2219,9 +2219,9 @@ export function PrintPreviewModal({
                       type="checkbox"
                       checked={includeVerificationSeal}
                       onChange={(e) => setIncludeVerificationSeal(e.target.checked)}
-                      className="w-3.5 h-3.5 rounded bg-slate-950 border-slate-800 text-amber-500 focus:ring-amber-500 accent-amber-500 cursor-pointer"
+                      className="w-3.5 h-3.5 rounded bg-slate-950 border-slate-800 text-blue-500 focus:ring-blue-500 accent-blue-500 cursor-pointer"
                     />
-                    <span className="font-semibold text-amber-400">{lang === "ar" ? "تضمين ختم التوثيق والاعتماد" : "Include Verification Stamp"}</span>
+                    <span className="font-semibold text-blue-400">{lang === "ar" ? "تضمين ختم التوثيق والاعتماد" : "Include Verification Stamp"}</span>
                   </label>
                 </div>
               </div>
@@ -2233,7 +2233,7 @@ export function PrintPreviewModal({
                   <select
                     value={watermark}
                     onChange={(e) => setWatermark(e.target.value as any)}
-                    className="w-full h-8 px-2 bg-slate-950 border border-slate-800 rounded-lg text-xs text-slate-300 focus:outline-none focus:border-amber-500"
+                    className="w-full h-8 px-2 bg-slate-950 border border-slate-800 rounded-lg text-xs text-slate-300 focus:outline-none focus:border-blue-500"
                   >
                     <option value="none">{t.watermarkNone}</option>
                     <option value="confidential">{t.watermarkConfidential}</option>
@@ -2244,7 +2244,7 @@ export function PrintPreviewModal({
 
                 {/* Watermark & Printing Details Customization */}
                 <div className="p-3 bg-slate-950/60 rounded-lg border border-slate-800 space-y-3 mt-2">
-                  <span className="block text-[10px] font-bold uppercase tracking-wider text-amber-500/80">
+                  <span className="block text-[10px] font-bold uppercase tracking-wider text-blue-500/80">
                     {lang === "ar" ? "بيانات الاعتماد والطباعة" : "Approval & Printing Details"}
                   </span>
                   
@@ -2255,7 +2255,7 @@ export function PrintPreviewModal({
                         type="checkbox"
                         checked={includeCompanyInWatermark}
                         onChange={(e) => setIncludeCompanyInWatermark(e.target.checked)}
-                        className="w-3.5 h-3.5 rounded bg-slate-950 border-slate-800 text-amber-500 focus:ring-amber-500 accent-amber-500 cursor-pointer"
+                        className="w-3.5 h-3.5 rounded bg-slate-950 border-slate-800 text-blue-500 focus:ring-blue-500 accent-blue-500 cursor-pointer"
                       />
                       <span>{lang === "ar" ? "تضمين اسم المؤسسة" : "Include Company Name"}</span>
                     </label>
@@ -2285,7 +2285,7 @@ export function PrintPreviewModal({
                         type="checkbox"
                         checked={includeDateInWatermark}
                         onChange={(e) => setIncludeDateInWatermark(e.target.checked)}
-                        className="w-3.5 h-3.5 rounded bg-slate-950 border-slate-800 text-amber-500 focus:ring-amber-500 accent-amber-500 cursor-pointer"
+                        className="w-3.5 h-3.5 rounded bg-slate-950 border-slate-800 text-blue-500 focus:ring-blue-500 accent-blue-500 cursor-pointer"
                       />
                       <span>{lang === "ar" ? "تضمين التاريخ والوقت" : "Include Timestamp"}</span>
                     </label>
@@ -2294,7 +2294,7 @@ export function PrintPreviewModal({
                         type="date"
                         value={watermarkDate}
                         onChange={(e) => setWatermarkDate(e.target.value)}
-                        className="w-full h-8 px-2 bg-slate-900 border border-slate-800 rounded-lg text-xs text-slate-200 focus:outline-none focus:border-amber-500 cursor-pointer [color-scheme:dark]"
+                        className="w-full h-8 px-2 bg-slate-900 border border-slate-800 rounded-lg text-xs text-slate-200 focus:outline-none focus:border-blue-500 cursor-pointer [color-scheme:dark]"
                       />
                     )}
                   </div>
@@ -2306,9 +2306,9 @@ export function PrintPreviewModal({
                         type="checkbox"
                         checked={includeSummaryTable}
                         onChange={(e) => setIncludeSummaryTable(e.target.checked)}
-                        className="w-3.5 h-3.5 rounded bg-slate-950 border-slate-800 text-amber-500 focus:ring-amber-500 accent-amber-500 cursor-pointer"
+                        className="w-3.5 h-3.5 rounded bg-slate-950 border-slate-800 text-blue-500 focus:ring-blue-500 accent-blue-500 cursor-pointer"
                       />
-                      <span className="font-semibold text-amber-500/90">{t.incSummaryTable}</span>
+                      <span className="font-semibold text-blue-500/90">{t.incSummaryTable}</span>
                     </label>
                     <span className="text-[9px] text-slate-500 block leading-normal">
                       {lang === "ar" 
@@ -2324,9 +2324,9 @@ export function PrintPreviewModal({
                         type="checkbox"
                         checked={pageBreakBetween}
                         onChange={(e) => setPageBreakBetween(e.target.checked)}
-                        className="w-3.5 h-3.5 rounded bg-slate-950 border-slate-800 text-amber-500 focus:ring-amber-500 accent-amber-500 cursor-pointer"
+                        className="w-3.5 h-3.5 rounded bg-slate-950 border-slate-800 text-blue-500 focus:ring-blue-500 accent-blue-500 cursor-pointer"
                       />
-                      <span className="font-semibold text-amber-500/90">{lang === "ar" ? "تفعيل تقسيم الصفحات التلقائي" : "Enable Multi-page Pagination"}</span>
+                      <span className="font-semibold text-blue-500/90">{lang === "ar" ? "تفعيل تقسيم الصفحات التلقائي" : "Enable Multi-page Pagination"}</span>
                     </label>
                     <span className="text-[9px] text-slate-500 block leading-normal">
                       {lang === "ar" 
@@ -2362,7 +2362,7 @@ export function PrintPreviewModal({
                   <div className="flex gap-2">
                     <label 
                       htmlFor="modal-company-logo-upload"
-                      className="flex-1 py-1.5 px-2.5 text-[10px] font-bold text-center rounded-lg border border-dashed border-slate-700 bg-slate-950 text-amber-400 hover:text-amber-300 hover:bg-slate-900 transition-all cursor-pointer"
+                      className="flex-1 py-1.5 px-2.5 text-[10px] font-bold text-center rounded-lg border border-dashed border-slate-700 bg-slate-950 text-blue-400 hover:text-blue-300 hover:bg-slate-900 transition-all cursor-pointer"
                     >
                       {companyLogoImg ? (lang === "ar" ? "تغيير الشعار" : "Change Logo") : (lang === "ar" ? "اختر ملف الشعار" : "Choose Logo File")}
                     </label>
@@ -2409,7 +2409,7 @@ export function PrintPreviewModal({
                   <div className="flex gap-2">
                     <label 
                       htmlFor="modal-signature-upload"
-                      className="flex-1 py-1.5 px-2.5 text-[10px] font-bold text-center rounded-lg border border-dashed border-slate-700 bg-slate-950 text-amber-400 hover:text-amber-300 hover:bg-slate-900 transition-all cursor-pointer"
+                      className="flex-1 py-1.5 px-2.5 text-[10px] font-bold text-center rounded-lg border border-dashed border-slate-700 bg-slate-950 text-blue-400 hover:text-blue-300 hover:bg-slate-900 transition-all cursor-pointer"
                     >
                       {signatureImg ? (lang === "ar" ? "تغيير التوقيع" : "Change Signature") : (lang === "ar" ? "اختر ملف التوقيع" : "Choose Signature File")}
                     </label>
@@ -2433,7 +2433,7 @@ export function PrintPreviewModal({
 
             {/* 3. Included Sections Toggles */}
             <div className="space-y-2 bg-slate-900/80 border border-slate-800 rounded-xl p-4">
-              <span className="text-xs font-bold uppercase tracking-wider text-amber-400 flex items-center gap-1.5 border-b border-slate-800 pb-2 mb-3">
+              <span className="text-xs font-bold uppercase tracking-wider text-blue-400 flex items-center gap-1.5 border-b border-slate-800 pb-2 mb-3">
                 <Check className="w-4 h-4" />
                 <span>{t.sectionsToggle}</span>
               </span>
@@ -2454,7 +2454,7 @@ export function PrintPreviewModal({
                     type="checkbox"
                     checked={item.state}
                     onChange={(e) => item.set(e.target.checked)}
-                    className="w-4 h-4 rounded bg-slate-950 border-slate-800 text-amber-500 focus:ring-amber-500 accent-amber-500 cursor-pointer"
+                    className="w-4 h-4 rounded bg-slate-950 border-slate-800 text-blue-500 focus:ring-blue-500 accent-blue-500 cursor-pointer"
                   />
                 </label>
               ))}
@@ -2463,7 +2463,7 @@ export function PrintPreviewModal({
           </div>
 
           {/* LIVE PREVIEW CANVAS (Printable Container) */}
-          <div className="print-preview-canvas lg:col-span-8 p-4 sm:p-8 bg-slate-950 overflow-y-auto max-h-[calc(92vh-80px)] flex flex-col items-center gap-6 selection:bg-amber-200">
+          <div className="print-preview-canvas lg:col-span-8 p-4 sm:p-8 bg-slate-950 overflow-y-auto max-h-[calc(92vh-80px)] flex flex-col items-center gap-6 selection:bg-[#0075DE]/30">
             
             {/* Hidden Scratchpad for exact pixel height calculations */}
             <div

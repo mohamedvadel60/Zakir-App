@@ -330,7 +330,7 @@ export const AnimatedLandingPage: React.FC<AnimatedLandingPageProps> = ({
                 whileTap={{ scale: 0.95 }}
                 type="button"
                 onClick={() => onToggleLanguage("ar")} 
-                className={`px-2 py-0.5 rounded transition-colors cursor-pointer ${lang === "ar" ? "bg-[#0075DE] text-slate-950 font-black" : (theme === 'light' ? "text-slate-700 hover:text-black" : "text-slate-400 hover:text-white")}`}
+                className={`px-2 py-0.5 rounded transition-colors cursor-pointer ${lang === "ar" ? "bg-[#0075DE] text-white font-black" : (theme === 'light' ? "text-slate-700 hover:text-black" : "text-slate-400 hover:text-white")}`}
               >
                 ع
               </motion.button>
@@ -339,7 +339,7 @@ export const AnimatedLandingPage: React.FC<AnimatedLandingPageProps> = ({
                 whileTap={{ scale: 0.95 }}
                 type="button"
                 onClick={() => onToggleLanguage("fr")} 
-                className={`px-2 py-0.5 rounded transition-colors cursor-pointer ${lang === "fr" ? "bg-[#0075DE] text-slate-950 font-black" : (theme === 'light' ? "text-slate-700 hover:text-black" : "text-slate-400 hover:text-white")}`}
+                className={`px-2 py-0.5 rounded transition-colors cursor-pointer ${lang === "fr" ? "bg-[#0075DE] text-white font-black" : (theme === 'light' ? "text-slate-700 hover:text-black" : "text-slate-400 hover:text-white")}`}
               >
                 FR
               </motion.button>
@@ -348,7 +348,7 @@ export const AnimatedLandingPage: React.FC<AnimatedLandingPageProps> = ({
                 whileTap={{ scale: 0.95 }}
                 type="button"
                 onClick={() => onToggleLanguage("en")} 
-                className={`px-2 py-0.5 rounded transition-colors cursor-pointer ${lang === "en" ? "bg-[#0075DE] text-slate-950 font-black" : (theme === 'light' ? "text-slate-700 hover:text-black" : "text-slate-400 hover:text-white")}`}
+                className={`px-2 py-0.5 rounded transition-colors cursor-pointer ${lang === "en" ? "bg-[#0075DE] text-white font-black" : (theme === 'light' ? "text-slate-700 hover:text-black" : "text-slate-400 hover:text-white")}`}
               >
                 EN
               </motion.button>
