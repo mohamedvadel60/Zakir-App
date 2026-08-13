@@ -901,7 +901,7 @@ export const WorldBankPortal: React.FC<WorldBankPortalProps> = ({
                   {retryFetch && (
                     <button
                       onClick={() => retryFetch()}
-                      className="px-4 py-2 rounded-xl bg-[#0075DE] hover:bg-[#c4a02e] text-slate-950 font-bold text-xs flex items-center gap-2 shadow-md transition-all cursor-pointer"
+                      className="px-4 py-2 rounded-xl bg-[#0075DE] hover:bg-[#005BAB] text-white font-bold text-xs flex items-center gap-2 shadow-md transition-all cursor-pointer"
                     >
                       <RefreshCw className="w-3.5 h-3.5" />
                       <span>{lang === "ar" ? "إعادة محاولة اتصال API" : "Retry API Call"}</span>

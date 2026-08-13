@@ -1122,7 +1122,7 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
                     className="w-24 h-24 rounded-full object-cover border-2 border-[#0075DE]/40/80 shadow-xl shadow-[#0075DE]/10 group-hover:opacity-80 transition-opacity" 
                   />
                 ) : (
-                  <div className="w-24 h-24 rounded-full bg-[#0075DE] text-slate-950 font-black text-3xl flex items-center justify-center shadow-xl shadow-[#0075DE]/20 border-2 border-[#0075DE]/40/80 group-hover:bg-[#005BAB] transition-colors">
+                  <div className="w-24 h-24 rounded-full bg-[#0075DE] text-white font-black text-3xl flex items-center justify-center shadow-xl shadow-[#0075DE]/20 border-2 border-[#0075DE]/40/80 group-hover:bg-[#005BAB] transition-colors">
                     {initials}
                   </div>
                 )}
@@ -1142,7 +1142,7 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
                   <button
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
-                    className="px-4 py-2 bg-[#0075DE] hover:bg-[#005BAB] text-slate-950 font-bold text-xs rounded-xl shadow-lg shadow-[#0075DE]/20 flex items-center gap-2 transition-all cursor-pointer"
+                    className="px-4 py-2 bg-[#0075DE] hover:bg-[#005BAB] text-white font-bold text-xs rounded-xl shadow-lg shadow-[#0075DE]/20 flex items-center gap-2 transition-all cursor-pointer"
                   >
                     <Upload className="w-3.5 h-3.5" />
                     <span>{avatarUrl ? (lang === "ar" ? "تغيير الصورة" : "Change Photo") : (lang === "ar" ? "إضافة صورة شخصية" : "Upload Photo")}</span>
@@ -1272,7 +1272,7 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
               <div className="pt-2">
                 <button
                   type="submit"
-                  className="px-6 h-11 bg-[#0075DE] hover:bg-[#005BAB] text-slate-950 font-bold text-xs rounded-xl shadow-lg shadow-[#0075DE]/20 flex items-center gap-2 transition-all cursor-pointer"
+                  className="px-6 h-11 bg-[#0075DE] hover:bg-[#005BAB] text-white font-bold text-xs rounded-xl shadow-lg shadow-[#0075DE]/20 flex items-center gap-2 transition-all cursor-pointer"
                 >
                   <Save className="w-4 h-4" />
                   <span>{lang === "ar" ? "حفظ التغييرات" : "Save Changes"}</span>
@@ -1372,7 +1372,7 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
                       type="button"
                       disabled={uploadingVerDoc}
                       onClick={() => verFileInputRef.current?.click()}
-                      className="px-4 py-2.5 bg-[#0075DE] hover:bg-[#005BAB] text-slate-950 font-bold text-xs rounded-xl shadow-lg shadow-[#0075DE]/20 flex items-center gap-2 transition-all cursor-pointer disabled:opacity-50"
+                      className="px-4 py-2.5 bg-[#0075DE] hover:bg-[#005BAB] text-white font-bold text-xs rounded-xl shadow-lg shadow-[#0075DE]/20 flex items-center gap-2 transition-all cursor-pointer disabled:opacity-50"
                     >
                       {uploadingVerDoc ? (
                         <>
@@ -1612,7 +1612,7 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
                   onClick={() => setBillingCycle("annual")}
                   className={`px-5 py-2.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                     billingCycle === "annual"
-                      ? "bg-[#0075DE] text-slate-950 shadow-md shadow-[#0075DE]/20"
+                      ? "bg-[#0075DE] text-white shadow-md shadow-[#0075DE]/20"
                       : "text-slate-400 hover:text-white"
                   }`}
                 >
@@ -1623,7 +1623,7 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
                   onClick={() => setBillingCycle("monthly")}
                   className={`px-5 py-2.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                     billingCycle === "monthly"
-                      ? "bg-[#0075DE] text-slate-950 shadow-md shadow-[#0075DE]/20"
+                      ? "bg-[#0075DE] text-white shadow-md shadow-[#0075DE]/20"
                       : "text-slate-400 hover:text-white"
                   }`}
                 >
@@ -1753,7 +1753,7 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
                   type="button"
                   onClick={() => handleStripeCheckout("Professional")}
                   disabled={isProcessingPayment}
-                  className="w-full py-4 bg-gradient-to-r from-[#0075DE] via-blue-400 to-[#005BAB] hover:from-[#005BAB] hover:to-[#005BAB] text-slate-950 font-black text-xs rounded-xl shadow-xl shadow-amber-500/25 flex items-center justify-center gap-2 transition-all transform hover:scale-[1.02] active:scale-95 cursor-pointer"
+                  className="w-full py-4 bg-gradient-to-r from-[#0075DE] via-blue-400 to-[#005BAB] hover:from-[#005BAB] hover:to-[#005BAB] text-white font-black text-xs rounded-xl shadow-xl shadow-amber-500/25 flex items-center justify-center gap-2 transition-all transform hover:scale-[1.02] active:scale-95 cursor-pointer"
                 >
                   <span>{translations[lang as keyof typeof translations]?.subscribePayNow || (lang === "ar" ? "الاشتراك بالخطة الاحترافية - Stripe" : "Subscribe Professional - Stripe Checkout")}</span>
                   <ArrowRight className="w-4 h-4" />
@@ -1997,7 +1997,7 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
                   type="button"
                   disabled={isProcessingPayment}
                   onClick={handleConfirmPayment}
-                  className="w-full py-4 bg-gradient-to-r from-[#0075DE] to-[#005BAB] hover:from-[#005BAB] hover:to-[#005BAB] text-slate-950 font-extrabold text-sm rounded-xl shadow-xl shadow-[#0075DE]/20 flex items-center justify-center gap-2 cursor-pointer transition-all"
+                  className="w-full py-4 bg-gradient-to-r from-[#0075DE] to-[#005BAB] hover:from-[#005BAB] hover:to-[#005BAB] text-white font-extrabold text-sm rounded-xl shadow-xl shadow-[#0075DE]/20 flex items-center justify-center gap-2 cursor-pointer transition-all"
                 >
                   {isProcessingPayment ? (
                     <>
@@ -2104,7 +2104,7 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
                       setSelectedPlanForCheckout(null);
                       setCompletedReceipt(null);
                     }}
-                    className="flex-1 min-w-[120px] py-3 bg-[#0075DE] hover:bg-[#005BAB] text-slate-950 font-bold text-xs rounded-xl flex items-center justify-center gap-2 cursor-pointer transition-all"
+                    className="flex-1 min-w-[120px] py-3 bg-[#0075DE] hover:bg-[#005BAB] text-white font-bold text-xs rounded-xl flex items-center justify-center gap-2 cursor-pointer transition-all"
                   >
                     <span>{lang === "ar" ? "العودة للوحة" : "Return"}</span>
                   </button>
@@ -2403,7 +2403,7 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
 
               <button
                 type="submit"
-                className="px-5 py-3 bg-[#0075DE] hover:bg-[#005BAB] text-slate-950 font-bold text-xs rounded-xl flex items-center gap-2 cursor-pointer transition-all shadow-lg shadow-[#0075DE]/10"
+                className="px-5 py-3 bg-[#0075DE] hover:bg-[#005BAB] text-white font-bold text-xs rounded-xl flex items-center gap-2 cursor-pointer transition-all shadow-lg shadow-[#0075DE]/10"
               >
                 <Plus className="w-4 h-4" />
                 <span>{lang === "ar" ? "دعوة العضو وتخصيص الصلاحيات" : "Invite Member & Grant CEO Powers"}</span>
@@ -2543,7 +2543,7 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
                   <button
                     type="button"
                     onClick={handleSaveEncryptionSettings}
-                    className="flex-1 h-11 bg-gradient-to-r from-[#0075DE] to-[#005BAB] hover:from-[#005BAB] hover:to-[#005BAB] text-slate-950 font-black text-xs rounded-xl flex items-center justify-center gap-2 cursor-pointer transition-all shadow-lg shadow-[#0075DE]/20"
+                    className="flex-1 h-11 bg-gradient-to-r from-[#0075DE] to-[#005BAB] hover:from-[#005BAB] hover:to-[#005BAB] text-white font-black text-xs rounded-xl flex items-center justify-center gap-2 cursor-pointer transition-all shadow-lg shadow-[#0075DE]/20"
                   >
                     <Save className="w-4 h-4" />
                     <span>{lang === "ar" ? "تأكيد الرمز والتشفير التلقائي" : "Confirm Code & Auto-Encrypt All Data"}</span>
@@ -2747,7 +2747,7 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
                     downloadAnchor.click();
                     downloadAnchor.remove();
                   }}
-                  className="px-4 py-2.5 bg-[#0075DE] hover:bg-[#005BAB] text-slate-950 font-bold text-xs rounded-xl flex items-center gap-2 cursor-pointer transition-all"
+                  className="px-4 py-2.5 bg-[#0075DE] hover:bg-[#005BAB] text-white font-bold text-xs rounded-xl flex items-center gap-2 cursor-pointer transition-all"
                 >
                   <Download className="w-3.5 h-3.5" />
                   <span>{lang === "ar" ? "تصدير الآن" : "Export Backup"}</span>
@@ -2831,7 +2831,7 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
               <button
                 type="button"
                 onClick={handleSaveMemberModalPowers}
-                className="flex-1 py-3 bg-[#0075DE] hover:bg-[#005BAB] text-slate-950 font-bold text-xs rounded-xl flex items-center justify-center gap-2 cursor-pointer shadow-lg shadow-[#0075DE]/20"
+                className="flex-1 py-3 bg-[#0075DE] hover:bg-[#005BAB] text-white font-bold text-xs rounded-xl flex items-center justify-center gap-2 cursor-pointer shadow-lg shadow-[#0075DE]/20"
               >
                 <Save className="w-4 h-4" />
                 <span>{lang === "ar" ? "حفظ الصلاحيات" : "Save Granted Powers"}</span>
@@ -2939,7 +2939,7 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
               <button
                 type="button"
                 onClick={handleVerifyTestPasscode}
-                className="flex-1 py-3 bg-[#0075DE] hover:bg-[#005BAB] text-slate-950 font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 cursor-pointer shadow-lg shadow-[#0075DE]/20"
+                className="flex-1 py-3 bg-[#0075DE] hover:bg-[#005BAB] text-white font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 cursor-pointer shadow-lg shadow-[#0075DE]/20"
               >
                 <Unlock className="w-4 h-4" />
                 <span>{lang === "ar" ? "التحقق وفك القفل" : "Verify & Unlock"}</span>
@@ -3021,7 +3021,7 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
               <button
                 type="button"
                 onClick={handleConfirmCancelLock}
-                className="flex-1 py-3 bg-gradient-to-r from-[#0075DE] to-[#005BAB] text-slate-950 font-black text-xs rounded-xl flex items-center justify-center gap-1.5 cursor-pointer shadow-lg shadow-[#0075DE]/20"
+                className="flex-1 py-3 bg-gradient-to-r from-[#0075DE] to-[#005BAB] text-white font-black text-xs rounded-xl flex items-center justify-center gap-1.5 cursor-pointer shadow-lg shadow-[#0075DE]/20"
               >
                 <Unlock className="w-4 h-4" />
                 <span>{lang === "ar" ? "تأكيد وإلغاء القفل" : "Verify & Unlock"}</span>

@@ -3530,7 +3530,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
               {/* Desktop Sidebar Collapse Toggle Button */}
               <button
                 onClick={toggleSidebarCollapse}
-                className="hidden md:flex w-6 h-6 rounded-lg bg-slate-900 hover:bg-[#0075DE]/10 hover:text-[#0075DE] text-slate-300 border border-slate-800 transition-all cursor-pointer items-center justify-center font-mono text-sm font-bold shadow-sm"
+                className="hidden md:flex w-6 h-6 rounded-lg bg-[#0075DE]/10 hover:bg-[#0075DE] hover:text-white text-[#0075DE] border border-[#0075DE]/30 transition-all cursor-pointer items-center justify-center font-mono text-sm font-bold shadow-sm"
                 title={isSidebarCollapsed ? (lang === "ar" ? "توسيع الشريط الجانبي" : "Expand Sidebar") : (lang === "ar" ? "طي الشريط الجانبي" : "Collapse Sidebar")}
               >
                 {isSidebarCollapsed ? (lang === "ar" ? "‹" : "›") : (lang === "ar" ? "›" : "‹")}
@@ -3539,7 +3539,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
               {/* Mobile Close Button */}
               <button
                 onClick={() => setIsMobileSidebarOpen(false)}
-                className="md:hidden p-1 rounded bg-slate-900 text-slate-400 hover:text-white"
+                className="md:hidden p-1 rounded bg-[#0075DE]/15 hover:bg-[#0075DE] text-[#0075DE] hover:text-white border border-[#0075DE]/25 transition-all"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -3707,7 +3707,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                       key={l}
                       type="button"
                       onClick={() => toggleLanguage(l)}
-                      className={`flex-1 text-center py-1 text-[10px] font-extrabold rounded-md transition-all cursor-pointer ${lang === l ? "bg-[#0075DE] text-slate-950 font-black" : "text-slate-500 hover:text-slate-300"}`}
+                      className={`flex-1 text-center py-1 text-[10px] font-extrabold rounded-md transition-all cursor-pointer ${lang === l ? "bg-[#0075DE] text-white font-black" : "text-slate-500 hover:text-slate-300"}`}
                     >
                       {l.toUpperCase()}
                     </button>
@@ -3720,7 +3720,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                       key={th}
                       type="button"
                       onClick={() => toggleTheme(th)}
-                      className={`flex-1 text-center py-1 text-[10px] font-extrabold rounded-md transition-all cursor-pointer ${theme === th ? "bg-[#0075DE] text-slate-950 font-black" : "text-slate-500 hover:text-slate-300"}`}
+                      className={`flex-1 text-center py-1 text-[10px] font-extrabold rounded-md transition-all cursor-pointer ${theme === th ? "bg-[#0075DE] text-white font-black" : "text-slate-500 hover:text-slate-300"}`}
                     >
                       {th === "light" ? (lang === "ar" ? "نهاري" : "LGT") : (lang === "ar" ? "ليلي" : "DRK")}
                     </button>
@@ -3747,128 +3747,15 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
               </div>
             )}
             
-            {/* Professional Top Bar Header */}
-            <header className={`px-4 md:px-8 h-16 border-b flex items-center justify-between sticky top-0 z-20 backdrop-blur-md transition-colors ${
-              theme === "dark" ? "bg-[#0B0F19]/90 border-slate-800/60 shadow-lg shadow-black/20" : "bg-white/90 border-slate-200 shadow-sm"
-            }`}>
-              <div className="flex items-center gap-4">
-                {/* Mobile Menu Open Button */}
-                <button
-                  onClick={() => setIsMobileSidebarOpen(true)}
-                  className="md:hidden p-2 rounded-lg bg-slate-800/40 border border-slate-700/50 text-slate-300 hover:text-white"
-                  aria-label="Toggle Mobile Sidebar"
-                >
-                  <Menu className="w-5 h-5 text-[#0075DE]" />
-                </button>
-
-                {/* Subscription Plan Badge */}
-                <div className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1 bg-[#0075DE]/10 border border-[#0075DE]/30 rounded-full shadow-sm">
-                  <Award className="w-3.5 h-3.5 text-[#0075DE]" />
-                  <span className="text-[11px] font-extrabold text-[#0075DE] uppercase tracking-wider">{currentUser?.subscriptionPlan || "Enterprise"}</span>
-                </div>
-
-                {/* Trial Time Remaining Badge */}
-                <div className="hidden lg:inline-flex items-center gap-1.5 px-3 py-1 bg-amber-500/10 border border-amber-500/30 rounded-full text-amber-400 text-[11px] font-mono font-bold">
-                  <Clock className="w-3.5 h-3.5" />
-                  <span>{timeLeftStr}</span>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-3">
-                {/* Language Switcher */}
-                <div className="flex items-center bg-slate-900/60 border border-slate-800 rounded-lg p-0.5 text-xs font-bold">
-                  <button
-                    type="button"
-                    onClick={() => setLang("ar")}
-                    className={`px-2.5 py-1 rounded-md transition-all cursor-pointer ${lang === "ar" ? "bg-[#0075DE] text-slate-950 font-black" : "text-slate-400 hover:text-white"}`}
-                  >
-                    AR
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setLang("en")}
-                    className={`px-2.5 py-1 rounded-md transition-all cursor-pointer ${lang === "en" ? "bg-[#0075DE] text-slate-950 font-black" : "text-slate-400 hover:text-white"}`}
-                  >
-                    EN
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setLang("fr")}
-                    className={`px-2.5 py-1 rounded-md transition-all cursor-pointer ${lang === "fr" ? "bg-[#0075DE] text-slate-950 font-black" : "text-slate-400 hover:text-white"}`}
-                  >
-                    FR
-                  </button>
-                </div>
-
-                {/* Theme Mode Toggle (Sun/Moon) */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    const newTheme = theme === "dark" ? "light" : "dark";
-                    setTheme(newTheme);
-                    applyGlobalTheme(newTheme, setTheme, currentUser, setCurrentUser);
-                  }}
-                  className="p-2 rounded-lg bg-slate-800/40 hover:bg-slate-800 border border-slate-700/60 text-slate-300 hover:text-white transition-all cursor-pointer"
-                  title={theme === "dark" ? "Switch to Light Mode" : "Switch to Dark Mode"}
-                >
-                  {theme === "dark" ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-indigo-400" />}
-                </button>
-
-                {/* Refresh Button */}
-                <button 
-                  type="button"
-                  onClick={handleRefresh}
-                  disabled={isRefreshing}
-                  className={`h-9 px-3 border text-xs font-bold rounded-lg flex items-center gap-1.5 transition-all cursor-pointer ${
-                    isRefreshing ? "opacity-50 pointer-events-none" : ""
-                  } ${
-                    theme === "dark" 
-                      ? "border-slate-800 hover:bg-slate-900/40 text-slate-300" 
-                      : "border-slate-200 hover:bg-slate-50 text-slate-600"
-                  }`}
-                >
-                  <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? "animate-spin" : ""}`} />
-                  <span className="hidden sm:inline">{t.refresh}</span>
-                </button>
-
-                {/* Header User Profile Button */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    setActiveTab("settings");
-                    setSettingsActiveSubTab("account");
-                  }}
-                  className="h-9 px-3 bg-slate-800/60 hover:bg-slate-800 border border-slate-700/60 rounded-lg flex items-center gap-2.5 transition-all cursor-pointer group/topAvatar"
-                  title={lang === "ar" ? "إعدادات الحساب والصورة" : "Account & Profile Photo Settings"}
-                >
-                  {currentUser.avatarUrl ? (
-                    <img 
-                      src={currentUser.avatarUrl} 
-                      alt={currentUser.ownerName || currentUser.email} 
-                      className="w-6 h-6 rounded-full object-cover border border-[#0075DE]"
-                    />
-                  ) : (
-                    <div className="w-6 h-6 rounded-full bg-[#0075DE] text-slate-950 font-black text-[10px] flex items-center justify-center">
-                      {(currentUser.ownerName || currentUser.email).slice(0, 2).toUpperCase()}
-                    </div>
-                  )}
-                  <span className="hidden md:inline text-xs font-bold text-white group-hover/topAvatar:text-[#0075DE] transition-colors">
-                    {currentUser.ownerName || currentUser.email.split("@")[0]}
-                  </span>
-                </button>
-
-                {/* Logout Button */}
-                <button
-                  type="button"
-                  onClick={handleLogout}
-                  className="h-9 px-2.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 rounded-lg flex items-center gap-1.5 transition-all cursor-pointer"
-                  title={lang === "ar" ? "تسجيل الخروج" : "Logout"}
-                >
-                  <LogOut className="w-3.5 h-3.5" />
-                  <span className="hidden xl:inline text-xs font-bold">{lang === "ar" ? "خروج" : "Logout"}</span>
-                </button>
-              </div>
-            </header>
+            {/* Mobile Sidebar Open Button Floating (Sleek Blue design) */}
+            <button
+              onClick={() => setIsMobileSidebarOpen(true)}
+              className="md:hidden fixed top-4 z-40 p-2.5 rounded-xl bg-[#0075DE]/15 hover:bg-[#0075DE] text-[#0075DE] hover:text-white border border-[#0075DE]/35 backdrop-blur-md transition-all cursor-pointer shadow-lg active:scale-95"
+              style={{ [lang === "ar" ? "right" : "left"]: "1rem" }}
+              aria-label="Toggle Mobile Sidebar"
+            >
+              <Menu className="w-5 h-5" />
+            </button>
 
             {/* APP CONTENT VIEWS CONTROLLER */}
             <div className="p-8 max-w-7xl mx-auto space-y-8">
