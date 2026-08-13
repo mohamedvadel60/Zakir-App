@@ -20,24 +20,24 @@ export const ZakirLogo: React.FC<ZakirLogoProps> = ({
 }) => {
   const textThemeColor = 
     theme === "light" 
-      ? "text-[#0F172A]" 
+      ? "text-slate-900" 
       : theme === "dark"
         ? "text-white"
-        : "text-[var(--text-primary,#F8FAFC)]";
+        : "text-slate-900 dark:text-white";
 
   const taglineThemeColor = 
     theme === "light" 
-      ? "text-[#475569]" 
+      ? "text-slate-600" 
       : theme === "dark"
         ? "text-slate-400"
-        : "text-[var(--text-secondary,#94A3B8)]";
+        : "text-slate-600 dark:text-slate-400";
 
   const borderThemeColor = 
     theme === "light" 
       ? "border-slate-300" 
       : theme === "dark"
         ? "border-slate-700"
-        : "border-[var(--border-color,#334155)]";
+        : "border-slate-300 dark:border-slate-700";
 
   // Sizing definitions for a clean mathematical layout
   let iconWrapperClass = "w-10 h-10 rounded-xl";

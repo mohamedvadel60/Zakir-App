@@ -5,6 +5,6 @@
     fill="#0B0F19"
   />
   <!-- Connection/Causality nodes -->
-  <circle cx="30" cy="40" r="4.5" fill="#D4AF37" />
-  <circle cx="70" cy="69" r="4.5" fill="#D4AF37" />
+  <circle cx="30" cy="40" r="4.5" fill="#0075DE" />
+  <circle cx="70" cy="69" r="4.5" fill="#0075DE" />
 </svg>

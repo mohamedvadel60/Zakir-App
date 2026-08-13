@@ -309,59 +309,103 @@ img.broken-image-fallback {
 .theme-light .bg-slate-950,
 .theme-light .bg-slate-900,
 .theme-light .bg-slate-850,
-.theme-light .bg-black {
+.theme-light .bg-black,
+.theme-light .bg-\[\#070b13\],
+.theme-light .bg-\[\#0B0F19\],
+[data-theme="light"] .bg-slate-950,
+[data-theme="light"] .bg-slate-900,
+[data-theme="light"] .bg-slate-850,
+[data-theme="light"] .bg-black,
+[data-theme="light"] .bg-\[\#070b13\],
+[data-theme="light"] .bg-\[\#0B0F19\] {
   background-color: #FFFFFF !important;
   color: #0D0D0D !important;
 }
 
 .theme-light .bg-slate-800,
 .theme-light .bg-slate-750,
-.theme-light .bg-slate-700 {
+.theme-light .bg-slate-700,
+[data-theme="light"] .bg-slate-800,
+[data-theme="light"] .bg-slate-750,
+[data-theme="light"] .bg-slate-700 {
   background-color: #F4F4F5 !important;
   color: #0D0D0D !important;
 }
 
+/* Text overrides in Light Mode, except on filled primary buttons */
+.theme-light :not(.bg-\[\#0075DE\]):not(.bg-blue-600):not(.bg-primary):not(.bg-amber-500):not(.bg-emerald-500):not(.bg-rose-500) > .text-slate-50,
+.theme-light :not(.bg-\[\#0075DE\]):not(.bg-blue-600):not(.bg-primary):not(.bg-amber-500):not(.bg-emerald-500):not(.bg-rose-500) > .text-slate-100,
+.theme-light :not(.bg-\[\#0075DE\]):not(.bg-blue-600):not(.bg-primary):not(.bg-amber-500):not(.bg-emerald-500):not(.bg-rose-500) > .text-slate-200,
+.theme-light :not(.bg-\[\#0075DE\]):not(.bg-blue-600):not(.bg-primary):not(.bg-amber-500):not(.bg-emerald-500):not(.bg-rose-500) > .text-slate-300,
 .theme-light .text-slate-50,
 .theme-light .text-slate-100,
 .theme-light .text-slate-200,
 .theme-light .text-slate-300,
-.theme-light .text-white {
+[data-theme="light"] .text-slate-50,
+[data-theme="light"] .text-slate-100,
+[data-theme="light"] .text-slate-200,
+[data-theme="light"] .text-slate-300 {
   color: #0D0D0D !important;
 }
 
 .theme-light .text-slate-400,
-.theme-light .text-slate-500 {
+.theme-light .text-slate-500,
+[data-theme="light"] .text-slate-400,
+[data-theme="light"] .text-slate-500 {
   color: #71717A !important;
 }
 
 .theme-light .border-slate-900,
 .theme-light .border-slate-800,
 .theme-light .border-slate-700,
-.theme-light .border-slate-600 {
+.theme-light .border-slate-600,
+[data-theme="light"] .border-slate-900,
+[data-theme="light"] .border-slate-800,
+[data-theme="light"] .border-slate-700,
+[data-theme="light"] .border-slate-600 {
   border-color: #E4E4E7 !important;
 }
 
 .theme-light .text-emerald-400,
-.theme-light .text-emerald-300 {
+.theme-light .text-emerald-300,
+[data-theme="light"] .text-emerald-400,
+[data-theme="light"] .text-emerald-300 {
   color: #10B981 !important;
 }
 
 .theme-light .text-red-400,
 .theme-light .text-red-300,
 .theme-light .text-rose-400,
-.theme-light .text-rose-300 {
+.theme-light .text-rose-300,
+[data-theme="light"] .text-red-400,
+[data-theme="light"] .text-red-300,
+[data-theme="light"] .text-rose-400,
+[data-theme="light"] .text-rose-300 {
   color: #EF4444 !important;
 }
 
 .theme-light .text-amber-400,
-.theme-light .text-amber-300 {
+.theme-light .text-amber-300,
+[data-theme="light"] .text-amber-400,
+[data-theme="light"] .text-amber-300 {
   color: #F59E0B !important;
 }
 
 .theme-light .text-indigo-400,
-.theme-light .text-[#0075DE],
-.theme-light .text-blue-400 {
+.theme-light .text-\[\#0075DE\],
+.theme-light .text-blue-400,
+[data-theme="light"] .text-indigo-400,
+[data-theme="light"] .text-\[\#0075DE\],
+[data-theme="light"] .text-blue-400 {
   color: #0075DE !important;
+}
+
+/* Maintain high contrast white text on primary buttons in light mode */
+.theme-light .bg-\[\#0075DE\],
+.theme-light .bg-\[\#0075DE\] *,
+[data-theme="light"] .bg-\[\#0075DE\],
+[data-theme="light"] .bg-\[\#0075DE\] * {
+  color: #FFFFFF !important;
 }
 
 .dark-section,
