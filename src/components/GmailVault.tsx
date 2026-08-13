@@ -723,7 +723,7 @@ export default function GmailVault({ theme, lang }: GmailVaultProps) {
                 <h2 className={`text-2xl font-black ${theme === "dark" ? "text-white" : "text-slate-900"}`}>
                   {t.title}
                 </h2>
-                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-[#D4AF37]/20 text-[#D4AF37] border border-[#D4AF37]/30">
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-[#0075DE]/20 text-[#0075DE] border border-[#0075DE]/30">
                   Universal Mail
                 </span>
               </div>
@@ -746,8 +746,8 @@ export default function GmailVault({ theme, lang }: GmailVaultProps) {
                   onChange={(e) => setActiveAccountEmail(e.target.value)}
                   className={`h-10 px-3 rounded-xl text-xs font-bold outline-none border transition-all cursor-pointer ${
                     theme === "dark"
-                      ? "bg-slate-950 border-slate-800 text-white focus:border-[#D4AF37]"
-                      : "bg-slate-100 border-slate-200 text-slate-900 focus:border-[#D4AF37]"
+                      ? "bg-slate-950 border-slate-800 text-white focus:border-[#0075DE]"
+                      : "bg-slate-100 border-slate-200 text-slate-900 focus:border-[#0075DE]"
                   }`}
                 >
                   {accounts.map((acc) => (
@@ -825,7 +825,7 @@ export default function GmailVault({ theme, lang }: GmailVaultProps) {
               onClick={() => { setActiveSubTab("inbox"); setSelectedEmail(null); }}
               className={`flex-1 py-2 text-center rounded-lg text-xs font-bold transition-all cursor-pointer ${
                 activeSubTab === "inbox"
-                  ? (theme === "dark" ? "bg-[#D4AF37]/20 text-[#D4AF37] border border-[#D4AF37]/30" : "bg-white text-slate-950 shadow-sm")
+                  ? (theme === "dark" ? "bg-[#0075DE]/20 text-[#0075DE] border border-[#0075DE]/30" : "bg-white text-slate-950 shadow-sm")
                   : (theme === "dark" ? "text-slate-400 hover:text-white" : "text-slate-600 hover:text-slate-900")
               }`}
             >
@@ -835,7 +835,7 @@ export default function GmailVault({ theme, lang }: GmailVaultProps) {
               onClick={() => { setActiveSubTab("compose"); setSelectedEmail(null); }}
               className={`flex-1 py-2 text-center rounded-lg text-xs font-bold transition-all cursor-pointer ${
                 activeSubTab === "compose"
-                  ? (theme === "dark" ? "bg-[#D4AF37]/20 text-[#D4AF37] border border-[#D4AF37]/30" : "bg-white text-slate-950 shadow-sm")
+                  ? (theme === "dark" ? "bg-[#0075DE]/20 text-[#0075DE] border border-[#0075DE]/30" : "bg-white text-slate-950 shadow-sm")
                   : (theme === "dark" ? "text-slate-400 hover:text-white" : "text-slate-600 hover:text-slate-900")
               }`}
             >
@@ -845,7 +845,7 @@ export default function GmailVault({ theme, lang }: GmailVaultProps) {
               onClick={() => { setActiveSubTab("logs"); setSelectedEmail(null); fetchSqlLogs(); }}
               className={`flex-1 py-2 text-center rounded-lg text-xs font-bold transition-all cursor-pointer ${
                 activeSubTab === "logs"
-                  ? (theme === "dark" ? "bg-[#D4AF37]/20 text-[#D4AF37] border border-[#D4AF37]/30" : "bg-white text-slate-950 shadow-sm")
+                  ? (theme === "dark" ? "bg-[#0075DE]/20 text-[#0075DE] border border-[#0075DE]/30" : "bg-white text-slate-950 shadow-sm")
                   : (theme === "dark" ? "text-slate-400 hover:text-white" : "text-slate-600 hover:text-slate-900")
               }`}
             >
@@ -868,8 +868,8 @@ export default function GmailVault({ theme, lang }: GmailVaultProps) {
                     placeholder={t.searchPlaceholder}
                     className={`w-full h-10 pl-10 pr-4 rounded-xl text-xs outline-none transition-all ${
                       theme === "dark"
-                        ? "bg-slate-950 border border-slate-800 text-white focus:border-[#D4AF37]"
-                        : "bg-slate-50 border border-slate-200 text-slate-900 focus:border-[#D4AF37]"
+                        ? "bg-slate-950 border border-slate-800 text-white focus:border-[#0075DE]"
+                        : "bg-slate-50 border border-slate-200 text-slate-900 focus:border-[#0075DE]"
                     }`}
                   />
                   <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
@@ -901,7 +901,7 @@ export default function GmailVault({ theme, lang }: GmailVaultProps) {
               {/* Email Items List */}
               {isRefreshing ? (
                 <div className="py-12 flex flex-col items-center justify-center gap-3">
-                  <Loader2 className="w-6 h-6 animate-spin text-[#D4AF37]" />
+                  <Loader2 className="w-6 h-6 animate-spin text-[#0075DE]" />
                   <span className={`text-[11px] ${theme === "dark" ? "text-slate-500" : "text-slate-400"}`}>
                     {lang === "ar" ? "جاري جلب الرسائل الآمنة..." : "Fetching encrypted messages..."}
                   </span>
@@ -919,13 +919,13 @@ export default function GmailVault({ theme, lang }: GmailVaultProps) {
                       onClick={() => setSelectedEmail(email)}
                       className={`w-full text-right p-3 rounded-xl border transition-all cursor-pointer block ${
                         selectedEmail?.id === email.id
-                          ? (theme === "dark" ? "bg-[#D4AF37]/10 border-[#D4AF37]/40 shadow-sm" : "bg-amber-50/70 border-amber-300")
+                          ? (theme === "dark" ? "bg-[#0075DE]/10 border-[#0075DE]/40 shadow-sm" : "bg-amber-50/70 border-amber-300")
                           : (theme === "dark" ? "bg-slate-950/40 border-slate-800/80 hover:bg-slate-800/30" : "bg-slate-50 border-slate-100 hover:bg-slate-100/50")
                       }`}
                     >
                       <div className="flex items-center justify-between mb-1.5">
                         <div className="flex items-center gap-1.5 truncate max-w-[150px]">
-                          <span className={`text-[10px] font-bold truncate ${theme === "dark" ? "text-[#D4AF37]" : "text-amber-800"}`}>
+                          <span className={`text-[10px] font-bold truncate ${theme === "dark" ? "text-[#0075DE]" : "text-amber-800"}`}>
                             {email.from.split("<")[0].trim() || email.from}
                           </span>
                         </div>
@@ -960,7 +960,7 @@ export default function GmailVault({ theme, lang }: GmailVaultProps) {
           <div className={`p-4 rounded-xl border flex gap-3 ${
             theme === "dark" ? "bg-slate-900/30 border-slate-800/60 text-slate-400" : "bg-slate-50 border-slate-200/60 text-slate-600"
           }`}>
-            <Server className="w-5 h-5 text-[#D4AF37] shrink-0" />
+            <Server className="w-5 h-5 text-[#0075DE] shrink-0" />
             <div className="text-[11px] space-y-1">
               <span className="font-bold text-white block">
                 {lang === "ar" ? "معيار التشفير المؤسسي" : "Enterprise Mail Security"}
@@ -1023,7 +1023,7 @@ export default function GmailVault({ theme, lang }: GmailVaultProps) {
                       <div className="space-y-2 text-xs">
                         <div className="flex items-center gap-2">
                           <span className={`font-semibold ${theme === "dark" ? "text-slate-500" : "text-slate-400"}`}>{t.from}</span>
-                          <span className={`font-bold ${theme === "dark" ? "text-[#D4AF37]" : "text-amber-800"}`}>{selectedEmail.from}</span>
+                          <span className={`font-bold ${theme === "dark" ? "text-[#0075DE]" : "text-amber-800"}`}>{selectedEmail.from}</span>
                         </div>
                         <div className="flex items-center gap-2">
                           <span className={`font-semibold ${theme === "dark" ? "text-slate-500" : "text-slate-400"}`}>{t.to}</span>
@@ -1052,8 +1052,8 @@ export default function GmailVault({ theme, lang }: GmailVaultProps) {
                         placeholder={t.quickReply}
                         className={`flex-1 h-10 px-4 rounded-xl text-xs outline-none transition-all ${
                           theme === "dark"
-                            ? "bg-slate-950 border border-slate-800 text-white focus:border-[#D4AF37]"
-                            : "bg-slate-50 border border-slate-200 text-slate-900 focus:border-[#D4AF37]"
+                            ? "bg-slate-950 border border-slate-800 text-white focus:border-[#0075DE]"
+                            : "bg-slate-50 border border-slate-200 text-slate-900 focus:border-[#0075DE]"
                         }`}
                       />
                       <button
@@ -1083,7 +1083,7 @@ export default function GmailVault({ theme, lang }: GmailVaultProps) {
             <div className={`p-6 rounded-xl border ${
               theme === "dark" ? "bg-slate-900/50 border-slate-800" : "bg-white border-slate-200"
             }`}>
-              <h3 className={`text-sm font-extrabold mb-4 flex items-center gap-2 ${theme === "dark" ? "text-[#D4AF37]" : "text-amber-800"}`}>
+              <h3 className={`text-sm font-extrabold mb-4 flex items-center gap-2 ${theme === "dark" ? "text-[#0075DE]" : "text-amber-800"}`}>
                 <Send className="w-4 h-4" />
                 {t.composeTitle} ({activeAccountEmail})
               </h3>
@@ -1100,8 +1100,8 @@ export default function GmailVault({ theme, lang }: GmailVaultProps) {
                     placeholder="e.g. board@enterprise.com"
                     className={`w-full h-10 px-4 rounded-xl text-xs outline-none transition-all ${
                       theme === "dark"
-                        ? "bg-slate-950 border border-slate-800 text-white focus:border-[#D4AF37]"
-                        : "bg-slate-50 border border-slate-200 text-slate-900 focus:border-[#D4AF37]"
+                        ? "bg-slate-950 border border-slate-800 text-white focus:border-[#0075DE]"
+                        : "bg-slate-50 border border-slate-200 text-slate-900 focus:border-[#0075DE]"
                     }`}
                   />
                 </div>
@@ -1117,8 +1117,8 @@ export default function GmailVault({ theme, lang }: GmailVaultProps) {
                     placeholder="Subject line"
                     className={`w-full h-10 px-4 rounded-xl text-xs outline-none transition-all ${
                       theme === "dark"
-                        ? "bg-slate-950 border border-slate-800 text-white focus:border-[#D4AF37]"
-                        : "bg-slate-50 border border-slate-200 text-slate-900 focus:border-[#D4AF37]"
+                        ? "bg-slate-950 border border-slate-800 text-white focus:border-[#0075DE]"
+                        : "bg-slate-50 border border-slate-200 text-slate-900 focus:border-[#0075DE]"
                     }`}
                   />
                 </div>
@@ -1134,8 +1134,8 @@ export default function GmailVault({ theme, lang }: GmailVaultProps) {
                     placeholder="Write message contents..."
                     className={`w-full p-4 rounded-xl text-xs outline-none transition-all resize-none ${
                       theme === "dark"
-                        ? "bg-slate-950 border border-slate-800 text-white focus:border-[#D4AF37]"
-                        : "bg-slate-50 border border-slate-200 text-slate-900 focus:border-[#D4AF37]"
+                        ? "bg-slate-950 border border-slate-800 text-white focus:border-[#0075DE]"
+                        : "bg-slate-50 border border-slate-200 text-slate-900 focus:border-[#0075DE]"
                     }`}
                   />
                 </div>
@@ -1160,7 +1160,7 @@ export default function GmailVault({ theme, lang }: GmailVaultProps) {
               <div className="flex items-center justify-between">
                 <div>
                   <h3 className={`text-sm font-extrabold flex items-center gap-2 ${theme === "dark" ? "text-white" : "text-slate-900"}`}>
-                    <History className="w-4 h-4 text-[#D4AF37]" />
+                    <History className="w-4 h-4 text-[#0075DE]" />
                     {t.sqlLogTitle}
                   </h3>
                   <p className={`text-[10px] ${theme === "dark" ? "text-slate-400" : "text-slate-500"} mt-0.5`}>
@@ -1176,13 +1176,13 @@ export default function GmailVault({ theme, lang }: GmailVaultProps) {
                       : "bg-slate-50 border-slate-200 hover:bg-slate-100 text-slate-700"
                   }`}
                 >
-                  <RefreshCw className={`w-3.5 h-3.5 ${isLoadingLogs ? "animate-spin text-[#D4AF37]" : ""}`} />
+                  <RefreshCw className={`w-3.5 h-3.5 ${isLoadingLogs ? "animate-spin text-[#0075DE]" : ""}`} />
                 </button>
               </div>
 
               {isLoadingLogs ? (
                 <div className="py-12 text-center text-xs text-slate-400 flex flex-col items-center justify-center gap-2">
-                  <Loader2 className="w-5 h-5 animate-spin text-[#D4AF37]" />
+                  <Loader2 className="w-5 h-5 animate-spin text-[#0075DE]" />
                   <span>Loading Cloud SQL logs...</span>
                 </div>
               ) : sqlLogs.length === 0 ? (

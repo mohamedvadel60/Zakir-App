@@ -25,31 +25,31 @@ export const applyGlobalTheme = (
   
   // 4. Centrally set CSS variables for consistent component inheritance
   if (mode === "light") {
-    root.style.setProperty("--bg-primary", "#F0F2F5");
-    root.style.setProperty("--bg-secondary", "#FFFFFF");
-    root.style.setProperty("--bg-tertiary", "#F8FAFC");
-    root.style.setProperty("--text-primary", "#0F172A");
-    root.style.setProperty("--text-secondary", "#475569");
-    root.style.setProperty("--border-color", "#CBD5E1"); // High-contrast slate-300 for light mode
-    root.style.setProperty("--accent-color", "#D4AF37");
-    root.style.setProperty("--accent-hover", "#BCA032");
-    root.style.setProperty("--accent-subtle", "rgba(212, 175, 55, 0.12)");
-    root.style.setProperty("--accent-text", "#0F172A");
+    root.style.setProperty("--bg-primary", "#FFFFFF");
+    root.style.setProperty("--bg-secondary", "#F4F4F5");
+    root.style.setProperty("--bg-tertiary", "#E4E4E7");
+    root.style.setProperty("--text-primary", "#0D0D0D");
+    root.style.setProperty("--text-secondary", "#71717A");
+    root.style.setProperty("--border-color", "#E4E4E7");
+    root.style.setProperty("--accent-color", "#0075DE");
+    root.style.setProperty("--accent-hover", "#005BAB");
+    root.style.setProperty("--accent-subtle", "#E6F3FE");
+    root.style.setProperty("--accent-text", "#FFFFFF");
     root.style.setProperty("--card-bg", "#FFFFFF");
-    root.style.setProperty("--input-bg", "#F8FAFC");
+    root.style.setProperty("--input-bg", "#FFFFFF");
   } else {
-    root.style.setProperty("--bg-primary", "#0B0F19");
-    root.style.setProperty("--bg-secondary", "#111827");
-    root.style.setProperty("--bg-tertiary", "#1F2937");
-    root.style.setProperty("--text-primary", "#F8FAFC");
-    root.style.setProperty("--text-secondary", "#94A3B8");
-    root.style.setProperty("--border-color", "#334155"); // High-contrast slate-700 for dark mode
-    root.style.setProperty("--accent-color", "#D4AF37");
-    root.style.setProperty("--accent-hover", "#E5C158");
-    root.style.setProperty("--accent-subtle", "rgba(212, 175, 55, 0.18)");
-    root.style.setProperty("--accent-text", "#0B0F19");
-    root.style.setProperty("--card-bg", "#111827");
-    root.style.setProperty("--input-bg", "#1F2937");
+    root.style.setProperty("--bg-primary", "#0A0A0A");
+    root.style.setProperty("--bg-secondary", "#171717");
+    root.style.setProperty("--bg-tertiary", "#27272A");
+    root.style.setProperty("--text-primary", "#FAFAFA");
+    root.style.setProperty("--text-secondary", "#A1A1AA");
+    root.style.setProperty("--border-color", "#27272A");
+    root.style.setProperty("--accent-color", "#0075DE");
+    root.style.setProperty("--accent-hover", "#1D4ED8");
+    root.style.setProperty("--accent-subtle", "rgba(0, 117, 222, 0.15)");
+    root.style.setProperty("--accent-text", "#FFFFFF");
+    root.style.setProperty("--card-bg", "#171717");
+    root.style.setProperty("--input-bg", "#171717");
   }
 
   // 5. Simultaneously save user preference to Firestore backend

@@ -287,7 +287,7 @@ export const EmailVerificationView: React.FC<EmailVerificationViewProps> = ({
               placeholder="------"
               value={verificationCode}
               onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, ""))}
-              className="w-full text-center tracking-[12px] text-xl font-bold font-mono py-3.5 bg-slate-950/60 border border-slate-800 rounded-xl text-amber-400 placeholder:text-slate-800 focus:border-[#D4AF37] focus:outline-none focus:ring-1 focus:ring-[#D4AF37] transition-all"
+              className="w-full text-center tracking-[12px] text-xl font-bold font-mono py-3.5 bg-slate-950/60 border border-slate-800 rounded-xl text-amber-400 placeholder:text-slate-800 focus:border-[#0075DE] focus:outline-none focus:ring-1 focus:ring-[#0075DE] transition-all"
             />
           </div>
 

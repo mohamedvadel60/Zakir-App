@@ -771,7 +771,7 @@ export const ProductShowcaseWindow: React.FC<{ lang?: "ar" | "en" | "fr" }> = ({
               onClick={() => handleManualTabJump(item.id as TabType)}
               className={`py-2 rounded-lg text-center flex flex-col md:flex-row items-center justify-center gap-1.5 transition-all text-xs font-black cursor-pointer ${
                 isActive 
-                  ? "bg-[#D4AF37] text-slate-950 font-bold shadow-md shadow-[#D4AF37]/20 scale-[1.01]" 
+                  ? "bg-[#0075DE] text-white font-bold shadow-md shadow-[#0075DE]/20 scale-[1.01]" 
                   : "text-slate-400 hover:text-white hover:bg-slate-900/50"
               }`}
             >

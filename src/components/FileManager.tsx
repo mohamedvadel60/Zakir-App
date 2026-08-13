@@ -330,7 +330,7 @@ export const FileManager: React.FC<FileManagerProps> = ({
           ? "bg-gradient-to-br from-slate-900/80 to-slate-950/90 border-slate-800/80 shadow-2xl shadow-black/40" 
           : "bg-gradient-to-br from-slate-50 to-white border-slate-200 shadow-xl shadow-slate-100/40"
       }`}>
-        <div className="absolute top-0 right-0 w-64 h-32 bg-[#D4AF37]/5 blur-3xl pointer-events-none rounded-full" />
+        <div className="absolute top-0 right-0 w-64 h-32 bg-[#0075DE]/5 blur-3xl pointer-events-none rounded-full" />
         
         <div className="flex items-center gap-4 relative z-10">
           <div className="w-12 h-12 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400 shrink-0 shadow-lg shadow-amber-500/5">
@@ -379,7 +379,7 @@ export const FileManager: React.FC<FileManagerProps> = ({
             <h3 className={`text-sm font-black uppercase tracking-wider mb-5 flex items-center gap-2.5 pb-3 border-b ${
               theme === "dark" ? "text-white border-slate-800/60" : "text-slate-900 border-slate-100"
             }`}>
-              <UploadCloud className="w-5 h-5 text-[#D4AF37]" />
+              <UploadCloud className="w-5 h-5 text-[#0075DE]" />
               <span>{lang === "ar" ? "تحميل وثيقة جديدة" : "Document Desk Control"}</span>
             </h3>
 
@@ -438,7 +438,7 @@ export const FileManager: React.FC<FileManagerProps> = ({
                     </div>
                   ) : (
                     <div className="py-4 flex flex-col items-center justify-center gap-2.5">
-                      <div className="w-10 h-10 rounded-full bg-slate-800/40 border border-slate-700/40 flex items-center justify-center text-slate-400 group-hover:scale-105 group-hover:text-[#D4AF37] transition-all">
+                      <div className="w-10 h-10 rounded-full bg-slate-800/40 border border-slate-700/40 flex items-center justify-center text-slate-400 group-hover:scale-105 group-hover:text-[#0075DE] transition-all">
                         <UploadCloud className="w-5 h-5" />
                       </div>
                       <div>
@@ -467,8 +467,8 @@ export const FileManager: React.FC<FileManagerProps> = ({
                   }}
                   className={`w-full h-11 px-3.5 text-xs rounded-xl border outline-none font-bold transition-all ${
                     theme === "dark" 
-                      ? "bg-slate-950 border-slate-800 text-white focus:border-[#D4AF37]/50" 
-                      : "bg-slate-50 border-slate-200 text-slate-900 focus:border-[#D4AF37]/50"
+                      ? "bg-slate-950 border-slate-800 text-white focus:border-[#0075DE]/50" 
+                      : "bg-slate-50 border-slate-200 text-slate-900 focus:border-[#0075DE]/50"
                   }`}
                 >
                   <option value="Verification">{lang === "ar" ? "السجل التجاري والتحقق" : "Corporate Verification"}</option>
@@ -484,7 +484,7 @@ export const FileManager: React.FC<FileManagerProps> = ({
                     type="text"
                     value={customFileCategory}
                     onChange={(e) => setCustomFileCategory(e.target.value)}
-                    className={`w-full h-11 px-3.5 mt-2 border rounded-xl text-xs outline-none focus:border-[#D4AF37]/70 focus:ring-1 focus:ring-[#D4AF37]/20 ${
+                    className={`w-full h-11 px-3.5 mt-2 border rounded-xl text-xs outline-none focus:border-[#0075DE]/70 focus:ring-1 focus:ring-[#0075DE]/20 ${
                       theme === "dark" ? "bg-slate-950 border-slate-800 text-white" : "bg-slate-50 border-slate-200 text-slate-900"
                     }`}
                     placeholder={lang === "ar" ? "اكتب فئة المستند هنا..." : "Enter custom document category..."}
@@ -504,8 +504,8 @@ export const FileManager: React.FC<FileManagerProps> = ({
                   placeholder={lang === "ar" ? "مثال: نسخة معتمدة من السجل التجاري لسنة 2026..." : "e.g. Certified corporate license copy 2026"}
                   className={`w-full h-20 p-3 text-xs rounded-xl border outline-none resize-none transition-all ${
                     theme === "dark" 
-                      ? "bg-slate-950 border-slate-800 text-white placeholder-slate-600 focus:border-[#D4AF37]/50" 
-                      : "bg-slate-50 border-slate-200 text-slate-900 placeholder-slate-400 focus:border-[#D4AF37]/50"
+                      ? "bg-slate-950 border-slate-800 text-white placeholder-slate-600 focus:border-[#0075DE]/50" 
+                      : "bg-slate-50 border-slate-200 text-slate-900 placeholder-slate-400 focus:border-[#0075DE]/50"
                   }`}
                 />
               </div>
@@ -542,7 +542,7 @@ export const FileManager: React.FC<FileManagerProps> = ({
               <button
                 type="submit"
                 disabled={uploading || !selectedFile}
-                className="w-full h-11 bg-gradient-to-r from-[#D4AF37] to-[#B59410] hover:brightness-110 active:scale-[0.98] text-slate-950 font-black text-xs rounded-xl shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                className="w-full h-11 bg-gradient-to-r from-[#0075DE] to-[#005BAB] hover:brightness-110 active:scale-[0.98] text-slate-950 font-black text-xs rounded-xl shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
               >
                 <UploadCloud className="w-4 h-4" />
                 <span>
@@ -565,11 +565,11 @@ export const FileManager: React.FC<FileManagerProps> = ({
             {/* Headers & Search Box strip */}
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-slate-800/40 mb-6">
               <div className="flex items-center gap-2">
-                <Folder className="w-5 h-5 text-[#D4AF37]" />
+                <Folder className="w-5 h-5 text-[#0075DE]" />
                 <h3 className={`text-sm font-black uppercase tracking-wider ${theme === "dark" ? "text-white" : "text-slate-900"}`}>
                   {lang === "ar" ? "الملفات والوثائق النشطة" : "Active Documents Repository"}
                 </h3>
-                <span className="px-2.5 py-0.5 text-xs font-black rounded-full bg-slate-900 text-[#D4AF37] border border-slate-800 font-mono">
+                <span className="px-2.5 py-0.5 text-xs font-black rounded-full bg-slate-900 text-[#0075DE] border border-slate-800 font-mono">
                   {files.length}
                 </span>
               </div>
@@ -584,8 +584,8 @@ export const FileManager: React.FC<FileManagerProps> = ({
                     placeholder={lang === "ar" ? "بحث عن ملف..." : "Search repository..."}
                     className={`w-full h-9 pl-9 pr-3 text-xs rounded-xl border outline-none transition-all ${
                       theme === "dark" 
-                        ? "bg-slate-950 border-slate-800 text-white focus:border-[#D4AF37]/50" 
-                        : "bg-slate-50 border-slate-200 text-slate-900 focus:border-[#D4AF37]/50"
+                        ? "bg-slate-950 border-slate-800 text-white focus:border-[#0075DE]/50" 
+                        : "bg-slate-50 border-slate-200 text-slate-900 focus:border-[#0075DE]/50"
                     }`}
                   />
                 </div>
@@ -618,7 +618,7 @@ export const FileManager: React.FC<FileManagerProps> = ({
             {/* Document Content List */}
             {loading ? (
               <div className="py-16 flex flex-col items-center justify-center text-slate-500">
-                <RefreshCw className="w-8 h-8 animate-spin text-[#D4AF37] mb-2" />
+                <RefreshCw className="w-8 h-8 animate-spin text-[#0075DE] mb-2" />
                 <p className="text-xs font-bold">{lang === "ar" ? "جاري مزامنة الملفات المشفرة مع السحابة..." : "Syncing encrypted documents with cloud storage..."}</p>
               </div>
             ) : filteredFiles.length === 0 ? (
@@ -644,7 +644,7 @@ export const FileManager: React.FC<FileManagerProps> = ({
                           ? "bg-slate-950/80 border-amber-500/35 shadow-lg shadow-amber-500/2"
                           : theme === "dark" 
                             ? "bg-slate-900/10 border-slate-800 hover:border-slate-700 hover:bg-slate-900/20" 
-                            : "bg-slate-50 border-slate-150 hover:border-[#D4AF37]/35 hover:bg-slate-100/30 shadow-sm"
+                            : "bg-slate-50 border-slate-150 hover:border-[#0075DE]/35 hover:bg-slate-100/30 shadow-sm"
                       }`}
                     >
                       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -684,7 +684,7 @@ export const FileManager: React.FC<FileManagerProps> = ({
                               {lang === "ar" ? "مكشوف" : "Standard"}
                             </span>
                           )}
-                          <span className="px-2 py-0.5 text-[9px] font-black rounded-full bg-[#D4AF37]/15 border border-[#D4AF37]/25 text-[#D4AF37] uppercase tracking-wide font-mono">
+                          <span className="px-2 py-0.5 text-[9px] font-black rounded-full bg-[#0075DE]/15 border border-[#0075DE]/25 text-[#0075DE] uppercase tracking-wide font-mono">
                             {file.category}
                           </span>
                         </div>
@@ -714,7 +714,7 @@ export const FileManager: React.FC<FileManagerProps> = ({
                           <div className="flex items-center gap-2">
                             <button 
                               onClick={(e) => handlePreviewFile(file, e)}
-                              className="px-3 py-1.5 rounded-lg text-xs font-bold bg-[#D4AF37]/10 hover:bg-[#D4AF37]/20 text-[#D4AF37] border border-[#D4AF37]/30 transition-all flex items-center gap-1.5 cursor-pointer"
+                              className="px-3 py-1.5 rounded-lg text-xs font-bold bg-[#0075DE]/10 hover:bg-[#0075DE]/20 text-[#0075DE] border border-[#0075DE]/30 transition-all flex items-center gap-1.5 cursor-pointer"
                             >
                               <Eye className="w-3.5 h-3.5" />
                               <span>{lang === "ar" ? "معاينة" : "Preview"}</span>
@@ -724,7 +724,7 @@ export const FileManager: React.FC<FileManagerProps> = ({
                               onClick={(e) => handleDownloadFile(file, e)}
                               className="px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition-all flex items-center gap-1.5 cursor-pointer"
                             >
-                              <Download className="w-3.5 h-3.5 text-[#D4AF37]" />
+                              <Download className="w-3.5 h-3.5 text-[#0075DE]" />
                               <span>{lang === "ar" ? "تنزيل" : "Download"}</span>
                             </button>
                           </div>

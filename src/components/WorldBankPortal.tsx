@@ -441,13 +441,13 @@ export const WorldBankPortal: React.FC<WorldBankPortalProps> = ({
           ? "bg-gradient-to-r from-slate-900 via-slate-900/90 to-slate-950 border-slate-800"
           : "bg-gradient-to-r from-slate-50 via-amber-50/30 to-white border-slate-200"
       }`}>
-        <div className="absolute top-0 right-0 w-96 h-96 bg-[#D4AF37]/5 rounded-full blur-3xl pointer-events-none"></div>
+        <div className="absolute top-0 right-0 w-96 h-96 bg-[#0075DE]/5 rounded-full blur-3xl pointer-events-none"></div>
 
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 relative z-10">
           <div className="space-y-1.5">
             <div className="flex items-center gap-2">
-              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold tracking-widest uppercase bg-[#D4AF37]/15 text-[#D4AF37] border border-[#D4AF37]/30 flex items-center gap-1">
-                <Globe className="w-3 h-3 text-[#D4AF37] animate-spin" style={{ animationDuration: '12s' }} />
+              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold tracking-widest uppercase bg-[#0075DE]/15 text-[#0075DE] border border-[#0075DE]/30 flex items-center gap-1">
+                <Globe className="w-3 h-3 text-[#0075DE] animate-spin" style={{ animationDuration: '12s' }} />
                 <span>World Bank Data v2 API</span>
               </span>
               <span className="flex h-2 w-2 relative">
@@ -460,7 +460,7 @@ export const WorldBankPortal: React.FC<WorldBankPortalProps> = ({
             </div>
 
             <h2 className="text-xl md:text-2xl font-black tracking-tight flex items-center gap-2.5">
-              <Building2 className="w-6 h-6 text-[#D4AF37]" />
+              <Building2 className="w-6 h-6 text-[#0075DE]" />
               <span>
                 {lang === "ar" 
                   ? "بوابة البنك الدولي واستخبارات الكلية السببية" 
@@ -486,7 +486,7 @@ export const WorldBankPortal: React.FC<WorldBankPortalProps> = ({
                   : "bg-white hover:bg-slate-50 border-slate-300 text-amber-600 shadow-sm"
               }`}
             >
-              <Info className="w-4 h-4 text-[#D4AF37]" />
+              <Info className="w-4 h-4 text-[#0075DE]" />
               <span>{lang === "ar" ? "تفاصيل المؤشر والمصدر" : "Indicator Source Metadata"}</span>
             </button>
           </div>
@@ -504,10 +504,10 @@ export const WorldBankPortal: React.FC<WorldBankPortalProps> = ({
             <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
               {lang === "ar" ? "الدول والأقاليم المشمولة" : "Covered Jurisdictions"}
             </span>
-            <Globe className="w-4 h-4 text-[#D4AF37]" />
+            <Globe className="w-4 h-4 text-[#0075DE]" />
           </div>
           <div className="flex items-baseline gap-2">
-            <span className="text-2xl font-black text-[#D4AF37]">{COUNTRIES_LIST.length}</span>
+            <span className="text-2xl font-black text-[#0075DE]">{COUNTRIES_LIST.length}</span>
             <span className="text-[10px] text-emerald-500 font-mono font-bold">22 Arab + World</span>
           </div>
           <span className="text-[10px] text-slate-400 block mt-1">
@@ -563,10 +563,10 @@ export const WorldBankPortal: React.FC<WorldBankPortalProps> = ({
             <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
               {lang === "ar" ? "الذكريات النشطة المستوردة" : "Imported Active Memories"}
             </span>
-            <Database className="w-4 h-4 text-[#D4AF37]" />
+            <Database className="w-4 h-4 text-[#0075DE]" />
           </div>
           <div className="flex items-baseline gap-2">
-            <span className="text-2xl font-black text-[#D4AF37]">{importedWbMemoriesCount}</span>
+            <span className="text-2xl font-black text-[#0075DE]">{importedWbMemoriesCount}</span>
             <span className="text-[10px] text-emerald-500 font-mono font-bold">Synced</span>
           </div>
           <span className="text-[10px] text-slate-400 block mt-1">
@@ -593,7 +593,7 @@ export const WorldBankPortal: React.FC<WorldBankPortalProps> = ({
                   ? "ابحث باسم الدولة (مثلاً: موريتانيا، مصر، السعودية) أو الكود..." 
                   : "Search country name or code (e.g., Mauritania, Egypt, SA)..."
               }
-              className={`w-full h-10 pr-10 pl-4 border rounded-xl text-xs focus:outline-none focus:border-[#D4AF37] transition-all ${
+              className={`w-full h-10 pr-10 pl-4 border rounded-xl text-xs focus:outline-none focus:border-[#0075DE] transition-all ${
                 theme === "dark"
                   ? "bg-slate-900 border-slate-800 text-slate-200 placeholder-slate-500"
                   : "bg-slate-50 border-slate-200 text-slate-800 placeholder-slate-400"
@@ -626,7 +626,7 @@ export const WorldBankPortal: React.FC<WorldBankPortalProps> = ({
                 onClick={() => setSelectedRegion(reg.id)}
                 className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
                   selectedRegion === reg.id
-                    ? "bg-[#D4AF37] text-slate-950 shadow-md shadow-[#D4AF37]/20"
+                    ? "bg-[#0075DE] text-white shadow-md shadow-[#0075DE]/20"
                     : theme === "dark"
                     ? "bg-slate-900 text-slate-400 hover:text-white border border-slate-800"
                     : "bg-slate-100 text-slate-600 hover:bg-slate-200 border border-slate-200"
@@ -642,7 +642,7 @@ export const WorldBankPortal: React.FC<WorldBankPortalProps> = ({
         {/* Category Sector Pills */}
         <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
           <span className="text-[10px] font-bold uppercase text-slate-400 shrink-0 flex items-center gap-1">
-            <Filter className="w-3 h-3 text-[#D4AF37]" />
+            <Filter className="w-3 h-3 text-[#0075DE]" />
             <span>{lang === "ar" ? "قطاع المؤشر:" : "Indicator Sector:"}</span>
           </span>
           {[
@@ -659,7 +659,7 @@ export const WorldBankPortal: React.FC<WorldBankPortalProps> = ({
               onClick={() => setSelectedCategory(cat.id)}
               className={`px-2.5 py-1 rounded-md text-[11px] font-medium transition-all whitespace-nowrap cursor-pointer ${
                 selectedCategory === cat.id
-                  ? "bg-amber-500/20 text-[#D4AF37] border border-[#D4AF37]/40 font-bold"
+                  ? "bg-amber-500/20 text-[#0075DE] border border-[#0075DE]/40 font-bold"
                   : theme === "dark"
                   ? "bg-slate-900/60 text-slate-400 hover:text-slate-200 border border-slate-800/60"
                   : "bg-white text-slate-600 hover:bg-slate-50 border border-slate-200"
@@ -677,12 +677,12 @@ export const WorldBankPortal: React.FC<WorldBankPortalProps> = ({
           <div>
             <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1.5 flex items-center justify-between">
               <span>{lang === "ar" ? "اختيار الدولة أو الإقليم المستهدف" : "Select Target Country / Territory"}</span>
-              <span className="text-[#D4AF37] font-mono">{currentCountryMeta.flag} {currentCountryMeta.code}</span>
+              <span className="text-[#0075DE] font-mono">{currentCountryMeta.flag} {currentCountryMeta.code}</span>
             </label>
             <select
               value={wbCountry}
               onChange={(e) => setWbCountry(e.target.value)}
-              className={`w-full h-11 px-3 border rounded-xl text-xs font-bold focus:outline-none focus:border-[#D4AF37] transition-all cursor-pointer ${
+              className={`w-full h-11 px-3 border rounded-xl text-xs font-bold focus:outline-none focus:border-[#0075DE] transition-all cursor-pointer ${
                 theme === "dark" ? "bg-slate-900 border-slate-800 text-slate-200" : "bg-white border-slate-200 text-slate-800 shadow-sm"
               }`}
             >
@@ -703,7 +703,7 @@ export const WorldBankPortal: React.FC<WorldBankPortalProps> = ({
             <select
               value={wbIndicator}
               onChange={(e) => setWbIndicator(e.target.value)}
-              className={`w-full h-11 px-3 border rounded-xl text-xs font-bold focus:outline-none focus:border-[#D4AF37] transition-all cursor-pointer ${
+              className={`w-full h-11 px-3 border rounded-xl text-xs font-bold focus:outline-none focus:border-[#0075DE] transition-all cursor-pointer ${
                 theme === "dark" ? "bg-slate-900 border-slate-800 text-slate-200" : "bg-white border-slate-200 text-slate-800 shadow-sm"
               }`}
             >
@@ -724,7 +724,7 @@ export const WorldBankPortal: React.FC<WorldBankPortalProps> = ({
             <select
               value={wbStartYear}
               onChange={(e) => handleStartYearChange(parseInt(e.target.value))}
-              className={`w-full h-11 px-3 border rounded-xl text-xs font-bold focus:outline-none focus:border-[#D4AF37] transition-all cursor-pointer ${
+              className={`w-full h-11 px-3 border rounded-xl text-xs font-bold focus:outline-none focus:border-[#0075DE] transition-all cursor-pointer ${
                 theme === "dark" ? "bg-slate-900 border-slate-800 text-slate-200" : "bg-white border-slate-200 text-slate-800 shadow-sm"
               }`}
             >
@@ -745,7 +745,7 @@ export const WorldBankPortal: React.FC<WorldBankPortalProps> = ({
             <select
               value={wbEndYear}
               onChange={(e) => handleEndYearChange(parseInt(e.target.value))}
-              className={`w-full h-11 px-3 border rounded-xl text-xs font-bold focus:outline-none focus:border-[#D4AF37] transition-all cursor-pointer ${
+              className={`w-full h-11 px-3 border rounded-xl text-xs font-bold focus:outline-none focus:border-[#0075DE] transition-all cursor-pointer ${
                 theme === "dark" ? "bg-slate-900 border-slate-800 text-slate-200" : "bg-white border-slate-200 text-slate-800 shadow-sm"
               }`}
             >
@@ -768,7 +768,7 @@ export const WorldBankPortal: React.FC<WorldBankPortalProps> = ({
           <div>
             <div className="flex items-center gap-2">
               <span className="text-xl">{currentCountryMeta.flag}</span>
-              <h3 className="text-base font-bold text-[#D4AF37]">
+              <h3 className="text-base font-bold text-[#0075DE]">
                 {getCountryName(currentCountryMeta)}: {getIndicatorName(currentIndicatorMeta)}
               </h3>
             </div>
@@ -793,7 +793,7 @@ export const WorldBankPortal: React.FC<WorldBankPortalProps> = ({
                   onClick={() => setChartType(ct.id as any)}
                   className={`px-3 py-1.5 rounded-lg border text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
                     chartType === ct.id
-                      ? "bg-[#D4AF37] text-slate-950 border-[#D4AF37] shadow-sm font-bold"
+                      ? "bg-[#0075DE] text-white border-[#0075DE] shadow-sm font-bold"
                       : theme === "dark"
                       ? "bg-slate-900 text-slate-400 hover:text-white border-slate-800"
                       : "bg-white text-slate-600 hover:bg-slate-100 border-slate-200"
@@ -877,7 +877,7 @@ export const WorldBankPortal: React.FC<WorldBankPortalProps> = ({
 
             {wbLoading ? (
               <div className="h-72 flex flex-col items-center justify-center gap-3">
-                <RefreshCw className="w-9 h-9 text-[#D4AF37] animate-spin" />
+                <RefreshCw className="w-9 h-9 text-[#0075DE] animate-spin" />
                 <span className="text-xs text-slate-400 font-bold">
                   {lang === "ar" ? "جاري الاتصال وسحب بيانات البنك الدولي مباشرة..." : "Fetching live data feeds from World Bank API..."}
                 </span>
@@ -901,7 +901,7 @@ export const WorldBankPortal: React.FC<WorldBankPortalProps> = ({
                   {retryFetch && (
                     <button
                       onClick={() => retryFetch()}
-                      className="px-4 py-2 rounded-xl bg-[#D4AF37] hover:bg-[#c4a02e] text-slate-950 font-bold text-xs flex items-center gap-2 shadow-md transition-all cursor-pointer"
+                      className="px-4 py-2 rounded-xl bg-[#0075DE] hover:bg-[#c4a02e] text-slate-950 font-bold text-xs flex items-center gap-2 shadow-md transition-all cursor-pointer"
                     >
                       <RefreshCw className="w-3.5 h-3.5" />
                       <span>{lang === "ar" ? "إعادة محاولة اتصال API" : "Retry API Call"}</span>
@@ -921,7 +921,7 @@ export const WorldBankPortal: React.FC<WorldBankPortalProps> = ({
               <>
                 <div className="flex flex-wrap items-center justify-between mb-4 pb-2 border-b border-slate-800/40 gap-2">
                   <div className="flex items-center gap-2">
-                    <span className="text-xs font-bold text-[#D4AF37] bg-[#D4AF37]/10 px-2.5 py-1 rounded-lg border border-[#D4AF37]/20">
+                    <span className="text-xs font-bold text-[#0075DE] bg-[#0075DE]/10 px-2.5 py-1 rounded-lg border border-[#0075DE]/20">
                       {currentCountryMeta.flag} {wbData[0]?.country || getCountryName(currentCountryMeta)}
                     </span>
                     
@@ -957,8 +957,8 @@ export const WorldBankPortal: React.FC<WorldBankPortalProps> = ({
                       <AreaChart data={wbData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                         <defs>
                           <linearGradient id="wbPortalGrad" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="5%" stopColor="var(--accent-color, #D4AF37)" stopOpacity={0.4}/>
-                            <stop offset="95%" stopColor="var(--accent-color, #D4AF37)" stopOpacity={0.01}/>
+                            <stop offset="5%" stopColor="var(--accent-color, #0075DE)" stopOpacity={0.4}/>
+                            <stop offset="95%" stopColor="var(--accent-color, #0075DE)" stopOpacity={0.01}/>
                           </linearGradient>
                         </defs>
                         <CartesianGrid strokeDasharray="3 3" stroke="var(--border-color)" />
@@ -967,13 +967,13 @@ export const WorldBankPortal: React.FC<WorldBankPortalProps> = ({
                         <ChartTooltip
                           contentStyle={{
                             backgroundColor: "var(--bg-secondary)",
-                            borderColor: "var(--accent-color, #D4AF37)",
+                            borderColor: "var(--accent-color, #0075DE)",
                             borderRadius: "12px",
                             fontSize: "12px",
                             color: "var(--text-primary)"
                           }}
                         />
-                        <Area type="monotone" dataKey="value" stroke="var(--accent-color, #D4AF37)" strokeWidth={2.5} fillOpacity={1} fill="url(#wbPortalGrad)" />
+                        <Area type="monotone" dataKey="value" stroke="var(--accent-color, #0075DE)" strokeWidth={2.5} fillOpacity={1} fill="url(#wbPortalGrad)" />
                       </AreaChart>
                     ) : chartType === "line" ? (
                       <LineChart data={wbData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
@@ -983,13 +983,13 @@ export const WorldBankPortal: React.FC<WorldBankPortalProps> = ({
                         <ChartTooltip
                           contentStyle={{
                             backgroundColor: "var(--bg-secondary)",
-                            borderColor: "var(--accent-color, #D4AF37)",
+                            borderColor: "var(--accent-color, #0075DE)",
                             borderRadius: "12px",
                             fontSize: "12px",
                             color: "var(--text-primary)"
                           }}
                         />
-                        <Line type="monotone" dataKey="value" stroke="var(--accent-color, #D4AF37)" strokeWidth={3} dot={{ fill: 'var(--accent-color, #D4AF37)', r: 4 }} />
+                        <Line type="monotone" dataKey="value" stroke="var(--accent-color, #0075DE)" strokeWidth={3} dot={{ fill: 'var(--accent-color, #0075DE)', r: 4 }} />
                       </LineChart>
                     ) : (
                       <BarChart data={wbData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
@@ -999,13 +999,13 @@ export const WorldBankPortal: React.FC<WorldBankPortalProps> = ({
                         <ChartTooltip
                           contentStyle={{
                             backgroundColor: "var(--bg-secondary)",
-                            borderColor: "var(--accent-color, #D4AF37)",
+                            borderColor: "var(--accent-color, #0075DE)",
                             borderRadius: "12px",
                             fontSize: "12px",
                             color: "var(--text-primary)"
                           }}
                         />
-                        <Bar dataKey="value" fill="var(--accent-color, #D4AF37)" radius={[4, 4, 0, 0]} />
+                        <Bar dataKey="value" fill="var(--accent-color, #0075DE)" radius={[4, 4, 0, 0]} />
                       </BarChart>
                     )}
                   </ResponsiveContainer>
@@ -1040,7 +1040,7 @@ export const WorldBankPortal: React.FC<WorldBankPortalProps> = ({
                   <span className="text-xs text-slate-400 font-bold">Stable</span>
                 )}
               </div>
-              <div className="text-2xl font-black text-[#D4AF37] mt-1 font-mono">
+              <div className="text-2xl font-black text-[#0075DE] mt-1 font-mono">
                 {stats.latest !== null ? `${stats.latest} ${currentIndicatorMeta.unit}` : "N/A"}
               </div>
             </div>
@@ -1089,7 +1089,7 @@ export const WorldBankPortal: React.FC<WorldBankPortalProps> = ({
         
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
-            <h3 className="text-base font-bold text-[#D4AF37] flex items-center gap-2">
+            <h3 className="text-base font-bold text-[#0075DE] flex items-center gap-2">
               <Brain className="w-5 h-5 text-amber-500 animate-pulse" />
               <span>{lang === "ar" ? "تشخيص الأثر المباشر والتحليل السببي الهيكلي" : "Causal Impact & Structural Diagnosis Engine"}</span>
             </h3>
@@ -1108,7 +1108,7 @@ export const WorldBankPortal: React.FC<WorldBankPortalProps> = ({
             className={`px-5 py-2.5 rounded-xl font-bold text-xs flex items-center justify-center gap-2 transition-all shadow-lg cursor-pointer ${
               wbIsAnalyzing
                 ? "bg-amber-500/50 text-slate-900 cursor-not-allowed"
-                : "bg-[#D4AF37] hover:bg-amber-400 text-slate-950 shadow-[#D4AF37]/20 hover:scale-[1.02]"
+                : "bg-[#0075DE] hover:bg-amber-400 text-slate-950 shadow-[#0075DE]/20 hover:scale-[1.02]"
             }`}
           >
             {wbIsAnalyzing ? (
@@ -1130,7 +1130,7 @@ export const WorldBankPortal: React.FC<WorldBankPortalProps> = ({
           theme === "dark" ? "bg-slate-900/60 border-slate-800" : "bg-slate-50 border-slate-200"
         }`}>
           <div className="flex items-center justify-between mb-3 border-b border-slate-800/40 pb-2">
-            <span className="text-xs font-bold text-[#D4AF37] flex items-center gap-1.5 uppercase">
+            <span className="text-xs font-bold text-[#0075DE] flex items-center gap-1.5 uppercase">
               <GitMerge className="w-4 h-4" />
               {lang === "ar" ? "مخطط القنوات والعلاقات السببية التفاعلي" : "Interactive Causal Node Flow"}
             </span>
@@ -1144,11 +1144,11 @@ export const WorldBankPortal: React.FC<WorldBankPortalProps> = ({
               onClick={() => setSelectedCausalNode("cause")}
               className={`p-3.5 rounded-xl border transition-all cursor-pointer ${
                 selectedCausalNode === "cause"
-                  ? "bg-[#D4AF37]/15 border-[#D4AF37] text-white shadow-md"
+                  ? "bg-[#0075DE]/15 border-[#0075DE] text-white shadow-md"
                   : "bg-slate-950/40 border-slate-800 text-slate-400 hover:border-slate-700"
               }`}
             >
-              <span className="text-[9px] font-bold uppercase text-[#D4AF37] block mb-1">
+              <span className="text-[9px] font-bold uppercase text-[#0075DE] block mb-1">
                 1. {lang === "ar" ? "مؤشر البنك الدولي" : "World Bank Indicator"}
               </span>
               <p className="text-xs font-bold text-slate-200">
@@ -1235,8 +1235,8 @@ export const WorldBankPortal: React.FC<WorldBankPortalProps> = ({
           >
             <div className="flex items-center justify-between border-b border-slate-800/60 pb-3">
               <div className="flex items-center gap-2">
-                <Activity className="w-5 h-5 text-[#D4AF37] animate-pulse" />
-                <h4 className="text-xs font-bold text-[#D4AF37] uppercase tracking-wider">
+                <Activity className="w-5 h-5 text-[#0075DE] animate-pulse" />
+                <h4 className="text-xs font-bold text-[#0075DE] uppercase tracking-wider">
                   {lang === "ar" 
                     ? "تقرير تشخيص الأثر الكلي المتبادل (البنك الدولي ⇆ Zakir)" 
                     : "Executive Causal Correlation Report (World Bank ⇆ ZAKIR)"}
@@ -1313,7 +1313,7 @@ export const WorldBankPortal: React.FC<WorldBankPortalProps> = ({
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="space-y-1 text-right sm:text-right w-full sm:w-auto">
             <h4 className="text-xs font-bold text-slate-200 flex items-center gap-2">
-              <Database className="w-4 h-4 text-[#D4AF37]" />
+              <Database className="w-4 h-4 text-[#0075DE]" />
               <span>{lang === "ar" ? "تثبيت البيانات في الذاكرة المؤسسية النشطة" : "Persist Intel to Active Corporate Memory"}</span>
             </h4>
             <p className="text-[11px] text-slate-400">
@@ -1332,17 +1332,17 @@ export const WorldBankPortal: React.FC<WorldBankPortalProps> = ({
             className={`px-6 py-3 rounded-xl font-bold text-xs flex items-center justify-center gap-2 transition-all shrink-0 cursor-pointer ${
               !wbCausalAnalysis
                 ? "bg-slate-800/40 text-slate-500 border border-slate-800/80 cursor-not-allowed opacity-60"
-                : "bg-slate-900 hover:bg-slate-800 text-[#D4AF37] border border-[#D4AF37]/40 hover:border-[#D4AF37] shadow-xl hover:scale-[1.02]"
+                : "bg-slate-900 hover:bg-slate-800 text-[#0075DE] border border-[#0075DE]/40 hover:border-[#0075DE] shadow-xl hover:scale-[1.02]"
             }`}
           >
             {wbImporting ? (
               <>
-                <RefreshCw className="w-4 h-4 animate-spin text-[#D4AF37]" />
+                <RefreshCw className="w-4 h-4 animate-spin text-[#0075DE]" />
                 <span>{lang === "ar" ? "جاري استيراد ك ذاكرة مؤسسية نشطة" : "Importing to Active Memory..."}</span>
               </>
             ) : (
               <>
-                <Database className="w-4 h-4 text-[#D4AF37]" />
+                <Database className="w-4 h-4 text-[#0075DE]" />
                 <span>{lang === "ar" ? "استيراد كـ ذاكرة مؤسسية نشطة" : "Import as Active Corporate Memory"}</span>
               </>
             )}
@@ -1376,8 +1376,8 @@ export const WorldBankPortal: React.FC<WorldBankPortalProps> = ({
             >
               <div className="flex items-center justify-between border-b border-slate-800 pb-3">
                 <div className="flex items-center gap-2">
-                  <Globe className="w-5 h-5 text-[#D4AF37]" />
-                  <h3 className="text-base font-bold text-[#D4AF37]">
+                  <Globe className="w-5 h-5 text-[#0075DE]" />
+                  <h3 className="text-base font-bold text-[#0075DE]">
                     {lang === "ar" ? "بطاقة تفاصيل المؤشر والمصدر الدولي" : "Indicator Metadata & Source Details"}
                   </h3>
                 </div>
@@ -1398,7 +1398,7 @@ export const WorldBankPortal: React.FC<WorldBankPortalProps> = ({
 
                 <div>
                   <span className="text-[10px] font-bold text-slate-400 uppercase block">{lang === "ar" ? "الكود الدولي (World Bank Code):" : "World Bank Indicator Code:"}</span>
-                  <span className="font-mono text-[#D4AF37] font-bold">{currentIndicatorMeta.id}</span>
+                  <span className="font-mono text-[#0075DE] font-bold">{currentIndicatorMeta.id}</span>
                 </div>
 
                 <div>
@@ -1422,7 +1422,7 @@ export const WorldBankPortal: React.FC<WorldBankPortalProps> = ({
                 <button
                   type="button"
                   onClick={() => setShowDetailModal(false)}
-                  className="px-4 py-2 rounded-xl bg-[#D4AF37] text-slate-950 font-bold text-xs cursor-pointer"
+                  className="px-4 py-2 rounded-xl bg-[#0075DE] text-white font-bold text-xs cursor-pointer"
                 >
                   {lang === "ar" ? "إغلاق النافذة" : "Close"}
                 </button>

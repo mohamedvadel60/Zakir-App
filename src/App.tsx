@@ -351,7 +351,7 @@ function renderTextWithLinks(text: string) {
         target="_blank"
         rel="noopener noreferrer"
         referrerPolicy="no-referrer"
-        className="text-[#D4AF37] hover:underline font-bold inline-flex items-center gap-0.5"
+        className="text-[#0075DE] hover:underline font-bold inline-flex items-center gap-0.5"
       >
         {linkText}
       </a>
@@ -412,16 +412,16 @@ function ReadMoreText({
             }}
             className={`inline-flex items-center gap-1 mx-1.5 px-2 py-0.5 rounded text-[10px] font-extrabold transition-all cursor-pointer select-none ${
               theme === "dark"
-                ? "bg-[#D4AF37]/15 hover:bg-[#D4AF37]/30 text-[#D4AF37] border border-[#D4AF37]/30"
-                : "bg-[#D4AF37]/10 hover:bg-[#D4AF37]/20 text-[#B8860B] border border-[#D4AF37]/30"
+                ? "bg-[#0075DE]/15 hover:bg-[#0075DE]/30 text-[#0075DE] border border-[#0075DE]/30"
+                : "bg-[#0075DE]/10 hover:bg-[#0075DE]/20 text-[#B8860B] border border-[#0075DE]/30"
             }`}
             title={isExpanded ? (lang === "ar" ? "طي النص" : "Collapse text") : (lang === "ar" ? "توسيع النص" : "Expand text")}
           >
             <span>{getReadMoreLabel()}</span>
             {isExpanded ? (
-              <ChevronUp className="w-3 h-3 text-[#D4AF37]" />
+              <ChevronUp className="w-3 h-3 text-[#0075DE]" />
             ) : (
-              <ChevronDown className="w-3 h-3 text-[#D4AF37]" />
+              <ChevronDown className="w-3 h-3 text-[#0075DE]" />
             )}
           </button>
         )}
@@ -1228,7 +1228,7 @@ This hosting domain (**${currentDomain}**) has not been authorized in your Fireb
   useEffect(() => {
     const root = document.documentElement;
     if (currentUser?.customTheme?.approvedAt) {
-      const { primaryBg = "#0B0F19", textColor = "#F8FAFC", secondaryColor = "#D4AF37" } = currentUser.customTheme;
+      const { primaryBg = "#0B0F19", textColor = "#F8FAFC", secondaryColor = "#0075DE" } = currentUser.customTheme;
       const contrastText = getContrastColor(secondaryColor);
       const cardBg = adjustColorBrightness(primaryBg, textColor, 0.08);
       const inputBg = adjustColorBrightness(primaryBg, textColor, 0.14);
@@ -2509,25 +2509,25 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
     });
 
     const categoryColorMap: Record<string, string> = {
-      "Financial Engineering": "#D4AF37",
-      "Operations": "#B59410",
+      "Financial Engineering": "#0075DE",
+      "Operations": "#005BAB",
       "FX Risk Management": "#0D7A82",
       "Customs Classification": "#14B8A6",
-      "الهندسة المالية": "#D4AF37",
-      "العمليات التشغيلية": "#B59410",
-      "العمليات": "#B59410",
+      "الهندسة المالية": "#0075DE",
+      "العمليات التشغيلية": "#005BAB",
+      "العمليات": "#005BAB",
       "إدارة مخاطر الصرف الأجنبي": "#0D7A82",
       "إدارة مخاطر الصرف": "#0D7A82",
       "التصنيف الجمركي": "#14B8A6"
     };
 
-    const defaultColors = ["#D4AF37", "#B59410", "#0D7A82", "#14B8A6", "#8B5CF6", "#EC4899"];
+    const defaultColors = ["#0075DE", "#005BAB", "#0D7A82", "#14B8A6", "#8B5CF6", "#EC4899"];
 
     if (Object.keys(counts).length === 0) {
       if (currentUser) return [];
       return [
-        { name: lang === "ar" ? "الهندسة المالية" : (lang === "fr" ? "Ingénierie Financière" : "Financial Engineering"), value: 4, color: "#D4AF37" },
-        { name: lang === "ar" ? "العمليات" : (lang === "fr" ? "Opérations" : "Operations"), value: 1, color: "#B59410" },
+        { name: lang === "ar" ? "الهندسة المالية" : (lang === "fr" ? "Ingénierie Financière" : "Financial Engineering"), value: 4, color: "#0075DE" },
+        { name: lang === "ar" ? "العمليات" : (lang === "fr" ? "Opérations" : "Operations"), value: 1, color: "#005BAB" },
         { name: lang === "ar" ? "إدارة مخاطر الصرف" : (lang === "fr" ? "Gestion Risque FX" : "FX Risk Management"), value: 2, color: "#0D7A82" },
         { name: lang === "ar" ? "التصنيف الجمركي" : (lang === "fr" ? "Classification Douanière" : "Customs Classification"), value: 1, color: "#14B8A6" },
       ];
@@ -2570,7 +2570,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
   // Compute dynamic style override from custom theme if approved
   const customThemeStyle = useMemo(() => {
     if (currentUser?.customTheme?.approvedAt) {
-      const { primaryBg = "#0B0F19", textColor = "#F8FAFC", secondaryColor = "#D4AF37" } = currentUser.customTheme;
+      const { primaryBg = "#0B0F19", textColor = "#F8FAFC", secondaryColor = "#0075DE" } = currentUser.customTheme;
       
       const contrastText = getContrastColor(secondaryColor);
       const cardBg = adjustColorBrightness(primaryBg, textColor, 0.08); // 8% blend of text color
@@ -2628,11 +2628,11 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
             <div className={`w-20 h-20 rounded-2xl flex items-center justify-center ${
               theme === "light" 
                 ? "bg-slate-200 border border-slate-400 text-black" 
-                : "bg-[#D4AF37]/5 border border-[#D4AF37]/15 text-[#D4AF37]"
+                : "bg-[#0075DE]/5 border border-[#0075DE]/15 text-[#0075DE]"
             }`}>
               <ZakirLogo size={56} iconOnly theme={isCustomThemeActive ? "custom" : theme} />
             </div>
-            <div className="absolute inset-0 w-20 h-20 rounded-2xl border-2 border-slate-400 dark:border-[#D4AF37]/20 animate-ping opacity-20 pointer-events-none"></div>
+            <div className="absolute inset-0 w-20 h-20 rounded-2xl border-2 border-slate-400 dark:border-[#0075DE]/20 animate-ping opacity-20 pointer-events-none"></div>
           </div>
           <div className="text-center space-y-1">
             <span className={`text-2xl font-black tracking-widest block font-sans ${
@@ -2672,9 +2672,9 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
           --text-primary: #0F172A; /* Crisp deep slate text */
           --text-secondary: #475569; /* Muted slate gray */
           --border-color: #CBD5E1; /* Professional crisp border (slate-300) for light mode */
-          --accent-color: #D4AF37; /* Default premium gold accent */
+          --accent-color: #0075DE; /* Default premium gold accent */
           --accent-hover: #BCA032;
-          --accent-subtle: #D4AF3715;
+          --accent-subtle: #0075DE15;
           --accent-text: #0F172A;
         }
 
@@ -2685,9 +2685,9 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
           --text-primary: #F8FAFC; /* High-readability crisp off-white text */
           --text-secondary: #94A3B8; /* Muted cool gray text */
           --border-color: #334155; /* Sophisticated contrast border (slate-700) for dark mode */
-          --accent-color: #D4AF37; /* Default premium gold accent */
+          --accent-color: #0075DE; /* Default premium gold accent */
           --accent-hover: #E5C158;
-          --accent-subtle: #D4AF3722;
+          --accent-subtle: #0075DE22;
           --accent-text: #0B0F19;
         }
 
@@ -2806,14 +2806,14 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
         }
 
         /* Accent text color rules */
-        .theme-light .text-\\[\\#D4AF37\\], .theme-dark .text-\\[\\#D4AF37\\], .custom-theme-active .text-\\[\\#D4AF37\\],
+        .theme-light .text-\\[\\#0075DE\\], .theme-dark .text-\\[\\#0075DE\\], .custom-theme-active .text-\\[\\#0075DE\\],
         .theme-light .text-amber-400, .theme-dark .text-amber-400, .custom-theme-active .text-amber-400,
         .theme-light .text-amber-500, .theme-dark .text-amber-500, .custom-theme-active .text-amber-500 {
           color: var(--accent-color) !important;
         }
 
         /* Accent background color rules */
-        .theme-light .bg-\\[\\#D4AF37\\], .theme-dark .bg-\\[\\#D4AF37\\], .custom-theme-active .bg-\\[\\#D4AF37\\],
+        .theme-light .bg-\\[\\#0075DE\\], .theme-dark .bg-\\[\\#0075DE\\], .custom-theme-active .bg-\\[\\#0075DE\\],
         .theme-light .bg-amber-400, .theme-dark .bg-amber-400, .custom-theme-active .bg-amber-400,
         .theme-light .bg-amber-500, .theme-dark .bg-amber-500, .custom-theme-active .bg-amber-500 {
           background-color: var(--accent-color) !important;
@@ -2821,7 +2821,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
         }
 
         /* Subtle badges & tabs selection */
-        .theme-light .bg-\\[\\#D4AF37\\\]\\/15, .theme-dark .bg-\\[\\#D4AF37\\\]\\/15, .custom-theme-active .bg-\\[\\#D4AF37\\\]\\/15,
+        .theme-light .bg-\\[\\#0075DE\\\]\\/15, .theme-dark .bg-\\[\\#0075DE\\\]\\/15, .custom-theme-active .bg-\\[\\#0075DE\\\]\\/15,
         .theme-light .bg-amber-500\\/10, .theme-dark .bg-amber-500\\/10, .custom-theme-active .bg-amber-500\\/10,
         .theme-light .bg-amber-500\\/15, .theme-dark .bg-amber-500\\/15, .custom-theme-active .bg-amber-500\\/15 {
           background-color: var(--accent-subtle) !important;
@@ -2829,7 +2829,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
         }
 
         /* Sidebar link active dots */
-        .theme-light .bg-\\[\\#D4AF37\\], .theme-dark .bg-\\[\\#D4AF37\\], .custom-theme-active .bg-\\[\\#D4AF37\\] {
+        .theme-light .bg-\\[\\#0075DE\\], .theme-dark .bg-\\[\\#0075DE\\], .custom-theme-active .bg-\\[\\#0075DE\\] {
           background-color: var(--accent-color) !important;
         }
 
@@ -2926,7 +2926,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
           /* REGISTRATION SCREEN (Video 2 Style with Password Checklist Requirements) */
           <div className="min-h-screen bg-[#070b13] text-slate-200 flex flex-col md:grid md:grid-cols-12 relative overflow-hidden selection:bg-amber-500/20">
             {/* GLOWING AMBIENT FIELD */}
-            <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-[#D4AF37]/5 rounded-full blur-[120px] pointer-events-none" />
+            <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-[#0075DE]/5 rounded-full blur-[120px] pointer-events-none" />
             <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-blue-500/5 rounded-full blur-[120px] pointer-events-none" />
 
             {/* LEFT COLUMN: BRAND WORKSPACE MONOLITH & CAUSAL PATH CONSOLE */}
@@ -2941,7 +2941,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
               {/* Dynamic Interactive Causal Path Animation Console */}
               <div className="relative z-10 my-12 space-y-6">
                 <div className="zakir-card p-4 rounded-xl border border-slate-800/60 bg-slate-900/30 backdrop-blur-sm space-y-3">
-                  <div className="flex items-center gap-2 text-xs font-black uppercase tracking-widest text-[#D4AF37]">
+                  <div className="flex items-center gap-2 text-xs font-black uppercase tracking-widest text-[#0075DE]">
                     <Activity className="w-3.5 h-3.5 animate-pulse" />
                     <span className="zakir-badge">{lang === "ar" ? "شاشة الترابط السببي النشطة" : "Active Causal Ledger"}</span>
                   </div>
@@ -2959,7 +2959,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                       <path d="M 30,50 L 120,74 L 210,50" fill="none" stroke="currentColor" strokeWidth="1" />
                       
                       {/* Pulse Animations along the paths */}
-                      <circle r="3" fill="#D4AF37">
+                      <circle r="3" fill="#0075DE">
                         <animateMotion dur="4s" repeatCount="indefinite" path="M 30,50 L 120,30 L 210,50" />
                       </circle>
                       <circle r="3" fill="#3b82f6">
@@ -2976,10 +2976,10 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                     </div>
 
                     <div className="absolute top-[18px] left-[105px] flex flex-col items-center">
-                      <div className="w-6 h-6 rounded-md bg-[#D4AF37]/10 border border-[#D4AF37]/30 flex items-center justify-center text-[10px] font-bold text-[#D4AF37] animate-pulse">
+                      <div className="w-6 h-6 rounded-md bg-[#0075DE]/10 border border-[#0075DE]/30 flex items-center justify-center text-[10px] font-bold text-[#0075DE] animate-pulse">
                         CA
                       </div>
-                      <span className="text-[8px] text-[#D4AF37] mt-1 uppercase tracking-wider">Causal</span>
+                      <span className="text-[8px] text-[#0075DE] mt-1 uppercase tracking-wider">Causal</span>
                     </div>
 
                     <div className="absolute bottom-[10px] left-[105px] flex flex-col items-center">
@@ -3000,7 +3000,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
 
                 <div className="space-y-4">
                   <div className="flex items-start gap-3">
-                    <div className="w-8 h-8 rounded-lg bg-slate-900 border border-slate-800 flex items-center justify-center text-[#D4AF37] shrink-0">
+                    <div className="w-8 h-8 rounded-lg bg-slate-900 border border-slate-800 flex items-center justify-center text-[#0075DE] shrink-0">
                       <Database className="w-4 h-4" />
                     </div>
                     <div>
@@ -3014,7 +3014,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                   </div>
 
                   <div className="flex items-start gap-3">
-                    <div className="w-8 h-8 rounded-lg bg-slate-900 border border-slate-800 flex items-center justify-center text-[#D4AF37] shrink-0">
+                    <div className="w-8 h-8 rounded-lg bg-slate-900 border border-slate-800 flex items-center justify-center text-[#0075DE] shrink-0">
                       <Brain className="w-4 h-4" />
                     </div>
                     <div>
@@ -3053,19 +3053,19 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                 <div className="flex items-center gap-1.5 bg-slate-950 p-1 rounded-lg border border-slate-800">
                   <button 
                     onClick={() => toggleLanguage("ar")}
-                    className={`text-[10px] font-black px-2.5 py-1 rounded transition-all ${lang === "ar" ? "bg-[#D4AF37] text-slate-950 font-bold" : "text-slate-400 hover:text-white"}`}
+                    className={`text-[10px] font-black px-2.5 py-1 rounded transition-all ${lang === "ar" ? "bg-[#0075DE] text-white font-bold" : "text-slate-400 hover:text-white"}`}
                   >
                     ع
                   </button>
                   <button 
                     onClick={() => toggleLanguage("fr")}
-                    className={`text-[10px] font-black px-2.5 py-1 rounded transition-all ${lang === "fr" ? "bg-[#D4AF37] text-slate-950 font-bold" : "text-slate-400 hover:text-white"}`}
+                    className={`text-[10px] font-black px-2.5 py-1 rounded transition-all ${lang === "fr" ? "bg-[#0075DE] text-white font-bold" : "text-slate-400 hover:text-white"}`}
                   >
                     FR
                   </button>
                   <button 
                     onClick={() => toggleLanguage("en")}
-                    className={`text-[10px] font-black px-2.5 py-1 rounded transition-all ${lang === "en" ? "bg-[#D4AF37] text-slate-950 font-bold" : "text-slate-400 hover:text-white"}`}
+                    className={`text-[10px] font-black px-2.5 py-1 rounded transition-all ${lang === "en" ? "bg-[#0075DE] text-white font-bold" : "text-slate-400 hover:text-white"}`}
                   >
                     EN
                   </button>
@@ -3097,7 +3097,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
 
               {/* Branding Emblem */}
               <div className="text-center mb-6">
-                <div className="w-14 h-14 rounded-2xl bg-[#D4AF37]/5 border border-[#D4AF37]/15 flex items-center justify-center mx-auto mb-3">
+                <div className="w-14 h-14 rounded-2xl bg-[#0075DE]/5 border border-[#0075DE]/15 flex items-center justify-center mx-auto mb-3">
                   <ZakirLogo iconOnly size={40} theme="dark" />
                 </div>
                 <h1 className="text-2xl font-bold tracking-tight text-white">
@@ -3163,7 +3163,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                     type="text" 
                     value={regOwnerName}
                     onChange={(e) => setRegOwnerName(e.target.value)}
-                    className="w-full h-10 px-3 bg-slate-900/40 border border-slate-800 rounded-xl text-white text-xs focus:outline-none focus:border-[#D4AF37]/70 focus:bg-[#D4AF37]/5 transition-all placeholder:text-slate-600"
+                    className="w-full h-10 px-3 bg-slate-900/40 border border-slate-800 rounded-xl text-white text-xs focus:outline-none focus:border-[#0075DE]/70 focus:bg-[#0075DE]/5 transition-all placeholder:text-slate-600"
                     placeholder="e.g. Mohamed Aly"
                     required
                   />
@@ -3179,7 +3179,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                     type="text" 
                     value={regCompanyName}
                     onChange={(e) => setRegCompanyName(e.target.value)}
-                    className="w-full h-10 px-3 bg-slate-900/40 border border-slate-800 rounded-xl text-white text-xs focus:outline-none focus:border-[#D4AF37]/70 focus:bg-[#D4AF37]/5 transition-all placeholder:text-slate-600"
+                    className="w-full h-10 px-3 bg-slate-900/40 border border-slate-800 rounded-xl text-white text-xs focus:outline-none focus:border-[#0075DE]/70 focus:bg-[#0075DE]/5 transition-all placeholder:text-slate-600"
                     placeholder="e.g. Mauritanian Finance Group"
                     required
                   />
@@ -3195,7 +3195,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                     type="email" 
                     value={regEmail}
                     onChange={(e) => setRegEmail(e.target.value)}
-                    className="w-full h-10 px-3 bg-slate-900/40 border border-slate-800 rounded-xl text-white text-xs focus:outline-none focus:border-[#D4AF37]/70 focus:bg-[#D4AF37]/5 transition-all placeholder:text-slate-600"
+                    className="w-full h-10 px-3 bg-slate-900/40 border border-slate-800 rounded-xl text-white text-xs focus:outline-none focus:border-[#0075DE]/70 focus:bg-[#0075DE]/5 transition-all placeholder:text-slate-600"
                     placeholder="e.g. mohamedvadel60@entreprise8.com"
                     required
                   />
@@ -3214,7 +3214,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                        type={showRegPassword ? "text" : "password"} 
                        value={regPassword}
                        onChange={(e) => setRegPassword(e.target.value)}
-                       className="w-full h-10 px-3 pr-10 bg-slate-900/40 border border-slate-800 rounded-xl text-white text-xs focus:outline-none focus:border-[#D4AF37]/70 focus:bg-[#D4AF37]/5 transition-all placeholder:text-slate-600 font-mono"
+                       className="w-full h-10 px-3 pr-10 bg-slate-900/40 border border-slate-800 rounded-xl text-white text-xs focus:outline-none focus:border-[#0075DE]/70 focus:bg-[#0075DE]/5 transition-all placeholder:text-slate-600 font-mono"
                        placeholder="••••••••"
                        required
                     />
@@ -3287,7 +3287,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                     type="password" 
                     value={regConfirmPassword}
                     onChange={(e) => setRegConfirmPassword(e.target.value)}
-                    className="w-full h-10 px-3 bg-slate-900/40 border border-slate-800 rounded-xl text-white text-xs focus:outline-none focus:border-[#D4AF37]/70 focus:bg-[#D4AF37]/5 transition-all placeholder:text-slate-600 font-mono"
+                    className="w-full h-10 px-3 bg-slate-900/40 border border-slate-800 rounded-xl text-white text-xs focus:outline-none focus:border-[#0075DE]/70 focus:bg-[#0075DE]/5 transition-all placeholder:text-slate-600 font-mono"
                     placeholder="••••••••"
                     required
                   />
@@ -3297,7 +3297,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                 <button 
                   type="submit" 
                   disabled={isSubmittingReg}
-                  className="w-full h-11 mt-2 bg-gradient-to-r from-[#D4AF37] to-[#B59410] hover:brightness-110 active:scale-[0.98] text-slate-950 font-bold text-xs rounded-xl shadow-lg shadow-amber-500/10 hover:shadow-amber-500/20 transition-all cursor-pointer flex items-center justify-center gap-2 uppercase tracking-wider"
+                  className="w-full h-11 mt-2 bg-gradient-to-r from-[#0075DE] to-[#005BAB] hover:brightness-110 active:scale-[0.98] text-slate-950 font-bold text-xs rounded-xl shadow-lg shadow-amber-500/10 hover:shadow-amber-500/20 transition-all cursor-pointer flex items-center justify-center gap-2 uppercase tracking-wider"
                 >
                   {isSubmittingReg ? (
                     <RefreshCw className="w-4 h-4 animate-spin" />
@@ -3331,7 +3331,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
           /* LOGIN SCREEN */
           <div className="min-h-screen bg-[#070b13] text-slate-200 flex flex-col md:grid md:grid-cols-12 relative overflow-hidden selection:bg-amber-500/20">
             {/* GLOWING AMBIENT FIELD */}
-            <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-[#D4AF37]/5 rounded-full blur-[120px] pointer-events-none" />
+            <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-[#0075DE]/5 rounded-full blur-[120px] pointer-events-none" />
             <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-blue-500/5 rounded-full blur-[120px] pointer-events-none" />
 
             {/* LEFT COLUMN: BRAND WORKSPACE MONOLITH & CAUSAL PATH CONSOLE */}
@@ -3344,68 +3344,10 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
               </div>
 
               {/* Dynamic Interactive Causal Path Animation Console */}
-              <div className="relative z-10 my-12 space-y-6">
-                <div className="p-4 rounded-xl border border-slate-800/60 bg-slate-900/30 backdrop-blur-sm space-y-3">
-                  <div className="flex items-center gap-2 text-xs font-black uppercase tracking-widest text-[#D4AF37]">
-                    <Activity className="w-3.5 h-3.5 animate-pulse" />
-                    <span>{lang === "ar" ? "شاشة الترابط السببي النشطة" : "Active Causal Ledger"}</span>
-                  </div>
-                  <p className="text-[11px] text-slate-400 leading-relaxed">
-                    {lang === "ar" 
-                      ? "رسم بياني يوضح مسببات القرارات وربطها التلقائي بالامتثال والتخفيف من المخاطر التشغيلية." 
-                      : "Visual schematic mapping corporate events, trigger conditions, regulatory compliance, and resolution vectors."}
-                  </p>
-
-                  {/* SVG Nodes Connector Animation */}
-                  <div className="h-28 relative mt-3 border border-slate-800/50 rounded-lg bg-slate-950/50 overflow-hidden p-2">
-                    <svg className="w-full h-full absolute inset-0 text-slate-800" xmlns="http://www.w3.org/2000/svg">
-                      {/* Animated Connector Lines */}
-                      <path d="M 30,50 L 120,30 L 210,50" fill="none" stroke="currentColor" strokeWidth="1" />
-                      <path d="M 30,50 L 120,74 L 210,50" fill="none" stroke="currentColor" strokeWidth="1" />
-                      
-                      {/* Pulse Animations along the paths */}
-                      <circle r="3" fill="#D4AF37">
-                        <animateMotion dur="4s" repeatCount="indefinite" path="M 30,50 L 120,30 L 210,50" />
-                      </circle>
-                      <circle r="3" fill="#3b82f6">
-                        <animateMotion dur="5s" repeatCount="indefinite" path="M 30,50 L 120,74 L 210,50" />
-                      </circle>
-                    </svg>
-
-                    {/* Nodes */}
-                    <div className="absolute top-[38px] left-[10px] flex flex-col items-center">
-                      <div className="w-6 h-6 rounded-md bg-slate-900 border border-slate-700 flex items-center justify-center text-[10px] font-bold text-slate-300">
-                        IN
-                      </div>
-                      <span className="text-[8px] text-slate-500 mt-1 uppercase tracking-wider">Trigger</span>
-                    </div>
-
-                    <div className="absolute top-[18px] left-[105px] flex flex-col items-center">
-                      <div className="w-6 h-6 rounded-md bg-[#D4AF37]/10 border border-[#D4AF37]/30 flex items-center justify-center text-[10px] font-bold text-[#D4AF37] animate-pulse">
-                        CA
-                      </div>
-                      <span className="text-[8px] text-[#D4AF37] mt-1 uppercase tracking-wider">Causal</span>
-                    </div>
-
-                    <div className="absolute bottom-[10px] left-[105px] flex flex-col items-center">
-                      <div className="w-6 h-6 rounded-md bg-blue-500/10 border border-blue-500/30 flex items-center justify-center text-[10px] font-bold text-blue-400">
-                        RG
-                      </div>
-                      <span className="text-[8px] text-blue-400 mt-1 uppercase tracking-wider">Audit</span>
-                    </div>
-
-                    <div className="absolute top-[38px] right-[10px] flex flex-col items-center">
-                      <div className="w-6 h-6 rounded-md bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-[10px] font-bold text-emerald-400">
-                        OK
-                      </div>
-                      <span className="text-[8px] text-emerald-400 mt-1 uppercase tracking-wider">Resolve</span>
-                    </div>
-                  </div>
-                </div>
-
+              <div className="relative z-10 my-8 space-y-4">
                 <div className="space-y-4">
                   <div className="flex items-start gap-3">
-                    <div className="w-8 h-8 rounded-lg bg-slate-900 border border-slate-800 flex items-center justify-center text-[#D4AF37] shrink-0">
+                    <div className="w-8 h-8 rounded-lg bg-slate-900 border border-slate-800 flex items-center justify-center text-[#0075DE] shrink-0">
                       <Database className="w-4 h-4" />
                     </div>
                     <div>
@@ -3419,7 +3361,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                   </div>
 
                   <div className="flex items-start gap-3">
-                    <div className="w-8 h-8 rounded-lg bg-slate-900 border border-slate-800 flex items-center justify-center text-[#D4AF37] shrink-0">
+                    <div className="w-8 h-8 rounded-lg bg-slate-900 border border-slate-800 flex items-center justify-center text-[#0075DE] shrink-0">
                       <Brain className="w-4 h-4" />
                     </div>
                     <div>
@@ -3455,22 +3397,22 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                   </span>
                 </button>
 
-                <div className="flex items-center gap-1.5 bg-slate-950 p-1 rounded-lg border border-slate-800">
+                <div className="flex items-center gap-1 bg-slate-950 p-1 rounded-xl border border-slate-800/80 shadow-inner">
                   <button 
                     onClick={() => toggleLanguage("ar")}
-                    className={`text-[10px] font-black px-2.5 py-1 rounded transition-all ${lang === "ar" ? "bg-[#D4AF37] text-slate-950 font-bold" : "text-slate-400 hover:text-white"}`}
+                    className={`min-w-[32px] h-7 text-[11px] font-bold px-2.5 rounded-lg transition-all flex items-center justify-center shrink-0 cursor-pointer ${lang === "ar" ? "bg-[#0075DE] text-white shadow-sm" : "text-slate-400 hover:text-white"}`}
                   >
                     ع
                   </button>
                   <button 
                     onClick={() => toggleLanguage("fr")}
-                    className={`text-[10px] font-black px-2.5 py-1 rounded transition-all ${lang === "fr" ? "bg-[#D4AF37] text-slate-950 font-bold" : "text-slate-400 hover:text-white"}`}
+                    className={`min-w-[32px] h-7 text-[11px] font-bold px-2.5 rounded-lg transition-all flex items-center justify-center shrink-0 cursor-pointer ${lang === "fr" ? "bg-[#0075DE] text-white shadow-sm" : "text-slate-400 hover:text-white"}`}
                   >
                     FR
                   </button>
                   <button 
                     onClick={() => toggleLanguage("en")}
-                    className={`text-[10px] font-black px-2.5 py-1 rounded transition-all ${lang === "en" ? "bg-[#D4AF37] text-slate-950 font-bold" : "text-slate-400 hover:text-white"}`}
+                    className={`min-w-[32px] h-7 text-[11px] font-bold px-2.5 rounded-lg transition-all flex items-center justify-center shrink-0 cursor-pointer ${lang === "en" ? "bg-[#0075DE] text-white shadow-sm" : "text-slate-400 hover:text-white"}`}
                   >
                     EN
                   </button>
@@ -3700,7 +3642,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                 /* STANDARD LOGIN FORM */
                 <div>
                   <div className="text-center mb-6">
-                    <div className="w-14 h-14 rounded-2xl bg-[#D4AF37]/5 border border-[#D4AF37]/15 flex items-center justify-center mx-auto mb-3 text-[#D4AF37]">
+                    <div className="w-14 h-14 rounded-2xl bg-[#0075DE]/5 border border-[#0075DE]/15 flex items-center justify-center mx-auto mb-3 text-[#0075DE]">
                       <ZakirLogo iconOnly size={40} theme="dark" />
                     </div>
                     <h1 className="text-2xl font-bold tracking-tight text-white">
@@ -3757,7 +3699,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                         type="email" 
                         value={loginEmail}
                         onChange={(e) => setLoginEmail(e.target.value)}
-                        className="w-full h-10 px-3 bg-slate-900/40 border border-slate-800 rounded-xl text-white text-xs focus:outline-none focus:border-[#D4AF37]/70 focus:bg-[#D4AF37]/5 transition-all placeholder:text-slate-600"
+                        className="w-full h-10 px-3 bg-slate-900/40 border border-slate-800 rounded-xl text-white text-xs focus:outline-none focus:border-[#0075DE]/70 focus:bg-[#0075DE]/5 transition-all placeholder:text-slate-600"
                         placeholder="name@company.com"
                         required
                       />
@@ -3783,7 +3725,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                         type="password" 
                         value={loginPassword}
                         onChange={(e) => setLoginPassword(e.target.value)}
-                        className="w-full h-10 px-3 bg-slate-900/40 border border-slate-800 rounded-xl text-white text-xs focus:outline-none focus:border-[#D4AF37]/70 focus:bg-[#D4AF37]/5 transition-all placeholder:text-slate-600 font-mono"
+                        className="w-full h-10 px-3 bg-slate-900/40 border border-slate-800 rounded-xl text-white text-xs focus:outline-none focus:border-[#0075DE]/70 focus:bg-[#0075DE]/5 transition-all placeholder:text-slate-600 font-mono"
                         placeholder="••••••••"
                         required
                       />
@@ -3792,7 +3734,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                     <button 
                       type="submit" 
                       disabled={isSubmittingLogin}
-                      className="w-full h-11 mt-2 bg-gradient-to-r from-[#D4AF37] to-[#B59410] hover:brightness-110 active:scale-[0.98] text-slate-950 font-bold text-xs rounded-xl shadow-lg transition-all cursor-pointer flex items-center justify-center gap-2 uppercase tracking-wider"
+                      className="w-full h-11 mt-2 bg-gradient-to-r from-[#0075DE] to-[#005BAB] hover:brightness-110 active:scale-[0.98] text-slate-950 font-bold text-xs rounded-xl shadow-lg transition-all cursor-pointer flex items-center justify-center gap-2 uppercase tracking-wider"
                     >
                       {isSubmittingLogin ? (
                         <RefreshCw className="w-4 h-4 animate-spin" />
@@ -3932,11 +3874,11 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
 
               {!isSidebarCollapsed && (
                 <div className="overflow-hidden flex-1">
-                  <h4 className="text-[11px] font-bold truncate text-slate-200 leading-tight group-hover/profileCard:text-[#D4AF37] transition-colors">
+                  <h4 className="text-[11px] font-bold truncate text-slate-200 leading-tight group-hover/profileCard:text-[#0075DE] transition-colors">
                     {currentUser.ownerName || currentUser.email}
                   </h4>
                   <div className="flex items-center gap-1 mt-0.5 font-mono text-[9px] text-slate-500 uppercase">
-                    <span className="text-[#D4AF37]">●</span>
+                    <span className="text-[#0075DE]">●</span>
                     <span className="truncate">{currentUser.role}</span>
                   </div>
                 </div>
@@ -4013,17 +3955,17 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                               isSidebarCollapsed ? "justify-center px-0" : "justify-between px-3"
                             } ${
                               isActive 
-                                ? "text-[#D4AF37] bg-slate-900 font-semibold" 
+                                ? "text-[#0075DE] bg-slate-900 font-semibold" 
                                 : "text-slate-400 hover:text-slate-200 hover:bg-slate-900/40"
                             }`}
                           >
                             {/* Razor-thin active indicator bar */}
                             {isActive && (
-                              <div className={`absolute top-0 bottom-0 w-0.5 bg-[#D4AF37] ${lang === "ar" ? "right-0" : "left-0"}`} />
+                              <div className={`absolute top-0 bottom-0 w-0.5 bg-[#0075DE] ${lang === "ar" ? "right-0" : "left-0"}`} />
                             )}
 
                             <div className={`flex items-center ${isSidebarCollapsed ? "justify-center" : "gap-2.5"}`}>
-                              <IconComponent className={`w-3.5 h-3.5 shrink-0 ${isActive ? "text-[#D4AF37]" : "text-slate-500 group-hover:text-slate-300"}`} />
+                              <IconComponent className={`w-3.5 h-3.5 shrink-0 ${isActive ? "text-[#0075DE]" : "text-slate-500 group-hover:text-slate-300"}`} />
                               {!isSidebarCollapsed && (
                                 <span className="truncate max-w-[130px] leading-tight text-[11px]">{item.label}</span>
                               )}
@@ -4051,7 +3993,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
               </div>
               <div className="flex items-center justify-between text-slate-500">
                 <span>TRIAL</span>
-                <span className="text-[#D4AF37]">{timeLeftStr}</span>
+                <span className="text-[#0075DE]">{timeLeftStr}</span>
               </div>
 
               {/* Language & Theme switches */}
@@ -4061,7 +4003,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                     <button
                       key={l}
                       onClick={() => toggleLanguage(l)}
-                      className={`px-1 py-0.5 text-[9px] font-bold ${lang === l ? "text-[#D4AF37]" : "text-slate-500 hover:text-slate-300"}`}
+                      className={`px-1 py-0.5 text-[9px] font-bold ${lang === l ? "text-[#0075DE]" : "text-slate-500 hover:text-slate-300"}`}
                     >
                       {l.toUpperCase()}
                     </button>
@@ -4073,7 +4015,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                     <button
                       key={th}
                       onClick={() => toggleTheme(th)}
-                      className={`px-1.5 py-0.5 text-[9px] font-bold ${theme === th ? "text-[#D4AF37]" : "text-slate-500 hover:text-slate-300"}`}
+                      className={`px-1.5 py-0.5 text-[9px] font-bold ${theme === th ? "text-[#0075DE]" : "text-slate-500 hover:text-slate-300"}`}
                     >
                       {th === "light" ? "LGT" : "DRK"}
                     </button>
@@ -4111,15 +4053,15 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                   className="md:hidden p-2 rounded-lg bg-slate-800/40 border border-slate-700/50 text-slate-300 hover:text-white"
                   aria-label="Toggle Mobile Sidebar"
                 >
-                  <Menu className="w-5 h-5 text-[#D4AF37]" />
+                  <Menu className="w-5 h-5 text-[#0075DE]" />
                 </button>
 
 
                 
                 {/* Visual Accent Subscription Badge */}
-                <div className="hidden sm:inline-flex items-center gap-1 px-2.5 py-0.5 bg-[#D4AF37]/15 border border-[#D4AF37]/30 rounded-full">
-                  <Award className="w-3 h-3 text-[#D4AF37]" />
-                  <span className="text-[10px] font-bold text-[#D4AF37] uppercase">{currentUser?.subscriptionPlan || "Starter"}</span>
+                <div className="hidden sm:inline-flex items-center gap-1 px-2.5 py-0.5 bg-[#0075DE]/15 border border-[#0075DE]/30 rounded-full">
+                  <Award className="w-3 h-3 text-[#0075DE]" />
+                  <span className="text-[10px] font-bold text-[#0075DE] uppercase">{currentUser?.subscriptionPlan || "Starter"}</span>
                 </div>
               </div>
 
@@ -4152,14 +4094,14 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                     <img 
                       src={currentUser.avatarUrl} 
                       alt={currentUser.ownerName || currentUser.email} 
-                      className="w-6 h-6 rounded-full object-cover border border-[#D4AF37]"
+                      className="w-6 h-6 rounded-full object-cover border border-[#0075DE]"
                     />
                   ) : (
-                    <div className="w-6 h-6 rounded-full bg-[#D4AF37] text-[#0F172A] font-black text-[10px] flex items-center justify-center">
+                    <div className="w-6 h-6 rounded-full bg-[#0075DE] text-[#0F172A] font-black text-[10px] flex items-center justify-center">
                       {(currentUser.ownerName || currentUser.email).slice(0, 2).toUpperCase()}
                     </div>
                   )}
-                  <span className="hidden md:inline text-xs font-bold text-white group-hover/topAvatar:text-[#D4AF37] transition-colors">
+                  <span className="hidden md:inline text-xs font-bold text-white group-hover/topAvatar:text-[#0075DE] transition-colors">
                     {currentUser.ownerName || currentUser.email.split("@")[0]}
                   </span>
                 </button>
@@ -4413,13 +4355,13 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                         }`}>
                           <div className={alignClass}>
                             <h1 className="text-3xl font-black tracking-tight flex items-center gap-2.5 flex-wrap">
-                              <span className="bg-gradient-to-r from-amber-200 via-[#D4AF37] to-amber-100 bg-clip-text text-transparent">
+                              <span className="bg-gradient-to-r from-amber-200 via-[#0075DE] to-amber-100 bg-clip-text text-transparent">
                                 {dl.welcome}
                               </span>
                               <span className={`text-xs font-bold px-2.5 py-0.5 rounded-full border shrink-0 ${
                                 theme === "dark" 
-                                  ? "bg-slate-900/80 border-[#D4AF37]/30 text-[#D4AF37]" 
-                                  : "bg-amber-50 border-[#D4AF37]/40 text-[#D4AF37]"
+                                  ? "bg-slate-900/80 border-[#0075DE]/30 text-[#0075DE]" 
+                                  : "bg-amber-50 border-[#0075DE]/40 text-[#0075DE]"
                               }`}>
                                 {currentUser?.role || "CEO"}
                               </span>
@@ -4430,7 +4372,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                           <div className={`flex items-center gap-3 ${isRtl ? "justify-start md:justify-end" : "justify-start"}`}>
                             <button 
                               onClick={() => setActiveTab("add")} 
-                              className="h-10 px-5 bg-[#D4AF37] hover:bg-[#B59410] text-slate-950 font-black text-xs rounded-xl flex items-center gap-2 shadow-md shadow-[#D4AF37]/10 hover:shadow-[#D4AF37]/20 transition-all cursor-pointer transform hover:-translate-y-0.5"
+                              className="h-10 px-5 bg-[#0075DE] hover:bg-[#005BAB] text-white font-black text-xs rounded-xl flex items-center gap-2 shadow-md shadow-[#0075DE]/10 hover:shadow-[#0075DE]/20 transition-all cursor-pointer transform hover:-translate-y-0.5"
                             >
                               <PlusCircle className="w-4 h-4 shrink-0" />
                               <span>{t.logMemoryBtn}</span>
@@ -4440,8 +4382,8 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                               onClick={() => { setActiveTab("smart"); runSmartAnalysis(); }} 
                               className={`h-10 px-5 border text-xs font-extrabold rounded-xl flex items-center gap-2 transition-all cursor-pointer transform hover:-translate-y-0.5 ${
                                 theme === "dark"
-                                  ? "bg-slate-900/60 border-[#D4AF37]/30 text-[#D4AF37] hover:border-[#D4AF37]/60 hover:bg-[#D4AF37]/10"
-                                  : "bg-white border-[#D4AF37]/40 text-[#D4AF37] hover:bg-[#D4AF37]/5"
+                                  ? "bg-slate-900/60 border-[#0075DE]/30 text-[#0075DE] hover:border-[#0075DE]/60 hover:bg-[#0075DE]/10"
+                                  : "bg-white border-[#0075DE]/40 text-[#0075DE] hover:bg-[#0075DE]/5"
                               }`}
                             >
                               <Brain className="w-4 h-4 shrink-0" />
@@ -4453,12 +4395,12 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                         {/* 2. EXECUTIVE CAUSAL INTELLIGENCE ASYMMETRICAL COMMAND BANNER */}
                         <div className={`p-6 rounded-2xl border relative overflow-hidden ${
                           theme === "dark"
-                            ? "bg-gradient-to-r from-slate-950 via-slate-900 to-slate-950 border-[#D4AF37]/20 shadow-2xl"
+                            ? "bg-gradient-to-r from-slate-950 via-slate-900 to-slate-950 border-[#0075DE]/20 shadow-2xl"
                             : "bg-gradient-to-r from-amber-50/60 via-white to-amber-50/60 border-amber-200 shadow-md"
                         }`}>
                           {/* Top-right accent gradient glow */}
                           <div className={`absolute top-0 right-0 w-96 h-96 rounded-full blur-3xl pointer-events-none ${
-                            theme === "dark" ? "bg-[#D4AF37]/5" : "bg-amber-100/40"
+                            theme === "dark" ? "bg-[#0075DE]/5" : "bg-amber-100/40"
                           }`} />
 
                           <div className="relative z-10 grid grid-cols-1 lg:grid-cols-3 gap-8 items-center">
@@ -4466,14 +4408,14 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                             <div className={`space-y-2 lg:border-r border-slate-800/80 pb-4 lg:pb-0 ${isRtl ? "lg:border-r-0 lg:border-l lg:pl-8 lg:pr-0" : "lg:pr-8"}`}>
                               <div className={`flex items-center gap-2 ${isRtl ? "justify-start" : "justify-start"}`}>
                                 <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shrink-0" />
-                                <span className="text-[10px] font-black uppercase tracking-widest text-[#D4AF37]">
+                                <span className="text-[10px] font-black uppercase tracking-widest text-[#0075DE]">
                                   {dl.activeContext}
                                 </span>
                               </div>
                               <h2 className={`text-xl font-extrabold flex items-center gap-2 ${
                                 theme === "dark" ? "text-slate-100" : "text-slate-800"
                               }`}>
-                                <Building2 className="w-5 h-5 text-[#D4AF37] shrink-0" />
+                                <Building2 className="w-5 h-5 text-[#0075DE] shrink-0" />
                                 <span className="truncate">{currentUser?.companyName || "Zakir Enterprise Core"}</span>
                               </h2>
                               <div className="flex items-center gap-2 text-xs text-slate-400">
@@ -4510,7 +4452,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                                 </span>
                                 <button
                                   onClick={() => setActiveTab("alerts")}
-                                  className="text-[10px] text-[#D4AF37] hover:underline font-extrabold"
+                                  className="text-[10px] text-[#0075DE] hover:underline font-extrabold"
                                 >
                                   {dl.viewAll}
                                 </button>
@@ -4538,7 +4480,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
 
                               <button
                                 onClick={() => { setActiveTab("smart"); runSmartAnalysis(); }}
-                                className="w-full py-1.5 bg-[#D4AF37]/15 hover:bg-[#D4AF37]/25 text-[#D4AF37] border border-[#D4AF37]/30 text-[11px] font-extrabold rounded-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                                className="w-full py-1.5 bg-[#0075DE]/15 hover:bg-[#0075DE]/25 text-[#0075DE] border border-[#0075DE]/30 text-[11px] font-extrabold rounded-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer"
                               >
                                 <Sparkles className="w-3.5 h-3.5 shrink-0" />
                                 <span>{dl.runSimulation}</span>
@@ -4555,16 +4497,16 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                             onClick={() => setActiveTab("library")}
                             className={`md:col-span-2 p-6 rounded-2xl border transition-all cursor-pointer group/kpi border-slate-800 flex flex-col justify-between ${
                               theme === "dark" 
-                                ? "bg-slate-900/40 hover:bg-slate-800/80 hover:border-[#D4AF37]/50 shadow-black/20" 
-                                : "bg-white hover:bg-slate-50 hover:border-[#D4AF37]/50 shadow-sm shadow-slate-100"
+                                ? "bg-slate-900/40 hover:bg-slate-800/80 hover:border-[#0075DE]/50 shadow-black/20" 
+                                : "bg-white hover:bg-slate-50 hover:border-[#0075DE]/50 shadow-sm shadow-slate-100"
                             }`}
                             title={dl.clickExplore}
                           >
                             <div className="flex items-center justify-between">
-                              <span className="text-[10px] text-[#D4AF37] font-black uppercase tracking-wider">
+                              <span className="text-[10px] text-[#0075DE] font-black uppercase tracking-wider">
                                 {dl.knowledgeWealth}
                               </span>
-                              <FileText className="w-4 h-4 text-slate-500 group-hover/kpi:text-[#D4AF37] transition-colors" />
+                              <FileText className="w-4 h-4 text-slate-500 group-hover/kpi:text-[#0075DE] transition-colors" />
                             </div>
 
                             <div className="grid grid-cols-2 gap-4 my-4">
@@ -4591,7 +4533,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                               </div>
                             </div>
 
-                            <div className="text-[11px] text-slate-400 group-hover/kpi:text-[#D4AF37] transition-colors font-medium border-t border-slate-800/50 pt-2.5 flex items-center justify-between">
+                            <div className="text-[11px] text-slate-400 group-hover/kpi:text-[#0075DE] transition-colors font-medium border-t border-slate-800/50 pt-2.5 flex items-center justify-between">
                               <span>{dl.clickExplore}</span>
                               <ChevronRight className={`w-3.5 h-3.5 transform group-hover/kpi:translate-x-1 transition-transform ${isRtl ? "rotate-180" : ""}`} />
                             </div>
@@ -4680,8 +4622,8 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                               <h3 className={`text-sm font-bold uppercase tracking-wider flex items-center gap-2 ${
                                 theme === "dark" ? "text-white" : "text-slate-900"
                               }`}>
-                                <span className="w-1.5 h-4 bg-[#D4AF37] rounded-full"></span>
-                                <TrendingUp className="w-4 h-4 text-[#D4AF37] shrink-0" />
+                                <span className="w-1.5 h-4 bg-[#0075DE] rounded-full"></span>
+                                <TrendingUp className="w-4 h-4 text-[#0075DE] shrink-0" />
                                 {dl.distributionHub}
                               </h3>
 
@@ -4704,7 +4646,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                                       title={type.label}
                                       className={`p-2 rounded-lg transition-all cursor-pointer ${
                                         isSelected
-                                          ? "bg-[#D4AF37] text-slate-950 shadow-md shadow-[#D4AF37]/20 font-bold"
+                                          ? "bg-[#0075DE] text-white shadow-md shadow-[#0075DE]/20 font-bold"
                                           : "text-slate-400 hover:text-white hover:bg-slate-800/50"
                                       }`}
                                     >
@@ -4743,9 +4685,9 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                                           fontSize: "12px"
                                         }} 
                                       />
-                                      <Bar dataKey="value" fill="#D4AF37" radius={[4, 4, 0, 0]}>
+                                      <Bar dataKey="value" fill="#0075DE" radius={[4, 4, 0, 0]}>
                                         {chartDataCategory.map((entry, index) => (
-                                          <Cell key={`cell-${index}`} fill={entry.color || (index % 2 === 0 ? "#D4AF37" : "#B59410")} />
+                                          <Cell key={`cell-${index}`} fill={entry.color || (index % 2 === 0 ? "#0075DE" : "#005BAB")} />
                                         ))}
                                       </Bar>
                                     </BarChart>
@@ -4766,18 +4708,18 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                                       <Line 
                                         type="natural" 
                                         dataKey="value" 
-                                        stroke="#D4AF37" 
+                                        stroke="#0075DE" 
                                         strokeWidth={3} 
-                                        dot={{ r: 5, fill: "#D4AF37", stroke: theme === "dark" ? "#0b0f19" : "#ffffff", strokeWidth: 2 }} 
-                                        activeDot={{ r: 7, fill: "#ffffff", stroke: "#D4AF37", strokeWidth: 2 }} 
+                                        dot={{ r: 5, fill: "#0075DE", stroke: theme === "dark" ? "#0b0f19" : "#ffffff", strokeWidth: 2 }} 
+                                        activeDot={{ r: 7, fill: "#ffffff", stroke: "#0075DE", strokeWidth: 2 }} 
                                       />
                                     </LineChart>
                                   ) : categoryChartType === "area" ? (
                                     <AreaChart data={chartDataCategory} margin={{ top: 10, right: 10, left: -25, bottom: 0 }}>
                                       <defs>
                                         <linearGradient id="colorValueCat" x1="0" y1="0" x2="0" y2="1">
-                                          <stop offset="5%" stopColor="#D4AF37" stopOpacity={0.4}/>
-                                          <stop offset="95%" stopColor="#D4AF37" stopOpacity={0.01}/>
+                                          <stop offset="5%" stopColor="#0075DE" stopOpacity={0.4}/>
+                                          <stop offset="95%" stopColor="#0075DE" stopOpacity={0.01}/>
                                         </linearGradient>
                                       </defs>
                                       <CartesianGrid strokeDasharray="3 3" stroke={theme === "dark" ? "#1e293b" : "#e2e8f0"} />
@@ -4795,7 +4737,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                                       <Area 
                                         type="natural" 
                                         dataKey="value" 
-                                        stroke="#D4AF37" 
+                                        stroke="#0075DE" 
                                         strokeWidth={3} 
                                         fillOpacity={1} 
                                         fill="url(#colorValueCat)" 
@@ -4822,7 +4764,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                                         dataKey="value"
                                       >
                                         {chartDataCategory.map((entry, index) => (
-                                          <Cell key={`cell-${index}`} fill={entry.color || ["#D4AF37", "#B59410", "#0D7A82", "#14B8A6", "#8B5CF6"][index % 5]} />
+                                          <Cell key={`cell-${index}`} fill={entry.color || ["#0075DE", "#005BAB", "#0D7A82", "#14B8A6", "#8B5CF6"][index % 5]} />
                                         ))}
                                       </Pie>
                                     </PieChart>
@@ -4853,8 +4795,8 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                               <h3 className={`text-sm font-bold uppercase tracking-wider mb-6 flex items-center gap-2 ${
                                 theme === "dark" ? "text-white" : "text-slate-900"
                               }`}>
-                                <span className="w-1.5 h-4 bg-[#D4AF37] rounded-full"></span>
-                                <Brain className="w-4 h-4 text-[#D4AF37] shrink-0" />
+                                <span className="w-1.5 h-4 bg-[#0075DE] rounded-full"></span>
+                                <Brain className="w-4 h-4 text-[#0075DE] shrink-0" />
                                 {dl.quickHeuristics}
                               </h3>
 
@@ -4872,9 +4814,9 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                               ) : (
                                 <div className="space-y-4">
                                   <div className={`p-3.5 rounded-xl border ${
-                                    theme === "dark" ? "bg-[#D4AF37]/5 border-[#D4AF37]/20" : "bg-amber-50/50 border-amber-200"
+                                    theme === "dark" ? "bg-[#0075DE]/5 border-[#0075DE]/20" : "bg-amber-50/50 border-amber-200"
                                   }`}>
-                                    <h4 className="text-xs font-black text-[#D4AF37]">{isRtl ? "فجوة متكررة في مخاطر الصرف الأجنبي" : "Recurring Forex risk gap detected"}</h4>
+                                    <h4 className="text-xs font-black text-[#0075DE]">{isRtl ? "فجوة متكررة في مخاطر الصرف الأجنبي" : "Recurring Forex risk gap detected"}</h4>
                                     <p className="text-xs text-slate-400 mt-1.5 leading-relaxed">
                                       {isRtl 
                                         ? "يشير تكرار حوادث الخسارة السابقة إلى ضرورة تثبيت الحد الأدنى للتحوط عند 70%، مما يقضي على التفاوت تماماً." 
@@ -4900,8 +4842,8 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                               onClick={() => setActiveTab("smart")}
                               className={`w-full h-10 mt-6 border text-xs font-bold rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
                                 theme === "dark"
-                                  ? "border-slate-800 hover:border-[#D4AF37]/40 text-slate-400 hover:text-[#D4AF37]"
-                                  : "border-slate-200 hover:border-[#D4AF37]/40 text-slate-500 hover:text-[#D4AF37]"
+                                  ? "border-slate-800 hover:border-[#0075DE]/40 text-slate-400 hover:text-[#0075DE]"
+                                  : "border-slate-200 hover:border-[#0075DE]/40 text-slate-500 hover:text-[#0075DE]"
                               }`}
                             >
                               <span>{dl.viewFull}</span>
@@ -4930,7 +4872,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                               </h3>
                               <button
                                 onClick={() => setActiveTab("alerts")}
-                                className="text-xs font-bold text-[#D4AF37] hover:underline cursor-pointer"
+                                className="text-xs font-bold text-[#0075DE] hover:underline cursor-pointer"
                               >
                                 {dl.viewAll}
                               </button>
@@ -4985,8 +4927,8 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                             <h3 className={`text-sm font-bold uppercase tracking-wider mb-4 flex items-center gap-2 ${
                               theme === "dark" ? "text-white" : "text-slate-900"
                             }`}>
-                              <span className="w-1.5 h-4 bg-[#D4AF37] rounded-full"></span>
-                              <Users className="w-4.5 h-4.5 text-[#D4AF37] shrink-0" />
+                              <span className="w-1.5 h-4 bg-[#0075DE] rounded-full"></span>
+                              <Users className="w-4.5 h-4.5 text-[#0075DE] shrink-0" />
                               {dl.recentLogs}
                             </h3>
 
@@ -5006,11 +4948,11 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                                 {metrics.slice(0, 4).map((m) => (
                                   <div key={m.id} className="relative flex items-start gap-3">
                                     {/* Bullet point alignment dynamically adapted */}
-                                    <div className="absolute -right-5.5 mt-1.5 w-2.5 h-2.5 rounded-full bg-[#D4AF37] border-2 border-[#0F172A] z-10"></div>
+                                    <div className="absolute -right-5.5 mt-1.5 w-2.5 h-2.5 rounded-full bg-[#0075DE] border-2 border-[#0F172A] z-10"></div>
                                     
                                     <div className={alignClass}>
                                       <div className={`flex items-center gap-2 flex-wrap ${isRtl ? "justify-start" : "justify-start"}`}>
-                                        <span className="text-xs font-black text-[#D4AF37] uppercase tracking-wider">{m.actionType}</span>
+                                        <span className="text-xs font-black text-[#0075DE] uppercase tracking-wider">{m.actionType}</span>
                                         <span className="text-[10px] text-slate-500 font-mono">
                                           {new Date(m.createdAt).toLocaleDateString()}
                                         </span>
@@ -5061,7 +5003,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
 
                       <button 
                         onClick={() => setActiveTab("add")} 
-                        className="h-10 px-4 bg-[#D4AF37] hover:bg-[#B59410] text-white font-bold text-xs rounded-lg flex items-center gap-1.5 transition-all cursor-pointer"
+                        className="h-10 px-4 bg-[#0075DE] hover:bg-[#005BAB] text-white font-bold text-xs rounded-lg flex items-center gap-1.5 transition-all cursor-pointer"
                       >
                         <PlusCircle className="w-4 h-4" />
                         <span>{t.logMemoryBtn}</span>
@@ -5080,7 +5022,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
                         placeholder={t.searchPlaceholder}
-                        className={`w-full h-10 pr-10 pl-3 border rounded-lg text-xs focus:outline-none focus:border-[#D4AF37] focus:ring-1 focus:ring-[#D4AF37]/20 ${
+                        className={`w-full h-10 pr-10 pl-3 border rounded-lg text-xs focus:outline-none focus:border-[#0075DE] focus:ring-1 focus:ring-[#0075DE]/20 ${
                           theme === "dark" ? "bg-slate-950 border-slate-800 text-white" : "bg-slate-50 border-slate-200 text-slate-800"
                         }`}
                       />
@@ -5091,7 +5033,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                         type="button"
                         id="category-multiselect-toggle"
                         onClick={() => setIsCategoryDropdownOpen(!isCategoryDropdownOpen)}
-                        className={`w-full h-10 px-3 border rounded-lg text-xs flex items-center justify-between cursor-pointer focus:outline-none focus:border-[#D4AF37] ${
+                        className={`w-full h-10 px-3 border rounded-lg text-xs flex items-center justify-between cursor-pointer focus:outline-none focus:border-[#0075DE] ${
                           theme === "dark" ? "bg-slate-950 border-slate-800 text-slate-300" : "bg-slate-50 border-slate-200 text-slate-700"
                         }`}
                       >
@@ -5124,7 +5066,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                               <button
                                 type="button"
                                 onClick={() => setSelectedCategories([])}
-                                className="text-[#D4AF37] hover:underline cursor-pointer"
+                                className="text-[#0075DE] hover:underline cursor-pointer"
                               >
                                 {lang === "ar" ? "كل الأقسام" : lang === "fr" ? "Afficher tout" : "Show All"}
                               </button>
@@ -5158,7 +5100,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                                           setSelectedCategories([...selectedCategories, cat]);
                                         }
                                       }}
-                                      className="rounded border-slate-300 dark:border-slate-700 text-[#D4AF37] focus:ring-[#D4AF37] cursor-pointer"
+                                      className="rounded border-slate-300 dark:border-slate-700 text-[#0075DE] focus:ring-[#0075DE] cursor-pointer"
                                     />
                                     <span className="truncate select-none">{cat}</span>
                                   </label>
@@ -5174,7 +5116,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                       <select
                         value={sortBy}
                         onChange={(e) => setSortBy(e.target.value as any)}
-                        className={`w-full h-10 px-3 border rounded-lg text-xs focus:outline-none focus:border-[#D4AF37] ${
+                        className={`w-full h-10 px-3 border rounded-lg text-xs focus:outline-none focus:border-[#0075DE] ${
                           theme === "dark" ? "bg-slate-950 border-slate-800 text-slate-300" : "bg-slate-50 border-slate-200 text-slate-700"
                         }`}
                       >
@@ -5222,8 +5164,8 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                               isMemoryLocked
                                 ? "bg-slate-950/80 border-amber-500/30 hover:border-amber-500/50"
                                 : theme === "dark" 
-                                  ? "bg-slate-900/20 border-slate-800/60 hover:border-[#D4AF37]/30" 
-                                  : "bg-white border-slate-200 hover:border-[#D4AF37]/30 shadow-sm"
+                                  ? "bg-slate-900/20 border-slate-800/60 hover:border-[#0075DE]/30" 
+                                  : "bg-white border-slate-200 hover:border-[#0075DE]/30 shadow-sm"
                             }`}
                           >
                             {/* Card Header & Body clickable to expand */}
@@ -5240,7 +5182,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                                         <span>{lang === "ar" ? "ذكرى مشفرة" : "Encrypted Memory"}</span>
                                       </span>
                                     )}
-                                    <span className="text-[9px] px-2 py-0.5 rounded font-black tracking-wider uppercase bg-[#D4AF37]/10 text-[#D4AF37] border border-[#D4AF37]/15">
+                                    <span className="text-[9px] px-2 py-0.5 rounded font-black tracking-wider uppercase bg-[#0075DE]/10 text-[#0075DE] border border-[#0075DE]/15">
                                       {m.category}
                                     </span>
                                     <span className={`text-[9px] px-2 py-0.5 rounded font-black uppercase ${getSeverityBadgeClass(m.riskLevel)}`}>
@@ -5254,7 +5196,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                                 </div>
 
                                 <div className="flex items-center gap-3 shrink-0">
-                                  <span className="text-[11px] text-[#D4AF37] font-bold hover:underline flex items-center gap-1">
+                                  <span className="text-[11px] text-[#0075DE] font-bold hover:underline flex items-center gap-1">
                                     {isMemoryLocked && !isUnlocked && <Lock className="w-3 h-3 text-amber-400" />}
                                     <span>{isExpanded ? (lang === "ar" ? "طي التفاصيل" : "Collapse Details") : (isMemoryLocked && !isUnlocked ? (lang === "ar" ? "فك التشفير والعرض" : "Unlock & View") : (lang === "ar" ? "عرض التفاصيل" : "View Details"))}</span>
                                   </span>
@@ -5479,7 +5421,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                   id="add-memory-view"
                 >
                   <div className="text-center space-y-1">
-                    <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#D4AF37]/10 border border-[#D4AF37]/30 text-[#D4AF37] text-xs font-bold uppercase tracking-widest">
+                    <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#0075DE]/10 border border-[#0075DE]/30 text-[#0075DE] text-xs font-bold uppercase tracking-widest">
                       <Sparkles className="w-3.5 h-3.5" />
                       <span>{lang === "ar" ? "معمارية حفظ الذكريات المؤسسية" : "Institutional Memory Vault"}</span>
                     </div>
@@ -5515,7 +5457,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                             }}
                             className={`flex flex-col items-center gap-1.5 p-2 rounded-xl transition-all cursor-pointer text-center relative ${
                               isCurrent
-                                ? "bg-[#D4AF37]/15 border border-[#D4AF37]/40 text-[#D4AF37] font-bold"
+                                ? "bg-[#0075DE]/15 border border-[#0075DE]/40 text-[#0075DE] font-bold"
                                 : isDone
                                 ? "text-emerald-400 hover:bg-emerald-500/10"
                                 : "text-slate-500 hover:text-slate-300"
@@ -5523,7 +5465,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                           >
                             <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-black transition-all ${
                               isCurrent
-                                ? "bg-[#D4AF37] text-slate-950 shadow-md shadow-[#D4AF37]/20"
+                                ? "bg-[#0075DE] text-white shadow-md shadow-[#0075DE]/20"
                                 : isDone
                                 ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/40"
                                 : "bg-slate-800 text-slate-400 border border-slate-700"
@@ -5558,8 +5500,8 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                     {formStep === 1 && (
                       <motion.div initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} className="space-y-4">
                         <div className="border-b border-slate-800/80 pb-3 flex items-center justify-between">
-                          <h3 className="text-xs font-bold uppercase tracking-wider text-[#D4AF37] flex items-center gap-2">
-                            <span className="w-6 h-6 rounded-full bg-[#D4AF37]/20 text-[#D4AF37] flex items-center justify-center text-[10px] font-black">1</span>
+                          <h3 className="text-xs font-bold uppercase tracking-wider text-[#0075DE] flex items-center gap-2">
+                            <span className="w-6 h-6 rounded-full bg-[#0075DE]/20 text-[#0075DE] flex items-center justify-center text-[10px] font-black">1</span>
                             {lang === "ar" ? "عنوان الحدث والتصنيف الميداني" : "Event Title & Primary Category"}
                           </h3>
                           <span className="text-[10px] text-slate-400 font-mono">{lang === "ar" ? "الخطوة 1 من 4" : "Step 1 of 4"}</span>
@@ -5571,7 +5513,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                             type="text" 
                             value={newTitle}
                             onChange={(e) => setNewTitle(e.target.value)}
-                            className={`w-full h-11 px-3.5 border rounded-xl text-xs focus:outline-none focus:border-[#D4AF37] focus:ring-1 focus:ring-[#D4AF37]/20 ${
+                            className={`w-full h-11 px-3.5 border rounded-xl text-xs focus:outline-none focus:border-[#0075DE] focus:ring-1 focus:ring-[#0075DE]/20 ${
                               theme === "dark" ? "bg-slate-950 border-slate-800 text-white" : "bg-slate-50 border-slate-200 text-slate-850"
                             }`}
                             placeholder={lang === "ar" ? "مثال: قرار التحوط المالي لعقود توريد المعدات الطبية 2026" : "e.g. Foreign Exchange Hedging Decision for Q3 Equipment Supplies"}
@@ -5590,7 +5532,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                                   setCustomNewCategory("");
                                 }
                               }}
-                              className={`w-full h-11 px-3 border rounded-xl text-xs focus:outline-none focus:border-[#D4AF37] ${
+                              className={`w-full h-11 px-3 border rounded-xl text-xs focus:outline-none focus:border-[#0075DE] ${
                                 theme === "dark" ? "bg-slate-950 border-slate-800 text-slate-300" : "bg-slate-50 border-slate-200 text-slate-700"
                               }`}
                             >
@@ -5605,7 +5547,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                                 type="text"
                                 value={customNewCategory}
                                 onChange={(e) => setCustomNewCategory(e.target.value)}
-                                className={`w-full h-11 px-3.5 mt-2 border rounded-xl text-xs focus:outline-none focus:border-[#D4AF37] focus:ring-1 focus:ring-[#D4AF37]/20 ${
+                                className={`w-full h-11 px-3.5 mt-2 border rounded-xl text-xs focus:outline-none focus:border-[#0075DE] focus:ring-1 focus:ring-[#0075DE]/20 ${
                                   theme === "dark" ? "bg-slate-950 border-slate-800 text-white" : "bg-slate-50 border-slate-200 text-slate-850"
                                 }`}
                                 placeholder={lang === "ar" ? "اكتب التصنيف المخصص هنا..." : "Enter custom category..."}
@@ -5619,7 +5561,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                             <select 
                               value={newRiskLevel}
                               onChange={(e) => setNewRiskLevel(e.target.value as any)}
-                              className={`w-full h-11 px-3 border rounded-xl text-xs focus:outline-none focus:border-[#D4AF37] ${
+                              className={`w-full h-11 px-3 border rounded-xl text-xs focus:outline-none focus:border-[#0075DE] ${
                                 theme === "dark" ? "bg-slate-950 border-slate-800 text-slate-300" : "bg-slate-50 border-slate-200 text-slate-700"
                               }`}
                             >
@@ -5637,7 +5579,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                             type="text" 
                             value={newTags}
                             onChange={(e) => setNewTags(e.target.value)}
-                            className={`w-full h-11 px-3.5 border rounded-xl text-xs focus:outline-none focus:border-[#D4AF37] focus:ring-1 focus:ring-[#D4AF37]/20 ${
+                            className={`w-full h-11 px-3.5 border rounded-xl text-xs focus:outline-none focus:border-[#0075DE] focus:ring-1 focus:ring-[#0075DE]/20 ${
                               theme === "dark" ? "bg-slate-950 border-slate-800 text-white" : "bg-slate-50 border-slate-200 text-slate-850"
                             }`}
                             placeholder={lang === "ar" ? "مثال: عقوبات، تفتيش، صرف، تحوط" : "e.g. hedging, sanctions, fx, logistics"}
@@ -5655,7 +5597,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                               setFormError("");
                               setFormStep(2);
                             }}
-                            className="px-6 py-2.5 bg-[#D4AF37] hover:bg-[#B59410] text-slate-950 font-bold text-xs rounded-xl flex items-center gap-1.5 cursor-pointer shadow-md"
+                            className="px-6 py-2.5 bg-[#0075DE] hover:bg-[#005BAB] text-white font-bold text-xs rounded-xl flex items-center gap-1.5 cursor-pointer shadow-md"
                           >
                             <span>{lang === "ar" ? "التالي: سرد القرار" : (lang === "fr" ? "Suivant: Contexte & Décision" : "Next: Context & Decision")}</span>
                             <ArrowRight className="w-4 h-4" />
@@ -5668,8 +5610,8 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                     {formStep === 2 && (
                       <motion.div initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} className="space-y-4">
                         <div className="border-b border-slate-800/80 pb-3 flex items-center justify-between">
-                          <h3 className="text-xs font-bold uppercase tracking-wider text-[#D4AF37] flex items-center gap-2">
-                            <span className="w-6 h-6 rounded-full bg-[#D4AF37]/20 text-[#D4AF37] flex items-center justify-center text-[10px] font-black">2</span>
+                          <h3 className="text-xs font-bold uppercase tracking-wider text-[#0075DE] flex items-center gap-2">
+                            <span className="w-6 h-6 rounded-full bg-[#0075DE]/20 text-[#0075DE] flex items-center justify-center text-[10px] font-black">2</span>
                             {lang === "ar" ? "سرد الحدث والقرار المتخذ" : (lang === "fr" ? "Contexte Narratif & Action Stratégique" : "Narrative Context & Strategic Action")}
                           </h3>
                           <span className="text-[10px] text-slate-400 font-mono">{lang === "ar" ? "الخطوة 2 من 4" : (lang === "fr" ? "Étape 2 sur 4" : "Step 2 of 4")}</span>
@@ -5680,7 +5622,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                           <textarea 
                             value={newDescription}
                             onChange={(e) => setNewDescription(e.target.value)}
-                            className={`w-full h-28 p-3 border rounded-xl text-xs focus:outline-none focus:border-[#D4AF37] focus:ring-1 focus:ring-[#D4AF37]/20 ${
+                            className={`w-full h-28 p-3 border rounded-xl text-xs focus:outline-none focus:border-[#0075DE] focus:ring-1 focus:ring-[#0075DE]/20 ${
                               theme === "dark" ? "bg-slate-950 border-slate-800 text-white" : "bg-slate-50 border-slate-200 text-slate-850"
                             }`}
                             placeholder={lang === "ar" ? "صف الظروف والبيئة التشغيلية أو السوقية كما حدثت بالظبط..." : (lang === "fr" ? "Détaillez le contexte opérationnel exact et les événements déclencheurs..." : "Detail the exact operational background and triggering events...")}
@@ -5693,7 +5635,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                           <textarea 
                             value={newDecision}
                             onChange={(e) => setNewDecision(e.target.value)}
-                            className={`w-full h-24 p-3 border rounded-xl text-xs focus:outline-none focus:border-[#D4AF37] focus:ring-1 focus:ring-[#D4AF37]/20 ${
+                            className={`w-full h-24 p-3 border rounded-xl text-xs focus:outline-none focus:border-[#0075DE] focus:ring-1 focus:ring-[#0075DE]/20 ${
                               theme === "dark" ? "bg-slate-950 border-slate-800 text-white" : "bg-slate-50 border-slate-200 text-slate-850"
                             }`}
                             placeholder={lang === "ar" ? "ما هو القرار المحدد الذي اتخذته الإدارة، ولماذا..." : (lang === "fr" ? "Quelle directive stratégique a été autorisée et mise en œuvre..." : "What specific executive directive was authorized and implemented...")}
@@ -5721,7 +5663,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                               setFormError("");
                               setFormStep(3);
                             }}
-                            className="px-6 py-2.5 bg-[#D4AF37] hover:bg-[#B59410] text-slate-950 font-bold text-xs rounded-xl flex items-center gap-1.5 cursor-pointer shadow-md"
+                            className="px-6 py-2.5 bg-[#0075DE] hover:bg-[#005BAB] text-white font-bold text-xs rounded-xl flex items-center gap-1.5 cursor-pointer shadow-md"
                           >
                             <span>{lang === "ar" ? "التالي: تحليل المسببات" : (lang === "fr" ? "Suivant: Facteurs Causaux" : "Next: Causal Factors")}</span>
                             <ArrowRight className="w-4 h-4" />
@@ -5734,8 +5676,8 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                     {formStep === 3 && (
                       <motion.div initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} className="space-y-4">
                         <div className="border-b border-slate-800/80 pb-3 flex items-center justify-between">
-                          <h3 className="text-xs font-bold uppercase tracking-wider text-[#D4AF37] flex items-center gap-2">
-                            <span className="w-6 h-6 rounded-full bg-[#D4AF37]/20 text-[#D4AF37] flex items-center justify-center text-[10px] font-black">3</span>
+                          <h3 className="text-xs font-bold uppercase tracking-wider text-[#0075DE] flex items-center gap-2">
+                            <span className="w-6 h-6 rounded-full bg-[#0075DE]/20 text-[#0075DE] flex items-center justify-center text-[10px] font-black">3</span>
                             {lang === "ar" ? "العوامل المسببة والنتائج المترتبة" : (lang === "fr" ? "Facteurs Causaux Racine & Résultats Directs" : "Root Causal Factors & Direct Outcomes")}
                           </h3>
                           <span className="text-[10px] text-slate-400 font-mono">{lang === "ar" ? "الخطوة 3 من 4" : (lang === "fr" ? "Étape 3 sur 4" : "Step 3 of 4")}</span>
@@ -5747,7 +5689,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                             <textarea 
                               value={newCausal}
                               onChange={(e) => setNewCausal(e.target.value)}
-                              className={`w-full h-28 p-3 border rounded-xl text-xs focus:outline-none focus:border-[#D4AF37] focus:ring-1 focus:ring-[#D4AF37]/20 ${
+                              className={`w-full h-28 p-3 border rounded-xl text-xs focus:outline-none focus:border-[#0075DE] focus:ring-1 focus:ring-[#0075DE]/20 ${
                                 theme === "dark" ? "bg-slate-950 border-slate-800 text-white" : "bg-slate-50 border-slate-200 text-slate-850"
                               }`}
                               placeholder={lang === "ar" ? "ما الاختناقات أو الثغرات أو الضغوط الخارجية التي أدت لهذه النتيجة..." : (lang === "fr" ? "Décrivez les goulots d'étranglement, décalages de marché ou failles d'exécution..." : "Outline root cause bottlenecks, market shifts, or internal execution gaps...")}
@@ -5759,7 +5701,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                             <textarea 
                               value={newOutcomes}
                               onChange={(e) => setNewOutcomes(e.target.value)}
-                              className={`w-full h-28 p-3 border rounded-xl text-xs focus:outline-none focus:border-[#D4AF37] focus:ring-1 focus:ring-[#D4AF37]/20 ${
+                              className={`w-full h-28 p-3 border rounded-xl text-xs focus:outline-none focus:border-[#0075DE] focus:ring-1 focus:ring-[#0075DE]/20 ${
                                 theme === "dark" ? "bg-slate-950 border-slate-800 text-white" : "bg-slate-50 border-slate-200 text-slate-850"
                               }`}
                               placeholder={lang === "ar" ? "التأثيرات المالية، التأخيرات الميدانية، أو النتائج المباشرة..." : (lang === "fr" ? "Impacts financiers, juridiques ou opérationnels quantifiables observés..." : "Quantifiable financial, legal, or operational impacts observed...")}
@@ -5783,7 +5725,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                               setFormError("");
                               setFormStep(4);
                             }}
-                            className="px-6 py-2.5 bg-[#D4AF37] hover:bg-[#B59410] text-slate-950 font-bold text-xs rounded-xl flex items-center gap-1.5 cursor-pointer shadow-md"
+                            className="px-6 py-2.5 bg-[#0075DE] hover:bg-[#005BAB] text-white font-bold text-xs rounded-xl flex items-center gap-1.5 cursor-pointer shadow-md"
                           >
                             <span>{lang === "ar" ? "التالي: الدروس والتأمين" : (lang === "fr" ? "Suivant: Leçons & Sécurité" : "Next: Lessons & Passcode")}</span>
                             <ArrowRight className="w-4 h-4" />
@@ -5796,8 +5738,8 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                     {formStep === 4 && (
                       <motion.div initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} className="space-y-4">
                         <div className="border-b border-slate-800/80 pb-3 flex items-center justify-between">
-                          <h3 className="text-xs font-bold uppercase tracking-wider text-[#D4AF37] flex items-center gap-2">
-                            <span className="w-6 h-6 rounded-full bg-[#D4AF37]/20 text-[#D4AF37] flex items-center justify-center text-[10px] font-black">4</span>
+                          <h3 className="text-xs font-bold uppercase tracking-wider text-[#0075DE] flex items-center gap-2">
+                            <span className="w-6 h-6 rounded-full bg-[#0075DE]/20 text-[#0075DE] flex items-center justify-center text-[10px] font-black">4</span>
                             {lang === "ar" ? "الدروس المستفادة والتأمين السري" : (lang === "fr" ? "Leçons Apprises & Paramètres de Sécurité" : "Lessons Learned & Security Settings")}
                           </h3>
                           <span className="text-[10px] text-slate-400 font-mono">{lang === "ar" ? "الخطوة 4 من 4" : (lang === "fr" ? "Étape 4 sur 4" : "Step 4 of 4")}</span>
@@ -5808,7 +5750,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                           <textarea 
                             value={newLessons}
                             onChange={(e) => setNewLessons(e.target.value)}
-                            className={`w-full h-28 p-3 border rounded-xl text-xs focus:outline-none focus:border-[#D4AF37] focus:ring-1 focus:ring-[#D4AF37]/20 ${
+                            className={`w-full h-28 p-3 border rounded-xl text-xs focus:outline-none focus:border-[#0075DE] focus:ring-1 focus:ring-[#0075DE]/20 ${
                               theme === "dark" ? "bg-slate-950 border-slate-800 text-white" : "bg-slate-50 border-slate-200 text-slate-850"
                             }`}
                             placeholder={lang === "ar" ? "ما القواعد أو البروتوكولات الجديدة المستخلصة لمنع التكرار مستقبلاً..." : (lang === "fr" ? "Protocole institutionnel ou règles de gestion à appliquer à l'avenir..." : "Key institutional protocols or workflow rules to enforce going forward...")}
@@ -5851,7 +5793,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                           <button 
                             type="submit" 
                             disabled={isSubmittingMemory}
-                            className="px-8 py-3 bg-[#D4AF37] hover:bg-[#B59410] active:bg-[#967B0C] disabled:bg-slate-800 disabled:text-slate-500 text-slate-950 font-black text-xs rounded-xl transition-all shadow-lg shadow-[#D4AF37]/20 cursor-pointer flex items-center justify-center gap-2"
+                            className="px-8 py-3 bg-[#0075DE] hover:bg-[#005BAB] active:bg-[#004585] disabled:bg-slate-800 disabled:text-slate-500 text-slate-950 font-black text-xs rounded-xl transition-all shadow-lg shadow-[#0075DE]/20 cursor-pointer flex items-center justify-center gap-2"
                           >
                             {isSubmittingMemory ? (
                               <>
@@ -5921,7 +5863,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                     <button
                       onClick={runSmartAnalysis}
                       disabled={isSmartAnalyzing}
-                      className="h-10 px-5 bg-[#D4AF37] hover:bg-[#B59410] disabled:bg-slate-800 text-white disabled:text-slate-500 font-bold text-xs rounded-lg flex items-center gap-2 shadow-sm transition-all cursor-pointer"
+                      className="h-10 px-5 bg-[#0075DE] hover:bg-[#005BAB] disabled:bg-slate-800 text-white disabled:text-slate-500 font-bold text-xs rounded-lg flex items-center gap-2 shadow-sm transition-all cursor-pointer"
                     >
                       {isSmartAnalyzing ? (
                         <>
@@ -5940,7 +5882,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                   {/* Operational AI Diagnostic KPI Banner */}
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                     {[
-                      { label: t.totalMemories, value: memories.length, icon: FileText, color: "text-[#D4AF37]", bg: "bg-[#D4AF37]/10" },
+                      { label: t.totalMemories, value: memories.length, icon: FileText, color: "text-[#0075DE]", bg: "bg-[#0075DE]/10" },
                       { label: t.activeRisks, value: riskAlerts.filter((a: any) => a.status === "Active" || a.status === "نشط" || a.status === "actif").length, icon: ShieldAlert, color: "text-rose-500", bg: "bg-rose-500/10" },
                       { label: t.smartMetrics.opportunities, value: smartData?.opportunitiesList ? smartData.opportunitiesList.length : (memories.length === 0 ? 0 : memories.length), icon: Compass, color: "text-blue-500", bg: "bg-blue-500/10" },
                       { label: t.smartMetrics.recommendations, value: smartData?.recommendationsList ? smartData.recommendationsList.length : (memories.length === 0 ? 0 : memories.length), icon: CheckCircle, color: "text-emerald-500", bg: "bg-emerald-500/10" }
@@ -5964,7 +5906,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                   <div className={`p-5 rounded-xl border ${
                     theme === "dark" ? "bg-slate-900/10 border-slate-800/80" : "bg-white border-slate-200 shadow-sm"
                   }`}>
-                    <h3 className="text-xs font-bold uppercase tracking-wider text-[#D4AF37] mb-2">{t.executiveSummary}</h3>
+                    <h3 className="text-xs font-bold uppercase tracking-wider text-[#0075DE] mb-2">{t.executiveSummary}</h3>
                     <p className={`text-xs leading-relaxed font-serif ${smartData?.error ? "text-rose-500 font-bold" : (theme === "dark" ? "text-slate-300" : "text-slate-600")}`}>
                       {smartData?.error ? (
                         smartData.error
@@ -5996,7 +5938,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                           onClick={() => setSmartActiveSubTab(subTab.id as any)}
                           className={`h-11 px-4 text-xs font-bold transition-all border-b-2 cursor-pointer ${
                             smartActiveSubTab === subTab.id
-                              ? "border-[#D4AF37] text-[#D4AF37]"
+                              ? "border-[#0075DE] text-[#0075DE]"
                               : "border-transparent text-slate-400 hover:text-white"
                           }`}
                         >
@@ -6030,9 +5972,9 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                                 theme === "dark" ? "bg-slate-900/20 border-slate-800/60" : "bg-white border-slate-200 shadow-sm"
                               }`}>
                                 <div className="flex items-center justify-between flex-wrap gap-2 mb-1">
-                                  <h4 className="text-xs font-bold text-[#D4AF37]">{p.title}</h4>
+                                  <h4 className="text-xs font-bold text-[#0075DE]">{p.title}</h4>
                                   <div className="flex items-center gap-2">
-                                    <span className="text-[10px] bg-[#D4AF37]/10 text-[#D4AF37] px-2 py-0.5 rounded font-bold">{p.timeframe}</span>
+                                    <span className="text-[10px] bg-[#0075DE]/10 text-[#0075DE] px-2 py-0.5 rounded font-bold">{p.timeframe}</span>
                                     <span className="text-[10px] bg-rose-500/10 text-rose-500 px-2 py-0.5 rounded font-bold">{p.impact}</span>
                                   </div>
                                 </div>
@@ -6128,7 +6070,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                           type="text"
                           value={marketTopic}
                           onChange={(e) => setMarketTopic(e.target.value)}
-                          className={`w-full h-11 px-3.5 border rounded-lg text-xs focus:outline-none focus:border-[#D4AF37] focus:ring-1 focus:ring-[#D4AF37]/20 ${
+                          className={`w-full h-11 px-3.5 border rounded-lg text-xs focus:outline-none focus:border-[#0075DE] focus:ring-1 focus:ring-[#0075DE]/20 ${
                             theme === "dark" ? "bg-slate-950 border-slate-800 text-white" : "bg-slate-50 border-slate-200 text-slate-850"
                           }`}
                           placeholder={t.marketTopicPlaceholder}
@@ -6146,7 +6088,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                               setCustomMarketIndustry("");
                             }
                           }}
-                          className={`w-full h-10 px-3 border rounded-lg text-xs focus:outline-none focus:border-[#D4AF37] ${
+                          className={`w-full h-10 px-3 border rounded-lg text-xs focus:outline-none focus:border-[#0075DE] ${
                             theme === "dark" ? "bg-slate-950 border-slate-800 text-slate-300" : "bg-slate-50 border-slate-200 text-slate-700"
                           }`}
                         >
@@ -6160,7 +6102,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                             type="text"
                             value={customMarketIndustry}
                             onChange={(e) => setCustomMarketIndustry(e.target.value)}
-                            className={`w-full h-11 px-3.5 mt-2 border rounded-lg text-xs focus:outline-none focus:border-[#D4AF37] focus:ring-1 focus:ring-[#D4AF37]/20 ${
+                            className={`w-full h-11 px-3.5 mt-2 border rounded-lg text-xs focus:outline-none focus:border-[#0075DE] focus:ring-1 focus:ring-[#0075DE]/20 ${
                               theme === "dark" ? "bg-slate-950 border-slate-800 text-white" : "bg-slate-50 border-slate-200 text-slate-850"
                             }`}
                             placeholder={lang === "ar" ? "اكتب القطاع هنا..." : "Enter custom industry..."}
@@ -6176,7 +6118,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                         type="text"
                         value={marketContext}
                         onChange={(e) => setMarketContext(e.target.value)}
-                        className={`w-full h-11 px-3.5 border rounded-lg text-xs focus:outline-none focus:border-[#D4AF37] focus:ring-1 focus:ring-[#D4AF37]/20 ${
+                        className={`w-full h-11 px-3.5 border rounded-lg text-xs focus:outline-none focus:border-[#0075DE] focus:ring-1 focus:ring-[#0075DE]/20 ${
                           theme === "dark" ? "bg-slate-950 border-slate-800 text-white" : "bg-slate-50 border-slate-200 text-slate-850"
                         }`}
                         placeholder={t.marketContextPlaceholder}
@@ -6186,7 +6128,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                     <button
                       type="submit"
                       disabled={isMarketAnalyzing || !marketTopic}
-                      className="w-full h-11 bg-[#D4AF37] hover:bg-[#B59410] disabled:bg-slate-800 text-white disabled:text-slate-500 font-bold text-xs rounded-lg transition-all shadow-md flex items-center justify-center gap-1.5 cursor-pointer"
+                      className="w-full h-11 bg-[#0075DE] hover:bg-[#005BAB] disabled:bg-slate-800 text-white disabled:text-slate-500 font-bold text-xs rounded-lg transition-all shadow-md flex items-center justify-center gap-1.5 cursor-pointer"
                     >
                       {isMarketAnalyzing ? (
                         <>
@@ -6211,7 +6153,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                       <div className={`p-5 rounded-xl border ${
                         theme === "dark" ? "bg-slate-900/20 border-slate-800/80" : "bg-white border-slate-200 shadow-sm"
                       }`}>
-                        <h3 className="text-sm font-bold uppercase text-[#D4AF37] mb-3">{t.executiveSummary}</h3>
+                        <h3 className="text-sm font-bold uppercase text-[#0075DE] mb-3">{t.executiveSummary}</h3>
                         <p className={`text-xs leading-relaxed ${marketResult.error ? "text-rose-500 font-bold" : (theme === "dark" ? "text-slate-300" : "text-slate-600")}`}>
                           {marketResult.error ? marketResult.error : renderTextWithLinks(marketResult.summary)}
                         </p>
@@ -6298,7 +6240,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                 >
                   <div className="flex-none">
                     <h1 className="text-3xl font-black tracking-tight flex items-center gap-2">
-                      <Sparkles className="w-8 h-8 text-[#D4AF37] animate-pulse" />
+                      <Sparkles className="w-8 h-8 text-[#0075DE] animate-pulse" />
                       <span>{t.aiAgentTitle || "Cognitive Advisor"}</span>
                     </h1>
                     <p className="text-slate-400 text-sm mt-1">{t.aiAgentSlogan}</p>
@@ -6311,7 +6253,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                         theme === "dark" ? "bg-slate-900/30 border-slate-800/80" : "bg-white border-slate-200 shadow-sm"
                       }`}>
                         <div>
-                          <h3 className="text-xs font-bold uppercase tracking-wider text-[#D4AF37] mb-2">
+                          <h3 className="text-xs font-bold uppercase tracking-wider text-[#0075DE] mb-2">
                             {lang === "ar" ? "قاعدة المعرفة الحية" : (lang === "fr" ? "Base de Connaissances" : "Live Knowledge Base")}
                           </h3>
                           <p className="text-[11px] text-slate-400 leading-relaxed">
@@ -6331,7 +6273,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                                 key={idx}
                                 onClick={() => handleSendAgentMessage(undefined, q.query)}
                                 disabled={isAgentReplying}
-                                className={`w-full p-2.5 rounded-lg border text-right transition-all text-[11px] font-medium block cursor-pointer hover:border-[#D4AF37] hover:bg-[#D4AF37]/5 ${
+                                className={`w-full p-2.5 rounded-lg border text-right transition-all text-[11px] font-medium block cursor-pointer hover:border-[#0075DE] hover:bg-[#0075DE]/5 ${
                                   theme === "dark" 
                                     ? "bg-slate-950 border-slate-850 text-slate-300" 
                                     : "bg-slate-50 border-slate-200 text-slate-700"
@@ -6343,9 +6285,9 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                           </div>
                         </div>
 
-                        <div className="p-3.5 bg-[#D4AF37]/5 border border-[#D4AF37]/25 rounded-xl text-center flex items-center justify-center gap-2">
-                          <Bot className="w-5 h-5 text-[#D4AF37]" />
-                          <span className="text-[10px] font-bold text-[#D4AF37] uppercase tracking-wider">
+                        <div className="p-3.5 bg-[#0075DE]/5 border border-[#0075DE]/25 rounded-xl text-center flex items-center justify-center gap-2">
+                          <Bot className="w-5 h-5 text-[#0075DE]" />
+                          <span className="text-[10px] font-bold text-[#0075DE] uppercase tracking-wider">
                             {lang === "ar" ? "النموذج النشط: Gemini 3.1 Pro Preview" : "Active Model: Gemini 3.1 Pro Preview"}
                           </span>
                         </div>
@@ -6361,7 +6303,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                         <div className="flex-1 overflow-y-auto p-5 space-y-4 scrollbar-thin flex flex-col">
                           {/* Greeting message */}
                           <div className="flex items-start gap-3">
-                            <div className="w-8 h-8 rounded-lg bg-[#D4AF37]/10 border border-[#D4AF37]/30 flex items-center justify-center text-[#D4AF37] shrink-0 mt-0.5">
+                            <div className="w-8 h-8 rounded-lg bg-[#0075DE]/10 border border-[#0075DE]/30 flex items-center justify-center text-[#0075DE] shrink-0 mt-0.5">
                               <Bot className="w-4 h-4" />
                             </div>
                             <div className={`p-3.5 rounded-2xl max-w-[85%] text-xs leading-relaxed ${
@@ -6376,7 +6318,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                             return (
                               <div key={msg.id} className={`flex items-start gap-3 ${isUser ? "justify-end" : "justify-start"}`}>
                                 {!isUser && (
-                                  <div className="w-8 h-8 rounded-lg bg-[#D4AF37]/10 border border-[#D4AF37]/30 flex items-center justify-center text-[#D4AF37] shrink-0 mt-0.5">
+                                  <div className="w-8 h-8 rounded-lg bg-[#0075DE]/10 border border-[#0075DE]/30 flex items-center justify-center text-[#0075DE] shrink-0 mt-0.5">
                                     <Bot className="w-4 h-4" />
                                   </div>
                                 )}
@@ -6388,7 +6330,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                                   {isUser ? (
                                     msg.text
                                   ) : (
-                                    <div className="prose prose-invert max-w-none text-xs space-y-2 [&>h1]:text-sm [&>h1]:font-bold [&>h1]:text-[#D4AF37] [&>h1]:mt-2 [&>h1]:mb-1 [&>h2]:text-xs [&>h2]:font-bold [&>h2]:text-[#D4AF37] [&>h2]:mt-2 [&>h2]:mb-1 [&>h3]:text-xs [&>h3]:font-bold [&>h3]:text-[#D4AF37] [&>h3]:mt-2 [&>h3]:mb-1 [&>p]:mb-1.5 [&>ul]:list-disc [&>ul]:pl-4 [&>ol]:list-decimal [&>ol]:pl-4 [&>li]:mb-0.5 [&_a]:text-[#D4AF37] [&_a]:underline [&_strong]:font-semibold [&_strong]:text-[#D4AF37]">
+                                    <div className="prose prose-invert max-w-none text-xs space-y-2 [&>h1]:text-sm [&>h1]:font-bold [&>h1]:text-[#0075DE] [&>h1]:mt-2 [&>h1]:mb-1 [&>h2]:text-xs [&>h2]:font-bold [&>h2]:text-[#0075DE] [&>h2]:mt-2 [&>h2]:mb-1 [&>h3]:text-xs [&>h3]:font-bold [&>h3]:text-[#0075DE] [&>h3]:mt-2 [&>h3]:mb-1 [&>p]:mb-1.5 [&>ul]:list-disc [&>ul]:pl-4 [&>ol]:list-decimal [&>ol]:pl-4 [&>li]:mb-0.5 [&_a]:text-[#0075DE] [&_a]:underline [&_strong]:font-semibold [&_strong]:text-[#0075DE]">
                                       <Markdown>{msg.text}</Markdown>
                                     </div>
                                   )}
@@ -6405,7 +6347,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                           {/* Replying reasoning indicator */}
                           {isAgentReplying && (
                             <div className="flex items-start gap-3">
-                              <div className="w-8 h-8 rounded-lg bg-[#D4AF37]/10 border border-[#D4AF37]/30 flex items-center justify-center text-[#D4AF37] shrink-0 mt-0.5">
+                              <div className="w-8 h-8 rounded-lg bg-[#0075DE]/10 border border-[#0075DE]/30 flex items-center justify-center text-[#0075DE] shrink-0 mt-0.5">
                                 <RefreshCw className="w-4 h-4 animate-spin" />
                               </div>
                               <div className={`p-3 rounded-2xl flex items-center gap-2 ${
@@ -6415,9 +6357,9 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                                   {lang === "ar" ? "جاري استرجاع ذكريات المؤسسة وتحليل الأسباب والدروس..." : "Consulting causal memory ledger..."}
                                 </span>
                                 <div className="flex gap-1">
-                                  <span className="w-1.5 h-1.5 rounded-full bg-[#D4AF37] animate-bounce" style={{ animationDelay: "0ms" }}></span>
-                                  <span className="w-1.5 h-1.5 rounded-full bg-[#D4AF37] animate-bounce" style={{ animationDelay: "150ms" }}></span>
-                                  <span className="w-1.5 h-1.5 rounded-full bg-[#D4AF37] animate-bounce" style={{ animationDelay: "300ms" }}></span>
+                                  <span className="w-1.5 h-1.5 rounded-full bg-[#0075DE] animate-bounce" style={{ animationDelay: "0ms" }}></span>
+                                  <span className="w-1.5 h-1.5 rounded-full bg-[#0075DE] animate-bounce" style={{ animationDelay: "150ms" }}></span>
+                                  <span className="w-1.5 h-1.5 rounded-full bg-[#0075DE] animate-bounce" style={{ animationDelay: "300ms" }}></span>
                                 </div>
                               </div>
                             </div>
@@ -6431,7 +6373,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                             value={agentInput}
                             onChange={(e) => setAgentInput(e.target.value)}
                             disabled={isAgentReplying}
-                            className={`flex-1 h-11 px-4 border rounded-lg text-xs focus:outline-none focus:border-[#D4AF37] focus:ring-1 focus:ring-[#D4AF37]/20 ${
+                            className={`flex-1 h-11 px-4 border rounded-lg text-xs focus:outline-none focus:border-[#0075DE] focus:ring-1 focus:ring-[#0075DE]/20 ${
                               theme === "dark" ? "bg-slate-950 border-slate-850 text-white" : "bg-slate-50 border-slate-200 text-slate-850"
                             }`}
                             placeholder={t.aiAgentPlaceholder}
@@ -6439,7 +6381,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                           <button
                             type="submit"
                             disabled={isAgentReplying || !agentInput.trim()}
-                            className="h-11 px-5 bg-[#D4AF37] hover:bg-[#B59410] disabled:bg-slate-800 text-white disabled:text-slate-500 font-bold text-xs rounded-lg flex items-center gap-2 transition-all cursor-pointer shadow-md shadow-[#D4AF37]/5"
+                            className="h-11 px-5 bg-[#0075DE] hover:bg-[#005BAB] disabled:bg-slate-800 text-white disabled:text-slate-500 font-bold text-xs rounded-lg flex items-center gap-2 transition-all cursor-pointer shadow-md shadow-[#0075DE]/5"
                           >
                             <MessageSquare className="w-4 h-4" />
                             <span>{t.aiAgentSendBtn}</span>

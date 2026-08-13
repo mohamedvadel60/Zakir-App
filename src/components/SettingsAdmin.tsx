@@ -143,7 +143,7 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
   // Appearance & Custom Theme State
   const [primaryBg, setPrimaryBg] = useState<string>(currentUser.customTheme?.primaryBg || "#0B0F19");
   const [textColor, setTextColor] = useState<string>(currentUser.customTheme?.textColor || "#F8FAFC");
-  const [secondaryColor, setSecondaryColor] = useState<string>(currentUser.customTheme?.secondaryColor || "#D4AF37");
+  const [secondaryColor, setSecondaryColor] = useState<string>(currentUser.customTheme?.secondaryColor || "#0075DE");
   const [themeApproved, setThemeApproved] = useState<boolean>(!!currentUser.customTheme?.approvedAt);
   const [approvedTimestamp, setApprovedTimestamp] = useState<string | null>(currentUser.customTheme?.approvedAt || null);
   const [selectedThemeMode, setSelectedThemeMode] = useState<"light" | "dark" | "custom">(
@@ -458,7 +458,7 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
       if (currentUser.customTheme) {
         setPrimaryBg(currentUser.customTheme.primaryBg || "#0B0F19");
         setTextColor(currentUser.customTheme.textColor || "#F8FAFC");
-        setSecondaryColor(currentUser.customTheme.secondaryColor || "#D4AF37");
+        setSecondaryColor(currentUser.customTheme.secondaryColor || "#0075DE");
         setThemeApproved(!!currentUser.customTheme.approvedAt);
         setApprovedTimestamp(currentUser.customTheme.approvedAt || null);
       } else {
@@ -868,7 +868,7 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
   const handleResetThemeDefaults = () => {
     setPrimaryBg("#0B0F19");
     setTextColor("#F8FAFC");
-    setSecondaryColor("#D4AF37");
+    setSecondaryColor("#0075DE");
     setThemeApproved(false);
     setApprovedTimestamp(null);
     setSelectedThemeMode("dark");
@@ -890,7 +890,7 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
       customTheme: {
         primaryBg: "#0B0F19",
         textColor: "#F8FAFC",
-        secondaryColor: "#D4AF37",
+        secondaryColor: "#0075DE",
         approvedAt: null as any
       }
     });
@@ -1000,7 +1000,7 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
           ? "bg-gradient-to-br from-slate-900/80 to-slate-950/90 border-slate-800/80 shadow-2xl shadow-black/40" 
           : "bg-gradient-to-br from-slate-50 to-white border-slate-200 shadow-xl shadow-slate-100/40"
       }`}>
-        <div className="absolute top-0 right-0 w-64 h-32 bg-[#D4AF37]/5 blur-3xl pointer-events-none rounded-full" />
+        <div className="absolute top-0 right-0 w-64 h-32 bg-[#0075DE]/5 blur-3xl pointer-events-none rounded-full" />
         
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 relative z-10">
           <div>
@@ -1008,7 +1008,7 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
               <h1 className={`text-xl font-black tracking-tight ${theme === "dark" ? "text-white" : "text-slate-900"}`}>
                 {lang === "ar" ? "لوحة التحكم وإعدادات النظام" : "System & Account Workspace"}
               </h1>
-              <span className="px-2.5 py-0.5 text-[10px] rounded-full bg-[#D4AF37]/15 border border-[#D4AF37]/35 text-[#D4AF37] font-extrabold uppercase tracking-wider font-mono">
+              <span className="px-2.5 py-0.5 text-[10px] rounded-full bg-[#0075DE]/15 border border-[#0075DE]/35 text-[#0075DE] font-extrabold uppercase tracking-wider font-mono">
                 {currentUser.role} {lang === "ar" ? "المسؤول الأول" : "Control Desk"}
               </span>
             </div>
@@ -1024,7 +1024,7 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
               onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
               className={`p-2.5 rounded-xl border transition-all cursor-pointer shadow-sm ${
                 theme === "dark" 
-                  ? "bg-slate-900 hover:bg-slate-850 border-slate-800 text-[#D4AF37]" 
+                  ? "bg-slate-900 hover:bg-slate-850 border-slate-800 text-[#0075DE]" 
                   : "bg-white border-slate-250 text-slate-700 hover:bg-slate-100"
               }`}
               title={theme === "dark" ? "Switch to Light Mode" : "Switch to Dark Mode"}
@@ -1065,13 +1065,13 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
                 onClick={() => handleTabChange(tab.id as any)}
                 className={`px-4.5 py-3 rounded-xl text-xs font-black flex items-center gap-2.5 transition-all cursor-pointer whitespace-nowrap border ${
                   isActive
-                    ? "bg-[#D4AF37]/15 text-[#D4AF37] border-[#D4AF37]/35 shadow-lg shadow-[#D4AF37]/2 font-extrabold"
+                    ? "bg-[#0075DE]/15 text-[#0075DE] border-[#0075DE]/35 shadow-lg shadow-[#0075DE]/2 font-extrabold"
                     : theme === "dark"
                     ? "text-slate-400 hover:text-white hover:bg-slate-900 border-transparent"
                     : "text-slate-600 hover:text-slate-900 hover:bg-slate-100 border-transparent"
                 }`}
               >
-                <Icon className={`w-4 h-4 ${isActive ? "text-[#D4AF37]" : "text-slate-400"}`} />
+                <Icon className={`w-4 h-4 ${isActive ? "text-[#0075DE]" : "text-slate-400"}`} />
                 <span>{tab.label}</span>
               </button>
             );
@@ -1742,7 +1742,7 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
                   nameEn: "Zakir Premium Gold",
                   primaryBg: "#0B0F19",
                   textColor: "#F8FAFC",
-                  secondaryColor: "#D4AF37"
+                  secondaryColor: "#0075DE"
                 },
                 {
                   id: "minimal-business",
@@ -1964,7 +1964,7 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
                 <p className="text-[10px] text-slate-400 font-bold">{lang === "ar" ? "نماذج الأزرار والأيقونات:" : "Secondary Presets:"}</p>
                 <div className="flex flex-wrap gap-2">
                   {[
-                    { name: "Royal Gold", hex: "#D4AF37" },
+                    { name: "Royal Gold", hex: "#0075DE" },
                     { name: "Emerald Green", hex: "#10B981" },
                     { name: "Neon Cyan", hex: "#06B6D4" },
                     { name: "Electric Indigo", hex: "#6366F1" },
