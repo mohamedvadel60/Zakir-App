@@ -147,12 +147,9 @@ export const ZakirLogo: React.FC<ZakirLogoProps> = ({
           >
             {renderLogoIcon(svgSize)}
           </div>
-          <div className={`flex items-center border-l ${borderClass} ${borderThemeColor} ml-1`}>
+          <div className="flex items-center">
             <span className={`${textClass} font-extrabold tracking-tight ${textThemeColor} uppercase`}>
               ZAKIR
-            </span>
-            <span className={`hidden sm:inline-block ml-3 ${taglineClass} uppercase tracking-widest ${taglineThemeColor} font-bold leading-tight`}>
-              {lang === "ar" ? "الذاكرة المؤسسية السببية" : (lang === "fr" ? "La Mémoire Causale Organisationnelle" : "The Organizational Causal Memory")}
             </span>
           </div>
         </div>

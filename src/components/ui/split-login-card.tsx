@@ -8,7 +8,6 @@ export interface SplitLoginCardProps {
   lang?: "ar" | "fr" | "en"
   theme?: "light" | "dark"
   onBackToHome?: () => void
-  onToggleLanguage?: (lang: "ar" | "fr" | "en") => void
   className?: string
 }
 
@@ -17,7 +16,6 @@ export function SplitLoginCard({
   lang = "en",
   theme = "dark",
   onBackToHome,
-  onToggleLanguage,
   className,
 }: SplitLoginCardProps) {
   return (
@@ -101,7 +99,7 @@ export function SplitLoginCard({
 
       {/* RIGHT COLUMN: REAL AUTHENTICATION FORM WORKSPACE */}
       <div className="flex-1 md:col-span-7 lg:col-span-8 flex flex-col justify-between p-6 sm:p-8 lg:p-10 relative overflow-y-auto">
-        {/* Top Header Controls: Back & Language Switcher */}
+        {/* Top Header Controls: Back Button */}
         <div className="w-full flex items-center justify-between gap-4 mb-6">
           {onBackToHome && (
             <button
@@ -122,44 +120,6 @@ export function SplitLoginCard({
                   : "Back to Home"}
               </span>
             </button>
-          )}
-
-          {onToggleLanguage && (
-            <div className="flex items-center gap-1 bg-slate-200 dark:bg-slate-950 p-1 rounded-xl border border-slate-300 dark:border-slate-800/80 ms-auto shadow-inner">
-              <button
-                type="button"
-                onClick={() => onToggleLanguage("ar")}
-                className={`min-w-[32px] h-7 text-[11px] font-bold px-2.5 rounded-lg transition-all cursor-pointer flex items-center justify-center shrink-0 ${
-                  lang === "ar"
-                    ? "bg-[#0075DE] text-white shadow-sm"
-                    : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
-                }`}
-              >
-                ع
-              </button>
-              <button
-                type="button"
-                onClick={() => onToggleLanguage("fr")}
-                className={`min-w-[32px] h-7 text-[11px] font-bold px-2.5 rounded-lg transition-all cursor-pointer flex items-center justify-center shrink-0 ${
-                  lang === "fr"
-                    ? "bg-[#0075DE] text-white shadow-sm"
-                    : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
-                }`}
-              >
-                FR
-              </button>
-              <button
-                type="button"
-                onClick={() => onToggleLanguage("en")}
-                className={`min-w-[32px] h-7 text-[11px] font-bold px-2.5 rounded-lg transition-all cursor-pointer flex items-center justify-center shrink-0 ${
-                  lang === "en"
-                    ? "bg-[#0075DE] text-white shadow-sm"
-                    : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
-                }`}
-              >
-                EN
-              </button>
-            </div>
           )}
         </div>
 

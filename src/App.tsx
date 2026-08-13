@@ -2929,7 +2929,6 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
             lang={lang}
             theme={theme}
             onBackToHome={() => setAuthMode("landing")}
-            onToggleLanguage={toggleLanguage}
           >
             <motion.div 
               initial={{ opacity: 0, y: 15 }}
@@ -3543,14 +3542,10 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
               {/* Desktop Sidebar Collapse Toggle Button */}
               <button
                 onClick={toggleSidebarCollapse}
-                className="hidden md:flex p-1 rounded bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-white border border-slate-800 transition-all cursor-pointer items-center justify-center"
+                className="hidden md:flex w-6 h-6 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-700/80 transition-all cursor-pointer items-center justify-center font-mono text-xs font-black"
                 title={isSidebarCollapsed ? (lang === "ar" ? "توسيع الشريط الجانبي" : "Expand Sidebar") : (lang === "ar" ? "طي الشريط الجانبي" : "Collapse Sidebar")}
               >
-                {isSidebarCollapsed ? (
-                  <PanelLeftOpen className="w-3.5 h-3.5" />
-                ) : (
-                  <PanelLeftClose className="w-3.5 h-3.5" />
-                )}
+                {isSidebarCollapsed ? "›" : "‹"}
               </button>
 
               {/* Mobile Close Button */}
@@ -3628,7 +3623,6 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                       { id: "alerts", label: t.riskAlertsTitle || (lang === "ar" ? "تنبيهات المخاطر" : "Risk Alerts"), icon: ShieldAlert, badge: statsCount.activeRisks },
                       { id: "gmail", label: lang === "ar" ? "البريد" : (lang === "fr" ? "Messagerie" : "Email Vault"), icon: Mail },
                       { id: "settings", label: t.settingsTitle || (lang === "ar" ? "الإعدادات" : "Settings"), icon: SettingsIcon },
-                      { id: "support", label: lang === "ar" ? "الدعم الفني" : (lang === "fr" ? "Support" : "Support Center"), icon: HelpCircle },
                     ]
                   }
                 ] as { group: string; items: { id: string; label: any; icon: any; badge?: number }[] }[]
@@ -3758,11 +3752,11 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
               </div>
             )}
             
-            {/* Module Loader bar (Includes last update time, page actions) */}
+            {/* Professional Top Bar Header */}
             <header className={`px-4 md:px-8 h-16 border-b flex items-center justify-between sticky top-0 z-20 backdrop-blur-md transition-colors ${
-              theme === "dark" ? "bg-[#0B0F19]/80 border-slate-800/60" : "bg-white/80 border-slate-200"
+              theme === "dark" ? "bg-[#0B0F19]/90 border-slate-800/60 shadow-lg shadow-black/20" : "bg-white/90 border-slate-200 shadow-sm"
             }`}>
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-4">
                 {/* Mobile Menu Open Button */}
                 <button
                   onClick={() => setIsMobileSidebarOpen(true)}
@@ -3772,17 +3766,62 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                   <Menu className="w-5 h-5 text-[#0075DE]" />
                 </button>
 
+                {/* Subscription Plan Badge */}
+                <div className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1 bg-[#0075DE]/10 border border-[#0075DE]/30 rounded-full shadow-sm">
+                  <Award className="w-3.5 h-3.5 text-[#0075DE]" />
+                  <span className="text-[11px] font-extrabold text-[#0075DE] uppercase tracking-wider">{currentUser?.subscriptionPlan || "Enterprise"}</span>
+                </div>
 
-                
-                {/* Visual Accent Subscription Badge */}
-                <div className="hidden sm:inline-flex items-center gap-1 px-2.5 py-0.5 bg-[#0075DE]/15 border border-[#0075DE]/30 rounded-full">
-                  <Award className="w-3 h-3 text-[#0075DE]" />
-                  <span className="text-[10px] font-bold text-[#0075DE] uppercase">{currentUser?.subscriptionPlan || "Starter"}</span>
+                {/* Trial Time Remaining Badge */}
+                <div className="hidden lg:inline-flex items-center gap-1.5 px-3 py-1 bg-amber-500/10 border border-amber-500/30 rounded-full text-amber-400 text-[11px] font-mono font-bold">
+                  <Clock className="w-3.5 h-3.5" />
+                  <span>{timeLeftStr}</span>
                 </div>
               </div>
 
               <div className="flex items-center gap-3">
+                {/* Language Switcher */}
+                <div className="flex items-center bg-slate-900/60 border border-slate-800 rounded-lg p-0.5 text-xs font-bold">
+                  <button
+                    type="button"
+                    onClick={() => setLang("ar")}
+                    className={`px-2.5 py-1 rounded-md transition-all cursor-pointer ${lang === "ar" ? "bg-[#0075DE] text-slate-950 font-black" : "text-slate-400 hover:text-white"}`}
+                  >
+                    AR
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setLang("en")}
+                    className={`px-2.5 py-1 rounded-md transition-all cursor-pointer ${lang === "en" ? "bg-[#0075DE] text-slate-950 font-black" : "text-slate-400 hover:text-white"}`}
+                  >
+                    EN
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setLang("fr")}
+                    className={`px-2.5 py-1 rounded-md transition-all cursor-pointer ${lang === "fr" ? "bg-[#0075DE] text-slate-950 font-black" : "text-slate-400 hover:text-white"}`}
+                  >
+                    FR
+                  </button>
+                </div>
+
+                {/* Theme Mode Toggle (Sun/Moon) */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    const newTheme = theme === "dark" ? "light" : "dark";
+                    setTheme(newTheme);
+                    applyGlobalTheme(newTheme, setTheme, currentUser, setCurrentUser);
+                  }}
+                  className="p-2 rounded-lg bg-slate-800/40 hover:bg-slate-800 border border-slate-700/60 text-slate-300 hover:text-white transition-all cursor-pointer"
+                  title={theme === "dark" ? "Switch to Light Mode" : "Switch to Dark Mode"}
+                >
+                  {theme === "dark" ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-indigo-400" />}
+                </button>
+
+                {/* Refresh Button */}
                 <button 
+                  type="button"
                   onClick={handleRefresh}
                   disabled={isRefreshing}
                   className={`h-9 px-3 border text-xs font-bold rounded-lg flex items-center gap-1.5 transition-all cursor-pointer ${
@@ -3799,11 +3838,12 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
 
                 {/* Header User Profile Button */}
                 <button
+                  type="button"
                   onClick={() => {
                     setActiveTab("settings");
                     setSettingsActiveSubTab("account");
                   }}
-                  className="h-9 px-2.5 bg-slate-800/40 hover:bg-slate-800 border border-slate-700/60 rounded-lg flex items-center gap-2 transition-all cursor-pointer group/topAvatar"
+                  className="h-9 px-3 bg-slate-800/60 hover:bg-slate-800 border border-slate-700/60 rounded-lg flex items-center gap-2.5 transition-all cursor-pointer group/topAvatar"
                   title={lang === "ar" ? "إعدادات الحساب والصورة" : "Account & Profile Photo Settings"}
                 >
                   {currentUser.avatarUrl ? (
@@ -3813,13 +3853,24 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                       className="w-6 h-6 rounded-full object-cover border border-[#0075DE]"
                     />
                   ) : (
-                    <div className="w-6 h-6 rounded-full bg-[#0075DE] text-[#0F172A] font-black text-[10px] flex items-center justify-center">
+                    <div className="w-6 h-6 rounded-full bg-[#0075DE] text-slate-950 font-black text-[10px] flex items-center justify-center">
                       {(currentUser.ownerName || currentUser.email).slice(0, 2).toUpperCase()}
                     </div>
                   )}
                   <span className="hidden md:inline text-xs font-bold text-white group-hover/topAvatar:text-[#0075DE] transition-colors">
                     {currentUser.ownerName || currentUser.email.split("@")[0]}
                   </span>
+                </button>
+
+                {/* Logout Button */}
+                <button
+                  type="button"
+                  onClick={handleLogout}
+                  className="h-9 px-2.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 rounded-lg flex items-center gap-1.5 transition-all cursor-pointer"
+                  title={lang === "ar" ? "تسجيل الخروج" : "Logout"}
+                >
+                  <LogOut className="w-3.5 h-3.5" />
+                  <span className="hidden xl:inline text-xs font-bold">{lang === "ar" ? "خروج" : "Logout"}</span>
                 </button>
               </div>
             </header>

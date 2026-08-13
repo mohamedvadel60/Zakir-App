@@ -17,10 +17,6 @@ export function AuthSwitch({ currentMode, onModeChange, lang = "en" }: AuthSwitc
       id: "register" as const,
       label: lang === "ar" ? "إنشاء حساب" : lang === "fr" ? "Inscription" : "Register",
     },
-    {
-      id: "forgot" as const,
-      label: lang === "ar" ? "إعادة تعيين" : lang === "fr" ? "Récupération" : "Recovery",
-    },
   ]
 
   return (

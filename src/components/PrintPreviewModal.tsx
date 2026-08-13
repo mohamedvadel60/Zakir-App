@@ -343,6 +343,13 @@ export function PrintPreviewModal({
 
     const { width: pWidth, height: pHeight } = getPageDimensions();
 
+    // Convert pixel dimensions to mm for precise standard layout
+    // 1px is approx 0.264583mm
+    const marginMm = pageMargins * 0.264583;
+    const pWidthMm = pWidth * 0.264583;
+    const pHeightMm = pHeight * 0.264583;
+    const usableHeightMm = pHeightMm - (2 * marginMm);
+
     const themeCss = {
       amber: `
         .memory-card-item h4 { color: #92400e !important; }
@@ -373,18 +380,26 @@ export function PrintPreviewModal({
     printStyles.innerHTML = `
       @page {
         size: ${pageSize.toLowerCase()} ${orientation};
-        margin: 0 !important;
+        margin: ${marginMm}mm !important;
       }
       @media print {
-        body {
+        html, body {
           visibility: hidden !important;
           background: white !important;
           color: black !important;
           margin: 0 !important;
           padding: 0 !important;
+          height: auto !important;
+          min-height: 0 !important;
+          max-height: none !important;
+          overflow: visible !important;
         }
 
-        #root, #zakir-app-root {
+        #root, #zakir-app-root, 
+        .print-modal-overlay, 
+        .print-modal-overlay > div, 
+        .print-content-grid, 
+        .print-preview-canvas {
           display: block !important;
           position: static !important;
           width: 100% !important;
@@ -397,6 +412,8 @@ export function PrintPreviewModal({
           background: transparent !important;
           box-shadow: none !important;
           border: none !important;
+          backdrop-filter: none !important;
+          transform: none !important;
         }
 
         #zakir-app-root > :not(.print-modal-overlay) {
@@ -427,8 +444,14 @@ export function PrintPreviewModal({
           opacity: 0 !important;
         }
 
-        .printing-active .printable-area {
-          display: none !important; /* Hide old single-page structure if rendered */
+        #print-scratchpad-measurer,
+        .printing-active #print-scratchpad-measurer {
+          display: none !important;
+          visibility: hidden !important;
+          height: 0 !important;
+          width: 0 !important;
+          opacity: 0 !important;
+          overflow: hidden !important;
         }
 
         .printing-active .print-page,
@@ -440,17 +463,19 @@ export function PrintPreviewModal({
 
         .printing-active .print-page {
           display: flex !important;
+          flex-direction: column !important;
+          justify-content: space-between !important;
           position: relative !important;
-          width: ${pWidth}px !important;
-          height: ${pHeight}px !important;
-          padding: ${pageMargins}px !important;
-          margin: 0 auto !important;
+          width: 100% !important;
+          height: ${usableHeightMm}mm !important;
+          padding: 0 !important;
+          margin: 0 !important;
           page-break-after: always !important;
           break-after: page !important;
           background: white !important;
           color: black !important;
           box-sizing: border-box !important;
-          overflow: hidden !important;
+          overflow: visible !important;
         }
 
         .printing-active .print-page:last-child {
