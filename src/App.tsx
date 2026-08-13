@@ -397,7 +397,7 @@ function ReadMoreText({
   return (
     <div className="w-full">
       {label && (
-        <h4 className="font-bold text-amber-500 uppercase tracking-wide mb-1 text-[11px]">
+        <h4 className="font-bold text-[#0075DE] uppercase tracking-wide mb-1 text-[11px]">
           {label}
         </h4>
       )}
@@ -2559,7 +2559,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
       case "Critical":
         return "bg-rose-500/10 text-rose-500 border border-rose-500/20";
       case "High":
-        return "bg-amber-500/10 text-amber-500 border border-amber-500/20";
+        return "bg-orange-500/10 text-orange-600 dark:text-orange-400 border border-orange-500/20";
       case "Medium":
         return "bg-blue-500/10 text-blue-500 border border-blue-500/20";
       default:
@@ -2834,6 +2834,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
         }
 
         /* Active Navigation item text and icons */
+        .theme-light .text-\\[\\#0075DE\\], .theme-dark .text-\\[\\#0075DE\\], .custom-theme-active .text-\\[\\#0075DE\\],
         .theme-light .text-amber-400, .theme-dark .text-amber-400, .custom-theme-active .text-amber-400 {
           color: var(--accent-color) !important;
         }
@@ -2847,10 +2848,10 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
           background-color: var(--bg-tertiary) !important;
         }
 
-        /* Main gradient action button custom overrides */
-        .theme-light .bg-gradient-to-r.from-amber-500.to-amber-400,
-        .theme-dark .bg-gradient-to-r.from-amber-500.to-amber-400,
-        .custom-theme-active .bg-gradient-to-r.from-amber-500.to-amber-400,
+        /* Main action button custom overrides */
+        .theme-light .bg-\\[\\#0075DE\\],
+        .theme-dark .bg-\\[\\#0075DE\\],
+        .custom-theme-active .bg-\\[\\#0075DE\\],
         .theme-light .bg-amber-500.hover\\:bg-amber-400,
         .theme-dark .bg-amber-500.hover\\:bg-amber-400,
         .custom-theme-active .bg-amber-500.hover\\:bg-amber-400 {
@@ -3446,7 +3447,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                 /* FORGOT PASSWORD FORM */
                 <div>
                   <div className="text-center mb-6">
-                    <div className="w-12 h-12 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-500 flex items-center justify-center mx-auto mb-3 font-bold text-xl">
+                    <div className="w-12 h-12 rounded-xl bg-[#0075DE]/10 border border-[#0075DE]/20 text-[#0075DE] flex items-center justify-center mx-auto mb-3 font-bold text-xl">
                       <KeyRound className="w-6 h-6" />
                     </div>
                     <h1 className="text-2xl font-bold tracking-tight text-white">
@@ -3467,7 +3468,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                         <div className="flex-1 space-y-1">
                           <p className="font-medium leading-relaxed whitespace-pre-line">{resetErrorMsg}</p>
                           {resetCooldownSeconds > 0 && (
-                            <div className="pt-1 flex items-center gap-1.5 text-amber-400 font-mono text-[11px] font-bold">
+                            <div className="pt-1 flex items-center gap-1.5 text-[#0075DE] font-mono text-[11px] font-bold">
                               <Clock className="w-3.5 h-3.5 animate-pulse shrink-0" />
                               <span>
                                 {lang === "ar"
@@ -3495,7 +3496,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                           type="email" 
                           value={resetEmail}
                           onChange={(e) => setResetEmail(e.target.value)}
-                          className="w-full h-10 px-3 bg-slate-950 border border-slate-800 rounded-xl text-white text-xs focus:outline-none focus:border-amber-500 transition-all placeholder:text-slate-600"
+                          className="w-full h-10 px-3 bg-slate-950 border border-slate-800 rounded-xl text-white text-xs focus:outline-none focus:border-[#0075DE] transition-all placeholder:text-slate-600"
                           placeholder="name@company.com"
                           required
                         />
@@ -3515,7 +3516,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                             placeholder="------"
                             value={resetCode}
                             onChange={(e) => setResetCode(e.target.value.replace(/\D/g, ""))}
-                            className="w-full text-center tracking-[8px] text-lg font-bold font-mono h-11 bg-slate-950 border border-slate-800 rounded-xl text-amber-400 placeholder:text-slate-700 focus:outline-none focus:border-amber-500 transition-all"
+                            className="w-full text-center tracking-[8px] text-lg font-bold font-mono h-11 bg-slate-950 border border-slate-800 rounded-xl text-[#0075DE] placeholder:text-slate-700 focus:outline-none focus:border-[#0075DE] transition-all"
                             required
                           />
                         </div>
@@ -3533,7 +3534,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                             type="password" 
                             value={newPassword}
                             onChange={(e) => setNewPassword(e.target.value)}
-                            className="w-full h-10 px-3 bg-slate-950 border border-slate-800 rounded-xl text-white text-xs focus:outline-none focus:border-amber-500 transition-all"
+                            className="w-full h-10 px-3 bg-slate-950 border border-slate-800 rounded-xl text-white text-xs focus:outline-none focus:border-[#0075DE] transition-all"
                             placeholder="••••••••"
                             required
                           />
@@ -3546,7 +3547,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                             type="password" 
                             value={confirmNewPassword}
                             onChange={(e) => setConfirmNewPassword(e.target.value)}
-                            className="w-full h-10 px-3 bg-slate-950 border border-slate-800 rounded-xl text-white text-xs focus:outline-none focus:border-amber-500 transition-all"
+                            className="w-full h-10 px-3 bg-slate-950 border border-slate-800 rounded-xl text-white text-xs focus:outline-none focus:border-[#0075DE] transition-all"
                             placeholder="••••••••"
                             required
                           />
@@ -3574,7 +3575,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                         className={"w-full h-11 mt-2 font-bold text-xs rounded-xl shadow-lg transition-all flex items-center justify-center gap-2 uppercase tracking-wider " + (
                           resetStep === "forgot" && resetCooldownSeconds > 0
                             ? "bg-slate-800/90 text-slate-400 border border-slate-700/60 cursor-not-allowed opacity-80"
-                            : "bg-amber-500 hover:bg-amber-400 text-slate-950 cursor-pointer shadow-amber-500/20"
+                            : "bg-[#0075DE] hover:bg-[#005BAB] text-white cursor-pointer shadow-[#0075DE]/20"
                         )}
                       >
                         {isSendingReset ? (
@@ -4117,25 +4118,25 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                   initial={{ opacity: 0, y: -20 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -20 }}
-                  className="p-6 rounded-2xl border-2 border-amber-500/40 bg-gradient-to-r from-amber-500/10 via-slate-900/90 to-amber-500/5 shadow-2xl relative overflow-hidden backdrop-blur-md"
+                  className="p-6 rounded-2xl border-2 border-[#0075DE]/40 bg-gradient-to-r from-[#0075DE]/10 via-slate-50 dark:via-slate-900/90 to-[#0075DE]/5 shadow-2xl relative overflow-hidden backdrop-blur-md"
                 >
                   {/* Glowing ambient dots */}
-                  <div className="absolute top-0 right-0 w-32 h-32 bg-amber-500/10 rounded-full blur-3xl pointer-events-none"></div>
+                  <div className="absolute top-0 right-0 w-32 h-32 bg-[#0075DE]/10 rounded-full blur-3xl pointer-events-none"></div>
                   
                   <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 relative z-10">
                     <div className="space-y-3">
                       <div className="flex items-center gap-2.5">
                         <span className="relative flex h-3 w-3">
-                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
-                          <span className="relative inline-flex rounded-full h-3 w-3 bg-amber-500"></span>
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#0075DE] opacity-75"></span>
+                          <span className="relative inline-flex rounded-full h-3 w-3 bg-[#0075DE]"></span>
                         </span>
-                        <h2 className="text-lg font-black tracking-tight text-amber-400 flex items-center gap-2">
-                          <ShieldAlert className="w-5 h-5 text-amber-400" />
+                        <h2 className="text-lg font-black tracking-tight text-[#0075DE] flex items-center gap-2">
+                          <ShieldAlert className="w-5 h-5 text-[#0075DE]" />
                           {lang === "ar" ? "دعوة انضمام معلقة لمؤسسة جديدة" : (lang === "fr" ? "Invitation d'Espace de Travail en Attente" : "Pending Workspace Invitation")}
                         </h2>
                       </div>
                       
-                      <p className="text-xs text-slate-300 leading-relaxed max-w-3xl">
+                      <p className="text-xs text-slate-700 dark:text-slate-300 leading-relaxed max-w-3xl">
                         {lang === "ar" 
                           ? `لقد أرسل لك المدير التنفيذي (${incomingInvitation.senderEmail}) دعوة للانضمام إلى مساحة عمل مؤسسة "${incomingInvitation.companyName}" بالصلاحيات والميزات المحددة أدناه:` 
                           : lang === "fr"
@@ -4144,35 +4145,35 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                       </p>
 
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
-                        <div className="p-3 rounded-xl bg-slate-900/60 border border-slate-800 flex items-center gap-3">
-                          <UserCheck className="w-5 h-5 text-amber-400" />
+                        <div className="p-3 rounded-xl bg-white dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 flex items-center gap-3">
+                          <UserCheck className="w-5 h-5 text-[#0075DE]" />
                           <div>
-                            <p className="text-[10px] text-slate-400">{lang === "ar" ? "الدور المخصص:" : (lang === "fr" ? "Rôle Désigné :" : "Designated Role:")}</p>
-                            <p className="text-xs font-bold text-white">{incomingInvitation.role}</p>
+                            <p className="text-[10px] text-slate-500 dark:text-slate-400">{lang === "ar" ? "الدور المخصص:" : (lang === "fr" ? "Rôle Désigné :" : "Designated Role:")}</p>
+                            <p className="text-xs font-bold text-slate-900 dark:text-white">{incomingInvitation.role}</p>
                           </div>
                         </div>
 
-                        <div className="p-3 rounded-xl bg-slate-900/60 border border-slate-800 flex items-center gap-3">
-                          <Building className="w-5 h-5 text-amber-400" />
+                        <div className="p-3 rounded-xl bg-white dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 flex items-center gap-3">
+                          <Building className="w-5 h-5 text-[#0075DE]" />
                           <div>
-                            <p className="text-[10px] text-slate-400">{lang === "ar" ? "اسم المؤسسة:" : (lang === "fr" ? "Nom de l'Entreprise :" : "Company Name:")}</p>
-                            <p className="text-xs font-bold text-white">{incomingInvitation.companyName}</p>
+                            <p className="text-[10px] text-slate-500 dark:text-slate-400">{lang === "ar" ? "اسم المؤسسة:" : (lang === "fr" ? "Nom de l'Entreprise :" : "Company Name:")}</p>
+                            <p className="text-xs font-bold text-slate-900 dark:text-white">{incomingInvitation.companyName}</p>
                           </div>
                         </div>
                       </div>
 
                       {/* Display Designated Permissions Matrix */}
                       <div className="space-y-2 pt-2">
-                        <p className="text-[11px] font-bold text-slate-400 flex items-center gap-1.5">
-                          <Sliders className="w-3.5 h-3.5 text-amber-400" />
+                        <p className="text-[11px] font-bold text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
+                          <Sliders className="w-3.5 h-3.5 text-[#0075DE]" />
                           {lang === "ar" ? "الصلاحيات والميزات التي ستمنح لك:" : (lang === "fr" ? "Pouvoirs & Accès Accordés :" : "Designated Workspace Powers:")}
                         </p>
                         
                         <div className="flex flex-wrap gap-2">
                           <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold flex items-center gap-1.5 border ${
                             incomingInvitation.powers?.fileVault 
-                              ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400" 
-                              : "bg-slate-800/40 border-slate-800 text-slate-500 line-through"
+                              ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-600 dark:text-emerald-400" 
+                              : "bg-slate-100 dark:bg-slate-800/40 border-slate-200 dark:border-slate-800 text-slate-400 dark:text-slate-500 line-through"
                           }`}>
                             <span>📁 {lang === "ar" ? "إدارة الملفات" : "File Vault"}</span>
                             <span className="text-[9px] opacity-80">{incomingInvitation.powers?.fileVault ? (lang === "ar" ? "مسموح" : "Allowed") : (lang === "ar" ? "محظور" : "Blocked")}</span>
@@ -4180,8 +4181,8 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
 
                           <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold flex items-center gap-1.5 border ${
                             incomingInvitation.powers?.memoryVault 
-                              ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400" 
-                              : "bg-slate-800/40 border-slate-800 text-slate-500 line-through"
+                              ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-600 dark:text-emerald-400" 
+                              : "bg-slate-100 dark:bg-slate-800/40 border-slate-200 dark:border-slate-800 text-slate-400 dark:text-slate-500 line-through"
                           }`}>
                             <span>🧠 {lang === "ar" ? "مكتبة الذكريات" : "Memory Vault"}</span>
                             <span className="text-[9px] opacity-80">{incomingInvitation.powers?.memoryVault ? (lang === "ar" ? "مسموح" : "Allowed") : (lang === "ar" ? "محظور" : "Blocked")}</span>
@@ -4189,8 +4190,8 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
 
                           <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold flex items-center gap-1.5 border ${
                             incomingInvitation.powers?.riskRadar 
-                              ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400" 
-                              : "bg-slate-800/40 border-slate-800 text-slate-500 line-through"
+                              ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-600 dark:text-emerald-400" 
+                              : "bg-slate-100 dark:bg-slate-800/40 border-slate-200 dark:border-slate-800 text-slate-400 dark:text-slate-500 line-through"
                           }`}>
                             <span>⚠️ {lang === "ar" ? "رادار المخاطر" : "Risk Radar"}</span>
                             <span className="text-[9px] opacity-80">{incomingInvitation.powers?.riskRadar ? (lang === "ar" ? "مسموح" : "Allowed") : (lang === "ar" ? "محظور" : "Blocked")}</span>
@@ -4198,8 +4199,8 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
 
                           <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold flex items-center gap-1.5 border ${
                             incomingInvitation.powers?.marketIntel 
-                              ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400" 
-                              : "bg-slate-800/40 border-slate-800 text-slate-500 line-through"
+                              ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-600 dark:text-emerald-400" 
+                              : "bg-slate-100 dark:bg-slate-800/40 border-slate-200 dark:border-slate-800 text-slate-400 dark:text-slate-500 line-through"
                           }`}>
                             <span>📊 {lang === "ar" ? "استخبارات السوق" : "Market Intel"}</span>
                             <span className="text-[9px] opacity-80">{incomingInvitation.powers?.marketIntel ? (lang === "ar" ? "مسموح" : "Allowed") : (lang === "ar" ? "محظور" : "Blocked")}</span>
@@ -4207,8 +4208,8 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
 
                           <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold flex items-center gap-1.5 border ${
                             incomingInvitation.powers?.settings 
-                              ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400" 
-                              : "bg-slate-800/40 border-slate-800 text-slate-500 line-through"
+                              ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-600 dark:text-emerald-400" 
+                              : "bg-slate-100 dark:bg-slate-800/40 border-slate-200 dark:border-slate-800 text-slate-400 dark:text-slate-500 line-through"
                           }`}>
                             <span>⚙️ {lang === "ar" ? "إعدادات النظام" : "System Settings"}</span>
                             <span className="text-[9px] opacity-80">{incomingInvitation.powers?.settings ? (lang === "ar" ? "مسموح" : "Allowed") : (lang === "ar" ? "محظور" : "Blocked")}</span>
@@ -4220,7 +4221,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                     <div className="flex sm:flex-row flex-col items-stretch sm:items-center gap-3 shrink-0">
                       <button
                         onClick={handleDeclineInvitation}
-                        className="px-5 py-2.5 rounded-xl border border-rose-500/30 hover:border-rose-500 bg-rose-500/5 hover:bg-rose-500/15 text-rose-400 font-bold text-xs transition-all cursor-pointer flex items-center justify-center gap-1.5"
+                        className="px-5 py-2.5 rounded-xl border border-rose-500/30 hover:border-rose-500 bg-rose-500/5 hover:bg-rose-500/15 text-rose-500 dark:text-rose-400 font-bold text-xs transition-all cursor-pointer flex items-center justify-center gap-1.5"
                       >
                         <X className="w-4 h-4" />
                         <span>{lang === "ar" ? "رفض الدعوة" : (lang === "fr" ? "Décliner" : "Decline")}</span>
@@ -4228,7 +4229,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
 
                       <button
                         onClick={() => handleAcceptInvitation(incomingInvitation)}
-                        className="px-6 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-extrabold text-xs transition-all shadow-lg hover:shadow-amber-500/10 cursor-pointer flex items-center justify-center gap-1.5"
+                        className="px-6 py-2.5 rounded-xl bg-[#0075DE] hover:bg-[#005BAB] text-white font-extrabold text-xs transition-all shadow-lg hover:shadow-[#0075DE]/20 cursor-pointer flex items-center justify-center gap-1.5"
                       >
                         <Check className="w-4 h-4" />
                         <span>{lang === "ar" ? "الموافقة والانضمام للمؤسسة" : (lang === "fr" ? "Accepter & Rejoindre" : "Accept & Join Workspace")}</span>
@@ -4355,18 +4356,18 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                         }`}>
                           <div className={alignClass}>
                             <h1 className="text-3xl font-black tracking-tight flex items-center gap-2.5 flex-wrap">
-                              <span className="bg-gradient-to-r from-amber-200 via-[#0075DE] to-amber-100 bg-clip-text text-transparent">
+                              <span className="bg-gradient-to-r from-[#0075DE] via-blue-600 to-indigo-600 dark:from-blue-400 dark:via-[#0075DE] dark:to-indigo-300 bg-clip-text text-transparent">
                                 {dl.welcome}
                               </span>
                               <span className={`text-xs font-bold px-2.5 py-0.5 rounded-full border shrink-0 ${
                                 theme === "dark" 
                                   ? "bg-slate-900/80 border-[#0075DE]/30 text-[#0075DE]" 
-                                  : "bg-amber-50 border-[#0075DE]/40 text-[#0075DE]"
+                                  : "bg-blue-50 border-[#0075DE]/30 text-[#0075DE]"
                               }`}>
                                 {currentUser?.role || "CEO"}
                               </span>
                             </h1>
-                            <p className="text-slate-400 text-sm mt-1">{dl.subtitle}</p>
+                            <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">{dl.subtitle}</p>
                           </div>
 
                           <div className={`flex items-center gap-3 ${isRtl ? "justify-start md:justify-end" : "justify-start"}`}>
@@ -4396,16 +4397,16 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                         <div className={`p-6 rounded-2xl border relative overflow-hidden ${
                           theme === "dark"
                             ? "bg-gradient-to-r from-slate-950 via-slate-900 to-slate-950 border-[#0075DE]/20 shadow-2xl"
-                            : "bg-gradient-to-r from-amber-50/60 via-white to-amber-50/60 border-amber-200 shadow-md"
+                            : "bg-gradient-to-r from-blue-50/40 via-white to-blue-50/30 border-slate-200 shadow-md"
                         }`}>
                           {/* Top-right accent gradient glow */}
                           <div className={`absolute top-0 right-0 w-96 h-96 rounded-full blur-3xl pointer-events-none ${
-                            theme === "dark" ? "bg-[#0075DE]/5" : "bg-amber-100/40"
+                            theme === "dark" ? "bg-[#0075DE]/5" : "bg-blue-100/30"
                           }`} />
 
                           <div className="relative z-10 grid grid-cols-1 lg:grid-cols-3 gap-8 items-center">
                             {/* Column 1: Institutional Context */}
-                            <div className={`space-y-2 lg:border-r border-slate-800/80 pb-4 lg:pb-0 ${isRtl ? "lg:border-r-0 lg:border-l lg:pl-8 lg:pr-0" : "lg:pr-8"}`}>
+                            <div className={`space-y-2 lg:border-r border-slate-200 dark:border-slate-800/80 pb-4 lg:pb-0 ${isRtl ? "lg:border-r-0 lg:border-l lg:pl-8 lg:pr-0" : "lg:pr-8"}`}>
                               <div className={`flex items-center gap-2 ${isRtl ? "justify-start" : "justify-start"}`}>
                                 <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shrink-0" />
                                 <span className="text-[10px] font-black uppercase tracking-widest text-[#0075DE]">
@@ -4418,25 +4419,25 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                                 <Building2 className="w-5 h-5 text-[#0075DE] shrink-0" />
                                 <span className="truncate">{currentUser?.companyName || "Zakir Enterprise Core"}</span>
                               </h2>
-                              <div className="flex items-center gap-2 text-xs text-slate-400">
-                                <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />
+                              <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
+                                <ShieldCheck className="w-4 h-4 text-emerald-500 dark:text-emerald-400 shrink-0" />
                                 <span>{isRtl ? "تشفير محلي وسحابي AES-256 معتمد" : "AES-256 Vault Encryption Active"}</span>
                               </div>
                             </div>
 
                             {/* Column 2: Causal Intelligence Flow representation */}
-                            <div className={`space-y-3 lg:border-r border-slate-800/80 pb-4 lg:pb-0 ${isRtl ? "lg:border-r-0 lg:border-l lg:pl-8 lg:pr-0" : "lg:pr-8"}`}>
-                              <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                            <div className={`space-y-3 lg:border-r border-slate-200 dark:border-slate-800/80 pb-4 lg:pb-0 ${isRtl ? "lg:border-r-0 lg:border-l lg:pl-8 lg:pr-0" : "lg:pr-8"}`}>
+                              <span className="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">
                                 {dl.causalChain}
                               </span>
                               <div className={`flex items-center gap-1.5 flex-wrap text-xs font-bold ${isRtl ? "flex-row-reverse" : "flex-row"}`}>
-                                <span className="px-2 py-0.5 rounded bg-rose-500/10 text-rose-400 border border-rose-500/20">{isRtl ? "السبب" : "Cause"}</span>
-                                <span className="text-slate-600 font-mono">→</span>
-                                <span className="px-2 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20">{isRtl ? "القرار" : "Decision"}</span>
-                                <span className="text-slate-600 font-mono">→</span>
-                                <span className="px-2 py-0.5 rounded bg-blue-500/10 text-blue-400 border border-blue-500/20">{isRtl ? "النتيجة" : "Outcome"}</span>
-                                <span className="text-slate-600 font-mono">→</span>
-                                <span className="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">{isRtl ? "الدرس" : "Lesson"}</span>
+                                <span className="px-2 py-0.5 rounded bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20">{isRtl ? "السبب" : "Cause"}</span>
+                                <span className="text-slate-400 font-mono">→</span>
+                                <span className="px-2 py-0.5 rounded bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20">{isRtl ? "القرار" : "Decision"}</span>
+                                <span className="text-slate-400 font-mono">→</span>
+                                <span className="px-2 py-0.5 rounded bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20">{isRtl ? "النتيجة" : "Outcome"}</span>
+                                <span className="text-slate-400 font-mono">→</span>
+                                <span className="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">{isRtl ? "الدرس" : "Lesson"}</span>
                               </div>
                               <p className={`text-[11px] leading-tight ${theme === "dark" ? "text-slate-400" : "text-slate-500"}`}>
                                 {dl.decisionOutcome}
@@ -4578,20 +4579,20 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                             onClick={() => setActiveTab("smart")}
                             className={`p-6 rounded-2xl border transition-all cursor-pointer group/kpi flex flex-col justify-between ${
                               theme === "dark" 
-                                ? "bg-slate-900/40 hover:bg-slate-800/80 border-slate-800 hover:border-amber-500/40" 
-                                : "bg-white hover:bg-amber-50/30 border-slate-200 hover:border-amber-400"
+                                ? "bg-slate-900/40 hover:bg-slate-800/80 border-slate-800 hover:border-[#0075DE]/40" 
+                                : "bg-white hover:bg-blue-50/30 border-slate-200 hover:border-[#0075DE]"
                             }`}
                             title={dl.clickAI}
                           >
                             <div className="flex items-center justify-between">
-                              <span className="text-[10px] text-amber-500 font-black uppercase tracking-wider">
+                              <span className="text-[10px] text-[#0075DE] font-black uppercase tracking-wider">
                                 {dl.aiDiagnostics}
                               </span>
-                              <Sparkles className="w-4 h-4 text-amber-500 shrink-0" />
+                              <Sparkles className="w-4 h-4 text-[#0075DE] shrink-0" />
                             </div>
 
                             <div className={`my-3 ${alignClass}`}>
-                              <div className="text-4xl font-black font-mono tracking-tight text-amber-500">
+                              <div className="text-4xl font-black font-mono tracking-tight text-[#0075DE]">
                                 {statsCount.aiAnalyses < 10 ? `0${statsCount.aiAnalyses}` : statsCount.aiAnalyses}
                               </div>
                               <span className={`text-[10px] uppercase font-bold block mt-1 ${
@@ -4601,7 +4602,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                               </span>
                             </div>
 
-                            <div className="text-[11px] text-slate-400 group-hover/kpi:text-amber-500 transition-colors font-medium border-t border-slate-800/50 pt-2.5 flex items-center justify-between">
+                            <div className="text-[11px] text-slate-500 dark:text-slate-400 group-hover/kpi:text-[#0075DE] transition-colors font-medium border-t border-slate-200 dark:border-slate-800/50 pt-2.5 flex items-center justify-between">
                               <span>{dl.clickAI}</span>
                               <ChevronRight className={`w-3.5 h-3.5 transform group-hover/kpi:translate-x-1 transition-transform ${isRtl ? "rotate-180" : ""}`} />
                             </div>
@@ -4814,7 +4815,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                               ) : (
                                 <div className="space-y-4">
                                   <div className={`p-3.5 rounded-xl border ${
-                                    theme === "dark" ? "bg-[#0075DE]/5 border-[#0075DE]/20" : "bg-amber-50/50 border-amber-200"
+                                    theme === "dark" ? "bg-[#0075DE]/5 border-[#0075DE]/20" : "bg-blue-50/50 border-blue-200"
                                   }`}>
                                     <h4 className="text-xs font-black text-[#0075DE]">{isRtl ? "فجوة متكررة في مخاطر الصرف الأجنبي" : "Recurring Forex risk gap detected"}</h4>
                                     <p className="text-xs text-slate-400 mt-1.5 leading-relaxed">
@@ -4994,7 +4995,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                     <div className="flex items-center gap-2">
                       <button 
                         onClick={() => handleOpenPrintPreview()} 
-                        className="h-10 px-3.5 bg-slate-900 hover:bg-slate-800 text-amber-400 border border-amber-500/30 hover:border-amber-500/60 font-bold text-xs rounded-lg flex items-center gap-1.5 transition-all cursor-pointer"
+                        className="h-10 px-3.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-900 dark:hover:bg-slate-800 text-[#0075DE] border border-[#0075DE]/30 hover:border-[#0075DE]/60 font-bold text-xs rounded-lg flex items-center gap-1.5 transition-all cursor-pointer"
                         title={lang === "ar" ? "معاينة وتنسيق طباعة تقرير الذاكرة" : "Print Preview & Formatting"}
                       >
                         <Printer className="w-4 h-4" />
@@ -5162,7 +5163,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                             key={m.id} 
                             className={`memory-card-item border rounded-xl overflow-hidden transition-all ${
                               isMemoryLocked
-                                ? "bg-slate-950/80 border-amber-500/30 hover:border-amber-500/50"
+                                ? "bg-slate-950/80 border-[#0075DE]/40 hover:border-[#0075DE]/60"
                                 : theme === "dark" 
                                   ? "bg-slate-900/20 border-slate-800/60 hover:border-[#0075DE]/30" 
                                   : "bg-white border-slate-200 hover:border-[#0075DE]/30 shadow-sm"
@@ -5177,8 +5178,8 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                                 <div className="space-y-1">
                                   <div className="flex items-center gap-2 flex-wrap">
                                     {isMemoryLocked && (
-                                      <span className="text-[9px] px-2 py-0.5 rounded font-black uppercase bg-amber-500/20 text-amber-400 border border-amber-500/40 flex items-center gap-1">
-                                        <Lock className="w-3 h-3 text-amber-400" />
+                                      <span className="text-[9px] px-2 py-0.5 rounded font-black uppercase bg-[#0075DE]/20 text-[#0075DE] border border-[#0075DE]/40 flex items-center gap-1">
+                                        <Lock className="w-3 h-3 text-[#0075DE]" />
                                         <span>{lang === "ar" ? "ذكرى مشفرة" : "Encrypted Memory"}</span>
                                       </span>
                                     )}
@@ -5197,7 +5198,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
 
                                 <div className="flex items-center gap-3 shrink-0">
                                   <span className="text-[11px] text-[#0075DE] font-bold hover:underline flex items-center gap-1">
-                                    {isMemoryLocked && !isUnlocked && <Lock className="w-3 h-3 text-amber-400" />}
+                                    {isMemoryLocked && !isUnlocked && <Lock className="w-3 h-3 text-[#0075DE]" />}
                                     <span>{isExpanded ? (lang === "ar" ? "طي التفاصيل" : "Collapse Details") : (isMemoryLocked && !isUnlocked ? (lang === "ar" ? "فك التشفير والعرض" : "Unlock & View") : (lang === "ar" ? "عرض التفاصيل" : "View Details"))}</span>
                                   </span>
                                 </div>
@@ -5302,7 +5303,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                                   <div className="flex items-center justify-between gap-2 text-[9px] text-slate-400 pt-1">
                                     <div className="flex items-center gap-1">
                                       <span>بواسطة:</span>
-                                      <span className="font-bold text-amber-500">{m.authorName || m.authorEmail}</span>
+                                      <span className="font-bold text-[#0075DE]">{m.authorName || m.authorEmail}</span>
                                       <span>({m.authorRole})</span>
                                     </div>
                                     <div className="flex items-center gap-2">
@@ -5342,7 +5343,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                                                 setCustomEditCategory(m.category);
                                               }
                                             }}
-                                            className="text-amber-400 hover:text-white bg-amber-500/10 hover:bg-amber-600/80 px-2 py-0.5 rounded text-[10px] font-bold border border-amber-500/30 transition-all cursor-pointer flex items-center gap-1"
+                                            className="text-[#0075DE] hover:text-white bg-[#0075DE]/10 hover:bg-[#0075DE] px-2 py-0.5 rounded text-[10px] font-bold border border-[#0075DE]/30 transition-all cursor-pointer flex items-center gap-1"
                                           >
                                             <Edit3 className="w-3 h-3" />
                                             <span>{lang === "ar" ? "تعديل الذكرى" : "Edit Memory"}</span>
@@ -5758,16 +5759,16 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                         </div>
 
                         {/* CEO Encryption Checkbox for Memory */}
-                        <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-between">
+                        <div className="p-4 rounded-xl bg-[#0075DE]/10 border border-[#0075DE]/30 flex items-center justify-between">
                           <div className="flex items-center gap-3">
-                            <div className="p-2 rounded-lg bg-amber-500/20 text-amber-400">
+                            <div className="p-2 rounded-lg bg-[#0075DE]/20 text-[#0075DE]">
                               <Lock className="w-4 h-4 shrink-0" />
                             </div>
                             <div>
-                              <p className="text-xs font-bold text-amber-300">
+                              <p className="text-xs font-bold text-[#0075DE]">
                                 {lang === "ar" ? "تأمين وتشفير هذه الذكرى بالرمز السري للـ CEO" : (lang === "fr" ? "Chiffrer et verrouiller ce souvenir avec le code secret CEO" : "Enclose & Encrypt Memory with CEO Secret Code")}
                               </p>
-                              <p className="text-[10px] text-amber-400/80">
+                              <p className="text-[10px] text-slate-400">
                                 {lang === "ar" ? "يتطلب إدخال الرمز السري قبل فتح أو قراءة تفاصيل هذه الذكرى" : (lang === "fr" ? "Exige le code secret avant d'ouvrir ou de lire les détails de ce souvenir" : "Requires secret passcode before expanding or reading details")}
                               </p>
                             </div>
@@ -5776,7 +5777,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                             type="checkbox"
                             checked={newIsEncrypted}
                             onChange={(e) => setNewIsEncrypted(e.target.checked)}
-                            className="w-5 h-5 rounded bg-slate-900 border-slate-700 text-amber-500 focus:ring-amber-500 accent-amber-500 cursor-pointer shrink-0"
+                            className="w-5 h-5 rounded bg-slate-900 border-slate-700 text-[#0075DE] focus:ring-[#0075DE] accent-[#0075DE] cursor-pointer shrink-0"
                           />
                         </div>
 
@@ -5793,7 +5794,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                           <button 
                             type="submit" 
                             disabled={isSubmittingMemory}
-                            className="px-8 py-3 bg-[#0075DE] hover:bg-[#005BAB] active:bg-[#004585] disabled:bg-slate-800 disabled:text-slate-500 text-slate-950 font-black text-xs rounded-xl transition-all shadow-lg shadow-[#0075DE]/20 cursor-pointer flex items-center justify-center gap-2"
+                            className="px-8 py-3 bg-[#0075DE] hover:bg-[#005BAB] active:bg-[#004585] disabled:bg-slate-800 disabled:text-slate-500 text-white font-black text-xs rounded-xl transition-all shadow-lg shadow-[#0075DE]/20 cursor-pointer flex items-center justify-center gap-2"
                           >
                             {isSubmittingMemory ? (
                               <>
@@ -5825,7 +5826,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                   <div className="flex items-center justify-between flex-wrap gap-4 border-b border-slate-800/60 pb-4">
                     <div>
                       <h1 className="text-2xl font-black tracking-tight flex items-center gap-3">
-                        <Folder className="w-7 h-7 text-amber-400" />
+                        <Folder className="w-7 h-7 text-[#0075DE]" />
                         <span>{lang === "ar" ? "إدارة الملفات والوثائق المؤسسية" : (lang === "fr" ? "Gestionnaire de Fichiers" : "Institutional File Vault")}</span>
                       </h1>
                       <p className="text-slate-400 text-xs mt-1">
@@ -6324,7 +6325,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                                 )}
                                 <div className={`p-3.5 rounded-2xl max-w-[85%] text-xs leading-relaxed ${
                                   isUser 
-                                    ? "bg-amber-500 text-slate-950 font-medium rounded-br-none whitespace-pre-wrap" 
+                                    ? "bg-[#0075DE] text-white font-medium rounded-br-none whitespace-pre-wrap shadow-md shadow-[#0075DE]/10" 
                                     : (theme === "dark" ? "bg-slate-900 text-slate-200 rounded-bl-none" : "bg-slate-100 text-slate-800 rounded-bl-none")
                                 }`}>
                                   {isUser ? (
@@ -6336,7 +6337,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                                   )}
                                 </div>
                                 {isUser && (
-                                  <div className="w-8 h-8 rounded-lg bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-500 shrink-0 mt-0.5">
+                                  <div className="w-8 h-8 rounded-lg bg-[#0075DE]/10 border border-[#0075DE]/30 flex items-center justify-center text-[#0075DE] shrink-0 mt-0.5">
                                     <UserIcon className="w-4 h-4" />
                                   </div>
                                 )}
@@ -6430,7 +6431,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
 
                   <div className="space-y-4 pt-2">
                     <h3 className="text-lg font-bold flex items-center gap-2">
-                      <ShieldAlert className="w-5 h-5 text-amber-500" />
+                      <ShieldAlert className="w-5 h-5 text-rose-500" />
                       <span>
                         {lang === "ar"
                           ? "سجل التنبيهات المباشرة"
@@ -6465,7 +6466,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                           <p className="text-xs text-slate-300 leading-relaxed">{alert.description}</p>
                           <div className="flex items-center gap-1 pt-1">
                             <span className="text-[10px] text-slate-400">التصنيف التشغيلي:</span>
-                            <span className="text-[10px] font-bold text-amber-500">{alert.category}</span>
+                            <span className="text-[10px] font-bold text-[#0075DE]">{alert.category}</span>
                           </div>
                         </div>
 
@@ -6558,10 +6559,10 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
       {/* UNLOCK ENCRYPTED MEMORY MODAL */}
       {unlockMemoryTarget && (
         <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 animate-fade-in">
-          <div className="w-full max-w-md bg-slate-900 border border-amber-500/40 rounded-2xl p-6 shadow-2xl space-y-5">
+          <div className="w-full max-w-md bg-slate-900 border border-[#0075DE]/40 rounded-2xl p-6 shadow-2xl space-y-5">
             <div className="flex items-center justify-between pb-3 border-b border-slate-800">
               <div className="flex items-center gap-2.5">
-                <div className="w-10 h-10 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center border border-amber-500/30">
+                <div className="w-10 h-10 rounded-xl bg-[#0075DE]/20 text-[#0075DE] flex items-center justify-center border border-[#0075DE]/30">
                   <Lock className="w-5 h-5" />
                 </div>
                 <div>
@@ -6639,7 +6640,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                     setUnlockMemoryError("");
                   }}
                   placeholder="••••"
-                  className="w-full h-11 px-4 bg-slate-950 border border-slate-800 text-amber-400 font-mono text-center text-lg rounded-xl focus:border-amber-500 focus:outline-none tracking-widest"
+                  className="w-full h-11 px-4 bg-slate-950 border border-slate-800 text-[#0075DE] font-mono text-center text-lg rounded-xl focus:border-[#0075DE] focus:outline-none tracking-widest"
                 />
               </div>
 
@@ -6663,7 +6664,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                 </button>
                 <button
                   type="submit"
-                  className="px-6 h-10 rounded-xl bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 hover:to-amber-300 text-slate-950 font-black text-xs flex items-center gap-2 cursor-pointer shadow-lg shadow-amber-500/20 transition-all"
+                  className="px-6 h-10 rounded-xl bg-[#0075DE] hover:bg-[#005BAB] text-white font-black text-xs flex items-center gap-2 cursor-pointer shadow-lg shadow-[#0075DE]/20 transition-all"
                 >
                   <Unlock className="w-4 h-4" />
                   <span>{lang === "ar" ? "التحقق وفك القفل" : (lang === "fr" ? "Vérifier & Déverrouiller" : "Verify & Unlock")}</span>
@@ -6681,7 +6682,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
             theme === "dark" ? "bg-slate-900 border-slate-800 text-white" : "bg-white border-slate-200 text-slate-900"
           }`}>
             <div className="flex items-center justify-between pb-4 border-b border-slate-800">
-              <div className="flex items-center gap-2 text-amber-400 font-bold text-sm">
+              <div className="flex items-center gap-2 text-[#0075DE] font-bold text-sm">
                 <Edit3 className="w-5 h-5" />
                 <span>{lang === "ar" ? "تعديل الذكرى المؤسسية" : (lang === "fr" ? "Modifier la Mémoire Institutionnelle" : "Edit Institutional Memory")}</span>
               </div>
@@ -6806,13 +6807,13 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                 </div>
               </div>
 
-              <div className="flex items-center justify-between p-3 rounded-xl bg-amber-500/10 border border-amber-500/30">
-                <span className="font-bold text-amber-300">{lang === "ar" ? "تشفير هذه الذكرى بالرمز السري:" : (lang === "fr" ? "Chiffrer ce souvenir avec le code secret :" : "Encrypt this memory:")}</span>
+              <div className="flex items-center justify-between p-3 rounded-xl bg-[#0075DE]/10 border border-[#0075DE]/30">
+                <span className="font-bold text-[#0075DE]">{lang === "ar" ? "تشفير هذه الذكرى بالرمز السري:" : (lang === "fr" ? "Chiffrer ce souvenir avec le code secret :" : "Encrypt this memory:")}</span>
                 <input
                   type="checkbox"
                   checked={!!editingMemory.isEncrypted}
                   onChange={(e) => setEditingMemory({ ...editingMemory, isEncrypted: e.target.checked })}
-                  className="w-4 h-4 accent-amber-500 cursor-pointer"
+                  className="w-4 h-4 accent-[#0075DE] cursor-pointer"
                 />
               </div>
 
@@ -6826,7 +6827,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold shadow-lg shadow-amber-500/20 cursor-pointer"
+                  className="px-5 py-2 rounded-xl bg-[#0075DE] hover:bg-[#005BAB] text-white font-bold shadow-lg shadow-[#0075DE]/20 cursor-pointer"
                 >
                   {lang === "ar" ? "حفظ التعديلات" : (lang === "fr" ? "Enregistrer les Modifications" : "Save Changes")}
                 </button>

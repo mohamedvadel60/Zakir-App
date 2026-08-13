@@ -319,35 +319,35 @@ export const CustomerSupport: React.FC<CustomerSupportProps> = ({ currentUser, l
     switch (status) {
       case "Open":
         return (
-          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-amber-500/10 text-amber-500 border border-amber-500/20">
+          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-[#0075DE]/10 text-[#0075DE] border border-[#0075DE]/20">
             <Clock className="w-3 h-3" />
             {lang === "ar" ? "مفتوحة" : "Open"}
           </span>
         );
       case "In Progress":
         return (
-          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-blue-500/10 text-blue-400 border border-blue-500/20">
+          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-blue-500/10 text-blue-500 border border-blue-500/20">
             <RefreshCw className="w-3 h-3 animate-spin-slow" />
             {lang === "ar" ? "قيد المتابعة" : "In Progress"}
           </span>
         );
       case "Waiting for User":
         return (
-          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-purple-500/10 text-purple-400 border border-purple-500/20">
+          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20">
             <AlertCircle className="w-3 h-3" />
             {lang === "ar" ? "بانتظار إجابتك" : "Waiting for You"}
           </span>
         );
       case "Resolved":
         return (
-          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
             <CheckCircle2 className="w-3 h-3" />
             {lang === "ar" ? "تم الحل" : "Resolved"}
           </span>
         );
       case "Closed":
         return (
-          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-slate-500/10 text-slate-400 border border-slate-500/20">
+          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-slate-500/10 text-slate-600 dark:text-slate-400 border border-slate-500/20">
             <CheckCircle className="w-3 h-3" />
             {lang === "ar" ? "مغلقة" : "Closed"}
           </span>
@@ -360,37 +360,37 @@ export const CustomerSupport: React.FC<CustomerSupportProps> = ({ currentUser, l
   const getPriorityBadge = (priority: SupportPriority) => {
     switch (priority) {
       case "Urgent":
-        return <span className="px-2 py-0.5 rounded text-[11px] font-extrabold bg-red-500/20 text-red-400 border border-red-500/30 animate-pulse">{lang === "ar" ? "عاجل جداً" : "Urgent"}</span>;
+        return <span className="px-2 py-0.5 rounded text-[11px] font-extrabold bg-red-500/20 text-red-600 dark:text-red-400 border border-red-500/30 animate-pulse">{lang === "ar" ? "عاجل جداً" : "Urgent"}</span>;
       case "High":
-        return <span className="px-2 py-0.5 rounded text-[11px] font-bold bg-orange-500/20 text-orange-400 border border-orange-500/30">{lang === "ar" ? "أولوية عالية" : "High"}</span>;
+        return <span className="px-2 py-0.5 rounded text-[11px] font-bold bg-orange-500/20 text-orange-600 dark:text-orange-400 border border-orange-500/30">{lang === "ar" ? "أولوية عالية" : "High"}</span>;
       case "Medium":
       case "Normal":
-        return <span className="px-2 py-0.5 rounded text-[11px] font-medium bg-amber-500/10 text-amber-400 border border-amber-500/20">{lang === "ar" ? "متوسطة" : "Medium"}</span>;
+        return <span className="px-2 py-0.5 rounded text-[11px] font-medium bg-[#0075DE]/10 text-[#0075DE] border border-[#0075DE]/20">{lang === "ar" ? "متوسطة" : "Medium"}</span>;
       default:
-        return <span className="px-2 py-0.5 rounded text-[11px] font-normal bg-slate-800 text-slate-400">{lang === "ar" ? "عادية" : "Low"}</span>;
+        return <span className="px-2 py-0.5 rounded text-[11px] font-normal bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-400">{lang === "ar" ? "عادية" : "Low"}</span>;
     }
   };
 
   return (
-    <div className="w-full max-w-7xl mx-auto space-y-6 text-slate-100">
+    <div className="w-full max-w-7xl mx-auto space-y-6 text-slate-900 dark:text-slate-100">
       
       {/* INSTITUTIONAL HEADER & LIVE STATUS BANNER */}
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-slate-900 via-slate-900/90 to-amber-950/30 border border-slate-800 p-6 md:p-8 shadow-2xl">
-        <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-amber-500 via-emerald-500 to-amber-500"></div>
+      <div className="relative overflow-hidden rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-6 md:p-8 shadow-xl">
+        <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-[#0075DE] via-emerald-500 to-[#0075DE]"></div>
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div className="space-y-2">
             <div className="flex items-center gap-3">
-              <div className="p-2.5 rounded-xl bg-amber-500/10 text-amber-400 border border-amber-500/20 shadow-inner">
+              <div className="p-2.5 rounded-xl bg-[#0075DE]/10 text-[#0075DE] border border-[#0075DE]/20 shadow-inner">
                 <LifeBuoy className="w-6 h-6" />
               </div>
               <div>
-                <h1 className="text-xl md:text-2xl font-bold tracking-tight text-white flex items-center gap-2">
+                <h1 className="text-xl md:text-2xl font-bold tracking-tight text-slate-900 dark:text-white flex items-center gap-2">
                   {lang === "ar" ? "مركز خدمة ودعم العملاء المؤسسي" : "Enterprise Customer Care & Support Center"}
-                  <span className="text-xs px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-mono font-normal">
+                  <span className="text-xs px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 font-mono font-normal">
                     v2.5 Live
                   </span>
                 </h1>
-                <p className="text-xs md:text-sm text-slate-400 mt-0.5">
+                <p className="text-xs md:text-sm text-slate-600 dark:text-slate-400 mt-0.5">
                   {lang === "ar" 
                     ? "فريق الدعم الفني والامتثال متواجد لخدمتك ومتابعة كافة الطلبات والاستفسارات بدقة عالية" 
                     : "Our enterprise support and compliance team is dedicated to reviewing and handling all your technical and operational inquiries."}
@@ -399,21 +399,21 @@ export const CustomerSupport: React.FC<CustomerSupportProps> = ({ currentUser, l
             </div>
           </div>
 
-          <div className="flex items-center gap-4 bg-slate-950/60 p-3.5 rounded-xl border border-slate-800/80 backdrop-blur-sm self-start md:self-auto">
+          <div className="flex items-center gap-4 bg-slate-100 dark:bg-slate-950/60 p-3.5 rounded-xl border border-slate-200 dark:border-slate-800/80 backdrop-blur-sm self-start md:self-auto">
             <div className="flex items-center gap-2 text-xs">
               <span className="relative flex h-2.5 w-2.5">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                 <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
               </span>
-              <span className="text-slate-300 font-medium">
+              <span className="text-slate-700 dark:text-slate-300 font-medium">
                 {lang === "ar" ? "أنظمة الدعم تعمل بكفاءة 100%" : "Systems Operational"}
               </span>
             </div>
-            <div className="h-4 w-px bg-slate-800"></div>
+            <div className="h-4 w-px bg-slate-200 dark:bg-slate-800"></div>
             <button 
               onClick={() => loadTickets(true)} 
               disabled={isRefreshing}
-              className="flex items-center gap-1.5 text-xs text-amber-400 hover:text-amber-300 transition-colors font-medium"
+              className="flex items-center gap-1.5 text-xs text-[#0075DE] hover:text-[#005BAB] transition-colors font-medium cursor-pointer"
               title={lang === "ar" ? "تحديث التذاكر" : "Refresh Tickets"}
             >
               <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? "animate-spin" : ""}`} />
@@ -423,20 +423,20 @@ export const CustomerSupport: React.FC<CustomerSupportProps> = ({ currentUser, l
         </div>
 
         {/* NAVIGATION TABS */}
-        <div className="flex items-center gap-2 mt-6 pt-6 border-t border-slate-800/80 overflow-x-auto no-scrollbar">
+        <div className="flex items-center gap-2 mt-6 pt-6 border-t border-slate-200 dark:border-slate-800/80 overflow-x-auto no-scrollbar">
           <button
             onClick={() => setActiveTab("tickets")}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs md:text-sm font-semibold transition-all whitespace-nowrap ${
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs md:text-sm font-semibold transition-all whitespace-nowrap cursor-pointer ${
               activeTab === "tickets"
-                ? "bg-amber-500 text-slate-950 shadow-lg shadow-amber-500/20 font-bold"
-                : "bg-slate-800/60 text-slate-300 hover:bg-slate-800 hover:text-white"
+                ? "bg-[#0075DE] text-white shadow-lg shadow-[#0075DE]/20 font-bold"
+                : "bg-slate-100 dark:bg-slate-800/60 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white"
             }`}
           >
             <MessageSquare className="w-4 h-4" />
             <span>{lang === "ar" ? "تذاكري والمحادثات المباشرة" : "My Support Tickets & Chat"}</span>
             {tickets.length > 0 && (
               <span className={`px-2 py-0.5 rounded-full text-xs font-mono font-bold ${
-                activeTab === "tickets" ? "bg-slate-950 text-amber-400" : "bg-slate-700 text-slate-200"
+                activeTab === "tickets" ? "bg-white/20 text-white" : "bg-slate-200 dark:bg-slate-700 text-slate-800 dark:text-slate-200"
               }`}>
                 {tickets.length}
               </span>
@@ -445,10 +445,10 @@ export const CustomerSupport: React.FC<CustomerSupportProps> = ({ currentUser, l
 
           <button
             onClick={() => setActiveTab("new")}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs md:text-sm font-semibold transition-all whitespace-nowrap ${
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs md:text-sm font-semibold transition-all whitespace-nowrap cursor-pointer ${
               activeTab === "new"
-                ? "bg-amber-500 text-slate-950 shadow-lg shadow-amber-500/20 font-bold"
-                : "bg-slate-800/60 text-slate-300 hover:bg-slate-800 hover:text-white"
+                ? "bg-[#0075DE] text-white shadow-lg shadow-[#0075DE]/20 font-bold"
+                : "bg-slate-100 dark:bg-slate-800/60 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white"
             }`}
           >
             <PlusCircle className="w-4 h-4" />
@@ -457,10 +457,10 @@ export const CustomerSupport: React.FC<CustomerSupportProps> = ({ currentUser, l
 
           <button
             onClick={() => setActiveTab("verification_help")}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs md:text-sm font-semibold transition-all whitespace-nowrap ${
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs md:text-sm font-semibold transition-all whitespace-nowrap cursor-pointer ${
               activeTab === "verification_help"
-                ? "bg-emerald-500 text-slate-950 shadow-lg shadow-emerald-500/20 font-bold"
-                : "bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 border border-emerald-500/20"
+                ? "bg-emerald-600 text-white shadow-lg shadow-emerald-500/20 font-bold"
+                : "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/20 border border-emerald-500/20"
             }`}
           >
             <ShieldCheck className="w-4 h-4" />
@@ -469,10 +469,10 @@ export const CustomerSupport: React.FC<CustomerSupportProps> = ({ currentUser, l
 
           <button
             onClick={() => setActiveTab("faqs")}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs md:text-sm font-semibold transition-all whitespace-nowrap ${
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs md:text-sm font-semibold transition-all whitespace-nowrap cursor-pointer ${
               activeTab === "faqs"
-                ? "bg-amber-500 text-slate-950 shadow-lg shadow-amber-500/20 font-bold"
-                : "bg-slate-800/60 text-slate-300 hover:bg-slate-800 hover:text-white"
+                ? "bg-[#0075DE] text-white shadow-lg shadow-[#0075DE]/20 font-bold"
+                : "bg-slate-100 dark:bg-slate-800/60 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white"
             }`}
           >
             <HelpCircle className="w-4 h-4" />
@@ -501,14 +501,14 @@ export const CustomerSupport: React.FC<CustomerSupportProps> = ({ currentUser, l
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 min-h-[600px]">
           
           {/* LEFT COLUMN: TICKET LIST */}
-          <div className="lg:col-span-4 bg-slate-900 border border-slate-800 rounded-2xl p-4 flex flex-col h-[650px]">
-            <div className="space-y-3 pb-3 border-b border-slate-800">
+          <div className="lg:col-span-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 flex flex-col h-[650px]">
+            <div className="space-y-3 pb-3 border-b border-slate-200 dark:border-slate-800">
               <div className="flex items-center justify-between">
-                <h2 className="text-sm font-bold text-white flex items-center gap-2">
-                  <FileText className="w-4 h-4 text-amber-400" />
+                <h2 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                  <FileText className="w-4 h-4 text-[#0075DE]" />
                   <span>{lang === "ar" ? "سجل طلبات الدعم" : "Ticket Log"}</span>
                 </h2>
-                <span className="text-xs text-slate-400 font-mono">({filteredTickets.length})</span>
+                <span className="text-xs text-slate-500 dark:text-slate-400 font-mono">({filteredTickets.length})</span>
               </div>
 
               {/* SEARCH & STATUS FILTER */}
@@ -520,7 +520,7 @@ export const CustomerSupport: React.FC<CustomerSupportProps> = ({ currentUser, l
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     placeholder={lang === "ar" ? "البحث برقم التذكرة أو الموضوع..." : "Search tickets..."}
-                    className="w-full pr-9 pl-3 py-2 text-xs bg-slate-950 border border-slate-800 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-amber-500/50"
+                    className="w-full pr-9 pl-3 py-2 text-xs bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-[#0075DE]"
                   />
                 </div>
 
@@ -529,10 +529,10 @@ export const CustomerSupport: React.FC<CustomerSupportProps> = ({ currentUser, l
                     <button
                       key={st}
                       onClick={() => setStatusFilter(st)}
-                      className={`px-2.5 py-1 rounded-lg text-[11px] font-medium transition-colors whitespace-nowrap ${
+                      className={`px-2.5 py-1 rounded-lg text-[11px] font-medium transition-colors whitespace-nowrap cursor-pointer ${
                         statusFilter === st
-                          ? "bg-amber-500/20 text-amber-400 border border-amber-500/30"
-                          : "bg-slate-950 text-slate-400 hover:text-white border border-slate-800"
+                          ? "bg-[#0075DE]/10 text-[#0075DE] border border-[#0075DE]/30"
+                          : "bg-slate-100 dark:bg-slate-950 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white border border-slate-200 dark:border-slate-800"
                       }`}
                     >
                       {st === "All" ? (lang === "ar" ? "الكل" : "All") : st}
@@ -546,13 +546,13 @@ export const CustomerSupport: React.FC<CustomerSupportProps> = ({ currentUser, l
             <div className="flex-1 overflow-y-auto space-y-2.5 mt-3 pr-1">
               {isLoadingTickets ? (
                 <div className="flex flex-col items-center justify-center h-48 text-slate-500 text-xs gap-2">
-                  <RefreshCw className="w-5 h-5 animate-spin text-amber-500" />
+                  <RefreshCw className="w-5 h-5 animate-spin text-[#0075DE]" />
                   <span>{lang === "ar" ? "جاري جلب التذاكر..." : "Loading tickets..."}</span>
                 </div>
               ) : filteredTickets.length === 0 ? (
-                <div className="flex flex-col items-center justify-center h-60 text-center p-6 bg-slate-950/50 rounded-xl border border-dashed border-slate-800">
-                  <MessageSquare className="w-10 h-10 text-slate-600 mb-2" />
-                  <p className="text-xs font-semibold text-slate-400">
+                <div className="flex flex-col items-center justify-center h-60 text-center p-6 bg-slate-50 dark:bg-slate-950/50 rounded-xl border border-dashed border-slate-200 dark:border-slate-800">
+                  <MessageSquare className="w-10 h-10 text-slate-400 dark:text-slate-600 mb-2" />
+                  <p className="text-xs font-semibold text-slate-600 dark:text-slate-400">
                     {lang === "ar" ? "لا توجد تذاكر دعم مسجلة" : "No support tickets found"}
                   </p>
                   <p className="text-[11px] text-slate-500 mt-1">
@@ -560,7 +560,7 @@ export const CustomerSupport: React.FC<CustomerSupportProps> = ({ currentUser, l
                   </p>
                   <button
                     onClick={() => setActiveTab("new")}
-                    className="mt-4 px-3.5 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs transition-colors"
+                    className="mt-4 px-3.5 py-1.5 rounded-lg bg-[#0075DE] hover:bg-[#005BAB] text-white font-bold text-xs transition-colors cursor-pointer"
                   >
                     {lang === "ar" ? "إنشاء تذكرة الآن" : "Create Ticket"}
                   </button>
@@ -574,26 +574,26 @@ export const CustomerSupport: React.FC<CustomerSupportProps> = ({ currentUser, l
                       onClick={() => setSelectedTicket(ticket)}
                       className={`p-3.5 rounded-xl border transition-all cursor-pointer ${
                         isSelected
-                          ? "bg-slate-800/90 border-amber-500/50 shadow-md"
-                          : "bg-slate-950/60 border-slate-800 hover:border-slate-700 hover:bg-slate-800/40"
+                          ? "bg-blue-50 dark:bg-slate-800/90 border-[#0075DE]/50 shadow-md"
+                          : "bg-slate-50 dark:bg-slate-950/60 border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800/40"
                       }`}
                     >
                       <div className="flex items-center justify-between gap-2 mb-1.5">
-                        <span className="font-mono text-[11px] font-bold text-amber-400">
+                        <span className="font-mono text-[11px] font-bold text-[#0075DE]">
                           #{ticket.id}
                         </span>
                         {getStatusBadge(ticket.status)}
                       </div>
 
-                      <h3 className="text-xs font-bold text-white line-clamp-1 mb-1">
+                      <h3 className="text-xs font-bold text-slate-900 dark:text-white line-clamp-1 mb-1">
                         {ticket.subject}
                       </h3>
 
-                      <div className="flex items-center justify-between text-[11px] text-slate-400 mt-2 pt-2 border-t border-slate-800/60">
-                        <span className="truncate text-slate-500 max-w-[130px]">
+                      <div className="flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400 mt-2 pt-2 border-t border-slate-200 dark:border-slate-800/60">
+                        <span className="truncate max-w-[130px]">
                           {ticket.category}
                         </span>
-                        <span className="font-mono text-[10px] text-slate-500">
+                        <span className="font-mono text-[10px]">
                           {safeFormatDate(ticket.updatedAt || ticket.createdAt)}
                         </span>
                       </div>
@@ -605,47 +605,47 @@ export const CustomerSupport: React.FC<CustomerSupportProps> = ({ currentUser, l
           </div>
 
           {/* RIGHT COLUMN: ACTIVE CONVERSATION THREAD */}
-          <div className="lg:col-span-8 bg-slate-900 border border-slate-800 rounded-2xl flex flex-col h-[650px]">
+          <div className="lg:col-span-8 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl flex flex-col h-[650px]">
             {selectedTicket ? (
               <>
                 {/* CHAT HEADER */}
-                <div className="p-4 border-b border-slate-800 bg-slate-950/80 rounded-t-2xl flex items-center justify-between gap-4">
+                <div className="p-4 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/80 rounded-t-2xl flex items-center justify-between gap-4">
                   <div className="space-y-1">
                     <div className="flex items-center gap-2">
-                      <span className="font-mono text-xs font-bold text-amber-400">
+                      <span className="font-mono text-xs font-bold text-[#0075DE]">
                         #{selectedTicket.id}
                       </span>
                       {getStatusBadge(selectedTicket.status)}
                       {getPriorityBadge(selectedTicket.priority)}
                     </div>
-                    <h2 className="text-sm font-bold text-white">
+                    <h2 className="text-sm font-bold text-slate-900 dark:text-white">
                       {selectedTicket.subject}
                     </h2>
                   </div>
 
-                  <div className="text-right text-xs text-slate-400 hidden sm:block">
-                    <p className="font-medium text-slate-300">{selectedTicket.category}</p>
-                    <p className="text-[10px] text-slate-500">
+                  <div className="text-right text-xs text-slate-500 dark:text-slate-400 hidden sm:block">
+                    <p className="font-medium text-slate-700 dark:text-slate-300">{selectedTicket.category}</p>
+                    <p className="text-[10px]">
                       {safeFormatDateTime(selectedTicket.createdAt)}
                     </p>
                   </div>
                 </div>
 
                 {/* MESSAGES THREAD SCROLL VIEW */}
-                <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-4 bg-slate-950/30">
+                <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-4 bg-slate-50/50 dark:bg-slate-950/30">
                   {/* ORIGINAL DESCRIPTION CARD */}
-                  <div className="bg-slate-900/90 border border-amber-500/20 rounded-xl p-4 space-y-2">
-                    <div className="flex items-center justify-between text-xs pb-2 border-b border-slate-800">
+                  <div className="bg-white dark:bg-slate-900 border border-blue-100 dark:border-[#0075DE]/20 rounded-xl p-4 space-y-2 shadow-sm">
+                    <div className="flex items-center justify-between text-xs pb-2 border-b border-slate-100 dark:border-slate-800">
                       <div className="flex items-center gap-2">
-                        <div className="w-6 h-6 rounded-full bg-amber-500/20 text-amber-400 flex items-center justify-center font-bold text-xs">
+                        <div className="w-6 h-6 rounded-full bg-[#0075DE]/10 text-[#0075DE] flex items-center justify-center font-bold text-xs">
                           {selectedTicket.userName ? selectedTicket.userName[0].toUpperCase() : "U"}
                         </div>
-                        <span className="font-bold text-slate-200">{selectedTicket.userName || selectedTicket.userEmail}</span>
-                        <span className="text-[10px] text-slate-500 font-mono">({selectedTicket.userEmail})</span>
+                        <span className="font-bold text-slate-800 dark:text-slate-200">{selectedTicket.userName || selectedTicket.userEmail}</span>
+                        <span className="text-[10px] text-slate-400 font-mono">({selectedTicket.userEmail})</span>
                       </div>
-                      <span className="text-[10px] text-slate-500">{safeFormatTime(selectedTicket.createdAt)}</span>
+                      <span className="text-[10px] text-slate-400">{safeFormatTime(selectedTicket.createdAt)}</span>
                     </div>
-                    <p className="text-xs text-slate-300 whitespace-pre-wrap leading-relaxed">
+                    <p className="text-xs text-slate-700 dark:text-slate-300 whitespace-pre-wrap leading-relaxed">
                       {selectedTicket.description || selectedTicket.message}
                     </p>
                   </div>
@@ -662,7 +662,7 @@ export const CustomerSupport: React.FC<CustomerSupportProps> = ({ currentUser, l
                       >
                         <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 text-xs font-bold ${
                           isAdmin 
-                            ? "bg-amber-500 text-slate-950 shadow-md shadow-amber-500/20" 
+                            ? "bg-[#0075DE] text-white shadow-md shadow-[#0075DE]/20" 
                             : "bg-blue-600 text-white"
                         }`}>
                           {isAdmin ? <Bot className="w-4 h-4" /> : <UserIcon className="w-4 h-4" />}
@@ -670,10 +670,10 @@ export const CustomerSupport: React.FC<CustomerSupportProps> = ({ currentUser, l
 
                         <div className={`space-y-1 rounded-2xl p-3.5 text-xs shadow-sm ${
                           isAdmin
-                            ? "bg-slate-900 border border-amber-500/30 text-slate-200"
-                            : "bg-blue-600 text-white"
+                            ? "bg-white dark:bg-slate-900 border border-slate-200 dark:border-[#0075DE]/30 text-slate-800 dark:text-slate-200"
+                            : "bg-[#0075DE] text-white"
                         }`}>
-                          <div className="flex items-center justify-between gap-4 text-[10px] opacity-80 pb-1 border-b border-white/10 mb-1">
+                          <div className="flex items-center justify-between gap-4 text-[10px] opacity-80 pb-1 border-b border-current/10 mb-1">
                             <span className="font-bold">{msg.senderName || (isAdmin ? "Zakir Support Team" : "You")}</span>
                             <span className="font-mono">{safeFormatTime(msg.createdAt)}</span>
                           </div>
@@ -686,7 +686,7 @@ export const CustomerSupport: React.FC<CustomerSupportProps> = ({ currentUser, l
                 </div>
 
                 {/* REPLY INPUT FORM */}
-                <form onSubmit={handleSendReply} className="p-3 bg-slate-900 border-t border-slate-800 rounded-b-2xl">
+                <form onSubmit={handleSendReply} className="p-3 bg-slate-50 dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 rounded-b-2xl">
                   <div className="flex items-center gap-2">
                     <input
                       type="text"
@@ -694,12 +694,12 @@ export const CustomerSupport: React.FC<CustomerSupportProps> = ({ currentUser, l
                       onChange={(e) => setReplyMessage(e.target.value)}
                       placeholder={lang === "ar" ? "اكتب ردك هنا لمتابعة المحادثة مع فريق الدعم..." : "Type your reply to support..."}
                       disabled={isSubmittingReply || selectedTicket.status === "Closed"}
-                      className="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-500/50 disabled:opacity-50"
+                      className="flex-1 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-2.5 text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-[#0075DE] disabled:opacity-50"
                     />
                     <button
                       type="submit"
                       disabled={!replyMessage.trim() || isSubmittingReply || selectedTicket.status === "Closed"}
-                      className="px-4 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 disabled:opacity-40 text-slate-950 font-bold text-xs flex items-center gap-1.5 transition-colors shrink-0"
+                      className="px-4 py-2.5 rounded-xl bg-[#0075DE] hover:bg-[#005BAB] disabled:opacity-40 text-white font-bold text-xs flex items-center gap-1.5 transition-colors shrink-0 cursor-pointer"
                     >
                       {isSubmittingReply ? (
                         <RefreshCw className="w-3.5 h-3.5 animate-spin" />
@@ -713,8 +713,8 @@ export const CustomerSupport: React.FC<CustomerSupportProps> = ({ currentUser, l
               </>
             ) : (
               <div className="flex flex-col items-center justify-center h-full text-center p-8 text-slate-500">
-                <LifeBuoy className="w-12 h-12 text-slate-700 mb-3" />
-                <p className="text-sm font-bold text-slate-300">
+                <LifeBuoy className="w-12 h-12 text-slate-300 dark:text-slate-700 mb-3" />
+                <p className="text-sm font-bold text-slate-700 dark:text-slate-300">
                   {lang === "ar" ? "اختر تذكرة دعم لمشاهدة تفاصيل المحادثة" : "Select a support ticket to view details"}
                 </p>
                 <p className="text-xs text-slate-500 mt-1 max-w-sm">

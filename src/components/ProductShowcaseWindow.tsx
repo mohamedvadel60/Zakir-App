@@ -56,6 +56,27 @@ interface Ripple {
 }
 
 export const ProductShowcaseWindow: React.FC<{ lang?: "ar" | "en" | "fr" }> = ({ lang = "ar" }) => {
+  // --- Theme State ---
+  const [isLight, setIsLight] = useState<boolean>(() => {
+    if (typeof document !== "undefined") {
+      return document.documentElement.getAttribute("data-theme") === "light" ||
+             document.documentElement.classList.contains("theme-light");
+    }
+    return false;
+  });
+
+  useEffect(() => {
+    const updateTheme = () => {
+      const light = document.documentElement.getAttribute("data-theme") === "light" ||
+                    document.documentElement.classList.contains("theme-light");
+      setIsLight(light);
+    };
+    updateTheme();
+    const observer = new MutationObserver(updateTheme);
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme", "class"] });
+    return () => observer.disconnect();
+  }, []);
+
   // --- States ---
   const [activeTab, setActiveTab] = useState<TabType>("add");
   const [isPlaying, setIsPlaying] = useState<boolean>(true);
@@ -730,16 +751,18 @@ export const ProductShowcaseWindow: React.FC<{ lang?: "ar" | "en" | "fr" }> = ({
       dir={lang === "ar" ? "rtl" : "ltr"}
     >
       {/* 1. Header Navigation Controller - Global Standard (No "المرحلة الحالية" labels) */}
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mb-6 p-4 rounded-2xl bg-slate-900/40 border border-slate-800/80 backdrop-blur-md">
+      <div className={`flex flex-col sm:flex-row items-center justify-between gap-4 mb-6 p-4 rounded-2xl border backdrop-blur-md ${
+        isLight ? "bg-white border-slate-200 shadow-sm" : "bg-slate-900/40 border-slate-800/80"
+      }`}>
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-500">
+          <div className="w-10 h-10 rounded-xl bg-[#0075DE]/10 border border-[#0075DE]/30 flex items-center justify-center text-[#0075DE]">
             <Sparkles className="w-5 h-5 animate-pulse" />
           </div>
           <div>
-            <h3 className="text-sm font-black text-white">
+            <h3 className={`text-sm font-black ${isLight ? "text-slate-900" : "text-white"}`}>
               {lang === "ar" ? "العرض التقديمي التفاعلي لـ Zakir" : "Zakir Interactive Product Walkthrough"}
             </h3>
-            <p className="text-[11px] text-slate-400">
+            <p className={`text-[11px] ${isLight ? "text-slate-600" : "text-slate-400"}`}>
               {lang === "ar" ? "شاهد محاكاة حية لطريقة العمل في الوقت الحقيقي" : "Observe a live simulation of strategic memory logging in real-time"}
             </p>
           </div>
@@ -747,15 +770,17 @@ export const ProductShowcaseWindow: React.FC<{ lang?: "ar" | "en" | "fr" }> = ({
 
         {/* Cinematic Control Buttons */}
         <div className="flex items-center gap-2">
-          <div className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[10px] font-mono font-bold">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
+          <div className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 dark:text-emerald-400 text-[10px] font-mono font-bold">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 dark:bg-emerald-400 animate-ping" />
             <span>{lang === "ar" ? "محاكاة مستمرة" : "Live Walkthrough Loop"}</span>
           </div>
         </div>
       </div>
 
       {/* Interactive Tabs Menu Bar for User Manual Control */}
-      <div className="grid grid-cols-5 gap-1.5 p-1 bg-slate-950/60 border border-slate-800/60 rounded-xl mb-4">
+      <div className={`grid grid-cols-5 gap-1.5 p-1 border rounded-xl mb-4 ${
+        isLight ? "bg-slate-100 border-slate-200" : "bg-slate-950/60 border-slate-800/60"
+      }`}>
         {[
           { id: "add", label: lang === "ar" ? "إضافة ذاكرة" : "Add Memory", icon: PlusCircle },
           { id: "library", label: lang === "ar" ? "الذاكرة المسجلة" : "Memory Ledger", icon: FileText },
@@ -772,6 +797,8 @@ export const ProductShowcaseWindow: React.FC<{ lang?: "ar" | "en" | "fr" }> = ({
               className={`py-2 rounded-lg text-center flex flex-col md:flex-row items-center justify-center gap-1.5 transition-all text-xs font-black cursor-pointer ${
                 isActive 
                   ? "bg-[#0075DE] text-white font-bold shadow-md shadow-[#0075DE]/20 scale-[1.01]" 
+                  : isLight 
+                  ? "text-slate-600 hover:text-slate-900 hover:bg-white"
                   : "text-slate-400 hover:text-white hover:bg-slate-900/50"
               }`}
             >
@@ -785,7 +812,9 @@ export const ProductShowcaseWindow: React.FC<{ lang?: "ar" | "en" | "fr" }> = ({
       {/* 2. MAIN BROWSER / SIMULATION CANVAS PANEL */}
       <div 
         ref={containerRef}
-        className="relative w-full aspect-[16/9] min-h-[460px] md:min-h-[560px] bg-slate-950 rounded-3xl border border-slate-800/80 shadow-2xl shadow-black/80 overflow-hidden select-none"
+        className={`relative w-full aspect-[16/9] min-h-[460px] md:min-h-[560px] rounded-3xl border shadow-2xl overflow-hidden select-none ${
+          isLight ? "bg-white border-slate-200 shadow-slate-300/50" : "bg-slate-950 border-slate-800/80 shadow-black/80"
+        }`}
         style={{ perspective: "1200px" }}
       >
         {/* Cinematic Zoom / Perspective Frame wrapper */}
@@ -798,17 +827,17 @@ export const ProductShowcaseWindow: React.FC<{ lang?: "ar" | "en" | "fr" }> = ({
           className="w-full h-full flex"
         >
           {/* THE SIMULATED APPLICATION FRAMEWORK */}
-          <div className="w-full h-full flex text-slate-100 font-sans text-xs">
+          <div className={`w-full h-full flex font-sans text-xs ${isLight ? "text-slate-900" : "text-slate-100"}`}>
             
             {/* SIMULATED SIDEBAR - RTL Right, LTR Left */}
-            <div className={`w-[200px] shrink-0 bg-slate-900 border-slate-800/80 flex flex-col justify-between p-4 ${
-              lang === "ar" ? "border-l" : "border-r"
-            }`}>
+            <div className={`w-[200px] shrink-0 flex flex-col justify-between p-4 ${
+              isLight ? "bg-slate-50 border-slate-200" : "bg-slate-900 border-slate-800/80"
+            } ${lang === "ar" ? "border-l" : "border-r"}`}>
               {/* Sidebar Header */}
               <div className="space-y-6">
                 {/* Simulated Zakir Premium Brand Logo */}
                 <div className="py-1">
-                  <ZakirLogo theme="dark" size="sm" lang={lang} />
+                  <ZakirLogo theme={isLight ? "light" : "dark"} size="sm" lang={lang} />
                 </div>
 
                 {/* Sidebar Navigation Items */}
@@ -828,7 +857,9 @@ export const ProductShowcaseWindow: React.FC<{ lang?: "ar" | "en" | "fr" }> = ({
                         data-demo-target={navItem.target}
                         className={`flex items-center gap-2.5 px-3 py-2.5 rounded-lg font-bold transition-all ${
                           isSelected 
-                            ? "bg-amber-500/10 text-amber-400 border border-amber-500/20" 
+                            ? "bg-[#0075DE]/10 text-[#0075DE] border border-[#0075DE]/20" 
+                            : isLight
+                            ? "text-slate-600 hover:text-slate-900 hover:bg-slate-200/60"
                             : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/40"
                         }`}
                       >
@@ -841,23 +872,27 @@ export const ProductShowcaseWindow: React.FC<{ lang?: "ar" | "en" | "fr" }> = ({
               </div>
 
               {/* Sidebar Bottom Metadata Indicators */}
-              <div className="p-2.5 rounded-lg bg-slate-950/60 border border-slate-800/50 space-y-1.5">
-                <div className="flex items-center justify-between text-[10px] text-slate-500">
+              <div className={`p-2.5 rounded-lg border space-y-1.5 ${
+                isLight ? "bg-white border-slate-200" : "bg-slate-950/60 border-slate-800/50"
+              }`}>
+                <div className={`flex items-center justify-between text-[10px] ${isLight ? "text-slate-600" : "text-slate-500"}`}>
                   <span>{lang === "ar" ? "المخدم" : "Server Status"}</span>
-                  <span className="flex items-center gap-1 text-emerald-400">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                  <span className="flex items-center gap-1 text-emerald-500 dark:text-emerald-400">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 dark:bg-emerald-400 animate-pulse" />
                     {lang === "ar" ? "نشط" : "Online"}
                   </span>
                 </div>
-                <div className="flex items-center justify-between text-[10px] text-slate-500">
+                <div className={`flex items-center justify-between text-[10px] ${isLight ? "text-slate-600" : "text-slate-500"}`}>
                   <span>PostgreSQL</span>
-                  <span className="text-amber-400 font-mono text-[9px] font-bold">17.2</span>
+                  <span className="text-[#0075DE] font-mono text-[9px] font-bold">17.2</span>
                 </div>
               </div>
             </div>
 
             {/* SIMULATED CONTENT VIEWPORT */}
-            <div className="flex-1 h-full bg-slate-950/40 p-6 overflow-y-auto relative flex flex-col">
+            <div className={`flex-1 h-full p-6 overflow-y-auto relative flex flex-col ${
+              isLight ? "bg-slate-50" : "bg-slate-950/40"
+            }`}>
               
               {/* Dynamic View Containers */}
               <AnimatePresence mode="wait">
@@ -872,15 +907,19 @@ export const ProductShowcaseWindow: React.FC<{ lang?: "ar" | "en" | "fr" }> = ({
                     className="space-y-4 max-w-2xl mx-auto w-full"
                   >
                     <div className="text-center space-y-1">
-                      <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-400 text-[10px] font-bold tracking-wider uppercase">
+                      <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#0075DE]/10 border border-[#0075DE]/20 text-[#0075DE] text-[10px] font-bold tracking-wider uppercase">
                         <Sparkles className="w-3 h-3" />
                         <span>{lang === "ar" ? "معمارية حفظ الذكريات المؤسسية" : "Causal Memory Logging Engine"}</span>
                       </div>
-                      <h2 className="text-lg font-black text-white">{lang === "ar" ? "تسجيل حدث وقرار جديد" : "Record New Corporate Decision Cycle"}</h2>
+                      <h2 className={`text-lg font-black ${isLight ? "text-slate-900" : "text-white"}`}>
+                        {lang === "ar" ? "تسجيل حدث وقرار جديد" : "Record New Corporate Decision Cycle"}
+                      </h2>
                     </div>
 
                     {/* Horizontal 4-Step Progress Track */}
-                    <div className="p-3 rounded-xl bg-slate-900 border border-slate-800/60">
+                    <div className={`p-3 rounded-xl border ${
+                      isLight ? "bg-white border-slate-200 shadow-sm" : "bg-slate-900 border-slate-800/60"
+                    }`}>
                       <div className="grid grid-cols-4 gap-2">
                         {[
                           { step: 1, title: lang === "ar" ? "الحدث والبيانات" : "Event", icon: FileText },
@@ -896,16 +935,16 @@ export const ProductShowcaseWindow: React.FC<{ lang?: "ar" | "en" | "fr" }> = ({
                               key={s.step}
                               className={`flex flex-col items-center gap-1 p-1 rounded-lg text-center ${
                                 isCurrent 
-                                  ? "bg-amber-500/10 border border-amber-500/20 text-amber-400" 
-                                  : "text-slate-500"
+                                  ? "bg-[#0075DE]/10 border border-[#0075DE]/20 text-[#0075DE]" 
+                                  : isLight ? "text-slate-500" : "text-slate-500"
                               }`}
                             >
                               <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-black ${
                                 isCurrent 
-                                  ? "bg-amber-500 text-slate-950 shadow-md" 
+                                  ? "bg-[#0075DE] text-white shadow-md" 
                                   : isDone 
-                                  ? "bg-emerald-500/20 text-emerald-400" 
-                                  : "bg-slate-800 text-slate-500"
+                                  ? "bg-emerald-500/20 text-emerald-500 dark:text-emerald-400" 
+                                  : isLight ? "bg-slate-200 text-slate-600" : "bg-slate-800 text-slate-500"
                               }`}>
                                 {isDone ? <Check className="w-3 h-3" /> : <StepIcon className="w-3.5 h-3.5" />}
                               </div>
@@ -917,19 +956,21 @@ export const ProductShowcaseWindow: React.FC<{ lang?: "ar" | "en" | "fr" }> = ({
                     </div>
 
                     {/* Step Content Wrapper */}
-                    <div className="p-5 rounded-xl bg-slate-900/60 border border-slate-800/50 space-y-4">
+                    <div className={`p-5 rounded-xl border space-y-4 ${
+                      isLight ? "bg-white border-slate-200 shadow-sm" : "bg-slate-900/60 border-slate-800/50"
+                    }`}>
                       {showAddSuccess ? (
                         <motion.div 
                           initial={{ scale: 0.95, opacity: 0 }} 
                           animate={{ scale: 1, opacity: 1 }}
                           className="py-8 text-center space-y-3"
                         >
-                          <div className="w-12 h-12 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 flex items-center justify-center mx-auto text-xl">
+                          <div className="w-12 h-12 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-500 dark:text-emerald-400 flex items-center justify-center mx-auto text-xl">
                             <CheckCircle className="w-6 h-6 shrink-0 animate-bounce" />
                           </div>
                           <div>
-                            <h4 className="text-sm font-bold text-emerald-400">{lang === "ar" ? "تم الحفظ بنجاح وتأمين الذاكرة" : "Causal Cycle Saved & Encrypted"}</h4>
-                            <p className="text-[10px] text-slate-400 mt-1">
+                            <h4 className="text-sm font-bold text-emerald-600 dark:text-emerald-400">{lang === "ar" ? "تم الحفظ بنجاح وتأمين الذاكرة" : "Causal Cycle Saved & Encrypted"}</h4>
+                            <p className={`text-[10px] ${isLight ? "text-slate-600" : "text-slate-400"} mt-1`}>
                               {lang === "ar" 
                                 ? "تم إدراج حدث 'تحوط النفط الربع الثالث' بنجاح وتوثيقه مشفراً برقم المعرف الذري #ZK-1903."
                                 : "The Aviation Hedging memory block has been securely appended inside PostgreSQL index #ZK-1903."}
@@ -942,32 +983,38 @@ export const ProductShowcaseWindow: React.FC<{ lang?: "ar" | "en" | "fr" }> = ({
                           {formStep === 1 && (
                             <motion.div initial={{ opacity: 0, x: 5 }} animate={{ opacity: 1, x: 0 }} className="space-y-3">
                               <div>
-                                <label className="block text-[10px] uppercase font-bold text-slate-500 mb-1">{lang === "ar" ? "عنوان الذاكرة / اسم الحدث" : "Event Title / Name"}</label>
+                                <label className={`block text-[10px] uppercase font-bold mb-1 ${isLight ? "text-slate-700" : "text-slate-400"}`}>{lang === "ar" ? "عنوان الذاكرة / اسم الحدث" : "Event Title / Name"}</label>
                                 <input
                                   type="text"
                                   readOnly
                                   value={simulatedTitle}
                                   data-demo-target="add-title"
-                                  className="w-full h-9 px-3 bg-slate-950 border border-slate-800/80 rounded-lg text-[11px] text-white focus:outline-none placeholder-slate-700"
+                                  className={`w-full h-9 px-3 border rounded-lg text-[11px] focus:outline-none ${
+                                    isLight ? "bg-slate-50 border-slate-300 text-slate-900 placeholder:text-slate-400 focus:border-[#0075DE]" : "bg-slate-950 border-slate-800/80 text-white placeholder-slate-700"
+                                  }`}
                                   placeholder={lang === "ar" ? "اكتب عنوان الحدث هنا..." : "Enter event name..."}
                                 />
                               </div>
                               <div className="grid grid-cols-2 gap-3">
                                 <div>
-                                  <label className="block text-[10px] uppercase font-bold text-slate-500 mb-1">{lang === "ar" ? "الفئة / الوظيفة التشغيلية" : "Category"}</label>
+                                  <label className={`block text-[10px] uppercase font-bold mb-1 ${isLight ? "text-slate-700" : "text-slate-400"}`}>{lang === "ar" ? "الفئة / الوظيفة التشغيلية" : "Category"}</label>
                                   <select 
                                     disabled
                                     data-demo-target="add-category"
-                                    className="w-full h-9 px-2 bg-slate-950 border border-slate-800/80 rounded-lg text-[11px] text-slate-300"
+                                    className={`w-full h-9 px-2 border rounded-lg text-[11px] ${
+                                      isLight ? "bg-slate-50 border-slate-300 text-slate-800" : "bg-slate-950 border-slate-800/80 text-slate-300"
+                                    }`}
                                   >
                                     <option>FX Risk Management</option>
                                   </select>
                                 </div>
                                 <div>
-                                  <label className="block text-[10px] uppercase font-bold text-slate-500 mb-1">{lang === "ar" ? "مستوى خطورة الحدث" : "Risk Level"}</label>
+                                  <label className={`block text-[10px] uppercase font-bold mb-1 ${isLight ? "text-slate-700" : "text-slate-400"}`}>{lang === "ar" ? "مستوى خطورة الحدث" : "Risk Level"}</label>
                                   <select 
                                     disabled
-                                    className="w-full h-9 px-2 bg-slate-950 border border-slate-800/80 rounded-lg text-[11px] text-amber-400 font-bold"
+                                    className={`w-full h-9 px-2 border rounded-lg text-[11px] font-bold ${
+                                      isLight ? "bg-slate-50 border-slate-300 text-[#0075DE]" : "bg-slate-950 border-slate-800/80 text-amber-400"
+                                    }`}
                                   >
                                     <option>{lang === "ar" ? "مرتفع" : "High"}</option>
                                   </select>
@@ -976,7 +1023,7 @@ export const ProductShowcaseWindow: React.FC<{ lang?: "ar" | "en" | "fr" }> = ({
                               <div className="pt-3 flex justify-end">
                                 <div 
                                   data-demo-target="add-next-btn"
-                                  className="px-4 py-2 bg-amber-500 text-slate-950 font-bold rounded-lg text-[11px] flex items-center gap-1"
+                                  className="px-4 py-2 bg-[#0075DE] hover:bg-[#005BAB] text-white font-bold rounded-lg text-[11px] flex items-center gap-1 cursor-pointer transition-all shadow-sm"
                                 >
                                   <span>{lang === "ar" ? "التالي" : "Next"}</span>
                                   <ArrowRight className="w-3.5 h-3.5" />
@@ -989,28 +1036,32 @@ export const ProductShowcaseWindow: React.FC<{ lang?: "ar" | "en" | "fr" }> = ({
                           {formStep === 2 && (
                             <motion.div initial={{ opacity: 0, x: 5 }} animate={{ opacity: 1, x: 0 }} className="space-y-3">
                               <div>
-                                <label className="block text-[10px] uppercase font-bold text-slate-500 mb-1">{lang === "ar" ? "ماذا حدث بالتفصيل؟ (سرد الحدث)" : "Event Narrative (Context)"}</label>
+                                <label className={`block text-[10px] uppercase font-bold mb-1 ${isLight ? "text-slate-700" : "text-slate-400"}`}>{lang === "ar" ? "ماذا حدث بالتفصيل؟ (سرد الحدث)" : "Event Narrative (Context)"}</label>
                                 <textarea
                                   readOnly
                                   value={simulatedDesc}
                                   data-demo-target="add-desc-input"
-                                  className="w-full h-16 p-2.5 bg-slate-950 border border-slate-800/80 rounded-lg text-[11px] text-white focus:outline-none placeholder-slate-700 resize-none"
+                                  className={`w-full h-16 p-2.5 border rounded-lg text-[11px] focus:outline-none resize-none ${
+                                    isLight ? "bg-slate-50 border-slate-300 text-slate-900 placeholder:text-slate-400 focus:border-[#0075DE]" : "bg-slate-950 border-slate-800/80 text-white placeholder-slate-700"
+                                  }`}
                                 />
                               </div>
                               <div>
-                                <label className="block text-[10px] uppercase font-bold text-slate-500 mb-1">{lang === "ar" ? "القرار المتخذ والمسؤول" : "Decision Taken"}</label>
+                                <label className={`block text-[10px] uppercase font-bold mb-1 ${isLight ? "text-slate-700" : "text-slate-400"}`}>{lang === "ar" ? "القرار المتخذ والمسؤول" : "Decision Taken"}</label>
                                 <textarea
                                   readOnly
                                   value={simulatedDecision}
                                   data-demo-target="add-decision-input"
-                                  className="w-full h-16 p-2.5 bg-slate-950 border border-slate-800/80 rounded-lg text-[11px] text-white focus:outline-none placeholder-slate-700 resize-none"
+                                  className={`w-full h-16 p-2.5 border rounded-lg text-[11px] focus:outline-none resize-none ${
+                                    isLight ? "bg-slate-50 border-slate-300 text-slate-900 placeholder:text-slate-400 focus:border-[#0075DE]" : "bg-slate-950 border-slate-800/80 text-white placeholder-slate-700"
+                                  }`}
                                 />
                               </div>
                               <div className="pt-2 flex justify-between">
-                                <button disabled className="px-3.5 py-2 bg-slate-800 text-slate-400 rounded-lg text-[11px]">{lang === "ar" ? "السابق" : "Previous"}</button>
+                                <button disabled className={`px-3.5 py-2 rounded-lg text-[11px] ${isLight ? "bg-slate-100 text-slate-500" : "bg-slate-800 text-slate-400"}`}>{lang === "ar" ? "السابق" : "Previous"}</button>
                                 <div 
                                   data-demo-target="add-next-btn-2"
-                                  className="px-4 py-2 bg-amber-500 text-slate-950 font-bold rounded-lg text-[11px] flex items-center gap-1"
+                                  className="px-4 py-2 bg-[#0075DE] hover:bg-[#005BAB] text-white font-bold rounded-lg text-[11px] flex items-center gap-1 cursor-pointer transition-all shadow-sm"
                                 >
                                   <span>{lang === "ar" ? "التالي" : "Next"}</span>
                                   <ArrowRight className="w-3.5 h-3.5" />
@@ -1024,29 +1075,33 @@ export const ProductShowcaseWindow: React.FC<{ lang?: "ar" | "en" | "fr" }> = ({
                             <motion.div initial={{ opacity: 0, x: 5 }} animate={{ opacity: 1, x: 0 }} className="space-y-3">
                               <div className="grid grid-cols-2 gap-3">
                                 <div>
-                                  <label className="block text-[10px] uppercase font-bold text-slate-500 mb-1">{lang === "ar" ? "العوامل المسببة والخلفية" : "Causal Factors"}</label>
+                                  <label className={`block text-[10px] uppercase font-bold mb-1 ${isLight ? "text-slate-700" : "text-slate-400"}`}>{lang === "ar" ? "العوامل المسببة والخلفية" : "Causal Factors"}</label>
                                   <textarea
                                     readOnly
                                     value={simulatedCausal}
                                     data-demo-target="add-causal-input"
-                                    className="w-full h-24 p-2.5 bg-slate-950 border border-slate-800/80 rounded-lg text-[11px] text-white focus:outline-none resize-none"
+                                    className={`w-full h-24 p-2.5 border rounded-lg text-[11px] focus:outline-none resize-none ${
+                                      isLight ? "bg-slate-50 border-slate-300 text-slate-900 placeholder:text-slate-400 focus:border-[#0075DE]" : "bg-slate-950 border-slate-800/80 text-white placeholder-slate-700"
+                                    }`}
                                   />
                                 </div>
                                 <div>
-                                  <label className="block text-[10px] uppercase font-bold text-slate-500 mb-1">{lang === "ar" ? "النتائج المترتبة" : "Resulting Outcomes"}</label>
+                                  <label className={`block text-[10px] uppercase font-bold mb-1 ${isLight ? "text-slate-700" : "text-slate-400"}`}>{lang === "ar" ? "النتائج المترتبة" : "Resulting Outcomes"}</label>
                                   <textarea
                                     readOnly
                                     value={simulatedOutcomes}
                                     data-demo-target="add-outcomes-input"
-                                    className="w-full h-24 p-2.5 bg-slate-950 border border-slate-800/80 rounded-lg text-[11px] text-white focus:outline-none resize-none"
+                                    className={`w-full h-24 p-2.5 border rounded-lg text-[11px] focus:outline-none resize-none ${
+                                      isLight ? "bg-slate-50 border-slate-300 text-slate-900 placeholder:text-slate-400 focus:border-[#0075DE]" : "bg-slate-950 border-slate-800/80 text-white placeholder-slate-700"
+                                    }`}
                                   />
                                 </div>
                               </div>
                               <div className="pt-2 flex justify-between">
-                                <button disabled className="px-3.5 py-2 bg-slate-800 text-slate-400 rounded-lg text-[11px]">{lang === "ar" ? "السابق" : "Previous"}</button>
+                                <button disabled className={`px-3.5 py-2 rounded-lg text-[11px] ${isLight ? "bg-slate-100 text-slate-500" : "bg-slate-800 text-slate-400"}`}>{lang === "ar" ? "السابق" : "Previous"}</button>
                                 <div 
                                   data-demo-target="add-next-btn-3"
-                                  className="px-4 py-2 bg-amber-500 text-slate-950 font-bold rounded-lg text-[11px] flex items-center gap-1"
+                                  className="px-4 py-2 bg-[#0075DE] hover:bg-[#005BAB] text-white font-bold rounded-lg text-[11px] flex items-center gap-1 cursor-pointer transition-all shadow-sm"
                                 >
                                   <span>{lang === "ar" ? "التالي" : "Next"}</span>
                                   <ArrowRight className="w-3.5 h-3.5" />
@@ -1059,24 +1114,28 @@ export const ProductShowcaseWindow: React.FC<{ lang?: "ar" | "en" | "fr" }> = ({
                           {formStep === 4 && (
                             <motion.div initial={{ opacity: 0, x: 5 }} animate={{ opacity: 1, x: 0 }} className="space-y-3">
                               <div>
-                                <label className="block text-[10px] uppercase font-bold text-slate-500 mb-1">{lang === "ar" ? "الدروس المستفادة والتوصيات الاستراتيجية" : "Strategic Lessons & Recommendations"}</label>
+                                <label className={`block text-[10px] uppercase font-bold mb-1 ${isLight ? "text-slate-700" : "text-slate-400"}`}>{lang === "ar" ? "الدروس المستفادة والتوصيات الاستراتيجية" : "Strategic Lessons & Recommendations"}</label>
                                 <textarea
                                   readOnly
                                   value={simulatedLessons}
                                   data-demo-target="add-lessons-input"
-                                  className="w-full h-16 p-2.5 bg-slate-950 border border-slate-800/80 rounded-lg text-[11px] text-white focus:outline-none resize-none"
+                                  className={`w-full h-16 p-2.5 border rounded-lg text-[11px] focus:outline-none resize-none ${
+                                    isLight ? "bg-slate-50 border-slate-300 text-slate-900 placeholder:text-slate-400 focus:border-[#0075DE]" : "bg-slate-950 border-slate-800/80 text-white placeholder-slate-700"
+                                  }`}
                                 />
                               </div>
 
                               {/* Secure CEO Passcode Box */}
-                              <div className="p-3 rounded-lg bg-amber-500/5 border border-amber-500/20 flex items-center justify-between">
+                              <div className={`p-3 rounded-lg border flex items-center justify-between ${
+                                isLight ? "bg-blue-50/60 border-blue-200" : "bg-[#0075DE]/5 border-[#0075DE]/20"
+                              }`}>
                                 <div className="flex items-center gap-2">
-                                  <div className="p-1.5 rounded bg-amber-500/10 text-amber-500">
+                                  <div className="p-1.5 rounded bg-[#0075DE]/10 text-[#0075DE]">
                                     <Lock className="w-3.5 h-3.5 shrink-0" />
                                   </div>
                                   <div>
-                                    <p className="text-[10.5px] font-bold text-amber-300">{lang === "ar" ? "تشفير الذاكرة وتأمينها بالرمز السري" : "Encrypt Memory via CEO Passcode"}</p>
-                                    <p className="text-[9px] text-slate-500">{lang === "ar" ? "يتطلب رمزاً خاصاً لمشاهدتها لاحقاً في المكتبة" : "Requires secret code before anyone can reveal details"}</p>
+                                    <p className="text-[10.5px] font-bold text-[#0075DE]">{lang === "ar" ? "تشفير الذاكرة وتأمينها بالرمز السري" : "Encrypt Memory via CEO Passcode"}</p>
+                                    <p className={`text-[9px] ${isLight ? "text-slate-600" : "text-slate-500"}`}>{lang === "ar" ? "يتطلب رمزاً خاصاً لمشاهدتها لاحقاً في المكتبة" : "Requires secret code before anyone can reveal details"}</p>
                                   </div>
                                 </div>
                                 <input
@@ -1084,15 +1143,15 @@ export const ProductShowcaseWindow: React.FC<{ lang?: "ar" | "en" | "fr" }> = ({
                                   checked={simulatedEncrypt}
                                   readOnly
                                   data-demo-target="add-encrypt-checkbox"
-                                  className="w-4 h-4 rounded bg-slate-950 border-slate-800 text-amber-500 focus:ring-amber-500 accent-amber-500 shrink-0"
+                                  className="w-4 h-4 rounded bg-slate-950 border-slate-800 text-[#0075DE] focus:ring-[#0075DE] accent-[#0075DE] shrink-0"
                                 />
                               </div>
 
                               <div className="pt-2 flex justify-between">
-                                <button disabled className="px-3.5 py-2 bg-slate-800 text-slate-400 rounded-lg text-[11px]">{lang === "ar" ? "السابق" : "Previous"}</button>
+                                <button disabled className={`px-3.5 py-2 rounded-lg text-[11px] ${isLight ? "bg-slate-100 text-slate-500" : "bg-slate-800 text-slate-400"}`}>{lang === "ar" ? "السابق" : "Previous"}</button>
                                 <div 
                                   data-demo-target="add-save-btn"
-                                  className="px-5 py-2.5 bg-amber-500 text-slate-950 font-bold rounded-lg text-[11px] flex items-center gap-1.5 shadow-lg shadow-amber-500/10"
+                                  className="px-5 py-2.5 bg-[#0075DE] hover:bg-[#005BAB] text-white font-bold rounded-lg text-[11px] flex items-center gap-1.5 shadow-lg shadow-[#0075DE]/10 cursor-pointer transition-all"
                                 >
                                   <ShieldCheck className="w-4 h-4" />
                                   <span>{lang === "ar" ? "حفظ في ذاكرة المؤسسة" : "Save to Zakir Causal memory"}</span>
@@ -1122,16 +1181,22 @@ export const ProductShowcaseWindow: React.FC<{ lang?: "ar" | "en" | "fr" }> = ({
 
                     {/* Filter / Search Simulation Bar */}
                     <div className="flex items-center gap-2">
-                      <div className="flex-1 h-9 bg-slate-900 border border-slate-800/80 rounded-lg px-2.5 flex items-center gap-2 text-slate-500">
+                      <div className={`flex-1 h-9 border rounded-lg px-2.5 flex items-center gap-2 ${
+                        isLight ? "bg-white border-slate-300 text-slate-400" : "bg-slate-900 border-slate-800/80 text-slate-500"
+                      }`}>
                         <Search className="w-3.5 h-3.5 shrink-0" />
                         <input
                           type="text"
                           readOnly
                           placeholder={lang === "ar" ? "البحث بالعناوين والمسببات..." : "Search causal memories..."}
-                          className="bg-transparent border-none text-[11px] focus:outline-none flex-1 text-slate-300"
+                          className={`bg-transparent border-none text-[11px] focus:outline-none flex-1 ${
+                            isLight ? "text-slate-900 placeholder:text-slate-400" : "text-slate-300 placeholder-slate-700"
+                          }`}
                         />
                       </div>
-                      <div className="h-9 px-3 bg-slate-900 border border-slate-800/80 rounded-lg text-[10px] text-slate-400 flex items-center font-bold">
+                      <div className={`h-9 px-3 border rounded-lg text-[10px] flex items-center font-bold ${
+                        isLight ? "bg-white border-slate-300 text-slate-700" : "bg-slate-900 border-slate-800/80 text-slate-400"
+                      }`}>
                         {lang === "ar" ? "الفرز: الأحدث" : "Sort: Newest"}
                       </div>
                     </div>
@@ -1146,7 +1211,9 @@ export const ProductShowcaseWindow: React.FC<{ lang?: "ar" | "en" | "fr" }> = ({
                             data-demo-target={`memory-card-${m.id}`}
                             className={`p-4 rounded-xl border transition-all ${
                               isExpanded 
-                                ? "bg-slate-900/90 border-amber-500/50 shadow-lg shadow-amber-500/5" 
+                                ? "bg-blue-50/40 dark:bg-slate-900/90 border-[#0075DE]/50 shadow-lg shadow-[#0075DE]/5" 
+                                : isLight
+                                ? "bg-white border-slate-200 hover:border-slate-300"
                                 : "bg-slate-900/50 border-slate-800/60 hover:border-slate-800"
                             }`}
                           >
@@ -1155,23 +1222,23 @@ export const ProductShowcaseWindow: React.FC<{ lang?: "ar" | "en" | "fr" }> = ({
                                 <div className="flex items-center gap-2">
                                   <span className={`px-1.5 py-0.5 rounded text-[8px] font-extrabold ${
                                     m.risk === "Critical" 
-                                      ? "bg-rose-500/10 text-rose-400 border border-rose-500/20" 
+                                      ? "bg-rose-500/10 text-rose-500 border border-rose-500/20" 
                                       : m.risk === "High" 
-                                      ? "bg-amber-500/10 text-amber-400 border border-amber-500/20"
-                                      : "bg-slate-800 text-slate-400"
+                                      ? "bg-[#0075DE]/10 text-[#0075DE] border border-[#0075DE]/20"
+                                      : isLight ? "bg-slate-100 text-slate-600" : "bg-slate-800 text-slate-400"
                                   }`}>
                                     {m.risk}
                                   </span>
-                                  <span className="text-[10px] text-slate-500 font-mono">{m.category}</span>
+                                  <span className={`text-[10px] font-mono ${isLight ? "text-slate-500" : "text-slate-500"}`}>{m.category}</span>
                                 </div>
-                                <h4 className="text-xs font-black text-white flex items-center gap-1.5">
+                                <h4 className={`text-xs font-black flex items-center gap-1.5 ${isLight ? "text-slate-900" : "text-white"}`}>
                                   {m.title}
                                   {m.encrypted && !isExpanded && (
-                                    <Lock className="w-3 h-3 text-amber-400" />
+                                    <Lock className="w-3 h-3 text-[#0075DE]" />
                                   )}
                                 </h4>
                               </div>
-                              <span className="text-[9px] text-slate-600 font-mono shrink-0">{m.date}</span>
+                              <span className={`text-[9px] font-mono shrink-0 ${isLight ? "text-slate-400" : "text-slate-600"}`}>{m.date}</span>
                             </div>
 
                             {/* Expanded Area Showing Complete Causal Details */}
@@ -1179,28 +1246,30 @@ export const ProductShowcaseWindow: React.FC<{ lang?: "ar" | "en" | "fr" }> = ({
                               <motion.div 
                                 initial={{ opacity: 0, height: 0 }}
                                 animate={{ opacity: 1, height: "auto" }}
-                                className="mt-4 pt-4 border-t border-slate-800/80 space-y-3 text-[11px]"
+                                className={`mt-4 pt-4 border-t space-y-3 text-[11px] ${
+                                  isLight ? "border-slate-200" : "border-slate-800/80"
+                                }`}
                               >
                                 <div className="grid grid-cols-2 gap-3.5">
                                   <div className="space-y-1">
-                                    <span className="text-[9px] font-bold text-slate-500 uppercase">{lang === "ar" ? "سرد الحدث" : "Event Context"}</span>
-                                    <p className="text-slate-300 leading-normal">{m.desc}</p>
+                                    <span className={`text-[9px] font-bold uppercase ${isLight ? "text-slate-500" : "text-slate-500"}`}>{lang === "ar" ? "سرد الحدث" : "Event Context"}</span>
+                                    <p className={`leading-normal ${isLight ? "text-slate-700" : "text-slate-300"}`}>{m.desc}</p>
                                   </div>
                                   <div className="space-y-1">
-                                    <span className="text-[9px] font-bold text-slate-500 uppercase">{lang === "ar" ? "القرار المتخذ" : "Decision Taken"}</span>
-                                    <p className="text-slate-300 leading-normal">{m.decision}</p>
+                                    <span className={`text-[9px] font-bold uppercase ${isLight ? "text-slate-500" : "text-slate-500"}`}>{lang === "ar" ? "القرار المتخذ" : "Decision Taken"}</span>
+                                    <p className={`leading-normal ${isLight ? "text-slate-700" : "text-slate-300"}`}>{m.decision}</p>
                                   </div>
                                 </div>
 
-                                <div className="grid grid-cols-2 gap-3.5 pt-2 border-t border-slate-800/40">
+                                <div className={`grid grid-cols-2 gap-3.5 pt-2 border-t ${isLight ? "border-slate-200" : "border-slate-800/40"}`}>
                                   <div className="space-y-1">
-                                    <span className="text-[9px] font-bold text-slate-500 uppercase">{lang === "ar" ? "المسببات الأساسية" : "Causal Factors"}</span>
-                                    <p className="text-slate-300 leading-normal">{m.causal}</p>
+                                    <span className={`text-[9px] font-bold uppercase ${isLight ? "text-slate-500" : "text-slate-500"}`}>{lang === "ar" ? "المسببات الأساسية" : "Causal Factors"}</span>
+                                    <p className={`leading-normal ${isLight ? "text-slate-700" : "text-slate-300"}`}>{m.causal}</p>
                                   </div>
                                   <div className="space-y-1">
-                                    <span className="text-[9px] font-bold text-slate-500 uppercase">{lang === "ar" ? "الدروس والتأمين" : "Lessons Learned"}</span>
-                                    <p className="text-amber-300 font-medium leading-normal flex items-start gap-1">
-                                      <ShieldCheck className="w-3.5 h-3.5 shrink-0 text-amber-400 mt-0.5" />
+                                    <span className={`text-[9px] font-bold uppercase ${isLight ? "text-slate-500" : "text-slate-500"}`}>{lang === "ar" ? "الدروس والتأمين" : "Lessons Learned"}</span>
+                                    <p className="text-[#0075DE] font-medium leading-normal flex items-start gap-1">
+                                      <ShieldCheck className="w-3.5 h-3.5 shrink-0 text-[#0075DE] mt-0.5" />
                                       {m.lessons}
                                     </p>
                                   </div>
@@ -1219,15 +1288,17 @@ export const ProductShowcaseWindow: React.FC<{ lang?: "ar" | "en" | "fr" }> = ({
                           initial={{ opacity: 0 }}
                           animate={{ opacity: 1 }}
                           exit={{ opacity: 0 }}
-                          className="absolute inset-0 bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-4 rounded-xl"
+                          className="absolute inset-0 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 rounded-xl"
                         >
-                          <div className="max-w-xs w-full bg-slate-900 border border-slate-800 p-5 rounded-xl text-center space-y-4">
-                            <div className="w-10 h-10 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-500 flex items-center justify-center mx-auto text-lg">
+                          <div className={`max-w-xs w-full p-5 rounded-xl text-center space-y-4 border ${
+                            isLight ? "bg-white border-slate-200 shadow-xl" : "bg-slate-900 border-slate-800"
+                          }`}>
+                            <div className="w-10 h-10 rounded-full bg-[#0075DE]/10 border border-[#0075DE]/20 text-[#0075DE] flex items-center justify-center mx-auto text-lg">
                               <Lock className="w-5 h-5 shrink-0 animate-bounce" />
                             </div>
                             <div className="space-y-1">
-                              <h4 className="text-xs font-black text-white">{lang === "ar" ? "تأكيد الرمز السري للـ CEO" : "Authentication Required"}</h4>
-                              <p className="text-[9px] text-slate-400">{lang === "ar" ? "هذه الذاكرة مشفرة بحماية عالية وتتطلب الرمز السري لقراءتها." : "This amnesia card is sealed. Enter CEO decrypt key to expand."}</p>
+                              <h4 className={`text-xs font-black ${isLight ? "text-slate-900" : "text-white"}`}>{lang === "ar" ? "تأكيد الرمز السري للـ CEO" : "Authentication Required"}</h4>
+                              <p className={`text-[9px] ${isLight ? "text-slate-600" : "text-slate-400"}`}>{lang === "ar" ? "هذه الذاكرة مشفرة بحماية عالية وتتطلب الرمز السري لقراءتها." : "This amnesia card is sealed. Enter CEO decrypt key to expand."}</p>
                             </div>
                             <input
                               type="password"
@@ -1235,11 +1306,13 @@ export const ProductShowcaseWindow: React.FC<{ lang?: "ar" | "en" | "fr" }> = ({
                               value={enteredPasscode}
                               data-demo-target="passcode-input"
                               placeholder="••••"
-                              className="w-24 h-9 bg-slate-950 border border-slate-800 rounded-lg text-center tracking-[0.5em] text-white text-xs focus:outline-none"
+                              className={`w-24 h-9 border rounded-lg text-center tracking-[0.5em] text-xs focus:outline-none ${
+                                isLight ? "bg-slate-50 border-slate-300 text-slate-900" : "bg-slate-950 border-slate-800 text-white"
+                              }`}
                             />
                             <div 
                               data-demo-target="passcode-submit-btn"
-                              className="w-full py-2 bg-amber-500 text-slate-950 font-bold rounded-lg text-[11px] cursor-pointer"
+                              className="w-full py-2 bg-[#0075DE] hover:bg-[#005BAB] text-white font-bold rounded-lg text-[11px] cursor-pointer transition-all shadow-sm"
                             >
                               {lang === "ar" ? "فك التشفير" : "Decrypt & Unlock"}
                             </div>
@@ -1260,12 +1333,14 @@ export const ProductShowcaseWindow: React.FC<{ lang?: "ar" | "en" | "fr" }> = ({
                     className="space-y-4 flex flex-col h-full flex-1"
                   >
                     <div>
-                      <h2 className="text-lg font-black text-white">{lang === "ar" ? "المستشار الإدراكي" : "Cognitive AI Advisor"}</h2>
-                      <p className="text-[10px] text-slate-400">{lang === "ar" ? "استشر العقل الاصطناعي الحي لـ Zakir بشأن القرارات والدروس السابقة." : "Consult Zakir's live knowledge base regarding past decisions, causal links, and guidelines."}</p>
+                      <h2 className={`text-lg font-black ${isLight ? "text-slate-900" : "text-white"}`}>{lang === "ar" ? "المستشار الإدراكي" : "Cognitive AI Advisor"}</h2>
+                      <p className={`text-[10px] ${isLight ? "text-slate-600" : "text-slate-400"}`}>{lang === "ar" ? "استشر العقل الاصطناعي الحي لـ Zakir بشأن القرارات والدروس السابقة." : "Consult Zakir's live knowledge base regarding past decisions, causal links, and guidelines."}</p>
                     </div>
 
                     {/* Chat Messages Log */}
-                    <div className="flex-1 min-h-[180px] bg-slate-900/40 rounded-xl border border-slate-800/50 p-4 overflow-y-auto space-y-3 flex flex-col justify-end">
+                    <div className={`flex-1 min-h-[180px] rounded-xl border p-4 overflow-y-auto space-y-3 flex flex-col justify-end ${
+                      isLight ? "bg-white border-slate-200" : "bg-slate-900/40 border-slate-800/50"
+                    }`}>
                       {advisorMessages.map((msg, idx) => (
                         <div
                           key={idx}
@@ -1274,13 +1349,15 @@ export const ProductShowcaseWindow: React.FC<{ lang?: "ar" | "en" | "fr" }> = ({
                           }`}
                         >
                           <div className={`w-6 h-6 rounded-lg flex items-center justify-center shrink-0 ${
-                            msg.sender === "user" ? "bg-amber-500 text-slate-950" : "bg-slate-800 text-amber-400"
+                            msg.sender === "user" ? "bg-[#0075DE] text-white" : isLight ? "bg-slate-100 text-[#0075DE]" : "bg-slate-800 text-[#0075DE]"
                           }`}>
                             {msg.sender === "user" ? <UserIcon /> : <Brain className="w-3.5 h-3.5" />}
                           </div>
                           <div className={`p-3 rounded-xl text-[10.5px] leading-normal ${
                             msg.sender === "user" 
-                              ? "bg-amber-500/10 text-amber-300 border border-amber-500/20" 
+                              ? "bg-[#0075DE]/10 text-[#0075DE] border border-[#0075DE]/20" 
+                              : isLight
+                              ? "bg-slate-100 border border-slate-200 text-slate-800"
                               : "bg-slate-900 border border-slate-800/80 text-slate-200"
                           }`}>
                             <p className="whitespace-pre-line">{msg.text}</p>
@@ -1291,11 +1368,15 @@ export const ProductShowcaseWindow: React.FC<{ lang?: "ar" | "en" | "fr" }> = ({
                       {/* AI Typing Loader Indicator */}
                       {isAiTyping && (
                         <div className="flex gap-2 self-start max-w-[80%]">
-                          <div className="w-6 h-6 rounded-lg bg-slate-800 text-amber-400 flex items-center justify-center shrink-0">
+                          <div className={`w-6 h-6 rounded-lg flex items-center justify-center shrink-0 ${
+                            isLight ? "bg-slate-100 text-[#0075DE]" : "bg-slate-800 text-[#0075DE]"
+                          }`}>
                             <Brain className="w-3.5 h-3.5 animate-pulse" />
                           </div>
-                          <div className="p-3 rounded-xl bg-slate-900 border border-slate-800/80 text-slate-400 text-[10px] italic flex items-center gap-1.5">
-                            <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-ping" />
+                          <div className={`p-3 rounded-xl border text-[10px] italic flex items-center gap-1.5 ${
+                            isLight ? "bg-slate-50 border-slate-200 text-slate-600" : "bg-slate-900 border border-slate-800/80 text-slate-400"
+                          }`}>
+                            <span className="w-1.5 h-1.5 rounded-full bg-[#0075DE] animate-ping" />
                             <span>{lang === "ar" ? "جاري البحث في قاعدة بيانات PostgreSQL واستخلاص الدروس..." : "Consulting causal memory tables..."}</span>
                           </div>
                         </div>
@@ -1305,7 +1386,7 @@ export const ProductShowcaseWindow: React.FC<{ lang?: "ar" | "en" | "fr" }> = ({
                     {/* Suggested Prompts Block */}
                     {advisorMessages.length === 0 && !isAiTyping && (
                       <div className="space-y-1.5">
-                        <span className="text-[9px] font-bold text-slate-500 uppercase">{lang === "ar" ? "استفسارات مؤسسية مقترحة" : "Suggested Queries"}</span>
+                        <span className={`text-[9px] font-bold uppercase ${isLight ? "text-slate-500" : "text-slate-500"}`}>{lang === "ar" ? "استفسارات مؤسسية مقترحة" : "Suggested Queries"}</span>
                         <div className="grid grid-cols-2 gap-2">
                           {[
                             lang === "ar" ? "ما هي الدروس المستفادة من تأخير تحوط مخاطر الصرف؟" : "What are the lessons learned from delaying exchange rate hedging?",
@@ -1317,7 +1398,11 @@ export const ProductShowcaseWindow: React.FC<{ lang?: "ar" | "en" | "fr" }> = ({
                               key={i}
                               data-demo-target={`suggested-query-${i}`}
                               onClick={() => handleSuggestedQueryClick(i)}
-                              className="p-2 py-1.5 rounded-lg bg-slate-900/60 border border-slate-800/60 text-[9.5px] hover:border-slate-700 hover:text-amber-400 text-slate-300 transition-all font-bold truncate cursor-pointer"
+                              className={`p-2 py-1.5 rounded-lg border text-[9.5px] transition-all font-bold truncate cursor-pointer ${
+                                isLight 
+                                  ? "bg-white border-slate-200 hover:border-[#0075DE] hover:text-[#0075DE] text-slate-700 shadow-sm"
+                                  : "bg-slate-900/60 border-slate-800/60 hover:border-slate-700 hover:text-[#0075DE] text-slate-300"
+                              }`}
                             >
                               {queryText}
                             </div>
@@ -1330,19 +1415,23 @@ export const ProductShowcaseWindow: React.FC<{ lang?: "ar" | "en" | "fr" }> = ({
                     <div className="flex gap-2">
                       <div 
                         data-demo-target="advisor-prompt"
-                        className="flex-1 h-9 bg-slate-900 border border-slate-800/80 rounded-lg px-2.5 flex items-center gap-2"
+                        className={`flex-1 h-9 border rounded-lg px-2.5 flex items-center gap-2 ${
+                          isLight ? "bg-white border-slate-300" : "bg-slate-900 border-slate-800/80"
+                        }`}
                       >
                         <input
                           type="text"
                           readOnly
                           value={advisorInput}
-                          className="bg-transparent border-none text-[11px] text-slate-200 focus:outline-none flex-1 placeholder-slate-700"
+                          className={`bg-transparent border-none text-[11px] focus:outline-none flex-1 ${
+                            isLight ? "text-slate-900 placeholder:text-slate-400" : "text-slate-200 placeholder-slate-700"
+                          }`}
                           placeholder={lang === "ar" ? "اسأل عن أي قرار أو توصيات استراتيجية..." : "Query institutional amnesia patterns..."}
                         />
                       </div>
                       <div
                         data-demo-target="send-query-btn"
-                        className="w-9 h-9 bg-amber-500 text-slate-950 font-bold rounded-lg flex items-center justify-center cursor-pointer shadow-md shadow-amber-500/10"
+                        className="w-9 h-9 bg-[#0075DE] hover:bg-[#005BAB] text-white font-bold rounded-lg flex items-center justify-center cursor-pointer shadow-md shadow-[#0075DE]/10 transition-all"
                       >
                         <Send className="w-3.5 h-3.5" />
                       </div>
@@ -1362,8 +1451,8 @@ export const ProductShowcaseWindow: React.FC<{ lang?: "ar" | "en" | "fr" }> = ({
                     {/* Header with Title and AI Analysis Trigger Button */}
                     <div className="flex items-center justify-between gap-4">
                       <div>
-                        <h2 className="text-lg font-black text-white">{lang === "ar" ? "التطور الذكي" : "Smart Evolution Engine"}</h2>
-                        <p className="text-[10px] text-slate-400">{lang === "ar" ? "تشخيصات مدعومة بالذكاء الاصطناعي وتوقعات المخاطر والتوصيات بناءً على الذاكرة الحالية." : "Predictive alerts, risk forecasts, and preventative action items compiled by AI."}</p>
+                        <h2 className={`text-lg font-black ${isLight ? "text-slate-900" : "text-white"}`}>{lang === "ar" ? "التطور الذكي" : "Smart Evolution Engine"}</h2>
+                        <p className={`text-[10px] ${isLight ? "text-slate-600" : "text-slate-400"}`}>{lang === "ar" ? "تشخيصات مدعومة بالذكاء الاصطناعي وتوقعات المخاطر والتوصيات بناءً على الذاكرة الحالية." : "Predictive alerts, risk forecasts, and preventative action items compiled by AI."}</p>
                       </div>
                       
                       <button
@@ -1377,16 +1466,16 @@ export const ProductShowcaseWindow: React.FC<{ lang?: "ar" | "en" | "fr" }> = ({
                           }
                         }}
                         disabled={smartAnalysisState === "analyzing"}
-                        className="h-9 px-4 bg-amber-500 hover:bg-amber-600 disabled:bg-slate-800 text-slate-950 disabled:text-slate-500 font-bold text-[10px] rounded-lg flex items-center gap-1.5 shadow-sm transition-all cursor-pointer whitespace-nowrap"
+                        className="h-9 px-4 bg-[#0075DE] hover:bg-[#005BAB] disabled:bg-slate-300 text-white disabled:text-slate-500 font-bold text-[10px] rounded-lg flex items-center gap-1.5 shadow-sm transition-all cursor-pointer whitespace-nowrap"
                       >
                         {smartAnalysisState === "analyzing" ? (
                           <>
-                            <RefreshCw className="w-3 h-3 animate-spin text-slate-950" />
+                            <RefreshCw className="w-3 h-3 animate-spin text-white" />
                             <span>{lang === "ar" ? "جاري التحليل..." : "Analyzing..."}</span>
                           </>
                         ) : (
                           <>
-                            <Brain className="w-3 h-3 text-slate-950" />
+                            <Brain className="w-3 h-3 text-white" />
                             <span>{lang === "ar" ? "تشغيل التحليل بالذكاء الاصطناعي" : "Run AI Analysis"}</span>
                           </>
                         )}
@@ -1400,16 +1489,18 @@ export const ProductShowcaseWindow: React.FC<{ lang?: "ar" | "en" | "fr" }> = ({
                           initial={{ opacity: 0, scale: 0.95 }}
                           animate={{ opacity: 1, scale: 1 }}
                           exit={{ opacity: 0, scale: 0.95 }}
-                          className="p-8 rounded-xl bg-slate-900/40 border border-slate-800/80 flex flex-col items-center justify-center text-center space-y-3 py-12"
+                          className={`p-8 rounded-xl border flex flex-col items-center justify-center text-center space-y-3 py-12 ${
+                            isLight ? "bg-white border-slate-200" : "bg-slate-900/40 border-slate-800/80"
+                          }`}
                         >
-                          <div className="w-12 h-12 rounded-full bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400">
+                          <div className="w-12 h-12 rounded-full bg-[#0075DE]/10 border border-[#0075DE]/20 flex items-center justify-center text-[#0075DE]">
                             <Brain className="w-6 h-6 animate-pulse" />
                           </div>
                           <div className="space-y-1">
-                            <h3 className="text-sm font-bold text-white">
+                            <h3 className={`text-sm font-bold ${isLight ? "text-slate-900" : "text-white"}`}>
                               {lang === "ar" ? "التحليل الإدراكي معلق" : "Cognitive Analysis Pending"}
                             </h3>
-                            <p className="text-[10px] text-slate-400 max-w-xs mx-auto leading-relaxed">
+                            <p className={`text-[10px] max-w-xs mx-auto leading-relaxed ${isLight ? "text-slate-600" : "text-slate-400"}`}>
                               {lang === "ar" 
                                 ? "الرجاء النقر فوق زر 'تشغيل التحليل بالذكاء الاصطناعي' لبدء سحب البيانات واستخراج التوقعات التشخيصية."
                                 : "Please click 'Run AI Analysis' to pull current memories and generate diagnostics forecasts."}
@@ -1424,25 +1515,27 @@ export const ProductShowcaseWindow: React.FC<{ lang?: "ar" | "en" | "fr" }> = ({
                           initial={{ opacity: 0, scale: 0.95 }}
                           animate={{ opacity: 1, scale: 1 }}
                           exit={{ opacity: 0, scale: 0.95 }}
-                          className="p-8 rounded-xl bg-slate-900/40 border border-slate-800/80 flex flex-col items-center justify-center text-center space-y-4 py-12"
+                          className={`p-8 rounded-xl border flex flex-col items-center justify-center text-center space-y-4 py-12 ${
+                            isLight ? "bg-white border-slate-200" : "bg-slate-900/40 border-slate-800/80"
+                          }`}
                         >
                           <div className="relative">
-                            <div className="w-12 h-12 rounded-full border border-amber-500/10 flex items-center justify-center">
-                              <Brain className="w-6 h-6 text-amber-400 animate-pulse" />
+                            <div className="w-12 h-12 rounded-full border border-[#0075DE]/10 flex items-center justify-center">
+                              <Brain className="w-6 h-6 text-[#0075DE] animate-pulse" />
                             </div>
-                            <div className="absolute inset-0 rounded-full border-2 border-t-amber-500 border-r-transparent border-b-transparent border-l-transparent animate-spin" />
+                            <div className="absolute inset-0 rounded-full border-2 border-t-[#0075DE] border-r-transparent border-b-transparent border-l-transparent animate-spin" />
                           </div>
                           
                           <div className="space-y-1">
-                            <h3 className="text-sm font-bold text-white">
+                            <h3 className={`text-sm font-bold ${isLight ? "text-slate-900" : "text-white"}`}>
                               {lang === "ar" ? "جاري تشغيل التحليل الإدراكي..." : "Running Cognitive Diagnostics..."}
                             </h3>
                             <div className="flex items-center justify-center gap-1.5 mt-2">
-                              <span className="w-2 h-2 rounded-full bg-amber-400 animate-bounce" style={{ animationDelay: "0ms" }} />
-                              <span className="w-2 h-2 rounded-full bg-amber-400 animate-bounce" style={{ animationDelay: "150ms" }} />
-                              <span className="w-2 h-2 rounded-full bg-amber-400 animate-bounce" style={{ animationDelay: "300ms" }} />
+                              <span className="w-2 h-2 rounded-full bg-[#0075DE] animate-bounce" style={{ animationDelay: "0ms" }} />
+                              <span className="w-2 h-2 rounded-full bg-[#0075DE] animate-bounce" style={{ animationDelay: "150ms" }} />
+                              <span className="w-2 h-2 rounded-full bg-[#0075DE] animate-bounce" style={{ animationDelay: "300ms" }} />
                             </div>
-                            <p className="text-[9px] text-slate-500 font-bold uppercase tracking-wider mt-2 leading-relaxed">
+                            <p className={`text-[9px] font-bold uppercase tracking-wider mt-2 leading-relaxed ${isLight ? "text-slate-500" : "text-slate-500"}`}>
                               {lang === "ar" ? "تحليل causal factors ومطابقتها بالتصنيفات الجمركية وقواعد البيانات" : "Synthesizing causal factors, compliance risks, and database security"}
                             </p>
                           </div>
@@ -1462,12 +1555,12 @@ export const ProductShowcaseWindow: React.FC<{ lang?: "ar" | "en" | "fr" }> = ({
                               initial={{ opacity: 0, y: 10 }}
                               animate={{ opacity: 1, y: 0 }}
                               transition={{ delay: 0.1 }}
-                              className="p-2 rounded-xl bg-amber-500/10 border border-amber-500/20 flex flex-col justify-between"
+                              className="p-2 rounded-xl bg-[#0075DE]/10 border border-[#0075DE]/20 flex flex-col justify-between"
                             >
-                              <span className="text-[8px] font-black text-amber-400 uppercase">{lang === "ar" ? "إجمالي السجلات" : "TOTAL MEMORIES"}</span>
+                              <span className="text-[8px] font-black text-[#0075DE] uppercase">{lang === "ar" ? "إجمالي السجلات" : "TOTAL MEMORIES"}</span>
                               <div className="flex items-center justify-between mt-1">
-                                <span className="text-sm font-black text-white">{memories.length}</span>
-                                <FileText className="w-3.5 h-3.5 text-amber-400" />
+                                <span className={`text-sm font-black ${isLight ? "text-slate-900" : "text-white"}`}>{memories.length}</span>
+                                <FileText className="w-3.5 h-3.5 text-[#0075DE]" />
                               </div>
                             </motion.div>
                             
@@ -1477,10 +1570,10 @@ export const ProductShowcaseWindow: React.FC<{ lang?: "ar" | "en" | "fr" }> = ({
                               transition={{ delay: 0.2 }}
                               className="p-2 rounded-xl bg-rose-500/10 border border-rose-500/20 flex flex-col justify-between"
                             >
-                              <span className="text-[8px] font-black text-rose-400 uppercase">{lang === "ar" ? "المخاطر النشطة" : "ACTIVE RISKS"}</span>
+                              <span className="text-[8px] font-black text-rose-500 uppercase">{lang === "ar" ? "المخاطر النشطة" : "ACTIVE RISKS"}</span>
                               <div className="flex items-center justify-between mt-1">
-                                <span className="text-sm font-black text-white">1</span>
-                                <ShieldAlert className="w-3.5 h-3.5 text-rose-400" />
+                                <span className={`text-sm font-black ${isLight ? "text-slate-900" : "text-white"}`}>1</span>
+                                <ShieldAlert className="w-3.5 h-3.5 text-rose-500" />
                               </div>
                             </motion.div>
 
@@ -1490,10 +1583,10 @@ export const ProductShowcaseWindow: React.FC<{ lang?: "ar" | "en" | "fr" }> = ({
                               transition={{ delay: 0.3 }}
                               className="p-2 rounded-xl bg-blue-500/10 border border-blue-500/20 flex flex-col justify-between"
                             >
-                              <span className="text-[8px] font-black text-blue-400 uppercase">{lang === "ar" ? "الفرص المرصودة" : "OPPORTUNITIES"}</span>
+                              <span className="text-[8px] font-black text-blue-500 uppercase">{lang === "ar" ? "الفرص المرصودة" : "OPPORTUNITIES"}</span>
                               <div className="flex items-center justify-between mt-1">
-                                <span className="text-sm font-black text-white">2</span>
-                                <Compass className="w-3.5 h-3.5 text-blue-400" />
+                                <span className={`text-sm font-black ${isLight ? "text-slate-900" : "text-white"}`}>2</span>
+                                <Compass className="w-3.5 h-3.5 text-blue-500" />
                               </div>
                             </motion.div>
 
@@ -1503,10 +1596,10 @@ export const ProductShowcaseWindow: React.FC<{ lang?: "ar" | "en" | "fr" }> = ({
                               transition={{ delay: 0.4 }}
                               className="p-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex flex-col justify-between"
                             >
-                              <span className="text-[8px] font-black text-emerald-400 uppercase">{lang === "ar" ? "التوصيات الجاهزة" : "RECOMMENDATIONS"}</span>
+                              <span className="text-[8px] font-black text-emerald-500 uppercase">{lang === "ar" ? "التوصيات الجاهزة" : "RECOMMENDATIONS"}</span>
                               <div className="flex items-center justify-between mt-1">
-                                <span className="text-sm font-black text-white">2</span>
-                                <CheckCircle className="w-3.5 h-3.5 text-emerald-400" />
+                                <span className={`text-sm font-black ${isLight ? "text-slate-900" : "text-white"}`}>2</span>
+                                <CheckCircle className="w-3.5 h-3.5 text-emerald-500" />
                               </div>
                             </motion.div>
                           </div>
@@ -1516,10 +1609,12 @@ export const ProductShowcaseWindow: React.FC<{ lang?: "ar" | "en" | "fr" }> = ({
                             initial={{ opacity: 0, y: 10 }}
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ delay: 0.5 }}
-                            className="p-3 rounded-xl bg-slate-900 border border-slate-800 space-y-1"
+                            className={`p-3 rounded-xl border space-y-1 ${
+                              isLight ? "bg-white border-slate-200 shadow-sm" : "bg-slate-900 border-slate-800"
+                            }`}
                           >
-                            <span className="text-[8px] font-black text-amber-400 uppercase tracking-wider">{lang === "ar" ? "ملخص التشخيص الذكي للعمليات" : "AI Operational Diagnosis Summary"}</span>
-                            <p className="text-[10px] text-slate-200 leading-relaxed">
+                            <span className="text-[8px] font-black text-[#0075DE] uppercase tracking-wider">{lang === "ar" ? "ملخص التشخيص الذكي للعمليات" : "AI Operational Diagnosis Summary"}</span>
+                            <p className={`text-[10px] leading-relaxed ${isLight ? "text-slate-800" : "text-slate-200"}`}>
                               {lang === "ar"
                                 ? "يكشف تحليل ذكريات الذاكرة المؤسسية عن نقاط خطر حيوية ونمط غير مغطى من مخاطر الصرف في الربع الأخير. نوصي باتباع مسار التحوط الوقائي المقترح وتفعيل المزامنة الجمركية تلقائياً."
                                 : "Analyzing institutional memories reveals critical risk points and unhedged FX exposures in the last quarter. Immediate adoption of protective call options combined with quarterly automated HTS sweeps is recommended."}
@@ -1531,7 +1626,7 @@ export const ProductShowcaseWindow: React.FC<{ lang?: "ar" | "en" | "fr" }> = ({
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
                             transition={{ delay: 0.6 }}
-                            className="flex border-b border-slate-800/80 gap-4"
+                            className={`flex border-b gap-4 ${isLight ? "border-slate-200" : "border-slate-800/80"}`}
                           >
                             {[
                               { id: "predictions", label: lang === "ar" ? "توقعات المخاطر" : "Risk Forecasts" },
@@ -1544,8 +1639,8 @@ export const ProductShowcaseWindow: React.FC<{ lang?: "ar" | "en" | "fr" }> = ({
                                 data-demo-target={`smart-tab-${subTab.id}`}
                                 className={`pb-1.5 text-[10px] font-black transition-all border-b-2 cursor-pointer ${
                                   smartActiveTab === subTab.id 
-                                    ? "border-amber-400 text-amber-400" 
-                                    : "border-transparent text-slate-500 hover:text-slate-300"
+                                    ? "border-[#0075DE] text-[#0075DE]" 
+                                    : isLight ? "border-transparent text-slate-500 hover:text-slate-800" : "border-transparent text-slate-500 hover:text-slate-300"
                                 }`}
                                 onClick={() => setSmartActiveTab(subTab.id as any)}
                               >
@@ -1567,34 +1662,38 @@ export const ProductShowcaseWindow: React.FC<{ lang?: "ar" | "en" | "fr" }> = ({
                                   initial={{ opacity: 0, scale: 0.95 }}
                                   animate={{ opacity: 1, scale: 1 }}
                                   transition={{ delay: 0.7 }}
-                                  className="p-3 bg-slate-900/60 border border-slate-800/50 rounded-xl flex flex-col items-center justify-center text-center space-y-2"
+                                  className={`p-3 border rounded-xl flex flex-col items-center justify-center text-center space-y-2 ${
+                                    isLight ? "bg-white border-slate-200 shadow-sm" : "bg-slate-900/60 border-slate-800/50"
+                                  }`}
                                 >
-                                  <span className="text-[9px] font-bold text-slate-400">{lang === "ar" ? "كفاءة حماية الأصول" : "Asset Protection Level"}</span>
+                                  <span className={`text-[9px] font-bold ${isLight ? "text-slate-600" : "text-slate-400"}`}>{lang === "ar" ? "كفاءة حماية الأصول" : "Asset Protection Level"}</span>
                                   <div className="relative w-16 h-16 flex items-center justify-center">
                                     <svg className="w-full h-full -rotate-90">
-                                      <circle cx="32" cy="32" r="26" className="stroke-slate-800 fill-none" strokeWidth="5" />
-                                      <circle cx="32" cy="32" r="26" className="stroke-amber-400 fill-none" strokeWidth="5" strokeDasharray="163" strokeDashoffset="30" strokeLinecap="round" />
+                                      <circle cx="32" cy="32" r="26" className={isLight ? "stroke-slate-100 fill-none" : "stroke-slate-800 fill-none"} strokeWidth="5" />
+                                      <circle cx="32" cy="32" r="26" className="stroke-[#0075DE] fill-none" strokeWidth="5" strokeDasharray="163" strokeDashoffset="30" strokeLinecap="round" />
                                     </svg>
-                                    <span className="absolute text-xs font-black text-white">82%</span>
+                                    <span className={`absolute text-xs font-black ${isLight ? "text-slate-900" : "text-white"}`}>82%</span>
                                   </div>
-                                  <p className="text-[8.5px] text-slate-500">{lang === "ar" ? "انخفاض مخاطر الصرف بنسبة 35% بعد الذاكرة الأخيرة" : "FX exposure reduced by 35% due to the financial hedging rule"}</p>
+                                  <p className={`text-[8.5px] ${isLight ? "text-slate-500" : "text-slate-500"}`}>{lang === "ar" ? "انخفاض مخاطر الصرف بنسبة 35% بعد الذاكرة الأخيرة" : "FX exposure reduced by 35% due to the financial hedging rule"}</p>
                                 </motion.div>
 
                                 <motion.div 
                                   initial={{ opacity: 0, scale: 0.95 }}
                                   animate={{ opacity: 1, scale: 1 }}
                                   transition={{ delay: 0.8 }}
-                                  className="p-3 bg-slate-900/60 border border-slate-800/50 rounded-xl flex flex-col items-center justify-center text-center space-y-2"
+                                  className={`p-3 border rounded-xl flex flex-col items-center justify-center text-center space-y-2 ${
+                                    isLight ? "bg-white border-slate-200 shadow-sm" : "bg-slate-900/60 border-slate-800/50"
+                                  }`}
                                 >
-                                  <span className="text-[9px] font-bold text-slate-400">{lang === "ar" ? "حماية الامتثال التنظيمي" : "Compliance Safety Margin"}</span>
+                                  <span className={`text-[9px] font-bold ${isLight ? "text-slate-600" : "text-slate-400"}`}>{lang === "ar" ? "حماية الامتثال التنظيمي" : "Compliance Safety Margin"}</span>
                                   <div className="relative w-16 h-16 flex items-center justify-center">
                                     <svg className="w-full h-full -rotate-90">
-                                      <circle cx="32" cy="32" r="26" className="stroke-slate-800 fill-none" strokeWidth="5" />
-                                      <circle cx="32" cy="32" r="26" className="stroke-emerald-400 fill-none" strokeWidth="5" strokeDasharray="163" strokeDashoffset="8" strokeLinecap="round" />
+                                      <circle cx="32" cy="32" r="26" className={isLight ? "stroke-slate-100 fill-none" : "stroke-slate-800 fill-none"} strokeWidth="5" />
+                                      <circle cx="32" cy="32" r="26" className="stroke-emerald-500 fill-none" strokeWidth="5" strokeDasharray="163" strokeDashoffset="8" strokeLinecap="round" />
                                     </svg>
-                                    <span className="absolute text-xs font-black text-white">95%</span>
+                                    <span className={`absolute text-xs font-black ${isLight ? "text-slate-900" : "text-white"}`}>95%</span>
                                   </div>
-                                  <p className="text-[8.5px] text-slate-500">{lang === "ar" ? "مستوى حماية ممتاز جداً ضد حظر التحويلات" : "Excellent compliance buffer; no recent AML/HTS anomalies"}</p>
+                                  <p className={`text-[8.5px] ${isLight ? "text-slate-500" : "text-slate-500"}`}>{lang === "ar" ? "مستوى حماية ممتاز جداً ضد حظر التحويلات" : "Excellent compliance buffer; no recent AML/HTS anomalies"}</p>
                                 </motion.div>
                               </motion.div>
                             )}
@@ -1738,12 +1837,14 @@ export const ProductShowcaseWindow: React.FC<{ lang?: "ar" | "en" | "fr" }> = ({
                                   initial={{ opacity: 0, x: -10 }}
                                   animate={{ opacity: 1, x: 0 }}
                                   transition={{ delay: 0.1 }}
-                                  className="p-2.5 bg-slate-900/80 border-r-2 border-amber-500 rounded-lg flex items-start gap-2"
+                                  className={`p-2.5 border-r-2 border-[#0075DE] rounded-lg flex items-start gap-2 ${
+                                    isLight ? "bg-white border-y border-l border-slate-200 shadow-sm" : "bg-slate-900/80"
+                                  }`}
                                 >
-                                  <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+                                  <AlertTriangle className="w-4 h-4 text-[#0075DE] shrink-0 mt-0.5" />
                                   <div>
-                                    <h5 className="text-[10px] font-black text-white">{lang === "ar" ? "عزل ميزانيات التحوط بقسم الطيران فوراً" : "Enforce Isolated Aviation Hedging Budgets"}</h5>
-                                    <p className="text-[9px] text-slate-400 leading-normal mt-0.5">
+                                    <h5 className={`text-[10px] font-black ${isLight ? "text-slate-900" : "text-white"}`}>{lang === "ar" ? "عزل ميزانيات التحوط بقسم الطيران فوراً" : "Enforce Isolated Aviation Hedging Budgets"}</h5>
+                                    <p className={`text-[9px] leading-normal mt-0.5 ${isLight ? "text-slate-600" : "text-slate-400"}`}>
                                       {lang === "ar" 
                                         ? "تجنباً لتكرار تجميد دفعة الربع الثالث، يوصى بنقل صلاحيات الخيار بالكامل إلى نظام الشراء المؤتمت."
                                         : "De-link cash reserves. Allow purchase engines to buy options automatically when Brent shifts > 5%."}
@@ -1755,12 +1856,14 @@ export const ProductShowcaseWindow: React.FC<{ lang?: "ar" | "en" | "fr" }> = ({
                                   initial={{ opacity: 0, x: -10 }}
                                   animate={{ opacity: 1, x: 0 }}
                                   transition={{ delay: 0.2 }}
-                                  className="p-2.5 bg-slate-900/80 border-r-2 border-emerald-500 rounded-lg flex items-start gap-2"
+                                  className={`p-2.5 border-r-2 border-emerald-500 rounded-lg flex items-start gap-2 ${
+                                    isLight ? "bg-white border-y border-l border-slate-200 shadow-sm" : "bg-slate-900/80"
+                                  }`}
                                 >
-                                  <CheckCircle className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+                                  <CheckCircle className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
                                   <div>
-                                    <h5 className="text-[10px] font-black text-white">{lang === "ar" ? "مزامنة رموز التعرفة الجمركية بميناء طنجة" : "Synchronize Tangier Port HTS Code Vault"}</h5>
-                                    <p className="text-[9px] text-slate-400 leading-normal mt-0.5">
+                                    <h5 className={`text-[10px] font-black ${isLight ? "text-slate-900" : "text-white"}`}>{lang === "ar" ? "مزامنة رموز التعرفة الجمركية بميناء طنجة" : "Synchronize Tangier Port HTS Code Vault"}</h5>
+                                    <p className={`text-[9px] leading-normal mt-0.5 ${isLight ? "text-slate-600" : "text-slate-400"}`}>
                                       {lang === "ar" 
                                         ? "تم تدوين وحل أصل المشكلة اللوجستية بنجاح بنسبة 100% لتفادي تكرار غرامات التصنيف الخاطئ."
                                         : "Compliance rule verified. Keep local warehouse records updated automatically every quarter."}
@@ -1786,40 +1889,48 @@ export const ProductShowcaseWindow: React.FC<{ lang?: "ar" | "en" | "fr" }> = ({
                     className="space-y-4 max-w-2xl mx-auto w-full"
                   >
                     <div>
-                      <h2 className="text-lg font-black text-white">{lang === "ar" ? "ذكاء السوق الاستراتيجي" : "Market Intelligence Radar"}</h2>
-                      <p className="text-[10px] text-slate-400">{lang === "ar" ? "دراسة اتجاهات السوق العالمية لتفادي تكرار أخطاء القرارات." : "Match external global economic fluctuations against internal amnesia logs."}</p>
+                      <h2 className={`text-lg font-black ${isLight ? "text-slate-900" : "text-white"}`}>{lang === "ar" ? "ذكاء السوق الاستراتيجي" : "Market Intelligence Radar"}</h2>
+                      <p className={`text-[10px] ${isLight ? "text-slate-600" : "text-slate-400"}`}>{lang === "ar" ? "دراسة اتجاهات السوق العالمية لتفادي تكرار أخطاء القرارات." : "Match external global economic fluctuations against internal amnesia logs."}</p>
                     </div>
 
-                    <div className="p-4 rounded-xl bg-slate-900/60 border border-slate-800/50 space-y-3.5">
+                    <div className={`p-4 rounded-xl border space-y-3.5 ${
+                      isLight ? "bg-white border-slate-200 shadow-sm" : "bg-slate-900/60 border-slate-800/50"
+                    }`}>
                       <div>
-                        <label className="block text-[10px] uppercase font-bold text-slate-500 mb-1">{lang === "ar" ? "موضوع السوق / الاتجاه المراد تحليله" : "Global Topic / Trend to Analyze"}</label>
+                        <label className={`block text-[10px] uppercase font-bold mb-1 ${isLight ? "text-slate-500" : "text-slate-500"}`}>{lang === "ar" ? "موضوع السوق / الاتجاه المراد تحليله" : "Global Topic / Trend to Analyze"}</label>
                         <input
                           type="text"
                           readOnly
                           value={marketTopic}
                           data-demo-target="market-topic-input"
                           placeholder={lang === "ar" ? "مثال: تذبذب أسعار خام برنت أو أسعار الفائدة الفيدرالية..." : "e.g. Federal reserve rate hikes or oil price volatility..."}
-                          className="w-full h-9 px-3 bg-slate-950 border border-slate-800/80 rounded-lg text-[11px] text-white focus:outline-none placeholder-slate-700 font-bold"
+                          className={`w-full h-9 px-3 border rounded-lg text-[11px] focus:outline-none font-bold ${
+                            isLight ? "bg-slate-50 border-slate-300 text-slate-900 placeholder:text-slate-400" : "bg-slate-950 border-slate-800/80 text-white placeholder-slate-700"
+                          }`}
                         />
                       </div>
 
                       <div className="grid grid-cols-2 gap-3">
                         <div>
-                          <label className="block text-[10px] uppercase font-bold text-slate-500 mb-1">{lang === "ar" ? "القطاع المستهدف" : "Target Industry"}</label>
-                          <select disabled className="w-full h-9 px-2 bg-slate-950 border border-slate-800/80 rounded-lg text-[11px] text-slate-300">
+                          <label className={`block text-[10px] uppercase font-bold mb-1 ${isLight ? "text-slate-500" : "text-slate-500"}`}>{lang === "ar" ? "القطاع المستهدف" : "Target Industry"}</label>
+                          <select disabled className={`w-full h-9 px-2 border rounded-lg text-[11px] ${
+                            isLight ? "bg-slate-50 border-slate-300 text-slate-700" : "bg-slate-950 border-slate-800/80 text-slate-300"
+                          }`}>
                             <option>Supply Chain & Shipping</option>
                           </select>
                         </div>
                         <div>
-                          <label className="block text-[10px] uppercase font-bold text-slate-500 mb-1">{lang === "ar" ? "سياق التركيز الاختياري" : "Optional Geographic Scope"}</label>
-                          <input readOnly value="Global" className="w-full h-9 px-3 bg-slate-950 border border-slate-800/80 rounded-lg text-[11px] text-slate-400 focus:outline-none" />
+                          <label className={`block text-[10px] uppercase font-bold mb-1 ${isLight ? "text-slate-500" : "text-slate-500"}`}>{lang === "ar" ? "سياق التركيز الاختياري" : "Optional Geographic Scope"}</label>
+                          <input readOnly value="Global" className={`w-full h-9 px-3 border rounded-lg text-[11px] focus:outline-none ${
+                            isLight ? "bg-slate-50 border-slate-300 text-slate-700" : "bg-slate-950 border-slate-800/80 text-slate-400"
+                          }`} />
                         </div>
                       </div>
 
                       <div className="pt-2 flex justify-end">
                         <div 
                           data-demo-target="market-run-btn"
-                          className="px-5 py-2.5 bg-amber-500 text-slate-950 font-bold rounded-lg text-[11px] flex items-center gap-1.5 cursor-pointer shadow-lg shadow-amber-500/10"
+                          className="px-5 py-2.5 bg-[#0075DE] hover:bg-[#005BAB] text-white font-bold rounded-lg text-[11px] flex items-center gap-1.5 cursor-pointer shadow-lg shadow-[#0075DE]/10 transition-all"
                         >
                           <Globe className="w-4 h-4" />
                           <span>{lang === "ar" ? "بدء تقييم السوق بالذكاء الاصطناعي" : "Run Market Assessment"}</span>
@@ -1833,10 +1944,12 @@ export const ProductShowcaseWindow: React.FC<{ lang?: "ar" | "en" | "fr" }> = ({
                         <motion.div 
                           initial={{ opacity: 0, height: 0 }}
                           animate={{ opacity: 1, height: "auto" }}
-                          className="p-4 bg-slate-900 border border-slate-800 rounded-xl text-center flex flex-col items-center justify-center space-y-2"
+                          className={`p-4 border rounded-xl text-center flex flex-col items-center justify-center space-y-2 ${
+                            isLight ? "bg-white border-slate-200 shadow-sm" : "bg-slate-900 border-slate-800"
+                          }`}
                         >
-                          <Activity className="w-5 h-5 text-amber-400 animate-spin" />
-                          <span className="text-[10.5px] text-slate-400 italic font-medium">{lang === "ar" ? "جاري مطابقة تذبذب الصرف والـ EUR/USD مع سجلات التحوط بالهندسة المالية لـ Zakir..." : "Matching global EUR/USD volatility against past Financial Engineering memories..."}</span>
+                          <Activity className="w-5 h-5 text-[#0075DE] animate-spin" />
+                          <span className={`text-[10.5px] italic font-medium ${isLight ? "text-slate-600" : "text-slate-400"}`}>{lang === "ar" ? "جاري مطابقة تذبذب الصرف والـ EUR/USD مع سجلات التحوط بالهندسة المالية لـ Zakir..." : "Matching global EUR/USD volatility against past Financial Engineering memories..."}</span>
                         </motion.div>
                       )}
 
@@ -1844,19 +1957,21 @@ export const ProductShowcaseWindow: React.FC<{ lang?: "ar" | "en" | "fr" }> = ({
                         <motion.div 
                           initial={{ opacity: 0, scale: 0.98 }}
                           animate={{ opacity: 1, scale: 1 }}
-                          className="p-4 bg-slate-900 border border-slate-800 rounded-xl space-y-2.5"
+                          className={`p-4 border rounded-xl space-y-2.5 ${
+                            isLight ? "bg-white border-slate-200 shadow-sm" : "bg-slate-900 border-slate-800"
+                          }`}
                         >
                           <div className="flex items-center justify-between">
-                            <span className="text-[10px] font-black text-amber-400 uppercase tracking-wider">{lang === "ar" ? "التقرير النهائي لذكاء السوق" : "Market Intelligence Report"}</span>
-                            <span className="px-1.5 py-0.5 bg-rose-500/10 border border-rose-500/20 text-rose-400 text-[8px] font-black rounded">{lang === "ar" ? "تهديد مرتفع" : "High Risk Threat"}</span>
+                            <span className="text-[10px] font-black text-[#0075DE] uppercase tracking-wider">{lang === "ar" ? "التقرير النهائي لذكاء السوق" : "Market Intelligence Report"}</span>
+                            <span className="px-1.5 py-0.5 bg-rose-500/10 border border-rose-500/20 text-rose-500 text-[8px] font-black rounded">{lang === "ar" ? "تهديد مرتفع" : "High Risk Threat"}</span>
                           </div>
-                          <p className="text-[11px] text-slate-200 leading-relaxed font-bold">
+                          <p className={`text-[11px] leading-relaxed font-bold ${isLight ? "text-slate-800" : "text-slate-200"}`}>
                             {lang === "ar" 
                               ? "تم العثور على ترابط بنسبة 91% بين التذبذب الجاري لـ EUR/USD والتحوط المالي المفقود لإدارة مخاطر الصرف الأجنبي (الذاكرة #3)."
                               : "Identified a 91% correlation pattern between ongoing EUR/USD fluctuations and the recent unhedged FX translation risk (Memory block #3)."}
                           </p>
-                          <p className="text-[10px] text-amber-300 flex items-start gap-1 font-medium bg-amber-500/5 p-2 rounded border border-amber-500/10">
-                            <Shield className="w-3.5 h-3.5 shrink-0 mt-0.5 text-amber-400" />
+                          <p className="text-[10px] text-[#0075DE] flex items-start gap-1 font-medium bg-[#0075DE]/5 p-2 rounded border border-[#0075DE]/10">
+                            <Shield className="w-3.5 h-3.5 shrink-0 mt-0.5 text-[#0075DE]" />
                             {lang === "ar"
                               ? "التحوط الدفاعي الفوري مطلوب. نوصي بتطبيق توصيات الذاكرة #3 بتوطين عقود خيارات ثنائية وتفعيل التداول الآلي فوراً لتجنب خسائر ترجمة عملات إضافية."
                               : "Action Required: Adopt Memory #3 workflow immediately. Execute option collar contracts to neutralize ongoing EUR/USD translation liabilities."}
@@ -1878,7 +1993,7 @@ export const ProductShowcaseWindow: React.FC<{ lang?: "ar" | "en" | "fr" }> = ({
           <span
             key={r.id}
             style={{ left: r.x, top: r.y }}
-            className="absolute w-12 h-12 -ml-6 -mt-6 border border-amber-500 rounded-full animate-ping pointer-events-none opacity-85 shadow-[0_0_15px_rgba(212,175,55,0.4)]"
+            className="absolute w-12 h-12 -ml-6 -mt-6 border border-[#0075DE] rounded-full animate-ping pointer-events-none opacity-85 shadow-[0_0_15px_rgba(0,117,222,0.4)]"
           />
         ))}
 
@@ -1896,11 +2011,11 @@ export const ProductShowcaseWindow: React.FC<{ lang?: "ar" | "en" | "fr" }> = ({
             className="relative"
           >
             {/* Custom glowing cursor circle */}
-            <span className="absolute -left-3.5 -top-3.5 w-7 h-7 bg-amber-500/15 rounded-full blur-[3px]" />
+            <span className="absolute -left-3.5 -top-3.5 w-7 h-7 bg-[#0075DE]/20 rounded-full blur-[3px]" />
             
             {/* The Pointer arrow */}
             <svg
-              className="w-5.5 h-5.5 drop-shadow-[0_2px_5px_rgba(0,0,0,0.5)] fill-slate-950 stroke-amber-400"
+              className="w-5.5 h-5.5 drop-shadow-[0_2px_5px_rgba(0,0,0,0.5)] fill-slate-900 stroke-[#0075DE]"
               viewBox="0 0 24 24"
               strokeWidth="1.5"
               strokeLinecap="round"

@@ -258,7 +258,7 @@ export const EmailVerificationView: React.FC<EmailVerificationViewProps> = ({
               ? "Nous avons envoyé un code à 6 chiffres à :"
               : "We've sent a 6-digit verification code to:"}
           </p>
-          <p className="text-sm font-semibold text-[#0075DE] dark:text-amber-400 break-all">{currentUser.email}</p>
+          <p className="text-sm font-semibold text-[#0075DE] break-all">{currentUser.email}</p>
         </div>
 
         {/* Error/Success Notifications */}
@@ -287,7 +287,7 @@ export const EmailVerificationView: React.FC<EmailVerificationViewProps> = ({
               placeholder="------"
               value={verificationCode}
               onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, ""))}
-              className="w-full text-center tracking-[12px] text-xl font-bold font-mono py-3.5 bg-slate-100 dark:bg-slate-950/60 border border-slate-300 dark:border-slate-800 rounded-xl text-[#0075DE] dark:text-amber-400 placeholder:text-slate-400 dark:placeholder:text-slate-800 focus:border-[#0075DE] focus:outline-none focus:ring-1 focus:ring-[#0075DE] transition-all"
+              className="w-full text-center tracking-[12px] text-xl font-bold font-mono py-3.5 bg-slate-100 dark:bg-slate-950/60 border border-slate-300 dark:border-slate-800 rounded-xl text-[#0075DE] placeholder:text-slate-400 dark:placeholder:text-slate-800 focus:border-[#0075DE] focus:outline-none focus:ring-1 focus:ring-[#0075DE] transition-all"
             />
           </div>
 
