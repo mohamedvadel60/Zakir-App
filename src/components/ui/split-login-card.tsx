@@ -99,29 +99,7 @@ export function SplitLoginCard({
 
       {/* RIGHT COLUMN: REAL AUTHENTICATION FORM WORKSPACE */}
       <div className="flex-1 md:col-span-7 lg:col-span-8 flex flex-col justify-between p-6 sm:p-8 lg:p-10 relative overflow-y-auto">
-        {/* Top Header Controls: Back Button */}
-        <div className="w-full flex items-center justify-between gap-4 mb-6">
-          {onBackToHome && (
-            <button
-              onClick={onBackToHome}
-              type="button"
-              className="flex items-center gap-2 text-xs font-bold text-slate-600 dark:text-slate-400 hover:text-[#0075DE] dark:hover:text-[#0075DE] transition-colors cursor-pointer"
-            >
-              {lang === "ar" ? (
-                <ArrowRight className="w-4 h-4" />
-              ) : (
-                <ArrowLeft className="w-4 h-4" />
-              )}
-              <span>
-                {lang === "ar"
-                  ? "العودة للرئيسية"
-                  : lang === "fr"
-                  ? "Retour à l'accueil"
-                  : "Back to Home"}
-              </span>
-            </button>
-          )}
-        </div>
+        {/* Top Header Controls: Back Button completely removed */}
 
         {/* Real Form Children */}
         <div className="max-w-md mx-auto w-full my-auto py-4">{children}</div>

@@ -2640,11 +2640,6 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
             }`}>
               ZAKIR
             </span>
-            <span className={`text-[10px] tracking-widest font-mono uppercase block ${
-              theme === "light" ? "text-slate-800 font-bold" : "text-slate-400"
-            }`}>
-              {lang === "ar" ? "الذاكرة السببية المؤسسية" : "The Organizational Causal Memory"}
-            </span>
           </div>
         </div>
       </div>
@@ -3157,13 +3152,6 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                     <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
                       {lang === "fr" ? "S'enregistrer" : (lang === "ar" ? "إنشاء حساب جديد" : "Sign Up")}
                     </h1>
-                    <p className="text-xs text-slate-600 dark:text-slate-400 mt-1 max-w-xs mx-auto">
-                      {lang === "fr" 
-                        ? "La mémoire causale organisationnelle" 
-                        : (lang === "ar" 
-                          ? "الذاكرة السببية المؤسسية" 
-                          : "The Organizational Causal Memory")}
-                    </p>
                   </div>
 
                   {/* Google Sign In Button */}
@@ -3518,7 +3506,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
 
           {/* DESKTOP & MOBILE RESPONSIVE SIDEBAR */}
           <aside 
-            className={"flex flex-col bg-[#070b13] border-r border-slate-800 h-full relative z-30 transition-all duration-300 ease-in-out shrink-0 overflow-y-auto custom-scrollbar " + (
+            className={"flex flex-col bg-[#090D16] border-r border-slate-900/80 h-full relative z-30 transition-all duration-300 ease-in-out shrink-0 overflow-y-auto custom-scrollbar shadow-2xl " + (
               isSidebarCollapsed ? "md:w-16 " : "md:w-60 "
             ) + "max-md:fixed max-md:inset-y-0 max-md:z-50 max-md:w-64 " + (
               lang === "ar" ? "max-md:right-0 max-md:border-l " : "max-md:left-0 max-md:border-r "
@@ -3530,7 +3518,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
             id="sidebar-container"
           >
             {/* Logo & Toggle Header */}
-            <div className={`p-4 border-b border-slate-800 flex items-center shrink-0 ${
+            <div className={`p-4 border-b border-slate-900 flex items-center shrink-0 ${
               isSidebarCollapsed ? "justify-center" : "justify-between"
             }`}>
               {!isSidebarCollapsed ? (
@@ -3542,10 +3530,10 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
               {/* Desktop Sidebar Collapse Toggle Button */}
               <button
                 onClick={toggleSidebarCollapse}
-                className="hidden md:flex w-6 h-6 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-700/80 transition-all cursor-pointer items-center justify-center font-mono text-xs font-black"
+                className="hidden md:flex w-6 h-6 rounded-lg bg-slate-900 hover:bg-[#0075DE]/10 hover:text-[#0075DE] text-slate-300 border border-slate-800 transition-all cursor-pointer items-center justify-center font-mono text-sm font-bold shadow-sm"
                 title={isSidebarCollapsed ? (lang === "ar" ? "توسيع الشريط الجانبي" : "Expand Sidebar") : (lang === "ar" ? "طي الشريط الجانبي" : "Collapse Sidebar")}
               >
-                {isSidebarCollapsed ? "›" : "‹"}
+                {isSidebarCollapsed ? (lang === "ar" ? "‹" : "›") : (lang === "ar" ? "›" : "‹")}
               </button>
 
               {/* Mobile Close Button */}
@@ -3557,40 +3545,41 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
               </button>
             </div>
 
-            {/* Connected User Account Info - Editorial Index Style */}
+            {/* Connected User Account Info - Beautiful Premium Card */}
             <div 
               onClick={() => {
                 setActiveTab("settings");
                 setSettingsActiveSubTab("account");
                 setIsMobileSidebarOpen(false);
               }}
-              className={`p-3 border-b border-slate-800 hover:bg-slate-900/60 transition-all cursor-pointer group/profileCard ${
-                isSidebarCollapsed ? "text-center flex justify-center" : "flex items-center gap-3"
+              className={`mx-3 my-3 p-2.5 rounded-xl border border-slate-900/60 bg-slate-950/40 hover:bg-slate-900/40 hover:border-[#0075DE]/20 transition-all cursor-pointer group/profileCard flex items-center ${
+                isSidebarCollapsed ? "justify-center" : "gap-3"
               }`}
               title={lang === "ar" ? "إدارة الحساب" : "Account Settings"}
             >
-              <div className="relative shrink-0">
+              <div className="relative shrink-0 flex items-center justify-center">
                 {currentUser.avatarUrl ? (
                   <img 
                     src={currentUser.avatarUrl} 
                     alt={currentUser.ownerName || currentUser.email} 
-                    className="w-7 h-7 object-cover border border-slate-700"
+                    className="w-8 h-8 rounded-lg object-cover border border-[#0075DE]/20"
                   />
                 ) : (
-                  <div className="w-7 h-7 bg-slate-900 border border-slate-700 flex items-center justify-center text-slate-300 font-mono font-bold text-[10px]">
-                    {(currentUser.ownerName || currentUser.email).slice(0, 2).toUpperCase()}
+                  <div className="w-8 h-8 rounded-lg bg-slate-900 border border-slate-850 flex items-center justify-center text-slate-300 font-bold text-xs uppercase">
+                    {(currentUser.ownerName || currentUser.email).slice(0, 2)}
                   </div>
                 )}
+                <div className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-emerald-500 rounded-full border-2 border-slate-950 animate-pulse"></div>
               </div>
 
               {!isSidebarCollapsed && (
                 <div className="overflow-hidden flex-1">
-                  <h4 className="text-[11px] font-bold truncate text-slate-200 leading-tight group-hover/profileCard:text-[#0075DE] transition-colors">
+                  <h4 className="text-xs font-bold truncate text-slate-200 group-hover/profileCard:text-[#0075DE] transition-colors leading-tight">
                     {currentUser.ownerName || currentUser.email}
                   </h4>
-                  <div className="flex items-center gap-1 mt-0.5 font-mono text-[9px] text-slate-500 uppercase">
+                  <div className="flex items-center gap-1.5 mt-0.5 text-[9px] font-bold text-slate-500 uppercase tracking-wider">
                     <span className="text-[#0075DE]">●</span>
-                    <span className="truncate">{currentUser.role}</span>
+                    <span className="truncate">{currentUser.role || "CEO"}</span>
                   </div>
                 </div>
               )}
@@ -3661,12 +3650,12 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                               setActiveTab(item.id as any);
                               setIsMobileSidebarOpen(false);
                             }}
-                            className={`w-full h-8 text-xs font-medium flex items-center transition-all cursor-pointer relative overflow-hidden ${
+                            className={`w-full h-9 text-xs font-semibold flex items-center transition-all cursor-pointer relative rounded-xl px-3 ${
                               isSidebarCollapsed ? "justify-center px-0" : "justify-between px-3"
                             } ${
                               isActive 
-                                ? "text-[#0075DE] bg-slate-900 font-semibold" 
-                                : "text-slate-400 hover:text-slate-200 hover:bg-slate-900/40"
+                                ? "text-[#0075DE] bg-[#0075DE]/10 font-bold border border-[#0075DE]/20" 
+                                : "text-slate-400 hover:text-slate-100 hover:bg-slate-900/60 border border-transparent"
                             }`}
                           >
                             {/* Razor-thin active indicator bar */}
@@ -3682,7 +3671,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                             </div>
 
                             {!isSidebarCollapsed && item.badge !== undefined && item.badge > 0 && (
-                              <span className="text-[9px] font-mono px-1 py-0.2 bg-rose-500/20 text-rose-400 border border-rose-500/30">
+                              <span className="text-[9px] font-mono px-1.5 py-0.2 rounded bg-rose-500/20 text-rose-400 border border-rose-500/30">
                                 {item.badge}
                               </span>
                             )}
@@ -3696,38 +3685,44 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
             </nav>
 
             {/* Bottom Actions Area */}
-            <div className="mt-auto p-3 border-t border-slate-800 space-y-3 font-mono text-[10px]">
-              <div className="flex items-center justify-between text-slate-500">
-                <span>PLAN</span>
-                <span className="text-slate-300 uppercase">{currentUser?.subscriptionPlan || "Starter"}</span>
-              </div>
-              <div className="flex items-center justify-between text-slate-500">
-                <span>TRIAL</span>
-                <span className="text-[#0075DE]">{timeLeftStr}</span>
-              </div>
+            <div className="mt-auto p-3 border-t border-slate-900 bg-slate-950/30 space-y-3.5">
+              {!isSidebarCollapsed && (
+                <div className="p-3 rounded-xl bg-slate-950/60 border border-slate-900 space-y-2 text-[10px]">
+                  <div className="flex items-center justify-between">
+                    <span className="text-slate-500 font-bold uppercase tracking-wider">{lang === "ar" ? "الخطة" : "PLAN"}</span>
+                    <span className="px-2 py-0.5 rounded bg-[#0075DE]/15 text-[#0075DE] font-black uppercase text-[9px] tracking-widest">{currentUser?.subscriptionPlan || "Starter"}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-slate-500 font-bold uppercase tracking-wider">{lang === "ar" ? "التجريبي" : "TRIAL"}</span>
+                    <span className="text-amber-500 font-bold font-mono">{timeLeftStr}</span>
+                  </div>
+                </div>
+              )}
 
               {/* Language & Theme switches */}
-              <div className="grid grid-cols-2 gap-1 pt-2 border-t border-slate-800/80">
-                <div className="flex bg-slate-900 border border-slate-800 p-0.5 justify-center">
+              <div className="grid grid-cols-2 gap-2">
+                <div className="flex bg-slate-950 border border-slate-900 rounded-lg p-0.5 justify-center">
                   {(["en", "ar", "fr"] as const).map((l) => (
                     <button
                       key={l}
+                      type="button"
                       onClick={() => toggleLanguage(l)}
-                      className={`px-1 py-0.5 text-[9px] font-bold ${lang === l ? "text-[#0075DE]" : "text-slate-500 hover:text-slate-300"}`}
+                      className={`flex-1 text-center py-1 text-[10px] font-extrabold rounded-md transition-all cursor-pointer ${lang === l ? "bg-[#0075DE] text-slate-950 font-black" : "text-slate-500 hover:text-slate-300"}`}
                     >
                       {l.toUpperCase()}
                     </button>
                   ))}
                 </div>
 
-                <div className="flex bg-slate-900 border border-slate-800 p-0.5 justify-center">
+                <div className="flex bg-slate-950 border border-slate-900 rounded-lg p-0.5 justify-center">
                   {(["light", "dark"] as const).map((th) => (
                     <button
                       key={th}
+                      type="button"
                       onClick={() => toggleTheme(th)}
-                      className={`px-1.5 py-0.5 text-[9px] font-bold ${theme === th ? "text-[#0075DE]" : "text-slate-500 hover:text-slate-300"}`}
+                      className={`flex-1 text-center py-1 text-[10px] font-extrabold rounded-md transition-all cursor-pointer ${theme === th ? "bg-[#0075DE] text-slate-950 font-black" : "text-slate-500 hover:text-slate-300"}`}
                     >
-                      {th === "light" ? "LGT" : "DRK"}
+                      {th === "light" ? (lang === "ar" ? "نهاري" : "LGT") : (lang === "ar" ? "ليلي" : "DRK")}
                     </button>
                   ))}
                 </div>
@@ -3735,10 +3730,10 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
 
               <button
                 onClick={handleLogout}
-                className="w-full h-8 mt-1 border border-slate-800 hover:border-rose-500/40 hover:text-rose-400 text-slate-400 flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+                className="w-full h-9 rounded-xl border border-rose-950/40 bg-rose-950/15 hover:bg-rose-600 hover:text-white text-rose-400 flex items-center justify-center gap-1.5 transition-all cursor-pointer font-bold text-xs"
               >
                 <LogOut className="w-3.5 h-3.5" />
-                <span>LOGOUT</span>
+                <span>{lang === "ar" ? "تسجيل الخروج" : "LOGOUT"}</span>
               </button>
             </div>
           </aside>

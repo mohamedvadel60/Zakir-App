@@ -1014,8 +1014,8 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
             </div>
             <p className="text-xs text-slate-400 mt-1 max-w-xl">
               {lang === "ar" 
-                ? "إدارة حسابك الشخصي، تفويض الصلاحيات، تخصيص الهوية البصرية، واشتراكات الأمان الفائق." 
-                : "Configure administrative boundaries, assign workspace permissions, adjust themes, and audit billing states."}
+                ? "إدارة حسابك الشخصي، تفويض الصلاحيات، واشتراكات الأمان الفائق للشركة." 
+                : "Configure administrative boundaries, assign workspace permissions, and audit billing states."}
             </p>
           </div>
 
@@ -2708,7 +2708,7 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
                         )}
                       </h4>
                       <p className="text-[11px] text-slate-400">
-                        {lang === "ar" ? "قفل تعديلات المظهر والاشتراك وصلاحيات الفريق بالرمز السري" : "Locks admin controls & billing updates with secret code"}
+                        {lang === "ar" ? "قفل تعديلات الاشتراك وصلاحيات الفريق بالرمز السري" : "Locks admin controls & billing updates with secret code"}
                       </p>
                     </div>
                   </div>
@@ -2790,7 +2790,7 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
                 { key: "memoryVault", title: lang === "ar" ? "مكتبة الذكريات (Memory Vault)" : "Memory Vault Access", desc: lang === "ar" ? "تسجيل واستعراض الذكريات والقرارات" : "Log, view, and query institutional memories" },
                 { key: "riskRadar", title: lang === "ar" ? "رادار المخاطر والتنبيهات" : "Risk Radar & Alerts", desc: lang === "ar" ? "استعراض ومتابعة التنبيهات الحساسة" : "Review high-level risk warnings & audits" },
                 { key: "marketIntel", title: lang === "ar" ? "استخبارات السوق والتحليلات" : "Market Intelligence", desc: lang === "ar" ? "إنشاء تقارير الذكاء الاصطناعي للسوق" : "Generate AI intelligence forecasts" },
-                { key: "settings", title: lang === "ar" ? "إعدادات النظام والتحكم" : "System Settings Access", desc: lang === "ar" ? "إدارة المظهر والدفع وإرشادات الفريق" : "Modify workspace configuration" },
+                { key: "settings", title: lang === "ar" ? "إعدادات النظام والتحكم" : "System Settings Access", desc: lang === "ar" ? "إدارة الدفع وإرشادات الفريق" : "Modify workspace configuration" },
               ].map((p) => {
                 const isChecked = !!editingMemberModal.powers[p.key as keyof ModulePermissions];
                 return (

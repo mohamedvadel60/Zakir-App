@@ -86,7 +86,7 @@ export function PrintPreviewModal({
   const [columns, setColumns] = useState<"1" | "2">("1");
   const [fontSize, setFontSize] = useState<"small" | "medium" | "large">("medium");
   const [orientation, setOrientation] = useState<"portrait" | "landscape">("portrait");
-  const [pageSize, setPageSize] = useState<"A4" | "A3" | "Letter" | "Legal">("A4");
+  const [pageSize, setPageSize] = useState<"A4" | "A3" | "A5" | "Letter" | "Legal">("A4");
   const [lineSpacing, setLineSpacing] = useState<number>(1.15);
   const [pageMargins, setPageMargins] = useState<number>(40);
   const [customFontScale, setCustomFontScale] = useState<number>(100);
@@ -380,7 +380,7 @@ export function PrintPreviewModal({
     printStyles.innerHTML = `
       @page {
         size: ${pageSize.toLowerCase()} ${orientation};
-        margin: ${marginMm}mm !important;
+        margin: 0 !important;
       }
       @media print {
         html, body {
@@ -414,6 +414,14 @@ export function PrintPreviewModal({
           border: none !important;
           backdrop-filter: none !important;
           transform: none !important;
+        }
+
+        .print-page-wrapper {
+          display: block !important;
+          position: static !important;
+          width: 100% !important;
+          height: auto !important;
+          overflow: visible !important;
         }
 
         #zakir-app-root > :not(.print-modal-overlay) {
@@ -466,16 +474,37 @@ export function PrintPreviewModal({
           flex-direction: column !important;
           justify-content: space-between !important;
           position: relative !important;
-          width: 100% !important;
-          height: ${usableHeightMm}mm !important;
-          padding: 0 !important;
-          margin: 0 !important;
+          width: ${getPagePhysicalSize().width} !important;
+          height: ${getPagePhysicalSize().height} !important;
+          padding: ${getPageMarginCss()} !important;
+          margin: 0 auto !important;
           page-break-after: always !important;
           break-after: page !important;
           background: white !important;
-          color: black !important;
+          color: #0f172a !important;
           box-sizing: border-box !important;
           overflow: visible !important;
+        }
+
+        /* Enforce robust light-theme style overrides in print regardless of dark-mode state */
+        .printing-active .print-page :not(.theme-marker):not(.lessons-box):not(.lessons-box *):not(.badge-print):not(.badge-print *) {
+          color: #0f172a !important;
+          background-color: transparent !important;
+        }
+
+        .printing-active .print-page[dir="rtl"],
+        .printing-active .print-page[dir="rtl"] * {
+          text-align: right !important;
+        }
+
+        .printing-active .print-page[dir="ltr"],
+        .printing-active .print-page[dir="ltr"] * {
+          text-align: left !important;
+        }
+
+        .printing-active .print-page .text-center,
+        .printing-active .print-page .text-center * {
+          text-align: center !important;
         }
 
         .printing-active .print-page:last-child {
@@ -488,6 +517,7 @@ export function PrintPreviewModal({
           visibility: visible !important;
           opacity: 1 !important;
           object-fit: contain !important;
+          background-color: transparent !important;
         }
 
         .page-break {
@@ -703,10 +733,27 @@ export function PrintPreviewModal({
     const dims = {
       A4: { portrait: { width: 794, height: 1123 }, landscape: { width: 1123, height: 794 } },
       A3: { portrait: { width: 1123, height: 1587 }, landscape: { width: 1587, height: 1123 } },
+      A5: { portrait: { width: 559, height: 794 }, landscape: { width: 794, height: 559 } },
       Letter: { portrait: { width: 816, height: 1056 }, landscape: { width: 1056, height: 816 } },
       Legal: { portrait: { width: 816, height: 1344 }, landscape: { width: 1344, height: 816 } }
     };
     return dims[pageSize]?.[orientation] || dims.A4.portrait;
+  };
+
+  const getPagePhysicalSize = () => {
+    const sizes = {
+      A4: { portrait: { width: "210mm", height: "297mm" }, landscape: { width: "297mm", height: "210mm" } },
+      A3: { portrait: { width: "297mm", height: "420mm" }, landscape: { width: "420mm", height: "297mm" } },
+      A5: { portrait: { width: "148mm", height: "210mm" }, landscape: { width: "210mm", height: "148mm" } },
+      Letter: { portrait: { width: "8.5in", height: "11in" }, landscape: { width: "11in", height: "8.5in" } },
+      Legal: { portrait: { width: "8.5in", height: "14in" }, landscape: { width: "14in", height: "8.5in" } }
+    };
+    return sizes[pageSize]?.[orientation] || sizes.A4.portrait;
+  };
+
+  const getPageMarginCss = () => {
+    const marginMm = pageMargins / 3.7795;
+    return `${marginMm}mm`;
   };
 
   const { width: pageWidth, height: pageHeight } = getPageDimensions();
@@ -922,7 +969,8 @@ export function PrintPreviewModal({
 
     // Helper to get measured or fallback height of a single block
     const getBlockHeight = (block: typeof documentBlocks[0]) => {
-      return blockHeights[block.id] || getFallbackHeight(block);
+      const baseHeight = blockHeights[block.id] || getFallbackHeight(block);
+      return columns === "2" ? baseHeight / 1.8 : baseHeight;
     };
 
     let i = 0;
@@ -1987,6 +2035,7 @@ export function PrintPreviewModal({
                   >
                     <option value="A4">A4 (210 x 297 mm)</option>
                     <option value="A3">A3 (297 x 420 mm)</option>
+                    <option value="A5">A5 (148 x 210 mm)</option>
                     <option value="Letter">Letter (8.5 x 11 in)</option>
                     <option value="Legal">Legal (8.5 x 14 in)</option>
                   </select>
@@ -2449,7 +2498,7 @@ export function PrintPreviewModal({
                 <p className="text-xs text-slate-500 mt-1">{lang === "ar" ? "يرجى تحديد ذكريات من القائمة الجانبية" : "Please check items from the side controls"}</p>
               </div>
             ) : (
-              <div className="flex flex-col items-center w-full">
+              <div className="print-page-wrapper flex flex-col items-center w-full">
                 {documentPages.map((pageBlocks, pageIdx) => (
                   <div
                     key={pageIdx}
@@ -2489,7 +2538,9 @@ export function PrintPreviewModal({
                     {/* Content Area of this page */}
                     <div className="flex-1 flex flex-col justify-start relative z-10 overflow-visible">
                       {renderPageHeader(pageIdx, documentPages.length)}
-                      {renderPageBlocks(pageBlocks, false)}
+                      <div className={columns === "2" ? "grid grid-cols-2 gap-4 items-start" : "space-y-4"}>
+                        {renderPageBlocks(pageBlocks, false)}
+                      </div>
                     </div>
 
                     {/* Dynamic Page Footer */}
