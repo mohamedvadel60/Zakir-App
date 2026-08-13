@@ -21,7 +21,7 @@ export function SplitLoginCard({
   return (
     <div
       className={cn(
-        "min-h-screen bg-[#070b13] text-slate-200 flex flex-col md:grid md:grid-cols-12 relative overflow-hidden selection:bg-amber-500/20",
+        "min-h-screen bg-slate-50 dark:bg-[#070b13] text-slate-900 dark:text-slate-200 flex flex-col md:grid md:grid-cols-12 relative overflow-hidden selection:bg-[#0075DE]/20",
         className
       )}
       dir={lang === "ar" ? "rtl" : "ltr"}
@@ -31,8 +31,8 @@ export function SplitLoginCard({
       <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-blue-500/5 rounded-full blur-[120px] pointer-events-none" />
 
       {/* LEFT COLUMN: ZAKIR BRAND MONOLITH & CAUSAL LEDGER VISUAL */}
-      <div className="hidden md:flex md:col-span-5 lg:col-span-4 bg-[#0a0f1d] border-r border-slate-800/60 p-8 lg:p-10 flex-col justify-between relative overflow-hidden shrink-0">
-        <div className="absolute inset-0 opacity-[0.03] bg-[radial-gradient(#fff_1px,transparent_1px)] [background-size:16px_16px] pointer-events-none" />
+      <div className="hidden md:flex md:col-span-5 lg:col-span-4 bg-slate-100 dark:bg-[#0a0f1d] border-r border-slate-200 dark:border-slate-800/60 p-8 lg:p-10 flex-col justify-between relative overflow-hidden shrink-0">
+        <div className="absolute inset-0 opacity-[0.03] bg-[radial-gradient(#000_1px,transparent_1px)] dark:bg-[radial-gradient(#fff_1px,transparent_1px)] [background-size:16px_16px] pointer-events-none" />
 
         {/* Header: Brand Identity */}
         <div className="relative z-10 flex items-center gap-3">
@@ -43,11 +43,11 @@ export function SplitLoginCard({
         <div className="relative z-10 my-8 space-y-4">
           <div className="space-y-3">
             <div className="flex items-start gap-3">
-              <div className="w-8 h-8 rounded-lg bg-slate-900 border border-slate-800 flex items-center justify-center text-[#0075DE] shrink-0">
+              <div className="w-8 h-8 rounded-lg bg-slate-200 dark:bg-slate-900 border border-slate-300 dark:border-slate-800 flex items-center justify-center text-[#0075DE] shrink-0">
                 <Database className="w-4 h-4" />
               </div>
               <div>
-                <h4 className="text-xs font-bold text-white">
+                <h4 className="text-xs font-bold text-slate-900 dark:text-white">
                   {lang === "ar"
                     ? "سجل غير قابل للتعديل"
                     : lang === "fr"
@@ -65,11 +65,11 @@ export function SplitLoginCard({
             </div>
 
             <div className="flex items-start gap-3">
-              <div className="w-8 h-8 rounded-lg bg-slate-900 border border-slate-800 flex items-center justify-center text-[#0075DE] shrink-0">
+              <div className="w-8 h-8 rounded-lg bg-slate-200 dark:bg-slate-900 border border-slate-300 dark:border-slate-800 flex items-center justify-center text-[#0075DE] shrink-0">
                 <Brain className="w-4 h-4" />
               </div>
               <div>
-                <h4 className="text-xs font-bold text-white">
+                <h4 className="text-xs font-bold text-slate-900 dark:text-white">
                   {lang === "ar"
                     ? "ذكاء استشاري موجه"
                     : lang === "fr"
@@ -105,7 +105,7 @@ export function SplitLoginCard({
             <button
               onClick={onBackToHome}
               type="button"
-              className="flex items-center gap-2 text-xs font-bold text-slate-400 hover:text-amber-400 transition-colors cursor-pointer"
+              className="flex items-center gap-2 text-xs font-bold text-slate-600 dark:text-slate-400 hover:text-[#0075DE] dark:hover:text-[#0075DE] transition-colors cursor-pointer"
             >
               {lang === "ar" ? (
                 <ArrowRight className="w-4 h-4" />
@@ -123,14 +123,14 @@ export function SplitLoginCard({
           )}
 
           {onToggleLanguage && (
-            <div className="flex items-center gap-1 bg-slate-950 p-1 rounded-xl border border-slate-800/80 ms-auto shadow-inner">
+            <div className="flex items-center gap-1 bg-slate-200 dark:bg-slate-950 p-1 rounded-xl border border-slate-300 dark:border-slate-800/80 ms-auto shadow-inner">
               <button
                 type="button"
                 onClick={() => onToggleLanguage("ar")}
                 className={`min-w-[32px] h-7 text-[11px] font-bold px-2.5 rounded-lg transition-all cursor-pointer flex items-center justify-center shrink-0 ${
                   lang === "ar"
                     ? "bg-[#0075DE] text-white shadow-sm"
-                    : "text-slate-400 hover:text-white"
+                    : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
                 }`}
               >
                 ع
@@ -141,7 +141,7 @@ export function SplitLoginCard({
                 className={`min-w-[32px] h-7 text-[11px] font-bold px-2.5 rounded-lg transition-all cursor-pointer flex items-center justify-center shrink-0 ${
                   lang === "fr"
                     ? "bg-[#0075DE] text-white shadow-sm"
-                    : "text-slate-400 hover:text-white"
+                    : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
                 }`}
               >
                 FR
@@ -152,7 +152,7 @@ export function SplitLoginCard({
                 className={`min-w-[32px] h-7 text-[11px] font-bold px-2.5 rounded-lg transition-all cursor-pointer flex items-center justify-center shrink-0 ${
                   lang === "en"
                     ? "bg-[#0075DE] text-white shadow-sm"
-                    : "text-slate-400 hover:text-white"
+                    : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
                 }`}
               >
                 EN

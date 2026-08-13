@@ -24,7 +24,7 @@ export function AuthSwitch({ currentMode, onModeChange, lang = "en" }: AuthSwitc
   ]
 
   return (
-    <div className="flex items-center gap-1 p-1.5 bg-slate-950/80 border border-slate-800 rounded-xl mb-6 shadow-sm overflow-hidden">
+    <div className="flex items-center gap-1 p-1.5 bg-slate-100 dark:bg-slate-950/80 border border-slate-200 dark:border-slate-800 rounded-xl mb-6 shadow-sm overflow-hidden">
       {modes.map((m) => {
         const isActive = currentMode === m.id
         return (
@@ -36,7 +36,7 @@ export function AuthSwitch({ currentMode, onModeChange, lang = "en" }: AuthSwitc
               "flex-1 py-2 px-2 text-[11px] sm:text-xs font-bold rounded-lg transition-all cursor-pointer text-center whitespace-nowrap overflow-hidden text-ellipsis min-w-0",
               isActive
                 ? "bg-[#0075DE] text-white shadow-md"
-                : "text-slate-400 hover:text-white hover:bg-slate-900/50"
+                : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/50 dark:hover:bg-slate-900/50"
             )}
             title={m.label}
           >

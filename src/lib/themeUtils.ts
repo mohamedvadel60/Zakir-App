@@ -20,8 +20,12 @@ export const applyGlobalTheme = (
   // 3. Update HTML root dataset & theme class
   const root = document.documentElement;
   root.setAttribute("data-theme", mode);
-  root.classList.remove("theme-light", "theme-dark", "custom-theme-active");
-  root.classList.add(`theme-${mode}`);
+  root.classList.remove("theme-light", "theme-dark", "custom-theme-active", "dark");
+  if (mode === "dark") {
+    root.classList.add("dark", "theme-dark");
+  } else {
+    root.classList.add("theme-light");
+  }
   
   // 4. Centrally set CSS variables for consistent component inheritance
   if (mode === "light") {

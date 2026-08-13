@@ -2358,48 +2358,48 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
                 </div>
 
                 {/* Payment Form Fields Depending on Method */}
-                <div className="p-5 rounded-2xl border border-slate-800 bg-slate-950/50 space-y-4">
+                <div className={`p-5 rounded-2xl border ${theme === "dark" ? "border-slate-800 bg-slate-950/50" : "border-slate-200 bg-slate-50"}`}>
                   {(paymentMethod === "visa" || paymentMethod === "mastercard") && (
                     <div className="space-y-4">
                       <div>
-                        <label className="block text-xs font-bold text-slate-400 mb-1">{lang === "ar" ? "اسم صاحب البطاقة" : "Cardholder Name"}</label>
+                        <label className={`block text-xs font-bold mb-1 ${theme === "dark" ? "text-slate-400" : "text-slate-600"}`}>{lang === "ar" ? "اسم صاحب البطاقة" : "Cardholder Name"}</label>
                         <input
                           type="text"
                           value={cardName}
                           onChange={(e) => setCardName(e.target.value)}
-                          className="w-full h-10 px-3 bg-slate-900 border border-slate-800 text-white rounded-xl text-xs font-medium focus:border-amber-500 focus:outline-none"
+                          className={`w-full h-10 px-3 border rounded-xl text-xs font-medium focus:border-amber-500 focus:outline-none ${theme === "dark" ? "bg-slate-900 border-slate-800 text-white" : "bg-white border-slate-200 text-slate-900"}`}
                         />
                       </div>
 
                       <div>
-                        <label className="block text-xs font-bold text-slate-400 mb-1">{lang === "ar" ? "رقم البطاقة (16 رقم)" : "Card Number (16 Digits)"}</label>
+                        <label className={`block text-xs font-bold mb-1 ${theme === "dark" ? "text-slate-400" : "text-slate-600"}`}>{lang === "ar" ? "رقم البطاقة (16 رقم)" : "Card Number (16 Digits)"}</label>
                         <input
                           type="text"
                           value={cardNumber}
                           onChange={(e) => setCardNumber(e.target.value)}
-                          className="w-full h-10 px-3 bg-slate-900 border border-slate-800 text-white rounded-xl text-xs font-mono focus:border-amber-500 focus:outline-none"
+                          className={`w-full h-10 px-3 border rounded-xl text-xs font-mono focus:border-amber-500 focus:outline-none ${theme === "dark" ? "bg-slate-900 border-slate-800 text-white" : "bg-white border-slate-200 text-slate-900"}`}
                         />
                       </div>
 
                       <div className="grid grid-cols-2 gap-4">
                         <div>
-                          <label className="block text-xs font-bold text-slate-400 mb-1">{lang === "ar" ? "تاريخ انتهاء الصلاحية" : "Expiry Date"}</label>
+                          <label className={`block text-xs font-bold mb-1 ${theme === "dark" ? "text-slate-400" : "text-slate-600"}`}>{lang === "ar" ? "تاريخ انتهاء الصلاحية" : "Expiry Date"}</label>
                           <input
                             type="text"
                             value={cardExpiry}
                             onChange={(e) => setCardExpiry(e.target.value)}
                             placeholder="MM/YY"
-                            className="w-full h-10 px-3 bg-slate-900 border border-slate-800 text-white rounded-xl text-xs font-mono focus:border-amber-500 focus:outline-none"
+                            className={`w-full h-10 px-3 border rounded-xl text-xs font-mono focus:border-amber-500 focus:outline-none ${theme === "dark" ? "bg-slate-900 border-slate-800 text-white" : "bg-white border-slate-200 text-slate-900"}`}
                           />
                         </div>
                         <div>
-                          <label className="block text-xs font-bold text-slate-400 mb-1">CVC / CVV</label>
+                          <label className={`block text-xs font-bold mb-1 ${theme === "dark" ? "text-slate-400" : "text-slate-600"}`}>CVC / CVV</label>
                           <input
                             type="password"
                             value={cardCvc}
                             onChange={(e) => setCardCvc(e.target.value)}
                             maxLength={4}
-                            className="w-full h-10 px-3 bg-slate-900 border border-slate-800 text-white rounded-xl text-xs font-mono focus:border-amber-500 focus:outline-none"
+                            className={`w-full h-10 px-3 border rounded-xl text-xs font-mono focus:border-amber-500 focus:outline-none ${theme === "dark" ? "bg-slate-900 border-slate-800 text-white" : "bg-white border-slate-200 text-slate-900"}`}
                           />
                         </div>
                       </div>
@@ -2408,29 +2408,29 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
 
                   {paymentMethod === "bank" && (
                     <div className="space-y-4">
-                      <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-xs text-amber-300">
+                      <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-xs text-amber-600 dark:text-amber-300">
                         <p className="font-bold mb-1">{lang === "ar" ? "تفاصيل الحساب البنكي المعتمد للمؤسسة:" : "Corporate Verified Bank Account Details:"}</p>
                         <p>Bank: Attijari Bank / BCM Mauritanie</p>
                         <p>IBAN: MR13 0001 0200 9821 0041 88</p>
                       </div>
 
                       <div>
-                        <label className="block text-xs font-bold text-slate-400 mb-1">{lang === "ar" ? "اسم البنك المحول منه" : "Sender Bank Name"}</label>
+                        <label className={`block text-xs font-bold mb-1 ${theme === "dark" ? "text-slate-400" : "text-slate-600"}`}>{lang === "ar" ? "اسم البنك المحول منه" : "Sender Bank Name"}</label>
                         <input
                           type="text"
                           value={bankName}
                           onChange={(e) => setBankName(e.target.value)}
-                          className="w-full h-10 px-3 bg-slate-900 border border-slate-800 text-white rounded-xl text-xs font-medium focus:border-amber-500 focus:outline-none"
+                          className={`w-full h-10 px-3 border rounded-xl text-xs font-medium focus:border-amber-500 focus:outline-none ${theme === "dark" ? "bg-slate-900 border-slate-800 text-white" : "bg-white border-slate-200 text-slate-900"}`}
                         />
                       </div>
 
                       <div>
-                        <label className="block text-xs font-bold text-slate-400 mb-1">{lang === "ar" ? "رقم المرجع / الإيصال البنكي" : "Bank Transfer Receipt Ref"}</label>
+                        <label className={`block text-xs font-bold mb-1 ${theme === "dark" ? "text-slate-400" : "text-slate-600"}`}>{lang === "ar" ? "رقم المرجع / الإيصال البنكي" : "Bank Transfer Receipt Ref"}</label>
                         <input
                           type="text"
                           value={bankRef}
                           onChange={(e) => setBankRef(e.target.value)}
-                          className="w-full h-10 px-3 bg-slate-900 border border-slate-800 text-white rounded-xl text-xs font-mono focus:border-amber-500 focus:outline-none"
+                          className={`w-full h-10 px-3 border rounded-xl text-xs font-mono focus:border-amber-500 focus:outline-none ${theme === "dark" ? "bg-slate-900 border-slate-800 text-white" : "bg-white border-slate-200 text-slate-900"}`}
                         />
                       </div>
                     </div>
@@ -2439,11 +2439,11 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
                   {paymentMethod === "wallet" && (
                     <div className="space-y-4">
                       <div>
-                        <label className="block text-xs font-bold text-slate-400 mb-1">{lang === "ar" ? "مزود المحفظة الإلكترونية" : "E-Wallet Provider"}</label>
+                        <label className={`block text-xs font-bold mb-1 ${theme === "dark" ? "text-slate-400" : "text-slate-600"}`}>{lang === "ar" ? "مزود المحفظة الإلكترونية" : "E-Wallet Provider"}</label>
                         <select
                           value={walletProvider}
                           onChange={(e) => setWalletProvider(e.target.value)}
-                          className="w-full h-10 px-3 bg-slate-900 border border-slate-800 text-white rounded-xl text-xs font-medium focus:border-amber-500 focus:outline-none"
+                          className={`w-full h-10 px-3 border rounded-xl text-xs font-medium focus:border-amber-500 focus:outline-none ${theme === "dark" ? "bg-slate-900 border-slate-800 text-white" : "bg-white border-slate-200 text-slate-900"}`}
                         >
                           <option value="Bankily">Bankily (بنكيلي)</option>
                           <option value="Masrvi">Masrvi (مصرفي)</option>
@@ -2454,12 +2454,12 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
                       </div>
 
                       <div>
-                        <label className="block text-xs font-bold text-slate-400 mb-1">{lang === "ar" ? "رقم الهاتف / معرّف المحفظة" : "Wallet Phone Number / ID"}</label>
+                        <label className={`block text-xs font-bold mb-1 ${theme === "dark" ? "text-slate-400" : "text-slate-600"}`}>{lang === "ar" ? "رقم الهاتف / معرّف المحفظة" : "Wallet Phone Number / ID"}</label>
                         <input
                           type="text"
                           value={walletPhone}
                           onChange={(e) => setWalletPhone(e.target.value)}
-                          className="w-full h-10 px-3 bg-slate-900 border border-slate-800 text-white rounded-xl text-xs font-mono focus:border-amber-500 focus:outline-none"
+                          className={`w-full h-10 px-3 border rounded-xl text-xs font-mono focus:border-amber-500 focus:outline-none ${theme === "dark" ? "bg-slate-900 border-slate-800 text-white" : "bg-white border-slate-200 text-slate-900"}`}
                         />
                       </div>
                     </div>
