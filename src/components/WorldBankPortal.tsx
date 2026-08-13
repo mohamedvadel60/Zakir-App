@@ -482,7 +482,7 @@ export const WorldBankPortal: React.FC<WorldBankPortalProps> = ({
               onClick={() => setShowDetailModal(true)}
               className={`px-3.5 py-2 rounded-xl text-xs font-bold border transition-all flex items-center gap-2 cursor-pointer ${
                 theme === "dark"
-                  ? "bg-slate-900 hover:bg-slate-800 border-slate-700 text-amber-400"
+                  ? "bg-slate-900 hover:bg-slate-800 border-slate-700 text-[#0075DE]"
                   : "bg-white hover:bg-slate-50 border-slate-300 text-amber-600 shadow-sm"
               }`}
             >
@@ -659,7 +659,7 @@ export const WorldBankPortal: React.FC<WorldBankPortalProps> = ({
               onClick={() => setSelectedCategory(cat.id)}
               className={`px-2.5 py-1 rounded-md text-[11px] font-medium transition-all whitespace-nowrap cursor-pointer ${
                 selectedCategory === cat.id
-                  ? "bg-amber-500/20 text-[#0075DE] border border-[#0075DE]/40 font-bold"
+                  ? "bg-[#0075DE]/20 text-[#0075DE] border border-[#0075DE]/40 font-bold"
                   : theme === "dark"
                   ? "bg-slate-900/60 text-slate-400 hover:text-slate-200 border border-slate-800/60"
                   : "bg-white text-slate-600 hover:bg-slate-50 border border-slate-200"
@@ -719,7 +719,7 @@ export const WorldBankPortal: React.FC<WorldBankPortalProps> = ({
           <div>
             <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1.5 flex items-center justify-between">
               <span>{lang === "ar" ? "بداية الفترة الزمنية" : "Period Start Year"}</span>
-              <span className="text-amber-500 font-mono text-[10px]">{wbStartYear}</span>
+              <span className="text-[#0075DE] font-mono text-[10px]">{wbStartYear}</span>
             </label>
             <select
               value={wbStartYear}
@@ -740,7 +740,7 @@ export const WorldBankPortal: React.FC<WorldBankPortalProps> = ({
           <div>
             <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1.5 flex items-center justify-between">
               <span>{lang === "ar" ? "نهاية الفترة الزمنية" : "Period End Year"}</span>
-              <span className="text-amber-500 font-mono text-[10px]">{wbEndYear}</span>
+              <span className="text-[#0075DE] font-mono text-[10px]">{wbEndYear}</span>
             </label>
             <select
               value={wbEndYear}
@@ -820,12 +820,12 @@ export const WorldBankPortal: React.FC<WorldBankPortalProps> = ({
             {wbError && (
               <div className={`mb-4 p-3.5 rounded-xl border flex flex-col gap-2 text-xs transition-all ${
                 wbError.isFallback
-                  ? "bg-amber-500/10 border-amber-500/25 text-amber-200"
+                  ? "bg-[#0075DE]/10 border-amber-500/25 text-amber-200"
                   : "bg-blue-500/10 border-blue-500/25 text-blue-200"
               }`}>
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <div className="flex items-center gap-2 font-semibold">
-                    <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0" />
+                    <AlertTriangle className="w-4 h-4 text-[#0075DE] shrink-0" />
                     <span>{wbError.message}</span>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
@@ -833,7 +833,7 @@ export const WorldBankPortal: React.FC<WorldBankPortalProps> = ({
                       <button
                         onClick={() => retryFetch()}
                         disabled={wbLoading}
-                        className="px-3 py-1 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 text-[11px] font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
+                        className="px-3 py-1 rounded-lg bg-[#0075DE]/20 hover:bg-[#0075DE]/30 text-blue-300 border border-amber-500/40 text-[11px] font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
                       >
                         <RefreshCw className={`w-3.5 h-3.5 ${wbLoading ? "animate-spin" : ""}`} />
                         <span>{lang === "ar" ? "إعادة المحاولة" : "Retry"}</span>
@@ -854,7 +854,7 @@ export const WorldBankPortal: React.FC<WorldBankPortalProps> = ({
                 <div className="flex items-center justify-between pt-1 border-t border-amber-500/15 text-[10px] text-slate-400">
                   <button 
                     onClick={() => setShowTechnicalLogs(!showTechnicalLogs)}
-                    className="hover:text-amber-400 transition-colors flex items-center gap-1 cursor-pointer font-mono"
+                    className="hover:text-[#0075DE] transition-colors flex items-center gap-1 cursor-pointer font-mono"
                   >
                     <Info className="w-3.5 h-3.5" />
                     <span>{showTechnicalLogs ? (lang === "ar" ? "إخفاء التفاصيل الفنية واللُّوج" : "Hide Diagnostic Logs") : (lang === "ar" ? "عرض سجلات التشخيص الفني ومسار الطلب" : "View Diagnostic Technical Logs")}</span>
@@ -865,11 +865,11 @@ export const WorldBankPortal: React.FC<WorldBankPortalProps> = ({
                 {/* Technical Logs Details Drawer */}
                 {showTechnicalLogs && (
                   <div className="mt-1 p-3 rounded-lg bg-slate-950/90 border border-slate-800 text-[10px] font-mono text-slate-300 space-y-1 overflow-x-auto">
-                    <div><strong className="text-amber-400">Request Proxy Endpoint:</strong> /api/world-bank?country={wbCountry}&indicator={wbIndicator}</div>
-                    <div><strong className="text-amber-400">Attempted Direct URL:</strong> {wbError.attemptedUrl || `https://api.worldbank.org/v2/country/${wbCountry}/indicator/${wbIndicator}?format=json`}</div>
-                    {wbError.statusCode && <div><strong className="text-amber-400">HTTP Response Status:</strong> {wbError.statusCode}</div>}
-                    {wbError.latencyMs && <div><strong className="text-amber-400">Latency:</strong> {wbError.latencyMs} ms</div>}
-                    {wbError.technicalDetails && <div><strong className="text-amber-400">Technical Diagnostic Cause:</strong> {wbError.technicalDetails}</div>}
+                    <div><strong className="text-[#0075DE]">Request Proxy Endpoint:</strong> /api/world-bank?country={wbCountry}&indicator={wbIndicator}</div>
+                    <div><strong className="text-[#0075DE]">Attempted Direct URL:</strong> {wbError.attemptedUrl || `https://api.worldbank.org/v2/country/${wbCountry}/indicator/${wbIndicator}?format=json`}</div>
+                    {wbError.statusCode && <div><strong className="text-[#0075DE]">HTTP Response Status:</strong> {wbError.statusCode}</div>}
+                    {wbError.latencyMs && <div><strong className="text-[#0075DE]">Latency:</strong> {wbError.latencyMs} ms</div>}
+                    {wbError.technicalDetails && <div><strong className="text-[#0075DE]">Technical Diagnostic Cause:</strong> {wbError.technicalDetails}</div>}
                   </div>
                 )}
               </div>
@@ -884,7 +884,7 @@ export const WorldBankPortal: React.FC<WorldBankPortalProps> = ({
               </div>
             ) : wbData.length === 0 ? (
               <div className="h-72 flex flex-col items-center justify-center text-center p-6 gap-3">
-                <div className="w-12 h-12 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-400 flex items-center justify-center">
+                <div className="w-12 h-12 rounded-2xl bg-[#0075DE]/10 border border-amber-500/20 text-[#0075DE] flex items-center justify-center">
                   <AlertTriangle className="w-6 h-6" />
                 </div>
                 <div className="space-y-1 max-w-md">
@@ -939,7 +939,7 @@ export const WorldBankPortal: React.FC<WorldBankPortalProps> = ({
                       </span>
                     )}
                     {wbSourceInfo === "fallback" && (
-                      <span className="text-[10px] font-bold text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded-full flex items-center gap-1">
+                      <span className="text-[10px] font-bold text-[#0075DE] bg-[#0075DE]/10 border border-amber-500/20 px-2 py-0.5 rounded-full flex items-center gap-1">
                         <ShieldCheck className="w-3 h-3" />
                         {lang === "ar" ? "بيانات مرجعية معتمدة" : "Verified Benchmark Data"}
                       </span>
@@ -1090,7 +1090,7 @@ export const WorldBankPortal: React.FC<WorldBankPortalProps> = ({
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
             <h3 className="text-base font-bold text-[#0075DE] flex items-center gap-2">
-              <Brain className="w-5 h-5 text-amber-500 animate-pulse" />
+              <Brain className="w-5 h-5 text-[#0075DE] animate-pulse" />
               <span>{lang === "ar" ? "تشخيص الأثر المباشر والتحليل السببي الهيكلي" : "Causal Impact & Structural Diagnosis Engine"}</span>
             </h3>
             <p className="text-xs text-slate-400 mt-1">
@@ -1107,7 +1107,7 @@ export const WorldBankPortal: React.FC<WorldBankPortalProps> = ({
             disabled={wbIsAnalyzing || wbLoading}
             className={`px-5 py-2.5 rounded-xl font-bold text-xs flex items-center justify-center gap-2 transition-all shadow-lg cursor-pointer ${
               wbIsAnalyzing
-                ? "bg-amber-500/50 text-slate-900 cursor-not-allowed"
+                ? "bg-[#0075DE]/50 text-slate-900 cursor-not-allowed"
                 : "bg-[#0075DE] hover:bg-amber-400 text-slate-950 shadow-[#0075DE]/20 hover:scale-[1.02]"
             }`}
           >
@@ -1164,11 +1164,11 @@ export const WorldBankPortal: React.FC<WorldBankPortalProps> = ({
               onClick={() => setSelectedCausalNode("mechanism")}
               className={`p-3.5 rounded-xl border transition-all cursor-pointer ${
                 selectedCausalNode === "mechanism"
-                  ? "bg-amber-500/15 border-amber-500 text-white shadow-md"
+                  ? "bg-[#0075DE]/15 border-amber-500 text-white shadow-md"
                   : "bg-slate-950/40 border-slate-800 text-slate-400 hover:border-slate-700"
               }`}
             >
-              <span className="text-[9px] font-bold uppercase text-amber-500 block mb-1">
+              <span className="text-[9px] font-bold uppercase text-[#0075DE] block mb-1">
                 2. {lang === "ar" ? "محركات الأثر والعدوى" : "Causal Transmission"}
               </span>
               <p className="text-xs font-bold text-slate-200">
@@ -1350,8 +1350,8 @@ export const WorldBankPortal: React.FC<WorldBankPortalProps> = ({
         </div>
 
         {!wbCausalAnalysis && (
-          <p className="text-[11px] text-amber-500/90 font-medium text-center pt-1 flex items-center justify-center gap-1.5">
-            <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0" />
+          <p className="text-[11px] text-[#0075DE]/90 font-medium text-center pt-1 flex items-center justify-center gap-1.5">
+            <AlertTriangle className="w-4 h-4 text-[#0075DE] shrink-0" />
             <span>
               {lang === "ar" 
                 ? "ملاحظة: يتعين إجراء 'تشخيص الأثر والتحليل السببي' أولاً لتنشيط زر الاستيراد إلى الذاكرة المؤسسية." 

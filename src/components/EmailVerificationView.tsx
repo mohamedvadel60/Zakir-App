@@ -330,7 +330,7 @@ export const EmailVerificationView: React.FC<EmailVerificationViewProps> = ({
           </button>
 
           {cooldownTimeLeft > 0 ? (
-            <p className="text-[11px] text-amber-400/90 font-medium px-3 py-1 bg-amber-500/10 border border-amber-500/20 rounded-lg">
+            <p className="text-[11px] text-blue-400/90 font-medium px-3 py-1 bg-blue-500/10 border border-blue-500/20 rounded-lg">
               {lang === "ar"
                 ? "لقد وصلت إلى الحد الأقصى لطلبات الرمز. يرجى الانتظار بضع دقائق قبل طلب رمز جديد."
                 : "You've reached the maximum number of code requests. Please wait a few minutes before requesting a new code."}

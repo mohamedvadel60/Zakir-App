@@ -81,9 +81,9 @@ const StatCounterItem: React.FC<{
         theme === 'light' 
           ? 'bg-white border border-slate-200 shadow-lg text-slate-900' 
           : 'bg-slate-900/80 border border-slate-800/90 shadow-xl shadow-slate-950/40 text-slate-100'
-      } backdrop-blur-md cursor-pointer group transition-colors hover:border-amber-500/40`}
+      } backdrop-blur-md cursor-pointer group transition-colors hover:border-[#0075DE]/40`}
     >
-      <div className="text-3xl sm:text-4xl font-black text-amber-500 font-mono tracking-tight group-hover:text-amber-400 transition-colors">
+      <div className="text-3xl sm:text-4xl font-black text-[#0075DE] font-mono tracking-tight group-hover:text-[#0075DE] transition-colors">
         {prefix}{val.toFixed(decimals)}{suffix}
       </div>
       <div className={`text-xs font-bold ${theme === 'light' ? 'text-slate-800' : 'text-slate-200'} mt-2`}>{label}</div>
@@ -111,7 +111,7 @@ const FAQAccordionItem: React.FC<{
         className={`w-full px-5 py-4 text-left flex items-center justify-between gap-4 font-bold ${theme === 'light' ? 'text-slate-900' : 'text-slate-100'} text-sm focus:outline-none cursor-pointer`}
       >
         <span className="flex items-center gap-2.5">
-          <HelpCircle className="w-4 h-4 text-amber-500 shrink-0" />
+          <HelpCircle className="w-4 h-4 text-[#0075DE] shrink-0" />
           {question}
         </span>
         <motion.div
@@ -225,7 +225,7 @@ export const AnimatedLandingPage: React.FC<AnimatedLandingPageProps> = ({
   ];
 
   return (
-    <div className={`min-h-screen ${theme === "light" ? "bg-[#F0F2F5] text-[#0F172A]" : "bg-[#0B0F19] text-[#F8FAFC]"} flex flex-col relative selection:bg-amber-500/30 font-sans overflow-x-hidden transition-colors duration-300`}>
+    <div className={`min-h-screen ${theme === "light" ? "bg-[#F0F2F5] text-[#0F172A]" : "bg-[#0B0F19] text-[#F8FAFC]"} flex flex-col relative selection:bg-[#0075DE]/30 font-sans overflow-x-hidden transition-colors duration-300`}>
       {/* Premium Ambient Background with Zakir Gold Ambient Motion */}
       <LandingAnimatedBackground theme={theme} />
 
@@ -293,7 +293,7 @@ export const AnimatedLandingPage: React.FC<AnimatedLandingPageProps> = ({
               className={`p-2 rounded-xl border flex items-center justify-center transition-colors cursor-pointer ${
                 theme === "light"
                   ? "bg-slate-100 border-slate-300 text-slate-800 hover:bg-slate-200 shadow-sm"
-                  : "bg-slate-900 border-slate-800 text-amber-400 hover:bg-slate-800"
+                  : "bg-slate-900 border-slate-800 text-[#0075DE] hover:bg-slate-800"
               }`}
               aria-label="Toggle Theme"
               title={theme === "light" ? "Switch to Dark Mode" : "Switch to Light Mode"}
@@ -307,7 +307,7 @@ export const AnimatedLandingPage: React.FC<AnimatedLandingPageProps> = ({
                     exit={{ rotate: 90, opacity: 0 }}
                     transition={{ duration: 0.2 }}
                   >
-                    <Sun className="w-4 h-4 text-amber-400" />
+                    <Sun className="w-4 h-4 text-[#0075DE]" />
                   </motion.div>
                 ) : (
                   <motion.div
@@ -330,7 +330,7 @@ export const AnimatedLandingPage: React.FC<AnimatedLandingPageProps> = ({
                 whileTap={{ scale: 0.95 }}
                 type="button"
                 onClick={() => onToggleLanguage("ar")} 
-                className={`px-2 py-0.5 rounded transition-colors cursor-pointer ${lang === "ar" ? "bg-amber-500 text-slate-950 font-black" : (theme === 'light' ? "text-slate-700 hover:text-black" : "text-slate-400 hover:text-white")}`}
+                className={`px-2 py-0.5 rounded transition-colors cursor-pointer ${lang === "ar" ? "bg-[#0075DE] text-slate-950 font-black" : (theme === 'light' ? "text-slate-700 hover:text-black" : "text-slate-400 hover:text-white")}`}
               >
                 ع
               </motion.button>
@@ -339,7 +339,7 @@ export const AnimatedLandingPage: React.FC<AnimatedLandingPageProps> = ({
                 whileTap={{ scale: 0.95 }}
                 type="button"
                 onClick={() => onToggleLanguage("fr")} 
-                className={`px-2 py-0.5 rounded transition-colors cursor-pointer ${lang === "fr" ? "bg-amber-500 text-slate-950 font-black" : (theme === 'light' ? "text-slate-700 hover:text-black" : "text-slate-400 hover:text-white")}`}
+                className={`px-2 py-0.5 rounded transition-colors cursor-pointer ${lang === "fr" ? "bg-[#0075DE] text-slate-950 font-black" : (theme === 'light' ? "text-slate-700 hover:text-black" : "text-slate-400 hover:text-white")}`}
               >
                 FR
               </motion.button>
@@ -348,7 +348,7 @@ export const AnimatedLandingPage: React.FC<AnimatedLandingPageProps> = ({
                 whileTap={{ scale: 0.95 }}
                 type="button"
                 onClick={() => onToggleLanguage("en")} 
-                className={`px-2 py-0.5 rounded transition-colors cursor-pointer ${lang === "en" ? "bg-amber-500 text-slate-950 font-black" : (theme === 'light' ? "text-slate-700 hover:text-black" : "text-slate-400 hover:text-white")}`}
+                className={`px-2 py-0.5 rounded transition-colors cursor-pointer ${lang === "en" ? "bg-[#0075DE] text-slate-950 font-black" : (theme === 'light' ? "text-slate-700 hover:text-black" : "text-slate-400 hover:text-white")}`}
               >
                 EN
               </motion.button>
@@ -369,7 +369,7 @@ export const AnimatedLandingPage: React.FC<AnimatedLandingPageProps> = ({
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.96 }}
               onClick={() => onNavigateAuth("login")}
-              className="bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs md:text-sm font-black px-3.5 sm:px-4 py-2 rounded-lg shadow-lg shadow-amber-500/10 transition-all cursor-pointer flex items-center gap-1.5"
+              className="bg-[#0075DE] hover:bg-[#005BAB] text-slate-950 text-xs md:text-sm font-black px-3.5 sm:px-4 py-2 rounded-lg shadow-lg shadow-[#0075DE]/10 transition-all cursor-pointer flex items-center gap-1.5"
             >
               <span>{lang === "ar" ? "الوصول للنظام" : (lang === "fr" ? "Accéder au système" : "Access System")}</span>
               <ChevronIcon className="w-4 h-4" />
@@ -389,7 +389,7 @@ export const AnimatedLandingPage: React.FC<AnimatedLandingPageProps> = ({
             className="max-w-4xl mx-auto text-center relative z-10 space-y-6"
           >
             {/* Eyebrow badge */}
-            <motion.div variants={itemVariants} className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-500 dark:text-amber-400 text-xs font-mono font-bold tracking-wider">
+            <motion.div variants={itemVariants} className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-[#0075DE]/10 border border-[#0075DE]/20 text-[#0075DE] dark:text-[#0075DE] text-xs font-mono font-bold tracking-wider">
               <Compass className="w-3.5 h-3.5 animate-spin" style={{ animationDuration: "12s" }} />
               <span>
                 {lang === "ar" ? "الذاكرة المؤسسية والذكاء السببي" : (lang === "fr" ? "Mémoire Institutionnelle & Intelligence Causale" : "Institutional Memory & Causal Intelligence")}
@@ -420,7 +420,7 @@ export const AnimatedLandingPage: React.FC<AnimatedLandingPageProps> = ({
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.96 }}
                 onClick={() => onNavigateAuth("login")}
-                className="w-full sm:w-auto px-8 py-3.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-sm shadow-xl shadow-amber-500/20 transition-all cursor-pointer flex items-center justify-center gap-2"
+                className="w-full sm:w-auto px-8 py-3.5 rounded-xl bg-[#0075DE] hover:bg-[#005BAB] text-slate-950 font-black text-sm shadow-xl shadow-[#0075DE]/20 transition-all cursor-pointer flex items-center justify-center gap-2"
               >
                 <span>{lang === "ar" ? "الوصول للنظام الآن" : (lang === "fr" ? "Accéder au Système" : "Access Zakir System")}</span>
                 <ChevronIcon className="w-4 h-4" />
@@ -433,7 +433,7 @@ export const AnimatedLandingPage: React.FC<AnimatedLandingPageProps> = ({
             <Suspense fallback={
               <div className={`w-full aspect-[16/9] min-h-[460px] md:min-h-[560px] ${theme === 'light' ? 'bg-white border-slate-200' : 'bg-slate-950 border-slate-800/80'} rounded-3xl border flex items-center justify-center`}>
                 <div className="flex flex-col items-center gap-3">
-                  <div className="w-8 h-8 rounded-full border-4 border-amber-500/20 border-t-amber-500 animate-spin" />
+                  <div className="w-8 h-8 rounded-full border-4 border-[#0075DE]/20 border-t-[#0075DE] animate-spin" />
                   <span className={`${theme === 'light' ? 'text-slate-600' : 'text-slate-400'} text-xs font-mono font-bold animate-pulse`}>
                     {lang === "ar" ? "جاري تحميل محاكاة المنصة التفاعلية..." : (lang === "fr" ? "Chargement de la simulation interactive..." : "Loading interactive walkthrough...")}
                   </span>
@@ -483,7 +483,7 @@ export const AnimatedLandingPage: React.FC<AnimatedLandingPageProps> = ({
         {/* VISUAL STORYTELLING: PROBLEM → SOLUTION → PATTERNS → FUTURE */}
         <AnimatedSection id="story" className="px-6 max-w-7xl mx-auto">
           <div className="text-center max-w-2xl mx-auto mb-16 space-y-3">
-            <span className={`px-3 py-1 rounded-full ${theme === 'light' ? 'bg-slate-100 border-slate-300 text-amber-700' : 'bg-slate-900 border-slate-800 text-amber-400'} border text-xs font-mono font-bold uppercase tracking-widest`}>
+            <span className={`px-3 py-1 rounded-full ${theme === 'light' ? 'bg-slate-100 border-slate-300 text-[#0075DE]' : 'bg-slate-900 border-slate-800 text-[#0075DE]'} border text-xs font-mono font-bold uppercase tracking-widest`}>
               {lang === "ar" ? "قصة التحول المعرفي" : (lang === "fr" ? "Histoire de la Transformation des Connaissances" : "Knowledge Transformation Story")}
             </span>
             <h2 className={`text-2xl md:text-4xl font-extrabold ${theme === 'light' ? 'text-slate-900' : 'text-white'}`}>
@@ -507,9 +507,9 @@ export const AnimatedLandingPage: React.FC<AnimatedLandingPageProps> = ({
                 theme === 'light' 
                   ? 'bg-white border-slate-200 text-slate-900 shadow-md' 
                   : 'bg-slate-900/90 border-slate-800/90 text-slate-100 shadow-xl'
-              } border space-y-4 relative cursor-pointer transition-colors hover:border-amber-500/40`}
+              } border space-y-4 relative cursor-pointer transition-colors hover:border-[#0075DE]/40`}
             >
-              <div className="w-8 h-8 rounded-lg bg-amber-500/10 text-amber-500 dark:text-amber-400 border border-amber-500/20 flex items-center justify-center font-mono font-bold text-xs">
+              <div className="w-8 h-8 rounded-lg bg-[#0075DE]/10 text-[#0075DE] dark:text-[#0075DE] border border-[#0075DE]/20 flex items-center justify-center font-mono font-bold text-xs">
                 01
               </div>
               <h3 className={`text-base font-bold ${theme === 'light' ? 'text-slate-900' : 'text-white'}`}>{lang === "ar" ? "1. التشتت والنسيان" : (lang === "fr" ? "1. Attrition du Contexte" : "1. Context Decay")}</h3>
@@ -534,9 +534,9 @@ export const AnimatedLandingPage: React.FC<AnimatedLandingPageProps> = ({
                 theme === 'light' 
                   ? 'bg-white border-slate-200 text-slate-900 shadow-md' 
                   : 'bg-slate-900/90 border-slate-800/90 text-slate-100 shadow-xl'
-              } border space-y-4 relative cursor-pointer transition-colors hover:border-amber-500/40`}
+              } border space-y-4 relative cursor-pointer transition-colors hover:border-[#0075DE]/40`}
             >
-              <div className="w-8 h-8 rounded-lg bg-amber-500/10 text-amber-500 dark:text-amber-400 border border-amber-500/20 flex items-center justify-center font-mono font-bold text-xs">
+              <div className="w-8 h-8 rounded-lg bg-[#0075DE]/10 text-[#0075DE] dark:text-[#0075DE] border border-[#0075DE]/20 flex items-center justify-center font-mono font-bold text-xs">
                 02
               </div>
               <h3 className={`text-base font-bold ${theme === 'light' ? 'text-slate-900' : 'text-white'}`}>{lang === "ar" ? "2. التوثيق الموثوق" : (lang === "fr" ? "2. Capture Causale" : "2. Causal Capture")}</h3>
@@ -561,9 +561,9 @@ export const AnimatedLandingPage: React.FC<AnimatedLandingPageProps> = ({
                 theme === 'light' 
                   ? 'bg-white border-slate-200 text-slate-900 shadow-md' 
                   : 'bg-slate-900/90 border-slate-800/90 text-slate-100 shadow-xl'
-              } border space-y-4 relative cursor-pointer transition-colors hover:border-amber-500/40`}
+              } border space-y-4 relative cursor-pointer transition-colors hover:border-[#0075DE]/40`}
             >
-              <div className="w-8 h-8 rounded-lg bg-amber-500/10 text-amber-500 dark:text-amber-400 border border-amber-500/20 flex items-center justify-center font-mono font-bold text-xs">
+              <div className="w-8 h-8 rounded-lg bg-[#0075DE]/10 text-[#0075DE] dark:text-[#0075DE] border border-[#0075DE]/20 flex items-center justify-center font-mono font-bold text-xs">
                 03
               </div>
               <h3 className={`text-base font-bold ${theme === 'light' ? 'text-slate-900' : 'text-white'}`}>{lang === "ar" ? "3. اكتشاف الأنماط" : (lang === "fr" ? "3. Analyse de Modèles" : "3. Pattern Mining")}</h3>
@@ -588,9 +588,9 @@ export const AnimatedLandingPage: React.FC<AnimatedLandingPageProps> = ({
                 theme === 'light' 
                   ? 'bg-white border-slate-200 text-slate-900 shadow-md' 
                   : 'bg-slate-900/90 border-slate-800/90 text-slate-100 shadow-xl'
-              } border space-y-4 relative cursor-pointer transition-colors hover:border-amber-500/40`}
+              } border space-y-4 relative cursor-pointer transition-colors hover:border-[#0075DE]/40`}
             >
-              <div className="w-8 h-8 rounded-lg bg-amber-500/10 text-amber-500 dark:text-amber-400 border border-amber-500/20 flex items-center justify-center font-mono font-bold text-xs">
+              <div className="w-8 h-8 rounded-lg bg-[#0075DE]/10 text-[#0075DE] dark:text-[#0075DE] border border-[#0075DE]/20 flex items-center justify-center font-mono font-bold text-xs">
                 04
               </div>
               <h3 className={`text-base font-bold ${theme === 'light' ? 'text-slate-900' : 'text-white'}`}>{lang === "ar" ? "4. القرار المحمي" : (lang === "fr" ? "4. Décisions Protégées" : "4. Protected Decisions")}</h3>
@@ -611,7 +611,7 @@ export const AnimatedLandingPage: React.FC<AnimatedLandingPageProps> = ({
             <h2 className={`text-2xl md:text-3xl font-extrabold ${theme === 'light' ? 'text-slate-900' : 'text-white'}`}>
               {lang === "ar" ? "قدرات النظام المؤسسي" : (lang === "fr" ? "Capacités de la Plateforme" : "Enterprise Platform Capabilities")}
             </h2>
-            <p className="text-amber-600 dark:text-amber-400 text-xs font-mono tracking-widest uppercase">
+            <p className="text-[#0075DE] dark:text-[#0075DE] text-xs font-mono tracking-widest uppercase">
               {lang === "ar" ? "بنية تحتية موثوقة لحفظ الخبرات" : "Reliable Infrastructure for Institutional Memory"}
             </p>
           </div>
@@ -625,9 +625,9 @@ export const AnimatedLandingPage: React.FC<AnimatedLandingPageProps> = ({
               transition={{ duration: 0.6, ease: "easeOut" }}
               whileHover={{ scale: 1.03, y: -4, borderColor: "rgba(212, 175, 55, 0.5)" }}
               whileTap={{ scale: 0.97 }}
-              className={`${theme === 'light' ? 'bg-white border-slate-200 shadow-md' : 'bg-slate-900/90 border-slate-800 shadow-xl'} border rounded-2xl p-6 transition-colors cursor-pointer group hover:border-amber-500/40`}
+              className={`${theme === 'light' ? 'bg-white border-slate-200 shadow-md' : 'bg-slate-900/90 border-slate-800 shadow-xl'} border rounded-2xl p-6 transition-colors cursor-pointer group hover:border-[#0075DE]/40`}
             >
-              <div className="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-500 dark:text-amber-400 flex items-center justify-center mb-5 group-hover:scale-110 transition-transform">
+              <div className="w-10 h-10 rounded-xl bg-[#0075DE]/10 border border-[#0075DE]/20 text-[#0075DE] dark:text-[#0075DE] flex items-center justify-center mb-5 group-hover:scale-110 transition-transform">
                 <Database className="w-5 h-5" />
               </div>
               <h3 className={`text-base font-bold ${theme === 'light' ? 'text-slate-900' : 'text-white'} mb-2`}>
@@ -646,9 +646,9 @@ export const AnimatedLandingPage: React.FC<AnimatedLandingPageProps> = ({
               transition={{ duration: 0.6, delay: 0.1, ease: "easeOut" }}
               whileHover={{ scale: 1.03, y: -4, borderColor: "rgba(212, 175, 55, 0.5)" }}
               whileTap={{ scale: 0.97 }}
-              className={`${theme === 'light' ? 'bg-white border-slate-200 shadow-md' : 'bg-slate-900/90 border-slate-800 shadow-xl'} border rounded-2xl p-6 transition-colors cursor-pointer group hover:border-amber-500/40`}
+              className={`${theme === 'light' ? 'bg-white border-slate-200 shadow-md' : 'bg-slate-900/90 border-slate-800 shadow-xl'} border rounded-2xl p-6 transition-colors cursor-pointer group hover:border-[#0075DE]/40`}
             >
-              <div className="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-500 dark:text-amber-400 flex items-center justify-center mb-5 group-hover:scale-110 transition-transform">
+              <div className="w-10 h-10 rounded-xl bg-[#0075DE]/10 border border-[#0075DE]/20 text-[#0075DE] dark:text-[#0075DE] flex items-center justify-center mb-5 group-hover:scale-110 transition-transform">
                 <Layers className="w-5 h-5" />
               </div>
               <h3 className={`text-base font-bold ${theme === 'light' ? 'text-slate-900' : 'text-white'} mb-2`}>
@@ -667,9 +667,9 @@ export const AnimatedLandingPage: React.FC<AnimatedLandingPageProps> = ({
               transition={{ duration: 0.6, delay: 0.2, ease: "easeOut" }}
               whileHover={{ scale: 1.03, y: -4, borderColor: "rgba(212, 175, 55, 0.5)" }}
               whileTap={{ scale: 0.97 }}
-              className={`${theme === 'light' ? 'bg-white border-slate-200 shadow-md' : 'bg-slate-900/90 border-slate-800 shadow-xl'} border rounded-2xl p-6 transition-colors cursor-pointer group hover:border-amber-500/40`}
+              className={`${theme === 'light' ? 'bg-white border-slate-200 shadow-md' : 'bg-slate-900/90 border-slate-800 shadow-xl'} border rounded-2xl p-6 transition-colors cursor-pointer group hover:border-[#0075DE]/40`}
             >
-              <div className="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-500 dark:text-amber-400 flex items-center justify-center mb-5 group-hover:scale-110 transition-transform">
+              <div className="w-10 h-10 rounded-xl bg-[#0075DE]/10 border border-[#0075DE]/20 text-[#0075DE] dark:text-[#0075DE] flex items-center justify-center mb-5 group-hover:scale-110 transition-transform">
                 <ShieldAlert className="w-5 h-5" />
               </div>
               <h3 className={`text-base font-bold ${theme === 'light' ? 'text-slate-900' : 'text-white'} mb-2`}>
@@ -688,9 +688,9 @@ export const AnimatedLandingPage: React.FC<AnimatedLandingPageProps> = ({
               transition={{ duration: 0.6, delay: 0.3, ease: "easeOut" }}
               whileHover={{ scale: 1.03, y: -4, borderColor: "rgba(212, 175, 55, 0.5)" }}
               whileTap={{ scale: 0.97 }}
-              className={`${theme === 'light' ? 'bg-white border-slate-200 shadow-md' : 'bg-slate-900/90 border-slate-800 shadow-xl'} border rounded-2xl p-6 transition-colors cursor-pointer group hover:border-amber-500/40`}
+              className={`${theme === 'light' ? 'bg-white border-slate-200 shadow-md' : 'bg-slate-900/90 border-slate-800 shadow-xl'} border rounded-2xl p-6 transition-colors cursor-pointer group hover:border-[#0075DE]/40`}
             >
-              <div className="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-500 dark:text-amber-400 flex items-center justify-center mb-5 group-hover:scale-110 transition-transform">
+              <div className="w-10 h-10 rounded-xl bg-[#0075DE]/10 border border-[#0075DE]/20 text-[#0075DE] dark:text-[#0075DE] flex items-center justify-center mb-5 group-hover:scale-110 transition-transform">
                 <Brain className="w-5 h-5" />
               </div>
               <h3 className={`text-base font-bold ${theme === 'light' ? 'text-slate-900' : 'text-white'} mb-2`}>
@@ -705,12 +705,12 @@ export const AnimatedLandingPage: React.FC<AnimatedLandingPageProps> = ({
 
         {/* AI ANALYSIS & COGNITIVE INTELLIGENCE SECTION */}
         <AnimatedSection id="ai-analysis" className="px-6 max-w-7xl mx-auto">
-          <div className={`p-8 sm:p-10 rounded-3xl ${theme === 'light' ? 'bg-white border-2 border-amber-500 shadow-xl' : 'bg-slate-900/80 border-2 border-amber-400 shadow-2xl'} relative overflow-hidden`}>
-            <div className="absolute top-0 right-0 w-96 h-96 bg-amber-500/10 rounded-full blur-3xl pointer-events-none" />
+          <div className={`p-8 sm:p-10 rounded-3xl ${theme === 'light' ? 'bg-white border-2 border-[#0075DE] shadow-xl' : 'bg-slate-900/80 border-2 border-[#0075DE]/40 shadow-2xl'} relative overflow-hidden`}>
+            <div className="absolute top-0 right-0 w-96 h-96 bg-[#0075DE]/10 rounded-full blur-3xl pointer-events-none" />
             
             <div className="grid md:grid-cols-2 gap-8 items-center relative z-10">
               <div className="space-y-4">
-                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 text-xs font-mono font-bold">
+                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#0075DE]/10 text-[#0075DE] dark:text-[#0075DE] border border-[#0075DE]/20 text-xs font-mono font-bold">
                   <Brain className="w-3.5 h-3.5" />
                   <span>{lang === "ar" ? "التحليل الاستراتيجي بالذكاء الاصطناعي" : "Cognitive Reasoning Engine"}</span>
                 </div>
@@ -727,7 +727,7 @@ export const AnimatedLandingPage: React.FC<AnimatedLandingPageProps> = ({
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.96 }}
                     onClick={() => onNavigateAuth("login")}
-                    className="px-5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs shadow-md transition-all cursor-pointer flex items-center gap-2"
+                    className="px-5 py-2.5 rounded-xl bg-[#0075DE] hover:bg-[#005BAB] text-slate-950 font-black text-xs shadow-md transition-all cursor-pointer flex items-center gap-2"
                   >
                     <span>{lang === "ar" ? "تجربة المستشار الذكي" : "Launch AI Advisor"}</span>
                     <Sparkles className="w-3.5 h-3.5" />
@@ -736,20 +736,20 @@ export const AnimatedLandingPage: React.FC<AnimatedLandingPageProps> = ({
               </div>
 
               {/* Simulated AI Terminal Box */}
-              <div className={`p-5 rounded-2xl ${theme === 'light' ? 'bg-slate-50 border border-slate-200' : 'bg-slate-950/20 border border-amber-500'} backdrop-blur-md font-mono text-xs space-y-3 shadow-inner`}>
-                <div className={`flex items-center justify-between pb-2 border-b ${theme === 'light' ? 'border-slate-200 text-slate-600' : 'border-amber-500/30 text-slate-400'} text-[11px]`}>
-                  <span className="flex items-center gap-1.5 text-amber-600 dark:text-amber-400 font-bold">
+              <div className={`p-5 rounded-2xl ${theme === 'light' ? 'bg-slate-50 border border-slate-200' : 'bg-slate-950/20 border border-[#0075DE]'} backdrop-blur-md font-mono text-xs space-y-3 shadow-inner`}>
+                <div className={`flex items-center justify-between pb-2 border-b ${theme === 'light' ? 'border-slate-200 text-slate-600' : 'border-[#0075DE]/30 text-slate-400'} text-[11px]`}>
+                  <span className="flex items-center gap-1.5 text-[#0075DE] dark:text-[#0075DE] font-bold">
                     <Sparkles className="w-3.5 h-3.5 animate-spin" style={{ animationDuration: "6s" }} />
                     ZAKIR Cognitive Query
                   </span>
                   <span className="text-emerald-500 dark:text-emerald-400 font-bold">STRICT CAUSAL VERIFIED</span>
                 </div>
-                <div className={`p-3 rounded-lg ${theme === 'light' ? 'bg-white border border-slate-200 text-slate-800' : 'bg-transparent border border-amber-500/30 text-slate-300'}`}>
-                  <span className="text-amber-600 dark:text-amber-400/70">Query: </span>
+                <div className={`p-3 rounded-lg ${theme === 'light' ? 'bg-white border border-slate-200 text-slate-800' : 'bg-transparent border border-[#0075DE]/30 text-slate-300'}`}>
+                  <span className="text-[#0075DE] dark:text-[#0075DE]/70">Query: </span>
                   {lang === "ar" ? "ما هي نتائج تغطية تحوط العملات لعام 2024؟" : "What were the outcomes of FX hedging decisions in Q3 2024?"}
                 </div>
-                <div className={`p-3 rounded-lg ${theme === 'light' ? 'bg-amber-50/50 border border-amber-200 text-slate-800' : 'bg-amber-500/5 border border-amber-500/20 text-slate-300'} space-y-1`}>
-                  <div className="text-amber-600 dark:text-amber-400 font-bold text-[11px]">{lang === "ar" ? "تشخيص الأثر:" : "Causal Diagnostic:"}</div>
+                <div className={`p-3 rounded-lg ${theme === 'light' ? 'bg-amber-50/50 border border-amber-200 text-slate-800' : 'bg-[#0075DE]/5 border border-[#0075DE]/20 text-slate-300'} space-y-1`}>
+                  <div className="text-[#0075DE] dark:text-[#0075DE] font-bold text-[11px]">{lang === "ar" ? "تشخيص الأثر:" : "Causal Diagnostic:"}</div>
                   <p className={`text-[11px] ${theme === 'light' ? 'text-slate-700' : 'text-slate-300'} leading-normal`}>
                     {lang === "ar"
                       ? "تم تفعيل العقود المستقبلية لتغطية 40% من التعرض. يوصى بزيادة النسبة إلى 70% وفقاً للسابقة رقم #842."
@@ -764,7 +764,7 @@ export const AnimatedLandingPage: React.FC<AnimatedLandingPageProps> = ({
         {/* PRICING SECTION */}
         <AnimatedSection id="pricing" className="px-6 max-w-7xl mx-auto">
           <div className="text-center max-w-2xl mx-auto mb-10 space-y-2">
-            <span className="px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 text-xs font-bold uppercase tracking-wider">
+            <span className="px-3 py-1 rounded-full bg-[#0075DE]/10 border border-[#0075DE]/20 text-[#0075DE] dark:text-[#0075DE] text-xs font-bold uppercase tracking-wider">
               {lang === "ar" ? "خطط الأسعار" : (lang === "fr" ? "Plans Tarifaires" : "Pricing Plans")}
             </span>
             <h2 className={`text-2xl md:text-3xl font-bold ${theme === 'light' ? 'text-slate-900' : 'text-white'}`}>
@@ -782,7 +782,7 @@ export const AnimatedLandingPage: React.FC<AnimatedLandingPageProps> = ({
                 onClick={() => setBillingCycle("annual")}
                 className={`px-4 py-1.5 rounded-lg transition-all cursor-pointer ${
                   billingCycle === "annual"
-                    ? "bg-amber-500 text-slate-950 font-black shadow-sm"
+                    ? "bg-[#0075DE] text-slate-950 font-black shadow-sm"
                     : (theme === 'light' ? "text-slate-700 hover:text-black" : "text-slate-400 hover:text-white")
                 }`}
               >
@@ -795,14 +795,14 @@ export const AnimatedLandingPage: React.FC<AnimatedLandingPageProps> = ({
                 onClick={() => setBillingCycle("monthly")}
                 className={`px-4 py-1.5 rounded-lg transition-all cursor-pointer ${
                   billingCycle === "monthly"
-                    ? "bg-amber-500 text-slate-950 font-black shadow-sm"
+                    ? "bg-[#0075DE] text-slate-950 font-black shadow-sm"
                     : (theme === 'light' ? "text-slate-700 hover:text-black" : "text-slate-400 hover:text-white")
                 }`}
               >
                 {lang === "ar" ? "الفوترة الشهرية" : (lang === "fr" ? "Facturation Mensuelle" : "Monthly Billing")}
               </motion.button>
             </div>
-            <span className="px-2.5 py-1 rounded-full bg-amber-500/15 text-amber-600 dark:text-amber-400 font-extrabold text-[11px]">
+            <span className="px-2.5 py-1 rounded-full bg-[#0075DE]/15 text-[#0075DE] dark:text-[#0075DE] font-extrabold text-[11px]">
               {lang === "ar" ? "توفير 20%" : (lang === "fr" ? "Économisez 20%/an" : "Save 20% Annual")}
             </span>
           </div>
@@ -856,36 +856,36 @@ export const AnimatedLandingPage: React.FC<AnimatedLandingPageProps> = ({
               transition={{ duration: 0.6, delay: 0.1, ease: "easeOut" }}
               whileHover={{ scale: 1.03, y: -6 }}
               whileTap={{ scale: 0.97 }}
-              className={`${theme === 'light' ? 'bg-white border-2 border-amber-500 shadow-xl' : 'bg-slate-900 border-2 border-amber-500 shadow-2xl shadow-amber-500/10'} rounded-2xl p-7 flex flex-col justify-between relative cursor-pointer`}
+              className={`${theme === 'light' ? 'bg-white border-2 border-[#0075DE] shadow-xl' : 'bg-slate-900 border-2 border-[#0075DE] shadow-2xl shadow-[#0075DE]/10'} rounded-2xl p-7 flex flex-col justify-between relative cursor-pointer`}
             >
-              <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-amber-500 text-slate-950 font-black text-[10px] px-3 py-0.5 rounded-full uppercase tracking-wider">
+              <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-[#0075DE] text-slate-950 font-black text-[10px] px-3 py-0.5 rounded-full uppercase tracking-wider">
                 {lang === "ar" ? "الخطة الأكثر شعبية" : (lang === "fr" ? "Le Plus Populaire" : "Most Popular")}
               </div>
               <div>
                 <h3 className={`text-lg font-bold ${theme === 'light' ? 'text-slate-900' : 'text-white'} flex items-center gap-1.5`}>
-                  Professional <Zap className="w-4 h-4 text-amber-500 dark:text-amber-400 fill-amber-400" />
+                  Professional <Zap className="w-4 h-4 text-[#0075DE] dark:text-[#0075DE] fill-[#0075DE]" />
                 </h3>
                 <p className={`text-xs ${theme === 'light' ? 'text-slate-600' : 'text-slate-400'} mt-1`}>
                   {lang === "ar" ? "للمؤسسات والشركات النامية" : (lang === "fr" ? "Pour entreprises en croissance" : "For growing corporate institutions")}
                 </p>
                 <div className="my-5">
-                  <div className="text-3xl font-black text-amber-600 dark:text-amber-400">
+                  <div className="text-3xl font-black text-[#0075DE] dark:text-[#0075DE]">
                     ${billingCycle === "annual" ? "149" : "189"}
                     <span className={`text-xs font-normal ${theme === 'light' ? 'text-slate-500' : 'text-slate-400'} ml-1`}>/ {lang === "ar" ? "شهرياً" : (lang === "fr" ? "mois" : "mo")}</span>
                   </div>
                 </div>
                 <ul className={`space-y-2.5 text-xs ${theme === 'light' ? 'text-slate-800' : 'text-slate-200'} border-t ${theme === 'light' ? 'border-slate-100' : 'border-slate-800'} pt-4`}>
-                  <li className="flex items-center gap-2"><Check className="w-4 h-4 text-amber-500 dark:text-amber-400 shrink-0" /> {lang === "ar" ? "ذكريات وخزينة غير محدودة" : (lang === "fr" ? "Souvenirs & Coffre Illimités" : "Unlimited Memories & Vault")}</li>
-                  <li className="flex items-center gap-2"><Check className="w-4 h-4 text-amber-500 dark:text-amber-400 shrink-0" /> {lang === "ar" ? "تحليل الرسم البياني السببي" : (lang === "fr" ? "Analyse du Graphe Causal" : "Full Causal Graph Analysis")}</li>
-                  <li className="flex items-center gap-2"><Check className="w-4 h-4 text-amber-500 dark:text-amber-400 shrink-0" /> {lang === "ar" ? "تنبيهات المخاطر التلقائية" : (lang === "fr" ? "Alertes du Radar de Risque" : "Automated Risk Radar Alerts")}</li>
-                  <li className="flex items-center gap-2"><Check className="w-4 h-4 text-amber-500 dark:text-amber-400 shrink-0" /> {lang === "ar" ? "صلاحيات وأدوار الموظفين" : (lang === "fr" ? "Accès multi-utilisateurs & RBAC" : "Multi-user seat access & RBAC")}</li>
+                  <li className="flex items-center gap-2"><Check className="w-4 h-4 text-[#0075DE] dark:text-[#0075DE] shrink-0" /> {lang === "ar" ? "ذكريات وخزينة غير محدودة" : (lang === "fr" ? "Souvenirs & Coffre Illimités" : "Unlimited Memories & Vault")}</li>
+                  <li className="flex items-center gap-2"><Check className="w-4 h-4 text-[#0075DE] dark:text-[#0075DE] shrink-0" /> {lang === "ar" ? "تحليل الرسم البياني السببي" : (lang === "fr" ? "Analyse du Graphe Causal" : "Full Causal Graph Analysis")}</li>
+                  <li className="flex items-center gap-2"><Check className="w-4 h-4 text-[#0075DE] dark:text-[#0075DE] shrink-0" /> {lang === "ar" ? "تنبيهات المخاطر التلقائية" : (lang === "fr" ? "Alertes du Radar de Risque" : "Automated Risk Radar Alerts")}</li>
+                  <li className="flex items-center gap-2"><Check className="w-4 h-4 text-[#0075DE] dark:text-[#0075DE] shrink-0" /> {lang === "ar" ? "صلاحيات وأدوار الموظفين" : (lang === "fr" ? "Accès multi-utilisateurs & RBAC" : "Multi-user seat access & RBAC")}</li>
                 </ul>
               </div>
               <motion.button 
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.96 }}
                 onClick={() => onStripeCheckout("Professional")}
-                className="w-full mt-6 py-3 bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs rounded-xl transition-all cursor-pointer text-center"
+                className="w-full mt-6 py-3 bg-[#0075DE] hover:bg-[#005BAB] text-slate-950 font-black text-xs rounded-xl transition-all cursor-pointer text-center"
               >
                 {lang === "ar" ? "الاشتراك بالخطة الاحترافية" : (lang === "fr" ? "S'abonner à Professional" : "Subscribe Professional")}
               </motion.button>
@@ -976,7 +976,7 @@ export const AnimatedLandingPage: React.FC<AnimatedLandingPageProps> = ({
               whileHover={{ scale: 1.02, backgroundColor: "rgba(245, 158, 11, 0.05)" }}
               whileTap={{ scale: 0.95 }}
               onClick={() => onNavigateAuth("login")}
-              className={`${theme === 'light' ? 'text-slate-700 hover:text-amber-600' : 'text-slate-300 hover:text-amber-400'} transition-colors font-bold cursor-pointer`}
+              className={`${theme === 'light' ? 'text-slate-700 hover:text-[#0075DE]' : 'text-slate-300 hover:text-[#0075DE]'} transition-colors font-bold cursor-pointer`}
             >
               {lang === "ar" ? "تسجيل الدخول" : "Login"}
             </motion.button>

@@ -1120,15 +1120,15 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
                   <img 
                     src={avatarUrl} 
                     alt={fullName} 
-                    className="w-24 h-24 rounded-full object-cover border-2 border-amber-400/80 shadow-xl shadow-amber-500/10 group-hover:opacity-80 transition-opacity" 
+                    className="w-24 h-24 rounded-full object-cover border-2 border-[#0075DE]/40/80 shadow-xl shadow-[#0075DE]/10 group-hover:opacity-80 transition-opacity" 
                   />
                 ) : (
-                  <div className="w-24 h-24 rounded-full bg-amber-500 text-slate-950 font-black text-3xl flex items-center justify-center shadow-xl shadow-amber-500/20 border-2 border-amber-400/80 group-hover:bg-amber-400 transition-colors">
+                  <div className="w-24 h-24 rounded-full bg-[#0075DE] text-slate-950 font-black text-3xl flex items-center justify-center shadow-xl shadow-[#0075DE]/20 border-2 border-[#0075DE]/40/80 group-hover:bg-[#005BAB] transition-colors">
                     {initials}
                   </div>
                 )}
 
-                <div className="absolute inset-0 rounded-full bg-slate-950/60 opacity-0 group-hover:opacity-100 flex items-center justify-center text-amber-400 transition-opacity">
+                <div className="absolute inset-0 rounded-full bg-slate-950/60 opacity-0 group-hover:opacity-100 flex items-center justify-center text-[#0075DE] transition-opacity">
                   <Camera className="w-7 h-7" />
                 </div>
               </div>
@@ -1143,7 +1143,7 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
                   <button
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
-                    className="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs rounded-xl shadow-lg shadow-amber-500/20 flex items-center gap-2 transition-all cursor-pointer"
+                    className="px-4 py-2 bg-[#0075DE] hover:bg-[#005BAB] text-slate-950 font-bold text-xs rounded-xl shadow-lg shadow-[#0075DE]/20 flex items-center gap-2 transition-all cursor-pointer"
                   >
                     <Upload className="w-3.5 h-3.5" />
                     <span>{avatarUrl ? (lang === "ar" ? "تغيير الصورة" : "Change Photo") : (lang === "ar" ? "إضافة صورة شخصية" : "Upload Photo")}</span>
@@ -1174,7 +1174,7 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
                   type="text"
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
-                  className={`w-full h-11 px-4 rounded-xl border text-sm font-medium focus:outline-none focus:border-amber-500 ${
+                  className={`w-full h-11 px-4 rounded-xl border text-sm font-medium focus:outline-none focus:border-[#0075DE] ${
                     theme === "dark" ? "bg-slate-950 border-slate-800 text-white" : "bg-slate-50 border-slate-300 text-slate-900"
                   }`}
                 />
@@ -1186,7 +1186,7 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className={`w-full h-11 px-4 rounded-xl border text-sm font-medium focus:outline-none focus:border-amber-500 ${
+                  className={`w-full h-11 px-4 rounded-xl border text-sm font-medium focus:outline-none focus:border-[#0075DE] ${
                     theme === "dark" ? "bg-slate-950 border-slate-800 text-white" : "bg-slate-50 border-slate-300 text-slate-900"
                   }`}
                 />
@@ -1199,14 +1199,14 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
                   value={companyName}
                   disabled={currentUser.role !== "CEO"}
                   onChange={(e) => setCompanyName(e.target.value)}
-                  className={`w-full h-11 px-4 rounded-xl border text-sm font-medium focus:outline-none focus:border-amber-500 ${
+                  className={`w-full h-11 px-4 rounded-xl border text-sm font-medium focus:outline-none focus:border-[#0075DE] ${
                     currentUser.role !== "CEO" ? "opacity-75 cursor-not-allowed select-none bg-slate-200/50 dark:bg-slate-900/50" : ""
                   } ${
                     theme === "dark" ? "bg-slate-950 border-slate-800 text-white" : "bg-slate-50 border-slate-300 text-slate-900"
                   }`}
                 />
                 {currentUser.role !== "CEO" && (
-                  <p className="text-[10px] text-amber-500 mt-1">
+                  <p className="text-[10px] text-[#0075DE] mt-1">
                     {lang === "ar" 
                       ? "اسم الشركة مدار بالكامل بواسطة الرئيس التنفيذي (CEO) للمؤسسة ولا يمكن تعديله." 
                       : "The company name is managed fully by the CEO and cannot be modified."}
@@ -1257,7 +1257,7 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
                       <button
                         type="button"
                         onClick={() => companyLogoInputRef.current?.click()}
-                        className="px-4 py-2 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 hover:text-amber-300 border border-amber-500/30 font-bold text-xs rounded-xl flex items-center gap-2 transition-all cursor-pointer"
+                        className="px-4 py-2 bg-[#0075DE]/10 hover:bg-[#0075DE]/20 text-[#0075DE] hover:text-blue-300 border border-[#0075DE]/30 font-bold text-xs rounded-xl flex items-center gap-2 transition-all cursor-pointer"
                       >
                         <Upload className="w-3.5 h-3.5" />
                         <span>{companyLogoUrl ? (lang === "ar" ? "تغيير الشعار" : "Change Logo") : (lang === "ar" ? "رفع شعار الشركة" : "Upload Logo")}</span>
@@ -1273,7 +1273,7 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
               <div className="pt-2">
                 <button
                   type="submit"
-                  className="px-6 h-11 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs rounded-xl shadow-lg shadow-amber-500/20 flex items-center gap-2 transition-all cursor-pointer"
+                  className="px-6 h-11 bg-[#0075DE] hover:bg-[#005BAB] text-slate-950 font-bold text-xs rounded-xl shadow-lg shadow-[#0075DE]/20 flex items-center gap-2 transition-all cursor-pointer"
                 >
                   <Save className="w-4 h-4" />
                   <span>{lang === "ar" ? "حفظ التغييرات" : "Save Changes"}</span>
@@ -1286,7 +1286,7 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
               <div className="flex items-center justify-between flex-wrap gap-2">
                 <div>
                   <h3 className={`text-base font-bold flex items-center gap-2 ${theme === "dark" ? "text-white" : "text-slate-900"}`}>
-                    <ShieldCheck className="w-5 h-5 text-amber-500" />
+                    <ShieldCheck className="w-5 h-5 text-[#0075DE]" />
                     <span>{lang === "ar" ? "حالة توثيق ودراسة الحساب" : "Account Verification Status"}</span>
                   </h3>
                   <p className="text-xs text-slate-400 mt-0.5">
@@ -1310,7 +1310,7 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
                     }
                     if (verStatus === "under_review") {
                       return (
-                        <span className="px-3 py-1.5 rounded-full text-xs font-bold bg-amber-500/20 text-amber-400 border border-amber-500/40 flex items-center gap-1.5 animate-pulse">
+                        <span className="px-3 py-1.5 rounded-full text-xs font-bold bg-[#0075DE]/20 text-[#0075DE] border border-[#0075DE]/40 flex items-center gap-1.5 animate-pulse">
                           <Clock className="w-4 h-4" />
                           {lang === "ar" ? "الملفات قيد الدراسة والتحقق" : "Under Review"}
                         </span>
@@ -1336,12 +1336,12 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
 
               {/* Admin Note Box if available */}
               {currentUser.verificationInfo?.adminNote && (
-                <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 space-y-1">
+                <div className="p-4 rounded-xl bg-[#0075DE]/10 border border-[#0075DE]/30 text-blue-300 space-y-1">
                   <div className="flex items-center gap-2 font-bold text-xs">
-                    <AlertCircle className="w-4 h-4 text-amber-400 shrink-0" />
+                    <AlertCircle className="w-4 h-4 text-[#0075DE] shrink-0" />
                     <span>{lang === "ar" ? "ملاحظات الإدارة بشأن تفعيل الحساب والملفات الناقصة:" : "Admin Feedback & Missing Document Details:"}</span>
                   </div>
-                  <p className="text-xs text-slate-200 pl-6 leading-relaxed bg-slate-950/40 p-3 rounded-lg border border-amber-500/20 mt-1">
+                  <p className="text-xs text-slate-200 pl-6 leading-relaxed bg-slate-950/40 p-3 rounded-lg border border-[#0075DE]/20 mt-1">
                     {currentUser.verificationInfo.adminNote}
                   </p>
                 </div>
@@ -1373,7 +1373,7 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
                       type="button"
                       disabled={uploadingVerDoc}
                       onClick={() => verFileInputRef.current?.click()}
-                      className="px-4 py-2.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs rounded-xl shadow-lg shadow-amber-500/20 flex items-center gap-2 transition-all cursor-pointer disabled:opacity-50"
+                      className="px-4 py-2.5 bg-[#0075DE] hover:bg-[#005BAB] text-slate-950 font-bold text-xs rounded-xl shadow-lg shadow-[#0075DE]/20 flex items-center gap-2 transition-all cursor-pointer disabled:opacity-50"
                     >
                       {uploadingVerDoc ? (
                         <>
@@ -1414,7 +1414,7 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
                           className="p-3 rounded-xl bg-slate-900/60 border border-slate-800 flex items-center justify-between text-xs gap-3"
                         >
                           <div className="flex items-center gap-2.5 min-w-0">
-                            <FileText className="w-4 h-4 text-amber-400 shrink-0" />
+                            <FileText className="w-4 h-4 text-[#0075DE] shrink-0" />
                             <span className="font-bold text-slate-200 truncate">{doc.fileName}</span>
                             <span className="text-[10px] text-slate-500 font-mono">({doc.docType || "ID Document"})</span>
                           </div>
@@ -1576,7 +1576,7 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-800/80">
             <div>
               <h2 className={`text-xl font-bold flex items-center gap-2.5 ${theme === "dark" ? "text-white" : "text-slate-900"}`}>
-                <Palette className="w-5 h-5 text-amber-500" />
+                <Palette className="w-5 h-5 text-[#0075DE]" />
                 <span>{lang === "ar" ? "تخصيص المظهر وتغيير الألوان" : "Visual Theme & Custom Color Palette"}</span>
               </h2>
               <p className="text-xs text-slate-400 mt-1">
@@ -1599,7 +1599,7 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
               <button
                 type="button"
                 onClick={handleApproveThemeChanges}
-                className="px-6 py-2.5 bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 hover:to-amber-300 text-slate-950 font-extrabold text-xs rounded-xl shadow-xl shadow-amber-500/20 flex items-center gap-2.5 transition-all transform hover:scale-105 cursor-pointer"
+                className="px-6 py-2.5 bg-gradient-to-r from-[#0075DE] to-[#005BAB] hover:from-[#005BAB] hover:to-[#005BAB] text-slate-950 font-extrabold text-xs rounded-xl shadow-xl shadow-[#0075DE]/20 flex items-center gap-2.5 transition-all transform hover:scale-105 cursor-pointer"
               >
                 <CheckCircle2 className="w-4 h-4" />
                 <span>{lang === "ar" ? "تأكيد وتطبيق التغييرات" : "Approve & Apply Changes"}</span>
@@ -1610,7 +1610,7 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
           {/* 1. SELECT PRIMARY SYSTEM THEME MODE (Sun/Moon/Palette Cards) */}
           <div className="space-y-3.5">
             <h3 className={`text-xs font-bold uppercase tracking-wider flex items-center gap-2 ${theme === "dark" ? "text-slate-300" : "text-slate-700"}`}>
-              <Sliders className="w-4 h-4 text-amber-500" />
+              <Sliders className="w-4 h-4 text-[#0075DE]" />
               <span>{lang === "ar" ? "اختر نمط المظهر العام للواجهة" : "Select Global Appearance Mode"}</span>
             </h3>
             
@@ -1621,11 +1621,11 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
                 onClick={() => handleSelectStandardTheme("light")}
                 className={`p-4.5 rounded-2xl border text-right sm:text-left flex items-start gap-4 transition-all cursor-pointer ${
                   selectedThemeMode === "light"
-                    ? "border-amber-500 bg-amber-500/10 shadow-lg shadow-amber-500/5 scale-[1.01]"
+                    ? "border-[#0075DE] bg-[#0075DE]/10 shadow-lg shadow-amber-500/5 scale-[1.01]"
                     : "border-slate-800 bg-slate-950/40 hover:bg-slate-800/40 hover:border-slate-700"
                 }`}
               >
-                <div className={`p-3 rounded-xl ${selectedThemeMode === "light" ? "bg-amber-500 text-slate-950" : "bg-slate-800 text-slate-400"}`}>
+                <div className={`p-3 rounded-xl ${selectedThemeMode === "light" ? "bg-[#0075DE] text-slate-950" : "bg-slate-800 text-slate-400"}`}>
                   <Sun className="w-5 h-5" />
                 </div>
                 <div className="space-y-1">
@@ -1634,7 +1634,7 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
                       {lang === "ar" ? "الوضع الفاتح الافتراضي" : "Default Light Mode"}
                     </span>
                     {selectedThemeMode === "light" && (
-                      <span className="px-1.5 py-0.5 bg-amber-500 text-slate-950 text-[9px] uppercase font-bold rounded">Active</span>
+                      <span className="px-1.5 py-0.5 bg-[#0075DE] text-slate-950 text-[9px] uppercase font-bold rounded">Active</span>
                     )}
                   </div>
                   <p className="text-[11px] text-slate-400 leading-relaxed">
@@ -1651,11 +1651,11 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
                 onClick={() => handleSelectStandardTheme("dark")}
                 className={`p-4.5 rounded-2xl border text-right sm:text-left flex items-start gap-4 transition-all cursor-pointer ${
                   selectedThemeMode === "dark"
-                    ? "border-amber-500 bg-amber-500/10 shadow-lg shadow-amber-500/5 scale-[1.01]"
+                    ? "border-[#0075DE] bg-[#0075DE]/10 shadow-lg shadow-amber-500/5 scale-[1.01]"
                     : "border-slate-800 bg-slate-950/40 hover:bg-slate-800/40 hover:border-slate-700"
                 }`}
               >
-                <div className={`p-3 rounded-xl ${selectedThemeMode === "dark" ? "bg-amber-500 text-slate-950" : "bg-slate-800 text-slate-400"}`}>
+                <div className={`p-3 rounded-xl ${selectedThemeMode === "dark" ? "bg-[#0075DE] text-slate-950" : "bg-slate-800 text-slate-400"}`}>
                   <Moon className="w-5 h-5" />
                 </div>
                 <div className="space-y-1">
@@ -1664,7 +1664,7 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
                       {lang === "ar" ? "الوضع الداكن الافتراضي" : "Default Dark Mode"}
                     </span>
                     {selectedThemeMode === "dark" && (
-                      <span className="px-1.5 py-0.5 bg-amber-500 text-slate-950 text-[9px] uppercase font-bold rounded">Active</span>
+                      <span className="px-1.5 py-0.5 bg-[#0075DE] text-slate-950 text-[9px] uppercase font-bold rounded">Active</span>
                     )}
                   </div>
                   <p className="text-[11px] text-slate-400 leading-relaxed">
@@ -1681,11 +1681,11 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
                 onClick={handleSelectCustomTheme}
                 className={`p-4.5 rounded-2xl border text-right sm:text-left flex items-start gap-4 transition-all cursor-pointer ${
                   selectedThemeMode === "custom"
-                    ? "border-amber-500 bg-amber-500/10 shadow-lg shadow-amber-500/5 scale-[1.01]"
+                    ? "border-[#0075DE] bg-[#0075DE]/10 shadow-lg shadow-amber-500/5 scale-[1.01]"
                     : "border-slate-800 bg-slate-950/40 hover:bg-slate-800/40 hover:border-slate-700"
                 }`}
               >
-                <div className={`p-3 rounded-xl ${selectedThemeMode === "custom" ? "bg-amber-500 text-slate-950" : "bg-slate-800 text-slate-400"}`}>
+                <div className={`p-3 rounded-xl ${selectedThemeMode === "custom" ? "bg-[#0075DE] text-slate-950" : "bg-slate-800 text-slate-400"}`}>
                   <Palette className="w-5 h-5 animate-pulse" />
                 </div>
                 <div className="space-y-1">
@@ -1694,7 +1694,7 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
                       {lang === "ar" ? "مظهر مخصص بألوان الهوية" : "Custom Corporate Theme"}
                     </span>
                     {selectedThemeMode === "custom" && (
-                      <span className="px-1.5 py-0.5 bg-amber-500 text-slate-950 text-[9px] uppercase font-bold rounded animate-bounce">Active</span>
+                      <span className="px-1.5 py-0.5 bg-[#0075DE] text-slate-950 text-[9px] uppercase font-bold rounded animate-bounce">Active</span>
                     )}
                   </div>
                   <p className="text-[11px] text-slate-400 leading-relaxed">
@@ -1726,7 +1726,7 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
           {/* 2. CHOOSE THEME PRESET PALETTES */}
           <div className="space-y-3 pb-2 border-t border-slate-800/40 pt-6">
             <h3 className={`text-xs font-bold uppercase tracking-wider flex items-center gap-2 ${theme === "dark" ? "text-slate-300" : "text-slate-700"}`}>
-              <Sparkles className="w-4 h-4 text-amber-500" />
+              <Sparkles className="w-4 h-4 text-[#0075DE]" />
               <span>{lang === "ar" ? "قوالب ألوان جاهزة منسقة احترافياً" : "Professionally Curated Theme Presets"}</span>
             </h3>
             <p className="text-[11px] text-slate-400 mt-1">
@@ -1797,7 +1797,7 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
                     }}
                     className={`p-3 rounded-xl border text-right sm:text-left transition-all cursor-pointer relative group flex flex-col gap-2 ${
                       isSelected
-                        ? "border-amber-500 bg-amber-500/10 shadow-md shadow-amber-500/5 scale-[1.02]"
+                        ? "border-[#0075DE] bg-[#0075DE]/10 shadow-md shadow-amber-500/5 scale-[1.02]"
                         : "border-slate-800 bg-slate-950/40 hover:bg-slate-800/40 hover:border-slate-700"
                     }`}
                   >
@@ -1806,7 +1806,7 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
                         {lang === "ar" ? preset.nameAr : preset.nameEn}
                       </span>
                       {isSelected && (
-                        <div className="w-2 h-2 rounded-full bg-amber-500 shadow-md shadow-amber-500" />
+                        <div className="w-2 h-2 rounded-full bg-[#0075DE] shadow-md shadow-amber-500" />
                       )}
                     </div>
                     {/* Visual bar previewing colors */}
@@ -2049,7 +2049,7 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
         <div className="space-y-8">
           <div className={`p-6 rounded-2xl border ${theme === "dark" ? "bg-slate-900/40 border-slate-800" : "bg-white border-slate-200 shadow-sm"}`}>
             <div className="text-center max-w-2xl mx-auto space-y-3 mb-10">
-              <span className="px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-500 text-xs font-bold uppercase tracking-wider">
+              <span className="px-3 py-1 rounded-full bg-[#0075DE]/10 border border-[#0075DE]/20 text-[#0075DE] text-xs font-bold uppercase tracking-wider">
                 {lang === "ar" ? "خطط الاشتراكات والترقية" : "Subscription & Billing Plans"}
               </span>
               <h2 className={`text-3xl font-extrabold tracking-tight ${theme === "dark" ? "text-white" : "text-slate-900"}`}>
@@ -2063,12 +2063,12 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
             </div>
 
             {/* Current Active Plan Badge */}
-            <div className="mb-8 p-4 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-between">
+            <div className="mb-8 p-4 rounded-xl bg-[#0075DE]/10 border border-[#0075DE]/30 flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <ShieldCheck className="w-6 h-6 text-amber-500" />
+                <ShieldCheck className="w-6 h-6 text-[#0075DE]" />
                 <div>
                   <p className="text-xs text-slate-400 font-medium">{lang === "ar" ? "الخطة الحالية للمستخدم:" : "Current User Active Plan:"}</p>
-                  <p className="text-base font-extrabold text-amber-400">
+                  <p className="text-base font-extrabold text-[#0075DE]">
                     {currentUser.subscriptionPlan || "Professional"} Plan
                   </p>
                 </div>
@@ -2086,7 +2086,7 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
                   onClick={() => setBillingCycle("annual")}
                   className={`px-5 py-2.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                     billingCycle === "annual"
-                      ? "bg-amber-500 text-slate-950 shadow-md shadow-amber-500/20"
+                      ? "bg-[#0075DE] text-slate-950 shadow-md shadow-[#0075DE]/20"
                       : "text-slate-400 hover:text-white"
                   }`}
                 >
@@ -2097,28 +2097,28 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
                   onClick={() => setBillingCycle("monthly")}
                   className={`px-5 py-2.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                     billingCycle === "monthly"
-                      ? "bg-amber-500 text-slate-950 shadow-md shadow-amber-500/20"
+                      ? "bg-[#0075DE] text-slate-950 shadow-md shadow-[#0075DE]/20"
                       : "text-slate-400 hover:text-white"
                   }`}
                 >
                   {translations[lang as keyof typeof translations]?.billingMonthly || (lang === "ar" ? "الفوترة الشهرية" : "Monthly Billing")}
                 </button>
               </div>
-              <span className="px-3.5 py-1.5 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-400 font-extrabold text-xs flex items-center gap-1.5">
+              <span className="px-3.5 py-1.5 rounded-full bg-[#0075DE]/15 border border-[#0075DE]/30 text-[#0075DE] font-extrabold text-xs flex items-center gap-1.5">
                 🔥 {translations[lang as keyof typeof translations]?.save20Percent || (lang === "ar" ? "وفّر 20% عند الاشتراك السنوي" : "Save 20% on Annual Billing")}
               </span>
             </div>
 
             {/* Current Active Plan Badge & Stripe Customer Portal Link */}
-            <div className="mb-8 p-4 rounded-xl bg-amber-500/10 border border-amber-500/30 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div className="mb-8 p-4 rounded-xl bg-[#0075DE]/10 border border-[#0075DE]/30 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
               <div className="flex items-center gap-3">
-                <ShieldCheck className="w-6 h-6 text-amber-500 shrink-0" />
+                <ShieldCheck className="w-6 h-6 text-[#0075DE] shrink-0" />
                 <div>
                   <p className="text-xs text-slate-400 font-medium">{lang === "ar" ? "الخطة الحالية للمستخدم:" : "Current Active User Plan:"}</p>
-                  <p className="text-base font-extrabold text-amber-400 flex items-center gap-2">
+                  <p className="text-base font-extrabold text-[#0075DE] flex items-center gap-2">
                     <span>{currentUser.subscriptionPlan ? `${currentUser.subscriptionPlan} Plan` : (lang === "ar" ? "لم يتم اختيار خطة بعد" : "No Active Plan Selected")}</span>
                     {currentUser.subscriptionPlan && (
-                      <span className="text-xs px-2 py-0.5 rounded bg-slate-900 border border-amber-500/30 text-slate-300 font-normal">
+                      <span className="text-xs px-2 py-0.5 rounded bg-slate-900 border border-[#0075DE]/30 text-slate-300 font-normal">
                         ({billingCycle === "annual" ? (lang === "ar" ? "سنوي" : "Annual") : (lang === "ar" ? "شهري" : "Monthly")})
                       </span>
                     )}
@@ -2131,7 +2131,7 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
                   <button
                     type="button"
                     onClick={handleOpenStripePortal}
-                    className="px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-700 text-amber-400 text-xs font-bold transition-all flex items-center gap-2 cursor-pointer"
+                    className="px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-700 text-[#0075DE] text-xs font-bold transition-all flex items-center gap-2 cursor-pointer"
                   >
                     <span>{translations[lang as keyof typeof translations]?.stripePortal || (lang === "ar" ? "إدارة الاشتراك في Stripe" : "Stripe Portal")}</span>
                     <ExternalLink className="w-3.5 h-3.5" />
@@ -2142,7 +2142,7 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
                     {lang === "ar" ? "نشط ومفعل" : "Active & Verified"}
                   </span>
                 ) : (
-                  <span className="px-3 py-1 rounded-lg bg-amber-500/20 text-amber-400 font-bold text-xs">
+                  <span className="px-3 py-1 rounded-lg bg-[#0075DE]/20 text-[#0075DE] font-bold text-xs">
                     {lang === "ar" ? "في انتظار تفعيل خطة" : "Pending Selection"}
                   </span>
                 )}
@@ -2167,7 +2167,7 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
                     </span>
                     <span className="text-xs text-slate-400">
                       / {billingCycle === "annual" ? (lang === "ar" ? "سنوياً" : "yr") : (lang === "ar" ? "شهرياً" : "mo")}
-                      {billingCycle === "annual" && <span className="text-[10px] text-amber-400 font-semibold ml-1">({lang === "ar" ? "تُدفع $50 سنوياً" : "billed $50 annually"})</span>}
+                      {billingCycle === "annual" && <span className="text-[10px] text-[#0075DE] font-semibold ml-1">({lang === "ar" ? "تُدفع $50 سنوياً" : "billed $50 annually"})</span>}
                     </span>
                   </div>
                   <ul className="space-y-2.5 pt-4 text-xs text-slate-300 border-t border-slate-800">
@@ -2194,32 +2194,32 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
               </div>
 
               {/* PLAN 2: PROFESSIONAL ($149 Annual / $189 Monthly) */}
-              <div className="p-6 rounded-2xl border-2 border-amber-500 bg-slate-950 shadow-2xl shadow-amber-500/10 flex flex-col justify-between space-y-6 relative transform md:-translate-y-2">
-                <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 px-4 py-1 bg-amber-500 text-slate-950 font-black text-[10px] uppercase tracking-widest rounded-full shadow-lg">
+              <div className="p-6 rounded-2xl border-2 border-[#0075DE] bg-slate-950 shadow-2xl shadow-[#0075DE]/10 flex flex-col justify-between space-y-6 relative transform md:-translate-y-2">
+                <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 px-4 py-1 bg-[#0075DE] text-slate-950 font-black text-[10px] uppercase tracking-widest rounded-full shadow-lg">
                   {lang === "ar" ? "الخطة الأكثر شعبية" : "Most Popular"}
                 </div>
 
                 <div className="space-y-4 pt-2">
                   <div>
                     <h3 className="text-xl font-bold text-white flex items-center gap-2">
-                      Professional <Zap className="w-4 h-4 text-amber-400 fill-amber-400" />
+                      Professional <Zap className="w-4 h-4 text-[#0075DE] fill-[#0075DE]" />
                     </h3>
                     <p className="text-xs text-slate-400 mt-1">{translations[lang as keyof typeof translations]?.planProDesc || (lang === "ar" ? "للمؤسسات والشركات النامية" : "For growing organizations")}</p>
                   </div>
                   <div className="flex items-baseline gap-1">
-                    <span className="text-4xl font-black text-amber-400">
+                    <span className="text-4xl font-black text-[#0075DE]">
                       ${billingCycle === "annual" ? "149" : "189"}
                     </span>
                     <span className="text-xs text-slate-400">
-                      / {lang === "ar" ? "شهرياً" : "mo"} {billingCycle === "annual" && <span className="text-[10px] text-amber-400 font-semibold">({lang === "ar" ? "تُدفع سنوياً - توفير 20%" : "billed annually"})</span>}
+                      / {lang === "ar" ? "شهرياً" : "mo"} {billingCycle === "annual" && <span className="text-[10px] text-[#0075DE] font-semibold">({lang === "ar" ? "تُدفع سنوياً - توفير 20%" : "billed annually"})</span>}
                     </span>
                   </div>
                   <ul className="space-y-2.5 pt-4 text-xs text-slate-200 border-t border-slate-800">
-                    <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-amber-400 shrink-0" /> Unlimited Memories & Vault</li>
-                    <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-amber-400 shrink-0" /> Full Causal AI Graph Analysis</li>
-                    <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-amber-400 shrink-0" /> Automated Risk Alerts & Notifications</li>
-                    <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-amber-400 shrink-0" /> Multi-user seat access & RBAC</li>
-                    <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-amber-400 shrink-0" /> Priority 24/7 Dedicated Support</li>
+                    <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-[#0075DE] shrink-0" /> Unlimited Memories & Vault</li>
+                    <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-[#0075DE] shrink-0" /> Full Causal AI Graph Analysis</li>
+                    <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-[#0075DE] shrink-0" /> Automated Risk Alerts & Notifications</li>
+                    <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-[#0075DE] shrink-0" /> Multi-user seat access & RBAC</li>
+                    <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-[#0075DE] shrink-0" /> Priority 24/7 Dedicated Support</li>
                   </ul>
                 </div>
 
@@ -2227,7 +2227,7 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
                   type="button"
                   onClick={() => handleStripeCheckout("Professional")}
                   disabled={isProcessingPayment}
-                  className="w-full py-4 bg-gradient-to-r from-amber-500 via-amber-400 to-amber-500 hover:from-amber-400 hover:to-amber-300 text-slate-950 font-black text-xs rounded-xl shadow-xl shadow-amber-500/25 flex items-center justify-center gap-2 transition-all transform hover:scale-[1.02] active:scale-95 cursor-pointer"
+                  className="w-full py-4 bg-gradient-to-r from-[#0075DE] via-blue-400 to-[#005BAB] hover:from-[#005BAB] hover:to-[#005BAB] text-slate-950 font-black text-xs rounded-xl shadow-xl shadow-amber-500/25 flex items-center justify-center gap-2 transition-all transform hover:scale-[1.02] active:scale-95 cursor-pointer"
                 >
                   <span>{translations[lang as keyof typeof translations]?.subscribePayNow || (lang === "ar" ? "الاشتراك بالخطة الاحترافية - Stripe" : "Subscribe Professional - Stripe Checkout")}</span>
                   <ArrowRight className="w-4 h-4" />
@@ -2250,7 +2250,7 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
                       </span>
                       <span className="text-xs text-slate-400">/ {lang === "ar" ? "شهرياً" : "mo"}</span>
                     </div>
-                    <p className="text-[11px] text-amber-500 font-semibold mt-1">
+                    <p className="text-[11px] text-[#0075DE] font-semibold mt-1">
                       {translations[lang as keyof typeof translations]?.startingFrom || (lang === "ar" ? "تبدأ من $699/شهرياً" : "Starting from $699/mo")}
                     </p>
                   </div>
@@ -2267,7 +2267,7 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
                     type="button"
                     onClick={() => handleStripeCheckout("Enterprise")}
                     disabled={isProcessingPayment}
-                    className="w-full py-3 bg-amber-500/20 hover:bg-amber-500/30 text-amber-400 border border-amber-500/40 font-bold text-xs rounded-xl flex items-center justify-center gap-2 transition-all cursor-pointer"
+                    className="w-full py-3 bg-[#0075DE]/20 hover:bg-[#0075DE]/30 text-[#0075DE] border border-[#0075DE]/40 font-bold text-xs rounded-xl flex items-center justify-center gap-2 transition-all cursor-pointer"
                   >
                     <span>{translations[lang as keyof typeof translations]?.upgradeEnterprise || (lang === "ar" ? "الاشتراك بخطة المؤسسات (Stripe Checkout)" : "Subscribe Enterprise (Stripe Checkout)")}</span>
                     <ArrowRight className="w-4 h-4" />
@@ -2300,7 +2300,7 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
                 <div className="flex items-center justify-between pb-4 border-b border-slate-800">
                   <div>
                     <h3 className="text-xl font-bold flex items-center gap-2">
-                      <CreditCard className="w-5 h-5 text-amber-500" />
+                      <CreditCard className="w-5 h-5 text-[#0075DE]" />
                       <span>{lang === "ar" ? "بوابة الدفع والتسديد الإلكتروني" : "Checkout & Secure Payment Gateway"}</span>
                     </h3>
                     <p className="text-xs text-slate-400 mt-0.5">
@@ -2339,13 +2339,13 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
                           onClick={() => setPaymentMethod(method.id as any)}
                           className={`p-3.5 rounded-xl border text-left flex flex-col justify-between gap-3 transition-all cursor-pointer ${
                             isSelected
-                              ? "bg-amber-500/15 border-amber-500 text-amber-400 shadow-lg shadow-amber-500/10"
+                              ? "bg-[#0075DE]/15 border-[#0075DE] text-[#0075DE] shadow-lg shadow-[#0075DE]/10"
                               : "bg-slate-950/60 border-slate-800 text-slate-400 hover:border-slate-700"
                           }`}
                         >
                           <div className="flex items-center justify-between">
-                            <Icon className={`w-5 h-5 ${isSelected ? "text-amber-400" : "text-slate-400"}`} />
-                            {isSelected && <Check className="w-4 h-4 text-amber-400" />}
+                            <Icon className={`w-5 h-5 ${isSelected ? "text-[#0075DE]" : "text-slate-400"}`} />
+                            {isSelected && <Check className="w-4 h-4 text-[#0075DE]" />}
                           </div>
                           <div>
                             <p className="text-xs font-bold text-white">{method.label}</p>
@@ -2367,7 +2367,7 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
                           type="text"
                           value={cardName}
                           onChange={(e) => setCardName(e.target.value)}
-                          className={`w-full h-10 px-3 border rounded-xl text-xs font-medium focus:border-amber-500 focus:outline-none ${theme === "dark" ? "bg-slate-900 border-slate-800 text-white" : "bg-white border-slate-200 text-slate-900"}`}
+                          className={`w-full h-10 px-3 border rounded-xl text-xs font-medium focus:border-[#0075DE] focus:outline-none ${theme === "dark" ? "bg-slate-900 border-slate-800 text-white" : "bg-white border-slate-200 text-slate-900"}`}
                         />
                       </div>
 
@@ -2377,7 +2377,7 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
                           type="text"
                           value={cardNumber}
                           onChange={(e) => setCardNumber(e.target.value)}
-                          className={`w-full h-10 px-3 border rounded-xl text-xs font-mono focus:border-amber-500 focus:outline-none ${theme === "dark" ? "bg-slate-900 border-slate-800 text-white" : "bg-white border-slate-200 text-slate-900"}`}
+                          className={`w-full h-10 px-3 border rounded-xl text-xs font-mono focus:border-[#0075DE] focus:outline-none ${theme === "dark" ? "bg-slate-900 border-slate-800 text-white" : "bg-white border-slate-200 text-slate-900"}`}
                         />
                       </div>
 
@@ -2389,7 +2389,7 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
                             value={cardExpiry}
                             onChange={(e) => setCardExpiry(e.target.value)}
                             placeholder="MM/YY"
-                            className={`w-full h-10 px-3 border rounded-xl text-xs font-mono focus:border-amber-500 focus:outline-none ${theme === "dark" ? "bg-slate-900 border-slate-800 text-white" : "bg-white border-slate-200 text-slate-900"}`}
+                            className={`w-full h-10 px-3 border rounded-xl text-xs font-mono focus:border-[#0075DE] focus:outline-none ${theme === "dark" ? "bg-slate-900 border-slate-800 text-white" : "bg-white border-slate-200 text-slate-900"}`}
                           />
                         </div>
                         <div>
@@ -2399,7 +2399,7 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
                             value={cardCvc}
                             onChange={(e) => setCardCvc(e.target.value)}
                             maxLength={4}
-                            className={`w-full h-10 px-3 border rounded-xl text-xs font-mono focus:border-amber-500 focus:outline-none ${theme === "dark" ? "bg-slate-900 border-slate-800 text-white" : "bg-white border-slate-200 text-slate-900"}`}
+                            className={`w-full h-10 px-3 border rounded-xl text-xs font-mono focus:border-[#0075DE] focus:outline-none ${theme === "dark" ? "bg-slate-900 border-slate-800 text-white" : "bg-white border-slate-200 text-slate-900"}`}
                           />
                         </div>
                       </div>
@@ -2408,7 +2408,7 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
 
                   {paymentMethod === "bank" && (
                     <div className="space-y-4">
-                      <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-xs text-amber-600 dark:text-amber-300">
+                      <div className="p-3 rounded-xl bg-[#0075DE]/10 border border-[#0075DE]/30 text-xs text-[#0075DE] dark:text-blue-300">
                         <p className="font-bold mb-1">{lang === "ar" ? "تفاصيل الحساب البنكي المعتمد للمؤسسة:" : "Corporate Verified Bank Account Details:"}</p>
                         <p>Bank: Attijari Bank / BCM Mauritanie</p>
                         <p>IBAN: MR13 0001 0200 9821 0041 88</p>
@@ -2420,7 +2420,7 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
                           type="text"
                           value={bankName}
                           onChange={(e) => setBankName(e.target.value)}
-                          className={`w-full h-10 px-3 border rounded-xl text-xs font-medium focus:border-amber-500 focus:outline-none ${theme === "dark" ? "bg-slate-900 border-slate-800 text-white" : "bg-white border-slate-200 text-slate-900"}`}
+                          className={`w-full h-10 px-3 border rounded-xl text-xs font-medium focus:border-[#0075DE] focus:outline-none ${theme === "dark" ? "bg-slate-900 border-slate-800 text-white" : "bg-white border-slate-200 text-slate-900"}`}
                         />
                       </div>
 
@@ -2430,7 +2430,7 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
                           type="text"
                           value={bankRef}
                           onChange={(e) => setBankRef(e.target.value)}
-                          className={`w-full h-10 px-3 border rounded-xl text-xs font-mono focus:border-amber-500 focus:outline-none ${theme === "dark" ? "bg-slate-900 border-slate-800 text-white" : "bg-white border-slate-200 text-slate-900"}`}
+                          className={`w-full h-10 px-3 border rounded-xl text-xs font-mono focus:border-[#0075DE] focus:outline-none ${theme === "dark" ? "bg-slate-900 border-slate-800 text-white" : "bg-white border-slate-200 text-slate-900"}`}
                         />
                       </div>
                     </div>
@@ -2443,7 +2443,7 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
                         <select
                           value={walletProvider}
                           onChange={(e) => setWalletProvider(e.target.value)}
-                          className={`w-full h-10 px-3 border rounded-xl text-xs font-medium focus:border-amber-500 focus:outline-none ${theme === "dark" ? "bg-slate-900 border-slate-800 text-white" : "bg-white border-slate-200 text-slate-900"}`}
+                          className={`w-full h-10 px-3 border rounded-xl text-xs font-medium focus:border-[#0075DE] focus:outline-none ${theme === "dark" ? "bg-slate-900 border-slate-800 text-white" : "bg-white border-slate-200 text-slate-900"}`}
                         >
                           <option value="Bankily">Bankily (بنكيلي)</option>
                           <option value="Masrvi">Masrvi (مصرفي)</option>
@@ -2459,7 +2459,7 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
                           type="text"
                           value={walletPhone}
                           onChange={(e) => setWalletPhone(e.target.value)}
-                          className={`w-full h-10 px-3 border rounded-xl text-xs font-mono focus:border-amber-500 focus:outline-none ${theme === "dark" ? "bg-slate-900 border-slate-800 text-white" : "bg-white border-slate-200 text-slate-900"}`}
+                          className={`w-full h-10 px-3 border rounded-xl text-xs font-mono focus:border-[#0075DE] focus:outline-none ${theme === "dark" ? "bg-slate-900 border-slate-800 text-white" : "bg-white border-slate-200 text-slate-900"}`}
                         />
                       </div>
                     </div>
@@ -2471,7 +2471,7 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
                   type="button"
                   disabled={isProcessingPayment}
                   onClick={handleConfirmPayment}
-                  className="w-full py-4 bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 hover:to-amber-300 text-slate-950 font-extrabold text-sm rounded-xl shadow-xl shadow-amber-500/20 flex items-center justify-center gap-2 cursor-pointer transition-all"
+                  className="w-full py-4 bg-gradient-to-r from-[#0075DE] to-[#005BAB] hover:from-[#005BAB] hover:to-[#005BAB] text-slate-950 font-extrabold text-sm rounded-xl shadow-xl shadow-[#0075DE]/20 flex items-center justify-center gap-2 cursor-pointer transition-all"
                 >
                   {isProcessingPayment ? (
                     <>
@@ -2525,7 +2525,7 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
                     </div>
                     <div>
                       <p className="text-slate-500 text-[10px]">{lang === "ar" ? "الخطة المفعّلة:" : "Subscription Plan:"}</p>
-                      <p className="font-bold text-amber-400">{completedReceipt.plan}</p>
+                      <p className="font-bold text-[#0075DE]">{completedReceipt.plan}</p>
                     </div>
                     <div>
                       <p className="text-slate-500 text-[10px]">{lang === "ar" ? "المبلغ المدفوع:" : "Total Paid:"}</p>
@@ -2578,7 +2578,7 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
                       setSelectedPlanForCheckout(null);
                       setCompletedReceipt(null);
                     }}
-                    className="flex-1 min-w-[120px] py-3 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs rounded-xl flex items-center justify-center gap-2 cursor-pointer transition-all"
+                    className="flex-1 min-w-[120px] py-3 bg-[#0075DE] hover:bg-[#005BAB] text-slate-950 font-bold text-xs rounded-xl flex items-center justify-center gap-2 cursor-pointer transition-all"
                   >
                     <span>{lang === "ar" ? "العودة للوحة" : "Return"}</span>
                   </button>
@@ -2618,7 +2618,7 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
               <div>
                 <div className="flex items-center gap-2 mb-1">
-                  <span className="px-3 py-1 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-400 font-extrabold text-[10px] uppercase tracking-wider flex items-center gap-1.5">
+                  <span className="px-3 py-1 rounded-full bg-[#0075DE]/15 border border-[#0075DE]/30 text-[#0075DE] font-extrabold text-[10px] uppercase tracking-wider flex items-center gap-1.5">
                     <ShieldCheck className="w-3.5 h-3.5" />
                     {lang === "ar" ? "صلاحيات المدير التنفيذي (CEO)" : "CEO Executive Authorization Active"}
                   </span>
@@ -2636,9 +2636,9 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
               <button
                 type="button"
                 onClick={() => setTestUnlockModalOpen(true)}
-                className="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-amber-400 border border-amber-500/30 font-bold text-xs rounded-xl flex items-center gap-2 cursor-pointer transition-all self-start md:self-auto"
+                className="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-[#0075DE] border border-[#0075DE]/30 font-bold text-xs rounded-xl flex items-center gap-2 cursor-pointer transition-all self-start md:self-auto"
               >
-                <Key className="w-4 h-4 text-amber-400" />
+                <Key className="w-4 h-4 text-[#0075DE]" />
                 <span>{lang === "ar" ? "اختبار الرمز السري وإلغاء القفل" : "Test Secret Code Unlock"}</span>
               </button>
             </div>
@@ -2647,7 +2647,7 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
             <div className="pt-4 border-t border-slate-800/60">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                  <Sliders className="w-4 h-4 text-amber-400" />
+                  <Sliders className="w-4 h-4 text-[#0075DE]" />
                   <span>{lang === "ar" ? "مصفوفة صلاحيات الأعضاء (المعينة من طرف CEO):" : "Member Power Authorization Matrix (Designated by CEO):"}</span>
                 </h3>
                 <span className="text-[11px] text-slate-400">
@@ -2672,7 +2672,7 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
                     {teamMembers.map((member) => (
                       <tr key={member.id} className="hover:bg-slate-800/30 transition-colors">
                         <td className="py-3.5 px-4 font-bold text-white flex items-center gap-2.5">
-                          <div className="w-7 h-7 rounded-lg bg-amber-500/20 text-amber-400 font-bold text-[10px] flex items-center justify-center shrink-0">
+                          <div className="w-7 h-7 rounded-lg bg-[#0075DE]/20 text-[#0075DE] font-bold text-[10px] flex items-center justify-center shrink-0">
                             {member.name.slice(0, 2).toUpperCase()}
                           </div>
                           <div>
@@ -2684,7 +2684,7 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
                         <td className="py-3.5 px-3 text-center">
                           <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold ${
                             member.role.includes("CEO") 
-                              ? "bg-amber-500/20 text-amber-400 border border-amber-500/30" 
+                              ? "bg-[#0075DE]/20 text-[#0075DE] border border-[#0075DE]/30" 
                               : "bg-slate-800 text-slate-300"
                           }`}>
                             {member.role}
@@ -2697,7 +2697,7 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
                               type="checkbox"
                               checked={!!member.powers[powerKey]}
                               onChange={() => handleTogglePowerInMatrix(member.id, powerKey)}
-                              className="w-4 h-4 rounded bg-slate-900 border-slate-700 text-amber-500 focus:ring-amber-500 focus:ring-offset-slate-900 cursor-pointer accent-amber-500"
+                              className="w-4 h-4 rounded bg-slate-900 border-slate-700 text-[#0075DE] focus:ring-[#0075DE] focus:ring-offset-slate-900 cursor-pointer accent-[#0075DE]"
                             />
                           </td>
                         ))}
@@ -2720,14 +2720,14 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
                 <div key={member.id} className="p-5 rounded-2xl border border-slate-800 bg-slate-950/70 space-y-4 flex flex-col justify-between">
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-xl bg-amber-500/20 text-amber-400 font-extrabold text-sm flex items-center justify-center border border-amber-500/30">
+                      <div className="w-10 h-10 rounded-xl bg-[#0075DE]/20 text-[#0075DE] font-extrabold text-sm flex items-center justify-center border border-[#0075DE]/30">
                         {member.name.slice(0, 2).toUpperCase()}
                       </div>
                       <div>
                         <h4 className="text-sm font-bold text-white flex items-center gap-2">
                           <span>{member.name}</span>
                           {member.role.includes("CEO") && (
-                            <span className="px-2 py-0.5 rounded bg-amber-500/20 text-amber-400 text-[10px] font-bold">Owner</span>
+                            <span className="px-2 py-0.5 rounded bg-[#0075DE]/20 text-[#0075DE] text-[10px] font-bold">Owner</span>
                           )}
                         </h4>
                         <p className="text-xs text-slate-400 font-mono">{member.email}</p>
@@ -2775,7 +2775,7 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
                     <button
                       type="button"
                       onClick={() => setEditingMemberModal(member)}
-                      className="px-3 py-1.5 bg-amber-500/15 hover:bg-amber-500/25 text-amber-400 border border-amber-500/30 text-xs font-bold rounded-lg flex items-center gap-1.5 cursor-pointer transition-all"
+                      className="px-3 py-1.5 bg-[#0075DE]/15 hover:bg-[#0075DE]/25 text-[#0075DE] border border-[#0075DE]/30 text-xs font-bold rounded-lg flex items-center gap-1.5 cursor-pointer transition-all"
                     >
                       <Edit3 className="w-3.5 h-3.5" />
                       <span>{lang === "ar" ? "تعديل صلاحيات العضو" : "Configure Member Powers"}</span>
@@ -2800,7 +2800,7 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
           {/* ADD NEW TEAM MEMBER WITH CUSTOM POWERS FORM */}
           <div className="p-6 rounded-2xl border border-slate-800 bg-slate-950/60 space-y-4">
             <h3 className="text-base font-bold text-white flex items-center gap-2">
-              <Plus className="w-4 h-4 text-amber-400" />
+              <Plus className="w-4 h-4 text-[#0075DE]" />
               <span>{lang === "ar" ? "إضافة عضو جديد وتخصيص صلاحياته:" : "Provision New Team Member with Custom Powers:"}</span>
             </h3>
 
@@ -2814,7 +2814,7 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
                     value={newMemberName}
                     onChange={(e) => setNewMemberName(e.target.value)}
                     placeholder="e.g. Mohamed Mahmoud"
-                    className="w-full h-10 px-3 bg-slate-900 border border-slate-800 text-white rounded-xl text-xs focus:border-amber-500 focus:outline-none"
+                    className="w-full h-10 px-3 bg-slate-900 border border-slate-800 text-white rounded-xl text-xs focus:border-[#0075DE] focus:outline-none"
                   />
                 </div>
 
@@ -2826,7 +2826,7 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
                     value={newMemberEmail}
                     onChange={(e) => setNewMemberEmail(e.target.value)}
                     placeholder="e.g. m.mahmoud@g-partner.com"
-                    className="w-full h-10 px-3 bg-slate-900 border border-slate-800 text-white rounded-xl text-xs font-mono focus:border-amber-500 focus:outline-none"
+                    className="w-full h-10 px-3 bg-slate-900 border border-slate-800 text-white rounded-xl text-xs font-mono focus:border-[#0075DE] focus:outline-none"
                   />
                 </div>
 
@@ -2835,7 +2835,7 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
                   <select
                     value={newMemberRole}
                     onChange={(e) => setNewMemberRole(e.target.value)}
-                    className="w-full h-10 px-3 bg-slate-900 border border-slate-800 text-white rounded-xl text-xs focus:border-amber-500 focus:outline-none"
+                    className="w-full h-10 px-3 bg-slate-900 border border-slate-800 text-white rounded-xl text-xs focus:border-[#0075DE] focus:outline-none"
                   >
                     <option value="Compliance Officer">Compliance Officer</option>
                     <option value="Risk Auditor">Risk Auditor</option>
@@ -2848,7 +2848,7 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
 
               {/* Checkboxes for initial powers */}
               <div className="p-4 rounded-xl bg-slate-900 border border-slate-800 space-y-2">
-                <p className="text-xs font-bold text-amber-400">
+                <p className="text-xs font-bold text-[#0075DE]">
                   {lang === "ar" ? "تحديد الصلاحيات المبدئية للعضو الجديد:" : "Select Initial Powers for New Member:"}
                 </p>
                 <div className="grid grid-cols-2 md:grid-cols-5 gap-3 pt-2">
@@ -2867,7 +2867,7 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
                           ...newMemberPowers,
                           [p.key]: e.target.checked
                         })}
-                        className="w-4 h-4 rounded bg-slate-950 border-slate-700 text-amber-500 focus:ring-amber-500 accent-amber-500"
+                        className="w-4 h-4 rounded bg-slate-950 border-slate-700 text-[#0075DE] focus:ring-[#0075DE] accent-[#0075DE]"
                       />
                       <span>{p.label}</span>
                     </label>
@@ -2877,7 +2877,7 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
 
               <button
                 type="submit"
-                className="px-5 py-3 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs rounded-xl flex items-center gap-2 cursor-pointer transition-all shadow-lg shadow-amber-500/10"
+                className="px-5 py-3 bg-[#0075DE] hover:bg-[#005BAB] text-slate-950 font-bold text-xs rounded-xl flex items-center gap-2 cursor-pointer transition-all shadow-lg shadow-[#0075DE]/10"
               >
                 <Plus className="w-4 h-4" />
                 <span>{lang === "ar" ? "دعوة العضو وتخصيص الصلاحيات" : "Invite Member & Grant CEO Powers"}</span>
@@ -2910,7 +2910,7 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
           {/* Main Encryption Control Panel Header */}
           <div className={`p-6 rounded-2xl border space-y-6 ${theme === "dark" ? "bg-slate-900/40 border-slate-800" : "bg-white border-slate-200 shadow-sm"}`}>
             <div>
-              <span className="px-3 py-1 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-400 text-[10px] font-extrabold uppercase tracking-wider flex items-center gap-1.5 w-fit mb-2">
+              <span className="px-3 py-1 rounded-full bg-[#0075DE]/15 border border-[#0075DE]/30 text-[#0075DE] text-[10px] font-extrabold uppercase tracking-wider flex items-center gap-1.5 w-fit mb-2">
                 <Lock className="w-3.5 h-3.5" />
                 {lang === "ar" ? "مركز التشفير والرمز السري (CEO)" : "CEO Encryption & Secret Code Center"}
               </span>
@@ -2925,10 +2925,10 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
             </div>
 
             {/* Secret Passcode Configuration Box */}
-            <div className="p-6 rounded-2xl border border-amber-500/30 bg-slate-950/80 space-y-5">
+            <div className="p-6 rounded-2xl border border-[#0075DE]/30 bg-slate-950/80 space-y-5">
               <div className="flex items-center justify-between pb-3 border-b border-slate-800">
                 <div className="flex items-center gap-2.5">
-                  <div className="w-9 h-9 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center border border-amber-500/30">
+                  <div className="w-9 h-9 rounded-xl bg-[#0075DE]/20 text-[#0075DE] flex items-center justify-center border border-[#0075DE]/30">
                     <Key className="w-5 h-5" />
                   </div>
                   <div>
@@ -2962,7 +2962,7 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
                         value={secretPasscodeVal}
                         onChange={(e) => setSecretPasscodeVal(e.target.value)}
                         placeholder={lang === "ar" ? "أدخل الرمز السري الخاص (مثلاً: 1234)" : "Enter secret passcode (e.g. 1234)"}
-                        className="w-full h-11 pl-3 pr-10 bg-slate-900 border border-slate-800 text-amber-400 font-mono text-sm rounded-xl focus:border-amber-500 focus:outline-none tracking-widest"
+                        className="w-full h-11 pl-3 pr-10 bg-slate-900 border border-slate-800 text-[#0075DE] font-mono text-sm rounded-xl focus:border-[#0075DE] focus:outline-none tracking-widest"
                       />
                       <button
                         type="button"
@@ -2984,7 +2984,7 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
                         value={secretPasscodeConfirmVal}
                         onChange={(e) => setSecretPasscodeConfirmVal(e.target.value)}
                         placeholder={lang === "ar" ? "أدخل نفس الرمز للتأكيد" : "Confirm secret passcode"}
-                        className="w-full h-11 pl-3 pr-10 bg-slate-900 border border-slate-800 text-amber-400 font-mono text-sm rounded-xl focus:border-amber-500 focus:outline-none tracking-widest"
+                        className="w-full h-11 pl-3 pr-10 bg-slate-900 border border-slate-800 text-[#0075DE] font-mono text-sm rounded-xl focus:border-[#0075DE] focus:outline-none tracking-widest"
                       />
                     </div>
                   </div>
@@ -3017,7 +3017,7 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
                   <button
                     type="button"
                     onClick={handleSaveEncryptionSettings}
-                    className="flex-1 h-11 bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 hover:to-amber-300 text-slate-950 font-black text-xs rounded-xl flex items-center justify-center gap-2 cursor-pointer transition-all shadow-lg shadow-amber-500/20"
+                    className="flex-1 h-11 bg-gradient-to-r from-[#0075DE] to-[#005BAB] hover:from-[#005BAB] hover:to-[#005BAB] text-slate-950 font-black text-xs rounded-xl flex items-center justify-center gap-2 cursor-pointer transition-all shadow-lg shadow-[#0075DE]/20"
                   >
                     <Save className="w-4 h-4" />
                     <span>{lang === "ar" ? "تأكيد الرمز والتشفير التلقائي" : "Confirm Code & Auto-Encrypt All Data"}</span>
@@ -3032,7 +3032,7 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
                     }}
                     className="px-5 h-11 bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs rounded-xl flex items-center justify-center gap-2 cursor-pointer border border-slate-700"
                   >
-                    <Unlock className="w-4 h-4 text-amber-400" />
+                    <Unlock className="w-4 h-4 text-[#0075DE]" />
                     <span>{lang === "ar" ? "اختبار فك القفل" : "Test Unlock"}</span>
                   </button>
                 </div>
@@ -3042,7 +3042,7 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
             {/* Encrypted Modules Selection Grid */}
             <div className="space-y-4 pt-2">
               <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                <Shield className="w-4 h-4 text-amber-400" />
+                <Shield className="w-4 h-4 text-[#0075DE]" />
                 <span>{lang === "ar" ? "تحديد الأقسام القابلة للتشفير والإغلاق بالرمز السري:" : "Select Modules to Encrypt & Lock with Secret Code:"}</span>
               </h3>
 
@@ -3051,12 +3051,12 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
                 {/* 1. FILE MANAGEMENT VAULT LOCK */}
                 <div className={`p-5 rounded-2xl border transition-all flex items-center justify-between ${
                   encryptedSecurity.lockedModules.fileVault 
-                    ? "bg-amber-500/10 border-amber-500/40" 
+                    ? "bg-[#0075DE]/10 border-[#0075DE]/40" 
                     : "bg-slate-950/60 border-slate-800"
                 }`}>
                   <div className="flex items-center gap-3">
                     <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
-                      encryptedSecurity.lockedModules.fileVault ? "bg-amber-500/20 text-amber-400" : "bg-slate-800 text-slate-400"
+                      encryptedSecurity.lockedModules.fileVault ? "bg-[#0075DE]/20 text-[#0075DE]" : "bg-slate-800 text-slate-400"
                     }`}>
                       <FileText className="w-5 h-5" />
                     </div>
@@ -3064,7 +3064,7 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
                       <h4 className="text-sm font-bold text-white flex items-center gap-2">
                         <span>{lang === "ar" ? "تشفير إدارة الملفات (File Vault)" : "Encrypted File Management"}</span>
                         {encryptedSecurity.lockedModules.fileVault && (
-                          <span className="px-2 py-0.5 rounded bg-amber-500/20 text-amber-400 text-[10px] font-bold">LOCKED</span>
+                          <span className="px-2 py-0.5 rounded bg-[#0075DE]/20 text-[#0075DE] text-[10px] font-bold">LOCKED</span>
                         )}
                       </h4>
                       <p className="text-[11px] text-slate-400">
@@ -3077,7 +3077,7 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
                     type="button"
                     onClick={() => handleToggleModuleLock("fileVault")}
                     className={`w-12 h-6 rounded-full transition-colors relative cursor-pointer ${
-                      encryptedSecurity.lockedModules.fileVault ? "bg-amber-500" : "bg-slate-800"
+                      encryptedSecurity.lockedModules.fileVault ? "bg-[#0075DE]" : "bg-slate-800"
                     }`}
                   >
                     <span className={`w-5 h-5 rounded-full bg-slate-950 absolute top-0.5 transition-transform ${
@@ -3089,12 +3089,12 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
                 {/* 2. MEMORY LIBRARY VAULT LOCK */}
                 <div className={`p-5 rounded-2xl border transition-all flex items-center justify-between ${
                   encryptedSecurity.lockedModules.memoryVault 
-                    ? "bg-amber-500/10 border-amber-500/40" 
+                    ? "bg-[#0075DE]/10 border-[#0075DE]/40" 
                     : "bg-slate-950/60 border-slate-800"
                 }`}>
                   <div className="flex items-center gap-3">
                     <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
-                      encryptedSecurity.lockedModules.memoryVault ? "bg-amber-500/20 text-amber-400" : "bg-slate-800 text-slate-400"
+                      encryptedSecurity.lockedModules.memoryVault ? "bg-[#0075DE]/20 text-[#0075DE]" : "bg-slate-800 text-slate-400"
                     }`}>
                       <Sparkles className="w-5 h-5" />
                     </div>
@@ -3102,7 +3102,7 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
                       <h4 className="text-sm font-bold text-white flex items-center gap-2">
                         <span>{lang === "ar" ? "تشفير مكتبة الذكريات (Memory Vault)" : "Encrypted Memory Vault"}</span>
                         {encryptedSecurity.lockedModules.memoryVault && (
-                          <span className="px-2 py-0.5 rounded bg-amber-500/20 text-amber-400 text-[10px] font-bold">LOCKED</span>
+                          <span className="px-2 py-0.5 rounded bg-[#0075DE]/20 text-[#0075DE] text-[10px] font-bold">LOCKED</span>
                         )}
                       </h4>
                       <p className="text-[11px] text-slate-400">
@@ -3115,7 +3115,7 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
                     type="button"
                     onClick={() => handleToggleModuleLock("memoryVault")}
                     className={`w-12 h-6 rounded-full transition-colors relative cursor-pointer ${
-                      encryptedSecurity.lockedModules.memoryVault ? "bg-amber-500" : "bg-slate-800"
+                      encryptedSecurity.lockedModules.memoryVault ? "bg-[#0075DE]" : "bg-slate-800"
                     }`}
                   >
                     <span className={`w-5 h-5 rounded-full bg-slate-950 absolute top-0.5 transition-transform ${
@@ -3127,12 +3127,12 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
                 {/* 3. RISK RADAR & SENSITIVE ALERTS LOCK */}
                 <div className={`p-5 rounded-2xl border transition-all flex items-center justify-between ${
                   encryptedSecurity.lockedModules.riskRadar 
-                    ? "bg-amber-500/10 border-amber-500/40" 
+                    ? "bg-[#0075DE]/10 border-[#0075DE]/40" 
                     : "bg-slate-950/60 border-slate-800"
                 }`}>
                   <div className="flex items-center gap-3">
                     <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
-                      encryptedSecurity.lockedModules.riskRadar ? "bg-amber-500/20 text-amber-400" : "bg-slate-800 text-slate-400"
+                      encryptedSecurity.lockedModules.riskRadar ? "bg-[#0075DE]/20 text-[#0075DE]" : "bg-slate-800 text-slate-400"
                     }`}>
                       <ShieldAlert className="w-5 h-5" />
                     </div>
@@ -3140,7 +3140,7 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
                       <h4 className="text-sm font-bold text-white flex items-center gap-2">
                         <span>{lang === "ar" ? "تشفير رادار المخاطر والمعلومات الحساسة" : "Encrypted Risk Radar & Alerts"}</span>
                         {encryptedSecurity.lockedModules.riskRadar && (
-                          <span className="px-2 py-0.5 rounded bg-amber-500/20 text-amber-400 text-[10px] font-bold">LOCKED</span>
+                          <span className="px-2 py-0.5 rounded bg-[#0075DE]/20 text-[#0075DE] text-[10px] font-bold">LOCKED</span>
                         )}
                       </h4>
                       <p className="text-[11px] text-slate-400">
@@ -3153,7 +3153,7 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
                     type="button"
                     onClick={() => handleToggleModuleLock("riskRadar")}
                     className={`w-12 h-6 rounded-full transition-colors relative cursor-pointer ${
-                      encryptedSecurity.lockedModules.riskRadar ? "bg-amber-500" : "bg-slate-800"
+                      encryptedSecurity.lockedModules.riskRadar ? "bg-[#0075DE]" : "bg-slate-800"
                     }`}
                   >
                     <span className={`w-5 h-5 rounded-full bg-slate-950 absolute top-0.5 transition-transform ${
@@ -3165,12 +3165,12 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
                 {/* 4. SYSTEM SETTINGS LOCK */}
                 <div className={`p-5 rounded-2xl border transition-all flex items-center justify-between ${
                   encryptedSecurity.lockedModules.settings 
-                    ? "bg-amber-500/10 border-amber-500/40" 
+                    ? "bg-[#0075DE]/10 border-[#0075DE]/40" 
                     : "bg-slate-950/60 border-slate-800"
                 }`}>
                   <div className="flex items-center gap-3">
                     <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
-                      encryptedSecurity.lockedModules.settings ? "bg-amber-500/20 text-amber-400" : "bg-slate-800 text-slate-400"
+                      encryptedSecurity.lockedModules.settings ? "bg-[#0075DE]/20 text-[#0075DE]" : "bg-slate-800 text-slate-400"
                     }`}>
                       <Lock className="w-5 h-5" />
                     </div>
@@ -3178,7 +3178,7 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
                       <h4 className="text-sm font-bold text-white flex items-center gap-2">
                         <span>{lang === "ar" ? "تشفير إعدادات لوحة التحكم" : "Encrypted System Settings"}</span>
                         {encryptedSecurity.lockedModules.settings && (
-                          <span className="px-2 py-0.5 rounded bg-amber-500/20 text-amber-400 text-[10px] font-bold">LOCKED</span>
+                          <span className="px-2 py-0.5 rounded bg-[#0075DE]/20 text-[#0075DE] text-[10px] font-bold">LOCKED</span>
                         )}
                       </h4>
                       <p className="text-[11px] text-slate-400">
@@ -3191,7 +3191,7 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
                     type="button"
                     onClick={() => handleToggleModuleLock("settings")}
                     className={`w-12 h-6 rounded-full transition-colors relative cursor-pointer ${
-                      encryptedSecurity.lockedModules.settings ? "bg-amber-500" : "bg-slate-800"
+                      encryptedSecurity.lockedModules.settings ? "bg-[#0075DE]" : "bg-slate-800"
                     }`}
                   >
                     <span className={`w-5 h-5 rounded-full bg-slate-950 absolute top-0.5 transition-transform ${
@@ -3221,7 +3221,7 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
                     downloadAnchor.click();
                     downloadAnchor.remove();
                   }}
-                  className="px-4 py-2.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs rounded-xl flex items-center gap-2 cursor-pointer transition-all"
+                  className="px-4 py-2.5 bg-[#0075DE] hover:bg-[#005BAB] text-slate-950 font-bold text-xs rounded-xl flex items-center gap-2 cursor-pointer transition-all"
                 >
                   <Download className="w-3.5 h-3.5" />
                   <span>{lang === "ar" ? "تصدير الآن" : "Export Backup"}</span>
@@ -3240,7 +3240,7 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
             <div className="flex items-center justify-between pb-3 border-b border-slate-800">
               <div>
                 <h3 className="text-base font-bold text-white flex items-center gap-2">
-                  <Sliders className="w-4 h-4 text-amber-400" />
+                  <Sliders className="w-4 h-4 text-[#0075DE]" />
                   <span>{lang === "ar" ? `تخصيص صلاحيات العضو: ${editingMemberModal.name}` : `CEO Power Grants: ${editingMemberModal.name}`}</span>
                 </h3>
                 <p className="text-xs text-slate-400">{editingMemberModal.email} ({editingMemberModal.role})</p>
@@ -3255,7 +3255,7 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
             </div>
 
             <div className="space-y-3">
-              <p className="text-xs font-bold text-amber-400 uppercase tracking-wider">
+              <p className="text-xs font-bold text-[#0075DE] uppercase tracking-wider">
                 {lang === "ar" ? "الأقسام المتاحة للعضو:" : "Module Access Powers Granted by CEO:"}
               </p>
 
@@ -3286,7 +3286,7 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
                           }
                         });
                       }}
-                      className="w-5 h-5 rounded bg-slate-900 border-slate-700 text-amber-500 focus:ring-amber-500 accent-amber-500 cursor-pointer"
+                      className="w-5 h-5 rounded bg-slate-900 border-slate-700 text-[#0075DE] focus:ring-[#0075DE] accent-[#0075DE] cursor-pointer"
                     />
                   </div>
                 );
@@ -3305,7 +3305,7 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
               <button
                 type="button"
                 onClick={handleSaveMemberModalPowers}
-                className="flex-1 py-3 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs rounded-xl flex items-center justify-center gap-2 cursor-pointer shadow-lg shadow-amber-500/20"
+                className="flex-1 py-3 bg-[#0075DE] hover:bg-[#005BAB] text-slate-950 font-bold text-xs rounded-xl flex items-center justify-center gap-2 cursor-pointer shadow-lg shadow-[#0075DE]/20"
               >
                 <Save className="w-4 h-4" />
                 <span>{lang === "ar" ? "حفظ الصلاحيات" : "Save Granted Powers"}</span>
@@ -3349,7 +3349,7 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
           <div className="w-full max-w-md rounded-2xl bg-slate-900 border border-slate-800 p-6 space-y-5 text-white shadow-2xl">
             <div className="flex items-center justify-between pb-3 border-b border-slate-800">
               <div className="flex items-center gap-2">
-                <Lock className="w-5 h-5 text-amber-400" />
+                <Lock className="w-5 h-5 text-[#0075DE]" />
                 <h3 className="text-base font-bold text-white">
                   {lang === "ar" ? "اختبار الرمز السري لفك التشفير" : "Test Secret Code Decryption Unlock"}
                 </h3>
@@ -3382,7 +3382,7 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
                     setTestUnlockStatus(null);
                   }}
                   placeholder="••••"
-                  className="w-full h-11 px-3 bg-slate-950 border border-slate-800 text-amber-400 font-mono text-center text-lg tracking-widest rounded-xl focus:border-amber-500 focus:outline-none"
+                  className="w-full h-11 px-3 bg-slate-950 border border-slate-800 text-[#0075DE] font-mono text-center text-lg tracking-widest rounded-xl focus:border-[#0075DE] focus:outline-none"
                 />
               </div>
 
@@ -3413,7 +3413,7 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
               <button
                 type="button"
                 onClick={handleVerifyTestPasscode}
-                className="flex-1 py-3 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 cursor-pointer shadow-lg shadow-amber-500/20"
+                className="flex-1 py-3 bg-[#0075DE] hover:bg-[#005BAB] text-slate-950 font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 cursor-pointer shadow-lg shadow-[#0075DE]/20"
               >
                 <Unlock className="w-4 h-4" />
                 <span>{lang === "ar" ? "التحقق وفك القفل" : "Verify & Unlock"}</span>
@@ -3428,7 +3428,7 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
         <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4">
           <div className="w-full max-w-md rounded-2xl bg-slate-900 border border-slate-800 p-6 space-y-5 text-white shadow-2xl">
             <div className="flex items-center justify-between pb-3 border-b border-slate-800">
-              <div className="flex items-center gap-2 text-amber-400">
+              <div className="flex items-center gap-2 text-[#0075DE]">
                 <Lock className="w-5 h-5" />
                 <h3 className="text-base font-bold text-white">
                   {lang === "ar" ? "تأكيد فك التشفير وإلغاء القفل" : "Confirm Passcode to Cancel Lock"}
@@ -3446,8 +3446,8 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
               </button>
             </div>
 
-            <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-300 text-xs font-semibold flex items-center gap-2">
-              <AlertCircle className="w-4 h-4 text-amber-400 shrink-0" />
+            <div className="p-3 rounded-xl bg-[#0075DE]/10 border border-[#0075DE]/20 text-blue-300 text-xs font-semibold flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 text-[#0075DE] shrink-0" />
               <span>
                 {lang === "ar" 
                   ? "لإلغاء القفل والتشفير عن هذا القسم، يجب إدخال الرمز السري المعتمد للمدير التنفيذي أولاً." 
@@ -3468,7 +3468,7 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
                     setCancelLockError("");
                   }}
                   placeholder="••••"
-                  className="w-full h-11 px-3 bg-slate-950 border border-slate-800 text-amber-400 font-mono text-center text-lg tracking-widest rounded-xl focus:border-amber-500 focus:outline-none"
+                  className="w-full h-11 px-3 bg-slate-950 border border-slate-800 text-[#0075DE] font-mono text-center text-lg tracking-widest rounded-xl focus:border-[#0075DE] focus:outline-none"
                 />
               </div>
 
@@ -3495,7 +3495,7 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
               <button
                 type="button"
                 onClick={handleConfirmCancelLock}
-                className="flex-1 py-3 bg-gradient-to-r from-amber-500 to-amber-400 text-slate-950 font-black text-xs rounded-xl flex items-center justify-center gap-1.5 cursor-pointer shadow-lg shadow-amber-500/20"
+                className="flex-1 py-3 bg-gradient-to-r from-[#0075DE] to-[#005BAB] text-slate-950 font-black text-xs rounded-xl flex items-center justify-center gap-1.5 cursor-pointer shadow-lg shadow-[#0075DE]/20"
               >
                 <Unlock className="w-4 h-4" />
                 <span>{lang === "ar" ? "تأكيد وإلغاء القفل" : "Verify & Unlock"}</span>

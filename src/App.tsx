@@ -2807,23 +2807,23 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
 
         /* Accent text color rules */
         .theme-light .text-\[\#0075DE\], .theme-dark .text-\[\#0075DE\], .custom-theme-active .text-\[\#0075DE\],
-        .theme-light .text-amber-400, .theme-dark .text-amber-400, .custom-theme-active .text-amber-400,
-        .theme-light .text-amber-500, .theme-dark .text-amber-500, .custom-theme-active .text-amber-500 {
+        .theme-light .text-[#0075DE], .theme-dark .text-[#0075DE], .custom-theme-active .text-[#0075DE],
+        .theme-light .text-[#0075DE], .theme-dark .text-[#0075DE], .custom-theme-active .text-[#0075DE] {
           color: var(--accent-color) !important;
         }
 
         /* Accent background color rules */
         .theme-light .bg-\[\#0075DE\], .theme-dark .bg-\[\#0075DE\], .custom-theme-active .bg-\[\#0075DE\],
         .theme-light .bg-amber-400, .theme-dark .bg-amber-400, .custom-theme-active .bg-amber-400,
-        .theme-light .bg-amber-500, .theme-dark .bg-amber-500, .custom-theme-active .bg-amber-500 {
+        .theme-light .bg-[#0075DE], .theme-dark .bg-[#0075DE], .custom-theme-active .bg-[#0075DE] {
           background-color: var(--accent-color) !important;
           color: var(--accent-text) !important;
         }
 
         /* Subtle badges & tabs selection */
         .theme-light .bg-\[\#0075DE\]\/15, .theme-dark .bg-\[\#0075DE\]\/15, .custom-theme-active .bg-\[\#0075DE\]\/15,
-        .theme-light .bg-amber-500\/10, .theme-dark .bg-amber-500\/10, .custom-theme-active .bg-amber-500\/10,
-        .theme-light .bg-amber-500\/15, .theme-dark .bg-amber-500\/15, .custom-theme-active .bg-amber-500\/15 {
+        .theme-light .bg-[#0075DE]\/10, .theme-dark .bg-[#0075DE]\/10, .custom-theme-active .bg-[#0075DE]\/10,
+        .theme-light .bg-[#0075DE]\/15, .theme-dark .bg-[#0075DE]\/15, .custom-theme-active .bg-[#0075DE]\/15 {
           background-color: var(--accent-subtle) !important;
           color: var(--accent-color) !important;
         }
@@ -2835,7 +2835,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
 
         /* Active Navigation item text and icons */
         .theme-light .text-\[\#0075DE\], .theme-dark .text-\[\#0075DE\], .custom-theme-active .text-\[\#0075DE\],
-        .theme-light .text-amber-400, .theme-dark .text-amber-400, .custom-theme-active .text-amber-400 {
+        .theme-light .text-[#0075DE], .theme-dark .text-[#0075DE], .custom-theme-active .text-[#0075DE] {
           color: var(--accent-color) !important;
         }
 
@@ -2852,20 +2852,20 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
         .theme-light .bg-\[\#0075DE\],
         .theme-dark .bg-\[\#0075DE\],
         .custom-theme-active .bg-\[\#0075DE\],
-        .theme-light .bg-amber-500.hover\:bg-amber-400,
-        .theme-dark .bg-amber-500.hover\:bg-amber-400,
-        .custom-theme-active .bg-amber-500.hover\:bg-amber-400 {
+        .theme-light .bg-[#0075DE].hover\:bg-amber-400,
+        .theme-dark .bg-[#0075DE].hover\:bg-amber-400,
+        .custom-theme-active .bg-[#0075DE].hover\:bg-amber-400 {
           background-color: var(--accent-color) !important;
           background-image: none !important;
           color: var(--accent-text) !important;
         }
 
-        .theme-light .bg-gradient-to-r.from-amber-500.to-amber-400:hover,
-        .theme-dark .bg-gradient-to-r.from-amber-500.to-amber-400:hover,
-        .custom-theme-active .bg-gradient-to-r.from-amber-500.to-amber-400:hover,
-        .theme-light .bg-amber-500.hover\:bg-amber-400:hover,
-        .theme-dark .bg-amber-500.hover\:bg-amber-400:hover,
-        .custom-theme-active .bg-amber-500.hover\:bg-amber-400:hover {
+        .theme-light .bg-gradient-to-r.from-[#0075DE].to-[#005BAB]:hover,
+        .theme-dark .bg-gradient-to-r.from-[#0075DE].to-[#005BAB]:hover,
+        .custom-theme-active .bg-gradient-to-r.from-[#0075DE].to-[#005BAB]:hover,
+        .theme-light .bg-[#0075DE].hover\:bg-amber-400:hover,
+        .theme-dark .bg-[#0075DE].hover\:bg-amber-400:hover,
+        .custom-theme-active .bg-[#0075DE].hover\:bg-amber-400:hover {
           opacity: 0.9 !important;
         }
 
@@ -3754,7 +3754,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
             {/* Smooth Top Progress Bar */}
             {isLoading && (
               <div className="absolute top-0 left-0 right-0 h-1 bg-transparent overflow-hidden z-[999] pointer-events-none">
-                <div className="h-full bg-gradient-to-r from-amber-500 via-amber-300 to-amber-500 w-1/3 rounded-full animate-[loading-bar_1.2s_infinite_linear]"></div>
+                <div className="h-full bg-gradient-to-r from-[#0075DE] via-blue-300 to-[#005BAB] w-1/3 rounded-full animate-[loading-bar_1.2s_infinite_linear]"></div>
               </div>
             )}
             
@@ -6417,7 +6417,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                   required
                   value={editingMemory.title}
                   onChange={(e) => setEditingMemory({ ...editingMemory, title: e.target.value })}
-                  className="w-full h-10 px-3 rounded-xl bg-slate-950 border border-slate-800 text-white outline-none focus:border-amber-500"
+                  className="w-full h-10 px-3 rounded-xl bg-slate-950 border border-slate-800 text-white outline-none focus:border-[#0075DE]"
                 />
               </div>
 
@@ -6432,7 +6432,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                         setCustomEditCategory("");
                       }
                     }}
-                    className="w-full h-10 px-3 rounded-xl bg-slate-950 border border-slate-800 text-white outline-none focus:border-amber-500"
+                    className="w-full h-10 px-3 rounded-xl bg-slate-950 border border-slate-800 text-white outline-none focus:border-[#0075DE]"
                   >
                     <option value="Financial Engineering">Ingénierie Financière (Financial Engineering)</option>
                     <option value="FX Risk Management">Gestion du Risque de Change (FX Risk Management)</option>
@@ -6446,7 +6446,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                       type="text"
                       value={customEditCategory}
                       onChange={(e) => setCustomEditCategory(e.target.value)}
-                      className="w-full h-10 px-3 mt-2 rounded-xl bg-slate-950 border border-slate-800 text-white outline-none focus:border-amber-500"
+                      className="w-full h-10 px-3 mt-2 rounded-xl bg-slate-950 border border-slate-800 text-white outline-none focus:border-[#0075DE]"
                       placeholder={lang === "ar" ? "اكتب التصنيف المخصص هنا..." : (lang === "fr" ? "Entrez la catégorie personnalisée..." : "Enter custom category...")}
                       required
                     />
@@ -6458,7 +6458,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                   <select
                     value={editingMemory.riskLevel}
                     onChange={(e) => setEditingMemory({ ...editingMemory, riskLevel: e.target.value as any })}
-                    className="w-full h-10 px-3 rounded-xl bg-slate-950 border border-slate-800 text-white outline-none focus:border-amber-500"
+                    className="w-full h-10 px-3 rounded-xl bg-slate-950 border border-slate-800 text-white outline-none focus:border-[#0075DE]"
                   >
                     <option value="Low">Faible (Low)</option>
                     <option value="Medium">Moyen (Medium)</option>
@@ -6474,7 +6474,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                   rows={2}
                   value={editingMemory.description}
                   onChange={(e) => setEditingMemory({ ...editingMemory, description: e.target.value })}
-                  className="w-full p-3 rounded-xl bg-slate-950 border border-slate-800 text-white outline-none focus:border-amber-500"
+                  className="w-full p-3 rounded-xl bg-slate-950 border border-slate-800 text-white outline-none focus:border-[#0075DE]"
                 />
               </div>
 
@@ -6485,7 +6485,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                     rows={2}
                     value={editingMemory.decision}
                     onChange={(e) => setEditingMemory({ ...editingMemory, decision: e.target.value })}
-                    className="w-full p-3 rounded-xl bg-slate-950 border border-slate-800 text-white outline-none focus:border-amber-500"
+                    className="w-full p-3 rounded-xl bg-slate-950 border border-slate-800 text-white outline-none focus:border-[#0075DE]"
                   />
                 </div>
 
@@ -6495,7 +6495,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                     rows={2}
                     value={editingMemory.causalFactors || ""}
                     onChange={(e) => setEditingMemory({ ...editingMemory, causalFactors: e.target.value })}
-                    className="w-full p-3 rounded-xl bg-slate-950 border border-slate-800 text-white outline-none focus:border-amber-500"
+                    className="w-full p-3 rounded-xl bg-slate-950 border border-slate-800 text-white outline-none focus:border-[#0075DE]"
                   />
                 </div>
               </div>
@@ -6507,7 +6507,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                     rows={2}
                     value={editingMemory.outcomes || ""}
                     onChange={(e) => setEditingMemory({ ...editingMemory, outcomes: e.target.value })}
-                    className="w-full p-3 rounded-xl bg-slate-950 border border-slate-800 text-white outline-none focus:border-amber-500"
+                    className="w-full p-3 rounded-xl bg-slate-950 border border-slate-800 text-white outline-none focus:border-[#0075DE]"
                   />
                 </div>
 
@@ -6517,7 +6517,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                     rows={2}
                     value={editingMemory.lessonsLearned || ""}
                     onChange={(e) => setEditingMemory({ ...editingMemory, lessonsLearned: e.target.value })}
-                    className="w-full p-3 rounded-xl bg-slate-950 border border-slate-800 text-white outline-none focus:border-amber-500"
+                    className="w-full p-3 rounded-xl bg-slate-950 border border-slate-800 text-white outline-none focus:border-[#0075DE]"
                   />
                 </div>
               </div>
@@ -6553,7 +6553,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
       )}
 
       {showRefreshToast && (
-        <div className="fixed bottom-6 right-6 z-50 bg-slate-900 border border-amber-500/30 text-amber-400 px-4 py-3 rounded-xl shadow-2xl flex items-center gap-2 font-medium text-xs animate-bounce">
+        <div className="fixed bottom-6 right-6 z-50 bg-slate-900 border border-[#0075DE]/30 text-[#0075DE] px-4 py-3 rounded-xl shadow-2xl flex items-center gap-2 font-medium text-xs animate-bounce">
           <CheckCircle className="w-4 h-4 text-emerald-400" />
           <span>
             {lang === "ar" ? "تم تحديث البيانات وقاعدة الذاكرة بنجاح!" : (lang === "fr" ? "Données système et mémoire rafraîchies avec succès !" : "System data and memory cache refreshed successfully!")}
@@ -6602,7 +6602,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
             <div className="bg-slate-950/80 border border-slate-800 rounded-xl p-4 space-y-3 text-xs">
               <div className="flex justify-between py-1 border-b border-slate-800">
                 <span className="text-slate-400">{lang === "ar" ? "الخطة المشتركة:" : (lang === "fr" ? "Plan Abonné :" : "Plan:")}</span>
-                <span className="font-bold text-amber-400">{stripeReceiptData.plan}</span>
+                <span className="font-bold text-[#0075DE]">{stripeReceiptData.plan}</span>
               </div>
               <div className="flex justify-between py-1 border-b border-slate-800">
                 <span className="text-slate-400">{lang === "ar" ? "دورة الفوترة:" : (lang === "fr" ? "Cycle de Facturation :" : "Billing Cycle:")}</span>
@@ -6634,7 +6634,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
               <button
                 type="button"
                 onClick={() => setStripeReceiptData(null)}
-                className="px-5 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-extrabold text-xs cursor-pointer shadow-lg shadow-amber-500/20"
+                className="px-5 py-2 rounded-xl bg-[#0075DE] hover:bg-[#005BAB] text-slate-950 font-extrabold text-xs cursor-pointer shadow-lg shadow-[#0075DE]/20"
               >
                 {lang === "ar" ? "إغلاق ومتابعة" : (lang === "fr" ? "Fermer & Continuer" : "Close & Proceed")}
               </button>
