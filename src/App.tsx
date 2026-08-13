@@ -2806,14 +2806,14 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
         }
 
         /* Accent text color rules */
-        .theme-light .text-\\[\\#0075DE\\], .theme-dark .text-\\[\\#0075DE\\], .custom-theme-active .text-\\[\\#0075DE\\],
+        .theme-light .text-\[\#0075DE\], .theme-dark .text-\[\#0075DE\], .custom-theme-active .text-\[\#0075DE\],
         .theme-light .text-amber-400, .theme-dark .text-amber-400, .custom-theme-active .text-amber-400,
         .theme-light .text-amber-500, .theme-dark .text-amber-500, .custom-theme-active .text-amber-500 {
           color: var(--accent-color) !important;
         }
 
         /* Accent background color rules */
-        .theme-light .bg-\\[\\#0075DE\\], .theme-dark .bg-\\[\\#0075DE\\], .custom-theme-active .bg-\\[\\#0075DE\\],
+        .theme-light .bg-\[\#0075DE\], .theme-dark .bg-\[\#0075DE\], .custom-theme-active .bg-\[\#0075DE\],
         .theme-light .bg-amber-400, .theme-dark .bg-amber-400, .custom-theme-active .bg-amber-400,
         .theme-light .bg-amber-500, .theme-dark .bg-amber-500, .custom-theme-active .bg-amber-500 {
           background-color: var(--accent-color) !important;
@@ -2821,40 +2821,40 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
         }
 
         /* Subtle badges & tabs selection */
-        .theme-light .bg-\\[\\#0075DE\\\]\\/15, .theme-dark .bg-\\[\\#0075DE\\\]\\/15, .custom-theme-active .bg-\\[\\#0075DE\\\]\\/15,
-        .theme-light .bg-amber-500\\/10, .theme-dark .bg-amber-500\\/10, .custom-theme-active .bg-amber-500\\/10,
-        .theme-light .bg-amber-500\\/15, .theme-dark .bg-amber-500\\/15, .custom-theme-active .bg-amber-500\\/15 {
+        .theme-light .bg-\[\#0075DE\]\/15, .theme-dark .bg-\[\#0075DE\]\/15, .custom-theme-active .bg-\[\#0075DE\]\/15,
+        .theme-light .bg-amber-500\/10, .theme-dark .bg-amber-500\/10, .custom-theme-active .bg-amber-500\/10,
+        .theme-light .bg-amber-500\/15, .theme-dark .bg-amber-500\/15, .custom-theme-active .bg-amber-500\/15 {
           background-color: var(--accent-subtle) !important;
           color: var(--accent-color) !important;
         }
 
         /* Sidebar link active dots */
-        .theme-light .bg-\\[\\#0075DE\\], .theme-dark .bg-\\[\\#0075DE\\], .custom-theme-active .bg-\\[\\#0075DE\\] {
+        .theme-light .bg-\[\#0075DE\], .theme-dark .bg-\[\#0075DE\], .custom-theme-active .bg-\[\#0075DE\] {
           background-color: var(--accent-color) !important;
         }
 
         /* Active Navigation item text and icons */
-        .theme-light .text-\\[\\#0075DE\\], .theme-dark .text-\\[\\#0075DE\\], .custom-theme-active .text-\\[\\#0075DE\\],
+        .theme-light .text-\[\#0075DE\], .theme-dark .text-\[\#0075DE\], .custom-theme-active .text-\[\#0075DE\],
         .theme-light .text-amber-400, .theme-dark .text-amber-400, .custom-theme-active .text-amber-400 {
           color: var(--accent-color) !important;
         }
 
         /* Navigation elements hover states */
-        .theme-light .hover\\:bg-slate-800\\/60:hover, .theme-dark .hover\\:bg-slate-800\\/60:hover, .custom-theme-active .hover\\:bg-slate-800\\/60:hover,
-        .theme-light .hover\\:bg-slate-800:hover, .theme-dark .hover\\:bg-slate-800:hover, .custom-theme-active .hover\\:bg-slate-800:hover,
-        .theme-light .hover\\:bg-slate-700:hover, .theme-dark .hover\\:bg-slate-700:hover, .custom-theme-active .hover\\:bg-slate-700:hover,
-        .theme-light .hover\\:bg-slate-100:hover, .theme-dark .hover\\:bg-slate-100:hover, .custom-theme-active .hover\\:bg-slate-100:hover,
-        .theme-light .hover\\:bg-slate-200:hover, .theme-dark .hover\\:bg-slate-200:hover, .custom-theme-active .hover\\:bg-slate-200:hover {
+        .theme-light .hover\:bg-slate-800\/60:hover, .theme-dark .hover\:bg-slate-800\/60:hover, .custom-theme-active .hover\:bg-slate-800\/60:hover,
+        .theme-light .hover\:bg-slate-800:hover, .theme-dark .hover\:bg-slate-800:hover, .custom-theme-active .hover\:bg-slate-800:hover,
+        .theme-light .hover\:bg-slate-700:hover, .theme-dark .hover\:bg-slate-700:hover, .custom-theme-active .hover\:bg-slate-700:hover,
+        .theme-light .hover\:bg-slate-100:hover, .theme-dark .hover\:bg-slate-100:hover, .custom-theme-active .hover\:bg-slate-100:hover,
+        .theme-light .hover\:bg-slate-200:hover, .theme-dark .hover\:bg-slate-200:hover, .custom-theme-active .hover\:bg-slate-200:hover {
           background-color: var(--bg-tertiary) !important;
         }
 
         /* Main action button custom overrides */
-        .theme-light .bg-\\[\\#0075DE\\],
-        .theme-dark .bg-\\[\\#0075DE\\],
-        .custom-theme-active .bg-\\[\\#0075DE\\],
-        .theme-light .bg-amber-500.hover\\:bg-amber-400,
-        .theme-dark .bg-amber-500.hover\\:bg-amber-400,
-        .custom-theme-active .bg-amber-500.hover\\:bg-amber-400 {
+        .theme-light .bg-\[\#0075DE\],
+        .theme-dark .bg-\[\#0075DE\],
+        .custom-theme-active .bg-\[\#0075DE\],
+        .theme-light .bg-amber-500.hover\:bg-amber-400,
+        .theme-dark .bg-amber-500.hover\:bg-amber-400,
+        .custom-theme-active .bg-amber-500.hover\:bg-amber-400 {
           background-color: var(--accent-color) !important;
           background-image: none !important;
           color: var(--accent-text) !important;
@@ -2863,9 +2863,9 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
         .theme-light .bg-gradient-to-r.from-amber-500.to-amber-400:hover,
         .theme-dark .bg-gradient-to-r.from-amber-500.to-amber-400:hover,
         .custom-theme-active .bg-gradient-to-r.from-amber-500.to-amber-400:hover,
-        .theme-light .bg-amber-500.hover\\:bg-amber-400:hover,
-        .theme-dark .bg-amber-500.hover\\:bg-amber-400:hover,
-        .custom-theme-active .bg-amber-500.hover\\:bg-amber-400:hover {
+        .theme-light .bg-amber-500.hover\:bg-amber-400:hover,
+        .theme-dark .bg-amber-500.hover\:bg-amber-400:hover,
+        .custom-theme-active .bg-amber-500.hover\:bg-amber-400:hover {
           opacity: 0.9 !important;
         }
 
@@ -2923,548 +2923,57 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
             onNavigateAuth={(mode) => setAuthMode(mode)}
             onStripeCheckout={handleLandingStripeCheckout}
           />
-        ) : authMode === "register" ? (
-          /* REGISTRATION SCREEN (Video 2 Style with Password Checklist Requirements) */
-          <div className="min-h-screen bg-slate-50 dark:bg-[#070b13] text-slate-900 dark:text-slate-200 flex flex-col md:grid md:grid-cols-12 relative overflow-hidden selection:bg-[#0075DE]/20">
-            {/* GLOWING AMBIENT FIELD */}
-            <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-[#0075DE]/5 rounded-full blur-[120px] pointer-events-none" />
-            <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-blue-500/5 rounded-full blur-[120px] pointer-events-none" />
-
-            {/* LEFT COLUMN: BRAND WORKSPACE MONOLITH & CAUSAL PATH CONSOLE */}
-            <div className="hidden md:flex md:col-span-5 lg:col-span-4 bg-slate-100 dark:bg-[#0a0f1d] border-r border-slate-200 dark:border-slate-800/40 p-10 flex-col justify-between relative overflow-hidden shrink-0">
-              <div className="absolute inset-0 opacity-[0.02] bg-[radial-gradient(#000_1px,transparent_1px)] dark:bg-[radial-gradient(#fff_1px,transparent_1px)] [background-size:16px_16px] pointer-events-none" />
-              
-              {/* Header: Brand Identity */}
-              <div className="relative z-10 flex items-center gap-3">
-                <ZakirLogo theme={theme} />
-              </div>
-
-              {/* Dynamic Interactive Causal Path Animation Console */}
-              <div className="relative z-10 my-12 space-y-6">
-                <div className="zakir-card p-4 rounded-xl border border-slate-200 dark:border-slate-800/60 bg-white dark:bg-slate-900/30 backdrop-blur-sm space-y-3">
-                  <div className="flex items-center gap-2 text-xs font-black uppercase tracking-widest text-[#0075DE]">
-                    <Activity className="w-3.5 h-3.5 animate-pulse" />
-                    <span className="zakir-badge">{lang === "ar" ? "شاشة الترابط السببي النشطة" : "Active Causal Ledger"}</span>
-                  </div>
-                  <p className="text-[11px] text-slate-600 dark:text-slate-400 leading-relaxed">
-                    {lang === "ar" 
-                      ? "رسم بياني يوضح مسببات القرارات وربطها التلقائي بالامتثال والتخفيف من المخاطر التشغيلية." 
-                      : "Visual schematic mapping corporate events, trigger conditions, regulatory compliance, and resolution vectors."}
-                  </p>
-
-                  {/* SVG Nodes Connector Animation */}
-                  <div className="h-28 relative mt-3 border border-slate-200 dark:border-slate-800/50 rounded-lg bg-slate-50 dark:bg-slate-950/50 overflow-hidden p-2">
-                    <svg className="w-full h-full absolute inset-0 text-slate-400 dark:text-slate-800" xmlns="http://www.w3.org/2000/svg">
-                      {/* Animated Connector Lines */}
-                      <path d="M 30,50 L 120,30 L 210,50" fill="none" stroke="currentColor" strokeWidth="1" />
-                      <path d="M 30,50 L 120,74 L 210,50" fill="none" stroke="currentColor" strokeWidth="1" />
-                      
-                      {/* Pulse Animations along the paths */}
-                      <circle r="3" fill="#0075DE">
-                        <animateMotion dur="4s" repeatCount="indefinite" path="M 30,50 L 120,30 L 210,50" />
-                      </circle>
-                      <circle r="3" fill="#3b82f6">
-                        <animateMotion dur="5s" repeatCount="indefinite" path="M 30,50 L 120,74 L 210,50" />
-                      </circle>
-                    </svg>
-
-                    {/* Nodes */}
-                    <div className="absolute top-[38px] left-[10px] flex flex-col items-center">
-                      <div className="w-6 h-6 rounded-md bg-slate-200 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 flex items-center justify-center text-[10px] font-bold text-slate-700 dark:text-slate-300">
-                        IN
-                      </div>
-                      <span className="text-[8px] text-slate-500 mt-1 uppercase tracking-wider">Trigger</span>
-                    </div>
-
-                    <div className="absolute top-[18px] left-[105px] flex flex-col items-center">
-                      <div className="w-6 h-6 rounded-md bg-[#0075DE]/10 border border-[#0075DE]/30 flex items-center justify-center text-[10px] font-bold text-[#0075DE] animate-pulse">
-                        CA
-                      </div>
-                      <span className="text-[8px] text-[#0075DE] mt-1 uppercase tracking-wider">Causal</span>
-                    </div>
-
-                    <div className="absolute bottom-[10px] left-[105px] flex flex-col items-center">
-                      <div className="w-6 h-6 rounded-md bg-blue-500/10 border border-blue-500/30 flex items-center justify-center text-[10px] font-bold text-blue-600 dark:text-blue-400">
-                        RG
-                      </div>
-                      <span className="text-[8px] text-blue-600 dark:text-blue-400 mt-1 uppercase tracking-wider">Audit</span>
-                    </div>
-
-                    <div className="absolute top-[38px] right-[10px] flex flex-col items-center">
-                      <div className="w-6 h-6 rounded-md bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-[10px] font-bold text-emerald-600 dark:text-emerald-400">
-                        OK
-                      </div>
-                      <span className="text-[8px] text-emerald-600 dark:text-emerald-400 mt-1 uppercase tracking-wider">Resolve</span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="space-y-4">
-                  <div className="flex items-start gap-3">
-                    <div className="w-8 h-8 rounded-lg bg-slate-200 dark:bg-slate-900 border border-slate-300 dark:border-slate-800 flex items-center justify-center text-[#0075DE] shrink-0">
-                      <Database className="w-4 h-4" />
-                    </div>
-                    <div>
-                      <h4 className="text-xs font-bold text-slate-900 dark:text-white">{lang === "ar" ? "تتبع وحوكمة مركزية" : "Verifiable Corporate Ledger"}</h4>
-                      <p className="text-[10px] text-slate-500 leading-relaxed mt-0.5">
-                        {lang === "ar"
-                          ? "بيانات غير قابلة للتعديل لضمان الالتزام بمعايير الحوكمة المالية والإدارية."
-                          : "Stateful causal record matching business logic directly with regulatory and financial milestones."}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-start gap-3">
-                    <div className="w-8 h-8 rounded-lg bg-slate-200 dark:bg-slate-900 border border-slate-300 dark:border-slate-800 flex items-center justify-center text-[#0075DE] shrink-0">
-                      <Brain className="w-4 h-4" />
-                    </div>
-                    <div>
-                      <h4 className="text-xs font-bold text-slate-900 dark:text-white">{lang === "ar" ? "ذكاء اصطناعي موجه بمؤشرات دقيقة" : "Augmented Business Intelligence"}</h4>
-                      <p className="text-[10px] text-slate-500 leading-relaxed mt-0.5">
-                        {lang === "ar"
-                          ? "محرك استشاري يستند بالكامل إلى البيانات السببية المدخلة."
-                          : "Fully grounded reasoning capabilities targeting operational risks, risk mitigation, and systemic gaps."}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Footer Credentials */}
-              <div className="relative z-10 text-[10px] text-slate-500 dark:text-slate-600 font-mono">
-                <span>ZAKIR INTELLIGENCE SUITE v2.9</span>
-                <span className="block mt-0.5">© {new Date().getFullYear()} Zakir Systems Corp.</span>
-              </div>
-            </div>
-
-            {/* RIGHT COLUMN: INTERACTIVE FORM WORKSPACE */}
-            <div className="flex-1 md:col-span-7 lg:col-span-8 flex flex-col justify-between p-6 sm:p-10 relative">
-              {/* Back to Home & Language Selection Top bar */}
-              <div className="w-full flex items-center justify-between">
-                <button 
-                  onClick={() => setAuthMode("landing")}
-                  className="flex items-center gap-2 text-xs font-bold text-slate-600 dark:text-slate-400 hover:text-[#0075DE] transition-colors cursor-pointer"
-                >
-                  {lang === "ar" ? <ArrowRight className="w-4 h-4" /> : <ArrowLeft className="w-4 h-4" />}
-                  <span>
-                    {lang === "ar" ? "العودة للرئيسية" : (lang === "fr" ? "Retour à l'accueil" : "Back to Home")}
-                  </span>
-                </button>
-
-                <div className="flex items-center gap-1.5 bg-slate-200 dark:bg-slate-950 p-1 rounded-lg border border-slate-300 dark:border-slate-800">
-                  <button 
-                    onClick={() => toggleLanguage("ar")}
-                    className={`text-[10px] font-black px-2.5 py-1 rounded transition-all ${lang === "ar" ? "bg-[#0075DE] text-white font-bold" : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"}`}
-                  >
-                    ع
-                  </button>
-                  <button 
-                    onClick={() => toggleLanguage("fr")}
-                    className={`text-[10px] font-black px-2.5 py-1 rounded transition-all ${lang === "fr" ? "bg-[#0075DE] text-white font-bold" : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"}`}
-                  >
-                    FR
-                  </button>
-                  <button 
-                    onClick={() => toggleLanguage("en")}
-                    className={`text-[10px] font-black px-2.5 py-1 rounded transition-all ${lang === "en" ? "bg-[#0075DE] text-white font-bold" : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"}`}
-                  >
-                    EN
-                  </button>
-                </div>
-              </div>
-
-              {/* Form Container Card */}
-              <div className="max-w-md mx-auto w-full my-auto py-8">
-                <motion.div 
-                  initial={{ opacity: 0, y: 15 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="w-full max-w-lg mx-auto bg-white dark:bg-[#0d1527]/90 border border-slate-200 dark:border-slate-800/80 rounded-2xl p-6 sm:p-8 shadow-2xl relative"
-                >
-                  <AuthSwitch 
-                    currentMode={showForgotPassword ? "forgot" : (authMode as string) === "register" ? "register" : "login"}
-                    onModeChange={(m) => {
-                      if (m === "forgot") {
-                        setShowForgotPassword(true);
-                      } else if (m === "register") {
-                        setShowForgotPassword(false);
-                        setAuthMode("register");
-                      } else {
-                        setShowForgotPassword(false);
-                        setAuthMode("login");
-                      }
-                    }}
-                    lang={lang}
-                  />
-
-              {/* Branding Emblem */}
-              <div className="text-center mb-6">
-                <div className="w-14 h-14 rounded-2xl bg-[#0075DE]/5 border border-[#0075DE]/15 flex items-center justify-center mx-auto mb-3">
-                  <ZakirLogo iconOnly size={40} theme={theme} />
-                </div>
-                <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
-                  {lang === "fr" ? "S'enregistrer" : (lang === "ar" ? "إنشاء حساب جديد" : "Sign Up")}
-                </h1>
-                <p className="text-xs text-slate-600 dark:text-slate-400 mt-1 max-w-xs mx-auto">
-                  {lang === "fr" 
-                    ? "La mémoire causale organisationnelle" 
-                    : (lang === "ar" 
-                      ? "الذاكرة السببية المؤسسية" 
-                      : "The Organizational Causal Memory")}
-                </p>
-              </div>
-
-              {/* Google Sign In Button */}
-              <button 
-                type="button"
-                onClick={async () => {
-                  try {
-                    const userProfile = await loginWithGoogle();
-                    setCurrentUser(userProfile);
-                    applyUserPreferences(userProfile);
-                    setAuthMode("landing");
-                  } catch (err: any) {
-                    setRegError(formatAuthError(err));
+        ) : (
+          /* UNIFIED CLEAN MINIMAL AUTHENTICATION GATEWAY */
+          <SplitLoginCard
+            lang={lang}
+            theme={theme}
+            onBackToHome={() => setAuthMode("landing")}
+            onToggleLanguage={toggleLanguage}
+          >
+            <motion.div 
+              initial={{ opacity: 0, y: 15 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="w-full max-w-lg mx-auto bg-white dark:bg-[#0d1527]/90 border border-slate-200 dark:border-slate-800/80 rounded-2xl p-6 sm:p-8 shadow-2xl relative"
+            >
+              <AuthSwitch 
+                currentMode={showForgotPassword ? "forgot" : (authMode as string) === "register" ? "register" : "login"}
+                onModeChange={(m) => {
+                  if (m === "forgot") {
+                    setShowForgotPassword(true);
+                  } else if (m === "register") {
+                    setShowForgotPassword(false);
+                    setAuthMode("register");
+                  } else {
+                    setShowForgotPassword(false);
+                    setAuthMode("login");
                   }
                 }}
-                className="w-full py-2.5 px-4 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-750 text-slate-900 dark:text-white text-xs font-semibold rounded-xl border border-slate-300 dark:border-slate-700/80 transition-all cursor-pointer flex items-center justify-center gap-2.5 mb-5 shadow-sm"
-              >
-                <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24">
-                  <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-                  <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-                  <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
-                  <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
-                </svg>
-                <span>{lang === "fr" ? "Sign up with Google" : (lang === "ar" ? "التسجيل باستخدام Google" : "Sign up with Google")}</span>
-              </button>
-
-              {/* Divider */}
-              <div className="relative flex items-center justify-center my-5">
-                <div className="border-t border-slate-200 dark:border-slate-800 w-full"></div>
-                <span className="bg-white dark:bg-slate-900 px-3 text-[10px] uppercase font-semibold text-slate-500 tracking-widest relative z-10">
-                  {lang === "ar" ? "أو" : "OR"}
-                </span>
-              </div>
-
-              {/* Registration Form */}
-              <form onSubmit={handleRegisterSubmit} className="space-y-4">
-                {regError && (
-                  <div className="p-3.5 bg-rose-500/10 border border-rose-500/20 rounded-xl text-rose-600 dark:text-rose-400 text-xs flex items-start gap-2.5">
-                    <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
-                    {renderErrorContent(regError)}
-                  </div>
-                )}
-
-                {/* Owner Name */}
-                <div>
-                  <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1 flex items-center gap-1.5">
-                    <UserIcon className="w-3.5 h-3.5 text-[#0075DE]" />
-                    <span>{lang === "fr" ? "Nom complet du propriétaire" : (lang === "ar" ? "الاسم الكامل للمالك" : "Full Name of Owner")}</span>
-                  </label>
-                  <input 
-                    type="text" 
-                    value={regOwnerName}
-                    onChange={(e) => setRegOwnerName(e.target.value)}
-                    className="w-full h-10 px-3 bg-slate-50 dark:bg-slate-900/40 border border-slate-300 dark:border-slate-800 rounded-xl text-slate-900 dark:text-white text-xs focus:outline-none focus:border-[#0075DE] focus:bg-[#0075DE]/5 transition-all placeholder:text-slate-400 dark:placeholder:text-slate-600"
-                    placeholder="e.g. Mohamed Aly"
-                    required
-                  />
-                </div>
-
-                {/* Company Name */}
-                <div>
-                  <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1 flex items-center gap-1.5">
-                    <Building className="w-3.5 h-3.5 text-[#0075DE]" />
-                    <span>{lang === "fr" ? "Nom de l'entreprise" : (lang === "ar" ? "اسم الشركة / المؤسسة" : "Company Name")}</span>
-                  </label>
-                  <input 
-                    type="text" 
-                    value={regCompanyName}
-                    onChange={(e) => setRegCompanyName(e.target.value)}
-                    className="w-full h-10 px-3 bg-slate-50 dark:bg-slate-900/40 border border-slate-300 dark:border-slate-800 rounded-xl text-slate-900 dark:text-white text-xs focus:outline-none focus:border-[#0075DE] focus:bg-[#0075DE]/5 transition-all placeholder:text-slate-400 dark:placeholder:text-slate-600"
-                    placeholder="e.g. Mauritanian Finance Group"
-                    required
-                  />
-                </div>
-
-                {/* Company Email */}
-                <div>
-                  <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1 flex items-center gap-1.5">
-                    <Globe className="w-3.5 h-3.5 text-[#0075DE]" />
-                    <span>{lang === "fr" ? "Email de l'entreprise" : (lang === "ar" ? "البريد الإلكتروني للشركة" : "Company Email")}</span>
-                  </label>
-                  <input 
-                    type="email" 
-                    value={regEmail}
-                    onChange={(e) => setRegEmail(e.target.value)}
-                    className="w-full h-10 px-3 bg-slate-50 dark:bg-slate-900/40 border border-slate-300 dark:border-slate-800 rounded-xl text-slate-900 dark:text-white text-xs focus:outline-none focus:border-[#0075DE] focus:bg-[#0075DE]/5 transition-all placeholder:text-slate-400 dark:placeholder:text-slate-600"
-                    placeholder="e.g. mohamedvadel60@entreprise8.com"
-                    required
-                  />
-                </div>
-
-                {/* Password Input */}
-                <div>
-                  <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1 flex items-center justify-between">
-                    <span className="flex items-center gap-1.5">
-                      <Lock className="w-3.5 h-3.5 text-[#0075DE]" />
-                      <span>{lang === "fr" ? "Mot de passe" : (lang === "ar" ? "كلمة المرور" : "Password")}</span>
-                    </span>
-                  </label>
-                  <div className="relative">
-                    <input 
-                       type={showRegPassword ? "text" : "password"} 
-                       value={regPassword}
-                       onChange={(e) => setRegPassword(e.target.value)}
-                       className="w-full h-10 px-3 pr-10 bg-slate-50 dark:bg-slate-900/40 border border-slate-300 dark:border-slate-800 rounded-xl text-slate-900 dark:text-white text-xs focus:outline-none focus:border-[#0075DE] focus:bg-[#0075DE]/5 transition-all placeholder:text-slate-400 dark:placeholder:text-slate-600 font-mono"
-                       placeholder="••••••••"
-                       required
-                    />
-                    <button 
-                      type="button"
-                      onClick={() => setShowRegPassword(!showRegPassword)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 cursor-pointer"
-                    >
-                      {showRegPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                    </button>
-                  </div>
-                </div>
-
-                {/* DYNAMIC PASSWORD REQUIREMENTS HELPER BOX (Video 2 Requirements) */}
-                <div className="p-3 bg-slate-100 dark:bg-slate-950/80 border border-slate-200 dark:border-slate-800/90 rounded-xl space-y-2">
-                  <div className="text-[11px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider font-mono flex items-center justify-between">
-                    <span>{lang === "fr" ? "Password requirements:" : (lang === "ar" ? "شروط كلمة المرور المطلوبة:" : "Password requirements:")}</span>
-                    <span className={`text-[10px] font-normal ${pwdValidation.isValid ? "text-emerald-600 dark:text-emerald-400" : "text-[#0075DE]"}`}>
-                      {pwdValidation.isValid ? (lang === "ar" ? "مستوفية جميع الشروط" : "All criteria met") : (lang === "ar" ? "مطلوبة" : "Required")}
-                    </span>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-2 text-[10px]">
-                    {/* Min 8 chars */}
-                    <div className={`flex items-center gap-1.5 font-mono ${pwdValidation.len ? "text-emerald-600 dark:text-emerald-400" : "text-slate-500"}`}>
-                      {pwdValidation.len ? <CheckCircle2 className="w-3.5 h-3.5 shrink-0 text-emerald-600 dark:text-emerald-400" /> : <div className="w-3.5 h-3.5 rounded-full border border-slate-300 dark:border-slate-700 shrink-0"></div>}
-                      <span>Min 8 chars</span>
-                    </div>
-
-                    {/* Uppercase */}
-                    <div className={`flex items-center gap-1.5 font-mono ${pwdValidation.upper ? "text-emerald-600 dark:text-emerald-400" : "text-slate-500"}`}>
-                      {pwdValidation.upper ? <CheckCircle2 className="w-3.5 h-3.5 shrink-0 text-emerald-600 dark:text-emerald-400" /> : <div className="w-3.5 h-3.5 rounded-full border border-slate-300 dark:border-slate-700 shrink-0"></div>}
-                      <span>Uppercase [A-Z]</span>
-                    </div>
-
-                    {/* Lowercase */}
-                    <div className={`flex items-center gap-1.5 font-mono ${pwdValidation.lower ? "text-emerald-600 dark:text-emerald-400" : "text-slate-500"}`}>
-                      {pwdValidation.lower ? <CheckCircle2 className="w-3.5 h-3.5 shrink-0 text-emerald-600 dark:text-emerald-400" /> : <div className="w-3.5 h-3.5 rounded-full border border-slate-300 dark:border-slate-700 shrink-0"></div>}
-                      <span>Lowercase [a-z]</span>
-                    </div>
-
-                    {/* Number */}
-                    <div className={`flex items-center gap-1.5 font-mono ${pwdValidation.num ? "text-emerald-600 dark:text-emerald-400" : "text-slate-500"}`}>
-                      {pwdValidation.num ? <CheckCircle2 className="w-3.5 h-3.5 shrink-0 text-emerald-600 dark:text-emerald-400" /> : <div className="w-3.5 h-3.5 rounded-full border border-slate-300 dark:border-slate-700 shrink-0"></div>}
-                      <span>Number [0-9]</span>
-                    </div>
-
-                    {/* Special token */}
-                    <div className={`flex items-center gap-1.5 font-mono col-span-2 ${pwdValidation.special ? "text-emerald-600 dark:text-emerald-400" : "text-slate-500"}`}>
-                      {pwdValidation.special ? <CheckCircle2 className="w-3.5 h-3.5 shrink-0 text-emerald-600 dark:text-emerald-400" /> : <div className="w-3.5 h-3.5 rounded-full border border-slate-300 dark:border-slate-700 shrink-0"></div>}
-                      <span>Special character (@, #, $, !, %, &)</span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Confirm Password Input */}
-                <div>
-                  <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1 flex items-center justify-between">
-                    <span className="flex items-center gap-1.5">
-                      <ShieldCheck className="w-3.5 h-3.5 text-[#0075DE]" />
-                      <span>{lang === "fr" ? "Confirmer le mot de passe" : (lang === "ar" ? "تأكيد كلمة المرور" : "Confirm Password")}</span>
-                    </span>
-                    {regConfirmPassword.length > 0 && (
-                      <span className={`text-[10px] font-mono ${pwdValidation.match ? "text-emerald-600 dark:text-emerald-400" : "text-rose-500"}`}>
-                        {pwdValidation.match ? (lang === "ar" ? "متطابقتان ✓" : "Match ✓") : (lang === "ar" ? "غير متطابقتين ✕" : "No match ✕")}
-                      </span>
-                    )}
-                  </label>
-                  <input 
-                    type="password" 
-                    value={regConfirmPassword}
-                    onChange={(e) => setRegConfirmPassword(e.target.value)}
-                    className="w-full h-10 px-3 bg-slate-50 dark:bg-slate-900/40 border border-slate-300 dark:border-slate-800 rounded-xl text-slate-900 dark:text-white text-xs focus:outline-none focus:border-[#0075DE] focus:bg-[#0075DE]/5 transition-all placeholder:text-slate-400 dark:placeholder:text-slate-600 font-mono"
-                    placeholder="••••••••"
-                    required
-                  />
-                </div>
-
-                {/* Submit Register Button */}
-                <button 
-                  type="submit" 
-                  disabled={isSubmittingReg}
-                  className="w-full h-11 mt-2 bg-[#0075DE] hover:bg-[#005BAB] active:scale-[0.98] text-white font-bold text-xs rounded-xl shadow-lg shadow-[#0075DE]/20 transition-all cursor-pointer flex items-center justify-center gap-2 uppercase tracking-wider"
-                >
-                  {isSubmittingReg ? (
-                    <RefreshCw className="w-4 h-4 animate-spin" />
-                  ) : (
-                    <span>{lang === "fr" ? "S'enregistrer" : (lang === "ar" ? "إنشاء حساب جديد" : "Sign Up")}</span>
-                  )}
-                </button>
-              </form>
-
-              {/* Already registered switch to login */}
-              <div className="mt-6 text-center border-t border-slate-200 dark:border-slate-800/80 pt-4">
-                <button 
-                  onClick={() => setAuthMode("login")}
-                  className="text-xs text-[#0075DE] hover:underline font-medium transition-colors cursor-pointer"
-                >
-                  {lang === "fr" ? "Déjà un compte ? Se connecter" : (lang === "ar" ? "لديك حساب بالفعل؟ تسجيل الدخول" : "Already have an account? Sign In")}
-                </button>
-              </div>
-            </motion.div>
-              </div>
-
-              {/* Legal terms footer bar */}
-              <div className="w-full text-center text-[10px] text-slate-500 font-mono mt-8">
-                {lang === "ar" 
-                  ? "باستخدام هذا النظام، فإنك توافق على سياسة الاستخدام والامتثال التنظيمي للشركة." 
-                  : "Authorized operational access only. All system actions are securely audited in the PostgreSQL ledger."}
-              </div>
-            </div>
-          </div>
-        ) : (
-          /* LOGIN SCREEN */
-          <div className="min-h-screen bg-[#070b13] text-slate-200 flex flex-col md:grid md:grid-cols-12 relative overflow-hidden selection:bg-amber-500/20">
-            {/* GLOWING AMBIENT FIELD */}
-            <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-[#0075DE]/5 rounded-full blur-[120px] pointer-events-none" />
-            <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-blue-500/5 rounded-full blur-[120px] pointer-events-none" />
-
-            {/* LEFT COLUMN: BRAND WORKSPACE MONOLITH & CAUSAL PATH CONSOLE */}
-            <div className="hidden md:flex md:col-span-5 lg:col-span-4 bg-[#0a0f1d] border-r border-slate-800/40 p-10 flex-col justify-between relative overflow-hidden shrink-0">
-              <div className="absolute inset-0 opacity-[0.02] bg-[radial-gradient(#fff_1px,transparent_1px)] [background-size:16px_16px] pointer-events-none" />
-              
-              {/* Header: Brand Identity */}
-              <div className="relative z-10 flex items-center gap-3">
-                <ZakirLogo theme="dark" />
-              </div>
-
-              {/* Dynamic Interactive Causal Path Animation Console */}
-              <div className="relative z-10 my-8 space-y-4">
-                <div className="space-y-4">
-                  <div className="flex items-start gap-3">
-                    <div className="w-8 h-8 rounded-lg bg-slate-900 border border-slate-800 flex items-center justify-center text-[#0075DE] shrink-0">
-                      <Database className="w-4 h-4" />
-                    </div>
-                    <div>
-                      <h4 className="text-xs font-bold text-white">{lang === "ar" ? "تتبع وحوكمة مركزية" : "Verifiable Corporate Ledger"}</h4>
-                      <p className="text-[10px] text-slate-500 leading-relaxed mt-0.5">
-                        {lang === "ar"
-                          ? "بيانات غير قابلة للتعديل لضمان الالتزام بمعايير الحوكمة المالية والإدارية."
-                          : "Stateful causal record matching business logic directly with regulatory and financial milestones."}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-start gap-3">
-                    <div className="w-8 h-8 rounded-lg bg-slate-900 border border-slate-800 flex items-center justify-center text-[#0075DE] shrink-0">
-                      <Brain className="w-4 h-4" />
-                    </div>
-                    <div>
-                      <h4 className="text-xs font-bold text-white">{lang === "ar" ? "ذكاء اصطناعي موجه بمؤشرات دقيقة" : "Augmented Business Intelligence"}</h4>
-                      <p className="text-[10px] text-slate-500 leading-relaxed mt-0.5">
-                        {lang === "ar"
-                          ? "محرك استشاري يستند بالكامل إلى البيانات السببية المدخلة."
-                          : "Fully grounded reasoning capabilities targeting operational risks, risk mitigation, and systemic gaps."}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Footer Credentials */}
-              <div className="relative z-10 text-[10px] text-slate-600 font-mono">
-                <span>ZAKIR INTELLIGENCE SUITE v2.9</span>
-                <span className="block mt-0.5">© {new Date().getFullYear()} Zakir Systems Corp.</span>
-              </div>
-            </div>
-
-            {/* RIGHT COLUMN: INTERACTIVE FORM WORKSPACE */}
-            <div className="flex-1 md:col-span-7 lg:col-span-8 flex flex-col justify-between p-6 sm:p-10 relative">
-              {/* Back to Home & Language Selection Top bar */}
-              <div className="w-full flex items-center justify-between">
-                <button 
-                  onClick={() => setAuthMode("landing")}
-                  className="flex items-center gap-2 text-xs font-bold text-slate-400 hover:text-amber-400 transition-colors cursor-pointer"
-                >
-                  {lang === "ar" ? <ArrowRight className="w-4 h-4" /> : <ArrowLeft className="w-4 h-4" />}
-                  <span>
-                    {lang === "ar" ? "العودة للرئيسية" : (lang === "fr" ? "Retour à l'accueil" : "Back to Home")}
-                  </span>
-                </button>
-
-                <div className="flex items-center gap-1 bg-slate-950 p-1 rounded-xl border border-slate-800/80 shadow-inner">
-                  <button 
-                    onClick={() => toggleLanguage("ar")}
-                    className={`min-w-[32px] h-7 text-[11px] font-bold px-2.5 rounded-lg transition-all flex items-center justify-center shrink-0 cursor-pointer ${lang === "ar" ? "bg-[#0075DE] text-white shadow-sm" : "text-slate-400 hover:text-white"}`}
-                  >
-                    ع
-                  </button>
-                  <button 
-                    onClick={() => toggleLanguage("fr")}
-                    className={`min-w-[32px] h-7 text-[11px] font-bold px-2.5 rounded-lg transition-all flex items-center justify-center shrink-0 cursor-pointer ${lang === "fr" ? "bg-[#0075DE] text-white shadow-sm" : "text-slate-400 hover:text-white"}`}
-                  >
-                    FR
-                  </button>
-                  <button 
-                    onClick={() => toggleLanguage("en")}
-                    className={`min-w-[32px] h-7 text-[11px] font-bold px-2.5 rounded-lg transition-all flex items-center justify-center shrink-0 cursor-pointer ${lang === "en" ? "bg-[#0075DE] text-white shadow-sm" : "text-slate-400 hover:text-white"}`}
-                  >
-                    EN
-                  </button>
-                </div>
-              </div>
-
-              {/* Form Container Card */}
-              <div className="max-w-md mx-auto w-full my-auto py-8">
-                <motion.div 
-                  initial={{ opacity: 0, y: 15 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="w-full max-w-md mx-auto bg-[#070b13] border border-slate-800 rounded-sm p-6 sm:p-8 relative"
-                >
-                  <AuthSwitch 
-                    currentMode={showForgotPassword ? "forgot" : (authMode as string) === "register" ? "register" : "login"}
-                    onModeChange={(m) => {
-                      if (m === "forgot") {
-                        setShowForgotPassword(true);
-                      } else if (m === "register") {
-                        setShowForgotPassword(false);
-                        setAuthMode("register");
-                      } else {
-                        setShowForgotPassword(false);
-                        setAuthMode("login");
-                      }
-                    }}
-                    lang={lang}
-                  />
+                lang={lang}
+              />
 
               {showForgotPassword ? (
                 /* FORGOT PASSWORD FORM */
                 <div>
                   <div className="text-center mb-6">
-                    <div className="w-12 h-12 rounded-xl bg-[#0075DE]/10 border border-[#0075DE]/20 text-[#0075DE] flex items-center justify-center mx-auto mb-3 font-bold text-xl">
+                    <div className="w-12 h-12 rounded-2xl bg-[#0075DE]/10 border border-[#0075DE]/20 text-[#0075DE] flex items-center justify-center mx-auto mb-3 font-bold text-xl">
                       <KeyRound className="w-6 h-6" />
                     </div>
-                    <h1 className="text-2xl font-bold tracking-tight text-white">
+                    <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
                       {lang === "fr" ? "Réinitialiser le mot de passe" : (lang === "ar" ? "إعادة تعيين كلمة السر" : "Reset Password")}
                     </h1>
-                    <p className="text-xs text-slate-400 mt-1">
+                    <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">
                       {resetStep === "forgot" && (lang === "ar" ? "أدخل بريدك الإلكتروني للحصول على رمز إعادة تعيين ديناميكي مكون من 6 أرقام" : "Enter your email to receive a 6-digit dynamic reset code")}
                       {resetStep === "verify_code" && (lang === "ar" ? "أدخل الرمز المكون من 6 أرقام المرسل لبريدك الإلكتروني" : "Enter the 6-digit code sent to your email")}
-                      {resetStep === "new_password" && (lang === "ar" ? "اختر كلمة مرور جديدة وآمنة לחשבונך" : "Create a new secure password for your account")}
+                      {resetStep === "new_password" && (lang === "ar" ? "اختر كلمة مرور جديدة وآمنة لحسابك" : "Create a new secure password for your account")}
                       {resetStep === "success" && (lang === "ar" ? "تم إعادة تعيين كلمة السر بنجاح!" : "Your password was updated successfully!")}
                     </p>
                   </div>
 
                   <form onSubmit={handleResetPasswordSubmit} className="space-y-4">
                     {resetErrorMsg && (
-                      <div className="p-3.5 bg-rose-500/10 border border-rose-500/30 rounded-xl text-rose-300 text-xs flex items-start gap-2.5">
-                        <AlertTriangle className="w-4 h-4 shrink-0 text-rose-400 mt-0.5" />
+                      <div className="p-3.5 bg-rose-500/10 border border-rose-500/20 rounded-xl text-rose-600 dark:text-rose-400 text-xs flex items-start gap-2.5">
+                        <AlertTriangle className="w-4 h-4 shrink-0 text-rose-500 mt-0.5" />
                         <div className="flex-1 space-y-1">
                           <p className="font-medium leading-relaxed whitespace-pre-line">{resetErrorMsg}</p>
                           {resetCooldownSeconds > 0 && (
@@ -3482,8 +2991,8 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                     )}
 
                     {resetSuccessMsg && (
-                      <div className="p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-xl text-emerald-400 text-xs flex items-center gap-2">
-                        <CheckCircle2 className="w-4 h-4 shrink-0" />
+                      <div className="p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-xl text-emerald-600 dark:text-emerald-400 text-xs flex items-center gap-2">
+                        <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-500" />
                         <span>{resetSuccessMsg}</span>
                       </div>
                     )}
@@ -3491,12 +3000,12 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                     {/* STEP 1: Enter Email */}
                     {resetStep === "forgot" && (
                       <div>
-                        <label className="block text-[11px] font-semibold text-slate-300 mb-1">{t.email}</label>
+                        <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">{t.email}</label>
                         <input 
                           type="email" 
                           value={resetEmail}
                           onChange={(e) => setResetEmail(e.target.value)}
-                          className="w-full h-10 px-3 bg-slate-950 border border-slate-800 rounded-xl text-white text-xs focus:outline-none focus:border-[#0075DE] transition-all placeholder:text-slate-600"
+                          className="w-full h-10 px-3 bg-slate-50 dark:bg-slate-900/40 border border-slate-300 dark:border-slate-800 rounded-xl text-slate-900 dark:text-white text-xs focus:outline-none focus:border-[#0075DE] focus:bg-[#0075DE]/5 transition-all placeholder:text-slate-400 dark:placeholder:text-slate-600"
                           placeholder="name@company.com"
                           required
                         />
@@ -3507,7 +3016,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                     {resetStep === "verify_code" && (
                       <div className="space-y-4">
                         <div>
-                          <label className="block text-[11px] font-semibold text-slate-300 mb-1">
+                          <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
                             {lang === "ar" ? "الرمز المكون من 6 أرقام" : "6-Digit Verification Code"}
                           </label>
                           <input 
@@ -3516,7 +3025,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                             placeholder="------"
                             value={resetCode}
                             onChange={(e) => setResetCode(e.target.value.replace(/\D/g, ""))}
-                            className="w-full text-center tracking-[8px] text-lg font-bold font-mono h-11 bg-slate-950 border border-slate-800 rounded-xl text-[#0075DE] placeholder:text-slate-700 focus:outline-none focus:border-[#0075DE] transition-all"
+                            className="w-full text-center tracking-[8px] text-lg font-bold font-mono h-11 bg-slate-50 dark:bg-slate-900/40 border border-slate-300 dark:border-slate-800 rounded-xl text-[#0075DE] placeholder:text-slate-400 dark:placeholder:text-slate-600 focus:outline-none focus:border-[#0075DE] transition-all"
                             required
                           />
                         </div>
@@ -3527,27 +3036,27 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                     {resetStep === "new_password" && (
                       <div className="space-y-3">
                         <div>
-                          <label className="block text-[11px] font-semibold text-slate-300 mb-1">
+                          <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
                             {lang === "ar" ? "كلمة المرور الجديدة" : "New Password"}
                           </label>
                           <input 
                             type="password" 
                             value={newPassword}
                             onChange={(e) => setNewPassword(e.target.value)}
-                            className="w-full h-10 px-3 bg-slate-950 border border-slate-800 rounded-xl text-white text-xs focus:outline-none focus:border-[#0075DE] transition-all"
+                            className="w-full h-10 px-3 bg-slate-50 dark:bg-slate-900/40 border border-slate-300 dark:border-slate-800 rounded-xl text-slate-900 dark:text-white text-xs focus:outline-none focus:border-[#0075DE] focus:bg-[#0075DE]/5 transition-all placeholder:text-slate-400 dark:placeholder:text-slate-600"
                             placeholder="••••••••"
                             required
                           />
                         </div>
                         <div>
-                          <label className="block text-[11px] font-semibold text-slate-300 mb-1">
+                          <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
                             {lang === "ar" ? "تأكيد كلمة المرور" : "Confirm New Password"}
                           </label>
                           <input 
                             type="password" 
                             value={confirmNewPassword}
                             onChange={(e) => setConfirmNewPassword(e.target.value)}
-                            className="w-full h-10 px-3 bg-slate-950 border border-slate-800 rounded-xl text-white text-xs focus:outline-none focus:border-[#0075DE] transition-all"
+                            className="w-full h-10 px-3 bg-slate-50 dark:bg-slate-900/40 border border-slate-300 dark:border-slate-800 rounded-xl text-slate-900 dark:text-white text-xs focus:outline-none focus:border-[#0075DE] focus:bg-[#0075DE]/5 transition-all placeholder:text-slate-400 dark:placeholder:text-slate-600"
                             placeholder="••••••••"
                             required
                           />
@@ -3558,10 +3067,10 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                     {/* STEP 4: Success View */}
                     {resetStep === "success" && (
                       <div className="text-center py-4 space-y-2">
-                        <div className="w-12 h-12 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 flex items-center justify-center mx-auto">
+                        <div className="w-12 h-12 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 flex items-center justify-center mx-auto">
                           <CheckCircle2 className="w-6 h-6" />
                         </div>
-                        <p className="text-xs text-slate-300">
+                        <p className="text-xs text-slate-700 dark:text-slate-300">
                           {lang === "ar" ? "تم تفعيل كلمة السر الجديدة بنجاح." : "Your account password has been fully updated."}
                         </p>
                       </div>
@@ -3574,7 +3083,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                         disabled={isSendingReset || (resetStep === "forgot" && resetCooldownSeconds > 0)}
                         className={"w-full h-11 mt-2 font-bold text-xs rounded-xl shadow-lg transition-all flex items-center justify-center gap-2 uppercase tracking-wider " + (
                           resetStep === "forgot" && resetCooldownSeconds > 0
-                            ? "bg-slate-800/90 text-slate-400 border border-slate-700/60 cursor-not-allowed opacity-80"
+                            ? "bg-slate-200 dark:bg-slate-800 text-slate-400 dark:text-slate-500 border border-slate-300 dark:border-slate-700/60 cursor-not-allowed opacity-80"
                             : "bg-[#0075DE] hover:bg-[#005BAB] text-white cursor-pointer shadow-[#0075DE]/20"
                         )}
                       >
@@ -3639,6 +3148,221 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                     </div>
                   )}
                 </div>
+              ) : authMode === "register" ? (
+                /* REGISTRATION FORM */
+                <div>
+                  <div className="text-center mb-6">
+                    <div className="w-14 h-14 rounded-2xl bg-[#0075DE]/5 border border-[#0075DE]/15 flex items-center justify-center mx-auto mb-3">
+                      <ZakirLogo iconOnly size={40} theme={theme} />
+                    </div>
+                    <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
+                      {lang === "fr" ? "S'enregistrer" : (lang === "ar" ? "إنشاء حساب جديد" : "Sign Up")}
+                    </h1>
+                    <p className="text-xs text-slate-600 dark:text-slate-400 mt-1 max-w-xs mx-auto">
+                      {lang === "fr" 
+                        ? "La mémoire causale organisationnelle" 
+                        : (lang === "ar" 
+                          ? "الذاكرة السببية المؤسسية" 
+                          : "The Organizational Causal Memory")}
+                    </p>
+                  </div>
+
+                  {/* Google Sign In Button */}
+                  <button 
+                    type="button"
+                    onClick={async () => {
+                      try {
+                        const userProfile = await loginWithGoogle();
+                        setCurrentUser(userProfile);
+                        applyUserPreferences(userProfile);
+                        setAuthMode("landing");
+                      } catch (err: any) {
+                        setRegError(formatAuthError(err));
+                      }
+                    }}
+                    className="w-full py-2.5 px-4 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700/80 text-slate-900 dark:text-white text-xs font-semibold rounded-xl border border-slate-300 dark:border-slate-700/80 transition-all cursor-pointer flex items-center justify-center gap-2.5 mb-5 shadow-sm"
+                  >
+                    <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24">
+                      <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                      <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                      <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
+                      <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
+                    </svg>
+                    <span>{lang === "fr" ? "Sign up with Google" : (lang === "ar" ? "التسجيل باستخدام Google" : "Sign up with Google")}</span>
+                  </button>
+
+                  {/* Divider */}
+                  <div className="relative flex items-center justify-center my-5">
+                    <div className="border-t border-slate-200 dark:border-slate-800 w-full"></div>
+                    <span className="bg-white dark:bg-[#0d1527] px-3 text-[10px] uppercase font-semibold text-slate-500 tracking-widest relative z-10">
+                      {lang === "ar" ? "أو" : "OR"}
+                    </span>
+                  </div>
+
+                  {/* Registration Form */}
+                  <form onSubmit={handleRegisterSubmit} className="space-y-4">
+                    {regError && (
+                      <div className="p-3.5 bg-rose-500/10 border border-rose-500/20 rounded-xl text-rose-600 dark:text-rose-400 text-xs flex items-start gap-2.5">
+                        <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+                        {renderErrorContent(regError)}
+                      </div>
+                    )}
+
+                    {/* Owner Name */}
+                    <div>
+                      <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1 flex items-center gap-1.5">
+                        <UserIcon className="w-3.5 h-3.5 text-[#0075DE]" />
+                        <span>{lang === "fr" ? "Nom complet du propriétaire" : (lang === "ar" ? "الاسم الكامل للمالك" : "Full Name of Owner")}</span>
+                      </label>
+                      <input 
+                        type="text" 
+                        value={regOwnerName}
+                        onChange={(e) => setRegOwnerName(e.target.value)}
+                        className="w-full h-10 px-3 bg-slate-50 dark:bg-slate-900/40 border border-slate-300 dark:border-slate-800 rounded-xl text-slate-900 dark:text-white text-xs focus:outline-none focus:border-[#0075DE] focus:bg-[#0075DE]/5 transition-all placeholder:text-slate-400 dark:placeholder:text-slate-600"
+                        placeholder="e.g. Mohamed Aly"
+                        required
+                      />
+                    </div>
+
+                    {/* Company Name */}
+                    <div>
+                      <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1 flex items-center gap-1.5">
+                        <Building className="w-3.5 h-3.5 text-[#0075DE]" />
+                        <span>{lang === "fr" ? "Nom de l'entreprise" : (lang === "ar" ? "اسم الشركة / المؤسسة" : "Company Name")}</span>
+                      </label>
+                      <input 
+                        type="text" 
+                        value={regCompanyName}
+                        onChange={(e) => setRegCompanyName(e.target.value)}
+                        className="w-full h-10 px-3 bg-slate-50 dark:bg-slate-900/40 border border-slate-300 dark:border-slate-800 rounded-xl text-slate-900 dark:text-white text-xs focus:outline-none focus:border-[#0075DE] focus:bg-[#0075DE]/5 transition-all placeholder:text-slate-400 dark:placeholder:text-slate-600"
+                        placeholder="e.g. Mauritanian Finance Group"
+                        required
+                      />
+                    </div>
+
+                    {/* Company Email */}
+                    <div>
+                      <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1 flex items-center gap-1.5">
+                        <Globe className="w-3.5 h-3.5 text-[#0075DE]" />
+                        <span>{lang === "fr" ? "Email de l'entreprise" : (lang === "ar" ? "البريد الإلكتروني للشركة" : "Company Email")}</span>
+                      </label>
+                      <input 
+                        type="email" 
+                        value={regEmail}
+                        onChange={(e) => setRegEmail(e.target.value)}
+                        className="w-full h-10 px-3 bg-slate-50 dark:bg-slate-900/40 border border-slate-300 dark:border-slate-800 rounded-xl text-slate-900 dark:text-white text-xs focus:outline-none focus:border-[#0075DE] focus:bg-[#0075DE]/5 transition-all placeholder:text-slate-400 dark:placeholder:text-slate-600"
+                        placeholder="e.g. mohamedvadel60@entreprise8.com"
+                        required
+                      />
+                    </div>
+
+                    {/* Password Input */}
+                    <div>
+                      <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1 flex items-center justify-between">
+                        <span className="flex items-center gap-1.5">
+                          <Lock className="w-3.5 h-3.5 text-[#0075DE]" />
+                          <span>{lang === "fr" ? "Mot de passe" : (lang === "ar" ? "كلمة المرور" : "Password")}</span>
+                        </span>
+                      </label>
+                      <div className="relative">
+                        <input 
+                           type={showRegPassword ? "text" : "password"} 
+                           value={regPassword}
+                           onChange={(e) => setRegPassword(e.target.value)}
+                           className="w-full h-10 px-3 pr-10 bg-slate-50 dark:bg-slate-900/40 border border-slate-300 dark:border-slate-800 rounded-xl text-slate-900 dark:text-white text-xs focus:outline-none focus:border-[#0075DE] focus:bg-[#0075DE]/5 transition-all placeholder:text-slate-400 dark:placeholder:text-slate-600 font-mono"
+                           placeholder="••••••••"
+                           required
+                        />
+                        <button 
+                          type="button"
+                          onClick={() => setShowRegPassword(!showRegPassword)}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 cursor-pointer"
+                        >
+                          {showRegPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* DYNAMIC PASSWORD REQUIREMENTS HELPER BOX */}
+                    <div className="p-3 bg-slate-100 dark:bg-slate-950/80 border border-slate-200 dark:border-slate-800/90 rounded-xl space-y-2">
+                      <div className="text-[11px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider font-mono flex items-center justify-between">
+                        <span>{lang === "fr" ? "Password requirements:" : (lang === "ar" ? "شروط كلمة المرور المطلوبة:" : "Password requirements:")}</span>
+                        <span className={`text-[10px] font-normal ${pwdValidation.isValid ? "text-emerald-600 dark:text-emerald-400" : "text-[#0075DE]"}`}>
+                          {pwdValidation.isValid ? (lang === "ar" ? "مستوفية جميع الشروط" : "All criteria met") : (lang === "ar" ? "مطلوبة" : "Required")}
+                        </span>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2 text-[10px]">
+                        <div className={`flex items-center gap-1.5 font-mono ${pwdValidation.len ? "text-emerald-600 dark:text-emerald-400" : "text-slate-500"}`}>
+                          {pwdValidation.len ? <CheckCircle2 className="w-3.5 h-3.5 shrink-0 text-emerald-600 dark:text-emerald-400" /> : <div className="w-3.5 h-3.5 rounded-full border border-slate-300 dark:border-slate-700 shrink-0"></div>}
+                          <span>Min 8 chars</span>
+                        </div>
+                        <div className={`flex items-center gap-1.5 font-mono ${pwdValidation.upper ? "text-emerald-600 dark:text-emerald-400" : "text-slate-500"}`}>
+                          {pwdValidation.upper ? <CheckCircle2 className="w-3.5 h-3.5 shrink-0 text-emerald-600 dark:text-emerald-400" /> : <div className="w-3.5 h-3.5 rounded-full border border-slate-300 dark:border-slate-700 shrink-0"></div>}
+                          <span>Uppercase [A-Z]</span>
+                        </div>
+                        <div className={`flex items-center gap-1.5 font-mono ${pwdValidation.lower ? "text-emerald-600 dark:text-emerald-400" : "text-slate-500"}`}>
+                          {pwdValidation.lower ? <CheckCircle2 className="w-3.5 h-3.5 shrink-0 text-emerald-600 dark:text-emerald-400" /> : <div className="w-3.5 h-3.5 rounded-full border border-slate-300 dark:border-slate-700 shrink-0"></div>}
+                          <span>Lowercase [a-z]</span>
+                        </div>
+                        <div className={`flex items-center gap-1.5 font-mono ${pwdValidation.num ? "text-emerald-600 dark:text-emerald-400" : "text-slate-500"}`}>
+                          {pwdValidation.num ? <CheckCircle2 className="w-3.5 h-3.5 shrink-0 text-emerald-600 dark:text-emerald-400" /> : <div className="w-3.5 h-3.5 rounded-full border border-slate-300 dark:border-slate-700 shrink-0"></div>}
+                          <span>Number [0-9]</span>
+                        </div>
+                        <div className={`flex items-center gap-1.5 font-mono col-span-2 ${pwdValidation.special ? "text-emerald-600 dark:text-emerald-400" : "text-slate-500"}`}>
+                          {pwdValidation.special ? <CheckCircle2 className="w-3.5 h-3.5 shrink-0 text-emerald-600 dark:text-emerald-400" /> : <div className="w-3.5 h-3.5 rounded-full border border-slate-300 dark:border-slate-700 shrink-0"></div>}
+                          <span>Special character (@, #, $, !, %, &)</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Confirm Password Input */}
+                    <div>
+                      <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1 flex items-center justify-between">
+                        <span className="flex items-center gap-1.5">
+                          <ShieldCheck className="w-3.5 h-3.5 text-[#0075DE]" />
+                          <span>{lang === "fr" ? "Confirmer le mot de passe" : (lang === "ar" ? "تأكيد كلمة المرور" : "Confirm Password")}</span>
+                        </span>
+                        {regConfirmPassword.length > 0 && (
+                          <span className={`text-[10px] font-mono ${pwdValidation.match ? "text-emerald-600 dark:text-emerald-400" : "text-rose-500"}`}>
+                            {pwdValidation.match ? (lang === "ar" ? "متطابقتان ✓" : "Match ✓") : (lang === "ar" ? "غير متطابقتين ✕" : "No match ✕")}
+                          </span>
+                        )}
+                      </label>
+                      <input 
+                        type="password" 
+                        value={regConfirmPassword}
+                        onChange={(e) => setRegConfirmPassword(e.target.value)}
+                        className="w-full h-10 px-3 bg-slate-50 dark:bg-slate-900/40 border border-slate-300 dark:border-slate-800 rounded-xl text-slate-900 dark:text-white text-xs focus:outline-none focus:border-[#0075DE] focus:bg-[#0075DE]/5 transition-all placeholder:text-slate-400 dark:placeholder:text-slate-600 font-mono"
+                        placeholder="••••••••"
+                        required
+                      />
+                    </div>
+
+                    {/* Submit Register Button */}
+                    <button 
+                      type="submit" 
+                      disabled={isSubmittingReg}
+                      className="w-full h-11 mt-2 bg-[#0075DE] hover:bg-[#005BAB] active:scale-[0.98] text-white font-bold text-xs rounded-xl shadow-lg shadow-[#0075DE]/20 transition-all cursor-pointer flex items-center justify-center gap-2 uppercase tracking-wider"
+                    >
+                      {isSubmittingReg ? (
+                        <RefreshCw className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <span>{lang === "fr" ? "S'enregistrer" : (lang === "ar" ? "إنشاء حساب جديد" : "Sign Up")}</span>
+                      )}
+                    </button>
+                  </form>
+
+                  {/* Already registered switch to login */}
+                  <div className="mt-6 text-center border-t border-slate-200 dark:border-slate-800/80 pt-4">
+                    <button 
+                      onClick={() => setAuthMode("login")}
+                      className="text-xs text-[#0075DE] hover:underline font-semibold transition-colors cursor-pointer"
+                    >
+                      {lang === "fr" ? "Déjà un compte ? Se connecter" : (lang === "ar" ? "لديك حساب بالفعل؟ تسجيل الدخول" : "Already have an account? Sign In")}
+                    </button>
+                  </div>
+                </div>
               ) : (
                 /* STANDARD LOGIN FORM */
                 <div>
@@ -3668,7 +3392,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                           setLoginError(formatAuthError(err));
                         }
                       }}
-                      className="w-full py-2.5 px-4 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-750 text-slate-900 dark:text-white text-xs font-semibold rounded-xl border border-slate-300 dark:border-slate-700/80 transition-all cursor-pointer flex items-center justify-center gap-2.5 mb-5 shadow-sm"
+                      className="w-full py-2.5 px-4 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700/80 text-slate-900 dark:text-white text-xs font-semibold rounded-xl border border-slate-300 dark:border-slate-700/80 transition-all cursor-pointer flex items-center justify-center gap-2.5 mb-5 shadow-sm"
                     >
                       <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24">
                         <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
@@ -3682,14 +3406,14 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                     {/* Divider */}
                     <div className="relative flex items-center justify-center my-5">
                       <div className="border-t border-slate-200 dark:border-slate-800 w-full"></div>
-                      <span className="bg-white dark:bg-slate-900 px-3 text-[10px] uppercase font-semibold text-slate-500 tracking-widest relative z-10">
+                      <span className="bg-white dark:bg-[#0d1527] px-3 text-[10px] uppercase font-semibold text-slate-500 tracking-widest relative z-10">
                         {lang === "ar" ? "أو" : "OR"}
                       </span>
                     </div>
 
                     {loginError && (
-                      <div className="p-3.5 bg-rose-500/10 border border-rose-500/20 rounded-xl text-rose-400 text-xs flex items-start gap-2.5">
-                        <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+                      <div className="p-3.5 bg-rose-500/10 border border-rose-500/20 rounded-xl text-rose-600 dark:text-rose-400 text-xs flex items-start gap-2.5">
+                        <AlertTriangle className="w-4 h-4 shrink-0 text-rose-500 mt-0.5" />
                         {renderErrorContent(loginError)}
                       </div>
                     )}
@@ -3700,7 +3424,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                         type="email" 
                         value={loginEmail}
                         onChange={(e) => setLoginEmail(e.target.value)}
-                        className="w-full h-10 px-3 bg-slate-50 dark:bg-slate-900/40 border border-slate-300 dark:border-slate-800 rounded-xl text-slate-900 dark:text-white text-xs focus:outline-none focus:border-[#0075DE]/70 focus:bg-[#0075DE]/5 transition-all placeholder:text-slate-400 dark:placeholder:text-slate-600"
+                        className="w-full h-10 px-3 bg-slate-50 dark:bg-slate-900/40 border border-slate-300 dark:border-slate-800 rounded-xl text-slate-900 dark:text-white text-xs focus:outline-none focus:border-[#0075DE] focus:bg-[#0075DE]/5 transition-all placeholder:text-slate-400 dark:placeholder:text-slate-600"
                         placeholder="name@company.com"
                         required
                       />
@@ -3726,7 +3450,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                         type="password" 
                         value={loginPassword}
                         onChange={(e) => setLoginPassword(e.target.value)}
-                        className="w-full h-10 px-3 bg-slate-50 dark:bg-slate-900/40 border border-slate-300 dark:border-slate-800 rounded-xl text-slate-900 dark:text-white text-xs focus:outline-none focus:border-[#0075DE]/70 focus:bg-[#0075DE]/5 transition-all placeholder:text-slate-400 dark:placeholder:text-slate-600 font-mono"
+                        className="w-full h-10 px-3 bg-slate-50 dark:bg-slate-900/40 border border-slate-300 dark:border-slate-800 rounded-xl text-slate-900 dark:text-white text-xs focus:outline-none focus:border-[#0075DE] focus:bg-[#0075DE]/5 transition-all placeholder:text-slate-400 dark:placeholder:text-slate-600 font-mono"
                         placeholder="••••••••"
                         required
                       />
@@ -3735,7 +3459,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                     <button 
                       type="submit" 
                       disabled={isSubmittingLogin}
-                      className="w-full h-11 mt-2 bg-gradient-to-r from-[#0075DE] to-[#005BAB] hover:brightness-110 active:scale-[0.98] text-white font-bold text-xs rounded-xl shadow-lg transition-all cursor-pointer flex items-center justify-center gap-2 uppercase tracking-wider"
+                      className="w-full h-11 mt-2 bg-[#0075DE] hover:bg-[#005BAB] active:scale-[0.98] text-white font-bold text-xs rounded-xl shadow-lg shadow-[#0075DE]/20 transition-all cursor-pointer flex items-center justify-center gap-2 uppercase tracking-wider"
                     >
                       {isSubmittingLogin ? (
                         <RefreshCw className="w-4 h-4 animate-spin" />
@@ -3756,16 +3480,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                 </div>
               )}
             </motion.div>
-              </div>
-
-              {/* Legal terms footer bar */}
-              <div className="w-full text-center text-[10px] text-slate-500 dark:text-slate-600 font-mono mt-8">
-                {lang === "ar" 
-                  ? "باستخدام هذا النظام، فإنك توافق على سياسة الاستخدام والامتثال التنظيمي للشركة." 
-                  : "Authorized operational access only. All system actions are securely audited in the PostgreSQL ledger."}
-              </div>
-            </div>
-          </div>
+          </SplitLoginCard>
         )
       ) : (currentUser && !currentUser.isEmailVerified && currentUser.verification_required !== false) ? (
         <EmailVerificationView

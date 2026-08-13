@@ -6,6 +6,7 @@ import { cn } from "../../lib/utils"
 export interface SplitLoginCardProps {
   children: React.ReactNode
   lang?: "ar" | "fr" | "en"
+  theme?: "light" | "dark"
   onBackToHome?: () => void
   onToggleLanguage?: (lang: "ar" | "fr" | "en") => void
   className?: string
@@ -14,6 +15,7 @@ export interface SplitLoginCardProps {
 export function SplitLoginCard({
   children,
   lang = "en",
+  theme = "dark",
   onBackToHome,
   onToggleLanguage,
   className,
@@ -36,7 +38,7 @@ export function SplitLoginCard({
 
         {/* Header: Brand Identity */}
         <div className="relative z-10 flex items-center gap-3">
-          <ZakirLogo theme="dark" />
+          <ZakirLogo theme={theme} lang={lang} />
         </div>
 
         {/* Causal Path Interactive Console Representation */}
