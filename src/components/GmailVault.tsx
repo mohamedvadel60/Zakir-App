@@ -115,6 +115,13 @@ export default function GmailVault({ theme, lang }: GmailVaultProps) {
   const [imapPassword, setImapPassword] = useState("");
   const [isAddingAccount, setIsAddingAccount] = useState(false);
 
+  // Email verification step states
+  const [showVerificationStep, setShowVerificationStep] = useState(false);
+  const [generatedCode, setGeneratedCode] = useState("");
+  const [enteredCode, setEnteredCode] = useState("");
+  const [pendingAccount, setPendingAccount] = useState<ConnectedAccount | null>(null);
+  const [verificationError, setVerificationError] = useState<string | null>(null);
+
   // Quick Reply
   const [quickReplyText, setQuickReplyText] = useState("");
   const [isSendingQuickReply, setIsSendingQuickReply] = useState(false);
@@ -392,25 +399,26 @@ export default function GmailVault({ theme, lang }: GmailVaultProps) {
   const handleConnectGoogle = async () => {
     setIsLoading(true);
     setError(null);
+    setVerificationError(null);
     try {
       const res = await googleSignIn();
       if (res && res.user?.email) {
         const newEmail = res.user.email;
         setToken(res.accessToken);
 
-        if (!accounts.some(a => a.email.toLowerCase() === newEmail.toLowerCase())) {
-          const newAcc: ConnectedAccount = {
-            id: `acc_google_${Date.now()}`,
-            email: newEmail,
-            provider: "gmail",
-            providerName: "Google Workspace",
-            status: "connected",
-            isPrimary: accounts.length === 0
-          };
-          setAccounts(prev => [...prev, newAcc]);
-        }
-        setActiveAccountEmail(newEmail);
-        setSuccessMessage(lang === "ar" ? `تم ربط حساب Google (${newEmail}) بنجاح!` : `Successfully connected Google account (${newEmail})!`);
+        const newAcc: ConnectedAccount = {
+          id: `acc_google_${Date.now()}`,
+          email: newEmail,
+          provider: "gmail",
+          providerName: "Google Workspace",
+          status: "connected",
+          isPrimary: accounts.length === 0
+        };
+
+        const code = Math.floor(100000 + Math.random() * 900000).toString();
+        setGeneratedCode(code);
+        setPendingAccount(newAcc);
+        setShowVerificationStep(true);
       }
     } catch (err: any) {
       if (err?.code === "auth/popup-closed-by-user" || err?.code === "auth/cancelled-popup-request") {
@@ -420,7 +428,6 @@ export default function GmailVault({ theme, lang }: GmailVaultProps) {
       }
     } finally {
       setIsLoading(false);
-      setShowAddAccountModal(false);
     }
   };
 
@@ -433,6 +440,7 @@ export default function GmailVault({ theme, lang }: GmailVaultProps) {
     }
 
     setIsAddingAccount(true);
+    setVerificationError(null);
     setTimeout(() => {
       const newAcc: ConnectedAccount = {
         id: `acc_imap_${Date.now()}`,
@@ -444,16 +452,53 @@ export default function GmailVault({ theme, lang }: GmailVaultProps) {
         isPrimary: accounts.length === 0
       };
 
-      setAccounts(prev => [...prev, newAcc]);
-      setActiveAccountEmail(imapEmail.trim());
+      const code = Math.floor(100000 + Math.random() * 900000).toString();
+      setGeneratedCode(code);
+      setPendingAccount(newAcc);
+      setShowVerificationStep(true);
       setIsAddingAccount(false);
-      setShowAddAccountModal(false);
-      setImapEmail("");
-      setImapHost("");
-      setImapPassword("");
-      setSuccessMessage(lang === "ar" ? `تم إضافة وربط البريد المؤسسي (${imapEmail}) بنجاح!` : `Enterprise Mail account (${imapEmail}) linked successfully!`);
-      logActionToSql("LINK_MAIL_ACCOUNT", imapEmail, "Custom Server Auth", "SUCCESS");
     }, 600);
+  };
+
+  // Confirm Verification Code and actually link the account
+  const handleVerifyCodeAndConnect = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (enteredCode !== generatedCode) {
+      setVerificationError(lang === "ar" ? "رمز التحقق غير صحيح، يرجى المحاولة مرة أخرى" : "Incorrect verification code, please try again.");
+      return;
+    }
+
+    if (pendingAccount) {
+      if (!accounts.some(a => a.email.toLowerCase() === pendingAccount.email.toLowerCase())) {
+        setAccounts(prev => [...prev, pendingAccount]);
+      }
+      setActiveAccountEmail(pendingAccount.email);
+      setSuccessMessage(lang === "ar" ? `تم إضافة وربط البريد المؤسسي (${pendingAccount.email}) بنجاح!` : `Enterprise Mail account (${pendingAccount.email}) linked successfully!`);
+      logActionToSql("LINK_MAIL_ACCOUNT", pendingAccount.email, "Code Verified Auth", "SUCCESS");
+    }
+
+    // Reset verification & modal states
+    setShowAddAccountModal(false);
+    setShowVerificationStep(false);
+    setPendingAccount(null);
+    setEnteredCode("");
+    setGeneratedCode("");
+    setImapEmail("");
+    setImapHost("");
+    setImapPassword("");
+    setVerificationError(null);
+  };
+
+  const handleCloseAddAccountModal = () => {
+    setShowAddAccountModal(false);
+    setShowVerificationStep(false);
+    setPendingAccount(null);
+    setEnteredCode("");
+    setGeneratedCode("");
+    setImapEmail("");
+    setImapHost("");
+    setImapPassword("");
+    setVerificationError(null);
   };
 
   // Disconnect Account (Disconnects OAuth token without terminating Firebase app session)
@@ -1239,7 +1284,7 @@ export default function GmailVault({ theme, lang }: GmailVaultProps) {
       {/* ADD ACCOUNT MODAL */}
       {showAddAccountModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={() => setShowAddAccountModal(false)} />
+          <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={() => handleCloseAddAccountModal()} />
           <div className={`relative w-full max-w-lg p-6 rounded-2xl border ${
             theme === "dark" ? "bg-slate-900 border-slate-800 text-white" : "bg-white border-slate-200 text-slate-900"
           } shadow-2xl animate-in fade-in zoom-in-95 duration-200`}>
@@ -1248,126 +1293,191 @@ export default function GmailVault({ theme, lang }: GmailVaultProps) {
                 <Mail className="w-5 h-5 text-amber-500" />
                 {t.addAccountTitle}
               </h3>
-              <button onClick={() => setShowAddAccountModal(false)} className="p-1 hover:opacity-80">
+              <button onClick={() => handleCloseAddAccountModal()} className="p-1 hover:opacity-80">
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            {/* Provider Chooser */}
-            <div className="space-y-4 mb-6">
-              <label className="text-xs font-bold text-slate-400 block">{t.selectProvider}</label>
-              <div className="grid grid-cols-3 gap-2">
-                <button
-                  type="button"
-                  onClick={() => setAddAccountType("gmail")}
-                  className={`p-3 rounded-xl border flex flex-col items-center gap-2 text-xs font-bold transition-all cursor-pointer ${
-                    addAccountType === "gmail"
-                      ? "bg-amber-500/10 border-amber-500 text-amber-500"
-                      : "bg-slate-950/40 border-slate-800 text-slate-400 hover:text-white"
-                  }`}
-                >
-                  <Mail className="w-5 h-5" />
-                  <span>Google / Gmail</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setAddAccountType("outlook")}
-                  className={`p-3 rounded-xl border flex flex-col items-center gap-2 text-xs font-bold transition-all cursor-pointer ${
-                    addAccountType === "outlook"
-                      ? "bg-amber-500/10 border-amber-500 text-amber-500"
-                      : "bg-slate-950/40 border-slate-800 text-slate-400 hover:text-white"
-                  }`}
-                >
-                  <Building className="w-5 h-5" />
-                  <span>Outlook / 365</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setAddAccountType("imap")}
-                  className={`p-3 rounded-xl border flex flex-col items-center gap-2 text-xs font-bold transition-all cursor-pointer ${
-                    addAccountType === "imap"
-                      ? "bg-amber-500/10 border-amber-500 text-amber-500"
-                      : "bg-slate-950/40 border-slate-800 text-slate-400 hover:text-white"
-                  }`}
-                >
-                  <Server className="w-5 h-5" />
-                  <span>IMAP / SMTP</span>
-                </button>
-              </div>
-            </div>
+            {showVerificationStep ? (
+              <form onSubmit={handleVerifyCodeAndConnect} className="space-y-5">
+                <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/20 text-xs leading-relaxed text-amber-500 space-y-2">
+                  <p className="font-semibold text-center flex items-center justify-center gap-1.5">
+                    <Shield className="w-4 h-4" />
+                    {lang === "ar" 
+                      ? "إجراء التحقق الأمني الإجباري لمنصة ذاكر"
+                      : "Mandatory Security Verification for Zakir"}
+                  </p>
+                  <p>
+                    {lang === "ar"
+                      ? `تم إرسال رمز التحقق المكون من 6 أرقام بنجاح إلى البريد المدخل: ${pendingAccount?.email}`
+                      : `A 6-digit security verification code has been transmitted to: ${pendingAccount?.email}`}
+                  </p>
+                  <p className="text-[10px] opacity-90 font-mono text-center bg-black/35 py-1 px-2 rounded-lg">
+                    {lang === "ar"
+                      ? `رمز التحقق الآمن المحاكي الخاص بك هو: ${generatedCode}`
+                      : `Your simulated secure verification code is: ${generatedCode}`}
+                  </p>
+                </div>
 
-            {addAccountType === "gmail" ? (
-              <div className="space-y-4">
-                <p className="text-xs text-slate-400 leading-relaxed">
-                  {lang === "ar" 
-                    ? "قم بتوثيق حساب Google Workspace أو Gmail مباشرة عبر نظام المصادقة الآمن OAuth."
-                    : "Connect your Google Workspace or Gmail address seamlessly via OAuth protocol."}
-                </p>
-                <button
-                  onClick={handleConnectGoogle}
-                  disabled={isLoading}
-                  className="w-full h-11 bg-gradient-to-r from-red-600 to-rose-600 text-white font-bold text-xs rounded-xl shadow-lg hover:from-red-500 hover:to-rose-500 transition-all flex items-center justify-center gap-2 cursor-pointer"
-                >
-                  {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Mail className="w-4 h-4" />}
-                  <span>{t.connectBtn} (Google OAuth)</span>
-                </button>
-              </div>
-            ) : (
-              <form onSubmit={handleAddCustomAccount} className="space-y-4">
                 <div className="space-y-1">
-                  <label className="text-xs font-bold text-slate-400">العنوان البريدي (Email Address)</label>
+                  <label className="text-xs font-bold text-slate-400">
+                    {lang === "ar" ? "أدخل رمز التحقق (6 أرقام)" : "Enter Verification Code (6 digits)"}
+                  </label>
                   <input
-                    type="email"
+                    type="text"
                     required
-                    value={imapEmail}
-                    onChange={(e) => setImapEmail(e.target.value)}
-                    placeholder="e.g. executive@firm.org"
-                    className="w-full h-10 px-4 rounded-xl text-xs bg-slate-950 border border-slate-800 text-white outline-none focus:border-amber-500"
+                    maxLength={6}
+                    value={enteredCode}
+                    onChange={(e) => setEnteredCode(e.target.value.replace(/\D/g, ""))}
+                    placeholder="e.g. 123456"
+                    className="w-full h-11 px-4 text-center tracking-widest font-mono text-lg rounded-xl bg-slate-950 border border-slate-800 text-white outline-none focus:border-amber-500"
                   />
                 </div>
 
-                <div className="grid grid-cols-3 gap-2">
-                  <div className="col-span-2 space-y-1">
-                    <label className="text-xs font-bold text-slate-400">{t.customImapHost}</label>
-                    <input
-                      type="text"
-                      value={imapHost}
-                      onChange={(e) => setImapHost(e.target.value)}
-                      placeholder="e.g. mail.company.com"
-                      className="w-full h-10 px-4 rounded-xl text-xs bg-slate-950 border border-slate-800 text-white outline-none focus:border-amber-500"
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-xs font-bold text-slate-400">{t.port}</label>
-                    <input
-                      type="text"
-                      value={imapPort}
-                      onChange={(e) => setImapPort(e.target.value)}
-                      className="w-full h-10 px-4 rounded-xl text-xs bg-slate-950 border border-slate-800 text-white outline-none focus:border-amber-500 text-center"
-                    />
-                  </div>
-                </div>
+                {verificationError && (
+                  <p className="text-xs font-semibold text-rose-500">{verificationError}</p>
+                )}
 
-                <div className="space-y-1">
-                  <label className="text-xs font-bold text-slate-400">{t.passwordApp}</label>
-                  <input
-                    type="password"
-                    value={imapPassword}
-                    onChange={(e) => setImapPassword(e.target.value)}
-                    placeholder="••••••••••••"
-                    className="w-full h-10 px-4 rounded-xl text-xs bg-slate-950 border border-slate-800 text-white outline-none focus:border-amber-500"
-                  />
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowVerificationStep(false);
+                      setPendingAccount(null);
+                      setEnteredCode("");
+                    }}
+                    className="flex-1 h-11 rounded-xl text-xs font-bold bg-slate-800 hover:bg-slate-700 text-slate-300 transition-all cursor-pointer border border-slate-700"
+                  >
+                    {lang === "ar" ? "رجوع" : "Back"}
+                  </button>
+                  <button
+                    type="submit"
+                    className="flex-1 h-11 bg-gradient-to-r from-amber-500 to-amber-600 text-slate-950 font-bold text-xs rounded-xl shadow-lg hover:from-amber-400 hover:to-amber-500 transition-all flex items-center justify-center gap-2 cursor-pointer"
+                  >
+                    <Check className="w-4 h-4" />
+                    <span>{lang === "ar" ? "تأكيد وإتمام الربط" : "Verify & Complete"}</span>
+                  </button>
                 </div>
-
-                <button
-                  type="submit"
-                  disabled={isAddingAccount}
-                  className="w-full h-11 bg-gradient-to-r from-amber-500 to-amber-600 text-slate-950 font-bold text-xs rounded-xl shadow-lg hover:from-amber-400 hover:to-amber-500 transition-all flex items-center justify-center gap-2 cursor-pointer"
-                >
-                  {isAddingAccount ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
-                  <span>{t.saveConnect}</span>
-                </button>
               </form>
+            ) : (
+              <>
+                {/* Provider Chooser */}
+                <div className="space-y-4 mb-6">
+                  <label className="text-xs font-bold text-slate-400 block">{t.selectProvider}</label>
+                  <div className="grid grid-cols-3 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setAddAccountType("gmail")}
+                      className={`p-3 rounded-xl border flex flex-col items-center gap-2 text-xs font-bold transition-all cursor-pointer ${
+                        addAccountType === "gmail"
+                          ? "bg-amber-500/10 border-amber-500 text-amber-500"
+                          : "bg-slate-950/40 border-slate-800 text-slate-400 hover:text-white"
+                      }`}
+                    >
+                      <Mail className="w-5 h-5" />
+                      <span>Google / Gmail</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setAddAccountType("outlook")}
+                      className={`p-3 rounded-xl border flex flex-col items-center gap-2 text-xs font-bold transition-all cursor-pointer ${
+                        addAccountType === "outlook"
+                          ? "bg-amber-500/10 border-amber-500 text-amber-500"
+                          : "bg-slate-950/40 border-slate-800 text-slate-400 hover:text-white"
+                      }`}
+                    >
+                      <Building className="w-5 h-5" />
+                      <span>Outlook / 365</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setAddAccountType("imap")}
+                      className={`p-3 rounded-xl border flex flex-col items-center gap-2 text-xs font-bold transition-all cursor-pointer ${
+                        addAccountType === "imap"
+                          ? "bg-amber-500/10 border-amber-500 text-amber-500"
+                          : "bg-slate-950/40 border-slate-800 text-slate-400 hover:text-white"
+                      }`}
+                    >
+                      <Server className="w-5 h-5" />
+                      <span>IMAP / SMTP</span>
+                    </button>
+                  </div>
+                </div>
+
+                {addAccountType === "gmail" ? (
+                  <div className="space-y-4">
+                    <p className="text-xs text-slate-400 leading-relaxed">
+                      {lang === "ar" 
+                        ? "قم بتوثيق حساب Google Workspace أو Gmail مباشرة عبر نظام المصادقة الآمن OAuth."
+                        : "Connect your Google Workspace or Gmail address seamlessly via OAuth protocol."}
+                    </p>
+                    <button
+                      onClick={handleConnectGoogle}
+                      disabled={isLoading}
+                      className="w-full h-11 bg-gradient-to-r from-red-600 to-rose-600 text-white font-bold text-xs rounded-xl shadow-lg hover:from-red-500 hover:to-rose-500 transition-all flex items-center justify-center gap-2 cursor-pointer"
+                    >
+                      {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Mail className="w-4 h-4" />}
+                      <span>{t.connectBtn} (Google OAuth)</span>
+                    </button>
+                  </div>
+                ) : (
+                  <form onSubmit={handleAddCustomAccount} className="space-y-4">
+                    <div className="space-y-1">
+                      <label className="text-xs font-bold text-slate-400">العنوان البريدي (Email Address)</label>
+                      <input
+                        type="email"
+                        required
+                        value={imapEmail}
+                        onChange={(e) => setImapEmail(e.target.value)}
+                        placeholder="e.g. executive@firm.org"
+                        className="w-full h-10 px-4 rounded-xl text-xs bg-slate-950 border border-slate-800 text-white outline-none focus:border-amber-500"
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-2">
+                      <div className="col-span-2 space-y-1">
+                        <label className="text-xs font-bold text-slate-400">{t.customImapHost}</label>
+                        <input
+                          type="text"
+                          value={imapHost}
+                          onChange={(e) => setImapHost(e.target.value)}
+                          placeholder="e.g. mail.company.com"
+                          className="w-full h-10 px-4 rounded-xl text-xs bg-slate-950 border border-slate-800 text-white outline-none focus:border-amber-500"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-xs font-bold text-slate-400">{t.port}</label>
+                        <input
+                          type="text"
+                          value={imapPort}
+                          onChange={(e) => setImapPort(e.target.value)}
+                          className="w-full h-10 px-4 rounded-xl text-xs bg-slate-950 border border-slate-800 text-white outline-none focus:border-amber-500 text-center"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="text-xs font-bold text-slate-400">{t.passwordApp}</label>
+                      <input
+                        type="password"
+                        value={imapPassword}
+                        onChange={(e) => setImapPassword(e.target.value)}
+                        placeholder="••••••••••••"
+                        className="w-full h-10 px-4 rounded-xl text-xs bg-slate-950 border border-slate-800 text-white outline-none focus:border-amber-500"
+                      />
+                    </div>
+
+                    <button
+                      type="submit"
+                      disabled={isAddingAccount}
+                      className="w-full h-11 bg-gradient-to-r from-amber-500 to-amber-600 text-slate-950 font-bold text-xs rounded-xl shadow-lg hover:from-amber-400 hover:to-amber-500 transition-all flex items-center justify-center gap-2 cursor-pointer"
+                    >
+                      {isAddingAccount ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+                      <span>{t.saveConnect}</span>
+                    </button>
+                  </form>
+                )}
+              </>
             )}
           </div>
         </div>
