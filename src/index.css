@@ -1,8 +1,104 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
 @import "tailwindcss";
 @import "tw-animate-css";
 
-/* Zakir System CSS Theme Variables & Clean Enterprise SaaS Design System */
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --font-body: var(--font-body);
+  --font-heading: var(--font-heading);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --shadow-sm: var(--shadow-sm);
+  --shadow: var(--shadow);
+  --shadow-md: var(--shadow-md);
+  --shadow-lg: var(--shadow-lg);
+  --shadow-xl: var(--shadow-xl);
+  --shadow-2xl: var(--shadow-2xl);
+}
+
 :root {
+  --radius: 0.5rem;
+  --shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+  --font-body: Inter, sans-serif;
+  --radius-lg: 0.75rem;
+  --radius-md: 0.5rem;
+  --radius-sm: 0.375rem;
+  --radius-xl: 1rem;
+  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+  --shadow-2xl: 0 25px 50px -12px rgb(0 0 0 / 0.25);
+  --font-heading: Inter, sans-serif;
+  --card: #FFFFFF;
+  --ring: #0075DE;
+  --input: #e4e4e7;
+  --muted: #f4f4f5;
+  --accent: #E6F3FE;
+  --border: #e4e4e7;
+  --chart-1: #0075DE;
+  --chart-2: #10b981;
+  --chart-3: #f59e0b;
+  --chart-4: #06b6d4;
+  --chart-5: #8b5cf6;
+  --popover: #FFFFFF;
+  --primary: #0075DE;
+  --sidebar: #FFFFFF;
+  --secondary: #f4f4f5;
+  --background: #FFFFFF;
+  --foreground: #0D0D0D;
+  --destructive: #ef4444;
+  --sidebar-ring: #0075DE;
+  --sidebar-accent: #f4f4f5;
+  --sidebar-border: #e4e4e7;
+  --card-foreground: #0D0D0D;
+  --sidebar-primary: #0075DE;
+  --muted-foreground: #71717a;
+  --accent-foreground: #005BAB;
+  --popover-foreground: #0D0D0D;
+  --primary-foreground: #FFFFFF;
+  --sidebar-foreground: #0D0D0D;
+  --secondary-foreground: #0D0D0D;
+  --destructive-foreground: #FFFFFF;
+  --sidebar-accent-foreground: #0D0D0D;
+  --sidebar-primary-foreground: #FFFFFF;
+
+  /* Zakir System Custom Theme Aliases */
   --bg-primary: #0b0f19;
   --bg-secondary: #111827;
   --bg-tertiary: #1f2937;
@@ -15,9 +111,54 @@
   --accent-text: #0b0f19;
   --card-bg: #111827;
   --input-bg: #1f2937;
-  --color-primary: #7C3AED;
-  --color-secondary: #A78BFA;
-  --color-accent: #0891B2;
+}
+
+.dark {
+  --card: #171717;
+  --ring: #0075DE;
+  --input: #27272a;
+  --muted: #27272a;
+  --accent: #1f2937;
+  --border: #27272a;
+  --chart-1: #0075DE;
+  --chart-2: #34d399;
+  --chart-3: #fbbf24;
+  --chart-4: #22d3ee;
+  --chart-5: #a78bfa;
+  --popover: #171717;
+  --primary: #0075DE;
+  --sidebar: #0a0a0a;
+  --secondary: #27272a;
+  --background: #0a0a0a;
+  --foreground: #fafafa;
+  --destructive: #b91c1c;
+  --sidebar-ring: #0075DE;
+  --sidebar-accent: #27272a;
+  --sidebar-border: #27272a;
+  --card-foreground: #fafafa;
+  --sidebar-primary: #0075DE;
+  --muted-foreground: #a1a1aa;
+  --accent-foreground: #fafafa;
+  --popover-foreground: #fafafa;
+  --primary-foreground: #FFFFFF;
+  --sidebar-foreground: #fafafa;
+  --secondary-foreground: #fafafa;
+  --destructive-foreground: #fafafa;
+  --sidebar-accent-foreground: #fafafa;
+  --sidebar-primary-foreground: #FFFFFF;
+
+  --bg-primary: #0b0f19;
+  --bg-secondary: #111827;
+  --bg-tertiary: #1f2937;
+  --text-primary: #f8fafc;
+  --text-secondary: #94a3b8;
+  --border-color: #1e293b;
+  --accent-color: #d4af37;
+  --accent-hover: #e5c158;
+  --accent-subtle: rgba(212, 175, 55, 0.12);
+  --accent-text: #0b0f19;
+  --card-bg: #111827;
+  --input-bg: #1f2937;
 }
 
 .theme-light, [data-theme="light"] {
@@ -50,15 +191,56 @@
   --input-bg: #1f2937;
 }
 
-/* Base Body and Typography */
-html, body, p, span, button, input, select, textarea, label, div {
-  font-family: 'Inter', 'Cairo', -apple-system, BlinkMacSystemFont, sans-serif;
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-family: var(--font-body);
+  }
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    font-family: var(--font-heading);
+  }
+  html,
+  body,
+  #root {
+    height: 100%;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+    overscroll-behavior-x: none;
+  }
 }
 
-h1, h2, h3, h4, h5, h6, .font-display {
-  font-family: 'Inter', 'Cairo', sans-serif;
-  font-weight: 800;
-  letter-spacing: -0.02em;
+/* Broken Image Fallback Styles */
+img.broken-image-fallback {
+  position: relative;
+  display: inline-block;
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  object-fit: none;
+  object-position: center;
+  animation: fadeIn 0.3s ease-in-out;
+}
+
+.dark img.broken-image-fallback {
+  background: #1f2937;
+  border-color: #374151;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 /* Crisp Clean Enterprise Utilities */
@@ -72,12 +254,6 @@ h1, h2, h3, h4, h5, h6, .font-display {
 
 .gold-border-glow {
   border-color: rgba(212, 175, 55, 0.4) !important;
-}
-
-html, body {
-  background-color: var(--bg-primary);
-  color: var(--text-primary);
-  transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
 }
 
 /* Container-based theme adaptation for components */
@@ -174,6 +350,7 @@ html, body {
 }
 
 .theme-light .text-indigo-400,
+.theme-light .text-[#0075DE],
 .theme-light .text-blue-400 {
   color: #1d4ed8 !important;
 }
@@ -255,7 +432,7 @@ html, body {
   }
 }
 
-/* Virtual Cursor Simulated Interactions - Framer-Inspired Restrained Precision */
+/* Virtual Cursor Simulated Interactions */
 .simulated-hover {
   transform: scale(1.01) !important;
   border-color: rgba(245, 158, 11, 0.4) !important;
@@ -278,7 +455,7 @@ html, body {
   transition: transform 0.1s cubic-bezier(0.16, 1, 0.3, 1) !important;
 }
 
-/* Global Input Glowing Focus - Fast & Hardware Accelerated */
+/* Global Input Glowing Focus */
 input:focus, textarea:focus, select:focus {
   outline: none;
   border-color: rgba(245, 158, 11, 0.6) !important;
@@ -306,12 +483,6 @@ input:focus, textarea:focus, select:focus {
   transform: translateY(-2px);
   border-color: rgba(212, 175, 55, 0.4);
   box-shadow: 0 8px 24px -4px rgba(212, 175, 55, 0.12);
-}
-
-/* Fast Hardware Acceleration Helpers */
-* {
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
 }
 
 /* Custom Refined Scrollbar */
@@ -489,5 +660,3 @@ input:focus, textarea:focus, select:focus {
   align-items: center;
   gap: 0.4rem;
 }
-
-
