@@ -910,7 +910,7 @@ export const WorldBankPortal: React.FC<WorldBankPortalProps> = ({
                   {loadBenchmarkFallback && (
                     <button
                       onClick={() => loadBenchmarkFallback()}
-                      className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-bold text-xs transition-all cursor-pointer"
+                      className="px-4 py-2 rounded-xl bg-[#0075DE]/10 hover:bg-[#0075DE] text-[#0075DE] hover:text-white border border-[#0075DE]/30 font-bold text-xs transition-all cursor-pointer"
                     >
                       <span>{lang === "ar" ? "تحميل البيانات المرجعية التقديرية" : "Load Benchmark Dataset"}</span>
                     </button>
@@ -1108,7 +1108,7 @@ export const WorldBankPortal: React.FC<WorldBankPortalProps> = ({
             className={`px-5 py-2.5 rounded-xl font-bold text-xs flex items-center justify-center gap-2 transition-all shadow-lg cursor-pointer ${
               wbIsAnalyzing
                 ? "bg-[#0075DE]/50 text-slate-900 cursor-not-allowed"
-                : "bg-[#0075DE] hover:bg-amber-400 text-slate-950 shadow-[#0075DE]/20 hover:scale-[1.02]"
+                : "bg-[#0075DE] hover:bg-[#005BAB] text-white shadow-[#0075DE]/20 hover:scale-[1.02]"
             }`}
           >
             {wbIsAnalyzing ? (

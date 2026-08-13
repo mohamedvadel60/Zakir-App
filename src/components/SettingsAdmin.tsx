@@ -1710,7 +1710,7 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
                   className={`w-full py-3.5 rounded-xl font-bold text-xs transition-all cursor-pointer flex items-center justify-center gap-2 ${
                     currentUser.subscriptionPlan === "Starter"
                       ? "bg-slate-800 text-slate-500 cursor-not-allowed"
-                      : "bg-slate-800 hover:bg-slate-700 text-white border border-slate-700"
+                      : "bg-[#0075DE]/15 hover:bg-[#0075DE] text-[#0075DE] hover:text-white border border-[#0075DE]/30"
                   }`}
                 >
                   {currentUser.subscriptionPlan === "Starter"
@@ -1801,7 +1801,7 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
 
                   <a
                     href="mailto:mohamedvadel60@gmail.com?subject=Zakir%20Enterprise%20Plan%20Inquiry"
-                    className="w-full py-2.5 bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-white border border-slate-800 text-center font-semibold text-xs rounded-xl flex items-center justify-center gap-2 transition-all block cursor-pointer"
+                    className="w-full py-2.5 bg-[#0075DE]/10 hover:bg-[#0075DE]/20 text-[#0075DE] border border-[#0075DE]/30 text-center font-semibold text-xs rounded-xl flex items-center justify-center gap-2 transition-all block cursor-pointer"
                   >
                     <span>{translations[lang as keyof typeof translations]?.contactSales || (lang === "ar" ? "تواصل مع المبيعات" : "Contact Sales")}</span>
                   </a>

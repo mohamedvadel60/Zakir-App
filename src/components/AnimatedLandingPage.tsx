@@ -842,7 +842,7 @@ export const AnimatedLandingPage: React.FC<AnimatedLandingPageProps> = ({
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.96 }}
                 onClick={() => onStripeCheckout("Starter")}
-                className={`w-full mt-6 py-3 ${theme === 'light' ? 'bg-slate-900 hover:bg-slate-800 text-white' : 'bg-slate-800 hover:bg-slate-700 text-white'} font-bold text-xs rounded-xl transition-all cursor-pointer text-center`}
+                className={`w-full mt-6 py-3 bg-[#0075DE]/10 hover:bg-[#0075DE] text-[#0075DE] hover:text-white border border-[#0075DE]/35 font-bold text-xs rounded-xl transition-all cursor-pointer text-center`}
               >
                 {lang === "ar" ? "الاشتراك بخطة Starter" : (lang === "fr" ? "S'abonner à Starter" : "Subscribe Starter")}
               </motion.button>
@@ -922,7 +922,7 @@ export const AnimatedLandingPage: React.FC<AnimatedLandingPageProps> = ({
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.96 }}
                 onClick={() => onStripeCheckout("Enterprise")}
-                className={`w-full mt-6 py-3 ${theme === 'light' ? 'bg-slate-900 hover:bg-slate-800 text-white' : 'bg-slate-800 hover:bg-slate-700 text-white'} font-bold text-xs rounded-xl transition-all cursor-pointer text-center`}
+                className={`w-full mt-6 py-3 bg-[#0075DE]/10 hover:bg-[#0075DE] text-[#0075DE] hover:text-white border border-[#0075DE]/35 font-bold text-xs rounded-xl transition-all cursor-pointer text-center`}
               >
                 {lang === "ar" ? "الاشتراك بخطة Enterprise" : (lang === "fr" ? "S'abonner à Enterprise" : "Subscribe Enterprise")}
               </motion.button>
