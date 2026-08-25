@@ -94,7 +94,7 @@ export const ZakirLogo: React.FC<ZakirLogoProps> = ({
         viewBox="0 0 1021.12 909.1"
         fill="none"
         xmlns="http://www.w3.org/2000/svg"
-        className="transition-all duration-300 animate-fade-in"
+        className="transition-all duration-300 animate-fade-in shrink-0"
       >
         <defs>
           <linearGradient id="zakir-official-grad" x1="17.47" y1="447.63" x2="984.67" y2="463.31" gradientUnits="userSpaceOnUse">

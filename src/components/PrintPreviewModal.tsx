@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { Memory } from "../types";
+import { ZakirLogo } from "./ZakirLogo";
 
 interface PrintPreviewModalProps {
   isOpen: boolean;
@@ -1160,13 +1161,10 @@ export function PrintPreviewModal({
               />
             ) : (
               <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-lg bg-blue-600 text-white flex items-center justify-center font-black text-sm shadow-sm">
-                  Z
-                </div>
+                <ZakirLogo theme="light" size="sm" lang={lang} />
                 <div className="leading-tight">
-                  <span className="font-black text-sm tracking-wider text-slate-900 block font-serif">ZAKIR</span>
                   <span className="text-[7.5pt] text-slate-500 font-medium block">
-                    {lang === "ar" ? "الذاكرة المؤسسية السببية" : "Organizational Causal Memory"}
+                    {lang === "ar" ? "الذاكرة المؤسسية والتحليل السببي" : "Organizational Causal Memory"}
                   </span>
                 </div>
               </div>
