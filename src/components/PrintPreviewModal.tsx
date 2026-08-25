@@ -55,14 +55,14 @@ export function PrintPreviewModal({
     return memories.map(m => m.id);
   });
 
-  // Sync initial selection if changed on open, and auto-expand and auto-print on 'Print All'
+  // Sync initial selection if changed on open
   React.useEffect(() => {
     if (isOpen) {
       if (initialSelectedMemoryId) {
         setSelectedIds([initialSelectedMemoryId]);
       } else {
         // 'Print All' chosen:
-        // Automatically select/expand all memories
+        // Automatically select/expand all memories for preview
         setSelectedIds(memories.map(m => m.id));
         
         // Ensure all content sections are expanded/included
@@ -72,12 +72,6 @@ export function PrintPreviewModal({
         setIncludeAuthor(true);
         setIncludeTags(true);
         setIncludeSummaryTable(true);
-        
-        // Trigger print after a brief render delay (e.g. 1000ms) to allow layout reflow
-        const timer = setTimeout(() => {
-          executeNativePrint();
-        }, 1000);
-        return () => clearTimeout(timer);
       }
     }
   }, [initialSelectedMemoryId, isOpen, memories]);
@@ -91,6 +85,7 @@ export function PrintPreviewModal({
   const [lineSpacing, setLineSpacing] = useState<number>(1.15);
   const [pageMargins, setPageMargins] = useState<number>(40);
   const [customFontScale, setCustomFontScale] = useState<number>(100);
+  const [printBackgrounds, setPrintBackgrounds] = useState<boolean>(true);
   const [isPrinting, setIsPrinting] = useState(false);
 
   const [refreshTrigger, setRefreshTrigger] = useState(0);
@@ -380,8 +375,8 @@ export function PrintPreviewModal({
 
     printStyles.innerHTML = `
       @page {
-        size: ${pageSize.toLowerCase()} ${orientation};
-        margin: 0 !important;
+        size: ${pageSize === "A4" ? "A4" : pageSize === "Letter" ? "letter" : pageSize.toLowerCase()} ${orientation};
+        margin: ${getPageMarginCss()} !important;
       }
       @media print {
         html, body {
@@ -422,6 +417,8 @@ export function PrintPreviewModal({
           position: static !important;
           width: 100% !important;
           height: auto !important;
+          min-height: 0 !important;
+          max-height: none !important;
           overflow: visible !important;
         }
 
@@ -466,8 +463,8 @@ export function PrintPreviewModal({
         .printing-active .print-page,
         .printing-active .print-page * {
           visibility: visible !important;
-          -webkit-print-color-adjust: exact !important;
-          print-color-adjust: exact !important;
+          -webkit-print-color-adjust: ${printBackgrounds ? "exact" : "economy"} !important;
+          print-color-adjust: ${printBackgrounds ? "exact" : "economy"} !important;
         }
 
         .printing-active .print-page {
@@ -475,10 +472,11 @@ export function PrintPreviewModal({
           flex-direction: column !important;
           justify-content: space-between !important;
           position: relative !important;
-          width: ${getPagePhysicalSize().width} !important;
-          min-height: ${getPagePhysicalSize().height} !important;
+          width: 100% !important;
+          max-width: 100% !important;
+          min-height: auto !important;
           height: auto !important;
-          padding: ${getPageMarginCss()} !important;
+          padding: 0 !important;
           margin: 0 auto !important;
           page-break-after: always !important;
           break-after: page !important;
@@ -582,7 +580,7 @@ export function PrintPreviewModal({
       clearTimeout(timer);
       clearTimeout(fallbackTimer);
     };
-  }, [orientation, documentTheme, pageSize, pageMargins, lineSpacing, customFontScale]);
+  }, [orientation, documentTheme, pageSize, pageMargins, lineSpacing, customFontScale, printBackgrounds]);
 
   // Listen to standard browser afterprint event to clean up classes and styles immediately
   React.useEffect(() => {
@@ -599,17 +597,6 @@ export function PrintPreviewModal({
       window.removeEventListener("afterprint", handleAfterPrint);
     };
   }, []);
-
-  // Handle external applet custom print request events
-  React.useEffect(() => {
-    const handlePrintEvent = () => {
-      executeNativePrint();
-    };
-    window.addEventListener("applet-print-request", handlePrintEvent);
-    return () => {
-      window.removeEventListener("applet-print-request", handlePrintEvent);
-    };
-  }, [executeNativePrint]);
 
   const handlePrint = () => {
     executeNativePrint();
@@ -1933,33 +1920,70 @@ export function PrintPreviewModal({
                 </div>
               </div>
 
-              {/* Margins and Free-size Adjusters */}
+              {/* Margins Presets and Free-size Adjusters */}
               <div className="space-y-3 pt-2 border-t border-slate-800">
-                <div className="flex justify-between items-center text-[10px] text-slate-400">
-                  <span>{lang === "ar" ? "هوامش الورقة المخصصة:" : "Custom Page Margins:"}</span>
-                  <span className="font-mono text-blue-400 font-bold">{pageMargins}px</span>
+                <div>
+                  <div className="flex justify-between items-center text-[10px] text-slate-400 mb-1.5">
+                    <span>{lang === "ar" ? "هوامش الورقة:" : "Page Margins:"}</span>
+                    <span className="font-mono text-blue-400 font-bold">{pageMargins}px ({Math.round(pageMargins * 0.264583)}mm)</span>
+                  </div>
+                  <div className="grid grid-cols-3 gap-1.5 mb-2">
+                    {[
+                      { id: "normal", label: lang === "ar" ? "افتراضي (15mm)" : "Normal (15mm)", val: 40 },
+                      { id: "narrow", label: lang === "ar" ? "ضيق (10mm)" : "Narrow (10mm)", val: 24 },
+                      { id: "wide", label: lang === "ar" ? "عريض (25mm)" : "Wide (25mm)", val: 64 }
+                    ].map((m) => (
+                      <button
+                        key={m.id}
+                        type="button"
+                        onClick={() => setPageMargins(m.val)}
+                        className={`py-1 px-1.5 text-[9px] font-bold rounded-lg border transition-all cursor-pointer truncate ${
+                          pageMargins === m.val
+                            ? "bg-[#0075DE] text-white border-[#0075DE]"
+                            : "bg-slate-950 border-slate-800 text-slate-400 hover:text-white"
+                        }`}
+                      >
+                        {m.label}
+                      </button>
+                    ))}
+                  </div>
+                  <input 
+                    type="range" 
+                    min="16" 
+                    max="80" 
+                    value={pageMargins} 
+                    onChange={(e) => setPageMargins(parseInt(e.target.value))} 
+                    className="w-full h-1 bg-slate-950 rounded-lg appearance-none cursor-pointer accent-blue-500"
+                  />
                 </div>
-                <input 
-                  type="range" 
-                  min="16" 
-                  max="80" 
-                  value={pageMargins} 
-                  onChange={(e) => setPageMargins(parseInt(e.target.value))} 
-                  className="w-full h-1 bg-slate-950 rounded-lg appearance-none cursor-pointer accent-blue-500"
-                />
 
-                <div className="flex justify-between items-center text-[10px] text-slate-400">
-                  <span>{lang === "ar" ? "مقياس الخط المخصص (حر):" : "Custom Font Scale:"}</span>
-                  <span className="font-mono text-blue-400 font-bold">{customFontScale}%</span>
+                <div>
+                  <div className="flex justify-between items-center text-[10px] text-slate-400 mb-1">
+                    <span>{lang === "ar" ? "مقياس الخط المخصص:" : "Custom Font Scale:"}</span>
+                    <span className="font-mono text-blue-400 font-bold">{customFontScale}%</span>
+                  </div>
+                  <input 
+                    type="range" 
+                    min="75" 
+                    max="150" 
+                    value={customFontScale} 
+                    onChange={(e) => setCustomFontScale(parseInt(e.target.value))} 
+                    className="w-full h-1 bg-slate-950 rounded-lg appearance-none cursor-pointer accent-blue-500"
+                  />
                 </div>
-                <input 
-                  type="range" 
-                  min="75" 
-                  max="150" 
-                  value={customFontScale} 
-                  onChange={(e) => setCustomFontScale(parseInt(e.target.value))} 
-                  className="w-full h-1 bg-slate-950 rounded-lg appearance-none cursor-pointer accent-blue-500"
-                />
+
+                {/* Print Backgrounds Toggle */}
+                <div className="pt-2 border-t border-slate-850">
+                  <label className="flex items-center gap-2 text-[10px] text-slate-300 cursor-pointer select-none">
+                    <input 
+                      type="checkbox"
+                      checked={printBackgrounds}
+                      onChange={(e) => setPrintBackgrounds(e.target.checked)}
+                      className="w-3.5 h-3.5 rounded bg-slate-950 border-slate-800 text-blue-500 focus:ring-blue-500 accent-blue-500 cursor-pointer"
+                    />
+                    <span className="font-semibold">{lang === "ar" ? "طباعة رسومات وخلفيات الألوان (Backgrounds)" : "Print Background Colors & Graphics"}</span>
+                  </label>
+                </div>
               </div>
 
             </div>
