@@ -111,7 +111,7 @@ import { authenticatedFetch } from "./lib/apiUtils.js";
 import { SettingsAdmin } from "./components/SettingsAdmin";
 import { InstallPrompt } from "./components/InstallPrompt";
 import { CustomerSupport } from "./components/CustomerSupport";
-import { PrintPreviewModal } from "./components/PrintPreviewModal";
+import { PrintSystem } from "./components/print/PrintSystem";
 import { EmailVerificationView } from "./components/EmailVerificationView";
 import { RiskRadarChart } from "./components/RiskRadarChart";
 import { AdminDashboard } from "./components/AdminDashboard";
@@ -6494,8 +6494,8 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
         </div>
       )}
 
-      {/* Dedicated Print Preview & Formatting Modal */}
-      <PrintPreviewModal
+      {/* Enterprise Print & Document System */}
+      <PrintSystem
         isOpen={isPrintPreviewOpen}
         onClose={() => setIsPrintPreviewOpen(false)}
         memories={memories}
