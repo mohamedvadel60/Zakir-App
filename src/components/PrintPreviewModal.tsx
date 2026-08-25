@@ -475,7 +475,8 @@ export function PrintPreviewModal({
           justify-content: space-between !important;
           position: relative !important;
           width: ${getPagePhysicalSize().width} !important;
-          height: ${getPagePhysicalSize().height} !important;
+          min-height: ${getPagePhysicalSize().height} !important;
+          height: auto !important;
           padding: ${getPageMarginCss()} !important;
           margin: 0 auto !important;
           page-break-after: always !important;
@@ -520,14 +521,23 @@ export function PrintPreviewModal({
           background-color: transparent !important;
         }
 
-        .page-break {
-          display: block !important;
-          page-break-before: always !important;
-          break-before: page !important;
-          height: 0 !important;
-          margin: 0 !important;
-          padding: 0 !important;
-          border: none !important;
+        table {
+          width: 100% !important;
+          border-collapse: collapse !important;
+        }
+
+        thead {
+          display: table-header-group !important;
+        }
+
+        tr {
+          page-break-inside: avoid !important;
+          break-inside: avoid !important;
+        }
+
+        tbody {
+          page-break-inside: auto !important;
+          break-inside: auto !important;
         }
 
         .memory-card-item {
@@ -537,10 +547,7 @@ export function PrintPreviewModal({
 
         .page-break-inside-avoid,
         .lessons-box,
-        .signature-block,
-        tr,
-        thead,
-        tbody {
+        .signature-block {
           page-break-inside: avoid !important;
           break-inside: avoid !important;
         }
@@ -819,16 +826,16 @@ export function PrintPreviewModal({
 
   const getInitialHeaderHeight = () => {
     if (!includeHeader) return 0;
-    const sizes = { small: 110, medium: 135, large: 175 };
-    return sizes[logoSize] || 135;
+    return 65; // Minimal concise header initial estimate
   };
 
   const [headerHeight, setHeaderHeight] = useState<number>(getInitialHeaderHeight());
+  const continuationHeaderHeight = includeHeader ? 28 : 0;
 
-  // Keep headerHeight state in sync when basic visibility/size toggles to avoid layout jumps
+  // Keep headerHeight state in sync when basic visibility toggles to avoid layout jumps
   React.useEffect(() => {
     setHeaderHeight(getInitialHeaderHeight());
-  }, [includeHeader, logoSize]);
+  }, [includeHeader]);
 
   // Measure heights of all blocks in an offscreen scratchpad
   React.useEffect(() => {
@@ -895,7 +902,7 @@ export function PrintPreviewModal({
         }
         return changed ? newHeights : prev;
       });
-    }, 100);
+    }, 80);
 
     return () => clearTimeout(timer);
   }, [
@@ -915,25 +922,26 @@ export function PrintPreviewModal({
     includeTags,
     includeSignatureBlock,
     includeSummaryTable,
-    logoSize,
     includeHeader,
     includeFooter,
-    headerStyle,
     departmentName,
-    includeVerificationSeal,
+    documentRef,
+    companyLogoImg,
     refreshTrigger
   ]);
 
   const documentPages = useMemo(() => {
     const totalHeight = pageHeight;
-    const footerHeight = includeFooter ? 45 : 0;
-    // Available height is total minus padding, header height and footer height
-    const usableHeight = totalHeight - (pageMargins * 2) - headerHeight - footerHeight;
+    const footerHeight = includeFooter ? 36 : 0;
+    
+    // Page 1 usable height vs Page 2+ usable height (continuation header is very small)
+    const usableHeightPage1 = Math.max(300, totalHeight - (pageMargins * 2) - headerHeight - footerHeight - 12);
+    const usableHeightPage2 = Math.max(300, totalHeight - (pageMargins * 2) - continuationHeaderHeight - footerHeight - 12);
 
     const getFallbackHeight = (block: typeof documentBlocks[0]) => {
       if (block.type === "summary") {
         const rowHeight = density === "compact" ? 28 : density === "spacious" ? 44 : 36;
-        return 140 + (selectedMemories.length * rowHeight) + 100;
+        return 120 + (selectedMemories.length * rowHeight) + 40;
       }
       if (block.type === "signature") {
         return density === "compact" ? 95 : density === "spacious" ? 140 : 115;
@@ -945,22 +953,22 @@ export function PrintPreviewModal({
       if (block.type === "memory_card_sub") {
         if (block.subType === "main") {
           const textLen = (m.title?.length || 0) + (m.description?.length || 0) + (m.decision?.length || 0);
-          return 120 + Math.ceil(textLen * 0.45);
+          return 100 + Math.ceil(textLen * 0.4);
         }
         if (block.subType === "causal" && m.causalFactors) {
-          return 50 + Math.ceil(m.causalFactors.length * 0.45);
+          return 45 + Math.ceil(m.causalFactors.length * 0.4);
         }
         if (block.subType === "outcomes" && m.outcomes) {
-          return 50 + Math.ceil(m.outcomes.length * 0.45);
+          return 45 + Math.ceil(m.outcomes.length * 0.4);
         }
         if (block.subType === "lessons" && m.lessonsLearned) {
-          return 70 + Math.ceil(m.lessonsLearned.length * 0.45);
+          return 60 + Math.ceil(m.lessonsLearned.length * 0.4);
         }
         if (block.subType === "footer") {
-          return 40;
+          return 35;
         }
       }
-      return 150;
+      return 120;
     };
 
     const pages: Array<typeof documentBlocks> = [];
@@ -971,6 +979,10 @@ export function PrintPreviewModal({
     const getBlockHeight = (block: typeof documentBlocks[0]) => {
       const baseHeight = blockHeights[block.id] || getFallbackHeight(block);
       return columns === "2" ? baseHeight / 1.8 : baseHeight;
+    };
+
+    const getUsableHeightForCurrentPage = () => {
+      return pages.length === 0 ? usableHeightPage1 : usableHeightPage2;
     };
 
     let i = 0;
@@ -987,14 +999,17 @@ export function PrintPreviewModal({
           j++;
         }
 
-        // Calculate total height of this memory card (sum of its sub-blocks)
-        const totalCardHeight = cardSubBlocks.reduce((sum, b) => sum + getBlockHeight(b), 0);
+        // Calculate total height of this memory card (sum of its sub-blocks + card container padding/margin buffer)
+        const cardBuffer = density === "compact" ? 16 : density === "spacious" ? 32 : 24;
+        const totalCardHeight = cardSubBlocks.reduce((sum, b) => sum + getBlockHeight(b), 0) + cardBuffer;
 
-        if (totalCardHeight <= usableHeight) {
-          // Case 1: The entire memory card fits on a single page!
-          // We must NOT split it. Treat it as a single atomic unit.
-          const forceBreak = pageBreakBetween && currentPage.length > 0;
-          if ((currentHeight + totalCardHeight > usableHeight || forceBreak) && currentPage.length > 0) {
+        const currentUsableHeight = getUsableHeightForCurrentPage();
+        const forceBreak = pageBreakBetween && currentPage.length > 0;
+
+        if (totalCardHeight <= usableHeightPage2) {
+          // Case 1: The entire memory card fits on a page!
+          // Keep the whole card intact as a single block where possible.
+          if ((currentHeight + totalCardHeight > currentUsableHeight || forceBreak) && currentPage.length > 0) {
             // Push current page and start a new one with all card sub-blocks
             pages.push(currentPage);
             currentPage = [...cardSubBlocks];
@@ -1004,15 +1019,16 @@ export function PrintPreviewModal({
             currentPage.push(...cardSubBlocks);
             currentHeight += totalCardHeight;
           }
-          i = j; // Advance outer loop past all sub-blocks of this card
+          i = j; // Advance past all sub-blocks of this card
         } else {
-          // Case 2: The memory card is extremely long and does not fit on any single page.
-          // We allow individual sub-blocks of this card to split across pages!
+          // Case 2: The memory card is exceptionally long and exceeds standard page height.
+          // Allow sub-blocks of this card to flow gracefully across pages.
           cardSubBlocks.forEach((subBlock, subIdx) => {
             const h = getBlockHeight(subBlock);
-            const forceBreak = pageBreakBetween && subBlock.subType === "main" && subIdx === 0 && currentPage.length > 0;
+            const pageLimit = getUsableHeightForCurrentPage();
+            const shouldBreak = pageBreakBetween && subBlock.subType === "main" && subIdx === 0 && currentPage.length > 0;
 
-            if ((currentHeight + h > usableHeight || forceBreak) && currentPage.length > 0) {
+            if ((currentHeight + h > pageLimit || shouldBreak) && currentPage.length > 0) {
               pages.push(currentPage);
               currentPage = [subBlock];
               currentHeight = h;
@@ -1021,12 +1037,14 @@ export function PrintPreviewModal({
               currentHeight += h;
             }
           });
-          i = j; // Advance outer loop past all sub-blocks of this card
+          i = j; // Advance past all sub-blocks of this card
         }
       } else {
         // Case 3: Summary block or Signature block
         const h = getBlockHeight(block);
-        if ((currentHeight + h > usableHeight) && currentPage.length > 0) {
+        const currentUsableHeight = getUsableHeightForCurrentPage();
+
+        if ((currentHeight + h > currentUsableHeight) && currentPage.length > 0) {
           pages.push(currentPage);
           currentPage = [block];
           currentHeight = h;
@@ -1048,7 +1066,8 @@ export function PrintPreviewModal({
     blockHeights, 
     pageHeight, 
     pageMargins, 
-    headerHeight, 
+    headerHeight,
+    continuationHeaderHeight,
     includeFooter, 
     pageBreakBetween,
     density,
@@ -1100,244 +1119,102 @@ export function PrintPreviewModal({
     if (!includeHeader) return null;
 
     const isRtl = lang === "ar";
-    
-    // Determine logo size class
-    const logoHeightClass = {
-      small: "h-10 max-h-10",
-      medium: "h-14 max-h-14",
-      large: "h-20 max-h-20"
-    }[logoSize];
-
     const dateVal = includeDateInWatermark && displayDate ? displayDate : new Date().toLocaleDateString(lang === "ar" ? "ar-SA" : "en-US");
 
-    const renderHeaderMetadata = () => {
+    // Page 2+: Minimal, sleek continuation header (~24px)
+    if (pageIdx > 0) {
       return (
-        <div className="flex flex-col gap-1 w-full max-w-[210px] text-[8pt] text-slate-700 font-sans" dir={isRtl ? "rtl" : "ltr"}>
-          {includeVerificationSeal && (
-            <div className="flex items-center gap-1.5 p-1 px-2 bg-emerald-50 border border-emerald-200/60 rounded-md text-emerald-900 mb-1 w-full">
-              <ShieldAlert className="w-3.5 h-3.5 shrink-0 text-emerald-600" />
-              <div className="text-start overflow-hidden flex-1 leading-none">
-                <div className="text-[6.5pt] font-black uppercase tracking-wider text-emerald-950">
-                  {lang === "ar" ? "اعتماد رسمي حوكمي" : "OFFICIALLY APPROVED"}
-                </div>
-                <div className="text-[6pt] font-mono text-emerald-600/90 font-bold mt-0.5 truncate">
-                  {documentRef}
-                </div>
-              </div>
-            </div>
-          )}
-          
-          <div className="space-y-0.5 w-full">
-            {/* Document Ref */}
-            <div className="flex items-center justify-between gap-2 py-0.5 border-b border-slate-100">
-              <span className="text-[7pt] font-extrabold uppercase text-slate-500 tracking-wider whitespace-nowrap">
-                {lang === "ar" ? "رقم المرجع:" : "REF ID:"}
-              </span>
-              <span className="font-mono font-bold text-slate-900 truncate max-w-[120px]" title={documentRef}>
-                {documentRef}
-              </span>
-            </div>
-
-            {/* Date */}
-            <div className="flex items-center justify-between gap-2 py-0.5 border-b border-slate-100">
-              <span className="text-[7pt] font-extrabold uppercase text-slate-500 tracking-wider whitespace-nowrap">
-                {lang === "ar" ? "تاريخ الإصدار:" : "DATE OF ISSUE:"}
-              </span>
-              <span className="font-semibold text-slate-900 whitespace-nowrap">
-                {dateVal}
-              </span>
-            </div>
-
-            {/* Issuer */}
-            <div className="flex items-center justify-between gap-2 py-0.5 border-b border-slate-100">
-              <span className="text-[7pt] font-extrabold uppercase text-slate-500 tracking-wider whitespace-nowrap">
-                {lang === "ar" ? "مستخرج التقرير:" : "ISSUER:"}
-              </span>
-              <span className="font-bold text-slate-900 truncate max-w-[110px]" title={userName}>
-                {userName}
-              </span>
-            </div>
-
-            {/* Page Counter */}
-            <div className="flex items-center justify-between gap-2 py-0.5">
-              <span className="text-[7pt] font-extrabold uppercase text-slate-500 tracking-wider whitespace-nowrap">
-                {lang === "ar" ? "رقم الصفحة:" : "PAGE:"}
-              </span>
-              <span className="font-mono font-bold text-slate-900 whitespace-nowrap">
-                {lang === "ar" ? `${pageIdx + 1} من ${totalPages}` : `${pageIdx + 1} of ${totalPages}`}
-              </span>
-            </div>
+        <div 
+          className="print-only-header w-full border-b border-slate-300 pb-1.5 mb-3 flex items-center justify-between text-[8pt] text-slate-600 font-sans select-none" 
+          dir={isRtl ? "rtl" : "ltr"}
+        >
+          <div className="flex items-center gap-2 font-bold text-slate-800">
+            <span className="font-black text-blue-600 tracking-wider">ZAKIR</span>
+            <span className="text-slate-400">•</span>
+            <span className="truncate max-w-[320px]">
+              {lang === "ar" ? "تقرير الذاكرة المؤسسية وسجل القرارات" : "Institutional Memory & Decision Report"}
+            </span>
+          </div>
+          <div className="font-mono font-bold text-slate-700">
+            {lang === "ar" ? `صفحة ${pageIdx + 1} من ${totalPages}` : `Page ${pageIdx + 1} of ${totalPages}`}
           </div>
         </div>
       );
-    };
+    }
 
-    if (headerStyle === "centered") {
-      return (
-        <div 
-          className="print-only-header w-full border-b border-slate-300 pb-4 mb-5 relative z-10 flex flex-col items-center text-center space-y-3" 
-          dir={isRtl ? "rtl" : "ltr"}
-        >
-          {/* Logo in center */}
-          <div className="flex justify-center">
+    // Page 1: Concise, professional institutional document header
+    return (
+      <div 
+        className="print-only-header w-full border-b border-slate-300 pb-2 mb-4 select-none" 
+        dir={isRtl ? "rtl" : "ltr"}
+      >
+        {/* Top Bar: Brand / Organization on one side, Document Title on other side */}
+        <div className="flex items-center justify-between gap-4 pb-2">
+          <div className="flex items-center gap-3">
             {companyLogoImg ? (
               <img 
                 src={companyLogoImg} 
                 alt="Company Logo" 
-                className={`${logoHeightClass} object-contain rounded-md`} 
+                className="h-9 max-h-9 object-contain rounded" 
                 referrerPolicy="no-referrer" 
               />
             ) : (
-              <div className={`flex items-center justify-center bg-slate-50 border border-slate-200 rounded-xl p-1.5 shrink-0 ${
-                logoSize === "small" ? "w-10 h-10" : logoSize === "large" ? "w-16 h-16" : "w-12 h-12"
-              }`}>
-                <Building2 className={`w-full h-full ${themeColors.accentText}`} />
-              </div>
-            )}
-          </div>
-
-          {/* Org & Report Title */}
-          <div>
-            <h1 className="text-xl font-black text-slate-950 font-serif tracking-tight">
-              {companyName}
-            </h1>
-            {departmentName && (
-              <p className="text-xs font-black uppercase text-slate-700 tracking-wider font-serif mt-0.5">{departmentName}</p>
-            )}
-            <p className="text-[9pt] text-slate-600 font-bold mt-1 uppercase tracking-widest">
-              {lang === "ar" ? "تقرير الذاكرة المؤسسية والتحليل السببي" : "Institutional Memory & Causal Analysis Report"}
-            </p>
-          </div>
-
-          {/* Elegant Centered Metadata Row */}
-          <div className="w-full grid grid-cols-4 border border-slate-200 bg-slate-50/50 rounded-lg overflow-hidden text-right rtl:text-right text-slate-800 mt-2 divide-x rtl:divide-x-reverse divide-slate-200" dir={isRtl ? "rtl" : "ltr"}>
-            <div className="p-2 flex flex-col justify-center text-center">
-              <span className="text-[7pt] font-black uppercase text-slate-500 tracking-wider mb-0.5">
-                {lang === "ar" ? "رقم المرجع" : "DOCUMENT REF"}
-              </span>
-              <span className="text-[8.5pt] font-mono font-bold text-slate-900 break-all leading-tight">
-                {documentRef}
-              </span>
-            </div>
-            <div className="p-2 flex flex-col justify-center text-center">
-              <span className="text-[7pt] font-black uppercase text-slate-500 tracking-wider mb-0.5">
-                {lang === "ar" ? "تاريخ الإصدار" : "DATE OF ISSUE"}
-              </span>
-              <span className="text-[8.5pt] font-semibold text-slate-900 leading-tight">
-                {dateVal}
-              </span>
-            </div>
-            <div className="p-2 flex flex-col justify-center text-center">
-              <span className="text-[7pt] font-black uppercase text-slate-500 tracking-wider mb-0.5">
-                {lang === "ar" ? "مستخرج التقرير" : "REPORT ISSUER"}
-              </span>
-              <span className="text-[8.5pt] font-bold text-slate-900 truncate leading-tight" title={userName}>
-                {userName}
-              </span>
-            </div>
-            <div className="p-2 flex flex-col justify-center text-center">
-              <span className="text-[7pt] font-black uppercase text-slate-500 tracking-wider mb-0.5">
-                {lang === "ar" ? "الصفحة" : "PAGE"}
-              </span>
-              <span className="text-[8.5pt] font-bold text-slate-900 leading-tight">
-                {pageIdx + 1} / {totalPages}
-              </span>
-            </div>
-          </div>
-        </div>
-      );
-    }
-
-    if (headerStyle === "letterhead") {
-      return (
-        <div 
-          className="print-only-header w-full border-b-4 border-double border-slate-900 pb-4 mb-5 relative z-10" 
-          dir={isRtl ? "rtl" : "ltr"}
-        >
-          <div className={`h-2.5 w-full rounded-t-sm mb-3 ${themeColors.marker}`}></div>
-          <div className="grid grid-cols-3 gap-4 items-center w-full">
-            {/* Region 1: Logo */}
-            <div className="flex items-center justify-start shrink-0">
-              {companyLogoImg ? (
-                <img 
-                  src={companyLogoImg} 
-                  alt="Company Logo" 
-                  className={`${logoHeightClass} object-contain rounded-md`} 
-                  referrerPolicy="no-referrer" 
-                />
-              ) : (
-                <div className={`flex items-center justify-center bg-slate-100 border border-slate-200 rounded-xl p-1.5 shrink-0 ${
-                  logoSize === "small" ? "w-10 h-10" : logoSize === "large" ? "w-16 h-16" : "w-12 h-12"
-                }`}>
-                  <Building2 className={`w-full h-full ${themeColors.accentText}`} />
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-lg bg-blue-600 text-white flex items-center justify-center font-black text-sm shadow-sm">
+                  Z
                 </div>
-              )}
-            </div>
-
-            {/* Region 2: Org details (Center) */}
-            <div className="text-center space-y-0.5">
-              <h1 className="text-lg font-black text-slate-950 font-serif tracking-tight leading-tight">
-                {companyName}
-              </h1>
-              {departmentName && (
-                <p className="text-[8pt] font-black uppercase text-slate-800 tracking-wider font-serif leading-none">{departmentName}</p>
-              )}
-              <div className="inline-block px-2.5 py-0.5 mt-1 bg-slate-100 border border-slate-200 rounded-full text-[7.5pt] font-black text-slate-800 uppercase tracking-wider">
-                {lang === "ar" ? "وثيقة حوكمة إدارية رسمية" : "Official Governance Record"}
+                <div className="leading-tight">
+                  <span className="font-black text-sm tracking-wider text-slate-900 block font-serif">ZAKIR</span>
+                  <span className="text-[7.5pt] text-slate-500 font-medium block">
+                    {lang === "ar" ? "الذاكرة المؤسسية السببية" : "Organizational Causal Memory"}
+                  </span>
+                </div>
               </div>
-            </div>
-
-            {/* Region 3: Metadata */}
-            <div className="flex justify-end">
-              {renderHeaderMetadata()}
-            </div>
+            )}
+            {companyLogoImg && (
+              <div className="leading-tight">
+                <span className="font-bold text-xs text-slate-900 block">{companyName}</span>
+                {departmentName && (
+                  <span className="text-[7.5pt] text-slate-500 block">{departmentName}</span>
+                )}
+              </div>
+            )}
           </div>
-        </div>
-      );
-    }
 
-    // Default "standard" corporate header (beautifully balanced 3-region layout)
-    return (
-      <div 
-        className="print-only-header w-full border-b border-slate-350 pb-3 mb-4 relative z-10 grid grid-cols-3 gap-4 items-center" 
-        dir={isRtl ? "rtl" : "ltr"}
-      >
-        {/* Region 1: Company Logo */}
-        <div className="flex items-center justify-start shrink-0">
-          {companyLogoImg ? (
-            <img 
-              src={companyLogoImg} 
-              alt="Company Logo" 
-              className={`${logoHeightClass} object-contain rounded-md`} 
-              referrerPolicy="no-referrer" 
-            />
-          ) : (
-            <div className={`flex items-center justify-center bg-slate-50 border border-slate-200 rounded-xl p-1.5 shrink-0 ${
-              logoSize === "small" ? "w-10 h-10" : logoSize === "large" ? "w-16 h-16" : "w-12 h-12"
-            }`}>
-              <Building2 className={`w-full h-full ${themeColors.accentText}`} />
-            </div>
-          )}
-        </div>
-
-        {/* Region 2: Organization Name & Report Title (Center) */}
-        <div className="text-center space-y-0.5">
-          <h1 className="text-lg font-black text-slate-950 font-serif tracking-tight leading-tight">
-            {companyName}
-          </h1>
-          {departmentName && (
-            <p className="text-[8.5pt] font-black uppercase text-slate-700 font-serif leading-none">
-              {departmentName}
+          <div className="text-end">
+            <h1 className="text-xs sm:text-sm font-black text-slate-900 uppercase tracking-tight">
+              {lang === "ar" ? "تقرير الذاكرة المؤسسية وسجل القرارات" : "Institutional Memory & Decision Intelligence Report"}
+            </h1>
+            <p className="text-[7.5pt] text-slate-500 font-medium mt-0.5">
+              {companyName} {departmentName ? `• ${departmentName}` : ""}
             </p>
-          )}
-          <div className="inline-block px-3 py-0.5 mt-1 bg-slate-100 border border-slate-200 rounded-full text-[8pt] font-black text-slate-800 uppercase tracking-wider">
-            {lang === "ar" ? "تقرير تحليل الذاكرة المؤسسية" : "Institutional Memory Intelligence Report"}
           </div>
         </div>
 
-        {/* Region 3: Report Metadata (Opposite Side) */}
-        <div className="flex justify-end shrink-0">
-          {renderHeaderMetadata()}
+        {/* Metadata Bottom Row: Reference ID, Date, Issuer */}
+        <div className="pt-1.5 border-t border-slate-200 flex items-center justify-between text-[7.5pt] text-slate-600 font-mono">
+          <div className="flex items-center gap-1.5">
+            <span className="font-bold uppercase tracking-wider text-slate-500">
+              {lang === "ar" ? "رقم المرجع:" : "DOC ID:"}
+            </span>
+            <span className="font-bold text-slate-800">{documentRef}</span>
+          </div>
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-1">
+              <span className="font-bold uppercase tracking-wider text-slate-500">
+                {lang === "ar" ? "التاريخ:" : "DATE:"}
+              </span>
+              <span className="font-semibold text-slate-800">{dateVal}</span>
+            </div>
+            {userName && (
+              <div className="flex items-center gap-1">
+                <span className="font-bold uppercase tracking-wider text-slate-500">
+                  {lang === "ar" ? "المسؤول:" : "LOGGED BY:"}
+                </span>
+                <span className="font-semibold text-slate-800 font-sans">{userName}</span>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     );
@@ -2502,10 +2379,10 @@ export function PrintPreviewModal({
                 {documentPages.map((pageBlocks, pageIdx) => (
                   <div
                     key={pageIdx}
-                    className="print-page printable-area bg-white text-slate-900 shadow-2xl relative border border-slate-300 rounded-sm mb-6 flex flex-col justify-between shrink-0 overflow-hidden"
+                    className="print-page printable-area bg-white text-slate-900 shadow-2xl relative border border-slate-300 rounded-sm mb-6 flex flex-col justify-between shrink-0"
                     style={{
                       width: `${pageWidth}px`,
-                      height: `${pageHeight}px`,
+                      minHeight: `${pageHeight}px`,
                       padding: `${pageMargins}px`,
                       boxSizing: "border-box",
                       position: "relative",
