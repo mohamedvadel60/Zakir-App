@@ -1,51 +1,43 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
-import { createPortal } from "react-dom";
+import ReactDOM from "react-dom";
 import { Memory } from "../../types";
-import { PrintSettingsState } from "./printTypes";
-import { generateDynamicPageStyle } from "./printGeometry";
+import { PrintSystemProps, PrintSettingsState } from "./printTypes";
+import { getPaperGeometry } from "./printGeometry";
 import { PrintSettings } from "./PrintSettings";
 import { PrintPreview } from "./PrintPreview";
 import { PrintDocument } from "./PrintDocument";
-import { Printer, X, Download, FileText } from "lucide-react";
+import { Printer, X, ZoomIn, ZoomOut, Sliders, Maximize2, Minimize2, Check, RefreshCw } from "lucide-react";
 import "./print.css";
-
-interface PrintSystemProps {
-  isOpen: boolean;
-  onClose: () => void;
-  memories?: Memory[];
-  initialSelectedMemoryId?: string | null;
-  lang?: "en" | "ar" | "fr";
-  companyName?: string;
-  userName?: string;
-  workspaceLogoUrl?: string;
-}
 
 export const PrintSystem: React.FC<PrintSystemProps> = ({
   isOpen,
   onClose,
-  memories = [],
+  memories,
   initialSelectedMemoryId,
   lang = "en",
-  companyName = "Zakir Institutional Decision Engine",
+  companyName = "Zakir Institutional Memory Engine",
   userName = "System Administrator",
   workspaceLogoUrl,
 }) => {
   const isRtl = lang === "ar";
 
-  // Authoritative memory dataset (Strictly derived from memories prop, deduplicated by ID)
-  const authoritativeMemories = useMemo(() => {
-    if (!Array.isArray(memories) || memories.length === 0) return [];
-    const map = new Map<string, Memory>();
-    for (const m of memories) {
-      if (m && m.id && !map.has(m.id)) {
-        map.set(m.id, m);
-      }
+  // Initial selected memory IDs
+  const initialMemoryIds = useMemo(() => {
+    if (initialSelectedMemoryId && memories.some((m) => m.id === initialSelectedMemoryId)) {
+      return [initialSelectedMemoryId];
     }
-    return Array.from(map.values());
-  }, [memories]);
+    return memories.map((m) => m.id);
+  }, [initialSelectedMemoryId, memories]);
 
-  // Initial settings setup
-  const [settings, setSettings] = useState<PrintSettingsState>(() => ({
+  // Document reference string generator
+  const generatedRef = useMemo(() => {
+    const year = new Date().getFullYear();
+    const randomHex = Math.random().toString(36).substring(2, 6).toUpperCase();
+    return `ZK-${year}-${randomHex}`;
+  }, []);
+
+  // Settings state
+  const [settings, setSettings] = useState<PrintSettingsState>({
     pageSize: "A4",
     orientation: "portrait",
     marginPreset: "standard",
@@ -58,15 +50,12 @@ export const PrintSystem: React.FC<PrintSystemProps> = ({
     headerStyle: "standard",
     logoSize: "medium",
     companyName: companyName,
-    departmentName: "Decision Intelligence & Strategy Division",
-    documentRef: `REF-ZK-${new Date().getFullYear()}-${Math.floor(100 + Math.random() * 900)}`,
+    departmentName: "",
+    documentRef: generatedRef,
     userName: userName,
-    displayDate: new Date().toLocaleDateString(isRtl ? "ar-SA" : "en-US", {
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-    }),
+    displayDate: new Date().toLocaleDateString(isRtl ? "ar-SA" : "en-US"),
     watermark: "none",
+
     includeHeader: true,
     includeFooter: true,
     includeCausal: true,
@@ -76,57 +65,55 @@ export const PrintSystem: React.FC<PrintSystemProps> = ({
     includeTags: true,
     includeSignatureBlock: true,
     includeVerificationSeal: true,
+
     companyLogoImg: workspaceLogoUrl || null,
     signatureImg: null,
-    selectedMemoryIds: initialSelectedMemoryId && authoritativeMemories.some((m) => m.id === initialSelectedMemoryId)
-      ? [initialSelectedMemoryId]
-      : authoritativeMemories.map((m) => m.id),
-  }));
 
-  const [isPrinting, setIsPrinting] = useState(false);
-  const [activeTab, setActiveTab] = useState<"preview" | "settings">("preview");
+    selectedMemoryIds: initialMemoryIds,
+  });
 
-  // Synchronize memory selection when modal opens or dataset changes
+  // Local editable memory items
+  const [localMemories, setLocalMemories] = useState<Memory[]>(memories);
+
   useEffect(() => {
-    if (!isOpen) return;
+    setLocalMemories(memories);
+  }, [memories]);
 
-    setSettings((prev) => {
-      // Clean up any selected memory IDs that no longer exist in authoritativeMemories
-      const validIds = prev.selectedMemoryIds.filter((id) =>
-        authoritativeMemories.some((m) => m.id === id)
-      );
-
-      // Priority 1: If initialSelectedMemoryId was passed and exists, select ONLY that memory
-      if (initialSelectedMemoryId && authoritativeMemories.some((m) => m.id === initialSelectedMemoryId)) {
-        return {
-          ...prev,
-          selectedMemoryIds: [initialSelectedMemoryId],
-        };
-      }
-
-      // Priority 2: If no valid IDs remain or selection was empty, select all authoritative memories
-      if (validIds.length === 0 && authoritativeMemories.length > 0) {
-        return {
-          ...prev,
-          selectedMemoryIds: authoritativeMemories.map((m) => m.id),
-        };
-      }
-
-      return {
+  useEffect(() => {
+    if (isOpen) {
+      setSettings((prev) => ({
         ...prev,
-        selectedMemoryIds: validIds,
-      };
-    });
-  }, [isOpen, initialSelectedMemoryId, authoritativeMemories]);
+        selectedMemoryIds: initialMemoryIds,
+        companyName: companyName || prev.companyName,
+        userName: userName || prev.userName,
+        companyLogoImg: workspaceLogoUrl || prev.companyLogoImg,
+      }));
+    }
+  }, [isOpen, initialMemoryIds, companyName, userName, workspaceLogoUrl]);
 
-  // Sync customMemories state for editable preview mode
-  const [customMemories, setCustomMemories] = useState<Memory[]>(authoritativeMemories);
-  useEffect(() => {
-    setCustomMemories(authoritativeMemories);
-  }, [authoritativeMemories]);
+  // Zoom level state (50, 75, 100, 125, 150)
+  const [zoom, setZoom] = useState<number>(100);
+  const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(true);
+  const [isPreparingPrint, setIsPreparingPrint] = useState<boolean>(false);
 
+  // Filtered active memories to render
+  const selectedMemories = useMemo(() => {
+    return localMemories.filter((m) => settings.selectedMemoryIds.includes(m.id));
+  }, [localMemories, settings.selectedMemoryIds]);
+
+  // Geometry computation
+  const geometry = useMemo(() => {
+    return getPaperGeometry(
+      settings.pageSize,
+      settings.orientation,
+      settings.marginPreset,
+      settings.customMarginMm
+    );
+  }, [settings.pageSize, settings.orientation, settings.marginPreset, settings.customMarginMm]);
+
+  // Handlers for memory updates / exclusion
   const handleUpdateMemoryField = useCallback((id: string, field: keyof Memory, value: any) => {
-    setCustomMemories((prev) =>
+    setLocalMemories((prev) =>
       prev.map((m) => (m.id === id ? { ...m, [field]: value } : m))
     );
   }, []);
@@ -134,189 +121,154 @@ export const PrintSystem: React.FC<PrintSystemProps> = ({
   const handleExcludeMemory = useCallback((id: string) => {
     setSettings((prev) => ({
       ...prev,
-      selectedMemoryIds: prev.selectedMemoryIds.filter((i) => i !== id),
+      selectedMemoryIds: prev.selectedMemoryIds.filter((mId) => mId !== id),
     }));
   }, []);
 
-  // Compute exact valid selected memories derived ONLY from authoritative & custom memories
-  const validSelectedMemories = useMemo(() => {
-    const selected = authoritativeMemories
-      .filter((m) => settings.selectedMemoryIds.includes(m.id))
-      .map((m) => {
-        const edited = customMemories.find((c) => c.id === m.id);
-        return edited || m;
-      });
-
-    // Mandatory forensic check for single memory preview flow
-    if (initialSelectedMemoryId) {
-      const targetExists = authoritativeMemories.some((m) => m.id === initialSelectedMemoryId);
-      if (targetExists && selected.length !== 1) {
-        console.warn(
-          `[Zakir Print Forensic] Expected exactly 1 memory for previewMemoryId="${initialSelectedMemoryId}", but found ${selected.length}`
-        );
-      }
-    }
-
-    return selected;
-  }, [authoritativeMemories, customMemories, settings.selectedMemoryIds, initialSelectedMemoryId]);
-
-  // Native Print Execution
-  const handleStartPrint = async () => {
-    setIsPrinting(true);
+  // START PRINTING HANDLER - Only triggers when user explicitly clicks "Start Printing"
+  const handleStartPrint = useCallback(async () => {
+    setIsPreparingPrint(true);
 
     try {
-      // 1. Wait for document fonts
-      if (document.fonts && document.fonts.ready) {
+      // 1. Inject or update dynamic @page style tag for browser print
+      let styleTag = document.getElementById("zakir-dynamic-print-page-style");
+      if (!styleTag) {
+        styleTag = document.createElement("style");
+        styleTag.id = "zakir-dynamic-print-page-style";
+        document.head.appendChild(styleTag);
+      }
+      styleTag.textContent = `@page { size: ${settings.pageSize} ${settings.orientation} !important; margin: ${geometry.marginMm}mm !important; }`;
+
+      // 2. Wait for fonts and images settled
+      if (document.fonts) {
         await document.fonts.ready;
       }
 
-      // 2. Inject dynamic @page style tag
-      const pageStyleId = "zakir-dynamic-page-style";
-      let existingStyle = document.getElementById(pageStyleId);
-      if (!existingStyle) {
-        existingStyle = document.createElement("style");
-        existingStyle.id = pageStyleId;
-        document.head.appendChild(existingStyle);
-      }
-      existingStyle.innerHTML = generateDynamicPageStyle(settings.pageSize, settings.orientation);
+      // Small tick delay to allow layout to settle
+      await new Promise((resolve) => setTimeout(resolve, 150));
 
-      // 3. Double RAF to ensure layout settled
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-          window.print();
-          setIsPrinting(false);
-        });
-      });
+      // 3. Trigger native print dialog
+      window.print();
     } catch (err) {
       console.error("Print execution failed:", err);
-      setIsPrinting(false);
+    } finally {
+      setIsPreparingPrint(false);
     }
-  };
+  }, [settings.pageSize, settings.orientation, geometry.marginMm]);
 
   if (!isOpen) return null;
 
   return (
     <>
-      {/* On-Screen Preview Modal Shell */}
+      {/* Fullscreen Document Preview & Formatting System Overlay */}
       <div
-        className="print-modal-overlay fixed inset-0 z-50 bg-slate-950/90 backdrop-blur-md flex flex-col w-screen h-screen overflow-hidden select-none font-sans"
+        className="zakir-print-modal-overlay fixed inset-0 z-50 bg-slate-950/95 backdrop-blur-md flex flex-col w-screen h-screen overflow-hidden select-none"
         dir={isRtl ? "rtl" : "ltr"}
       >
-        {/* Modal Header Bar */}
-        <header className="no-print w-full h-14 bg-slate-900 border-b border-slate-800 px-4 sm:px-6 flex items-center justify-between shrink-0 z-30">
+        {/* Top Header Control Bar */}
+        <header className="zakir-print-modal-header h-14 min-h-[56px] bg-slate-900 border-b border-slate-800 px-4 flex items-center justify-between text-white z-20">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-blue-600/20 border border-blue-500/40 flex items-center justify-center text-blue-400">
-              <Printer className="w-4 h-4" />
+            <div className="flex items-center gap-2 font-black text-sm text-blue-400">
+              <Printer className="w-5 h-5" />
+              <span>{lang === "ar" ? "نظام طباعة وثائق ذاكر" : "Zakir Enterprise Print System"}</span>
             </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h2 className="text-sm font-bold text-white tracking-tight">
-                  {lang === "ar"
-                    ? "منظومة الطباعة والتوثيق المؤسسي"
-                    : lang === "fr"
-                    ? "Système d'Impression et de Documentation"
-                    : "Enterprise Print & Document System"}
-                </h2>
-                <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-300 border border-blue-500/30">
-                  {validSelectedMemories.length} {lang === "ar" ? "سجل مختار" : "selected"}
-                </span>
-              </div>
-              <p className="text-[11px] text-slate-400 hidden sm:block">
-                {settings.companyName} • {settings.documentRef}
-              </p>
+
+            <div className="hidden md:flex items-center gap-2 text-xs font-mono text-slate-400 border-s border-slate-800 ps-3">
+              <span className="bg-slate-800 px-2 py-0.5 rounded border border-slate-700 font-bold text-slate-200">
+                {settings.pageSize} {settings.orientation}
+              </span>
+              <span>({geometry.widthMm} × {geometry.heightMm} mm)</span>
             </div>
           </div>
 
+          {/* Controls: Zoom, Sidebar Toggle, Print Button, Close */}
           <div className="flex items-center gap-2 sm:gap-3">
-            {/* Export PDF Button */}
-            <button
-              type="button"
-              onClick={handleStartPrint}
-              disabled={validSelectedMemories.length === 0}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 disabled:bg-slate-900 disabled:opacity-50 border border-slate-700 text-slate-200 text-xs font-semibold transition-all cursor-pointer disabled:cursor-not-allowed"
-            >
-              <Download className="w-3.5 h-3.5 text-blue-400" />
-              <span>{lang === "ar" ? "تصدير PDF" : "Export PDF"}</span>
-            </button>
-
-            {/* Primary Print Button */}
-            <button
-              type="button"
-              onClick={handleStartPrint}
-              disabled={isPrinting || validSelectedMemories.length === 0}
-              className="flex items-center gap-2 px-4 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 disabled:bg-slate-800 disabled:text-slate-600 text-white text-xs font-black shadow-lg shadow-blue-600/25 transition-all cursor-pointer disabled:cursor-not-allowed"
-            >
-              <Printer className="w-4 h-4" />
-              <span>
-                {isPrinting
-                  ? (lang === "ar" ? "جاري التجهيز..." : "Preparing...")
-                  : (lang === "ar" ? "إبدأ الطباعة" : "Start Printing")}
+            {/* Zoom Controls */}
+            <div className="flex items-center gap-1 bg-slate-800 p-1 rounded-lg border border-slate-700 text-xs">
+              <button
+                type="button"
+                onClick={() => setZoom((z) => Math.max(50, z - 25))}
+                disabled={zoom <= 50}
+                className="p-1 hover:bg-slate-700 text-slate-300 disabled:opacity-40 rounded cursor-pointer"
+                title="Zoom Out"
+              >
+                <ZoomOut className="w-3.5 h-3.5" />
+              </button>
+              <span className="font-mono text-[11px] font-bold px-1.5 text-slate-200 min-w-[42px] text-center">
+                {zoom}%
               </span>
+              <button
+                type="button"
+                onClick={() => setZoom((z) => Math.min(150, z + 25))}
+                disabled={zoom >= 150}
+                className="p-1 hover:bg-slate-700 text-slate-300 disabled:opacity-40 rounded cursor-pointer"
+                title="Zoom In"
+              >
+                <ZoomIn className="w-3.5 h-3.5" />
+              </button>
+            </div>
+
+            {/* Sidebar Toggle */}
+            <button
+              type="button"
+              onClick={() => setIsSidebarOpen((prev) => !prev)}
+              className={`p-2 rounded-lg border text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer ${
+                isSidebarOpen
+                  ? "bg-slate-800 border-slate-700 text-blue-400"
+                  : "bg-slate-900 border-slate-800 text-slate-400 hover:text-white"
+              }`}
+              title={lang === "ar" ? "إعدادات التنسيق" : "Format Settings"}
+            >
+              <Sliders className="w-4 h-4" />
+              <span className="hidden sm:inline">{lang === "ar" ? "الإعدادات" : "Settings"}</span>
             </button>
 
-            {/* Close Modal Button */}
+            {/* START PRINTING BUTTON */}
+            <button
+              type="button"
+              onClick={handleStartPrint}
+              disabled={isPreparingPrint || selectedMemories.length === 0}
+              className="px-4 py-2 bg-blue-600 hover:bg-blue-500 active:bg-blue-700 text-white font-extrabold text-xs rounded-lg flex items-center gap-2 shadow-md transition-all cursor-pointer disabled:opacity-50"
+            >
+              {isPreparingPrint ? (
+                <RefreshCw className="w-4 h-4 animate-spin" />
+              ) : (
+                <Printer className="w-4 h-4" />
+              )}
+              <span>{lang === "ar" ? "بدء الطباعة الآن" : "Start Printing"}</span>
+            </button>
+
+            {/* Close Modal */}
             <button
               type="button"
               onClick={onClose}
-              className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition-colors cursor-pointer ml-1"
+              className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors cursor-pointer"
+              title={lang === "ar" ? "إغلاق" : "Close"}
             >
               <X className="w-5 h-5" />
             </button>
           </div>
         </header>
 
-        {/* Work Area: Settings Sidebar + Screen Preview Stage */}
-        <div className="no-print flex-1 flex flex-col md:flex-row overflow-hidden relative">
-          {/* Mobile View Toggle */}
-          <div className="md:hidden flex border-b border-slate-800 bg-slate-900 text-xs font-bold text-slate-400">
-            <button
-              type="button"
-              onClick={() => setActiveTab("preview")}
-              className={`flex-1 py-2 text-center border-b-2 transition-colors ${
-                activeTab === "preview"
-                  ? "border-blue-500 text-blue-400 bg-slate-950"
-                  : "border-transparent"
-              }`}
-            >
-              {lang === "ar" ? "معاينة الوثيقة" : "Document Preview"}
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveTab("settings")}
-              className={`flex-1 py-2 text-center border-b-2 transition-colors ${
-                activeTab === "settings"
-                  ? "border-blue-500 text-blue-400 bg-slate-950"
-                  : "border-transparent"
-              }`}
-            >
-              {lang === "ar" ? "إعدادات التنسيق" : "Print Settings"}
-            </button>
-          </div>
-
-          {/* Sidebar: Print Settings */}
-          <aside
-            className={`w-full md:w-80 lg:w-96 border-e border-slate-800 bg-slate-950 flex flex-col shrink-0 ${
-              activeTab === "settings" ? "block" : "hidden md:flex"
-            }`}
-          >
+        {/* Main Content Workspace */}
+        <div className="flex-1 flex w-full overflow-hidden relative">
+          {/* Settings Sidebar */}
+          {isSidebarOpen && (
             <PrintSettings
-              memories={authoritativeMemories}
               settings={settings}
               onUpdateSettings={setSettings}
+              allMemories={localMemories}
               lang={lang}
             />
-          </aside>
+          )}
 
-          {/* Screen Preview Stage */}
-          <main
-            className={`flex-1 flex flex-col overflow-hidden bg-slate-950 ${
-              activeTab === "preview" ? "flex" : "hidden md:flex"
-            }`}
-          >
+          {/* Physical Document Screen Preview */}
+          <main className="flex-1 h-full overflow-hidden relative">
             <PrintPreview
-              memories={validSelectedMemories}
+              memories={selectedMemories}
               settings={settings}
               lang={lang}
+              zoom={zoom}
               onUpdateMemoryField={handleUpdateMemoryField}
               onExcludeMemory={handleExcludeMemory}
             />
@@ -324,18 +276,15 @@ export const PrintSystem: React.FC<PrintSystemProps> = ({
         </div>
       </div>
 
-      {/* Dedicated Print Host Mounted at document.body Root Level for Native @media print */}
-      {createPortal(
-        <div id="zakir-print-document-host">
-          <PrintDocument
-            memories={validSelectedMemories}
-            settings={settings}
-            lang={lang}
-            isPrinting={true}
-          />
-        </div>,
-        document.body
-      )}
+      {/* Hidden Dedicated Print Document Host for Native Browser window.print() */}
+      <div id="zakir-print-document-host">
+        <PrintDocument
+          memories={selectedMemories}
+          settings={settings}
+          lang={lang}
+          isPrinting={true}
+        />
+      </div>
     </>
   );
 };

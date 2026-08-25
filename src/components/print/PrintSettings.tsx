@@ -1,284 +1,181 @@
-import React, { useMemo } from "react";
+import React from "react";
 import { Memory } from "../../types";
-import { PrintSettingsState, PaperSize, Orientation, MarginPreset, Density, FontSize, HeaderStyle, WatermarkType } from "./printTypes";
-import { Sliders, FileText, Building2, CheckSquare, Square, RotateCcw, Check, Upload, Trash2 } from "lucide-react";
+import { PrintSettingsState, PaperSize, Orientation, MarginPreset, Density, HeaderStyle, WatermarkType } from "./printTypes";
+import { Sliders, FileText, Layout, Type, Image as ImageIcon, CheckSquare, Layers, ShieldCheck } from "lucide-react";
 
 interface PrintSettingsProps {
-  memories: Memory[];
   settings: PrintSettingsState;
   onUpdateSettings: (updater: (prev: PrintSettingsState) => PrintSettingsState) => void;
+  allMemories: Memory[];
   lang: "en" | "ar" | "fr";
 }
 
 export const PrintSettings: React.FC<PrintSettingsProps> = ({
-  memories,
   settings,
   onUpdateSettings,
+  allMemories,
   lang,
 }) => {
   const isRtl = lang === "ar";
 
-  const categories = useMemo(() => {
-    return Array.from(new Set(memories.map((m) => m.category))).filter(Boolean);
-  }, [memories]);
-
-  const [categoryFilter, setCategoryFilter] = React.useState("all");
-
-  const filteredMemories = useMemo(() => {
-    if (categoryFilter === "all") return memories;
-    return memories.filter((m) => m.category === categoryFilter);
-  }, [memories, categoryFilter]);
-
-  const toggleSelectAll = () => {
-    if (settings.selectedMemoryIds.length === filteredMemories.length) {
-      onUpdateSettings((prev) => ({ ...prev, selectedMemoryIds: [] }));
-    } else {
-      onUpdateSettings((prev) => ({
+  const handleToggleMemory = (id: string) => {
+    onUpdateSettings((prev) => {
+      const isSelected = prev.selectedMemoryIds.includes(id);
+      return {
         ...prev,
-        selectedMemoryIds: filteredMemories.map((m) => m.id),
-      }));
+        selectedMemoryIds: isSelected
+          ? prev.selectedMemoryIds.filter((mId) => mId !== id)
+          : [...prev.selectedMemoryIds, id],
+      };
+    });
+  };
+
+  const handleSelectAllMemories = () => {
+    onUpdateSettings((prev) => ({
+      ...prev,
+      selectedMemoryIds: allMemories.map((m) => m.id),
+    }));
+  };
+
+  const handleDeselectAllMemories = () => {
+    onUpdateSettings((prev) => ({
+      ...prev,
+      selectedMemoryIds: [],
+    }));
+  };
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>, field: "companyLogoImg" | "signatureImg") => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const result = event.target?.result as string;
+        onUpdateSettings((prev) => ({
+          ...prev,
+          [field]: result,
+        }));
+      };
+      reader.readAsDataURL(file);
     }
   };
 
-  const toggleSelectMemory = (id: string) => {
-    onUpdateSettings((prev) => ({
-      ...prev,
-      selectedMemoryIds: prev.selectedMemoryIds.includes(id)
-        ? prev.selectedMemoryIds.filter((i) => i !== id)
-        : [...prev.selectedMemoryIds, id],
-    }));
-  };
-
-  const handleResetDefaults = () => {
-    onUpdateSettings((prev) => ({
-      ...prev,
-      pageSize: "A4",
-      orientation: "portrait",
-      marginPreset: "standard",
-      customMarginMm: 18,
-      density: "standard",
-      fontSize: "medium",
-      fontScale: 100,
-      lineSpacing: 1.2,
-      columns: "1",
-      headerStyle: "standard",
-      logoSize: "medium",
-      watermark: "none",
-      includeHeader: true,
-      includeFooter: true,
-      includeCausal: true,
-      includeOutcomes: true,
-      includeLessons: true,
-      includeAuthor: true,
-      includeTags: true,
-      includeSignatureBlock: true,
-      includeVerificationSeal: true,
-    }));
-  };
-
   return (
-    <div className="no-print space-y-5 p-4 sm:p-5 bg-slate-950/80 overflow-y-auto max-h-full text-slate-100" dir={isRtl ? "rtl" : "ltr"}>
-      {/* 1. Memory Records Selector */}
-      <div className="space-y-3 bg-slate-900/90 border border-slate-800 rounded-xl p-4">
-        <div className="flex items-center justify-between border-b border-slate-800 pb-2">
-          <span className="text-xs font-bold uppercase tracking-wider text-blue-400 flex items-center gap-1.5">
-            <FileText className="w-4 h-4" />
-            <span>
-              {lang === "ar"
-                ? "اختيار الذكريات المطبوعة"
-                : lang === "fr"
-                ? "Sélectionner les enregistrements"
-                : "Select Memory Records"}
-            </span>
-          </span>
-          <button
-            type="button"
-            onClick={toggleSelectAll}
-            className="text-[11px] text-blue-400 hover:underline font-semibold cursor-pointer"
-          >
-            {lang === "ar" ? "تحديد الكل" : "Select All"} ({settings.selectedMemoryIds.length}/{filteredMemories.length})
-          </button>
-        </div>
-
-        {categories.length > 1 && (
-          <div>
-            <select
-              value={categoryFilter}
-              onChange={(e) => setCategoryFilter(e.target.value)}
-              className="w-full h-8 px-2.5 bg-slate-950 border border-slate-800 rounded-lg text-xs text-slate-300 focus:outline-none focus:border-blue-500"
-            >
-              <option value="all">
-                {lang === "ar" ? "كل الفئات والأقسام" : "All Categories"}
-              </option>
-              {categories.map((cat) => (
-                <option key={cat} value={cat}>
-                  {cat}
-                </option>
-              ))}
-            </select>
-          </div>
-        )}
-
-        {/* Memory Checkbox List */}
-        <div className="space-y-1.5 max-h-44 overflow-y-auto pr-1">
-          {filteredMemories.length === 0 ? (
-            <div className="p-3 text-center text-[11px] text-slate-500 bg-slate-950/40 rounded-lg border border-slate-800/60 font-sans">
-              {lang === "ar"
-                ? "لا توجد ذكريات متاحة في المجموعة الحالية"
-                : lang === "fr"
-                ? "Aucun enregistrement disponible"
-                : "No memories available in current dataset"}
-            </div>
-          ) : (
-            filteredMemories.map((m) => {
-              const isSelected = settings.selectedMemoryIds.includes(m.id);
-              return (
-                <div
-                  key={m.id}
-                  onClick={() => toggleSelectMemory(m.id)}
-                  className={`p-2 rounded-lg border text-xs cursor-pointer transition-all flex items-start gap-2.5 ${
-                    isSelected
-                      ? "bg-blue-500/15 border-blue-500/40 text-blue-100"
-                      : "bg-slate-950/60 border-slate-800/80 text-slate-400 hover:text-slate-200"
-                  }`}
-                >
-                  <div className="mt-0.5 shrink-0">
-                    {isSelected ? (
-                      <CheckSquare className="w-4 h-4 text-blue-400" />
-                    ) : (
-                      <Square className="w-4 h-4 text-slate-600" />
-                    )}
-                  </div>
-                  <div className="overflow-hidden">
-                    <div className="font-semibold truncate text-[11px]">{m.title}</div>
-                    <div className="text-[9px] text-slate-500 font-mono truncate">
-                      {m.category} • {m.riskLevel}
-                    </div>
-                  </div>
-                </div>
-              );
-            })
-          )}
-        </div>
+    <aside
+      className="zakir-print-modal-sidebar w-80 min-w-[320px] max-w-[340px] h-full bg-slate-900 text-slate-100 border-e border-slate-800 flex flex-col overflow-y-auto p-5 text-xs select-none"
+      dir={isRtl ? "rtl" : "ltr"}
+    >
+      <div className="flex items-center gap-2 pb-4 mb-4 border-b border-slate-800 text-blue-400 font-bold">
+        <Sliders className="w-4 h-4" />
+        <span className="uppercase tracking-wider font-extrabold text-sm">
+          {lang === "ar" ? "تنسيق وإعدادات التقرير" : "Report & Format Settings"}
+        </span>
       </div>
 
-      {/* 2. Paper Geometry & Layout Settings */}
-      <div className="space-y-4 bg-slate-900/90 border border-slate-800 rounded-xl p-4">
-        <div className="flex items-center justify-between border-b border-slate-800 pb-2">
-          <span className="text-xs font-bold uppercase tracking-wider text-blue-400 flex items-center gap-1.5">
-            <Sliders className="w-4 h-4" />
-            <span>
-              {lang === "ar" ? "تنسيق الورق والصفحة" : "Paper & Layout Geometry"}
-            </span>
-          </span>
-          <button
-            type="button"
-            onClick={handleResetDefaults}
-            className="p-1 px-2 rounded bg-slate-800 hover:bg-slate-700 text-rose-400 hover:text-rose-300 border border-slate-700 text-[10px] font-bold flex items-center gap-1 cursor-pointer"
-            title="Reset to defaults"
-          >
-            <RotateCcw className="w-3 h-3 text-rose-400" />
-            <span>{lang === "ar" ? "افتراضي" : "Reset"}</span>
-          </button>
+      {/* 1. Page & Layout Geometry */}
+      <div className="space-y-4 mb-6">
+        <div className="flex items-center gap-2 text-slate-300 font-bold uppercase tracking-wider text-[10px]">
+          <FileText className="w-3.5 h-3.5 text-blue-400" />
+          <span>{lang === "ar" ? "مقاس الورق والاتجاه" : "Paper & Orientation"}</span>
         </div>
 
-        {/* Paper Size & Orientation */}
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="block text-[11px] font-semibold text-slate-400 mb-1.5">
-              {lang === "ar" ? "حجم الورقة:" : "Paper Size:"}
-            </label>
-            <select
-              value={settings.pageSize}
-              onChange={(e) =>
-                onUpdateSettings((prev) => ({
-                  ...prev,
-                  pageSize: e.target.value as PaperSize,
-                }))
-              }
-              className="w-full h-8 px-2 bg-slate-950 border border-slate-800 rounded-lg text-xs text-slate-300 focus:outline-none focus:border-blue-500"
-            >
-              <option value="A4">A4 (210 × 297 mm)</option>
-              <option value="A3">A3 (297 × 420 mm)</option>
-              <option value="A5">A5 (148 × 210 mm)</option>
-              <option value="Letter">Letter (8.5 × 11 in)</option>
-              <option value="Legal">Legal (8.5 × 14 in)</option>
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-[11px] font-semibold text-slate-400 mb-1.5">
-              {lang === "ar" ? "اتجاه الورقة:" : "Orientation:"}
-            </label>
-            <select
-              value={settings.orientation}
-              onChange={(e) =>
-                onUpdateSettings((prev) => ({
-                  ...prev,
-                  orientation: e.target.value as Orientation,
-                }))
-              }
-              className="w-full h-8 px-2 bg-slate-950 border border-slate-800 rounded-lg text-xs text-slate-300 focus:outline-none focus:border-blue-500"
-            >
-              <option value="portrait">{lang === "ar" ? "عمودي (Portrait)" : "Portrait"}</option>
-              <option value="landscape">{lang === "ar" ? "أفقي (Landscape)" : "Landscape"}</option>
-            </select>
-          </div>
-        </div>
-
-        {/* Paper Margins */}
+        {/* Paper Size */}
         <div>
-          <label className="block text-[11px] font-semibold text-slate-400 mb-1.5">
-            {lang === "ar" ? "هوامش الورقة:" : "Margins Preset:"}
+          <label className="block text-slate-400 font-medium mb-1.5">
+            {lang === "ar" ? "حجم الورقة:" : "Paper Size:"}
           </label>
-          <div className="grid grid-cols-3 gap-2">
-            {[
-              { id: "compact", label: lang === "ar" ? "ضيق (10mm)" : "Compact (10mm)", val: 10 },
-              { id: "standard", label: lang === "ar" ? "قياسي (18mm)" : "Standard (18mm)", val: 18 },
-              { id: "wide", label: lang === "ar" ? "عريض (25mm)" : "Wide (25mm)", val: 25 },
-            ].map((m) => (
+          <div className="grid grid-cols-5 gap-1 bg-slate-800 p-1 rounded-lg border border-slate-700">
+            {(["A4", "A3", "A5", "Letter", "Legal"] as PaperSize[]).map((size) => (
               <button
-                key={m.id}
+                key={size}
                 type="button"
-                onClick={() =>
-                  onUpdateSettings((prev) => ({
-                    ...prev,
-                    marginPreset: m.id as MarginPreset,
-                    customMarginMm: m.val,
-                  }))
-                }
-                className={`py-1.5 px-2 text-[10px] font-bold rounded-lg border transition-all cursor-pointer ${
-                  settings.marginPreset === m.id
-                    ? "bg-blue-600 text-white border-blue-500"
-                    : "bg-slate-950 border-slate-800 text-slate-400 hover:text-white"
+                onClick={() => onUpdateSettings((p) => ({ ...p, pageSize: size }))}
+                className={`py-1 rounded text-[10px] font-bold transition-all ${
+                  settings.pageSize === size
+                    ? "bg-blue-600 text-white shadow-xs"
+                    : "text-slate-400 hover:text-slate-200 hover:bg-slate-700/50"
                 }`}
               >
-                {m.label}
+                {size}
               </button>
             ))}
           </div>
         </div>
 
-        {/* Spacing Density */}
+        {/* Orientation */}
         <div>
-          <label className="block text-[11px] font-semibold text-slate-400 mb-1.5">
-            {lang === "ar" ? "الكثافة والتباعد:" : "Spacing Density:"}
+          <label className="block text-slate-400 font-medium mb-1.5">
+            {lang === "ar" ? "اتجاه الصفحة:" : "Orientation:"}
           </label>
-          <div className="grid grid-cols-3 gap-2">
-            {(["compact", "standard", "spacious"] as const).map((d) => (
+          <div className="grid grid-cols-2 gap-1.5 bg-slate-800 p-1 rounded-lg border border-slate-700">
+            {(["portrait", "landscape"] as Orientation[]).map((orient) => (
+              <button
+                key={orient}
+                type="button"
+                onClick={() => onUpdateSettings((p) => ({ ...p, orientation: orient }))}
+                className={`py-1.5 rounded text-[11px] font-bold capitalize transition-all ${
+                  settings.orientation === orient
+                    ? "bg-blue-600 text-white shadow-xs"
+                    : "text-slate-400 hover:text-slate-200 hover:bg-slate-700/50"
+                }`}
+              >
+                {orient === "portrait"
+                  ? lang === "ar"
+                    ? "عمودي (Portrait)"
+                    : "Portrait"
+                  : lang === "ar"
+                  ? "أفقي (Landscape)"
+                  : "Landscape"}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Margins */}
+        <div>
+          <label className="block text-slate-400 font-medium mb-1.5">
+            {lang === "ar" ? "الهوامش:" : "Margin Preset:"}
+          </label>
+          <div className="grid grid-cols-3 gap-1 bg-slate-800 p-1 rounded-lg border border-slate-700">
+            {(["compact", "standard", "wide"] as MarginPreset[]).map((m) => (
+              <button
+                key={m}
+                type="button"
+                onClick={() => onUpdateSettings((p) => ({ ...p, marginPreset: m }))}
+                className={`py-1 rounded text-[10px] font-bold capitalize transition-all ${
+                  settings.marginPreset === m
+                    ? "bg-blue-600 text-white shadow-xs"
+                    : "text-slate-400 hover:text-slate-200 hover:bg-slate-700/50"
+                }`}
+              >
+                {m}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* 2. Typography & Density */}
+      <div className="space-y-4 mb-6 pt-4 border-t border-slate-800">
+        <div className="flex items-center gap-2 text-slate-300 font-bold uppercase tracking-wider text-[10px]">
+          <Type className="w-3.5 h-3.5 text-blue-400" />
+          <span>{lang === "ar" ? "الكثافة والخط" : "Density & Typography"}</span>
+        </div>
+
+        {/* Density */}
+        <div>
+          <label className="block text-slate-400 font-medium mb-1.5">
+            {lang === "ar" ? "كثافة التنسيق:" : "Content Density:"}
+          </label>
+          <div className="grid grid-cols-3 gap-1 bg-slate-800 p-1 rounded-lg border border-slate-700">
+            {(["compact", "standard", "spacious"] as Density[]).map((d) => (
               <button
                 key={d}
                 type="button"
-                onClick={() =>
-                  onUpdateSettings((prev) => ({
-                    ...prev,
-                    density: d as Density,
-                  }))
-                }
-                className={`py-1.5 px-2 text-[10px] font-bold rounded-lg border transition-all cursor-pointer capitalize ${
+                onClick={() => onUpdateSettings((p) => ({ ...p, density: d }))}
+                className={`py-1 rounded text-[10px] font-bold capitalize transition-all ${
                   settings.density === d
-                    ? "bg-blue-600 text-white border-blue-500"
-                    : "bg-slate-950 border-slate-800 text-slate-400 hover:text-white"
+                    ? "bg-blue-600 text-white shadow-xs"
+                    : "text-slate-400 hover:text-slate-200 hover:bg-slate-700/50"
                 }`}
               >
                 {d}
@@ -287,314 +184,248 @@ export const PrintSettings: React.FC<PrintSettingsProps> = ({
           </div>
         </div>
 
-        {/* Font Size & Line Spacing */}
-        <div className="grid grid-cols-2 gap-3 pt-2 border-t border-slate-800">
-          <div>
-            <label className="block text-[11px] font-semibold text-slate-400 mb-1.5">
-              {lang === "ar" ? "تباعد الأسطر:" : "Line Spacing:"}
-            </label>
-            <select
-              value={settings.lineSpacing}
-              onChange={(e) =>
-                onUpdateSettings((prev) => ({
-                  ...prev,
-                  lineSpacing: parseFloat(e.target.value),
-                }))
-              }
-              className="w-full h-8 px-2 bg-slate-950 border border-slate-800 rounded-lg text-xs text-slate-300 focus:outline-none focus:border-blue-500"
+        {/* Columns */}
+        <div>
+          <label className="block text-slate-400 font-medium mb-1.5">
+            {lang === "ar" ? "عدد الأعمدة:" : "Columns:"}
+          </label>
+          <div className="grid grid-cols-2 gap-1.5 bg-slate-800 p-1 rounded-lg border border-slate-700">
+            <button
+              type="button"
+              onClick={() => onUpdateSettings((p) => ({ ...p, columns: "1" }))}
+              className={`py-1 rounded text-[10px] font-bold transition-all ${
+                settings.columns === "1"
+                  ? "bg-blue-600 text-white shadow-xs"
+                  : "text-slate-400 hover:text-slate-200 hover:bg-slate-700/50"
+              }`}
             >
-              <option value="1.0">1.0 ({lang === "ar" ? "مفرد" : "Single"})</option>
-              <option value="1.2">1.2 ({lang === "ar" ? "افتراضي" : "Default"})</option>
-              <option value="1.5">1.5 ({lang === "ar" ? "متوسط" : "1.5"})</option>
-              <option value="1.8">1.8 ({lang === "ar" ? "مزدوج" : "Double"})</option>
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-[11px] font-semibold text-slate-400 mb-1.5">
-              {lang === "ar" ? "الأعمدة:" : "Columns:"}
-            </label>
-            <select
-              value={settings.columns}
-              onChange={(e) =>
-                onUpdateSettings((prev) => ({
-                  ...prev,
-                  columns: e.target.value as "1" | "2",
-                }))
-              }
-              className="w-full h-8 px-2 bg-slate-950 border border-slate-800 rounded-lg text-xs text-slate-300 focus:outline-none focus:border-blue-500"
+              1 {lang === "ar" ? "عمود" : "Column"}
+            </button>
+            <button
+              type="button"
+              onClick={() => onUpdateSettings((p) => ({ ...p, columns: "2" }))}
+              className={`py-1 rounded text-[10px] font-bold transition-all ${
+                settings.columns === "2"
+                  ? "bg-blue-600 text-white shadow-xs"
+                  : "text-slate-400 hover:text-slate-200 hover:bg-slate-700/50"
+              }`}
             >
-              <option value="1">{lang === "ar" ? "عمود واحد" : "1 Column"}</option>
-              <option value="2">{lang === "ar" ? "عمودان" : "2 Columns"}</option>
-            </select>
+              2 {lang === "ar" ? "عمودين" : "Columns"}
+            </button>
           </div>
         </div>
 
-        {/* Font Scale Slider */}
-        <div className="space-y-1.5 pt-1">
-          <div className="flex justify-between items-center text-[10px] text-slate-400">
-            <span>{lang === "ar" ? "مقياس الخط:" : "Font Scale:"}</span>
-            <span className="font-mono text-blue-400 font-bold">{settings.fontScale}%</span>
+        {/* Font Scale slider */}
+        <div>
+          <div className="flex justify-between text-slate-400 font-medium mb-1">
+            <span>{lang === "ar" ? "حجم الخط النسبي:" : "Font Scale:"}</span>
+            <span className="font-mono text-blue-400">{settings.fontScale}%</span>
           </div>
           <input
             type="range"
-            min="75"
-            max="140"
+            min="80"
+            max="130"
+            step="5"
             value={settings.fontScale}
-            onChange={(e) =>
-              onUpdateSettings((prev) => ({
-                ...prev,
-                fontScale: parseInt(e.target.value, 10),
-              }))
-            }
-            className="w-full h-1 bg-slate-950 rounded-lg appearance-none cursor-pointer accent-blue-500"
+            onChange={(e) => onUpdateSettings((p) => ({ ...p, fontScale: Number(e.target.value) }))}
+            className="w-full accent-blue-500 bg-slate-800 rounded cursor-pointer h-1.5"
           />
         </div>
       </div>
 
-      {/* 3. Branding & Header Controls */}
-      <div className="space-y-3 bg-slate-900/90 border border-slate-800 rounded-xl p-4">
-        <span className="text-xs font-bold uppercase tracking-wider text-blue-400 flex items-center gap-1.5 border-b border-slate-800 pb-2">
-          <Building2 className="w-4 h-4" />
-          <span>{lang === "ar" ? "هوية التقرير وترويسة المؤسسة" : "Branding & Header Style"}</span>
-        </span>
-
-        {/* Department Name */}
-        <div className="space-y-1">
-          <label className="block text-[10px] font-semibold text-slate-400">
-            {lang === "ar" ? "اسم الإدارة / القطاع:" : "Department Name:"}
-          </label>
-          <input
-            type="text"
-            value={settings.departmentName}
-            onChange={(e) =>
-              onUpdateSettings((prev) => ({
-                ...prev,
-                departmentName: e.target.value,
-              }))
-            }
-            className="w-full h-8 px-2.5 bg-slate-950 border border-slate-800 rounded-lg text-xs text-slate-100 focus:outline-none focus:border-blue-500"
-            placeholder={lang === "ar" ? "اسم الإدارة..." : "Department Name..."}
-          />
-        </div>
-
-        {/* Document Reference ID */}
-        <div className="space-y-1">
-          <label className="block text-[10px] font-semibold text-slate-400">
-            {lang === "ar" ? "رقم مرجع التوثيق:" : "Document Reference ID:"}
-          </label>
-          <input
-            type="text"
-            value={settings.documentRef}
-            onChange={(e) =>
-              onUpdateSettings((prev) => ({
-                ...prev,
-                documentRef: e.target.value,
-              }))
-            }
-            className="w-full h-8 px-2.5 bg-slate-950 border border-slate-800 rounded-lg text-xs text-blue-400 font-mono focus:outline-none focus:border-blue-500"
-          />
+      {/* 3. Header & Branding */}
+      <div className="space-y-4 mb-6 pt-4 border-t border-slate-800">
+        <div className="flex items-center gap-2 text-slate-300 font-bold uppercase tracking-wider text-[10px]">
+          <Layout className="w-3.5 h-3.5 text-blue-400" />
+          <span>{lang === "ar" ? "الرأسية والرمز المؤسسي" : "Header & Branding"}</span>
         </div>
 
         {/* Header Style */}
         <div>
-          <label className="block text-[10px] font-semibold text-slate-400 mb-1">
-            {lang === "ar" ? "تصميم الترويسة:" : "Header Layout:"}
+          <label className="block text-slate-400 font-medium mb-1.5">
+            {lang === "ar" ? "نمط الرأسية:" : "Header Style:"}
           </label>
-          <div className="grid grid-cols-3 gap-1.5">
-            {[
-              { id: "standard", label: lang === "ar" ? "قياسية" : "Standard" },
-              { id: "centered", label: lang === "ar" ? "مركزية" : "Centered" },
-              { id: "letterhead", label: lang === "ar" ? "خطاب" : "Letterhead" },
-            ].map((style) => (
+          <div className="grid grid-cols-3 gap-1 bg-slate-800 p-1 rounded-lg border border-slate-700">
+            {(["standard", "centered", "letterhead"] as HeaderStyle[]).map((h) => (
               <button
-                key={style.id}
+                key={h}
                 type="button"
-                onClick={() =>
-                  onUpdateSettings((prev) => ({
-                    ...prev,
-                    headerStyle: style.id as HeaderStyle,
-                  }))
-                }
-                className={`py-1.5 px-2 text-[10px] font-bold rounded-lg border transition-all cursor-pointer ${
-                  settings.headerStyle === style.id
-                    ? "bg-blue-600 text-white border-blue-500"
-                    : "bg-slate-950 border-slate-800 text-slate-400 hover:text-white"
+                onClick={() => onUpdateSettings((p) => ({ ...p, headerStyle: h }))}
+                className={`py-1 rounded text-[10px] font-bold capitalize transition-all ${
+                  settings.headerStyle === h
+                    ? "bg-blue-600 text-white shadow-xs"
+                    : "text-slate-400 hover:text-slate-200 hover:bg-slate-700/50"
                 }`}
               >
-                {style.label}
+                {h}
               </button>
             ))}
           </div>
         </div>
 
-        {/* Custom Logo Upload & Size */}
-        <div className="pt-2 border-t border-slate-800 space-y-2">
-          <div className="flex items-center justify-between">
-            <label className="block text-[10px] font-semibold text-slate-400">
-              {lang === "ar" ? "حجم الشعار:" : "Logo Size:"}
-            </label>
-            <div className="flex gap-1">
-              {(["small", "medium", "large"] as const).map((sz) => (
-                <button
-                  key={sz}
-                  type="button"
-                  onClick={() =>
-                    onUpdateSettings((prev) => ({ ...prev, logoSize: sz }))
-                  }
-                  className={`px-2 py-0.5 text-[9px] font-bold rounded border transition-all cursor-pointer uppercase ${
-                    settings.logoSize === sz
-                      ? "bg-blue-500/20 text-blue-400 border-blue-500"
-                      : "bg-slate-950 text-slate-500 border-slate-800 hover:text-slate-300"
-                  }`}
-                >
-                  {sz[0]}
-                </button>
-              ))}
-            </div>
-          </div>
+        {/* Company Name */}
+        <div>
+          <label className="block text-slate-400 font-medium mb-1">
+            {lang === "ar" ? "اسم المؤسسة:" : "Organization Name:"}
+          </label>
+          <input
+            type="text"
+            value={settings.companyName}
+            onChange={(e) => onUpdateSettings((p) => ({ ...p, companyName: e.target.value }))}
+            className="w-full bg-slate-800 border border-slate-700 rounded px-2.5 py-1.5 text-slate-200 focus:outline-none focus:border-blue-500 font-medium text-xs"
+          />
+        </div>
 
-          <div className="flex gap-2">
-            <input
-              type="file"
-              accept="image/*"
-              id="print-settings-logo-upload"
-              className="hidden"
-              onChange={(e) => {
-                const file = e.target.files?.[0];
-                if (file) {
-                  const reader = new FileReader();
-                  reader.onload = (ev) => {
-                    const base64 = ev.target?.result as string;
-                    onUpdateSettings((prev) => ({ ...prev, companyLogoImg: base64 }));
-                  };
-                  reader.readAsDataURL(file);
-                }
-              }}
-            />
-            <label
-              htmlFor="print-settings-logo-upload"
-              className="flex-1 py-1.5 px-2.5 text-[10px] font-bold text-center rounded-lg border border-dashed border-slate-700 bg-slate-950 text-blue-400 hover:text-blue-300 hover:bg-slate-900 transition-all cursor-pointer flex items-center justify-center gap-1.5"
-            >
-              <Upload className="w-3 h-3" />
-              <span>{settings.companyLogoImg ? (lang === "ar" ? "تغيير الشعار" : "Change Logo") : (lang === "ar" ? "رفع الشعار" : "Upload Logo")}</span>
-            </label>
+        {/* Department Name */}
+        <div>
+          <label className="block text-slate-400 font-medium mb-1">
+            {lang === "ar" ? "الإدارة / القسم:" : "Department / Division:"}
+          </label>
+          <input
+            type="text"
+            value={settings.departmentName}
+            onChange={(e) => onUpdateSettings((p) => ({ ...p, departmentName: e.target.value }))}
+            className="w-full bg-slate-800 border border-slate-700 rounded px-2.5 py-1.5 text-slate-200 focus:outline-none focus:border-blue-500 font-medium text-xs"
+            placeholder={lang === "ar" ? "مثال: إدارة الاستراتيجية" : "e.g. Strategy & Intelligence"}
+          />
+        </div>
+
+        {/* Custom Logo Upload */}
+        <div>
+          <label className="block text-slate-400 font-medium mb-1 flex items-center justify-between">
+            <span>{lang === "ar" ? "الشعار المخصص:" : "Custom Logo:"}</span>
             {settings.companyLogoImg && (
               <button
                 type="button"
-                onClick={() => onUpdateSettings((prev) => ({ ...prev, companyLogoImg: null }))}
-                className="px-2.5 bg-rose-950/40 border border-rose-800 text-rose-400 rounded-lg text-[10px] font-bold hover:bg-rose-900 transition-all cursor-pointer"
+                onClick={() => onUpdateSettings((p) => ({ ...p, companyLogoImg: null }))}
+                className="text-rose-400 hover:text-rose-300 text-[10px] underline"
               >
-                <Trash2 className="w-3.5 h-3.5" />
+                {lang === "ar" ? "إزالة" : "Remove"}
               </button>
             )}
-          </div>
-        </div>
-
-        {/* Watermark Selector */}
-        <div className="pt-2 border-t border-slate-800 space-y-1.5">
-          <label className="block text-[10px] font-semibold text-slate-400">
-            {lang === "ar" ? "العلامة المائية للسرية:" : "Watermark:"}
           </label>
-          <select
-            value={settings.watermark}
-            onChange={(e) =>
-              onUpdateSettings((prev) => ({
-                ...prev,
-                watermark: e.target.value as WatermarkType,
-              }))
-            }
-            className="w-full h-8 px-2 bg-slate-950 border border-slate-800 rounded-lg text-xs text-slate-300 focus:outline-none focus:border-blue-500"
-          >
-            <option value="none">{lang === "ar" ? "بدون علامة" : "None"}</option>
-            <option value="confidential">CONFIDENTIAL</option>
-            <option value="internal">INTERNAL ONLY</option>
-            <option value="official">OFFICIAL RECORD</option>
-          </select>
-        </div>
-
-        {/* Signature Upload */}
-        <div className="pt-2 border-t border-slate-800 space-y-2">
-          <label className="block text-[10px] font-semibold text-slate-400">
-            {lang === "ar" ? "توقيع الاعتماد المعتمد:" : "Authorized Signature:"}
-          </label>
-          <div className="flex gap-2">
+          <label className="flex items-center justify-center gap-2 bg-slate-800 hover:bg-slate-750 border border-dashed border-slate-700 hover:border-blue-500 rounded p-2 text-slate-400 hover:text-slate-200 cursor-pointer transition-colors text-xs font-medium">
+            <ImageIcon className="w-3.5 h-3.5" />
+            <span>{settings.companyLogoImg ? (lang === "ar" ? "تغيير الشعار" : "Change Logo") : (lang === "ar" ? "رفع شعار المؤسسة" : "Upload Logo Image")}</span>
             <input
               type="file"
               accept="image/*"
-              id="print-settings-sig-upload"
               className="hidden"
-              onChange={(e) => {
-                const file = e.target.files?.[0];
-                if (file) {
-                  const reader = new FileReader();
-                  reader.onload = (ev) => {
-                    const base64 = ev.target?.result as string;
-                    onUpdateSettings((prev) => ({ ...prev, signatureImg: base64 }));
-                  };
-                  reader.readAsDataURL(file);
-                }
-              }}
+              onChange={(e) => handleFileUpload(e, "companyLogoImg")}
             />
-            <label
-              htmlFor="print-settings-sig-upload"
-              className="flex-1 py-1.5 px-2.5 text-[10px] font-bold text-center rounded-lg border border-dashed border-slate-700 bg-slate-950 text-blue-400 hover:text-blue-300 hover:bg-slate-900 transition-all cursor-pointer flex items-center justify-center gap-1.5"
-            >
-              <Upload className="w-3 h-3" />
-              <span>{settings.signatureImg ? (lang === "ar" ? "تغيير التوقيع" : "Change Signature") : (lang === "ar" ? "رفع التوقيع" : "Upload Signature")}</span>
-            </label>
-            {settings.signatureImg && (
-              <button
-                type="button"
-                onClick={() => onUpdateSettings((prev) => ({ ...prev, signatureImg: null }))}
-                className="px-2.5 bg-rose-950/40 border border-rose-800 text-rose-400 rounded-lg text-[10px] font-bold hover:bg-rose-900 transition-all cursor-pointer"
-              >
-                <Trash2 className="w-3.5 h-3.5" />
-              </button>
-            )}
-          </div>
+          </label>
         </div>
       </div>
 
-      {/* 4. Section Visibility Toggles */}
-      <div className="space-y-2 bg-slate-900/90 border border-slate-800 rounded-xl p-4">
-        <span className="text-xs font-bold uppercase tracking-wider text-blue-400 flex items-center gap-1.5 border-b border-slate-800 pb-2 mb-3">
-          <Check className="w-4 h-4" />
-          <span>{lang === "ar" ? "الأقسام المضمنة في الوثيقة" : "Included Sections"}</span>
-        </span>
+      {/* 4. Section Toggles */}
+      <div className="space-y-2.5 mb-6 pt-4 border-t border-slate-800">
+        <div className="flex items-center gap-2 text-slate-300 font-bold uppercase tracking-wider text-[10px] mb-1">
+          <Layers className="w-3.5 h-3.5 text-blue-400" />
+          <span>{lang === "ar" ? "أقسام التقرير المضمنة" : "Included Content Sections"}</span>
+        </div>
 
-        {[
-          { key: "includeHeader", label: lang === "ar" ? "ترويسة التقرير الرسمية" : "Official Branding Header" },
-          { key: "includeFooter", label: lang === "ar" ? "تذييل التوثيق والصفحات" : "Document Footer" },
-          { key: "includeCausal", label: lang === "ar" ? "العوامل المسببة والتحليل" : "Causal Factors & Root Cause" },
-          { key: "includeOutcomes", label: lang === "ar" ? "النتائج والأثر المترتب" : "Outcomes & Impact" },
-          { key: "includeLessons", label: lang === "ar" ? "الدروس المستفادة والتوجيهات" : "Lessons Learned & Guidance" },
-          { key: "includeAuthor", label: lang === "ar" ? "بيانات الموثق والتاريخ" : "Author & Timestamp" },
-          { key: "includeTags", label: lang === "ar" ? "الوسوم والتصنيفات" : "Tags" },
-          { key: "includeSignatureBlock", label: lang === "ar" ? "كتلة التوقيع والاعتماد الرسمي" : "Official Signature Block" },
-        ].map(({ key, label }) => {
-          const isChecked = (settings as any)[key];
-          return (
-            <label
-              key={key}
-              className="flex items-center justify-between p-2 rounded-lg bg-slate-950/50 hover:bg-slate-950 border border-slate-850 cursor-pointer text-xs"
-            >
-              <span className="text-slate-300 font-medium">{label}</span>
-              <input
-                type="checkbox"
-                checked={isChecked}
-                onChange={(e) =>
-                  onUpdateSettings((prev) => ({
-                    ...prev,
-                    [key]: e.target.checked,
-                  }))
-                }
-                className="w-4 h-4 rounded border-slate-700 bg-slate-900 text-blue-600 focus:ring-blue-500 accent-blue-500 cursor-pointer"
-              />
-            </label>
-          );
-        })}
+        <label className="flex items-center gap-2.5 text-slate-300 hover:text-white cursor-pointer select-none">
+          <input
+            type="checkbox"
+            checked={settings.includeCausal}
+            onChange={(e) => onUpdateSettings((p) => ({ ...p, includeCausal: e.target.checked }))}
+            className="rounded border-slate-700 text-blue-600 focus:ring-0 bg-slate-800 w-4 h-4 cursor-pointer"
+          />
+          <span>{lang === "ar" ? "العوامل السببية" : "Causal Factors"}</span>
+        </label>
+
+        <label className="flex items-center gap-2.5 text-slate-300 hover:text-white cursor-pointer select-none">
+          <input
+            type="checkbox"
+            checked={settings.includeOutcomes}
+            onChange={(e) => onUpdateSettings((p) => ({ ...p, includeOutcomes: e.target.checked }))}
+            className="rounded border-slate-700 text-blue-600 focus:ring-0 bg-slate-800 w-4 h-4 cursor-pointer"
+          />
+          <span>{lang === "ar" ? "النتائج والأثر" : "Outcomes & Impact"}</span>
+        </label>
+
+        <label className="flex items-center gap-2.5 text-slate-300 hover:text-white cursor-pointer select-none">
+          <input
+            type="checkbox"
+            checked={settings.includeLessons}
+            onChange={(e) => onUpdateSettings((p) => ({ ...p, includeLessons: e.target.checked }))}
+            className="rounded border-slate-700 text-blue-600 focus:ring-0 bg-slate-800 w-4 h-4 cursor-pointer"
+          />
+          <span>{lang === "ar" ? "الدروس المستفادة والتوجيهات" : "Lessons Learned & Guidance"}</span>
+        </label>
+
+        <label className="flex items-center gap-2.5 text-slate-300 hover:text-white cursor-pointer select-none">
+          <input
+            type="checkbox"
+            checked={settings.includeSignatureBlock}
+            onChange={(e) => onUpdateSettings((p) => ({ ...p, includeSignatureBlock: e.target.checked }))}
+            className="rounded border-slate-700 text-blue-600 focus:ring-0 bg-slate-800 w-4 h-4 cursor-pointer"
+          />
+          <span>{lang === "ar" ? "قسم الاعتماد والتوقيع الرسمي" : "Official Approval & Signature Block"}</span>
+        </label>
+
+        <label className="flex items-center gap-2.5 text-slate-300 hover:text-white cursor-pointer select-none">
+          <input
+            type="checkbox"
+            checked={settings.includeFooter}
+            onChange={(e) => onUpdateSettings((p) => ({ ...p, includeFooter: e.target.checked }))}
+            className="rounded border-slate-700 text-blue-600 focus:ring-0 bg-slate-800 w-4 h-4 cursor-pointer"
+          />
+          <span>{lang === "ar" ? "تذييل التقرير وأرقام الصفحات" : "Report Footer & Page Numbers"}</span>
+        </label>
       </div>
-    </div>
+
+      {/* 5. Memory Selector */}
+      <div className="space-y-3 pt-4 border-t border-slate-800 mt-auto">
+        <div className="flex items-center justify-between text-slate-300 font-bold">
+          <div className="flex items-center gap-2 uppercase tracking-wider text-[10px]">
+            <CheckSquare className="w-3.5 h-3.5 text-blue-400" />
+            <span>{lang === "ar" ? "سجلات الذكاء المحددة" : "Selected Memory Records"}</span>
+          </div>
+          <span className="text-blue-400 font-mono text-xs font-bold">
+            {settings.selectedMemoryIds.length} / {allMemories.length}
+          </span>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={handleSelectAllMemories}
+            className="flex-1 py-1 px-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded text-[10px] font-bold transition-colors"
+          >
+            {lang === "ar" ? "تحديد الكل" : "Select All"}
+          </button>
+          <button
+            type="button"
+            onClick={handleDeselectAllMemories}
+            className="flex-1 py-1 px-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded text-[10px] font-bold transition-colors"
+          >
+            {lang === "ar" ? "إلغاء الكل" : "Deselect All"}
+          </button>
+        </div>
+
+        <div className="max-h-48 overflow-y-auto space-y-1.5 pr-1 border border-slate-800 rounded p-1.5 bg-slate-950/50">
+          {allMemories.map((m) => {
+            const isChecked = settings.selectedMemoryIds.includes(m.id);
+            return (
+              <label
+                key={m.id}
+                className={`flex items-start gap-2 p-1.5 rounded cursor-pointer transition-colors text-[11px] ${
+                  isChecked ? "bg-blue-950/40 text-blue-200" : "text-slate-400 hover:bg-slate-800/60"
+                }`}
+              >
+                <input
+                  type="checkbox"
+                  checked={isChecked}
+                  onChange={() => handleToggleMemory(m.id)}
+                  className="mt-0.5 rounded border-slate-700 text-blue-600 focus:ring-0 bg-slate-800 w-3.5 h-3.5"
+                />
+                <span className="line-clamp-1 font-medium leading-tight">{m.title}</span>
+              </label>
+            );
+          })}
+        </div>
+      </div>
+    </aside>
   );
 };

@@ -1009,7 +1009,7 @@ This hosting domain (**${currentDomain}**) has not been authorized in your Fireb
     return () => clearInterval(interval);
   }, [lastUpdatedTimestamp]);
 
-  // Print Preview Modal State
+  // Enterprise Print & Document System State
   const [isPrintPreviewOpen, setIsPrintPreviewOpen] = useState(false);
   const [printPreviewMemoryId, setPrintPreviewMemoryId] = useState<string | null>(null);
 

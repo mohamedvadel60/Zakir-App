@@ -23,7 +23,7 @@ export interface PrintSettingsState {
   pageSize: PaperSize;
   orientation: Orientation;
   marginPreset: MarginPreset;
-  customMarginMm: number;
+  customMarginMm?: number;
   density: Density;
   fontSize: FontSize;
   fontScale: number; // percentage 75 - 140

@@ -1,6 +1,6 @@
 /* ZAKIR Enterprise Print Document System Stylesheet */
 
-/* Screen Preview Helper Rules & Strict Color Isolation */
+/* Strict Light-Mode Color Isolation for Paper and Document */
 .zakir-paper-sheet,
 .zakir-print-document,
 #zakir-print-document-host,
@@ -14,12 +14,10 @@
   background-color: #ffffff !important;
   color: #0f172a !important;
   box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(0, 0, 0, 0.08);
-  box-sizing: border-box;
   position: relative;
   isolation: isolate;
   filter: none !important;
   backdrop-filter: none !important;
-  mix-blend-mode: normal !important;
 
   /* Reset all CSS theme variables inside document to strict light mode values */
   --background: #ffffff !important;
@@ -89,148 +87,82 @@
 
 /* Hidden in standard screen view */
 #zakir-print-document-host {
-  display: none !important;
-  color-scheme: light !important;
+  display: none;
 }
 
-/* Base Print Styles */
+/* CSS Page Break & Fragmentation Rules */
+.zakir-break-avoid {
+  break-inside: avoid !important;
+  page-break-inside: avoid !important;
+}
+
+.zakir-break-auto {
+  break-inside: auto !important;
+  page-break-inside: auto !important;
+}
+
+.zakir-card-item {
+  break-inside: avoid !important;
+  page-break-inside: avoid !important;
+}
+
+/* Native Print Styles (@media print) */
 @media print {
-  *, *::before, *::after {
-    -webkit-print-color-adjust: exact !important;
-    print-color-adjust: exact !important;
-    box-sizing: border-box !important;
-  }
-
-  /* Force light color-scheme and pristine white background */
-  html,
-  body {
-    height: auto !important;
-    min-height: 0 !important;
-    max-height: none !important;
-    overflow: visible !important;
-    background: #ffffff !important;
-    background-color: #ffffff !important;
-    color: #0f172a !important;
-    margin: 0 !important;
-    padding: 0 !important;
-    color-scheme: light !important;
-  }
-
-  /* Hide all on-screen application UI, modals, navigation, overlays */
-  #root,
-  #zakir-app-root,
-  .print-modal-overlay,
-  .no-print,
-  .no-print * {
+  /* Hide all screen elements when printing */
+  body > *:not(#zakir-print-document-host) {
     display: none !important;
-    visibility: hidden !important;
-    height: 0 !important;
-    width: 0 !important;
-    margin: 0 !important;
-    padding: 0 !important;
-    overflow: hidden !important;
   }
 
-  /* Display ONLY the dedicated Print Host */
+  .no-print,
+  .zakir-print-modal-overlay,
+  .zakir-print-modal-header,
+  .zakir-print-modal-sidebar {
+    display: none !important;
+  }
+
+  /* Show the dedicated print document host */
   #zakir-print-document-host {
     display: block !important;
-    visibility: visible !important;
     position: static !important;
     width: 100% !important;
-    max-width: 100% !important;
-    min-height: 0 !important;
     height: auto !important;
     margin: 0 !important;
     padding: 0 !important;
-    overflow: visible !important;
     background: #ffffff !important;
-    background-color: #ffffff !important;
     color: #0f172a !important;
-    transform: none !important;
-    color-scheme: light !important;
+    overflow: visible !important;
+    box-shadow: none !important;
   }
 
   #zakir-print-document-host .zakir-print-document {
-    display: block !important;
-    position: static !important;
     width: 100% !important;
-    max-width: 100% !important;
-    min-height: 0 !important;
     height: auto !important;
-    margin: 0 auto !important;
-    box-shadow: none !important;
-    border: none !important;
-    border-radius: 0 !important;
     background: #ffffff !important;
-    background-color: #ffffff !important;
     color: #0f172a !important;
-    box-sizing: border-box !important;
+    box-shadow: none !important;
   }
 
-  /* Repeating Header Mechanism via CSS Table Groups */
-  .zakir-print-table {
-    width: 100% !important;
-    border-collapse: collapse !important;
-    background: transparent !important;
-  }
-
-  .zakir-print-thead {
+  /* Repeat table headers and footers across printed pages */
+  thead.zakir-print-thead {
     display: table-header-group !important;
-    background: #ffffff !important;
   }
 
-  .zakir-print-tbody {
+  tfoot.zakir-print-tfoot {
+    display: table-footer-group !important;
+  }
+
+  tbody.zakir-print-tbody {
     display: table-row-group !important;
-    background: transparent !important;
   }
 
-  /* CSS Page Counters */
+  /* Dynamic CSS Page Counter for Browser Print */
   .zakir-page-number-target::after {
     content: counter(page);
   }
 
-  .zakir-total-pages-target::after {
-    content: counter(pages);
-  }
-
-  [dir="rtl"] .zakir-page-counter-label::before {
-    content: "الصفحة ";
-  }
-
-  [dir="ltr"] .zakir-page-counter-label::before {
-    content: "Page ";
-  }
-
-  /* Natural Fragmentation Rules */
-  .zakir-heading-group,
-  .zakir-card-header,
-  .zakir-signature-block,
-  .zakir-break-avoid {
-    break-inside: avoid !important;
-    break-inside: avoid-page !important;
-    page-break-inside: avoid !important;
-  }
-
-  .zakir-card-item {
-    break-inside: auto !important;
-    page-break-inside: auto !important;
+  body {
+    counter-reset: page;
     background: #ffffff !important;
     color: #0f172a !important;
-  }
-
-  p,
-  .zakir-break-auto {
-    break-inside: auto !important;
-    page-break-inside: auto !important;
-  }
-
-  /* Crisp logo in print */
-  .zakir-print-logo {
-    display: block !important;
-    visibility: visible !important;
-    opacity: 1 !important;
-    width: auto !important;
-    object-fit: contain !important;
-    background: transparent !important;
   }
 }
