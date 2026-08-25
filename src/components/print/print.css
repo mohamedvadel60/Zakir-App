@@ -1,17 +1,27 @@
 /* ZAKIR Enterprise Print Document System Stylesheet */
 
-/* Screen Preview Helper Rules */
+/* Screen Preview Helper Rules & Strict Color Isolation */
 .zakir-paper-sheet {
   background-color: #ffffff !important;
   color: #0f172a !important;
   box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(0, 0, 0, 0.08);
   box-sizing: border-box;
   position: relative;
+  color-scheme: light !important;
+  isolation: isolate;
+  filter: none !important;
+  backdrop-filter: none !important;
+  mix-blend-mode: normal !important;
+}
+
+.zakir-paper-sheet * {
+  color-scheme: light !important;
 }
 
 /* Hidden in standard screen view */
 #zakir-print-document-host {
   display: none !important;
+  color-scheme: light !important;
 }
 
 /* Base Print Styles */

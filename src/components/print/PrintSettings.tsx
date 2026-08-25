@@ -121,34 +121,44 @@ export const PrintSettings: React.FC<PrintSettingsProps> = ({
 
         {/* Memory Checkbox List */}
         <div className="space-y-1.5 max-h-44 overflow-y-auto pr-1">
-          {filteredMemories.map((m) => {
-            const isSelected = settings.selectedMemoryIds.includes(m.id);
-            return (
-              <div
-                key={m.id}
-                onClick={() => toggleSelectMemory(m.id)}
-                className={`p-2 rounded-lg border text-xs cursor-pointer transition-all flex items-start gap-2.5 ${
-                  isSelected
-                    ? "bg-blue-500/15 border-blue-500/40 text-blue-100"
-                    : "bg-slate-950/60 border-slate-800/80 text-slate-400 hover:text-slate-200"
-                }`}
-              >
-                <div className="mt-0.5 shrink-0">
-                  {isSelected ? (
-                    <CheckSquare className="w-4 h-4 text-blue-400" />
-                  ) : (
-                    <Square className="w-4 h-4 text-slate-600" />
-                  )}
-                </div>
-                <div className="overflow-hidden">
-                  <div className="font-semibold truncate text-[11px]">{m.title}</div>
-                  <div className="text-[9px] text-slate-500 font-mono truncate">
-                    {m.category} • {m.riskLevel}
+          {filteredMemories.length === 0 ? (
+            <div className="p-3 text-center text-[11px] text-slate-500 bg-slate-950/40 rounded-lg border border-slate-800/60 font-sans">
+              {lang === "ar"
+                ? "لا توجد ذكريات متاحة في المجموعة الحالية"
+                : lang === "fr"
+                ? "Aucun enregistrement disponible"
+                : "No memories available in current dataset"}
+            </div>
+          ) : (
+            filteredMemories.map((m) => {
+              const isSelected = settings.selectedMemoryIds.includes(m.id);
+              return (
+                <div
+                  key={m.id}
+                  onClick={() => toggleSelectMemory(m.id)}
+                  className={`p-2 rounded-lg border text-xs cursor-pointer transition-all flex items-start gap-2.5 ${
+                    isSelected
+                      ? "bg-blue-500/15 border-blue-500/40 text-blue-100"
+                      : "bg-slate-950/60 border-slate-800/80 text-slate-400 hover:text-slate-200"
+                  }`}
+                >
+                  <div className="mt-0.5 shrink-0">
+                    {isSelected ? (
+                      <CheckSquare className="w-4 h-4 text-blue-400" />
+                    ) : (
+                      <Square className="w-4 h-4 text-slate-600" />
+                    )}
+                  </div>
+                  <div className="overflow-hidden">
+                    <div className="font-semibold truncate text-[11px]">{m.title}</div>
+                    <div className="text-[9px] text-slate-500 font-mono truncate">
+                      {m.category} • {m.riskLevel}
+                    </div>
                   </div>
                 </div>
-              </div>
-            );
-          })}
+              );
+            })
+          )}
         </div>
       </div>
 
