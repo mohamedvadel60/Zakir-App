@@ -445,9 +445,8 @@ img.broken-image-fallback {
   display: none !important;
 }
 
-/* Print Media Styles */
+/* Print Media Styles: Page margin setup without hardcoded size */
 @page {
-  size: A4 portrait;
   margin: 0;
 }
 
@@ -467,6 +466,7 @@ img.broken-image-fallback {
     max-height: none !important;
     overflow: visible !important;
     background: #FFFFFF !important;
+    background-color: #FFFFFF !important;
     color: #0F172A !important;
     margin: 0 !important;
     padding: 0 !important;
@@ -501,6 +501,7 @@ img.broken-image-fallback {
     padding: 0 !important;
     overflow: visible !important;
     background: #FFFFFF !important;
+    background-color: #FFFFFF !important;
     color: #0F172A !important;
     transform: none !important;
     color-scheme: light !important;
@@ -525,19 +526,41 @@ img.broken-image-fallback {
     position: static !important;
     width: 100% !important;
     max-width: 100% !important;
-    min-height: auto !important;
+    min-height: 0 !important;
     height: auto !important;
     margin: 0 auto !important;
     box-shadow: none !important;
     border: none !important;
     border-radius: 0 !important;
     background: #FFFFFF !important;
+    background-color: #FFFFFF !important;
     color: #0F172A !important;
     box-sizing: border-box !important;
   }
 
+  /* Repeating Table Header Mechanism */
+  .print-layout-table {
+    width: 100% !important;
+    border-collapse: collapse !important;
+    background: transparent !important;
+  }
+
+  .print-layout-thead {
+    display: table-header-group !important;
+    background: #FFFFFF !important;
+  }
+
+  .print-layout-tbody {
+    display: table-row-group !important;
+    background: transparent !important;
+  }
+
+  .print-header-content {
+    background: #FFFFFF !important;
+    background-color: #FFFFFF !important;
+  }
+
   /* Natural Fragmentation & Page break rules */
-  .print-header-container,
   .print-heading-group,
   .memory-card-header {
     break-inside: avoid !important;
@@ -558,6 +581,7 @@ img.broken-image-fallback {
     break-inside: auto !important;
     page-break-inside: auto !important;
     background: #FFFFFF !important;
+    background-color: #FFFFFF !important;
     color: #0F172A !important;
   }
 
@@ -566,6 +590,19 @@ img.broken-image-fallback {
   .break-auto {
     break-inside: auto !important;
     page-break-inside: auto !important;
+  }
+
+  /* Dynamic CSS Page Counter (Chrome Print standard) */
+  .page-number-target::after {
+    content: counter(page);
+  }
+
+  [dir="rtl"] .page-number-target::before {
+    content: "صفحة ";
+  }
+
+  [dir="ltr"] .page-number-target::before {
+    content: "Page ";
   }
 
   /* Crisp logo in print */

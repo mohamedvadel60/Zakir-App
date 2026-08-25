@@ -214,19 +214,42 @@ export function PrintPreviewModal({
     }
   }, [watermarkDate, lang]);
 
-  // Page physical dimensions for preview sizing container
+  // Single Paper configuration geometry (Portrait Base Dimensions)
+  const paperBaseDimensions: Record<string, { widthMm: number; heightMm: number }> = {
+    A4: { widthMm: 210, heightMm: 297 },
+    A3: { widthMm: 297, heightMm: 420 },
+    A5: { widthMm: 148, heightMm: 210 },
+    Letter: { widthMm: 215.9, heightMm: 279.4 },
+    Legal: { widthMm: 215.9, heightMm: 355.6 },
+  };
+
+  // Page physical dimensions for preview sizing container derived from orientation
   const pagePhysicalDimensions = useMemo(() => {
-    const dims: Record<string, { portrait: { width: string; minHeight: string }; landscape: { width: string; minHeight: string } }> = {
-      A4: { portrait: { width: "210mm", minHeight: "297mm" }, landscape: { width: "297mm", minHeight: "210mm" } },
-      A3: { portrait: { width: "297mm", minHeight: "420mm" }, landscape: { width: "420mm", minHeight: "297mm" } },
-      A5: { portrait: { width: "148mm", minHeight: "210mm" }, landscape: { width: "210mm", minHeight: "148mm" } },
-      Letter: { portrait: { width: "8.5in", minHeight: "11in" }, landscape: { width: "11in", minHeight: "8.5in" } },
-      Legal: { portrait: { width: "8.5in", minHeight: "14in" }, landscape: { width: "14in", minHeight: "8.5in" } },
-    };
-    return dims[pageSize]?.[orientation] || dims.A4.portrait;
+    const base = paperBaseDimensions[pageSize] || paperBaseDimensions.A4;
+    const isLandscape = orientation === "landscape";
+    const width = isLandscape ? `${base.heightMm}mm` : `${base.widthMm}mm`;
+    const minHeight = isLandscape ? `${base.widthMm}mm` : `${base.heightMm}mm`;
+    return { width, minHeight };
   }, [pageSize, orientation]);
 
-  // Clean Native Print Execution
+  // Update ONE dedicated deterministic stylesheet in document.head for @page { size }
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    const styleId = "zakir-dynamic-print-page-style";
+    let styleEl = document.getElementById(styleId) as HTMLStyleElement | null;
+    if (!styleEl) {
+      styleEl = document.createElement("style");
+      styleEl.id = styleId;
+      document.head.appendChild(styleEl);
+    }
+    styleEl.innerHTML = `@page { size: ${pageSize} ${orientation} !important; margin: 0 !important; }`;
+
+    return () => {
+      // Keep style updated without removing unless needed
+    };
+  }, [pageSize, orientation]);
+
+  // Clean Native Print Execution with double requestAnimationFrame layout stabilization
   const executeNativePrint = useCallback(async () => {
     setIsPrinting(true);
     document.body.classList.add("printing-active");
@@ -255,13 +278,18 @@ export function PrintPreviewModal({
 
     window.focus();
 
-    const timer = setTimeout(() => {
-      try {
-        window.print();
-      } catch (err) {
-        console.error("Print failed:", err);
-      }
-    }, 150);
+    // Two consecutive animation frames ensure CSS and layouts are fully settled
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        setTimeout(() => {
+          try {
+            window.print();
+          } catch (err) {
+            console.error("Print failed:", err);
+          }
+        }, 80);
+      });
+    });
 
     const fallbackTimer = setTimeout(() => {
       document.body.classList.remove("printing-active");
@@ -269,7 +297,6 @@ export function PrintPreviewModal({
     }, 4000);
 
     return () => {
-      clearTimeout(timer);
       clearTimeout(fallbackTimer);
     };
   }, []);
@@ -1019,8 +1046,6 @@ export function PrintPreviewModal({
     {/* 2. DEDICATED PRINT HOST (Strictly PRINT-ONLY, Direct DOM Child of <body>, Zero transforms/wrappers) */}
     {typeof document !== "undefined" && createPortal(
       <div id="print-host" className="print-only theme-light bg-white text-slate-900" data-theme="light" dir={lang === "ar" ? "rtl" : "ltr"}>
-        {/* Dynamic @page rule strictly matching user-selected paper size & orientation */}
-        <style dangerouslySetInnerHTML={{ __html: `@page { size: ${pageSize} ${orientation} !important; margin: 0 !important; }` }} />
         {selectedMemories.length > 0 && (
           <PrintableDocument
             memories={selectedMemories}
