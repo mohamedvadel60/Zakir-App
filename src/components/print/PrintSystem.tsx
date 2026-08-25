@@ -140,13 +140,25 @@ export const PrintSystem: React.FC<PrintSystemProps> = ({
 
   // Compute exact valid selected memories derived ONLY from authoritative & custom memories
   const validSelectedMemories = useMemo(() => {
-    return authoritativeMemories
+    const selected = authoritativeMemories
       .filter((m) => settings.selectedMemoryIds.includes(m.id))
       .map((m) => {
         const edited = customMemories.find((c) => c.id === m.id);
         return edited || m;
       });
-  }, [authoritativeMemories, customMemories, settings.selectedMemoryIds]);
+
+    // Mandatory forensic check for single memory preview flow
+    if (initialSelectedMemoryId) {
+      const targetExists = authoritativeMemories.some((m) => m.id === initialSelectedMemoryId);
+      if (targetExists && selected.length !== 1) {
+        console.warn(
+          `[Zakir Print Forensic] Expected exactly 1 memory for previewMemoryId="${initialSelectedMemoryId}", but found ${selected.length}`
+        );
+      }
+    }
+
+    return selected;
+  }, [authoritativeMemories, customMemories, settings.selectedMemoryIds, initialSelectedMemoryId]);
 
   // Native Print Execution
   const handleStartPrint = async () => {

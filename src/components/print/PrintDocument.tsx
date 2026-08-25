@@ -132,7 +132,8 @@ export const PrintDocument: React.FC<PrintDocumentProps> = ({
                 {memories.map((m) => (
                   <div
                     key={m.id}
-                    className={`zakir-card-item bg-white border border-slate-300 rounded-lg text-slate-950 shadow-none ${densityConfig.cardMargin} ${densityConfig.cardPadding} group relative hover:border-slate-400 transition-colors`}
+                    data-memory-id={m.id}
+                    className={`zakir-card-item bg-white border border-slate-200 rounded-lg text-slate-900 shadow-none border-s-4 border-s-blue-600 ${densityConfig.cardMargin} ${densityConfig.cardPadding} group relative hover:border-slate-300 transition-colors`}
                     dir={isRtl ? "rtl" : "ltr"}
                   >
                     {/* Exclude memory card button (Preview only) */}
@@ -150,34 +151,34 @@ export const PrintDocument: React.FC<PrintDocumentProps> = ({
                     )}
 
                     {/* Card Header: Badges & Record Number */}
-                    <div className={`zakir-card-header ${densityConfig.headerPadding} border-b border-slate-200 pb-2 mb-2`}>
+                    <div className={`zakir-card-header ${densityConfig.headerPadding} border-b border-slate-200 pb-2 mb-2.5`}>
                       <div className="flex items-center justify-between gap-2 mb-1.5 flex-wrap">
                         <div className="flex items-center gap-1.5">
-                          <span className={`${densityConfig.badgeText} uppercase bg-slate-100 text-slate-800 border-slate-300`}>
+                          <span className={`${densityConfig.badgeText} uppercase bg-slate-100 text-slate-800 border-slate-300 font-bold`}>
                             {m.category}
                           </span>
                           <span
                             className={`${densityConfig.badgeText} uppercase ${
                               m.riskLevel === "Critical"
-                                ? "bg-rose-100 text-rose-950 border-rose-300 font-black"
+                                ? "bg-rose-50 text-rose-700 border-rose-200 font-extrabold"
                                 : m.riskLevel === "High"
-                                ? "bg-amber-100 text-amber-950 border-amber-300 font-bold"
+                                ? "bg-amber-50 text-amber-700 border-amber-200 font-bold"
                                 : m.riskLevel === "Medium"
-                                ? "bg-blue-100 text-blue-950 border-blue-300"
-                                : "bg-slate-100 text-slate-800 border-slate-300"
+                                ? "bg-blue-50 text-blue-700 border-blue-200 font-semibold"
+                                : "bg-slate-50 text-slate-700 border-slate-200"
                             }`}
                           >
                             {m.riskLevel}
                           </span>
                         </div>
-                        <span className="text-[8pt] text-slate-600 font-mono font-bold">
+                        <span className="text-[8pt] text-slate-500 font-mono font-bold bg-slate-50 px-2 py-0.5 rounded border border-slate-200">
                           #{m.id.slice(0, 8).toUpperCase()} • {new Date(m.createdAt).toLocaleDateString(isRtl ? "ar-SA" : "en-US")}
                         </span>
                       </div>
 
                       {/* Record Title */}
                       {isPrinting || !onUpdateMemoryField ? (
-                        <h3 className={`w-full bg-transparent text-slate-950 font-black ${densityConfig.titleSize}`}>
+                        <h3 className={`w-full bg-transparent text-slate-900 font-black ${densityConfig.titleSize}`}>
                           {m.title}
                         </h3>
                       ) : (
@@ -185,7 +186,7 @@ export const PrintDocument: React.FC<PrintDocumentProps> = ({
                           contentEditable
                           suppressContentEditableWarning
                           onBlur={(e) => onUpdateMemoryField(m.id, "title", e.currentTarget.innerText || "")}
-                          className={`w-full bg-transparent border-none outline-none focus:ring-1 focus:ring-blue-500/40 rounded p-0.5 hover:bg-slate-100 text-slate-950 transition-colors ${densityConfig.titleSize}`}
+                          className={`w-full bg-transparent border-none outline-none focus:ring-1 focus:ring-blue-500/40 rounded p-0.5 hover:bg-slate-50 text-slate-900 transition-colors ${densityConfig.titleSize}`}
                         >
                           {m.title}
                         </div>
@@ -196,11 +197,14 @@ export const PrintDocument: React.FC<PrintDocumentProps> = ({
                     <div className={densityConfig.sectionGap}>
                       {m.description && (
                         <div>
-                          <span className={`${densityConfig.sectionTitleSize} block mb-0.5`}>
-                            {lang === "ar" ? "الوصف والسياق" : lang === "fr" ? "DESCRIPTION & CONTEXTE" : "DESCRIPTION & CONTEXT"}
-                          </span>
+                          <div className="flex items-center gap-1.5 mb-1">
+                            <span className="w-1.5 h-1.5 rounded-full bg-blue-600 inline-block"></span>
+                            <span className={densityConfig.sectionTitleSize}>
+                              {lang === "ar" ? "الوصف والسياق" : lang === "fr" ? "DESCRIPTION & CONTEXTE" : "DESCRIPTION & CONTEXT"}
+                            </span>
+                          </div>
                           {isPrinting || !onUpdateMemoryField ? (
-                            <p className={`${densityConfig.textSize} text-slate-900 whitespace-pre-wrap zakir-break-auto`}>
+                            <p className={`${densityConfig.textSize} text-slate-800 whitespace-pre-wrap zakir-break-auto`}>
                               {m.description}
                             </p>
                           ) : (
@@ -208,7 +212,7 @@ export const PrintDocument: React.FC<PrintDocumentProps> = ({
                               contentEditable
                               suppressContentEditableWarning
                               onBlur={(e) => onUpdateMemoryField(m.id, "description", e.currentTarget.innerText || "")}
-                              className={`${densityConfig.textSize} text-slate-900 whitespace-pre-wrap outline-none focus:ring-1 focus:ring-blue-500/40 rounded p-1 hover:bg-slate-50 zakir-break-auto`}
+                              className={`${densityConfig.textSize} text-slate-800 whitespace-pre-wrap outline-none focus:ring-1 focus:ring-blue-500/40 rounded p-1 hover:bg-slate-50 zakir-break-auto`}
                             >
                               {m.description}
                             </div>
@@ -218,9 +222,12 @@ export const PrintDocument: React.FC<PrintDocumentProps> = ({
 
                       {m.decision && (
                         <div className="pt-2 border-t border-slate-100">
-                          <span className={`${densityConfig.sectionTitleSize} block mb-0.5`}>
-                            {lang === "ar" ? "القرار المتخذ" : lang === "fr" ? "DÉCISION" : "DECISION RECORD"}
-                          </span>
+                          <div className="flex items-center gap-1.5 mb-1">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 inline-block"></span>
+                            <span className={densityConfig.sectionTitleSize}>
+                              {lang === "ar" ? "القرار المتخذ" : lang === "fr" ? "DÉCISION" : "DECISION RECORD"}
+                            </span>
+                          </div>
                           <p className={`${densityConfig.textSize} text-slate-800 whitespace-pre-wrap zakir-break-auto`}>
                             {m.decision}
                           </p>
@@ -229,9 +236,12 @@ export const PrintDocument: React.FC<PrintDocumentProps> = ({
 
                       {settings.includeCausal && m.causalFactors && (
                         <div className="pt-2 border-t border-slate-100">
-                          <span className={`${densityConfig.sectionTitleSize} block mb-0.5`}>
-                            {lang === "ar" ? "العوامل السببية" : lang === "fr" ? "FACTEURS CAUSAUX" : "CAUSAL FACTORS"}
-                          </span>
+                          <div className="flex items-center gap-1.5 mb-1">
+                            <span className="w-1.5 h-1.5 rounded-full bg-indigo-600 inline-block"></span>
+                            <span className={densityConfig.sectionTitleSize}>
+                              {lang === "ar" ? "العوامل السببية" : lang === "fr" ? "FACTEURS CAUSAUX" : "CAUSAL FACTORS"}
+                            </span>
+                          </div>
                           <p className={`${densityConfig.textSize} text-slate-800 whitespace-pre-wrap zakir-break-auto`}>
                             {m.causalFactors}
                           </p>
@@ -240,9 +250,12 @@ export const PrintDocument: React.FC<PrintDocumentProps> = ({
 
                       {settings.includeOutcomes && m.outcomes && (
                         <div className="pt-2 border-t border-slate-100">
-                          <span className={`${densityConfig.sectionTitleSize} block mb-0.5`}>
-                            {lang === "ar" ? "النتائج والأثر" : lang === "fr" ? "RÉSULTATS & IMPACT" : "OUTCOMES & IMPACT"}
-                          </span>
+                          <div className="flex items-center gap-1.5 mb-1">
+                            <span className="w-1.5 h-1.5 rounded-full bg-teal-600 inline-block"></span>
+                            <span className={densityConfig.sectionTitleSize}>
+                              {lang === "ar" ? "النتائج والأثر" : lang === "fr" ? "RÉSULTATS & IMPACT" : "OUTCOMES & IMPACT"}
+                            </span>
+                          </div>
                           <p className={`${densityConfig.textSize} text-slate-800 whitespace-pre-wrap zakir-break-auto`}>
                             {m.outcomes}
                           </p>
@@ -250,10 +263,13 @@ export const PrintDocument: React.FC<PrintDocumentProps> = ({
                       )}
 
                       {settings.includeLessons && m.lessonsLearned && (
-                        <div className="zakir-break-avoid rounded p-3 bg-slate-50 border border-slate-200 mt-2">
-                          <span className={`${densityConfig.sectionTitleSize} text-slate-700 font-black block mb-1`}>
-                            {lang === "ar" ? "الدروس المستفادة والتوجيهات" : lang === "fr" ? "LEÇONS ET RECOMMANDATIONS" : "LESSONS LEARNED & GUIDANCE"}
-                          </span>
+                        <div className="zakir-break-avoid rounded-md p-3 bg-slate-50 border border-slate-200 border-s-4 border-s-emerald-600 mt-2">
+                          <div className="flex items-center gap-1.5 mb-1">
+                            <span className="w-2 h-2 rounded-full bg-emerald-600 inline-block"></span>
+                            <span className={`${densityConfig.sectionTitleSize} text-emerald-900 font-black`}>
+                              {lang === "ar" ? "الدروس المستفادة والتوجيهات" : lang === "fr" ? "LEÇONS ET RECOMMANDATIONS" : "LESSONS LEARNED & GUIDANCE"}
+                            </span>
+                          </div>
                           <p className={`${densityConfig.textSize} text-slate-900 font-medium whitespace-pre-wrap zakir-break-auto`}>
                             {m.lessonsLearned}
                           </p>
@@ -263,10 +279,10 @@ export const PrintDocument: React.FC<PrintDocumentProps> = ({
                       {settings.includeAuthor && (m.authorName || m.authorEmail) && (
                         <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-[8pt] text-slate-500 font-mono">
                           <span>
-                            {lang === "ar" ? "الموثق:" : "Authored by:"} <strong>{m.authorName || m.authorEmail}</strong>
+                            {lang === "ar" ? "الموثق:" : "Authored by:"} <strong className="text-slate-700">{m.authorName || m.authorEmail}</strong>
                           </span>
                           {settings.includeTags && m.tags && m.tags.length > 0 && (
-                            <span>{m.tags.map((t) => `#${t}`).join(" ")}</span>
+                            <span className="text-slate-600">{m.tags.map((t) => `#${t}`).join(" ")}</span>
                           )}
                         </div>
                       )}

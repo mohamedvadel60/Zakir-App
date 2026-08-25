@@ -101,12 +101,12 @@ export const PrintHeader: React.FC<PrintHeaderProps> = ({
 
   // Standard Header (Default)
   return (
-    <header className="zakir-heading-group w-full bg-white border-b-2 border-slate-300 pb-3 mb-5 select-none" dir={isRtl ? "rtl" : "ltr"}>
-      <div className="flex items-center justify-between gap-4 pb-2">
+    <header className="zakir-heading-group w-full bg-white pb-3 mb-5 select-none" dir={isRtl ? "rtl" : "ltr"}>
+      <div className="flex items-center justify-between gap-4 pb-3">
         <div className="flex items-center gap-3">
           <PrintLogo companyLogoImg={companyLogoImg} logoSize={logoSize} lang={lang} />
           <div className="leading-tight">
-            <span className="font-extrabold text-xs sm:text-sm text-slate-950 block">{companyName}</span>
+            <span className="font-extrabold text-xs sm:text-sm text-slate-900 block">{companyName}</span>
             {departmentName && (
               <span className="text-[8.5pt] text-slate-600 font-medium block mt-0.5">{departmentName}</span>
             )}
@@ -114,7 +114,8 @@ export const PrintHeader: React.FC<PrintHeaderProps> = ({
         </div>
 
         <div className="text-end">
-          <h1 className="text-xs sm:text-sm font-black text-slate-950 uppercase tracking-tight">
+          <h1 className="text-xs sm:text-sm font-black text-slate-900 uppercase tracking-tight flex items-center justify-end gap-1.5">
+            <span className="w-1.5 h-1.5 rounded-full bg-blue-600 inline-block"></span>
             {reportTitle}
           </h1>
           <p className="text-[7.5pt] text-slate-500 font-medium mt-0.5">
@@ -126,12 +127,12 @@ export const PrintHeader: React.FC<PrintHeaderProps> = ({
       <div className="pt-2 border-t border-slate-200 flex items-center justify-between text-[8.5pt] text-slate-600 font-mono">
         <div className="flex items-center gap-2">
           <span className="font-bold uppercase text-slate-500">{lang === "ar" ? "المرجع:" : "REF:"}</span>
-          <span className="font-bold text-slate-900">{documentRef}</span>
+          <span className="font-bold text-slate-900 bg-slate-50 px-2.5 py-0.5 rounded border border-slate-300 shadow-2xs border-s-2 border-s-blue-600">{documentRef}</span>
         </div>
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-1.5">
             <span className="font-bold uppercase text-slate-500">{lang === "ar" ? "التاريخ:" : "DATE:"}</span>
-            <span className="font-semibold text-slate-900">{dateVal}</span>
+            <span className="font-semibold text-slate-900 bg-slate-50 px-2.5 py-0.5 rounded border border-slate-300 shadow-2xs">{dateVal}</span>
           </div>
           <div className="font-bold text-slate-700">
             {pageNumberText ? (
@@ -142,6 +143,7 @@ export const PrintHeader: React.FC<PrintHeaderProps> = ({
           </div>
         </div>
       </div>
+      <div className="w-full h-[2px] bg-gradient-to-r from-blue-600 via-emerald-500 to-blue-600 mt-2.5 rounded-full"></div>
     </header>
   );
 };

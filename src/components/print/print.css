@@ -1,21 +1,90 @@
 /* ZAKIR Enterprise Print Document System Stylesheet */
 
 /* Screen Preview Helper Rules & Strict Color Isolation */
-.zakir-paper-sheet {
+.zakir-paper-sheet,
+.zakir-print-document,
+#zakir-print-document-host,
+#zakir-print-document-host * {
+  color-scheme: light !important;
+}
+
+.zakir-paper-sheet,
+.zakir-print-document,
+#zakir-print-document-host {
   background-color: #ffffff !important;
   color: #0f172a !important;
   box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(0, 0, 0, 0.08);
   box-sizing: border-box;
   position: relative;
-  color-scheme: light !important;
   isolation: isolate;
   filter: none !important;
   backdrop-filter: none !important;
   mix-blend-mode: normal !important;
+
+  /* Reset all CSS theme variables inside document to strict light mode values */
+  --background: #ffffff !important;
+  --foreground: #0f172a !important;
+  --card: #ffffff !important;
+  --card-foreground: #0f172a !important;
+  --popover: #ffffff !important;
+  --popover-foreground: #0f172a !important;
+  --primary: #0075de !important;
+  --primary-foreground: #ffffff !important;
+  --secondary: #f8fafc !important;
+  --secondary-foreground: #0f172a !important;
+  --muted: #f1f5f9 !important;
+  --muted-foreground: #64748b !important;
+  --accent: #f1f5f9 !important;
+  --accent-foreground: #0f172a !important;
+  --border: #cbd5e1 !important;
+  --input: #cbd5e1 !important;
+  --ring: #0075de !important;
 }
 
-.zakir-paper-sheet * {
-  color-scheme: light !important;
+/* Document root containers and card overrides */
+.zakir-paper-sheet article,
+.zakir-paper-sheet header,
+.zakir-paper-sheet footer,
+.zakir-paper-sheet table,
+.zakir-paper-sheet td,
+.zakir-paper-sheet th,
+.zakir-print-document article,
+.zakir-print-document header,
+.zakir-print-document footer,
+.zakir-print-document table,
+.zakir-print-document td,
+.zakir-print-document th,
+#zakir-print-document-host article,
+#zakir-print-document-host header,
+#zakir-print-document-host footer,
+#zakir-print-document-host table,
+#zakir-print-document-host td,
+#zakir-print-document-host th {
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+}
+
+.zakir-card-item,
+.zakir-card-header,
+.zakir-heading-group,
+.zakir-signature-block {
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+}
+
+/* Light background section overrides */
+.zakir-print-document .bg-slate-50,
+.zakir-paper-sheet .bg-slate-50,
+#zakir-print-document-host .bg-slate-50 {
+  background-color: #f8fafc !important;
+  color: #0f172a !important;
+}
+
+.zakir-print-document .bg-slate-100,
+.zakir-paper-sheet .bg-slate-100,
+#zakir-print-document-host .bg-slate-100 {
+  background-color: #f1f5f9 !important;
+  color: #0f172a !important;
 }
 
 /* Hidden in standard screen view */

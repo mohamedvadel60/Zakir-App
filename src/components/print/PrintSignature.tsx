@@ -55,14 +55,14 @@ export const PrintSignature: React.FC<PrintSignatureProps> = ({
     >
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
-          <span className="w-2.5 h-2.5 rounded-full bg-slate-900"></span>
-          <span className="text-[9.5pt] font-black text-slate-950 uppercase tracking-wide">
+          <span className="w-2.5 h-2.5 rounded-full bg-blue-600"></span>
+          <span className="text-[9.5pt] font-black text-slate-900 uppercase tracking-wide">
             {titleText}
           </span>
         </div>
         {includeVerificationSeal && (
-          <div className="flex items-center gap-1 text-[8pt] text-slate-600 font-mono">
-            <span>[ SECURE HASH: {documentRef.slice(-6)} ]</span>
+          <div className="flex items-center gap-1 text-[8pt] text-slate-500 font-mono bg-slate-50 px-2 py-0.5 rounded border border-slate-200">
+            <span>SECURE HASH: {documentRef.slice(-6)}</span>
           </div>
         )}
       </div>

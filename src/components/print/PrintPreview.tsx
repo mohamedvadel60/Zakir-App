@@ -130,25 +130,22 @@ export const PrintPreview: React.FC<PrintPreviewProps> = ({
             transform: `scale(${zoom / 100})`,
           }}
         >
-          {Array.from({ length: estimatedPages }).map((_, i) => (
-            <PrintPage
-              key={i}
-              pageIndex={i + 1}
-              totalPages={estimatedPages}
-              geometry={geometry}
-            >
-              <PrintDocument
-                memories={memories}
-                settings={settings}
-                lang={lang}
-                isPrinting={false}
-                pageIndex={i + 1}
-                totalPages={estimatedPages}
-                onUpdateMemoryField={onUpdateMemoryField}
-                onExcludeMemory={onExcludeMemory}
-              />
-            </PrintPage>
-          ))}
+          <PrintPage
+            pageIndex={1}
+            totalPages={1}
+            geometry={geometry}
+          >
+            <PrintDocument
+              memories={memories}
+              settings={settings}
+              lang={lang}
+              isPrinting={false}
+              pageIndex={1}
+              totalPages={1}
+              onUpdateMemoryField={onUpdateMemoryField}
+              onExcludeMemory={onExcludeMemory}
+            />
+          </PrintPage>
         </div>
       </div>
     </div>
