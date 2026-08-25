@@ -58,15 +58,35 @@
     print-color-adjust: exact !important;
   }
 
-  /* Hide interactive controls in print output */
-  .no-print {
+  /* Hide interactive controls and modal overlays in print output */
+  .no-print,
+  .zakir-print-modal-overlay,
+  .zakir-print-modal-sidebar,
+  .zakir-print-modal-header,
+  .zakir-print-preview-workspace {
     display: none !important;
   }
 
-  /* Memory Card Page Fragmentation Control */
+  /* Memory Card Page Fragmentation Control - Allow long text to flow across pages naturally */
   .zakir-print-memory-card {
+    break-inside: auto !important;
+    page-break-inside: auto !important;
+  }
+
+  /* Keep cohesive small blocks together without breaking mid-signature or mid-badge */
+  .break-inside-avoid,
+  .signature-block,
+  .approval-block,
+  .zakir-print-header,
+  .zakir-print-footer,
+  .risk-badge {
     break-inside: avoid !important;
     page-break-inside: avoid !important;
+  }
+
+  /* Dynamic CSS Paged Media Counter Target */
+  .page-number-placeholder::after {
+    content: counter(page);
   }
 
   /* First element blank page prevention */

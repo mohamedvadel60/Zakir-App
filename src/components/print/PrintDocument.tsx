@@ -4,6 +4,7 @@ import { PrintSettingsState, PrintDiagnostics } from "./printTypes";
 import { PrintHeader } from "./PrintHeader";
 import { PrintFooter } from "./PrintFooter";
 import { PrintSignature } from "./PrintSignature";
+import { sanitizeText } from "./printSanitizer";
 
 interface PrintDocumentProps {
   memories: Memory[];
@@ -106,107 +107,117 @@ export const PrintDocument: React.FC<PrintDocumentProps> = ({
 
       {/* Memory Cards Flow Container */}
       <main className={`${getDensitySpacing()} my-4`}>
-        {normalizedMemories.map((m, index) => (
-          <article
-            key={m.id}
-            data-memory-id={m.id}
-            className="zakir-print-memory-card border border-slate-300 rounded-xl p-5 bg-white shadow-xs relative break-inside-avoid print:shadow-none print:border-slate-300"
-          >
-            {/* Exclusion Button (Screen preview only) */}
-            {onExcludeMemory && !isPrinting && (
-              <button
-                type="button"
-                onClick={() => onExcludeMemory(m.id)}
-                className="no-print absolute top-3 end-3 text-slate-400 hover:text-rose-600 bg-slate-100 hover:bg-rose-50 p-1.5 rounded-lg transition-all cursor-pointer"
-                title={lang === "ar" ? "استبعاد هذه الذكرى من التقرير" : "Exclude memory from report"}
-              >
-                ✕
-              </button>
-            )}
+        {normalizedMemories.map((m, index) => {
+          const cleanTitle = sanitizeText(m.title, lang);
+          const cleanDesc = sanitizeText(m.description, lang);
+          const cleanDecision = sanitizeText(m.decision, lang);
+          const cleanCausal = sanitizeText(m.causalFactors, lang);
+          const cleanOutcomes = sanitizeText(m.outcomes, lang);
+          const cleanLessons = sanitizeText(m.lessonsLearned, lang);
 
-            {/* Header: Title, Category, Risk Level */}
-            <div className="flex items-start justify-between gap-3 mb-3 border-b border-slate-100 pb-2.5">
-              <div className="space-y-1">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className="text-[10px] font-mono font-bold text-slate-400 uppercase">
-                    #{index + 1}
-                  </span>
-                  <span className="text-xs font-black text-[#0075DE] bg-blue-50 px-2.5 py-0.5 rounded border border-blue-200">
-                    {m.category}
-                  </span>
-                  <span className="text-[10px] font-mono text-slate-400">
-                    {new Date(m.createdAt).toLocaleDateString(lang === "ar" ? "ar-SA" : "en-US")}
-                  </span>
-                </div>
-                <h3 className="text-base font-black text-slate-900 leading-snug">
-                  {m.title}
-                </h3>
-              </div>
-
-              {/* Risk Badge */}
-              {settings.showRiskBadges && (
-                <span
-                  className={`px-2.5 py-1 rounded text-[10px] font-extrabold border shrink-0 ${getRiskBadgeColor(
-                    m.riskLevel
-                  )}`}
+          return (
+            <article
+              key={m.id}
+              data-memory-id={m.id}
+              className="zakir-print-memory-card border border-slate-300 rounded-xl p-5 bg-white shadow-xs relative break-inside-auto print:shadow-none print:border-slate-300"
+            >
+              {/* Exclusion Button (Screen preview only) */}
+              {onExcludeMemory && !isPrinting && (
+                <button
+                  type="button"
+                  onClick={() => onExcludeMemory(m.id)}
+                  className="no-print absolute top-3 end-3 text-slate-400 hover:text-rose-600 bg-slate-100 hover:bg-rose-50 p-1.5 rounded-lg transition-all cursor-pointer"
+                  title={lang === "ar" ? "استبعاد هذه الذكرى من التقرير" : "Exclude memory from report"}
                 >
-                  {getRiskLabel(m.riskLevel)}
-                </span>
+                  ✕
+                </button>
               )}
-            </div>
 
-            {/* Main Description */}
-            <div className="text-slate-800 leading-relaxed font-medium mb-3 whitespace-pre-line">
-              {m.description}
-            </div>
+              {/* Header: Title, Category, Risk Level */}
+              <div className="flex items-start justify-between gap-3 mb-3 border-b border-slate-100 pb-2.5 break-inside-avoid">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-[10px] font-mono font-bold text-slate-400 uppercase">
+                      #{index + 1}
+                    </span>
+                    <span className="text-xs font-black text-[#0075DE] bg-blue-50 px-2.5 py-0.5 rounded border border-blue-200">
+                      {m.category}
+                    </span>
+                    <span className="text-[10px] font-mono text-slate-400">
+                      {new Date(m.createdAt).toLocaleDateString(lang === "ar" ? "ar-SA" : "en-US")}
+                    </span>
+                  </div>
+                  <h3 className="text-base font-black text-slate-900 leading-snug">
+                    {cleanTitle || m.title}
+                  </h3>
+                </div>
 
-            {/* Core Decision */}
-            {m.decision && (
-              <div className="mb-3 p-3 bg-slate-50 border-s-4 border-[#0075DE] rounded-e-lg">
-                <strong className="block text-xs font-extrabold text-[#0075DE] mb-1">
-                  {lang === "ar" ? "القرار الاستراتيجي المعتمد:" : "Approved Strategic Decision:"}
-                </strong>
-                <p className="text-xs text-slate-800 font-semibold whitespace-pre-line">
-                  {m.decision}
-                </p>
+                {/* Risk Badge */}
+                {settings.showRiskBadges && (
+                  <span
+                    className={`px-2.5 py-1 rounded text-[10px] font-extrabold border shrink-0 ${getRiskBadgeColor(
+                      m.riskLevel
+                    )}`}
+                  >
+                    {getRiskLabel(m.riskLevel)}
+                  </span>
+                )}
               </div>
-            )}
 
-            {/* Causal Factors */}
-            {settings.showCausalFactors && m.causalFactors && (
-              <div className="mb-3 text-xs">
-                <span className="font-bold text-slate-700 block mb-0.5">
-                  {lang === "ar" ? "المسببات والعوامل المباشرة:" : "Causal Factors & Root Causes:"}
-                </span>
-                <p className="text-slate-600 bg-slate-50 p-2.5 rounded border border-slate-200">
-                  {m.causalFactors}
-                </p>
-              </div>
-            )}
+              {/* Main Description */}
+              {cleanDesc && (
+                <div className="text-slate-800 leading-relaxed font-medium mb-3 whitespace-pre-line">
+                  {cleanDesc}
+                </div>
+              )}
 
-            {/* Outcomes */}
-            {settings.showOutcomes && m.outcomes && (
-              <div className="mb-3 text-xs">
-                <span className="font-bold text-slate-700 block mb-0.5">
-                  {lang === "ar" ? "النتائج والأثر المترتب:" : "Direct Outcomes & Impact:"}
-                </span>
-                <p className="text-slate-600 bg-slate-50 p-2.5 rounded border border-slate-200">
-                  {m.outcomes}
-                </p>
-              </div>
-            )}
+              {/* Core Decision */}
+              {cleanDecision && (
+                <div className="mb-3 p-3 bg-slate-50 border-s-4 border-[#0075DE] rounded-e-lg break-inside-avoid">
+                  <strong className="block text-xs font-extrabold text-[#0075DE] mb-1">
+                    {lang === "ar" ? "القرار الاستراتيجي المعتمد:" : "Approved Strategic Decision:"}
+                  </strong>
+                  <p className="text-xs text-slate-800 font-semibold whitespace-pre-line">
+                    {cleanDecision}
+                  </p>
+                </div>
+              )}
 
-            {/* Lessons Learned */}
-            {settings.showLessonsLearned && m.lessonsLearned && (
-              <div className="mb-3 text-xs">
-                <span className="font-bold text-emerald-800 block mb-0.5">
-                  {lang === "ar" ? "الدروس المستفادة للتطوير المستقبلي:" : "Key Lessons & Actionable Insights:"}
-                </span>
-                <p className="text-emerald-950 bg-emerald-50/70 p-2.5 rounded border border-emerald-200 font-medium">
-                  {m.lessonsLearned}
-                </p>
-              </div>
-            )}
+              {/* Causal Factors */}
+              {settings.showCausalFactors && cleanCausal && (
+                <div className="mb-3 text-xs">
+                  <span className="font-bold text-slate-700 block mb-0.5">
+                    {lang === "ar" ? "المسببات والعوامل المباشرة:" : "Causal Factors & Root Causes:"}
+                  </span>
+                  <p className="text-slate-600 bg-slate-50 p-2.5 rounded border border-slate-200">
+                    {cleanCausal}
+                  </p>
+                </div>
+              )}
+
+              {/* Outcomes */}
+              {settings.showOutcomes && cleanOutcomes && (
+                <div className="mb-3 text-xs">
+                  <span className="font-bold text-slate-700 block mb-0.5">
+                    {lang === "ar" ? "النتائج والأثر المترتب:" : "Direct Outcomes & Impact:"}
+                  </span>
+                  <p className="text-slate-600 bg-slate-50 p-2.5 rounded border border-slate-200">
+                    {cleanOutcomes}
+                  </p>
+                </div>
+              )}
+
+              {/* Lessons Learned */}
+              {settings.showLessonsLearned && cleanLessons && (
+                <div className="mb-3 text-xs">
+                  <span className="font-bold text-emerald-800 block mb-0.5">
+                    {lang === "ar" ? "الدروس المستفادة للتطوير المستقبلي:" : "Key Lessons & Actionable Insights:"}
+                  </span>
+                  <p className="text-emerald-950 bg-emerald-50/70 p-2.5 rounded border border-emerald-200 font-medium">
+                    {cleanLessons}
+                  </p>
+                </div>
+              )}
 
             {/* Footer Metadata & Tags */}
             <div className="mt-3 pt-2.5 border-t border-slate-100 flex items-center justify-between text-[10px] text-slate-500 flex-wrap gap-2">
@@ -234,7 +245,8 @@ export const PrintDocument: React.FC<PrintDocumentProps> = ({
               )}
             </div>
           </article>
-        ))}
+        );
+      })}
       </main>
 
       {/* Official Signature Section */}

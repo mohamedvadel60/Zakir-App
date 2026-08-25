@@ -16,6 +16,8 @@ export interface PrintSettingsState {
   showHeader: boolean;
   showFooter: boolean;
   showSignature: boolean;
+  showIssuingEntity: boolean;
+  issuingEntityName: string;
   showMetadata: boolean;
   showCausalFactors: boolean;
   showOutcomes: boolean;

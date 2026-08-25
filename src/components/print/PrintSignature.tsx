@@ -17,6 +17,12 @@ export const PrintSignature: React.FC<PrintSignatureProps> = ({ settings, lang }
     return "Official Report Approval & Authorization";
   };
 
+  const getIssuingEntityLabel = () => {
+    if (lang === "ar") return "الجهة المصدرة للتقرير:";
+    if (lang === "fr") return "Entité émettrice :";
+    return "Issuing Entity / Institution:";
+  };
+
   const getApproverLabel = () => {
     if (lang === "ar") return "اسم المسؤول المعتمد:";
     if (lang === "fr") return "Nom de l'approbateur :";
@@ -42,8 +48,17 @@ export const PrintSignature: React.FC<PrintSignatureProps> = ({ settings, lang }
       </h3>
 
       <div className="grid grid-cols-2 gap-8 items-end">
-        {/* Approver Info & Date */}
+        {/* Approver Info, Issuing Entity & Date */}
         <div className="space-y-3">
+          {settings.showIssuingEntity && (
+            <div>
+              <span className="block text-[10px] font-bold text-slate-500 uppercase">{getIssuingEntityLabel()}</span>
+              <p className="text-xs font-bold text-slate-900 mt-0.5">
+                {settings.issuingEntityName || settings.companyName || (lang === "ar" ? "ذاكر للهندسة والمعرفة المؤسسية" : "Zakir Institutional Memory Engine")}
+              </p>
+            </div>
+          )}
+
           <div>
             <span className="block text-[10px] font-bold text-slate-500 uppercase">{getApproverLabel()}</span>
             <p className="text-xs font-bold text-slate-900 mt-0.5">

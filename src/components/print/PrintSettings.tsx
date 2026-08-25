@@ -332,6 +332,34 @@ export const PrintSettings: React.FC<PrintSettingsProps> = ({
 
         {settings.showSignature && (
           <div className="space-y-2 pt-1">
+            {/* Toggle Issuing Entity */}
+            <label className="flex items-center justify-between cursor-pointer p-1.5 bg-slate-950/80 border border-slate-800 rounded">
+              <span className="text-slate-300 text-[10px] font-medium">
+                {lang === "ar" ? "إظهار الجهة المصدرة" : "Show Issuing Entity"}
+              </span>
+              <input
+                type="checkbox"
+                checked={settings.showIssuingEntity}
+                onChange={(e) => onUpdateSettings((p) => ({ ...p, showIssuingEntity: e.target.checked }))}
+                className="w-3.5 h-3.5 accent-[#0075DE] cursor-pointer"
+              />
+            </label>
+
+            {settings.showIssuingEntity && (
+              <div>
+                <label className="block text-slate-400 mb-0.5 text-[10px]">
+                  {lang === "ar" ? "اسم الجهة المصدرة:" : "Issuing Entity Name:"}
+                </label>
+                <input
+                  type="text"
+                  value={settings.issuingEntityName}
+                  onChange={(e) => onUpdateSettings((p) => ({ ...p, issuingEntityName: e.target.value }))}
+                  className="w-full h-8 px-2.5 bg-slate-950 border border-slate-800 rounded text-slate-100 text-[11px] focus:outline-none focus:border-[#0075DE]"
+                  placeholder={lang === "ar" ? "اسم الجهة / المؤسسة المصدرة" : "Issuing Institution Name"}
+                />
+              </div>
+            )}
+
             <div>
               <label className="block text-slate-400 mb-0.5 text-[10px]">
                 {lang === "ar" ? "اسم الشخص المعتمد:" : "Approver Name:"}

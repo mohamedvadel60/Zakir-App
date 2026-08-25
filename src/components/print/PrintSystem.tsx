@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
+import { createPortal } from "react-dom";
 import { Memory } from "../../types";
 import { PrintSettingsState, PrintSystemProps, PrintDiagnostics } from "./printTypes";
 import { PrintSettings } from "./PrintSettings";
@@ -57,6 +58,8 @@ export const PrintSystem: React.FC<PrintSystemProps> = ({
     showHeader: true,
     showFooter: true,
     showSignature: true,
+    showIssuingEntity: true,
+    issuingEntityName: companyName || (lang === "ar" ? "ذاكر للهندسة والمعرفة المؤسسية" : "Zakir Knowledge Engine"),
     showMetadata: true,
     showCausalFactors: true,
     showOutcomes: true,
@@ -119,6 +122,30 @@ export const PrintSystem: React.FC<PrintSystemProps> = ({
   const handleZoomIn = () => setSettings((p) => ({ ...p, zoom: Math.min(p.zoom + 0.15, 1.8) }));
   const handleZoomOut = () => setSettings((p) => ({ ...p, zoom: Math.max(p.zoom - 0.15, 0.5) }));
   const handleZoomReset = () => setSettings((p) => ({ ...p, zoom: 1.0 }));
+
+  // Dynamically sync @page CSS rules with selected paperSize and orientation
+  useEffect(() => {
+    let styleEl = document.getElementById("zakir-print-dynamic-page-style") as HTMLStyleElement | null;
+    if (!styleEl) {
+      styleEl = document.createElement("style");
+      styleEl.id = "zakir-print-dynamic-page-style";
+      document.head.appendChild(styleEl);
+    }
+    styleEl.innerHTML = `
+      @media print {
+        @page {
+          size: ${settings.paperSize} ${settings.orientation};
+          margin: 0;
+        }
+      }
+    `;
+    return () => {
+      // Keep style tag clean if component unmounts
+      if (styleEl && styleEl.parentNode) {
+        styleEl.parentNode.removeChild(styleEl);
+      }
+    };
+  }, [settings.paperSize, settings.orientation]);
 
   // ESC key handler to close modal
   useEffect(() => {
@@ -286,16 +313,19 @@ export const PrintSystem: React.FC<PrintSystemProps> = ({
       </div>
 
       {/* LAYER C: Native Print Host (Hidden on screen, exposed ONLY during @media print) */}
-      <div id="zakir-print-document-host">
-        <PrintPage settings={settings}>
-          <PrintDocument
-            memories={selectedMemories}
-            settings={settings}
-            lang={lang}
-            isPrinting={true}
-          />
-        </PrintPage>
-      </div>
+      {createPortal(
+        <div id="zakir-print-document-host">
+          <PrintPage settings={settings}>
+            <PrintDocument
+              memories={selectedMemories}
+              settings={settings}
+              lang={lang}
+              isPrinting={true}
+            />
+          </PrintPage>
+        </div>,
+        document.body
+      )}
     </>
   );
 };
