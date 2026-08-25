@@ -456,6 +456,16 @@ img.broken-image-fallback {
     print-color-adjust: exact !important;
   }
 
+  #root,
+  #zakir-app-root {
+    margin: 0 !important;
+    padding: 0 !important;
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    overflow: visible !important;
+  }
+
   .print-document,
   .print-page-wrapper,
   .print-page {
@@ -469,6 +479,11 @@ img.broken-image-fallback {
   .no-print * {
     display: none !important;
     visibility: hidden !important;
+    height: 0 !important;
+    width: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: hidden !important;
   }
 
   .print-only {
@@ -476,13 +491,21 @@ img.broken-image-fallback {
     visibility: visible !important;
   }
 
-  .page-break {
+  .print-page:not(:first-child) {
     break-before: page !important;
     page-break-before: always !important;
   }
 
+  .print-page:first-child {
+    break-before: auto !important;
+    page-break-before: auto !important;
+  }
+
   .keep-together,
-  .avoid-break {
+  .avoid-break,
+  .memory-card-item,
+  .signature-block,
+  .lessons-box {
     break-inside: avoid !important;
     page-break-inside: avoid !important;
   }

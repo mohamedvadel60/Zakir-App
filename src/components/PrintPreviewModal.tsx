@@ -83,10 +83,11 @@ export function PrintPreviewModal({
   const [orientation, setOrientation] = useState<"portrait" | "landscape">("portrait");
   const [pageSize, setPageSize] = useState<"A4" | "A3" | "A5" | "Letter" | "Legal">("A4");
   const [lineSpacing, setLineSpacing] = useState<number>(1.15);
-  const [pageMargins, setPageMargins] = useState<number>(40);
+  const [pageMargins, setPageMargins] = useState<number>(15);
   const [customFontScale, setCustomFontScale] = useState<number>(100);
   const [printBackgrounds, setPrintBackgrounds] = useState<boolean>(true);
   const [isPrinting, setIsPrinting] = useState(false);
+  const [previewZoom, setPreviewZoom] = useState<number>(100);
 
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -105,8 +106,9 @@ export function PrintPreviewModal({
     setOrientation("portrait");
     setPageSize("A4");
     setLineSpacing(1.15);
-    setPageMargins(40);
+    setPageMargins(15);
     setCustomFontScale(100);
+    setPreviewZoom(100);
     setDocumentTheme("blue");
     setIncludeHeader(true);
     setIncludeFooter(true);
@@ -337,15 +339,6 @@ export function PrintPreviewModal({
       document.head.appendChild(printStyles);
     }
 
-    const { width: pWidth, height: pHeight } = getPageDimensions();
-
-    // Convert pixel dimensions to mm for precise standard layout
-    // 1px is approx 0.264583mm
-    const marginMm = pageMargins * 0.264583;
-    const pWidthMm = pWidth * 0.264583;
-    const pHeightMm = pHeight * 0.264583;
-    const usableHeightMm = pHeightMm - (2 * marginMm);
-
     const themeCss = {
       blue: `
         .memory-card-item h4 { color: #1e40af !important; }
@@ -373,32 +366,40 @@ export function PrintPreviewModal({
       `
     }[documentTheme];
 
+    const pageSizeCss = pageSize === "A4" ? "A4" : pageSize === "Letter" ? "letter" : pageSize === "A3" ? "A3" : pageSize === "A5" ? "A5" : pageSize === "Legal" ? "legal" : "A4";
+    const physicalSize = getPagePhysicalSize();
+    const marginCss = getPageMarginCss();
+
     printStyles.innerHTML = `
       @page {
-        size: ${pageSize === "A4" ? "A4" : pageSize === "Letter" ? "letter" : pageSize.toLowerCase()} ${orientation};
-        margin: ${getPageMarginCss()} !important;
+        size: ${pageSizeCss} ${orientation};
+        margin: 0 !important;
       }
       @media print {
         html, body {
           visibility: hidden !important;
           background: white !important;
-          color: black !important;
+          color: #0f172a !important;
           margin: 0 !important;
           padding: 0 !important;
           height: auto !important;
           min-height: 0 !important;
           max-height: none !important;
           overflow: visible !important;
+          -webkit-print-color-adjust: ${printBackgrounds ? "exact" : "economy"} !important;
+          print-color-adjust: ${printBackgrounds ? "exact" : "economy"} !important;
         }
 
         #root, #zakir-app-root, 
         .print-modal-overlay, 
         .print-modal-overlay > div, 
         .print-content-grid, 
-        .print-preview-canvas {
+        .print-preview-canvas,
+        .preview-zoom-container {
           display: block !important;
           position: static !important;
           width: 100% !important;
+          max-width: none !important;
           height: auto !important;
           min-height: 0 !important;
           max-height: none !important;
@@ -410,6 +411,7 @@ export function PrintPreviewModal({
           border: none !important;
           backdrop-filter: none !important;
           transform: none !important;
+          zoom: 1 !important;
         }
 
         .print-page-wrapper {
@@ -419,6 +421,8 @@ export function PrintPreviewModal({
           height: auto !important;
           min-height: 0 !important;
           max-height: none !important;
+          margin: 0 !important;
+          padding: 0 !important;
           overflow: visible !important;
         }
 
@@ -457,6 +461,8 @@ export function PrintPreviewModal({
           height: 0 !important;
           width: 0 !important;
           opacity: 0 !important;
+          margin: 0 !important;
+          padding: 0 !important;
           overflow: hidden !important;
         }
 
@@ -472,18 +478,36 @@ export function PrintPreviewModal({
           flex-direction: column !important;
           justify-content: space-between !important;
           position: relative !important;
-          width: 100% !important;
-          max-width: 100% !important;
-          min-height: auto !important;
+          width: ${physicalSize.width} !important;
+          min-height: ${physicalSize.height} !important;
           height: auto !important;
-          padding: 0 !important;
+          padding: ${marginCss} !important;
           margin: 0 auto !important;
-          page-break-after: always !important;
-          break-after: page !important;
           background: white !important;
           color: #0f172a !important;
           box-sizing: border-box !important;
+          box-shadow: none !important;
+          border: none !important;
           overflow: visible !important;
+        }
+
+        .printing-active .print-page:first-child {
+          break-before: auto !important;
+          page-break-before: auto !important;
+          break-after: auto !important;
+          page-break-after: auto !important;
+          margin-top: 0 !important;
+        }
+
+        .printing-active .print-page + .print-page,
+        .printing-active .print-page:not(:first-child) {
+          break-before: page !important;
+          page-break-before: always !important;
+        }
+
+        .printing-active .print-page:last-child {
+          break-after: avoid !important;
+          page-break-after: avoid !important;
         }
 
         /* Enforce robust light-theme style overrides in print regardless of dark-mode state */
@@ -507,11 +531,6 @@ export function PrintPreviewModal({
           text-align: center !important;
         }
 
-        .printing-active .print-page:last-child {
-          page-break-after: avoid !important;
-          break-after: avoid !important;
-        }
-
         .printing-active .print-page img {
           display: inline-block !important;
           visibility: visible !important;
@@ -527,6 +546,10 @@ export function PrintPreviewModal({
 
         thead {
           display: table-header-group !important;
+        }
+
+        tfoot {
+          display: table-footer-group !important;
         }
 
         tr {
@@ -747,8 +770,7 @@ export function PrintPreviewModal({
   };
 
   const getPageMarginCss = () => {
-    const marginMm = pageMargins / 3.7795;
-    return `${marginMm}mm`;
+    return `${pageMargins}mm`;
   };
 
   const { width: pageWidth, height: pageHeight } = getPageDimensions();
@@ -921,10 +943,11 @@ export function PrintPreviewModal({
   const documentPages = useMemo(() => {
     const totalHeight = pageHeight;
     const footerHeight = includeFooter ? 36 : 0;
+    const marginPx = Math.round(pageMargins * 3.779527);
     
     // Page 1 usable height vs Page 2+ usable height (continuation header is very small)
-    const usableHeightPage1 = Math.max(300, totalHeight - (pageMargins * 2) - headerHeight - footerHeight - 12);
-    const usableHeightPage2 = Math.max(300, totalHeight - (pageMargins * 2) - continuationHeaderHeight - footerHeight - 12);
+    const usableHeightPage1 = Math.max(300, totalHeight - (marginPx * 2) - headerHeight - footerHeight - 12);
+    const usableHeightPage2 = Math.max(300, totalHeight - (marginPx * 2) - continuationHeaderHeight - footerHeight - 12);
 
     const getFallbackHeight = (block: typeof documentBlocks[0]) => {
       if (block.type === "summary") {
@@ -1925,13 +1948,13 @@ export function PrintPreviewModal({
                 <div>
                   <div className="flex justify-between items-center text-[10px] text-slate-400 mb-1.5">
                     <span>{lang === "ar" ? "هوامش الورقة:" : "Page Margins:"}</span>
-                    <span className="font-mono text-blue-400 font-bold">{pageMargins}px ({Math.round(pageMargins * 0.264583)}mm)</span>
+                    <span className="font-mono text-blue-400 font-bold">{pageMargins}mm</span>
                   </div>
                   <div className="grid grid-cols-3 gap-1.5 mb-2">
                     {[
-                      { id: "normal", label: lang === "ar" ? "افتراضي (15mm)" : "Normal (15mm)", val: 40 },
-                      { id: "narrow", label: lang === "ar" ? "ضيق (10mm)" : "Narrow (10mm)", val: 24 },
-                      { id: "wide", label: lang === "ar" ? "عريض (25mm)" : "Wide (25mm)", val: 64 }
+                      { id: "normal", label: lang === "ar" ? "افتراضي (15mm)" : "Normal (15mm)", val: 15 },
+                      { id: "narrow", label: lang === "ar" ? "ضيق (10mm)" : "Narrow (10mm)", val: 10 },
+                      { id: "wide", label: lang === "ar" ? "عريض (25mm)" : "Wide (25mm)", val: 25 }
                     ].map((m) => (
                       <button
                         key={m.id}
@@ -1949,8 +1972,8 @@ export function PrintPreviewModal({
                   </div>
                   <input 
                     type="range" 
-                    min="16" 
-                    max="80" 
+                    min="5" 
+                    max="35" 
                     value={pageMargins} 
                     onChange={(e) => setPageMargins(parseInt(e.target.value))} 
                     className="w-full h-1 bg-slate-950 rounded-lg appearance-none cursor-pointer accent-blue-500"
@@ -2362,33 +2385,76 @@ export function PrintPreviewModal({
           </div>
 
           {/* LIVE PREVIEW CANVAS (Printable Container) */}
-          <div className="print-preview-canvas lg:col-span-8 p-4 sm:p-8 bg-slate-950 overflow-y-auto max-h-[calc(92vh-80px)] flex flex-col items-center gap-6 selection:bg-[#0075DE]/30">
+          <div className="print-preview-canvas lg:col-span-8 p-4 sm:p-8 bg-slate-950 overflow-y-auto max-h-[calc(92vh-80px)] flex flex-col items-center gap-4 selection:bg-[#0075DE]/30">
             
-            {/* Hidden Scratchpad for exact pixel height calculations */}
-            <div
-              id="print-scratchpad-measurer"
-              className="printable-area absolute pointer-events-none opacity-0"
-              style={{
-                left: "-9999px",
-                top: "-9999px",
-                width: `${pageWidth}px`,
-                padding: `${pageMargins}px`,
-                boxSizing: "border-box",
-                lineHeight: lineSpacing,
-              }}
-              dir={lang === "ar" ? "rtl" : "ltr"}
-            >
-              {includeHeader && (
-                <div data-measurer-id="page-header" style={{ fontSize: `${customFontScale}%` }}>
-                  {renderPageHeader(0, 1)}
-                </div>
-              )}
-              {documentBlocks.map((block) => (
-                <div key={block.id} data-measurer-id={block.id} style={{ fontSize: `${customFontScale}%` }}>
-                  {renderBlock(block, true)}
-                </div>
-              ))}
+            {/* Zoom Toolbar for on-screen preview */}
+            <div className="no-print w-full flex flex-wrap items-center justify-between gap-3 px-4 py-2 bg-slate-900/90 border border-slate-800 rounded-xl mb-1 text-xs shadow-lg">
+              <div className="flex items-center gap-2 text-slate-300">
+                <span className="font-semibold text-slate-400">{lang === "ar" ? "الصفحات:" : "Pages:"}</span>
+                <span className="px-2 py-0.5 rounded-md bg-blue-950/80 border border-blue-800 text-blue-300 font-mono font-bold">
+                  {documentPages.length}
+                </span>
+                <span className="text-slate-500 font-mono text-[11px]">
+                  ({pageSize} • {orientation === "portrait" ? (lang === "ar" ? "عمودي" : "Portrait") : (lang === "ar" ? "أفقي" : "Landscape")})
+                </span>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <span className="text-slate-400 text-[11px] font-semibold">{lang === "ar" ? "المعاينة:" : "Preview Zoom:"}</span>
+                <button
+                  type="button"
+                  onClick={() => setPreviewZoom(z => Math.max(50, z - 10))}
+                  className="w-7 h-7 flex items-center justify-center rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white font-bold transition-colors cursor-pointer"
+                  title={lang === "ar" ? "تصغير" : "Zoom Out"}
+                >
+                  -
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPreviewZoom(100)}
+                  className="px-2.5 h-7 flex items-center justify-center rounded-lg bg-slate-800 hover:bg-slate-700 text-blue-400 hover:text-blue-300 font-mono font-bold text-xs transition-colors cursor-pointer"
+                  title={lang === "ar" ? "إعادة تعيين 100%" : "Reset to 100%"}
+                >
+                  {previewZoom}%
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPreviewZoom(z => Math.min(150, z + 10))}
+                  className="w-7 h-7 flex items-center justify-center rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white font-bold transition-colors cursor-pointer"
+                  title={lang === "ar" ? "تكبير" : "Zoom In"}
+                >
+                  +
+                </button>
+              </div>
             </div>
+
+            {/* Hidden Scratchpad for exact pixel height calculations (Unmounted during native print to prevent any phantom page shifts) */}
+            {!isPrinting && (
+              <div
+                id="print-scratchpad-measurer"
+                className="printable-area absolute pointer-events-none opacity-0"
+                style={{
+                  left: "-9999px",
+                  top: "-9999px",
+                  width: `${pageWidth}px`,
+                  padding: `${Math.round(pageMargins * 3.779527)}px`,
+                  boxSizing: "border-box",
+                  lineHeight: lineSpacing,
+                }}
+                dir={lang === "ar" ? "rtl" : "ltr"}
+              >
+                {includeHeader && (
+                  <div data-measurer-id="page-header" style={{ fontSize: `${customFontScale}%` }}>
+                    {renderPageHeader(0, 1)}
+                  </div>
+                )}
+                {documentBlocks.map((block) => (
+                  <div key={block.id} data-measurer-id={block.id} style={{ fontSize: `${customFontScale}%` }}>
+                    {renderBlock(block, true)}
+                  </div>
+                ))}
+              </div>
+            )}
 
             {selectedMemories.length === 0 ? (
               <div className="py-20 text-center text-slate-500 border-2 border-dashed border-slate-800 rounded-xl my-8 w-full max-w-md">
@@ -2397,61 +2463,69 @@ export function PrintPreviewModal({
                 <p className="text-xs text-slate-500 mt-1">{lang === "ar" ? "يرجى تحديد ذكريات من القائمة الجانبية" : "Please check items from the side controls"}</p>
               </div>
             ) : (
-              <div className="print-page-wrapper flex flex-col items-center w-full">
-                {documentPages.map((pageBlocks, pageIdx) => (
-                  <div
-                    key={pageIdx}
-                    className="print-page printable-area bg-white text-slate-900 shadow-2xl relative border border-slate-300 rounded-sm mb-6 flex flex-col justify-between shrink-0"
-                    style={{
-                      width: `${pageWidth}px`,
-                      minHeight: `${pageHeight}px`,
-                      padding: `${pageMargins}px`,
-                      boxSizing: "border-box",
-                      position: "relative",
-                      lineHeight: lineSpacing,
-                      fontSize: `${customFontScale}%`,
-                    }}
-                    dir={lang === "ar" ? "rtl" : "ltr"}
-                  >
-                    {/* Optional Confidentiality Watermark */}
-                    {t.watermarkText && (
-                      <div className="absolute inset-0 pointer-events-none flex items-center justify-center overflow-hidden z-0 select-none">
-                        <div className="text-slate-200/40 font-black tracking-widest uppercase -rotate-45 text-center px-6 border-8 border-slate-200/30 rounded-3xl py-8 flex flex-col items-center gap-2 max-w-[85%]">
-                          <span className="text-4xl sm:text-5xl md:text-6xl font-black leading-none">
-                            {t.watermarkText}
-                          </span>
-                          {(includeCompanyInWatermark || includeDateInWatermark) && (
-                            <div className="text-[11px] sm:text-xs font-bold flex flex-col items-center gap-0.5 pt-1.5 border-t border-slate-200/30 w-full mt-1.5 opacity-80 font-sans">
-                              {includeCompanyInWatermark && (
-                                <span>{companyName}</span>
-                              )}
-                              {includeDateInWatermark && displayDate && (
-                                <span className="font-mono">{displayDate}</span>
-                              )}
-                            </div>
-                          )}
+              <div 
+                className="preview-zoom-container w-full flex flex-col items-center origin-top transition-transform duration-150"
+                style={{
+                  transform: previewZoom === 100 ? "none" : `scale(${previewZoom / 100})`,
+                  transformOrigin: "top center"
+                }}
+              >
+                <div className="print-page-wrapper flex flex-col items-center w-full">
+                  {documentPages.map((pageBlocks, pageIdx) => (
+                    <div
+                      key={pageIdx}
+                      className="print-page printable-area bg-white text-slate-900 shadow-2xl relative border border-slate-300 rounded-sm mb-6 flex flex-col justify-between shrink-0"
+                      style={{
+                        width: getPagePhysicalSize().width,
+                        minHeight: getPagePhysicalSize().height,
+                        padding: getPageMarginCss(),
+                        boxSizing: "border-box",
+                        position: "relative",
+                        lineHeight: lineSpacing,
+                        fontSize: `${customFontScale}%`,
+                      }}
+                      dir={lang === "ar" ? "rtl" : "ltr"}
+                    >
+                      {/* Optional Confidentiality Watermark */}
+                      {t.watermarkText && (
+                        <div className="absolute inset-0 pointer-events-none flex items-center justify-center overflow-hidden z-0 select-none">
+                          <div className="text-slate-200/40 font-black tracking-widest uppercase -rotate-45 text-center px-6 border-8 border-slate-200/30 rounded-3xl py-8 flex flex-col items-center gap-2 max-w-[85%]">
+                            <span className="text-4xl sm:text-5xl md:text-6xl font-black leading-none">
+                              {t.watermarkText}
+                            </span>
+                            {(includeCompanyInWatermark || includeDateInWatermark) && (
+                              <div className="text-[11px] sm:text-xs font-bold flex flex-col items-center gap-0.5 pt-1.5 border-t border-slate-200/30 w-full mt-1.5 opacity-80 font-sans">
+                                {includeCompanyInWatermark && (
+                                  <span>{companyName}</span>
+                                )}
+                                {includeDateInWatermark && displayDate && (
+                                  <span className="font-mono">{displayDate}</span>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Content Area of this page */}
+                      <div className="flex-1 flex flex-col justify-start relative z-10 overflow-visible">
+                        {renderPageHeader(pageIdx, documentPages.length)}
+                        <div className={columns === "2" ? "grid grid-cols-2 gap-4 items-start" : "space-y-4"}>
+                          {renderPageBlocks(pageBlocks, false)}
                         </div>
                       </div>
-                    )}
 
-                    {/* Content Area of this page */}
-                    <div className="flex-1 flex flex-col justify-start relative z-10 overflow-visible">
-                      {renderPageHeader(pageIdx, documentPages.length)}
-                      <div className={columns === "2" ? "grid grid-cols-2 gap-4 items-start" : "space-y-4"}>
-                        {renderPageBlocks(pageBlocks, false)}
-                      </div>
+                      {/* Dynamic Page Footer */}
+                      {includeFooter && (
+                        <div className="print-only-footer h-8 border-t border-slate-200 flex items-center justify-between text-[8pt] text-slate-500 font-mono relative z-10 mt-auto pt-1 font-semibold">
+                          <span>{companyName}</span>
+                          <span className="rtl:ml-auto ltr:mr-auto"></span>
+                          <span>{lang === "ar" ? `صفحة ${pageIdx + 1} من ${documentPages.length}` : `Page ${pageIdx + 1} of ${documentPages.length}`}</span>
+                        </div>
+                      )}
                     </div>
-
-                    {/* Dynamic Page Footer */}
-                    {includeFooter && (
-                      <div className="print-only-footer h-8 border-t border-slate-200 flex items-center justify-between text-[8pt] text-slate-500 font-mono relative z-10 mt-auto pt-1 font-semibold">
-                        <span>{companyName}</span>
-                        <span className="rtl:ml-auto ltr:mr-auto"></span>
-                        <span>{lang === "ar" ? `صفحة ${pageIdx + 1} من ${documentPages.length}` : `Page ${pageIdx + 1} of ${documentPages.length}`}</span>
-                      </div>
-                    )}
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
             )}
 
