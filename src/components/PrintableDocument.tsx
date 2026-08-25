@@ -74,7 +74,7 @@ export const PrintableDocument: React.FC<PrintableDocumentProps> = ({
   includeLessons = true,
   includeAuthor = true,
   includeTags = true,
-  includeSignatureBlock = false,
+  includeSignatureBlock = true,
   includeVerificationSeal = true,
   
   headerStyle = "standard",
@@ -174,7 +174,7 @@ export const PrintableDocument: React.FC<PrintableDocumentProps> = ({
 
     if (headerStyle === "centered") {
       return (
-        <header className="print-header-container w-full border-b-2 border-slate-300 pb-4 mb-6 select-none text-center" dir={isRtl ? "rtl" : "ltr"}>
+        <header className="print-header-container w-full bg-white border-b-2 border-slate-300 pb-4 mb-6 select-none text-center" dir={isRtl ? "rtl" : "ltr"}>
           <div className="flex flex-col items-center justify-center gap-2 mb-3">
             {companyLogoImg ? (
               <img 
@@ -209,7 +209,7 @@ export const PrintableDocument: React.FC<PrintableDocumentProps> = ({
 
     if (headerStyle === "letterhead") {
       return (
-        <header className="print-header-container w-full border-b-4 border-slate-900 pb-3 mb-6 select-none" dir={isRtl ? "rtl" : "ltr"}>
+        <header className="print-header-container w-full bg-white border-b-4 border-slate-900 pb-3 mb-6 select-none" dir={isRtl ? "rtl" : "ltr"}>
           <div className="flex items-center justify-between gap-4 pb-2">
             <div>
               <h2 className="text-base font-black text-slate-950 uppercase tracking-wide">{companyName}</h2>
@@ -237,7 +237,7 @@ export const PrintableDocument: React.FC<PrintableDocumentProps> = ({
 
     // Standard Header (Default)
     return (
-      <header className="print-header-container w-full border-b-2 border-slate-300 pb-3 mb-5 select-none" dir={isRtl ? "rtl" : "ltr"}>
+      <header className="print-header-container w-full bg-white border-b-2 border-slate-300 pb-3 mb-5 select-none" dir={isRtl ? "rtl" : "ltr"}>
         <div className="flex items-center justify-between gap-4 pb-2.5">
           <div className="flex items-center gap-3">
             {companyLogoImg ? (
@@ -315,30 +315,9 @@ export const PrintableDocument: React.FC<PrintableDocumentProps> = ({
           )}
         </div>
 
-        <div className="grid grid-cols-3 gap-6 w-full text-[9pt]">
-          {/* Column 1: Executive Information */}
-          <div className="flex flex-col justify-between min-h-[100px] border border-slate-200 rounded-lg p-3 bg-slate-50/50">
-            <span className="text-[8pt] font-black uppercase text-slate-500 tracking-wider">
-              {lang === "ar" ? "الجهة المصدرة" : "ISSUING ENTITY"}
-            </span>
-            <div className="pt-2 border-t border-slate-200 w-full mt-auto">
-              <div className="text-[9pt] font-black text-slate-950 leading-tight">
-                {companyName}
-              </div>
-              {departmentName && (
-                <div className="text-[8pt] text-slate-600 font-bold uppercase mt-0.5">
-                  {departmentName}
-                </div>
-              )}
-              <div className="text-[8pt] text-slate-600 font-semibold mt-1">
-                <span>{lang === "ar" ? "الممثل: " : "Representative: "}</span>
-                <span className="text-slate-900 font-bold">{userName}</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Column 2: Signature */}
-          <div className="flex flex-col justify-between min-h-[100px] border border-slate-200 rounded-lg p-3 bg-slate-50/50">
+        <div className="grid grid-cols-2 gap-6 w-full text-[9pt]">
+          {/* Column 1: Signature */}
+          <div className="flex flex-col justify-between min-h-[105px] border border-slate-200 rounded-lg p-3 bg-slate-50/70">
             <span className="text-[8pt] font-black uppercase text-slate-500 tracking-wider">
               {lang === "ar" ? "التوقيع والختم المعتمد" : "AUTHORIZED SIGNATURE"}
             </span>
@@ -349,7 +328,7 @@ export const PrintableDocument: React.FC<PrintableDocumentProps> = ({
                     src={signatureImg} 
                     alt="Signature" 
                     className="h-10 object-contain block" 
-                    referrerPolicy="no-referrer"
+                    referrerPolicy="no-referrer" 
                   />
                 ) : (
                   <span className="text-[8.5pt] text-slate-400 font-bold italic">
@@ -361,11 +340,18 @@ export const PrintableDocument: React.FC<PrintableDocumentProps> = ({
             </div>
           </div>
 
-          {/* Column 3: Approval Date */}
-          <div className="flex flex-col justify-between min-h-[100px] border border-slate-200 rounded-lg p-3 bg-slate-50/50">
-            <span className="text-[8pt] font-black uppercase text-slate-500 tracking-wider">
-              {lang === "ar" ? "تاريخ الاعتماد" : "APPROVAL DATE"}
-            </span>
+          {/* Column 2: Approval Date & Approver */}
+          <div className="flex flex-col justify-between min-h-[105px] border border-slate-200 rounded-lg p-3 bg-slate-50/70">
+            <div className="flex items-center justify-between">
+              <span className="text-[8pt] font-black uppercase text-slate-500 tracking-wider">
+                {lang === "ar" ? "تاريخ الاعتماد والمصادقة" : "APPROVAL DATE & AUTH"}
+              </span>
+              {userName && (
+                <span className="text-[7.5pt] text-slate-600 font-bold">
+                  {userName}
+                </span>
+              )}
+            </div>
             <div className="pt-2 border-t border-slate-200 w-full mt-auto flex flex-col justify-end min-h-[45px]">
               <div className="flex justify-center items-end pb-1 h-10 w-full">
                 <span className="text-[9.5pt] font-black text-slate-950 font-mono leading-none">

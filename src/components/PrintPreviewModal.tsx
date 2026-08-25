@@ -77,7 +77,7 @@ export function PrintPreviewModal({
   const [includeLessons, setIncludeLessons] = useState(true);
   const [includeAuthor, setIncludeAuthor] = useState(true);
   const [includeTags, setIncludeTags] = useState(true);
-  const [includeSignatureBlock, setIncludeSignatureBlock] = useState(false);
+  const [includeSignatureBlock, setIncludeSignatureBlock] = useState(true);
   const [watermark, setWatermark] = useState<"none" | "confidential" | "internal" | "official">("none");
 
   // Branding & Header Customization
@@ -183,7 +183,7 @@ export function PrintPreviewModal({
     setIncludeLessons(true);
     setIncludeAuthor(true);
     setIncludeTags(true);
-    setIncludeSignatureBlock(false);
+    setIncludeSignatureBlock(true);
     setWatermark("none");
     setLogoSize("medium");
     setHeaderStyle("standard");
@@ -1019,6 +1019,8 @@ export function PrintPreviewModal({
     {/* 2. DEDICATED PRINT HOST (Strictly PRINT-ONLY, Direct DOM Child of <body>, Zero transforms/wrappers) */}
     {typeof document !== "undefined" && createPortal(
       <div id="print-host" className="print-only theme-light bg-white text-slate-900" data-theme="light" dir={lang === "ar" ? "rtl" : "ltr"}>
+        {/* Dynamic @page rule strictly matching user-selected paper size & orientation */}
+        <style dangerouslySetInnerHTML={{ __html: `@page { size: ${pageSize} ${orientation} !important; margin: 0 !important; }` }} />
         {selectedMemories.length > 0 && (
           <PrintableDocument
             memories={selectedMemories}

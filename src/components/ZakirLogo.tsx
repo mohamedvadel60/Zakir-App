@@ -40,7 +40,7 @@ export const ZakirLogo: React.FC<ZakirLogoProps> = ({
         : "border-slate-300 dark:border-slate-700";
 
   // Sizing definitions for a clean mathematical layout
-  let iconWrapperClass = "w-10 h-10 rounded-xl";
+    let iconWrapperClass = "w-10 h-10 rounded-xl";
   let svgSize: string | number = 28;
   let textClass = "text-xl";
   let taglineClass = "text-[10px] max-w-[150px]";
@@ -94,7 +94,7 @@ export const ZakirLogo: React.FC<ZakirLogoProps> = ({
         viewBox="0 0 1021.12 909.1"
         fill="none"
         xmlns="http://www.w3.org/2000/svg"
-        className="transition-all duration-300 animate-fade-in shrink-0"
+        className="transition-all duration-300 shrink-0 block"
       >
         <defs>
           <linearGradient id="zakir-official-grad" x1="17.47" y1="447.63" x2="984.67" y2="463.31" gradientUnits="userSpaceOnUse">
@@ -118,7 +118,7 @@ export const ZakirLogo: React.FC<ZakirLogoProps> = ({
         <img
           src={zakirSquareLogo}
           alt="Zakir Logo"
-          className="object-contain transition-all duration-300 animate-fade-in"
+          className="object-contain shrink-0 block"
           style={{ width: iconSize, height: iconSize }}
         />
       );
@@ -131,7 +131,7 @@ export const ZakirLogo: React.FC<ZakirLogoProps> = ({
       {iconOnly ? (
         <div 
           style={typeof size === "number" ? customStyle : { width: svgSize, height: svgSize }} 
-          className={`flex items-center justify-center transition-all duration-300`}
+          className={`flex items-center justify-center`}
         >
           {renderLogoIcon(svgSize)}
         </div>
@@ -141,7 +141,7 @@ export const ZakirLogo: React.FC<ZakirLogoProps> = ({
             style={typeof size === "number" ? customStyle : {}}
             className={`${iconWrapperClass} ${
               theme === "light"
-                ? "bg-slate-100 border border-slate-300"
+                ? "bg-white border border-slate-200"
                 : "bg-slate-900/60 border border-[var(--border-color,#334155)]"
             } p-1.5 flex items-center justify-center shrink-0 shadow-sm`}
           >
