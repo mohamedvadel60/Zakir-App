@@ -441,7 +441,18 @@ img.broken-image-fallback {
 }
 
 /* Print Media Styles */
+@page {
+  size: A4 portrait;
+  margin: 0;
+}
+
 @media print {
+  *, *::before, *::after {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    box-sizing: border-box !important;
+  }
+
   html,
   body {
     height: auto !important;
@@ -449,11 +460,9 @@ img.broken-image-fallback {
     max-height: none !important;
     overflow: visible !important;
     background: #FFFFFF !important;
-    color: #000000 !important;
+    color: #0F172A !important;
     margin: 0 !important;
     padding: 0 !important;
-    -webkit-print-color-adjust: exact !important;
-    print-color-adjust: exact !important;
   }
 
   #root,
@@ -464,17 +473,10 @@ img.broken-image-fallback {
     min-height: 0 !important;
     max-height: none !important;
     overflow: visible !important;
+    background: #FFFFFF !important;
   }
 
-  .print-document,
-  .print-page-wrapper,
-  .print-page {
-    height: auto !important;
-    min-height: 0 !important;
-    max-height: none !important;
-    overflow: visible !important;
-  }
-
+  /* Hide all UI elements marked no-print and background chrome */
   .no-print,
   .no-print * {
     display: none !important;
@@ -486,46 +488,101 @@ img.broken-image-fallback {
     overflow: hidden !important;
   }
 
+  body.printing-active #root > :not(.print-modal-overlay),
+  body.printing-active #zakir-app-root > :not(.print-modal-overlay),
+  body.printing-active header:not(.print-header-container),
+  body.printing-active nav,
+  body.printing-active aside,
+  body.printing-active #sidebar,
+  body.printing-active #navbar,
+  body.printing-active #footer,
+  body.printing-active footer:not(.print-document-footer),
+  .printable-receipt-modal {
+    display: none !important;
+    visibility: hidden !important;
+    height: 0 !important;
+    width: 0 !important;
+    overflow: hidden !important;
+  }
+
   .print-only {
     display: block !important;
     visibility: visible !important;
   }
 
-  .print-page:not(:first-child) {
-    break-before: page !important;
-    page-break-before: always !important;
-  }
-
-  .print-page:first-child {
-    break-before: auto !important;
-    page-break-before: auto !important;
-  }
-
-  .keep-together,
-  .avoid-break,
-  .memory-card-item,
-  .signature-block,
-  .lessons-box {
-    break-inside: avoid !important;
-    page-break-inside: avoid !important;
-  }
-
-  table {
+  /* Unroll the modal wrapper completely into standard document flow */
+  .print-modal-overlay,
+  .print-modal-overlay > div,
+  .print-content-grid,
+  .print-preview-canvas,
+  .preview-scale-wrapper,
+  .preview-sheet-frame {
+    display: block !important;
+    position: static !important;
     width: 100% !important;
-    border-collapse: collapse !important;
+    max-width: 100% !important;
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: visible !important;
+    background: #FFFFFF !important;
+    box-shadow: none !important;
+    border: none !important;
+    transform: none !important;
   }
 
-  thead {
-    display: table-header-group !important;
+  /* Unified Printable Document in Print */
+  .print-document {
+    display: block !important;
+    position: relative !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    min-height: 0 !important;
+    height: auto !important;
+    margin: 0 !important;
+    padding: 15mm !important;
+    background: #FFFFFF !important;
+    color: #0F172A !important;
+    box-shadow: none !important;
+    border: none !important;
+    border-radius: 0 !important;
   }
 
-  tfoot {
-    display: table-footer-group !important;
-  }
-
-  tr {
+  /* Page break rules */
+  .print-heading-group,
+  .print-header-container,
+  .signature-block,
+  .lessons-box,
+  .print-document-footer,
+  .print-page-break-avoid {
     break-inside: avoid !important;
     page-break-inside: avoid !important;
+  }
+
+  .memory-card-item {
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+    background: #FFFFFF !important;
+    color: #0F172A !important;
+  }
+
+  .print-paragraph,
+  p,
+  .break-auto {
+    break-inside: auto !important;
+    page-break-inside: auto !important;
+  }
+
+  /* Crisp logo in print */
+  .print-logo {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    width: auto !important;
+    object-fit: contain !important;
+    background: transparent !important;
   }
 }
 

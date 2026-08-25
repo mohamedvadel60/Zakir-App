@@ -8,20 +8,12 @@ import {
   CheckSquare, 
   Square, 
   FileDown, 
-  RefreshCw, 
   RotateCcw,
   Check,
-  ShieldCheck,
-  Calendar,
-  User,
-  Tag,
-  Eye,
-  Lock,
-  Layers
 } from "lucide-react";
 import { motion } from "motion/react";
 import { Memory } from "../types";
-import { ZakirLogo } from "./ZakirLogo";
+import { PrintableDocument } from "./PrintableDocument";
 
 interface PrintPreviewModalProps {
   isOpen: boolean;
@@ -72,7 +64,6 @@ export function PrintPreviewModal({
   const [lineSpacing, setLineSpacing] = useState<number>(1.2);
   const [pageMargins, setPageMargins] = useState<number>(15);
   const [customFontScale, setCustomFontScale] = useState<number>(100);
-  const [printBackgrounds, setPrintBackgrounds] = useState<boolean>(true);
   const [isPrinting, setIsPrinting] = useState(false);
   const [previewZoom, setPreviewZoom] = useState<number>(100);
   const [documentTheme, setDocumentTheme] = useState<"blue" | "slate" | "emerald" | "rose">("blue");
@@ -103,7 +94,7 @@ export function PrintPreviewModal({
   // Watermark details
   const [includeCompanyInWatermark, setIncludeCompanyInWatermark] = useState(true);
   const [includeDateInWatermark, setIncludeDateInWatermark] = useState(true);
-  const [watermarkDate, setWatermarkDate] = useState(() => {
+  const [watermarkDate] = useState(() => {
     const today = new Date();
     const yyyy = today.getFullYear();
     const mm = String(today.getMonth() + 1).padStart(2, '0');
@@ -150,7 +141,7 @@ export function PrintPreviewModal({
     return list;
   }, [memories, categoryFilter]);
 
-  // Selected memories to render
+  // Selected memories to render (excludes unselected so NO blank spaces exist)
   const selectedMemories = useMemo(() => {
     const list = editableMemories.length > 0 ? editableMemories : memories;
     return list.filter(m => selectedIds.includes(m.id));
@@ -168,6 +159,10 @@ export function PrintPreviewModal({
     setSelectedIds(prev => 
       prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
     );
+  };
+
+  const handleExcludeMemory = (id: string) => {
+    setSelectedIds(prev => prev.filter(i => i !== id));
   };
 
   const handleResetDefaults = () => {
@@ -218,57 +213,7 @@ export function PrintPreviewModal({
     }
   }, [watermarkDate, lang]);
 
-  // Dynamic Theme Colors
-  const themeColors = useMemo(() => {
-    return {
-      blue: {
-        primary: "text-blue-900",
-        accent: "#0075DE",
-        border: "border-blue-200",
-        badge: "bg-blue-50 text-blue-900 border-blue-200",
-        lessonsBg: "bg-blue-50/60 border-blue-200",
-        lessonsHeader: "text-blue-900 border-blue-200",
-        headerLine: "border-blue-600",
-        marker: "bg-blue-600",
-        highlightText: "text-blue-800",
-      },
-      slate: {
-        primary: "text-slate-900",
-        accent: "#334155",
-        border: "border-slate-300",
-        badge: "bg-slate-100 text-slate-900 border-slate-300",
-        lessonsBg: "bg-slate-100/70 border-slate-300",
-        lessonsHeader: "text-slate-900 border-slate-300",
-        headerLine: "border-slate-800",
-        marker: "bg-slate-800",
-        highlightText: "text-slate-800",
-      },
-      emerald: {
-        primary: "text-emerald-900",
-        accent: "#059669",
-        border: "border-emerald-200",
-        badge: "bg-emerald-50 text-emerald-900 border-emerald-200",
-        lessonsBg: "bg-emerald-50/60 border-emerald-200",
-        lessonsHeader: "text-emerald-900 border-emerald-200",
-        headerLine: "border-emerald-600",
-        marker: "bg-emerald-600",
-        highlightText: "text-emerald-800",
-      },
-      rose: {
-        primary: "text-rose-900",
-        accent: "#e11d48",
-        border: "border-rose-200",
-        badge: "bg-rose-50 text-rose-900 border-rose-200",
-        lessonsBg: "bg-rose-50/60 border-rose-200",
-        lessonsHeader: "text-rose-900 border-rose-200",
-        headerLine: "border-rose-600",
-        marker: "bg-rose-600",
-        highlightText: "text-rose-800",
-      }
-    }[documentTheme];
-  }, [documentTheme]);
-
-  // Page physical dimensions for preview sizing
+  // Page physical dimensions for preview sizing container
   const pagePhysicalDimensions = useMemo(() => {
     const dims: Record<string, { portrait: { width: string; minHeight: string }; landscape: { width: string; minHeight: string } }> = {
       A4: { portrait: { width: "210mm", minHeight: "297mm" }, landscape: { width: "297mm", minHeight: "210mm" } },
@@ -280,197 +225,10 @@ export function PrintPreviewModal({
     return dims[pageSize]?.[orientation] || dims.A4.portrait;
   }, [pageSize, orientation]);
 
-  // Spacing & Typography Styles based on density
-  const densityStyles = useMemo(() => {
-    return {
-      compact: {
-        cardPadding: "p-3.5 sm:p-4",
-        cardMargin: "mb-3",
-        sectionGap: "space-y-2",
-        headerPadding: "pb-2 mb-2",
-        titleSize: "text-sm font-black text-slate-950",
-        sectionTitleSize: "text-[8.5pt] font-black uppercase tracking-wider",
-        textSize: "text-xs text-slate-900 leading-normal",
-        badgeText: "text-[7.5pt] font-black px-2 py-0.5 rounded border"
-      },
-      standard: {
-        cardPadding: "p-5 sm:p-6",
-        cardMargin: "mb-4",
-        sectionGap: "space-y-3",
-        headerPadding: "pb-2.5 mb-3",
-        titleSize: "text-base font-black text-slate-950",
-        sectionTitleSize: "text-[9pt] font-black uppercase tracking-wider",
-        textSize: "text-sm text-slate-900 leading-relaxed",
-        badgeText: "text-[8pt] font-black px-2.5 py-0.5 rounded border"
-      },
-      spacious: {
-        cardPadding: "p-6 sm:p-8",
-        cardMargin: "mb-6",
-        sectionGap: "space-y-4",
-        headerPadding: "pb-3.5 mb-4",
-        titleSize: "text-lg font-black text-slate-950",
-        sectionTitleSize: "text-[10pt] font-black uppercase tracking-wider",
-        textSize: "text-base text-slate-900 leading-relaxed",
-        badgeText: "text-[8.5pt] font-black px-3 py-1 rounded border"
-      }
-    }[density];
-  }, [density]);
-
-  // Logo max height mapping
-  const logoHeightPx = useMemo(() => {
-    if (logoSize === "small") return 32;
-    if (logoSize === "large") return 56;
-    return 44;
-  }, [logoSize]);
-
-  // Direct native print execution
+  // Clean Native Print Execution
   const executeNativePrint = useCallback(() => {
     setIsPrinting(true);
     document.body.classList.add("printing-active");
-
-    let printStyles = document.getElementById("dynamic-print-overrides") as HTMLStyleElement | null;
-    if (!printStyles) {
-      printStyles = document.createElement("style");
-      printStyles.id = "dynamic-print-overrides";
-      document.head.appendChild(printStyles);
-    }
-
-    const pageSizeAttr = pageSize === "A4" ? "A4" : pageSize === "Letter" ? "letter" : pageSize === "A3" ? "A3" : pageSize === "A5" ? "A5" : pageSize === "Legal" ? "legal" : "A4";
-
-    printStyles.innerHTML = `
-      @page {
-        size: ${pageSizeAttr} ${orientation};
-        margin: ${pageMargins}mm;
-      }
-      @media print {
-        *, *::before, *::after {
-          -webkit-print-color-adjust: exact !important;
-          print-color-adjust: exact !important;
-          box-sizing: border-box !important;
-        }
-
-        html, body {
-          visibility: visible !important;
-          background: #FFFFFF !important;
-          color: #0F172A !important;
-          margin: 0 !important;
-          padding: 0 !important;
-          height: auto !important;
-          min-height: 0 !important;
-          max-height: none !important;
-          overflow: visible !important;
-        }
-
-        /* Hide all application chrome and non-printable elements */
-        #root > :not(.print-modal-overlay),
-        #zakir-app-root > :not(.print-modal-overlay),
-        header, nav, aside, footer:not(.print-document-footer),
-        .no-print, .no-print *,
-        button, select, input, textarea,
-        #sidebar, #navbar, #header, #footer {
-          display: none !important;
-          visibility: hidden !important;
-          height: 0 !important;
-          width: 0 !important;
-          margin: 0 !important;
-          padding: 0 !important;
-          overflow: hidden !important;
-          opacity: 0 !important;
-        }
-
-        /* Unroll the modal container to standard flow */
-        .print-modal-overlay,
-        .print-modal-overlay > div,
-        .print-content-grid,
-        .print-preview-canvas,
-        .preview-zoom-container,
-        .print-document-container {
-          display: block !important;
-          position: static !important;
-          width: 100% !important;
-          max-width: 100% !important;
-          height: auto !important;
-          min-height: 0 !important;
-          max-height: none !important;
-          margin: 0 !important;
-          padding: 0 !important;
-          overflow: visible !important;
-          background: transparent !important;
-          box-shadow: none !important;
-          border: none !important;
-          transform: none !important;
-          zoom: 1 !important;
-        }
-
-        /* Unified Document Styles in Print */
-        .print-document {
-          display: block !important;
-          position: relative !important;
-          width: 100% !important;
-          max-width: 100% !important;
-          min-height: 0 !important;
-          height: auto !important;
-          margin: 0 !important;
-          padding: 0 !important;
-          background: #FFFFFF !important;
-          color: #0F172A !important;
-          box-shadow: none !important;
-          border: none !important;
-          border-radius: 0 !important;
-          font-size: ${customFontScale}% !important;
-          line-height: ${lineSpacing} !important;
-        }
-
-        /* Proper pagination and avoid breaking rules */
-        .print-heading-group,
-        .print-header-container,
-        .signature-block,
-        .lessons-box,
-        .page-break-avoid {
-          break-inside: avoid !important;
-          page-break-inside: avoid !important;
-        }
-
-        .memory-card-item {
-          break-inside: avoid !important;
-          page-break-inside: avoid !important;
-          margin-bottom: ${density === "compact" ? "12px" : density === "spacious" ? "24px" : "16px"} !important;
-          border: 1.5px solid #CBD5E1 !important;
-          background: #FFFFFF !important;
-          box-shadow: none !important;
-        }
-
-        p, .break-auto {
-          break-inside: auto !important;
-          page-break-inside: auto !important;
-        }
-
-        table {
-          width: 100% !important;
-          border-collapse: collapse !important;
-        }
-
-        thead {
-          display: table-header-group !important;
-        }
-
-        tr {
-          break-inside: avoid !important;
-          page-break-inside: avoid !important;
-        }
-
-        /* Clean logo rendering in print */
-        .print-logo {
-          display: block !important;
-          visibility: visible !important;
-          opacity: 1 !important;
-          max-height: ${logoHeightPx}px !important;
-          width: auto !important;
-          object-fit: contain !important;
-          background: transparent !important;
-        }
-      }
-    `;
 
     window.focus();
 
@@ -478,33 +236,25 @@ export function PrintPreviewModal({
       try {
         window.print();
       } catch (err) {
-        console.error("Print trigger failed:", err);
+        console.error("Print failed:", err);
       }
-    }, 120);
+    }, 100);
 
     const fallbackTimer = setTimeout(() => {
       document.body.classList.remove("printing-active");
       setIsPrinting(false);
-      const existingStyles = document.getElementById("dynamic-print-overrides");
-      if (existingStyles?.parentNode) {
-        existingStyles.parentNode.removeChild(existingStyles);
-      }
-    }, 2500);
+    }, 3000);
 
     return () => {
       clearTimeout(timer);
       clearTimeout(fallbackTimer);
     };
-  }, [pageSize, orientation, pageMargins, lineSpacing, customFontScale, density, logoHeightPx]);
+  }, []);
 
   useEffect(() => {
     const handleAfterPrint = () => {
       document.body.classList.remove("printing-active");
       setIsPrinting(false);
-      const existingStyles = document.getElementById("dynamic-print-overrides");
-      if (existingStyles?.parentNode) {
-        existingStyles.parentNode.removeChild(existingStyles);
-      }
     };
     window.addEventListener("afterprint", handleAfterPrint);
     return () => {
@@ -563,286 +313,18 @@ export function PrintPreviewModal({
     }[watermark],
   };
 
-  // Editable Text Component for live edits in Preview
-  function EditableText({
-    value,
-    onChange,
-    className = "",
-    disabled = false
-  }: {
-    value: string;
-    onChange?: (val: string) => void;
-    className?: string;
-    disabled?: boolean;
-  }) {
-    if (isPrinting || disabled) {
-      return (
-        <div className={`w-full bg-transparent text-slate-950 whitespace-pre-wrap break-words ${className}`}>
-          {value || ""}
-        </div>
-      );
-    }
-
-    return (
-      <div
-        contentEditable
-        suppressContentEditableWarning
-        onBlur={(e) => {
-          if (onChange) {
-            onChange(e.currentTarget.innerText || "");
-          }
-        }}
-        className={`w-full bg-transparent border-none outline-none focus:ring-1 focus:ring-blue-500/40 rounded p-0.5 hover:bg-slate-100/70 focus:bg-blue-50/30 text-slate-950 transition-all whitespace-pre-wrap break-words ${className}`}
-      >
-        {value}
-      </div>
-    );
-  }
-
-  // Render Document Header
-  const renderDocumentHeader = () => {
-    if (!includeHeader) return null;
-    const isRtl = lang === "ar";
-    const dateVal = displayDate || new Date().toLocaleDateString(isRtl ? "ar-SA" : "en-US");
-
-    if (headerStyle === "centered") {
-      return (
-        <header className="print-header-container w-full border-b-2 border-slate-300 pb-4 mb-6 select-none text-center" dir={isRtl ? "rtl" : "ltr"}>
-          <div className="flex flex-col items-center justify-center gap-2 mb-3">
-            {companyLogoImg ? (
-              <img 
-                src={companyLogoImg} 
-                alt="Company Logo" 
-                className="print-logo max-h-12 object-contain" 
-                referrerPolicy="no-referrer" 
-              />
-            ) : (
-              <ZakirLogo theme="light" size="md" lang={lang} />
-            )}
-            <div className="text-center">
-              <span className="font-extrabold text-sm text-slate-900 block">{companyName}</span>
-              {departmentName && (
-                <span className="text-[8pt] text-slate-600 block">{departmentName}</span>
-              )}
-            </div>
-          </div>
-
-          <h1 className="text-base sm:text-lg font-black text-slate-950 uppercase tracking-tight">
-            {lang === "ar" ? "تقرير الذاكرة المؤسسية وسجل القرارات" : "Institutional Memory & Decision Intelligence Report"}
-          </h1>
-
-          <div className="mt-2 pt-2 border-t border-slate-200 flex items-center justify-center gap-6 text-[8pt] text-slate-600 font-mono">
-            <span><strong>{lang === "ar" ? "المرجع:" : "REF:"}</strong> {documentRef}</span>
-            <span><strong>{lang === "ar" ? "التاريخ:" : "DATE:"}</strong> {dateVal}</span>
-            {userName && <span><strong>{lang === "ar" ? "المسؤول:" : "BY:"}</strong> {userName}</span>}
-          </div>
-        </header>
-      );
-    }
-
-    if (headerStyle === "letterhead") {
-      return (
-        <header className="print-header-container w-full border-b-4 border-slate-900 pb-3 mb-6 select-none" dir={isRtl ? "rtl" : "ltr"}>
-          <div className="flex items-center justify-between gap-4 pb-2">
-            <div>
-              <h2 className="text-base font-black text-slate-950 uppercase tracking-wide">{companyName}</h2>
-              {departmentName && <p className="text-[8pt] text-slate-600 font-semibold">{departmentName}</p>}
-            </div>
-            {companyLogoImg ? (
-              <img 
-                src={companyLogoImg} 
-                alt="Company Logo" 
-                className="print-logo max-h-12 object-contain" 
-                referrerPolicy="no-referrer" 
-              />
-            ) : (
-              <ZakirLogo theme="light" size="sm" lang={lang} />
-            )}
-          </div>
-          <div className="pt-2 border-t border-slate-300 flex items-center justify-between text-[8pt] text-slate-700 font-mono">
-            <span>{documentRef}</span>
-            <span className="font-bold text-slate-950 uppercase">{lang === "ar" ? "سجل توثيق رسمي" : "OFFICIAL RECORD"}</span>
-            <span>{dateVal}</span>
-          </div>
-        </header>
-      );
-    }
-
-    // Standard Header (Default)
-    return (
-      <header className="print-header-container w-full border-b-2 border-slate-300 pb-3 mb-5 select-none" dir={isRtl ? "rtl" : "ltr"}>
-        <div className="flex items-center justify-between gap-4 pb-2.5">
-          <div className="flex items-center gap-3">
-            {companyLogoImg ? (
-              <img 
-                src={companyLogoImg} 
-                alt="Company Logo" 
-                className="print-logo object-contain rounded" 
-                style={{ maxHeight: `${logoHeightPx}px` }}
-                referrerPolicy="no-referrer" 
-              />
-            ) : (
-              <div className="flex items-center gap-2">
-                <ZakirLogo theme="light" size={logoSize === "small" ? "sm" : logoSize === "large" ? "lg" : "md"} lang={lang} />
-              </div>
-            )}
-            <div className="leading-tight">
-              <span className="font-extrabold text-xs sm:text-sm text-slate-950 block">{companyName}</span>
-              {departmentName && (
-                <span className="text-[8pt] text-slate-600 font-medium block">{departmentName}</span>
-              )}
-            </div>
-          </div>
-
-          <div className="text-end">
-            <h1 className="text-xs sm:text-sm font-black text-slate-950 uppercase tracking-tight">
-              {lang === "ar" ? "تقرير الذاكرة المؤسسية وسجل القرارات" : "Institutional Memory & Decision Intelligence Report"}
-            </h1>
-            <p className="text-[7.5pt] text-slate-500 font-medium mt-0.5">
-              {lang === "ar" ? "وثيقة رسمية معتمدة" : "Official Audited Intelligence Document"}
-            </p>
-          </div>
-        </div>
-
-        {/* Bottom meta row */}
-        <div className="pt-2 border-t border-slate-200 flex items-center justify-between text-[8pt] text-slate-600 font-mono">
-          <div className="flex items-center gap-1.5">
-            <span className="font-bold uppercase text-slate-500">{lang === "ar" ? "رقم المرجع:" : "DOC ID:"}</span>
-            <span className="font-bold text-slate-900">{documentRef}</span>
-          </div>
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-1">
-              <span className="font-bold uppercase text-slate-500">{lang === "ar" ? "التاريخ:" : "DATE:"}</span>
-              <span className="font-semibold text-slate-900">{dateVal}</span>
-            </div>
-            {userName && (
-              <div className="flex items-center gap-1">
-                <span className="font-bold uppercase text-slate-500">{lang === "ar" ? "المسؤول:" : "LOGGED BY:"}</span>
-                <span className="font-semibold text-slate-900 font-sans">{userName}</span>
-              </div>
-            )}
-          </div>
-        </div>
-      </header>
-    );
-  };
-
-  // Render Signature Block
-  const renderSignatureBlock = () => {
-    if (!includeSignatureBlock) return null;
-    const isRtl = lang === "ar";
-    const dateVal = displayDate || new Date().toLocaleDateString(isRtl ? "ar-SA" : "en-US");
-
-    return (
-      <div className="signature-block mt-8 pt-5 border-t-2 border-slate-300 relative z-10 text-right rtl:text-right page-break-avoid" dir={isRtl ? "rtl" : "ltr"}>
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-2">
-            <div className={`w-2 h-2 rounded-full ${themeColors.marker}`}></div>
-            <span className="text-[9pt] font-black uppercase text-slate-900 tracking-wider">
-              {lang === "ar" ? "اعتماد وتوقيع التقرير الرسمي" : "OFFICIAL APPROVAL & SIGNATURE PANEL"}
-            </span>
-          </div>
-          {includeVerificationSeal && (
-            <div className="flex items-center gap-1 text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded text-[8pt] font-bold">
-              <ShieldCheck className="w-3.5 h-3.5" />
-              <span>{lang === "ar" ? "معتمد وموثق رقمياً" : "Digitally Verified & Sealed"}</span>
-            </div>
-          )}
-        </div>
-
-        <div className="grid grid-cols-3 gap-6 w-full text-[9pt]">
-          {/* Column 1: Executive Information */}
-          <div className="flex flex-col justify-between min-h-[100px] border border-slate-200 rounded-lg p-3 bg-slate-50/50">
-            <span className="text-[8pt] font-black uppercase text-slate-500 tracking-wider">
-              {lang === "ar" ? "الجهة المصدرة" : "ISSUING ENTITY"}
-            </span>
-            <div className="pt-2 border-t border-slate-200 w-full mt-auto">
-              <div className="text-[9pt] font-black text-slate-950 leading-tight">
-                {companyName}
-              </div>
-              {departmentName && (
-                <div className="text-[8pt] text-slate-600 font-bold uppercase mt-0.5">
-                  {departmentName}
-                </div>
-              )}
-              <div className="text-[8pt] text-slate-600 font-semibold mt-1">
-                <span>{lang === "ar" ? "الممثل: " : "Representative: "}</span>
-                <span className="text-slate-900 font-bold">{userName}</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Column 2: Signature */}
-          <div className="flex flex-col justify-between min-h-[100px] border border-slate-200 rounded-lg p-3 bg-slate-50/50">
-            <span className="text-[8pt] font-black uppercase text-slate-500 tracking-wider">
-              {lang === "ar" ? "التوقيع والختم المعتمد" : "AUTHORIZED SIGNATURE"}
-            </span>
-            <div className="pt-2 border-t border-slate-200 w-full mt-auto flex flex-col justify-end min-h-[45px]">
-              <div className="flex justify-center items-end pb-1 h-10 w-full">
-                {signatureImg ? (
-                  <img 
-                    src={signatureImg} 
-                    alt="Signature" 
-                    className="h-10 object-contain block" 
-                    referrerPolicy="no-referrer"
-                  />
-                ) : (
-                  <span className="text-[8.5pt] text-slate-400 font-bold italic">
-                    {lang === "ar" ? "توقيع معتمد" : "Authorized"}
-                  </span>
-                )}
-              </div>
-              <div className="border-b border-slate-300 w-full"></div>
-            </div>
-          </div>
-
-          {/* Column 3: Approval Date */}
-          <div className="flex flex-col justify-between min-h-[100px] border border-slate-200 rounded-lg p-3 bg-slate-50/50">
-            <span className="text-[8pt] font-black uppercase text-slate-500 tracking-wider">
-              {lang === "ar" ? "تاريخ الاعتماد" : "APPROVAL DATE"}
-            </span>
-            <div className="pt-2 border-t border-slate-200 w-full mt-auto flex flex-col justify-end min-h-[45px]">
-              <div className="flex justify-center items-end pb-1 h-10 w-full">
-                <span className="text-[9.5pt] font-black text-slate-950 font-mono leading-none">
-                  {dateVal}
-                </span>
-              </div>
-              <div className="border-b border-slate-300 w-full"></div>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  };
-
-  // Render Document Footer
-  const renderDocumentFooter = () => {
-    if (!includeFooter) return null;
-    const isRtl = lang === "ar";
-
-    return (
-      <footer className="print-document-footer mt-8 pt-3 border-t border-slate-300 flex items-center justify-between text-[8pt] text-slate-600 font-mono relative z-10" dir={isRtl ? "rtl" : "ltr"}>
-        <span>{companyName}</span>
-        <span className="text-center font-bold text-slate-500">
-          {lang === "ar" ? "سجل ذاكرة مؤسسية رسمي — سري ومحمي" : "Strictly Confidential Institutional Memory Record"}
-        </span>
-        <span>{documentRef}</span>
-      </footer>
-    );
-  };
-
   if (!isOpen) return null;
 
   return (
-    <div className="print-modal-overlay dark-section fixed inset-0 z-50 overflow-y-auto bg-slate-950/85 backdrop-blur-md flex items-center justify-center p-2 sm:p-4 selection:bg-[#0075DE]/30">
+    <div className="print-modal-overlay fixed inset-0 z-50 overflow-y-auto bg-slate-950/85 backdrop-blur-md flex items-center justify-center p-2 sm:p-4 selection:bg-[#0075DE]/30">
       <motion.div 
         initial={{ opacity: 0, scale: 0.96 }}
         animate={{ opacity: 1, scale: 1 }}
         exit={{ opacity: 0, scale: 0.96 }}
-        className="bg-[var(--bg-secondary)] border border-[var(--border-color)] rounded-2xl w-full max-w-7xl max-h-[94vh] flex flex-col shadow-2xl overflow-hidden text-[var(--text-primary)]"
+        className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-7xl max-h-[94vh] flex flex-col shadow-2xl overflow-hidden text-slate-100"
       >
         {/* Modal Top Bar (No Print) */}
-        <div className="no-print p-4 sm:p-5 border-b border-[var(--border-color)] flex items-center justify-between gap-4 bg-[var(--bg-tertiary)]">
+        <div className="no-print p-4 sm:p-5 border-b border-slate-800 flex items-center justify-between gap-4 bg-slate-950/90">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-[#0075DE]/10 border border-[#0075DE]/20 text-[#0075DE] flex items-center justify-center font-bold">
               <Printer className="w-5 h-5" />
@@ -892,7 +374,7 @@ export function PrintPreviewModal({
         <div className="print-content-grid flex-1 overflow-y-auto grid grid-cols-1 lg:grid-cols-12 gap-0 divide-y lg:divide-y-0 lg:divide-x lg:divide-x-reverse divide-slate-800">
           
           {/* CONTROL PANEL SIDEBAR (No Print) */}
-          <div className="no-print lg:col-span-4 p-4 sm:p-5 space-y-5 bg-slate-950/50 overflow-y-auto max-h-[calc(94vh-80px)]">
+          <div className="no-print lg:col-span-4 p-4 sm:p-5 space-y-5 bg-slate-950/60 overflow-y-auto max-h-[calc(94vh-80px)]">
             
             {/* 1. Memory Records Selector */}
             <div className="space-y-3 bg-slate-900/80 border border-slate-800 rounded-xl p-4">
@@ -1164,19 +646,6 @@ export function PrintPreviewModal({
                   className="w-full h-1 bg-slate-950 rounded-lg appearance-none cursor-pointer accent-blue-500"
                 />
               </div>
-
-              {/* Print Backgrounds Checkbox */}
-              <div className="pt-2 border-t border-slate-800">
-                <label className="flex items-center gap-2 text-[10px] text-slate-300 cursor-pointer select-none">
-                  <input 
-                    type="checkbox"
-                    checked={printBackgrounds}
-                    onChange={(e) => setPrintBackgrounds(e.target.checked)}
-                    className="w-3.5 h-3.5 rounded bg-slate-950 border-slate-800 text-blue-500 focus:ring-blue-500 accent-blue-500 cursor-pointer"
-                  />
-                  <span className="font-semibold">{lang === "ar" ? "طباعة رسومات وخلفيات الألوان (Backgrounds)" : "Print Background Colors & Graphics"}</span>
-                </label>
-              </div>
             </div>
 
             {/* 3. Branding & Header Layout Controls */}
@@ -1407,10 +876,10 @@ export function PrintPreviewModal({
 
           </div>
 
-          {/* LIVE PREVIEW CANVAS (Single Source of Truth Document) */}
+          {/* LIVE PREVIEW CANVAS (Renders EXACT SAME Single Source of Truth Document) */}
           <div className="print-preview-canvas lg:col-span-8 p-4 sm:p-8 bg-slate-950 overflow-y-auto max-h-[calc(94vh-80px)] flex flex-col items-center gap-4 selection:bg-[#0075DE]/30">
             
-            {/* Zoom Toolbar for on-screen preview */}
+            {/* Zoom Toolbar for on-screen preview (No Print) */}
             <div className="no-print w-full flex flex-wrap items-center justify-between gap-3 px-4 py-2 bg-slate-900/95 border border-slate-800 rounded-xl mb-1 text-xs shadow-lg">
               <div className="flex items-center gap-2 text-slate-300">
                 <span className="font-semibold text-slate-400">{lang === "ar" ? "المستند:" : "Document:"}</span>
@@ -1455,204 +924,64 @@ export function PrintPreviewModal({
                 <p className="text-xs text-slate-500 mt-1">{lang === "ar" ? "يرجى تحديد ذكريات من القائمة الجانبية" : "Please check items from the sidebar"}</p>
               </div>
             ) : (
-              /* Preview Wrapper with Zoom Control */
+              /* Preview Scale Wrapper: Outer scale only, never scales the inner document */
               <div 
-                className="preview-zoom-container w-full flex flex-col items-center origin-top transition-transform duration-150"
+                className="preview-scale-wrapper w-full flex flex-col items-center origin-top transition-transform duration-150"
                 style={{
                   transform: previewZoom === 100 ? "none" : `scale(${previewZoom / 100})`,
                   transformOrigin: "top center"
                 }}
               >
-                {/* Unified Print Document */}
-                <article
-                  className="print-document bg-white text-slate-900 shadow-2xl relative border border-slate-300 rounded-sm mb-6 flex flex-col justify-start"
+                {/* Physical Sheet Dimensions Frame */}
+                <div
+                  className="preview-sheet-frame w-full flex justify-center"
                   style={{
-                    width: pagePhysicalDimensions.width,
+                    maxWidth: pagePhysicalDimensions.width,
                     minHeight: pagePhysicalDimensions.minHeight,
-                    padding: `${pageMargins}mm`,
-                    boxSizing: "border-box",
-                    lineHeight: lineSpacing,
-                    fontSize: `${customFontScale}%`,
                   }}
-                  dir={lang === "ar" ? "rtl" : "ltr"}
                 >
-                  {/* Optional Confidentiality Watermark */}
-                  {t.watermarkText && (
-                    <div className="absolute inset-0 pointer-events-none flex items-center justify-center overflow-hidden z-0 select-none">
-                      <div className="text-slate-300/35 font-black tracking-widest uppercase -rotate-45 text-center px-6 border-8 border-slate-300/25 rounded-3xl py-8 flex flex-col items-center gap-2 max-w-[85%]">
-                        <span className="text-4xl sm:text-5xl md:text-6xl font-black leading-none">
-                          {t.watermarkText}
-                        </span>
-                        {(includeCompanyInWatermark || includeDateInWatermark) && (
-                          <div className="text-[11px] sm:text-xs font-bold flex flex-col items-center gap-0.5 pt-1.5 border-t border-slate-300/30 w-full mt-1.5 opacity-85 font-sans">
-                            {includeCompanyInWatermark && (
-                              <span>{companyName}</span>
-                            )}
-                            {includeDateInWatermark && displayDate && (
-                              <span className="font-mono">{displayDate}</span>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Document Header */}
-                  {renderDocumentHeader()}
-
-                  {/* Document Content List */}
-                  <main className={`flex-1 relative z-10 ${columns === "2" ? "grid grid-cols-2 gap-4 items-start" : "space-y-4"}`}>
-                    {selectedMemories.map((m, idx) => (
-                      <div 
-                        key={m.id}
-                        className={`memory-card-item bg-white border-2 border-slate-300 rounded-xl text-slate-950 shadow-sm ${densityStyles.cardMargin} ${densityStyles.cardPadding} text-right rtl:text-right group relative hover:border-blue-400 hover:shadow-md transition-all duration-200`}
-                        dir={lang === "ar" ? "rtl" : "ltr"}
-                      >
-                        {/* Exclude memory card button (Preview only) */}
-                        <div className="no-print absolute top-3 ltr:right-3 rtl:left-3 flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                          <button
-                            type="button"
-                            onClick={() => toggleSelectMemory(m.id)}
-                            className="p-1 px-2 rounded-lg bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-700 text-[10px] font-bold flex items-center gap-1 shadow-sm cursor-pointer transition-all"
-                            title={lang === "ar" ? "استبعاد من التقرير" : "Exclude from report"}
-                          >
-                            <X className="w-3.5 h-3.5" />
-                            <span>{lang === "ar" ? "استبعاد" : "Exclude"}</span>
-                          </button>
-                        </div>
-
-                        {/* Card Header: Badges & Record Number */}
-                        <div className={densityStyles.headerPadding}>
-                          <div className="flex items-center justify-between gap-2 mb-1.5 flex-wrap">
-                            <div className="flex items-center gap-1.5">
-                              <span className={`${densityStyles.badgeText} uppercase ${themeColors.badge}`}>
-                                {m.category}
-                              </span>
-                              <span className={`${densityStyles.badgeText} uppercase ${
-                                m.riskLevel === "Critical" 
-                                  ? "bg-rose-100 text-rose-950 border-rose-300 font-black" 
-                                  : m.riskLevel === "High"
-                                  ? "bg-amber-100 text-amber-950 border-amber-300 font-bold"
-                                  : m.riskLevel === "Medium"
-                                  ? "bg-blue-100 text-blue-950 border-blue-300"
-                                  : "bg-slate-200 text-slate-900 border-slate-300"
-                              }`}>
-                                {m.riskLevel}
-                              </span>
-                            </div>
-                            <span className="text-[8.5pt] text-slate-600 font-mono font-extrabold">
-                              #{m.id.slice(0, 8).toUpperCase()} • {new Date(m.createdAt).toLocaleDateString(lang === "ar" ? "ar-SA" : "en-US")}
-                            </span>
-                          </div>
-
-                          <EditableText
-                            value={m.title}
-                            onChange={(val) => handleUpdateMemoryField(m.id, "title", val)}
-                            className={densityStyles.titleSize}
-                          />
-                        </div>
-
-                        {/* Main Content Sections */}
-                        <div className={densityStyles.sectionGap}>
-                          {/* Narrative & Decision */}
-                          <div>
-                            <h4 className={`${densityStyles.sectionTitleSize} ${themeColors.highlightText} mb-1`}>
-                              {lang === "ar" ? "سرد الحدث والموقف" : "Event Narrative"}
-                            </h4>
-                            <EditableText
-                              value={m.description}
-                              onChange={(val) => handleUpdateMemoryField(m.id, "description", val)}
-                              className={densityStyles.textSize}
-                            />
-                          </div>
-
-                          <div>
-                            <h4 className={`${densityStyles.sectionTitleSize} ${themeColors.highlightText} mb-1`}>
-                              {lang === "ar" ? "القرار المتخذ" : "Decision Taken"}
-                            </h4>
-                            <EditableText
-                              value={m.decision}
-                              onChange={(val) => handleUpdateMemoryField(m.id, "decision", val)}
-                              className={densityStyles.textSize}
-                            />
-                          </div>
-
-                          {/* Causal Factors */}
-                          {includeCausal && m.causalFactors && (
-                            <div>
-                              <h4 className={`${densityStyles.sectionTitleSize} ${themeColors.highlightText} mb-1`}>
-                                {lang === "ar" ? "العوامل المسببة والتحليل الجذري" : "Causal Factors & Root Cause"}
-                              </h4>
-                              <EditableText
-                                value={m.causalFactors}
-                                onChange={(val) => handleUpdateMemoryField(m.id, "causalFactors", val)}
-                                className={densityStyles.textSize}
-                              />
-                            </div>
-                          )}
-
-                          {/* Outcomes */}
-                          {includeOutcomes && m.outcomes && (
-                            <div>
-                              <h4 className={`${densityStyles.sectionTitleSize} ${themeColors.highlightText} mb-1`}>
-                                {lang === "ar" ? "النتائج والأثر المترتب" : "Outcomes & Impact"}
-                              </h4>
-                              <EditableText
-                                value={m.outcomes}
-                                onChange={(val) => handleUpdateMemoryField(m.id, "outcomes", val)}
-                                className={densityStyles.textSize}
-                              />
-                            </div>
-                          )}
-
-                          {/* Lessons Learned Highlight Box */}
-                          {includeLessons && m.lessonsLearned && (
-                            <div className={`lessons-box rounded-lg border-2 p-3 sm:p-4 ${themeColors.lessonsBg}`}>
-                              <h4 className={`${densityStyles.sectionTitleSize} ${themeColors.lessonsHeader} mb-1`}>
-                                {lang === "ar" ? "الدروس المستفادة والتوجيهات المستقبلية" : "Lessons Learned & Guidelines"}
-                              </h4>
-                              <EditableText
-                                value={m.lessonsLearned}
-                                onChange={(val) => handleUpdateMemoryField(m.id, "lessonsLearned", val)}
-                                className={`${densityStyles.textSize} font-bold text-slate-950`}
-                              />
-                            </div>
-                          )}
-
-                          {/* Record Footer: Author & Tags */}
-                          {(includeAuthor || (includeTags && m.tags && m.tags.length > 0)) && (
-                            <div className="flex items-center justify-between gap-4 pt-2.5 border-t border-slate-250 text-slate-600 text-[8pt] font-semibold">
-                              {includeAuthor && (
-                                <div className="flex items-center gap-1">
-                                  <span>{lang === "ar" ? "المسؤول عن التوثيق: " : "Logged by: "}</span>
-                                  <span className="text-slate-900 font-extrabold">{userName}</span>
-                                </div>
-                              )}
-                              {includeTags && m.tags && m.tags.length > 0 && (
-                                <div className="flex items-center gap-1 flex-wrap justify-end">
-                                  <span>{lang === "ar" ? "الوسوم: " : "Tags: "}</span>
-                                  <div className="flex items-center gap-1 flex-wrap">
-                                    {m.tags.map((tag) => (
-                                      <span key={tag} className="px-1.5 py-0.5 rounded bg-slate-100 border border-slate-300 text-slate-700 font-mono text-[7pt] font-bold">
-                                        #{tag}
-                                      </span>
-                                    ))}
-                                  </div>
-                                </div>
-                              )}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                  </main>
-
-                  {/* Executive Signature Block */}
-                  {renderSignatureBlock()}
-
-                  {/* Document Footer */}
-                  {renderDocumentFooter()}
-                </article>
+                  <PrintableDocument
+                    memories={selectedMemories}
+                    lang={lang}
+                    companyName={companyName}
+                    departmentName={departmentName}
+                    documentRef={documentRef}
+                    userName={userName}
+                    displayDate={displayDate}
+                    
+                    density={density}
+                    columns={columns}
+                    fontSize={fontSize}
+                    pageSize={pageSize}
+                    orientation={orientation}
+                    lineSpacing={lineSpacing}
+                    pageMargins={pageMargins}
+                    customFontScale={customFontScale}
+                    documentTheme={documentTheme}
+                    
+                    includeHeader={includeHeader}
+                    includeFooter={includeFooter}
+                    includeCausal={includeCausal}
+                    includeOutcomes={includeOutcomes}
+                    includeLessons={includeLessons}
+                    includeAuthor={includeAuthor}
+                    includeTags={includeTags}
+                    includeSignatureBlock={includeSignatureBlock}
+                    includeVerificationSeal={includeVerificationSeal}
+                    
+                    headerStyle={headerStyle}
+                    logoSize={logoSize}
+                    companyLogoImg={companyLogoImg}
+                    signatureImg={signatureImg}
+                    watermarkText={t.watermarkText}
+                    includeCompanyInWatermark={includeCompanyInWatermark}
+                    includeDateInWatermark={includeDateInWatermark}
+                    
+                    isPrinting={isPrinting}
+                    onUpdateMemoryField={handleUpdateMemoryField}
+                    onExcludeMemory={handleExcludeMemory}
+                  />
+                </div>
               </div>
             )}
 
