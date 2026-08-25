@@ -440,8 +440,8 @@ img.broken-image-fallback {
   color: #27272A !important;
 }
 
-/* Print Portal - Hidden in standard screen view */
-#zakir-print-portal {
+/* Print Host - Hidden in standard screen view */
+#print-host {
   display: none !important;
 }
 
@@ -458,6 +458,8 @@ img.broken-image-fallback {
     box-sizing: border-box !important;
   }
 
+  /* Force light color-scheme and pristine white background */
+  :root,
   html,
   body {
     height: auto !important;
@@ -468,6 +470,7 @@ img.broken-image-fallback {
     color: #0F172A !important;
     margin: 0 !important;
     padding: 0 !important;
+    color-scheme: light !important;
   }
 
   /* Completely hide all on-screen application UI, modals, navigation, and toolbars */
@@ -485,8 +488,8 @@ img.broken-image-fallback {
     overflow: hidden !important;
   }
 
-  /* Display ONLY the dedicated, untransformed Print Portal */
-  #zakir-print-portal {
+  /* Display ONLY the dedicated, untransformed Print Host */
+  #print-host {
     display: block !important;
     visibility: visible !important;
     position: static !important;
@@ -500,9 +503,24 @@ img.broken-image-fallback {
     background: #FFFFFF !important;
     color: #0F172A !important;
     transform: none !important;
+    color-scheme: light !important;
+
+    /* Light mode variables override for print host */
+    --background: #FFFFFF !important;
+    --foreground: #0F172A !important;
+    --card: #FFFFFF !important;
+    --card-foreground: #0F172A !important;
+    --card-bg: #FFFFFF !important;
+    --text-primary: #0F172A !important;
+    --text-secondary: #475569 !important;
+    --border-color: #CBD5E1 !important;
+    --accent-color: #0075DE !important;
+    --bg-primary: #FFFFFF !important;
+    --bg-secondary: #F8FAFC !important;
+    --bg-tertiary: #F1F5F9 !important;
   }
 
-  #zakir-print-portal .print-document {
+  #print-host .print-document {
     display: block !important;
     position: static !important;
     width: 100% !important;

@@ -235,8 +235,22 @@ export function PrintPreviewModal({
       if (document.fonts && document.fonts.ready) {
         await document.fonts.ready;
       }
+      // Ensure all images in print-host are fully loaded
+      const printHost = document.getElementById("print-host");
+      if (printHost) {
+        const images = Array.from(printHost.querySelectorAll("img"));
+        await Promise.all(
+          images.map(img => {
+            if (img.complete) return Promise.resolve();
+            return new Promise(resolve => {
+              img.onload = resolve;
+              img.onerror = resolve;
+            });
+          })
+        );
+      }
     } catch {
-      // ignore font loading error
+      // ignore font or image loading error
     }
 
     window.focus();
@@ -1002,9 +1016,9 @@ export function PrintPreviewModal({
       </motion.div>
     </div>
 
-    {/* 2. DEDICATED PRINT PORTAL (Strictly PRINT-ONLY, Direct DOM Child of <body>, Zero transforms/wrappers) */}
+    {/* 2. DEDICATED PRINT HOST (Strictly PRINT-ONLY, Direct DOM Child of <body>, Zero transforms/wrappers) */}
     {typeof document !== "undefined" && createPortal(
-      <div id="zakir-print-portal" className="print-only" dir={lang === "ar" ? "rtl" : "ltr"}>
+      <div id="print-host" className="print-only theme-light bg-white text-slate-900" data-theme="light" dir={lang === "ar" ? "rtl" : "ltr"}>
         {selectedMemories.length > 0 && (
           <PrintableDocument
             memories={selectedMemories}
