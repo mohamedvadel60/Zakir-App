@@ -111,6 +111,7 @@ import { authenticatedFetch } from "./lib/apiUtils.js";
 import { SettingsAdmin } from "./components/SettingsAdmin";
 import { InstallPrompt } from "./components/InstallPrompt";
 import { CustomerSupport } from "./components/CustomerSupport";
+import { PrintSystem } from "./components/print/PrintSystem";
 import { EmailVerificationView } from "./components/EmailVerificationView";
 import { RiskRadarChart } from "./components/RiskRadarChart";
 import { AdminDashboard } from "./components/AdminDashboard";
@@ -1007,6 +1008,15 @@ This hosting domain (**${currentDomain}**) has not been authorized in your Fireb
     }, 1000);
     return () => clearInterval(interval);
   }, [lastUpdatedTimestamp]);
+
+  // Enterprise Print & Document System State
+  const [isPrintPreviewOpen, setIsPrintPreviewOpen] = useState(false);
+  const [printPreviewMemoryId, setPrintPreviewMemoryId] = useState<string | null>(null);
+
+  const handleOpenPrintPreview = (memoryId?: string) => {
+    setPrintPreviewMemoryId(memoryId || null);
+    setIsPrintPreviewOpen(true);
+  };
 
   const handleRefresh = () => {
     setIsRefreshing(true);
@@ -4632,6 +4642,15 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
 
                     <div className="flex items-center gap-2">
                       <button 
+                        onClick={() => handleOpenPrintPreview()} 
+                        className="h-10 px-3.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-900 dark:hover:bg-slate-800 text-[#0075DE] border border-[#0075DE]/30 hover:border-[#0075DE]/60 font-bold text-xs rounded-lg flex items-center gap-1.5 transition-all cursor-pointer"
+                        title={lang === "ar" ? "معاينة وتنسيق طباعة تقرير الذاكرة" : "Print Preview & Formatting"}
+                      >
+                        <Printer className="w-4 h-4" />
+                        <span>{lang === "ar" ? "معاينة التقرير والطباعة" : "Print Preview"}</span>
+                      </button>
+
+                      <button 
                         onClick={() => setActiveTab("add")} 
                         className="h-10 px-4 bg-[#0075DE] hover:bg-[#005BAB] text-white font-bold text-xs rounded-lg flex items-center gap-1.5 transition-all cursor-pointer"
                       >
@@ -4936,6 +4955,19 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                                       <span>({m.authorRole})</span>
                                     </div>
                                     <div className="flex items-center gap-2">
+                                      <button
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.preventDefault();
+                                          e.stopPropagation();
+                                          handleOpenPrintPreview(m.id);
+                                        }}
+                                        className="no-print text-blue-400 hover:text-white bg-blue-500/10 hover:bg-blue-600/80 px-2.5 py-1 rounded text-[10px] font-bold border border-blue-500/30 transition-all cursor-pointer flex items-center gap-1"
+                                        title={lang === "ar" ? "معاينة وتنسيق طباعة هذه الذكرى" : "Print Preview"}
+                                      >
+                                        <Printer className="w-3.5 h-3.5" />
+                                        <span>{lang === "ar" ? "معاينة وطباعة" : "Print Preview"}</span>
+                                      </button>
                                       {true && (
                                         <>
                                           <button
@@ -6555,6 +6587,18 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
 
       {/* Desktop Application Auto-Update Banner */}
       <DesktopUpdateNotification lang={lang} />
+
+      {/* Enterprise Print & Document System */}
+      <PrintSystem
+        isOpen={isPrintPreviewOpen}
+        onClose={() => setIsPrintPreviewOpen(false)}
+        memories={memories}
+        initialSelectedMemoryId={printPreviewMemoryId}
+        lang={lang}
+        companyName={currentUser?.companyName || "Zakir Institutional Memory Engine"}
+        userName={currentUser?.ownerName || currentUser?.email?.split("@")[0] || "System Administrator"}
+        workspaceLogoUrl={currentUser?.avatarUrl}
+      />
 
     </div>
   );

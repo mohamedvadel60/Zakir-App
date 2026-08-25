@@ -1,0 +1,86 @@
+/* Zakir Institutional Print Engine Styles */
+
+@media screen {
+  /* Hide the print host from normal browser DOM flow */
+  #zakir-print-document-host {
+    display: none !important;
+  }
+}
+
+@media print {
+  /* Reset browser print page layout */
+  @page {
+    size: auto;
+    margin: 0mm;
+  }
+
+  /* Reset document root and page counters */
+  html,
+  body {
+    background: #ffffff !important;
+    color: #0f172a !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    width: 100% !important;
+    height: auto !important;
+    min-height: auto !important;
+    overflow: visible !important;
+    color-scheme: light !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Hide all main web UI containers during native print execution */
+  body > *:not(#zakir-print-document-host) {
+    display: none !important;
+  }
+
+  /* Expose ONLY the dedicated print document host */
+  #zakir-print-document-host {
+    display: block !important;
+    position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: 100% !important;
+    height: auto !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #ffffff !important;
+    color: #0f172a !important;
+    color-scheme: light !important;
+    z-index: 999999 !important;
+  }
+
+  /* Force light background on all printable cards and elements */
+  #zakir-print-document-host * {
+    color-scheme: light !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Hide interactive controls in print output */
+  .no-print {
+    display: none !important;
+  }
+
+  /* Memory Card Page Fragmentation Control */
+  .zakir-print-memory-card {
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
+
+  /* First element blank page prevention */
+  .zakir-print-document-content > *:first-child {
+    break-before: avoid !important;
+    page-break-before: avoid !important;
+  }
+
+  /* Table Header repetition */
+  thead {
+    display: table-header-group !important;
+  }
+
+  tfoot {
+    display: table-footer-group !important;
+  }
+}
