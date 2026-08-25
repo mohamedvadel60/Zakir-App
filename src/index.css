@@ -440,6 +440,11 @@ img.broken-image-fallback {
   color: #27272A !important;
 }
 
+/* Print Portal - Hidden in standard screen view */
+#zakir-print-portal {
+  display: none !important;
+}
+
 /* Print Media Styles */
 @page {
   size: A4 portrait;
@@ -465,18 +470,10 @@ img.broken-image-fallback {
     padding: 0 !important;
   }
 
+  /* Completely hide all on-screen application UI, modals, navigation, and toolbars */
   #root,
-  #zakir-app-root {
-    margin: 0 !important;
-    padding: 0 !important;
-    height: auto !important;
-    min-height: 0 !important;
-    max-height: none !important;
-    overflow: visible !important;
-    background: #FFFFFF !important;
-  }
-
-  /* Hide all UI elements marked no-print and background chrome */
+  #zakir-app-root,
+  .print-modal-overlay,
   .no-print,
   .no-print * {
     display: none !important;
@@ -488,71 +485,49 @@ img.broken-image-fallback {
     overflow: hidden !important;
   }
 
-  body.printing-active #root > :not(.print-modal-overlay),
-  body.printing-active #zakir-app-root > :not(.print-modal-overlay),
-  body.printing-active header:not(.print-header-container),
-  body.printing-active nav,
-  body.printing-active aside,
-  body.printing-active #sidebar,
-  body.printing-active #navbar,
-  body.printing-active #footer,
-  body.printing-active footer:not(.print-document-footer),
-  .printable-receipt-modal {
-    display: none !important;
-    visibility: hidden !important;
-    height: 0 !important;
-    width: 0 !important;
-    overflow: hidden !important;
-  }
-
-  .print-only {
+  /* Display ONLY the dedicated, untransformed Print Portal */
+  #zakir-print-portal {
     display: block !important;
     visibility: visible !important;
-  }
-
-  /* Unroll the modal wrapper completely into standard document flow */
-  .print-modal-overlay,
-  .print-modal-overlay > div,
-  .print-content-grid,
-  .print-preview-canvas,
-  .preview-scale-wrapper,
-  .preview-sheet-frame {
-    display: block !important;
     position: static !important;
     width: 100% !important;
     max-width: 100% !important;
-    height: auto !important;
     min-height: 0 !important;
-    max-height: none !important;
+    height: auto !important;
     margin: 0 !important;
     padding: 0 !important;
     overflow: visible !important;
     background: #FFFFFF !important;
-    box-shadow: none !important;
-    border: none !important;
+    color: #0F172A !important;
     transform: none !important;
   }
 
-  /* Unified Printable Document in Print */
-  .print-document {
+  #zakir-print-portal .print-document {
     display: block !important;
-    position: relative !important;
+    position: static !important;
     width: 100% !important;
     max-width: 100% !important;
-    min-height: 0 !important;
+    min-height: 297mm !important;
     height: auto !important;
-    margin: 0 !important;
-    padding: 15mm !important;
-    background: #FFFFFF !important;
-    color: #0F172A !important;
+    margin: 0 auto !important;
     box-shadow: none !important;
     border: none !important;
     border-radius: 0 !important;
+    background: #FFFFFF !important;
+    color: #0F172A !important;
+    box-sizing: border-box !important;
   }
 
-  /* Page break rules */
-  .print-heading-group,
+  /* Natural Fragmentation & Page break rules */
   .print-header-container,
+  .print-heading-group,
+  .memory-card-header {
+    break-inside: avoid !important;
+    break-after: avoid !important;
+    page-break-inside: avoid !important;
+    page-break-after: avoid !important;
+  }
+
   .signature-block,
   .lessons-box,
   .print-document-footer,
@@ -562,8 +537,8 @@ img.broken-image-fallback {
   }
 
   .memory-card-item {
-    break-inside: avoid !important;
-    page-break-inside: avoid !important;
+    break-inside: auto !important;
+    page-break-inside: auto !important;
     background: #FFFFFF !important;
     color: #0F172A !important;
   }

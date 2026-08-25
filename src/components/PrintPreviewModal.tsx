@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect, useCallback } from "react";
+import { createPortal } from "react-dom";
 import { 
   Printer, 
   X, 
@@ -226,9 +227,17 @@ export function PrintPreviewModal({
   }, [pageSize, orientation]);
 
   // Clean Native Print Execution
-  const executeNativePrint = useCallback(() => {
+  const executeNativePrint = useCallback(async () => {
     setIsPrinting(true);
     document.body.classList.add("printing-active");
+
+    try {
+      if (document.fonts && document.fonts.ready) {
+        await document.fonts.ready;
+      }
+    } catch {
+      // ignore font loading error
+    }
 
     window.focus();
 
@@ -238,12 +247,12 @@ export function PrintPreviewModal({
       } catch (err) {
         console.error("Print failed:", err);
       }
-    }, 100);
+    }, 150);
 
     const fallbackTimer = setTimeout(() => {
       document.body.classList.remove("printing-active");
       setIsPrinting(false);
-    }, 3000);
+    }, 4000);
 
     return () => {
       clearTimeout(timer);
@@ -316,13 +325,15 @@ export function PrintPreviewModal({
   if (!isOpen) return null;
 
   return (
-    <div className="print-modal-overlay fixed inset-0 z-50 overflow-y-auto bg-slate-950/85 backdrop-blur-md flex items-center justify-center p-2 sm:p-4 selection:bg-[#0075DE]/30">
-      <motion.div 
-        initial={{ opacity: 0, scale: 0.96 }}
-        animate={{ opacity: 1, scale: 1 }}
-        exit={{ opacity: 0, scale: 0.96 }}
-        className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-7xl max-h-[94vh] flex flex-col shadow-2xl overflow-hidden text-slate-100"
-      >
+    <>
+      {/* 1. ON-SCREEN INTERACTIVE PREVIEW MODAL (Strictly NO-PRINT) */}
+      <div className="no-print print-modal-overlay fixed inset-0 z-50 overflow-y-auto bg-slate-950/85 backdrop-blur-md flex items-center justify-center p-2 sm:p-4 selection:bg-[#0075DE]/30">
+        <motion.div 
+          initial={{ opacity: 0, scale: 0.96 }}
+          animate={{ opacity: 1, scale: 1 }}
+          exit={{ opacity: 0, scale: 0.96 }}
+          className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-7xl max-h-[94vh] flex flex-col shadow-2xl overflow-hidden text-slate-100"
+        >
         {/* Modal Top Bar (No Print) */}
         <div className="no-print p-4 sm:p-5 border-b border-slate-800 flex items-center justify-between gap-4 bg-slate-950/90">
           <div className="flex items-center gap-3">
@@ -990,5 +1001,54 @@ export function PrintPreviewModal({
         </div>
       </motion.div>
     </div>
+
+    {/* 2. DEDICATED PRINT PORTAL (Strictly PRINT-ONLY, Direct DOM Child of <body>, Zero transforms/wrappers) */}
+    {typeof document !== "undefined" && createPortal(
+      <div id="zakir-print-portal" className="print-only" dir={lang === "ar" ? "rtl" : "ltr"}>
+        {selectedMemories.length > 0 && (
+          <PrintableDocument
+            memories={selectedMemories}
+            lang={lang}
+            companyName={companyName}
+            departmentName={departmentName}
+            documentRef={documentRef}
+            userName={userName}
+            displayDate={displayDate}
+            
+            density={density}
+            columns={columns}
+            fontSize={fontSize}
+            pageSize={pageSize}
+            orientation={orientation}
+            lineSpacing={lineSpacing}
+            pageMargins={pageMargins}
+            customFontScale={customFontScale}
+            documentTheme={documentTheme}
+            
+            includeHeader={includeHeader}
+            includeFooter={includeFooter}
+            includeCausal={includeCausal}
+            includeOutcomes={includeOutcomes}
+            includeLessons={includeLessons}
+            includeAuthor={includeAuthor}
+            includeTags={includeTags}
+            includeSignatureBlock={includeSignatureBlock}
+            includeVerificationSeal={includeVerificationSeal}
+            
+            headerStyle={headerStyle}
+            logoSize={logoSize}
+            companyLogoImg={companyLogoImg}
+            signatureImg={signatureImg}
+            watermarkText={t.watermarkText}
+            includeCompanyInWatermark={includeCompanyInWatermark}
+            includeDateInWatermark={includeDateInWatermark}
+            
+            isPrinting={true}
+          />
+        )}
+      </div>,
+      document.body
+    )}
+  </>
   );
 }

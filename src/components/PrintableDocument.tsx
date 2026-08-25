@@ -397,7 +397,7 @@ export const PrintableDocument: React.FC<PrintableDocumentProps> = ({
 
   return (
     <article
-      className="print-document bg-white text-slate-900 shadow-2xl relative border border-slate-300 rounded-sm flex flex-col justify-start"
+      className={`print-document bg-white text-slate-900 relative ${isPrinting ? "border-none shadow-none rounded-none block w-full" : "shadow-2xl border border-slate-300 rounded-sm flex flex-col justify-start"}`}
       style={{
         padding: `${pageMargins}mm`,
         boxSizing: "border-box",
@@ -431,7 +431,7 @@ export const PrintableDocument: React.FC<PrintableDocumentProps> = ({
       {renderHeader()}
 
       {/* Main Content: Memory Records */}
-      <main className={`flex-1 relative z-10 ${columns === "2" ? "grid grid-cols-2 gap-4 items-start" : "space-y-4"}`}>
+      <main className={`relative z-10 ${isPrinting ? "block w-full" : "flex-1"} ${columns === "2" ? "grid grid-cols-2 gap-4 items-start" : "space-y-4"}`}>
         {memories.map((m) => (
           <div 
             key={m.id}
@@ -453,7 +453,7 @@ export const PrintableDocument: React.FC<PrintableDocumentProps> = ({
             )}
 
             {/* Card Header: Badges & Record Number */}
-            <div className={densityStyles.headerPadding}>
+            <div className={`memory-card-header print-heading-group ${densityStyles.headerPadding}`}>
               <div className="flex items-center justify-between gap-2 mb-1.5 flex-wrap">
                 <div className="flex items-center gap-1.5">
                   <span className={`${densityStyles.badgeText} uppercase ${themeColors.badge}`}>
