@@ -71,17 +71,46 @@ export const PrintDocument: React.FC<PrintDocumentProps> = ({
     return risk;
   };
 
-  const getDensitySpacing = () => {
-    if (settings.density === "compact") return "space-y-4";
-    if (settings.density === "spacious") return "space-y-8";
-    return "space-y-6";
+  const getDensityMetrics = () => {
+    let lh = settings.lineHeight;
+    if (!lh) {
+      if (settings.density === "compact") lh = 1.3;
+      else if (settings.density === "spacious") lh = 1.85;
+      else lh = 1.55;
+    }
+
+    if (settings.density === "compact") {
+      return {
+        lineHeight: lh,
+        cardPadding: "10px 14px",
+        cardMarginBottom: "10px",
+        sectionGap: "8px",
+        innerPadding: "6px 10px",
+      };
+    }
+
+    if (settings.density === "spacious") {
+      return {
+        lineHeight: lh,
+        cardPadding: "24px 28px",
+        cardMarginBottom: "26px",
+        sectionGap: "20px",
+        innerPadding: "14px 18px",
+      };
+    }
+
+    // comfortable (default)
+    return {
+      lineHeight: lh,
+      cardPadding: "16px 20px",
+      cardMarginBottom: "16px",
+      sectionGap: "14px",
+      innerPadding: "10px 14px",
+    };
   };
 
-  const getFontSizeClass = () => {
-    if (settings.fontSize === "small") return "text-xs";
-    if (settings.fontSize === "large") return "text-base";
-    return "text-sm";
-  };
+  const metrics = getDensityMetrics();
+  const baseFontSize = typeof settings.fontSize === "number" ? settings.fontSize : 13;
 
   if (normalizedMemories.length === 0) {
     return (
@@ -99,19 +128,21 @@ export const PrintDocument: React.FC<PrintDocumentProps> = ({
 
   return (
     <div
-      className={`zakir-print-document-content w-full bg-white text-slate-900 ${getFontSizeClass()}`}
+      className="zakir-print-document-content w-full bg-white text-slate-900"
       dir={isRtl ? "rtl" : "ltr"}
       style={{
         backgroundColor: "#ffffff",
         color: "#0f172a",
         colorScheme: "light",
+        fontSize: `${baseFontSize}px`,
+        lineHeight: metrics.lineHeight,
       }}
     >
       {/* Institutional Header */}
       <PrintHeader settings={settings} lang={lang} />
 
       {/* Memory Cards Flow Container */}
-      <main className={`${getDensitySpacing()} my-4`}>
+      <main className="my-4" style={{ display: "flex", flexDirection: "column", gap: metrics.cardMarginBottom }}>
         {normalizedMemories.map((m, index) => {
           const cleanTitle = sanitizeText(m.title, lang);
           const cleanDesc = sanitizeText(m.description, lang);
@@ -124,10 +155,13 @@ export const PrintDocument: React.FC<PrintDocumentProps> = ({
             <article
               key={m.id}
               data-memory-id={m.id}
-              className="zakir-print-memory-card border border-slate-300 rounded-xl p-5 bg-white shadow-xs relative break-inside-auto print:shadow-none print:border-slate-300"
+              className="zakir-print-memory-card border border-slate-300 rounded-xl bg-white shadow-xs relative break-inside-auto print:shadow-none print:border-slate-300"
               style={{
                 backgroundColor: "#ffffff",
                 color: "#0f172a",
+                padding: metrics.cardPadding,
+                marginBottom: metrics.cardMarginBottom,
+                lineHeight: metrics.lineHeight,
               }}
             >
               {/* Exclusion Button (Screen preview only) */}
@@ -143,20 +177,23 @@ export const PrintDocument: React.FC<PrintDocumentProps> = ({
               )}
 
               {/* Header: Title, Category, Risk Level */}
-              <div className="flex items-start justify-between gap-3 mb-3 border-b border-slate-100 pb-2.5 break-inside-avoid">
+              <div
+                className="flex items-start justify-between gap-3 border-b border-slate-100 pb-2.5 break-inside-avoid"
+                style={{ marginBottom: metrics.sectionGap }}
+              >
                 <div className="space-y-1">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-[10px] font-mono font-bold text-slate-400 uppercase">
+                    <span className="font-mono font-bold text-slate-400 uppercase" style={{ fontSize: `${Math.max(9, Math.round(baseFontSize * 0.77))}px` }}>
                       #{index + 1}
                     </span>
-                    <span className="text-xs font-black text-[#0075DE] bg-blue-50 px-2.5 py-0.5 rounded border border-blue-200">
+                    <span className="font-black text-[#0075DE] bg-blue-50 px-2.5 py-0.5 rounded border border-blue-200" style={{ fontSize: `${Math.max(10, Math.round(baseFontSize * 0.85))}px` }}>
                       {m.category}
                     </span>
-                    <span className="text-[10px] font-mono text-slate-400">
+                    <span className="font-mono text-slate-400" style={{ fontSize: `${Math.max(9, Math.round(baseFontSize * 0.77))}px` }}>
                       {new Date(m.createdAt).toLocaleDateString(lang === "ar" ? "ar-SA" : "en-US")}
                     </span>
                   </div>
-                  <h3 className="text-base font-black text-slate-900 leading-snug">
+                  <h3 className="font-black text-slate-900 leading-snug" style={{ fontSize: `${Math.round(baseFontSize * 1.25)}px` }}>
                     {cleanTitle || m.title}
                   </h3>
                 </div>
@@ -164,9 +201,10 @@ export const PrintDocument: React.FC<PrintDocumentProps> = ({
                 {/* Risk Badge */}
                 {settings.showRiskBadges && (
                   <span
-                    className={`risk-badge px-2.5 py-1 rounded text-[10px] font-extrabold border shrink-0 ${getRiskBadgeColor(
+                    className={`risk-badge px-2.5 py-1 rounded font-extrabold border shrink-0 ${getRiskBadgeColor(
                       m.riskLevel
                     )}`}
+                    style={{ fontSize: `${Math.max(9, Math.round(baseFontSize * 0.77))}px` }}
                   >
                     {getRiskLabel(m.riskLevel)}
                   </span>
@@ -175,18 +213,24 @@ export const PrintDocument: React.FC<PrintDocumentProps> = ({
 
               {/* Main Description */}
               {cleanDesc && (
-                <div className="text-slate-800 leading-relaxed font-medium mb-3 whitespace-pre-line text-[13px]">
+                <div
+                  className="text-slate-800 font-medium whitespace-pre-line"
+                  style={{ fontSize: `${baseFontSize}px`, lineHeight: metrics.lineHeight, marginBottom: metrics.sectionGap }}
+                >
                   {cleanDesc}
                 </div>
               )}
 
               {/* Core Strategic Decision */}
               {cleanDecision && (
-                <div className="decision-box mb-3 p-3.5 bg-slate-50 border-s-4 border-[#0075DE] rounded-e-lg break-inside-avoid">
-                  <strong className="block text-xs font-extrabold text-[#0075DE] mb-1">
+                <div
+                  className="decision-box bg-slate-50 border-s-4 border-[#0075DE] rounded-e-lg break-inside-avoid"
+                  style={{ padding: metrics.innerPadding, marginBottom: metrics.sectionGap }}
+                >
+                  <strong className="block font-extrabold text-[#0075DE] mb-1" style={{ fontSize: `${Math.max(10, Math.round(baseFontSize * 0.88))}px` }}>
                     {lang === "ar" ? "القرار الاستراتيجي المعتمد:" : "Approved Strategic Decision:"}
                   </strong>
-                  <p className="text-xs text-slate-900 font-semibold whitespace-pre-line leading-relaxed">
+                  <p className="text-slate-900 font-semibold whitespace-pre-line" style={{ fontSize: `${baseFontSize}px`, lineHeight: metrics.lineHeight }}>
                     {cleanDecision}
                   </p>
                 </div>
@@ -194,11 +238,14 @@ export const PrintDocument: React.FC<PrintDocumentProps> = ({
 
               {/* Causal Factors */}
               {settings.showCausalFactors && cleanCausal && (
-                <div className="mb-3 text-xs">
-                  <span className="font-bold text-slate-700 block mb-1">
+                <div style={{ marginBottom: metrics.sectionGap }}>
+                  <span className="font-bold text-slate-700 block mb-1" style={{ fontSize: `${Math.max(10, Math.round(baseFontSize * 0.88))}px` }}>
                     {lang === "ar" ? "المسببات والعوامل المباشرة:" : "Causal Factors & Root Causes:"}
                   </span>
-                  <p className="text-slate-700 bg-slate-50 p-2.5 rounded border border-slate-200 leading-relaxed">
+                  <p
+                    className="text-slate-700 bg-slate-50 rounded border border-slate-200"
+                    style={{ padding: metrics.innerPadding, fontSize: `${Math.max(10, Math.round(baseFontSize * 0.92))}px`, lineHeight: metrics.lineHeight }}
+                  >
                     {cleanCausal}
                   </p>
                 </div>
@@ -206,11 +253,14 @@ export const PrintDocument: React.FC<PrintDocumentProps> = ({
 
               {/* Outcomes */}
               {settings.showOutcomes && cleanOutcomes && (
-                <div className="mb-3 text-xs">
-                  <span className="font-bold text-slate-700 block mb-1">
+                <div style={{ marginBottom: metrics.sectionGap }}>
+                  <span className="font-bold text-slate-700 block mb-1" style={{ fontSize: `${Math.max(10, Math.round(baseFontSize * 0.88))}px` }}>
                     {lang === "ar" ? "النتائج والأثر المترتب:" : "Direct Outcomes & Impact:"}
                   </span>
-                  <p className="text-slate-700 bg-slate-50 p-2.5 rounded border border-slate-200 leading-relaxed">
+                  <p
+                    className="text-slate-700 bg-slate-50 rounded border border-slate-200"
+                    style={{ padding: metrics.innerPadding, fontSize: `${Math.max(10, Math.round(baseFontSize * 0.92))}px`, lineHeight: metrics.lineHeight }}
+                  >
                     {cleanOutcomes}
                   </p>
                 </div>
@@ -218,18 +268,24 @@ export const PrintDocument: React.FC<PrintDocumentProps> = ({
 
               {/* Lessons Learned */}
               {settings.showLessonsLearned && cleanLessons && (
-                <div className="mb-3 text-xs">
-                  <span className="font-bold text-emerald-900 block mb-1">
+                <div style={{ marginBottom: metrics.sectionGap }}>
+                  <span className="font-bold text-emerald-900 block mb-1" style={{ fontSize: `${Math.max(10, Math.round(baseFontSize * 0.88))}px` }}>
                     {lang === "ar" ? "الدروس المستفادة للتطوير المستقبلي:" : "Key Lessons & Actionable Insights:"}
                   </span>
-                  <p className="text-emerald-950 bg-emerald-50/70 p-2.5 rounded border border-emerald-200 font-medium leading-relaxed">
+                  <p
+                    className="text-emerald-950 bg-emerald-50/70 rounded border border-emerald-200 font-medium"
+                    style={{ padding: metrics.innerPadding, fontSize: `${Math.max(10, Math.round(baseFontSize * 0.92))}px`, lineHeight: metrics.lineHeight }}
+                  >
                     {cleanLessons}
                   </p>
                 </div>
               )}
 
               {/* Footer Metadata & Tags */}
-              <div className="mt-3 pt-2.5 border-t border-slate-100 flex items-center justify-between text-[10px] text-slate-500 flex-wrap gap-2">
+              <div
+                className="pt-2.5 border-t border-slate-100 flex items-center justify-between text-slate-500 flex-wrap gap-2"
+                style={{ marginTop: metrics.sectionGap, fontSize: `${Math.max(9, Math.round(baseFontSize * 0.77))}px` }}
+              >
                 {/* Author & Role */}
                 {settings.showMetadata && (
                   <div className="flex items-center gap-1">
@@ -245,7 +301,8 @@ export const PrintDocument: React.FC<PrintDocumentProps> = ({
                     {m.tags.map((tag, tIdx) => (
                       <span
                         key={tIdx}
-                        className="bg-slate-100 text-slate-600 px-2 py-0.5 rounded text-[9px] font-mono border border-slate-200"
+                        className="bg-slate-100 text-slate-600 px-2 py-0.5 rounded font-mono border border-slate-200"
+                        style={{ fontSize: `${Math.max(8, Math.round(baseFontSize * 0.7))}px` }}
                       >
                         #{tag}
                       </span>

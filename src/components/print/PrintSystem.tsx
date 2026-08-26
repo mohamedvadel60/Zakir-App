@@ -18,6 +18,8 @@ export const PrintSystem: React.FC<PrintSystemProps> = ({
   companyName,
   userName,
   workspaceLogoUrl,
+  currentUser,
+  onOpenProfileSettings,
 }) => {
   const isRtl = lang === "ar";
 
@@ -47,37 +49,65 @@ export const PrintSystem: React.FC<PrintSystemProps> = ({
     }
   }, [isOpen, initialSelectedMemoryId, validMemories]);
 
+  const effectiveCompanyName = currentUser?.organizationName || currentUser?.companyName || companyName || (lang === "ar" ? "ذاكر للهندسة والمعرفة المؤسسية" : "Zakir Knowledge Engine");
+  const effectiveDepartment = currentUser?.department || currentUser?.issuingEntity || (lang === "ar" ? "إدارة الحوكمة والمخاطر والقرارات الاستراتيجية" : "Governance & Strategy Division");
+  const effectiveIssuingEntity = currentUser?.issuingEntity || currentUser?.department || effectiveCompanyName;
+  const effectiveAuthorName = currentUser?.fullName || currentUser?.ownerName || userName || "";
+  const effectiveApproverName = currentUser?.fullName || currentUser?.ownerName || (lang === "ar" ? "د. محمد الأحمد" : "Dr. M. Al-Ahmad");
+  const effectiveApproverTitle = currentUser?.jobTitle || (currentUser?.role ? currentUser.role : (lang === "ar" ? "رئيس لجنة الحوكمة والقرارات" : "Governance Chair"));
+  const effectiveLogo = currentUser?.companyLogoUrl || workspaceLogoUrl || null;
+  const effectiveSignature = currentUser?.signatureUrl || null;
+
   // Print Configuration State
   const [settings, setSettings] = useState<PrintSettingsState>({
     paperSize: "A4",
     orientation: "portrait",
     margins: "normal",
     density: "comfortable",
+    lineHeight: 1.55,
     headerStyle: "classic",
-    fontSize: "medium",
+    fontSize: 13,
     showHeader: true,
     showFooter: true,
     showSignature: true,
     showIssuingEntity: true,
-    issuingEntityName: companyName || (lang === "ar" ? "ذاكر للهندسة والمعرفة المؤسسية" : "Zakir Knowledge Engine"),
+    issuingEntityName: effectiveIssuingEntity,
     showMetadata: true,
     showCausalFactors: true,
     showOutcomes: true,
     showLessonsLearned: true,
     showTags: true,
     showRiskBadges: true,
-    companyName: companyName || (lang === "ar" ? "ذاكر للهندسة والمعرفة المؤسسية" : "Zakir Knowledge Engine"),
-    departmentName: lang === "ar" ? "إدارة الحوكمة والمخاطر والقرارات الاستراتيجية" : "Governance & Strategy Division",
+    companyName: effectiveCompanyName,
+    departmentName: effectiveDepartment,
     reportTitle: lang === "ar" ? "تقرير مخرجات ومعارف الذاكرة المؤسسية" : "Institutional Knowledge & Memory Report",
     docRefNumber: `ZKR-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`,
-    authorName: userName || "",
-    approverName: lang === "ar" ? "د. محمد الأحمد - رئيس لجنة الحوكمة" : "Dr. M. Al-Ahmad - Governance Chair",
+    authorName: effectiveAuthorName,
+    approverName: effectiveApproverName,
+    approverTitle: effectiveApproverTitle,
     approvalDate: new Date().toISOString().split("T")[0],
-    companyLogoImg: workspaceLogoUrl || null,
-    signatureImg: null,
+    companyLogoImg: effectiveLogo,
+    signatureImg: effectiveSignature,
     watermarkText: "",
     zoom: 1.0,
   });
+
+  // Sync profile details when currentUser changes or modal opens
+  useEffect(() => {
+    if (isOpen) {
+      setSettings((prev) => ({
+        ...prev,
+        companyName: effectiveCompanyName,
+        departmentName: effectiveDepartment,
+        issuingEntityName: effectiveIssuingEntity,
+        authorName: effectiveAuthorName,
+        approverName: effectiveApproverName,
+        approverTitle: effectiveApproverTitle,
+        companyLogoImg: effectiveLogo,
+        signatureImg: effectiveSignature,
+      }));
+    }
+  }, [isOpen, currentUser, effectiveCompanyName, effectiveDepartment, effectiveIssuingEntity, effectiveAuthorName, effectiveApproverName, effectiveApproverTitle, effectiveLogo, effectiveSignature]);
 
   // Print Preparation State
   const [isPreparingPrint, setIsPreparingPrint] = useState(false);
@@ -319,6 +349,8 @@ export const PrintSystem: React.FC<PrintSystemProps> = ({
             onDeselectAllMemories={handleDeselectAllMemories}
             lang={lang}
             diagnostics={diagnostics}
+            currentUser={currentUser}
+            onOpenProfileSettings={onOpenProfileSettings}
           />
 
           {/* Layer B: Screen Print Preview Area */}

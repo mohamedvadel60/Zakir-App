@@ -36,9 +36,9 @@
 }
 
 @media print {
-  /* Default page margin reset - Paper size is managed dynamically via PrintSystem dynamic style */
+  /* Default page margin setup - Dynamic paper size is injected by PrintSystem */
   @page {
-    margin: 0;
+    margin: 12mm;
   }
 
   /* 1. Complete Light Mode Color & Layout Reset */
@@ -46,7 +46,7 @@
   body {
     background: #ffffff !important;
     background-color: #ffffff !important;
-    color: #0f172a !important;
+    color: #000000 !important;
     margin: 0 !important;
     padding: 0 !important;
     width: 100% !important;
@@ -75,7 +75,7 @@
     padding: 0 !important;
     background: #ffffff !important;
     background-color: #ffffff !important;
-    color: #0f172a !important;
+    color: #000000 !important;
     color-scheme: light !important;
     transform: none !important;
     overflow: visible !important;
@@ -137,7 +137,8 @@
   }
 
   /* 5. Printable Page Root resets */
-  .zakir-print-page {
+  .zakir-print-page,
+  .print-page {
     width: 100% !important;
     max-width: 100% !important;
     min-height: auto !important;
@@ -148,6 +149,7 @@
     border: none !important;
     border-radius: 0 !important;
     margin: 0 !important;
+    padding: 0 !important;
     overflow: visible !important;
     transform: none !important;
   }
@@ -161,26 +163,33 @@
     display: none !important;
   }
 
-  /* 7. Memory Cards Natural Multi-Page Flow Control */
-  .zakir-print-memory-card {
+  /* 7. Memory Cards Natural Continuous Border & Cohesive Flow */
+  .zakir-print-memory-card,
+  .data-section {
     background: #ffffff !important;
     background-color: #ffffff !important;
-    border: 1px solid #cbd5e1 !important;
+    border: 1.5px solid #cbd5e1 !important;
     box-shadow: none !important;
-    border-radius: 0.5rem !important;
-    break-inside: auto !important;
-    page-break-inside: auto !important;
+    border-radius: 8px !important;
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
     margin-bottom: 1.25rem !important;
+    padding: 1rem !important;
+    box-sizing: border-box !important;
   }
 
   /* 8. Cohesive Blocks that should NOT break across pages */
   .break-inside-avoid,
   .signature-block,
   .approval-block,
+  .signature-wrapper,
   .zakir-print-header,
+  .report-header,
   .zakir-print-footer,
   .risk-badge,
-  .decision-box {
+  .decision-box,
+  tr,
+  li {
     break-inside: avoid !important;
     page-break-inside: avoid !important;
   }

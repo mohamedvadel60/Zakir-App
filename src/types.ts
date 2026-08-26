@@ -141,6 +141,12 @@ export interface User {
   id: string;
   email: string;
   phone?: string;
+  fullName?: string;
+  jobTitle?: string;
+  department?: string;
+  issuingEntity?: string;
+  organizationName?: string;
+  signatureUrl?: string;
   isVerified?: boolean;
   isEmailVerified?: boolean;
   isPhoneVerified?: boolean;

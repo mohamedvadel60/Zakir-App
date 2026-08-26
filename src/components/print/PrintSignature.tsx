@@ -70,8 +70,13 @@ export const PrintSignature: React.FC<PrintSignatureProps> = ({ settings, lang }
           <div>
             <span className="block text-[10px] font-bold text-slate-500 uppercase">{getApproverLabel()}</span>
             <p className="text-xs font-bold text-slate-900 mt-0.5">
-              {settings.approverName || (lang === "ar" ? "د. محمد الأحمد - رئيس لجنة الحوكمة" : "Dr. M. Al-Ahmad - Governance Chair")}
+              {settings.approverName || (lang === "ar" ? "د. محمد الأحمد" : "Dr. M. Al-Ahmad")}
             </p>
+            {settings.approverTitle && (
+              <p className="text-[10px] text-slate-600 font-semibold mt-0.5">
+                {settings.approverTitle}
+              </p>
+            )}
           </div>
 
           <div>

@@ -263,15 +263,15 @@ export const EmailVerificationView: React.FC<EmailVerificationViewProps> = ({
 
         {/* Error/Success Notifications */}
         {verificationError && (
-          <div className="p-3 bg-rose-500/10 border border-rose-500/20 rounded-xl text-rose-500 dark:text-rose-400 text-xs flex items-center gap-2.5">
-            <AlertTriangle className="w-4 h-4 shrink-0" />
-            <span>{verificationError}</span>
+          <div className="p-3 bg-rose-500/10 dark:bg-rose-950/20 border border-rose-500/20 rounded-lg text-rose-600 dark:text-rose-400 text-xs flex items-start gap-2.5 my-3 shadow-xs text-start">
+            <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5 text-rose-500" />
+            <span className="flex-1 min-w-0 text-start">{verificationError.replace(/^[.\s:]+/, "").trim()}</span>
           </div>
         )}
         {verificationSuccess && (
-          <div className="p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-xl text-emerald-600 dark:text-emerald-400 text-xs flex items-center gap-2.5">
-            <CheckCircle className="w-4 h-4 shrink-0" />
-            <span>{verificationSuccess}</span>
+          <div className="p-3 bg-emerald-500/10 dark:bg-emerald-950/20 border border-emerald-500/20 rounded-lg text-emerald-600 dark:text-emerald-400 text-xs flex items-start gap-2.5 my-3 shadow-xs text-start">
+            <CheckCircle className="w-4 h-4 shrink-0 mt-0.5 text-emerald-500" />
+            <span className="flex-1 min-w-0 text-start">{verificationSuccess}</span>
           </div>
         )}
 
@@ -287,7 +287,7 @@ export const EmailVerificationView: React.FC<EmailVerificationViewProps> = ({
               placeholder="------"
               value={verificationCode}
               onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, ""))}
-              className="w-full text-center tracking-[12px] text-xl font-bold font-mono py-3.5 bg-slate-100 dark:bg-slate-950/60 border border-slate-300 dark:border-slate-800 rounded-xl text-[#0075DE] placeholder:text-slate-400 dark:placeholder:text-slate-800 focus:border-[#0075DE] focus:outline-none focus:ring-1 focus:ring-[#0075DE] transition-all"
+              className="w-full text-center tracking-[12px] text-xl font-bold font-mono py-3.5 bg-slate-50 dark:bg-slate-900/70 border border-slate-200 dark:border-slate-800 rounded-lg text-[#0075DE] placeholder:text-slate-400 dark:placeholder:text-slate-600 focus:outline-none focus:border-[#0075DE] focus:ring-2 focus:ring-[#0075DE]/20 transition-all shadow-xs"
             />
           </div>
 

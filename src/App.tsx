@@ -106,6 +106,8 @@ import { generateWorldBankFallbackData } from "./lib/worldBankFallback.js";
 import { ZakirLogo } from "./components/ZakirLogo";
 import { AuthSwitch } from "./components/ui/auth-switch";
 import { SplitLoginCard } from "./components/ui/split-login-card";
+import { CompactAppSwitcher } from "./components/ui/CompactAppSwitcher";
+import { CompactLanguageSwitcher } from "./components/ui/CompactLanguageSwitcher";
 import { applyGlobalTheme, ThemeMode } from "./lib/themeUtils.js";
 import { authenticatedFetch } from "./lib/apiUtils.js";
 import { SettingsAdmin } from "./components/SettingsAdmin";
@@ -925,25 +927,40 @@ This hosting domain (**${currentDomain}**) has not been authorized in your Fireb
         : "Too many failed attempts. Please try again later.";
     }
 
-    if (errMsg.includes("Firebase:")) {
-      return errMsg.replace("Firebase:", "").trim();
+    let cleanMsg = errMsg;
+    if (cleanMsg.includes("Firebase:")) {
+      cleanMsg = cleanMsg.replace(/^Firebase:\s*/i, "").trim();
     }
+    cleanMsg = cleanMsg.replace(/^[.\s:]+/, "").trim();
+    if (cleanMsg.startsWith("Error (")) {
+      cleanMsg = cleanMsg.replace(/^Error \([^)]+\):\s*/i, "").replace(/^Error \([^)]+\)\s*/i, "").trim();
+    }
+    cleanMsg = cleanMsg.replace(/^[.\s:]+/, "").trim();
     
-    return errMsg;
+    return cleanMsg;
   };
 
   const renderErrorContent = (errorMsg: string) => {
     if (!errorMsg) return null;
-    if (errorMsg.includes("\n")) {
+    let clean = errorMsg.replace(/^[.\s:]+/, "").trim();
+    if (clean.startsWith("Error (")) {
+      clean = clean.replace(/^Error \([^)]+\):\s*/i, "").replace(/^Error \([^)]+\)\s*/i, "").trim();
+    }
+    clean = clean.replace(/^[.\s:]+/, "").trim();
+    if (clean && !/[.!?]$/.test(clean)) {
+      clean = clean + ".";
+    }
+
+    if (clean.includes("\n")) {
       return (
-        <div className="whitespace-pre-wrap text-left leading-relaxed text-[11px] space-y-1.5 font-medium">
-          {errorMsg.split("\n").map((line, idx) => {
+        <div className="whitespace-pre-wrap text-start leading-relaxed text-[11px] space-y-1.5 font-medium">
+          {clean.split("\n").map((line, idx) => {
             let content: React.ReactNode = line;
             if (line.trim().startsWith("**") && line.trim().endsWith("**")) {
               content = <strong>{line.replace(/\*\*/g, "")}</strong>;
             } else if (line.includes("**")) {
               const parts = line.split("**");
-              content = parts.map((part, i) => i % 2 === 1 ? <strong key={i} className="text-white font-bold">{part}</strong> : part);
+              content = parts.map((part, i) => i % 2 === 1 ? <strong key={i} className="text-rose-600 dark:text-rose-400 font-bold">{part}</strong> : part);
             }
             return (
               <div key={idx} className="block">
@@ -954,7 +971,7 @@ This hosting domain (**${currentDomain}**) has not been authorized in your Fireb
         </div>
       );
     }
-    return <span>{errorMsg}</span>;
+    return <span className="text-start leading-normal text-xs font-medium">{clean}</span>;
   };
 
   // UI Navigation State
@@ -2619,29 +2636,32 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
     return (
       <div 
         id="zakir-auth-loading"
-        className={`min-h-screen flex flex-col items-center justify-center transition-all duration-300 ${
-          theme === "dark" ? "theme-dark bg-[#0B0F19] text-[#F8FAFC]" : "theme-light bg-[#F0F2F5] text-[#0F172A]"
+        className={`min-h-screen flex items-center justify-center transition-colors duration-300 select-none ${
+          theme === "dark" ? "theme-dark bg-[#0B0F19]" : "theme-light bg-[#F0F2F5]"
         }`}
       >
-        <div className="flex flex-col items-center gap-5">
-          <div className="relative flex items-center justify-center">
-            <div className={`w-20 h-20 rounded-2xl flex items-center justify-center ${
+        <motion.div 
+          initial={{ opacity: 0, scale: 0.94 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+          className="relative flex items-center justify-center"
+        >
+          {/* Subtle Ambient Institutional Glow */}
+          <div className="absolute -inset-6 rounded-full bg-gradient-to-tr from-[#0db4d7]/15 via-[#0075DE]/10 to-[#f3ba1a]/15 blur-xl pointer-events-none opacity-60 animate-pulse" />
+
+          {/* Minimalist Logo Container */}
+          <motion.div 
+            animate={{ opacity: [0.88, 1, 0.88] }}
+            transition={{ duration: 2.2, repeat: Infinity, ease: "easeInOut" }}
+            className={`relative z-10 p-5 rounded-2xl flex items-center justify-center backdrop-blur-md transition-colors ${
               theme === "light" 
-                ? "bg-slate-200 border border-slate-400 text-black" 
-                : "bg-[#0075DE]/5 border border-[#0075DE]/15 text-[#0075DE]"
-            }`}>
-              <ZakirLogo size={56} iconOnly theme={isCustomThemeActive ? "custom" : theme} />
-            </div>
-            <div className="absolute inset-0 w-20 h-20 rounded-2xl border-2 border-slate-400 dark:border-[#0075DE]/20 animate-ping opacity-20 pointer-events-none"></div>
-          </div>
-          <div className="text-center space-y-1">
-            <span className={`text-2xl font-black tracking-widest block font-sans ${
-              theme === "light" ? "text-black" : "text-white"
-            }`}>
-              ZAKIR
-            </span>
-          </div>
-        </div>
+                ? "bg-white/85 border border-slate-200/90 shadow-lg shadow-slate-200/50" 
+                : "bg-[#0C101A]/85 border border-slate-800/90 shadow-2xl shadow-black/60"
+            }`}
+          >
+            <ZakirLogo size={64} iconOnly theme={isCustomThemeActive ? "custom" : theme} />
+          </motion.div>
+        </motion.div>
       </div>
     );
   }
@@ -2926,9 +2946,10 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
             onBackToHome={() => setAuthMode("landing")}
           >
             <motion.div 
-              initial={{ opacity: 0, y: 15 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="w-full max-w-lg mx-auto bg-white dark:bg-[#0d1527]/90 border border-slate-200 dark:border-slate-800/80 rounded-2xl p-6 sm:p-8 shadow-2xl relative"
+              initial={{ opacity: 0, y: 12, scale: 0.99 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+              className="w-full bg-white dark:bg-[#0C101A] border border-slate-200/90 dark:border-slate-800/90 rounded-2xl p-6 sm:p-8 shadow-xl dark:shadow-[0_20px_50px_rgba(0,0,0,0.4)] relative backdrop-blur-sm"
             >
               <AuthSwitch 
                 currentMode={showForgotPassword ? "forgot" : (authMode as string) === "register" ? "register" : "login"}
@@ -2950,23 +2971,23 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                 /* FORGOT PASSWORD FORM */
                 <div>
                   <div className="text-center mb-6">
-                    <div className="w-12 h-12 rounded-2xl bg-[#0075DE]/10 border border-[#0075DE]/20 text-[#0075DE] flex items-center justify-center mx-auto mb-3 font-bold text-xl">
-                      <KeyRound className="w-6 h-6" />
+                    <div className="w-11 h-11 rounded-xl bg-[#0075DE]/10 border border-[#0075DE]/20 text-[#0075DE] flex items-center justify-center mx-auto mb-3 shadow-xs">
+                      <KeyRound className="w-5 h-5" />
                     </div>
-                    <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
-                      {lang === "fr" ? "Réinitialiser le mot de passe" : (lang === "ar" ? "إعادة تعيين كلمة السر" : "Reset Password")}
+                    <h1 className="text-xl font-bold tracking-tight text-slate-900 dark:text-white">
+                      {lang === "fr" ? "Réinitialiser le mot de passe" : (lang === "ar" ? "إعادة تعيين كلمة المرور" : "Reset Password")}
                     </h1>
-                    <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">
-                      {resetStep === "forgot" && (lang === "ar" ? "أدخل بريدك الإلكتروني للحصول على رمز إعادة تعيين ديناميكي مكون من 6 أرقام" : "Enter your email to receive a 6-digit dynamic reset code")}
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-1.5 leading-relaxed">
+                      {resetStep === "forgot" && (lang === "ar" ? "أدخل بريدك الإلكتروني للحصول على رمز إعادة تعيين من 6 أرقام" : "Enter your email to receive a 6-digit dynamic reset code")}
                       {resetStep === "verify_code" && (lang === "ar" ? "أدخل الرمز المكون من 6 أرقام المرسل لبريدك الإلكتروني" : "Enter the 6-digit code sent to your email")}
                       {resetStep === "new_password" && (lang === "ar" ? "اختر كلمة مرور جديدة وآمنة لحسابك" : "Create a new secure password for your account")}
-                      {resetStep === "success" && (lang === "ar" ? "تم إعادة تعيين كلمة السر بنجاح!" : "Your password was updated successfully!")}
+                      {resetStep === "success" && (lang === "ar" ? "تم إعادة تعيين كلمة المرور بنجاح!" : "Your password was updated successfully!")}
                     </p>
                   </div>
 
                   <form onSubmit={handleResetPasswordSubmit} className="space-y-4">
                     {resetErrorMsg && (
-                      <div className="p-3.5 bg-rose-500/10 border border-rose-500/20 rounded-xl text-rose-600 dark:text-rose-400 text-xs flex items-start gap-2.5">
+                      <div className="p-3 bg-rose-500/10 border border-rose-500/20 rounded-xl text-rose-600 dark:text-rose-400 text-xs flex items-start gap-2.5">
                         <AlertTriangle className="w-4 h-4 shrink-0 text-rose-500 mt-0.5" />
                         <div className="flex-1 space-y-1">
                           <p className="font-medium leading-relaxed whitespace-pre-line">{resetErrorMsg}</p>
@@ -2994,12 +3015,15 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                     {/* STEP 1: Enter Email */}
                     {resetStep === "forgot" && (
                       <div>
-                        <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">{t.email}</label>
+                        <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5 flex items-center gap-1.5">
+                          <Mail className="w-3.5 h-3.5 text-[#0075DE]" />
+                          <span>{t.email}</span>
+                        </label>
                         <input 
                           type="email" 
                           value={resetEmail}
                           onChange={(e) => setResetEmail(e.target.value)}
-                          className="w-full h-10 px-3 bg-slate-50 dark:bg-slate-900/40 border border-slate-300 dark:border-slate-800 rounded-xl text-slate-900 dark:text-white text-xs focus:outline-none focus:border-[#0075DE] focus:bg-[#0075DE]/5 transition-all placeholder:text-slate-400 dark:placeholder:text-slate-600"
+                          className="w-full h-10 px-3.5 bg-slate-50 dark:bg-slate-900/70 border border-slate-200 dark:border-slate-800 rounded-lg text-slate-900 dark:text-white text-xs focus:outline-none focus:border-[#0075DE] focus:ring-2 focus:ring-[#0075DE]/20 transition-all placeholder:text-slate-400 shadow-xs"
                           placeholder="name@company.com"
                           required
                         />
@@ -3010,7 +3034,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                     {resetStep === "verify_code" && (
                       <div className="space-y-4">
                         <div>
-                          <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                          <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
                             {lang === "ar" ? "الرمز المكون من 6 أرقام" : "6-Digit Verification Code"}
                           </label>
                           <input 
@@ -3019,7 +3043,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                             placeholder="------"
                             value={resetCode}
                             onChange={(e) => setResetCode(e.target.value.replace(/\D/g, ""))}
-                            className="w-full text-center tracking-[8px] text-lg font-bold font-mono h-11 bg-slate-50 dark:bg-slate-900/40 border border-slate-300 dark:border-slate-800 rounded-xl text-[#0075DE] placeholder:text-slate-400 dark:placeholder:text-slate-600 focus:outline-none focus:border-[#0075DE] transition-all"
+                            className="w-full text-center tracking-[10px] text-lg font-bold font-mono h-12 bg-slate-50 dark:bg-slate-900/70 border border-slate-200 dark:border-slate-800 rounded-lg text-[#0075DE] placeholder:text-slate-400 focus:outline-none focus:border-[#0075DE] focus:ring-2 focus:ring-[#0075DE]/20 transition-all shadow-xs"
                             required
                           />
                         </div>
@@ -3030,27 +3054,29 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                     {resetStep === "new_password" && (
                       <div className="space-y-3">
                         <div>
-                          <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                            {lang === "ar" ? "كلمة المرور الجديدة" : "New Password"}
+                          <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5 flex items-center gap-1.5">
+                            <Lock className="w-3.5 h-3.5 text-[#0075DE]" />
+                            <span>{lang === "ar" ? "كلمة المرور الجديدة" : "New Password"}</span>
                           </label>
                           <input 
                             type="password" 
                             value={newPassword}
                             onChange={(e) => setNewPassword(e.target.value)}
-                            className="w-full h-10 px-3 bg-slate-50 dark:bg-slate-900/40 border border-slate-300 dark:border-slate-800 rounded-xl text-slate-900 dark:text-white text-xs focus:outline-none focus:border-[#0075DE] focus:bg-[#0075DE]/5 transition-all placeholder:text-slate-400 dark:placeholder:text-slate-600"
+                            className="w-full h-10 px-3.5 bg-slate-50 dark:bg-slate-900/70 border border-slate-200 dark:border-slate-800 rounded-lg text-slate-900 dark:text-white text-xs focus:outline-none focus:border-[#0075DE] focus:ring-2 focus:ring-[#0075DE]/20 transition-all placeholder:text-slate-400 font-mono shadow-xs"
                             placeholder="••••••••"
                             required
                           />
                         </div>
                         <div>
-                          <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                            {lang === "ar" ? "تأكيد كلمة المرور" : "Confirm New Password"}
+                          <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5 flex items-center gap-1.5">
+                            <ShieldCheck className="w-3.5 h-3.5 text-[#0075DE]" />
+                            <span>{lang === "ar" ? "تأكيد كلمة المرور" : "Confirm New Password"}</span>
                           </label>
                           <input 
                             type="password" 
                             value={confirmNewPassword}
                             onChange={(e) => setConfirmNewPassword(e.target.value)}
-                            className="w-full h-10 px-3 bg-slate-50 dark:bg-slate-900/40 border border-slate-300 dark:border-slate-800 rounded-xl text-slate-900 dark:text-white text-xs focus:outline-none focus:border-[#0075DE] focus:bg-[#0075DE]/5 transition-all placeholder:text-slate-400 dark:placeholder:text-slate-600"
+                            className="w-full h-10 px-3.5 bg-slate-50 dark:bg-slate-900/70 border border-slate-200 dark:border-slate-800 rounded-lg text-slate-900 dark:text-white text-xs focus:outline-none focus:border-[#0075DE] focus:ring-2 focus:ring-[#0075DE]/20 transition-all placeholder:text-slate-400 font-mono shadow-xs"
                             placeholder="••••••••"
                             required
                           />
@@ -3061,11 +3087,11 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                     {/* STEP 4: Success View */}
                     {resetStep === "success" && (
                       <div className="text-center py-4 space-y-2">
-                        <div className="w-12 h-12 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 flex items-center justify-center mx-auto">
+                        <div className="w-12 h-12 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 flex items-center justify-center mx-auto shadow-xs">
                           <CheckCircle2 className="w-6 h-6" />
                         </div>
                         <p className="text-xs text-slate-700 dark:text-slate-300">
-                          {lang === "ar" ? "تم تفعيل كلمة السر الجديدة بنجاح." : "Your account password has been fully updated."}
+                          {lang === "ar" ? "تم تفعيل كلمة المرور الجديدة بنجاح." : "Your account password has been fully updated."}
                         </p>
                       </div>
                     )}
@@ -3075,10 +3101,10 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                       <button 
                         type="submit" 
                         disabled={isSendingReset || (resetStep === "forgot" && resetCooldownSeconds > 0)}
-                        className={"w-full h-11 mt-2 font-bold text-xs rounded-xl shadow-lg transition-all flex items-center justify-center gap-2 uppercase tracking-wider " + (
+                        className={"w-full h-10 mt-2 font-semibold text-xs rounded-lg transition-all flex items-center justify-center gap-2 " + (
                           resetStep === "forgot" && resetCooldownSeconds > 0
-                            ? "bg-slate-200 dark:bg-slate-800 text-slate-400 dark:text-slate-500 border border-slate-300 dark:border-slate-700/60 cursor-not-allowed opacity-80"
-                            : "bg-[#0075DE] hover:bg-[#005BAB] text-white cursor-pointer shadow-[#0075DE]/20"
+                            ? "bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 border border-slate-200 dark:border-slate-700 cursor-not-allowed"
+                            : "bg-[#0075DE] hover:bg-[#0068C4] active:scale-[0.985] text-white cursor-pointer shadow-sm shadow-[#0075DE]/25"
                         )}
                       >
                         {isSendingReset ? (
@@ -3088,14 +3114,14 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                             {resetStep === "forgot" && (
                               resetCooldownSeconds > 0
                                 ? (lang === "ar"
-                                    ? "يمكنك إعادة الإرسال بعد " + formatCountdown(resetCooldownSeconds)
+                                    ? "إعادة الإرسال بعد " + formatCountdown(resetCooldownSeconds)
                                     : lang === "fr"
                                     ? "Réexpédier dans " + formatCountdown(resetCooldownSeconds)
-                                    : "Resend available in " + formatCountdown(resetCooldownSeconds))
+                                    : "Resend in " + formatCountdown(resetCooldownSeconds))
                                 : (lang === "ar" ? "إرسال رمز التوثيق" : "Request Reset Code")
                             )}
                             {resetStep === "verify_code" && (lang === "ar" ? "تأكيد الرمز والمتابعة" : "Verify & Continue")}
-                            {resetStep === "new_password" && (lang === "ar" ? "حفظ وتفعيل كلمة السر" : "Save New Password")}
+                            {resetStep === "new_password" && (lang === "ar" ? "حفظ كلمة المرور الجديدة" : "Save New Password")}
                           </span>
                         )}
                       </button>
@@ -3113,7 +3139,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                           setResetErrorMsg("");
                           setResetCooldownSeconds(0);
                         }}
-                        className="w-full h-11 mt-2 bg-[#0075DE] hover:bg-[#005BAB] text-white font-bold text-xs rounded-xl shadow-lg transition-all cursor-pointer flex items-center justify-center gap-2 uppercase tracking-wider"
+                        className="w-full h-10 mt-2 bg-[#0075DE] hover:bg-[#0068C4] active:scale-[0.985] text-white font-semibold text-xs rounded-lg transition-all cursor-pointer flex items-center justify-center gap-2 shadow-sm shadow-[#0075DE]/25"
                       >
                         {lang === "ar" ? "العودة لتسجيل الدخول" : "Back to Sign In"}
                       </button>
@@ -3121,7 +3147,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                   </form>
 
                   {resetStep !== "success" && (
-                    <div className="mt-6 text-center border-t border-slate-200 dark:border-slate-800/80 pt-4">
+                    <div className="mt-5 text-center border-t border-slate-200/80 dark:border-slate-800/80 pt-3.5">
                       <button 
                         onClick={() => {
                           setShowForgotPassword(false);
@@ -3145,13 +3171,17 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
               ) : authMode === "register" ? (
                 /* REGISTRATION FORM */
                 <div>
-                  <div className="text-center mb-6">
-                    <div className="w-14 h-14 rounded-2xl bg-[#0075DE]/5 border border-[#0075DE]/15 flex items-center justify-center mx-auto mb-3">
-                      <ZakirLogo iconOnly size={40} theme={theme} />
-                    </div>
-                    <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
-                      {lang === "fr" ? "S'enregistrer" : (lang === "ar" ? "إنشاء حساب جديد" : "Sign Up")}
+                  <div className="mb-6">
+                    <h1 className="text-xl font-bold tracking-tight text-slate-900 dark:text-white">
+                      {lang === "fr" ? "Créer votre espace Zakir" : (lang === "ar" ? "إنشاء مساحة عمل جديدة" : "Create your Zakir workspace")}
                     </h1>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
+                      {lang === "ar"
+                        ? "ابدأ بتأسيس الذاكرة السببية والذكاء المؤسسي لمنظمتك."
+                        : lang === "fr"
+                        ? "Configurez la mémoire causale et l'intelligence de décision."
+                        : "Set up organizational memory and decision intelligence."}
+                    </p>
                   </div>
 
                   {/* Google Sign In Button */}
@@ -3167,7 +3197,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                         setRegError(formatAuthError(err));
                       }
                     }}
-                    className="w-full py-2.5 px-4 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700/80 text-slate-900 dark:text-white text-xs font-semibold rounded-xl border border-slate-300 dark:border-slate-700/80 transition-all cursor-pointer flex items-center justify-center gap-2.5 mb-5 shadow-sm"
+                    className="w-full py-2.5 px-4 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-800 dark:text-slate-200 text-xs font-semibold rounded-lg border border-slate-200 dark:border-slate-800 transition-all cursor-pointer flex items-center justify-center gap-2.5 mb-4 shadow-xs hover:border-slate-300 dark:hover:border-slate-700"
                   >
                     <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24">
                       <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
@@ -3175,77 +3205,79 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                       <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
                       <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
                     </svg>
-                    <span>{lang === "fr" ? "Sign up with Google" : (lang === "ar" ? "التسجيل باستخدام Google" : "Sign up with Google")}</span>
+                    <span>{lang === "fr" ? "Continuer avec Google" : (lang === "ar" ? "التسجيل باستخدام Google" : "Sign up with Google")}</span>
                   </button>
 
                   {/* Divider */}
-                  <div className="relative flex items-center justify-center my-5">
+                  <div className="relative flex items-center justify-center my-4">
                     <div className="border-t border-slate-200 dark:border-slate-800 w-full"></div>
-                    <span className="bg-white dark:bg-[#0d1527] px-3 text-[10px] uppercase font-semibold text-slate-500 tracking-widest relative z-10">
-                      {lang === "ar" ? "أو" : "OR"}
+                    <span className="bg-white dark:bg-[#0C101A] px-3 text-[10px] uppercase font-semibold text-slate-400 tracking-wider relative z-10">
+                      {lang === "ar" ? "أو التسجيل بالبريد" : "or register with email"}
                     </span>
                   </div>
 
                   {/* Registration Form */}
-                  <form onSubmit={handleRegisterSubmit} className="space-y-4">
+                  <form onSubmit={handleRegisterSubmit} className="space-y-3.5">
                     {regError && (
-                      <div className="p-3.5 bg-rose-500/10 border border-rose-500/20 rounded-xl text-rose-600 dark:text-rose-400 text-xs flex items-start gap-2.5">
-                        <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
-                        {renderErrorContent(regError)}
+                      <div className="p-3 bg-rose-500/10 dark:bg-rose-950/20 border border-rose-500/20 rounded-lg text-rose-600 dark:text-rose-400 text-xs flex items-start gap-2.5 my-3 shadow-xs text-start">
+                        <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5 text-rose-500" />
+                        <div className="flex-1 min-w-0 text-start">
+                          {renderErrorContent(regError)}
+                        </div>
                       </div>
                     )}
 
                     {/* Owner Name */}
                     <div>
-                      <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1 flex items-center gap-1.5">
+                      <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5 flex items-center gap-1.5">
                         <UserIcon className="w-3.5 h-3.5 text-[#0075DE]" />
-                        <span>{lang === "fr" ? "Nom complet du propriétaire" : (lang === "ar" ? "الاسم الكامل للمالك" : "Full Name of Owner")}</span>
+                        <span>{lang === "fr" ? "Nom complet" : (lang === "ar" ? "الاسم الكامل للمسؤول" : "Full Name")}</span>
                       </label>
                       <input 
                         type="text" 
                         value={regOwnerName}
                         onChange={(e) => setRegOwnerName(e.target.value)}
-                        className="w-full h-10 px-3 bg-slate-50 dark:bg-slate-900/40 border border-slate-300 dark:border-slate-800 rounded-xl text-slate-900 dark:text-white text-xs focus:outline-none focus:border-[#0075DE] focus:bg-[#0075DE]/5 transition-all placeholder:text-slate-400 dark:placeholder:text-slate-600"
-                        placeholder="e.g. Mohamed Aly"
+                        className="w-full h-10 px-3.5 bg-slate-50 dark:bg-slate-900/70 border border-slate-200 dark:border-slate-800 rounded-lg text-slate-900 dark:text-white text-xs focus:outline-none focus:border-[#0075DE] focus:ring-2 focus:ring-[#0075DE]/20 transition-all placeholder:text-slate-400 shadow-xs"
+                        placeholder="e.g. Sarah Jenkins"
                         required
                       />
                     </div>
 
                     {/* Company Name */}
                     <div>
-                      <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1 flex items-center gap-1.5">
+                      <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5 flex items-center gap-1.5">
                         <Building className="w-3.5 h-3.5 text-[#0075DE]" />
-                        <span>{lang === "fr" ? "Nom de l'entreprise" : (lang === "ar" ? "اسم الشركة / المؤسسة" : "Company Name")}</span>
+                        <span>{lang === "fr" ? "Nom de l'organisation" : (lang === "ar" ? "اسم الشركة أو المنظمة" : "Company Name")}</span>
                       </label>
                       <input 
                         type="text" 
                         value={regCompanyName}
                         onChange={(e) => setRegCompanyName(e.target.value)}
-                        className="w-full h-10 px-3 bg-slate-50 dark:bg-slate-900/40 border border-slate-300 dark:border-slate-800 rounded-xl text-slate-900 dark:text-white text-xs focus:outline-none focus:border-[#0075DE] focus:bg-[#0075DE]/5 transition-all placeholder:text-slate-400 dark:placeholder:text-slate-600"
-                        placeholder="e.g. Mauritanian Finance Group"
+                        className="w-full h-10 px-3.5 bg-slate-50 dark:bg-slate-900/70 border border-slate-200 dark:border-slate-800 rounded-lg text-slate-900 dark:text-white text-xs focus:outline-none focus:border-[#0075DE] focus:ring-2 focus:ring-[#0075DE]/20 transition-all placeholder:text-slate-400 shadow-xs"
+                        placeholder="e.g. Apex Strategic Holdings"
                         required
                       />
                     </div>
 
-                    {/* Company Email */}
+                    {/* Work Email */}
                     <div>
-                      <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1 flex items-center gap-1.5">
-                        <Globe className="w-3.5 h-3.5 text-[#0075DE]" />
-                        <span>{lang === "fr" ? "Email de l'entreprise" : (lang === "ar" ? "البريد الإلكتروني للشركة" : "Company Email")}</span>
+                      <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5 flex items-center gap-1.5">
+                        <Mail className="w-3.5 h-3.5 text-[#0075DE]" />
+                        <span>{lang === "fr" ? "Email professionnel" : (lang === "ar" ? "البريد الإلكتروني المهني" : "Work Email")}</span>
                       </label>
                       <input 
                         type="email" 
                         value={regEmail}
                         onChange={(e) => setRegEmail(e.target.value)}
-                        className="w-full h-10 px-3 bg-slate-50 dark:bg-slate-900/40 border border-slate-300 dark:border-slate-800 rounded-xl text-slate-900 dark:text-white text-xs focus:outline-none focus:border-[#0075DE] focus:bg-[#0075DE]/5 transition-all placeholder:text-slate-400 dark:placeholder:text-slate-600"
-                        placeholder="e.g. mohamedvadel60@entreprise8.com"
+                        className="w-full h-10 px-3.5 bg-slate-50 dark:bg-slate-900/70 border border-slate-200 dark:border-slate-800 rounded-lg text-slate-900 dark:text-white text-xs focus:outline-none focus:border-[#0075DE] focus:ring-2 focus:ring-[#0075DE]/20 transition-all placeholder:text-slate-400 shadow-xs"
+                        placeholder="name@company.com"
                         required
                       />
                     </div>
 
                     {/* Password Input */}
                     <div>
-                      <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1 flex items-center justify-between">
+                      <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5 flex items-center justify-between">
                         <span className="flex items-center gap-1.5">
                           <Lock className="w-3.5 h-3.5 text-[#0075DE]" />
                           <span>{lang === "fr" ? "Mot de passe" : (lang === "ar" ? "كلمة المرور" : "Password")}</span>
@@ -3256,14 +3288,14 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                            type={showRegPassword ? "text" : "password"} 
                            value={regPassword}
                            onChange={(e) => setRegPassword(e.target.value)}
-                           className="w-full h-10 px-3 pr-10 bg-slate-50 dark:bg-slate-900/40 border border-slate-300 dark:border-slate-800 rounded-xl text-slate-900 dark:text-white text-xs focus:outline-none focus:border-[#0075DE] focus:bg-[#0075DE]/5 transition-all placeholder:text-slate-400 dark:placeholder:text-slate-600 font-mono"
+                           className="w-full h-10 ps-3.5 pe-10 bg-slate-50 dark:bg-slate-900/70 border border-slate-200 dark:border-slate-800 rounded-lg text-slate-900 dark:text-white text-xs focus:outline-none focus:border-[#0075DE] focus:ring-2 focus:ring-[#0075DE]/20 transition-all placeholder:text-slate-400 font-mono shadow-xs"
                            placeholder="••••••••"
                            required
                         />
                         <button 
                           type="button"
                           onClick={() => setShowRegPassword(!showRegPassword)}
-                          className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 cursor-pointer"
+                          className="absolute ltr:right-3 rtl:left-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 cursor-pointer p-1"
                         >
                           {showRegPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                         </button>
@@ -3271,33 +3303,33 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                     </div>
 
                     {/* DYNAMIC PASSWORD REQUIREMENTS HELPER BOX */}
-                    <div className="p-3 bg-slate-100 dark:bg-slate-950/80 border border-slate-200 dark:border-slate-800/90 rounded-xl space-y-2">
-                      <div className="text-[11px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider font-mono flex items-center justify-between">
-                        <span>{lang === "fr" ? "Password requirements:" : (lang === "ar" ? "شروط كلمة المرور المطلوبة:" : "Password requirements:")}</span>
-                        <span className={`text-[10px] font-normal ${pwdValidation.isValid ? "text-emerald-600 dark:text-emerald-400" : "text-[#0075DE]"}`}>
-                          {pwdValidation.isValid ? (lang === "ar" ? "مستوفية جميع الشروط" : "All criteria met") : (lang === "ar" ? "مطلوبة" : "Required")}
+                    <div className="p-3 bg-slate-50 dark:bg-slate-900/50 border border-slate-200/80 dark:border-slate-800/80 rounded-xl space-y-2">
+                      <div className="text-[10px] font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider font-mono flex items-center justify-between">
+                        <span>{lang === "fr" ? "Critères de sécurité:" : (lang === "ar" ? "معايير الأمان:" : "Security Criteria:")}</span>
+                        <span className={`text-[10px] ${pwdValidation.isValid ? "text-emerald-600 dark:text-emerald-400 font-bold" : "text-slate-400"}`}>
+                          {pwdValidation.isValid ? (lang === "ar" ? "مكتملة ✓" : "All Met ✓") : (lang === "ar" ? "غير مكتملة" : "Pending")}
                         </span>
                       </div>
 
-                      <div className="grid grid-cols-2 gap-2 text-[10px]">
-                        <div className={`flex items-center gap-1.5 font-mono ${pwdValidation.len ? "text-emerald-600 dark:text-emerald-400" : "text-slate-500"}`}>
-                          {pwdValidation.len ? <CheckCircle2 className="w-3.5 h-3.5 shrink-0 text-emerald-600 dark:text-emerald-400" /> : <div className="w-3.5 h-3.5 rounded-full border border-slate-300 dark:border-slate-700 shrink-0"></div>}
+                      <div className="grid grid-cols-2 gap-1.5 text-[10px]">
+                        <div className={`flex items-center gap-1.5 transition-colors ${pwdValidation.len ? "text-emerald-600 dark:text-emerald-400 font-medium" : "text-slate-400"}`}>
+                          <CheckCircle2 className={`w-3.5 h-3.5 shrink-0 ${pwdValidation.len ? "opacity-100" : "opacity-40"}`} />
                           <span>Min 8 chars</span>
                         </div>
-                        <div className={`flex items-center gap-1.5 font-mono ${pwdValidation.upper ? "text-emerald-600 dark:text-emerald-400" : "text-slate-500"}`}>
-                          {pwdValidation.upper ? <CheckCircle2 className="w-3.5 h-3.5 shrink-0 text-emerald-600 dark:text-emerald-400" /> : <div className="w-3.5 h-3.5 rounded-full border border-slate-300 dark:border-slate-700 shrink-0"></div>}
+                        <div className={`flex items-center gap-1.5 transition-colors ${pwdValidation.upper ? "text-emerald-600 dark:text-emerald-400 font-medium" : "text-slate-400"}`}>
+                          <CheckCircle2 className={`w-3.5 h-3.5 shrink-0 ${pwdValidation.upper ? "opacity-100" : "opacity-40"}`} />
                           <span>Uppercase [A-Z]</span>
                         </div>
-                        <div className={`flex items-center gap-1.5 font-mono ${pwdValidation.lower ? "text-emerald-600 dark:text-emerald-400" : "text-slate-500"}`}>
-                          {pwdValidation.lower ? <CheckCircle2 className="w-3.5 h-3.5 shrink-0 text-emerald-600 dark:text-emerald-400" /> : <div className="w-3.5 h-3.5 rounded-full border border-slate-300 dark:border-slate-700 shrink-0"></div>}
+                        <div className={`flex items-center gap-1.5 transition-colors ${pwdValidation.lower ? "text-emerald-600 dark:text-emerald-400 font-medium" : "text-slate-400"}`}>
+                          <CheckCircle2 className={`w-3.5 h-3.5 shrink-0 ${pwdValidation.lower ? "opacity-100" : "opacity-40"}`} />
                           <span>Lowercase [a-z]</span>
                         </div>
-                        <div className={`flex items-center gap-1.5 font-mono ${pwdValidation.num ? "text-emerald-600 dark:text-emerald-400" : "text-slate-500"}`}>
-                          {pwdValidation.num ? <CheckCircle2 className="w-3.5 h-3.5 shrink-0 text-emerald-600 dark:text-emerald-400" /> : <div className="w-3.5 h-3.5 rounded-full border border-slate-300 dark:border-slate-700 shrink-0"></div>}
+                        <div className={`flex items-center gap-1.5 transition-colors ${pwdValidation.num ? "text-emerald-600 dark:text-emerald-400 font-medium" : "text-slate-400"}`}>
+                          <CheckCircle2 className={`w-3.5 h-3.5 shrink-0 ${pwdValidation.num ? "opacity-100" : "opacity-40"}`} />
                           <span>Number [0-9]</span>
                         </div>
-                        <div className={`flex items-center gap-1.5 font-mono col-span-2 ${pwdValidation.special ? "text-emerald-600 dark:text-emerald-400" : "text-slate-500"}`}>
-                          {pwdValidation.special ? <CheckCircle2 className="w-3.5 h-3.5 shrink-0 text-emerald-600 dark:text-emerald-400" /> : <div className="w-3.5 h-3.5 rounded-full border border-slate-300 dark:border-slate-700 shrink-0"></div>}
+                        <div className={`flex items-center gap-1.5 col-span-2 transition-colors ${pwdValidation.special ? "text-emerald-600 dark:text-emerald-400 font-medium" : "text-slate-400"}`}>
+                          <CheckCircle2 className={`w-3.5 h-3.5 shrink-0 ${pwdValidation.special ? "opacity-100" : "opacity-40"}`} />
                           <span>Special character (@, #, $, !, %, &)</span>
                         </div>
                       </div>
@@ -3305,13 +3337,13 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
 
                     {/* Confirm Password Input */}
                     <div>
-                      <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1 flex items-center justify-between">
+                      <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5 flex items-center justify-between">
                         <span className="flex items-center gap-1.5">
                           <ShieldCheck className="w-3.5 h-3.5 text-[#0075DE]" />
                           <span>{lang === "fr" ? "Confirmer le mot de passe" : (lang === "ar" ? "تأكيد كلمة المرور" : "Confirm Password")}</span>
                         </span>
                         {regConfirmPassword.length > 0 && (
-                          <span className={`text-[10px] font-mono ${pwdValidation.match ? "text-emerald-600 dark:text-emerald-400" : "text-rose-500"}`}>
+                          <span className={`text-[10px] font-mono ${pwdValidation.match ? "text-emerald-600 dark:text-emerald-400 font-bold" : "text-rose-500"}`}>
                             {pwdValidation.match ? (lang === "ar" ? "متطابقتان ✓" : "Match ✓") : (lang === "ar" ? "غير متطابقتين ✕" : "No match ✕")}
                           </span>
                         )}
@@ -3320,7 +3352,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                         type="password" 
                         value={regConfirmPassword}
                         onChange={(e) => setRegConfirmPassword(e.target.value)}
-                        className="w-full h-10 px-3 bg-slate-50 dark:bg-slate-900/40 border border-slate-300 dark:border-slate-800 rounded-xl text-slate-900 dark:text-white text-xs focus:outline-none focus:border-[#0075DE] focus:bg-[#0075DE]/5 transition-all placeholder:text-slate-400 dark:placeholder:text-slate-600 font-mono"
+                        className="w-full h-10 px-3.5 bg-slate-50 dark:bg-slate-900/70 border border-slate-200 dark:border-slate-800 rounded-lg text-slate-900 dark:text-white text-xs focus:outline-none focus:border-[#0075DE] focus:ring-2 focus:ring-[#0075DE]/20 transition-all placeholder:text-slate-400 font-mono shadow-xs"
                         placeholder="••••••••"
                         required
                       />
@@ -3330,42 +3362,46 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                     <button 
                       type="submit" 
                       disabled={isSubmittingReg}
-                      className="w-full h-11 mt-2 bg-[#0075DE] hover:bg-[#005BAB] active:scale-[0.98] text-white font-bold text-xs rounded-xl shadow-lg shadow-[#0075DE]/20 transition-all cursor-pointer flex items-center justify-center gap-2 uppercase tracking-wider"
+                      className="w-full h-10 mt-3 bg-[#0075DE] hover:bg-[#0068C4] active:scale-[0.985] text-white font-semibold text-xs rounded-lg shadow-sm shadow-[#0075DE]/25 transition-all cursor-pointer flex items-center justify-center gap-2"
                     >
                       {isSubmittingReg ? (
                         <RefreshCw className="w-4 h-4 animate-spin" />
                       ) : (
-                        <span>{lang === "fr" ? "S'enregistrer" : (lang === "ar" ? "إنشاء حساب جديد" : "Sign Up")}</span>
+                        <span>{lang === "fr" ? "Créer l'espace de travail" : (lang === "ar" ? "إنشاء مساحة العمل" : "Create Workspace")}</span>
                       )}
                     </button>
                   </form>
 
                   {/* Already registered switch to login */}
-                  <div className="mt-6 text-center border-t border-slate-200 dark:border-slate-800/80 pt-4">
-                    <button 
-                      onClick={() => setAuthMode("login")}
-                      className="text-xs text-[#0075DE] hover:underline font-semibold transition-colors cursor-pointer"
-                    >
-                      {lang === "fr" ? "Déjà un compte ? Se connecter" : (lang === "ar" ? "لديك حساب بالفعل؟ تسجيل الدخول" : "Already have an account? Sign In")}
-                    </button>
+                  <div className="mt-5 text-center border-t border-slate-200/80 dark:border-slate-800/80 pt-3.5">
+                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                      {lang === "fr" ? "Déjà un compte ?" : (lang === "ar" ? "لديك حساب بالفعل؟" : "Already have an account?")}{" "}
+                      <button 
+                        onClick={() => setAuthMode("login")}
+                        className="text-[#0075DE] hover:underline font-semibold transition-colors cursor-pointer inline-flex items-center gap-1"
+                      >
+                        <span>{lang === "fr" ? "Se connecter" : (lang === "ar" ? "تسجيل الدخول" : "Sign In")}</span>
+                      </button>
+                    </p>
                   </div>
                 </div>
               ) : (
                 /* STANDARD LOGIN FORM */
                 <div>
-                  <div className="text-center mb-6">
-                    <div className="w-14 h-14 rounded-2xl bg-[#0075DE]/5 border border-[#0075DE]/15 flex items-center justify-center mx-auto mb-3 text-[#0075DE]">
-                      <ZakirLogo iconOnly size={40} theme={theme} />
-                    </div>
-                    <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
-                      {lang === "fr" ? "Se connecter" : (lang === "ar" ? "تسجيل الدخول" : "Sign In")}
+                  <div className="mb-6">
+                    <h1 className="text-xl font-bold tracking-tight text-slate-900 dark:text-white">
+                      {lang === "fr" ? "Bon retour" : (lang === "ar" ? "مرحباً بك مجدداً" : "Welcome back")}
                     </h1>
-                    <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">
-                      {lang === "fr" ? "Accédez à votre espace institutionnel" : (lang === "ar" ? "الدخول لبيئة ذاكرة المؤسسة" : "Access your organizational gateway")}
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
+                      {lang === "fr" 
+                        ? "Accédez à la mémoire de votre organisation." 
+                        : (lang === "ar" 
+                        ? "الدخول إلى مساحة الذاكرة المؤسسية والذكاء الاستراتيجي." 
+                        : "Continue to your organizational memory & strategic intelligence.")}
                     </p>
                   </div>
 
-                  <form onSubmit={handleLoginSubmit} className="space-y-4">
+                  <form onSubmit={handleLoginSubmit} className="space-y-3.5">
                     {/* Google Sign In Button */}
                     <button 
                       type="button"
@@ -3379,7 +3415,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                           setLoginError(formatAuthError(err));
                         }
                       }}
-                      className="w-full py-2.5 px-4 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700/80 text-slate-900 dark:text-white text-xs font-semibold rounded-xl border border-slate-300 dark:border-slate-700/80 transition-all cursor-pointer flex items-center justify-center gap-2.5 mb-5 shadow-sm"
+                      className="w-full py-2.5 px-4 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-800 dark:text-slate-200 text-xs font-semibold rounded-lg border border-slate-200 dark:border-slate-800 transition-all cursor-pointer flex items-center justify-center gap-2.5 mb-4 shadow-xs hover:border-slate-300 dark:hover:border-slate-700"
                     >
                       <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24">
                         <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
@@ -3387,39 +3423,47 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                         <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
                         <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
                       </svg>
-                      <span>{lang === "fr" ? "Se connecter avec Google" : (lang === "ar" ? "تسجيل الدخول باستخدام Google" : "Sign in with Google")}</span>
+                      <span>{lang === "fr" ? "Continuer avec Google" : (lang === "ar" ? "تسجيل الدخول باستخدام Google" : "Continue with Google")}</span>
                     </button>
 
                     {/* Divider */}
-                    <div className="relative flex items-center justify-center my-5">
+                    <div className="relative flex items-center justify-center my-4">
                       <div className="border-t border-slate-200 dark:border-slate-800 w-full"></div>
-                      <span className="bg-white dark:bg-[#0d1527] px-3 text-[10px] uppercase font-semibold text-slate-500 tracking-widest relative z-10">
-                        {lang === "ar" ? "أو" : "OR"}
+                      <span className="bg-white dark:bg-[#0C101A] px-3 text-[10px] uppercase font-semibold text-slate-400 tracking-wider relative z-10">
+                        {lang === "ar" ? "أو المتابعة بالبريد" : "or continue with email"}
                       </span>
                     </div>
 
                     {loginError && (
-                      <div className="p-3.5 bg-rose-500/10 border border-rose-500/20 rounded-xl text-rose-600 dark:text-rose-400 text-xs flex items-start gap-2.5">
+                      <div className="p-3 bg-rose-500/10 dark:bg-rose-950/20 border border-rose-500/20 rounded-lg text-rose-600 dark:text-rose-400 text-xs flex items-start gap-2.5 my-3 shadow-xs text-start">
                         <AlertTriangle className="w-4 h-4 shrink-0 text-rose-500 mt-0.5" />
-                        {renderErrorContent(loginError)}
+                        <div className="flex-1 min-w-0 text-start">
+                          {renderErrorContent(loginError)}
+                        </div>
                       </div>
                     )}
 
                     <div>
-                      <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">{t.email}</label>
+                      <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5 flex items-center gap-1.5">
+                        <Mail className="w-3.5 h-3.5 text-[#0075DE]" />
+                        <span>{t.email}</span>
+                      </label>
                       <input 
                         type="email" 
                         value={loginEmail}
                         onChange={(e) => setLoginEmail(e.target.value)}
-                        className="w-full h-10 px-3 bg-slate-50 dark:bg-slate-900/40 border border-slate-300 dark:border-slate-800 rounded-xl text-slate-900 dark:text-white text-xs focus:outline-none focus:border-[#0075DE] focus:bg-[#0075DE]/5 transition-all placeholder:text-slate-400 dark:placeholder:text-slate-600"
+                        className="w-full h-10 px-3.5 bg-slate-50 dark:bg-slate-900/70 border border-slate-200 dark:border-slate-800 rounded-lg text-slate-900 dark:text-white text-xs focus:outline-none focus:border-[#0075DE] focus:ring-2 focus:ring-[#0075DE]/20 transition-all placeholder:text-slate-400 shadow-xs"
                         placeholder="name@company.com"
                         required
                       />
                     </div>
 
                     <div>
-                      <div className="flex items-center justify-between mb-1">
-                        <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300">{t.password}</label>
+                      <div className="flex items-center justify-between mb-1.5">
+                        <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                          <Lock className="w-3.5 h-3.5 text-[#0075DE]" />
+                          <span>{t.password}</span>
+                        </label>
                         <button
                           type="button"
                           onClick={() => {
@@ -3430,14 +3474,14 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                           }}
                           className="text-[11px] text-[#0075DE] hover:underline font-semibold transition-colors cursor-pointer"
                         >
-                          {lang === "fr" ? "Mot de passe oublié ?" : (lang === "ar" ? "نسيت كلمة السر؟" : "Forgot Password?")}
+                          {lang === "fr" ? "Mot de passe oublié ?" : (lang === "ar" ? "نسيت كلمة المرور؟" : "Forgot password?")}
                         </button>
                       </div>
                       <input 
                         type="password" 
                         value={loginPassword}
                         onChange={(e) => setLoginPassword(e.target.value)}
-                        className="w-full h-10 px-3 bg-slate-50 dark:bg-slate-900/40 border border-slate-300 dark:border-slate-800 rounded-xl text-slate-900 dark:text-white text-xs focus:outline-none focus:border-[#0075DE] focus:bg-[#0075DE]/5 transition-all placeholder:text-slate-400 dark:placeholder:text-slate-600 font-mono"
+                        className="w-full h-10 px-3.5 bg-slate-50 dark:bg-slate-900/70 border border-slate-200 dark:border-slate-800 rounded-lg text-slate-900 dark:text-white text-xs focus:outline-none focus:border-[#0075DE] focus:ring-2 focus:ring-[#0075DE]/20 transition-all placeholder:text-slate-400 font-mono shadow-xs"
                         placeholder="••••••••"
                         required
                       />
@@ -3446,7 +3490,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                     <button 
                       type="submit" 
                       disabled={isSubmittingLogin}
-                      className="w-full h-11 mt-2 bg-[#0075DE] hover:bg-[#005BAB] active:scale-[0.98] text-white font-bold text-xs rounded-xl shadow-lg shadow-[#0075DE]/20 transition-all cursor-pointer flex items-center justify-center gap-2 uppercase tracking-wider"
+                      className="w-full h-10 mt-3 bg-[#0075DE] hover:bg-[#0068C4] active:scale-[0.985] text-white font-semibold text-xs rounded-lg shadow-sm shadow-[#0075DE]/25 transition-all cursor-pointer flex items-center justify-center gap-2"
                     >
                       {isSubmittingLogin ? (
                         <RefreshCw className="w-4 h-4 animate-spin" />
@@ -3456,13 +3500,16 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                     </button>
                   </form>
 
-                  <div className="mt-6 text-center border-t border-slate-200 dark:border-slate-800/80 pt-4">
-                    <button 
-                      onClick={() => setAuthMode("register")}
-                      className="text-xs text-[#0075DE] hover:underline font-semibold transition-colors cursor-pointer"
-                    >
-                      {lang === "fr" ? "Pas encore de compte ? S'enregistrer" : (lang === "ar" ? "ليس لديك حساب؟ إنشاء حساب جديد" : "No account yet? Register here")}
-                    </button>
+                  <div className="mt-5 text-center border-t border-slate-200/80 dark:border-slate-800/80 pt-3.5">
+                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                      {lang === "fr" ? "Pas encore de compte ?" : (lang === "ar" ? "ليس لديك حساب؟" : "Don't have an account?")}{" "}
+                      <button 
+                        onClick={() => setAuthMode("register")}
+                        className="text-[#0075DE] hover:underline font-semibold transition-colors cursor-pointer inline-flex items-center gap-1"
+                      >
+                        <span>{lang === "fr" ? "Créer un compte" : (lang === "ar" ? "إنشاء حساب جديد" : "Create account")}</span>
+                      </button>
+                    </p>
                   </div>
                 </div>
               )}
@@ -3506,7 +3553,11 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
 
           {/* DESKTOP & MOBILE RESPONSIVE SIDEBAR */}
           <aside 
-            className={"flex flex-col bg-[#090D16] border-r border-slate-900/80 h-full relative z-30 transition-all duration-300 ease-in-out shrink-0 overflow-y-auto custom-scrollbar shadow-2xl " + (
+            className={`flex flex-col ${
+              theme === "light" 
+                ? "bg-white border-r border-slate-200 text-slate-900 shadow-sm" 
+                : "bg-[#090D16] border-r border-slate-900/80 text-slate-100 shadow-2xl"
+            } h-full relative z-30 transition-all duration-300 ease-in-out shrink-0 overflow-y-auto custom-scrollbar ` + (
               isSidebarCollapsed ? "md:w-16 " : "md:w-60 "
             ) + "max-md:fixed max-md:inset-y-0 max-md:z-50 max-md:w-64 " + (
               lang === "ar" ? "max-md:right-0 max-md:border-l " : "max-md:left-0 max-md:border-r "
@@ -3518,7 +3569,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
             id="sidebar-container"
           >
             {/* Logo & Toggle Header */}
-            <div className={`p-4 border-b border-slate-900 flex items-center shrink-0 ${
+            <div className={`p-4 ${theme === "light" ? "border-b border-slate-200" : "border-b border-slate-900"} flex items-center shrink-0 ${
               isSidebarCollapsed ? "justify-center" : "justify-between"
             }`}>
               {!isSidebarCollapsed ? (
@@ -3552,7 +3603,11 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                 setSettingsActiveSubTab("account");
                 setIsMobileSidebarOpen(false);
               }}
-              className={`mx-3 my-3 p-2.5 rounded-xl border border-slate-900/60 bg-slate-950/40 hover:bg-slate-900/40 hover:border-[#0075DE]/20 transition-all cursor-pointer group/profileCard flex items-center ${
+              className={`mx-3 my-3 p-2.5 rounded-xl border transition-all cursor-pointer group/profileCard flex items-center ${
+                theme === "light"
+                  ? "border-slate-200 bg-slate-50 hover:bg-slate-100 hover:border-[#0075DE]/30 text-slate-900 shadow-xs"
+                  : "border-slate-900/60 bg-slate-950/40 hover:bg-slate-900/40 hover:border-[#0075DE]/20 text-slate-100"
+              } ${
                 isSidebarCollapsed ? "justify-center" : "gap-3"
               }`}
               title={lang === "ar" ? "إدارة الحساب" : "Account Settings"}
@@ -3565,19 +3620,19 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                     className="w-8 h-8 rounded-lg object-cover border border-[#0075DE]/20"
                   />
                 ) : (
-                  <div className="w-8 h-8 rounded-lg bg-slate-900 border border-slate-850 flex items-center justify-center text-slate-300 font-bold text-xs uppercase">
+                  <div className={`w-8 h-8 rounded-lg ${theme === "light" ? "bg-slate-200 border-slate-300 text-slate-700" : "bg-slate-900 border-slate-850 text-slate-300"} border flex items-center justify-center font-bold text-xs uppercase`}>
                     {(currentUser.ownerName || currentUser.email).slice(0, 2)}
                   </div>
                 )}
-                <div className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-emerald-500 rounded-full border-2 border-slate-950 animate-pulse"></div>
+                <div className={`absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-emerald-500 rounded-full border-2 ${theme === "light" ? "border-white" : "border-slate-950"} animate-pulse`}></div>
               </div>
 
               {!isSidebarCollapsed && (
                 <div className="overflow-hidden flex-1">
-                  <h4 className="text-xs font-bold truncate text-slate-200 group-hover/profileCard:text-[#0075DE] transition-colors leading-tight">
+                  <h4 className={`text-xs font-bold truncate ${theme === "light" ? "text-slate-800" : "text-slate-200"} group-hover/profileCard:text-[#0075DE] transition-colors leading-tight`}>
                     {currentUser.ownerName || currentUser.email}
                   </h4>
-                  <div className="flex items-center gap-1.5 mt-0.5 text-[9px] font-bold text-slate-500 uppercase tracking-wider">
+                  <div className={`flex items-center gap-1.5 mt-0.5 text-[9px] font-bold ${theme === "light" ? "text-slate-500" : "text-slate-500"} uppercase tracking-wider`}>
                     <span className="text-[#0075DE]">●</span>
                     <span className="truncate">{currentUser.role || "CEO"}</span>
                   </div>
@@ -3636,7 +3691,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                 return (
                   <div key={idx} className="space-y-1">
                     {!isSidebarCollapsed && (
-                      <div className="px-2 pt-2 pb-1 text-[9px] font-mono font-bold uppercase tracking-widest text-slate-500">
+                      <div className={`px-2 pt-2 pb-1 text-[9px] font-mono font-bold uppercase tracking-widest ${theme === "light" ? "text-slate-400" : "text-slate-500"}`}>
                         {section.group}
                       </div>
                     )}
@@ -3655,7 +3710,9 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                             } ${
                               isActive 
                                 ? "text-[#0075DE] bg-[#0075DE]/10 font-bold border border-[#0075DE]/20" 
-                                : "text-slate-400 hover:text-slate-100 hover:bg-slate-900/60 border border-transparent"
+                                : theme === "light"
+                                  ? "text-slate-600 hover:text-slate-900 hover:bg-slate-100 border border-transparent"
+                                  : "text-slate-400 hover:text-slate-100 hover:bg-slate-900/60 border border-transparent"
                             }`}
                           >
                             {/* Razor-thin active indicator bar */}
@@ -3664,7 +3721,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                             )}
 
                             <div className={`flex items-center ${isSidebarCollapsed ? "justify-center" : "gap-2.5"}`}>
-                              <IconComponent className={`w-3.5 h-3.5 shrink-0 ${isActive ? "text-[#0075DE]" : "text-slate-500 group-hover:text-slate-300"}`} />
+                              <IconComponent className={`w-3.5 h-3.5 shrink-0 ${isActive ? "text-[#0075DE]" : theme === "light" ? "text-slate-500 group-hover:text-slate-700" : "text-slate-500 group-hover:text-slate-300"}`} />
                               {!isSidebarCollapsed && (
                                 <span className="truncate max-w-[130px] leading-tight text-[11px]">{item.label}</span>
                               )}
@@ -3685,9 +3742,9 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
             </nav>
 
             {/* Bottom Actions Area */}
-            <div className="mt-auto p-3 border-t border-slate-900 bg-slate-950/30 space-y-3.5">
+            <div className={`mt-auto p-3 ${theme === "light" ? "border-t border-slate-200 bg-slate-50/70" : "border-t border-slate-900 bg-slate-950/30"} space-y-3.5`}>
               {!isSidebarCollapsed && (
-                <div className="p-3 rounded-xl bg-slate-950/60 border border-slate-900 space-y-2 text-[10px]">
+                <div className={`p-3 rounded-xl ${theme === "light" ? "bg-white border border-slate-200 text-slate-800 shadow-xs" : "bg-slate-950/60 border border-slate-900 text-slate-200"} space-y-2 text-[10px]`}>
                   <div className="flex items-center justify-between">
                     <span className="text-slate-500 font-bold uppercase tracking-wider">{lang === "ar" ? "الخطة" : "PLAN"}</span>
                     <span className="px-2 py-0.5 rounded bg-[#0075DE]/15 text-[#0075DE] font-black uppercase text-[9px] tracking-widest">{currentUser?.subscriptionPlan || "Starter"}</span>
@@ -3699,38 +3756,35 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                 </div>
               )}
 
-              {/* Language & Theme switches */}
-              <div className="grid grid-cols-2 gap-2">
-                <div className="flex bg-slate-950 border border-slate-900 rounded-lg p-0.5 justify-center">
-                  {(["en", "ar", "fr"] as const).map((l) => (
-                    <button
-                      key={l}
-                      type="button"
-                      onClick={() => toggleLanguage(l)}
-                      className={`flex-1 text-center py-1 text-[10px] font-extrabold rounded-md transition-all cursor-pointer ${lang === l ? "bg-[#0075DE] text-white font-black" : "text-slate-500 hover:text-slate-300"}`}
-                    >
-                      {l.toUpperCase()}
-                    </button>
-                  ))}
-                </div>
 
-                <div className="flex bg-slate-950 border border-slate-900 rounded-lg p-0.5 justify-center">
-                  {(["light", "dark"] as const).map((th) => (
-                    <button
-                      key={th}
-                      type="button"
-                      onClick={() => toggleTheme(th)}
-                      className={`flex-1 text-center py-1 text-[10px] font-extrabold rounded-md transition-all cursor-pointer ${theme === th ? "bg-[#0075DE] text-white font-black" : "text-slate-500 hover:text-slate-300"}`}
-                    >
-                      {th === "light" ? (lang === "ar" ? "نهاري" : "LGT") : (lang === "ar" ? "ليلي" : "DRK")}
-                    </button>
-                  ))}
-                </div>
+              {/* Theme switch */}
+              <div className={`flex ${theme === "light" ? "bg-slate-200/80 border-slate-300/60" : "bg-slate-950/80 border-slate-800/80"} border rounded-xl p-1 justify-center gap-1 shadow-inner`}>
+                {(["light", "dark"] as const).map((th) => (
+                  <button
+                    key={th}
+                    type="button"
+                    onClick={() => toggleTheme(th)}
+                    className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 text-[11px] font-bold rounded-lg transition-all cursor-pointer ${
+                      theme === th 
+                        ? "bg-[#0075DE] text-white shadow-xs" 
+                        : theme === "light"
+                          ? "text-slate-600 hover:text-slate-900"
+                          : "text-slate-400 hover:text-slate-200"
+                    }`}
+                  >
+                    {th === "light" ? <Sun className="w-3.5 h-3.5" /> : <Moon className="w-3.5 h-3.5" />}
+                    <span>{th === "light" ? (lang === "ar" ? "نهاري" : lang === "fr" ? "Clair" : "Light") : (lang === "ar" ? "ليلي" : lang === "fr" ? "Sombre" : "Dark")}</span>
+                  </button>
+                ))}
               </div>
 
               <button
                 onClick={handleLogout}
-                className="w-full h-9 rounded-xl border border-rose-950/40 bg-rose-950/15 hover:bg-rose-600 hover:text-white text-rose-400 flex items-center justify-center gap-1.5 transition-all cursor-pointer font-bold text-xs"
+                className={`w-full h-9 rounded-xl border ${
+                  theme === "light"
+                    ? "border-rose-200 bg-rose-50 hover:bg-rose-600 hover:text-white text-rose-600"
+                    : "border-rose-950/40 bg-rose-950/15 hover:bg-rose-600 hover:text-white text-rose-400"
+                } flex items-center justify-center gap-1.5 transition-all cursor-pointer font-bold text-xs`}
               >
                 <LogOut className="w-3.5 h-3.5" />
                 <span>{lang === "ar" ? "تسجيل الخروج" : "LOGOUT"}</span>
@@ -3747,15 +3801,46 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
               </div>
             )}
             
-            {/* Mobile Sidebar Open Button Floating (Sleek Blue design) */}
-            <button
-              onClick={() => setIsMobileSidebarOpen(true)}
-              className="md:hidden fixed top-4 z-40 p-2.5 rounded-xl bg-[#0075DE]/15 hover:bg-[#0075DE] text-[#0075DE] hover:text-white border border-[#0075DE]/35 backdrop-blur-md transition-all cursor-pointer shadow-lg active:scale-95"
-              style={{ [lang === "ar" ? "right" : "left"]: "1rem" }}
-              aria-label="Toggle Mobile Sidebar"
-            >
-              <Menu className="w-5 h-5" />
-            </button>
+            {/* Top Workspace Header Bar with Compact App Switcher & Language Switcher */}
+            <div className={`sticky top-0 z-30 px-4 sm:px-8 py-3 border-b flex items-center justify-between backdrop-blur-md transition-colors ${
+              theme === "light" ? "bg-white/80 border-slate-200/90 shadow-xs" : "bg-[#090D16]/80 border-slate-900/80"
+            }`}>
+              <div className="flex items-center gap-2.5">
+                <button
+                  onClick={() => setIsMobileSidebarOpen(true)}
+                  className="md:hidden p-2 rounded-xl bg-[#0075DE]/15 hover:bg-[#0075DE] text-[#0075DE] hover:text-white border border-[#0075DE]/35 transition-all cursor-pointer shadow-sm active:scale-95"
+                  aria-label="Toggle Mobile Sidebar"
+                >
+                  <Menu className="w-4 h-4" />
+                </button>
+
+                {/* Compact App / Module Switcher (Hover on desktop, Tap on mobile) */}
+                <CompactAppSwitcher 
+                  activeTab={activeTab} 
+                  onSelectTab={setActiveTab} 
+                  lang={lang} 
+                  theme={theme}
+                  align={lang === "ar" ? "right" : "left"}
+                />
+              </div>
+
+              <div className="flex items-center gap-2.5">
+                {/* Instant Compact Language Switcher while authenticated */}
+                <CompactLanguageSwitcher 
+                  lang={lang}
+                  onToggleLanguage={toggleLanguage}
+                  theme={theme}
+                  align="end"
+                />
+
+                <div className={`hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-xl border text-[11px] font-mono font-medium ${
+                  theme === "light" ? "bg-slate-50 border-slate-200 text-slate-700" : "bg-slate-900/60 border-slate-800 text-slate-300"
+                }`}>
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                  <span className="truncate max-w-[160px] font-semibold">{currentUser?.ownerName || "Zakir Workspace"}</span>
+                </div>
+              </div>
+            </div>
 
             {/* APP CONTENT VIEWS CONTROLLER */}
             <div className="p-8 max-w-7xl mx-auto space-y-8">
@@ -6564,23 +6649,21 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
         </div>
       )}
 
-      {/* Footer Attribution */}
-      <footer className="w-full py-4 px-6 text-center text-xs border-t mt-auto bg-slate-950/20 backdrop-blur-sm"
+      {/* Platform Footer */}
+      <footer className="w-full py-4 px-6 text-center text-xs border-t mt-auto backdrop-blur-sm transition-colors"
         style={{
           borderColor: theme === 'dark' ? 'rgba(30, 41, 59, 0.4)' : 'rgba(226, 232, 240, 0.8)',
+          backgroundColor: theme === 'dark' ? 'rgba(11, 15, 25, 0.4)' : 'rgba(255, 255, 255, 0.6)',
           color: theme === 'dark' ? '#64748b' : '#475569'
         }}
       >
-        <div className="flex items-center justify-center gap-2 select-none">
-          <span className="font-medium">
-            {lang === "ar" ? "تم التطوير والإعداد بواسطة" : "Designed & Developed by"}{" "}
-            <span className="font-semibold animate-pulse" style={{ color: theme === 'dark' ? '#e2e8f0' : '#1e293b' }}>
-              Mohamed Vadhil Haiballa
-            </span>
+        <div className="flex items-center justify-center gap-2 select-none text-[11px]">
+          <span className="font-semibold">
+            {lang === "ar" ? "منصة ذاكر المؤسسية للذكاء السببي" : (lang === "fr" ? "Plateforme ZAKIR d'Intelligence Causale" : "Zakir Institutional Causal Intelligence")}
           </span>
           <span className="opacity-30">•</span>
-          <span className="opacity-75 tracking-wider uppercase text-[10px]">
-            {lang === "ar" ? "منصة ذاكر الذكية" : "Zakir Smart Platform"}
+          <span className="opacity-75 tracking-wider uppercase text-[10px] font-mono">
+            {lang === "ar" ? "جميع الحقوق محفوظة" : "All Rights Reserved"} © {new Date().getFullYear()}
           </span>
         </div>
       </footer>
@@ -6595,9 +6678,14 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
         memories={memories}
         initialSelectedMemoryId={printPreviewMemoryId}
         lang={lang}
-        companyName={currentUser?.companyName || "Zakir Institutional Memory Engine"}
-        userName={currentUser?.ownerName || currentUser?.email?.split("@")[0] || "System Administrator"}
-        workspaceLogoUrl={currentUser?.avatarUrl}
+        companyName={currentUser?.organizationName || currentUser?.companyName || "Zakir Institutional Memory Engine"}
+        userName={currentUser?.fullName || currentUser?.ownerName || currentUser?.email?.split("@")[0] || "System Administrator"}
+        workspaceLogoUrl={currentUser?.companyLogoUrl || currentUser?.avatarUrl}
+        currentUser={currentUser}
+        onOpenProfileSettings={() => {
+          setIsPrintPreviewOpen(false);
+          setActiveTab("settings");
+        }}
       />
 
     </div>

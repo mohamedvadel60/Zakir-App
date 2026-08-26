@@ -58,7 +58,7 @@ interface AdminDashboardProps {
   currentUser: User;
   lang: "ar" | "fr" | "en";
   theme: "dark" | "light";
-  toggleLanguage: (newLang: "ar" | "fr" | "en") => void;
+  toggleLanguage?: (newLang: "ar" | "fr" | "en") => void;
   toggleTheme: (newTheme: "dark" | "light") => void;
   onLogout: () => void;
 }
@@ -67,7 +67,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   currentUser,
   lang,
   theme,
-  toggleLanguage,
   toggleTheme,
   onLogout
 }) => {
@@ -481,28 +480,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
           {/* ADMIN ACTION CONTROLS */}
           <div className="flex items-center gap-2 sm:gap-3">
-            {/* Language switch */}
-            <div className="flex items-center bg-slate-800/40 border border-slate-700/60 rounded-lg p-0.5">
-              <button
-                onClick={() => toggleLanguage("ar")}
-                className={`px-2 py-1 text-xs font-bold rounded ${lang === "ar" ? "bg-[#0075DE] text-white font-black" : "text-slate-400 hover:text-white"}`}
-              >
-                ع
-              </button>
-              <button
-                onClick={() => toggleLanguage("fr")}
-                className={`px-2 py-1 text-xs font-bold rounded ${lang === "fr" ? "bg-[#0075DE] text-white font-black" : "text-slate-400 hover:text-white"}`}
-              >
-                FR
-              </button>
-              <button
-                onClick={() => toggleLanguage("en")}
-                className={`px-2 py-1 text-xs font-bold rounded ${lang === "en" ? "bg-[#0075DE] text-white font-black" : "text-slate-400 hover:text-white"}`}
-              >
-                EN
-              </button>
-            </div>
-
             {/* Theme switch */}
             <button
               onClick={() => toggleTheme(theme === "dark" ? "light" : "dark")}

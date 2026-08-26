@@ -1,4 +1,4 @@
-import { Memory } from "../../types";
+import { Memory, User } from "../../types";
 
 export type PaperSize = "A4" | "A3" | "A5" | "Letter" | "Legal";
 export type Orientation = "portrait" | "landscape";
@@ -11,8 +11,9 @@ export interface PrintSettingsState {
   orientation: Orientation;
   margins: MarginPreset;
   density: Density;
+  lineHeight?: number; // Custom line height multiplier (e.g. 1.2 to 2.2)
   headerStyle: HeaderStyle;
-  fontSize: "small" | "medium" | "large";
+  fontSize: number; // Custom font size in px (e.g. 8 to 32)
   showHeader: boolean;
   showFooter: boolean;
   showSignature: boolean;
@@ -30,6 +31,7 @@ export interface PrintSettingsState {
   docRefNumber: string;
   authorName: string;
   approverName: string;
+  approverTitle?: string;
   approvalDate: string;
   companyLogoImg: string | null;
   signatureImg: string | null;
@@ -46,6 +48,8 @@ export interface PrintSystemProps {
   companyName?: string;
   userName?: string;
   workspaceLogoUrl?: string;
+  currentUser?: User | null;
+  onOpenProfileSettings?: () => void;
 }
 
 export interface PrintDiagnostics {

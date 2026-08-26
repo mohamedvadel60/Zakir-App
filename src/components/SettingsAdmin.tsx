@@ -97,14 +97,18 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
   };
 
   // Profile Account State
-  const [fullName, setFullName] = useState(currentUser.ownerName || "Mohamed Vadel");
+  const [fullName, setFullName] = useState(currentUser.fullName || currentUser.ownerName || "Mohamed Vadel");
   const [email, setEmail] = useState(currentUser.email || "mohamedvadel60@gmail.com");
-  const [companyName, setCompanyName] = useState(currentUser.companyName || "Mauritanian Finance Group");
+  const [jobTitle, setJobTitle] = useState(currentUser.jobTitle || "");
+  const [department, setDepartment] = useState(currentUser.department || currentUser.issuingEntity || "");
+  const [companyName, setCompanyName] = useState(currentUser.organizationName || currentUser.companyName || "Mauritanian Finance Group");
   const [avatarUrl, setAvatarUrl] = useState<string | undefined>(currentUser.avatarUrl);
   const [companyLogoUrl, setCompanyLogoUrl] = useState<string | undefined>(currentUser.companyLogoUrl);
+  const [signatureUrl, setSignatureUrl] = useState<string | undefined>(currentUser.signatureUrl);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const companyLogoInputRef = useRef<HTMLInputElement | null>(null);
+  const signatureInputRef = useRef<HTMLInputElement | null>(null);
 
   // Delete My Account State
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -749,10 +753,16 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
     onUpdateUser({
       ...currentUser,
       ownerName: fullName,
+      fullName: fullName,
       email: email,
-      companyName: currentUser.role === "CEO" ? companyName : (currentUser.companyName || ""),
+      jobTitle: jobTitle,
+      department: department,
+      issuingEntity: department,
+      companyName: companyName,
+      organizationName: companyName,
       avatarUrl: undefined,
-      companyLogoUrl: companyLogoUrl
+      companyLogoUrl: companyLogoUrl,
+      signatureUrl: signatureUrl
     });
     setSaveSuccess(true);
     setTimeout(() => setSaveSuccess(false), 3000);
@@ -770,10 +780,16 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
         onUpdateUser({
           ...currentUser,
           ownerName: fullName,
+          fullName: fullName,
           email: email,
-          companyName: currentUser.role === "CEO" ? companyName : (currentUser.companyName || ""),
+          jobTitle: jobTitle,
+          department: department,
+          issuingEntity: department,
+          companyName: companyName,
+          organizationName: companyName,
           avatarUrl: avatarUrl,
-          companyLogoUrl: newLogoUrl
+          companyLogoUrl: newLogoUrl,
+          signatureUrl: signatureUrl
         });
         setSaveSuccess(true);
         setTimeout(() => setSaveSuccess(false), 3000);
@@ -788,10 +804,67 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
     onUpdateUser({
       ...currentUser,
       ownerName: fullName,
+      fullName: fullName,
       email: email,
-      companyName: currentUser.role === "CEO" ? companyName : (currentUser.companyName || ""),
+      jobTitle: jobTitle,
+      department: department,
+      issuingEntity: department,
+      companyName: companyName,
+      organizationName: companyName,
       avatarUrl: avatarUrl,
-      companyLogoUrl: undefined
+      companyLogoUrl: undefined,
+      signatureUrl: signatureUrl
+    });
+    setSaveSuccess(true);
+    setTimeout(() => setSaveSuccess(false), 3000);
+  };
+
+  // Digital Signature Handlers
+  const handleSignatureFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result === "string") {
+        const newSigUrl = reader.result;
+        setSignatureUrl(newSigUrl);
+        onUpdateUser({
+          ...currentUser,
+          ownerName: fullName,
+          fullName: fullName,
+          email: email,
+          jobTitle: jobTitle,
+          department: department,
+          issuingEntity: department,
+          companyName: companyName,
+          organizationName: companyName,
+          avatarUrl: avatarUrl,
+          companyLogoUrl: companyLogoUrl,
+          signatureUrl: newSigUrl
+        });
+        setSaveSuccess(true);
+        setTimeout(() => setSaveSuccess(false), 3000);
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleRemoveSignature = () => {
+    setSignatureUrl(undefined);
+    if (signatureInputRef.current) signatureInputRef.current.value = "";
+    onUpdateUser({
+      ...currentUser,
+      ownerName: fullName,
+      fullName: fullName,
+      email: email,
+      jobTitle: jobTitle,
+      department: department,
+      issuingEntity: department,
+      companyName: companyName,
+      organizationName: companyName,
+      avatarUrl: avatarUrl,
+      companyLogoUrl: companyLogoUrl,
+      signatureUrl: undefined
     });
     setSaveSuccess(true);
     setTimeout(() => setSaveSuccess(false), 3000);
@@ -802,10 +875,16 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
     onUpdateUser({
       ...currentUser,
       ownerName: fullName,
+      fullName: fullName,
       email: email,
-      companyName: currentUser.role === "CEO" ? companyName : (currentUser.companyName || ""),
+      jobTitle: jobTitle,
+      department: department,
+      issuingEntity: department,
+      companyName: companyName,
+      organizationName: companyName,
       avatarUrl: avatarUrl,
-      companyLogoUrl: companyLogoUrl
+      companyLogoUrl: companyLogoUrl,
+      signatureUrl: signatureUrl
     });
     setSaveSuccess(true);
     setTimeout(() => setSaveSuccess(false), 3000);
@@ -1052,7 +1131,7 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
             { id: "support", label: lang === "ar" ? "الدعم والتوثيق" : "Help & Documentation", icon: HelpCircle },
           ].filter((tab) => {
             if (currentUser.role !== "CEO") {
-              return tab.id === "account" || tab.id === "support";
+              return tab.id === "account" || tab.id === "subscription" || tab.id === "support";
             }
             return true;
           }).map((tab) => {
@@ -1167,56 +1246,81 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
 
             {/* Account Details Form */}
             <form onSubmit={handleSaveAccountProfile} className="space-y-4">
-              <div>
-                <label className="block text-xs font-bold text-slate-400 mb-1.5">{lang === "ar" ? "الاسم الكامل" : "Full Name"}</label>
-                <input
-                  type="text"
-                  value={fullName}
-                  onChange={(e) => setFullName(e.target.value)}
-                  className={`w-full h-11 px-4 rounded-xl border text-sm font-medium focus:outline-none focus:border-[#0075DE] ${
-                    theme === "dark" ? "bg-slate-950 border-slate-800 text-white" : "bg-slate-50 border-slate-300 text-slate-900"
-                  }`}
-                />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-400 mb-1.5">{lang === "ar" ? "الاسم الكامل المعتمد" : "Full Name"}</label>
+                  <input
+                    type="text"
+                    value={fullName}
+                    onChange={(e) => setFullName(e.target.value)}
+                    className={`w-full h-11 px-4 rounded-xl border text-sm font-medium focus:outline-none focus:border-[#0075DE] ${
+                      theme === "dark" ? "bg-slate-950 border-slate-800 text-white" : "bg-slate-50 border-slate-300 text-slate-900"
+                    }`}
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-400 mb-1.5">{lang === "ar" ? "البريد الإلكتروني" : "Email Address"}</label>
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className={`w-full h-11 px-4 rounded-xl border text-sm font-medium focus:outline-none focus:border-[#0075DE] ${
+                      theme === "dark" ? "bg-slate-950 border-slate-800 text-white" : "bg-slate-50 border-slate-300 text-slate-900"
+                    }`}
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-400 mb-1.5">{lang === "ar" ? "المسمى الوظيفي / الرتبة" : "Job Title / Position"}</label>
+                  <input
+                    type="text"
+                    value={jobTitle}
+                    placeholder={lang === "ar" ? "مثال: رئيس لجنة الحوكمة والقرارات" : "e.g. Chief Risk & Governance Officer"}
+                    onChange={(e) => setJobTitle(e.target.value)}
+                    className={`w-full h-11 px-4 rounded-xl border text-sm font-medium focus:outline-none focus:border-[#0075DE] ${
+                      theme === "dark" ? "bg-slate-950 border-slate-800 text-white placeholder-slate-600" : "bg-slate-50 border-slate-300 text-slate-900 placeholder-slate-400"
+                    }`}
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-400 mb-1.5">{lang === "ar" ? "الإدارة / الجهة المصدرة" : "Department / Issuing Entity"}</label>
+                  <input
+                    type="text"
+                    value={department}
+                    placeholder={lang === "ar" ? "مثال: إدارة الحوكمة والمخاطر والقرارات" : "e.g. Governance & Strategy Division"}
+                    onChange={(e) => setDepartment(e.target.value)}
+                    className={`w-full h-11 px-4 rounded-xl border text-sm font-medium focus:outline-none focus:border-[#0075DE] ${
+                      theme === "dark" ? "bg-slate-950 border-slate-800 text-white placeholder-slate-600" : "bg-slate-50 border-slate-300 text-slate-900 placeholder-slate-400"
+                    }`}
+                  />
+                </div>
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-400 mb-1.5">{lang === "ar" ? "البريد الإلكتروني" : "Email Address"}</label>
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className={`w-full h-11 px-4 rounded-xl border text-sm font-medium focus:outline-none focus:border-[#0075DE] ${
-                    theme === "dark" ? "bg-slate-950 border-slate-800 text-white" : "bg-slate-50 border-slate-300 text-slate-900"
-                  }`}
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-400 mb-1.5">{lang === "ar" ? "اسم الشركة أو المؤسسة" : "Company / Organization Name"}</label>
+                <label className="block text-xs font-bold text-slate-400 mb-1.5">{lang === "ar" ? "اسم المؤسسة أو المنظمة" : "Organization / Company Name"}</label>
                 <input
                   type="text"
                   value={companyName}
-                  disabled={currentUser.role !== "CEO"}
                   onChange={(e) => setCompanyName(e.target.value)}
                   className={`w-full h-11 px-4 rounded-xl border text-sm font-medium focus:outline-none focus:border-[#0075DE] ${
-                    currentUser.role !== "CEO" ? "opacity-75 cursor-not-allowed select-none bg-slate-200/50 dark:bg-slate-900/50" : ""
-                  } ${
                     theme === "dark" ? "bg-slate-950 border-slate-800 text-white" : "bg-slate-50 border-slate-300 text-slate-900"
                   }`}
                 />
-                {currentUser.role !== "CEO" && (
-                  <p className="text-[10px] text-[#0075DE] mt-1">
-                    {lang === "ar" 
-                      ? "اسم الشركة مدار بالكامل بواسطة الرئيس التنفيذي (CEO) للمؤسسة ولا يمكن تعديله." 
-                      : "The company name is managed fully by the CEO and cannot be modified."}
-                  </p>
-                )}
+                <p className="text-[10px] text-slate-500 mt-1">
+                  {lang === "ar" 
+                    ? "يتم إدراج اسم المنظمة والإدارة تلقائياً في ترويسة التقارير المطبوعة والمستندات المصدرة." 
+                    : "Organization and department details are automatically embedded in official print report headers."}
+                </p>
               </div>
 
-              {/* Dedicated Company Logo Upload Field */}
+              {/* Dedicated Company Logo Upload Field (Open to all users) */}
               <div className={`p-4 rounded-xl border border-dashed ${theme === "dark" ? "bg-slate-950/40 border-slate-800" : "bg-slate-50 border-slate-200"} space-y-3`}>
                 <label className="block text-xs font-bold text-slate-400">
-                  {lang === "ar" ? "شعار الشركة الرسمي" : "Official Company Logo"}
+                  {lang === "ar" ? "شعار المؤسسة / المنظمة الرسمي" : "Official Organization Logo"}
                 </label>
                 <div className="flex items-center gap-4 flex-wrap">
                   {companyLogoUrl ? (
@@ -1227,16 +1331,14 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
                         className="h-16 max-w-[200px] object-contain rounded-lg border border-slate-700/60 p-2 bg-slate-900/60" 
                         referrerPolicy="no-referrer"
                       />
-                      {currentUser.role === "CEO" && (
-                        <button
-                          type="button"
-                          onClick={handleRemoveCompanyLogo}
-                          className="absolute -top-2 -right-2 p-1 bg-rose-600 text-white rounded-full hover:bg-rose-500 transition-colors shadow"
-                          title={lang === "ar" ? "حذف الشعار" : "Remove Logo"}
-                        >
-                          <Trash2 className="w-3 h-3" />
-                        </button>
-                      )}
+                      <button
+                        type="button"
+                        onClick={handleRemoveCompanyLogo}
+                        className="absolute -top-2 -right-2 p-1 bg-rose-600 text-white rounded-full hover:bg-rose-500 transition-colors shadow"
+                        title={lang === "ar" ? "حذف الشعار" : "Remove Logo"}
+                      >
+                        <Trash2 className="w-3 h-3" />
+                      </button>
                     </div>
                   ) : (
                     <div className="h-16 w-36 rounded-lg border border-dashed border-slate-700 bg-slate-950/20 flex items-center justify-center text-[11px] text-slate-500 font-medium">
@@ -1244,28 +1346,78 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
                     </div>
                   )}
 
-                  {currentUser.role === "CEO" && (
-                    <div>
-                      <input 
-                        type="file" 
-                        ref={companyLogoInputRef}
-                        accept="image/*" 
-                        className="hidden" 
-                        onChange={handleCompanyLogoFileSelect} 
+                  <div>
+                    <input 
+                      type="file" 
+                      ref={companyLogoInputRef}
+                      accept="image/*" 
+                      className="hidden" 
+                      onChange={handleCompanyLogoFileSelect} 
+                    />
+                    <button
+                      type="button"
+                      onClick={() => companyLogoInputRef.current?.click()}
+                      className="px-4 py-2 bg-[#0075DE]/10 hover:bg-[#0075DE]/20 text-[#0075DE] hover:text-blue-300 border border-[#0075DE]/30 font-bold text-xs rounded-xl flex items-center gap-2 transition-all cursor-pointer"
+                    >
+                      <Upload className="w-3.5 h-3.5" />
+                      <span>{companyLogoUrl ? (lang === "ar" ? "تغيير الشعار" : "Change Logo") : (lang === "ar" ? "رفع شعار المؤسسة" : "Upload Logo")}</span>
+                    </button>
+                    <p className="text-[10px] text-slate-500 mt-1.5">
+                      {lang === "ar" ? "سيتم سحب الشعار تلقائياً وتثبيته في ترويسة مستندات الطباعة الرسمية." : "The logo will be pulled automatically and embedded in print headers."}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Dedicated Official Digital Signature Field */}
+              <div className={`p-4 rounded-xl border border-dashed ${theme === "dark" ? "bg-slate-950/40 border-slate-800" : "bg-slate-50 border-slate-200"} space-y-3`}>
+                <label className="block text-xs font-bold text-slate-400">
+                  {lang === "ar" ? "التوقيع الرقمي والختم الرسمي المعتمد" : "Official Digital Signature & Seal"}
+                </label>
+                <div className="flex items-center gap-4 flex-wrap">
+                  {signatureUrl ? (
+                    <div className="relative group shrink-0">
+                      <img 
+                        src={signatureUrl} 
+                        alt="Digital Signature" 
+                        className="h-16 max-w-[200px] object-contain rounded-lg border border-slate-700/60 p-2 bg-slate-900/60" 
+                        referrerPolicy="no-referrer"
                       />
                       <button
                         type="button"
-                        onClick={() => companyLogoInputRef.current?.click()}
-                        className="px-4 py-2 bg-[#0075DE]/10 hover:bg-[#0075DE]/20 text-[#0075DE] hover:text-blue-300 border border-[#0075DE]/30 font-bold text-xs rounded-xl flex items-center gap-2 transition-all cursor-pointer"
+                        onClick={handleRemoveSignature}
+                        className="absolute -top-2 -right-2 p-1 bg-rose-600 text-white rounded-full hover:bg-rose-500 transition-colors shadow"
+                        title={lang === "ar" ? "حذف التوقيع" : "Remove Signature"}
                       >
-                        <Upload className="w-3.5 h-3.5" />
-                        <span>{companyLogoUrl ? (lang === "ar" ? "تغيير الشعار" : "Change Logo") : (lang === "ar" ? "رفع شعار الشركة" : "Upload Logo")}</span>
+                        <Trash2 className="w-3 h-3" />
                       </button>
-                      <p className="text-[10px] text-slate-500 mt-1.5">
-                        {lang === "ar" ? "سيتم سحب الشعار تلقائياً وتثبيته في مستندات الطباعة الرسمية." : "The logo will be pulled automatically and locked in official print records."}
-                      </p>
+                    </div>
+                  ) : (
+                    <div className="h-16 w-36 rounded-lg border border-dashed border-slate-700 bg-slate-950/20 flex items-center justify-center text-[11px] text-slate-500 font-medium">
+                      {lang === "ar" ? "لا يوجد توقيع رقمي" : "No signature image"}
                     </div>
                   )}
+
+                  <div>
+                    <input 
+                      type="file" 
+                      ref={signatureInputRef}
+                      accept="image/*" 
+                      className="hidden" 
+                      onChange={handleSignatureFileSelect} 
+                    />
+                    <button
+                      type="button"
+                      onClick={() => signatureInputRef.current?.click()}
+                      className="px-4 py-2 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 hover:text-emerald-300 border border-emerald-500/30 font-bold text-xs rounded-xl flex items-center gap-2 transition-all cursor-pointer"
+                    >
+                      <Upload className="w-3.5 h-3.5" />
+                      <span>{signatureUrl ? (lang === "ar" ? "تغيير التوقيع الرقمي" : "Change Signature") : (lang === "ar" ? "رفع صورة التوقيع / الختم" : "Upload Signature / Stamp")}</span>
+                    </button>
+                    <p className="text-[10px] text-slate-500 mt-1.5">
+                      {lang === "ar" ? "يظهر التوقيع الرقمي في قسم الاعتماد والتصديق بنهاية التقارير الرسمية." : "Digital signature appears in the approval block at the end of reports."}
+                    </p>
+                  </div>
                 </div>
               </div>
 
@@ -1279,6 +1431,8 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
                 </button>
               </div>
             </form>
+
+
 
             {/* ACCOUNT VERIFICATION & COMPLIANCE SECTION */}
             <div className={`mt-8 pt-8 border-t ${theme === "dark" ? "border-slate-800" : "border-slate-200"} space-y-4`}>

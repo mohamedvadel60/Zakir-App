@@ -14,11 +14,14 @@ import {
   HelpCircle,
   Zap,
   Sun,
-  Moon
+  Moon,
+  Globe,
+  Languages
 } from "lucide-react";
 import { ZakirLogo } from "./ZakirLogo";
 import { LandingAnimatedBackground } from "./LandingAnimatedBackground";
 import { AnimatedSection } from "./AnimatedSection";
+import { CompactLanguageSwitcher } from "./ui/CompactLanguageSwitcher";
 
 // Lazy load the heavy ProductShowcaseWindow demo component
 const ProductShowcaseWindow = lazy(() => import("./ProductShowcaseWindow"));
@@ -323,36 +326,13 @@ export const AnimatedLandingPage: React.FC<AnimatedLandingPageProps> = ({
               </AnimatePresence>
             </motion.button>
 
-            {/* Language Selector */}
-            <div className={`flex items-center ${theme === 'light' ? 'bg-slate-100 border-slate-300 shadow-sm' : 'bg-slate-900 border-slate-800'} border rounded-lg p-1 text-xs font-bold`}>
-              <motion.button 
-                whileHover={{ scale: 1.02, backgroundColor: "rgba(245, 158, 11, 0.05)" }}
-                whileTap={{ scale: 0.95 }}
-                type="button"
-                onClick={() => onToggleLanguage("ar")} 
-                className={`px-2 py-0.5 rounded transition-colors cursor-pointer ${lang === "ar" ? "bg-[#0075DE] text-white font-black" : (theme === 'light' ? "text-slate-700 hover:text-black" : "text-slate-400 hover:text-white")}`}
-              >
-                ع
-              </motion.button>
-              <motion.button 
-                whileHover={{ scale: 1.02, backgroundColor: "rgba(245, 158, 11, 0.05)" }}
-                whileTap={{ scale: 0.95 }}
-                type="button"
-                onClick={() => onToggleLanguage("fr")} 
-                className={`px-2 py-0.5 rounded transition-colors cursor-pointer ${lang === "fr" ? "bg-[#0075DE] text-white font-black" : (theme === 'light' ? "text-slate-700 hover:text-black" : "text-slate-400 hover:text-white")}`}
-              >
-                FR
-              </motion.button>
-              <motion.button 
-                whileHover={{ scale: 1.02, backgroundColor: "rgba(245, 158, 11, 0.05)" }}
-                whileTap={{ scale: 0.95 }}
-                type="button"
-                onClick={() => onToggleLanguage("en")} 
-                className={`px-2 py-0.5 rounded transition-colors cursor-pointer ${lang === "en" ? "bg-[#0075DE] text-white font-black" : (theme === 'light' ? "text-slate-700 hover:text-black" : "text-slate-400 hover:text-white")}`}
-              >
-                EN
-              </motion.button>
-            </div>
+            {/* Modern Compact Language Selector with Hover & Tap behavior */}
+            <CompactLanguageSwitcher 
+              lang={lang} 
+              onToggleLanguage={onToggleLanguage} 
+              theme={theme}
+              align="right"
+            />
 
             {/* Login Button */}
             <motion.button 
