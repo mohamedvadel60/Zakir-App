@@ -18,7 +18,14 @@ export const PrintFooter: React.FC<PrintFooterProps> = ({ settings, lang }) => {
   };
 
   return (
-    <footer className="w-full pt-3 mt-8 border-t border-slate-200 text-slate-500 text-[10px] bg-white" dir={isRtl ? "rtl" : "ltr"}>
+    <footer
+      className="zakir-print-footer w-full pt-3 mt-8 border-t border-slate-200 text-slate-500 text-[10px] bg-white break-inside-avoid"
+      dir={isRtl ? "rtl" : "ltr"}
+      style={{
+        backgroundColor: "#ffffff",
+        color: "#64748b",
+      }}
+    >
       <div className="flex items-center justify-between gap-4">
         {/* Confidentiality Notice */}
         <div className="font-semibold text-slate-500 tracking-wide">

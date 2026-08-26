@@ -131,10 +131,12 @@ export const PrintSystem: React.FC<PrintSystemProps> = ({
       styleEl.id = "zakir-print-dynamic-page-style";
       document.head.appendChild(styleEl);
     }
+    const sizeName = settings.paperSize.toLowerCase();
+    const orient = settings.orientation;
     styleEl.innerHTML = `
       @media print {
         @page {
-          size: ${settings.paperSize} ${settings.orientation};
+          size: ${sizeName} ${orient};
           margin: 0;
         }
       }
@@ -165,13 +167,31 @@ export const PrintSystem: React.FC<PrintSystemProps> = ({
     setIsPreparingPrint(true);
 
     try {
-      // Wait for font loading and layout stabilization
+      // 1. Wait for document fonts to be fully loaded
       if (document.fonts) {
         await document.fonts.ready;
       }
-      await new Promise((resolve) => setTimeout(resolve, 300));
 
-      // Trigger browser native print dialog
+      // 2. Wait for any images inside print host to complete loading
+      const host = document.getElementById("zakir-print-document-host");
+      if (host) {
+        const images = Array.from(host.querySelectorAll("img"));
+        await Promise.all(
+          images.map((img) => {
+            if (img.complete) return Promise.resolve();
+            return new Promise((res) => {
+              img.onload = () => res(true);
+              img.onerror = () => res(true);
+            });
+          })
+        );
+      }
+
+      // 3. Double RAF to ensure DOM painting and layout calculations have settled
+      await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+      await new Promise((resolve) => setTimeout(resolve, 150));
+
+      // 4. Trigger browser native print dialog
       window.print();
     } catch (err) {
       console.error("Print execution failed:", err);
@@ -314,7 +334,7 @@ export const PrintSystem: React.FC<PrintSystemProps> = ({
 
       {/* LAYER C: Native Print Host (Hidden on screen, exposed ONLY during @media print) */}
       {createPortal(
-        <div id="zakir-print-document-host">
+        <div id="zakir-print-document-host" dir={isRtl ? "rtl" : "ltr"} lang={lang}>
           <PrintPage settings={settings}>
             <PrintDocument
               memories={selectedMemories}

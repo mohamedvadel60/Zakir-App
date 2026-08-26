@@ -1,5 +1,5 @@
 import React from "react";
-import zakirSquareLogo from "../assets/zakir-square-logo.png";
+import zakirOfficialLogo from "../assets/zakir-official-logo.png";
 
 interface ZakirLogoProps {
   className?: string;
@@ -93,7 +93,7 @@ export const ZakirLogo: React.FC<ZakirLogoProps> = ({
     if (useSquareImage) {
       return (
         <img
-          src={zakirSquareLogo}
+          src={zakirOfficialLogo}
           alt="Zakir Logo"
           className="object-contain shrink-0 block"
           style={{ width: iconSize, height: iconSize }}

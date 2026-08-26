@@ -1,23 +1,51 @@
-/* Zakir Institutional Print Engine Styles */
+/* Zakir Institutional Document Print & Export Engine Styles */
 
 @media screen {
-  /* Hide the print host from normal browser DOM flow */
+  /* Hide the native print document host from normal screen browser DOM flow */
   #zakir-print-document-host {
     display: none !important;
+  }
+
+  /* Force preview sheet to always be light mode regardless of parent dark theme */
+  .zakir-print-page,
+  .zakir-print-document-content {
+    color-scheme: light !important;
+    background-color: #ffffff !important;
+    color: #0f172a !important;
+    --bg-primary: #ffffff !important;
+    --bg-secondary: #ffffff !important;
+    --bg-tertiary: #f8fafc !important;
+    --text-primary: #0f172a !important;
+    --text-secondary: #475569 !important;
+    --border-color: #cbd5e1 !important;
+  }
+
+  .zakir-print-page h1,
+  .zakir-print-page h2,
+  .zakir-print-page h3,
+  .zakir-print-page h4,
+  .zakir-print-page h5,
+  .zakir-print-page h6,
+  .zakir-print-page p,
+  .zakir-print-page span,
+  .zakir-print-page strong,
+  .zakir-print-page div,
+  .zakir-print-page label {
+    color: inherit;
   }
 }
 
 @media print {
-  /* Reset browser print page layout */
+  /* Default page margin reset - Paper size is managed dynamically via PrintSystem dynamic style */
   @page {
-    size: auto;
-    margin: 0mm;
+    margin: 0;
   }
 
-  /* Reset document root and page counters */
+  /* 1. Complete Light Mode Color & Layout Reset */
   html,
   body {
     background: #ffffff !important;
+    background-color: #ffffff !important;
     color: #0f172a !important;
     margin: 0 !important;
     padding: 0 !important;
@@ -28,37 +56,103 @@
     color-scheme: light !important;
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
+    transform: none !important;
   }
 
-  /* Hide all main web UI containers during native print execution */
+  /* 2. Hide all web UI containers during native print execution */
   body > *:not(#zakir-print-document-host) {
     display: none !important;
   }
 
-  /* Expose ONLY the dedicated print document host */
+  /* 3. Expose ONLY the dedicated print document host */
   #zakir-print-document-host {
     display: block !important;
-    position: absolute !important;
-    left: 0 !important;
-    top: 0 !important;
+    position: static !important;
     width: 100% !important;
     height: auto !important;
+    min-height: auto !important;
     margin: 0 !important;
     padding: 0 !important;
     background: #ffffff !important;
+    background-color: #ffffff !important;
     color: #0f172a !important;
     color-scheme: light !important;
-    z-index: 999999 !important;
+    transform: none !important;
+    overflow: visible !important;
+    z-index: auto !important;
   }
 
-  /* Force light background on all printable cards and elements */
-  #zakir-print-document-host * {
+  /* 4. Force light theme variables and light color-scheme on all printable sub-elements */
+  #zakir-print-document-host,
+  #zakir-print-document-host *,
+  .zakir-print-page,
+  .zakir-print-page *,
+  .zakir-print-document-content,
+  .zakir-print-document-content * {
     color-scheme: light !important;
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
+    box-sizing: border-box !important;
+    text-shadow: none !important;
+    filter: none !important;
+    backdrop-filter: none !important;
   }
 
-  /* Hide interactive controls and modal overlays in print output */
+  /* Neutralize dark-mode inherited CSS variables */
+  #zakir-print-document-host,
+  .zakir-print-document-content {
+    --bg-primary: #ffffff !important;
+    --bg-secondary: #ffffff !important;
+    --bg-tertiary: #f8fafc !important;
+    --text-primary: #0f172a !important;
+    --text-secondary: #475569 !important;
+    --border-color: #cbd5e1 !important;
+    --accent-color: #0075de !important;
+    --accent-hover: #005bab !important;
+    --accent-subtle: #e6f3fe !important;
+    --accent-text: #ffffff !important;
+    --card-bg: #ffffff !important;
+    --card: #ffffff !important;
+    --card-foreground: #0f172a !important;
+    --foreground: #0f172a !important;
+    --background: #ffffff !important;
+  }
+
+  /* Reset all typography selectors to inherit proper light colors */
+  #zakir-print-document-host h1,
+  #zakir-print-document-host h2,
+  #zakir-print-document-host h3,
+  #zakir-print-document-host h4,
+  #zakir-print-document-host h5,
+  #zakir-print-document-host h6,
+  #zakir-print-document-host p,
+  #zakir-print-document-host span,
+  #zakir-print-document-host strong,
+  #zakir-print-document-host div,
+  #zakir-print-document-host article,
+  #zakir-print-document-host section,
+  #zakir-print-document-host header,
+  #zakir-print-document-host footer {
+    color: inherit;
+  }
+
+  /* 5. Printable Page Root resets */
+  .zakir-print-page {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-height: auto !important;
+    height: auto !important;
+    background: #ffffff !important;
+    background-color: #ffffff !important;
+    box-shadow: none !important;
+    border: none !important;
+    border-radius: 0 !important;
+    margin: 0 !important;
+    overflow: visible !important;
+    transform: none !important;
+  }
+
+  /* 6. Hide interactive preview elements during native print */
   .no-print,
   .zakir-print-modal-overlay,
   .zakir-print-modal-sidebar,
@@ -67,35 +161,42 @@
     display: none !important;
   }
 
-  /* Memory Card Page Fragmentation Control - Allow long text to flow across pages naturally */
+  /* 7. Memory Cards Natural Multi-Page Flow Control */
   .zakir-print-memory-card {
+    background: #ffffff !important;
+    background-color: #ffffff !important;
+    border: 1px solid #cbd5e1 !important;
+    box-shadow: none !important;
+    border-radius: 0.5rem !important;
     break-inside: auto !important;
     page-break-inside: auto !important;
+    margin-bottom: 1.25rem !important;
   }
 
-  /* Keep cohesive small blocks together without breaking mid-signature or mid-badge */
+  /* 8. Cohesive Blocks that should NOT break across pages */
   .break-inside-avoid,
   .signature-block,
   .approval-block,
   .zakir-print-header,
   .zakir-print-footer,
-  .risk-badge {
+  .risk-badge,
+  .decision-box {
     break-inside: avoid !important;
     page-break-inside: avoid !important;
   }
 
-  /* Dynamic CSS Paged Media Counter Target */
+  /* 9. Dynamic CSS Paged Media Page Counter Target */
   .page-number-placeholder::after {
     content: counter(page);
   }
 
-  /* First element blank page prevention */
+  /* 10. Blank Page Prevention: First child never causes leading page break */
   .zakir-print-document-content > *:first-child {
     break-before: avoid !important;
     page-break-before: avoid !important;
   }
 
-  /* Table Header repetition */
+  /* Table Header & Footer repetition across pages */
   thead {
     display: table-header-group !important;
   }
@@ -104,3 +205,4 @@
     display: table-footer-group !important;
   }
 }
+

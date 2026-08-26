@@ -42,7 +42,15 @@ export const PrintSignature: React.FC<PrintSignatureProps> = ({ settings, lang }
   };
 
   return (
-    <section className="mt-10 pt-6 border-t-2 border-slate-300 bg-slate-50/50 p-5 rounded-xl text-slate-900 break-inside-avoid" dir={isRtl ? "rtl" : "ltr"}>
+    <section
+      className="signature-block approval-block mt-10 pt-6 border-t-2 border-slate-300 bg-slate-50/70 p-5 rounded-xl text-slate-900 break-inside-avoid"
+      dir={isRtl ? "rtl" : "ltr"}
+      style={{
+        backgroundColor: "#f8fafc",
+        color: "#0f172a",
+        borderColor: "#cbd5e1",
+      }}
+    >
       <h3 className="text-xs font-black uppercase tracking-wider text-slate-800 mb-4 pb-1 border-b border-slate-200">
         {getTitle()}
       </h3>

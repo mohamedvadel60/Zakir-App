@@ -101,6 +101,11 @@ export const PrintDocument: React.FC<PrintDocumentProps> = ({
     <div
       className={`zakir-print-document-content w-full bg-white text-slate-900 ${getFontSizeClass()}`}
       dir={isRtl ? "rtl" : "ltr"}
+      style={{
+        backgroundColor: "#ffffff",
+        color: "#0f172a",
+        colorScheme: "light",
+      }}
     >
       {/* Institutional Header */}
       <PrintHeader settings={settings} lang={lang} />
@@ -120,6 +125,10 @@ export const PrintDocument: React.FC<PrintDocumentProps> = ({
               key={m.id}
               data-memory-id={m.id}
               className="zakir-print-memory-card border border-slate-300 rounded-xl p-5 bg-white shadow-xs relative break-inside-auto print:shadow-none print:border-slate-300"
+              style={{
+                backgroundColor: "#ffffff",
+                color: "#0f172a",
+              }}
             >
               {/* Exclusion Button (Screen preview only) */}
               {onExcludeMemory && !isPrinting && (
@@ -155,7 +164,7 @@ export const PrintDocument: React.FC<PrintDocumentProps> = ({
                 {/* Risk Badge */}
                 {settings.showRiskBadges && (
                   <span
-                    className={`px-2.5 py-1 rounded text-[10px] font-extrabold border shrink-0 ${getRiskBadgeColor(
+                    className={`risk-badge px-2.5 py-1 rounded text-[10px] font-extrabold border shrink-0 ${getRiskBadgeColor(
                       m.riskLevel
                     )}`}
                   >
@@ -166,18 +175,18 @@ export const PrintDocument: React.FC<PrintDocumentProps> = ({
 
               {/* Main Description */}
               {cleanDesc && (
-                <div className="text-slate-800 leading-relaxed font-medium mb-3 whitespace-pre-line">
+                <div className="text-slate-800 leading-relaxed font-medium mb-3 whitespace-pre-line text-[13px]">
                   {cleanDesc}
                 </div>
               )}
 
-              {/* Core Decision */}
+              {/* Core Strategic Decision */}
               {cleanDecision && (
-                <div className="mb-3 p-3 bg-slate-50 border-s-4 border-[#0075DE] rounded-e-lg break-inside-avoid">
+                <div className="decision-box mb-3 p-3.5 bg-slate-50 border-s-4 border-[#0075DE] rounded-e-lg break-inside-avoid">
                   <strong className="block text-xs font-extrabold text-[#0075DE] mb-1">
                     {lang === "ar" ? "القرار الاستراتيجي المعتمد:" : "Approved Strategic Decision:"}
                   </strong>
-                  <p className="text-xs text-slate-800 font-semibold whitespace-pre-line">
+                  <p className="text-xs text-slate-900 font-semibold whitespace-pre-line leading-relaxed">
                     {cleanDecision}
                   </p>
                 </div>
@@ -186,10 +195,10 @@ export const PrintDocument: React.FC<PrintDocumentProps> = ({
               {/* Causal Factors */}
               {settings.showCausalFactors && cleanCausal && (
                 <div className="mb-3 text-xs">
-                  <span className="font-bold text-slate-700 block mb-0.5">
+                  <span className="font-bold text-slate-700 block mb-1">
                     {lang === "ar" ? "المسببات والعوامل المباشرة:" : "Causal Factors & Root Causes:"}
                   </span>
-                  <p className="text-slate-600 bg-slate-50 p-2.5 rounded border border-slate-200">
+                  <p className="text-slate-700 bg-slate-50 p-2.5 rounded border border-slate-200 leading-relaxed">
                     {cleanCausal}
                   </p>
                 </div>
@@ -198,10 +207,10 @@ export const PrintDocument: React.FC<PrintDocumentProps> = ({
               {/* Outcomes */}
               {settings.showOutcomes && cleanOutcomes && (
                 <div className="mb-3 text-xs">
-                  <span className="font-bold text-slate-700 block mb-0.5">
+                  <span className="font-bold text-slate-700 block mb-1">
                     {lang === "ar" ? "النتائج والأثر المترتب:" : "Direct Outcomes & Impact:"}
                   </span>
-                  <p className="text-slate-600 bg-slate-50 p-2.5 rounded border border-slate-200">
+                  <p className="text-slate-700 bg-slate-50 p-2.5 rounded border border-slate-200 leading-relaxed">
                     {cleanOutcomes}
                   </p>
                 </div>
@@ -210,43 +219,43 @@ export const PrintDocument: React.FC<PrintDocumentProps> = ({
               {/* Lessons Learned */}
               {settings.showLessonsLearned && cleanLessons && (
                 <div className="mb-3 text-xs">
-                  <span className="font-bold text-emerald-800 block mb-0.5">
+                  <span className="font-bold text-emerald-900 block mb-1">
                     {lang === "ar" ? "الدروس المستفادة للتطوير المستقبلي:" : "Key Lessons & Actionable Insights:"}
                   </span>
-                  <p className="text-emerald-950 bg-emerald-50/70 p-2.5 rounded border border-emerald-200 font-medium">
+                  <p className="text-emerald-950 bg-emerald-50/70 p-2.5 rounded border border-emerald-200 font-medium leading-relaxed">
                     {cleanLessons}
                   </p>
                 </div>
               )}
 
-            {/* Footer Metadata & Tags */}
-            <div className="mt-3 pt-2.5 border-t border-slate-100 flex items-center justify-between text-[10px] text-slate-500 flex-wrap gap-2">
-              {/* Author & Role */}
-              {settings.showMetadata && (
-                <div className="flex items-center gap-1">
-                  <span>{lang === "ar" ? "المسجل:" : "Logged by:"}</span>
-                  <strong className="text-slate-800">{m.authorName || m.authorEmail}</strong>
-                  <span className="text-slate-400">({m.authorRole})</span>
-                </div>
-              )}
+              {/* Footer Metadata & Tags */}
+              <div className="mt-3 pt-2.5 border-t border-slate-100 flex items-center justify-between text-[10px] text-slate-500 flex-wrap gap-2">
+                {/* Author & Role */}
+                {settings.showMetadata && (
+                  <div className="flex items-center gap-1">
+                    <span>{lang === "ar" ? "المسجل:" : "Logged by:"}</span>
+                    <strong className="text-slate-800">{m.authorName || m.authorEmail}</strong>
+                    <span className="text-slate-400">({m.authorRole})</span>
+                  </div>
+                )}
 
-              {/* Tags */}
-              {settings.showTags && m.tags && m.tags.length > 0 && (
-                <div className="flex items-center gap-1 flex-wrap ms-auto">
-                  {m.tags.map((tag, tIdx) => (
-                    <span
-                      key={tIdx}
-                      className="bg-slate-100 text-slate-600 px-2 py-0.5 rounded text-[9px] font-mono border border-slate-200"
-                    >
-                      #{tag}
-                    </span>
-                  ))}
-                </div>
-              )}
-            </div>
-          </article>
-        );
-      })}
+                {/* Tags */}
+                {settings.showTags && m.tags && m.tags.length > 0 && (
+                  <div className="flex items-center gap-1 flex-wrap ms-auto">
+                    {m.tags.map((tag, tIdx) => (
+                      <span
+                        key={tIdx}
+                        className="bg-slate-100 text-slate-600 px-2 py-0.5 rounded text-[9px] font-mono border border-slate-200"
+                      >
+                        #{tag}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </article>
+          );
+        })}
       </main>
 
       {/* Official Signature Section */}

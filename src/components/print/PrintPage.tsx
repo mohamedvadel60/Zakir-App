@@ -21,11 +21,13 @@ export const PrintPage: React.FC<PrintPageProps> = ({
 
   return (
     <div
-      className={`zakir-print-page bg-white text-slate-900 relative shadow-2xl rounded-sm transition-all duration-200 overflow-hidden print:shadow-none print:rounded-none border border-slate-200 print:border-none ${className}`}
+      className={`zakir-print-page bg-white text-slate-900 relative shadow-2xl rounded-sm transition-all duration-200 print:shadow-none print:rounded-none border border-slate-200 print:border-none ${className}`}
       style={{
         width: `${geom.widthMm}mm`,
         minHeight: `${geom.heightMm}mm`,
         padding: `${geom.paddingMm}mm`,
+        backgroundColor: "#ffffff",
+        color: "#0f172a",
         colorScheme: "light",
       }}
     >

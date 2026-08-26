@@ -25,7 +25,14 @@ export const PrintHeader: React.FC<PrintHeaderProps> = ({ settings, lang }) => {
   };
 
   return (
-    <header className="w-full pb-4 mb-6 border-b-2 border-slate-200 text-slate-900 bg-white" dir={isRtl ? "rtl" : "ltr"}>
+    <header
+      className="zakir-print-header w-full pb-4 mb-6 border-b-2 border-slate-200 text-slate-900 bg-white break-inside-avoid"
+      dir={isRtl ? "rtl" : "ltr"}
+      style={{
+        backgroundColor: "#ffffff",
+        color: "#0f172a",
+      }}
+    >
       <div className="flex items-start justify-between gap-4">
         {/* Left / Right Logo & Entity Info */}
         <div className="flex items-center gap-3">
