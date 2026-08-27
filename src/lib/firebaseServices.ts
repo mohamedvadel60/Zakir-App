@@ -1372,6 +1372,61 @@ export async function fetchAllUsersForAdmin(): Promise<AdminUserRecord[]> {
 }
 
 /**
+ * Account Lifecycle & Recovery API Client Functions
+ */
+export async function checkAccountLifecycleApi(email: string) {
+  try {
+    const res = await fetch("/api/auth/check-lifecycle", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email })
+    });
+    return await res.json();
+  } catch (err: any) {
+    console.error("checkAccountLifecycleApi error:", err);
+    return { success: false, error: err.message || "فشل التحقق من حالة البريد الإلكتروني." };
+  }
+}
+
+export async function requestAccountReactivationApi(email: string, reason?: string) {
+  try {
+    const res = await fetch("/api/auth/request-reactivation", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, reason })
+    });
+    return await res.json();
+  } catch (err: any) {
+    console.error("requestAccountReactivationApi error:", err);
+    return { success: false, error: err.message || "فشل تقديم طلب إعادة تفعيل الحساب." };
+  }
+}
+
+export async function restoreAccountApi(email: string, password?: string) {
+  try {
+    const res = await fetch("/api/auth/restore-account", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password })
+    });
+    return await res.json();
+  } catch (err: any) {
+    console.error("restoreAccountApi error:", err);
+    return { success: false, error: err.message || "فشل استعادة الحساب." };
+  }
+}
+
+export async function checkWorkspaceInvitationApi(email: string) {
+  try {
+    const res = await fetch(`/api/auth/check-invitation?email=${encodeURIComponent(email)}`);
+    const data = await res.json();
+    return data?.invitation || null;
+  } catch (err) {
+    return null;
+  }
+}
+
+/**
  * Delete a user account and clean up all associated user documents and files in Firestore
  */
 export async function deleteFirebaseUserAccount(userId: string): Promise<void> {

@@ -38,13 +38,13 @@
 }
 
 @media print {
-  /* Default page margin setup - Zero out browser margins so explicit page frame borders fit 100% */
+  /* Zero out native browser margins so explicit page frame borders fit exactly 100% */
   @page {
     margin: 0;
     size: auto;
   }
 
-  /* 1. Complete Light Mode Color & Layout Reset - Zero Height & Overflow Restrictions */
+  /* 1. Complete Light Mode Reset - Pure White Background with No Dark Mode Artifacts */
   html,
   body {
     background: #ffffff !important;
@@ -54,27 +54,26 @@
     padding: 0 !important;
     width: 100% !important;
     height: auto !important;
-    min-height: auto !important;
-    max-height: none !important;
+    min-height: 100% !important;
     overflow: visible !important;
     color-scheme: light !important;
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
   }
 
-  /* 2. Hide all web UI containers during native print execution */
+  /* 2. Hide all regular web UI containers during native print */
   body > *:not(#zakir-print-document-host) {
     display: none !important;
   }
 
-  /* 3. Expose dedicated print document host with unconstrained overflow & height */
+  /* 3. Expose dedicated print document host attached to top */
   #zakir-print-document-host {
     display: block !important;
-    position: static !important;
+    position: absolute !important;
+    top: 0 !important;
+    left: 0 !important;
     width: 100% !important;
     height: auto !important;
-    min-height: auto !important;
-    max-height: none !important;
     margin: 0 !important;
     padding: 0 !important;
     background: #ffffff !important;
@@ -82,7 +81,7 @@
     color: #000000 !important;
     overflow: visible !important;
     color-scheme: light !important;
-    z-index: auto !important;
+    z-index: 99999 !important;
   }
 
   /* 4. Force light theme variables and light color-scheme on all printable sub-elements */
@@ -93,9 +92,7 @@
   .zakir-print-page,
   .zakir-print-page *,
   .zakir-print-outer-frame,
-  .zakir-print-inner-frame,
-  .zakir-print-wavy-border,
-  .zakir-print-wavy-border *,
+  .zakir-print-outer-frame *,
   .zakir-print-document-content,
   .zakir-print-document-content * {
     color-scheme: light !important;
@@ -106,6 +103,13 @@
     box-shadow: none !important;
     filter: none !important;
     backdrop-filter: none !important;
+  }
+
+  #zakir-print-document-host,
+  .page,
+  .zakir-print-page,
+  .zakir-print-outer-frame {
+    background-color: #ffffff !important;
   }
 
   /* Neutralize dark-mode inherited CSS variables */
@@ -146,10 +150,13 @@
     color: inherit;
   }
 
-  /* 5. Physical Page Box - Unconstrained Height For Multi-Page Flow */
+  /* 5. Physical Page Box - Fits 100% of Sheet with Zero Overlap */
   .page,
   .zakir-print-page {
-    height: auto !important;
+    width: 210mm !important;
+    height: 297mm !important;
+    max-height: 297mm !important;
+    min-height: 297mm !important;
     box-sizing: border-box !important;
     position: relative !important;
     background: #ffffff !important;
@@ -157,11 +164,25 @@
     box-shadow: none !important;
     border-radius: 0 !important;
     margin: 0 !important;
-    overflow: visible !important;
-    page-break-after: always !important;
-    break-after: page !important;
+    padding: 6mm !important;
+    overflow: hidden !important;
     page-break-inside: avoid !important;
     break-inside: avoid !important;
+    page-break-after: always !important;
+    break-after: page !important;
+  }
+
+  /* Unbreakable Atomic Blocks (Approval / Certification, Memory Cards, Header, Footer) */
+  .signature-block,
+  .approval-block,
+  .zakir-print-memory-card,
+  .zakir-print-header,
+  .zakir-print-footer {
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
   }
 
   /* FIRST PAGE / NO PREMATURE LEADING BREAK */
@@ -175,6 +196,8 @@
   }
 
   /* LAST PAGE / PREVENT EXTRA BLANK PAGE AT END */
+  #zakir-print-document-host > .page:last-child,
+  #zakir-print-document-host > .zakir-print-page:last-child,
   .page:last-child,
   .zakir-print-page:last-child {
     break-after: auto !important;
@@ -186,91 +209,20 @@
   .zakir-print-outer-frame {
     box-sizing: border-box !important;
     width: 100% !important;
-    height: auto !important;
-    min-height: 100% !important;
-    max-height: none !important;
+    height: 100% !important;
+    max-height: 100% !important;
     position: relative !important;
-    overflow: visible !important;
+    overflow: hidden !important;
     background-color: #ffffff !important;
   }
 
-  /* Inner content frame border inside page */
-  .zakir-print-inner-frame {
-    box-sizing: border-box !important;
-    width: 100% !important;
-    height: auto !important;
-    min-height: 100% !important;
-    max-height: none !important;
-    position: relative !important;
-    overflow: visible !important;
-    background-color: #ffffff !important;
-  }
-
-  /* Decorative Wavy Side Border SVG */
-  .zakir-print-wavy-border {
-    display: flex !important;
-    position: relative !important;
-    -webkit-print-color-adjust: exact !important;
-    print-color-adjust: exact !important;
-  }
-
-  /* Main Document Content Area */
-  .zakir-print-document-content {
-    width: 100% !important;
-    height: auto !important;
-    min-height: auto !important;
-    max-height: none !important;
-    overflow: visible !important;
-    page-break-inside: auto !important;
-    break-inside: auto !important;
-  }
-
-  /* 6. Hide interactive preview elements during native print */
+  /* Hide screen-only interactive UI elements */
   .no-print,
+  button.no-print,
   .zakir-print-modal-overlay,
-  .zakir-print-modal-sidebar,
-  .zakir-print-thumbnails-sidebar,
   .zakir-print-modal-header,
-  .zakir-print-preview-workspace {
+  .zakir-print-modal-sidebar,
+  .zakir-print-thumbnails-sidebar {
     display: none !important;
-  }
-
-  /* 7. Memory Cards Natural Continuous Border & Cohesive Flow */
-  .zakir-print-memory-card,
-  .data-section {
-    background: #ffffff !important;
-    background-color: #ffffff !important;
-    border: 1.5px solid #cbd5e1 !important;
-    box-shadow: none !important;
-    border-radius: 8px !important;
-    break-inside: avoid !important;
-    page-break-inside: avoid !important;
-    margin-bottom: 0.85rem !important;
-    padding: 0.75rem !important;
-    box-sizing: border-box !important;
-  }
-
-  /* 8. Cohesive Blocks that should NOT break awkwardly */
-  .signature-block,
-  .approval-block,
-  .signature-wrapper,
-  .zakir-print-header,
-  .report-header,
-  .zakir-print-footer,
-  .risk-badge,
-  .decision-box,
-  tr,
-  li {
-    break-inside: avoid !important;
-    page-break-inside: avoid !important;
-  }
-
-  /* Table Header & Footer repetition across pages */
-  thead {
-    display: table-header-group !important;
-  }
-
-  tfoot {
-    display: table-footer-group !important;
   }
 }

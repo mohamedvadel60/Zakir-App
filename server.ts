@@ -2365,6 +2365,336 @@ app.post("/api/auth/reset-password", otpLimiter, async (req, res) => {
   }
 });
 
+// Set or Update Account Password (Supports Google users setting a password for the first time or updating existing password)
+app.post("/api/auth/set-password", async (req, res) => {
+  try {
+    const { userId, email, newPassword, currentPassword, isGoogleUser } = req.body;
+    if (!newPassword || newPassword.length < 6) {
+      return res.status(400).json({ error: "Password must be at least 6 characters long." });
+    }
+
+    const cleanEmail = email ? email.trim().toLowerCase() : "";
+    const db = readDb();
+    let user = db.users.find((u: any) => u.id === userId || (cleanEmail && u.email?.toLowerCase() === cleanEmail));
+
+    let uid = userId || user?.id;
+
+    // Check if user exists in Firestore
+    let firestoreUserSnap: any = null;
+    if (uid) {
+      try {
+        const docRef = adminDb.collection("users").doc(uid);
+        const docSnap = await docRef.get();
+        if (docSnap.exists) {
+          firestoreUserSnap = docSnap;
+        }
+      } catch (fsErr) {
+        console.warn("Firestore lookup failed in set-password:", fsErr);
+      }
+    }
+
+    // If currentPassword is provided and the user has a password already set, verify it
+    const existingPassword = user?.passwordHash || firestoreUserSnap?.data()?.passwordHash;
+    if (existingPassword && !isGoogleUser && currentPassword) {
+      if (existingPassword !== currentPassword && hashVerificationCode(currentPassword) !== existingPassword) {
+        return res.status(400).json({ error: "Current password is incorrect.", userFriendlyMessage: "كلمة المرور الحالية غير صحيحة." });
+      }
+    }
+
+    // Update in Firebase Auth if available
+    if (uid) {
+      try {
+        await adminAuth.updateUser(uid, { password: newPassword });
+        console.log(`[PASSWORD SET] Updated Firebase Auth password for uid: ${uid}`);
+      } catch (authErr: any) {
+        console.warn("Could not update Firebase Auth user directly (proceeding with Firestore update):", authErr.message);
+      }
+    }
+
+    // Update Firestore User Document
+    if (uid) {
+      try {
+        await adminDb.collection("users").doc(uid).set({
+          passwordHash: newPassword,
+          hasPasswordSet: true,
+          updatedAt: new Date().toISOString()
+        }, { merge: true });
+      } catch (fsErr) {
+        console.warn("Could not update Firestore user password:", fsErr);
+      }
+    }
+
+    // Update local JSON db
+    if (user) {
+      user.passwordHash = newPassword;
+      user.hasPasswordSet = true;
+      writeDb(db);
+    } else if (uid && cleanEmail) {
+      const newUser = {
+        id: uid,
+        email: cleanEmail,
+        passwordHash: newPassword,
+        hasPasswordSet: true,
+        role: "CEO",
+        createdAt: new Date().toISOString()
+      };
+      db.users.push(newUser);
+      writeDb(db);
+    }
+
+    return res.json({
+      success: true,
+      message: "Password has been successfully set.",
+      userFriendlyMessage: "تم تعيين وحفظ كلمة المرور بنجاح."
+    });
+  } catch (err: any) {
+    console.error("Error setting password:", err);
+    res.status(500).json({ error: err.message || "Failed to set password." });
+  }
+});
+
+// Verify Current Account Password
+app.post("/api/auth/verify-account-password", async (req, res) => {
+  try {
+    const { userId, email, password } = req.body;
+    if (!password) {
+      return res.status(400).json({ error: "Password is required." });
+    }
+
+    const cleanEmail = email ? email.trim().toLowerCase() : "";
+    const db = readDb();
+    let user = db.users.find((u: any) => u.id === userId || (cleanEmail && u.email?.toLowerCase() === cleanEmail));
+
+    let uid = userId || user?.id;
+    let firestoreUserSnap: any = null;
+
+    if (uid) {
+      try {
+        const docRef = adminDb.collection("users").doc(uid);
+        const docSnap = await docRef.get();
+        if (docSnap.exists) {
+          firestoreUserSnap = docSnap.data();
+        }
+      } catch (e) {}
+    }
+
+    const storedPassword = firestoreUserSnap?.passwordHash || user?.passwordHash;
+
+    if (!storedPassword) {
+      // If no password set yet (e.g. pure Google account without set password)
+      return res.json({ success: true, valid: true, isFirstTime: true });
+    }
+
+    const isValid = storedPassword === password || hashVerificationCode(password) === storedPassword;
+
+    return res.json({
+      success: true,
+      valid: isValid,
+      message: isValid ? "Password verified." : "Invalid password."
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || "Failed to verify password." });
+  }
+});
+
+// Reset / Change Encryption Key using Current Account Password
+app.post("/api/auth/reset-encryption-with-password", async (req, res) => {
+  try {
+    const { userId, email, accountPassword, newPasscode, lockedModules } = req.body;
+    if (!newPasscode || newPasscode.trim().length === 0) {
+      return res.status(400).json({ error: "New secret passcode is required." });
+    }
+
+    const cleanEmail = email ? email.trim().toLowerCase() : "";
+    const db = readDb();
+    let user = db.users.find((u: any) => u.id === userId || (cleanEmail && u.email?.toLowerCase() === cleanEmail));
+    let uid = userId || user?.id;
+
+    let firestoreUserData: any = null;
+    if (uid) {
+      try {
+        const docRef = adminDb.collection("users").doc(uid);
+        const docSnap = await docRef.get();
+        if (docSnap.exists) {
+          firestoreUserData = docSnap.data();
+        }
+      } catch (e) {}
+    }
+
+    const storedPassword = firestoreUserData?.passwordHash || user?.passwordHash;
+
+    // If account has a password, verify accountPassword
+    if (storedPassword && accountPassword) {
+      const isValid = storedPassword === accountPassword || hashVerificationCode(accountPassword) === storedPassword;
+      if (!isValid) {
+        return res.status(400).json({ 
+          success: false, 
+          error: "Account password verification failed. Please enter your correct current account password.",
+          userFriendlyMessage: "كلمة مرور الحساب غير صحيحة. يرجى إدخال كلمة المرور الحالية لحسابك لإعادة تعيين رمز التشفير."
+        });
+      }
+    }
+
+    const newSecuritySettings = {
+      secretPasscode: newPasscode.trim(),
+      isPinSet: true,
+      lockedModules: lockedModules || {
+        fileVault: true,
+        memoryVault: true,
+        riskRadar: true,
+        settings: false
+      },
+      updatedAt: new Date().toISOString()
+    };
+
+    if (uid) {
+      try {
+        await adminDb.collection("users").doc(uid).set({
+          encryptedSecurity: newSecuritySettings
+        }, { merge: true });
+        console.log(`[ENCRYPTION RESET] Updated security settings for uid: ${uid}`);
+      } catch (fsErr) {
+        console.warn("Firestore encryption update warning:", fsErr);
+      }
+    }
+
+    if (user) {
+      user.encryptedSecurity = newSecuritySettings;
+      writeDb(db);
+    }
+
+    return res.json({
+      success: true,
+      message: "Encryption passcode reset successfully with account password verification.",
+      userFriendlyMessage: "تمت إعادة تعيين وتحديث رمز التشفير بنجاح عبر تأكيد كلمة مرور الحساب.",
+      encryptedSecurity: newSecuritySettings
+    });
+  } catch (err: any) {
+    console.error("Error resetting encryption passcode:", err);
+    res.status(500).json({ error: err.message || "Failed to reset encryption passcode." });
+  }
+});
+
+// CEO Update Team Member Permissions & Roles (Strict CEO Control)
+app.post("/api/admin/update-member-permissions", async (req, res) => {
+  try {
+    const { ceoId, memberId, memberEmail, powers, role } = req.body;
+    if (!ceoId || !memberEmail) {
+      return res.status(400).json({ error: "CEO ID and Member Email are required." });
+    }
+
+    const cleanEmail = memberEmail.trim().toLowerCase();
+    const db = readDb();
+    
+    // Verify CEO identity and authorization
+    let ceoUser = db.users.find((u: any) => u.id === ceoId);
+    if (!ceoUser) {
+      try {
+        const ceoDoc = await adminDb.collection("users").doc(ceoId).get();
+        if (ceoDoc.exists) {
+          ceoUser = ceoDoc.data();
+        }
+      } catch (e) {}
+    }
+
+    if (ceoUser && ceoUser.role !== "CEO" && ceoUser.role !== "Admin") {
+      return res.status(403).json({ 
+        error: "Forbidden: Only the CEO has full authority to modify member powers and permissions.",
+        userFriendlyMessage: "غير مصرح: يمتلك المدير التنفيذي (CEO) وحده الصلاحية الحصرية لتعديل صلاحيات العمال وأعضاء الفريق."
+      });
+    }
+
+    // 1. Update CEO's teamMembersList in Firestore & Local DB
+    if (ceoId) {
+      try {
+        const ceoRef = adminDb.collection("users").doc(ceoId);
+        const ceoSnap = await ceoRef.get();
+        if (ceoSnap.exists) {
+          const data = ceoSnap.data();
+          const list = (data?.teamMembersList || []) as any[];
+          const targetIdx = list.findIndex((m: any) => m.email?.toLowerCase() === cleanEmail || m.id === memberId);
+          if (targetIdx >= 0) {
+            list[targetIdx] = {
+              ...list[targetIdx],
+              powers: powers || list[targetIdx].powers,
+              role: role || list[targetIdx].role
+            };
+          } else {
+            list.push({
+              id: memberId || `tm-${Date.now()}`,
+              email: cleanEmail,
+              name: cleanEmail.split("@")[0],
+              powers: powers || { fileVault: true, memoryVault: true, riskRadar: false, marketIntel: false, settings: false },
+              role: role || "Contributor",
+              addedAt: new Date().toISOString().split("T")[0]
+            });
+          }
+          await ceoRef.update({ teamMembersList: list });
+        }
+      } catch (fsErr) {
+        console.warn("Failed to update CEO team list in Firestore:", fsErr);
+      }
+    }
+
+    // 2. Find Worker/Member user document in Firestore and update their permissions directly
+    let memberUid = memberId?.replace("tm-", "");
+    try {
+      if (memberUid) {
+        const mRef = adminDb.collection("users").doc(memberUid);
+        const mSnap = await mRef.get();
+        if (mSnap.exists) {
+          await mRef.update({
+            powers: powers,
+            role: role || mSnap.data()?.role || "Contributor",
+            updatedAt: new Date().toISOString()
+          });
+          console.log(`[PERMISSIONS SYNC] Updated worker ${memberUid} profile in Firestore.`);
+        }
+      }
+
+      // Also search by email in case memberUid was not the document ID
+      const qSnap = await adminDb.collection("users").where("email", "==", cleanEmail).limit(1).get();
+      if (!qSnap.empty) {
+        const docRef = qSnap.docs[0].ref;
+        await docRef.update({
+          powers: powers,
+          role: role || qSnap.docs[0].data()?.role || "Contributor",
+          updatedAt: new Date().toISOString()
+        });
+        console.log(`[PERMISSIONS SYNC] Updated worker by email ${cleanEmail} in Firestore.`);
+      }
+    } catch (workerErr) {
+      console.warn("Failed to update worker document directly in Firestore:", workerErr);
+    }
+
+    // Update in local DB
+    if (db.users) {
+      const workerUser = db.users.find((u: any) => u.email?.toLowerCase() === cleanEmail || u.id === memberUid);
+      if (workerUser) {
+        if (powers) workerUser.powers = powers;
+        if (role) workerUser.role = role;
+      }
+      if (ceoUser && ceoUser.teamMembersList) {
+        const idx = ceoUser.teamMembersList.findIndex((m: any) => m.email?.toLowerCase() === cleanEmail || m.id === memberId);
+        if (idx >= 0) {
+          ceoUser.teamMembersList[idx].powers = powers || ceoUser.teamMembersList[idx].powers;
+          ceoUser.teamMembersList[idx].role = role || ceoUser.teamMembersList[idx].role;
+        }
+      }
+      writeDb(db);
+    }
+
+    return res.json({
+      success: true,
+      message: "Member permissions updated successfully by CEO.",
+      userFriendlyMessage: "تم تحديث وتثبيت صلاحيات العضو بنجاح من طرف المدير التنفيذي."
+    });
+  } catch (err: any) {
+    console.error("Error updating member permissions:", err);
+    res.status(500).json({ error: err.message || "Failed to update member permissions." });
+  }
+});
+
 // --- CUSTOMER SUPPORT SYSTEM API ENDPOINTS ---
 
 // Create Support Ticket
@@ -3091,6 +3421,566 @@ app.get("/api/admin/users", requireAuth, async (req: AuthRequest, res) => {
   }
 });
 
+// ==========================================
+// ACCOUNT LIFECYCLE & RESTORATION SERVICES
+// ==========================================
+
+export async function getAccountLifecycleRecord(email: string): Promise<any> {
+  const normalizedEmail = (email || "").trim().toLowerCase();
+  if (!normalizedEmail) return null;
+
+  try {
+    const docRef = adminDb.collection("accountLifecycle").doc(normalizedEmail);
+    const docSnap = await docRef.get();
+    let record: any = null;
+
+    if (docSnap.exists) {
+      record = docSnap.data();
+    } else {
+      const db = readDb();
+      if (!db.account_lifecycle) db.account_lifecycle = [];
+      record = db.account_lifecycle.find((r: any) => r.emailNormalized === normalizedEmail);
+    }
+
+    if (!record) return null;
+
+    // Check if self-deleted account has passed the 31-day restoration window
+    if (record.deletionType === "self" && record.status === "SELF_DELETED" && record.restoreUntil) {
+      const nowMs = Date.now();
+      const restoreUntilMs = new Date(record.restoreUntil).getTime();
+      if (nowMs > restoreUntilMs) {
+        console.log(`[LIFECYCLE PURGE] Self-deleted account ${normalizedEmail} expired 31-day window. Purging retained user data.`);
+        
+        if (record.originalUserId) {
+          try {
+            await purgeRetainedUserDataServer(record.originalUserId);
+          } catch (pErr) {
+            console.warn("Purge retained data error:", pErr);
+          }
+        }
+
+        const purgedFields = {
+          status: "PURGED",
+          deletionType: "self",
+          purgedAt: new Date().toISOString(),
+          retainedDataDocPath: null,
+          updatedAt: new Date().toISOString()
+        };
+
+        try {
+          await docRef.set(purgedFields, { merge: true });
+        } catch (e) {}
+
+        record = { ...record, ...purgedFields };
+
+        const db = readDb();
+        if (!db.account_lifecycle) db.account_lifecycle = [];
+        const idx = db.account_lifecycle.findIndex((r: any) => r.emailNormalized === normalizedEmail);
+        if (idx >= 0) db.account_lifecycle[idx] = record;
+        else db.account_lifecycle.push(record);
+        writeDb(db);
+      }
+    }
+
+    return record;
+  } catch (err) {
+    console.error("getAccountLifecycleRecord error:", err);
+    return null;
+  }
+}
+
+export async function setAccountLifecycleRecord(record: any): Promise<void> {
+  if (!record || !record.emailNormalized) return;
+  const normalizedEmail = record.emailNormalized.trim().toLowerCase();
+  const docRef = adminDb.collection("accountLifecycle").doc(normalizedEmail);
+
+  const payload = {
+    ...record,
+    emailNormalized: normalizedEmail,
+    updatedAt: new Date().toISOString()
+  };
+
+  try {
+    await docRef.set(payload, { merge: true });
+  } catch (err) {
+    console.error("setAccountLifecycleRecord Firestore error:", err);
+  }
+
+  try {
+    const db = readDb();
+    if (!db.account_lifecycle) db.account_lifecycle = [];
+    const idx = db.account_lifecycle.findIndex((r: any) => r.emailNormalized === normalizedEmail);
+    if (idx >= 0) db.account_lifecycle[idx] = { ...db.account_lifecycle[idx], ...payload };
+    else db.account_lifecycle.push(payload);
+    writeDb(db);
+  } catch (err) {
+    console.warn("setAccountLifecycleRecord local DB error:", err);
+  }
+}
+
+export async function purgeRetainedUserDataServer(userId: string): Promise<void> {
+  if (!userId) return;
+  try {
+    await adminDb.collection("users_retained").doc(userId).delete();
+
+    const memSnap = await adminDb.collection("users_retained").doc(userId).collection("memories").get();
+    for (const d of memSnap.docs) await d.ref.delete();
+
+    const alertSnap = await adminDb.collection("users_retained").doc(userId).collection("riskAlerts").get();
+    for (const d of alertSnap.docs) await d.ref.delete();
+
+    const fileSnap = await adminDb.collection("users_retained").doc(userId).collection("files").get();
+    for (const d of fileSnap.docs) await d.ref.delete();
+
+    console.log(`[PURGE COMPLETE] Retained user data for ${userId} purged permanently.`);
+  } catch (err) {
+    console.warn("purgeRetainedUserDataServer warning:", err);
+  }
+}
+
+// Background cleanup job for expired self-deleted accounts
+export async function purgeExpiredAccountsJob(): Promise<void> {
+  try {
+    const snap = await adminDb.collection("accountLifecycle")
+      .where("deletionType", "==", "self")
+      .where("status", "==", "SELF_DELETED")
+      .get();
+    if (snap && !snap.empty) {
+      const nowMs = Date.now();
+      for (const docSnap of snap.docs) {
+        const data = docSnap.data();
+        if (data.restoreUntil && nowMs > new Date(data.restoreUntil).getTime()) {
+          console.log(`[BACKGROUND PURGE] Expired account lifecycle ${docSnap.id}`);
+          await getAccountLifecycleRecord(docSnap.id);
+        }
+      }
+    }
+  } catch (e) {
+    console.warn("purgeExpiredAccountsJob background error:", e);
+  }
+}
+
+// Run periodic cleanup every 1 hour
+setInterval(purgeExpiredAccountsJob, 60 * 60 * 1000);
+
+// --- ACCOUNT LIFECYCLE API ENDPOINTS ---
+
+app.post("/api/auth/check-lifecycle", async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email || typeof email !== "string") {
+      return res.status(400).json({ success: false, error: "Email parameter is required." });
+    }
+
+    const normalizedEmail = email.trim().toLowerCase();
+    const record = await getAccountLifecycleRecord(normalizedEmail);
+
+    if (!record || record.status === "PURGED") {
+      return res.json({
+        success: true,
+        email: normalizedEmail,
+        status: record?.status === "PURGED" ? "PURGED" : "NEW",
+        canRegister: true,
+        canRestore: false,
+        adminApprovalRequired: false,
+        userFriendlyMessage: ""
+      });
+    }
+
+    if (record.status === "ACTIVE") {
+      return res.json({
+        success: true,
+        email: normalizedEmail,
+        status: "ACTIVE",
+        canRegister: false,
+        canRestore: false,
+        adminApprovalRequired: false,
+        userFriendlyMessage: "البريد الإلكتروني مسجل بالفعل. يرجى تسجيل الدخول إلى حسابك."
+      });
+    }
+
+    if (record.status === "ADMIN_DELETED" || record.status === "ADMIN_APPROVAL_REQUIRED" || record.deletionType === "admin") {
+      return res.json({
+        success: true,
+        email: normalizedEmail,
+        status: "ADMIN_DELETED",
+        canRegister: false,
+        canRestore: false,
+        adminApprovalRequired: true,
+        userFriendlyMessage: "تم تعطيل حسابك بواسطة مسؤول المنصة. لا يمكنك إنشاء حساب جديد باستخدام هذا البريد الإلكتروني إلا بعد موافقة المسؤول."
+      });
+    }
+
+    if (record.status === "ADMIN_APPROVAL_PENDING") {
+      return res.json({
+        success: true,
+        email: normalizedEmail,
+        status: "ADMIN_APPROVAL_PENDING",
+        canRegister: false,
+        canRestore: false,
+        adminApprovalRequired: true,
+        userFriendlyMessage: "طلب إعادة تفعيل الحساب قيد المراجعة حالياً بواسطة مسؤول المنصة. يرجى الانتظار لحين البت في الطلب."
+      });
+    }
+
+    if (record.status === "SELF_DELETED" && record.restoreUntil) {
+      const nowMs = Date.now();
+      const restoreUntilMs = new Date(record.restoreUntil).getTime();
+      const remainingMs = restoreUntilMs - nowMs;
+
+      if (remainingMs > 0) {
+        const daysRemaining = Math.max(1, Math.ceil(remainingMs / (24 * 3600 * 1000)));
+        return res.json({
+          success: true,
+          email: normalizedEmail,
+          status: "SELF_RESTORE_AVAILABLE",
+          canRegister: false,
+          canRestore: true,
+          adminApprovalRequired: false,
+          daysRemaining: daysRemaining,
+          restoreUntil: record.restoreUntil,
+          userFriendlyMessage: `تم العثور على حساب سابق تم حذفه بواسطتك. يمكنك استعادة حسابك وجميع بياناتك السابقة (متبقي ${daysRemaining} يوماً للاستعادة).`
+        });
+      }
+    }
+
+    return res.json({
+      success: true,
+      email: normalizedEmail,
+      status: "NEW",
+      canRegister: true,
+      canRestore: false,
+      adminApprovalRequired: false,
+      userFriendlyMessage: ""
+    });
+  } catch (err: any) {
+    console.error("check-lifecycle error:", err);
+    res.status(500).json({ success: false, error: err.message || "Failed to check account lifecycle state." });
+  }
+});
+
+app.post("/api/auth/request-reactivation", async (req, res) => {
+  try {
+    const { email, reason } = req.body;
+    if (!email || typeof email !== "string") {
+      return res.status(400).json({ success: false, error: "Email parameter is required." });
+    }
+
+    const normalizedEmail = email.trim().toLowerCase();
+    const record = await getAccountLifecycleRecord(normalizedEmail);
+
+    if (!record || (record.status !== "ADMIN_DELETED" && record.status !== "ADMIN_APPROVAL_REQUIRED" && record.deletionType !== "admin")) {
+      return res.status(400).json({ 
+        success: false, 
+        error: "هذا الحساب غير محذوف بواسطة مسؤول المنصة أو لا يتطلب إعادة تفعيل." 
+      });
+    }
+
+    const nowIso = new Date().toISOString();
+    const updatedRecord = {
+      ...record,
+      status: "ADMIN_APPROVAL_PENDING",
+      reactivationRequestedAt: nowIso,
+      reactivationRequestReason: reason || "طلب إعادة تفعيل الحساب المحذوف بواسطة المسؤول",
+      reactivationStatus: "pending",
+      updatedAt: nowIso
+    };
+
+    await setAccountLifecycleRecord(updatedRecord);
+
+    try {
+      await adminDb.collection("accountReactivationRequests").doc(normalizedEmail).set({
+        email: normalizedEmail,
+        requestedAt: nowIso,
+        reason: reason || "طلب إعادة تفعيل الحساب المحذوف بواسطة المسؤول",
+        status: "pending",
+        originalUserId: record.originalUserId || ""
+      });
+    } catch (e) {}
+
+    const db = readDb();
+    if (!db.account_reactivation_requests) db.account_reactivation_requests = [];
+    db.account_reactivation_requests = db.account_reactivation_requests.filter((r: any) => r.email !== normalizedEmail);
+    db.account_reactivation_requests.push({
+      email: normalizedEmail,
+      requestedAt: nowIso,
+      reason: reason || "طلب إعادة تفعيل الحساب المحذوف بواسطة المسؤول",
+      status: "pending"
+    });
+    writeDb(db);
+
+    return res.json({
+      success: true,
+      message: "تم تقديم طلب إعادة تفعيل الحساب بنجاح إلى مسؤول المنصة. سيتم مراجعة طلبك وإخطارك بالتحديثات."
+    });
+  } catch (err: any) {
+    console.error("request-reactivation error:", err);
+    res.status(500).json({ success: false, error: err.message || "Failed to submit reactivation request." });
+  }
+});
+
+app.post("/api/auth/restore-account", async (req, res) => {
+  try {
+    const { email, password } = req.body;
+    if (!email || typeof email !== "string") {
+      return res.status(400).json({ success: false, error: "Email parameter is required." });
+    }
+
+    const normalizedEmail = email.trim().toLowerCase();
+    const record = await getAccountLifecycleRecord(normalizedEmail);
+
+    if (!record || (record.status !== "SELF_RESTORE_AVAILABLE" && record.status !== "SELF_DELETED")) {
+      return res.status(400).json({ 
+        success: false, 
+        error: "لا يوجد حساب قابل للاستعادة بهذا البريد الإلكتروني." 
+      });
+    }
+
+    if (record.restoreUntil && Date.now() > new Date(record.restoreUntil).getTime()) {
+      return res.status(400).json({
+        success: false,
+        error: "انتهت مهلة 31 يوماً المتاحة لاستعادة الحساب. تم حذف البيانات بشكل نهائي."
+      });
+    }
+
+    const userId = record.originalUserId || `usr_${Date.now().toString(36)}`;
+
+    let retainedProfile: any = null;
+    try {
+      const retainedSnap = await adminDb.collection("users_retained").doc(userId).get();
+      if (retainedSnap.exists) {
+        retainedProfile = retainedSnap.data();
+      }
+    } catch (e) {}
+
+    if (!retainedProfile) {
+      const db = readDb();
+      retainedProfile = db.retained_users?.find((u: any) => u.id === userId || u.email?.toLowerCase() === normalizedEmail);
+    }
+
+    const nowIso = new Date().toISOString();
+    const restoredUserDoc = {
+      ...(retainedProfile || {}),
+      id: userId,
+      email: normalizedEmail,
+      lastActiveAt: nowIso,
+      lastLoginAt: nowIso,
+      restoredAt: nowIso
+    };
+
+    try {
+      await adminAuth.getUser(userId);
+      if (password) {
+        await adminAuth.updateUser(userId, { password });
+      }
+    } catch (authErr: any) {
+      if (authErr.code === "auth/user-not-found") {
+        try {
+          await adminAuth.createUser({
+            uid: userId,
+            email: normalizedEmail,
+            password: password || "Zakir@2026Restored",
+            displayName: restoredUserDoc.ownerName || restoredUserDoc.companyName || normalizedEmail.split("@")[0]
+          });
+        } catch (cErr) {}
+      }
+    }
+
+    try {
+      await adminDb.collection("users").doc(userId).set(restoredUserDoc);
+    } catch (fsErr) {
+      console.warn("Restore profile doc write error:", fsErr);
+    }
+
+    try {
+      await purgeRetainedUserDataServer(userId);
+    } catch (e) {}
+
+    const activeRecord = {
+      accountId: normalizedEmail,
+      emailNormalized: normalizedEmail,
+      status: "ACTIVE",
+      deletionType: null,
+      deletedAt: null,
+      deletedBy: null,
+      restoreUntil: null,
+      originalUserId: userId,
+      retainedDataDocPath: null,
+      updatedAt: nowIso
+    };
+
+    await setAccountLifecycleRecord(activeRecord);
+
+    const db = readDb();
+    if (!db.users) db.users = [];
+    db.users = db.users.filter((u: any) => u.id !== userId && u.email?.toLowerCase() !== normalizedEmail);
+    db.users.push(restoredUserDoc);
+    writeDb(db);
+
+    console.log("ACCOUNT_RESTORED_SUCCESSFULLY", { userId, email: normalizedEmail });
+
+    return res.json({
+      success: true,
+      message: "تمت استعادة حسابك وجميع بياناتك بنجاح! يمكنك الآن تسجيل الدخول مباشرة.",
+      user: restoredUserDoc
+    });
+  } catch (err: any) {
+    console.error("restore-account error:", err);
+    res.status(500).json({ success: false, error: err.message || "Failed to restore account." });
+  }
+});
+
+app.get("/api/auth/check-invitation", async (req, res) => {
+  try {
+    const email = (req.query.email as string || "").trim().toLowerCase();
+    if (!email) {
+      return res.json({ success: true, invitation: null });
+    }
+
+    let invitation: any = null;
+    try {
+      const docSnap = await adminDb.collection("invitations").doc(email).get();
+      if (docSnap.exists) {
+        invitation = docSnap.data();
+      }
+    } catch (e) {}
+
+    if (!invitation) {
+      const db = readDb();
+      invitation = db.invitations?.find((i: any) => i.email?.trim().toLowerCase() === email) || null;
+    }
+
+    return res.json({ success: true, invitation });
+  } catch (err) {
+    return res.json({ success: true, invitation: null });
+  }
+});
+
+app.get("/api/admin/reactivation-requests", requireAuth, async (req: AuthRequest, res) => {
+  try {
+    const callerUid = req.user?.uid;
+    if (!callerUid || !(await isUserAdminServer(callerUid))) {
+      return res.status(403).json({ error: "Forbidden: Admin access required." });
+    }
+
+    const snap = await adminDb.collection("accountReactivationRequests").get();
+    let requests: any[] = [];
+    if (snap && !snap.empty) {
+      requests = snap.docs.map(doc => ({ ...doc.data(), id: doc.id }));
+    }
+
+    const db = readDb();
+    const localRequests = db.account_reactivation_requests || [];
+
+    for (const lr of localRequests) {
+      if (!requests.some(r => r.email === lr.email)) {
+        requests.push(lr);
+      }
+    }
+
+    return res.json({ success: true, requests });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || "Failed to fetch reactivation requests." });
+  }
+});
+
+app.post("/api/admin/handle-reactivation-request", requireAuth, async (req: AuthRequest, res) => {
+  try {
+    const callerUid = req.user?.uid;
+    if (!callerUid || !(await isUserAdminServer(callerUid))) {
+      return res.status(403).json({ error: "Forbidden: Admin access required." });
+    }
+
+    const { email, action, notes } = req.body;
+    if (!email || !action || (action !== "approve" && action !== "reject")) {
+      return res.status(400).json({ error: "Email and valid action ('approve' or 'reject') are required." });
+    }
+
+    const normalizedEmail = email.trim().toLowerCase();
+    const record = await getAccountLifecycleRecord(normalizedEmail);
+    const nowIso = new Date().toISOString();
+
+    if (action === "approve") {
+      const updatedLifecycle = {
+        accountId: normalizedEmail,
+        emailNormalized: normalizedEmail,
+        status: "PURGED",
+        deletionType: null,
+        adminApprovalRequired: false,
+        reactivationStatus: "approved",
+        approvedAt: nowIso,
+        approvedBy: callerUid,
+        notes: notes || "",
+        updatedAt: nowIso
+      };
+
+      await setAccountLifecycleRecord(updatedLifecycle);
+
+      try {
+        await adminDb.collection("accountReactivationRequests").doc(normalizedEmail).update({
+          status: "approved",
+          reviewedAt: nowIso,
+          reviewedBy: callerUid,
+          notes: notes || ""
+        });
+      } catch (e) {}
+
+      const db = readDb();
+      if (db.account_reactivation_requests) {
+        const reqItem = db.account_reactivation_requests.find((r: any) => r.email === normalizedEmail);
+        if (reqItem) {
+          reqItem.status = "approved";
+          reqItem.reviewedAt = nowIso;
+        }
+      }
+      writeDb(db);
+
+      return res.json({
+        success: true,
+        message: "تمت الموافقة على طلب إعادة التفعيل بنجاح. يمكن للمستخدم الآن إنشاء حساب جديد بهذا البريد الإلكتروني."
+      });
+    } else {
+      const updatedLifecycle = {
+        ...record,
+        status: "ADMIN_DELETED",
+        reactivationStatus: "rejected",
+        rejectedAt: nowIso,
+        rejectedBy: callerUid,
+        notes: notes || "",
+        updatedAt: nowIso
+      };
+
+      await setAccountLifecycleRecord(updatedLifecycle);
+
+      try {
+        await adminDb.collection("accountReactivationRequests").doc(normalizedEmail).update({
+          status: "rejected",
+          reviewedAt: nowIso,
+          reviewedBy: callerUid,
+          notes: notes || ""
+        });
+      } catch (e) {}
+
+      const db = readDb();
+      if (db.account_reactivation_requests) {
+        const reqItem = db.account_reactivation_requests.find((r: any) => r.email === normalizedEmail);
+        if (reqItem) {
+          reqItem.status = "rejected";
+          reqItem.reviewedAt = nowIso;
+        }
+      }
+      writeDb(db);
+
+      return res.json({
+        success: true,
+        message: "تم رفض طلب إعادة التفعيل. يظل الحساب محظوراً من التسجيل."
+      });
+    }
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || "Failed to handle reactivation request." });
+  }
+});
+
 app.delete("/api/admin/delete-user/:uid", requireAuth, async (req: AuthRequest, res) => {
   const targetUid = req.params.uid;
   try {
@@ -3099,7 +3989,6 @@ app.delete("/api/admin/delete-user/:uid", requireAuth, async (req: AuthRequest, 
       return res.status(401).json({ error: "Unauthorized" });
     }
 
-    // Verify caller is admin authoritatively from Firestore
     const isCallerAdmin = await isUserAdminServer(callerUid);
     if (!isCallerAdmin) {
       return res.status(403).json({ error: "Forbidden: Only administrative personnel can perform account deletion." });
@@ -3111,7 +4000,6 @@ app.delete("/api/admin/delete-user/:uid", requireAuth, async (req: AuthRequest, 
 
     console.log("USER_DELETE_STARTED", { targetUid });
 
-    // Fetch target user email for record
     let targetEmail = "";
     try {
       const targetSnap = await adminDb.collection("users").doc(targetUid).get();
@@ -3122,7 +4010,22 @@ app.delete("/api/admin/delete-user/:uid", requireAuth, async (req: AuthRequest, 
       console.warn("Failed to retrieve target user email:", e);
     }
 
-    // 1. Create authoritative deletedUsers marker FIRST
+    // Update permanent account lifecycle record for ADMIN DELETED account
+    if (targetEmail) {
+      const normEmail = targetEmail.trim().toLowerCase();
+      await setAccountLifecycleRecord({
+        accountId: normEmail,
+        emailNormalized: normEmail,
+        status: "ADMIN_DELETED",
+        deletionType: "admin",
+        deletedAt: new Date().toISOString(),
+        deletedBy: callerUid,
+        restoreUntil: null,
+        adminApprovalRequired: true,
+        originalUserId: targetUid
+      });
+    }
+
     try {
       await adminDb.collection("deletedUsers").doc(targetUid).set({
         uid: targetUid,
@@ -3237,6 +4140,54 @@ app.delete("/api/auth/delete-account", requireAuth, async (req: AuthRequest, res
 
     console.log("USER_SELF_DELETE_STARTED", { targetUid });
 
+    // Archive user profile in users_retained/{targetUid} before deletion
+    let userDocData: any = null;
+    try {
+      const userSnap = await adminDb.collection("users").doc(targetUid).get();
+      if (userSnap.exists) {
+        userDocData = userSnap.data();
+      }
+    } catch (e) {}
+
+    const targetEmail = userDocData?.email || req.user?.email || "";
+    const normEmail = targetEmail.trim().toLowerCase();
+
+    if (userDocData) {
+      try {
+        await adminDb.collection("users_retained").doc(targetUid).set({
+          ...userDocData,
+          archivedAt: new Date().toISOString()
+        });
+
+        // Backup retained user to local DB
+        const db = readDb();
+        if (!db.retained_users) db.retained_users = [];
+        db.retained_users = db.retained_users.filter((u: any) => u.id !== targetUid);
+        db.retained_users.push({ ...userDocData, archivedAt: new Date().toISOString() });
+        writeDb(db);
+      } catch (archErr) {
+        console.warn("Retention profile backup warning:", archErr);
+      }
+    }
+
+    // Record account lifecycle for self deletion (31 day restoration window)
+    if (normEmail) {
+      const nowIso = new Date().toISOString();
+      const restoreUntilIso = new Date(Date.now() + 31 * 24 * 60 * 60 * 1000).toISOString();
+      await setAccountLifecycleRecord({
+        accountId: normEmail,
+        emailNormalized: normEmail,
+        status: "SELF_DELETED",
+        deletionType: "self",
+        deletedAt: nowIso,
+        deletedBy: targetUid,
+        restoreUntil: restoreUntilIso,
+        originalUserId: targetUid,
+        retainedDataDocPath: `users_retained/${targetUid}`,
+        adminApprovalRequired: false
+      });
+    }
+
     // 1. Revoke active refresh tokens
     try {
       await adminAuth.revokeRefreshTokens(targetUid);
@@ -3244,7 +4195,7 @@ app.delete("/api/auth/delete-account", requireAuth, async (req: AuthRequest, res
       console.warn("Revoke refresh tokens warning:", tokenErr?.message);
     }
 
-    // 2. Delete from Firebase Authentication - MUST fail if deletion fails
+    // 2. Delete from Firebase Authentication
     try {
       await adminAuth.deleteUser(targetUid);
       console.log("USER_SELF_AUTH_DELETED", { targetUid });
@@ -3259,7 +4210,7 @@ app.delete("/api/auth/delete-account", requireAuth, async (req: AuthRequest, res
     try {
       await adminDb.collection("deletedUsers").doc(targetUid).set({
         uid: targetUid,
-        email: req.user?.email || "",
+        email: targetEmail,
         deletedAt: new Date().toISOString(),
         deletedBy: targetUid,
         reason: "self_deleted"
@@ -3280,39 +4231,15 @@ app.delete("/api/auth/delete-account", requireAuth, async (req: AuthRequest, res
       }
     } catch (vcErr: any) {}
 
-    // 6. Delete user files subcollection & top-level files
+    // 6. Delete top-level files metadata
     try {
-      const userFilesSnap = await adminDb.collection("users").doc(targetUid).collection("files").get();
-      for (const fDoc of userFilesSnap.docs) {
-        await fDoc.ref.delete();
-      }
       const topFilesSnap = await adminDb.collection("files").where("userId", "==", targetUid).get();
       for (const tfDoc of topFilesSnap.docs) {
         await tfDoc.ref.delete();
       }
     } catch (filesErr: any) {}
 
-    // 7. Delete user memories & risk alerts
-    try {
-      const memSnap = await adminDb.collection("users").doc(targetUid).collection("memories").get();
-      for (const mDoc of memSnap.docs) {
-        await mDoc.ref.delete();
-      }
-      const alertSnap = await adminDb.collection("users").doc(targetUid).collection("riskAlerts").get();
-      for (const aDoc of alertSnap.docs) {
-        await aDoc.ref.delete();
-      }
-    } catch (memErr: any) {}
-
-    // 8. Delete support tickets owned by user
-    try {
-      const ticketSnap = await adminDb.collection("support_tickets").where("userId", "==", targetUid).get();
-      for (const tDoc of ticketSnap.docs) {
-        await tDoc.ref.delete();
-      }
-    } catch (ticketErr: any) {}
-
-    // 9. Synchronize deletion to local JSON DB store
+    // 7. Synchronize deletion to local JSON DB store
     const dbData = readDb();
     if (dbData.users) dbData.users = dbData.users.filter((u: any) => u.id !== targetUid);
     if (dbData.verification_codes) dbData.verification_codes = dbData.verification_codes.filter((vc: any) => vc.id !== targetUid && vc.userId !== targetUid);
@@ -3320,7 +4247,7 @@ app.delete("/api/auth/delete-account", requireAuth, async (req: AuthRequest, res
     writeDb(dbData);
 
     console.log("USER_SELF_DELETE_COMPLETED", { targetUid });
-    res.json({ success: true, message: "Your account and associated data have been permanently deleted." });
+    res.json({ success: true, message: "Your account has been deleted. You have 31 days to restore it if you choose." });
   } catch (err: any) {
     console.error("USER_SELF_DELETE_FAILED", { targetUid, error: err.message || String(err) });
     res.status(500).json({ error: err.message || "Account deletion failed." });
@@ -3339,12 +4266,53 @@ app.post("/api/auth/register", loginRegisterLimiter, async (req, res) => {
     const normalizedEmail = email.trim().toLowerCase();
     console.log("REGISTRATION_STARTED", { email: normalizedEmail });
 
+    // CRITICAL ACCOUNT LIFECYCLE CHECK BEFORE ANY CREATION
+    const lifecycleRecord = await getAccountLifecycleRecord(normalizedEmail);
+    if (lifecycleRecord) {
+      if (lifecycleRecord.status === "ADMIN_DELETED" || lifecycleRecord.status === "ADMIN_APPROVAL_REQUIRED" || lifecycleRecord.deletionType === "admin") {
+        return res.status(400).json({
+          success: false,
+          code: "ADMIN_DELETED_BLOCKED",
+          adminApprovalRequired: true,
+          error: "تم تعطيل حسابك بواسطة مسؤول المنصة. لا يمكنك إنشاء حساب جديد باستخدام هذا البريد الإلكتروني إلا بعد موافقة المسؤول."
+        });
+      }
+      if (lifecycleRecord.status === "ADMIN_APPROVAL_PENDING") {
+        return res.status(400).json({
+          success: false,
+          code: "ADMIN_APPROVAL_PENDING",
+          adminApprovalRequired: true,
+          error: "طلب إعادة تفعيل الحساب قيد المراجعة حالياً بواسطة مسؤول المنصة. يرجى الانتظار لحين البت في الطلب."
+        });
+      }
+      if (lifecycleRecord.status === "SELF_DELETED" && lifecycleRecord.restoreUntil) {
+        const nowMs = Date.now();
+        const restoreUntilMs = new Date(lifecycleRecord.restoreUntil).getTime();
+        if (nowMs <= restoreUntilMs) {
+          const daysRemaining = Math.max(1, Math.ceil((restoreUntilMs - nowMs) / (24 * 3600 * 1000)));
+          return res.status(400).json({
+            success: false,
+            code: "SELF_RESTORE_AVAILABLE",
+            canRestore: true,
+            daysRemaining: daysRemaining,
+            error: `تم العثور على حساب سابق تم حذفه بواسطتك. يرجى اختيار استعادة الحساب بدلاً من إنشاء حساب جديد (متبقي ${daysRemaining} يوماً للاستعادة).`
+          });
+        }
+      }
+    }
+
     // Enforce password security policy: min 8 chars, uppercase, lowercase, number, special character
     const len = password.length >= 8;
     const upper = /[A-Z]/.test(password);
     const lower = /[a-z]/.test(password);
     const num = /[0-9]/.test(password);
     const special = /[!@#$%^&*(),.?":{}|<>_~\-+=]/.test(password);
+    if (!len || !upper || !lower || !num || !special) {
+      return res.status(400).json({ 
+        success: false,
+        error: "Password must be at least 8 characters long and contain at least one uppercase letter, one lowercase letter, one number, and one special character." 
+      });
+    }
     if (!len || !upper || !lower || !num || !special) {
       return res.status(400).json({ 
         success: false,
@@ -3486,6 +4454,20 @@ app.post("/api/auth/register", loginRegisterLimiter, async (req, res) => {
       db.users.push(newUser);
     }
     writeDb(db);
+
+    // Record account lifecycle as ACTIVE
+    await setAccountLifecycleRecord({
+      accountId: normalizedEmail,
+      emailNormalized: normalizedEmail,
+      status: "ACTIVE",
+      deletionType: null,
+      deletedAt: null,
+      deletedBy: null,
+      restoreUntil: null,
+      originalUserId: userId,
+      retainedDataDocPath: null,
+      adminApprovalRequired: false
+    });
 
     // CREATE OTP
     const otpCode = crypto.randomInt(100000, 1000000).toString();

@@ -82,6 +82,35 @@
         "createdAt": { "type": "string" },
         "updatedAt": { "type": "string" }
       }
+    },
+    "AccountLifecycle": {
+      "path": "/accountLifecycle/{accountId}",
+      "fields": {
+        "accountId": { "type": "string" },
+        "emailNormalized": { "type": "string" },
+        "status": { "type": "string" },
+        "deletionType": { "type": "string" },
+        "deletedAt": { "type": "string" },
+        "deletedBy": { "type": "string" },
+        "restoreUntil": { "type": "string" },
+        "originalUserId": { "type": "string" },
+        "adminApprovalRequired": { "type": "boolean" },
+        "retainedDataDocPath": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      }
+    },
+    "AccountReactivationRequest": {
+      "path": "/accountReactivationRequests/{requestId}",
+      "fields": {
+        "email": { "type": "string" },
+        "requestedAt": { "type": "string" },
+        "reason": { "type": "string" },
+        "status": { "type": "string" },
+        "reviewedAt": { "type": "string" },
+        "reviewedBy": { "type": "string" },
+        "notes": { "type": "string" }
+      }
     }
   }
 }

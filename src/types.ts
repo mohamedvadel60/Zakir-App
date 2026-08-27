@@ -171,6 +171,7 @@ export interface User {
   verificationInfo?: VerificationInfo;
   workspaceId?: string;
   workspace?: WorkspaceInfo;
+  hasPasswordSet?: boolean;
   userPreferences?: UserPreferences;
   customTheme?: {
     primaryBg?: string;

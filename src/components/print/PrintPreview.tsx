@@ -2,7 +2,8 @@ import React from "react";
 import { Memory } from "../../types";
 import { PrintSettingsState, PrintDiagnostics } from "./printTypes";
 import { PrintPage } from "./PrintPage";
-import { PrintDocument, chunkMemories } from "./PrintDocument";
+import { PrintDocument } from "./PrintDocument";
+import { PaginatedPage, paginateMemories } from "./printPagination";
 
 interface PrintPreviewProps {
   memories: Memory[];
@@ -12,6 +13,7 @@ interface PrintPreviewProps {
   onDiagnosticsUpdate?: (diag: PrintDiagnostics) => void;
   activePageIndex?: number;
   onPageSelect?: (pageIndex: number) => void;
+  pages?: PaginatedPage[];
 }
 
 export const PrintPreview: React.FC<PrintPreviewProps> = ({
@@ -22,10 +24,11 @@ export const PrintPreview: React.FC<PrintPreviewProps> = ({
   onDiagnosticsUpdate,
   activePageIndex = 0,
   onPageSelect,
+  pages: providedPages,
 }) => {
   const isRtl = lang === "ar";
-  const pageChunks = chunkMemories(memories, settings.density);
-  const totalPages = Math.max(1, pageChunks.length);
+  const pages = providedPages || paginateMemories(memories, settings, lang);
+  const totalPages = Math.max(1, pages.length);
 
   // Canvas background style based on settings or default neutral workspace
   const getCanvasBgClass = () => {
@@ -45,62 +48,50 @@ export const PrintPreview: React.FC<PrintPreviewProps> = ({
       className={`zakir-print-preview-workspace flex-1 h-full ${getCanvasBgClass()} overflow-auto p-4 sm:p-8 md:p-12 flex flex-col items-center custom-scrollbar relative`}
       dir={isRtl ? "rtl" : "ltr"}
     >
-      {/* Zoomable Viewport Wrapper */}
+      {/* Zoomable Viewport Wrapper (Word / Docs Multi-Page Flow) */}
       <div
-        className="transition-transform duration-200 origin-top flex flex-col items-center gap-12 py-6 w-full max-w-full"
+        className="transition-transform duration-200 origin-top flex flex-col items-center gap-10 py-6 w-full max-w-full"
         style={{
           transform: `scale(${settings.zoom || 1})`,
         }}
       >
-        {pageChunks.map((chunk, pIdx) => {
-          const pageNum = pIdx + 1;
+        {pages.map((pageData) => {
+          const pageNum = pageData.pageNumber;
+          const pIdx = pageData.pageIndex;
           const isActive = pIdx === activePageIndex;
 
           return (
             <div
               key={pIdx}
               id={`zakir-print-page-target-${pIdx}`}
-              className="relative flex items-center justify-center group"
+              className="relative flex flex-col items-center cursor-pointer group"
               onClick={() => onPageSelect && onPageSelect(pIdx)}
             >
-              {/* Floating Page Label (Page 1, Page 2 ←) as depicted in the diagram */}
-              <div
-                className={`absolute top-8 ${
-                  isRtl ? "-end-28 sm:-end-32" : "-start-28 sm:-start-32"
-                } z-10 hidden md:flex items-center gap-2 pointer-events-none select-none transition-all ${
-                  isActive ? "opacity-100 translate-x-0" : "opacity-75 hover:opacity-100"
-                }`}
-              >
-                <div
-                  className={`px-3 py-1 rounded-xl text-xs font-black shadow-md flex items-center gap-1.5 border ${
-                    isActive
-                      ? "bg-[#0075DE] text-white border-[#0075DE]/40 ring-2 ring-[#0075DE]/20"
-                      : "bg-white text-slate-800 border-slate-300"
-                  }`}
-                >
-                  <span>
-                    {lang === "ar" ? `الصفحة ${pageNum}` : `Page ${pageNum}`}
-                  </span>
-                  {pIdx > 0 && <span className="font-mono text-sm">{isRtl ? "←" : "→"}</span>}
-                </div>
+              {/* Floating Page Number Indicator on Preview Sheet Edge */}
+              <div className="absolute -top-3.5 start-2 z-20 bg-slate-900/90 text-white text-[10px] font-mono font-bold px-2 py-0.5 rounded-md shadow-md border border-slate-700 pointer-events-none opacity-80 group-hover:opacity-100 transition-opacity">
+                {lang === "ar" ? `صفحة ${pageNum} من ${totalPages}` : `Page ${pageNum} of ${totalPages}`}
               </div>
 
-              {/* Physical Rendered Page Sheet */}
-              <div className="relative shadow-2xl rounded-sm transition-all hover:ring-2 hover:ring-[#0075DE]/30">
+              {/* Physical Rendered A4 Page Sheet */}
+              <div
+                className={`relative shadow-2xl rounded-xs transition-all duration-200 ${
+                  isActive
+                    ? "ring-4 ring-[#0075DE]/40 shadow-[#0075DE]/20"
+                    : "hover:ring-2 hover:ring-slate-400/50"
+                }`}
+              >
                 <PrintPage
                   settings={settings}
                   pageNumber={pageNum}
                   totalPages={totalPages}
                 >
                   <PrintDocument
-                    memories={chunk}
+                    pageData={pageData}
                     settings={settings}
                     lang={lang}
                     onExcludeMemory={onExcludeMemory}
                     isPrinting={false}
                     onDiagnosticsUpdate={pIdx === 0 ? onDiagnosticsUpdate : undefined}
-                    pageIndex={pIdx}
-                    totalPages={totalPages}
                   />
                 </PrintPage>
               </div>

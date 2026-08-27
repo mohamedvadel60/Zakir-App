@@ -509,23 +509,184 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
   const [cancelLockPinInput, setCancelLockPinInput] = useState<string>("");
   const [cancelLockError, setCancelLockError] = useState<string>("");
 
+  // Password Setting / Changing State
+  const [currentPasswordInput, setCurrentPasswordInput] = useState("");
+  const [newPasswordInput, setNewPasswordInput] = useState("");
+  const [confirmPasswordInput, setConfirmPasswordInput] = useState("");
+  const [showPasswordInputs, setShowPasswordInputs] = useState(false);
+  const [passwordLoading, setPasswordLoading] = useState(false);
+  const [passwordSuccessMsg, setPasswordSuccessMsg] = useState("");
+  const [passwordErrorMsg, setPasswordErrorMsg] = useState("");
+
+  // Reset Encryption Key via Account Password State & Modal
+  const [showResetEncryptionModal, setShowResetEncryptionModal] = useState(false);
+  const [accountPasswordForReset, setAccountPasswordForReset] = useState("");
+  const [newEncPasscodeForReset, setNewEncPasscodeForReset] = useState("");
+  const [confirmEncPasscodeForReset, setConfirmEncPasscodeForReset] = useState("");
+  const [resetEncLoading, setResetEncLoading] = useState(false);
+  const [resetEncError, setResetEncError] = useState("");
+  const [resetEncSuccess, setResetEncSuccess] = useState(false);
+
   // Test Encryption Unlock Verification Modal State
   const [testUnlockModalOpen, setTestUnlockModalOpen] = useState(false);
   const [testModuleTarget, setTestModuleTarget] = useState<string>("fileVault");
   const [testEnteredPin, setTestEnteredPin] = useState("");
   const [testUnlockStatus, setTestUnlockStatus] = useState<"success" | "error" | null>(null);
 
+  // Password Handler
+  const handleSavePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setPasswordErrorMsg("");
+    setPasswordSuccessMsg("");
+
+    if (!newPasswordInput || newPasswordInput.length < 6) {
+      setPasswordErrorMsg(lang === "ar" ? "يجب ألا تقل كلمة المرور الجديدة عن 6 أحرف أو أرقام." : "Password must be at least 6 characters long.");
+      return;
+    }
+
+    if (newPasswordInput !== confirmPasswordInput) {
+      setPasswordErrorMsg(lang === "ar" ? "كلمتا المرور غير متطابقتين، يرجى إعادة التأكد." : "New passwords do not match. Please verify.");
+      return;
+    }
+
+    setPasswordLoading(true);
+    try {
+      const res = await authenticatedFetch("/api/auth/set-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userId: currentUser.id,
+          email: currentUser.email,
+          newPassword: newPasswordInput,
+          currentPassword: currentPasswordInput,
+          isGoogleUser: !currentUser.hasPasswordSet
+        })
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.userFriendlyMessage || data.error || (lang === "ar" ? "فشل تحديث كلمة المرور." : "Failed to update password."));
+      }
+
+      const updatedUser: User = {
+        ...currentUser,
+        hasPasswordSet: true
+      };
+      await saveFirebaseUserProfile(updatedUser);
+      onUpdateUser(updatedUser);
+
+      setPasswordSuccessMsg(lang === "ar" ? "تم تعيين وحفظ كلمة المرور لحسابك بنجاح!" : "Password successfully set and saved to your account!");
+      setCurrentPasswordInput("");
+      setNewPasswordInput("");
+      setConfirmPasswordInput("");
+      setTimeout(() => setPasswordSuccessMsg(""), 5000);
+    } catch (err: any) {
+      setPasswordErrorMsg(err.message || (lang === "ar" ? "حدث خطأ أثناء حفظ كلمة المرور" : "An error occurred while saving password"));
+    } finally {
+      setPasswordLoading(false);
+    }
+  };
+
+  // Reset Encryption Key with Account Password Handler
+  const handleResetEncryptionWithPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setResetEncError("");
+
+    if (!newEncPasscodeForReset.trim()) {
+      setResetEncError(lang === "ar" ? "يرجى إدخال رمز التشفير السري الجديد." : "Please enter the new secret encryption passcode.");
+      return;
+    }
+
+    if (newEncPasscodeForReset.trim() !== confirmEncPasscodeForReset.trim()) {
+      setResetEncError(lang === "ar" ? "رمز التشفير الجديد غير متطابق." : "New encryption passcodes do not match.");
+      return;
+    }
+
+    setResetEncLoading(true);
+    try {
+      const res = await authenticatedFetch("/api/auth/reset-encryption-with-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userId: currentUser.id,
+          email: currentUser.email,
+          accountPassword: accountPasswordForReset,
+          newPasscode: newEncPasscodeForReset.trim(),
+          lockedModules: encryptedSecurity.lockedModules
+        })
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.userFriendlyMessage || data.error || (lang === "ar" ? "فشل إعادة تعيين رمز التشفير." : "Failed to reset encryption key."));
+      }
+
+      const updatedSec: EncryptedModuleSettings = data.encryptedSecurity || {
+        secretPasscode: newEncPasscodeForReset.trim(),
+        isPinSet: true,
+        lockedModules: encryptedSecurity.lockedModules
+      };
+
+      setEncryptedSecurity(updatedSec);
+      setSecretPasscodeVal(newEncPasscodeForReset.trim());
+      setSecretPasscodeConfirmVal(newEncPasscodeForReset.trim());
+
+      const updatedUser: User = {
+        ...currentUser,
+        encryptedSecurity: updatedSec
+      };
+      await saveFirebaseUserProfile(updatedUser);
+      onUpdateUser(updatedUser);
+
+      if (onEncryptAllData) {
+        onEncryptAllData(newEncPasscodeForReset.trim());
+      }
+
+      setResetEncSuccess(true);
+      setTimeout(() => {
+        setResetEncSuccess(false);
+        setShowResetEncryptionModal(false);
+        setAccountPasswordForReset("");
+        setNewEncPasscodeForReset("");
+        setConfirmEncPasscodeForReset("");
+      }, 2000);
+    } catch (err: any) {
+      setResetEncError(err.message || (lang === "ar" ? "كلمة مرور الحساب غير صحيحة أو فشل الطلب" : "Invalid account password or request failed"));
+    } finally {
+      setResetEncLoading(false);
+    }
+  };
+
+  // Synchronize Worker Permissions with Backend API
+  const syncMemberPermissionsToBackend = async (member: TeamMember) => {
+    try {
+      await authenticatedFetch("/api/admin/update-member-permissions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ceoId: currentUser.id,
+          memberId: member.id,
+          memberEmail: member.email,
+          powers: member.powers,
+          role: member.role
+        })
+      });
+    } catch (e) {
+      console.warn("Backend permission sync error:", e);
+    }
+  };
+
   // Handlers
   const handleTogglePowerInMatrix = (memberId: string, powerKey: keyof ModulePermissions) => {
+    let updatedMember: TeamMember | null = null;
     const updated = teamMembers.map(m => {
       if (m.id === memberId) {
-        return {
+        updatedMember = {
           ...m,
           powers: {
             ...m.powers,
             [powerKey]: !m.powers[powerKey]
           }
         };
+        return updatedMember;
       }
       return m;
     });
@@ -534,6 +695,9 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
       ...currentUser,
       teamMembersList: updated
     });
+    if (updatedMember) {
+      syncMemberPermissionsToBackend(updatedMember);
+    }
     setPowerSaveNotify(true);
     setTimeout(() => setPowerSaveNotify(false), 2500);
   };
@@ -546,6 +710,7 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
       ...currentUser,
       teamMembersList: updated
     });
+    syncMemberPermissionsToBackend(editingMemberModal);
     setEditingMemberModal(null);
     setPowerSaveNotify(true);
     setTimeout(() => setPowerSaveNotify(false), 2500);
@@ -1170,13 +1335,13 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
         <div className="flex items-center gap-2 mt-6 overflow-x-auto pb-1 border-b border-slate-800/40 relative z-10 scrollbar-none">
           {[
             { id: "account", label: lang === "ar" ? "الملف الشخصي" : "Profile Details", icon: UserIcon },
+            { id: "security", label: lang === "ar" ? "كلمة المرور والأمان" : "Password & Security", icon: ShieldCheck },
+            { id: "team", label: lang === "ar" ? "الفريق وإدارة العمال" : "Workspace Team & Workers", icon: Users },
             { id: "subscription", label: lang === "ar" ? "باقات الدفع والاشتراك" : "Plans & Payment", icon: CreditCard },
-            { id: "team", label: lang === "ar" ? "الفريق وإدارة الصلاحيات" : "Workspace Team", icon: Users },
-            { id: "security", label: lang === "ar" ? "التشفير والأمان الذاتي" : "Vault Encryption", icon: ShieldCheck },
             { id: "support", label: lang === "ar" ? "الدعم والتوثيق" : "Help & Documentation", icon: HelpCircle },
           ].filter((tab) => {
             if (currentUser.role !== "CEO") {
-              return tab.id === "account" || tab.id === "subscription" || tab.id === "support";
+              return tab.id === "account" || tab.id === "security" || tab.id === "subscription" || tab.id === "support";
             }
             return true;
           }).map((tab) => {
@@ -1477,7 +1642,56 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
               </div>
             </form>
 
+            {/* WORKER / NON-CEO ASSIGNED PERMISSIONS READ-ONLY SUMMARY */}
+            {currentUser.role !== "CEO" && (
+              <div className={`p-5 rounded-2xl border ${theme === "dark" ? "bg-slate-950/60 border-slate-800" : "bg-slate-50 border-slate-200"} space-y-3`}>
+                <div className="flex items-center justify-between flex-wrap gap-2">
+                  <div className="flex items-center gap-2">
+                    <Shield className="w-5 h-5 text-[#0075DE]" />
+                    <h3 className={`text-sm font-bold ${theme === "dark" ? "text-white" : "text-slate-900"}`}>
+                      {lang === "ar" ? "صلاحيات الوصول الممنوحة لك من قبل المدير التنفيذي (CEO)" : "Module Powers Granted by the CEO"}
+                    </h3>
+                  </div>
+                  <span className="px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-[#0075DE]/15 text-[#0075DE] border border-[#0075DE]/30">
+                    {lang === "ar" ? "صلاحيات مدارة حصرياً من الـ CEO" : "Read-Only (Managed by CEO)"}
+                  </span>
+                </div>
 
+                <p className="text-xs text-slate-400">
+                  {lang === "ar" 
+                    ? "أنت مسجل في المنظومة بدور (" + currentUser.role + "). يتم التحكم في صلاحيات وصولك للأقسام حصرياً من قبل المدير التنفيذي (CEO)، ولا يمكن تعديلها إلا من طرفه."
+                    : `You are registered with the role (${currentUser.role}). Your module access is strictly controlled by the CEO and cannot be self-modified.`}
+                </p>
+
+                <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 pt-1">
+                  {[
+                    { key: "fileVault", label: lang === "ar" ? "إدارة الملفات" : "File Vault" },
+                    { key: "memoryVault", label: lang === "ar" ? "مكتبة الذكريات" : "Memory Vault" },
+                    { key: "riskRadar", label: lang === "ar" ? "رادار المخاطر" : "Risk Radar" },
+                    { key: "marketIntel", label: lang === "ar" ? "استخبارات السوق" : "Market Intel" },
+                    { key: "settings", label: lang === "ar" ? "إعدادات النظام" : "System Settings" },
+                  ].map((p) => {
+                    const isGranted = currentUser.powers ? !!currentUser.powers[p.key as keyof ModulePermissions] : (p.key === "fileVault" || p.key === "memoryVault");
+                    return (
+                      <div
+                        key={p.key}
+                        className={`p-2.5 rounded-xl border flex flex-col items-center justify-center text-center gap-1.5 ${
+                          isGranted 
+                            ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400" 
+                            : "bg-slate-900/40 border-slate-800 text-slate-500"
+                        }`}
+                      >
+                        {isGranted ? <Check className="w-4 h-4 text-emerald-400" /> : <Lock className="w-4 h-4 text-slate-500" />}
+                        <span className="text-[11px] font-bold">{p.label}</span>
+                        <span className="text-[9px] uppercase font-mono tracking-wider">
+                          {isGranted ? (lang === "ar" ? "متاح" : "Active") : (lang === "ar" ? "مغلق" : "Locked")}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
 
             {/* ACCOUNT VERIFICATION & COMPLIANCE SECTION */}
             <div className={`mt-8 pt-8 border-t ${theme === "dark" ? "border-slate-800" : "border-slate-200"} space-y-4`}>
@@ -2631,9 +2845,147 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
         </div>
       )}
 
-      {/* SUB-TAB 5: SECURITY & ENCRYPTION PASSCODE CONTROL (CEO ENCRYPTION FOR SENSITIVE MODULES) */}
+      {/* SUB-TAB 2: PASSWORD & SECURITY / ENCRYPTION PASSCODE CONTROL */}
       {currentTab === "security" && (
         <div className="space-y-8">
+
+          {/* SECTION 1: ACCOUNT PASSWORD MANAGEMENT (For Google & Email users) */}
+          <div className={`p-6 rounded-2xl border space-y-6 ${theme === "dark" ? "bg-slate-900/40 border-slate-800" : "bg-white border-slate-200 shadow-sm"}`}>
+            <div className="flex items-center justify-between flex-wrap gap-2">
+              <div>
+                <span className="px-3 py-1 rounded-full bg-[#0075DE]/15 border border-[#0075DE]/30 text-[#0075DE] text-[10px] font-extrabold uppercase tracking-wider flex items-center gap-1.5 w-fit mb-2">
+                  <Key className="w-3.5 h-3.5" />
+                  {lang === "ar" ? "إدارة كلمة مرور الحساب" : "Account Password Management"}
+                </span>
+                <h2 className={`text-2xl font-black ${theme === "dark" ? "text-white" : "text-slate-900"}`}>
+                  {lang === "ar" ? "تعيين وتغيير كلمة مرور الحساب" : "Set or Change Account Password"}
+                </h2>
+                <p className="text-xs text-slate-400 mt-1">
+                  {lang === "ar" 
+                    ? "تعيين كلمة مرور لحسابك (خاصة للمسجلين عبر Google) لتسجيل الدخول المباشر، أو تحديث كلمة المرور الحالية" 
+                    : "Set a password for your account (including Google sign-in accounts) or update your existing password."}
+                </p>
+              </div>
+
+              <span className={`px-3 py-1.5 rounded-full text-xs font-bold ${
+                currentUser.hasPasswordSet
+                  ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/30"
+                  : "bg-amber-500/15 text-amber-400 border border-amber-500/30"
+              }`}>
+                {currentUser.hasPasswordSet 
+                  ? (lang === "ar" ? "✓ كلمة المرور مفعلة ومحددة" : "✓ Password Set") 
+                  : (lang === "ar" ? "⚠ مسجل بجوجل (لم يتم تعيين كلمة سر)" : "⚠ Google Account (No Password Set)")}
+              </span>
+            </div>
+
+            {passwordSuccessMsg && (
+              <div className="p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-bold flex items-center gap-2 animate-fadeIn">
+                <CheckCircle2 className="w-4 h-4 shrink-0" />
+                <span>{passwordSuccessMsg}</span>
+              </div>
+            )}
+
+            {passwordErrorMsg && (
+              <div className="p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-400 text-xs font-bold flex items-center gap-2 animate-fadeIn">
+                <AlertCircle className="w-4 h-4 shrink-0" />
+                <span>{passwordErrorMsg}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleSavePassword} className={`p-5 rounded-2xl border ${theme === "dark" ? "bg-slate-950/70 border-slate-800" : "bg-slate-50 border-slate-200"} space-y-4`}>
+              {currentUser.hasPasswordSet && (
+                <div>
+                  <label className="block text-xs font-bold text-slate-400 mb-1.5">
+                    {lang === "ar" ? "كلمة المرور الحالية (Current Password):" : "Current Password:"}
+                  </label>
+                  <div className="relative">
+                    <input
+                      type={showPasswordInputs ? "text" : "password"}
+                      value={currentPasswordInput}
+                      onChange={(e) => setCurrentPasswordInput(e.target.value)}
+                      placeholder={lang === "ar" ? "أدخل كلمة المرور الحالية لحسابك" : "Enter current password"}
+                      className={`w-full h-11 pl-3 pr-10 rounded-xl border text-sm font-medium focus:outline-none focus:border-[#0075DE] ${
+                        theme === "dark" ? "bg-slate-900 border-slate-800 text-white" : "bg-white border-slate-300 text-slate-900"
+                      }`}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPasswordInputs(!showPasswordInputs)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200 cursor-pointer"
+                    >
+                      {showPasswordInputs ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-400 mb-1.5">
+                    {currentUser.hasPasswordSet 
+                      ? (lang === "ar" ? "كلمة المرور الجديدة (New Password):" : "New Password:") 
+                      : (lang === "ar" ? "تعيين كلمة مرور جديدة للحساب:" : "Set New Account Password:")}
+                  </label>
+                  <div className="relative">
+                    <input
+                      type={showPasswordInputs ? "text" : "password"}
+                      required
+                      value={newPasswordInput}
+                      onChange={(e) => setNewPasswordInput(e.target.value)}
+                      placeholder={lang === "ar" ? "أدخل كلمة المرور الجديدة (6 خانات فأكثر)" : "New password (min 6 chars)"}
+                      className={`w-full h-11 pl-3 pr-10 rounded-xl border text-sm font-medium focus:outline-none focus:border-[#0075DE] ${
+                        theme === "dark" ? "bg-slate-900 border-slate-800 text-white" : "bg-white border-slate-300 text-slate-900"
+                      }`}
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-400 mb-1.5">
+                    {lang === "ar" ? "تأكيد كلمة المرور الجديدة:" : "Confirm New Password:"}
+                  </label>
+                  <div className="relative">
+                    <input
+                      type={showPasswordInputs ? "text" : "password"}
+                      required
+                      value={confirmPasswordInput}
+                      onChange={(e) => setConfirmPasswordInput(e.target.value)}
+                      placeholder={lang === "ar" ? "أعد إدخال نفس كلمة المرور للتأكيد" : "Repeat new password"}
+                      className={`w-full h-11 pl-3 pr-10 rounded-xl border text-sm font-medium focus:outline-none focus:border-[#0075DE] ${
+                        theme === "dark" ? "bg-slate-900 border-slate-800 text-white" : "bg-white border-slate-300 text-slate-900"
+                      }`}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between flex-wrap gap-3 pt-2">
+                <p className="text-[11px] text-slate-500">
+                  {lang === "ar" 
+                    ? "يتيح لك تعيين كلمة المرور تسجيل الدخول لاحقاً بواسطة البريد وكلمة السر مباشرة دون الحاجة لـ Google فقط." 
+                    : "Setting a password allows direct login using your email and password in addition to Google Auth."}
+                </p>
+
+                <button
+                  type="submit"
+                  disabled={passwordLoading || !newPasswordInput}
+                  className="px-5 py-2.5 bg-[#0075DE] hover:bg-[#005BAB] text-white font-bold text-xs rounded-xl shadow-lg shadow-[#0075DE]/20 flex items-center gap-2 transition-all cursor-pointer disabled:opacity-50"
+                >
+                  {passwordLoading ? (
+                    <>
+                      <RefreshCw className="w-4 h-4 animate-spin" />
+                      <span>{lang === "ar" ? "جاري الحفظ..." : "Saving..."}</span>
+                    </>
+                  ) : (
+                    <>
+                      <Key className="w-4 h-4" />
+                      <span>{currentUser.hasPasswordSet ? (lang === "ar" ? "تحديث كلمة المرور" : "Update Password") : (lang === "ar" ? "تعيين كلمة المرور لأول مرة" : "Set Account Password")}</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
 
           {/* Success Toast for Encryption Passcode */}
           {passcodeSaveNotify && (
@@ -2777,6 +3129,30 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
                   >
                     <Unlock className="w-4 h-4 text-[#0075DE]" />
                     <span>{lang === "ar" ? "اختبار فك القفل" : "Test Unlock"}</span>
+                  </button>
+                </div>
+
+                {/* Reset Encryption Key in case forgotten using Account Password */}
+                <div className="pt-3 border-t border-slate-800/80 flex items-center justify-between flex-wrap gap-2">
+                  <span className="text-[11px] text-slate-400">
+                    {lang === "ar" 
+                      ? "هل نسيت رمز التشفير السري الخاص بك؟ يمكنك استعادته عبر كلمة مرور حسابك." 
+                      : "Forgot your encryption passcode? You can reset it using your account password."}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowResetEncryptionModal(true);
+                      setResetEncError("");
+                      setResetEncSuccess(false);
+                      setAccountPasswordForReset("");
+                      setNewEncPasscodeForReset("");
+                      setConfirmEncPasscodeForReset("");
+                    }}
+                    className="px-3.5 py-1.5 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/30 text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer"
+                  >
+                    <Key className="w-3.5 h-3.5" />
+                    <span>{lang === "ar" ? "إعادة تعيين رمز التشفير بكلمة المرور" : "Reset Passcode with Password"}</span>
                   </button>
                 </div>
               </div>
@@ -3244,6 +3620,130 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
                 <span>{lang === "ar" ? "تأكيد وإلغاء القفل" : "Verify & Unlock"}</span>
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* RESET ENCRYPTION PASSCODE WITH ACCOUNT PASSWORD MODAL */}
+      {showResetEncryptionModal && (
+        <div className="fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="w-full max-w-md rounded-2xl bg-slate-900 border border-slate-800 p-6 space-y-5 text-white shadow-2xl animate-fadeIn">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+              <div className="flex items-center gap-2.5 text-amber-400">
+                <Key className="w-5 h-5" />
+                <h3 className="text-base font-bold text-white">
+                  {lang === "ar" ? "استعادة وتعيين رمز التشفير بكلمة المرور" : "Reset Encryption PIN with Account Password"}
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowResetEncryptionModal(false);
+                  setResetEncError("");
+                }}
+                className="text-slate-400 hover:text-white"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-300 text-xs font-semibold flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 text-amber-400 shrink-0" />
+              <span>
+                {lang === "ar" 
+                  ? "في حال نسيت رمز التشفير، يرجى إدخال كلمة مرور حسابك للتحقق من هويتك وتعيين رمز تشفير جديد." 
+                  : "If you forgot your encryption code, enter your account password to verify identity and set a new passcode."}
+              </span>
+            </div>
+
+            {resetEncSuccess && (
+              <div className="p-3.5 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-xs font-bold flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                <span>{lang === "ar" ? "✓ تم التحقق من كلمة المرور وإعادة تعيين رمز التشفير بنجاح!" : "✓ Password verified and encryption passcode reset successfully!"}</span>
+              </div>
+            )}
+
+            {resetEncError && (
+              <div className="p-3 rounded-xl bg-rose-500/15 border border-rose-500/40 text-rose-400 text-xs font-bold flex items-center gap-2">
+                <ShieldAlert className="w-4 h-4 shrink-0 text-rose-400" />
+                <span>{resetEncError}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleResetEncryptionWithPassword} className="space-y-3.5">
+              <div>
+                <label className="block text-xs font-bold text-slate-300 mb-1">
+                  {lang === "ar" ? "كلمة المرور الحالية للحساب (Account Password):" : "Current Account Password:"}
+                </label>
+                <input
+                  type="password"
+                  required
+                  value={accountPasswordForReset}
+                  onChange={(e) => setAccountPasswordForReset(e.target.value)}
+                  placeholder={lang === "ar" ? "أدخل كلمة مرور حسابك لتأكيد الهوية" : "Enter your account password"}
+                  className="w-full h-11 px-3 bg-slate-950 border border-slate-800 text-white rounded-xl text-xs focus:border-[#0075DE] focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-300 mb-1">
+                  {lang === "ar" ? "رمز التشفير السري الجديد (New Passcode):" : "New Secret Encryption Passcode:"}
+                </label>
+                <input
+                  type="password"
+                  required
+                  value={newEncPasscodeForReset}
+                  onChange={(e) => setNewEncPasscodeForReset(e.target.value)}
+                  placeholder="e.g. 1234"
+                  className="w-full h-11 px-3 bg-slate-950 border border-slate-800 text-[#0075DE] font-mono text-center text-base tracking-widest rounded-xl focus:border-[#0075DE] focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-300 mb-1">
+                  {lang === "ar" ? "تأكيد رمز التشفير السري الجديد:" : "Confirm New Encryption Passcode:"}
+                </label>
+                <input
+                  type="password"
+                  required
+                  value={confirmEncPasscodeForReset}
+                  onChange={(e) => setConfirmEncPasscodeForReset(e.target.value)}
+                  placeholder="Repeat passcode"
+                  className="w-full h-11 px-3 bg-slate-950 border border-slate-800 text-[#0075DE] font-mono text-center text-base tracking-widest rounded-xl focus:border-[#0075DE] focus:outline-none"
+                />
+              </div>
+
+              <div className="flex gap-3 pt-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowResetEncryptionModal(false);
+                    setResetEncError("");
+                  }}
+                  className="flex-1 py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs rounded-xl cursor-pointer"
+                >
+                  {lang === "ar" ? "إلغاء" : "Cancel"}
+                </button>
+
+                <button
+                  type="submit"
+                  disabled={resetEncLoading}
+                  className="flex-1 py-3 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-slate-950 font-black text-xs rounded-xl flex items-center justify-center gap-1.5 cursor-pointer shadow-lg shadow-amber-500/20 disabled:opacity-50"
+                >
+                  {resetEncLoading ? (
+                    <>
+                      <RefreshCw className="w-4 h-4 animate-spin" />
+                      <span>{lang === "ar" ? "جاري التحقق..." : "Verifying..."}</span>
+                    </>
+                  ) : (
+                    <>
+                      <Key className="w-4 h-4" />
+                      <span>{lang === "ar" ? "تأكيد واستعادة الرمز" : "Verify & Reset PIN"}</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
