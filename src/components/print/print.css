@@ -1,4 +1,4 @@
-/* Zakir Institutional Document Print & Export Engine Styles */
+/* Zakir Institutional Document Print & High-Fidelity Preview Styles */
 
 @media screen {
   /* Hide the native print document host from normal screen browser DOM flow */
@@ -6,12 +6,14 @@
     display: none !important;
   }
 
-  /* Force preview sheet to always be light mode regardless of parent dark theme */
-  .zakir-print-page,
-  .zakir-print-document-content {
-    color-scheme: light !important;
+  /* Physical Page Architecture for Screen Preview */
+  .page,
+  .zakir-print-page {
+    box-sizing: border-box;
+    position: relative;
     background-color: #ffffff !important;
     color: #0f172a !important;
+    color-scheme: light !important;
     --bg-primary: #ffffff !important;
     --bg-secondary: #ffffff !important;
     --bg-tertiary: #f8fafc !important;
@@ -36,12 +38,13 @@
 }
 
 @media print {
-  /* Default page margin setup - Dynamic paper size is injected by PrintSystem */
+  /* Default page margin setup - Zero out browser margins so explicit page frame borders fit 100% */
   @page {
-    margin: 12mm;
+    margin: 0;
+    size: auto;
   }
 
-  /* 1. Complete Light Mode Color & Layout Reset */
+  /* 1. Complete Light Mode Color & Layout Reset - Zero Height & Overflow Restrictions */
   html,
   body {
     background: #ffffff !important;
@@ -52,11 +55,11 @@
     width: 100% !important;
     height: auto !important;
     min-height: auto !important;
+    max-height: none !important;
     overflow: visible !important;
     color-scheme: light !important;
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
-    transform: none !important;
   }
 
   /* 2. Hide all web UI containers during native print execution */
@@ -64,29 +67,35 @@
     display: none !important;
   }
 
-  /* 3. Expose ONLY the dedicated print document host */
+  /* 3. Expose dedicated print document host with unconstrained overflow & height */
   #zakir-print-document-host {
     display: block !important;
     position: static !important;
     width: 100% !important;
     height: auto !important;
     min-height: auto !important;
+    max-height: none !important;
     margin: 0 !important;
     padding: 0 !important;
     background: #ffffff !important;
     background-color: #ffffff !important;
     color: #000000 !important;
-    color-scheme: light !important;
-    transform: none !important;
     overflow: visible !important;
+    color-scheme: light !important;
     z-index: auto !important;
   }
 
   /* 4. Force light theme variables and light color-scheme on all printable sub-elements */
   #zakir-print-document-host,
   #zakir-print-document-host *,
+  .page,
+  .page *,
   .zakir-print-page,
   .zakir-print-page *,
+  .zakir-print-outer-frame,
+  .zakir-print-inner-frame,
+  .zakir-print-wavy-border,
+  .zakir-print-wavy-border *,
   .zakir-print-document-content,
   .zakir-print-document-content * {
     color-scheme: light !important;
@@ -94,6 +103,7 @@
     print-color-adjust: exact !important;
     box-sizing: border-box !important;
     text-shadow: none !important;
+    box-shadow: none !important;
     filter: none !important;
     backdrop-filter: none !important;
   }
@@ -136,28 +146,90 @@
     color: inherit;
   }
 
-  /* 5. Printable Page Root resets */
-  .zakir-print-page,
-  .print-page {
-    width: 100% !important;
-    max-width: 100% !important;
-    min-height: auto !important;
+  /* 5. Physical Page Box - Unconstrained Height For Multi-Page Flow */
+  .page,
+  .zakir-print-page {
     height: auto !important;
+    box-sizing: border-box !important;
+    position: relative !important;
     background: #ffffff !important;
     background-color: #ffffff !important;
     box-shadow: none !important;
-    border: none !important;
     border-radius: 0 !important;
     margin: 0 !important;
-    padding: 0 !important;
     overflow: visible !important;
-    transform: none !important;
+    page-break-after: always !important;
+    break-after: page !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+
+  /* FIRST PAGE / NO PREMATURE LEADING BREAK */
+  #zakir-print-document-host > .page:first-child,
+  #zakir-print-document-host > .zakir-print-page:first-child,
+  .page:first-child,
+  .zakir-print-page:first-child {
+    break-before: avoid !important;
+    page-break-before: avoid !important;
+    margin-top: 0 !important;
+  }
+
+  /* LAST PAGE / PREVENT EXTRA BLANK PAGE AT END */
+  .page:last-child,
+  .zakir-print-page:last-child {
+    break-after: auto !important;
+    page-break-after: auto !important;
+    margin-bottom: 0 !important;
+  }
+
+  /* Outer thick frame border container inside page */
+  .zakir-print-outer-frame {
+    box-sizing: border-box !important;
+    width: 100% !important;
+    height: auto !important;
+    min-height: 100% !important;
+    max-height: none !important;
+    position: relative !important;
+    overflow: visible !important;
+    background-color: #ffffff !important;
+  }
+
+  /* Inner content frame border inside page */
+  .zakir-print-inner-frame {
+    box-sizing: border-box !important;
+    width: 100% !important;
+    height: auto !important;
+    min-height: 100% !important;
+    max-height: none !important;
+    position: relative !important;
+    overflow: visible !important;
+    background-color: #ffffff !important;
+  }
+
+  /* Decorative Wavy Side Border SVG */
+  .zakir-print-wavy-border {
+    display: flex !important;
+    position: relative !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Main Document Content Area */
+  .zakir-print-document-content {
+    width: 100% !important;
+    height: auto !important;
+    min-height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+    page-break-inside: auto !important;
+    break-inside: auto !important;
   }
 
   /* 6. Hide interactive preview elements during native print */
   .no-print,
   .zakir-print-modal-overlay,
   .zakir-print-modal-sidebar,
+  .zakir-print-thumbnails-sidebar,
   .zakir-print-modal-header,
   .zakir-print-preview-workspace {
     display: none !important;
@@ -173,13 +245,12 @@
     border-radius: 8px !important;
     break-inside: avoid !important;
     page-break-inside: avoid !important;
-    margin-bottom: 1.25rem !important;
-    padding: 1rem !important;
+    margin-bottom: 0.85rem !important;
+    padding: 0.75rem !important;
     box-sizing: border-box !important;
   }
 
-  /* 8. Cohesive Blocks that should NOT break across pages */
-  .break-inside-avoid,
+  /* 8. Cohesive Blocks that should NOT break awkwardly */
   .signature-block,
   .approval-block,
   .signature-wrapper,
@@ -194,17 +265,6 @@
     page-break-inside: avoid !important;
   }
 
-  /* 9. Dynamic CSS Paged Media Page Counter Target */
-  .page-number-placeholder::after {
-    content: counter(page);
-  }
-
-  /* 10. Blank Page Prevention: First child never causes leading page break */
-  .zakir-print-document-content > *:first-child {
-    break-before: avoid !important;
-    page-break-before: avoid !important;
-  }
-
   /* Table Header & Footer repetition across pages */
   thead {
     display: table-header-group !important;
@@ -214,4 +274,3 @@
     display: table-footer-group !important;
   }
 }
-

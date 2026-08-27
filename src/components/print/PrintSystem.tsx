@@ -4,9 +4,26 @@ import { Memory } from "../../types";
 import { PrintSettingsState, PrintSystemProps, PrintDiagnostics } from "./printTypes";
 import { PrintSettings } from "./PrintSettings";
 import { PrintPreview } from "./PrintPreview";
+import { PrintThumbnailsSidebar } from "./PrintThumbnailsSidebar";
 import { PrintPage } from "./PrintPage";
-import { PrintDocument } from "./PrintDocument";
-import { Printer, X, ZoomIn, ZoomOut, RotateCcw, FileCheck, RefreshCw } from "lucide-react";
+import { PrintDocument, chunkMemories } from "./PrintDocument";
+import { 
+  Printer, 
+  X, 
+  ZoomIn, 
+  ZoomOut, 
+  RotateCcw, 
+  ChevronRight, 
+  ChevronLeft, 
+  CheckSquare, 
+  Square,
+  Sidebar,
+  RefreshCw,
+  Sliders,
+  HelpCircle,
+  Eye,
+  FileCheck
+} from "lucide-react";
 import "./print.css";
 
 export const PrintSystem: React.FC<PrintSystemProps> = ({
@@ -37,6 +54,9 @@ export const PrintSystem: React.FC<PrintSystemProps> = ({
 
   // Selected Memory IDs state
   const [selectedMemoryIds, setSelectedMemoryIds] = useState<string[]>([]);
+  const [activePageIndex, setActivePageIndex] = useState<number>(0);
+  const [showThumbnails, setShowThumbnails] = useState<boolean>(true);
+  const [showRightSettings, setShowRightSettings] = useState<boolean>(true);
 
   // Initialize Memory Selection State when modal opens or initialSelectedMemoryId changes
   useEffect(() => {
@@ -58,7 +78,7 @@ export const PrintSystem: React.FC<PrintSystemProps> = ({
   const effectiveLogo = currentUser?.companyLogoUrl || workspaceLogoUrl || null;
   const effectiveSignature = currentUser?.signatureUrl || null;
 
-  // Print Configuration State
+  // Print Configuration State with Dual-Frame & Wavy Border Defaults
   const [settings, setSettings] = useState<PrintSettingsState>({
     paperSize: "A4",
     orientation: "portrait",
@@ -66,6 +86,29 @@ export const PrintSystem: React.FC<PrintSystemProps> = ({
     density: "comfortable",
     lineHeight: 1.55,
     headerStyle: "classic",
+    frameStyle: "full",
+
+    // Dual Border System as sketched
+    showOuterBorder: true,
+    outerBorderThickness: 3,
+    outerBorderColor: "#0f172a",
+    outerBorderRadius: 0,
+
+    whiteMarginMm: 10,
+
+    showInnerBorder: true,
+    innerBorderStyle: "solid",
+    innerBorderThickness: 1.5,
+    innerBorderColor: "#0f172a",
+
+    // Wavy Side Decorative Border (نّي ~~~~~~ نّي)
+    showWavySideBorder: true,
+    wavyBorderStyle: "calligraphic",
+    wavyBorderSide: "right",
+    wavyBorderColor: "#0f172a",
+    wavyBorderThickness: 1.5,
+
+    showCornerPageMarkers: true,
     fontSize: 13,
     showHeader: true,
     showFooter: true,
@@ -90,6 +133,7 @@ export const PrintSystem: React.FC<PrintSystemProps> = ({
     signatureImg: effectiveSignature,
     watermarkText: "",
     zoom: 1.0,
+    previewTheme: "light-gray",
   });
 
   // Sync profile details when currentUser changes or modal opens
@@ -117,6 +161,19 @@ export const PrintSystem: React.FC<PrintSystemProps> = ({
     renderedCount: 0,
   });
 
+  const handleDiagnosticsUpdate = useCallback((diag: PrintDiagnostics) => {
+    setDiagnostics((prev) => {
+      if (
+        prev.selectedCount === diag.selectedCount &&
+        prev.uniqueCount === diag.uniqueCount &&
+        prev.renderedCount === diag.renderedCount
+      ) {
+        return prev;
+      }
+      return diag;
+    });
+  }, []);
+
   // Compute final normalized selected memories
   const selectedMemories = useMemo(() => {
     const map = new Map<string, Memory>();
@@ -128,6 +185,12 @@ export const PrintSystem: React.FC<PrintSystemProps> = ({
     }
     return Array.from(map.values());
   }, [selectedMemoryIds, validMemories]);
+
+  const pageChunks = useMemo(() => {
+    return chunkMemories(selectedMemories, settings.density);
+  }, [selectedMemories, settings.density]);
+
+  const totalPages = Math.max(1, pageChunks.length);
 
   // Toggle single memory selection
   const handleToggleMemory = useCallback((memoryId: string) => {
@@ -149,9 +212,45 @@ export const PrintSystem: React.FC<PrintSystemProps> = ({
   }, []);
 
   // Zoom controls
-  const handleZoomIn = () => setSettings((p) => ({ ...p, zoom: Math.min(p.zoom + 0.15, 1.8) }));
-  const handleZoomOut = () => setSettings((p) => ({ ...p, zoom: Math.max(p.zoom - 0.15, 0.5) }));
+  const handleZoomIn = () => setSettings((p) => ({ ...p, zoom: Math.min(Number((p.zoom + 0.15).toFixed(2)), 1.8) }));
+  const handleZoomOut = () => setSettings((p) => ({ ...p, zoom: Math.max(Number((p.zoom - 0.15).toFixed(2)), 0.5) }));
   const handleZoomReset = () => setSettings((p) => ({ ...p, zoom: 1.0 }));
+
+  // Page Navigation controls
+  const handleNextPage = () => {
+    setActivePageIndex((prev) => {
+      const next = Math.min(prev + 1, totalPages - 1);
+      scrollToPage(next);
+      return next;
+    });
+  };
+
+  const handlePrevPage = () => {
+    setActivePageIndex((prev) => {
+      const p = Math.max(prev - 1, 0);
+      scrollToPage(p);
+      return p;
+    });
+  };
+
+  const scrollToPage = (pageIdx: number) => {
+    setActivePageIndex(pageIdx);
+    const targetEl = document.getElementById(`zakir-print-page-target-${pageIdx}`);
+    if (targetEl) {
+      targetEl.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  };
+
+  // Toggle Show Borders
+  const handleToggleBorders = () => {
+    const current = settings.showOuterBorder !== false || settings.showInnerBorder !== false;
+    setSettings((p) => ({
+      ...p,
+      showOuterBorder: !current,
+      showInnerBorder: !current,
+      showWavySideBorder: !current,
+    }));
+  };
 
   // Dynamically sync @page CSS rules with selected paperSize and orientation
   useEffect(() => {
@@ -172,7 +271,6 @@ export const PrintSystem: React.FC<PrintSystemProps> = ({
       }
     `;
     return () => {
-      // Keep style tag clean if component unmounts
       if (styleEl && styleEl.parentNode) {
         styleEl.parentNode.removeChild(styleEl);
       }
@@ -197,12 +295,10 @@ export const PrintSystem: React.FC<PrintSystemProps> = ({
     setIsPreparingPrint(true);
 
     try {
-      // 1. Wait for document fonts to be fully loaded
       if (document.fonts) {
         await document.fonts.ready;
       }
 
-      // 2. Wait for any images inside print host to complete loading
       const host = document.getElementById("zakir-print-document-host");
       if (host) {
         const images = Array.from(host.querySelectorAll("img"));
@@ -217,11 +313,9 @@ export const PrintSystem: React.FC<PrintSystemProps> = ({
         );
       }
 
-      // 3. Double RAF to ensure DOM painting and layout calculations have settled
       await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
       await new Promise((resolve) => setTimeout(resolve, 150));
 
-      // 4. Trigger browser native print dialog
       window.print();
     } catch (err) {
       console.error("Print execution failed:", err);
@@ -230,7 +324,6 @@ export const PrintSystem: React.FC<PrintSystemProps> = ({
     }
   };
 
-  // Listen to afterprint event to clean up state
   useEffect(() => {
     const handleAfterPrint = () => {
       setIsPreparingPrint(false);
@@ -243,34 +336,122 @@ export const PrintSystem: React.FC<PrintSystemProps> = ({
     return null;
   }
 
+  const areBordersEnabled = settings.showOuterBorder !== false && settings.showInnerBorder !== false;
+
   return (
     <>
-      {/* LAYER A & LAYER B: Modal Overlay & Workspace UI */}
+      {/* LAYER A & LAYER B: Modal Overlay & Desktop Workspace UI */}
       <div
-        className="zakir-print-modal-overlay fixed inset-0 z-50 bg-slate-950/95 backdrop-blur-md flex flex-col w-screen h-screen overflow-hidden select-none"
+        className="zakir-print-modal-overlay fixed inset-0 z-50 bg-slate-950 flex flex-col w-screen h-screen overflow-hidden select-none"
         dir={isRtl ? "rtl" : "ltr"}
       >
-        {/* Top Action Header Bar */}
-        <header className="zakir-print-modal-header h-14 min-h-[56px] bg-slate-900 border-b border-slate-800 px-4 flex items-center justify-between text-white z-20 shrink-0">
-          {/* Title & Badge */}
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-[#0075DE]/20 text-[#0075DE] rounded-lg border border-[#0075DE]/30">
-              <Printer className="w-4 h-4" />
+        {/* 1. TOP MENU BAR (Zakir | File, Edit, View, Print Preview, Help) */}
+        <div className="h-7 bg-[#0a101f] text-slate-400 border-b border-slate-800/80 px-3 flex items-center justify-between text-[11px] font-semibold shrink-0 z-30">
+          <div className="flex items-center gap-4">
+            {/* Zakir Logo Branding */}
+            <div className="flex items-center gap-1.5 text-white font-black tracking-tight">
+              <span className="w-4 h-4 rounded bg-[#0075DE] text-white flex items-center justify-center text-[10px] font-black italic">
+                Z
+              </span>
+              <span className="text-xs font-bold text-slate-100">Zakir</span>
             </div>
-            <div>
-              <h2 className="text-sm font-black tracking-tight text-white flex items-center gap-2">
-                <span>{lang === "ar" ? "معاينة وتنسيق طباعة التقرير" : "Institutional Print Preview"}</span>
-                <span className="text-[10px] font-mono px-2 py-0.5 bg-slate-800 text-slate-300 rounded border border-slate-700">
-                  {settings.paperSize} ({settings.orientation})
-                </span>
-              </h2>
+
+            {/* Application Menu Items */}
+            <div className="hidden sm:flex items-center gap-3 text-slate-300">
+              <span className="hover:text-white cursor-pointer transition-colors px-1 py-0.5 rounded hover:bg-slate-800">
+                {lang === "ar" ? "ملف" : "File"}
+              </span>
+              <span className="hover:text-white cursor-pointer transition-colors px-1 py-0.5 rounded hover:bg-slate-800">
+                {lang === "ar" ? "تحرير" : "Edit"}
+              </span>
+              <span className="hover:text-white cursor-pointer transition-colors px-1 py-0.5 rounded hover:bg-slate-800">
+                {lang === "ar" ? "عرض" : "View"}
+              </span>
+              <span className="text-[#0075DE] font-bold bg-[#0075DE]/10 px-2 py-0.5 rounded border border-[#0075DE]/20">
+                {lang === "ar" ? "معاينة الطباعة" : "Print Preview"}
+              </span>
+              <span className="hover:text-white cursor-pointer transition-colors px-1 py-0.5 rounded hover:bg-slate-800">
+                {lang === "ar" ? "مساعدة" : "Help"}
+              </span>
             </div>
           </div>
 
-          {/* Zoom & Action Controls */}
-          <div className="flex items-center gap-3">
-            {/* Zoom Widget */}
-            <div className="flex items-center gap-1 bg-slate-950 border border-slate-800 rounded-lg p-1 text-slate-300">
+          <div className="flex items-center gap-2 text-slate-400 text-[10px] font-mono">
+            <span>{settings.paperSize}</span>
+            <span>•</span>
+            <span>{settings.orientation}</span>
+            <span>•</span>
+            <span className="text-emerald-400 font-bold">{totalPages} {lang === "ar" ? "صفحات" : "Pages"}</span>
+          </div>
+        </div>
+
+        {/* 2. TOP TOOLBAR (Print, Next Page, Previous Page, Zoom 100%, Show Borders) */}
+        <header className="zakir-print-modal-header h-12 min-h-[48px] bg-[#0f172a] border-b border-slate-800 px-3 flex items-center justify-between text-white z-20 shrink-0 shadow-md">
+          {/* Left / Primary Toolbar Actions */}
+          <div className="flex items-center gap-2">
+            {/* Primary START PRINT Button */}
+            <button
+              type="button"
+              onClick={handleStartPrint}
+              disabled={selectedMemories.length === 0 || isPreparingPrint}
+              className={`h-8 px-4 rounded-lg font-black text-xs flex items-center gap-2 transition-all cursor-pointer shadow-md ${
+                selectedMemories.length === 0 || isPreparingPrint
+                  ? "bg-slate-800 text-slate-500 cursor-not-allowed border border-slate-700"
+                  : "bg-[#0075DE] hover:bg-[#005BAB] text-white shadow-[#0075DE]/25 active:scale-95 ring-1 ring-blue-400/30"
+              }`}
+              title={lang === "ar" ? "طباعة فورية" : "Print"}
+            >
+              {isPreparingPrint ? (
+                <>
+                  <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                  <span>{lang === "ar" ? "جاري التجهيز..." : "Preparing..."}</span>
+                </>
+              ) : (
+                <>
+                  <Printer className="w-3.5 h-3.5" />
+                  <span>{lang === "ar" ? "طباعة" : "Print"}</span>
+                </>
+              )}
+            </button>
+
+            <div className="h-5 w-px bg-slate-800 mx-1 hidden sm:block" />
+
+            {/* Previous Page Button */}
+            <button
+              type="button"
+              onClick={handlePrevPage}
+              disabled={activePageIndex === 0}
+              className={`h-8 px-2.5 rounded-lg border text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
+                activePageIndex === 0
+                  ? "bg-slate-900/50 border-slate-800 text-slate-600 cursor-not-allowed"
+                  : "bg-slate-900 border-slate-700 text-slate-200 hover:bg-slate-800 hover:text-white active:scale-95"
+              }`}
+              title="Previous Page"
+            >
+              {isRtl ? <ChevronRight className="w-3.5 h-3.5" /> : <ChevronLeft className="w-3.5 h-3.5" />}
+              <span className="hidden md:inline">{lang === "ar" ? "الصفحة السابقة" : "Previous Page"}</span>
+            </button>
+
+            {/* Next Page Button */}
+            <button
+              type="button"
+              onClick={handleNextPage}
+              disabled={activePageIndex >= totalPages - 1}
+              className={`h-8 px-2.5 rounded-lg border text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
+                activePageIndex >= totalPages - 1
+                  ? "bg-slate-900/50 border-slate-800 text-slate-600 cursor-not-allowed"
+                  : "bg-slate-900 border-slate-700 text-slate-200 hover:bg-slate-800 hover:text-white active:scale-95"
+              }`}
+              title="Next Page"
+            >
+              <span className="hidden md:inline">{lang === "ar" ? "الصفحة التالية" : "Next Page"}</span>
+              {isRtl ? <ChevronLeft className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
+            </button>
+
+            <div className="h-5 w-px bg-slate-800 mx-1 hidden sm:block" />
+
+            {/* Zoom Controls Widget */}
+            <div className="flex items-center gap-1 bg-slate-950 border border-slate-800 rounded-lg p-0.5 text-slate-300">
               <button
                 type="button"
                 onClick={handleZoomOut}
@@ -279,8 +460,8 @@ export const PrintSystem: React.FC<PrintSystemProps> = ({
               >
                 <ZoomOut className="w-3.5 h-3.5" />
               </button>
-              <span className="text-[10px] font-mono font-bold w-12 text-center">
-                {Math.round(settings.zoom * 100)}%
+              <span className="text-[10px] font-mono font-bold w-16 text-center text-slate-200">
+                {lang === "ar" ? `تكبير (${Math.round(settings.zoom * 100)}%)` : `Zoom (${Math.round(settings.zoom * 100)}%)`}
               </span>
               <button
                 type="button"
@@ -293,42 +474,72 @@ export const PrintSystem: React.FC<PrintSystemProps> = ({
               <button
                 type="button"
                 onClick={handleZoomReset}
-                className="p-1 hover:bg-slate-800 text-slate-400 hover:text-white rounded cursor-pointer transition-colors ms-1"
-                title="Reset Zoom"
+                className="p-1 hover:bg-slate-800 text-slate-400 hover:text-white rounded cursor-pointer transition-colors ms-0.5"
+                title="Reset (100%)"
               >
                 <RotateCcw className="w-3 h-3" />
               </button>
             </div>
 
-            {/* START PRINTING BUTTON (Layer C trigger) */}
+            <div className="h-5 w-px bg-slate-800 mx-1 hidden md:block" />
+
+            {/* Show Borders Checkbox Button (as depicted in toolbar in screenshot) */}
             <button
               type="button"
-              onClick={handleStartPrint}
-              disabled={selectedMemories.length === 0 || isPreparingPrint}
-              className={`h-9 px-5 rounded-lg font-black text-xs flex items-center gap-2 transition-all cursor-pointer shadow-lg ${
-                selectedMemories.length === 0 || isPreparingPrint
-                  ? "bg-slate-800 text-slate-500 cursor-not-allowed border border-slate-700"
-                  : "bg-[#0075DE] hover:bg-[#005BAB] text-white shadow-[#0075DE]/20 active:scale-95"
+              onClick={handleToggleBorders}
+              className={`h-8 px-2.5 rounded-lg border text-xs font-bold flex items-center gap-2 transition-all cursor-pointer ${
+                areBordersEnabled
+                  ? "bg-[#0075DE]/20 border-[#0075DE]/60 text-white shadow-xs"
+                  : "bg-slate-900 border-slate-700 text-slate-400 hover:text-slate-200"
               }`}
+              title={lang === "ar" ? "تفعيل أو تعطيل الإطارات" : "Toggle Borders"}
             >
-              {isPreparingPrint ? (
-                <>
-                  <RefreshCw className="w-4 h-4 animate-spin" />
-                  <span>{lang === "ar" ? "جاري التجهيز..." : "Preparing..."}</span>
-                </>
+              {areBordersEnabled ? (
+                <CheckSquare className="w-4 h-4 text-[#0075DE]" />
               ) : (
-                <>
-                  <Printer className="w-4 h-4" />
-                  <span>{lang === "ar" ? "بدء الطباعة الرسمية" : "Start Printing"}</span>
-                </>
+                <Square className="w-4 h-4 text-slate-500" />
               )}
+              <span>{lang === "ar" ? "إظهار الإطارات" : "Show Borders"}</span>
             </button>
+          </div>
+
+          {/* Right Toolbar Actions (Sidebar toggles & Close) */}
+          <div className="flex items-center gap-2">
+            {/* Toggle Left Thumbnails Sidebar */}
+            <button
+              type="button"
+              onClick={() => setShowThumbnails((p) => !p)}
+              className={`p-1.5 rounded-lg border transition-all cursor-pointer ${
+                showThumbnails
+                  ? "bg-slate-800 border-slate-700 text-[#0075DE]"
+                  : "bg-slate-900 border-slate-800 text-slate-400 hover:text-white"
+              }`}
+              title={lang === "ar" ? "لوحة المصغرات" : "Pages Thumbnails"}
+            >
+              <Sidebar className="w-4 h-4" />
+            </button>
+
+            {/* Toggle Right Borders & Settings Sidebar */}
+            <button
+              type="button"
+              onClick={() => setShowRightSettings((p) => !p)}
+              className={`p-1.5 rounded-lg border transition-all cursor-pointer ${
+                showRightSettings
+                  ? "bg-slate-800 border-slate-700 text-[#0075DE]"
+                  : "bg-slate-900 border-slate-800 text-slate-400 hover:text-white"
+              }`}
+              title={lang === "ar" ? "لوحة الإعدادات والإطارات" : "Borders & Settings"}
+            >
+              <Sliders className="w-4 h-4" />
+            </button>
+
+            <div className="h-5 w-px bg-slate-800 mx-1" />
 
             {/* Close Modal Button */}
             <button
               type="button"
               onClick={onClose}
-              className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors cursor-pointer"
+              className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors cursor-pointer"
               title="Close (Esc)"
             >
               <X className="w-5 h-5" />
@@ -336,45 +547,69 @@ export const PrintSystem: React.FC<PrintSystemProps> = ({
           </div>
         </header>
 
-        {/* Modal Main Content Body (Layer A Sidebar + Layer B Preview Area) */}
+        {/* Modal Main Content Workspace Layout (Left Thumbnails + Center Canvas + Right Borders Panel) */}
         <div className="flex-1 flex overflow-hidden relative">
-          {/* Layer A: Settings Sidebar */}
-          <PrintSettings
-            settings={settings}
-            onUpdateSettings={setSettings}
-            allMemories={validMemories}
-            selectedMemoryIds={selectedMemoryIds}
-            onToggleMemory={handleToggleMemory}
-            onSelectAllMemories={handleSelectAllMemories}
-            onDeselectAllMemories={handleDeselectAllMemories}
-            lang={lang}
-            diagnostics={diagnostics}
-            currentUser={currentUser}
-            onOpenProfileSettings={onOpenProfileSettings}
-          />
+          {/* Left Pages Thumbnail Sidebar */}
+          {showThumbnails && (
+            <PrintThumbnailsSidebar
+              memories={selectedMemories}
+              settings={settings}
+              lang={lang}
+              activePageIndex={activePageIndex}
+              onSelectPage={scrollToPage}
+            />
+          )}
 
-          {/* Layer B: Screen Print Preview Area */}
+          {/* Center Screen Print Preview Workspace Area */}
           <PrintPreview
             memories={selectedMemories}
             settings={settings}
             lang={lang}
             onExcludeMemory={handleExcludeMemory}
-            onDiagnosticsUpdate={setDiagnostics}
+            onDiagnosticsUpdate={handleDiagnosticsUpdate}
+            activePageIndex={activePageIndex}
+            onPageSelect={setActivePageIndex}
           />
+
+          {/* Right Borders & Page Configuration Sidebar */}
+          {showRightSettings && (
+            <PrintSettings
+              settings={settings}
+              onUpdateSettings={setSettings}
+              allMemories={validMemories}
+              selectedMemoryIds={selectedMemoryIds}
+              onToggleMemory={handleToggleMemory}
+              onSelectAllMemories={handleSelectAllMemories}
+              onDeselectAllMemories={handleDeselectAllMemories}
+              lang={lang}
+              diagnostics={diagnostics}
+              currentUser={currentUser}
+              onOpenProfileSettings={onOpenProfileSettings}
+            />
+          )}
         </div>
       </div>
 
-      {/* LAYER C: Native Print Host (Hidden on screen, exposed ONLY during @media print) */}
+      {/* LAYER C: Native Print Host (Rendered strictly during @media print) */}
       {createPortal(
         <div id="zakir-print-document-host" dir={isRtl ? "rtl" : "ltr"} lang={lang}>
-          <PrintPage settings={settings}>
-            <PrintDocument
-              memories={selectedMemories}
+          {pageChunks.map((chunk, pIdx) => (
+            <PrintPage
+              key={pIdx}
               settings={settings}
-              lang={lang}
-              isPrinting={true}
-            />
-          </PrintPage>
+              pageNumber={pIdx + 1}
+              totalPages={totalPages}
+            >
+              <PrintDocument
+                memories={chunk}
+                settings={settings}
+                lang={lang}
+                isPrinting={true}
+                pageIndex={pIdx}
+                totalPages={totalPages}
+              />
+            </PrintPage>
+          ))}
         </div>,
         document.body
       )}

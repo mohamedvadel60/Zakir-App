@@ -549,10 +549,18 @@ app.use((req, res, next) => {
 
 app.use(express.json());
 
-// --- STRIPE CHECKOUT ENDPOINTS ---
+// --- STRIPE CHECKOUT & SUBSCRIPTION ENDPOINTS ---
+app.get("/api/stripe/config", (req, res) => {
+  const pubKey = process.env.VITE_STRIPE_PUBLIC_KEY || process.env.STRIPE_PUBLIC_KEY || "";
+  res.json({
+    publishableKey: pubKey,
+    hasSecretKey: !!process.env.STRIPE_SECRET_KEY
+  });
+});
+
 app.post("/api/stripe/create-checkout-session", async (req, res) => {
   try {
-    const { plan = "Professional", billingCycle = "annual", userId, userEmail, companyName } = req.body;
+    const { plan = "Professional", billingCycle = "annual", userId, userEmail, companyName, uiMode = "embedded" } = req.body;
     let finalUserId = userId;
     let finalUserEmail = userEmail;
 
@@ -588,9 +596,11 @@ app.post("/api/stripe/create-checkout-session", async (req, res) => {
     const stripe = getStripe();
 
     if (stripe) {
-      const session = await stripe.checkout.sessions.create({
-        payment_method_types: ["card"],
+      // Create session using ui_mode: 'embedded' for seamless in-app checkout inside Zakir
+      const sessionParams: Stripe.Checkout.SessionCreateParams = {
+        ui_mode: "embedded",
         mode: "subscription",
+        payment_method_types: ["card"],
         line_items: [
           {
             price_data: {
@@ -617,9 +627,10 @@ app.post("/api/stripe/create-checkout-session", async (req, res) => {
           plan: requestedPlan,
           billingCycle: requestedCycle
         },
-        success_url: `${baseUrl}/?checkout=success&session_id={CHECKOUT_SESSION_ID}&plan=${requestedPlan}&cycle=${requestedCycle}`,
-        cancel_url: `${baseUrl}/?checkout=cancel`,
-      });
+        return_url: `${baseUrl}/?checkout=success&session_id={CHECKOUT_SESSION_ID}&plan=${requestedPlan}&cycle=${requestedCycle}`
+      };
+
+      const session = await stripe.checkout.sessions.create(sessionParams);
 
       const db = readDb();
       db.stripe_sessions = db.stripe_sessions || {};
@@ -629,37 +640,155 @@ app.post("/api/stripe/create-checkout-session", async (req, res) => {
       return res.json({
         success: true,
         sessionId: session.id,
+        clientSecret: session.client_secret,
         url: session.url
       });
     }
 
-    // FALLBACK / DIRECT CHECKOUT EXECUTION (When STRIPE_SECRET_KEY is not configured in environment)
+    // FALLBACK / DIRECT CHECKOUT EXECUTION (When STRIPE_SECRET_KEY is not configured or in sandbox mode)
     const simulatedSessionId = `cs_stripe_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
     const db = readDb();
     const user = db.users.find((u: any) => u.id === finalUserId || (finalUserEmail && u.email?.toLowerCase() === finalUserEmail.toLowerCase()));
+    
+    // Calculate next billing date (1 month or 1 year)
+    const nextBill = new Date();
+    if (requestedCycle === "annual") {
+      nextBill.setFullYear(nextBill.getFullYear() + 1);
+    } else {
+      nextBill.setMonth(nextBill.getMonth() + 1);
+    }
+
     if (user) {
       user.subscriptionPlan = requestedPlan;
       user.subscriptionStatus = "Active";
       user.billingCycle = requestedCycle;
-      user.stripeCustomerId = `cus_${Math.random().toString(36).substring(2, 9)}`;
-      user.stripeSubscriptionId = `sub_${Math.random().toString(36).substring(2, 9)}`;
+      user.stripeCustomerId = user.stripeCustomerId || `cus_${Math.random().toString(36).substring(2, 9)}`;
+      user.stripeSubscriptionId = user.stripeSubscriptionId || `sub_${Math.random().toString(36).substring(2, 9)}`;
       user.lastPaymentDate = new Date().toISOString();
       user.lastPaymentAmount = `$${monthlyRate}.00 USD`;
+      user.nextBillingDate = nextBill.toISOString();
     }
 
     db.stripe_sessions = db.stripe_sessions || {};
     db.stripe_sessions[simulatedSessionId] = finalUserId;
     writeDb(db);
 
+    // Sync to Firestore
+    if (finalUserId) {
+      try {
+        await adminDb.collection("users").doc(finalUserId).set({
+          subscriptionPlan: requestedPlan,
+          subscriptionStatus: "Active",
+          billingCycle: requestedCycle,
+          stripeCustomerId: user?.stripeCustomerId || `cus_${Math.random().toString(36).substring(2, 9)}`,
+          stripeSubscriptionId: user?.stripeSubscriptionId || `sub_${Math.random().toString(36).substring(2, 9)}`,
+          lastPaymentDate: new Date().toISOString(),
+          lastPaymentAmount: `$${monthlyRate}.00 USD`,
+          nextBillingDate: nextBill.toISOString()
+        }, { merge: true });
+      } catch (fsErr: any) {
+        console.warn("[CHECKOUT] Firestore sync warning:", fsErr?.message);
+      }
+    }
+
     return res.json({
       success: true,
+      simulated: true,
       sessionId: simulatedSessionId,
+      clientSecret: `cs_simulated_secret_${Date.now()}`,
       url: `${baseUrl}/?checkout=success&session_id=${simulatedSessionId}&plan=${requestedPlan}&cycle=${requestedCycle}`
     });
 
   } catch (err: any) {
     console.error("Error creating Stripe checkout session:", err);
     res.status(500).json({ error: err.message || "Failed to initiate Stripe Checkout" });
+  }
+});
+
+// GET Session Status (for Embedded Checkout completion or success return)
+app.get("/api/stripe/session-status/:sessionId", async (req, res) => {
+  try {
+    const { sessionId } = req.params;
+    const stripe = getStripe();
+
+    if (stripe && !sessionId.startsWith("cs_stripe_")) {
+      const session = await stripe.checkout.sessions.retrieve(sessionId);
+      const userId = session.client_reference_id || session.metadata?.userId;
+      const plan = session.metadata?.plan || "Professional";
+      const cycle = session.metadata?.billingCycle || "annual";
+
+      if (session.status === "complete" || session.payment_status === "paid") {
+        const nextBill = new Date();
+        if (cycle === "annual") nextBill.setFullYear(nextBill.getFullYear() + 1);
+        else nextBill.setMonth(nextBill.getMonth() + 1);
+
+        const db = readDb();
+        const user = db.users.find((u: any) => u.id === userId || (session.customer_details?.email && u.email?.toLowerCase() === session.customer_details.email.toLowerCase()));
+        if (user) {
+          user.subscriptionPlan = plan;
+          user.subscriptionStatus = "Active";
+          user.billingCycle = cycle;
+          user.stripeCustomerId = session.customer;
+          user.stripeSubscriptionId = session.subscription;
+          user.lastPaymentDate = new Date().toISOString();
+          user.lastPaymentAmount = `$${((session.amount_total || 0) / 100).toFixed(2)} USD`;
+          user.nextBillingDate = nextBill.toISOString();
+          writeDb(db);
+        }
+
+        if (userId || user?.id) {
+          const targetUid = userId || user?.id;
+          try {
+            await adminDb.collection("users").doc(targetUid).set({
+              subscriptionPlan: plan,
+              subscriptionStatus: "Active",
+              billingCycle: cycle,
+              stripeCustomerId: session.customer,
+              stripeSubscriptionId: session.subscription,
+              lastPaymentDate: new Date().toISOString(),
+              lastPaymentAmount: `$${((session.amount_total || 0) / 100).toFixed(2)} USD`,
+              nextBillingDate: nextBill.toISOString()
+            }, { merge: true });
+          } catch (e: any) {
+            console.warn("Firestore status update error:", e.message);
+          }
+        }
+
+        return res.json({
+          status: session.status,
+          paymentStatus: session.payment_status,
+          customerEmail: session.customer_details?.email,
+          plan,
+          billingCycle: cycle,
+          amountTotal: `$${((session.amount_total || 0) / 100).toFixed(2)} USD`,
+          nextBillingDate: nextBill.toISOString()
+        });
+      }
+
+      return res.json({
+        status: session.status,
+        paymentStatus: session.payment_status
+      });
+    }
+
+    // Simulated session lookup
+    const db = readDb();
+    const userId = db.stripe_sessions?.[sessionId];
+    const user = db.users.find((u: any) => u.id === userId);
+
+    return res.json({
+      status: "complete",
+      paymentStatus: "paid",
+      customerEmail: user?.email || "subscriber@zakir.ai",
+      plan: user?.subscriptionPlan || "Professional",
+      billingCycle: user?.billingCycle || "annual",
+      amountTotal: user?.lastPaymentAmount || "$149.00 USD",
+      nextBillingDate: user?.nextBillingDate || new Date(Date.now() + 365*86400000).toISOString()
+    });
+
+  } catch (err: any) {
+    console.error("Error retrieving Stripe session status:", err);
+    res.status(500).json({ error: err.message || "Failed to retrieve session status" });
   }
 });
 
@@ -695,6 +824,49 @@ app.post("/api/stripe/create-portal-session", requireAuth, async (req: AuthReque
   } catch (err: any) {
     console.error("Error creating portal session:", err);
     res.status(500).json({ error: err.message || "Failed to create portal session" });
+  }
+});
+
+// Cancel or Pause Subscription
+app.post("/api/stripe/cancel-subscription", requireAuth, async (req: AuthRequest, res) => {
+  try {
+    const authUserId = req.user?.uid;
+    if (!authUserId) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+
+    const db = readDb();
+    const user = db.users.find((u: any) => u.id === authUserId);
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    const stripe = getStripe();
+    if (stripe && user.stripeSubscriptionId) {
+      try {
+        await stripe.subscriptions.cancel(user.stripeSubscriptionId);
+      } catch (stripeErr: any) {
+        console.warn("Stripe cancel subscription warning:", stripeErr.message);
+      }
+    }
+
+    user.subscriptionStatus = "Inactive";
+    user.subscriptionPlan = undefined;
+    writeDb(db);
+
+    try {
+      await adminDb.collection("users").doc(authUserId).set({
+        subscriptionStatus: "Inactive",
+        subscriptionPlan: null
+      }, { merge: true });
+    } catch (fsErr: any) {
+      console.warn("Firestore cancel sync warning:", fsErr.message);
+    }
+
+    return res.json({ success: true, message: "Subscription cancelled successfully." });
+  } catch (err: any) {
+    console.error("Error cancelling subscription:", err);
+    res.status(500).json({ error: err.message || "Failed to cancel subscription" });
   }
 });
 

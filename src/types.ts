@@ -166,6 +166,7 @@ export interface User {
   stripeSubscriptionId?: string;
   lastPaymentDate?: string;
   lastPaymentAmount?: string;
+  nextBillingDate?: string;
   receiptUrl?: string;
   verificationInfo?: VerificationInfo;
   workspaceId?: string;
