@@ -605,9 +605,9 @@ app.get("/api/stripe/config", (req, res) => {
 
 app.post("/api/stripe/create-checkout-session", requireAuth, async (req: AuthRequest, res) => {
   try {
-    const authUserId = req.user?.uid;
+    const authUserId = req.user?.uid || (req.user as any)?.user_id;
     if (!authUserId) {
-      return res.status(401).json({ error: "Unauthorized: Token verification required for authenticated sessions" });
+      return res.status(401).json({ error: "تعذر التحقق من جلسة حسابك. يرجى تحديث الجلسة والمحاولة مرة أخرى." });
     }
 
     const { plan = "Professional", billingCycle = "annual", companyName } = req.body;
@@ -743,6 +743,7 @@ app.post("/api/stripe/create-checkout-session", requireAuth, async (req: AuthReq
 // GET Session Status (for Embedded Checkout completion or success return)
 app.get("/api/stripe/session-status/:sessionId", requireAuth, async (req: AuthRequest, res) => {
   try {
+    console.log("[DEBUG] req.user =", req.user);
     const authUserId = req.user?.uid;
     if (!authUserId) {
       return res.status(401).json({ error: "Unauthorized: Missing authentication token" });
@@ -848,6 +849,7 @@ app.get("/api/stripe/session-status/:sessionId", requireAuth, async (req: AuthRe
 
 app.post("/api/stripe/create-portal-session", requireAuth, async (req: AuthRequest, res) => {
   try {
+    console.log("[DEBUG] req.user =", req.user);
     const authUserId = req.user?.uid;
     if (!authUserId) {
       return res.status(401).json({ error: "Unauthorized: Missing authentication token" });
@@ -884,6 +886,7 @@ app.post("/api/stripe/create-portal-session", requireAuth, async (req: AuthReque
 // Cancel or Pause Subscription
 app.post("/api/stripe/cancel-subscription", requireAuth, async (req: AuthRequest, res) => {
   try {
+    console.log("[DEBUG] req.user =", req.user);
     const authUserId = req.user?.uid;
     if (!authUserId) {
       return res.status(401).json({ error: "Unauthorized" });
@@ -995,7 +998,8 @@ app.get(["/api/logo.svg", "/assets/logo.svg", "/logo.svg"], (req, res) => {
 
 app.get("/api/stripe/receipt/:sessionId", requireAuth, async (req: AuthRequest, res) => {
   const { sessionId } = req.params;
-  const authUserId = req.user?.uid;
+  console.log("[DEBUG] req.user =", req.user);
+    const authUserId = req.user?.uid;
   if (!authUserId) {
     return res.status(401).json({ error: "Unauthorized: Missing authentication token" });
   }
@@ -1172,17 +1176,16 @@ async function sendSystemMail(
     const response = await resend.emails.send(emailPayload);
 
     if (response.error) {
-      console.warn("[RESEND DISPATCH WARNING]", {
-        email: to,
-        error: response.error,
+      console.error("[EMAIL DELIVERY FAILURE]", {
+        code: response.error.statusCode || response.error.name,
+        message: response.error.message,
+        provider: "Resend",
+        httpStatus: response.error.statusCode || 400
       });
 
-      // If Resend fails due to invalid key or unverified domain in dev/staging, fallback gracefully
       return {
-        success: true,
-        simulated: true,
-        provider: "resend_fallback",
-        messageId: `sim_fallback_${Date.now()}`
+        success: false,
+        error: response.error.message || "Failed to deliver email"
       };
     }
 
@@ -1194,15 +1197,14 @@ async function sendSystemMail(
     };
 
   } catch (resendErr: any) {
-    console.warn("[RESEND EXCEPTION FALLBACK]", {
-      email: to,
-      error: resendErr?.message || resendErr
+    console.error("[EMAIL DELIVERY EXCEPTION]", {
+      code: resendErr?.statusCode || resendErr?.code || "UNKNOWN",
+      message: resendErr?.message || String(resendErr),
+      provider: "Resend"
     });
     return {
-      success: true,
-      simulated: true,
-      provider: "exception_fallback",
-      messageId: `sim_exc_${Date.now()}`
+      success: false,
+      error: "Exception during email delivery"
     };
   }
 }
@@ -1850,6 +1852,15 @@ app.post("/api/auth/send-verification-code", otpLimiter, async (req, res) => {
 
     // Dispatch OTP email (via Resend or graceful local simulation fallback)
     const mailResult = await sendSystemMail(targetIdentifier, emailSubject, textBody, htmlBody);
+    
+    if (!mailResult.success && !mailResult.simulated) {
+      console.error("[OTP DELIVERY FAILURE]", mailResult.error);
+      return res.status(500).json({ 
+        success: false, 
+        error: "تعذر إرسال رمز الاستعادة. حاول مرة أخرى." 
+      });
+    }
+
     const emailSent = !mailResult.simulated;
 
     // Mail sent successfully or simulated! Calculate new send count
@@ -2292,6 +2303,15 @@ app.post("/api/auth/forgot-password", otpLimiter, async (req, res) => {
 
     // Dispatch password reset email (via Resend or graceful local simulation fallback)
     const mailResult = await sendSystemMail(target, emailSubject, textBody, htmlBody);
+    
+    if (!mailResult.success && !mailResult.simulated) {
+      console.error("[PASSWORD RESET EMAIL DELIVERY FAILURE]", mailResult.error);
+      return res.status(500).json({ 
+        success: false, 
+        error: "تعذر إرسال رابط إعادة التعيين. حاول مرة أخرى." 
+      });
+    }
+
     const emailSent = !mailResult.simulated;
 
     // Mail sent successfully! Calculate new send count
@@ -5540,7 +5560,8 @@ app.post("/api/auth/login", loginRegisterLimiter, (req, res) => {
 // --- MEMORIES ENDPOINTS ---
 app.get("/api/memories", requireAuth, (req: AuthRequest, res) => {
   const db = readDb();
-  const authUserId = req.user?.uid;
+  console.log("[DEBUG] req.user =", req.user);
+    const authUserId = req.user?.uid;
   if (!authUserId) {
     return res.status(401).json({ error: "Unauthorized: Missing authentication token" });
   }
@@ -5555,7 +5576,8 @@ app.post("/api/memories", requireAuth, (req: AuthRequest, res) => {
     return res.status(400).json({ error: "Missing required memory content fields." });
   }
 
-  const authUserId = req.user?.uid;
+  console.log("[DEBUG] req.user =", req.user);
+    const authUserId = req.user?.uid;
   if (!authUserId) {
     return res.status(401).json({ error: "Unauthorized: Missing authentication token" });
   }
@@ -5600,7 +5622,8 @@ app.post("/api/memories", requireAuth, (req: AuthRequest, res) => {
 
 app.delete("/api/memories/:id", requireAuth, (req: AuthRequest, res) => {
   const { id } = req.params;
-  const authUserId = req.user?.uid;
+  console.log("[DEBUG] req.user =", req.user);
+    const authUserId = req.user?.uid;
   if (!authUserId) {
     return res.status(401).json({ error: "Unauthorized: Missing authentication token" });
   }
@@ -5626,7 +5649,8 @@ app.delete("/api/memories/:id", requireAuth, (req: AuthRequest, res) => {
 
 app.put("/api/memories/:id", requireAuth, (req: AuthRequest, res) => {
   const { id } = req.params;
-  const authUserId = req.user?.uid;
+  console.log("[DEBUG] req.user =", req.user);
+    const authUserId = req.user?.uid;
   if (!authUserId) {
     return res.status(401).json({ error: "Unauthorized: Missing authentication token" });
   }
@@ -5807,7 +5831,8 @@ app.get("/api/world-bank", async (req, res) => {
 
 // --- INTERACTIVE POSTGRESQL QUERY SIMULATOR ---
 app.post("/api/database/schema", requireAuth, async (req: AuthRequest, res) => {
-  const authUserId = req.user?.uid;
+  console.log("[DEBUG] req.user =", req.user);
+    const authUserId = req.user?.uid;
   const authUserEmail = req.user?.email || "";
   if (!authUserId) {
     return res.status(401).json({ error: "Unauthorized: Missing authentication token" });
@@ -5883,7 +5908,8 @@ app.post("/api/database/query", requireAuth, async (req: AuthRequest, res) => {
     return res.status(400).json({ error: "SQL query string is required" });
   }
 
-  const authUserId = req.user?.uid;
+  console.log("[DEBUG] req.user =", req.user);
+    const authUserId = req.user?.uid;
   const authUserEmail = req.user?.email || "";
   if (!authUserId) {
     return res.status(401).json({ error: "Unauthorized: Missing authentication token" });

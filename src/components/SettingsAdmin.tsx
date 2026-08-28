@@ -296,10 +296,7 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
       .catch((err) => console.warn("Failed to load Stripe publishable key:", err));
   }, []);
 
-  const handleReturnToPlans = React.useCallback(() => {
-    if (typeof window !== "undefined" && window.history.state?.zakirCheckoutModal) {
-      window.history.replaceState(null, "");
-    }
+  const cleanupCheckoutState = React.useCallback(() => {
     setSelectedPlanForCheckout(null);
     setCheckoutClientSecret(null);
     setCheckoutSessionId(null);
@@ -308,6 +305,14 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
     setCompletedReceipt(null);
   }, []);
 
+  const handleReturnToPlans = React.useCallback(() => {
+    if (typeof window !== "undefined" && window.history.state?.zakirCheckoutModal) {
+      window.history.back(); // This will trigger popstate which calls cleanupCheckoutState
+    } else {
+      cleanupCheckoutState();
+    }
+  }, [cleanupCheckoutState]);
+
   useEffect(() => {
     if (selectedPlanForCheckout && !completedReceipt) {
       if (typeof window !== "undefined" && !window.history.state?.zakirCheckoutModal) {
@@ -315,20 +320,12 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
       }
 
       const handlePopState = () => {
-        setSelectedPlanForCheckout(null);
-        setCheckoutClientSecret(null);
-        setCheckoutSessionId(null);
-        setPaymentError(null);
-        setIsProcessingPayment(false);
+        cleanupCheckoutState();
       };
 
       const handleKeyDown = (e: KeyboardEvent) => {
         if (e.key === "Escape") {
-          if (typeof window !== "undefined" && window.history.state?.zakirCheckoutModal) {
-            window.history.back();
-          } else {
-            handleReturnToPlans();
-          }
+          handleReturnToPlans();
         }
       };
 
@@ -340,7 +337,7 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
         window.removeEventListener("keydown", handleKeyDown);
       };
     }
-  }, [selectedPlanForCheckout, completedReceipt, handleReturnToPlans]);
+  }, [selectedPlanForCheckout, completedReceipt, handleReturnToPlans, cleanupCheckoutState]);
 
   const embeddedCheckoutOptions = useMemo(() => {
     if (!checkoutClientSecret) return null;
@@ -379,7 +376,7 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
       let idToken: string | null = null;
       if (fbUser) {
         try {
-          idToken = await fbUser.getIdToken(isRetry);
+          idToken = await fbUser.getIdToken(true); // Always get a fresh token for payment
         } catch (tokenErr) {
           console.warn("[Stripe Checkout] Direct token fetch warning:", tokenErr);
         }
@@ -388,8 +385,14 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
       const headers: Record<string, string> = { "Content-Type": "application/json" };
       if (idToken) {
         headers["Authorization"] = `Bearer ${idToken}`;
-      } else if (currentUser?.id) {
-        headers["Authorization"] = `Bearer ${currentUser.id}`;
+      } else {
+        setPaymentError(
+          lang === "ar"
+            ? "تعذر التحقق من جلسة حسابك. يرجى تحديث الجلسة والمحاولة مرة أخرى."
+            : "Session verification failed. Please refresh your session and try again."
+        );
+        setIsProcessingPayment(false);
+        return;
       }
 
       const res = await fetch("/api/stripe/create-checkout-session", {

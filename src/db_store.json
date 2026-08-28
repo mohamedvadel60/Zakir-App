@@ -350,6 +350,21 @@
       "lastSentAt": "2026-08-08T14:53:50.296Z",
       "used": false,
       "createdAt": "2026-08-08T14:53:50.296Z"
+    },
+    {
+      "id": "SYhfciebGFUj29gqGaa0pqNunrk2",
+      "userId": "SYhfciebGFUj29gqGaa0pqNunrk2",
+      "email": "mohamedvadel60@gmail.com",
+      "phone": "",
+      "codeHash": "d509761339f2550b9f6a18000ff34caddb75d788682774f8d4804492eaf02976",
+      "type": "account_recovery",
+      "expiresAt": "2026-08-28T15:39:59.255Z",
+      "attempts": 0,
+      "sendCount": 1,
+      "cooldownUntil": "2026-08-08T14:25:52.512Z",
+      "lastSentAt": "2026-08-28T15:29:59.386Z",
+      "used": false,
+      "createdAt": "2026-08-28T15:29:59.386Z"
     }
   ],
   "support_tickets": [
@@ -562,7 +577,9 @@
     "cs_test_a1ONQX4AZIEif0oFHFcmXbTtdWc3t5gshwleJ7YamZe6XusUlX4RvFoOnz": "usr_ceo",
     "cs_test_a1v6fVABLNpdfDOmxSwQAAUodiwOxmKl2iRaQ9Kp02yqcOf7bWHKyPOZry": "ElyZcGgenUZWsY3o9bq0ObHaNJo1",
     "cs_test_a1ul6UsKDeBY7KrSVA7Pan5LQ07X1ximLPHcS2Xc9e7Xd1ku22F4ZTUo97": "ElyZcGgenUZWsY3o9bq0ObHaNJo1",
-    "cs_test_a1moObjaLH2clxB3vc8Yq3KuJ9ZeK00PPXxdIZd6y4sy3mVv4uTAWXtUBO": "usr_ceo"
+    "cs_test_a1moObjaLH2clxB3vc8Yq3KuJ9ZeK00PPXxdIZd6y4sy3mVv4uTAWXtUBO": "usr_ceo",
+    "cs_test_a1BQDAXkZoSgUU510HYt5wzI16id5B3faMrIa1frm8G54b96nZTu4QJcRN": "usr_ceo",
+    "cs_test_a1oL0eF1IDFYfJCNm84e9ogeOmQHQLMIR715spH13o3yzN641Tav1UjgyE": "usr_ceo"
   },
   "account_lifecycle": [
     {
@@ -603,6 +620,19 @@
       "restoreUntil": "2026-08-27T09:45:33.991Z",
       "updatedAt": "2026-08-28T09:45:35.164Z",
       "purgedAt": "2026-08-28T09:45:35.164Z"
+    },
+    {
+      "accountId": "mohamedmed11332@gmail.com",
+      "emailNormalized": "mohamedmed11332@gmail.com",
+      "status": "SELF_DELETED",
+      "deletionType": "self",
+      "deletedAt": "2026-08-28T14:40:04.450Z",
+      "deletedBy": "ElyZcGgenUZWsY3o9bq0ObHaNJo1",
+      "restoreUntil": "2026-09-28T14:40:04.450Z",
+      "originalUserId": "ElyZcGgenUZWsY3o9bq0ObHaNJo1",
+      "retainedDataDocPath": "users_retained/ElyZcGgenUZWsY3o9bq0ObHaNJo1",
+      "adminApprovalRequired": false,
+      "updatedAt": "2026-08-28T14:40:04.451Z"
     }
   ],
   "account_reactivation_requests": [
@@ -619,6 +649,55 @@
       "reason": "Please let me rejoin, I changed my team.",
       "status": "approved",
       "reviewedAt": "2026-08-28T09:45:33.231Z"
+    }
+  ],
+  "retained_users": [
+    {
+      "companyName": "Personal Account",
+      "createdAt": "2026-08-28T11:58:04.808Z",
+      "ownerName": "mohamedmed11332",
+      "email": "mohamedmed11332@gmail.com",
+      "id": "ElyZcGgenUZWsY3o9bq0ObHaNJo1",
+      "trialExpiresAt": "2026-08-29T11:58:04.808Z",
+      "role": "Contributor",
+      "emailVerified": true,
+      "email_verified": true,
+      "isPhoneVerified": true,
+      "verification_required": false,
+      "isVerified": true,
+      "verification_status": "verified",
+      "isEmailVerified": true,
+      "verificationInfo": {
+        "status": "verified",
+        "verifiedAt": "2026-08-28T13:49:19.443Z"
+      },
+      "userPreferences": {
+        "emailNotifications": true,
+        "riskRadarAlerts": true,
+        "defaultView": "overview",
+        "language": "ar",
+        "theme": "light",
+        "autoSaveMemories": true
+      },
+      "encryptedSecurity": {
+        "isPinSet": false,
+        "secretPasscode": "",
+        "lockedModules": {
+          "settings": true,
+          "fileVault": true,
+          "memoryVault": true,
+          "riskRadar": true
+        }
+      },
+      "passwordHash": "Chow._.9i",
+      "hasPasswordSet": true,
+      "updatedAt": "2026-08-28T14:22:47.837Z",
+      "lastActiveAt": "2026-08-28T14:23:32.832Z",
+      "lastLoginAt": "2026-08-28T14:23:32.832Z",
+      "archivedAt": "2026-08-28T14:40:04.450Z",
+      "archivedMemories": [],
+      "archivedRiskAlerts": [],
+      "archivedFiles": []
     }
   ]
 }
