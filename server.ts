@@ -451,6 +451,50 @@ app.post("/api/stripe/webhook", webhookLimiter, express.raw({ type: "application
         }
         break;
       }
+      case "invoice.payment_succeeded": {
+        const invoice = event.data.object;
+        const customerId = invoice.customer;
+        const subscriptionId = invoice.subscription;
+        const db = readDb();
+        const user = db.users.find((u: any) => 
+          (subscriptionId && u.stripeSubscriptionId === subscriptionId) || 
+          (customerId && u.stripeCustomerId === customerId)
+        );
+        if (user) {
+          user.subscriptionStatus = "Active";
+          user.lastPaymentDate = new Date().toISOString();
+          user.lastPaymentAmount = `$${((invoice.amount_paid || 0) / 100).toFixed(2)} USD`;
+          writeDb(db);
+          try {
+            await adminDb.collection("users").doc(user.id).set({
+              subscriptionStatus: "Active",
+              lastPaymentDate: user.lastPaymentDate,
+              lastPaymentAmount: user.lastPaymentAmount
+            }, { merge: true });
+          } catch (fsErr: any) {
+            console.warn("Stripe webhook invoice Firestore sync warning:", fsErr?.message);
+          }
+        }
+        break;
+      }
+      case "customer.subscription.updated": {
+        const sub = event.data.object;
+        const db = readDb();
+        const user = db.users.find((u: any) => u.stripeSubscriptionId === sub.id || u.stripeCustomerId === sub.customer);
+        if (user) {
+          const isActive = sub.status === "active" || sub.status === "trialing";
+          user.subscriptionStatus = isActive ? "Active" : "Inactive";
+          writeDb(db);
+          try {
+            await adminDb.collection("users").doc(user.id).set({
+              subscriptionStatus: user.subscriptionStatus
+            }, { merge: true });
+          } catch (fsErr: any) {
+            console.warn("Stripe webhook sub update Firestore sync warning:", fsErr?.message);
+          }
+        }
+        break;
+      }
       case "customer.subscription.deleted": {
         const sub = event.data.object;
         const db = readDb();
@@ -558,29 +602,31 @@ app.get("/api/stripe/config", (req, res) => {
   });
 });
 
-app.post("/api/stripe/create-checkout-session", async (req, res) => {
+app.post("/api/stripe/create-checkout-session", requireAuth, async (req: AuthRequest, res) => {
   try {
-    const { plan = "Professional", billingCycle = "annual", userId, userEmail, companyName, uiMode = "embedded" } = req.body;
-    let finalUserId = userId;
-    let finalUserEmail = userEmail;
+    const authUserId = req.user?.uid;
+    if (!authUserId) {
+      return res.status(401).json({ error: "Unauthorized: Token verification required for authenticated sessions" });
+    }
 
-    // Verify token securely if Authorization header is provided
-    const authHeader = req.headers.authorization;
-    if (authHeader && authHeader.startsWith("Bearer ")) {
-      const token = authHeader.split("Bearer ")[1];
+    const { plan = "Professional", billingCycle = "annual", companyName } = req.body;
+
+    const db = readDb();
+    let user = db.users.find((u: any) => u.id === authUserId);
+    if (!user) {
       try {
-        const decodedToken = await adminAuth.verifyIdToken(token);
-        finalUserId = decodedToken.uid;
-        finalUserEmail = decodedToken.email || userEmail;
-      } catch (err) {
-        console.warn("[CHECKOUT AUTH FAILURE] Invalid authorization token:", err);
-        return res.status(401).json({ error: "Unauthorized: Invalid or expired token" });
-      }
-    } else if (userId) {
-      if (process.env.NODE_ENV === "production") {
-        return res.status(401).json({ error: "Unauthorized: Token verification required for authenticated sessions" });
+        const userDoc = await adminDb.collection("users").doc(authUserId).get();
+        if (userDoc && userDoc.exists) {
+          user = userDoc.data();
+        }
+      } catch (fsErr) {
+        console.warn("[CHECKOUT] Firestore user lookup warning:", fsErr);
       }
     }
+
+    const finalUserId = authUserId;
+    const finalUserEmail = req.user?.email || user?.email || "";
+    const finalCompanyName = companyName || user?.companyName || user?.organizationName || "Organization";
 
     const requestedPlan = (plan === "Enterprise" ? "Enterprise" : plan === "Starter" ? "Starter" : "Professional") as "Starter" | "Professional" | "Enterprise";
     const requestedCycle = (billingCycle === "monthly" ? "monthly" : "annual") as "monthly" | "annual";
@@ -589,16 +635,21 @@ app.post("/api/stripe/create-checkout-session", async (req, res) => {
     const protocol = req.headers["x-forwarded-proto"] || "https";
     const baseUrl = process.env.APP_URL || `${protocol}://${host}`;
 
-    // Monthly vs Annual Pricing Benchmark
+    // Backend-determined pricing: strictly computed from server benchmark
     const monthlyRate = PLAN_PRICES[requestedPlan][requestedCycle];
     const unitAmountCents = Math.round(monthlyRate * 100);
+
+    // Required logging for verification (sensitive tokens, keys, and card data are strictly omitted)
+    console.log(`[Stripe Checkout] Payment request received: plan=${requestedPlan}, billingCycle=${requestedCycle}`);
+    console.log(`[Stripe Checkout] Authenticated user verified: uid=${authUserId}, email=${finalUserEmail}`);
+    console.log(`[Stripe Checkout] Firebase UID verified: ${finalUserId}`);
+    console.log(`[Stripe Checkout] Plan validated: ${requestedPlan} ($${monthlyRate})`);
+    console.log(`[Stripe Checkout] Stripe parameters validated: amount=${unitAmountCents} cents`);
 
     const stripe = getStripe();
 
     if (stripe) {
-      // Create session using ui_mode: 'embedded' for seamless in-app checkout inside Zakir
       const sessionParams: Stripe.Checkout.SessionCreateParams = {
-        ui_mode: "embedded",
         mode: "subscription",
         payment_method_types: ["card"],
         line_items: [
@@ -607,7 +658,7 @@ app.post("/api/stripe/create-checkout-session", async (req, res) => {
               currency: "usd",
               product_data: {
                 name: `Zakir ${requestedPlan} Plan (${requestedCycle === "annual" ? "Annual Billing - Save 20%" : "Monthly Billing"})`,
-                description: `Institutional Causal Memory Engine & AI Risk Intelligence Suite for ${companyName || "Organization"}.`,
+                description: `Institutional Causal Memory Engine & AI Risk Intelligence Suite for ${finalCompanyName}.`,
               },
               unit_amount: unitAmountCents,
               recurring: {
@@ -618,21 +669,52 @@ app.post("/api/stripe/create-checkout-session", async (req, res) => {
             quantity: 1,
           },
         ],
-        customer_email: finalUserEmail || undefined,
-        client_reference_id: finalUserId || undefined,
+        client_reference_id: finalUserId,
         metadata: {
-          userId: finalUserId || "",
-          userEmail: finalUserEmail || "",
-          companyName: companyName || "",
+          userId: finalUserId,
+          userEmail: finalUserEmail,
+          companyName: finalCompanyName,
           plan: requestedPlan,
-          billingCycle: requestedCycle
+          billingCycle: requestedCycle,
         },
-        return_url: `${baseUrl}/?checkout=success&session_id={CHECKOUT_SESSION_ID}&plan=${requestedPlan}&cycle=${requestedCycle}`
+        ui_mode: "embedded",
+        redirect_on_completion: "never",
       };
 
-      const session = await stripe.checkout.sessions.create(sessionParams);
+      if (user?.stripeCustomerId) {
+        try {
+          const existingCust = await stripe.customers.retrieve(user.stripeCustomerId);
+          if (existingCust && !("deleted" in existingCust && existingCust.deleted)) {
+            sessionParams.customer = user.stripeCustomerId;
+          } else if (finalUserEmail) {
+            sessionParams.customer_email = finalUserEmail;
+          }
+        } catch {
+          if (finalUserEmail) {
+            sessionParams.customer_email = finalUserEmail;
+          }
+        }
+      } else if (finalUserEmail) {
+        sessionParams.customer_email = finalUserEmail;
+      }
 
-      const db = readDb();
+      let session: Stripe.Checkout.Session;
+      try {
+        session = await stripe.checkout.sessions.create(sessionParams);
+      } catch (uiErr: any) {
+        if (uiErr?.message && uiErr.message.includes("ui_mode: embedded")) {
+          session = await stripe.checkout.sessions.create({
+            ...sessionParams,
+            ui_mode: "embedded_page" as any,
+          });
+        } else {
+          throw uiErr;
+        }
+      }
+
+      console.log(`[Stripe Checkout] Checkout Session created: sessionId=${session.id}`);
+      console.log(`[Stripe Checkout] client_secret returned successfully`);
+
       db.stripe_sessions = db.stripe_sessions || {};
       db.stripe_sessions[session.id] = finalUserId;
       writeDb(db);
@@ -641,62 +723,14 @@ app.post("/api/stripe/create-checkout-session", async (req, res) => {
         success: true,
         sessionId: session.id,
         clientSecret: session.client_secret,
-        url: session.url
+        publishableKey: process.env.VITE_STRIPE_PUBLIC_KEY || process.env.STRIPE_PUBLIC_KEY || "",
       });
     }
 
-    // FALLBACK / DIRECT CHECKOUT EXECUTION (When STRIPE_SECRET_KEY is not configured or in sandbox mode)
-    const simulatedSessionId = `cs_stripe_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
-    const db = readDb();
-    const user = db.users.find((u: any) => u.id === finalUserId || (finalUserEmail && u.email?.toLowerCase() === finalUserEmail.toLowerCase()));
-    
-    // Calculate next billing date (1 month or 1 year)
-    const nextBill = new Date();
-    if (requestedCycle === "annual") {
-      nextBill.setFullYear(nextBill.getFullYear() + 1);
-    } else {
-      nextBill.setMonth(nextBill.getMonth() + 1);
-    }
-
-    if (user) {
-      user.subscriptionPlan = requestedPlan;
-      user.subscriptionStatus = "Active";
-      user.billingCycle = requestedCycle;
-      user.stripeCustomerId = user.stripeCustomerId || `cus_${Math.random().toString(36).substring(2, 9)}`;
-      user.stripeSubscriptionId = user.stripeSubscriptionId || `sub_${Math.random().toString(36).substring(2, 9)}`;
-      user.lastPaymentDate = new Date().toISOString();
-      user.lastPaymentAmount = `$${monthlyRate}.00 USD`;
-      user.nextBillingDate = nextBill.toISOString();
-    }
-
-    db.stripe_sessions = db.stripe_sessions || {};
-    db.stripe_sessions[simulatedSessionId] = finalUserId;
-    writeDb(db);
-
-    // Sync to Firestore
-    if (finalUserId) {
-      try {
-        await adminDb.collection("users").doc(finalUserId).set({
-          subscriptionPlan: requestedPlan,
-          subscriptionStatus: "Active",
-          billingCycle: requestedCycle,
-          stripeCustomerId: user?.stripeCustomerId || `cus_${Math.random().toString(36).substring(2, 9)}`,
-          stripeSubscriptionId: user?.stripeSubscriptionId || `sub_${Math.random().toString(36).substring(2, 9)}`,
-          lastPaymentDate: new Date().toISOString(),
-          lastPaymentAmount: `$${monthlyRate}.00 USD`,
-          nextBillingDate: nextBill.toISOString()
-        }, { merge: true });
-      } catch (fsErr: any) {
-        console.warn("[CHECKOUT] Firestore sync warning:", fsErr?.message);
-      }
-    }
-
-    return res.json({
-      success: true,
-      simulated: true,
-      sessionId: simulatedSessionId,
-      clientSecret: `cs_simulated_secret_${Date.now()}`,
-      url: `${baseUrl}/?checkout=success&session_id=${simulatedSessionId}&plan=${requestedPlan}&cycle=${requestedCycle}`
+    console.warn("[Stripe Checkout] Stripe is not configured on the server. STRIPE_SECRET_KEY is missing.");
+    return res.status(400).json({
+      success: false,
+      error: "Stripe is not configured on the server. Please provide STRIPE_SECRET_KEY.",
     });
 
   } catch (err: any) {
@@ -706,8 +740,13 @@ app.post("/api/stripe/create-checkout-session", async (req, res) => {
 });
 
 // GET Session Status (for Embedded Checkout completion or success return)
-app.get("/api/stripe/session-status/:sessionId", async (req, res) => {
+app.get("/api/stripe/session-status/:sessionId", requireAuth, async (req: AuthRequest, res) => {
   try {
+    const authUserId = req.user?.uid;
+    if (!authUserId) {
+      return res.status(401).json({ error: "Unauthorized: Missing authentication token" });
+    }
+
     const { sessionId } = req.params;
     const stripe = getStripe();
 
@@ -716,6 +755,14 @@ app.get("/api/stripe/session-status/:sessionId", async (req, res) => {
       const userId = session.client_reference_id || session.metadata?.userId;
       const plan = session.metadata?.plan || "Professional";
       const cycle = session.metadata?.billingCycle || "annual";
+
+      // Ensure user cannot inspect another user's session unless admin
+      if (userId && userId !== authUserId) {
+        const isAdmin = await isUserAdminServer(authUserId);
+        if (!isAdmin) {
+          return res.status(403).json({ error: "Forbidden: Access denied to other users' sessions" });
+        }
+      }
 
       if (session.status === "complete" || session.payment_status === "paid") {
         const nextBill = new Date();
@@ -774,6 +821,12 @@ app.get("/api/stripe/session-status/:sessionId", async (req, res) => {
     // Simulated session lookup
     const db = readDb();
     const userId = db.stripe_sessions?.[sessionId];
+    if (userId && userId !== authUserId) {
+      const isAdmin = await isUserAdminServer(authUserId);
+      if (!isAdmin) {
+        return res.status(403).json({ error: "Forbidden: Access denied to other users' sessions" });
+      }
+    }
     const user = db.users.find((u: any) => u.id === userId);
 
     return res.json({

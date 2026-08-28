@@ -1,8 +1,8 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useMemo } from "react";
 import { loadStripe, Stripe as StripeType } from "@stripe/stripe-js";
 import { EmbeddedCheckoutProvider, EmbeddedCheckout } from "@stripe/react-stripe-js";
 import { auth } from "../firebase.js";
-import { authenticatedFetch } from "../lib/apiUtils.js";
+import { authenticatedFetch, getAuthenticatedFirebaseUser, getFreshAuthToken } from "../lib/apiUtils.js";
 import { 
   User as UserIcon, 
   Building, 
@@ -53,6 +53,74 @@ import { User, UserRole, TeamMember, ModulePermissions, EncryptedModuleSettings,
 import { saveWorkspaceInvitation, deleteWorkspaceInvitation, fetchWorkspaceInvitations, WorkspaceInvitation, saveFirebaseUserProfile, uploadFirebaseUserFile, deleteFirebaseUserFile } from "../lib/firebaseServices.js";
 import { openOrDownloadUserFile, openUserFileInNewTab, downloadUserFile } from "../lib/fileViewerUtils.js";
 import { translations } from "../translations.js";
+
+// Cached singleton Stripe loader
+let cachedStripePromise: Promise<StripeType | null> | null = null;
+let cachedStripeKey: string | null = null;
+
+function getCachedStripe(publishableKey: string): Promise<StripeType | null> {
+  if (!cachedStripePromise || cachedStripeKey !== publishableKey) {
+    cachedStripeKey = publishableKey;
+    cachedStripePromise = loadStripe(publishableKey);
+  }
+  return cachedStripePromise;
+}
+
+interface PaymentErrorBoundaryProps {
+  children: React.ReactNode;
+  onRetry: () => void;
+  lang?: string;
+}
+
+interface PaymentErrorBoundaryState {
+  hasError: boolean;
+  errorMessage: string;
+}
+
+class PaymentErrorBoundary extends React.Component<PaymentErrorBoundaryProps, PaymentErrorBoundaryState> {
+  constructor(props: PaymentErrorBoundaryProps) {
+    super(props);
+    this.state = { hasError: false, errorMessage: "" };
+  }
+
+  static getDerivedStateFromError(error: Error): PaymentErrorBoundaryState {
+    return { hasError: true, errorMessage: error?.message || "Stripe initialization failed" };
+  }
+
+  componentDidCatch(error: Error, info: React.ErrorInfo) {
+    console.error("[PaymentErrorBoundary] Caught payment checkout error:", error, info);
+  }
+
+  handleRetry = () => {
+    this.setState({ hasError: false, errorMessage: "" });
+    this.props.onRetry();
+  };
+
+  render() {
+    if (this.state.hasError) {
+      const isAr = this.props.lang === "ar";
+      return (
+        <div className="p-6 text-center space-y-4 rounded-xl border border-rose-500/30 bg-rose-500/10 text-rose-300">
+          <AlertCircle className="w-10 h-10 mx-auto text-rose-400" />
+          <p className="text-sm font-bold">
+            {isAr ? "تعذر تحميل بوابة الدفع. يرجى المحاولة مرة أخرى." : "Failed to load payment checkout. Please try again."}
+          </p>
+          <p className="text-xs text-slate-400 font-mono max-w-sm mx-auto">
+            {this.state.errorMessage}
+          </p>
+          <button
+            type="button"
+            onClick={this.handleRetry}
+            className="px-4 py-2 bg-gradient-to-r from-[#0075DE] to-[#005BAB] text-white text-xs font-bold rounded-lg shadow-lg hover:brightness-110 cursor-pointer"
+          >
+            {isAr ? "إعادة المحاولة" : "Try Again"}
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 interface SettingsAdminProps {
   currentUser: User;
@@ -169,52 +237,119 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
   const [isCancellingSubscription, setIsCancellingSubscription] = useState(false);
 
   useEffect(() => {
-    // Load Stripe Config dynamically
+    // Load Stripe Config dynamically using cached singleton
     fetch("/api/stripe/config")
       .then((res) => res.json())
       .then((data) => {
         if (data.publishableKey) {
-          setStripePromise(loadStripe(data.publishableKey));
+          setStripePromise(getCachedStripe(data.publishableKey));
         }
       })
       .catch((err) => console.warn("Failed to load Stripe publishable key:", err));
   }, []);
 
-  const handleStripeCheckout = async (plan: "Starter" | "Professional" | "Enterprise") => {
+  const embeddedCheckoutOptions = useMemo(() => {
+    if (!checkoutClientSecret) return null;
+    return {
+      clientSecret: checkoutClientSecret,
+      onComplete: () => {
+        handleConfirmPayment();
+      }
+    };
+  }, [checkoutClientSecret]);
+
+  const handleStripeCheckout = async (plan: "Starter" | "Professional" | "Enterprise", isRetry = false) => {
+    if (isProcessingPayment) return;
+
+    if (checkoutClientSecret && selectedPlanForCheckout === plan && !isRetry) {
+      return;
+    }
+
     setIsProcessingPayment(true);
     setPaymentError(null);
     setSelectedPlanForCheckout(plan);
-    setCheckoutClientSecret(null);
-    setCheckoutSessionId(null);
+    if (!isRetry) {
+      setCheckoutClientSecret(null);
+      setCheckoutSessionId(null);
+    }
 
     try {
-      const res = await authenticatedFetch("/api/stripe/create-checkout-session", {
+      const fbUser = await getAuthenticatedFirebaseUser();
+      if (!fbUser && !currentUser) {
+        setPaymentError(
+          lang === "ar"
+            ? "يجب تسجيل الدخول أولاً لإتمام الاشتراك."
+            : "Please sign in first to complete your subscription."
+        );
+        setIsProcessingPayment(false);
+        return;
+      }
+
+      let idToken: string | null = null;
+      if (fbUser) {
+        try {
+          idToken = await fbUser.getIdToken(isRetry);
+        } catch (tokenErr) {
+          console.warn("[Stripe Checkout] Direct token fetch warning:", tokenErr);
+        }
+      }
+
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      if (idToken) {
+        headers["Authorization"] = `Bearer ${idToken}`;
+      } else if (currentUser?.id) {
+        headers["Authorization"] = `Bearer ${currentUser.id}`;
+      }
+
+      const res = await fetch("/api/stripe/create-checkout-session", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers,
         body: JSON.stringify({
           plan,
           billingCycle,
-          userId: currentUser.id,
-          userEmail: currentUser.email,
-          companyName: currentUser.companyName || currentUser.organizationName,
-          uiMode: "embedded"
+          companyName: currentUser?.companyName || currentUser?.organizationName || "Organization",
         }),
       });
+
+      if (res.status === 401) {
+        if (!isRetry && fbUser) {
+          console.info("[Stripe Checkout] 401 received. Refreshing Firebase session token & retrying once...");
+          return await handleStripeCheckout(plan, true);
+        }
+        setPaymentError(
+          lang === "ar"
+            ? "تعذر التحقق من جلسة حسابك. يرجى تحديث الجلسة والمحاولة مرة أخرى."
+            : "Could not verify your account session. Please refresh your session and try again."
+        );
+        setIsProcessingPayment(false);
+        return;
+      }
+
       const data = await res.json();
-      if (!res.ok || !data.success) {
-        throw new Error(data.error || "Failed to create checkout session");
+      if (!res.ok || !data.success || !data.clientSecret) {
+        console.error("[Stripe Checkout] Session creation error:", data);
+        setPaymentError(
+          lang === "ar"
+            ? (data.error || "تعذر إعداد جلسة الدفع الآمن حالياً. يرجى المحاولة لاحقاً.")
+            : (data.error || "Unable to initialize Stripe checkout. Please try again.")
+        );
+        setIsProcessingPayment(false);
+        return;
       }
 
       setCheckoutSessionId(data.sessionId);
-      if (data.clientSecret) {
-        setCheckoutClientSecret(data.clientSecret);
-      }
+      setCheckoutClientSecret(data.clientSecret);
+
       if (data.publishableKey) {
-        setStripePromise(loadStripe(data.publishableKey));
+        setStripePromise(getCachedStripe(data.publishableKey));
       }
     } catch (err: any) {
-      console.error("Stripe Checkout initialization error:", err);
-      setPaymentError(err.message || "Unable to initialize Stripe checkout. Please try again.");
+      console.error("[Stripe Checkout] Initialization error:", err);
+      setPaymentError(
+        lang === "ar"
+          ? "تعذر التحقق من جلسة حسابك أو الاتصال بخادم الدفع. يرجى المحاولة مرة أخرى."
+          : "Could not verify your account session. Please refresh your session and try again."
+      );
     } finally {
       setIsProcessingPayment(false);
     }
@@ -278,10 +413,10 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
   } | null>(null);
 
   // Form states for checkout
-  const [cardName, setCardName] = useState(currentUser.ownerName || "Mohamed Vadel");
-  const [cardNumber, setCardNumber] = useState("4532 •••• •••• 8892");
-  const [cardExpiry, setCardExpiry] = useState("12/28");
-  const [cardCvc, setCardCvc] = useState("889");
+  const [cardName, setCardName] = useState(currentUser.ownerName || "");
+  const [cardNumber, setCardNumber] = useState("");
+  const [cardExpiry, setCardExpiry] = useState("");
+  const [cardCvc, setCardCvc] = useState("");
   
   const [bankName, setBankName] = useState("Attijari Bank Mauritanie");
   const [bankRef, setBankRef] = useState("TRF-2026-99210");
@@ -1215,17 +1350,18 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
 
     try {
       if (checkoutSessionId) {
-        const statusRes = await authenticatedFetch(`/api/stripe/session-status/${checkoutSessionId}`);
-        if (statusRes.ok) {
-          const statusData = await statusRes.json();
-          console.log("Stripe session status verified:", statusData);
+        try {
+          const statusRes = await authenticatedFetch(`/api/stripe/session-status/${checkoutSessionId}`);
+          if (statusRes.ok) {
+            const statusData = await statusRes.json();
+            console.log("Stripe session status verified:", statusData);
+          }
+        } catch (statusErr) {
+          console.warn("Session status verification notice:", statusErr);
         }
       }
 
-      let methodLabel = "Stripe Embedded Checkout (Visa / MasterCard)";
-      if (paymentMethod === "mastercard") methodLabel = "MasterCard (•••• 4321)";
-      if (paymentMethod === "bank") methodLabel = `Bank Transfer (${bankName} - ${bankRef})`;
-      if (paymentMethod === "wallet") methodLabel = `E-Wallet (${walletProvider} - ${walletPhone})`;
+      const methodLabel = "Stripe Embedded Checkout (Visa / MasterCard)";
 
       const nextDate = new Date();
       if (cycle === "annual") {
@@ -1235,7 +1371,7 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
       }
 
       const receiptData = {
-        invoiceNo: `STRIPE-INV-${new Date().getFullYear()}-${Math.floor(100000 + Math.random() * 900000)}`,
+        invoiceNo: `STRIPE-INV-${new Date().getFullYear()}-${checkoutSessionId ? checkoutSessionId.slice(-6).toUpperCase() : Math.floor(100000 + Math.random() * 900000)}`,
         date: new Date().toLocaleDateString(lang === "ar" ? "ar-EG" : "en-US", {
           year: "numeric",
           month: "long",
@@ -1246,8 +1382,8 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
         plan: `${planName} Plan (${cycle === "annual" ? (lang === "ar" ? "سنوي" : "Annual") : (lang === "ar" ? "شهري" : "Monthly")})`,
         amount: planCost,
         method: methodLabel,
-        payerName: cardName || fullName || currentUser.ownerName || "Subscriber",
-        payerEmail: email || currentUser.email,
+        payerName: currentUser.ownerName || currentUser.companyName || "Subscriber",
+        payerEmail: currentUser.email || "",
         accountRef: currentUser.id,
         nextBillingDate: nextDate.toLocaleDateString(lang === "ar" ? "ar-EG" : "en-US")
       };
@@ -2348,104 +2484,35 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
                 )}
 
                 {/* Embedded Checkout Body */}
-                {isProcessingPayment ? (
-                  <div className="py-12 text-center space-y-4">
+                {isProcessingPayment && !checkoutClientSecret ? (
+                  <div className="py-16 text-center space-y-4">
                     <RefreshCw className="w-8 h-8 text-[#0075DE] animate-spin mx-auto" />
-                    <p className="text-xs text-slate-400">
+                    <p className="text-xs text-slate-300 font-medium">
                       {lang === "ar" ? "جاري تهيئة بوابة Stripe للدفع الآمن داخل المنصة..." : "Initializing secure in-app Stripe Checkout..."}
                     </p>
                   </div>
-                ) : checkoutClientSecret && stripePromise ? (
-                  <div className="p-2 rounded-2xl bg-white text-slate-900 border border-slate-200 min-h-[350px]">
-                    <EmbeddedCheckoutProvider
-                      stripe={stripePromise}
-                      options={{
-                        clientSecret: checkoutClientSecret,
-                        onComplete: () => handleConfirmPayment()
-                      }}
+                ) : checkoutClientSecret && stripePromise && embeddedCheckoutOptions ? (
+                  <div className="p-2 rounded-2xl bg-white text-slate-900 border border-slate-200 min-h-[380px] overflow-hidden">
+                    <PaymentErrorBoundary
+                      lang={lang}
+                      onRetry={() => handleStripeCheckout(selectedPlanForCheckout, true)}
                     >
-                      <EmbeddedCheckout />
-                    </EmbeddedCheckoutProvider>
+                      <EmbeddedCheckoutProvider
+                        stripe={stripePromise}
+                        options={embeddedCheckoutOptions}
+                      >
+                        <EmbeddedCheckout />
+                      </EmbeddedCheckoutProvider>
+                    </PaymentErrorBoundary>
                   </div>
-                ) : (
-                  /* Fallback or In-App Stripe Form for Sandbox/Simulated Sessions */
-                  <div className={`p-5 rounded-2xl border ${theme === "dark" ? "border-slate-800 bg-slate-950/50" : "border-slate-200 bg-slate-50"} space-y-4`}>
-                    <div className="flex items-center justify-between text-xs font-bold text-slate-400 pb-2 border-b border-slate-800">
-                      <span>{lang === "ar" ? "دفع مباشر آمن بواسطة Stripe (PCI-DSS Level 1)" : "Direct Payment via Stripe (PCI-DSS Level 1)"}</span>
-                      <span className="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 text-[10px]">Encrypted SSL 256-bit</span>
-                    </div>
-
-                    <div className="space-y-3">
-                      <div>
-                        <label className="block text-xs font-bold mb-1 text-slate-400">{lang === "ar" ? "اسم صاحب البطاقة" : "Cardholder Name"}</label>
-                        <input
-                          type="text"
-                          value={cardName}
-                          onChange={(e) => setCardName(e.target.value)}
-                          className="w-full h-10 px-3 border border-slate-800 rounded-xl text-xs bg-slate-900 text-white focus:border-[#0075DE] focus:outline-none"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-xs font-bold mb-1 text-slate-400">{lang === "ar" ? "رقم البطاقة" : "Card Number"}</label>
-                        <input
-                          type="text"
-                          value={cardNumber}
-                          onChange={(e) => setCardNumber(e.target.value)}
-                          placeholder="4242 •••• •••• 4242"
-                          className="w-full h-10 px-3 border border-slate-800 rounded-xl text-xs font-mono bg-slate-900 text-white focus:border-[#0075DE] focus:outline-none"
-                        />
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <label className="block text-xs font-bold mb-1 text-slate-400">{lang === "ar" ? "تاريخ الصلاحية" : "Expiry Date"}</label>
-                          <input
-                            type="text"
-                            value={cardExpiry}
-                            onChange={(e) => setCardExpiry(e.target.value)}
-                            placeholder="12/28"
-                            className="w-full h-10 px-3 border border-slate-800 rounded-xl text-xs font-mono bg-slate-900 text-white focus:border-[#0075DE] focus:outline-none"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-xs font-bold mb-1 text-slate-400">CVC / CVV</label>
-                          <input
-                            type="password"
-                            value={cardCvc}
-                            onChange={(e) => setCardCvc(e.target.value)}
-                            maxLength={4}
-                            placeholder="•••"
-                            className="w-full h-10 px-3 border border-slate-800 rounded-xl text-xs font-mono bg-slate-900 text-white focus:border-[#0075DE] focus:outline-none"
-                          />
-                        </div>
-                      </div>
-                    </div>
-
-                    <button
-                      type="button"
-                      disabled={isProcessingPayment}
-                      onClick={handleConfirmPayment}
-                      className="w-full py-4 bg-gradient-to-r from-[#0075DE] to-[#005BAB] hover:from-[#005BAB] hover:to-[#005BAB] text-white font-extrabold text-sm rounded-xl shadow-xl shadow-[#0075DE]/20 flex items-center justify-center gap-2 cursor-pointer transition-all mt-4"
-                    >
-                      {isProcessingPayment ? (
-                        <>
-                          <RefreshCw className="w-4 h-4 animate-spin" />
-                          <span>{lang === "ar" ? "جاري المعالجة الآمنة والمعاينة..." : "Processing & Verifying Payment..."}</span>
-                        </>
-                      ) : (
-                        <>
-                          <ShieldCheck className="w-5 h-5" />
-                          <span>
-                            {lang === "ar" 
-                              ? `دفع الآن وتفعيل الاشتراك (${selectedPlanForCheckout === "Starter" ? (billingCycle === "annual" ? "$50.00 USD" : "$6.00 USD") : selectedPlanForCheckout === "Enterprise" ? (billingCycle === "annual" ? "$699.00 USD" : "$849.00 USD") : (billingCycle === "annual" ? "$149.00 USD" : "$189.00 USD")})` 
-                              : `Pay & Activate Subscription (${selectedPlanForCheckout === "Starter" ? (billingCycle === "annual" ? "$50.00 USD" : "$6.00 USD") : selectedPlanForCheckout === "Enterprise" ? (billingCycle === "annual" ? "$699.00 USD" : "$849.00 USD") : (billingCycle === "annual" ? "$149.00 USD" : "$189.00 USD")})`}
-                          </span>
-                        </>
-                      )}
-                    </button>
+                ) : !paymentError ? (
+                  <div className="py-12 text-center space-y-4">
+                    <RefreshCw className="w-8 h-8 text-[#0075DE] animate-spin mx-auto" />
+                    <p className="text-xs text-slate-400">
+                      {lang === "ar" ? "جاري الاتصال بخوادم Stripe..." : "Connecting to Stripe..."}
+                    </p>
                   </div>
-                )}
+                ) : null}
               </>
             ) : (
               /* PAYMENT CONFIRMATION RECEIPT / INVOICE DISPLAY */

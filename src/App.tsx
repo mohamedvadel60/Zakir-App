@@ -524,6 +524,10 @@ export default function App() {
   const [stripeReceiptData, setStripeReceiptData] = useState<any | null>(null);
 
   const handleLandingStripeCheckout = async (plan: "Starter" | "Professional" | "Enterprise") => {
+    if (!currentUser) {
+      setAuthMode("login");
+      return;
+    }
     try {
       const res = await authenticatedFetch("/api/stripe/create-checkout-session", {
         method: "POST",
@@ -531,8 +535,6 @@ export default function App() {
         body: JSON.stringify({
           plan,
           billingCycle: landingBillingCycle,
-          userId: currentUser?.id,
-          userEmail: currentUser?.email || "mohamedvadel60@gmail.com",
           companyName: currentUser?.companyName || "Organization",
         }),
       });

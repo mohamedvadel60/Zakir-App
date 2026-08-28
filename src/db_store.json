@@ -555,7 +555,14 @@
   "gmail_logs": [],
   "stripe_sessions": {
     "sess_a": "usr_a",
-    "sess_b": "usr_b"
+    "sess_b": "usr_b",
+    "cs_test_a1gnFVTczEAqbDUnZ6vsD0d8cvz6HR5S6IstMDNPA6k6PO2wV2paiC40NV": "usr_ceo",
+    "cs_test_a1F8RWVilfI7sJSJ8Wai5JkuLfUfGzXyHb4HbOTKyeIdLPx2ZjD6moxRZc": "usr_ceo",
+    "cs_test_a1LbbQapfZnqPvWj12gCmyU4UTVRFPOUDWpl3SR3xRl2Aax1PYDIQ6PDuG": "usr_ceo",
+    "cs_test_a1ONQX4AZIEif0oFHFcmXbTtdWc3t5gshwleJ7YamZe6XusUlX4RvFoOnz": "usr_ceo",
+    "cs_test_a1v6fVABLNpdfDOmxSwQAAUodiwOxmKl2iRaQ9Kp02yqcOf7bWHKyPOZry": "ElyZcGgenUZWsY3o9bq0ObHaNJo1",
+    "cs_test_a1ul6UsKDeBY7KrSVA7Pan5LQ07X1ximLPHcS2Xc9e7Xd1ku22F4ZTUo97": "ElyZcGgenUZWsY3o9bq0ObHaNJo1",
+    "cs_test_a1moObjaLH2clxB3vc8Yq3KuJ9ZeK00PPXxdIZd6y4sy3mVv4uTAWXtUBO": "usr_ceo"
   },
   "account_lifecycle": [
     {
