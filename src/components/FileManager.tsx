@@ -542,7 +542,7 @@ export const FileManager: React.FC<FileManagerProps> = ({
               <button
                 type="submit"
                 disabled={uploading || !selectedFile}
-                className="w-full h-11 bg-gradient-to-r from-[#0075DE] to-[#005BAB] hover:brightness-110 active:scale-[0.98] text-slate-950 font-black text-xs rounded-xl shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                className="w-full h-11 bg-gradient-to-r from-[#0075DE] to-[#005BAB] hover:brightness-110 active:scale-[0.98] text-white font-black text-xs rounded-xl shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
               >
                 <UploadCloud className="w-4 h-4" />
                 <span>

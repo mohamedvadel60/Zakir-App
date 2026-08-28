@@ -842,7 +842,11 @@ export const WorldBankPortal: React.FC<WorldBankPortalProps> = ({
                     {loadBenchmarkFallback && !wbError.isFallback && (
                       <button
                         onClick={() => loadBenchmarkFallback()}
-                        className="px-3 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-[11px] font-semibold transition-colors cursor-pointer"
+                        className={`px-3 py-1 rounded-lg text-[11px] font-semibold transition-colors cursor-pointer border ${
+                          theme === "dark" 
+                            ? "bg-slate-800 hover:bg-slate-700 text-slate-200 border-slate-700" 
+                            : "bg-slate-100 hover:bg-slate-200 text-slate-800 border-slate-300"
+                        }`}
                       >
                         {lang === "ar" ? "تحميل حزمة البيانات المرجعية" : "Load Benchmark Data"}
                       </button>
@@ -888,7 +892,9 @@ export const WorldBankPortal: React.FC<WorldBankPortalProps> = ({
                   <AlertTriangle className="w-6 h-6" />
                 </div>
                 <div className="space-y-1 max-w-md">
-                  <h4 className="text-sm font-bold text-slate-200">
+                  <h4 className={`text-sm font-bold ${
+                    theme === "dark" ? "text-slate-200" : "text-slate-800"
+                  }`}>
                     {lang === "ar" ? "تعذر استخراج بيانات هذا المؤشر اللحظية" : "Unable to load live indicator data"}
                   </h4>
                   <p className="text-xs text-slate-400">
@@ -1054,7 +1060,9 @@ export const WorldBankPortal: React.FC<WorldBankPortalProps> = ({
                   ? `متوسط الفترة (${wbStartYear}-${wbEndYear})` 
                   : `${wbEndYear - wbStartYear + 1}-Year Average (${wbStartYear}-${wbEndYear})`}
               </span>
-              <div className="text-xl font-bold text-slate-200 font-mono">
+              <div className={`text-xl font-bold font-mono ${
+                theme === "dark" ? "text-slate-200" : "text-slate-800"
+              }`}>
                 {stats.avg !== null ? `${stats.avg} ${currentIndicatorMeta.unit}` : "N/A"}
               </div>
             </div>
@@ -1107,7 +1115,7 @@ export const WorldBankPortal: React.FC<WorldBankPortalProps> = ({
             disabled={wbIsAnalyzing || wbLoading}
             className={`px-5 py-2.5 rounded-xl font-bold text-xs flex items-center justify-center gap-2 transition-all shadow-lg cursor-pointer ${
               wbIsAnalyzing
-                ? "bg-[#0075DE]/50 text-slate-900 cursor-not-allowed"
+                ? "bg-[#0075DE]/50 text-white/80 cursor-not-allowed"
                 : "bg-[#0075DE] hover:bg-[#005BAB] text-white shadow-[#0075DE]/20 hover:scale-[1.02]"
             }`}
           >
@@ -1144,17 +1152,33 @@ export const WorldBankPortal: React.FC<WorldBankPortalProps> = ({
               onClick={() => setSelectedCausalNode("cause")}
               className={`p-3.5 rounded-xl border transition-all cursor-pointer ${
                 selectedCausalNode === "cause"
-                  ? "bg-[#0075DE]/15 border-[#0075DE] text-white shadow-md"
-                  : "bg-slate-950/40 border-slate-800 text-slate-400 hover:border-slate-700"
+                  ? theme === "dark"
+                    ? "bg-[#0075DE]/15 border-[#0075DE] text-white shadow-md"
+                    : "bg-[#0075DE] border-[#0075DE] text-white shadow-md"
+                  : theme === "dark"
+                    ? "bg-slate-950/40 border-slate-800 text-slate-400 hover:border-slate-700"
+                    : "bg-white border-slate-200 text-slate-500 hover:border-slate-350 hover:shadow-xs"
               }`}
             >
-              <span className="text-[9px] font-bold uppercase text-[#0075DE] block mb-1">
+              <span className={`text-[9px] font-bold uppercase block mb-1 ${
+                selectedCausalNode === "cause"
+                  ? theme === "dark" ? "text-blue-400" : "text-white/90"
+                  : "text-[#0075DE]"
+              }`}>
                 1. {lang === "ar" ? "مؤشر البنك الدولي" : "World Bank Indicator"}
               </span>
-              <p className="text-xs font-bold text-slate-200">
+              <p className={`text-xs font-bold ${
+                selectedCausalNode === "cause"
+                  ? "text-white"
+                  : theme === "dark" ? "text-slate-200" : "text-slate-800"
+              }`}>
                 {currentIndicatorMeta.nameAr}
               </p>
-              <span className="text-[10px] text-slate-400 block mt-1 font-mono">
+              <span className={`text-[10px] block mt-1 font-mono ${
+                selectedCausalNode === "cause"
+                  ? theme === "dark" ? "text-slate-300" : "text-white/80"
+                  : theme === "dark" ? "text-slate-400" : "text-slate-500"
+              }`}>
                 {currentCountryMeta.flag} {currentCountryMeta.nameAr}
               </span>
             </div>
@@ -1164,17 +1188,33 @@ export const WorldBankPortal: React.FC<WorldBankPortalProps> = ({
               onClick={() => setSelectedCausalNode("mechanism")}
               className={`p-3.5 rounded-xl border transition-all cursor-pointer ${
                 selectedCausalNode === "mechanism"
-                  ? "bg-[#0075DE]/15 border-amber-500 text-white shadow-md"
-                  : "bg-slate-950/40 border-slate-800 text-slate-400 hover:border-slate-700"
+                  ? theme === "dark"
+                    ? "bg-[#0075DE]/15 border-amber-500 text-white shadow-md"
+                    : "bg-amber-500 border-amber-500 text-white shadow-md"
+                  : theme === "dark"
+                    ? "bg-slate-950/40 border-slate-800 text-slate-400 hover:border-slate-700"
+                    : "bg-white border-slate-200 text-slate-500 hover:border-slate-350 hover:shadow-xs"
               }`}
             >
-              <span className="text-[9px] font-bold uppercase text-[#0075DE] block mb-1">
+              <span className={`text-[9px] font-bold uppercase block mb-1 ${
+                selectedCausalNode === "mechanism"
+                  ? theme === "dark" ? "text-blue-400" : "text-white/90"
+                  : "text-amber-500 dark:text-amber-400"
+              }`}>
                 2. {lang === "ar" ? "محركات الأثر والعدوى" : "Causal Transmission"}
               </span>
-              <p className="text-xs font-bold text-slate-200">
+              <p className={`text-xs font-bold ${
+                selectedCausalNode === "mechanism"
+                  ? "text-white"
+                  : theme === "dark" ? "text-slate-200" : "text-slate-800"
+              }`}>
                 {lang === "ar" ? "سلاسل التوريد وتكاليف الصرف" : "Supply Chains & FX Rates"}
               </p>
-              <span className="text-[10px] text-slate-400 block mt-1 font-mono">
+              <span className={`text-[10px] block mt-1 font-mono ${
+                selectedCausalNode === "mechanism"
+                  ? theme === "dark" ? "text-slate-300" : "text-white/80"
+                  : theme === "dark" ? "text-slate-400" : "text-slate-500"
+              }`}>
                 Macro-Correlation
               </span>
             </div>
@@ -1184,17 +1224,33 @@ export const WorldBankPortal: React.FC<WorldBankPortalProps> = ({
               onClick={() => setSelectedCausalNode("impact")}
               className={`p-3.5 rounded-xl border transition-all cursor-pointer ${
                 selectedCausalNode === "impact"
-                  ? "bg-cyan-500/15 border-cyan-500 text-white shadow-md"
-                  : "bg-slate-950/40 border-slate-800 text-slate-400 hover:border-slate-700"
+                  ? theme === "dark"
+                    ? "bg-cyan-500/15 border-cyan-500 text-white shadow-md"
+                    : "bg-cyan-600 border-cyan-600 text-white shadow-md"
+                  : theme === "dark"
+                    ? "bg-slate-950/40 border-slate-800 text-slate-400 hover:border-slate-700"
+                    : "bg-white border-slate-200 text-slate-500 hover:border-slate-350 hover:shadow-xs"
               }`}
             >
-              <span className="text-[9px] font-bold uppercase text-cyan-400 block mb-1">
+              <span className={`text-[9px] font-bold uppercase block mb-1 ${
+                selectedCausalNode === "impact"
+                  ? theme === "dark" ? "text-cyan-400" : "text-white/90"
+                  : "text-cyan-500 dark:text-cyan-400"
+              }`}>
                 3. {lang === "ar" ? "التعرض المالي والتشغيلي" : "Corporate Risk Exposure"}
               </span>
-              <p className="text-xs font-bold text-slate-200">
+              <p className={`text-xs font-bold ${
+                selectedCausalNode === "impact"
+                  ? "text-white"
+                  : theme === "dark" ? "text-slate-200" : "text-slate-800"
+              }`}>
                 {lang === "ar" ? "هوامش الربح ورأس المال" : "Profit Margins & Capital"}
               </p>
-              <span className="text-[10px] text-slate-400 block mt-1 font-mono">
+              <span className={`text-[10px] block mt-1 font-mono ${
+                selectedCausalNode === "impact"
+                  ? theme === "dark" ? "text-slate-300" : "text-white/80"
+                  : theme === "dark" ? "text-slate-400" : "text-slate-500"
+              }`}>
                 Departmental Level
               </span>
             </div>
@@ -1204,17 +1260,33 @@ export const WorldBankPortal: React.FC<WorldBankPortalProps> = ({
               onClick={() => setSelectedCausalNode("memory")}
               className={`p-3.5 rounded-xl border transition-all cursor-pointer ${
                 selectedCausalNode === "memory"
-                  ? "bg-emerald-500/15 border-emerald-500 text-white shadow-md"
-                  : "bg-slate-950/40 border-slate-800 text-slate-400 hover:border-slate-700"
+                  ? theme === "dark"
+                    ? "bg-emerald-500/15 border-emerald-500 text-white shadow-md"
+                    : "bg-emerald-600 border-emerald-600 text-white shadow-md"
+                  : theme === "dark"
+                    ? "bg-slate-950/40 border-slate-800 text-slate-400 hover:border-slate-700"
+                    : "bg-white border-slate-200 text-slate-500 hover:border-slate-350 hover:shadow-xs"
               }`}
             >
-              <span className="text-[9px] font-bold uppercase text-emerald-400 block mb-1">
+              <span className={`text-[9px] font-bold uppercase block mb-1 ${
+                selectedCausalNode === "memory"
+                  ? theme === "dark" ? "text-emerald-400" : "text-white/90"
+                  : "text-emerald-500 dark:text-emerald-400"
+              }`}>
                 4. {lang === "ar" ? "القرار والذاكرة المؤسسية" : "Strategic Corporate Memory"}
               </span>
-              <p className="text-xs font-bold text-slate-200">
+              <p className={`text-xs font-bold ${
+                selectedCausalNode === "memory"
+                  ? "text-white"
+                  : theme === "dark" ? "text-slate-200" : "text-slate-800"
+              }`}>
                 {lang === "ar" ? "تثبيت بروتوكول تحوط دائم" : "Hedging Protocol & Vault"}
               </p>
-              <span className="text-[10px] text-emerald-400 block mt-1 font-mono">
+              <span className={`text-[10px] block mt-1 font-mono ${
+                selectedCausalNode === "memory"
+                  ? theme === "dark" ? "text-slate-300" : "text-white/80"
+                  : theme === "dark" ? "text-slate-400" : "text-slate-500"
+              }`}>
                 ZAKIR Memory Node
               </span>
             </div>
@@ -1260,7 +1332,9 @@ export const WorldBankPortal: React.FC<WorldBankPortalProps> = ({
       </div>
 
       {/* 7. ACTIVE CORPORATE MEMORY IMPORT PANEL & MESSAGES */}
-      <div className="p-6 bg-slate-900/30 space-y-4">
+      <div className={`p-6 space-y-4 rounded-b-2xl ${
+        theme === "dark" ? "bg-slate-900/30" : "bg-slate-50/80 border-t border-slate-200/80"
+      }`}>
         
         {/* Toast Error Banner */}
         <AnimatePresence>
@@ -1278,7 +1352,9 @@ export const WorldBankPortal: React.FC<WorldBankPortalProps> = ({
               <button
                 type="button"
                 onClick={() => setWbImportErrorMsg("")}
-                className="text-rose-400 hover:text-white text-xs px-2 py-1 rounded hover:bg-rose-500/20 cursor-pointer"
+                className={`text-xs px-2 py-1 rounded cursor-pointer transition-colors ${
+                  theme === "dark" ? "text-rose-400 hover:text-white hover:bg-rose-500/20" : "text-rose-600 hover:text-rose-800 hover:bg-rose-500/10"
+                }`}
               >
                 ✕
               </button>
@@ -1302,7 +1378,9 @@ export const WorldBankPortal: React.FC<WorldBankPortalProps> = ({
               <button
                 type="button"
                 onClick={() => setWbImportSuccessMsg("")}
-                className="text-emerald-400 hover:text-white text-xs px-2 py-1 rounded hover:bg-emerald-500/20 cursor-pointer"
+                className={`text-xs px-2 py-1 rounded cursor-pointer transition-colors ${
+                  theme === "dark" ? "text-emerald-400 hover:text-white hover:bg-emerald-500/20" : "text-emerald-600 hover:text-emerald-800 hover:bg-emerald-500/10"
+                }`}
               >
                 ✕
               </button>
@@ -1312,11 +1390,15 @@ export const WorldBankPortal: React.FC<WorldBankPortalProps> = ({
 
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="space-y-1 text-right sm:text-right w-full sm:w-auto">
-            <h4 className="text-xs font-bold text-slate-200 flex items-center gap-2">
+            <h4 className={`text-xs font-bold flex items-center gap-2 ${
+              theme === "dark" ? "text-slate-200" : "text-slate-800"
+            }`}>
               <Database className="w-4 h-4 text-[#0075DE]" />
               <span>{lang === "ar" ? "تثبيت البيانات في الذاكرة المؤسسية النشطة" : "Persist Intel to Active Corporate Memory"}</span>
             </h4>
-            <p className="text-[11px] text-slate-400">
+            <p className={`text-[11px] ${
+              theme === "dark" ? "text-slate-400" : "text-slate-650"
+            }`}>
               {lang === "ar"
                 ? "عند الضغط على الزر، سيتم حفظ هذا السجل والتحليل السببي فوراً في قاعدة البيانات وتنشيطه عبر كافة الأقسام."
                 : "Importing persists this dataset and causal diagnosis directly to Firestore and local memory banks."}
@@ -1374,7 +1456,9 @@ export const WorldBankPortal: React.FC<WorldBankPortalProps> = ({
                 theme === "dark" ? "bg-slate-900 border-slate-800 text-slate-100" : "bg-white border-slate-200 text-slate-900"
               }`}
             >
-              <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <div className={`flex items-center justify-between border-b pb-3 ${
+                theme === "dark" ? "border-slate-800" : "border-slate-200"
+              }`}>
                 <div className="flex items-center gap-2">
                   <Globe className="w-5 h-5 text-[#0075DE]" />
                   <h3 className="text-base font-bold text-[#0075DE]">
@@ -1384,7 +1468,9 @@ export const WorldBankPortal: React.FC<WorldBankPortalProps> = ({
                 <button
                   type="button"
                   onClick={() => setShowDetailModal(false)}
-                  className="text-slate-400 hover:text-white p-1 rounded-lg cursor-pointer"
+                  className={`p-1 rounded-lg cursor-pointer transition-colors ${
+                    theme === "dark" ? "text-slate-400 hover:text-white" : "text-slate-500 hover:text-slate-800"
+                  }`}
                 >
                   <X className="w-5 h-5" />
                 </button>
@@ -1393,7 +1479,7 @@ export const WorldBankPortal: React.FC<WorldBankPortalProps> = ({
               <div className="space-y-3 text-xs leading-relaxed">
                 <div>
                   <span className="text-[10px] font-bold text-slate-400 uppercase block">{lang === "ar" ? "اسم المؤشر القياسي:" : "Indicator Name:"}</span>
-                  <span className="text-sm font-bold text-slate-200">{getIndicatorName(currentIndicatorMeta)}</span>
+                  <span className={`text-sm font-bold ${theme === "dark" ? "text-slate-200" : "text-slate-800"}`}>{getIndicatorName(currentIndicatorMeta)}</span>
                 </div>
 
                 <div>
@@ -1403,17 +1489,21 @@ export const WorldBankPortal: React.FC<WorldBankPortalProps> = ({
 
                 <div>
                   <span className="text-[10px] font-bold text-slate-400 uppercase block">{lang === "ar" ? "الوصف الهيكلي:" : "Description:"}</span>
-                  <p className="text-slate-300 mt-1">{getIndicatorDesc(currentIndicatorMeta)}</p>
+                  <p className={theme === "dark" ? "text-slate-300" : "text-slate-700"}>{getIndicatorDesc(currentIndicatorMeta)}</p>
                 </div>
 
                 <div className="grid grid-cols-2 gap-3 pt-2">
-                  <div className="p-3 rounded-xl bg-slate-950/60 border border-slate-800">
+                  <div className={`p-3 rounded-xl border ${
+                    theme === "dark" ? "bg-slate-950/60 border-slate-800" : "bg-slate-50 border-slate-200"
+                  }`}>
                     <span className="text-[10px] text-slate-400 block">{lang === "ar" ? "مصدر البيانات الرسمي:" : "Official Data Source:"}</span>
-                    <span className="font-bold text-slate-200">{currentIndicatorMeta.source}</span>
+                    <span className={`font-bold ${theme === "dark" ? "text-slate-200" : "text-slate-800"}`}>{currentIndicatorMeta.source}</span>
                   </div>
-                  <div className="p-3 rounded-xl bg-slate-950/60 border border-slate-800">
+                  <div className={`p-3 rounded-xl border ${
+                    theme === "dark" ? "bg-slate-950/60 border-slate-800" : "bg-slate-50 border-slate-200"
+                  }`}>
                     <span className="text-[10px] text-slate-400 block">{lang === "ar" ? "دورية التحديث:" : "Update Frequency:"}</span>
-                    <span className="font-bold text-emerald-400">Annual (سنوي معتمد)</span>
+                    <span className="font-bold text-emerald-500">Annual (سنوي معتمد)</span>
                   </div>
                 </div>
               </div>

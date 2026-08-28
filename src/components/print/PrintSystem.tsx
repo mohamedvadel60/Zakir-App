@@ -35,6 +35,7 @@ export const PrintSystem: React.FC<PrintSystemProps> = ({
   workspaceLogoUrl,
   currentUser,
   onOpenProfileSettings,
+  theme = "dark",
 }) => {
   const isRtl = lang === "ar";
 
@@ -304,16 +305,32 @@ export const PrintSystem: React.FC<PrintSystemProps> = ({
   }
 
   const areBordersEnabled = settings.showOuterBorder !== false;
+  const isDark = theme === "dark";
+
+  // Dynamic colors for toolbar and panels
+  const btnClass = isDark
+    ? "bg-slate-900 border-slate-700 text-slate-200 hover:bg-slate-800 hover:text-white"
+    : "bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100 hover:text-slate-900";
+
+  const disabledBtnClass = isDark
+    ? "bg-slate-900/50 border-slate-800 text-slate-650"
+    : "bg-slate-100 border-slate-200 text-slate-400";
+
+  const separatorClass = isDark ? "bg-slate-800" : "bg-slate-200";
 
   return (
     <>
       {/* Modal Overlay & Desktop Workspace UI */}
       <div
-        className="zakir-print-modal-overlay fixed inset-0 z-50 bg-slate-950 flex flex-col w-screen h-screen overflow-hidden select-none"
+        className={`zakir-print-modal-overlay fixed inset-0 z-50 flex flex-col w-screen h-screen overflow-hidden select-none transition-colors duration-200 ${
+          isDark ? "bg-slate-950 text-slate-100" : "bg-slate-100 text-slate-900"
+        }`}
         dir={isRtl ? "rtl" : "ltr"}
       >
         {/* TOP TOOLBAR (Print, Next Page, Previous Page, Zoom, Show Borders, Sidebars, Close) */}
-        <header className="zakir-print-modal-header h-13 min-h-[52px] bg-[#0f172a] border-b border-slate-800 px-4 flex items-center justify-between text-white z-20 shrink-0 shadow-md">
+        <header className={`zakir-print-modal-header h-13 min-h-[52px] px-4 flex items-center justify-between z-20 shrink-0 shadow-md border-b transition-colors duration-200 ${
+          isDark ? "bg-[#0f172a] border-slate-800 text-white" : "bg-white border-slate-200 text-slate-800"
+        }`}>
           {/* Left / Primary Toolbar Actions */}
           <div className="flex items-center gap-2.5">
             {/* Primary START PRINT Button */}
@@ -323,7 +340,9 @@ export const PrintSystem: React.FC<PrintSystemProps> = ({
               disabled={selectedMemories.length === 0 || isPreparingPrint}
               className={`h-9 px-4 rounded-lg font-black text-xs flex items-center gap-2 transition-all cursor-pointer shadow-md ${
                 selectedMemories.length === 0 || isPreparingPrint
-                  ? "bg-slate-800 text-slate-500 cursor-not-allowed border border-slate-700"
+                  ? isDark
+                    ? "bg-slate-850 text-slate-600 cursor-not-allowed border border-slate-800"
+                    : "bg-slate-100 text-slate-400 cursor-not-allowed border border-slate-200"
                   : "bg-[#0075DE] hover:bg-[#005BAB] text-white shadow-[#0075DE]/25 active:scale-95 ring-1 ring-blue-400/30"
               }`}
               title={lang === "ar" ? "طباعة فورية" : "Print"}
@@ -341,7 +360,7 @@ export const PrintSystem: React.FC<PrintSystemProps> = ({
               )}
             </button>
 
-            <div className="h-5 w-px bg-slate-800 mx-1 hidden sm:block" />
+            <div className={`h-5 w-px mx-1 hidden sm:block ${separatorClass}`} />
 
             {/* Previous Page Button */}
             <button
@@ -349,9 +368,7 @@ export const PrintSystem: React.FC<PrintSystemProps> = ({
               onClick={handlePrevPage}
               disabled={activePageIndex === 0}
               className={`h-8 px-2.5 rounded-lg border text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
-                activePageIndex === 0
-                  ? "bg-slate-900/50 border-slate-800 text-slate-600 cursor-not-allowed"
-                  : "bg-slate-900 border-slate-700 text-slate-200 hover:bg-slate-800 hover:text-white active:scale-95"
+                activePageIndex === 0 ? disabledBtnClass + " cursor-not-allowed" : btnClass + " active:scale-95"
               }`}
               title="Previous Page"
             >
@@ -365,9 +382,7 @@ export const PrintSystem: React.FC<PrintSystemProps> = ({
               onClick={handleNextPage}
               disabled={activePageIndex >= totalPages - 1}
               className={`h-8 px-2.5 rounded-lg border text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
-                activePageIndex >= totalPages - 1
-                  ? "bg-slate-900/50 border-slate-800 text-slate-600 cursor-not-allowed"
-                  : "bg-slate-900 border-slate-700 text-slate-200 hover:bg-slate-800 hover:text-white active:scale-95"
+                activePageIndex >= totalPages - 1 ? disabledBtnClass + " cursor-not-allowed" : btnClass + " active:scale-95"
               }`}
               title="Next Page"
             >
@@ -376,31 +391,39 @@ export const PrintSystem: React.FC<PrintSystemProps> = ({
             </button>
 
             {/* Page Count Indicator */}
-            <div className="text-xs font-mono font-bold text-slate-300 bg-slate-900 px-2.5 py-1 rounded-md border border-slate-800">
+            <div className={`text-xs font-mono font-bold px-2.5 py-1 rounded-md border ${
+              isDark ? "text-slate-300 bg-slate-900 border-slate-800" : "text-slate-700 bg-slate-50 border-slate-200 shadow-xs"
+            }`}>
               <span>{activePageIndex + 1}</span>
-              <span className="text-slate-500 mx-1">/</span>
-              <span className="text-slate-400">{totalPages}</span>
+              <span className={`${isDark ? "text-slate-550" : "text-slate-400"} mx-1`}>/</span>
+              <span className={isDark ? "text-slate-400" : "text-slate-500"}>{totalPages}</span>
             </div>
 
-            <div className="h-5 w-px bg-slate-800 mx-1 hidden sm:block" />
+            <div className={`h-5 w-px mx-1 hidden sm:block ${separatorClass}`} />
 
             {/* Zoom Controls Widget */}
-            <div className="flex items-center gap-1 bg-slate-950 border border-slate-800 rounded-lg p-0.5 text-slate-300">
+            <div className={`flex items-center gap-1 border rounded-lg p-0.5 ${
+              isDark ? "bg-slate-950 border-slate-800 text-slate-300" : "bg-slate-50 border-slate-200 text-slate-700 shadow-xs"
+            }`}>
               <button
                 type="button"
                 onClick={handleZoomOut}
-                className="p-1 hover:bg-slate-800 rounded cursor-pointer transition-colors"
+                className={`p-1 rounded cursor-pointer transition-colors ${
+                  isDark ? "hover:bg-slate-800" : "hover:bg-slate-200"
+                }`}
                 title="Zoom Out"
               >
                 <ZoomOut className="w-3.5 h-3.5" />
               </button>
-              <span className="text-[10px] font-mono font-bold w-16 text-center text-slate-200">
+              <span className={`text-[10px] font-mono font-bold w-16 text-center ${isDark ? "text-slate-200" : "text-slate-800"}`}>
                 {lang === "ar" ? `تكبير (${Math.round(settings.zoom * 100)}%)` : `Zoom (${Math.round(settings.zoom * 100)}%)`}
               </span>
               <button
                 type="button"
                 onClick={handleZoomIn}
-                className="p-1 hover:bg-slate-800 rounded cursor-pointer transition-colors"
+                className={`p-1 rounded cursor-pointer transition-colors ${
+                  isDark ? "hover:bg-slate-800" : "hover:bg-slate-200"
+                }`}
                 title="Zoom In"
               >
                 <ZoomIn className="w-3.5 h-3.5" />
@@ -408,14 +431,16 @@ export const PrintSystem: React.FC<PrintSystemProps> = ({
               <button
                 type="button"
                 onClick={handleZoomReset}
-                className="p-1 hover:bg-slate-800 text-slate-400 hover:text-white rounded cursor-pointer transition-colors ms-0.5"
+                className={`p-1 rounded cursor-pointer transition-colors ms-0.5 ${
+                  isDark ? "hover:bg-slate-800 text-slate-400 hover:text-white" : "hover:bg-slate-200 text-slate-500 hover:text-slate-900"
+                }`}
                 title="Reset (100%)"
               >
                 <RotateCcw className="w-3 h-3" />
               </button>
             </div>
 
-            <div className="h-5 w-px bg-slate-800 mx-1 hidden md:block" />
+            <div className={`h-5 w-px mx-1 hidden md:block ${separatorClass}`} />
 
             {/* Show Borders Checkbox Button */}
             <button
@@ -423,15 +448,17 @@ export const PrintSystem: React.FC<PrintSystemProps> = ({
               onClick={handleToggleBorders}
               className={`h-8 px-2.5 rounded-lg border text-xs font-bold flex items-center gap-2 transition-all cursor-pointer ${
                 areBordersEnabled
-                  ? "bg-[#0075DE]/20 border-[#0075DE]/60 text-white shadow-xs"
-                  : "bg-slate-900 border-slate-700 text-slate-400 hover:text-slate-200"
+                  ? isDark
+                    ? "bg-[#0075DE]/20 border-[#0075DE]/60 text-white shadow-xs"
+                    : "bg-[#0075DE]/10 border-[#0075DE] text-[#0075DE] shadow-xs"
+                  : btnClass
               }`}
               title={lang === "ar" ? "تفعيل أو تعطيل الإطارات" : "Toggle Borders"}
             >
               {areBordersEnabled ? (
                 <CheckSquare className="w-4 h-4 text-[#0075DE]" />
               ) : (
-                <Square className="w-4 h-4 text-slate-500" />
+                <Square className={`w-4 h-4 ${isDark ? "text-slate-500" : "text-slate-400"}`} />
               )}
               <span>{lang === "ar" ? "إظهار الإطارات" : "Show Borders"}</span>
             </button>
@@ -445,8 +472,10 @@ export const PrintSystem: React.FC<PrintSystemProps> = ({
               onClick={() => setShowThumbnails((p) => !p)}
               className={`p-1.5 rounded-lg border transition-all cursor-pointer ${
                 showThumbnails
-                  ? "bg-slate-800 border-slate-700 text-[#0075DE]"
-                  : "bg-slate-900 border-slate-800 text-slate-400 hover:text-white"
+                  ? isDark
+                    ? "bg-slate-800 border-slate-700 text-[#0075DE]"
+                    : "bg-slate-100 border-slate-350 text-[#0075DE]"
+                  : btnClass
               }`}
               title={lang === "ar" ? "لوحة المصغرات" : "Pages Thumbnails"}
             >
@@ -459,21 +488,25 @@ export const PrintSystem: React.FC<PrintSystemProps> = ({
               onClick={() => setShowRightSettings((p) => !p)}
               className={`p-1.5 rounded-lg border transition-all cursor-pointer ${
                 showRightSettings
-                  ? "bg-slate-800 border-slate-700 text-[#0075DE]"
-                  : "bg-slate-900 border-slate-800 text-slate-400 hover:text-white"
+                  ? isDark
+                    ? "bg-slate-800 border-slate-700 text-[#0075DE]"
+                    : "bg-slate-100 border-slate-350 text-[#0075DE]"
+                  : btnClass
               }`}
               title={lang === "ar" ? "لوحة الإعدادات" : "Settings"}
             >
               <Sliders className="w-4 h-4" />
             </button>
 
-            <div className="h-5 w-px bg-slate-800 mx-1" />
+            <div className={`h-5 w-px mx-1 ${separatorClass}`} />
 
             {/* Close Modal Button */}
             <button
               type="button"
               onClick={onClose}
-              className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors cursor-pointer"
+              className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
+                isDark ? "text-slate-400 hover:text-white hover:bg-slate-850" : "text-slate-550 hover:text-slate-900 hover:bg-slate-100"
+              }`}
               title="Close (Esc)"
             >
               <X className="w-5 h-5" />
@@ -492,6 +525,7 @@ export const PrintSystem: React.FC<PrintSystemProps> = ({
               activePageIndex={activePageIndex}
               onSelectPage={scrollToPage}
               pages={pages}
+              theme={theme}
             />
           )}
 
@@ -505,6 +539,7 @@ export const PrintSystem: React.FC<PrintSystemProps> = ({
             activePageIndex={activePageIndex}
             onPageSelect={setActivePageIndex}
             pages={pages}
+            theme={theme}
           />
 
           {/* Right Page & Format Configuration Sidebar */}
@@ -519,6 +554,7 @@ export const PrintSystem: React.FC<PrintSystemProps> = ({
               onDeselectAllMemories={handleDeselectAllMemories}
               lang={lang}
               diagnostics={diagnostics}
+              theme={theme}
               currentUser={currentUser}
               onOpenProfileSettings={onOpenProfileSettings}
             />

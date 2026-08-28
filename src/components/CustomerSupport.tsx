@@ -728,13 +728,13 @@ export const CustomerSupport: React.FC<CustomerSupportProps> = ({ currentUser, l
 
       {/* TAB 2: CREATE NEW TICKET FORM */}
       {activeTab === "new" && (
-        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 md:p-8 space-y-6 max-w-4xl mx-auto shadow-2xl">
-          <div className="pb-4 border-b border-slate-800">
-            <h2 className="text-lg font-bold text-white flex items-center gap-2">
-              <PlusCircle className="w-5 h-5 text-amber-400" />
+        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 md:p-8 space-y-6 max-w-4xl mx-auto shadow-xl">
+          <div className="pb-4 border-b border-slate-200 dark:border-slate-800">
+            <h2 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
+              <PlusCircle className="w-5 h-5 text-amber-500 dark:text-amber-400" />
               <span>{lang === "ar" ? "تقديم طلب دعم ومساعدة جديد" : "Submit New Support Request"}</span>
             </h2>
-            <p className="text-xs text-slate-400 mt-1">
+            <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">
               {lang === "ar"
                 ? "سيتم توجيه طلبك فوراً إلى القسم المختص (الامتثال، التوثيق، الدعم الفني، أو الفواتير) لمراجعته فوراً"
                 : "Your request will be routed immediately to the appropriate team for expedited review."}
@@ -742,15 +742,15 @@ export const CustomerSupport: React.FC<CustomerSupportProps> = ({ currentUser, l
           </div>
 
           {submitSuccessMsg && (
-            <div className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs flex items-center gap-3">
-              <CheckCircle2 className="w-5 h-5 shrink-0 text-emerald-400" />
+            <div className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 text-xs flex items-center gap-3">
+              <CheckCircle2 className="w-5 h-5 shrink-0 text-emerald-500 dark:text-emerald-400" />
               <span>{submitSuccessMsg}</span>
             </div>
           )}
 
           {submitErrorMsg && (
-            <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-xs flex items-center gap-3">
-              <AlertTriangle className="w-5 h-5 shrink-0 text-red-400" />
+            <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/30 text-red-600 dark:text-red-400 text-xs flex items-center gap-3">
+              <AlertTriangle className="w-5 h-5 shrink-0 text-red-500 dark:text-red-400" />
               <span>{submitErrorMsg}</span>
             </div>
           )}
@@ -758,7 +758,7 @@ export const CustomerSupport: React.FC<CustomerSupportProps> = ({ currentUser, l
           <form onSubmit={handleCreateTicketSubmit} className="space-y-5">
             {/* CATEGORY SELECTOR */}
             <div>
-              <label className="block text-xs font-bold text-slate-300 mb-2">
+              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-2">
                 {lang === "ar" ? "تصنيف الطلب *" : "Support Category *"}
               </label>
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5">
@@ -770,13 +770,13 @@ export const CustomerSupport: React.FC<CustomerSupportProps> = ({ currentUser, l
                       key={cat.id}
                       type="button"
                       onClick={() => setCategory(cat.id)}
-                      className={`p-3 rounded-xl border text-right flex items-center gap-2.5 transition-all ${
+                      className={`p-3 rounded-xl border text-right flex items-center gap-2.5 transition-all cursor-pointer ${
                         isSelected
-                          ? "bg-amber-500/20 border-amber-500 text-amber-300 font-bold shadow-md"
-                          : "bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-700 hover:text-white"
+                          ? "bg-amber-500/20 border-amber-500 text-amber-700 dark:text-amber-300 font-bold shadow-md"
+                          : "bg-slate-50 dark:bg-slate-950 border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-400 hover:border-slate-300 dark:hover:border-slate-700 hover:text-slate-900 dark:hover:text-white"
                       }`}
                     >
-                      <Icon className={`w-4 h-4 shrink-0 ${isSelected ? "text-amber-400" : "text-slate-500"}`} />
+                      <Icon className={`w-4 h-4 shrink-0 ${isSelected ? "text-amber-500 dark:text-amber-400" : "text-slate-400 dark:text-slate-500"}`} />
                       <span className="text-xs">{lang === "ar" ? cat.ar : cat.en}</span>
                     </button>
                   );
@@ -787,7 +787,7 @@ export const CustomerSupport: React.FC<CustomerSupportProps> = ({ currentUser, l
             {/* SUBJECT & PRIORITY */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="md:col-span-2">
-                <label className="block text-xs font-bold text-slate-300 mb-1.5">
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
                   {lang === "ar" ? "موضوع الطلب *" : "Subject Line *"}
                 </label>
                 <input
@@ -796,18 +796,18 @@ export const CustomerSupport: React.FC<CustomerSupportProps> = ({ currentUser, l
                   onChange={(e) => setSubject(e.target.value)}
                   placeholder={lang === "ar" ? "مثال: عدم استقبال رمز التحقق OTP، أو استفسار بخصوص السجل التجاري..." : "e.g., Unable to receive OTP verification code..."}
                   required
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-500/50"
+                  className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-2.5 text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-amber-500/50"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-300 mb-1.5">
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
                   {lang === "ar" ? "مستوى الأولوية *" : "Priority Level *"}
                 </label>
                 <select
                   value={priority}
                   onChange={(e) => setPriority(e.target.value as SupportPriority)}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none focus:border-amber-500/50"
+                  className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2.5 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-amber-500/50"
                 >
                   <option value="Normal">{lang === "ar" ? "عادية (استفسار عام)" : "Normal / Low"}</option>
                   <option value="Medium">{lang === "ar" ? "متوسطة (مشكلة تشغيلية)" : "Medium"}</option>
@@ -818,9 +818,9 @@ export const CustomerSupport: React.FC<CustomerSupportProps> = ({ currentUser, l
             </div>
 
             {/* CONTACT DETAILS PRE-FILLED */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-slate-950/60 p-4 rounded-xl border border-slate-800/80">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-slate-50 dark:bg-slate-950/60 p-4 rounded-xl border border-slate-200 dark:border-slate-800/80">
               <div>
-                <label className="block text-[11px] font-medium text-slate-400 mb-1">
+                <label className="block text-[11px] font-medium text-slate-600 dark:text-slate-400 mb-1">
                   {lang === "ar" ? "البريد الإلكتروني للرد" : "Contact Email"}
                 </label>
                 <input
@@ -828,12 +828,12 @@ export const CustomerSupport: React.FC<CustomerSupportProps> = ({ currentUser, l
                   value={contactEmail}
                   onChange={(e) => setContactEmail(e.target.value)}
                   required
-                  className="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-amber-500/50"
+                  className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg px-3 py-1.5 text-xs text-slate-900 dark:text-slate-200 focus:outline-none focus:border-amber-500/50"
                 />
               </div>
 
               <div>
-                <label className="block text-[11px] font-medium text-slate-400 mb-1">
+                <label className="block text-[11px] font-medium text-slate-600 dark:text-slate-400 mb-1">
                   {lang === "ar" ? "رقم الهاتف / الواتساب" : "Contact Phone"}
                 </label>
                 <input
@@ -841,26 +841,26 @@ export const CustomerSupport: React.FC<CustomerSupportProps> = ({ currentUser, l
                   value={contactPhone}
                   onChange={(e) => setContactPhone(e.target.value)}
                   placeholder="+222..."
-                  className="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-amber-500/50"
+                  className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg px-3 py-1.5 text-xs text-slate-900 dark:text-slate-200 focus:outline-none focus:border-amber-500/50"
                 />
               </div>
 
               <div>
-                <label className="block text-[11px] font-medium text-slate-400 mb-1">
+                <label className="block text-[11px] font-medium text-slate-600 dark:text-slate-400 mb-1">
                   {lang === "ar" ? "اسم الشركة / المؤسسة" : "Company Name"}
                 </label>
                 <input
                   type="text"
                   value={companyNameInput}
                   onChange={(e) => setCompanyNameInput(e.target.value)}
-                  className="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-amber-500/50"
+                  className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg px-3 py-1.5 text-xs text-slate-900 dark:text-slate-200 focus:outline-none focus:border-amber-500/50"
                 />
               </div>
             </div>
 
             {/* DETAILED MESSAGE */}
             <div>
-              <label className="block text-xs font-bold text-slate-300 mb-1.5">
+              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
                 {lang === "ar" ? "تفاصيل الطلب والرسالة *" : "Detailed Explanation *"}
               </label>
               <textarea
@@ -869,16 +869,16 @@ export const CustomerSupport: React.FC<CustomerSupportProps> = ({ currentUser, l
                 rows={5}
                 placeholder={lang === "ar" ? "اشرح مشكلتك بالتفصيل واذكر أي خطوات قمت بها..." : "Explain your issue or question in detail..."}
                 required
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl p-4 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-500/50 leading-relaxed"
+                className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl p-4 text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-amber-500/50 leading-relaxed"
               />
             </div>
 
             {/* SUBMIT BUTTON */}
-            <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-800">
+            <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-200 dark:border-slate-800">
               <button
                 type="button"
                 onClick={() => setActiveTab("tickets")}
-                className="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs transition-colors"
+                className="px-4 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-bold text-xs transition-colors cursor-pointer"
               >
                 {lang === "ar" ? "إلغاء" : "Cancel"}
               </button>
@@ -886,7 +886,7 @@ export const CustomerSupport: React.FC<CustomerSupportProps> = ({ currentUser, l
               <button
                 type="submit"
                 disabled={isSubmitting || !subject.trim() || !message.trim()}
-                className="px-6 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-slate-950 font-bold text-xs flex items-center gap-2 shadow-lg shadow-amber-500/20 transition-all"
+                className="px-6 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-slate-950 font-bold text-xs flex items-center gap-2 shadow-lg shadow-amber-500/20 transition-all cursor-pointer"
               >
                 {isSubmitting ? (
                   <RefreshCw className="w-4 h-4 animate-spin" />
@@ -903,16 +903,16 @@ export const CustomerSupport: React.FC<CustomerSupportProps> = ({ currentUser, l
       {/* TAB 3: VERIFICATION & ACCESS FAST-TRACK HELP */}
       {activeTab === "verification_help" && (
         <div className="space-y-6 max-w-4xl mx-auto">
-          <div className="bg-gradient-to-br from-emerald-950/40 via-slate-900 to-slate-900 border border-emerald-500/30 rounded-2xl p-6 md:p-8 space-y-4 shadow-xl">
+          <div className="bg-gradient-to-br from-emerald-500/10 via-white to-slate-50 dark:from-emerald-950/40 dark:via-slate-900 dark:to-slate-900 border border-emerald-500/30 rounded-2xl p-6 md:p-8 space-y-4 shadow-xl">
             <div className="flex items-center gap-3">
-              <div className="p-3 rounded-xl bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+              <div className="p-3 rounded-xl bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30">
                 <ShieldCheck className="w-7 h-7" />
               </div>
               <div>
-                <h2 className="text-lg font-bold text-white">
+                <h2 className="text-lg font-bold text-slate-900 dark:text-white">
                   {lang === "ar" ? "المسار السريع: مساعدة التوثيق وتفعيل الحساب" : "Fast-Track Account Verification & Access Support"}
                 </h2>
-                <p className="text-xs text-slate-300 mt-0.5">
+                <p className="text-xs text-slate-600 dark:text-slate-300 mt-0.5">
                   {lang === "ar"
                     ? "هل تواجه مشكلة في وصول رمز التوثيق (OTP) أو رفع وثائق المؤسسة والسجل التجاري؟ اختر نوع المشكلة وسيتم إنشاء طلب عاجل لمراجعتها فوراً"
                     : "Having issues receiving verification OTP codes or uploading corporate registration documents? Select an issue to submit a priority request."}
@@ -927,16 +927,16 @@ export const CustomerSupport: React.FC<CustomerSupportProps> = ({ currentUser, l
                   lang === "ar" ? "لم يصلني رمز التوثيق OTP عبر البريد الإلكتروني" : "Did not receive OTP verification code",
                   lang === "ar" ? "قمت بطلب رمز التحقق لتوثيق حسابي ولم أستلم البريد. يرجى مراجعة تفعيل بريدي الإلكتروني يدوياً." : "I requested a verification code to activate my account but did not receive the email. Please review and activate my account."
                 )}
-                className="p-4 rounded-xl bg-slate-950 border border-emerald-500/20 hover:border-emerald-500/50 cursor-pointer transition-all space-y-2 group"
+                className="p-4 rounded-xl bg-white dark:bg-slate-950 border border-emerald-500/20 hover:border-emerald-500/50 cursor-pointer transition-all space-y-2 group shadow-sm"
               >
-                <div className="flex items-center justify-between text-emerald-400">
+                <div className="flex items-center justify-between text-emerald-600 dark:text-emerald-400">
                   <Mail className="w-5 h-5 group-hover:scale-110 transition-transform" />
-                  <ArrowRight className="w-4 h-4 text-slate-500 group-hover:text-emerald-400" />
+                  <ArrowRight className="w-4 h-4 text-slate-400 dark:text-slate-500 group-hover:text-emerald-500" />
                 </div>
-                <h3 className="text-xs font-bold text-white">
+                <h3 className="text-xs font-bold text-slate-900 dark:text-white">
                   {lang === "ar" ? "لم يصلني رمز التحقق (OTP)" : "OTP Code Not Arriving"}
                 </h3>
-                <p className="text-[11px] text-slate-400">
+                <p className="text-[11px] text-slate-600 dark:text-slate-400">
                   {lang === "ar" ? "فتح طلب توثيق يدوي عاجل مع فريق الامتثال" : "Open manual verification request with compliance."}
                 </p>
               </div>
@@ -947,16 +947,16 @@ export const CustomerSupport: React.FC<CustomerSupportProps> = ({ currentUser, l
                   lang === "ar" ? "طلب مراجعة السجل التجاري والوثائق المؤسسية" : "Corporate document review request",
                   lang === "ar" ? "قمنا برفع الوثائق والسجل التجاري في منصة ذاكر. يرجى توثيق حساب المؤسسة وتأكيد التفعيل." : "We uploaded our commercial registration files. Please review and verify our corporate account."
                 )}
-                className="p-4 rounded-xl bg-slate-950 border border-emerald-500/20 hover:border-emerald-500/50 cursor-pointer transition-all space-y-2 group"
+                className="p-4 rounded-xl bg-white dark:bg-slate-950 border border-emerald-500/20 hover:border-emerald-500/50 cursor-pointer transition-all space-y-2 group shadow-sm"
               >
-                <div className="flex items-center justify-between text-emerald-400">
+                <div className="flex items-center justify-between text-emerald-600 dark:text-emerald-400">
                   <FileText className="w-5 h-5 group-hover:scale-110 transition-transform" />
-                  <ArrowRight className="w-4 h-4 text-slate-500 group-hover:text-emerald-400" />
+                  <ArrowRight className="w-4 h-4 text-slate-400 dark:text-slate-500 group-hover:text-emerald-500" />
                 </div>
-                <h3 className="text-xs font-bold text-white">
+                <h3 className="text-xs font-bold text-slate-900 dark:text-white">
                   {lang === "ar" ? "توثيق الوثائق والسجل التجاري" : "Corporate Document Verification"}
                 </h3>
-                <p className="text-[11px] text-slate-400">
+                <p className="text-[11px] text-slate-600 dark:text-slate-400">
                   {lang === "ar" ? "اعتماد السجل التجاري وتفعيل الشارة الزرقاء" : "Approve commercial registration and grant verified badge."}
                 </p>
               </div>
@@ -967,16 +967,16 @@ export const CustomerSupport: React.FC<CustomerSupportProps> = ({ currentUser, l
                   lang === "ar" ? "طلب استعادة الوصول إلى الحساب وتغيير البريد" : "Account access recovery request",
                   lang === "ar" ? "أرغب في تغيير بريد الحساب وتعديل معلومات الوصول. يرجى التواصل معي للتحقق من ملكية الحساب." : "I would like to update account email and access details. Please contact me for ownership verification."
                 )}
-                className="p-4 rounded-xl bg-slate-950 border border-emerald-500/20 hover:border-emerald-500/50 cursor-pointer transition-all space-y-2 group"
+                className="p-4 rounded-xl bg-white dark:bg-slate-950 border border-emerald-500/20 hover:border-emerald-500/50 cursor-pointer transition-all space-y-2 group shadow-sm"
               >
-                <div className="flex items-center justify-between text-emerald-400">
+                <div className="flex items-center justify-between text-emerald-600 dark:text-emerald-400">
                   <Key className="w-5 h-5 group-hover:scale-110 transition-transform" />
-                  <ArrowRight className="w-4 h-4 text-slate-500 group-hover:text-emerald-400" />
+                  <ArrowRight className="w-4 h-4 text-slate-400 dark:text-slate-500 group-hover:text-emerald-500" />
                 </div>
-                <h3 className="text-xs font-bold text-white">
+                <h3 className="text-xs font-bold text-slate-900 dark:text-white">
                   {lang === "ar" ? "استعادة الوصول وتحديث البيانات" : "Account Access Recovery"}
                 </h3>
-                <p className="text-[11px] text-slate-400">
+                <p className="text-[11px] text-slate-600 dark:text-slate-400">
                   {lang === "ar" ? "تعديل بريد المسؤول وإعادة تعيين كلمة المرور" : "Update admin email and reset master password."}
                 </p>
               </div>
@@ -987,14 +987,14 @@ export const CustomerSupport: React.FC<CustomerSupportProps> = ({ currentUser, l
 
       {/* TAB 4: FAQS & KNOWLEDGE BASE */}
       {activeTab === "faqs" && (
-        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 md:p-8 space-y-6 max-w-4xl mx-auto shadow-xl">
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-slate-800">
+        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 md:p-8 space-y-6 max-w-4xl mx-auto shadow-xl">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-slate-200 dark:border-slate-800">
             <div>
-              <h2 className="text-lg font-bold text-white flex items-center gap-2">
-                <HelpCircle className="w-5 h-5 text-amber-400" />
+              <h2 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                <HelpCircle className="w-5 h-5 text-amber-500 dark:text-amber-400" />
                 <span>{lang === "ar" ? "مركز المعرفة والأسئلة الشائعة" : "Knowledge Base & FAQs"}</span>
               </h2>
-              <p className="text-xs text-slate-400 mt-1">
+              <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">
                 {lang === "ar" ? "إجابات سريعة ومفصلة حول التوثيق، الحسابات، والأمان في منصة ذاكر" : "Quick answers about verification, accounts, and security in Zakir."}
               </p>
             </div>
@@ -1006,7 +1006,7 @@ export const CustomerSupport: React.FC<CustomerSupportProps> = ({ currentUser, l
                 value={faqSearch}
                 onChange={(e) => setFaqSearch(e.target.value)}
                 placeholder={lang === "ar" ? "ابحث في الأسئلة..." : "Search FAQs..."}
-                className="w-full pr-9 pl-3 py-2 text-xs bg-slate-950 border border-slate-800 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-amber-500/50"
+                className="w-full pr-9 pl-3 py-2 text-xs bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-amber-500/50"
               />
             </div>
           </div>
@@ -1017,20 +1017,20 @@ export const CustomerSupport: React.FC<CustomerSupportProps> = ({ currentUser, l
               return (
                 <div
                   key={faq.id}
-                  className="bg-slate-950/80 border border-slate-800 rounded-xl overflow-hidden transition-all"
+                  className="bg-slate-50 dark:bg-slate-950/80 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden transition-all"
                 >
                   <button
                     onClick={() => setOpenFaqId(isOpen ? null : faq.id)}
-                    className="w-full p-4 text-right flex items-center justify-between gap-3 hover:bg-slate-800/40 transition-colors"
+                    className="w-full p-4 text-right flex items-center justify-between gap-3 hover:bg-slate-100 dark:hover:bg-slate-800/40 transition-colors cursor-pointer"
                   >
-                    <span className="text-xs md:text-sm font-bold text-white">
+                    <span className="text-xs md:text-sm font-bold text-slate-900 dark:text-white">
                       {lang === "ar" ? faq.qAr : faq.qEn}
                     </span>
-                    <ChevronDown className={`w-4 h-4 text-slate-400 shrink-0 transition-transform ${isOpen ? "rotate-180 text-amber-400" : ""}`} />
+                    <ChevronDown className={`w-4 h-4 text-slate-400 shrink-0 transition-transform ${isOpen ? "rotate-180 text-amber-500 dark:text-amber-400" : ""}`} />
                   </button>
 
                   {isOpen && (
-                    <div className="p-4 pt-0 text-xs text-slate-300 leading-relaxed border-t border-slate-800/50 bg-slate-900/50">
+                    <div className="p-4 pt-0 text-xs text-slate-700 dark:text-slate-300 leading-relaxed border-t border-slate-200 dark:border-slate-800/50 bg-slate-100/50 dark:bg-slate-900/50">
                       {lang === "ar" ? faq.aAr : faq.aEn}
                     </div>
                   )}
@@ -1040,15 +1040,15 @@ export const CustomerSupport: React.FC<CustomerSupportProps> = ({ currentUser, l
           </div>
 
           <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/20 text-center space-y-2 mt-6">
-            <p className="text-xs font-bold text-amber-300">
+            <p className="text-xs font-bold text-amber-800 dark:text-amber-300">
               {lang === "ar" ? "لم تجد إجابة لسؤالك؟" : "Didn't find an answer to your question?"}
             </p>
-            <p className="text-[11px] text-slate-400">
+            <p className="text-[11px] text-slate-600 dark:text-slate-400">
               {lang === "ar" ? "فريق الدعم الفني جاهز للإجابة على جميع استفساراتك فوراً" : "Our support team is ready to assist you right now."}
             </p>
             <button
               onClick={() => setActiveTab("new")}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs transition-colors mt-2"
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs transition-colors mt-2 cursor-pointer"
             >
               <PlusCircle className="w-4 h-4" />
               <span>{lang === "ar" ? "إنشاء تذكرة دعم جديدة" : "Open a Support Ticket"}</span>

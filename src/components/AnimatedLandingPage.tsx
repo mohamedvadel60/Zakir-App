@@ -349,7 +349,7 @@ export const AnimatedLandingPage: React.FC<AnimatedLandingPageProps> = ({
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.96 }}
               onClick={() => onNavigateAuth("login")}
-              className="bg-[#0075DE] hover:bg-[#005BAB] text-slate-950 text-xs md:text-sm font-black px-3.5 sm:px-4 py-2 rounded-lg shadow-lg shadow-[#0075DE]/10 transition-all cursor-pointer flex items-center gap-1.5"
+              className="bg-[#0075DE] hover:bg-[#005BAB] text-white text-xs md:text-sm font-black px-3.5 sm:px-4 py-2 rounded-lg shadow-lg shadow-[#0075DE]/10 transition-all cursor-pointer flex items-center gap-1.5"
             >
               <span>{lang === "ar" ? "الوصول للنظام" : (lang === "fr" ? "Accéder au système" : "Access System")}</span>
               <ChevronIcon className="w-4 h-4" />
@@ -400,7 +400,7 @@ export const AnimatedLandingPage: React.FC<AnimatedLandingPageProps> = ({
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.96 }}
                 onClick={() => onNavigateAuth("login")}
-                className="w-full sm:w-auto px-8 py-3.5 rounded-xl bg-[#0075DE] hover:bg-[#005BAB] text-slate-950 font-black text-sm shadow-xl shadow-[#0075DE]/20 transition-all cursor-pointer flex items-center justify-center gap-2"
+                className="w-full sm:w-auto px-8 py-3.5 rounded-xl bg-[#0075DE] hover:bg-[#005BAB] text-white font-black text-sm shadow-xl shadow-[#0075DE]/20 transition-all cursor-pointer flex items-center justify-center gap-2"
               >
                 <span>{lang === "ar" ? "الوصول للنظام الآن" : (lang === "fr" ? "Accéder au Système" : "Access Zakir System")}</span>
                 <ChevronIcon className="w-4 h-4" />
@@ -707,7 +707,7 @@ export const AnimatedLandingPage: React.FC<AnimatedLandingPageProps> = ({
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.96 }}
                     onClick={() => onNavigateAuth("login")}
-                    className="px-5 py-2.5 rounded-xl bg-[#0075DE] hover:bg-[#005BAB] text-slate-950 font-black text-xs shadow-md transition-all cursor-pointer flex items-center gap-2"
+                    className="px-5 py-2.5 rounded-xl bg-[#0075DE] hover:bg-[#005BAB] text-white font-black text-xs shadow-md transition-all cursor-pointer flex items-center gap-2"
                   >
                     <span>{lang === "ar" ? "تجربة المستشار الذكي" : "Launch AI Advisor"}</span>
                     <Sparkles className="w-3.5 h-3.5" />
@@ -762,7 +762,7 @@ export const AnimatedLandingPage: React.FC<AnimatedLandingPageProps> = ({
                 onClick={() => setBillingCycle("annual")}
                 className={`px-4 py-1.5 rounded-lg transition-all cursor-pointer ${
                   billingCycle === "annual"
-                    ? "bg-[#0075DE] text-slate-950 font-black shadow-sm"
+                    ? "bg-[#0075DE] text-white font-black shadow-sm"
                     : (theme === 'light' ? "text-slate-700 hover:text-black" : "text-slate-400 hover:text-white")
                 }`}
               >
@@ -775,7 +775,7 @@ export const AnimatedLandingPage: React.FC<AnimatedLandingPageProps> = ({
                 onClick={() => setBillingCycle("monthly")}
                 className={`px-4 py-1.5 rounded-lg transition-all cursor-pointer ${
                   billingCycle === "monthly"
-                    ? "bg-[#0075DE] text-slate-950 font-black shadow-sm"
+                    ? "bg-[#0075DE] text-white font-black shadow-sm"
                     : (theme === 'light' ? "text-slate-700 hover:text-black" : "text-slate-400 hover:text-white")
                 }`}
               >
@@ -838,7 +838,7 @@ export const AnimatedLandingPage: React.FC<AnimatedLandingPageProps> = ({
               whileTap={{ scale: 0.97 }}
               className={`${theme === 'light' ? 'bg-white border-2 border-[#0075DE] shadow-xl' : 'bg-slate-900 border-2 border-[#0075DE] shadow-2xl shadow-[#0075DE]/10'} rounded-2xl p-7 flex flex-col justify-between relative cursor-pointer`}
             >
-              <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-[#0075DE] text-slate-950 font-black text-[10px] px-3 py-0.5 rounded-full uppercase tracking-wider">
+              <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-[#0075DE] text-white font-black text-[10px] px-3 py-0.5 rounded-full uppercase tracking-wider">
                 {lang === "ar" ? "الخطة الأكثر شعبية" : (lang === "fr" ? "Le Plus Populaire" : "Most Popular")}
               </div>
               <div>
@@ -865,7 +865,7 @@ export const AnimatedLandingPage: React.FC<AnimatedLandingPageProps> = ({
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.96 }}
                 onClick={() => onStripeCheckout("Professional")}
-                className="w-full mt-6 py-3 bg-[#0075DE] hover:bg-[#005BAB] text-slate-950 font-black text-xs rounded-xl transition-all cursor-pointer text-center"
+                className="w-full mt-6 py-3 bg-[#0075DE] hover:bg-[#005BAB] text-white font-black text-xs rounded-xl transition-all cursor-pointer text-center"
               >
                 {lang === "ar" ? "الاشتراك بالخطة الاحترافية" : (lang === "fr" ? "S'abonner à Professional" : "Subscribe Professional")}
               </motion.button>

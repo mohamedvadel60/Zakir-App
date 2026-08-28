@@ -1990,8 +1990,19 @@ This hosting domain (**${currentDomain}**) has not been authorized in your Fireb
       });
       const data = await res.json();
       setSmartData(data);
-    } catch (e) {
+    } catch (e: any) {
       console.error("AI analysis failed", e);
+      setSmartData({
+        error: e?.message || "AI analysis failed. Failed to fetch.",
+        analyzedMemories: memories.length,
+        identifiedRisks: riskAlerts.length,
+        opportunities: 0,
+        recommendations: 0,
+        risksList: [],
+        forecastsList: [],
+        opportunitiesList: [],
+        recommendationsList: []
+      });
     } finally {
       setIsSmartAnalyzing(false);
     }
@@ -2016,8 +2027,18 @@ This hosting domain (**${currentDomain}**) has not been authorized in your Fireb
       });
       const data = await res.json();
       setMarketResult(data);
-    } catch (e) {
+    } catch (e: any) {
       console.error("Market intelligence failed", e);
+      setMarketResult({
+        topic: marketTopic,
+        industry: marketIndustry,
+        summary: "",
+        trends: [],
+        risks: [],
+        opportunities: [],
+        recommendations: [],
+        error: e?.message || "Market intelligence failed. Failed to fetch."
+      });
     } finally {
       setIsMarketAnalyzing(false);
     }
@@ -2782,29 +2803,29 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
       <style dangerouslySetInnerHTML={{ __html: `
         /* 1. Global CSS Variables Definition */
         .theme-light {
-          --bg-primary: #F0F2F5; /* Facebook-style smooth off-white body background */
-          --bg-secondary: #FFFFFF; /* Pure white cards, sidebars, headers */
-          --bg-tertiary: #F8FAFC; /* Inputs, tables, tag backgrounds */
-          --text-primary: #0F172A; /* Crisp deep slate text */
-          --text-secondary: #475569; /* Muted slate gray */
-          --border-color: #CBD5E1; /* Professional crisp border (slate-300) for light mode */
-          --accent-color: #0075DE; /* Default premium gold accent */
-          --accent-hover: #BCA032;
-          --accent-subtle: #0075DE15;
-          --accent-text: #0F172A;
+          --bg-primary: #F8FAFC;
+          --bg-secondary: #FFFFFF;
+          --bg-tertiary: #F1F5F9;
+          --text-primary: #0F172A;
+          --text-secondary: #64748B;
+          --border-color: #E2E8F0;
+          --accent-color: #0075DE;
+          --accent-hover: #005BAB;
+          --accent-subtle: rgba(0, 117, 222, 0.08);
+          --accent-text: #FFFFFF;
         }
 
         .theme-dark {
-          --bg-primary: #0B0F19; /* Modern ultra-safe dark canvas */
-          --bg-secondary: #111827; /* Sophisticated card backgrounds */
-          --bg-tertiary: #1F2937; /* Elegant inputs & tab hover states */
-          --text-primary: #F8FAFC; /* High-readability crisp off-white text */
-          --text-secondary: #94A3B8; /* Muted cool gray text */
-          --border-color: #334155; /* Sophisticated contrast border (slate-700) for dark mode */
-          --accent-color: #0075DE; /* Default premium gold accent */
-          --accent-hover: #E5C158;
-          --accent-subtle: #0075DE22;
-          --accent-text: #0B0F19;
+          --bg-primary: #080C14;
+          --bg-secondary: #0F172A;
+          --bg-tertiary: #1E293B;
+          --text-primary: #F8FAFC;
+          --text-secondary: #94A3B8;
+          --border-color: #1E293B;
+          --accent-color: #0075DE;
+          --accent-hover: #1D4ED8;
+          --accent-subtle: rgba(0, 117, 222, 0.15);
+          --accent-text: #FFFFFF;
         }
 
         .custom-theme-active {
@@ -2822,175 +2843,32 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
 
         /* 2. Global Styling Overrides to respect the CSS Variables instantly */
         .theme-light, .theme-dark, .custom-theme-active {
-          background-color: var(--bg-primary) !important;
-          color: var(--text-primary) !important;
-        }
-
-        /* Page main content body background */
-        .theme-light main, .theme-dark main, .custom-theme-active main {
-          background-color: var(--bg-primary) !important;
-        }
-
-        /* Cards, Sidebars, and Headers */
-        .theme-light aside, .theme-dark aside, .custom-theme-active aside,
-        .theme-light header, .theme-dark header, .custom-theme-active header,
-        .theme-light .bg-white,
-        .theme-dark .bg-slate-900,
-        .theme-dark .bg-slate-900\\/40,
-        .theme-dark .bg-slate-900\\/60,
-        .theme-dark .bg-slate-950,
-        .theme-dark .bg-slate-950\\/20,
-        .theme-dark .bg-slate-950\\/40,
-        .theme-dark .bg-slate-950\\/60,
-        .theme-dark .bg-slate-950\\/80,
-        .theme-light .bg-slate-50,
-        .theme-light .bg-slate-100,
-        .theme-light .bg-slate-200,
-        .custom-theme-active .bg-white,
-        .custom-theme-active .bg-slate-900,
-        .custom-theme-active .bg-slate-900\\/40,
-        .custom-theme-active .bg-slate-900\\/60,
-        .custom-theme-active .bg-slate-950,
-        .custom-theme-active .bg-slate-950\\/20,
-        .custom-theme-active .bg-slate-950\\/40,
-        .custom-theme-active .bg-slate-950\\/60,
-        .custom-theme-active .bg-slate-950\\/80,
-        .custom-theme-active .bg-slate-50,
-        .custom-theme-active .bg-slate-100 {
-          background-color: var(--bg-secondary) !important;
-        }
-
-        /* Borders and Dividers */
-        .theme-light .border, .theme-dark .border, .custom-theme-active .border,
-        .theme-light [class*="border-"], .theme-dark [class*="border-"], .custom-theme-active [class*="border-"],
-        .theme-light .border-slate-200, .theme-dark .border-slate-800, .custom-theme-active .border-slate-800,
-        .theme-light .border-slate-300, .theme-dark .border-slate-700, .custom-theme-active .border-slate-700,
-        .theme-light .border-slate-200\\/60, .theme-dark .border-slate-800\\/60, .custom-theme-active .border-slate-800\\/60,
-        .theme-light .border-slate-200\\/80, .theme-dark .border-slate-800\\/80, .custom-theme-active .border-slate-800\\/80,
-        .theme-light .border-dashed, .theme-dark .border-dashed, .custom-theme-active .border-dashed {
-          border-color: var(--border-color) !important;
-        }
-
-        .theme-light .divide-slate-200 > *, .theme-dark .divide-slate-800 > *, .custom-theme-active .divide-slate-800 > *,
-        .theme-light [class*="divide-"] > *, .theme-dark [class*="divide-"] > *, .custom-theme-active [class*="divide-"] > * {
-          border-color: var(--border-color) !important;
-        }
-
-        /* Typography Colors */
-        .theme-light h1, .theme-light h2, .theme-light h3, .theme-light h4, .theme-light h5, .theme-light h6,
-        .theme-dark h1, .theme-dark h2, .theme-dark h3, .theme-dark h4, .theme-dark h5, .theme-dark h6,
-        .custom-theme-active h1, .custom-theme-active h2, .custom-theme-active h3, .custom-theme-active h4, .custom-theme-active h5, .custom-theme-active h6,
-        .theme-light p, .theme-dark p, .custom-theme-active p,
-        .theme-light li, .theme-dark li, .custom-theme-active li,
-        .theme-light td, .theme-dark td, .custom-theme-active td,
-        .theme-light th, .theme-dark th, .custom-theme-active th,
-        .theme-light span, .theme-dark span, .custom-theme-active span,
-        .theme-light label, .theme-dark label, .custom-theme-active label {
+          background-color: var(--bg-primary);
           color: var(--text-primary);
         }
 
-        /* Secondary/Muted texts */
-        .theme-light .text-slate-400, .theme-dark .text-slate-400, .custom-theme-active .text-slate-400,
-        .theme-light .text-slate-500, .theme-dark .text-slate-500, .custom-theme-active .text-slate-500,
-        .theme-light .text-slate-600, .theme-dark .text-slate-600, .custom-theme-active .text-slate-600 {
-          color: var(--text-secondary) !important;
-        }
-
-        /* Inputs & Form controls */
-        .theme-light input, .theme-dark input, .custom-theme-active input,
-        .theme-light select, .theme-dark select, .custom-theme-active select,
-        .theme-light textarea, .theme-dark textarea, .custom-theme-active textarea {
-          background-color: var(--bg-tertiary) !important;
-          color: var(--text-primary) !important;
-          border-color: var(--border-color) !important;
-        }
-
-        .theme-light input::placeholder, .theme-dark input::placeholder, .custom-theme-active input::placeholder {
-          color: var(--text-secondary) !important;
-          opacity: 0.6;
-        }
-
-        /* Tables */
-        .theme-light table, .theme-dark table, .custom-theme-active table {
-          background-color: var(--bg-secondary) !important;
-        }
-        .theme-light tr, .theme-dark tr, .custom-theme-active tr {
-          border-bottom: 1px solid var(--border-color) !important;
-        }
-        .theme-light tr:hover, .theme-dark tr:hover, .custom-theme-active tr:hover {
-          background-color: var(--bg-tertiary) !important;
-        }
-
-        /* Accent text color rules */
-        .theme-light .text-\[\#0075DE\], .theme-dark .text-\[\#0075DE\], .custom-theme-active .text-\[\#0075DE\],
-        .theme-light .text-[#0075DE], .theme-dark .text-[#0075DE], .custom-theme-active .text-[#0075DE],
-        .theme-light .text-[#0075DE], .theme-dark .text-[#0075DE], .custom-theme-active .text-[#0075DE] {
-          color: var(--accent-color) !important;
-        }
-
-        /* Accent background color rules */
-        .theme-light .bg-\[\#0075DE\], .theme-dark .bg-\[\#0075DE\], .custom-theme-active .bg-\[\#0075DE\],
-        .theme-light .bg-amber-400, .theme-dark .bg-amber-400, .custom-theme-active .bg-amber-400,
-        .theme-light .bg-[#0075DE], .theme-dark .bg-[#0075DE], .custom-theme-active .bg-[#0075DE] {
+        /* Main action button & Primary blue container contrast enforcement */
+        .bg-[#0075DE],
+        .bg-[#005BAB],
+        .bg-blue-600,
+        .bg-blue-700,
+        .bg-primary {
           background-color: var(--accent-color) !important;
-          color: var(--accent-text) !important;
+          color: #FFFFFF !important;
         }
 
-        /* Subtle badges & tabs selection */
-        .theme-light .bg-\[\#0075DE\]\/15, .theme-dark .bg-\[\#0075DE\]\/15, .custom-theme-active .bg-\[\#0075DE\]\/15,
-        .theme-light .bg-[#0075DE]\/10, .theme-dark .bg-[#0075DE]\/10, .custom-theme-active .bg-[#0075DE]\/10,
-        .theme-light .bg-[#0075DE]\/15, .theme-dark .bg-[#0075DE]\/15, .custom-theme-active .bg-[#0075DE]\/15 {
-          background-color: var(--accent-subtle) !important;
-          color: var(--accent-color) !important;
-        }
-
-        /* Sidebar link active dots */
-        .theme-light .bg-\[\#0075DE\], .theme-dark .bg-\[\#0075DE\], .custom-theme-active .bg-\[\#0075DE\] {
-          background-color: var(--accent-color) !important;
-        }
-
-        /* Active Navigation item text and icons */
-        .theme-light .text-\[\#0075DE\], .theme-dark .text-\[\#0075DE\], .custom-theme-active .text-\[\#0075DE\],
-        .theme-light .text-[#0075DE], .theme-dark .text-[#0075DE], .custom-theme-active .text-[#0075DE] {
-          color: var(--accent-color) !important;
-        }
-
-        /* Navigation elements hover states */
-        .theme-light .hover\:bg-slate-800\/60:hover, .theme-dark .hover\:bg-slate-800\/60:hover, .custom-theme-active .hover\:bg-slate-800\/60:hover,
-        .theme-light .hover\:bg-slate-800:hover, .theme-dark .hover\:bg-slate-800:hover, .custom-theme-active .hover\:bg-slate-800:hover,
-        .theme-light .hover\:bg-slate-700:hover, .theme-dark .hover\:bg-slate-700:hover, .custom-theme-active .hover\:bg-slate-700:hover,
-        .theme-light .hover\:bg-slate-100:hover, .theme-dark .hover\:bg-slate-100:hover, .custom-theme-active .hover\:bg-slate-100:hover,
-        .theme-light .hover\:bg-slate-200:hover, .theme-dark .hover\:bg-slate-200:hover, .custom-theme-active .hover\:bg-slate-200:hover {
-          background-color: var(--bg-tertiary) !important;
-        }
-
-        /* Main action button custom overrides */
-        .theme-light .bg-\[\#0075DE\],
-        .theme-dark .bg-\[\#0075DE\],
-        .custom-theme-active .bg-\[\#0075DE\],
-        .theme-light .bg-[#0075DE].hover\:bg-amber-400,
-        .theme-dark .bg-[#0075DE].hover\:bg-amber-400,
-        .custom-theme-active .bg-[#0075DE].hover\:bg-amber-400 {
-          background-color: var(--accent-color) !important;
-          background-image: none !important;
-          color: var(--accent-text) !important;
-        }
-
-        .theme-light .bg-gradient-to-r.from-[#0075DE].to-[#005BAB]:hover,
-        .theme-dark .bg-gradient-to-r.from-[#0075DE].to-[#005BAB]:hover,
-        .custom-theme-active .bg-gradient-to-r.from-[#0075DE].to-[#005BAB]:hover,
-        .theme-light .bg-[#0075DE].hover\:bg-amber-400:hover,
-        .theme-dark .bg-[#0075DE].hover\:bg-amber-400:hover,
-        .custom-theme-active .bg-[#0075DE].hover\:bg-amber-400:hover {
-          opacity: 0.9 !important;
+        /* Mandatory rule: Text and icons inside solid primary blue containers must always be white */
+        :is(.bg-[#0075DE], .bg-[#005BAB], .bg-blue-600, .bg-blue-700, .bg-primary) :is(h1, h2, h3, h4, h5, h6, p, span, div, label, li, a, th, td, strong, b, svg, path):not([class*="bg-white"] *):not([class*="bg-slate-50"] *):not([class*="bg-slate-100"] *):not([class*="bg-slate-800"] *):not([class*="bg-slate-900"] *) {
+          color: #FFFFFF !important;
+          fill: currentColor;
         }
 
         /* Custom scrollbar */
         ::-webkit-scrollbar-thumb {
-          background: var(--border-color) !important;
+          background: var(--border-color);
         }
         ::-webkit-scrollbar-track {
-          background: var(--bg-primary) !important;
+          background: var(--bg-primary);
         }
 
         /* SVG, Chart lines, Cartesian grid, and Axes in Custom Theme */
@@ -3011,7 +2889,6 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
           border-color: var(--border-color) !important;
           color: var(--text-primary) !important;
         }
-
         @keyframes loading-bar {
           0% {
             transform: translateX(-100%);
@@ -3855,7 +3732,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                     group: lang === "ar" ? "بيئة العمل" : "WORKSPACE",
                     items: [
                       { id: "dashboard", label: (t as any).refreshPage || (lang === "ar" ? "لوحة التحكم" : "Dashboard"), icon: Compass },
-                      { id: "library", label: t.allCategories || (lang === "ar" ? "مكتبة الذاكرة" : "Memory Library"), icon: FileText },
+                      { id: "library", label: lang === "ar" ? "مكتبة الذاكرة" : (lang === "fr" ? "Registre Mémoire" : "Memory Library"), icon: FileText },
                       { id: "add", label: t.logMemoryBtn || (lang === "ar" ? "إضافة ذاكرة" : "Add Memory"), icon: PlusCircle },
                       { id: "files", label: lang === "ar" ? "إدارة الملفات" : (lang === "fr" ? "Fichiers & Vault" : "File Vault"), icon: Folder },
                     ]
@@ -5167,7 +5044,11 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                                   initial={{ height: 0, opacity: 0 }}
                                   animate={{ height: "auto", opacity: 1 }}
                                   exit={{ height: 0, opacity: 0 }}
-                                  className="border-t border-slate-800/60 bg-slate-950/40 p-5 space-y-4 text-xs leading-relaxed text-slate-300"
+                                  className={`border-t p-5 space-y-4 text-xs leading-relaxed ${
+                                    theme === "dark" 
+                                      ? "border-slate-800/60 bg-slate-950/40 text-slate-300" 
+                                      : "border-slate-200 bg-slate-50/70 text-slate-700"
+                                  }`}
                                 >
                                   {/* Print-Only Professional Document Header */}
                                   <div className="print-only-header">
@@ -5189,7 +5070,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                                       maxLength={180}
                                       lang={lang}
                                       theme={theme}
-                                      className="text-xs leading-relaxed text-slate-300"
+                                      className={`text-xs leading-relaxed ${theme === "dark" ? "text-slate-300" : "text-slate-600"}`}
                                     />
                                   </div>
 
@@ -5200,7 +5081,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                                       maxLength={180}
                                       lang={lang}
                                       theme={theme}
-                                      className="text-xs leading-relaxed text-slate-300"
+                                      className={`text-xs leading-relaxed ${theme === "dark" ? "text-slate-300" : "text-slate-600"}`}
                                     />
                                     <ReadMoreText
                                       label={t.causalLabel}
@@ -5208,7 +5089,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                                       maxLength={180}
                                       lang={lang}
                                       theme={theme}
-                                      className="text-xs leading-relaxed text-slate-300"
+                                      className={`text-xs leading-relaxed ${theme === "dark" ? "text-slate-300" : "text-slate-600"}`}
                                     />
                                   </div>
 
@@ -5219,7 +5100,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                                       maxLength={180}
                                       lang={lang}
                                       theme={theme}
-                                      className="text-xs leading-relaxed text-slate-300"
+                                      className={`text-xs leading-relaxed ${theme === "dark" ? "text-slate-300" : "text-slate-600"}`}
                                     />
                                     <ReadMoreText
                                       label={t.lessonsLabel}
@@ -5227,20 +5108,28 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                                       maxLength={180}
                                       lang={lang}
                                       theme={theme}
-                                      className="text-xs leading-relaxed text-slate-300"
+                                      className={`text-xs leading-relaxed ${theme === "dark" ? "text-slate-300" : "text-slate-600"}`}
                                     />
                                   </div>
 
-                                  <div className="flex items-center gap-1.5 pt-2 border-t border-slate-800/40 flex-wrap">
-                                    <span className="text-[10px] text-slate-400 uppercase font-semibold">الوسوم:</span>
+                                  <div className={`flex items-center gap-1.5 pt-2 border-t flex-wrap ${
+                                    theme === "dark" ? "border-slate-800/40" : "border-slate-200"
+                                  }`}>
+                                    <span className={`text-[10px] uppercase font-semibold ${
+                                      theme === "dark" ? "text-slate-400" : "text-slate-500"
+                                    }`}>الوسوم:</span>
                                     {m.tags.map((tag, idx) => (
-                                      <span key={idx} className="bg-slate-900 px-2 py-0.5 rounded text-[10px] text-slate-400">
+                                      <span key={idx} className={`px-2 py-0.5 rounded text-[10px] ${
+                                        theme === "dark" ? "bg-slate-900 text-slate-400" : "bg-slate-200/80 text-slate-600 font-medium"
+                                      }`}>
                                         #{tag}
                                       </span>
                                     ))}
                                   </div>
 
-                                  <div className="flex items-center justify-between gap-2 text-[9px] text-slate-400 pt-1">
+                                  <div className={`flex items-center justify-between gap-2 text-[9px] pt-1 ${
+                                    theme === "dark" ? "text-slate-400" : "text-slate-500"
+                                  }`}>
                                     <div className="flex items-center gap-1">
                                       <span>بواسطة:</span>
                                       <span className="font-bold text-[#0075DE]">{m.authorName || m.authorEmail}</span>
@@ -6457,12 +6346,12 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                 >
                   <SettingsAdmin
                     currentUser={currentUser}
-                    onUpdateUser={(updated) => {
+                    onUpdateUser={async (updated) => {
                       setCurrentUser(updated);
                       if (!updated.customTheme?.approvedAt && updated.userPreferences?.theme) {
                         applyGlobalTheme(updated.userPreferences.theme, setTheme, updated, setCurrentUser, false);
                       }
-                      saveFirebaseUserProfile(updated).catch(err => console.error("Error saving user profile to Firestore:", err));
+                      await saveFirebaseUserProfile(updated);
                     }}
                     onEncryptAllData={handleEncryptAllData}
                     onLogout={handleLogout}
@@ -6847,7 +6736,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
               <button
                 type="button"
                 onClick={() => setStripeReceiptData(null)}
-                className="px-5 py-2 rounded-xl bg-[#0075DE] hover:bg-[#005BAB] text-slate-950 font-extrabold text-xs cursor-pointer shadow-lg shadow-[#0075DE]/20"
+                className="px-5 py-2 rounded-xl bg-[#0075DE] hover:bg-[#005BAB] text-white font-extrabold text-xs cursor-pointer shadow-lg shadow-[#0075DE]/20"
               >
                 {lang === "ar" ? "إغلاق ومتابعة" : (lang === "fr" ? "Fermer & Continuer" : "Close & Proceed")}
               </button>
@@ -6893,6 +6782,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
           setIsPrintPreviewOpen(false);
           setActiveTab("settings");
         }}
+        theme={theme}
       />
 
     </div>

@@ -14,6 +14,7 @@ interface PrintPreviewProps {
   activePageIndex?: number;
   onPageSelect?: (pageIndex: number) => void;
   pages?: PaginatedPage[];
+  theme?: "light" | "dark" | "custom";
 }
 
 export const PrintPreview: React.FC<PrintPreviewProps> = ({
@@ -25,6 +26,7 @@ export const PrintPreview: React.FC<PrintPreviewProps> = ({
   activePageIndex = 0,
   onPageSelect,
   pages: providedPages,
+  theme = "dark",
 }) => {
   const isRtl = lang === "ar";
   const pages = providedPages || paginateMemories(memories, settings, lang);
@@ -39,7 +41,7 @@ export const PrintPreview: React.FC<PrintPreviewProps> = ({
         return "bg-slate-950";
       case "light-gray":
       default:
-        return "bg-[#e2e8f0]";
+        return theme === "dark" ? "bg-[#090d16]" : "bg-[#e2e8f0]";
     }
   };
 

@@ -32,6 +32,7 @@ interface PrintSettingsProps {
   diagnostics?: PrintDiagnostics;
   currentUser?: User | null;
   onOpenProfileSettings?: () => void;
+  theme?: "light" | "dark" | "custom";
 }
 
 export const PrintSettings: React.FC<PrintSettingsProps> = ({
@@ -44,6 +45,7 @@ export const PrintSettings: React.FC<PrintSettingsProps> = ({
   onDeselectAllMemories,
   lang,
   diagnostics,
+  theme = "dark",
 }) => {
   const isRtl = lang === "ar";
   const [activeTab, setActiveTab] = useState<"layout" | "typography" | "content">("layout");
@@ -85,34 +87,46 @@ export const PrintSettings: React.FC<PrintSettingsProps> = ({
 
   return (
     <aside
-      className="zakir-print-modal-sidebar w-88 min-w-[340px] max-w-[380px] h-full bg-[#0f172a] text-slate-100 border-s border-slate-800 flex flex-col overflow-hidden text-xs select-none shadow-2xl shrink-0"
+      className={`zakir-print-modal-sidebar w-88 min-w-[340px] max-w-[380px] h-full flex flex-col overflow-hidden text-xs select-none shadow-2xl shrink-0 ${
+        theme === "dark"
+          ? "bg-[#0f172a] text-slate-100 border-s border-slate-800"
+          : "bg-white text-slate-800 border-s border-slate-200"
+      }`}
       dir={isRtl ? "rtl" : "ltr"}
     >
       {/* Title Header */}
-      <div className="flex items-center justify-between p-3.5 border-b border-slate-800 shrink-0 bg-slate-900/60">
+      <div className={`flex items-center justify-between p-3.5 border-b shrink-0 ${
+        theme === "dark" ? "border-slate-800 bg-slate-900/60" : "border-slate-200 bg-slate-50/80"
+      }`}>
         <div className="flex items-center gap-2">
           <div className="w-7 h-7 rounded-lg bg-[#0075DE]/15 border border-[#0075DE]/30 flex items-center justify-center text-[#0075DE]">
             <Layout className="w-4 h-4" />
           </div>
           <div>
-            <h3 className="font-black text-white text-xs tracking-tight">
+            <h3 className={`font-black text-xs tracking-tight ${theme === "dark" ? "text-white" : "text-slate-800"}`}>
               {lang === "ar" ? "إعدادات الطباعة والمعاينة" : "Print & Page Settings"}
             </h3>
-            <p className="text-[10px] text-slate-400">
+            <p className={`text-[10px] ${theme === "dark" ? "text-slate-400" : "text-slate-500"}`}>
               {lang === "ar" ? "تخصيص الصفحة والإطار والخطوط" : "Custom Layout, Frame & Typography"}
             </p>
           </div>
         </div>
 
         {diagnostics && (
-          <span className="px-2 py-0.5 rounded-full bg-slate-900 border border-slate-700 text-[10px] font-mono text-emerald-400 font-bold">
+          <span className={`px-2 py-0.5 rounded-full border text-[10px] font-mono font-bold ${
+            theme === "dark"
+              ? "bg-slate-900 border-slate-700 text-emerald-400"
+              : "bg-slate-100 border-slate-200 text-emerald-600 shadow-xs"
+          }`}>
             {diagnostics.selectedCount} {lang === "ar" ? "سجل" : "items"}
           </span>
         )}
       </div>
 
       {/* Navigation Tabs (Layout, Typography, Content) */}
-      <div className="grid grid-cols-3 p-1.5 bg-slate-950/80 border-b border-slate-800 shrink-0 gap-1 text-[11px] font-bold">
+      <div className={`grid grid-cols-3 p-1.5 border-b shrink-0 gap-1 text-[11px] font-bold ${
+        theme === "dark" ? "bg-slate-950/80 border-slate-800" : "bg-slate-100/50 border-slate-200"
+      }`}>
         {[
           { id: "layout", labelAr: "الصفحة والإطار", labelEn: "Page & Frame", icon: Layout },
           { id: "typography", labelAr: "الخطوط والتنسيق", labelEn: "Fonts", icon: Type },
@@ -128,7 +142,9 @@ export const PrintSettings: React.FC<PrintSettingsProps> = ({
               className={`py-2 px-1.5 rounded-lg flex flex-col items-center gap-1 transition-all cursor-pointer ${
                 isSelected
                   ? "bg-[#0075DE] text-white shadow-md font-black"
-                  : "text-slate-400 hover:text-slate-200 hover:bg-slate-900"
+                  : theme === "dark"
+                    ? "text-slate-400 hover:text-slate-200 hover:bg-slate-900"
+                    : "text-slate-500 hover:text-slate-800 hover:bg-slate-200/50"
               }`}
             >
               <Icon className="w-3.5 h-3.5" />
@@ -139,7 +155,9 @@ export const PrintSettings: React.FC<PrintSettingsProps> = ({
       </div>
 
       {/* Scrollable Tab Content Container */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-6 custom-scrollbar text-slate-200">
+      <div className={`flex-1 overflow-y-auto p-4 space-y-6 custom-scrollbar ${
+        theme === "dark" ? "text-slate-200" : "text-slate-700"
+      }`}>
         {/* ==================================================================== */}
         {/* TAB 1: PAGE & FRAME SETTINGS (إعدادات الصفحة والإطار مدمجة) */}
         {/* ==================================================================== */}
@@ -147,7 +165,9 @@ export const PrintSettings: React.FC<PrintSettingsProps> = ({
           <div className="space-y-6">
             {/* 1. Page Orientation */}
             <div className="space-y-2">
-              <label className="text-[11px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+              <label className={`text-[11px] font-bold uppercase tracking-wider flex items-center gap-1.5 ${
+                theme === "dark" ? "text-slate-400" : "text-slate-500"
+              }`}>
                 <Maximize2 className="w-3.5 h-3.5 text-[#0075DE]" />
                 <span>{lang === "ar" ? "اتجاه الورقة" : "Orientation"}</span>
               </label>
@@ -157,8 +177,10 @@ export const PrintSettings: React.FC<PrintSettingsProps> = ({
                   onClick={() => onUpdateSettings((p) => ({ ...p, orientation: "portrait" }))}
                   className={`p-2.5 rounded-lg border text-center font-bold flex items-center justify-center gap-2 transition-all cursor-pointer ${
                     settings.orientation === "portrait"
-                      ? "bg-[#0075DE]/20 border-[#0075DE] text-white shadow-xs"
-                      : "bg-slate-900/80 border-slate-800 text-slate-400 hover:border-slate-700 hover:text-slate-200"
+                      ? "bg-[#0075DE]/20 border-[#0075DE] " + (theme === "dark" ? "text-white" : "text-[#0075DE]")
+                      : theme === "dark"
+                        ? "bg-slate-900/80 border-slate-800 text-slate-400 hover:border-slate-700 hover:text-slate-200"
+                        : "bg-slate-50 border-slate-200 text-slate-600 hover:border-slate-300 hover:text-slate-800"
                   }`}
                 >
                   <div className="w-3.5 h-5 border border-current rounded-xs shrink-0" />
@@ -170,8 +192,10 @@ export const PrintSettings: React.FC<PrintSettingsProps> = ({
                   onClick={() => onUpdateSettings((p) => ({ ...p, orientation: "landscape" }))}
                   className={`p-2.5 rounded-lg border text-center font-bold flex items-center justify-center gap-2 transition-all cursor-pointer ${
                     settings.orientation === "landscape"
-                      ? "bg-[#0075DE]/20 border-[#0075DE] text-white shadow-xs"
-                      : "bg-slate-900/80 border-slate-800 text-slate-400 hover:border-slate-700 hover:text-slate-200"
+                      ? "bg-[#0075DE]/20 border-[#0075DE] " + (theme === "dark" ? "text-white" : "text-[#0075DE]")
+                      : theme === "dark"
+                        ? "bg-slate-900/80 border-slate-800 text-slate-400 hover:border-slate-700 hover:text-slate-200"
+                        : "bg-slate-50 border-slate-200 text-slate-600 hover:border-slate-300 hover:text-slate-800"
                   }`}
                 >
                   <div className="w-5 h-3.5 border border-current rounded-xs shrink-0" />
@@ -182,9 +206,11 @@ export const PrintSettings: React.FC<PrintSettingsProps> = ({
 
             {/* 2. Paper Size Selector */}
             <div className="space-y-2">
-              <label className="text-[11px] font-bold uppercase tracking-wider text-slate-400 flex items-center justify-between">
+              <label className={`text-[11px] font-bold uppercase tracking-wider flex items-center justify-between ${
+                theme === "dark" ? "text-slate-400" : "text-slate-500"
+              }`}>
                 <span>{lang === "ar" ? "قياس الورق" : "Paper Size"}</span>
-                <span className="font-mono text-slate-500 font-normal">
+                <span className={`font-mono font-normal ${theme === "dark" ? "text-slate-500" : "text-slate-400"}`}>
                   {paperSizeDetails[settings.paperSize]?.dim}
                 </span>
               </label>
@@ -199,7 +225,9 @@ export const PrintSettings: React.FC<PrintSettingsProps> = ({
                       className={`p-2 rounded-lg border text-center transition-all cursor-pointer ${
                         isSel
                           ? "bg-[#0075DE] border-[#0075DE] text-white font-black shadow-xs"
-                          : "bg-slate-900/80 border-slate-800 text-slate-300 hover:border-slate-700"
+                          : theme === "dark"
+                            ? "bg-slate-900/80 border-slate-800 text-slate-300 hover:border-slate-700"
+                            : "bg-slate-50 border-slate-200 text-slate-600 hover:border-slate-300 hover:text-slate-800"
                       }`}
                     >
                       <div className="font-bold text-xs">{size}</div>
@@ -210,9 +238,11 @@ export const PrintSettings: React.FC<PrintSettingsProps> = ({
             </div>
 
             {/* 3. Outer Page Frame Border Controls */}
-            <div className="space-y-3 pt-2 border-t border-slate-800/80">
+            <div className={`space-y-3 pt-2 border-t ${theme === "dark" ? "border-slate-800/80" : "border-slate-200"}`}>
               <div className="flex items-center justify-between">
-                <label className="text-[11px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+                <label className={`text-[11px] font-bold uppercase tracking-wider flex items-center gap-1.5 ${
+                  theme === "dark" ? "text-slate-400" : "text-slate-500"
+                }`}>
                   <Frame className="w-3.5 h-3.5 text-[#0075DE]" />
                   <span>{lang === "ar" ? "إطار الصفحة الخارجي" : "Outer Page Frame"}</span>
                 </label>
@@ -227,10 +257,12 @@ export const PrintSettings: React.FC<PrintSettingsProps> = ({
               </div>
 
               {settings.showOuterBorder && (
-                <div className="bg-slate-900/70 p-3 rounded-xl border border-slate-800/90 space-y-4">
+                <div className={`p-3 rounded-xl border space-y-4 ${
+                  theme === "dark" ? "bg-slate-900/70 border-slate-800/90" : "bg-slate-50 border-slate-200"
+                }`}>
                   {/* Border Thickness */}
                   <div className="space-y-1.5">
-                    <div className="flex justify-between text-slate-300">
+                    <div className={`flex justify-between ${theme === "dark" ? "text-slate-300" : "text-slate-700"}`}>
                       <span>{lang === "ar" ? "سمك الإطار" : "Border Thickness"}</span>
                       <span className="font-mono text-[#0075DE] font-bold">
                         {settings.outerBorderThickness} px
@@ -254,7 +286,7 @@ export const PrintSettings: React.FC<PrintSettingsProps> = ({
 
                   {/* Corner Radius */}
                   <div className="space-y-1.5">
-                    <div className="flex justify-between text-slate-300">
+                    <div className={`flex justify-between ${theme === "dark" ? "text-slate-300" : "text-slate-700"}`}>
                       <span>{lang === "ar" ? "استدارة الزوايا" : "Corner Radius"}</span>
                       <span className="font-mono text-[#0075DE] font-bold">
                         {settings.outerBorderRadius} px
@@ -278,12 +310,12 @@ export const PrintSettings: React.FC<PrintSettingsProps> = ({
 
                   {/* Border Color Palette */}
                   <div className="space-y-2">
-                    <div className="flex justify-between text-slate-300">
+                    <div className={`flex justify-between ${theme === "dark" ? "text-slate-300" : "text-slate-700"}`}>
                       <span className="flex items-center gap-1.5">
                         <Palette className="w-3.5 h-3.5 text-slate-400" />
                         <span>{lang === "ar" ? "لون الإطار" : "Border Color"}</span>
                       </span>
-                      <span className="font-mono text-slate-400 text-[10px]">
+                      <span className={`font-mono text-[10px] ${theme === "dark" ? "text-slate-400" : "text-slate-500"}`}>
                         {settings.outerBorderColor}
                       </span>
                     </div>
@@ -299,8 +331,8 @@ export const PrintSettings: React.FC<PrintSettingsProps> = ({
                             }
                             className={`w-6 h-6 rounded-full border flex items-center justify-center transition-all cursor-pointer ${
                               isC
-                                ? "ring-2 ring-white ring-offset-2 ring-offset-slate-900 scale-110"
-                                : "border-slate-700 hover:scale-105"
+                                ? "ring-2 ring-[#0075DE] ring-offset-2 " + (theme === "dark" ? "ring-offset-slate-900" : "ring-offset-white") + " scale-110"
+                                : "border-slate-300 hover:scale-105"
                             }`}
                             style={{ backgroundColor: c.hex }}
                             title={c.name}
@@ -325,9 +357,11 @@ export const PrintSettings: React.FC<PrintSettingsProps> = ({
             </div>
 
             {/* 4. Page Margins (الهوامش الداخلية) */}
-            <div className="space-y-2 pt-2 border-t border-slate-800/80">
-              <div className="flex justify-between text-slate-300">
-                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
+            <div className={`space-y-2 pt-2 border-t ${theme === "dark" ? "border-slate-800/80" : "border-slate-200"}`}>
+              <div className="flex justify-between items-center">
+                <span className={`text-[11px] font-bold uppercase tracking-wider ${
+                  theme === "dark" ? "text-slate-400" : "text-slate-500"
+                }`}>
                   {lang === "ar" ? "الهامش الداخلي للصفحة" : "Page Margin Padding"}
                 </span>
                 <span className="font-mono text-[#0075DE] font-bold">
@@ -345,7 +379,7 @@ export const PrintSettings: React.FC<PrintSettingsProps> = ({
                 }
                 className="w-full accent-[#0075DE] cursor-pointer"
               />
-              <div className="flex justify-between text-[10px] text-slate-500 font-mono">
+              <div className={`flex justify-between text-[10px] font-mono ${theme === "dark" ? "text-slate-500" : "text-slate-400"}`}>
                 <span>4 mm ({lang === "ar" ? "ضيق" : "Tight"})</span>
                 <span>10 mm ({lang === "ar" ? "متوازن" : "Normal"})</span>
                 <span>20 mm ({lang === "ar" ? "واسع" : "Wide"})</span>
@@ -353,8 +387,10 @@ export const PrintSettings: React.FC<PrintSettingsProps> = ({
             </div>
 
             {/* 5. Preview Workspace Canvas Theme */}
-            <div className="space-y-2 pt-2 border-t border-slate-800/80">
-              <label className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
+            <div className={`space-y-2 pt-2 border-t ${theme === "dark" ? "border-slate-800/80" : "border-slate-200"}`}>
+              <label className={`text-[11px] font-bold uppercase tracking-wider ${
+                theme === "dark" ? "text-slate-400" : "text-slate-500"
+              }`}>
                 {lang === "ar" ? "خلفية مساحة العمل في المعاينة" : "Workspace Canvas Background"}
               </label>
               <div className="grid grid-cols-3 gap-1.5">
@@ -375,7 +411,9 @@ export const PrintSettings: React.FC<PrintSettingsProps> = ({
                     className={`py-1.5 px-2 rounded-lg border text-center font-bold transition-all cursor-pointer ${
                       settings.previewTheme === thm.id
                         ? "bg-[#0075DE] border-[#0075DE] text-white"
-                        : "bg-slate-900/80 border-slate-800 text-slate-400 hover:text-slate-200"
+                        : theme === "dark"
+                          ? "bg-slate-900/80 border-slate-800 text-slate-400 hover:text-slate-200"
+                          : "bg-slate-50 border-slate-200 text-slate-600 hover:text-slate-800 hover:border-slate-300"
                     }`}
                   >
                     {lang === "ar" ? thm.labelAr : thm.labelEn}
@@ -393,7 +431,9 @@ export const PrintSettings: React.FC<PrintSettingsProps> = ({
           <div className="space-y-6">
             {/* Density Presets */}
             <div className="space-y-2">
-              <label className="text-[11px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+              <label className={`text-[11px] font-bold uppercase tracking-wider flex items-center gap-1.5 ${
+                theme === "dark" ? "text-slate-400" : "text-slate-500"
+              }`}>
                 <Type className="w-3.5 h-3.5 text-[#0075DE]" />
                 <span>{lang === "ar" ? "كثافة المحتوى والصفحات" : "Density Preset"}</span>
               </label>
@@ -407,14 +447,16 @@ export const PrintSettings: React.FC<PrintSettingsProps> = ({
                       onClick={() => onUpdateSettings((p) => ({ ...p, density: opt.id }))}
                       className={`p-2.5 rounded-lg border text-center transition-all cursor-pointer flex flex-col justify-between items-center gap-1 ${
                         isSel
-                          ? "bg-[#0075DE]/20 border-[#0075DE] text-white font-black shadow-xs ring-1 ring-[#0075DE]/40"
-                          : "bg-slate-900/80 border-slate-800 text-slate-300 hover:border-slate-700"
+                          ? "bg-[#0075DE]/20 border-[#0075DE] " + (theme === "dark" ? "text-white" : "text-[#0075DE]") + " font-black shadow-xs ring-1 ring-[#0075DE]/40"
+                          : theme === "dark"
+                            ? "bg-slate-900/80 border-slate-800 text-slate-300 hover:border-slate-700"
+                            : "bg-slate-50 border-slate-200 text-slate-600 hover:border-slate-300 hover:text-slate-800"
                       }`}
                     >
                       <span className="font-bold text-xs">
                         {lang === "ar" ? opt.labelAr : opt.labelEn}
                       </span>
-                      <span className="text-[9px] text-slate-400 font-normal leading-tight">
+                      <span className={`text-[9px] font-normal leading-tight ${theme === "dark" ? "text-slate-400" : "text-slate-500"}`}>
                         {opt.desc}
                       </span>
                     </button>
@@ -424,8 +466,10 @@ export const PrintSettings: React.FC<PrintSettingsProps> = ({
             </div>
 
             {/* Custom Font Size */}
-            <div className="space-y-2 bg-slate-900/70 p-3 rounded-xl border border-slate-800/90">
-              <div className="flex justify-between text-slate-300">
+            <div className={`p-3 rounded-xl border space-y-2 ${
+              theme === "dark" ? "bg-slate-900/70 border-slate-800/90" : "bg-slate-50 border-slate-200"
+            }`}>
+              <div className={`flex justify-between ${theme === "dark" ? "text-slate-300" : "text-slate-700"}`}>
                 <span className="font-bold">{lang === "ar" ? "حجم الخط الرئيسي" : "Base Font Size"}</span>
                 <span className="font-mono text-[#0075DE] font-bold">{settings.fontSize} px</span>
               </div>
@@ -440,7 +484,7 @@ export const PrintSettings: React.FC<PrintSettingsProps> = ({
                 }
                 className="w-full accent-[#0075DE] cursor-pointer"
               />
-              <div className="flex justify-between text-[10px] text-slate-500 font-mono">
+              <div className={`flex justify-between text-[10px] font-mono ${theme === "dark" ? "text-slate-500" : "text-slate-400"}`}>
                 <span>9 px ({lang === "ar" ? "صغير" : "Small"})</span>
                 <span>13 px ({lang === "ar" ? "معياري" : "Standard"})</span>
                 <span>20 px ({lang === "ar" ? "كبير" : "Large"})</span>
@@ -448,8 +492,10 @@ export const PrintSettings: React.FC<PrintSettingsProps> = ({
             </div>
 
             {/* Line Height Multiplier */}
-            <div className="space-y-2 bg-slate-900/70 p-3 rounded-xl border border-slate-800/90">
-              <div className="flex justify-between text-slate-300">
+            <div className={`p-3 rounded-xl border space-y-2 ${
+              theme === "dark" ? "bg-slate-900/70 border-slate-800/90" : "bg-slate-50 border-slate-200"
+            }`}>
+              <div className={`flex justify-between ${theme === "dark" ? "text-slate-300" : "text-slate-700"}`}>
                 <span className="font-bold">{lang === "ar" ? "تباعد الأسطر" : "Line Height"}</span>
                 <span className="font-mono text-[#0075DE] font-bold">
                   {settings.lineHeight || 1.55}
@@ -478,7 +524,9 @@ export const PrintSettings: React.FC<PrintSettingsProps> = ({
             {/* Record Selection Section */}
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <label className="text-[11px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+                <label className={`text-[11px] font-bold uppercase tracking-wider flex items-center gap-1.5 ${
+                  theme === "dark" ? "text-slate-400" : "text-slate-500"
+                }`}>
                   <Layers className="w-3.5 h-3.5 text-[#0075DE]" />
                   <span>{lang === "ar" ? "السجلات المضمنة" : "Included Memories"}</span>
                 </label>
@@ -486,15 +534,15 @@ export const PrintSettings: React.FC<PrintSettingsProps> = ({
                   <button
                     type="button"
                     onClick={onSelectAllMemories}
-                    className="text-[#0075DE] hover:underline cursor-pointer"
+                    className="text-[#0075DE] hover:underline cursor-pointer font-bold"
                   >
                     {lang === "ar" ? "تحديد الكل" : "All"}
                   </button>
-                  <span className="text-slate-600">•</span>
+                  <span className="text-slate-400">•</span>
                   <button
                     type="button"
                     onClick={onDeselectAllMemories}
-                    className="text-slate-400 hover:text-slate-200 cursor-pointer"
+                    className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer font-bold"
                   >
                     {lang === "ar" ? "إلغاء" : "None"}
                   </button>
@@ -502,7 +550,9 @@ export const PrintSettings: React.FC<PrintSettingsProps> = ({
               </div>
 
               {/* Memories List */}
-              <div className="max-h-48 overflow-y-auto space-y-1.5 bg-slate-950/60 p-2 rounded-xl border border-slate-800/90 custom-scrollbar">
+              <div className={`max-h-48 overflow-y-auto space-y-1.5 p-2 rounded-xl border custom-scrollbar ${
+                theme === "dark" ? "bg-slate-950/60 border-slate-800/90" : "bg-slate-50 border-slate-200"
+              }`}>
                 {allMemories.map((m) => {
                   const isChecked = selectedMemoryIds.includes(m.id);
                   return (
@@ -511,14 +561,18 @@ export const PrintSettings: React.FC<PrintSettingsProps> = ({
                       onClick={() => onToggleMemory(m.id)}
                       className={`p-2 rounded-lg border flex items-center gap-2 cursor-pointer transition-all ${
                         isChecked
-                          ? "bg-slate-900/90 border-[#0075DE]/50 text-white"
-                          : "bg-slate-950 border-slate-800/80 text-slate-400 hover:text-slate-200"
+                          ? theme === "dark"
+                            ? "bg-slate-900/90 border-[#0075DE]/50 text-white"
+                            : "bg-[#0075DE]/10 border-[#0075DE] text-[#0075DE] font-bold"
+                          : theme === "dark"
+                            ? "bg-slate-950 border-slate-800/80 text-slate-400 hover:text-slate-200"
+                            : "bg-white border-slate-200 text-slate-600 hover:text-slate-800"
                       }`}
                     >
                       {isChecked ? (
                         <CheckSquare className="w-3.5 h-3.5 text-[#0075DE] shrink-0" />
                       ) : (
-                        <Square className="w-3.5 h-3.5 text-slate-600 shrink-0" />
+                        <Square className={`w-3.5 h-3.5 shrink-0 ${theme === "dark" ? "text-slate-600" : "text-slate-300"}`} />
                       )}
                       <span className="truncate font-semibold text-xs flex-1">{m.title}</span>
                     </div>
@@ -528,8 +582,10 @@ export const PrintSettings: React.FC<PrintSettingsProps> = ({
             </div>
 
             {/* Document Elements Toggles */}
-            <div className="space-y-2 pt-2 border-t border-slate-800/80">
-              <label className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
+            <div className={`space-y-2 pt-2 border-t ${theme === "dark" ? "border-slate-800/80" : "border-slate-200"}`}>
+              <label className={`text-[11px] font-bold uppercase tracking-wider ${
+                theme === "dark" ? "text-slate-400" : "text-slate-500"
+              }`}>
                 {lang === "ar" ? "أقسام وعناصر المستند" : "Document Sections"}
               </label>
               <div className="space-y-1.5">
@@ -546,8 +602,12 @@ export const PrintSettings: React.FC<PrintSettingsProps> = ({
                       }
                       className={`p-2 rounded-lg border flex items-center justify-between cursor-pointer transition-all ${
                         isEnabled
-                          ? "bg-slate-900/80 border-slate-700/80 text-slate-200"
-                          : "bg-slate-950/60 border-slate-800 text-slate-500 hover:text-slate-400"
+                          ? theme === "dark"
+                            ? "bg-slate-900/80 border-slate-700/80 text-slate-200"
+                            : "bg-white border-slate-300 text-slate-800 shadow-xs font-bold"
+                          : theme === "dark"
+                            ? "bg-slate-950/60 border-slate-800 text-slate-500 hover:text-slate-400"
+                            : "bg-slate-50 border-slate-200 text-slate-400 hover:text-slate-500"
                       }`}
                     >
                       <span className="font-semibold text-xs">
@@ -556,7 +616,7 @@ export const PrintSettings: React.FC<PrintSettingsProps> = ({
                       {isEnabled ? (
                         <CheckSquare className="w-4 h-4 text-[#0075DE]" />
                       ) : (
-                        <Square className="w-4 h-4 text-slate-600" />
+                        <Square className={`w-4 h-4 ${theme === "dark" ? "text-slate-600" : "text-slate-300"}`} />
                       )}
                     </div>
                   );

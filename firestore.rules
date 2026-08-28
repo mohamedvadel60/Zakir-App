@@ -69,10 +69,10 @@ service cloud.firestore {
     // Workspace Invitations
     match /invitations/{invitationId} {
       allow get: if true;
-      allow list: if isSignedIn() && (resource.data.invitedBy == request.auth.uid || resource.data.inviteeEmail == request.auth.token.email || isAdmin());
-      allow create: if isSignedIn() && (request.resource.data.invitedBy == request.auth.uid || isAdmin());
-      allow update: if isSignedIn() && (resource.data.invitedBy == request.auth.uid || resource.data.inviteeEmail == request.auth.token.email || isAdmin()) && (request.resource.data.invitedBy == resource.data.invitedBy);
-      allow delete: if isSignedIn() && (resource.data.invitedBy == request.auth.uid || isAdmin());
+      allow list: if isSignedIn();
+      allow create: if isSignedIn();
+      allow update: if isSignedIn();
+      allow delete: if isSignedIn();
     }
 
     // Permanent Account Lifecycle & Reactivation Requests

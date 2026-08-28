@@ -207,12 +207,7 @@ export const CompactAppSwitcher: React.FC<CompactAppSwitcherProps> = ({
                 : "bg-[#0C101A]/98 border-slate-800 shadow-black/80 text-slate-100"
             }`}
           >
-            <div className="px-2.5 py-1.5 text-[10px] font-mono font-bold uppercase tracking-wider text-slate-400 border-b border-slate-100 dark:border-slate-800/80 mb-1 flex items-center justify-between">
-              <span>{lang === "ar" ? "تطبيقات ووحدات ذاكر" : "Zakir Modules"}</span>
-              <LayoutGrid className="w-3 h-3 text-[#0075DE]" />
-            </div>
-
-            <div className="space-y-0.5">
+            <div className="space-y-0.5 pt-1">
               {APPS.map((item) => {
                 const ItemIcon = item.icon;
                 const isSelected = activeTab === item.id;

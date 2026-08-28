@@ -18,6 +18,7 @@ import { createRateLimiter } from "./src/middleware/rateLimiter.js";
 import { adminAuth, adminDb } from "./src/lib/firebase-admin.js";
 import { eq, desc } from "drizzle-orm";
 import { generateWorldBankFallbackData } from "./src/lib/worldBankFallback.js";
+import { Resvg } from "@resvg/resvg-js";
 
 dotenv.config();
 
@@ -957,7 +958,6 @@ function getOfficialPngLogo(): Buffer {
     return officialPngLogoCache;
   }
   try {
-    const { Resvg } = require("@resvg/resvg-js");
     const resvg = new Resvg(OFFICIAL_ZAKIR_SVG, { fitTo: { mode: "width", value: 512 } });
     officialPngLogoCache = Buffer.from(resvg.render().asPng());
     return officialPngLogoCache;
@@ -2625,6 +2625,426 @@ app.post("/api/auth/reset-encryption-with-password", async (req, res) => {
   } catch (err: any) {
     console.error("Error resetting encryption passcode:", err);
     res.status(500).json({ error: err.message || "Failed to reset encryption passcode." });
+  }
+});
+
+// CEO Send Employee Workspace Invitation with Resend Email Integration
+app.post("/api/admin/send-invitation", requireAuth, async (req: AuthRequest, res) => {
+  try {
+    const callerUid = req.user?.uid;
+    if (!callerUid) {
+      return res.status(401).json({
+        success: false,
+        code: "AUTH_REQUIRED",
+        error: "Unauthorized: Token verification required.",
+        userFriendlyMessage: "مصادقة المستخدم مطلوبة لإرسال الدعوات."
+      });
+    }
+
+    const { email, name, role, powers } = req.body;
+    const normalizedEmail = (email || "").trim().toLowerCase();
+
+    // 1. Validate Email Format
+    if (!normalizedEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
+      return res.status(400).json({
+        success: false,
+        code: "INVALID_EMAIL",
+        error: "Invalid email format provided.",
+        userFriendlyMessage: "صيغة البريد الإلكتروني غير صحيحة، يرجى كتابة عنوان بريد صحيح."
+      });
+    }
+
+    // 2. Fetch CEO / Sender Profile
+    let ceoData: any = null;
+    try {
+      const ceoSnap = await adminDb.collection("users").doc(callerUid).get();
+      if (ceoSnap.exists) {
+        ceoData = ceoSnap.data();
+      }
+    } catch (e) {}
+
+    if (!ceoData) {
+      const db = readDb();
+      ceoData = db.users?.find((u: any) => u.id === callerUid);
+    }
+
+    if (!ceoData) {
+      return res.status(404).json({
+        success: false,
+        code: "USER_NOT_FOUND",
+        error: "Sender account not found.",
+        userFriendlyMessage: "تعذر العثور على حساب المدير المرسل."
+      });
+    }
+
+    // 3. Verify CEO Authorization (Server-side Role Check)
+    const ceoRole = (ceoData.role || "").toUpperCase();
+    if (ceoRole !== "CEO" && ceoRole !== "ADMIN") {
+      return res.status(403).json({
+        success: false,
+        code: "FORBIDDEN",
+        error: "Forbidden: Only CEO or Admin can invite workspace members.",
+        userFriendlyMessage: "ليس لديك صلاحية إرسال دعوات الموظفين. هذه الصلاحية محصورة في المدير التنفيذي (CEO)."
+      });
+    }
+
+    // 4. Prevent Self-Invitation
+    if (normalizedEmail === (req.user?.email || ceoData.email || "").toLowerCase()) {
+      return res.status(400).json({
+        success: false,
+        code: "SELF_INVITATION",
+        error: "Cannot invite sender email address.",
+        userFriendlyMessage: "لا يمكنك إرسال دعوة انضمام إلى بريدك الإلكتروني الحالي."
+      });
+    }
+
+    // 5. Prevent Inviting Existing Members
+    const workspaceId = ceoData.workspaceId || `ws_${callerUid.substring(0, 8)}`;
+    const teamMembersList = ceoData.teamMembersList || [];
+    const isAlreadyInTeam = teamMembersList.some((m: any) => {
+      const mEmail = m.email?.trim().toLowerCase();
+      const isPending = m.name?.includes("معلق") || m.name?.includes("Pending");
+      return mEmail === normalizedEmail && !isPending;
+    });
+
+    if (isAlreadyInTeam) {
+      return res.status(400).json({
+        success: false,
+        code: "ALREADY_MEMBER",
+        error: "Employee is already a full member of the organization.",
+        userFriendlyMessage: "هذا البريد الإلكتروني عضو بالفعل في المؤسسة."
+      });
+    }
+
+    try {
+      const existingUserSnap = await adminDb.collection("users").where("email", "==", normalizedEmail).get();
+      if (!existingUserSnap.empty) {
+        const existingUserData = existingUserSnap.docs[0].data();
+        if (existingUserData.workspaceId === workspaceId && existingUserData.role !== "Pending") {
+          return res.status(400).json({
+            success: false,
+            code: "ALREADY_MEMBER",
+            error: "Employee is already registered in this workspace.",
+            userFriendlyMessage: "هذا المستخدم عضو بالفعل في المؤسسة."
+          });
+        }
+      }
+    } catch (e) {}
+
+    // 6. Check existing pending invitation
+    let existingInv: any = null;
+    try {
+      const invDoc = await adminDb.collection("invitations").doc(normalizedEmail).get();
+      if (invDoc.exists) {
+        existingInv = invDoc.data();
+      }
+    } catch (e) {}
+
+    // 7. Generate Secure Token & Expiration
+    const secureToken = crypto.randomBytes(24).toString("hex");
+    const nowIso = new Date().toISOString();
+    const expiresAtIso = new Date(Date.now() + 7 * 24 * 3600 * 1000).toISOString();
+
+    const companyName = ceoData.companyName || "ZakIr Platform";
+    const memberName = (name || normalizedEmail.split("@")[0]).trim();
+    const designatedRole = role || "Contributor";
+    const defaultPowers = powers || {
+      fileVault: true,
+      memoryVault: true,
+      riskRadar: false,
+      marketIntel: false,
+      settings: false
+    };
+
+    const invitationRecord: any = {
+      email: normalizedEmail,
+      name: memberName,
+      role: designatedRole,
+      powers: defaultPowers,
+      workspaceId: workspaceId,
+      companyName: companyName,
+      senderId: callerUid,
+      senderEmail: ceoData.email || req.user?.email,
+      status: "pending",
+      token: secureToken,
+      createdAt: existingInv?.createdAt || nowIso,
+      updatedAt: nowIso,
+      expiresAt: expiresAtIso,
+      lastSentAt: nowIso,
+      resendCount: (existingInv?.resendCount || 0) + (existingInv ? 1 : 0)
+    };
+
+    // 8. Persist Invitation in Firestore & Local DB
+    try {
+      await adminDb.collection("invitations").doc(normalizedEmail).set(invitationRecord);
+    } catch (fsErr) {
+      console.error("Failed to write invitation to Firestore:", fsErr);
+    }
+
+    const db = readDb();
+    if (!db.invitations) db.invitations = [];
+    db.invitations = db.invitations.filter((i: any) => i.email?.trim().toLowerCase() !== normalizedEmail);
+    db.invitations.push(invitationRecord);
+    writeDb(db);
+
+    // Update CEO's teamMembersList to include pending member
+    try {
+      const ceoRef = adminDb.collection("users").doc(callerUid);
+      const updatedList = teamMembersList.filter((m: any) => m.email?.trim().toLowerCase() !== normalizedEmail);
+      updatedList.push({
+        id: `tm-inv-${Date.now()}`,
+        name: `${memberName} (معلق)`,
+        email: normalizedEmail,
+        role: designatedRole,
+        powers: defaultPowers,
+        addedAt: nowIso.split("T")[0]
+      });
+      await ceoRef.update({ teamMembersList: updatedList });
+    } catch (ceoErr) {
+      console.warn("Failed to update CEO team list in Firestore:", ceoErr);
+    }
+
+    // 9. Dispatch Email via Resend / System Mailer
+    const appBaseUrl = process.env.APP_URL || process.env.PUBLIC_APP_URL || "https://ais-dev-wrad7fj3g254qilpi2t3jv-657720925988.europe-west2.run.app";
+    const inviteLink = `${appBaseUrl}/?invitationToken=${secureToken}&email=${encodeURIComponent(normalizedEmail)}`;
+
+    const emailSubject = `دعوة للانضمام إلى فريق ${companyName} على منصة ذاكر (Zakir)`;
+    const emailHtml = `
+      <div dir="rtl" style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto; background-color: #0b0f19; color: #f8fafc; border: 1px solid #1e293b; border-radius: 16px; overflow: hidden;">
+        <div style="background: linear-gradient(135deg, #0075DE 0%, #005BAB 100%); padding: 32px 24px; text-align: center;">
+          <h1 style="margin: 0; color: #ffffff; font-size: 24px; font-weight: 800;">منصة ذاكر - Zakir Platform</h1>
+          <p style="margin: 8px 0 0 0; color: #e0f2fe; font-size: 14px;">دعوة انضمام رسمية لمؤسسة ${companyName}</p>
+        </div>
+        <div style="padding: 32px 24px;">
+          <p style="font-size: 16px; line-height: 1.6; color: #cbd5e1;">مرحباً <strong>${memberName}</strong>،</p>
+          <p style="font-size: 14px; line-height: 1.6; color: #94a3b8;">
+            يدعوك المدير التنفيذي (<strong>${ceoData.ownerName || ceoData.email}</strong>) للانضمام رسمياً إلى بيئة العمل الخاصة بمؤسسة <strong>${companyName}</strong> بصفة: <span style="color: #38bdf8; font-weight: 700;">${designatedRole}</span>.
+          </p>
+          
+          <div style="margin: 28px 0; text-align: center;">
+            <a href="${inviteLink}" style="display: inline-block; background-color: #0075DE; color: #ffffff; font-weight: 700; font-size: 15px; padding: 14px 32px; border-radius: 12px; text-decoration: none; box-shadow: 0 4px 12px rgba(0, 117, 222, 0.3);">
+              قبول الدعوة والانضمام للفريق ←
+            </a>
+          </div>
+
+          <p style="font-size: 12px; color: #64748b; line-height: 1.5; margin-top: 24px;">
+            أو يمكنك استخدام الرابط المباشر التالي:
+            <br/>
+            <a href="${inviteLink}" style="color: #38bdf8; word-break: break-all;">${inviteLink}</a>
+          </p>
+          <p style="font-size: 12px; color: #64748b; margin-top: 16px;">
+            تنتهي صلاحية هذه الدعوة تلقائياً بعد 7 أيام.
+          </p>
+        </div>
+        <div style="background-color: #020617; padding: 16px 24px; border-top: 1px solid #1e293b; text-align: center; font-size: 12px; color: #64748b;">
+          &copy; ${new Date().getFullYear()} Zakir Platform. جميع الحقوق محفوظة.
+        </div>
+      </div>
+    `;
+
+    const mailResult = await sendSystemMail({
+      to: normalizedEmail,
+      subject: emailSubject,
+      html: emailHtml,
+      text: `مرحباً ${memberName}، يدعوك ${ceoData.ownerName || ceoData.email} للانضمام إلى ${companyName}. اضغط الرابط للقبول: ${inviteLink}`
+    });
+
+    if (mailResult.success) {
+      console.log("INVITATION_SENT_SUCCESSFULLY", {
+        recipient: normalizedEmail,
+        ceo: callerUid,
+        workspaceId
+      });
+      return res.json({
+        success: true,
+        message: "Invitation generated and dispatched successfully via email.",
+        userFriendlyMessage: `تم إرسال دعوة الموظف بنجاح إلى البريد (${normalizedEmail}).`,
+        invitation: invitationRecord
+      });
+    } else {
+      console.warn("INVITATION_EMAIL_DELIVERY_FAILED", {
+        recipient: normalizedEmail,
+        error: mailResult.error
+      });
+      invitationRecord.status = "email_failed";
+      try {
+        await adminDb.collection("invitations").doc(normalizedEmail).update({ status: "email_failed" });
+      } catch (e) {}
+
+      return res.json({
+        success: true,
+        emailSent: false,
+        code: "EMAIL_SEND_FAILED",
+        userFriendlyMessage: `تمت إضافة الدعوة بنجاح، لكن تعذر تسليم البريد الإلكتروني حالياً. يمكنك إعادة إرسال الدعوة لاحقاً من القائمة.`,
+        invitation: invitationRecord
+      });
+    }
+
+  } catch (err: any) {
+    console.error("send-invitation endpoint exception:", err);
+    return res.status(500).json({
+      success: false,
+      code: "INVITATION_CREATE_FAILED",
+      error: err?.message || String(err),
+      userFriendlyMessage: "تعذر إرسال الدعوة حالياً بسبب خطأ خادم داخلي. يرجى المحاولة مرة أخرى."
+    });
+  }
+});
+
+// CEO Resend Workspace Invitation
+app.post("/api/admin/resend-invitation", requireAuth, async (req: AuthRequest, res) => {
+  try {
+    const callerUid = req.user?.uid;
+    if (!callerUid) {
+      return res.status(401).json({ success: false, code: "AUTH_REQUIRED", error: "Unauthorized" });
+    }
+
+    const { email } = req.body;
+    const normalizedEmail = (email || "").trim().toLowerCase();
+
+    if (!normalizedEmail) {
+      return res.status(400).json({ success: false, code: "INVALID_EMAIL", error: "Email is required" });
+    }
+
+    let ceoData: any = null;
+    try {
+      const snap = await adminDb.collection("users").doc(callerUid).get();
+      if (snap.exists) ceoData = snap.data();
+    } catch (e) {}
+
+    const ceoRole = (ceoData?.role || "").toUpperCase();
+    if (ceoRole !== "CEO" && ceoRole !== "ADMIN") {
+      return res.status(403).json({ success: false, code: "FORBIDDEN", error: "Forbidden: Only CEO can resend invitations" });
+    }
+
+    let invRecord: any = null;
+    try {
+      const invDoc = await adminDb.collection("invitations").doc(normalizedEmail).get();
+      if (invDoc.exists) invRecord = invDoc.data();
+    } catch (e) {}
+
+    if (!invRecord) {
+      const db = readDb();
+      invRecord = db.invitations?.find((i: any) => i.email?.trim().toLowerCase() === normalizedEmail);
+    }
+
+    if (!invRecord) {
+      return res.status(404).json({ success: false, code: "INVITATION_NOT_FOUND", error: "Invitation not found", userFriendlyMessage: "الدعوة غير موجودة." });
+    }
+
+    const secureToken = crypto.randomBytes(24).toString("hex");
+    const nowIso = new Date().toISOString();
+    const expiresAtIso = new Date(Date.now() + 7 * 24 * 3600 * 1000).toISOString();
+
+    invRecord.token = secureToken;
+    invRecord.status = "pending";
+    invRecord.expiresAt = expiresAtIso;
+    invRecord.lastSentAt = nowIso;
+    invRecord.resendCount = (invRecord.resendCount || 0) + 1;
+
+    try {
+      await adminDb.collection("invitations").doc(normalizedEmail).set(invRecord);
+    } catch (e) {}
+
+    const db = readDb();
+    if (!db.invitations) db.invitations = [];
+    const idx = db.invitations.findIndex((i: any) => i.email?.trim().toLowerCase() === normalizedEmail);
+    if (idx >= 0) db.invitations[idx] = invRecord;
+    else db.invitations.push(invRecord);
+    writeDb(db);
+
+    const companyName = invRecord.companyName || ceoData?.companyName || "ZakIr Platform";
+    const memberName = invRecord.name || normalizedEmail.split("@")[0];
+    const designatedRole = invRecord.role || "Contributor";
+    const appBaseUrl = process.env.APP_URL || process.env.PUBLIC_APP_URL || "https://ais-dev-wrad7fj3g254qilpi2t3jv-657720925988.europe-west2.run.app";
+    const inviteLink = `${appBaseUrl}/?invitationToken=${secureToken}&email=${encodeURIComponent(normalizedEmail)}`;
+
+    const emailSubject = `إعادة إرسال: دعوة للانضمام إلى فريق ${companyName} على منصة ذاكر (Zakir)`;
+    const emailHtml = `
+      <div dir="rtl" style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto; background-color: #0b0f19; color: #f8fafc; border: 1px solid #1e293b; border-radius: 16px; overflow: hidden;">
+        <div style="background: linear-gradient(135deg, #0075DE 0%, #005BAB 100%); padding: 32px 24px; text-align: center;">
+          <h1 style="margin: 0; color: #ffffff; font-size: 24px; font-weight: 800;">منصة ذاكر - Zakir Platform</h1>
+          <p style="margin: 8px 0 0 0; color: #e0f2fe; font-size: 14px;">إعادة إرسال دعوة انضمام رسمية لمؤسسة ${companyName}</p>
+        </div>
+        <div style="padding: 32px 24px;">
+          <p style="font-size: 16px; line-height: 1.6; color: #cbd5e1;">مرحباً <strong>${memberName}</strong>،</p>
+          <p style="font-size: 14px; line-height: 1.6; color: #94a3b8;">
+            نود تذكيرك بالدعوة الموجهة من المدير التنفيذي للانضمام إلى بيئة العمل بصفة: <span style="color: #38bdf8; font-weight: 700;">${designatedRole}</span>.
+          </p>
+          
+          <div style="margin: 28px 0; text-align: center;">
+            <a href="${inviteLink}" style="display: inline-block; background-color: #0075DE; color: #ffffff; font-weight: 700; font-size: 15px; padding: 14px 32px; border-radius: 12px; text-decoration: none;">
+              قبول الدعوة والانضمام للفريق ←
+            </a>
+          </div>
+
+          <p style="font-size: 12px; color: #64748b; line-height: 1.5; margin-top: 24px;">
+            أو استخدم الرابط المباشر: <a href="${inviteLink}" style="color: #38bdf8; word-break: break-all;">${inviteLink}</a>
+          </p>
+        </div>
+      </div>
+    `;
+
+    const mailResult = await sendSystemMail({
+      to: normalizedEmail,
+      subject: emailSubject,
+      html: emailHtml,
+      text: `تذكير بدعوة الانضمام إلى ${companyName}. الرابط: ${inviteLink}`
+    });
+
+    return res.json({
+      success: true,
+      emailSent: mailResult.success,
+      userFriendlyMessage: mailResult.success 
+        ? `تمت إعادة إرسال بريد الدعوة بنجاح إلى (${normalizedEmail}).`
+        : `تم تحديث الدعوة، لكن تعذر تسليم البريد الإلكتروني حالياً.`,
+      invitation: invRecord
+    });
+  } catch (err: any) {
+    return res.status(500).json({ success: false, error: err.message, userFriendlyMessage: "فشل إعادة إرسال الدعوة." });
+  }
+});
+
+// CEO Revoke Workspace Invitation
+app.post("/api/admin/revoke-invitation", requireAuth, async (req: AuthRequest, res) => {
+  try {
+    const callerUid = req.user?.uid;
+    if (!callerUid) {
+      return res.status(401).json({ success: false, code: "AUTH_REQUIRED", error: "Unauthorized" });
+    }
+
+    const { email } = req.body;
+    const normalizedEmail = (email || "").trim().toLowerCase();
+
+    if (!normalizedEmail) {
+      return res.status(400).json({ success: false, code: "INVALID_EMAIL", error: "Email required" });
+    }
+
+    try {
+      await adminDb.collection("invitations").doc(normalizedEmail).delete();
+    } catch (e) {}
+
+    const db = readDb();
+    if (db.invitations) {
+      db.invitations = db.invitations.filter((i: any) => i.email?.trim().toLowerCase() !== normalizedEmail);
+      writeDb(db);
+    }
+
+    try {
+      const ceoRef = adminDb.collection("users").doc(callerUid);
+      const snap = await ceoRef.get();
+      if (snap.exists) {
+        const teamList = (snap.data()?.teamMembersList || []).filter((m: any) => m.email?.trim().toLowerCase() !== normalizedEmail);
+        await ceoRef.update({ teamMembersList: teamList });
+      }
+    } catch (e) {}
+
+    return res.json({
+      success: true,
+      userFriendlyMessage: `تم إلغاء وسحب الدعوة بنجاح لـ (${normalizedEmail}).`
+    });
+  } catch (err: any) {
+    return res.status(500).json({ success: false, error: err.message, userFriendlyMessage: "فشل إلغاء الدعوة." });
   }
 });
 
@@ -5433,7 +5853,7 @@ app.post("/api/smart-evolution", async (req, res) => {
 }`;
 
     let response;
-    const fallbackModels = ["gemini-3.6-flash", "gemini-flash-latest", "gemini-2.0-flash"];
+    const fallbackModels = ["gemini-3.7-flash", "gemini-3.5-flash", "gemini-flash-latest", "gemini-2.0-flash"];
     for (let i = 0; i < fallbackModels.length; i++) {
       try {
         response = await ai.models.generateContent({
@@ -5566,7 +5986,7 @@ app.post("/api/market-intelligence", async (req, res) => {
 
 تنبيه مهم: يجب توليد جميع النصوص باللغة المطلوبة: "${lang === "ar" ? "اللغة العربية الفصيحة والدقيقة" : lang === "fr" ? "اللغة الفرنسية" : "اللغة الإنجليزية"}".`;
 
-  const candidateModels = ["gemini-3.6-flash", "gemini-flash-latest", "gemini-2.0-flash"];
+  const candidateModels = ["gemini-3.7-flash", "gemini-3.5-flash", "gemini-flash-latest", "gemini-2.0-flash"];
   let jsonOutput = null;
 
   for (const modelName of candidateModels) {
@@ -5643,7 +6063,7 @@ app.post("/api/agent/chat", async (req, res) => {
       parts: [{ text: promptText }]
     });
 
-    const candidateModels = ["gemini-3.6-flash", "gemini-flash-latest", "gemini-2.0-flash"];
+    const candidateModels = ["gemini-3.7-flash", "gemini-3.5-flash", "gemini-flash-latest", "gemini-2.0-flash"];
     let responseText = "";
     let lastError: any = null;
 

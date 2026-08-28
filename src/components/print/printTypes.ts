@@ -61,6 +61,7 @@ export interface PrintSystemProps {
   workspaceLogoUrl?: string;
   currentUser?: User | null;
   onOpenProfileSettings?: () => void;
+  theme?: "light" | "dark" | "custom";
 }
 
 export interface PrintDiagnostics {

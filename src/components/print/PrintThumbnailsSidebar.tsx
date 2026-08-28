@@ -11,6 +11,7 @@ interface PrintThumbnailsSidebarProps {
   activePageIndex: number;
   onSelectPage: (index: number) => void;
   pages?: PaginatedPage[];
+  theme?: "light" | "dark" | "custom";
 }
 
 export const PrintThumbnailsSidebar: React.FC<PrintThumbnailsSidebarProps> = ({
@@ -20,6 +21,7 @@ export const PrintThumbnailsSidebar: React.FC<PrintThumbnailsSidebarProps> = ({
   activePageIndex,
   onSelectPage,
   pages: providedPages,
+  theme = "dark",
 }) => {
   const isRtl = lang === "ar";
   const pages = providedPages || paginateMemories(memories, settings, lang);
@@ -27,16 +29,26 @@ export const PrintThumbnailsSidebar: React.FC<PrintThumbnailsSidebarProps> = ({
 
   return (
     <aside
-      className="zakir-print-thumbnails-sidebar w-36 min-w-[130px] max-w-[150px] h-full bg-[#0b1329] border-e border-slate-800/80 flex flex-col select-none custom-scrollbar shrink-0 shadow-lg z-10"
+      className={`zakir-print-thumbnails-sidebar w-36 min-w-[130px] max-w-[150px] h-full flex flex-col select-none custom-scrollbar shrink-0 shadow-lg z-10 ${
+        theme === "dark"
+          ? "bg-[#0b1329] border-e border-slate-800/80"
+          : "bg-slate-50 border-e border-slate-200"
+      }`}
       dir={isRtl ? "rtl" : "ltr"}
     >
       {/* Header */}
-      <div className="h-10 px-3 border-b border-slate-800/80 flex items-center justify-between text-slate-300">
+      <div className={`h-10 px-3 border-b flex items-center justify-between ${
+        theme === "dark" ? "border-slate-800/80 text-slate-300" : "border-slate-200 text-slate-700"
+      }`}>
         <div className="flex items-center gap-1.5 font-black text-xs">
           <Layers className="w-3.5 h-3.5 text-[#0075DE]" />
           <span>{lang === "ar" ? "الصفحات" : "Pages"}</span>
         </div>
-        <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-slate-900 text-slate-400 border border-slate-700">
+        <span className={`text-[10px] font-mono font-bold px-1.5 py-0.5 rounded border ${
+          theme === "dark"
+            ? "bg-slate-900 text-slate-400 border-slate-700"
+            : "bg-white text-slate-500 border-slate-200 shadow-xs"
+        }`}>
           {totalPages}
         </span>
       </div>
@@ -84,7 +96,11 @@ export const PrintThumbnailsSidebar: React.FC<PrintThumbnailsSidebarProps> = ({
               {/* Page Number Label */}
               <span
                 className={`text-[11px] font-bold font-mono transition-colors ${
-                  isActive ? "text-[#0075DE] font-black" : "text-slate-400 group-hover:text-slate-200"
+                  isActive
+                    ? "text-[#0075DE] font-black"
+                    : theme === "dark"
+                      ? "text-slate-400 group-hover:text-slate-200"
+                      : "text-slate-500 group-hover:text-slate-800"
                 }`}
               >
                 {pageNum}

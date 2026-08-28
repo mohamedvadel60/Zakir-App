@@ -566,7 +566,7 @@ export async function saveFirebaseUserProfile(user: User): Promise<void> {
 
   const sanitizedUser = sanitizeFirestoreData(updatableProfile);
   try {
-    await updateDoc(userDocRef, sanitizedUser);
+    await setDoc(userDocRef, sanitizedUser, { merge: true });
     isFirestoreOffline = false; // Successfully connected!
   } catch (error) {
     const errMessage = error instanceof Error ? error.message : String(error);
@@ -574,6 +574,7 @@ export async function saveFirebaseUserProfile(user: User): Promise<void> {
       isFirestoreOffline = true;
     } else {
       handleFirestoreError(error, OperationType.UPDATE, `users/${user.id}`);
+      throw error;
     }
   }
 }
@@ -1205,33 +1206,78 @@ export interface WorkspaceInvitation {
   companyName: string;
   senderId: string;
   senderEmail: string;
-  status: "pending" | "accepted";
+  status: "pending" | "accepted" | "email_failed" | "expired" | "revoked";
+  token?: string;
   createdAt: string;
+  updatedAt?: string;
+  expiresAt?: string;
+  lastSentAt?: string;
+  resendCount?: number;
+}
+
+export async function sendWorkspaceInvitationApi(invData: {
+  email: string;
+  name?: string;
+  role?: string;
+  powers?: ModulePermissions;
+}): Promise<{ success: boolean; userFriendlyMessage?: string; invitation?: WorkspaceInvitation }> {
+  const emailKey = invData.email.trim().toLowerCase();
+  const res = await authenticatedFetch("/api/admin/send-invitation", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      email: emailKey,
+      name: invData.name,
+      role: invData.role,
+      powers: invData.powers
+    })
+  });
+
+  const data = await res.json();
+  if (!res.ok || !data.success) {
+    throw new Error(data.userFriendlyMessage || data.error || "Failed to send invitation");
+  }
+
+  if (data.invitation) {
+    const invitations = getLocalItem("invitations", []);
+    const updated = invitations.filter((i: WorkspaceInvitation) => i.email.trim().toLowerCase() !== emailKey);
+    updated.push(data.invitation);
+    setLocalItem("invitations", updated);
+  }
+
+  return data;
+}
+
+export async function resendWorkspaceInvitationApi(email: string): Promise<{ success: boolean; userFriendlyMessage?: string }> {
+  const emailKey = email.trim().toLowerCase();
+  const res = await authenticatedFetch("/api/admin/resend-invitation", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email: emailKey })
+  });
+
+  const data = await res.json();
+  if (!res.ok || !data.success) {
+    throw new Error(data.userFriendlyMessage || data.error || "Failed to resend invitation");
+  }
+
+  if (data.invitation) {
+    const invitations = getLocalItem("invitations", []);
+    const updated = invitations.filter((i: WorkspaceInvitation) => i.email.trim().toLowerCase() !== emailKey);
+    updated.push(data.invitation);
+    setLocalItem("invitations", updated);
+  }
+
+  return data;
 }
 
 export async function saveWorkspaceInvitation(inv: WorkspaceInvitation): Promise<void> {
-  const emailKey = inv.email.trim().toLowerCase();
-  
-  // Save in local storage first
-  const invitations = getLocalItem("invitations", []);
-  const updated = invitations.filter((i: WorkspaceInvitation) => i.email.trim().toLowerCase() !== emailKey);
-  updated.push(inv);
-  setLocalItem("invitations", updated);
-
-  if (isFirestoreOffline) {
-    return;
-  }
-
-  try {
-    await setDoc(doc(db, "invitations", emailKey), inv);
-  } catch (error) {
-    const errMessage = error instanceof Error ? error.message : String(error);
-    if (errMessage.toLowerCase().includes('offline') || errMessage.toLowerCase().includes('network')) {
-      isFirestoreOffline = true;
-    } else {
-      handleFirestoreError(error, OperationType.CREATE, `invitations/${emailKey}`);
-    }
-  }
+  await sendWorkspaceInvitationApi({
+    email: inv.email,
+    name: inv.name,
+    role: inv.role,
+    powers: inv.powers
+  });
 }
 
 export async function deleteWorkspaceInvitation(email: string): Promise<void> {
@@ -1242,18 +1288,25 @@ export async function deleteWorkspaceInvitation(email: string): Promise<void> {
   const updated = invitations.filter((i: WorkspaceInvitation) => i.email.trim().toLowerCase() !== emailKey);
   setLocalItem("invitations", updated);
 
-  if (isFirestoreOffline) {
-    return;
+  try {
+    const res = await authenticatedFetch("/api/admin/revoke-invitation", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: emailKey })
+    });
+    const data = await res.json();
+    if (!res.ok || !data.success) {
+      console.warn("Revoke invitation backend notice:", data.error);
+    }
+  } catch (err) {
+    console.warn("Revoke invitation backend endpoint error, clearing locally:", err);
   }
 
-  try {
-    await deleteDoc(doc(db, "invitations", emailKey));
-  } catch (error) {
-    const errMessage = error instanceof Error ? error.message : String(error);
-    if (errMessage.toLowerCase().includes('offline') || errMessage.toLowerCase().includes('network')) {
-      isFirestoreOffline = true;
-    } else {
-      handleFirestoreError(error, OperationType.DELETE, `invitations/${emailKey}`);
+  if (auth.currentUser && !isFirestoreOffline) {
+    try {
+      await deleteDoc(doc(db, "invitations", emailKey));
+    } catch (error) {
+      // ignore
     }
   }
 }
@@ -1292,16 +1345,18 @@ export async function checkWorkspaceInvitation(email: string): Promise<Workspace
 export async function fetchWorkspaceInvitations(workspaceId: string): Promise<WorkspaceInvitation[]> {
   if (isFirestoreOffline) {
     const invitations = getLocalItem("invitations", []);
-    return invitations.filter((i: WorkspaceInvitation) => i.workspaceId === workspaceId);
+    return invitations.filter((i: WorkspaceInvitation) => !workspaceId || i.workspaceId === workspaceId);
   }
 
   try {
-    const q = query(collection(db, "invitations"));
+    const q = workspaceId
+      ? query(collection(db, "invitations"), where("workspaceId", "==", workspaceId))
+      : query(collection(db, "invitations"));
     const snap = await getDocs(q);
     const list: WorkspaceInvitation[] = [];
     snap.forEach((docSnap) => {
       const data = docSnap.data() as WorkspaceInvitation;
-      if (data.workspaceId === workspaceId) {
+      if (!workspaceId || data.workspaceId === workspaceId) {
         list.push(data);
       }
     });
@@ -1311,12 +1366,10 @@ export async function fetchWorkspaceInvitations(workspaceId: string): Promise<Wo
     const errMessage = err instanceof Error ? err.message : String(err);
     if (errMessage.toLowerCase().includes('offline') || errMessage.toLowerCase().includes('network')) {
       isFirestoreOffline = true;
-      const invitations = getLocalItem("invitations", []);
-      return invitations.filter((i: WorkspaceInvitation) => i.workspaceId === workspaceId);
     }
-    console.error("Failed to fetch workspace invitations:", err);
-    handleFirestoreError(err, OperationType.LIST, "invitations");
-    return [];
+    console.warn("Falling back to local workspace invitations cache:", errMessage);
+    const invitations = getLocalItem("invitations", []);
+    return invitations.filter((i: WorkspaceInvitation) => !workspaceId || i.workspaceId === workspaceId);
   }
 }
 
