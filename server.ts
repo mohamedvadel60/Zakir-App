@@ -1120,8 +1120,9 @@ async function sendSystemMail(
       const logoBuf = getOfficialPngLogo();
       if (logoBuf && logoBuf.length > 0) {
         attachments.push({
+          filename: "logo.png",
           content: logoBuf,
-          contentId: "zakir-logo",
+          content_id: "zakir-logo",
           contentType: "image/png"
         });
       }
@@ -1136,7 +1137,22 @@ async function sendSystemMail(
     };
 
     if (attachments.length > 0) {
-      emailPayload.attachments = attachments;
+      emailPayload.attachments = attachments.map((att: any) => {
+        const mapped: any = {
+          filename: att.filename || "attachment.png",
+        };
+        if (att.content !== undefined) {
+          mapped.content = att.content;
+        }
+        if (att.path) {
+          mapped.path = att.path;
+        }
+        const cid = att.content_id || att.contentId || att.cid;
+        if (cid) {
+          mapped.content_id = cid;
+        }
+        return mapped;
+      });
     }
 
     const response = await resend.emails.send(emailPayload);

@@ -176,7 +176,6 @@ export const CompactAppSwitcher: React.FC<CompactAppSwitcherProps> = ({
               : "bg-slate-900/80 hover:bg-slate-800 border-slate-800 text-slate-200"
         }`}
         aria-label="Switch App / Module"
-        title={lang === "ar" ? "تبديل التطبيق / الوحدة" : "Switch App / Module"}
       >
         <div className="flex items-center gap-2">
           <CurrentIcon className="w-4 h-4 text-[#0075DE] shrink-0" />

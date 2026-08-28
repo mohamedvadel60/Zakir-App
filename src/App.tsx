@@ -3897,15 +3897,6 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                 >
                   <Menu className="w-4 h-4" />
                 </button>
-
-                {/* Compact App / Module Switcher (Hover on desktop, Tap on mobile) */}
-                <CompactAppSwitcher 
-                  activeTab={activeTab} 
-                  onSelectTab={setActiveTab} 
-                  lang={lang} 
-                  theme={theme}
-                  align={lang === "ar" ? "right" : "left"}
-                />
               </div>
 
               <div className="flex items-center gap-2.5">
