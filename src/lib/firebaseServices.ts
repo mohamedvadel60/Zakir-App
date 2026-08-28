@@ -19,6 +19,7 @@ import {
   updateDoc,
   query, 
   where,
+  limit,
   orderBy,
   getDocFromServer,
   onSnapshot
@@ -174,7 +175,7 @@ export async function registerFirebaseUser(
   pass: string,
   companyName: string,
   ownerName: string,
-  role: UserRole = "Contributor",
+  role: UserRole = "CEO",
   invitedWorkspaceId?: string,
   invitedWorkspace?: WorkspaceInfo,
   powers?: ModulePermissions
@@ -212,16 +213,15 @@ export async function registerFirebaseUser(
     };
   }
 
-  // 2. Initialize new user profile with Free Tier status & Default System Preferences.
-  // Force safe non-privileged role ("Contributor") for client-initiated registration path.
-  const safeRole: UserRole = "Contributor";
+  // 2. Initialize new user profile with selected role (defaulting to CEO for workspace owners)
+  const effectiveRole: UserRole = role || "CEO";
   const nowIso = new Date().toISOString();
   const newUser: User = {
     id: uid,
     email: email,
     companyName: companyName,
     ownerName: ownerName,
-    role: safeRole,
+    role: effectiveRole,
     powers: powers,
     workspaceId: workspaceId,
     workspace: workspace,
@@ -257,7 +257,6 @@ export async function registerFirebaseUser(
     } catch (rErr) {
       console.warn("Retry fetch failed in registerFirebaseUser:", rErr);
     }
-
     const errMessage = error instanceof Error ? error.message : String(error);
     if (errMessage.toLowerCase().includes('offline') || errMessage.toLowerCase().includes('network')) {
       isFirestoreOffline = true;
@@ -265,6 +264,7 @@ export async function registerFirebaseUser(
       handleFirestoreError(error, OperationType.CREATE, `users/${uid}`);
     }
   }
+
   return newUser;
 }
 
@@ -372,15 +372,53 @@ export async function loginFirebaseUser(email: string, pass: string): Promise<Us
     setLocalItem(`user_${uid}`, userData);
     return userData;
   } else {
-    // If user document does not exist yet, create default non-admin profile (never CEO or Admin)
-    const workspaceId = `ws_${uid.substring(0, 8)}_${Date.now().toString(36)}`;
+    // Secondary lookup by email in case doc ID differs
+    try {
+      const emailQuery = query(collection(db, "users"), where("email", "==", email.trim().toLowerCase()), limit(1));
+      const emailSnap = await getDocs(emailQuery);
+      if (!emailSnap.empty) {
+        const foundData = emailSnap.docs[0].data() as User;
+        setLocalItem(`user_${uid}`, foundData);
+        return foundData;
+      }
+    } catch (e) {
+      console.warn("Notice: Secondary email lookup in loginFirebaseUser failed:", e);
+    }
+
+    // If user document does not exist yet: check if there is an active invitation for this email
+    let invitation: WorkspaceInvitation | null = null;
+    try {
+      invitation = await checkWorkspaceInvitation(email);
+    } catch (invErr) {
+      console.warn("Notice: Invitation check in loginFirebaseUser fallback:", invErr);
+    }
+
+    const effectiveRole: UserRole = invitation?.role || "CEO";
+    const workspaceId = invitation?.workspaceId || `ws_${uid.substring(0, 8)}_${Date.now().toString(36)}`;
+    const effectiveCompany = invitation?.companyName || "Personal Account";
+    const workspaceInfo: WorkspaceInfo = invitation ? {
+      id: invitation.workspaceId,
+      name: `${invitation.companyName} Workspace`,
+      ownerId: invitation.senderId,
+      createdAt: invitation.createdAt || new Date().toISOString(),
+      memberCount: 2
+    } : {
+      id: workspaceId,
+      name: `${effectiveCompany} Workspace`,
+      ownerId: uid,
+      createdAt: new Date().toISOString(),
+      memberCount: 1
+    };
+
     const defaultUser: User = {
       id: uid,
       email: email,
-      companyName: "Personal Account",
+      companyName: effectiveCompany,
       ownerName: email.split("@")[0],
-      role: "Contributor",
+      role: effectiveRole,
+      powers: invitation?.powers,
       workspaceId: workspaceId,
+      workspace: workspaceInfo,
       subscriptionStatus: "Pending Selection",
       userPreferences: { ...DEFAULT_USER_PREFERENCES },
       createdAt: new Date().toISOString(),
@@ -475,15 +513,57 @@ export async function loginWithGoogle(): Promise<User> {
     setLocalItem(`user_${uid}`, userData);
     return userData;
   } else {
-    // New Google user, create default non-admin profile (never CEO or Admin)
-    const workspaceId = `ws_${uid.substring(0, 8)}_${Date.now().toString(36)}`;
+    // Secondary lookup by email in case doc ID differs
+    try {
+      if (email) {
+        const emailQuery = query(collection(db, "users"), where("email", "==", email.trim().toLowerCase()), limit(1));
+        const emailSnap = await getDocs(emailQuery);
+        if (!emailSnap.empty) {
+          const foundData = emailSnap.docs[0].data() as User;
+          setLocalItem(`user_${uid}`, foundData);
+          return foundData;
+        }
+      }
+    } catch (e) {
+      console.warn("Notice: Secondary email lookup in loginWithGoogle failed:", e);
+    }
+
+    // New Google user: check if there is an active invitation for this email
+    let invitation: WorkspaceInvitation | null = null;
+    try {
+      if (email) {
+        invitation = await checkWorkspaceInvitation(email);
+      }
+    } catch (invErr) {
+      console.warn("Notice: Invitation check in loginWithGoogle fallback:", invErr);
+    }
+
+    const effectiveRole: UserRole = invitation?.role || "CEO";
+    const workspaceId = invitation?.workspaceId || `ws_${uid.substring(0, 8)}_${Date.now().toString(36)}`;
+    const effectiveCompany = invitation?.companyName || "Personal Account";
+    const workspaceInfo: WorkspaceInfo = invitation ? {
+      id: invitation.workspaceId,
+      name: `${invitation.companyName} Workspace`,
+      ownerId: invitation.senderId,
+      createdAt: invitation.createdAt || new Date().toISOString(),
+      memberCount: 2
+    } : {
+      id: workspaceId,
+      name: `${effectiveCompany} Workspace`,
+      ownerId: uid,
+      createdAt: new Date().toISOString(),
+      memberCount: 1
+    };
+
     const defaultUser: User = {
       id: uid,
       email: email,
-      companyName: "Personal Account",
+      companyName: effectiveCompany,
       ownerName: displayName,
-      role: "Contributor",
+      role: effectiveRole,
+      powers: invitation?.powers,
       workspaceId: workspaceId,
+      workspace: workspaceInfo,
       subscriptionStatus: "Pending Selection",
       userPreferences: { ...DEFAULT_USER_PREFERENCES },
       createdAt: new Date().toISOString(),
@@ -681,21 +761,70 @@ export function subscribeToFirebaseAuthState(callback: (user: User | null) => vo
         setLocalItem(`user_${fbUser.uid}`, userObj);
         callback(userObj);
       } else {
-        // Firestore is online and authoritative, and the user profile does not exist.
-        // Create a safe, default, non-privileged Contributor profile instead.
+        // Secondary lookup by email in case document ID is different
+        let emailUserData: User | null = null;
+        try {
+          if (fbUser.email) {
+            const emailQuery = query(collection(db, "users"), where("email", "==", fbUser.email.trim().toLowerCase()), limit(1));
+            const emailSnap = await getDocs(emailQuery);
+            if (!emailSnap.empty) {
+              emailUserData = emailSnap.docs[0].data() as User;
+            }
+          }
+        } catch (e) {
+          console.warn("Notice: Secondary email lookup in subscribeToFirebaseAuthState failed:", e);
+        }
+
+        if (emailUserData) {
+          setLocalItem(`user_${fbUser.uid}`, emailUserData);
+          callback(emailUserData);
+          return;
+        }
+
+        // Check if there is an active invitation for this email
+        let invitation: WorkspaceInvitation | null = null;
+        try {
+          if (fbUser.email) {
+            invitation = await checkWorkspaceInvitation(fbUser.email);
+          }
+        } catch (invErr) {
+          console.warn("Notice: Invitation check in subscribeToFirebaseAuthState fallback:", invErr);
+        }
+
+        const effectiveRole: UserRole = invitation?.role || "CEO";
+        const workspaceId = invitation?.workspaceId || `ws_${fbUser.uid.substring(0, 8)}_${Date.now().toString(36)}`;
+        const effectiveCompany = invitation?.companyName || "Personal Account";
+        const workspaceInfo: WorkspaceInfo = invitation ? {
+          id: invitation.workspaceId,
+          name: `${invitation.companyName} Workspace`,
+          ownerId: invitation.senderId,
+          createdAt: invitation.createdAt || new Date().toISOString(),
+          memberCount: 2
+        } : {
+          id: workspaceId,
+          name: `${effectiveCompany} Workspace`,
+          ownerId: fbUser.uid,
+          createdAt: new Date().toISOString(),
+          memberCount: 1
+        };
+
+        // Firestore is online and user profile does not exist: create default profile (CEO for new workspace or invited role)
         const defaultUser: User = {
           id: fbUser.uid,
           email: fbUser.email || "",
-          companyName: "Personal Account",
+          companyName: effectiveCompany,
           ownerName: fbUser.email ? fbUser.email.split("@")[0] : "User",
-          role: "Contributor",
+          role: effectiveRole,
+          powers: invitation?.powers,
+          workspaceId: workspaceId,
+          workspace: workspaceInfo,
           createdAt: new Date().toISOString(),
           trialExpiresAt: new Date(Date.now() + 24 * 3600 * 1000).toISOString()
         };
         try {
           await setDoc(doc(db, "users", fbUser.uid), defaultUser);
         } catch (e) {
-          console.warn("Failed to create default non-admin profile in Firestore:", e);
+          console.warn("Failed to create default profile in Firestore:", e);
           try {
             const retrySnap = await getDoc(doc(db, "users", fbUser.uid));
             if (retrySnap && retrySnap.exists()) {
@@ -724,20 +853,19 @@ export function subscribeToFirebaseAuthState(callback: (user: User | null) => vo
         return;
       }
 
-      // Fallback to local storage ONLY if Firestore is verified offline, and NEVER restore CEO or Admin roles.
-      if (isFirestoreOffline) {
-        const localUser = fbUser ? getLocalItem(`user_${fbUser.uid}`, null) : null;
-        if (localUser && localUser.role !== "CEO" && localUser.role !== "Admin") {
-          callback(localUser);
-          return;
-        }
+      // Fallback to local storage (preserving stored user and CEO/Admin roles)
+      const localUser = fbUser ? (getLocalItem(`user_${fbUser.uid}`, null) || (fbUser.email ? getLocalItem(`user_${fbUser.email}`, null) : null)) : null;
+      if (localUser) {
+        callback(localUser);
+        return;
       }
+      
       callback({
         id: fbUser.uid,
         email: fbUser.email || "",
         companyName: "Personal Account",
-        ownerName: "User",
-        role: "Contributor",
+        ownerName: fbUser.email ? fbUser.email.split("@")[0] : "User",
+        role: "CEO",
         createdAt: new Date().toISOString(),
         trialExpiresAt: new Date(Date.now() + 24 * 3600 * 1000).toISOString()
       });

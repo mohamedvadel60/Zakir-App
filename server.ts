@@ -2015,10 +2015,12 @@ app.post("/api/auth/verify-code", otpLimiter, async (req, res) => {
     const db = readDb();
     const user = db.users?.find((u: any) => u.email?.toLowerCase() === targetIdentifier || u.id === foundUid);
     
+    let firestoreUser: any = null;
     try {
       const userRef = adminDb.collection("users").doc(foundUid);
       const userSnap = await userRef.get();
       if (userSnap.exists) {
+        firestoreUser = userSnap.data();
         await userRef.update({
           isVerified: true,
           isEmailVerified: true,
@@ -2030,6 +2032,12 @@ app.post("/api/auth/verify-code", otpLimiter, async (req, res) => {
           "verificationInfo.status": "verified",
           "verificationInfo.verifiedAt": new Date().toISOString()
         });
+        firestoreUser.isVerified = true;
+        firestoreUser.isEmailVerified = true;
+        firestoreUser.emailVerified = true;
+        firestoreUser.email_verified = true;
+        firestoreUser.verification_status = "verified";
+        firestoreUser.verification_required = false;
         console.log(`[VERIFICATION SUCCESS] Updated user ${foundUid} in Firestore.`);
       }
     } catch (uErr) {
@@ -2047,13 +2055,21 @@ app.post("/api/auth/verify-code", otpLimiter, async (req, res) => {
       if (!user.verificationInfo) user.verificationInfo = {};
       user.verificationInfo.status = "verified";
       user.verificationInfo.verifiedAt = new Date().toISOString();
+      if (firestoreUser && firestoreUser.role) {
+        user.role = firestoreUser.role;
+      }
       writeDb(db);
+    }
+
+    const resolvedFinalUser = firestoreUser || user || resolvedUser.userDoc || null;
+    if (resolvedFinalUser && !resolvedFinalUser.role) {
+      resolvedFinalUser.role = "CEO";
     }
 
     return res.status(200).json({
       success: true,
       message: "Verification successful!",
-      user: user || resolvedUser.userDoc || null
+      user: resolvedFinalUser
     });
   } catch (err: any) {
     res.status(500).json({ error: err.message || "Failed to verify code" });

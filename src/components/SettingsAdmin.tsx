@@ -167,12 +167,12 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
   >("account");
 
   let currentTab = externalSubTab || internalSubTab;
-  if (currentUser.role !== "CEO" && currentTab !== "account" && currentTab !== "support") {
+  if (currentUser.role !== "CEO" && currentTab !== "account" && currentTab !== "security" && currentTab !== "support") {
     currentTab = "account";
   }
 
   const handleTabChange = (tab: "account" | "subscription" | "team" | "security" | "support") => {
-    if (currentUser.role !== "CEO" && tab !== "account" && tab !== "support") {
+    if (currentUser.role !== "CEO" && tab !== "account" && tab !== "security" && tab !== "support") {
       return;
     }
     if (setExternalSubTab) {
@@ -1939,8 +1939,11 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
                 <input
                   type="text"
                   value={companyName}
+                  disabled={currentUser.role !== "CEO"}
                   onChange={(e) => setCompanyName(e.target.value)}
                   className={`w-full h-11 px-4 rounded-xl border text-sm font-medium focus:outline-none focus:border-[#0075DE] ${
+                    currentUser.role !== "CEO" ? "opacity-60 cursor-not-allowed" : ""
+                  } ${
                     theme === "dark" ? "bg-slate-950 border-slate-800 text-white" : "bg-slate-50 border-slate-300 text-slate-900"
                   }`}
                 />
@@ -1965,14 +1968,16 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
                         className="h-16 max-w-[200px] object-contain rounded-lg border border-slate-700/60 p-2 bg-slate-900/60" 
                         referrerPolicy="no-referrer"
                       />
-                      <button
-                        type="button"
-                        onClick={handleRemoveCompanyLogo}
-                        className="absolute -top-2 -right-2 p-1 bg-rose-600 text-white rounded-full hover:bg-rose-500 transition-colors shadow"
-                        title={lang === "ar" ? "حذف الشعار" : "Remove Logo"}
-                      >
-                        <Trash2 className="w-3 h-3" />
-                      </button>
+                      {currentUser.role === "CEO" && (
+                        <button
+                          type="button"
+                          onClick={handleRemoveCompanyLogo}
+                          className="absolute -top-2 -right-2 p-1 bg-rose-600 text-white rounded-full hover:bg-rose-500 transition-colors shadow"
+                          title={lang === "ar" ? "حذف الشعار" : "Remove Logo"}
+                        >
+                          <Trash2 className="w-3 h-3" />
+                        </button>
+                      )}
                     </div>
                   ) : (
                     <div className="h-16 w-36 rounded-lg border border-dashed border-slate-700 bg-slate-950/20 flex items-center justify-center text-[11px] text-slate-500 font-medium">
@@ -1981,21 +1986,29 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
                   )}
 
                   <div>
-                    <input 
-                      type="file" 
-                      ref={companyLogoInputRef}
-                      accept="image/*" 
-                      className="hidden" 
-                      onChange={handleCompanyLogoFileSelect} 
-                    />
-                    <button
-                      type="button"
-                      onClick={() => companyLogoInputRef.current?.click()}
-                      className="px-4 py-2 bg-[#0075DE]/10 hover:bg-[#0075DE]/20 text-[#0075DE] hover:text-blue-300 border border-[#0075DE]/30 font-bold text-xs rounded-xl flex items-center gap-2 transition-all cursor-pointer"
-                    >
-                      <Upload className="w-3.5 h-3.5" />
-                      <span>{companyLogoUrl ? (lang === "ar" ? "تغيير الشعار" : "Change Logo") : (lang === "ar" ? "رفع شعار المؤسسة" : "Upload Logo")}</span>
-                    </button>
+                    {currentUser.role === "CEO" ? (
+                      <>
+                        <input 
+                          type="file" 
+                          ref={companyLogoInputRef}
+                          accept="image/*" 
+                          className="hidden" 
+                          onChange={handleCompanyLogoFileSelect} 
+                        />
+                        <button
+                          type="button"
+                          onClick={() => companyLogoInputRef.current?.click()}
+                          className="px-4 py-2 bg-[#0075DE]/10 hover:bg-[#0075DE]/20 text-[#0075DE] hover:text-blue-300 border border-[#0075DE]/30 font-bold text-xs rounded-xl flex items-center gap-2 transition-all cursor-pointer"
+                        >
+                          <Upload className="w-3.5 h-3.5" />
+                          <span>{companyLogoUrl ? (lang === "ar" ? "تغيير الشعار" : "Change Logo") : (lang === "ar" ? "رفع شعار المؤسسة" : "Upload Logo")}</span>
+                        </button>
+                      </>
+                    ) : (
+                      <span className="text-slate-500 font-bold text-xs">
+                        {lang === "ar" ? "🔒 تعديل الشعار مخصص للمدير التنفيذي فقط" : "🔒 Logo modification is restricted to CEO only"}
+                      </span>
+                    )}
                     <p className="text-[10px] text-slate-500 mt-1.5">
                       {lang === "ar" ? "سيتم سحب الشعار تلقائياً وتثبيته في ترويسة مستندات الطباعة الرسمية." : "The logo will be pulled automatically and embedded in print headers."}
                     </p>
@@ -2017,14 +2030,16 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
                         className="h-16 max-w-[200px] object-contain rounded-lg border border-slate-700/60 p-2 bg-slate-900/60" 
                         referrerPolicy="no-referrer"
                       />
-                      <button
-                        type="button"
-                        onClick={handleRemoveSignature}
-                        className="absolute -top-2 -right-2 p-1 bg-rose-600 text-white rounded-full hover:bg-rose-500 transition-colors shadow"
-                        title={lang === "ar" ? "حذف التوقيع" : "Remove Signature"}
-                      >
-                        <Trash2 className="w-3 h-3" />
-                      </button>
+                      {currentUser.role === "CEO" && (
+                        <button
+                          type="button"
+                          onClick={handleRemoveSignature}
+                          className="absolute -top-2 -right-2 p-1 bg-rose-600 text-white rounded-full hover:bg-rose-500 transition-colors shadow"
+                          title={lang === "ar" ? "حذف التوقيع" : "Remove Signature"}
+                        >
+                          <Trash2 className="w-3 h-3" />
+                        </button>
+                      )}
                     </div>
                   ) : (
                     <div className="h-16 w-36 rounded-lg border border-dashed border-slate-700 bg-slate-950/20 flex items-center justify-center text-[11px] text-slate-500 font-medium">
@@ -2033,21 +2048,29 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
                   )}
 
                   <div>
-                    <input 
-                      type="file" 
-                      ref={signatureInputRef}
-                      accept="image/*" 
-                      className="hidden" 
-                      onChange={handleSignatureFileSelect} 
-                    />
-                    <button
-                      type="button"
-                      onClick={() => signatureInputRef.current?.click()}
-                      className="px-4 py-2 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 hover:text-emerald-300 border border-emerald-500/30 font-bold text-xs rounded-xl flex items-center gap-2 transition-all cursor-pointer"
-                    >
-                      <Upload className="w-3.5 h-3.5" />
-                      <span>{signatureUrl ? (lang === "ar" ? "تغيير التوقيع الرقمي" : "Change Signature") : (lang === "ar" ? "رفع صورة التوقيع / الختم" : "Upload Signature / Stamp")}</span>
-                    </button>
+                    {currentUser.role === "CEO" ? (
+                      <>
+                        <input 
+                          type="file" 
+                          ref={signatureInputRef}
+                          accept="image/*" 
+                          className="hidden" 
+                          onChange={handleSignatureFileSelect} 
+                        />
+                        <button
+                          type="button"
+                          onClick={() => signatureInputRef.current?.click()}
+                          className="px-4 py-2 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 hover:text-emerald-300 border border-emerald-500/30 font-bold text-xs rounded-xl flex items-center gap-2 transition-all cursor-pointer"
+                        >
+                          <Upload className="w-3.5 h-3.5" />
+                          <span>{signatureUrl ? (lang === "ar" ? "تغيير التوقيع الرقمي" : "Change Signature") : (lang === "ar" ? "رفع صورة التوقيع / الختم" : "Upload Signature / Stamp")}</span>
+                        </button>
+                      </>
+                    ) : (
+                      <span className="text-slate-500 font-bold text-xs">
+                        {lang === "ar" ? "🔒 تعديل التوقيع مخصص للمدير التنفيذي فقط" : "🔒 Signature modification is restricted to CEO only"}
+                      </span>
+                    )}
                     <p className="text-[10px] text-slate-500 mt-1.5">
                       {lang === "ar" ? "يظهر التوقيع الرقمي في قسم الاعتماد والتصديق بنهاية التقارير الرسمية." : "Digital signature appears in the approval block at the end of reports."}
                     </p>

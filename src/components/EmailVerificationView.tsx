@@ -124,8 +124,10 @@ export const EmailVerificationView: React.FC<EmailVerificationViewProps> = ({
           lang === "ar" ? "تم التحقق بنجاح! جاري التوجيه..." : "Verification successful! Redirecting..."
         );
 
+        const authoritativeRole = res?.user?.role || currentUser?.role || "CEO";
         const updatedUser: User = {
           ...currentUser,
+          role: authoritativeRole,
           isVerified: true,
           isEmailVerified: true,
           email_verified: true,
