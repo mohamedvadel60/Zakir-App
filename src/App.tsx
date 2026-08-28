@@ -120,12 +120,14 @@ import { EmailVerificationView } from "./components/EmailVerificationView";
 import { RiskRadarChart } from "./components/RiskRadarChart";
 import { AdminDashboard } from "./components/AdminDashboard";
 import { DesktopUpdateNotification } from "./components/DesktopUpdateNotification";
+import { DeletedAccountRecovery } from "./components/DeletedAccountRecovery";
 import GmailVault from "./components/GmailVault.tsx";
 import {
   ADMIN_USER_ID,
   registerFirebaseUser,
   loginFirebaseUser,
   loginWithGoogle,
+  loginWithCustomToken,
   logoutFirebaseUser,
   subscribeToFirebaseAuthState,
   subscribeToFirebaseUserProfile,
@@ -144,6 +146,7 @@ import {
   deleteWorkspaceInvitation,
   WorkspaceInvitation,
   sendVerificationCodeApi,
+  sendAccountRecoveryOtpApi,
   verifyCodeApi,
   getAuthApiUrl,
   safeParseJsonResponse,
@@ -616,8 +619,15 @@ export default function App() {
   const [regLifecycleState, setRegLifecycleState] = useState<{
     status: "NEW" | "ACTIVE" | "ADMIN_DELETED" | "ADMIN_APPROVAL_PENDING" | "SELF_DELETED" | "SELF_RESTORE_AVAILABLE" | "PURGED";
     daysRemaining?: number;
+    restoreUntil?: string | null;
     adminApprovalRequired?: boolean;
     email?: string;
+  } | null>(null);
+  const [deletedAccountRecovery, setDeletedAccountRecovery] = useState<{
+    email: string;
+    daysRemaining?: number;
+    restoreUntil?: string | null;
+    isExpired?: boolean;
   } | null>(null);
   const [reactivationReason, setReactivationReason] = useState("");
   const [isSubmittingReactivation, setIsSubmittingReactivation] = useState(false);
@@ -965,6 +975,40 @@ This hosting domain (**${currentDomain}**) has not been authorized in your Fireb
       clean = clean.replace(/^Error \([^)]+\):\s*/i, "").replace(/^Error \([^)]+\)\s*/i, "").trim();
     }
     clean = clean.replace(/^[.\s:]+/, "").trim();
+
+    // Check if this error is about a deleted account recovery
+    const isDeletedAccountError = /تم العثور على حساب سابق|استعادة الحساب|SELF_RESTORE_AVAILABLE/i.test(clean);
+    if (isDeletedAccountError) {
+      const matchDays = clean.match(/(\d+)\s*(?:يوماً|يوم|days?)/i);
+      const parsedDays = matchDays ? parseInt(matchDays[1], 10) : 31;
+      const targetEmail = (regEmail || loginEmail || "").trim().toLowerCase();
+
+      return (
+        <div className="space-y-3 py-1 text-start">
+          <p className="text-xs font-semibold leading-relaxed text-slate-800 dark:text-slate-200">
+            {clean}
+          </p>
+          <button
+            id="btn-inline-restore-account"
+            type="button"
+            onClick={() => {
+              setDeletedAccountRecovery({
+                email: targetEmail,
+                daysRemaining: parsedDays,
+                isExpired: false
+              });
+              setRegError("");
+              setLoginError("");
+            }}
+            className="w-full h-10 px-4 rounded-xl bg-[#0075DE] hover:bg-[#0060B6] active:scale-[0.99] text-white font-bold text-xs flex items-center justify-center gap-2 shadow-md shadow-blue-500/20 transition-all cursor-pointer"
+          >
+            <RotateCcw className="w-3.5 h-3.5" />
+            <span>{lang === "ar" ? "استعادة الحساب الآن" : lang === "fr" ? "Restaurer le compte maintenant" : "Restore Account Now"}</span>
+          </button>
+        </div>
+      );
+    }
+
     if (clean && !/[.!?]$/.test(clean)) {
       clean = clean + ".";
     }
@@ -990,6 +1034,34 @@ This hosting domain (**${currentDomain}**) has not been authorized in your Fireb
       );
     }
     return <span className="text-start leading-normal text-xs font-medium">{clean}</span>;
+  };
+
+  const checkDeletedAccountForEmail = async (emailToCheck: string) => {
+    const normalized = (emailToCheck || "").trim().toLowerCase();
+    if (!normalized || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalized)) return;
+    try {
+      const lifecycle = await checkAccountLifecycleApi(normalized);
+      if (lifecycle && lifecycle.success) {
+        if (lifecycle.status === "SELF_DELETED" || lifecycle.status === "SELF_RESTORE_AVAILABLE" || lifecycle.canRestore === true) {
+          if (!lifecycle.isExpired && (lifecycle.daysRemaining === undefined || lifecycle.daysRemaining > 0)) {
+            setDeletedAccountRecovery({
+              email: normalized,
+              daysRemaining: lifecycle.daysRemaining ?? 31,
+              restoreUntil: lifecycle.restoreUntil,
+              isExpired: false
+            });
+            setRegError("");
+            setLoginError("");
+          } else {
+            setDeletedAccountRecovery({
+              email: normalized,
+              daysRemaining: 0,
+              isExpired: true
+            });
+          }
+        }
+      }
+    } catch (e) {}
   };
 
   // UI Navigation State
@@ -1551,15 +1623,27 @@ This hosting domain (**${currentDomain}**) has not been authorized in your Fireb
             return;
           }
 
-          if (lifecycle.status === "SELF_DELETED" && lifecycle.canRestore) {
-            setRegLifecycleState({
-              status: "SELF_RESTORE_AVAILABLE",
+          if ((lifecycle.status === "SELF_DELETED" || lifecycle.status === "SELF_RESTORE_AVAILABLE" || lifecycle.canRestore === true) && !lifecycle.isExpired) {
+            setDeletedAccountRecovery({
+              email: normalizedEmail,
               daysRemaining: lifecycle.daysRemaining ?? 31,
-              email: normalizedEmail
+              restoreUntil: lifecycle.restoreUntil,
+              isExpired: false
             });
-            setRegError(lang === "ar"
-              ? `تم العثور على حساب سابق تم حذفه بواسطتك. يمكنك استعادة حسابك وجميع بياناتك بالكامل (متبقي ${lifecycle.daysRemaining ?? 31} يوماً للاستعادة).`
-              : `A previously self-deleted account was found. You can restore your account and all data (${lifecycle.daysRemaining ?? 31} days remaining).`);
+            setRegError("");
+            setLoginError("");
+            setIsSubmittingReg(false);
+            return;
+          }
+
+          if (lifecycle.status === "RESTORE_EXPIRED" || lifecycle.isExpired) {
+            setDeletedAccountRecovery({
+              email: normalizedEmail,
+              daysRemaining: 0,
+              isExpired: true
+            });
+            setRegError("");
+            setLoginError("");
             setIsSubmittingReg(false);
             return;
           }
@@ -1593,12 +1677,29 @@ This hosting domain (**${currentDomain}**) has not been authorized in your Fireb
             adminApprovalRequired: true,
             email: normalizedEmail
           });
-        } else if (regData?.code === "SELF_RESTORE_AVAILABLE") {
-          setRegLifecycleState({
-            status: "SELF_RESTORE_AVAILABLE",
-            daysRemaining: regData?.daysRemaining ?? 31,
-            email: normalizedEmail
+        } else if (regData?.code === "SELF_RESTORE_AVAILABLE" || /تم العثور على حساب سابق|استعادة الحساب|SELF_RESTORE_AVAILABLE/i.test(regData?.error || regData?.message || "")) {
+          const matchDays = (regData?.error || regData?.message || "").match(/(\d+)\s*(?:يوماً|يوم|days?)/i);
+          const parsedDays = regData?.daysRemaining ?? (matchDays ? parseInt(matchDays[1], 10) : 31);
+          setDeletedAccountRecovery({
+            email: normalizedEmail,
+            daysRemaining: parsedDays,
+            restoreUntil: regData?.restoreUntil,
+            isExpired: false
           });
+          setRegError("");
+          setLoginError("");
+          setIsSubmittingReg(false);
+          return;
+        } else if (regData?.code === "RESTORE_EXPIRED") {
+          setDeletedAccountRecovery({
+            email: normalizedEmail,
+            daysRemaining: 0,
+            isExpired: true
+          });
+          setRegError("");
+          setLoginError("");
+          setIsSubmittingReg(false);
+          return;
         }
         throw new Error(regData?.error || regData?.message || (lang === "ar" ? "فشل إنشاء الحساب. يرجى المحاولة مرة أخرى." : "Registration failed. Please try again."));
       }
@@ -1628,6 +1729,18 @@ This hosting domain (**${currentDomain}**) has not been authorized in your Fireb
       let msg = err.message || "Registration failed.";
       if (/missing or (insufficient )?permission/i.test(msg) || /permission-denied/i.test(msg)) {
         msg = lang === "ar" ? "حدث خطأ أثناء معالجة الحساب. يرجى المحاولة مرة أخرى." : "An error occurred while processing your account. Please try again.";
+      }
+      if (/تم العثور على حساب سابق|استعادة الحساب|SELF_RESTORE_AVAILABLE/i.test(msg)) {
+        const matchDays = msg.match(/(\d+)\s*(?:يوماً|يوم|days?)/i);
+        const parsedDays = matchDays ? parseInt(matchDays[1], 10) : 31;
+        setDeletedAccountRecovery({
+          email: regEmail.trim().toLowerCase(),
+          daysRemaining: parsedDays,
+          isExpired: false
+        });
+        setRegError("");
+        setLoginError("");
+        return;
       }
       setRegError(msg);
     } finally {
@@ -1718,6 +1831,37 @@ This hosting domain (**${currentDomain}**) has not been authorized in your Fireb
       setAuthMode("landing");
     } catch (err: any) {
       const errMsg = err?.message || String(err);
+      const normalizedEmail = loginEmail.trim().toLowerCase();
+
+      // Check if this account was self-deleted and is restorable
+      if (normalizedEmail) {
+        try {
+          const lifecycle = await checkAccountLifecycleApi(normalizedEmail);
+          if (lifecycle && lifecycle.success) {
+            if (lifecycle.status === "SELF_DELETED" || lifecycle.status === "SELF_RESTORE_AVAILABLE") {
+              setDeletedAccountRecovery({
+                email: normalizedEmail,
+                daysRemaining: lifecycle.daysRemaining ?? 31,
+                restoreUntil: lifecycle.restoreUntil,
+                isExpired: false
+              });
+              setIsSubmittingLogin(false);
+              return;
+            } else if (lifecycle.status === "RESTORE_EXPIRED") {
+              setDeletedAccountRecovery({
+                email: normalizedEmail,
+                daysRemaining: 0,
+                isExpired: true
+              });
+              setIsSubmittingLogin(false);
+              return;
+            }
+          }
+        } catch (lcErr) {
+          console.warn("Login lifecycle check error:", lcErr);
+        }
+      }
+
       if (err?.code === "auth/unauthorized-domain" || errMsg.includes("unauthorized-domain") || errMsg.includes("auth/unauthorized-domain")) {
         setLoginError(formatAuthError(err));
       } else {
@@ -2923,27 +3067,60 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
             theme={theme}
             onBackToHome={() => setAuthMode("landing")}
           >
-            <motion.div 
-              initial={{ opacity: 0, y: 12, scale: 0.99 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-              className="w-full bg-white dark:bg-[#0C101A] border border-slate-200/90 dark:border-slate-800/90 rounded-2xl p-6 sm:p-8 shadow-xl dark:shadow-[0_20px_50px_rgba(0,0,0,0.4)] relative backdrop-blur-sm"
-            >
-              <AuthSwitch 
-                currentMode={showForgotPassword ? "forgot" : (authMode as string) === "register" ? "register" : "login"}
-                onModeChange={(m) => {
-                  if (m === "forgot") {
-                    setShowForgotPassword(true);
-                  } else if (m === "register") {
-                    setShowForgotPassword(false);
-                    setAuthMode("register");
-                  } else {
-                    setShowForgotPassword(false);
-                    setAuthMode("login");
-                  }
-                }}
+            {deletedAccountRecovery ? (
+              <DeletedAccountRecovery
+                email={deletedAccountRecovery.email}
+                daysRemaining={deletedAccountRecovery.daysRemaining}
+                restoreUntil={deletedAccountRecovery.restoreUntil}
+                isExpired={deletedAccountRecovery.isExpired}
                 lang={lang}
+                theme={theme}
+                onCancel={() => {
+                  setDeletedAccountRecovery(null);
+                  setRegError("");
+                  setLoginError("");
+                }}
+                onRestored={(restoredUser) => {
+                  const activeUser: User = {
+                    ...restoredUser,
+                    isVerified: true,
+                    isEmailVerified: true,
+                    email_verified: true,
+                    emailVerified: true,
+                    verification_required: false,
+                    verification_status: "verified"
+                  };
+                  setCurrentUser(activeUser);
+                  applyUserPreferences(activeUser);
+                  setDeletedAccountRecovery(null);
+                  setRegLifecycleState(null);
+                  setRegEmail("");
+                  setLoginEmail("");
+                  setAuthMode("landing");
+                }}
               />
+            ) : (
+              <motion.div 
+                initial={{ opacity: 0, y: 12, scale: 0.99 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+                className="w-full bg-white dark:bg-[#0C101A] border border-slate-200/90 dark:border-slate-800/90 rounded-2xl p-6 sm:p-8 shadow-xl dark:shadow-[0_20px_50px_rgba(0,0,0,0.4)] relative backdrop-blur-sm"
+              >
+                <AuthSwitch 
+                  currentMode={showForgotPassword ? "forgot" : (authMode as string) === "register" ? "register" : "login"}
+                  onModeChange={(m) => {
+                    if (m === "forgot") {
+                      setShowForgotPassword(true);
+                    } else if (m === "register") {
+                      setShowForgotPassword(false);
+                      setAuthMode("register");
+                    } else {
+                      setShowForgotPassword(false);
+                      setAuthMode("login");
+                    }
+                  }}
+                  lang={lang}
+                />
 
               {showForgotPassword ? (
                 /* FORGOT PASSWORD FORM */
@@ -3296,16 +3473,18 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                         ) : (
                           <button
                             type="button"
-                            onClick={handleRestoreAccount}
-                            disabled={isRestoringAccount}
-                            className="w-full py-2.5 px-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-semibold transition-colors flex items-center justify-center gap-2 shadow-xs cursor-pointer disabled:opacity-50"
+                            onClick={() => {
+                              setDeletedAccountRecovery({
+                                email: regEmail.trim().toLowerCase() || regLifecycleState.email || "",
+                                daysRemaining: regLifecycleState.daysRemaining ?? 31,
+                                restoreUntil: regLifecycleState.restoreUntil,
+                                isExpired: false
+                              });
+                            }}
+                            className="w-full py-2.5 px-3 bg-[#0075DE] hover:bg-[#0060B6] text-white rounded-lg text-xs font-bold transition-colors flex items-center justify-center gap-2 shadow-sm cursor-pointer"
                           >
-                            {isRestoringAccount ? (
-                              <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                            ) : (
-                              <RotateCcw className="w-3.5 h-3.5" />
-                            )}
-                            <span>{lang === "ar" ? "استعادة حسابي وبياناتي السابقة بالكامل" : "Restore My Account & Data"}</span>
+                            <RotateCcw className="w-3.5 h-3.5" />
+                            <span>{lang === "ar" ? "استعادة الحساب الآن" : "Restore Account Now"}</span>
                           </button>
                         )}
                       </div>
@@ -3353,6 +3532,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                         type="email" 
                         value={regEmail}
                         onChange={(e) => setRegEmail(e.target.value)}
+                        onBlur={() => checkDeletedAccountForEmail(regEmail)}
                         className="w-full h-10 px-3.5 bg-slate-50 dark:bg-slate-900/70 border border-slate-200 dark:border-slate-800 rounded-lg text-slate-900 dark:text-white text-xs focus:outline-none focus:border-[#0075DE] focus:ring-2 focus:ring-[#0075DE]/20 transition-all placeholder:text-slate-400 shadow-xs"
                         placeholder="name@company.com"
                         required
@@ -3536,6 +3716,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                         type="email" 
                         value={loginEmail}
                         onChange={(e) => setLoginEmail(e.target.value)}
+                        onBlur={() => checkDeletedAccountForEmail(loginEmail)}
                         className="w-full h-10 px-3.5 bg-slate-50 dark:bg-slate-900/70 border border-slate-200 dark:border-slate-800 rounded-lg text-slate-900 dark:text-white text-xs focus:outline-none focus:border-[#0075DE] focus:ring-2 focus:ring-[#0075DE]/20 transition-all placeholder:text-slate-400 shadow-xs"
                         placeholder="name@company.com"
                         required
@@ -3598,6 +3779,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                 </div>
               )}
             </motion.div>
+            )}
           </SplitLoginCard>
         )
       ) : (currentUser && !currentUser.isEmailVerified && currentUser.verification_required !== false) ? (

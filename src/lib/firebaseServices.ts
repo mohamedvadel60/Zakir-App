@@ -1,6 +1,7 @@
 import { 
   createUserWithEmailAndPassword, 
   signInWithEmailAndPassword, 
+  signInWithCustomToken,
   signOut, 
   onAuthStateChanged,
   sendPasswordResetEmail,
@@ -1586,18 +1587,53 @@ export async function requestAccountReactivationApi(email: string, reason?: stri
   }
 }
 
-export async function restoreAccountApi(email: string, password?: string) {
+export async function sendAccountRecoveryOtpApi(email: string) {
+  try {
+    const res = await fetch("/api/auth/send-verification-code", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: email.trim().toLowerCase(), type: "account_recovery" })
+    });
+    return await res.json();
+  } catch (err: any) {
+    console.error("sendAccountRecoveryOtpApi error:", err);
+    return { success: false, error: err.message || "فشل إرسال رمز التحقق للاستعادة." };
+  }
+}
+
+export async function restoreAccountApi(email: string, code: string, password?: string) {
   try {
     const res = await fetch("/api/auth/restore-account", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password })
+      body: JSON.stringify({ 
+        email: email.trim().toLowerCase(), 
+        code: code.trim(),
+        verificationCode: code.trim(),
+        password: password ? password.trim() : undefined 
+      })
     });
     return await res.json();
   } catch (err: any) {
     console.error("restoreAccountApi error:", err);
     return { success: false, error: err.message || "فشل استعادة الحساب." };
   }
+}
+
+export async function loginWithCustomToken(customToken: string): Promise<User | null> {
+  if (!customToken) return null;
+  try {
+    const userCredential = await signInWithCustomToken(auth, customToken);
+    const uid = userCredential.user.uid;
+    const userDocRef = doc(db, "users", uid);
+    const userSnap = await getDoc(userDocRef);
+    if (userSnap.exists()) {
+      return userSnap.data() as User;
+    }
+  } catch (err) {
+    console.warn("Client signInWithCustomToken warning:", err);
+  }
+  return null;
 }
 
 export async function checkWorkspaceInvitationApi(email: string) {

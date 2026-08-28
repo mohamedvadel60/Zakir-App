@@ -585,7 +585,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             {/* Logout button */}
             <button
               onClick={handleLogout}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-rose-600/20 hover:bg-rose-600/30 border border-rose-500/40 text-rose-300 text-xs font-bold transition-all cursor-pointer"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-600 dark:bg-rose-600/20 dark:hover:bg-rose-600/30 dark:border-rose-500/40 dark:text-rose-300 text-xs font-bold transition-all cursor-pointer"
             >
               <LogOut className="w-3.5 h-3.5" />
               <span>{lang === "ar" ? "خروج" : "Logout"}</span>
@@ -598,46 +598,56 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
         
         {/* BANNER NOTIFICATION */}
-        <div className="p-5 rounded-2xl bg-gradient-to-r from-[#0075DE]/10 via-rose-500/10 to-purple-500/10 border border-[#0075DE]/30 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 shadow-xl">
+        <div className={`p-5 rounded-2xl border flex flex-col md:flex-row items-start md:items-center justify-between gap-4 shadow-xl ${
+          theme === "dark"
+            ? "bg-gradient-to-r from-[#0075DE]/10 via-rose-500/10 to-purple-500/10 border-[#0075DE]/30"
+            : "bg-gradient-to-r from-blue-50/80 via-rose-50/50 to-purple-50/50 border-blue-200"
+        }`}>
           <div className="flex items-start gap-3.5">
-            <div className="p-2.5 rounded-xl bg-[#0075DE]/20 text-blue-400 shrink-0 mt-0.5">
+            <div className="p-2.5 rounded-xl bg-[#0075DE]/20 text-[#0075DE] shrink-0 mt-0.5">
               <ShieldCheck className="w-6 h-6" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h2 className="text-lg font-bold">
+                <h2 className={`text-lg font-bold ${theme === "dark" ? "text-white" : "text-slate-900"}`}>
                   {lang === "ar" ? "وضع مسؤول النظام الرئيسي (Super Administrator)" : "System Super Administrator Control Panel"}
                 </h2>
                 <span className="px-2 py-0.5 rounded text-[10px] font-mono font-black bg-rose-500 text-white uppercase tracking-wider">
                   ADMIN ONLY
                 </span>
               </div>
-              <p className="text-xs text-slate-400 mt-1 max-w-2xl leading-relaxed">
+              <p className={`text-xs mt-1 max-w-2xl leading-relaxed ${theme === "dark" ? "text-slate-400" : "text-slate-600"}`}>
                 {lang === "ar" 
                   ? "تمنحك هذه الواجهة الوصول الشامل إلى جميع الحسابات والملفات المرفوعة في قاعدة بيانات Firestore المستضافة. يمكنك الاستعراض والتحقق من ملفات المستخدمين مباشرة."
                   : "This panel grants root-level oversight across all Firestore user accounts and uploaded files. Click on any user row below to inspect their uploaded documents."}
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-2 bg-slate-900/80 px-3 py-2 rounded-xl border border-slate-700/60 font-mono text-xs text-slate-300 shrink-0">
-            <Lock className="w-3.5 h-3.5 text-blue-400" />
-            <span>ID: <strong className="text-blue-400">{currentUser.id}</strong></span>
+          <div className={`flex items-center gap-2 px-3 py-2 rounded-xl border font-mono text-xs shrink-0 ${
+            theme === "dark" ? "bg-slate-900/80 border-slate-700/60 text-slate-300" : "bg-white border-slate-200 text-slate-700 shadow-sm"
+          }`}>
+            <Lock className="w-3.5 h-3.5 text-[#0075DE]" />
+            <span>ID: <strong className="text-[#0075DE]">{currentUser.id}</strong></span>
           </div>
         </div>
 
         {/* ADMIN VIEW TABS */}
-        <div className="flex flex-wrap items-center gap-3 border-b border-slate-800 pb-2">
+        <div className={`flex flex-wrap items-center gap-3 border-b pb-2 ${theme === "dark" ? "border-slate-800" : "border-slate-200"}`}>
           <button
             onClick={() => setActiveAdminTab("users")}
             className={`flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-xs sm:text-sm transition-all cursor-pointer ${
               activeAdminTab === "users"
                 ? "bg-[#0075DE] text-white shadow-lg shadow-[#0075DE]/20"
-                : "bg-slate-900/80 text-slate-400 hover:text-white border border-slate-800"
+                : theme === "dark"
+                ? "bg-slate-900/80 text-slate-400 hover:text-white border border-slate-800"
+                : "bg-slate-100 hover:bg-slate-200 text-slate-700 hover:text-slate-900 border border-slate-200"
             }`}
           >
             <Users className="w-4 h-4" />
             <span>{lang === "ar" ? "إدارة المستخدمين والوثائق" : "Users Directory & Document Vaults"}</span>
-            <span className="px-2 py-0.5 rounded-full bg-slate-950/40 text-xs font-mono">
+            <span className={`px-2 py-0.5 rounded-full text-xs font-mono ${
+              activeAdminTab === "users" ? "bg-white/20 text-white" : (theme === "dark" ? "bg-slate-950/40 text-slate-300" : "bg-slate-200 text-slate-700")
+            }`}>
               {totalUsers}
             </span>
           </button>
@@ -647,7 +657,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             className={`flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-xs sm:text-sm transition-all cursor-pointer ${
               activeAdminTab === "support"
                 ? "bg-indigo-600 text-white shadow-lg shadow-indigo-600/25"
-                : "bg-slate-900/80 text-slate-400 hover:text-white border border-slate-800"
+                : theme === "dark"
+                ? "bg-slate-900/80 text-slate-400 hover:text-white border border-slate-800"
+                : "bg-slate-100 hover:bg-slate-200 text-slate-700 hover:text-slate-900 border border-slate-200"
             }`}
           >
             <LifeBuoy className="w-4 h-4" />
@@ -664,7 +676,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             className={`flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-xs sm:text-sm transition-all cursor-pointer ${
               activeAdminTab === "reactivations"
                 ? "bg-amber-600 text-white shadow-lg shadow-amber-600/25"
-                : "bg-slate-900/80 text-slate-400 hover:text-white border border-slate-800"
+                : theme === "dark"
+                ? "bg-slate-900/80 text-slate-400 hover:text-white border border-slate-800"
+                : "bg-slate-100 hover:bg-slate-200 text-slate-700 hover:text-slate-900 border border-slate-200"
             }`}
           >
             <ShieldAlert className="w-4 h-4" />
@@ -682,51 +696,51 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             {/* METRICS STATS GRID */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6">
               <div className={`p-5 rounded-2xl border transition-all ${
-                theme === "dark" ? "bg-slate-900/60 border-slate-800" : "bg-white border-slate-200"
+                theme === "dark" ? "bg-slate-900/60 border-slate-800" : "bg-white border-slate-200 shadow-sm"
               }`}>
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
                     {lang === "ar" ? "إجمالي المستخدمين" : "Total Users"}
                   </span>
-                  <div className="p-2 rounded-lg bg-blue-500/10 text-blue-400">
+                  <div className="p-2 rounded-lg bg-blue-500/10 text-blue-500">
                     <Users className="w-5 h-5" />
                   </div>
                 </div>
-                <p className="text-2xl sm:text-3xl font-black mt-2 font-mono text-blue-400">{totalUsers}</p>
+                <p className="text-2xl sm:text-3xl font-black mt-2 font-mono text-blue-500">{totalUsers}</p>
                 <span className="text-[11px] text-slate-400 mt-1 block">
                   {lang === "ar" ? "حسابات مسجلة في Firestore" : "Registered Firestore accounts"}
                 </span>
               </div>
 
               <div className={`p-5 rounded-2xl border transition-all ${
-                theme === "dark" ? "bg-slate-900/60 border-slate-800" : "bg-white border-slate-200"
+                theme === "dark" ? "bg-slate-900/60 border-slate-800" : "bg-white border-slate-200 shadow-sm"
               }`}>
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
                     {lang === "ar" ? "إجمالي الملفات المرفوعة" : "Total Files Uploaded"}
                   </span>
-                  <div className="p-2 rounded-lg bg-emerald-500/10 text-emerald-400">
+                  <div className="p-2 rounded-lg bg-emerald-500/10 text-emerald-500">
                     <FileText className="w-5 h-5" />
                   </div>
                 </div>
-                <p className="text-2xl sm:text-3xl font-black mt-2 font-mono text-emerald-400">{totalFiles}</p>
+                <p className="text-2xl sm:text-3xl font-black mt-2 font-mono text-emerald-500">{totalFiles}</p>
                 <span className="text-[11px] text-slate-400 mt-1 block">
                   {lang === "ar" ? "ملفات مرفوعة عبر كل الحسابات" : "Documents stored across all accounts"}
                 </span>
               </div>
 
               <div className={`p-5 rounded-2xl border transition-all ${
-                theme === "dark" ? "bg-slate-900/60 border-slate-800" : "bg-white border-slate-200"
+                theme === "dark" ? "bg-slate-900/60 border-slate-800" : "bg-white border-slate-200 shadow-sm"
               }`}>
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
                     {lang === "ar" ? "حجم التخزين المستهلك" : "Storage Consumed"}
                   </span>
-                  <div className="p-2 rounded-lg bg-amber-500/10 text-amber-400">
+                  <div className="p-2 rounded-lg bg-amber-500/10 text-amber-500">
                     <HardDrive className="w-5 h-5" />
                   </div>
                 </div>
-                <p className="text-2xl sm:text-3xl font-black mt-2 font-mono text-amber-400">{formatBytes(totalStorageBytes)}</p>
+                <p className="text-2xl sm:text-3xl font-black mt-2 font-mono text-amber-500">{formatBytes(totalStorageBytes)}</p>
                 <span className="text-[11px] text-slate-400 mt-1 block">
                   {lang === "ar" ? "سعة Firebase Storage الإجمالية" : "Total Firebase Storage payload"}
                 </span>
@@ -737,10 +751,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               theme === "dark" ? "bg-slate-900/70 border-slate-800 shadow-2xl" : "bg-white border-slate-200 shadow-md"
             }`}>
           {/* TABLE HEADER & SEARCH INPUT */}
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-6 border-b border-slate-800">
+          <div className={`flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-6 border-b ${
+            theme === "dark" ? "border-slate-800" : "border-slate-200"
+          }`}>
             <div>
-              <h3 className="text-lg font-bold flex items-center gap-2">
-                <Users className="w-5 h-5 text-amber-400" />
+              <h3 className={`text-lg font-bold flex items-center gap-2 ${theme === "dark" ? "text-white" : "text-slate-900"}`}>
+                <Users className="w-5 h-5 text-amber-500" />
                 {lang === "ar" ? "قائمة جميع المستخدمين في قاعدة البيانات" : "All Users Directory (Firestore)"}
               </h3>
               <p className="text-xs text-slate-400 mt-0.5">
@@ -765,7 +781,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               {searchQuery && (
                 <button 
                   onClick={() => setSearchQuery("")}
-                  className="absolute top-2.5 right-3 text-slate-400 hover:text-white"
+                  className="absolute top-2.5 right-3 text-slate-400 hover:text-slate-800 dark:hover:text-white"
                 >
                   <X className="w-4 h-4" />
                 </button>
@@ -782,14 +798,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               </p>
             </div>
           ) : error ? (
-            <div className="p-6 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-400 text-sm font-medium my-6 flex items-center gap-3">
+            <div className="p-6 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-500 text-sm font-medium my-6 flex items-center gap-3">
               <ShieldCheck className="w-5 h-5 shrink-0" />
               <span>{error}</span>
             </div>
           ) : filteredUsers.length === 0 ? (
             <div className="py-16 text-center space-y-3">
-              <Users className="w-12 h-12 text-slate-600 mx-auto" />
-              <p className="text-slate-400 text-sm font-medium">
+              <Users className="w-12 h-12 text-slate-400 dark:text-slate-600 mx-auto" />
+              <p className="text-slate-500 dark:text-slate-400 text-sm font-medium">
                 {searchQuery ? (lang === "ar" ? "لم يتم العثور على مستخدمين يطابقون البحث" : "No users match your search query.") : (lang === "ar" ? "لا يوجد مستخدمون في قاعدة البيانات حالياً" : "No user documents found in Firestore.")}
               </p>
             </div>
@@ -810,7 +826,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     <th className="py-3 px-4 text-right">{lang === "ar" ? "الإجراءات" : "Actions"}</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-800/50 text-xs">
+                <tbody className={`divide-y text-xs ${theme === "dark" ? "divide-slate-800/50" : "divide-slate-200"}`}>
                   {filteredUsers.map((record) => {
                     const isAdminUser = record.id === currentUser.id;
                     const isPrimaryAdmin = record.id === ADMIN_USER_ID;
@@ -823,22 +839,24 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         className={`group cursor-pointer transition-colors ${
                           theme === "dark" 
                             ? "hover:bg-amber-500/10" 
-                            : "hover:bg-slate-100"
-                        } ${selectedUserRecord?.id === record.id ? (theme === "dark" ? "bg-amber-500/15" : "bg-amber-50") : ""}`}
+                            : "hover:bg-slate-50"
+                        } ${selectedUserRecord?.id === record.id ? (theme === "dark" ? "bg-amber-500/15" : "bg-amber-50/80") : ""}`}
                       >
                         {/* EMAIL & USER ID */}
                         <td className="py-4 px-4">
                           <div className="flex items-center gap-3">
                             <div className={`w-9 h-9 rounded-xl flex items-center justify-center font-bold text-sm shrink-0 ${
                               isAdminUser 
-                                ? "bg-rose-500/20 text-rose-400 border border-rose-500/40" 
-                                : "bg-amber-500/20 text-amber-400 border border-amber-500/30"
+                                ? "bg-rose-500/20 text-rose-500 border border-rose-500/40" 
+                                : "bg-amber-500/20 text-amber-600 dark:text-amber-400 border border-amber-500/30"
                             }`}>
                               {record.email.substring(0, 2).toUpperCase()}
                             </div>
                             <div>
                               <div className="flex items-center gap-2">
-                                <span className="font-bold text-slate-100 dark:text-white text-sm group-hover:text-amber-400 transition-colors">
+                                <span className={`font-bold text-sm transition-colors ${
+                                  theme === "dark" ? "text-slate-100 group-hover:text-amber-400" : "text-slate-900 group-hover:text-amber-600"
+                                }`}>
                                   {record.email}
                                 </span>
                                 {isAdminUser && (
@@ -847,7 +865,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                   </span>
                                 )}
                               </div>
-                              <span className="text-[10px] text-slate-500 font-mono block">
+                              <span className="text-[10px] text-slate-400 dark:text-slate-500 font-mono block">
                                 ID: {record.id}
                               </span>
                             </div>
@@ -860,23 +878,23 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                             const act = getUserActivityStatus(record.lastActiveAt, record.createdAt);
                             if (act.key === "online") {
                               return (
-                                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/40">
-                                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/40">
+                                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
                                   {lang === "ar" ? act.labelAr : act.labelEn}
                                 </span>
                               );
                             }
                             if (act.key === "recent") {
                               return (
-                                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-amber-500/20 text-amber-400 border border-amber-500/40">
-                                  <span className="w-2 h-2 rounded-full bg-amber-400"></span>
+                                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-amber-500/20 text-amber-600 dark:text-amber-400 border border-amber-500/40">
+                                  <span className="w-2 h-2 rounded-full bg-amber-500"></span>
                                   {lang === "ar" ? act.labelAr : act.labelEn}
                                 </span>
                               );
                             }
                             return (
-                              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-slate-800 text-slate-400 border border-slate-700">
-                                <span className="w-2 h-2 rounded-full bg-slate-500"></span>
+                              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-slate-100 text-slate-600 border border-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700">
+                                <span className="w-2 h-2 rounded-full bg-slate-400 dark:bg-slate-500"></span>
                                 {lang === "ar" ? act.labelAr : act.labelEn}
                               </span>
                             );
@@ -894,31 +912,31 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                 <div className="flex items-center gap-1.5 font-medium">
                                   <span className="text-slate-400">Email:</span>
                                   {isEmailVer ? (
-                                    <span className="text-emerald-400 font-bold flex items-center gap-0.5"><CheckCircle2 className="w-3 h-3"/> {lang === "ar" ? "موثق" : "Verified"}</span>
+                                    <span className="text-emerald-600 dark:text-emerald-400 font-bold flex items-center gap-0.5"><CheckCircle2 className="w-3 h-3"/> {lang === "ar" ? "موثق" : "Verified"}</span>
                                   ) : (
-                                    <span className="text-rose-400 font-bold flex items-center gap-0.5"><AlertCircle className="w-3 h-3"/> {lang === "ar" ? "غير موثق" : "Not Verified"}</span>
+                                    <span className="text-rose-500 dark:text-rose-400 font-bold flex items-center gap-0.5"><AlertCircle className="w-3 h-3"/> {lang === "ar" ? "غير موثق" : "Not Verified"}</span>
                                   )}
                                 </div>
                                 <div className="flex items-center gap-1.5 font-medium">
                                   <span className="text-slate-400">Docs:</span>
                                   {docSt === "verified" ? (
-                                    <span className="text-emerald-400 font-bold flex items-center gap-0.5"><CheckCircle2 className="w-3 h-3"/> {lang === "ar" ? "معتمدة" : "Verified"}</span>
+                                    <span className="text-emerald-600 dark:text-emerald-400 font-bold flex items-center gap-0.5"><CheckCircle2 className="w-3 h-3"/> {lang === "ar" ? "معتمدة" : "Verified"}</span>
                                   ) : docSt === "under_review" ? (
-                                    <span className="text-amber-400 font-bold flex items-center gap-0.5"><Clock className="w-3 h-3"/> {lang === "ar" ? "قيد الدراسة" : "Review"}</span>
+                                    <span className="text-amber-600 dark:text-amber-400 font-bold flex items-center gap-0.5"><Clock className="w-3 h-3"/> {lang === "ar" ? "قيد الدراسة" : "Review"}</span>
                                   ) : docSt === "action_required" ? (
-                                    <span className="text-rose-400 font-bold flex items-center gap-0.5"><AlertCircle className="w-3 h-3"/> {lang === "ar" ? "ناقصة" : "Missing"}</span>
+                                    <span className="text-rose-500 dark:text-rose-400 font-bold flex items-center gap-0.5"><AlertCircle className="w-3 h-3"/> {lang === "ar" ? "ناقصة" : "Missing"}</span>
                                   ) : (
                                     <span className="text-slate-400 font-bold flex items-center gap-0.5"><Info className="w-3 h-3"/> {lang === "ar" ? "غير مقدمة" : "Pending"}</span>
                                   )}
                                 </div>
                                 <div className="pt-0.5">
                                   {isFullyVer ? (
-                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/40">
+                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/40">
                                       <CheckCircle2 className="w-3 h-3" />
                                       {lang === "ar" ? "مكتمل التحقق" : "Fully Verified"}
                                     </span>
                                   ) : (
-                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/10 text-amber-300 border border-amber-500/30">
+                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30">
                                       <AlertCircle className="w-3 h-3" />
                                       {lang === "ar" ? "غير مكتمل التحقق" : "Not Fully Verified"}
                                     </span>
@@ -930,9 +948,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         </td>
 
                         {/* CREATION DATE */}
-                        <td className="py-4 px-4 font-mono text-slate-300">
+                        <td className={`py-4 px-4 font-mono ${theme === "dark" ? "text-slate-300" : "text-slate-700"}`}>
                           <div className="flex items-center gap-1.5">
-                            <Calendar className="w-3.5 h-3.5 text-slate-500" />
+                            <Calendar className="w-3.5 h-3.5 text-slate-400" />
                             <span>{formatDate(record.createdAt)}</span>
                           </div>
                         </td>
@@ -941,8 +959,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         <td className="py-4 px-4 text-center">
                           <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold font-mono ${
                             record.fileCount > 0 
-                              ? "bg-emerald-500/20 border border-emerald-500/40 text-emerald-400" 
-                              : "bg-slate-800 border border-slate-700 text-slate-400"
+                              ? "bg-emerald-500/20 border border-emerald-500/40 text-emerald-600 dark:text-emerald-400" 
+                              : "bg-slate-100 border border-slate-200 text-slate-500 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-400"
                           }`}>
                             <FileText className="w-3.5 h-3.5" />
                             {record.fileCount} {lang === "ar" ? "ملف" : "files"}
@@ -952,7 +970,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         {/* COMPANY & ROLE */}
                         <td className="py-4 px-4">
                           <div>
-                            <span className="font-semibold text-slate-200 block">
+                            <span className={`font-semibold block ${theme === "dark" ? "text-slate-200" : "text-slate-800"}`}>
                               {record.companyName || record.ownerName || "Default Workspace"}
                             </span>
                             <span className="text-[10px] text-slate-400 font-mono">
@@ -969,7 +987,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                 e.stopPropagation();
                                 setSelectedUserRecord(record);
                               }}
-                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#0075DE]/10 hover:bg-[#0075DE]/20 border border-[#0075DE]/30 text-blue-400 font-semibold transition-all text-xs cursor-pointer"
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#0075DE]/10 hover:bg-[#0075DE]/20 border border-[#0075DE]/30 text-[#0075DE] font-semibold transition-all text-xs cursor-pointer"
                             >
                               <Eye className="w-3.5 h-3.5" />
                               <span>{lang === "ar" ? "استعراض" : "View"}</span>
@@ -980,7 +998,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                   e.stopPropagation();
                                   handleDeleteUserAccount(record.id, record.email);
                                 }}
-                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 text-rose-400 font-semibold transition-all text-xs cursor-pointer"
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-600 dark:bg-rose-500/10 dark:hover:bg-rose-500/20 dark:border-rose-500/30 dark:text-rose-400 font-semibold transition-all text-xs cursor-pointer"
                                 title={lang === "ar" ? "حذف الحساب نهائياً" : "Delete Account"}
                               >
                                 <Trash2 className="w-3.5 h-3.5" />
@@ -1005,26 +1023,38 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
             {/* TICKET LIST SIDEBAR */}
             <div className="lg:col-span-4 space-y-4">
-              <div className="p-4 rounded-2xl border flex flex-col gap-3 bg-slate-900/70 border-slate-800">
+              <div className={`p-4 rounded-2xl border flex flex-col gap-3 ${
+                theme === "dark" ? "bg-slate-900/70 border-slate-800" : "bg-white border-slate-200 shadow-sm"
+              }`}>
                 <div className="flex items-center justify-between">
-                  <h4 className="font-bold text-xs sm:text-sm flex items-center gap-2 text-indigo-400">
+                  <h4 className={`font-bold text-xs sm:text-sm flex items-center gap-2 ${
+                    theme === "dark" ? "text-indigo-400" : "text-indigo-600"
+                  }`}>
                     <LifeBuoy className="w-4 h-4" />
                     <span>{lang === "ar" ? "تذاكر الدعم الواردة" : "Support Inbox"}</span>
                   </h4>
-                  <span className="px-2 py-0.5 rounded-full bg-slate-800/80 border border-slate-700 text-[10px] font-mono text-indigo-300">
+                  <span className={`px-2 py-0.5 rounded-full border text-[10px] font-mono ${
+                    theme === "dark" 
+                      ? "bg-slate-800/80 border-slate-700 text-indigo-300" 
+                      : "bg-indigo-50 border-indigo-200 text-indigo-700"
+                  }`}>
                     {supportTickets.length} {lang === "ar" ? "طلب" : "requests"}
                   </span>
                 </div>
 
                 {/* SEARCH & FILTER */}
                 <div className="relative">
-                  <Search className="w-3.5 h-3.5 text-slate-500 absolute top-2.5 left-3 pointer-events-none" />
+                  <Search className="w-3.5 h-3.5 text-slate-400 absolute top-2.5 left-3 pointer-events-none" />
                   <input
                     type="text"
                     value={ticketSearchQuery}
                     onChange={(e) => setTicketSearchQuery(e.target.value)}
                     placeholder={lang === "ar" ? "البحث عن البريد أو التذكرة..." : "Search tickets, user email..."}
-                    className="w-full bg-slate-950/80 border border-slate-800 rounded-xl pl-8 pr-3 py-2 text-xs text-slate-300 focus:outline-none focus:border-indigo-500"
+                    className={`w-full rounded-xl pl-8 pr-3 py-2 text-xs border focus:outline-none focus:border-indigo-500 transition-all ${
+                      theme === "dark"
+                        ? "bg-slate-950/80 border-slate-800 text-slate-300 placeholder:text-slate-500"
+                        : "bg-slate-50 border-slate-300 text-slate-900 placeholder:text-slate-400"
+                    }`}
                   />
                 </div>
 
@@ -1033,7 +1063,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   <select
                     value={ticketStatusFilter}
                     onChange={(e) => setTicketStatusFilter(e.target.value)}
-                    className="bg-transparent text-xs text-slate-300 font-bold focus:outline-none cursor-pointer"
+                    className={`bg-transparent text-xs font-bold focus:outline-none cursor-pointer ${
+                      theme === "dark" ? "text-slate-300" : "text-slate-700"
+                    }`}
                   >
                     <option value="All">{lang === "ar" ? "جميع الحالات" : "All Statuses"}</option>
                     <option value="Open">{lang === "ar" ? "مفتوحة" : "Open"}</option>
@@ -1048,7 +1080,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               {/* LIST CONTAINER */}
               <div className="space-y-3 max-h-[550px] overflow-y-auto pr-1">
                 {supportFetchError ? (
-                  <div className="p-8 text-center bg-rose-500/10 border border-rose-500/20 rounded-2xl space-y-4 text-rose-400">
+                  <div className="p-8 text-center bg-rose-500/10 border border-rose-500/20 rounded-2xl space-y-4 text-rose-500">
                     <h3 className="text-sm font-bold">{lang === "ar" ? "خطأ في التحميل" : "Loading Error"}</h3>
                     <p className="text-xs">{supportFetchError}</p>
                   </div>
@@ -1069,37 +1101,47 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         onClick={() => setSelectedTicket(t)}
                         className={`p-4 rounded-xl border cursor-pointer transition-all ${
                           isSelected
-                            ? "bg-indigo-950/30 border-indigo-500/50 shadow-md ring-1 ring-indigo-500/20"
-                            : "bg-slate-900/60 border-slate-800/80 hover:border-slate-700 hover:bg-slate-900"
+                            ? (theme === "dark" 
+                                ? "bg-indigo-950/30 border-indigo-500/50 shadow-md ring-1 ring-indigo-500/20" 
+                                : "bg-indigo-50 border-indigo-400 text-indigo-950 shadow-md ring-1 ring-indigo-500/30")
+                            : (theme === "dark"
+                                ? "bg-slate-900/60 border-slate-800/80 hover:border-slate-700 hover:bg-slate-900"
+                                : "bg-white border-slate-200 hover:border-slate-300 hover:bg-slate-50 shadow-sm")
                         }`}
                       >
                         <div className="flex items-center justify-between gap-2 mb-2">
                           <span className={`px-2 py-0.5 rounded text-[9px] font-bold ${
-                            t.status === "Open" ? "bg-amber-500/10 text-amber-400 border border-amber-500/20" :
-                            t.status === "In Progress" ? "bg-blue-500/10 text-blue-400 border border-blue-500/20" :
-                            t.status === "Waiting for User" ? "bg-purple-500/10 text-purple-400 border border-purple-500/20" :
-                            "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
+                            t.status === "Open" ? "bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30" :
+                            t.status === "In Progress" ? "bg-blue-500/15 text-blue-600 dark:text-blue-400 border border-blue-500/30" :
+                            t.status === "Waiting for User" ? "bg-purple-500/15 text-purple-600 dark:text-purple-400 border border-purple-500/30" :
+                            "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30"
                           }`}>
                             {t.status}
                           </span>
                           <span className={`px-2 py-0.5 rounded text-[9px] font-bold ${
-                            t.priority === "Urgent" ? "bg-rose-500/20 text-rose-400 border border-rose-500/30" :
-                            t.priority === "High" ? "bg-amber-500/20 text-amber-400 border border-amber-500/30" :
-                            "bg-slate-800 text-slate-400 border border-slate-700"
+                            t.priority === "Urgent" ? "bg-rose-500/20 text-rose-600 dark:text-rose-400 border border-rose-500/30" :
+                            t.priority === "High" ? "bg-amber-500/20 text-amber-600 dark:text-amber-400 border border-amber-500/30" :
+                            (theme === "dark" ? "bg-slate-800 text-slate-400 border border-slate-700" : "bg-slate-100 text-slate-600 border border-slate-200")
                           }`}>
                             {t.priority}
                           </span>
                         </div>
 
-                        <h5 className="font-bold text-xs sm:text-sm text-slate-200 line-clamp-1 mb-1">
+                        <h5 className={`font-bold text-xs sm:text-sm line-clamp-1 mb-1 ${
+                          theme === "dark" ? "text-slate-200" : "text-slate-900"
+                        }`}>
                           {t.subject}
                         </h5>
 
-                        <p className="text-xs text-slate-400 line-clamp-2 mb-2">
+                        <p className={`text-xs line-clamp-2 mb-2 ${
+                          theme === "dark" ? "text-slate-400" : "text-slate-600"
+                        }`}>
                           {t.message}
                         </p>
 
-                        <div className="flex items-center justify-between text-[10px] text-slate-500 border-t border-slate-800/50 pt-2 font-mono">
+                        <div className={`flex items-center justify-between text-[10px] border-t pt-2 font-mono ${
+                          theme === "dark" ? "text-slate-500 border-slate-800/50" : "text-slate-500 border-slate-100"
+                        }`}>
                           <span className="truncate max-w-[150px]">{t.userEmail}</span>
                           <span>{safeFormatDate(t.createdAt)}</span>
                         </div>
@@ -1112,21 +1154,29 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             {/* CONVERSATION THREAD */}
             <div className="lg:col-span-8 space-y-4">
               {selectedTicket ? (
-                <div className="border rounded-2xl flex flex-col h-[650px] shadow-2xl overflow-hidden bg-slate-900/90 border-slate-800">
+                <div className={`border rounded-2xl flex flex-col h-[650px] shadow-2xl overflow-hidden ${
+                  theme === "dark" ? "bg-slate-900/90 border-slate-800" : "bg-white border-slate-200"
+                }`}>
                   {/* Thread Header */}
-                  <div className="p-4 sm:p-5 border-b border-slate-800/80 bg-slate-950/40 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                  <div className={`p-4 sm:p-5 border-b flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 ${
+                    theme === "dark" ? "border-slate-800/80 bg-slate-950/40" : "border-slate-200 bg-slate-50"
+                  }`}>
                     <div>
                       <div className="flex items-center gap-2 mb-1">
-                        <span className="text-xs font-mono font-bold text-indigo-400">#{selectedTicket.id}</span>
-                        <span className="px-2 py-0.5 rounded text-[9px] font-mono font-bold bg-slate-800 text-slate-300">
+                        <span className="text-xs font-mono font-bold text-indigo-500">#{selectedTicket.id}</span>
+                        <span className={`px-2 py-0.5 rounded text-[9px] font-mono font-bold ${
+                          theme === "dark" ? "bg-slate-800 text-slate-300" : "bg-slate-200 text-slate-700"
+                        }`}>
                           {selectedTicket.category}
                         </span>
                       </div>
-                      <h4 className="text-sm sm:text-base font-extrabold text-white">
+                      <h4 className={`text-sm sm:text-base font-extrabold ${
+                        theme === "dark" ? "text-white" : "text-slate-900"
+                      }`}>
                         {selectedTicket.subject}
                       </h4>
-                      <p className="text-xs text-slate-400 mt-0.5">
-                        By <strong className="text-slate-200 font-semibold">{selectedTicket.userName}</strong> ({selectedTicket.userEmail}) {selectedTicket.userPhone && `• ${selectedTicket.userPhone}`}
+                      <p className="text-xs text-slate-500 mt-0.5">
+                        By <strong className={theme === "dark" ? "text-slate-200 font-semibold" : "text-slate-800 font-semibold"}>{selectedTicket.userName}</strong> ({selectedTicket.userEmail}) {selectedTicket.userPhone && `• ${selectedTicket.userPhone}`}
                       </p>
                     </div>
 
@@ -1136,7 +1186,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         value={selectedTicket.status}
                         onChange={(e) => handleUpdateTicketStatus(e.target.value as SupportStatus)}
                         disabled={isUpdatingTicketStatus}
-                        className="bg-slate-950 border border-slate-800 rounded-xl px-2.5 py-1.5 text-xs text-slate-300 font-bold focus:outline-none cursor-pointer"
+                        className={`rounded-xl px-2.5 py-1.5 text-xs font-bold focus:outline-none cursor-pointer border ${
+                          theme === "dark"
+                            ? "bg-slate-950 border-slate-800 text-slate-300"
+                            : "bg-white border-slate-300 text-slate-800 shadow-sm"
+                        }`}
                       >
                         <option value="Open">Open</option>
                         <option value="In Progress">In Progress</option>
@@ -1149,7 +1203,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         value={selectedTicket.priority}
                         onChange={(e) => handleUpdateTicketPriority(e.target.value as SupportPriority)}
                         disabled={isUpdatingTicketStatus}
-                        className="bg-slate-950 border border-slate-800 rounded-xl px-2.5 py-1.5 text-xs text-slate-300 font-bold focus:outline-none cursor-pointer"
+                        className={`rounded-xl px-2.5 py-1.5 text-xs font-bold focus:outline-none cursor-pointer border ${
+                          theme === "dark"
+                            ? "bg-slate-950 border-slate-800 text-slate-300"
+                            : "bg-white border-slate-300 text-slate-800 shadow-sm"
+                        }`}
                       >
                         <option value="Low">Low</option>
                         <option value="Medium">Medium</option>
@@ -1160,19 +1218,25 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   </div>
 
                   {/* Conversation Area */}
-                  <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4 bg-slate-950/20">
+                  <div className={`flex-1 overflow-y-auto p-4 sm:p-5 space-y-4 ${
+                    theme === "dark" ? "bg-slate-950/20" : "bg-slate-50/50"
+                  }`}>
                     {/* User's Original Ticket Message */}
                     <div className="flex gap-3 max-w-[85%]">
-                      <div className="w-8 h-8 rounded-full bg-indigo-600/20 border border-indigo-500/30 text-indigo-400 flex items-center justify-center shrink-0 font-black text-xs">
+                      <div className="w-8 h-8 rounded-full bg-indigo-600/20 border border-indigo-500/30 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0 font-black text-xs">
                         U
                       </div>
                       <div className="space-y-1">
                         <div className="flex items-center gap-2 text-[10px] text-slate-400 px-1">
-                          <span className="font-bold text-slate-300">{selectedTicket.userName}</span>
+                          <span className={`font-bold ${theme === "dark" ? "text-slate-300" : "text-slate-700"}`}>{selectedTicket.userName}</span>
                           <span>•</span>
                           <span>{safeFormatDateTime(selectedTicket.createdAt)}</span>
                         </div>
-                        <div className="p-4 rounded-2xl rounded-tl-none text-xs sm:text-sm bg-slate-900 border border-slate-800 text-slate-200 leading-relaxed shadow-sm">
+                        <div className={`p-4 rounded-2xl rounded-tl-none text-xs sm:text-sm leading-relaxed shadow-sm border ${
+                          theme === "dark"
+                            ? "bg-slate-900 border-slate-800 text-slate-200"
+                            : "bg-white border-slate-200 text-slate-800"
+                        }`}>
                           {selectedTicket.message}
                         </div>
                       </div>
@@ -1187,14 +1251,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                           className={`flex gap-3 max-w-[85%] ${isAdmin ? "ml-auto flex-row-reverse" : "mr-auto"}`}
                         >
                           <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 font-bold text-xs ${
-                            isAdmin ? "bg-[#0075DE] text-white font-black" : "bg-indigo-600/20 text-indigo-400"
+                            isAdmin ? "bg-[#0075DE] text-white font-black" : "bg-indigo-600/20 text-indigo-600 dark:text-indigo-400"
                           }`}>
                             {isAdmin ? <Bot className="w-4 h-4" /> : "U"}
                           </div>
 
                           <div className={`space-y-1 ${isAdmin ? "text-right" : "text-left"}`}>
                             <div className="flex items-center gap-2 text-[10px] text-slate-400 px-1">
-                              <span className="font-semibold text-slate-300">{msg.senderName}</span>
+                              <span className={`font-semibold ${theme === "dark" ? "text-slate-300" : "text-slate-700"}`}>{msg.senderName}</span>
                               <span>•</span>
                               <span>{safeFormatTime(msg.createdAt)}</span>
                             </div>
@@ -1202,7 +1266,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                             <div className={`p-4 rounded-2xl text-xs sm:text-sm leading-relaxed ${
                               isAdmin 
                                 ? "bg-[#0075DE] text-white font-medium rounded-tr-none shadow-md shadow-blue-500/10" 
-                                : "bg-slate-900 border border-slate-800 text-slate-200 rounded-tl-none shadow-sm"
+                                : (theme === "dark"
+                                    ? "bg-slate-900 border border-slate-800 text-slate-200 rounded-tl-none shadow-sm"
+                                    : "bg-white border border-slate-200 text-slate-800 rounded-tl-none shadow-sm")
                             }`}>
                               {msg.message}
                             </div>
@@ -1213,14 +1279,20 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   </div>
 
                   {/* Internal Admin Notes */}
-                  <div className="p-3 bg-slate-950/80 border-t border-slate-800 flex items-center gap-3">
-                    <span className="text-[10px] uppercase font-black tracking-wider text-blue-400 shrink-0">Internal Note:</span>
+                  <div className={`p-3 border-t flex items-center gap-3 ${
+                    theme === "dark" ? "bg-slate-950/80 border-slate-800" : "bg-slate-100 border-slate-200"
+                  }`}>
+                    <span className="text-[10px] uppercase font-black tracking-wider text-[#0075DE] shrink-0">Internal Note:</span>
                     <input
                       type="text"
                       value={adminNotesInput}
                       onChange={(e) => setAdminNotesInput(e.target.value)}
                       placeholder="Add private note (only visible to support admins)..."
-                      className="flex-1 bg-transparent border-none text-xs text-slate-300 focus:outline-none placeholder:text-slate-600"
+                      className={`flex-1 bg-transparent border-none text-xs focus:outline-none ${
+                        theme === "dark"
+                          ? "text-slate-300 placeholder:text-slate-600"
+                          : "text-slate-800 placeholder:text-slate-400"
+                      }`}
                     />
                     <button
                       onClick={handleSaveAdminNotes}
@@ -1231,19 +1303,25 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   </div>
 
                   {/* Reply Input Form */}
-                  <div className="p-4 border-t border-slate-800 bg-slate-950/60">
+                  <div className={`p-4 border-t ${
+                    theme === "dark" ? "border-slate-800 bg-slate-950/60" : "border-slate-200 bg-slate-50"
+                  }`}>
                     <form onSubmit={handleSendAdminReply} className="flex gap-2">
                       <input
                         type="text"
                         value={adminReplyMessage}
                         onChange={(e) => setAdminReplyMessage(e.target.value)}
                         placeholder={lang === "ar" ? "اكتب الرد الرسمي للمستخدم هنا..." : "Type official response to send to customer..."}
-                        className="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-xs text-slate-300 focus:outline-none focus:border-indigo-500"
+                        className={`flex-1 rounded-xl px-4 py-2.5 text-xs focus:outline-none focus:border-indigo-500 border ${
+                          theme === "dark"
+                            ? "bg-slate-950 border-slate-800 text-slate-300 placeholder:text-slate-600"
+                            : "bg-white border-slate-300 text-slate-900 placeholder:text-slate-400 shadow-sm"
+                        }`}
                       />
                       <button
                         type="submit"
                         disabled={isSendingAdminReply || !adminReplyMessage.trim()}
-                        className="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 text-white font-bold text-xs sm:text-sm flex items-center gap-2 shadow-lg"
+                        className="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 text-white font-bold text-xs sm:text-sm flex items-center gap-2 shadow-lg cursor-pointer"
                       >
                         {isSendingAdminReply ? (
                           <RefreshCw className="w-4 h-4 animate-spin" />
@@ -1256,8 +1334,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   </div>
                 </div>
               ) : (
-                <div className="h-[650px] border border-slate-800 rounded-2xl flex flex-col items-center justify-center p-8 text-center text-slate-400 bg-slate-900/50">
-                  <MessageSquare className="w-12 h-12 text-slate-600 mb-3" />
+                <div className={`h-[650px] border rounded-2xl flex flex-col items-center justify-center p-8 text-center ${
+                  theme === "dark" ? "border-slate-800 bg-slate-900/50 text-slate-400" : "border-slate-200 bg-white text-slate-500 shadow-sm"
+                }`}>
+                  <MessageSquare className="w-12 h-12 text-slate-400 mb-3" />
                   <p className="text-sm font-bold">
                     {lang === "ar" ? "اختر تذكرة دعم من القائمة لعرض تفاصيلها والرد عليها" : "Select a support ticket from the inbox to manage and reply"}
                   </p>
@@ -1270,10 +1350,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         {/* ACCOUNT REACTIVATIONS SECTION */}
         {activeAdminTab === "reactivations" && (
           <div className="space-y-6">
-            <div className="p-6 rounded-2xl border bg-slate-900/60 border-slate-800 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+            <div className={`p-6 rounded-2xl border flex flex-col md:flex-row items-start md:items-center justify-between gap-4 ${
+              theme === "dark" ? "bg-slate-900/60 border-slate-800" : "bg-white border-slate-200 shadow-sm"
+            }`}>
               <div>
-                <h3 className="text-lg font-bold text-white flex items-center gap-2.5">
-                  <ShieldAlert className="w-5 h-5 text-amber-400" />
+                <h3 className={`text-lg font-bold flex items-center gap-2.5 ${
+                  theme === "dark" ? "text-white" : "text-slate-900"
+                }`}>
+                  <ShieldAlert className="w-5 h-5 text-amber-500" />
                   <span>{lang === "ar" ? "طلبات إعادة تفعيل الحسابات المحذوفة" : "Account Reactivation Requests"}</span>
                 </h3>
                 <p className="text-xs text-slate-400 mt-1">
@@ -1285,11 +1369,15 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
               <div className="flex items-center gap-3 w-full md:w-auto justify-end">
                 {/* Status Filter */}
-                <div className="flex items-center bg-slate-950 border border-slate-800 rounded-xl p-1 text-xs">
+                <div className={`flex items-center border rounded-xl p-1 text-xs ${
+                  theme === "dark" ? "bg-slate-950 border-slate-800" : "bg-slate-100 border-slate-200"
+                }`}>
                   <button
                     onClick={() => setReactivationFilter("all")}
                     className={`px-3 py-1.5 rounded-lg transition-colors cursor-pointer ${
-                      reactivationFilter === "all" ? "bg-amber-600 text-white font-bold" : "text-slate-400 hover:text-white"
+                      reactivationFilter === "all"
+                        ? "bg-amber-600 text-white font-bold"
+                        : theme === "dark" ? "text-slate-400 hover:text-white" : "text-slate-600 hover:text-slate-900"
                     }`}
                   >
                     {lang === "ar" ? "الكل" : "All"} ({reactivationRequests.length})
@@ -1297,7 +1385,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   <button
                     onClick={() => setReactivationFilter("pending")}
                     className={`px-3 py-1.5 rounded-lg transition-colors cursor-pointer ${
-                      reactivationFilter === "pending" ? "bg-amber-600 text-white font-bold" : "text-slate-400 hover:text-white"
+                      reactivationFilter === "pending"
+                        ? "bg-amber-600 text-white font-bold"
+                        : theme === "dark" ? "text-slate-400 hover:text-white" : "text-slate-600 hover:text-slate-900"
                     }`}
                   >
                     {lang === "ar" ? "قيد المراجعة" : "Pending"} ({reactivationRequests.filter(r => r.status === "pending").length})
@@ -1305,7 +1395,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   <button
                     onClick={() => setReactivationFilter("approved")}
                     className={`px-3 py-1.5 rounded-lg transition-colors cursor-pointer ${
-                      reactivationFilter === "approved" ? "bg-amber-600 text-white font-bold" : "text-slate-400 hover:text-white"
+                      reactivationFilter === "approved"
+                        ? "bg-amber-600 text-white font-bold"
+                        : theme === "dark" ? "text-slate-400 hover:text-white" : "text-slate-600 hover:text-slate-900"
                     }`}
                   >
                     {lang === "ar" ? "معتمدة" : "Approved"} ({reactivationRequests.filter(r => r.status === "approved").length})
@@ -1315,7 +1407,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 <button
                   onClick={fetchReactivationRequests}
                   disabled={loadingReactivations}
-                  className="p-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition-colors cursor-pointer"
+                  className={`p-2.5 rounded-xl transition-colors cursor-pointer border ${
+                    theme === "dark"
+                      ? "bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border-transparent"
+                      : "bg-slate-100 hover:bg-slate-200 text-slate-700 hover:text-slate-900 border-slate-200"
+                  }`}
                   title="Refresh"
                 >
                   <RefreshCw className={`w-4 h-4 ${loadingReactivations ? "animate-spin" : ""}`} />
@@ -1325,9 +1421,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
             {/* LIST OR EMPTY */}
             {reactivationRequests.length === 0 ? (
-              <div className="p-12 text-center border border-dashed border-slate-800 rounded-2xl bg-slate-900/40">
+              <div className={`p-12 text-center border border-dashed rounded-2xl ${
+                theme === "dark" ? "border-slate-800 bg-slate-900/40" : "border-slate-200 bg-slate-50"
+              }`}>
                 <CheckCircle2 className="w-12 h-12 text-emerald-500/60 mx-auto mb-3" />
-                <p className="text-sm font-semibold text-slate-300">
+                <p className={`text-sm font-semibold ${theme === "dark" ? "text-slate-300" : "text-slate-700"}`}>
                   {lang === "ar" ? "لا توجد طلبات إعادة تفعيل حالياً" : "No pending reactivation requests found"}
                 </p>
                 <p className="text-xs text-slate-500 mt-1">
@@ -1346,18 +1444,24 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     return (
                       <div
                         key={req.id || req.email}
-                        className="p-5 rounded-2xl border bg-slate-900/70 border-slate-800 space-y-4 hover:border-slate-700 transition-colors"
+                        className={`p-5 rounded-2xl border space-y-4 transition-colors ${
+                          theme === "dark"
+                            ? "bg-slate-900/70 border-slate-800 hover:border-slate-700"
+                            : "bg-white border-slate-200 hover:border-slate-300 shadow-sm"
+                        }`}
                       >
                         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                           <div className="space-y-1">
                             <div className="flex items-center gap-2.5">
-                              <span className="font-mono text-sm font-bold text-white">{req.email}</span>
+                              <span className={`font-mono text-sm font-bold ${
+                                theme === "dark" ? "text-white" : "text-slate-900"
+                              }`}>{req.email}</span>
                               <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold ${
                                 isPending
-                                  ? "bg-amber-500/20 text-amber-400 border border-amber-500/30"
+                                  ? "bg-amber-500/20 text-amber-600 dark:text-amber-400 border border-amber-500/30"
                                   : isApproved
-                                  ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
-                                  : "bg-rose-500/20 text-rose-400 border border-rose-500/30"
+                                  ? "bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30"
+                                  : "bg-rose-500/20 text-rose-600 dark:text-rose-400 border border-rose-500/30"
                               }`}>
                                 {isPending
                                   ? (lang === "ar" ? "قيد مراجعة الإدارة" : "Pending Review")
@@ -1394,7 +1498,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                 <button
                                   onClick={() => handleReactivationDecision(req.email, "reject")}
                                   disabled={isProcessing}
-                                  className="px-4 py-2 bg-rose-600/20 hover:bg-rose-600 text-rose-300 hover:text-white border border-rose-500/30 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                                  className="px-4 py-2 bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-600 dark:bg-rose-600/20 dark:hover:bg-rose-600 dark:text-rose-300 dark:hover:text-white dark:border-rose-500/30 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
                                 >
                                   <X className="w-3.5 h-3.5" />
                                   <span>{lang === "ar" ? "رفض" : "Reject"}</span>
@@ -1404,7 +1508,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                               <button
                                 onClick={() => handleReactivationDecision(req.email, "reject")}
                                 disabled={isProcessing}
-                                className="px-3 py-1.5 bg-slate-800 hover:bg-rose-950/40 text-slate-400 hover:text-rose-300 text-xs rounded-xl transition-all cursor-pointer"
+                                className={`px-3 py-1.5 text-xs rounded-xl transition-all cursor-pointer border ${
+                                  theme === "dark"
+                                    ? "bg-slate-800 hover:bg-rose-950/40 text-slate-400 hover:text-rose-300 border-transparent"
+                                    : "bg-slate-100 hover:bg-rose-50 text-slate-600 hover:text-rose-600 border-slate-200"
+                                }`}
                               >
                                 {lang === "ar" ? "إلغاء الاعتماد وحظر" : "Revoke Approval"}
                               </button>
@@ -1412,7 +1520,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                               <button
                                 onClick={() => handleReactivationDecision(req.email, "approve")}
                                 disabled={isProcessing}
-                                className="px-3 py-1.5 bg-emerald-600/20 hover:bg-emerald-600 text-emerald-300 hover:text-white border border-emerald-500/30 text-xs rounded-xl transition-all cursor-pointer"
+                                className="px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 dark:bg-emerald-600/20 dark:hover:bg-emerald-600 dark:text-emerald-300 dark:hover:text-white dark:border-emerald-500/30 text-xs rounded-xl transition-all cursor-pointer font-bold"
                               >
                                 {lang === "ar" ? "إعادة النظر والموافقة" : "Re-approve"}
                               </button>
@@ -1421,11 +1529,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         </div>
 
                         {/* REASON */}
-                        <div className="p-3.5 rounded-xl bg-slate-950/70 border border-slate-800 text-xs">
+                        <div className={`p-3.5 rounded-xl border text-xs ${
+                          theme === "dark" ? "bg-slate-950/70 border-slate-800" : "bg-slate-50 border-slate-200"
+                        }`}>
                           <span className="text-slate-400 font-bold block mb-1">
                             {lang === "ar" ? "سبب طلب إعادة التفعيل المرسل من المستخدم:" : "Reason provided by user:"}
                           </span>
-                          <p className="text-slate-200 leading-relaxed font-sans">
+                          <p className={`leading-relaxed font-sans ${theme === "dark" ? "text-slate-200" : "text-slate-700"}`}>
                             {req.reason || (lang === "ar" ? "(لم يقدم المستخدم سبباً تفصيلياً)" : "(No specific reason provided)")}
                           </p>
                         </div>
@@ -1441,16 +1551,22 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       {/* USER FILES INSPECTION MODAL */}
       {selectedUserRecord && (
         <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-md flex items-center justify-center p-4 sm:p-6 overflow-y-auto">
-          <div className="max-w-4xl w-full rounded-2xl border shadow-2xl overflow-hidden flex flex-col max-h-[90vh] bg-[var(--bg-secondary)] border-[var(--border-color)] text-[var(--text-primary)]">
+          <div className={`max-w-4xl w-full rounded-2xl border shadow-2xl overflow-hidden flex flex-col max-h-[90vh] ${
+            theme === "dark" 
+              ? "bg-slate-900 border-slate-800 text-slate-100" 
+              : "bg-white border-slate-200 text-slate-900"
+          }`}>
             {/* MODAL HEADER */}
-            <div className="p-6 border-b border-[var(--border-color)] flex items-center justify-between gap-4 bg-[var(--bg-tertiary)]">
+            <div className={`p-6 border-b flex items-center justify-between gap-4 ${
+              theme === "dark" ? "border-slate-800 bg-slate-950/60" : "border-slate-200 bg-slate-50"
+            }`}>
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-[#0075DE]/20 border border-[#0075DE]/40 flex items-center justify-center text-blue-400 font-bold">
+                <div className="w-10 h-10 rounded-xl bg-[#0075DE]/20 border border-[#0075DE]/40 flex items-center justify-center text-[#0075DE] font-bold">
                   <FolderOpen className="w-5 h-5" />
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
-                    <h3 className="text-lg font-bold">
+                    <h3 className={`text-lg font-bold ${theme === "dark" ? "text-white" : "text-slate-900"}`}>
                       {lang === "ar" ? `ملفات المستخدم: ${selectedUserRecord.email}` : `Uploaded Files for ${selectedUserRecord.email}`}
                     </h3>
                     {selectedUserRecord.id === currentUser.id && (
@@ -1467,10 +1583,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 {selectedUserRecord.id !== currentUser.id && selectedUserRecord.id !== ADMIN_USER_ID && (
                   <button
                     onClick={() => handleDeleteUserAccount(selectedUserRecord.id, selectedUserRecord.email)}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-rose-500/20 hover:bg-rose-500/30 border border-rose-500/40 text-rose-300 font-bold text-xs transition-all cursor-pointer"
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-600 dark:bg-rose-500/20 dark:hover:bg-rose-500/30 dark:border-rose-500/40 dark:text-rose-300 font-bold text-xs transition-all cursor-pointer"
                     title={lang === "ar" ? "حذف حساب المستخدم نهائياً" : "Delete User Account"}
                   >
-                    <Trash2 className="w-4 h-4 text-rose-400" />
+                    <Trash2 className="w-4 h-4 text-rose-500" />
                     <span>{lang === "ar" ? "حذف الحساب" : "Delete Account"}</span>
                   </button>
                 )}
@@ -1479,7 +1595,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     setSelectedUserRecord(null);
                     setSelectedFileForPreview(null);
                   }}
-                  className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white transition-colors cursor-pointer"
+                  className={`p-2 rounded-xl transition-colors cursor-pointer border ${
+                    theme === "dark"
+                      ? "bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white border-transparent"
+                      : "bg-slate-100 hover:bg-slate-200 text-slate-600 hover:text-slate-900 border-slate-200"
+                  }`}
                 >
                   <X className="w-5 h-5" />
                 </button>
@@ -1490,17 +1610,19 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             <div className="p-6 overflow-y-auto flex-1 space-y-6">
               
               {/* USER PROFILE CARD SUMMARY */}
-              <div className="p-4 rounded-xl bg-slate-800/40 border border-slate-700/60 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 text-xs font-mono">
+              <div className={`p-4 rounded-xl border grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 text-xs font-mono ${
+                theme === "dark" ? "bg-slate-800/40 border-slate-700/60" : "bg-slate-50 border-slate-200"
+              }`}>
                 <div>
                   <span className="text-slate-400 block">{lang === "ar" ? "البريد الإلكتروني:" : "User Email:"}</span>
-                  <strong className="text-amber-400 text-sm block truncate">{selectedUserRecord.email}</strong>
+                  <strong className="text-amber-600 dark:text-amber-400 text-sm block truncate">{selectedUserRecord.email}</strong>
                 </div>
                 <div>
                   <span className="text-slate-400 block">{lang === "ar" ? "حالة النشاط:" : "Activity Status:"}</span>
                   {(() => {
                     const act = getUserActivityStatus(selectedUserRecord.lastActiveAt, selectedUserRecord.createdAt);
                     return (
-                      <strong className={`block ${act.key === "online" ? "text-emerald-400" : act.key === "recent" ? "text-amber-400" : "text-slate-400"}`}>
+                      <strong className={`block ${act.key === "online" ? "text-emerald-600 dark:text-emerald-400" : act.key === "recent" ? "text-amber-600 dark:text-amber-400" : "text-slate-500"}`}>
                         {lang === "ar" ? act.labelAr : act.labelEn}
                       </strong>
                     );
@@ -1508,20 +1630,24 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 </div>
                 <div>
                   <span className="text-slate-400 block">{lang === "ar" ? "آخر ظهور / نشاط:" : "Last Active:"}</span>
-                  <strong className="text-slate-200 block">{formatDate(selectedUserRecord.lastActiveAt || selectedUserRecord.createdAt)}</strong>
+                  <strong className={`block ${theme === "dark" ? "text-slate-200" : "text-slate-800"}`}>{formatDate(selectedUserRecord.lastActiveAt || selectedUserRecord.createdAt)}</strong>
                 </div>
                 <div>
                   <span className="text-slate-400 block">{lang === "ar" ? "إجمالي المستندات:" : "Total Documents:"}</span>
-                  <strong className="text-emerald-400 block">{selectedUserRecord.fileCount} {lang === "ar" ? "ملف مرفوع" : "uploaded files"}</strong>
+                  <strong className="text-emerald-600 dark:text-emerald-400 block">{selectedUserRecord.fileCount} {lang === "ar" ? "ملف مرفوع" : "uploaded files"}</strong>
                 </div>
               </div>
 
               {/* ACCOUNT VERIFICATION CONTROL PANEL FOR ADMIN */}
-              <div className="p-5 rounded-2xl bg-slate-900/90 border border-[#0075DE]/30 space-y-4 shadow-xl">
-                <div className="flex items-center justify-between flex-wrap gap-2 pb-3 border-b border-slate-800">
+              <div className={`p-5 rounded-2xl border space-y-4 shadow-xl ${
+                theme === "dark" ? "bg-slate-900/90 border-[#0075DE]/30" : "bg-white border-blue-200"
+              }`}>
+                <div className={`flex items-center justify-between flex-wrap gap-2 pb-3 border-b ${
+                  theme === "dark" ? "border-slate-800" : "border-slate-200"
+                }`}>
                   <div className="flex items-center gap-2">
-                    <ShieldCheck className="w-5 h-5 text-blue-400 shrink-0" />
-                    <h4 className="font-bold text-sm text-slate-100">
+                    <ShieldCheck className="w-5 h-5 text-[#0075DE] shrink-0" />
+                    <h4 className={`font-bold text-sm ${theme === "dark" ? "text-slate-100" : "text-slate-900"}`}>
                       {lang === "ar" ? "لوحة تدقيق وفصل حالات التحقق (البريد والوثائق)" : "Verification Audit Panel (Email vs Documents)"}
                     </h4>
                   </div>
@@ -1532,14 +1658,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       const isFullyVer = isEmailVer && docSt === "verified";
                       if (isFullyVer) {
                         return (
-                          <span className="px-3 py-1 rounded-full text-xs font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 flex items-center gap-1.5">
+                          <span className="px-3 py-1 rounded-full text-xs font-bold bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/40 flex items-center gap-1.5">
                             <CheckCircle2 className="w-4 h-4" />
                             {lang === "ar" ? "الحساب مكتمل التحقق Fully Verified" : "Account Fully Verified"}
                           </span>
                         );
                       }
                       return (
-                        <span className="px-3 py-1 rounded-full text-xs font-bold bg-[#0075DE]/20 text-blue-300 border border-[#0075DE]/40 flex items-center gap-1.5">
+                        <span className="px-3 py-1 rounded-full text-xs font-bold bg-[#0075DE]/20 text-[#0075DE] border border-[#0075DE]/40 flex items-center gap-1.5">
                           <AlertCircle className="w-4 h-4" />
                           {lang === "ar" ? "الحساب غير مكتمل التحقق" : "Account Not Fully Verified"}
                         </span>
@@ -1551,20 +1677,22 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 {/* Independent status rows */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
                   {/* Email Verification Status */}
-                  <div className="p-3 rounded-xl bg-slate-950 border border-slate-800 flex items-center justify-between">
+                  <div className={`p-3 rounded-xl border flex items-center justify-between ${
+                    theme === "dark" ? "bg-slate-950 border-slate-800" : "bg-slate-50 border-slate-200"
+                  }`}>
                     <div>
                       <span className="text-[11px] text-slate-400 block font-bold">{lang === "ar" ? "التحقق من البريد الإلكتروني" : "Email Verification"}</span>
-                      <span className="text-xs font-bold text-slate-200">{selectedUserRecord.email}</span>
+                      <span className={`text-xs font-bold ${theme === "dark" ? "text-slate-200" : "text-slate-900"}`}>{selectedUserRecord.email}</span>
                     </div>
                     {(() => {
                       const isEmailVer = !!((selectedUserRecord as any).fullUser?.emailVerified || (selectedUserRecord as any).emailVerified || (selectedUserRecord as any).isEmailVerified || (selectedUserRecord as any).email_verified || (selectedUserRecord as any).isVerified);
                       return isEmailVer ? (
-                        <span className="px-2.5 py-1 rounded-lg text-xs font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 flex items-center gap-1">
+                        <span className="px-2.5 py-1 rounded-lg text-xs font-bold bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/40 flex items-center gap-1">
                           <CheckCircle2 className="w-3.5 h-3.5" />
                           {lang === "ar" ? "Verified" : "Verified"}
                         </span>
                       ) : (
-                        <span className="px-2.5 py-1 rounded-lg text-xs font-bold bg-rose-500/20 text-rose-400 border border-rose-500/40 flex items-center gap-1">
+                        <span className="px-2.5 py-1 rounded-lg text-xs font-bold bg-rose-500/20 text-rose-600 dark:text-rose-400 border border-rose-500/40 flex items-center gap-1">
                           <AlertCircle className="w-3.5 h-3.5" />
                           {lang === "ar" ? "Not Verified" : "Not Verified"}
                         </span>
@@ -1573,16 +1701,18 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   </div>
 
                   {/* Document Verification Status */}
-                  <div className="p-3 rounded-xl bg-slate-950 border border-slate-800 flex items-center justify-between">
+                  <div className={`p-3 rounded-xl border flex items-center justify-between ${
+                    theme === "dark" ? "bg-slate-950 border-slate-800" : "bg-slate-50 border-slate-200"
+                  }`}>
                     <div>
                       <span className="text-[11px] text-slate-400 block font-bold">{lang === "ar" ? "التحقق من الوثائق والمستندات" : "Document Verification"}</span>
-                      <span className="text-xs font-bold text-slate-200">{selectedUserRecord.verificationInfo?.documents?.length || 0} {lang === "ar" ? "مستندات مرفقة" : "docs attached"}</span>
+                      <span className={`text-xs font-bold ${theme === "dark" ? "text-slate-200" : "text-slate-900"}`}>{selectedUserRecord.verificationInfo?.documents?.length || 0} {lang === "ar" ? "مستندات مرفقة" : "docs attached"}</span>
                     </div>
                     {(() => {
                       const docSt = selectedUserRecord.verificationInfo?.status || "unverified";
                       if (docSt === "verified") {
                         return (
-                          <span className="px-2.5 py-1 rounded-lg text-xs font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 flex items-center gap-1">
+                          <span className="px-2.5 py-1 rounded-lg text-xs font-bold bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/40 flex items-center gap-1">
                             <CheckCircle2 className="w-3.5 h-3.5" />
                             {lang === "ar" ? "Verified" : "Verified"}
                           </span>
@@ -1590,7 +1720,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       }
                       if (docSt === "under_review") {
                         return (
-                          <span className="px-2.5 py-1 rounded-lg text-xs font-bold bg-amber-500/20 text-amber-400 border border-amber-500/40 flex items-center gap-1">
+                          <span className="px-2.5 py-1 rounded-lg text-xs font-bold bg-amber-500/20 text-amber-600 dark:text-amber-400 border border-amber-500/40 flex items-center gap-1">
                             <Clock className="w-3.5 h-3.5" />
                             {lang === "ar" ? "Under Review" : "Under Review"}
                           </span>
@@ -1598,14 +1728,16 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       }
                       if (docSt === "action_required") {
                         return (
-                          <span className="px-2.5 py-1 rounded-lg text-xs font-bold bg-rose-500/20 text-rose-400 border border-rose-500/40 flex items-center gap-1">
+                          <span className="px-2.5 py-1 rounded-lg text-xs font-bold bg-rose-500/20 text-rose-600 dark:text-rose-400 border border-rose-500/40 flex items-center gap-1">
                             <AlertCircle className="w-3.5 h-3.5" />
                             {lang === "ar" ? "Missing" : "Missing"}
                           </span>
                         );
                       }
                       return (
-                        <span className="px-2.5 py-1 rounded-lg text-xs font-bold bg-slate-800 text-slate-400 border border-slate-700 flex items-center gap-1">
+                        <span className={`px-2.5 py-1 rounded-lg text-xs font-bold border flex items-center gap-1 ${
+                          theme === "dark" ? "bg-slate-800 text-slate-400 border-slate-700" : "bg-slate-100 text-slate-600 border-slate-200"
+                        }`}>
                           <Info className="w-3.5 h-3.5" />
                           {lang === "ar" ? "Unverified" : "Unverified"}
                         </span>
@@ -1628,7 +1760,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   <button
                     disabled={savingVerification}
                     onClick={() => handleUpdateUserVerification("action_required")}
-                    className="px-4 py-2 rounded-xl bg-rose-600/30 hover:bg-rose-600/50 border border-rose-500/50 text-rose-300 font-bold text-xs flex items-center gap-1.5 transition-all disabled:opacity-50 cursor-pointer"
+                    className="px-4 py-2 rounded-xl bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-700 dark:bg-rose-600/30 dark:hover:bg-rose-600/50 dark:border-rose-500/50 dark:text-rose-300 font-bold text-xs flex items-center gap-1.5 transition-all disabled:opacity-50 cursor-pointer"
                   >
                     <AlertCircle className="w-4 h-4" />
                     <span>{lang === "ar" ? "إخطار بوجود ملفات ناقصة" : "Mark as Missing Files"}</span>
@@ -1637,7 +1769,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   <button
                     disabled={savingVerification}
                     onClick={() => handleUpdateUserVerification("under_review")}
-                    className="px-4 py-2 rounded-xl bg-amber-600/30 hover:bg-amber-600/50 border border-amber-500/50 text-amber-300 font-bold text-xs flex items-center gap-1.5 transition-all disabled:opacity-50 cursor-pointer"
+                    className="px-4 py-2 rounded-xl bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-800 dark:bg-amber-600/30 dark:hover:bg-amber-600/50 dark:border-amber-500/50 dark:text-amber-300 font-bold text-xs flex items-center gap-1.5 transition-all disabled:opacity-50 cursor-pointer"
                   >
                     <Clock className="w-4 h-4" />
                     <span>{lang === "ar" ? "تحويل إلى قيد الدراسة والتحقق" : "Set Under Review"}</span>
@@ -1646,7 +1778,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
                 {/* ADMIN MISSING FILES NOTE TEXTAREA */}
                 <div className="space-y-2 pt-2">
-                  <label className="block text-xs font-bold text-slate-300">
+                  <label className={`block text-xs font-bold ${theme === "dark" ? "text-slate-300" : "text-slate-800"}`}>
                     {lang === "ar" 
                       ? "ملاحظات الإدارة للطلب / وصف الملفات الناقصة المطلوبة لتفعيل الحساب:" 
                       : "Admin Note / Description of Missing Files Required for Activation:"}
@@ -1660,7 +1792,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         ? "اكتب هنا تفاصيل الملفات الناقصة والمستندات الرسمية المطلوبة من المستخدم لتفعيل حسابه..."
                         : "Specify missing documents or guidelines for the user to upload..."
                     }
-                    className="w-full p-3 rounded-xl bg-slate-950 border border-slate-800 text-slate-100 text-xs focus:border-[#0075DE] focus:outline-none transition-all placeholder:text-slate-600"
+                    className={`w-full p-3 rounded-xl text-xs focus:border-[#0075DE] focus:outline-none transition-all border ${
+                      theme === "dark"
+                        ? "bg-slate-950 border-slate-800 text-slate-100 placeholder:text-slate-600"
+                        : "bg-white border-slate-300 text-slate-900 placeholder:text-slate-400"
+                    }`}
                   />
                   <div className="flex items-center justify-between pt-1">
                     <span className="text-[11px] text-slate-400">
@@ -1682,22 +1818,24 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
                 {/* DISPLAY VERIFICATION DOCUMENTS IN ADMIN PANEL IF AVAILABLE */}
                 {selectedUserRecord.verificationInfo?.documents && selectedUserRecord.verificationInfo.documents.length > 0 && (
-                  <div className="space-y-2 pt-3 border-t border-slate-800">
-                    <span className="text-xs font-bold text-blue-400 block">
+                  <div className={`space-y-2 pt-3 border-t ${theme === "dark" ? "border-slate-800" : "border-slate-200"}`}>
+                    <span className="text-xs font-bold text-[#0075DE] block">
                       {lang === "ar" ? "وثائق ومستندات التحقق المرفوعة من المستخدم:" : "Verification Documents Uploaded by User:"}
                     </span>
                     <div className="space-y-2">
                       {selectedUserRecord.verificationInfo.documents.map((doc) => (
-                        <div key={doc.id} className="p-3 rounded-xl bg-slate-950/80 border border-slate-800 flex items-center justify-between text-xs gap-3">
+                        <div key={doc.id} className={`p-3 rounded-xl border flex items-center justify-between text-xs gap-3 ${
+                          theme === "dark" ? "bg-slate-950/80 border-slate-800" : "bg-slate-50 border-slate-200"
+                        }`}>
                           <div className="flex items-center gap-2.5 min-w-0">
-                            <FileText className="w-4 h-4 text-blue-400 shrink-0" />
-                            <span className="font-bold text-slate-200 truncate">{doc.fileName}</span>
-                            <span className="text-[10px] text-slate-500 font-mono">({doc.docType || "ID Document"})</span>
+                            <FileText className="w-4 h-4 text-[#0075DE] shrink-0" />
+                            <span className={`font-bold truncate ${theme === "dark" ? "text-slate-200" : "text-slate-900"}`}>{doc.fileName}</span>
+                            <span className="text-[10px] text-slate-400 font-mono">({doc.docType || "ID Document"})</span>
                           </div>
                           <div className="flex items-center gap-2 shrink-0">
                             <button
                               onClick={() => openUserFileInNewTab({ fileName: doc.fileName, fileUrl: doc.fileUrl, mimeType: doc.mimeType, uploadDate: doc.uploadDate, category: "Verification" })}
-                              className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 font-bold text-[11px] transition-all cursor-pointer border border-emerald-500/30"
+                              className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 dark:bg-emerald-500/20 dark:hover:bg-emerald-500/30 dark:text-emerald-300 dark:border-emerald-500/30 font-bold text-[11px] transition-all cursor-pointer"
                               title={lang === "ar" ? "عرض في نافذة جديدة" : "View in new tab"}
                             >
                               <Eye className="w-3.5 h-3.5" />
@@ -1705,7 +1843,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                             </button>
                             <button
                               onClick={() => downloadUserFile({ fileName: doc.fileName, fileUrl: doc.fileUrl, mimeType: doc.mimeType, uploadDate: doc.uploadDate, category: "Verification" })}
-                              className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-sky-500/20 hover:bg-sky-500/30 text-sky-300 font-bold text-[11px] transition-all cursor-pointer border border-sky-500/30"
+                              className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-sky-50 hover:bg-sky-100 text-sky-700 border border-sky-200 dark:bg-sky-500/20 dark:hover:bg-sky-500/30 dark:text-sky-300 dark:border-sky-500/30 font-bold text-[11px] transition-all cursor-pointer"
                               title={lang === "ar" ? "تنزيل الملف" : "Download file"}
                             >
                               <Download className="w-3.5 h-3.5" />
@@ -1713,10 +1851,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                             </button>
                             <button
                               onClick={() => handleDeleteUserVerDoc(doc.id, doc.fileName)}
-                              className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 font-bold text-[11px] transition-all cursor-pointer border border-rose-500/30"
+                              className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 dark:bg-rose-500/20 dark:hover:bg-rose-500/30 dark:text-rose-300 dark:border-rose-500/30 font-bold text-[11px] transition-all cursor-pointer"
                               title={lang === "ar" ? "حذف المستند" : "Delete document"}
                             >
-                              <Trash2 className="w-3.5 h-3.5 text-rose-400" />
+                              <Trash2 className="w-3.5 h-3.5 text-rose-500" />
                               <span>{lang === "ar" ? "حذف" : "Delete"}</span>
                             </button>
                           </div>
@@ -1727,8 +1865,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 )}
 
                 {verificationSuccessMsg && (
-                  <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-bold flex items-center gap-2">
-                    <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-400" />
+                  <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-500 text-xs font-bold flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-500" />
                     <span>{verificationSuccessMsg}</span>
                   </div>
                 )}
@@ -1736,8 +1874,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
               {/* FILES LIST TITLE */}
               <div className="flex items-center justify-between">
-                <h4 className="font-bold text-sm flex items-center gap-2">
-                  <FileText className="w-4 h-4 text-amber-400" />
+                <h4 className={`font-bold text-sm flex items-center gap-2 ${theme === "dark" ? "text-white" : "text-slate-900"}`}>
+                  <FileText className="w-4 h-4 text-amber-500" />
                   {lang === "ar" ? "قائمة المستندات والملفات" : "User File Vault Listing"}
                 </h4>
                 <span className="text-xs text-slate-400 font-mono">
@@ -1747,9 +1885,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
               {/* FILES LIST */}
               {selectedUserRecord.files.length === 0 ? (
-                <div className="py-12 border-2 border-dashed border-slate-800 rounded-xl text-center space-y-3">
-                  <FolderOpen className="w-10 h-10 text-slate-600 mx-auto" />
-                  <p className="text-slate-400 text-xs font-medium">
+                <div className={`py-12 border-2 border-dashed rounded-xl text-center space-y-3 ${
+                  theme === "dark" ? "border-slate-800" : "border-slate-200"
+                }`}>
+                  <FolderOpen className="w-10 h-10 text-slate-400 mx-auto" />
+                  <p className="text-slate-500 text-xs font-medium">
                     {lang === "ar" ? "لم يقم هذا المستخدم برفع أي ملفات حتى الآن." : "This user has not uploaded any files yet."}
                   </p>
                 </div>
@@ -1758,22 +1898,26 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   {selectedUserRecord.files.map((file) => (
                     <div
                       key={file.id}
-                      className="p-4 rounded-xl bg-slate-800/50 hover:bg-slate-800 border border-slate-700/60 transition-all flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4"
+                      className={`p-4 rounded-xl border transition-all flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 ${
+                        theme === "dark"
+                          ? "bg-slate-800/50 hover:bg-slate-800 border-slate-700/60"
+                          : "bg-slate-50 hover:bg-slate-100 border-slate-200 shadow-sm"
+                      }`}
                     >
                       <div className="flex items-start gap-3 min-w-0">
-                        <div className="p-2.5 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 shrink-0">
+                        <div className="p-2.5 rounded-lg bg-emerald-500/10 text-emerald-500 border border-emerald-500/30 shrink-0">
                           <FileText className="w-5 h-5" />
                         </div>
                         <div className="min-w-0">
                           <div className="flex items-center gap-2 flex-wrap">
-                            <span className="font-bold text-sm text-slate-100 truncate block">
+                            <span className={`font-bold text-sm truncate block ${theme === "dark" ? "text-slate-100" : "text-slate-900"}`}>
                               {file.fileName}
                             </span>
-                            <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-amber-500/20 text-amber-400 border border-amber-500/30">
+                            <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-amber-500/20 text-amber-600 dark:text-amber-400 border border-amber-500/30">
                               {file.category || "General"}
                             </span>
                             {file.isEncrypted && (
-                              <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-purple-500/20 text-purple-400 border border-purple-500/30 flex items-center gap-1">
+                              <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-purple-500/20 text-purple-600 dark:text-purple-400 border border-purple-500/30 flex items-center gap-1">
                                 <Lock className="w-2.5 h-2.5" />
                                 Encrypted
                               </span>
@@ -1789,7 +1933,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                           </div>
 
                           {file.description && (
-                            <p className="text-xs text-slate-300 mt-1 bg-slate-900/50 p-2 rounded border border-slate-800">
+                            <p className={`text-xs mt-1 p-2 rounded border ${
+                              theme === "dark" ? "text-slate-300 bg-slate-900/50 border-slate-800" : "text-slate-700 bg-white border-slate-200"
+                            }`}>
                               {file.description}
                             </p>
                           )}
@@ -1800,7 +1946,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
                         <button
                           onClick={() => openUserFileInNewTab(file)}
-                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/40 text-emerald-300 font-bold text-xs transition-all cursor-pointer shadow-sm"
+                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 dark:bg-emerald-500/20 dark:hover:bg-emerald-500/30 dark:border-emerald-500/40 dark:text-emerald-300 font-bold text-xs transition-all cursor-pointer shadow-sm"
                           title={lang === "ar" ? "عرض في نافذة جديدة" : "View in new tab"}
                         >
                           <Eye className="w-3.5 h-3.5" />
@@ -1808,7 +1954,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         </button>
                         <button
                           onClick={() => downloadUserFile(file)}
-                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-sky-500/20 hover:bg-sky-500/30 border border-sky-500/40 text-sky-300 font-bold text-xs transition-all cursor-pointer shadow-sm"
+                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-sky-50 hover:bg-sky-100 text-sky-700 border border-sky-200 dark:bg-sky-500/20 dark:hover:bg-sky-500/30 dark:border-sky-500/40 dark:text-sky-300 font-bold text-xs transition-all cursor-pointer shadow-sm"
                           title={lang === "ar" ? "تنزيل الملف" : "Download file"}
                         >
                           <Download className="w-3.5 h-3.5" />
@@ -1816,10 +1962,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         </button>
                         <button
                           onClick={() => handleDeleteUserVerDoc(file.id, file.fileName)}
-                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-rose-500/20 hover:bg-rose-500/30 border border-rose-500/40 text-rose-300 font-bold text-xs transition-all cursor-pointer shadow-sm"
+                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 dark:bg-rose-500/20 dark:hover:bg-rose-500/30 dark:border-rose-500/40 dark:text-rose-300 font-bold text-xs transition-all cursor-pointer shadow-sm"
                           title={lang === "ar" ? "حذف الملف" : "Delete file"}
                         >
-                          <Trash2 className="w-3.5 h-3.5 text-rose-400" />
+                          <Trash2 className="w-3.5 h-3.5 text-rose-500" />
                           <span>{lang === "ar" ? "حذف" : "Delete"}</span>
                         </button>
                       </div>
@@ -1830,13 +1976,19 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             </div>
 
             {/* MODAL FOOTER */}
-            <div className="p-4 border-t border-slate-800 bg-slate-900/80 flex items-center justify-between">
+            <div className={`p-4 border-t flex items-center justify-between ${
+              theme === "dark" ? "border-slate-800 bg-slate-900/80" : "border-slate-200 bg-slate-50"
+            }`}>
               <span className="text-xs text-slate-400 font-mono">
-                Firestore Access Mode: <strong className="text-rose-400">ADMIN SUPERUSER READ</strong>
+                Firestore Access Mode: <strong className="text-rose-500">ADMIN SUPERUSER READ</strong>
               </span>
               <button
                 onClick={() => setSelectedUserRecord(null)}
-                className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold transition-all"
+                className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer border ${
+                  theme === "dark"
+                    ? "bg-slate-800 hover:bg-slate-700 text-slate-200 border-transparent"
+                    : "bg-slate-200 hover:bg-slate-300 text-slate-800 border-slate-300"
+                }`}
               >
                 {lang === "ar" ? "إغلاق" : "Close Window"}
               </button>

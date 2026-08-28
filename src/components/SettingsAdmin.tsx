@@ -1749,7 +1749,9 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
         </div>
 
         {/* Settings Navigation Sub-Tabs Strip */}
-        <div className="flex items-center gap-2 mt-6 overflow-x-auto pb-1 border-b border-slate-800/40 relative z-10 scrollbar-none">
+        <div className={`flex items-center gap-2 mt-6 overflow-x-auto pb-1 border-b relative z-10 scrollbar-none ${
+          theme === "dark" ? "border-slate-800/40" : "border-slate-200"
+        }`}>
           {[
             { id: "account", label: lang === "ar" ? "الملف الشخصي" : "Profile Details", icon: UserIcon },
             { id: "security", label: lang === "ar" ? "كلمة المرور والأمان" : "Password & Security", icon: ShieldCheck },
