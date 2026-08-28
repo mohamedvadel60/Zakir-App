@@ -3482,6 +3482,19 @@ export async function getAccountLifecycleRecord(email: string): Promise<any> {
       }
     }
 
+    if (record.status === "SELF_DELETED" && record.restoreUntil) {
+      const nowMs = Date.now();
+      const restoreUntilMs = new Date(record.restoreUntil).getTime();
+      const remainingMs = restoreUntilMs - nowMs;
+      if (remainingMs > 0) {
+        record.canRestore = true;
+        record.daysRemaining = Math.max(1, Math.ceil(remainingMs / (24 * 3600 * 1000)));
+      } else {
+        record.canRestore = false;
+        record.daysRemaining = 0;
+      }
+    }
+
     return record;
   } catch (err) {
     console.error("getAccountLifecycleRecord error:", err);
@@ -3521,8 +3534,6 @@ export async function setAccountLifecycleRecord(record: any): Promise<void> {
 export async function purgeRetainedUserDataServer(userId: string): Promise<void> {
   if (!userId) return;
   try {
-    await adminDb.collection("users_retained").doc(userId).delete();
-
     const memSnap = await adminDb.collection("users_retained").doc(userId).collection("memories").get();
     for (const d of memSnap.docs) await d.ref.delete();
 
@@ -3531,6 +3542,17 @@ export async function purgeRetainedUserDataServer(userId: string): Promise<void>
 
     const fileSnap = await adminDb.collection("users_retained").doc(userId).collection("files").get();
     for (const d of fileSnap.docs) await d.ref.delete();
+
+    const topFileSnap = await adminDb.collection("users_retained").doc(userId).collection("top_files").get();
+    for (const d of topFileSnap.docs) await d.ref.delete();
+
+    await adminDb.collection("users_retained").doc(userId).delete();
+
+    const db = readDb();
+    if (db.retained_users) {
+      db.retained_users = db.retained_users.filter((u: any) => u.id !== userId);
+      writeDb(db);
+    }
 
     console.log(`[PURGE COMPLETE] Retained user data for ${userId} purged permanently.`);
   } catch (err) {
@@ -3560,8 +3582,9 @@ export async function purgeExpiredAccountsJob(): Promise<void> {
   }
 }
 
-// Run periodic cleanup every 1 hour
+// Run periodic cleanup every 1 hour & on startup
 setInterval(purgeExpiredAccountsJob, 60 * 60 * 1000);
+setTimeout(purgeExpiredAccountsJob, 5000);
 
 // --- ACCOUNT LIFECYCLE API ENDPOINTS ---
 
@@ -3659,6 +3682,56 @@ app.post("/api/auth/check-lifecycle", async (req, res) => {
   }
 });
 
+export async function requestAccountReactivationServer(email: string, reason?: string): Promise<{ success: boolean; message?: string; error?: string }> {
+  const normalizedEmail = email.trim().toLowerCase();
+  const record = await getAccountLifecycleRecord(normalizedEmail);
+
+  if (!record || (record.status !== "ADMIN_DELETED" && record.status !== "ADMIN_APPROVAL_REQUIRED" && record.deletionType !== "admin")) {
+    return {
+      success: false,
+      error: "هذا الحساب غير محذوف بواسطة مسؤول المنصة أو لا يتطلب إعادة تفعيل."
+    };
+  }
+
+  const nowIso = new Date().toISOString();
+  const updatedRecord = {
+    ...record,
+    status: "ADMIN_APPROVAL_PENDING",
+    reactivationRequestedAt: nowIso,
+    reactivationRequestReason: reason || "طلب إعادة تفعيل الحساب المحذوف بواسطة المسؤول",
+    reactivationStatus: "pending",
+    updatedAt: nowIso
+  };
+
+  await setAccountLifecycleRecord(updatedRecord);
+
+  try {
+    await adminDb.collection("accountReactivationRequests").doc(normalizedEmail).set({
+      email: normalizedEmail,
+      requestedAt: nowIso,
+      reason: reason || "طلب إعادة تفعيل الحساب المحذوف بواسطة المسؤول",
+      status: "pending",
+      originalUserId: record.originalUserId || ""
+    });
+  } catch (e) {}
+
+  const db = readDb();
+  if (!db.account_reactivation_requests) db.account_reactivation_requests = [];
+  db.account_reactivation_requests = db.account_reactivation_requests.filter((r: any) => r.email !== normalizedEmail);
+  db.account_reactivation_requests.push({
+    email: normalizedEmail,
+    requestedAt: nowIso,
+    reason: reason || "طلب إعادة تفعيل الحساب المحذوف بواسطة المسؤول",
+    status: "pending"
+  });
+  writeDb(db);
+
+  return {
+    success: true,
+    message: "تم تقديم طلب إعادة تفعيل الحساب بنجاح إلى مسؤول المنصة. سيتم مراجعة طلبك وإخطارك بالتحديثات."
+  };
+}
+
 app.post("/api/auth/request-reactivation", async (req, res) => {
   try {
     const { email, reason } = req.body;
@@ -3666,53 +3739,11 @@ app.post("/api/auth/request-reactivation", async (req, res) => {
       return res.status(400).json({ success: false, error: "Email parameter is required." });
     }
 
-    const normalizedEmail = email.trim().toLowerCase();
-    const record = await getAccountLifecycleRecord(normalizedEmail);
-
-    if (!record || (record.status !== "ADMIN_DELETED" && record.status !== "ADMIN_APPROVAL_REQUIRED" && record.deletionType !== "admin")) {
-      return res.status(400).json({ 
-        success: false, 
-        error: "هذا الحساب غير محذوف بواسطة مسؤول المنصة أو لا يتطلب إعادة تفعيل." 
-      });
+    const result = await requestAccountReactivationServer(email, reason);
+    if (!result.success) {
+      return res.status(400).json(result);
     }
-
-    const nowIso = new Date().toISOString();
-    const updatedRecord = {
-      ...record,
-      status: "ADMIN_APPROVAL_PENDING",
-      reactivationRequestedAt: nowIso,
-      reactivationRequestReason: reason || "طلب إعادة تفعيل الحساب المحذوف بواسطة المسؤول",
-      reactivationStatus: "pending",
-      updatedAt: nowIso
-    };
-
-    await setAccountLifecycleRecord(updatedRecord);
-
-    try {
-      await adminDb.collection("accountReactivationRequests").doc(normalizedEmail).set({
-        email: normalizedEmail,
-        requestedAt: nowIso,
-        reason: reason || "طلب إعادة تفعيل الحساب المحذوف بواسطة المسؤول",
-        status: "pending",
-        originalUserId: record.originalUserId || ""
-      });
-    } catch (e) {}
-
-    const db = readDb();
-    if (!db.account_reactivation_requests) db.account_reactivation_requests = [];
-    db.account_reactivation_requests = db.account_reactivation_requests.filter((r: any) => r.email !== normalizedEmail);
-    db.account_reactivation_requests.push({
-      email: normalizedEmail,
-      requestedAt: nowIso,
-      reason: reason || "طلب إعادة تفعيل الحساب المحذوف بواسطة المسؤول",
-      status: "pending"
-    });
-    writeDb(db);
-
-    return res.json({
-      success: true,
-      message: "تم تقديم طلب إعادة تفعيل الحساب بنجاح إلى مسؤول المنصة. سيتم مراجعة طلبك وإخطارك بالتحديثات."
-    });
+    return res.json(result);
   } catch (err: any) {
     console.error("request-reactivation error:", err);
     res.status(500).json({ success: false, error: err.message || "Failed to submit reactivation request." });
@@ -3791,6 +3822,51 @@ app.post("/api/auth/restore-account", async (req, res) => {
     } catch (fsErr) {
       console.warn("Restore profile doc write error:", fsErr);
     }
+
+    // Restore archived subcollections: memories, riskAlerts, files
+    try {
+      const retainedMemSnap = await adminDb.collection("users_retained").doc(userId).collection("memories").get();
+      for (const mDoc of retainedMemSnap.docs) {
+        await adminDb.collection("users").doc(userId).collection("memories").doc(mDoc.id).set(mDoc.data());
+      }
+    } catch (e) {}
+
+    try {
+      const retainedAlertSnap = await adminDb.collection("users_retained").doc(userId).collection("riskAlerts").get();
+      for (const aDoc of retainedAlertSnap.docs) {
+        await adminDb.collection("users").doc(userId).collection("riskAlerts").doc(aDoc.id).set(aDoc.data());
+      }
+    } catch (e) {}
+
+    try {
+      const retainedFilesSnap = await adminDb.collection("users_retained").doc(userId).collection("files").get();
+      for (const fDoc of retainedFilesSnap.docs) {
+        await adminDb.collection("users").doc(userId).collection("files").doc(fDoc.id).set(fDoc.data());
+      }
+      const retainedTopFilesSnap = await adminDb.collection("users_retained").doc(userId).collection("top_files").get();
+      for (const tfDoc of retainedTopFilesSnap.docs) {
+        await adminDb.collection("files").doc(tfDoc.id).set(tfDoc.data());
+      }
+    } catch (e) {}
+
+    // Restore local DB memories, risk alerts, files if available in backup
+    const dbInst = readDb();
+    if (retainedProfile?.archivedMemories?.length) {
+      if (!dbInst.memories) dbInst.memories = [];
+      dbInst.memories = dbInst.memories.filter((m: any) => m.userId !== userId);
+      dbInst.memories.push(...retainedProfile.archivedMemories);
+    }
+    if (retainedProfile?.archivedRiskAlerts?.length) {
+      if (!dbInst.risk_alerts) dbInst.risk_alerts = [];
+      dbInst.risk_alerts = dbInst.risk_alerts.filter((a: any) => a.userId !== userId);
+      dbInst.risk_alerts.push(...retainedProfile.archivedRiskAlerts);
+    }
+    if (retainedProfile?.archivedFiles?.length) {
+      if (!dbInst.files) dbInst.files = [];
+      dbInst.files = dbInst.files.filter((f: any) => f.userId !== userId);
+      dbInst.files.push(...retainedProfile.archivedFiles);
+    }
+    writeDb(dbInst);
 
     try {
       await purgeRetainedUserDataServer(userId);
@@ -3884,6 +3960,90 @@ app.get("/api/admin/reactivation-requests", requireAuth, async (req: AuthRequest
   }
 });
 
+export async function handleAccountReactivationRequestServer(email: string, action: "approve" | "reject", callerUid: string = "admin", notes: string = ""): Promise<{ success: boolean; message?: string; error?: string }> {
+  const normalizedEmail = email.trim().toLowerCase();
+  const record = await getAccountLifecycleRecord(normalizedEmail);
+  const nowIso = new Date().toISOString();
+
+  if (action === "approve") {
+    const updatedLifecycle = {
+      accountId: normalizedEmail,
+      emailNormalized: normalizedEmail,
+      status: "ACTIVE",
+      deletionType: null,
+      adminApprovalRequired: false,
+      reactivationStatus: "approved",
+      approvedAt: nowIso,
+      approvedBy: callerUid,
+      notes: notes || "",
+      updatedAt: nowIso
+    };
+
+    await setAccountLifecycleRecord(updatedLifecycle);
+
+    try {
+      await adminDb.collection("accountReactivationRequests").doc(normalizedEmail).update({
+        status: "approved",
+        reviewedAt: nowIso,
+        reviewedBy: callerUid,
+        notes: notes || ""
+      });
+    } catch (e) {}
+
+    const db = readDb();
+    if (db.account_reactivation_requests) {
+      const reqItem = db.account_reactivation_requests.find((r: any) => r.email === normalizedEmail);
+      if (reqItem) {
+        reqItem.status = "approved";
+        reqItem.reviewedAt = nowIso;
+      }
+    }
+    writeDb(db);
+
+    return {
+      success: true,
+      message: "تمت الموافقة على طلب إعادة التفعيل بنجاح. يمكن للمستخدم الآن إنشاء حساب جديد بهذا البريد الإلكتروني."
+    };
+  } else {
+    const updatedLifecycle = {
+      ...record,
+      status: "ADMIN_DELETED",
+      adminApprovalRequired: true,
+      reactivationStatus: "rejected",
+      rejectedAt: nowIso,
+      rejectedBy: callerUid,
+      notes: notes || "",
+      updatedAt: nowIso
+    };
+
+    await setAccountLifecycleRecord(updatedLifecycle);
+
+    try {
+      await adminDb.collection("accountReactivationRequests").doc(normalizedEmail).update({
+        status: "rejected",
+        reviewedAt: nowIso,
+        reviewedBy: callerUid,
+        notes: notes || ""
+      });
+    } catch (e) {}
+
+    const db = readDb();
+    if (db.account_reactivation_requests) {
+      const reqItem = db.account_reactivation_requests.find((r: any) => r.email === normalizedEmail);
+      if (reqItem) {
+        reqItem.status = "rejected";
+        reqItem.reviewedAt = nowIso;
+      }
+    }
+    writeDb(db);
+
+    return {
+      success: true,
+      message: "تم رفض طلب إعادة التفعيل. يظل الحساب محظوراً من التسجيل."
+    };
+  }
+}
+
 app.post("/api/admin/handle-reactivation-request", requireAuth, async (req: AuthRequest, res) => {
   try {
     const callerUid = req.user?.uid;
@@ -3896,86 +4056,8 @@ app.post("/api/admin/handle-reactivation-request", requireAuth, async (req: Auth
       return res.status(400).json({ error: "Email and valid action ('approve' or 'reject') are required." });
     }
 
-    const normalizedEmail = email.trim().toLowerCase();
-    const record = await getAccountLifecycleRecord(normalizedEmail);
-    const nowIso = new Date().toISOString();
-
-    if (action === "approve") {
-      const updatedLifecycle = {
-        accountId: normalizedEmail,
-        emailNormalized: normalizedEmail,
-        status: "PURGED",
-        deletionType: null,
-        adminApprovalRequired: false,
-        reactivationStatus: "approved",
-        approvedAt: nowIso,
-        approvedBy: callerUid,
-        notes: notes || "",
-        updatedAt: nowIso
-      };
-
-      await setAccountLifecycleRecord(updatedLifecycle);
-
-      try {
-        await adminDb.collection("accountReactivationRequests").doc(normalizedEmail).update({
-          status: "approved",
-          reviewedAt: nowIso,
-          reviewedBy: callerUid,
-          notes: notes || ""
-        });
-      } catch (e) {}
-
-      const db = readDb();
-      if (db.account_reactivation_requests) {
-        const reqItem = db.account_reactivation_requests.find((r: any) => r.email === normalizedEmail);
-        if (reqItem) {
-          reqItem.status = "approved";
-          reqItem.reviewedAt = nowIso;
-        }
-      }
-      writeDb(db);
-
-      return res.json({
-        success: true,
-        message: "تمت الموافقة على طلب إعادة التفعيل بنجاح. يمكن للمستخدم الآن إنشاء حساب جديد بهذا البريد الإلكتروني."
-      });
-    } else {
-      const updatedLifecycle = {
-        ...record,
-        status: "ADMIN_DELETED",
-        reactivationStatus: "rejected",
-        rejectedAt: nowIso,
-        rejectedBy: callerUid,
-        notes: notes || "",
-        updatedAt: nowIso
-      };
-
-      await setAccountLifecycleRecord(updatedLifecycle);
-
-      try {
-        await adminDb.collection("accountReactivationRequests").doc(normalizedEmail).update({
-          status: "rejected",
-          reviewedAt: nowIso,
-          reviewedBy: callerUid,
-          notes: notes || ""
-        });
-      } catch (e) {}
-
-      const db = readDb();
-      if (db.account_reactivation_requests) {
-        const reqItem = db.account_reactivation_requests.find((r: any) => r.email === normalizedEmail);
-        if (reqItem) {
-          reqItem.status = "rejected";
-          reqItem.reviewedAt = nowIso;
-        }
-      }
-      writeDb(db);
-
-      return res.json({
-        success: true,
-        message: "تم رفض طلب إعادة التفعيل. يظل الحساب محظوراً من التسجيل."
-      });
-    }
+    const result = await handleAccountReactivationRequestServer(email, action, callerUid, notes);
+    return res.json(result);
   } catch (err: any) {
     res.status(500).json({ error: err.message || "Failed to handle reactivation request." });
   }
@@ -4159,11 +4241,43 @@ app.delete("/api/auth/delete-account", requireAuth, async (req: AuthRequest, res
           archivedAt: new Date().toISOString()
         });
 
+        // Archive subcollections
+        const memSnap = await adminDb.collection("users").doc(targetUid).collection("memories").get();
+        for (const mDoc of memSnap.docs) {
+          await adminDb.collection("users_retained").doc(targetUid).collection("memories").doc(mDoc.id).set(mDoc.data());
+        }
+
+        const alertSnap = await adminDb.collection("users").doc(targetUid).collection("riskAlerts").get();
+        for (const aDoc of alertSnap.docs) {
+          await adminDb.collection("users_retained").doc(targetUid).collection("riskAlerts").doc(aDoc.id).set(aDoc.data());
+        }
+
+        const filesSnap = await adminDb.collection("users").doc(targetUid).collection("files").get();
+        for (const fDoc of filesSnap.docs) {
+          await adminDb.collection("users_retained").doc(targetUid).collection("files").doc(fDoc.id).set(fDoc.data());
+        }
+
+        const topFilesSnap = await adminDb.collection("files").where("userId", "==", targetUid).get();
+        for (const tfDoc of topFilesSnap.docs) {
+          await adminDb.collection("users_retained").doc(targetUid).collection("top_files").doc(tfDoc.id).set(tfDoc.data());
+        }
+
         // Backup retained user to local DB
         const db = readDb();
         if (!db.retained_users) db.retained_users = [];
         db.retained_users = db.retained_users.filter((u: any) => u.id !== targetUid);
-        db.retained_users.push({ ...userDocData, archivedAt: new Date().toISOString() });
+
+        const localMems = (db.memories || []).filter((m: any) => m.userId === targetUid);
+        const localAlerts = (db.risk_alerts || []).filter((a: any) => a.userId === targetUid);
+        const localFiles = (db.files || []).filter((f: any) => f.userId === targetUid);
+
+        db.retained_users.push({
+          ...userDocData,
+          archivedAt: new Date().toISOString(),
+          archivedMemories: localMems,
+          archivedRiskAlerts: localAlerts,
+          archivedFiles: localFiles
+        });
         writeDb(db);
       } catch (archErr) {
         console.warn("Retention profile backup warning:", archErr);
@@ -4362,22 +4476,37 @@ app.post("/api/auth/register", loginRegisterLimiter, async (req, res) => {
       console.log("USER_CREATED", { userId, email: normalizedEmail, source: "generated_id", authErr: authErr?.message });
     }
 
+    // Check if there is an active workspace invitation for this email
+    let invitation: any = null;
+    try {
+      const invDoc = await adminDb.collection("invitations").doc(normalizedEmail).get();
+      if (invDoc.exists) {
+        invitation = invDoc.data();
+      }
+    } catch (e) {}
+    if (!invitation) {
+      const dbTemp = readDb();
+      invitation = dbTemp.invitations?.find((i: any) => i.email?.trim().toLowerCase() === normalizedEmail) || null;
+    }
+
+    const effectiveCompanyName = invitation?.companyName || companyName;
+    const effectiveRole = invitation?.role || userRole;
     const nowIso = new Date().toISOString();
-    const workspaceId = `ws_${userId.substring(0, 8)}_${Date.now().toString(36)}`;
+    const workspaceId = invitation?.workspaceId || `ws_${userId.substring(0, 8)}_${Date.now().toString(36)}`;
     const resolvedOwnerName = ownerName || normalizedEmail.split("@")[0];
 
     const newUser = {
       id: userId,
       email: normalizedEmail,
       passwordHash: password,
-      companyName,
+      companyName: effectiveCompanyName,
       ownerName: resolvedOwnerName,
-      role: userRole,
+      role: effectiveRole,
       workspaceId: workspaceId,
       workspace: {
         id: workspaceId,
-        name: `${companyName} Workspace`,
-        ownerId: userId,
+        name: `${effectiveCompanyName} Workspace`,
+        ownerId: invitation?.senderId || userId,
         createdAt: nowIso,
         memberCount: 1
       },
@@ -4454,6 +4583,46 @@ app.post("/api/auth/register", loginRegisterLimiter, async (req, res) => {
       db.users.push(newUser);
     }
     writeDb(db);
+
+    // If registered through invitation, link to CEO's team list and delete invitation
+    if (invitation) {
+      if (invitation.senderId) {
+        try {
+          const ceoRef = adminDb.collection("users").doc(invitation.senderId);
+          const ceoSnap = await ceoRef.get();
+          if (ceoSnap.exists) {
+            const ceoData = ceoSnap.data() || {};
+            const currentList = ceoData.teamMembersList || [];
+            const existsIndex = currentList.findIndex((m: any) => m.email?.toLowerCase() === normalizedEmail);
+            const updatedMember = {
+              id: `tm-${userId}`,
+              name: resolvedOwnerName,
+              email: normalizedEmail,
+              role: effectiveRole,
+              powers: invitation.powers || [],
+              addedAt: nowIso.split("T")[0]
+            };
+            if (existsIndex >= 0) {
+              currentList[existsIndex] = updatedMember;
+            } else {
+              currentList.push(updatedMember);
+            }
+            await ceoRef.update({ teamMembersList: currentList });
+          }
+        } catch (ceoErr) {
+          console.warn("Failed to sync team members on CEO account:", ceoErr);
+        }
+      }
+
+      try {
+        await adminDb.collection("invitations").doc(normalizedEmail).delete();
+      } catch (e) {}
+      const dbInv = readDb();
+      if (dbInv.invitations) {
+        dbInv.invitations = dbInv.invitations.filter((i: any) => i.email?.trim().toLowerCase() !== normalizedEmail);
+        writeDb(dbInv);
+      }
+    }
 
     // Record account lifecycle as ACTIVE
     await setAccountLifecycleRecord({
@@ -5541,7 +5710,7 @@ const isVercelServerless = !!(
   process.env.LAMBDA_TASK_ROOT
 );
 
-if (!isVercelServerless) {
+if (!isVercelServerless && process.env.NODE_ENV !== "test" && !process.env.SKIP_SERVER_LISTEN) {
   startServer().catch((err) => {
     console.error("Failed to start standalone server:", err);
   });

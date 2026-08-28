@@ -65,7 +65,9 @@ import {
   Server,
   Mail,
   Building2,
-  GitCommit
+  GitCommit,
+  RotateCcw,
+  Send
 } from "lucide-react";
 import { 
   BarChart, 
@@ -145,6 +147,9 @@ import {
   verifyCodeApi,
   getAuthApiUrl,
   safeParseJsonResponse,
+  checkAccountLifecycleApi,
+  requestAccountReactivationApi,
+  restoreAccountApi,
   API_BASE_URL
 } from "./lib/firebaseServices.js";
 import { auth } from "./firebase.js";
@@ -606,6 +611,17 @@ export default function App() {
   const [showRegPassword, setShowRegPassword] = useState(false);
   const [regError, setRegError] = useState("");
   const [isSubmittingReg, setIsSubmittingReg] = useState(false);
+  const [regLifecycleState, setRegLifecycleState] = useState<{
+    status: "NEW" | "ACTIVE" | "ADMIN_DELETED" | "ADMIN_APPROVAL_PENDING" | "SELF_DELETED" | "SELF_RESTORE_AVAILABLE" | "PURGED";
+    daysRemaining?: number;
+    adminApprovalRequired?: boolean;
+    email?: string;
+  } | null>(null);
+  const [reactivationReason, setReactivationReason] = useState("");
+  const [isSubmittingReactivation, setIsSubmittingReactivation] = useState(false);
+  const [reactivationSuccessMsg, setReactivationSuccessMsg] = useState("");
+  const [isRestoringAccount, setIsRestoringAccount] = useState(false);
+  const [restorationSuccessMsg, setRestorationSuccessMsg] = useState("");
 
   // Login Form State
   const [loginEmail, setLoginEmail] = useState("");
@@ -1496,18 +1512,71 @@ This hosting domain (**${currentDomain}**) has not been authorized in your Fireb
     }
 
     setIsSubmittingReg(true);
+    setRegLifecycleState(null);
+    setReactivationSuccessMsg("");
+    setRestorationSuccessMsg("");
+
     try {
-      // 1. Check if there's a workspace invitation for this email
+      const normalizedEmail = regEmail.trim().toLowerCase();
+
+      // 1. Account Lifecycle Pre-Check
+      try {
+        const lifecycle = await checkAccountLifecycleApi(normalizedEmail);
+        if (lifecycle && lifecycle.success) {
+          if (lifecycle.status === "ADMIN_DELETED" || lifecycle.adminApprovalRequired) {
+            setRegLifecycleState({
+              status: "ADMIN_DELETED",
+              adminApprovalRequired: true,
+              email: normalizedEmail
+            });
+            setRegError(lang === "ar"
+              ? "تم تعطيل هذا الحساب سابقاً بواسطة مسؤول المنصة. لا يمكن إنشاء حساب جديد بهذا البريد إلا بعد موافقة المسؤول."
+              : "This account was previously disabled by an administrator. You must request administrator approval to re-register.");
+            setIsSubmittingReg(false);
+            return;
+          }
+
+          if (lifecycle.status === "ADMIN_APPROVAL_PENDING") {
+            setRegLifecycleState({
+              status: "ADMIN_APPROVAL_PENDING",
+              adminApprovalRequired: true,
+              email: normalizedEmail
+            });
+            setRegError(lang === "ar"
+              ? "طلب إعادة تفعيل الحساب قيد المراجعة حالياً بواسطة إدارة المنصة. يرجى الانتظار لحين البت في الطلب."
+              : "Your reactivation request is currently pending administrative review. Please wait for admin approval.");
+            setIsSubmittingReg(false);
+            return;
+          }
+
+          if (lifecycle.status === "SELF_DELETED" && lifecycle.canRestore) {
+            setRegLifecycleState({
+              status: "SELF_RESTORE_AVAILABLE",
+              daysRemaining: lifecycle.daysRemaining ?? 31,
+              email: normalizedEmail
+            });
+            setRegError(lang === "ar"
+              ? `تم العثور على حساب سابق تم حذفه بواسطتك. يمكنك استعادة حسابك وجميع بياناتك بالكامل (متبقي ${lifecycle.daysRemaining ?? 31} يوماً للاستعادة).`
+              : `A previously self-deleted account was found. You can restore your account and all data (${lifecycle.daysRemaining ?? 31} days remaining).`);
+            setIsSubmittingReg(false);
+            return;
+          }
+        }
+      } catch (lcErr) {
+        console.warn("Lifecycle pre-check skipped, proceeding to register:", lcErr);
+      }
+
+      // 2. Check if there's a workspace invitation for this email
       const invitation = await checkWorkspaceInvitation(regEmail);
 
-      // 2. Register user via backend API (creates user, writes to Firestore users/{userId}, verifies write, creates OTP verification_codes/{userId}, sends OTP email)
+      // 3. Register user via backend API (creates user, writes to Firestore users/{userId}, verifies write, creates OTP, sends email)
       const regRes = await fetch(getAuthApiUrl("/api/auth/register"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ownerName: regOwnerName,
           companyName: invitation ? invitation.companyName : regCompanyName,
-          email: regEmail,
+          email: normalizedEmail,
           password: regPassword,
           role: invitation ? invitation.role : "CEO",
           lang
@@ -1516,56 +1585,25 @@ This hosting domain (**${currentDomain}**) has not been authorized in your Fireb
 
       const regData = await safeParseJsonResponse(regRes);
       if (!regRes.ok || !regData || !regData.success) {
+        if (regData?.code === "ADMIN_DELETED_BLOCKED" || regData?.adminApprovalRequired) {
+          setRegLifecycleState({
+            status: "ADMIN_DELETED",
+            adminApprovalRequired: true,
+            email: normalizedEmail
+          });
+        } else if (regData?.code === "SELF_RESTORE_AVAILABLE") {
+          setRegLifecycleState({
+            status: "SELF_RESTORE_AVAILABLE",
+            daysRemaining: regData?.daysRemaining ?? 31,
+            email: normalizedEmail
+          });
+        }
         throw new Error(regData?.error || regData?.message || (lang === "ar" ? "فشل إنشاء الحساب. يرجى المحاولة مرة أخرى." : "Registration failed. Please try again."));
       }
 
       const createdUser: User = regData.user;
 
-      if (invitation) {
-        try {
-          const { doc, getDoc, updateDoc } = await import("firebase/firestore");
-          const { db } = await import("./firebase");
-          const ceoDocRef = doc(db, "users", invitation.senderId);
-          const ceoSnap = await getDoc(ceoDocRef);
-          if (ceoSnap.exists()) {
-            const ceoData = ceoSnap.data() as User;
-            const currentList = ceoData.teamMembersList || [];
-            
-            const existsIndex = currentList.findIndex(m => m.email.toLowerCase() === regEmail.toLowerCase());
-            const updatedMember: TeamMember = {
-              id: `tm-${createdUser.id}`,
-              name: regOwnerName,
-              email: regEmail.toLowerCase(),
-              role: invitation.role,
-              powers: invitation.powers,
-              addedAt: new Date().toISOString().split("T")[0]
-            };
-            
-            if (existsIndex >= 0) {
-              currentList[existsIndex] = updatedMember;
-            } else {
-              currentList.push(updatedMember);
-            }
-            
-            await updateDoc(ceoDocRef, { teamMembersList: currentList });
-          }
-        } catch (ceoSyncErr) {
-          console.warn("Failed to update CEO's team list dynamically:", ceoSyncErr);
-        }
-
-        await deleteWorkspaceInvitation(regEmail);
-      }
-
-      // Also authenticate client-side Firebase Auth if available
-      try {
-        const { signInWithEmailAndPassword } = await import("firebase/auth");
-        const { auth } = await import("./firebase");
-        await signInWithEmailAndPassword(auth, regEmail, regPassword);
-      } catch (clientAuthErr) {
-        console.warn("Client-side Firebase auth sign-in skipped:", clientAuthErr);
-      }
-
-      // Prevent duplicate OTP send on verification page mount!
+      // Prevent duplicate OTP send on verification page mount
       sessionStorage.setItem(`auto_sent_otp_${createdUser.id}`, "true");
       sessionStorage.setItem(`auto_sent_otp_${createdUser.email}`, "true");
 
@@ -1582,11 +1620,72 @@ This hosting domain (**${currentDomain}**) has not been authorized in your Fireb
       setRegEmail("");
       setRegPassword("");
       setRegConfirmPassword("");
+      setRegLifecycleState(null);
       setAuthMode("landing");
     } catch (err: any) {
-      setRegError(err.message || "Registration failed.");
+      let msg = err.message || "Registration failed.";
+      if (/missing or (insufficient )?permission/i.test(msg) || /permission-denied/i.test(msg)) {
+        msg = lang === "ar" ? "حدث خطأ أثناء معالجة الحساب. يرجى المحاولة مرة أخرى." : "An error occurred while processing your account. Please try again.";
+      }
+      setRegError(msg);
     } finally {
       setIsSubmittingReg(false);
+    }
+  };
+
+  const handleRequestReactivation = async () => {
+    if (!regEmail.trim()) {
+      setRegError(lang === "ar" ? "يرجى إدخال البريد الإلكتروني أولاً." : "Please enter your email first.");
+      return;
+    }
+    setIsSubmittingReactivation(true);
+    setReactivationSuccessMsg("");
+    try {
+      const res = await requestAccountReactivationApi(regEmail.trim().toLowerCase(), reactivationReason.trim());
+      if (!res.success) {
+        throw new Error(res.error || "Failed to submit request.");
+      }
+      setReactivationSuccessMsg(lang === "ar"
+        ? "تم إرسال طلب إعادة التفعيل بنجاح إلى مسؤول المنصة! سيتم إخطارك عند الموافقة."
+        : "Reactivation request successfully submitted to platform admin! You will be notified upon review.");
+      setRegLifecycleState(prev => prev ? { ...prev, status: "ADMIN_APPROVAL_PENDING" } : null);
+    } catch (err: any) {
+      setRegError(err.message || "Failed to submit reactivation request.");
+    } finally {
+      setIsSubmittingReactivation(false);
+    }
+  };
+
+  const handleRestoreAccount = async () => {
+    if (!regEmail.trim() || !regPassword.trim()) {
+      setRegError(lang === "ar" ? "يرجى إدخال البريد الإلكتروني وكلمة المرور لاستعادة الحساب." : "Please enter email and password to restore account.");
+      return;
+    }
+    setIsRestoringAccount(true);
+    setRestorationSuccessMsg("");
+    try {
+      const res = await restoreAccountApi(regEmail.trim().toLowerCase(), regPassword);
+      if (!res.success) {
+        throw new Error(res.error || "Failed to restore account.");
+      }
+      setRestorationSuccessMsg(lang === "ar"
+        ? "تمت استعادة حسابك وجميع بياناتك السابقة بنجاح! جاري الدخول..."
+        : "Your account and all previous data have been restored! Logging in...");
+
+      if (res.user) {
+        setCurrentUser(res.user);
+        applyUserPreferences(res.user);
+        setAuthMode("landing");
+      } else {
+        setTimeout(() => {
+          setLoginEmail(regEmail);
+          setAuthMode("landing");
+        }, 1500);
+      }
+    } catch (err: any) {
+      setRegError(err.message || "Failed to restore account.");
+    } finally {
+      setIsRestoringAccount(false);
     }
   };
 
@@ -3224,6 +3323,112 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                         <div className="flex-1 min-w-0 text-start">
                           {renderErrorContent(regError)}
                         </div>
+                      </div>
+                    )}
+
+                    {/* Account Lifecycle Special Action Cards */}
+                    {regLifecycleState?.status === "ADMIN_DELETED" && (
+                      <div className="p-3.5 bg-amber-500/10 dark:bg-amber-950/20 border border-amber-500/30 rounded-xl space-y-3 my-3">
+                        <div className="flex items-start gap-2.5 text-start">
+                          <ShieldAlert className="w-5 h-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                          <div>
+                            <h4 className="text-xs font-bold text-amber-800 dark:text-amber-300">
+                              {lang === "ar" ? "طلب موافقة مسؤول المنصة" : "Request Admin Approval"}
+                            </h4>
+                            <p className="text-[11px] text-amber-700/90 dark:text-amber-400/90 mt-1 leading-relaxed">
+                              {lang === "ar"
+                                ? "تم تعطيل هذا الحساب سابقاً بواسطة مسؤول المنصة. لإعادة استخدام هذا البريد الإلكتروني وإنشاء حساب جديد، يمكنك إرسال طلب رسمي للمسؤول للموافقة عليه."
+                                : "This account was previously disabled by an administrator. To re-register using this email, you can send an official request to the admin for approval."}
+                            </p>
+                          </div>
+                        </div>
+
+                        {reactivationSuccessMsg ? (
+                          <div className="p-2.5 bg-emerald-500/15 border border-emerald-500/30 rounded-lg text-emerald-700 dark:text-emerald-300 text-xs font-semibold flex items-center gap-2">
+                            <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
+                            <span>{reactivationSuccessMsg}</span>
+                          </div>
+                        ) : (
+                          <div className="space-y-2 pt-1">
+                            <textarea
+                              value={reactivationReason}
+                              onChange={(e) => setReactivationReason(e.target.value)}
+                              placeholder={lang === "ar" ? "اكتب سبب طلب إعادة التفعيل (اختياري)..." : "Reason for reactivation request (optional)..."}
+                              rows={2}
+                              className="w-full text-xs p-2 rounded-lg bg-white dark:bg-slate-900 border border-amber-300 dark:border-amber-700/50 text-slate-800 dark:text-slate-200 focus:outline-none placeholder:text-slate-400"
+                            />
+                            <button
+                              type="button"
+                              onClick={handleRequestReactivation}
+                              disabled={isSubmittingReactivation}
+                              className="w-full py-2 px-3 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-semibold transition-colors flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                            >
+                              {isSubmittingReactivation ? (
+                                <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                              ) : (
+                                <Send className="w-3.5 h-3.5" />
+                              )}
+                              <span>{lang === "ar" ? "إرسال طلب إعادة التفعيل للمسؤول" : "Send Reactivation Request to Admin"}</span>
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {regLifecycleState?.status === "ADMIN_APPROVAL_PENDING" && (
+                      <div className="p-3.5 bg-blue-500/10 dark:bg-blue-950/20 border border-blue-500/30 rounded-xl space-y-2 my-3">
+                        <div className="flex items-start gap-2.5 text-start">
+                          <Clock className="w-5 h-5 text-blue-600 dark:text-blue-400 shrink-0 mt-0.5" />
+                          <div>
+                            <h4 className="text-xs font-bold text-blue-800 dark:text-blue-300">
+                              {lang === "ar" ? "طلبك قيد المراجعة" : "Request Under Review"}
+                            </h4>
+                            <p className="text-[11px] text-blue-700/90 dark:text-blue-400/90 mt-1 leading-relaxed">
+                              {lang === "ar"
+                                ? "تم استلام طلب إعادة تفعيل حسابك وهو قيد المراجعة حالياً من قبل إدارة المنصة. ستتمكن من التسجيل فور قبول الطلب."
+                                : "Your reactivation request is currently under review by the administration. You will be able to register once approved."}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {regLifecycleState?.status === "SELF_RESTORE_AVAILABLE" && (
+                      <div className="p-3.5 bg-indigo-500/10 dark:bg-indigo-950/20 border border-indigo-500/30 rounded-xl space-y-3 my-3">
+                        <div className="flex items-start gap-2.5 text-start">
+                          <RotateCcw className="w-5 h-5 text-indigo-600 dark:text-indigo-400 shrink-0 mt-0.5" />
+                          <div>
+                            <h4 className="text-xs font-bold text-indigo-800 dark:text-indigo-300">
+                              {lang === "ar" ? "استعادة الحساب السابق وجميع البيانات" : "Restore Account & Saved Data"}
+                            </h4>
+                            <p className="text-[11px] text-indigo-700/90 dark:text-indigo-400/90 mt-1 leading-relaxed">
+                              {lang === "ar"
+                                ? `تم العثور على بيانات حسابك المحفوظة (المستندات، الذاكرة المؤسسية، إعدادات مساحة العمل). يمكنك استعادة حسابك بالكامل الآن (متبقي ${regLifecycleState.daysRemaining ?? 31} يوماً للاستعادة).`
+                                : `All your saved account records (documents, memory, settings) are safely retained. You can restore your full account now (${regLifecycleState.daysRemaining ?? 31} days remaining).`}
+                            </p>
+                          </div>
+                        </div>
+
+                        {restorationSuccessMsg ? (
+                          <div className="p-2.5 bg-emerald-500/15 border border-emerald-500/30 rounded-lg text-emerald-700 dark:text-emerald-300 text-xs font-semibold flex items-center gap-2">
+                            <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
+                            <span>{restorationSuccessMsg}</span>
+                          </div>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={handleRestoreAccount}
+                            disabled={isRestoringAccount}
+                            className="w-full py-2.5 px-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-semibold transition-colors flex items-center justify-center gap-2 shadow-xs cursor-pointer disabled:opacity-50"
+                          >
+                            {isRestoringAccount ? (
+                              <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                            ) : (
+                              <RotateCcw className="w-3.5 h-3.5" />
+                            )}
+                            <span>{lang === "ar" ? "استعادة حسابي وبياناتي السابقة بالكامل" : "Restore My Account & Data"}</span>
+                          </button>
+                        )}
                       </div>
                     )}
 

@@ -1261,29 +1261,32 @@ export async function deleteWorkspaceInvitation(email: string): Promise<void> {
 export async function checkWorkspaceInvitation(email: string): Promise<WorkspaceInvitation | null> {
   const emailKey = email.trim().toLowerCase();
   
-  if (isFirestoreOffline) {
-    const invitations = getLocalItem("invitations", []);
-    return invitations.find((i: WorkspaceInvitation) => i.email.trim().toLowerCase() === emailKey) || null;
+  // 1. Try secure backend endpoint first (works even before user is authenticated)
+  try {
+    const serverInv = await checkWorkspaceInvitationApi(emailKey);
+    if (serverInv) return serverInv;
+  } catch (e) {
+    // silently continue to fallback
   }
 
-  try {
-    const docSnap = await getDoc(doc(db, "invitations", emailKey));
-    if (docSnap.exists()) {
-      return docSnap.data() as WorkspaceInvitation;
+  // 2. Check local storage cache
+  const invitations = getLocalItem("invitations", []);
+  const localMatch = invitations.find((i: WorkspaceInvitation) => i.email.trim().toLowerCase() === emailKey);
+  if (localMatch) return localMatch;
+
+  // 3. If user is signed in, check client Firestore safely without throwing permission error
+  if (auth.currentUser) {
+    try {
+      const docSnap = await getDoc(doc(db, "invitations", emailKey));
+      if (docSnap.exists()) {
+        return docSnap.data() as WorkspaceInvitation;
+      }
+    } catch (fsErr) {
+      console.warn("Client read for invitation skipped:", fsErr);
     }
-    // Try localStorage fallback if Firestore doc not found but we are connected
-    const invitations = getLocalItem("invitations", []);
-    return invitations.find((i: WorkspaceInvitation) => i.email.trim().toLowerCase() === emailKey) || null;
-  } catch (error) {
-    const errMessage = error instanceof Error ? error.message : String(error);
-    if (errMessage.toLowerCase().includes('offline') || errMessage.toLowerCase().includes('network')) {
-      isFirestoreOffline = true;
-      const invitations = getLocalItem("invitations", []);
-      return invitations.find((i: WorkspaceInvitation) => i.email.trim().toLowerCase() === emailKey) || null;
-    }
-    handleFirestoreError(error, OperationType.GET, `invitations/${emailKey}`);
-    return null;
   }
+
+  return null;
 }
 
 export async function fetchWorkspaceInvitations(workspaceId: string): Promise<WorkspaceInvitation[]> {

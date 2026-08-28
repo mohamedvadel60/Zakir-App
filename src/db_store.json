@@ -556,5 +556,62 @@
   "stripe_sessions": {
     "sess_a": "usr_a",
     "sess_b": "usr_b"
-  }
+  },
+  "account_lifecycle": [
+    {
+      "accountId": "test_1787910312146@example.com",
+      "emailNormalized": "test_1787910312146@example.com",
+      "status": "SELF_DELETED",
+      "deletionType": "self",
+      "deletedAt": "2026-08-28T09:45:15.597Z",
+      "deletedBy": "usr_test_1787910312146",
+      "restoreUntil": "2026-09-28T09:45:15.597Z",
+      "originalUserId": "usr_test_1787910312146",
+      "retainedDataDocPath": "users_retained/usr_test_1787910312146",
+      "adminApprovalRequired": false,
+      "updatedAt": "2026-08-28T09:45:15.597Z",
+      "reactivationRequestedAt": "2026-08-28T09:45:14.271Z",
+      "reactivationRequestReason": "Please let me rejoin, I changed my team.",
+      "reactivationStatus": "approved",
+      "approvedAt": "2026-08-28T09:45:15.124Z",
+      "approvedBy": "admin",
+      "notes": ""
+    },
+    {
+      "accountId": "test_1787910330604@example.com",
+      "emailNormalized": "test_1787910330604@example.com",
+      "originalUserId": "usr_test_1787910330604",
+      "reactivationRequestReason": "Please let me rejoin, I changed my team.",
+      "reactivationRequestedAt": "2026-08-28T09:45:32.565Z",
+      "adminApprovalRequired": false,
+      "notes": "",
+      "reactivationStatus": "approved",
+      "approvedBy": "admin",
+      "approvedAt": "2026-08-28T09:45:33.231Z",
+      "retainedDataDocPath": null,
+      "deletionType": "self",
+      "deletedBy": "usr_test_1787910330604",
+      "status": "PURGED",
+      "deletedAt": "2026-07-27T09:45:33.991Z",
+      "restoreUntil": "2026-08-27T09:45:33.991Z",
+      "updatedAt": "2026-08-28T09:45:35.164Z",
+      "purgedAt": "2026-08-28T09:45:35.164Z"
+    }
+  ],
+  "account_reactivation_requests": [
+    {
+      "email": "test_1787910312146@example.com",
+      "requestedAt": "2026-08-28T09:45:14.271Z",
+      "reason": "Please let me rejoin, I changed my team.",
+      "status": "approved",
+      "reviewedAt": "2026-08-28T09:45:15.124Z"
+    },
+    {
+      "email": "test_1787910330604@example.com",
+      "requestedAt": "2026-08-28T09:45:32.565Z",
+      "reason": "Please let me rejoin, I changed my team.",
+      "status": "approved",
+      "reviewedAt": "2026-08-28T09:45:33.231Z"
+    }
+  ]
 }

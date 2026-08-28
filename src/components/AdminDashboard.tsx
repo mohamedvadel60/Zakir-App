@@ -35,7 +35,9 @@ import {
   Send,
   Filter,
   Tag,
-  Bot
+  Bot,
+  ShieldAlert,
+  RotateCcw
 } from "lucide-react";
 import { User, UserFile, VerificationStatus, VerificationInfo, SupportTicket, SupportStatus, SupportPriority } from "../types.js";
 import { 
@@ -83,7 +85,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [selectedFileForPreview, setSelectedFileForPreview] = useState<UserFile | null>(null);
   
   // Main Admin Tab state
-  const [activeAdminTab, setActiveAdminTab] = useState<"users" | "support">("users");
+  const [activeAdminTab, setActiveAdminTab] = useState<"users" | "reactivations" | "support">("users");
+
+  // Account Reactivations State
+  const [reactivationRequests, setReactivationRequests] = useState<any[]>([]);
+  const [loadingReactivations, setLoadingReactivations] = useState<boolean>(false);
+  const [actionInProgress, setActionInProgress] = useState<string | null>(null);
+  const [reactivationFilter, setReactivationFilter] = useState<string>("all");
 
   // Support Tickets State
   const [supportTickets, setSupportTickets] = useState<SupportTicket[]>([]);
@@ -258,6 +266,71 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       alert(lang === "ar" ? "حدث خطأ أثناء تحديث حالة الحساب" : "Error updating verification status");
     } finally {
       setSavingVerification(false);
+    }
+  };
+
+  const fetchReactivationRequests = async () => {
+    setLoadingReactivations(true);
+    try {
+      const { auth } = await import("../firebase");
+      const idToken = await auth.currentUser?.getIdToken();
+      if (!idToken) return;
+
+      const res = await fetch("/api/admin/reactivation-requests", {
+        headers: { "Authorization": `Bearer ${idToken}` }
+      });
+      const data = await res.json();
+      if (data.success && Array.isArray(data.requests)) {
+        setReactivationRequests(data.requests);
+      }
+    } catch (err) {
+      console.warn("fetchReactivationRequests error:", err);
+    } finally {
+      setLoadingReactivations(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeAdminTab === "reactivations") {
+      fetchReactivationRequests();
+    }
+  }, [activeAdminTab]);
+
+  // Load initial reactivation count on mount
+  useEffect(() => {
+    fetchReactivationRequests();
+  }, []);
+
+  const handleReactivationDecision = async (email: string, action: "approve" | "reject") => {
+    const confirmMsg = action === "approve"
+      ? (lang === "ar" ? `هل أنت متأكد من الموافقة على إعادة تفعيل الحساب (${email}) والسماح له بالتسجيل؟` : `Approve reactivation for (${email})? User will be allowed to register.`)
+      : (lang === "ar" ? `هل أنت متأكد من رفض طلب إعادة التفعيل (${email})؟ سيبقى الحساب محظوراً.` : `Reject reactivation for (${email})? Account will remain blocked.`);
+    if (!window.confirm(confirmMsg)) return;
+
+    setActionInProgress(email);
+    try {
+      const { auth } = await import("../firebase");
+      const idToken = await auth.currentUser?.getIdToken();
+      if (!idToken) throw new Error("Authentication required");
+
+      const res = await fetch("/api/admin/handle-reactivation-request", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${idToken}`
+        },
+        body: JSON.stringify({ email, action })
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || "Action failed");
+      }
+      alert(data.message || (lang === "ar" ? "تم تنفيذ الإجراء بنجاح!" : "Action completed successfully!"));
+      await fetchReactivationRequests();
+    } catch (err: any) {
+      alert(err.message || (lang === "ar" ? "حدث خطأ" : "Error"));
+    } finally {
+      setActionInProgress(null);
     }
   };
 
@@ -582,6 +655,23 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             {supportTickets.filter(t => t.status === "Open" || t.status === "In Progress").length > 0 && (
               <span className="px-2 py-0.5 rounded-full bg-rose-500 text-white text-xs font-mono font-black animate-pulse">
                 {supportTickets.filter(t => t.status === "Open" || t.status === "In Progress").length}
+              </span>
+            )}
+          </button>
+
+          <button
+            onClick={() => setActiveAdminTab("reactivations")}
+            className={`flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-xs sm:text-sm transition-all cursor-pointer ${
+              activeAdminTab === "reactivations"
+                ? "bg-amber-600 text-white shadow-lg shadow-amber-600/25"
+                : "bg-slate-900/80 text-slate-400 hover:text-white border border-slate-800"
+            }`}
+          >
+            <ShieldAlert className="w-4 h-4" />
+            <span>{lang === "ar" ? "طلبات إعادة التفعيل" : "Reactivation Requests"}</span>
+            {reactivationRequests.filter(r => r.status === "pending").length > 0 && (
+              <span className="px-2 py-0.5 rounded-full bg-amber-500 text-white text-xs font-mono font-black animate-pulse">
+                {reactivationRequests.filter(r => r.status === "pending").length}
               </span>
             )}
           </button>
@@ -1174,6 +1264,176 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 </div>
               )}
             </div>
+          </div>
+        )}
+
+        {/* ACCOUNT REACTIVATIONS SECTION */}
+        {activeAdminTab === "reactivations" && (
+          <div className="space-y-6">
+            <div className="p-6 rounded-2xl border bg-slate-900/60 border-slate-800 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+              <div>
+                <h3 className="text-lg font-bold text-white flex items-center gap-2.5">
+                  <ShieldAlert className="w-5 h-5 text-amber-400" />
+                  <span>{lang === "ar" ? "طلبات إعادة تفعيل الحسابات المحذوفة" : "Account Reactivation Requests"}</span>
+                </h3>
+                <p className="text-xs text-slate-400 mt-1">
+                  {lang === "ar"
+                    ? "مراجعة واعتماد طلبات المستخدمين الذين تم تعطيل حساباتهم بواسطة الإدارة ويرغبون في إعادة التسجيل بنفس البريد الإلكتروني."
+                    : "Review and approve requests from users whose accounts were disabled by an administrator."}
+                </p>
+              </div>
+
+              <div className="flex items-center gap-3 w-full md:w-auto justify-end">
+                {/* Status Filter */}
+                <div className="flex items-center bg-slate-950 border border-slate-800 rounded-xl p-1 text-xs">
+                  <button
+                    onClick={() => setReactivationFilter("all")}
+                    className={`px-3 py-1.5 rounded-lg transition-colors cursor-pointer ${
+                      reactivationFilter === "all" ? "bg-amber-600 text-white font-bold" : "text-slate-400 hover:text-white"
+                    }`}
+                  >
+                    {lang === "ar" ? "الكل" : "All"} ({reactivationRequests.length})
+                  </button>
+                  <button
+                    onClick={() => setReactivationFilter("pending")}
+                    className={`px-3 py-1.5 rounded-lg transition-colors cursor-pointer ${
+                      reactivationFilter === "pending" ? "bg-amber-600 text-white font-bold" : "text-slate-400 hover:text-white"
+                    }`}
+                  >
+                    {lang === "ar" ? "قيد المراجعة" : "Pending"} ({reactivationRequests.filter(r => r.status === "pending").length})
+                  </button>
+                  <button
+                    onClick={() => setReactivationFilter("approved")}
+                    className={`px-3 py-1.5 rounded-lg transition-colors cursor-pointer ${
+                      reactivationFilter === "approved" ? "bg-amber-600 text-white font-bold" : "text-slate-400 hover:text-white"
+                    }`}
+                  >
+                    {lang === "ar" ? "معتمدة" : "Approved"} ({reactivationRequests.filter(r => r.status === "approved").length})
+                  </button>
+                </div>
+
+                <button
+                  onClick={fetchReactivationRequests}
+                  disabled={loadingReactivations}
+                  className="p-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition-colors cursor-pointer"
+                  title="Refresh"
+                >
+                  <RefreshCw className={`w-4 h-4 ${loadingReactivations ? "animate-spin" : ""}`} />
+                </button>
+              </div>
+            </div>
+
+            {/* LIST OR EMPTY */}
+            {reactivationRequests.length === 0 ? (
+              <div className="p-12 text-center border border-dashed border-slate-800 rounded-2xl bg-slate-900/40">
+                <CheckCircle2 className="w-12 h-12 text-emerald-500/60 mx-auto mb-3" />
+                <p className="text-sm font-semibold text-slate-300">
+                  {lang === "ar" ? "لا توجد طلبات إعادة تفعيل حالياً" : "No pending reactivation requests found"}
+                </p>
+                <p className="text-xs text-slate-500 mt-1">
+                  {lang === "ar" ? "جميع الحسابات المعطلة في وضع سليم." : "All disabled accounts are in good standing."}
+                </p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 gap-4">
+                {reactivationRequests
+                  .filter(r => reactivationFilter === "all" || r.status === reactivationFilter)
+                  .map((req) => {
+                    const isPending = req.status === "pending";
+                    const isApproved = req.status === "approved";
+                    const isProcessing = actionInProgress === req.email;
+
+                    return (
+                      <div
+                        key={req.id || req.email}
+                        className="p-5 rounded-2xl border bg-slate-900/70 border-slate-800 space-y-4 hover:border-slate-700 transition-colors"
+                      >
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                          <div className="space-y-1">
+                            <div className="flex items-center gap-2.5">
+                              <span className="font-mono text-sm font-bold text-white">{req.email}</span>
+                              <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold ${
+                                isPending
+                                  ? "bg-amber-500/20 text-amber-400 border border-amber-500/30"
+                                  : isApproved
+                                  ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
+                                  : "bg-rose-500/20 text-rose-400 border border-rose-500/30"
+                              }`}>
+                                {isPending
+                                  ? (lang === "ar" ? "قيد مراجعة الإدارة" : "Pending Review")
+                                  : isApproved
+                                  ? (lang === "ar" ? "معتمد (مسموح بالتسجيل)" : "Approved (Can Register)")
+                                  : (lang === "ar" ? "مرفوض (محظور)" : "Rejected")}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-3 text-xs text-slate-400 font-mono">
+                              <span>{lang === "ar" ? "تاريخ الطلب:" : "Requested:"} {safeFormatDateTime(req.requestedAt)}</span>
+                              {req.handledAt && (
+                                <span>• {lang === "ar" ? "تاريخ المعالجة:" : "Handled:"} {safeFormatDateTime(req.handledAt)}</span>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* ACTION BUTTONS */}
+                          <div className="flex items-center gap-2">
+                            {isPending ? (
+                              <>
+                                <button
+                                  onClick={() => handleReactivationDecision(req.email, "approve")}
+                                  disabled={isProcessing}
+                                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shadow-md shadow-emerald-600/20 cursor-pointer disabled:opacity-50"
+                                >
+                                  {isProcessing ? (
+                                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                                  ) : (
+                                    <CheckCircle className="w-3.5 h-3.5" />
+                                  )}
+                                  <span>{lang === "ar" ? "موافقة واعتماد" : "Approve"}</span>
+                                </button>
+
+                                <button
+                                  onClick={() => handleReactivationDecision(req.email, "reject")}
+                                  disabled={isProcessing}
+                                  className="px-4 py-2 bg-rose-600/20 hover:bg-rose-600 text-rose-300 hover:text-white border border-rose-500/30 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                                >
+                                  <X className="w-3.5 h-3.5" />
+                                  <span>{lang === "ar" ? "رفض" : "Reject"}</span>
+                                </button>
+                              </>
+                            ) : isApproved ? (
+                              <button
+                                onClick={() => handleReactivationDecision(req.email, "reject")}
+                                disabled={isProcessing}
+                                className="px-3 py-1.5 bg-slate-800 hover:bg-rose-950/40 text-slate-400 hover:text-rose-300 text-xs rounded-xl transition-all cursor-pointer"
+                              >
+                                {lang === "ar" ? "إلغاء الاعتماد وحظر" : "Revoke Approval"}
+                              </button>
+                            ) : (
+                              <button
+                                onClick={() => handleReactivationDecision(req.email, "approve")}
+                                disabled={isProcessing}
+                                className="px-3 py-1.5 bg-emerald-600/20 hover:bg-emerald-600 text-emerald-300 hover:text-white border border-emerald-500/30 text-xs rounded-xl transition-all cursor-pointer"
+                              >
+                                {lang === "ar" ? "إعادة النظر والموافقة" : "Re-approve"}
+                              </button>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* REASON */}
+                        <div className="p-3.5 rounded-xl bg-slate-950/70 border border-slate-800 text-xs">
+                          <span className="text-slate-400 font-bold block mb-1">
+                            {lang === "ar" ? "سبب طلب إعادة التفعيل المرسل من المستخدم:" : "Reason provided by user:"}
+                          </span>
+                          <p className="text-slate-200 leading-relaxed font-sans">
+                            {req.reason || (lang === "ar" ? "(لم يقدم المستخدم سبباً تفصيلياً)" : "(No specific reason provided)")}
+                          </p>
+                        </div>
+                      </div>
+                    );
+                  })}
+              </div>
+            )}
           </div>
         )}
       </main>
