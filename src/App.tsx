@@ -867,6 +867,13 @@ This hosting domain (**${currentDomain}**) has not been authorized in your Fireb
       }
     }
 
+    if (errCode === "auth/user-disabled") {
+      return lang === "ar" 
+        ? "هذا الحساب معطّل حالياً. يرجى تقديم طلب استعادة الحساب." 
+        : lang === "fr" 
+        ? "Ce compte est actuellement désactivé." 
+        : "This account is currently disabled. Please submit an account recovery request.";
+    }
     if (errCode === "auth/user-not-found") {
       return lang === "ar" 
         ? "لم يتم العثور على حساب مسجل بهذا البريد الإلكتروني." 
@@ -881,12 +888,26 @@ This hosting domain (**${currentDomain}**) has not been authorized in your Fireb
         ? "Le mot de passe est incorrect." 
         : "Incorrect password. Please try again.";
     }
-    if (errCode === "auth/invalid-credential") {
+    if (errCode === "auth/invalid-credential" || errCode === "auth/invalid-login-credentials") {
       return lang === "ar" 
         ? "بيانات الدخول غير صحيحة. يرجى التحقق من البريد الإلكتروني وكلمة المرور." 
         : lang === "fr" 
         ? "Identifiants invalides. Veuillez vérifier votre e-mail et votre mot de passe." 
         : "Invalid login credentials. Please check your email and password.";
+    }
+    if (errCode === "auth/network-request-failed") {
+      return lang === "ar" 
+        ? "فشل الاتصال بالشبكة. يرجى التحقق من الاتصال بالإنترنت والمحاولة مجدداً." 
+        : lang === "fr" 
+        ? "Échec de la connexion réseau. Veuillez vérifier votre connexion Internet." 
+        : "Network connection failed. Please check your internet connection.";
+    }
+    if (errCode === "auth/operation-not-allowed") {
+      return lang === "ar" 
+        ? "طريقة تسجيل الدخول غير مفعّلة في النظام." 
+        : lang === "fr" 
+        ? "Opération non autorisée." 
+        : "This authentication operation is not allowed.";
     }
     if (errCode === "auth/email-already-in-use") {
       return lang === "ar" 
@@ -1558,9 +1579,14 @@ This hosting domain (**${currentDomain}**) has not been authorized in your Fireb
               adminApprovalRequired: true,
               email: normalizedEmail
             });
+            setDeletedAccountRecovery({
+              email: normalizedEmail,
+              daysRemaining: 31,
+              isExpired: false
+            });
             setRegError(lang === "ar"
-              ? "تم تعطيل هذا الحساب سابقاً بواسطة مسؤول المنصة. لا يمكن إنشاء حساب جديد بهذا البريد إلا بعد موافقة المسؤول."
-              : "This account was previously disabled by an administrator. You must request administrator approval to re-register.");
+              ? "تم حذف هذا الحساب سابقاً بواسطة مسؤول المنصة. تتطلب الاستعادة تقديم طلب مراجعة من قبل الإدارة."
+              : "This account was previously deleted by an administrator. Account recovery requires submitting a request for review.");
             setIsSubmittingReg(false);
             return;
           }
@@ -1571,9 +1597,34 @@ This hosting domain (**${currentDomain}**) has not been authorized in your Fireb
               adminApprovalRequired: true,
               email: normalizedEmail
             });
+            setDeletedAccountRecovery({
+              email: normalizedEmail,
+              daysRemaining: 31,
+              isExpired: false
+            });
             setRegError(lang === "ar"
-              ? "طلب إعادة تفعيل الحساب قيد المراجعة حالياً بواسطة إدارة المنصة. يرجى الانتظار لحين البت في الطلب."
-              : "Your reactivation request is currently pending administrative review. Please wait for admin approval.");
+              ? "طلب استعادة الحساب قيد المراجعة حالياً بواسطة إدارة المنصة. يرجى الانتظار لحين البت في الطلب."
+              : "Your account recovery request is currently pending administrative review.");
+            setIsSubmittingReg(false);
+            return;
+          }
+
+          if (lifecycle.status === "ADMIN_APPROVED") {
+            setLoginEmail(normalizedEmail);
+            setLoginError(lang === "ar"
+              ? "تمت الموافقة على طلب استعادة حسابك من قبل الإدارة! يرجى تسجيل الدخول باستخدام البريد الإلكتروني وكلمة المرور الأصلية."
+              : "Your account recovery has been approved! Please log in using your original email and password.");
+            setAuthMode("landing");
+            setIsSubmittingReg(false);
+            return;
+          }
+
+          if (lifecycle.status === "ACTIVE") {
+            setLoginEmail(normalizedEmail);
+            setLoginError(lang === "ar"
+              ? "هذا البريد الإلكتروني مسجل بالفعل. يرجى تسجيل الدخول إلى حسابك."
+              : "This email address is already registered. Please log in.");
+            setAuthMode("landing");
             setIsSubmittingReg(false);
             return;
           }
@@ -1785,15 +1836,23 @@ This hosting domain (**${currentDomain}**) has not been authorized in your Fireb
       setLoginPassword("");
       setAuthMode("landing");
     } catch (err: any) {
+      console.error("Firebase Login Error Raw:", { code: err?.code, message: err?.message, err });
       const errMsg = err?.message || String(err);
       const normalizedEmail = loginEmail.trim().toLowerCase();
 
-      // Check if this account was self-deleted and is restorable
-      if (normalizedEmail) {
+      // Check if account is disabled or deleted before showing recovery modal
+      const isDisabledOrDeletedErr = err?.code === "auth/user-disabled" || errMsg.includes("deleted") || errMsg.includes("disabled");
+
+      if (normalizedEmail && isDisabledOrDeletedErr) {
         try {
           const lifecycle = await checkAccountLifecycleApi(normalizedEmail);
           if (lifecycle && lifecycle.success) {
-            if (lifecycle.status === "SELF_DELETED" || lifecycle.status === "SELF_RESTORE_AVAILABLE") {
+            if (
+              lifecycle.status === "ADMIN_DELETED" ||
+              lifecycle.status === "ADMIN_APPROVAL_PENDING" ||
+              lifecycle.status === "SELF_DELETED" ||
+              lifecycle.status === "SELF_RESTORE_AVAILABLE"
+            ) {
               setDeletedAccountRecovery({
                 email: normalizedEmail,
                 daysRemaining: lifecycle.daysRemaining ?? 31,
@@ -1817,11 +1876,7 @@ This hosting domain (**${currentDomain}**) has not been authorized in your Fireb
         }
       }
 
-      if (err?.code === "auth/unauthorized-domain" || errMsg.includes("unauthorized-domain") || errMsg.includes("auth/unauthorized-domain")) {
-        setLoginError(formatAuthError(err));
-      } else {
-        setLoginError(lang === "ar" ? "بيانات الدخول غير صحيحة أو خطأ في الاتصال." : (err.message || "Firebase login failed."));
-      }
+      setLoginError(formatAuthError(err));
     } finally {
       setIsSubmittingLogin(false);
     }

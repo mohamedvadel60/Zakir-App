@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { 
-  RotateCcw, 
+  ShieldAlert, 
   ShieldCheck, 
   Clock, 
   ArrowLeft, 
@@ -9,15 +9,25 @@ import {
   AlertTriangle, 
   RefreshCw, 
   Mail, 
-  KeyRound, 
   Lock, 
-  Eye, 
-  EyeOff,
-  Sparkles,
-  AlertCircle
+  Upload, 
+  FileText, 
+  User as UserIcon, 
+  Building2, 
+  Phone, 
+  X,
+  FileCheck,
+  Send,
+  RotateCcw
 } from "lucide-react";
-import { sendAccountRecoveryOtpApi, restoreAccountApi, loginWithCustomToken } from "../lib/firebaseServices.js";
-import { User } from "../types.js";
+import { 
+  fetchAccountRecoveryStatusApi, 
+  submitAccountRecoveryRequestApi, 
+  sendRecoveryApprovalOtpApi, 
+  verifyRecoveryApprovalOtpAndRestoreApi,
+  loginWithCustomToken
+} from "../lib/firebaseServices.js";
+import { User, AccountRecoveryRequest } from "../types.js";
 
 interface DeletedAccountRecoveryProps {
   email: string;
@@ -32,46 +42,82 @@ interface DeletedAccountRecoveryProps {
 
 export const DeletedAccountRecovery: React.FC<DeletedAccountRecoveryProps> = ({
   email,
-  daysRemaining = 31,
-  restoreUntil = null,
-  isExpired = false,
   lang,
   theme = "light",
   onCancel,
   onRestored
 }) => {
   const isRtl = lang === "ar";
+  const normalizedEmail = email.trim().toLowerCase();
 
-  // Calculate dynamic days remaining if restoreUntil is provided
-  const computedDaysRemaining = React.useMemo(() => {
-    if (restoreUntil) {
-      const remainingMs = new Date(restoreUntil).getTime() - Date.now();
-      if (remainingMs <= 0) return 0;
-      return Math.max(1, Math.ceil(remainingMs / (24 * 3600 * 1000)));
-    }
-    return Math.max(0, daysRemaining);
-  }, [restoreUntil, daysRemaining]);
+  // Mode states: "status_view" | "form_view" | "verify_email_view" | "success_view"
+  const [viewMode, setViewMode] = useState<"status_view" | "form_view" | "verify_email_view" | "success_view">("status_view");
+  const [formStep, setFormStep] = useState<number>(1);
 
-  const effectiveExpired = isExpired || computedDaysRemaining <= 0;
+  // Status state from backend
+  const [loadingStatus, setLoadingStatus] = useState<boolean>(true);
+  const [requestData, setRequestData] = useState<AccountRecoveryRequest | null>(null);
+  const [statusType, setStatusType] = useState<"none" | "pending" | "under_review" | "approved" | "rejected">("none");
+  const [rejectionReason, setRejectionReason] = useState<string | null>(null);
 
-  // Flow steps: "initial" | "verify_otp" | "success"
-  const [step, setStep] = useState<"initial" | "verify_otp" | "success">("initial");
+  // Form Fields State
+  const [fullName, setFullName] = useState<string>("");
+  const [phone, setPhone] = useState<string>("");
+  const [phoneVerified, setPhoneVerified] = useState<boolean>(false);
+  const [organization, setOrganization] = useState<string>("");
+  const [previousWorkspaceInfo, setPreviousWorkspaceInfo] = useState<string>("");
+  const [deletionReason, setDeletionReason] = useState<string>("");
+  const [termsAccepted, setTermsAccepted] = useState<boolean>(false);
   
-  // OTP State
-  const [otpCode, setOtpCode] = useState("");
-  const [newPassword, setNewPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
-  const [enablePasswordChange, setEnablePasswordChange] = useState(false);
-  
-  // Loading & Error States
-  const [isSendingOtp, setIsSendingOtp] = useState(false);
-  const [isRestoring, setIsRestoring] = useState(false);
-  const [restorePhase, setRestorePhase] = useState<"verifying" | "restoring">("verifying");
+  // File Upload State
+  const [attachedDoc, setAttachedDoc] = useState<{
+    id: string;
+    name: string;
+    type: string;
+    mimeType: string;
+    dataUrl: string;
+  } | null>(null);
+
+  // Email OTP Verification State (After Approval)
+  const [otpCode, setOtpCode] = useState<string>("");
+  const [isSendingOtp, setIsSendingOtp] = useState<boolean>(false);
+  const [isVerifyingOtp, setIsVerifyingOtp] = useState<boolean>(false);
+  const [resendCooldown, setResendCooldown] = useState<number>(0);
+
+  // General Error & Feedback
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [resendCooldown, setResendCooldown] = useState(0);
-  const [restoredUserData, setRestoredUserData] = useState<User | null>(null);
+  const [isSubmittingForm, setIsSubmittingForm] = useState<boolean>(false);
+  const [restoredUser, setRestoredUser] = useState<User | null>(null);
 
-  // Resend countdown timer
+  // Load request status on mount
+  const checkStatus = async () => {
+    setLoadingStatus(true);
+    setErrorMessage(null);
+    try {
+      const res = await fetchAccountRecoveryStatusApi(normalizedEmail);
+      if (res.success && res.recoveryRequest) {
+        setRequestData(res.recoveryRequest);
+        setStatusType(res.recoveryRequest.status || "pending");
+        setRejectionReason(res.recoveryRequest.rejectionReason || null);
+      } else if (res.success && res.status === "APPROVED") {
+        setStatusType("approved");
+      } else {
+        setStatusType("none");
+        setRequestData(null);
+      }
+    } catch (err: any) {
+      console.error("Error loading recovery status:", err);
+      setStatusType("none");
+    } finally {
+      setLoadingStatus(false);
+    }
+  };
+
+  useEffect(() => {
+    checkStatus();
+  }, [normalizedEmail]);
+
+  // Resend cooldown timer
   useEffect(() => {
     if (resendCooldown <= 0) return;
     const timer = setInterval(() => {
@@ -80,562 +126,820 @@ export const DeletedAccountRecovery: React.FC<DeletedAccountRecoveryProps> = ({
     return () => clearInterval(timer);
   }, [resendCooldown]);
 
-  // Handle Initiating Recovery (Sending OTP)
-  const handleStartRecovery = async () => {
-    if (effectiveExpired) return;
-    setIsSendingOtp(true);
-    setErrorMessage(null);
+  // Handle Document Attachment
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
 
-    try {
-      const res = await sendAccountRecoveryOtpApi(email);
-      if (!res.success) {
-        throw new Error(res.error || (lang === "ar" ? "فشل إرسال رمز التحقق للاستعادة." : "Failed to send recovery code."));
-      }
-      setResendCooldown(60);
-      setStep("verify_otp");
-    } catch (err: any) {
-      console.error("Start recovery OTP failed:", err);
+    if (file.size > 5 * 1024 * 1024) {
       setErrorMessage(
-        err.message || 
-        (lang === "ar" 
-          ? "تعذر إرسال رمز التحقق. يرجى التأكد من اتصال الإنترنت والمحاولة مرة أخرى." 
-          : "Unable to send verification code. Please check your connection and try again.")
-      );
-    } finally {
-      setIsSendingOtp(false);
-    }
-  };
-
-  // Handle Resending OTP
-  const handleResendOtp = async () => {
-    if (resendCooldown > 0 || isSendingOtp) return;
-    setIsSendingOtp(true);
-    setErrorMessage(null);
-
-    try {
-      const res = await sendAccountRecoveryOtpApi(email);
-      if (!res.success) {
-        throw new Error(res.error || (lang === "ar" ? "فشل إعادة إرسال الرمز." : "Failed to resend code."));
-      }
-      setResendCooldown(60);
-    } catch (err: any) {
-      setErrorMessage(err.message || (lang === "ar" ? "تعذر إعادة إرسال رمز التحقق." : "Could not resend code."));
-    } finally {
-      setIsSendingOtp(false);
-    }
-  };
-
-  // Handle Confirming OTP and Executing Restoration
-  const handleConfirmAndRestore = async (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
-    const cleanCode = otpCode.trim();
-    if (!cleanCode || cleanCode.length < 4) {
-      setErrorMessage(
-        lang === "ar" 
-          ? "يرجى إدخال رمز التحقق المكون من 6 أرقام." 
-          : "Please enter the 6-digit verification code."
+        lang === "ar"
+          ? "حجم الملف يتجاوز الحد المسموح به (5 ميجابايت)."
+          : "File size exceeds the 5MB limit."
       );
       return;
     }
 
-    setIsRestoring(true);
-    setRestorePhase("verifying");
+    const reader = new FileReader();
+    reader.onload = () => {
+      setAttachedDoc({
+        id: `doc_${Date.now()}`,
+        name: file.name,
+        type: file.type.includes("pdf") ? "pdf" : "identity_document",
+        mimeType: file.type || "application/octet-stream",
+        dataUrl: reader.result as string
+      });
+      setErrorMessage(null);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  // Submit Multi-step Recovery Form
+  const handleSubmitForm = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setErrorMessage(null);
+
+    // Form Validations
+    if (!fullName.trim()) {
+      setErrorMessage(lang === "ar" ? "يرجى إدخال الاسم الكامل." : "Please enter your full name.");
+      setFormStep(1);
+      return;
+    }
+    if (!phone.trim()) {
+      setErrorMessage(lang === "ar" ? "يرجى إدخال رقم الهاتف." : "Please enter your phone number.");
+      setFormStep(1);
+      return;
+    }
+    if (!deletionReason.trim()) {
+      setErrorMessage(lang === "ar" ? "يرجى توضيح سبب حذف/استعادة الحساب." : "Please specify the reason for account deletion/recovery.");
+      setFormStep(2);
+      return;
+    }
+    if (!termsAccepted) {
+      setErrorMessage(lang === "ar" ? "يجب الموافقة على شروط خدمة وسياقات المنصة." : "You must accept the Terms of Service.");
+      setFormStep(3);
+      return;
+    }
+    if (!attachedDoc) {
+      setErrorMessage(lang === "ar" ? "يرجى إرفاق وثيقة اثبات الهوية." : "Please attach an identity verification document.");
+      setFormStep(4);
+      return;
+    }
+
+    setIsSubmittingForm(true);
+
+    try {
+      const payload = {
+        email: normalizedEmail,
+        fullName: fullName.trim(),
+        phone: phone.trim(),
+        phoneVerified: phoneVerified,
+        organization: organization.trim(),
+        previousWorkspaceInfo: previousWorkspaceInfo.trim(),
+        reason: deletionReason.trim(),
+        termsAccepted: true,
+        documents: [attachedDoc]
+      };
+
+      const res = await submitAccountRecoveryRequestApi(payload);
+      if (!res.success) {
+        throw new Error(res.error || (lang === "ar" ? "فشل تقديم طلب الاستعادة." : "Failed to submit recovery request."));
+      }
+
+      setStatusType("pending");
+      setRequestData(res.request || null);
+      setViewMode("status_view");
+    } catch (err: any) {
+      setErrorMessage(err.message || (lang === "ar" ? "حدث خطأ أثناء تقديم الطلب." : "An error occurred during submission."));
+    } finally {
+      setIsSubmittingForm(false);
+    }
+  };
+
+  // Start Email Verification (for Approved requests)
+  const handleStartEmailVerification = async () => {
+    setIsSendingOtp(true);
     setErrorMessage(null);
 
     try {
-      // Step 1: Verify & Restore via backend
-      setTimeout(() => {
-        setRestorePhase("restoring");
-      }, 700);
-
-      const res = await restoreAccountApi(
-        email, 
-        cleanCode, 
-        enablePasswordChange && newPassword.trim() ? newPassword.trim() : undefined
-      );
-
-      if (!res.success || !res.user) {
-        throw new Error(
-          res.error || 
-          (lang === "ar" 
-            ? "تعذر استعادة الحساب. لم نتمكن من إكمال عملية الاستعادة. يرجى التحقق من هويتك والمحاولة مرة أخرى." 
-            : "Unable to restore account. Could not complete recovery process. Please verify your identity and try again.")
-        );
+      const res = await sendRecoveryApprovalOtpApi(normalizedEmail);
+      if (!res.success) {
+        throw new Error(res.error || (lang === "ar" ? "فشل إرسال رمز التحقق." : "Failed to send verification code."));
       }
-
-      const restoredUser = res.user as User;
-      setRestoredUserData(restoredUser);
-      setStep("success");
-
-      // Auto login with customToken if returned
-      if (res.customToken) {
-        try {
-          await loginWithCustomToken(res.customToken);
-        } catch (tErr) {
-          console.warn("Custom token sign-in fallback:", tErr);
-        }
-      }
-
-      // Transition to active session after short confirmation delay
-      setTimeout(() => {
-        onRestored(restoredUser, res.customToken);
-      }, 1400);
-
+      setResendCooldown(60);
+      setViewMode("verify_email_view");
     } catch (err: any) {
-      console.error("Account restore confirmation failed:", err);
-      setErrorMessage(
-        err.message || 
-        (lang === "ar" 
-          ? "تعذر استعادة الحساب - لم نتمكن من إكمال عملية الاستعادة. يرجى التحقق من هويتك والمحاولة مرة أخرى." 
-          : "Unable to restore account. Could not complete recovery process. Please verify your identity and try again.")
-      );
-      setIsRestoring(false);
+      setErrorMessage(err.message || (lang === "ar" ? "تعذر إرسال رمز التحقق." : "Unable to send verification code."));
+    } finally {
+      setIsSendingOtp(false);
     }
   };
 
-  // Translations
-  const t = {
-    ar: {
-      foundTitle: "تم العثور على حساب سابق",
-      expiredTitle: "انتهت فترة استعادة هذا الحساب",
-      foundDesc: "لقد تم حذف هذا الحساب سابقاً، لكنه لا يزال ضمن فترة الاستعادة المتاحة. يمكنك استعادة حسابك وبياناتك السابقة الآن.",
-      expiredDesc: "انتهت مهلة 31 يوماً المتاحة لاستعادة هذا الحساب، وتم حذف البيانات نهائياً وفق سياسة حوكمة النظام.",
-      daysRemaining: `متبقي ${computedDaysRemaining} يوماً للاستعادة`,
-      expiredBadge: "انتهت مهلة الاستعادة",
-      primaryRestoreBtn: "استعادة الحساب",
-      sendingOtp: "جارٍ التحقق وإرسال الرمز…",
-      backToLoginBtn: "العودة",
-      verifyTitle: "التحقق من ملكية الحساب",
-      verifyDesc: "تم إرسال رمز تحقق مكون من 6 أرقام إلى بريدك الإلكتروني لتأكيد هويتك واستعادة حسابك:",
-      codeLabel: "رمز التحقق (6 أرقام)",
-      codePlaceholder: "أدخل الرمز (مثال: 123456)",
-      newPasswordToggle: "تعيين كلمة مرور جديدة (اختياري)",
-      newPasswordLabel: "كلمة المرور الجديدة",
-      newPasswordPlaceholder: "أدخل كلمة المرور الجديدة",
-      confirmRestoreBtn: "تأكيد واستعادة الحساب",
-      verifyingPhase: "جارٍ التحقق من الرمز…",
-      restoringPhase: "جارٍ استعادة حسابك وجميع بياناتك…",
-      resendCode: "إعادة إرسال الرمز",
-      resendWait: (sec: number) => `إعادة الإرسال بعد (${sec} ثانية)`,
-      backBtn: "رجوع",
-      successTitle: "تمت استعادة حسابك بنجاح",
-      successWelcome: "مرحباً بعودتك إلى Zakir.",
-      successDesc: "تمت استعادة ملفك الشخصي، مساحة العمل، والصلاحيات كاملة.",
-      enterDashboardBtn: "الدخول إلى لوحة التحكم",
-      roleLabel: "الدور:",
-      workspaceLabel: "مساحة العمل:"
-    },
-    en: {
-      foundTitle: "Deleted Account Found",
-      expiredTitle: "Account Recovery Period Expired",
-      foundDesc: "You previously deleted this account, but it is still available for recovery. You can restore your account and all data before the recovery window expires.",
-      expiredDesc: "The recovery period for this account has expired and data has been permanently deleted according to system policy.",
-      daysRemaining: `${computedDaysRemaining} day${computedDaysRemaining > 1 ? "s" : ""} remaining for recovery`,
-      expiredBadge: "Recovery Expired",
-      primaryRestoreBtn: "Restore Account",
-      sendingOtp: "Sending verification code…",
-      backToLoginBtn: "Back to Sign In",
-      verifyTitle: "Verify Account Ownership",
-      verifyDesc: "A 6-digit verification code has been sent to your email address to confirm your identity and restore your account:",
-      codeLabel: "Verification Code (6 digits)",
-      codePlaceholder: "Enter code (e.g. 123456)",
-      newPasswordToggle: "Set new password (optional)",
-      newPasswordLabel: "New Password",
-      newPasswordPlaceholder: "Enter new password",
-      confirmRestoreBtn: "Verify & Restore Account",
-      verifyingPhase: "Verifying account…",
-      restoringPhase: "Restoring your account and workspace data…",
-      resendCode: "Resend Code",
-      resendWait: (sec: number) => `Resend in (${sec}s)`,
-      backBtn: "Back",
-      successTitle: "Account Restored Successfully",
-      successWelcome: "Welcome back to Zakir.",
-      successDesc: "Your profile, workspace data, and permissions have been fully restored.",
-      enterDashboardBtn: "Enter Dashboard",
-      roleLabel: "Role:",
-      workspaceLabel: "Workspace:"
-    },
-    fr: {
-      foundTitle: "Compte supprimé trouvé",
-      expiredTitle: "Délai de récupération expiré",
-      foundDesc: "Vous avez précédemment supprimé ce compte, mais il est toujours disponible pour la récupération. Vous pouvez restaurer votre compte et vos données avant l'expiration du délai.",
-      expiredDesc: "La période de récupération pour ce compte a expiré et les données ont été définitivement supprimées conformément à la politique du système.",
-      daysRemaining: `${computedDaysRemaining} jour${computedDaysRemaining > 1 ? "s" : ""} restant${computedDaysRemaining > 1 ? "s" : ""} pour la récupération`,
-      expiredBadge: "Délai expiré",
-      primaryRestoreBtn: "Restaurer le compte",
-      sendingOtp: "Envoi du code…",
-      backToLoginBtn: "Retour à la connexion",
-      verifyTitle: "Vérifier la propriété du compte",
-      verifyDesc: "Un code de vérification à 6 chiffres a été envoyé à votre adresse e-mail pour confirmer votre identité et restaurer votre compte :",
-      codeLabel: "Code de vérification (6 chiffres)",
-      codePlaceholder: "Entrez le code (ex: 123456)",
-      newPasswordToggle: "Définir un nouveau mot de passe (optionnel)",
-      newPasswordLabel: "Nouveau mot de passe",
-      newPasswordPlaceholder: "Entrez le mot de passe",
-      confirmRestoreBtn: "Vérifier et restaurer le compte",
-      verifyingPhase: "Vérification du compte…",
-      restoringPhase: "Restauration de votre compte…",
-      resendCode: "Renvoyer le code",
-      resendWait: (sec: number) => `Renvoyer dans (${sec}s)`,
-      backBtn: "Retour",
-      successTitle: "Compte restauré avec succès",
-      successWelcome: "Bon retour sur Zakir.",
-      successDesc: "Votre profil, votre espace de travail et vos autorisations ont été entièrement restaurés.",
-      enterDashboardBtn: "Accéder au tableau de bord",
-      roleLabel: "Rôle :",
-      workspaceLabel: "Espace :"
+  // Verify Approval OTP and Complete Account Restoration
+  const handleVerifyOtp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!otpCode.trim() || otpCode.trim().length < 4) {
+      setErrorMessage(lang === "ar" ? "يرجى إدخال رمز التحقق المكون من 6 أرقام." : "Please enter the 6-digit code.");
+      return;
     }
-  }[lang] || {
-    foundTitle: "Deleted Account Found",
-    expiredTitle: "Account Recovery Period Expired",
-    foundDesc: "You previously deleted this account, but it is still available for recovery. You can restore your account and all data before the recovery window expires.",
-    expiredDesc: "The recovery period for this account has expired and data has been permanently deleted according to system policy.",
-    daysRemaining: `${computedDaysRemaining} days remaining for recovery`,
-    expiredBadge: "Recovery Expired",
-    primaryRestoreBtn: "Restore Account",
-    sendingOtp: "Sending verification code…",
-    backToLoginBtn: "Back to Sign In",
-    verifyTitle: "Verify Account Ownership",
-    verifyDesc: "A 6-digit verification code has been sent to your email address to confirm your identity and restore your account:",
-    codeLabel: "Verification Code (6 digits)",
-    codePlaceholder: "Enter code (e.g. 123456)",
-    newPasswordToggle: "Set new password (optional)",
-    newPasswordLabel: "New Password",
-    newPasswordPlaceholder: "Enter new password",
-    confirmRestoreBtn: "Verify & Restore Account",
-    verifyingPhase: "Verifying account…",
-    restoringPhase: "Restoring your account…",
-    resendCode: "Resend Code",
-    resendWait: (sec: number) => `Resend in (${sec}s)`,
-    backBtn: "Back",
-    successTitle: "Account Restored Successfully",
-    successWelcome: "Welcome back to Zakir.",
-    successDesc: "Your profile, workspace, and permissions have been fully restored.",
-    enterDashboardBtn: "Enter Dashboard",
-    roleLabel: "Role:",
-    workspaceLabel: "Workspace:"
+
+    setIsVerifyingOtp(true);
+    setErrorMessage(null);
+
+    try {
+      const res = await verifyRecoveryApprovalOtpAndRestoreApi(normalizedEmail, otpCode.trim());
+      if (!res.success || !res.user) {
+        throw new Error(res.error || (lang === "ar" ? "فشل استعادة الحساب. يرجى التأكد من الرمز." : "Failed to restore account."));
+      }
+
+      const user = res.user as User;
+      setRestoredUser(user);
+      setViewMode("success_view");
+
+      setTimeout(() => {
+        onCancel();
+      }, 2500);
+
+    } catch (err: any) {
+      setErrorMessage(err.message || (lang === "ar" ? "رمز التحقق غير صحيح أو انتهت صلاحيته." : "Invalid or expired verification code."));
+    } finally {
+      setIsVerifyingOtp(false);
+    }
   };
 
   return (
-    <div 
-      id="deleted-account-recovery-container"
-      dir={isRtl ? "rtl" : "ltr"}
-      className="w-full max-w-md mx-auto bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl relative overflow-hidden transition-all duration-300"
-    >
-      {/* Decorative ambient glow */}
-      <div className="absolute top-0 right-0 -mt-8 -mr-8 w-32 h-32 bg-blue-500/10 rounded-full blur-2xl pointer-events-none" />
-      <div className="absolute bottom-0 left-0 -mb-8 -ml-8 w-32 h-32 bg-indigo-500/10 rounded-full blur-2xl pointer-events-none" />
+    <div className={`w-full max-w-xl mx-auto p-6 sm:p-8 rounded-3xl border shadow-xl transition-all ${
+      theme === "dark" 
+        ? "bg-slate-900/90 border-slate-800 text-slate-100 shadow-slate-950/50" 
+        : "bg-white border-slate-200 text-slate-900 shadow-slate-200/50"
+    }`} dir={isRtl ? "rtl" : "ltr"}>
+      
+      {/* Header Banner */}
+      <div className="text-center space-y-3 mb-6">
+        <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-[#EFF6FF] border border-[#2563EB]/20 text-[#2563EB] mb-1 shadow-sm">
+          <ShieldAlert className="w-7 h-7 text-[#2563EB]" />
+        </div>
 
-      {/* ================= STEP 1: INITIAL STATE (DETECTED / EXPIRED) ================= */}
-      {step === "initial" && (
-        <div className="flex flex-col items-center text-center space-y-5">
-          {/* Top Badge Icon */}
-          <div className="relative">
-            <div className={`w-16 h-16 rounded-2xl flex items-center justify-center border shadow-sm transition-transform duration-300 hover:scale-105 ${
-              effectiveExpired 
-                ? "bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 border-amber-200 dark:border-amber-900/60" 
-                : "bg-blue-50 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400 border-blue-100 dark:border-blue-900/60 shadow-blue-500/10"
-            }`}>
-              {effectiveExpired ? (
-                <AlertTriangle className="w-8 h-8" />
-              ) : (
-                <RotateCcw className="w-8 h-8" />
-              )}
+        <h2 className="text-xl sm:text-2xl font-extrabold tracking-tight text-slate-900 dark:text-white">
+          {lang === "ar" ? "تم حذف حسابك" : "Your account has been deleted"}
+        </h2>
+
+        <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 max-w-md mx-auto leading-relaxed">
+          {lang === "ar"
+            ? `البريد الإلكتروني (${normalizedEmail}) مرتبط بحساب تم حذفه سابقاً ولا يمكن الوصول إليه كالمعتاد. تتطلب استعادة الحساب تقديم طلب مراجعة من قبل الإدارة.`
+            : `The account associated with (${normalizedEmail}) was previously deleted and cannot be accessed normally. Account recovery requires submitting a request for administrator review.`}
+        </p>
+
+        {/* Email Badge */}
+        <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#EFF6FF] text-[#1D4ED8] dark:bg-blue-950/50 dark:text-blue-300 font-mono text-xs font-semibold border border-blue-200 dark:border-blue-900">
+          <Mail className="w-3.5 h-3.5 text-[#2563EB]" />
+          <span>{normalizedEmail}</span>
+        </div>
+      </div>
+
+      {/* Error Alert Box */}
+      {errorMessage && (
+        <div className="mb-6 p-4 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-700 dark:text-rose-300 text-xs font-medium flex items-start gap-3 animate-fade-in">
+          <AlertTriangle className="w-4 h-4 text-rose-500 shrink-0 mt-0.5" />
+          <div className="space-y-1">
+            <span className="font-bold">{lang === "ar" ? "تنبيه:" : "Notice:"}</span>
+            <p className="leading-normal">{errorMessage}</p>
+          </div>
+        </div>
+      )}
+
+      {/* VIEW 1: STATUS OVERVIEW */}
+      {viewMode === "status_view" && (
+        <div className="space-y-6">
+          {loadingStatus ? (
+            <div className="p-8 text-center space-y-3">
+              <RefreshCw className="w-8 h-8 text-[#2563EB] animate-spin mx-auto" />
+              <p className="text-xs text-slate-400 font-medium">
+                {lang === "ar" ? "جارٍ التحقق من حالة طلب الاستعادة…" : "Checking recovery status…"}
+              </p>
             </div>
-            {!effectiveExpired && (
-              <span className="absolute -bottom-1 -right-1 flex h-4 w-4">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-4 w-4 bg-blue-600 border-2 border-white dark:border-slate-900"></span>
-              </span>
-            )}
-          </div>
+          ) : (
+            <div className="space-y-5">
+              
+              {/* Status 1: NO REQUEST SUBMITTED */}
+              {statusType === "none" && (
+                <div className="p-5 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/80 space-y-4">
+                  <div className="flex items-center gap-3">
+                    <span className="px-3 py-1 rounded-full text-xs font-bold bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300">
+                      {lang === "ar" ? "لم يتم تقديم طلب استعادة" : "No recovery request submitted"}
+                    </span>
+                  </div>
 
-          {/* Titles & Descriptions */}
-          <div className="space-y-2">
-            <h2 className="text-xl sm:text-2xl font-black tracking-tight text-slate-900 dark:text-white">
-              {effectiveExpired ? t.expiredTitle : t.foundTitle}
-            </h2>
-            <p className="text-sm leading-relaxed text-slate-600 dark:text-slate-400 max-w-sm mx-auto">
-              {effectiveExpired ? t.expiredDesc : t.foundDesc}
-            </p>
-          </div>
+                  <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+                    {lang === "ar"
+                      ? "لاستعادة الوصول إلى حسابك، يلزم تقديم طلب استعادة يتضمن تفاصيل الهوية وسبب الاستعادة لمراجعته من قبل مسؤولي المنصة."
+                      : "To restore access to your account and workspace data, you must submit an account recovery request with identity verification for administrator review."}
+                  </p>
 
-          {/* Account Target Pill */}
-          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-slate-100 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700/60 text-xs font-mono text-slate-700 dark:text-slate-300 max-w-full truncate">
-            <Mail className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-            <span className="truncate">{email}</span>
-          </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setFormStep(1);
+                      setViewMode("form_view");
+                    }}
+                    className="w-full py-3 px-4 bg-[#2563EB] hover:bg-[#1D4ED8] text-white rounded-xl text-xs font-bold transition-colors shadow-md shadow-blue-500/20 flex items-center justify-center gap-2 cursor-pointer"
+                  >
+                    <FileText className="w-4 h-4" />
+                    <span>{lang === "ar" ? "تقديم طلب استعادة الحساب" : "Request account recovery"}</span>
+                  </button>
+                </div>
+              )}
 
-          {/* Remaining Days or Expired Chip */}
-          <div className="w-full">
-            {effectiveExpired ? (
-              <div className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-700 dark:text-amber-400 text-xs font-semibold">
-                <AlertCircle className="w-4 h-4 shrink-0" />
-                <span>{t.expiredBadge}</span>
-              </div>
-            ) : (
-              <div className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-blue-50 dark:bg-blue-950/40 border border-blue-200/80 dark:border-blue-900/60 text-blue-700 dark:text-blue-300 text-xs font-semibold shadow-sm">
-                <Clock className="w-4 h-4 text-blue-600 dark:text-blue-400 shrink-0" />
-                <span className="font-bold">{t.daysRemaining}</span>
-              </div>
-            )}
-          </div>
+              {/* Status 2: REQUEST PENDING */}
+              {(statusType === "pending" || statusType === "under_review") && (
+                <div className="p-5 rounded-2xl bg-amber-500/10 border border-amber-500/30 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <span className="px-3 py-1 rounded-full text-xs font-bold bg-amber-500/20 text-amber-700 dark:text-amber-300 border border-amber-500/30 flex items-center gap-1.5">
+                      <Clock className="w-3.5 h-3.5 text-amber-500" />
+                      <span>{lang === "ar" ? "طلب الاستعادة قيد المراجعة" : "Recovery request pending"}</span>
+                    </span>
 
-          {/* Error Message if any */}
-          {errorMessage && (
-            <div className="w-full p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-600 dark:text-rose-400 text-xs text-start leading-relaxed flex items-start gap-2">
-              <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
-              <span>{errorMessage}</span>
+                    {requestData?.submittedAt && (
+                      <span className="text-[11px] font-mono text-slate-400">
+                        {new Date(requestData.submittedAt).toLocaleDateString()}
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="space-y-2">
+                    <p className="text-xs font-bold text-slate-800 dark:text-slate-200">
+                      {lang === "ar" 
+                        ? "سيتم مراجعة طلب الاستعادة الخاص بك من قبل مسؤول النظام. وسيتم إخطارك فور اتخاذ القرار."
+                        : "Your recovery request will be reviewed by an administrator. You will be notified when a decision is made."}
+                    </p>
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                      {lang === "ar"
+                        ? "يرجى الانتظار حتى اكتمال المراجعة. لا يمكنك تقديم طلب جديد أثناء وجود طلب قيد المراجعة."
+                        : "Please wait for administrator review. Duplicate requests are blocked while review is pending."}
+                    </p>
+                  </div>
+
+                  <div className="pt-2 flex items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={checkStatus}
+                      className="px-4 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-slate-700 dark:text-slate-300 rounded-lg text-xs font-semibold transition-colors flex items-center gap-1.5 cursor-pointer"
+                    >
+                      <RefreshCw className="w-3.5 h-3.5" />
+                      <span>{lang === "ar" ? "تحديث الحالة" : "Refresh Status"}</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Status 3: REQUEST REJECTED */}
+              {statusType === "rejected" && (
+                <div className="p-5 rounded-2xl bg-rose-500/10 border border-rose-500/30 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <span className="px-3 py-1 rounded-full text-xs font-bold bg-rose-500/20 text-rose-700 dark:text-rose-300 border border-rose-500/30">
+                      {lang === "ar" ? "تم رفض طلب الاستعادة" : "Recovery request rejected"}
+                    </span>
+                  </div>
+
+                  {rejectionReason && (
+                    <div className="p-3 bg-rose-500/15 rounded-xl border border-rose-500/20 space-y-1">
+                      <span className="text-[11px] font-bold text-rose-800 dark:text-rose-200">
+                        {lang === "ar" ? "سبب الرفض الموضح من الإدارة:" : "Reason for rejection:"}
+                      </span>
+                      <p className="text-xs text-rose-700 dark:text-rose-300 leading-relaxed font-medium">
+                        "{rejectionReason}"
+                      </p>
+                    </div>
+                  )}
+
+                  <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+                    {lang === "ar"
+                      ? "تم مراجعة طلبك السابق ورفضه. يمكنك تقديم طلب استعادة جديد متضمناً الوثائق وتوضيح الأسباب."
+                      : "Your previous recovery request was reviewed and rejected. You may submit a new recovery request with updated details."}
+                  </p>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setFormStep(1);
+                      setViewMode("form_view");
+                    }}
+                    className="w-full py-3 px-4 bg-[#2563EB] hover:bg-[#1D4ED8] text-white rounded-xl text-xs font-bold transition-colors shadow-md shadow-blue-500/20 flex items-center justify-center gap-2 cursor-pointer"
+                  >
+                    <RotateCcw className="w-4 h-4" />
+                    <span>{lang === "ar" ? "تقديم طلب استعادة جديد" : "Submit a new recovery request"}</span>
+                  </button>
+                </div>
+              )}
+
+              {/* Status 4: REQUEST APPROVED */}
+              {statusType === "approved" && (
+                <div className="p-5 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <span className="px-3 py-1 rounded-full text-xs font-bold bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30 flex items-center gap-1.5">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
+                      <span>{lang === "ar" ? "تمت الموافقة على طلب الاستعادة" : "Recovery request approved"}</span>
+                    </span>
+                  </div>
+
+                  <p className="text-xs text-slate-700 dark:text-slate-200 leading-relaxed">
+                    {lang === "ar"
+                      ? "تمت الموافقة على طلب استعادة حسابك من قبل الإدارة! للمتابعة واستعادة الحساب، يرجى إجراء إثبات ملكية البريد الإلكتروني."
+                      : "Your account recovery request has been approved by an administrator! To complete restoration, please proceed to verify your email address."}
+                  </p>
+
+                  <button
+                    type="button"
+                    onClick={handleStartEmailVerification}
+                    disabled={isSendingOtp}
+                    className="w-full py-3 px-4 bg-[#2563EB] hover:bg-[#1D4ED8] text-white rounded-xl text-xs font-bold transition-colors shadow-md shadow-blue-500/20 flex items-center justify-center gap-2 cursor-pointer"
+                  >
+                    {isSendingOtp ? (
+                      <RefreshCw className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Mail className="w-4 h-4" />
+                    )}
+                    <span>{lang === "ar" ? "المتابعة لإثبات ملكية البريد الإلكتروني" : "Proceed to Email Verification"}</span>
+                  </button>
+                </div>
+              )}
+
             </div>
           )}
 
-          {/* Action Buttons */}
-          <div className="w-full space-y-3 pt-2">
-            {!effectiveExpired && (
-              <button
-                id="btn-restore-account-start"
-                type="button"
-                onClick={handleStartRecovery}
-                disabled={isSendingOtp}
-                className="w-full h-12 rounded-xl bg-[#0075DE] hover:bg-[#0060B6] active:scale-[0.99] text-white font-bold text-sm sm:text-base flex items-center justify-center gap-2 shadow-lg shadow-blue-600/20 transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer"
-              >
-                {isSendingOtp ? (
-                  <>
-                    <RefreshCw className="w-4 h-4 animate-spin" />
-                    <span>{t.sendingOtp}</span>
-                  </>
-                ) : (
-                  <>
-                    <RotateCcw className="w-4 h-4" />
-                    <span>{t.primaryRestoreBtn}</span>
-                    {isRtl ? <ArrowLeft className="w-4 h-4" /> : <ArrowRight className="w-4 h-4" />}
-                  </>
-                )}
-              </button>
-            )}
-
+          {/* Action Footer */}
+          <div className="pt-4 border-t border-slate-200 dark:border-slate-800 flex justify-center">
             <button
-              id="btn-restore-account-cancel"
               type="button"
               onClick={onCancel}
-              className="w-full h-11 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700/80 text-slate-700 dark:text-slate-300 font-medium text-xs sm:text-sm flex items-center justify-center gap-2 border border-slate-200 dark:border-slate-700 transition-colors cursor-pointer"
+              className="text-xs font-bold text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 transition-colors cursor-pointer flex items-center gap-1.5"
             >
-              <span>{t.backToLoginBtn}</span>
+              {isRtl ? <ArrowRight className="w-3.5 h-3.5" /> : <ArrowLeft className="w-3.5 h-3.5" />}
+              <span>{lang === "ar" ? "العودة لتسجيل الدخول" : "Back to Sign In"}</span>
             </button>
           </div>
         </div>
       )}
 
-      {/* ================= STEP 2: OTP VERIFICATION & RESTORATION ================= */}
-      {step === "verify_otp" && (
-        <form onSubmit={handleConfirmAndRestore} className="flex flex-col space-y-5">
-          {/* Header */}
-          <div className="flex items-center gap-3 border-b border-slate-100 dark:border-slate-800 pb-4">
-            <div className="w-11 h-11 rounded-xl bg-blue-50 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400 border border-blue-100 dark:border-blue-900/60 flex items-center justify-center shrink-0">
-              <ShieldCheck className="w-6 h-6" />
-            </div>
-            <div>
-              <h3 className="text-base sm:text-lg font-black text-slate-900 dark:text-white">
-                {t.verifyTitle}
+      {/* VIEW 2: MULTI-STEP RECOVERY FORM */}
+      {viewMode === "form_view" && (
+        <form onSubmit={handleSubmitForm} className="space-y-5">
+          {/* Step Progress Bar */}
+          <div className="flex items-center justify-between gap-1 mb-4">
+            {[1, 2, 3, 4, 5].map((stepNum) => (
+              <div 
+                key={stepNum} 
+                className={`h-1.5 flex-1 rounded-full transition-all ${
+                  stepNum === formStep 
+                    ? "bg-[#2563EB]" 
+                    : stepNum < formStep 
+                    ? "bg-[#1D4ED8]/40" 
+                    : "bg-slate-200 dark:bg-slate-700"
+                }`} 
+              />
+            ))}
+          </div>
+
+          <div className="text-xs font-bold text-slate-400 font-mono">
+            {lang === "ar" ? `الخطوة ${formStep} من 5` : `Step ${formStep} of 5`}
+          </div>
+
+          {/* STEP 1: Account Information */}
+          {formStep === 1 && (
+            <div className="space-y-4 animate-fade-in">
+              <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                <UserIcon className="w-4 h-4 text-[#2563EB]" />
+                <span>{lang === "ar" ? "معلومات الحساب والتواصل" : "Account & Contact Information"}</span>
               </h3>
-              <p className="text-xs text-slate-500 dark:text-slate-400">
-                {email}
-              </p>
-            </div>
-          </div>
 
-          <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
-            {t.verifyDesc}
-          </p>
-
-          {/* OTP Input Field */}
-          <div className="space-y-1.5">
-            <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
-              {t.codeLabel}
-            </label>
-            <div className="relative">
-              <div className="absolute inset-y-0 start-0 flex items-center ps-3.5 pointer-events-none text-slate-400">
-                <KeyRound className="w-4 h-4" />
-              </div>
-              <input
-                id="input-recovery-otp-code"
-                type="text"
-                maxLength={6}
-                value={otpCode}
-                onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ""))}
-                placeholder={t.codePlaceholder}
-                autoFocus
-                disabled={isRestoring}
-                className="w-full h-12 ps-10 pe-4 rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white font-mono text-center tracking-[0.35em] text-lg font-black placeholder:tracking-normal placeholder:font-sans placeholder:text-xs placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all disabled:opacity-50"
-              />
-            </div>
-          </div>
-
-          {/* Optional Password Update Section */}
-          <div className="rounded-xl border border-slate-200/80 dark:border-slate-800 p-3 bg-slate-50/50 dark:bg-slate-800/40 space-y-3">
-            <label className="flex items-center gap-2 cursor-pointer select-none">
-              <input
-                type="checkbox"
-                checked={enablePasswordChange}
-                onChange={(e) => setEnablePasswordChange(e.target.checked)}
-                disabled={isRestoring}
-                className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
-              />
-              <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">
-                {t.newPasswordToggle}
-              </span>
-            </label>
-
-            {enablePasswordChange && (
-              <div className="space-y-1.5 pt-1">
-                <label className="block text-xs font-medium text-slate-600 dark:text-slate-400">
-                  {t.newPasswordLabel}
-                </label>
-                <div className="relative">
-                  <div className="absolute inset-y-0 start-0 flex items-center ps-3 pointer-events-none text-slate-400">
-                    <Lock className="w-4 h-4" />
-                  </div>
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    {lang === "ar" ? "البريد الإلكتروني للحساب" : "Account Email Address"}
+                  </label>
                   <input
-                    id="input-recovery-new-password"
-                    type={showPassword ? "text" : "password"}
-                    value={newPassword}
-                    onChange={(e) => setNewPassword(e.target.value)}
-                    placeholder={t.newPasswordPlaceholder}
-                    disabled={isRestoring}
-                    className="w-full h-10 ps-9 pe-9 rounded-lg bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white text-xs placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    type="text"
+                    disabled
+                    value={normalizedEmail}
+                    className="w-full p-2.5 rounded-xl text-xs font-mono bg-slate-100 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-slate-500 cursor-not-allowed"
                   />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute inset-y-0 end-0 flex items-center pe-3 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
-                  >
-                    {showPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-                  </button>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    {lang === "ar" ? "الاسم الكامل *" : "Full Name *"}
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={fullName}
+                    onChange={(e) => setFullName(e.target.value)}
+                    placeholder={lang === "ar" ? "أدخل اسمك الكامل" : "Enter your full name"}
+                    className="w-full p-2.5 rounded-xl text-xs bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 focus:ring-2 focus:ring-[#2563EB] outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    {lang === "ar" ? "رقم الهاتف *" : "Phone Number *"}
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="tel"
+                      required
+                      value={phone}
+                      onChange={(e) => setPhone(e.target.value)}
+                      placeholder="+966 50 123 4567"
+                      className="w-full p-2.5 rounded-xl text-xs bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 focus:ring-2 focus:ring-[#2563EB] outline-none font-mono"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    {lang === "ar" ? "اسم المنظمة / الشركة (إن وجد)" : "Organization / Company Name (Optional)"}
+                  </label>
+                  <input
+                    type="text"
+                    value={organization}
+                    onChange={(e) => setOrganization(e.target.value)}
+                    placeholder={lang === "ar" ? "اسم الشركة أو المؤسسة" : "Company or organization name"}
+                    className="w-full p-2.5 rounded-xl text-xs bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 focus:ring-2 focus:ring-[#2563EB] outline-none"
+                  />
                 </div>
               </div>
-            )}
-          </div>
 
-          {/* Resend Code Button & Countdown */}
-          <div className="flex items-center justify-between text-xs pt-1">
-            <span className="text-slate-500 dark:text-slate-400">
-              {resendCooldown > 0 ? t.resendWait(resendCooldown) : ""}
-            </span>
-            <button
-              type="button"
-              onClick={handleResendOtp}
-              disabled={resendCooldown > 0 || isSendingOtp || isRestoring}
-              className="text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 font-semibold disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-            >
-              {isSendingOtp ? t.sendingOtp : t.resendCode}
-            </button>
-          </div>
-
-          {/* Error Banner */}
-          {errorMessage && (
-            <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-600 dark:text-rose-400 text-xs text-start leading-relaxed flex items-start gap-2">
-              <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
-              <span>{errorMessage}</span>
+              <button
+                type="button"
+                onClick={() => {
+                  if (!fullName.trim() || !phone.trim()) {
+                    setErrorMessage(lang === "ar" ? "يرجى تعبئة الحقول المطلوبة." : "Please fill in required fields.");
+                    return;
+                  }
+                  setErrorMessage(null);
+                  setFormStep(2);
+                }}
+                className="w-full py-2.5 bg-[#2563EB] hover:bg-[#1D4ED8] text-white rounded-xl text-xs font-bold transition-colors cursor-pointer"
+              >
+                {lang === "ar" ? "التالي: سبب الاستعادة" : "Next: Recovery Reason"}
+              </button>
             </div>
           )}
 
-          {/* Primary Submit & Back Buttons */}
-          <div className="space-y-2 pt-2">
-            <button
-              id="btn-restore-account-confirm"
-              type="submit"
-              disabled={isRestoring || !otpCode.trim()}
-              className="w-full h-12 rounded-xl bg-[#0075DE] hover:bg-[#0060B6] active:scale-[0.99] text-white font-bold text-sm flex items-center justify-center gap-2 shadow-lg shadow-blue-600/20 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-            >
-              {isRestoring ? (
-                <>
-                  <RefreshCw className="w-4 h-4 animate-spin" />
-                  <span>
-                    {restorePhase === "verifying" ? t.verifyingPhase : t.restoringPhase}
-                  </span>
-                </>
-              ) : (
-                <>
-                  <ShieldCheck className="w-4 h-4" />
-                  <span>{t.confirmRestoreBtn}</span>
-                </>
-              )}
-            </button>
+          {/* STEP 2: Reason for Deletion / Recovery */}
+          {formStep === 2 && (
+            <div className="space-y-4 animate-fade-in">
+              <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                <FileText className="w-4 h-4 text-[#2563EB]" />
+                <span>{lang === "ar" ? "سبب حذف واستعادة الحساب" : "Reason for Deletion & Recovery"}</span>
+              </h3>
 
-            <button
-              id="btn-restore-account-back-step"
-              type="button"
-              onClick={() => {
-                setErrorMessage(null);
-                setStep("initial");
-              }}
-              disabled={isRestoring}
-              className="w-full h-10 rounded-xl bg-transparent hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-400 font-medium text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
-            >
-              {isRtl ? <ArrowRight className="w-3.5 h-3.5" /> : <ArrowLeft className="w-3.5 h-3.5" />}
-              <span>{t.backBtn}</span>
-            </button>
-          </div>
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    {lang === "ar" ? "لماذا تم حذف الحساب ولماذا ترغب في استعادته؟ *" : "Why was the account deleted and why do you wish to recover it? *"}
+                  </label>
+                  <textarea
+                    required
+                    rows={4}
+                    value={deletionReason}
+                    onChange={(e) => setDeletionReason(e.target.value)}
+                    placeholder={lang === "ar" 
+                      ? "وضح بالتفصيل سبب حذف الحساب السابق والسياق الداعي لاستعادته الآن..." 
+                      : "Explain the details regarding account deletion and the context for restoring it..."}
+                    className="w-full p-3 rounded-xl text-xs bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 focus:ring-2 focus:ring-[#2563EB] outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    {lang === "ar" ? "معلومات مساحة العمل السابقة (اختياري)" : "Previous Workspace Info (Optional)"}
+                  </label>
+                  <input
+                    type="text"
+                    value={previousWorkspaceInfo}
+                    onChange={(e) => setPreviousWorkspaceInfo(e.target.value)}
+                    placeholder={lang === "ar" ? "مثال: اسم مساحة العمل، الملفات المخزنة" : "e.g. Workspace name, projects"}
+                    className="w-full p-2.5 rounded-xl text-xs bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 focus:ring-2 focus:ring-[#2563EB] outline-none"
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => setFormStep(1)}
+                  className="px-4 py-2.5 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-xl text-xs font-bold cursor-pointer"
+                >
+                  {lang === "ar" ? "السابق" : "Back"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!deletionReason.trim()) {
+                      setErrorMessage(lang === "ar" ? "يرجى كتابة سبب الاستعادة." : "Please enter recovery reason.");
+                      return;
+                    }
+                    setErrorMessage(null);
+                    setFormStep(3);
+                  }}
+                  className="flex-1 py-2.5 bg-[#2563EB] hover:bg-[#1D4ED8] text-white rounded-xl text-xs font-bold transition-colors cursor-pointer"
+                >
+                  {lang === "ar" ? "التالي: الموافقة على الشروط" : "Next: Terms Agreement"}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* STEP 3: Platform Terms Acknowledgement */}
+          {formStep === 3 && (
+            <div className="space-y-4 animate-fade-in">
+              <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                <ShieldCheck className="w-4 h-4 text-[#2563EB]" />
+                <span>{lang === "ar" ? "الموافقة على شروط المنصة" : "Platform Terms Acknowledgement"}</span>
+              </h3>
+
+              <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 space-y-3">
+                <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+                  {lang === "ar"
+                    ? "بتقديم هذا الطلب، أقر بصحة جميع البيانات المدخلة وبأحقيتي القانونية في طلب استعادة الحساب، وأتعهد بالالتزام التام بسياسات الاستخدام العادل وشروط الخدمة الخاصة بـ Zakir."
+                    : "By submitting this request, I declare that all information provided is true and accurate, and I agree to comply with Zakir's Terms of Service and security policies."}
+                </p>
+
+                <label className="flex items-start gap-3 cursor-pointer pt-2 border-t border-slate-200 dark:border-slate-700">
+                  <input
+                    type="checkbox"
+                    checked={termsAccepted}
+                    onChange={(e) => setTermsAccepted(e.target.checked)}
+                    className="mt-0.5 rounded text-[#2563EB] focus:ring-[#2563EB] w-4 h-4 cursor-pointer"
+                  />
+                  <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
+                    {lang === "ar"
+                      ? "أقر وأوافق على الالتزام بشروط خدمة Zakir وسياسات الاستخدام."
+                      : "I acknowledge and agree to comply with Zakir's Terms of Service and platform policies."}
+                  </span>
+                </label>
+              </div>
+
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => setFormStep(2)}
+                  className="px-4 py-2.5 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-xl text-xs font-bold cursor-pointer"
+                >
+                  {lang === "ar" ? "السابق" : "Back"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!termsAccepted) {
+                      setErrorMessage(lang === "ar" ? "يجب الموافقة على الشروط للمتابعة." : "You must accept terms to proceed.");
+                      return;
+                    }
+                    setErrorMessage(null);
+                    setFormStep(4);
+                  }}
+                  className="flex-1 py-2.5 bg-[#2563EB] hover:bg-[#1D4ED8] text-white rounded-xl text-xs font-bold transition-colors cursor-pointer"
+                >
+                  {lang === "ar" ? "التالي: إثبات الهوية" : "Next: Identity Verification"}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* STEP 4: Identity Verification Document */}
+          {formStep === 4 && (
+            <div className="space-y-4 animate-fade-in">
+              <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                <FileCheck className="w-4 h-4 text-[#2563EB]" />
+                <span>{lang === "ar" ? "إثبات الهوية والوثائق" : "Identity Verification Document"}</span>
+              </h3>
+
+              <div className="p-4 rounded-xl border border-dashed border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/40 text-center space-y-3">
+                {attachedDoc ? (
+                  <div className="flex items-center justify-between p-3 bg-blue-500/10 border border-blue-500/30 rounded-xl">
+                    <div className="flex items-center gap-2.5 text-left rtl:text-right">
+                      <FileText className="w-5 h-5 text-[#2563EB] shrink-0" />
+                      <div>
+                        <p className="text-xs font-bold text-slate-800 dark:text-slate-200">{attachedDoc.name}</p>
+                        <span className="text-[10px] text-slate-400 font-mono">{attachedDoc.mimeType}</span>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setAttachedDoc(null)}
+                      className="p-1 rounded-lg hover:bg-rose-500/20 text-rose-500 transition-colors"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                ) : (
+                  <>
+                    <Upload className="w-8 h-8 text-[#2563EB] mx-auto opacity-80" />
+                    <div className="space-y-1">
+                      <p className="text-xs font-bold text-slate-800 dark:text-slate-200">
+                        {lang === "ar" ? "ارفق رسمياً وثيقة إثبات الهوية (جواز سفر / هوية وطنية / رخصة)" : "Attach official identity document (Passport, National ID, Driver's License)"}
+                      </p>
+                      <p className="text-[11px] text-slate-400">
+                        {lang === "ar" ? "الصيغ المقبولة: PDF, PNG, JPG (الحد الأقصى 5 ميجابايت)" : "Accepted formats: PDF, PNG, JPG (Up to 5MB)"}
+                      </p>
+                    </div>
+
+                    <label className="inline-flex items-center gap-2 px-4 py-2 bg-[#2563EB] hover:bg-[#1D4ED8] text-white rounded-xl text-xs font-bold transition-colors cursor-pointer shadow-sm">
+                      <Upload className="w-3.5 h-3.5" />
+                      <span>{lang === "ar" ? "اختيار ملف" : "Choose File"}</span>
+                      <input
+                        type="file"
+                        accept="image/png,image/jpeg,application/pdf"
+                        onChange={handleFileUpload}
+                        className="hidden"
+                      />
+                    </label>
+                  </>
+                )}
+              </div>
+
+              <div className="p-3 bg-slate-100 dark:bg-slate-800/60 rounded-xl text-[11px] text-slate-500 dark:text-slate-400 flex items-start gap-2">
+                <Lock className="w-3.5 h-3.5 text-[#2563EB] shrink-0 mt-0.5" />
+                <span>
+                  {lang === "ar"
+                    ? "يتم نقل وتشفير وثائق الهوية بأمان، وتقتصر إمكانية الوصول عليها على مسؤولي المنصة المخولين فقط لغرض التحقق من الملكية."
+                    : "Identity documents are transmitted securely and restricted strictly to authorized administrators for verification purposes."}
+                </span>
+              </div>
+
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => setFormStep(3)}
+                  className="px-4 py-2.5 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-xl text-xs font-bold cursor-pointer"
+                >
+                  {lang === "ar" ? "السابق" : "Back"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!attachedDoc) {
+                      setErrorMessage(lang === "ar" ? "يرجى إرفاق الوثيقة." : "Please attach identity document.");
+                      return;
+                    }
+                    setErrorMessage(null);
+                    setFormStep(5);
+                  }}
+                  className="flex-1 py-2.5 bg-[#2563EB] hover:bg-[#1D4ED8] text-white rounded-xl text-xs font-bold transition-colors cursor-pointer"
+                >
+                  {lang === "ar" ? "التالي: المراجعة والإرسال" : "Next: Review & Submit"}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* STEP 5: Confirmation & Submission */}
+          {formStep === 5 && (
+            <div className="space-y-4 animate-fade-in">
+              <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                <Send className="w-4 h-4 text-[#2563EB]" />
+                <span>{lang === "ar" ? "مراجعة الطلب وتأكيد الإرسال" : "Review & Confirm Request"}</span>
+              </h3>
+
+              <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 space-y-2 text-xs">
+                <div className="flex justify-between border-b border-slate-200 dark:border-slate-700 pb-2">
+                  <span className="text-slate-400">{lang === "ar" ? "مقدم الطلب:" : "Applicant:"}</span>
+                  <span className="font-bold">{fullName} ({normalizedEmail})</span>
+                </div>
+                <div className="flex justify-between border-b border-slate-200 dark:border-slate-700 pb-2">
+                  <span className="text-slate-400">{lang === "ar" ? "رقم الهاتف:" : "Phone:"}</span>
+                  <span className="font-mono">{phone}</span>
+                </div>
+                <div className="flex justify-between border-b border-slate-200 dark:border-slate-700 pb-2">
+                  <span className="text-slate-400">{lang === "ar" ? "الوثيقة المرفقة:" : "Identity Doc:"}</span>
+                  <span className="font-semibold text-[#2563EB]">{attachedDoc?.name}</span>
+                </div>
+                <div className="pt-1">
+                  <span className="text-slate-400 block mb-1">{lang === "ar" ? "سبب الاستعادة:" : "Recovery Reason:"}</span>
+                  <p className="p-2 bg-white dark:bg-slate-800 rounded-lg text-slate-700 dark:text-slate-300 italic">
+                    "{deletionReason}"
+                  </p>
+                </div>
+              </div>
+
+              <div className="p-3.5 bg-[#EFF6FF] dark:bg-blue-950/40 border border-blue-200 dark:border-blue-900 rounded-xl text-xs font-semibold text-[#1D4ED8] dark:text-blue-300">
+                {lang === "ar"
+                  ? "سيتم مراجعة طلب الاستعادة الخاص بك من قبل مسؤول النظام. وسيتم إخطارك فور اتخاذ القرار."
+                  : "Your recovery request will be reviewed by an administrator. You will be notified when a decision is made."}
+              </div>
+
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => setFormStep(4)}
+                  className="px-4 py-2.5 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-xl text-xs font-bold cursor-pointer"
+                >
+                  {lang === "ar" ? "السابق" : "Back"}
+                </button>
+
+                <button
+                  type="submit"
+                  disabled={isSubmittingForm}
+                  className="flex-1 py-3 px-4 bg-[#2563EB] hover:bg-[#1D4ED8] text-white rounded-xl text-xs font-bold transition-colors shadow-md shadow-blue-500/20 flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  {isSubmittingForm ? (
+                    <RefreshCw className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Send className="w-4 h-4" />
+                  )}
+                  <span>{lang === "ar" ? "إرسال طلب الاستعادة للإدارة" : "Submit recovery request"}</span>
+                </button>
+              </div>
+            </div>
+          )}
+
         </form>
       )}
 
-      {/* ================= STEP 3: RESTORATION SUCCESS ================= */}
-      {step === "success" && (
-        <div className="flex flex-col items-center text-center space-y-5 py-2">
-          {/* Animated Success Checkmark */}
-          <div className="w-16 h-16 rounded-2xl bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-900/60 flex items-center justify-center shadow-lg shadow-emerald-500/10 animate-bounce">
-            <CheckCircle2 className="w-9 h-9" />
-          </div>
-
-          <div className="space-y-1.5">
-            <h2 className="text-xl font-black text-slate-900 dark:text-white">
-              {t.successTitle}
-            </h2>
-            <p className="text-base font-bold text-emerald-600 dark:text-emerald-400">
-              {t.successWelcome}
-            </p>
-            <p className="text-xs text-slate-600 dark:text-slate-400 max-w-xs mx-auto">
-              {t.successDesc}
+      {/* VIEW 3: EMAIL VERIFICATION AFTER APPROVAL */}
+      {viewMode === "verify_email_view" && (
+        <form onSubmit={handleVerifyOtp} className="space-y-5 animate-fade-in">
+          <div className="p-4 rounded-xl bg-[#EFF6FF] border border-blue-200 dark:bg-blue-950/40 dark:border-blue-900 space-y-2">
+            <h3 className="text-xs font-bold text-[#1D4ED8] dark:text-blue-300 flex items-center gap-1.5">
+              <Mail className="w-4 h-4 text-[#2563EB]" />
+              <span>{lang === "ar" ? "رمز التحقق لإكمال الاستعادة" : "Verification Code for Account Restoration"}</span>
+            </h3>
+            <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+              {lang === "ar"
+                ? `تم إرسال رمز تحقق مكون من 6 أرقام إلى بريدك الإلكتروني (${normalizedEmail}) لإكمال تفعيل واستعادة حسابك.`
+                : `A 6-digit verification code was sent to (${normalizedEmail}) to finalize restoring your approved account.`}
             </p>
           </div>
 
-          {/* Restored Account Details Pill */}
-          {restoredUserData && (
-            <div className="w-full bg-slate-50 dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700/80 rounded-2xl p-4 space-y-2 text-xs text-start">
-              <div className="flex items-center justify-between">
-                <span className="text-slate-500 dark:text-slate-400">{t.roleLabel}</span>
-                <span className="font-bold text-blue-600 dark:text-blue-400 px-2 py-0.5 rounded-full bg-blue-50 dark:bg-blue-950/60 border border-blue-100 dark:border-blue-900/40">
-                  {restoredUserData.role || "CEO"}
-                </span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-slate-500 dark:text-slate-400">{t.workspaceLabel}</span>
-                <span className="font-semibold text-slate-800 dark:text-slate-200 truncate max-w-[160px]">
-                  {restoredUserData.workspace?.name || restoredUserData.companyName || "Zakir Workspace"}
-                </span>
-              </div>
-            </div>
-          )}
+          <div>
+            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+              {lang === "ar" ? "رمز التحقق (6 أرقام)" : "Verification Code (6 digits)"}
+            </label>
+            <input
+              type="text"
+              required
+              maxLength={6}
+              value={otpCode}
+              onChange={(e) => setOtpCode(e.target.value)}
+              placeholder="123456"
+              className="w-full p-3 rounded-xl text-center font-mono text-base tracking-widest bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 focus:ring-2 focus:ring-[#2563EB] outline-none"
+            />
+          </div>
 
-          <div className="w-full pt-2">
+          <div className="flex items-center justify-between text-xs">
             <button
-              id="btn-restore-account-enter"
               type="button"
-              onClick={() => {
-                if (restoredUserData) {
-                  onRestored(restoredUserData);
-                }
-              }}
-              className="w-full h-12 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-[0.99] text-white font-bold text-sm flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/20 transition-all duration-200 cursor-pointer"
+              disabled={resendCooldown > 0 || isSendingOtp}
+              onClick={handleStartEmailVerification}
+              className="text-[#2563EB] hover:underline disabled:opacity-50 cursor-pointer font-semibold"
             >
-              <Sparkles className="w-4 h-4" />
-              <span>{t.enterDashboardBtn}</span>
-              {isRtl ? <ArrowLeft className="w-4 h-4" /> : <ArrowRight className="w-4 h-4" />}
+              {resendCooldown > 0 
+                ? (lang === "ar" ? `إعادة الإرسال بعد (${resendCooldown}ث)` : `Resend in (${resendCooldown}s)`)
+                : (lang === "ar" ? "إعادة إرسال الرمز" : "Resend Code")}
             </button>
           </div>
+
+          <button
+            type="submit"
+            disabled={isVerifyingOtp}
+            className="w-full py-3 px-4 bg-[#2563EB] hover:bg-[#1D4ED8] text-white rounded-xl text-xs font-bold transition-colors shadow-md shadow-blue-500/20 flex items-center justify-center gap-2 cursor-pointer"
+          >
+            {isVerifyingOtp ? (
+              <RefreshCw className="w-4 h-4 animate-spin" />
+            ) : (
+              <CheckCircle2 className="w-4 h-4" />
+            )}
+            <span>{lang === "ar" ? "تأكيد واستعادة الحساب" : "Verify & Restore Account"}</span>
+          </button>
+        </form>
+      )}
+
+      {/* VIEW 4: SUCCESS VIEW */}
+      {viewMode === "success_view" && (
+        <div className="text-center space-y-4 py-4 animate-fade-in">
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-emerald-500/20 text-emerald-500 border border-emerald-500/30 mb-1">
+            <CheckCircle2 className="w-8 h-8" />
+          </div>
+
+          <h3 className="text-lg font-bold text-slate-900 dark:text-white">
+            {lang === "ar" ? "تمت استعادة حسابك بنجاح!" : "Account Restored Successfully!"}
+          </h3>
+
+          <p className="text-xs text-slate-500 dark:text-slate-400 max-w-sm mx-auto">
+            {lang === "ar"
+              ? "تمت استعادة حسابك وصلاحياتك وتوجيهك مباشرة إلى جلسة العمل."
+              : "Your account and workspace role have been fully restored. Transitioning to your active session..."}
+          </p>
+
+          {restoredUser && (
+            <div className="p-3.5 bg-slate-50 dark:bg-slate-800/80 rounded-xl text-xs font-mono space-y-1 text-slate-600 dark:text-slate-300">
+              <div>{lang === "ar" ? "الدور المحفوظ:" : "Preserved Role:"} <span className="font-bold text-[#2563EB]">{restoredUser.role || "CEO"}</span></div>
+            </div>
+          )}
         </div>
       )}
+
     </div>
   );
 };
-export default DeletedAccountRecovery;

@@ -292,4 +292,40 @@ export interface UserFile {
   isEncrypted?: boolean;
 }
 
+export type RecoveryRequestStatus = "pending" | "under_review" | "approved" | "rejected" | "restored";
+
+export interface RecoveryDocument {
+  id: string;
+  name: string;
+  type: "passport" | "national_id" | "drivers_license" | "other" | string;
+  mimeType: string;
+  uploadedAt: string;
+  dataUrl?: string; // Encrypted or base64 preview, securely restricted to authorized admin view
+}
+
+export interface AccountRecoveryRequest {
+  requestId: string;
+  userId?: string;
+  email: string;
+  fullName: string;
+  phone: string;
+  phoneVerified?: boolean;
+  organization?: string;
+  previousWorkspaceInfo?: string;
+  reason: string;
+  termsAccepted: boolean;
+  termsAcceptedAt: string;
+  identityVerificationStatus: "submitted" | "verified" | "rejected";
+  documents: RecoveryDocument[];
+  status: RecoveryRequestStatus;
+  submittedAt: string;
+  reviewedAt?: string | null;
+  reviewedBy?: string | null;
+  rejectionReason?: string | null;
+  notes?: string;
+  role?: string;
+  workspaceId?: string;
+  workspaceName?: string;
+}
+
 

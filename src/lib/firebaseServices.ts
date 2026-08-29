@@ -1573,6 +1573,104 @@ export async function checkAccountLifecycleApi(email: string) {
   }
 }
 
+export async function submitAccountRecoveryRequestApi(payload: {
+  email: string;
+  fullName: string;
+  phone: string;
+  phoneVerified?: boolean;
+  organization?: string;
+  previousWorkspaceInfo?: string;
+  reason: string;
+  termsAccepted: boolean;
+  documents: Array<{ id: string; name: string; type: string; mimeType: string; dataUrl?: string }>;
+}) {
+  try {
+    const res = await fetch(getAuthApiUrl("/api/auth/recovery-request/submit"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    });
+    return await res.json();
+  } catch (err: any) {
+    console.error("submitAccountRecoveryRequestApi error:", err);
+    return { success: false, error: err.message || "فشل تقديم طلب استعادة الحساب." };
+  }
+}
+
+export async function fetchAccountRecoveryStatusApi(email: string) {
+  try {
+    const res = await fetch(getAuthApiUrl(`/api/auth/recovery-request/status?email=${encodeURIComponent(email)}`));
+    return await res.json();
+  } catch (err: any) {
+    console.error("fetchAccountRecoveryStatusApi error:", err);
+    return { success: false, error: err.message || "فشل جلب حالة الاستعادة." };
+  }
+}
+
+export async function fetchAdminRecoveryRequestsApi(idToken: string) {
+  try {
+    const res = await fetch("/api/admin/recovery-requests", {
+      headers: { "Authorization": `Bearer ${idToken}` }
+    });
+    return await res.json();
+  } catch (err: any) {
+    console.error("fetchAdminRecoveryRequestsApi error:", err);
+    return { success: false, error: err.message || "فشل جلب طلبات الاستعادة." };
+  }
+}
+
+export async function handleAdminRecoveryRequestDecisionApi(
+  idToken: string,
+  requestId: string,
+  email: string,
+  action: "approve" | "reject",
+  rejectionReason?: string,
+  notes?: string
+) {
+  try {
+    const res = await fetch("/api/admin/handle-recovery-request", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${idToken}`
+      },
+      body: JSON.stringify({ requestId, email, action, rejectionReason, notes })
+    });
+    return await res.json();
+  } catch (err: any) {
+    console.error("handleAdminRecoveryRequestDecisionApi error:", err);
+    return { success: false, error: err.message || "فشل اتخاذ القرار." };
+  }
+}
+
+export async function sendRecoveryApprovalOtpApi(email: string) {
+  try {
+    const res = await fetch(getAuthApiUrl("/api/auth/recovery-request/send-approval-otp"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: email.trim().toLowerCase() })
+    });
+    return await res.json();
+  } catch (err: any) {
+    console.error("sendRecoveryApprovalOtpApi error:", err);
+    return { success: false, error: err.message || "فشل إرسال رمز التحقق." };
+  }
+}
+
+export async function verifyRecoveryApprovalOtpAndRestoreApi(email: string, code: string) {
+  try {
+    const res = await fetch(getAuthApiUrl("/api/auth/recovery-request/verify-otp-and-restore"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: email.trim().toLowerCase(), code: code.trim() })
+    });
+    return await res.json();
+  } catch (err: any) {
+    console.error("verifyRecoveryApprovalOtpAndRestoreApi error:", err);
+    return { success: false, error: err.message || "فشل التحقق من الرمز واستعادة الحساب." };
+  }
+}
+
 export async function requestAccountReactivationApi(email: string, reason?: string) {
   try {
     const res = await fetch(getAuthApiUrl("/api/auth/request-reactivation"), {

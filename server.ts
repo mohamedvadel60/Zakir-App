@@ -1746,6 +1746,84 @@ function buildSupportReplyEmailHtml(options: {
   return { subject, text, html };
 }
 
+function buildRecoveryApprovalEmailHtml(options: {
+  userName: string;
+  email: string;
+}): { subject: string; text: string; html: string } {
+  const { userName, email } = options;
+  const cleanName = cleanUserName(userName, email);
+  const subject = "Account Recovery Request Approved - Zakir";
+  const title = "Your Account Recovery Has Been Approved";
+  const greeting = cleanName ? `Hello ${cleanName},` : "Hello,";
+
+  const bodyHtml = `
+    <p style="color: #334155; font-size: 15px; line-height: 1.6; margin: 0 0 20px 0;">
+      We are pleased to inform you that your account recovery request has been reviewed and <strong>approved</strong> by our administration team.
+    </p>
+    <div style="margin: 20px 0; padding: 20px; background-color: #eff6ff; border: 1px solid #dbeafe; border-radius: 10px;">
+      <p style="margin: 0; color: #1e40af; font-size: 14px; font-weight: 700;">
+        Next Step: Complete Verification
+      </p>
+      <p style="margin: 8px 0 0 0; color: #1d4ed8; font-size: 13px; line-height: 1.5;">
+        Please return to the Zakir application and click "Verify &amp; Restore Account" to receive your final single-use verification code and reactivate your workspace.
+      </p>
+    </div>
+  `;
+
+  const html = buildMasterEmailHtml({
+    subject,
+    title,
+    greeting,
+    bodyHtml,
+    securityNote: "For security, complete your restoration within 72 hours."
+  });
+
+  const text = `${greeting}\n\nYour account recovery request has been approved by our administration team.\n\nPlease return to Zakir to complete verification and restore your workspace.\n\nThe Zakir Team`;
+  return { subject, text, html };
+}
+
+function buildRecoveryRejectionEmailHtml(options: {
+  userName: string;
+  email: string;
+  rejectionReason?: string;
+}): { subject: string; text: string; html: string } {
+  const { userName, email, rejectionReason } = options;
+  const cleanName = cleanUserName(userName, email);
+  const subject = "Account Recovery Request Update - Zakir";
+  const title = "Account Recovery Request Decision";
+  const greeting = cleanName ? `Hello ${cleanName},` : "Hello,";
+
+  const reasonText = rejectionReason || "Identity details or documentation provided could not be verified against system records.";
+
+  const bodyHtml = `
+    <p style="color: #334155; font-size: 15px; line-height: 1.6; margin: 0 0 20px 0;">
+      Your request for account recovery has been reviewed by our administration team. Regrettably, your request could not be approved at this time.
+    </p>
+    <div style="margin: 20px 0; padding: 20px; background-color: #fef2f2; border: 1px solid #fecaca; border-radius: 10px;">
+      <p style="margin: 0; color: #991b1b; font-size: 12px; font-weight: 700; text-transform: uppercase;">
+        Reason for Decision
+      </p>
+      <p style="margin: 8px 0 0 0; color: #7f1d1d; font-size: 14px; line-height: 1.5;">
+        ${escapeHtml(reasonText)}
+      </p>
+    </div>
+    <p style="color: #475569; font-size: 14px; line-height: 1.5;">
+      If you believe this is an error or have additional identity documents, you may submit a new recovery request or contact support.
+    </p>
+  `;
+
+  const html = buildMasterEmailHtml({
+    subject,
+    title,
+    greeting,
+    bodyHtml,
+    securityNote: "Account security is our highest priority."
+  });
+
+  const text = `${greeting}\n\nYour account recovery request could not be approved at this time.\n\nReason: ${reasonText}\n\nThe Zakir Team`;
+  return { subject, text, html };
+}
+
 // Helper: Robust user identity resolution across Firebase Auth, Firestore, and local DB
 export async function resolveUserByEmailOrId(params: {
   userId?: string | null;
@@ -4572,6 +4650,191 @@ export async function purgeExpiredAccountsJob(): Promise<void> {
   }
 }
 
+export async function restoreAccountFullServer(email: string, newPassword?: string): Promise<{ success: boolean; user?: any; error?: string }> {
+  const normalizedEmail = (email || "").trim().toLowerCase();
+  if (!normalizedEmail) return { success: false, error: "Email parameter is required." };
+
+  const nowIso = new Date().toISOString();
+  const lifecycle = await getAccountLifecycleRecord(normalizedEmail);
+  const targetUid = lifecycle?.originalUserId;
+
+  // 1. Locate retained user profile
+  let retainedProfile: any = null;
+  if (targetUid) {
+    try {
+      const rSnap = await adminDb.collection("users_retained").doc(targetUid).get();
+      if (rSnap.exists) retainedProfile = rSnap.data();
+    } catch (e) {}
+  }
+
+  if (!retainedProfile) {
+    try {
+      const db = readDb();
+      retainedProfile = db.retained_users?.find((u: any) =>
+        (targetUid && u.id === targetUid) || u.email?.trim().toLowerCase() === normalizedEmail
+      );
+    } catch (e) {}
+  }
+
+  // 2. Identify UID
+  let finalUid = targetUid || retainedProfile?.id;
+
+  let authUser: any = null;
+  if (finalUid) {
+    try {
+      authUser = await adminAuth.getUser(finalUid);
+    } catch (e) {}
+  }
+
+  if (!authUser && normalizedEmail) {
+    try {
+      authUser = await adminAuth.getUserByEmail(normalizedEmail);
+      if (authUser) finalUid = authUser.uid;
+    } catch (e) {}
+  }
+
+  if (!finalUid) {
+    finalUid = `usr_${Date.now().toString(36)}`;
+  }
+
+  // 3. Re-enable Firebase Auth user (preserve existing password, disabled: false, emailVerified: false)
+  if (authUser) {
+    const updatePayload: any = { disabled: false, emailVerified: false };
+    if (newPassword && newPassword.trim()) {
+      updatePayload.password = newPassword.trim();
+    }
+    try {
+      await adminAuth.updateUser(authUser.uid, updatePayload);
+      const checkAuth = await adminAuth.getUser(authUser.uid);
+      const hasPasswordProvider = checkAuth.providerData.some((p: any) => p.providerId === "password");
+      console.log(`[RESTORE_FULL] Firebase Auth user ${authUser.uid} re-enabled: disabled=${checkAuth.disabled}, emailVerified=${checkAuth.emailVerified}, hasPasswordProvider=${hasPasswordProvider}`);
+    } catch (uErr: any) {
+      console.warn(`[RESTORE_FULL] Warning updating Firebase Auth user ${authUser.uid}:`, uErr?.message);
+    }
+  } else {
+    try {
+      const createPayload: any = {
+        uid: finalUid,
+        email: normalizedEmail,
+        emailVerified: false,
+        displayName: retainedProfile?.ownerName || retainedProfile?.companyName || normalizedEmail.split("@")[0]
+      };
+      if (newPassword && newPassword.trim()) {
+        createPayload.password = newPassword.trim();
+      } else {
+        createPayload.password = "RestoredPass_" + Math.random().toString(36).substring(2, 8) + "123!";
+      }
+      authUser = await adminAuth.createUser(createPayload);
+      console.log(`[RESTORE_FULL] Created Firebase Auth user ${finalUid}`);
+    } catch (cErr: any) {
+      console.warn(`[RESTORE_FULL] Firebase Auth user creation warning for ${finalUid}:`, cErr?.message);
+    }
+  }
+
+  // 4. Remove deletedUsers marker in Firestore
+  try {
+    if (finalUid) {
+      await adminDb.collection("deletedUsers").doc(finalUid).delete();
+    }
+    const delEmailSnap = await adminDb.collection("deletedUsers").where("email", "==", normalizedEmail).get();
+    for (const dDoc of delEmailSnap.docs) {
+      await dDoc.ref.delete();
+    }
+  } catch (dErr) {
+    console.warn("[RESTORE_FULL] Deleted marker removal warning:", dErr);
+  }
+
+  // 5. Restore Firestore user document users/{finalUid}
+  const preservedRole = retainedProfile?.role || "CEO"; // PRESERVE AUTHORITATIVE ROLE (e.g. CEO)
+  const preservedWorkspaceId = retainedProfile?.workspaceId || retainedProfile?.workspace?.id || `ws_${finalUid.substring(0, 8)}`;
+  const preservedWorkspace = retainedProfile?.workspace || {
+    id: preservedWorkspaceId,
+    name: `${retainedProfile?.companyName || "Restored"} Workspace`,
+    ownerId: finalUid,
+    createdAt: retainedProfile?.createdAt || nowIso,
+    memberCount: 1
+  };
+
+  const restoredUserDoc = {
+    ...(retainedProfile || {}),
+    id: finalUid,
+    uid: finalUid,
+    email: normalizedEmail,
+    role: preservedRole,
+    workspaceId: preservedWorkspaceId,
+    workspace: preservedWorkspace,
+    powers: retainedProfile?.powers,
+    companyName: retainedProfile?.companyName || "Restored Account",
+    ownerName: retainedProfile?.ownerName || normalizedEmail.split("@")[0],
+    subscriptionStatus: retainedProfile?.subscriptionStatus || "Active",
+    userPreferences: retainedProfile?.userPreferences || { theme: "light", language: "ar" },
+    status: "VERIFICATION_REQUIRED",
+    accountStatus: "active",
+    deleted: false,
+    deletedAt: null,
+    deletedBy: null,
+    isVerified: false,
+    isEmailVerified: false,
+    emailVerified: false,
+    email_verified: false,
+    verification_status: "unverified",
+    verification_required: true,
+    lastActiveAt: nowIso,
+    lastLoginAt: nowIso,
+    restoredAt: nowIso
+  };
+
+  try {
+    await adminDb.collection("users").doc(finalUid).set(restoredUserDoc, { merge: true });
+    console.log(`[RESTORE_FULL] Saved restored user profile to Firestore users/${finalUid}`);
+  } catch (fsErr: any) {
+    console.error("[RESTORE_FULL] Failed to save Firestore user profile:", fsErr);
+  }
+
+  // Restore subcollections if retained
+  if (retainedProfile) {
+    try {
+      const memSnap = await adminDb.collection("users_retained").doc(finalUid).collection("memories").get();
+      for (const mDoc of memSnap.docs) {
+        await adminDb.collection("users").doc(finalUid).collection("memories").doc(mDoc.id).set(mDoc.data(), { merge: true });
+      }
+      const alertSnap = await adminDb.collection("users_retained").doc(finalUid).collection("riskAlerts").get();
+      for (const aDoc of alertSnap.docs) {
+        await adminDb.collection("users").doc(finalUid).collection("riskAlerts").doc(aDoc.id).set(aDoc.data(), { merge: true });
+      }
+    } catch (subErr) {}
+  }
+
+  // 6. Update local JSON DB
+  try {
+    const db = readDb();
+    if (!db.users) db.users = [];
+    db.users = db.users.filter((u: any) => u.id !== finalUid && u.email?.trim().toLowerCase() !== normalizedEmail);
+    db.users.push(restoredUserDoc);
+
+    if (db.retained_users) {
+      db.retained_users = db.retained_users.filter((u: any) => u.id !== finalUid && u.email?.trim().toLowerCase() !== normalizedEmail);
+    }
+    writeDb(db);
+  } catch (dbErr) {}
+
+  // 7. Update lifecycle record
+  const activeLifecycle = {
+    accountId: normalizedEmail,
+    emailNormalized: normalizedEmail,
+    status: "ACTIVE",
+    deletionType: null,
+    deletedAt: null,
+    deletedBy: null,
+    restoreUntil: null,
+    originalUserId: finalUid,
+    updatedAt: nowIso
+  };
+  await setAccountLifecycleRecord(activeLifecycle);
+
+  return { success: true, user: restoredUserDoc };
+}
+
 // Run periodic cleanup every 1 hour & on startup
 setInterval(purgeExpiredAccountsJob, 60 * 60 * 1000);
 setTimeout(purgeExpiredAccountsJob, 5000);
@@ -4609,6 +4872,18 @@ app.post("/api/auth/check-lifecycle", async (req, res) => {
         canRestore: false,
         adminApprovalRequired: false,
         userFriendlyMessage: "البريد الإلكتروني مسجل بالفعل. يرجى تسجيل الدخول إلى حسابك."
+      });
+    }
+
+    if (record.status === "ADMIN_APPROVED" || record.reactivationStatus === "approved") {
+      return res.json({
+        success: true,
+        email: normalizedEmail,
+        status: "ADMIN_APPROVED",
+        canRegister: false,
+        canRestore: true,
+        adminApprovalRequired: false,
+        userFriendlyMessage: "تمت الموافقة على طلب استعادة حسابك من قبل المسؤول! يمكنك الآن تسجيل الدخول أو إكمال التحقق لاستعادة الحساب."
       });
     }
 
@@ -5232,6 +5507,453 @@ app.post("/api/admin/handle-reactivation-request", requireAuth, async (req: Auth
   }
 });
 
+// --- ACCOUNT RECOVERY REQUEST WORKFLOW ENDPOINTS ---
+
+// 1. Submit Account Recovery Request (User submission)
+app.post("/api/auth/recovery-request/submit", async (req, res) => {
+  try {
+    const {
+      email,
+      fullName,
+      phone,
+      phoneVerified,
+      reason,
+      organizationName,
+      previousWorkspaceInfo,
+      acceptedTerms,
+      documents
+    } = req.body;
+
+    if (!email || typeof email !== "string" || !email.trim()) {
+      return res.status(400).json({ success: false, error: "Email is required." });
+    }
+    const normalizedEmail = email.trim().toLowerCase();
+    const nowIso = new Date().toISOString();
+    const requestId = `REQ-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+
+    const requestDoc = {
+      id: requestId,
+      requestId,
+      email: normalizedEmail,
+      fullName: (fullName || "").trim(),
+      phone: (phone || "").trim(),
+      phoneVerified: !!phoneVerified,
+      reason: (reason || "").trim(),
+      organizationName: (organizationName || "").trim(),
+      previousWorkspaceInfo: (previousWorkspaceInfo || "").trim(),
+      acceptedTerms: !!acceptedTerms,
+      termsAcceptedAt: nowIso,
+      documents: Array.isArray(documents) ? documents : [],
+      status: "pending",
+      submittedAt: nowIso,
+      updatedAt: nowIso
+    };
+
+    // Save to Firestore
+    try {
+      await adminDb.collection("accountRecoveryRequests").doc(requestId).set(requestDoc);
+      await adminDb.collection("accountRecoveryRequests_by_email").doc(normalizedEmail).set(requestDoc);
+    } catch (fsErr) {
+      console.warn("Firestore recovery request write warning:", fsErr);
+    }
+
+    // Save to local JSON DB fallback
+    const db = readDb();
+    if (!db.account_recovery_requests) db.account_recovery_requests = [];
+    db.account_recovery_requests = db.account_recovery_requests.filter((r: any) => r.email !== normalizedEmail);
+    db.account_recovery_requests.push(requestDoc);
+    writeDb(db);
+
+    // Update account lifecycle record to ADMIN_APPROVAL_PENDING
+    const lifecycle = await getAccountLifecycleRecord(normalizedEmail);
+    if (lifecycle) {
+      await setAccountLifecycleRecord({
+        ...lifecycle,
+        status: "ADMIN_APPROVAL_PENDING",
+        reactivationStatus: "pending",
+        recoveryRequestId: requestId,
+        updatedAt: nowIso
+      });
+    }
+
+    return res.json({
+      success: true,
+      requestId,
+      message: "Your account recovery request has been submitted for administrative review."
+    });
+  } catch (err: any) {
+    console.error("Submit recovery request error:", err);
+    res.status(500).json({ success: false, error: err.message || "Failed to submit recovery request." });
+  }
+});
+
+// 2. Fetch Account Recovery Request Status for User
+app.post("/api/auth/recovery-request/status", async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email || typeof email !== "string") {
+      return res.status(400).json({ success: false, error: "Email parameter is required." });
+    }
+    const normalizedEmail = email.trim().toLowerCase();
+
+    let requestData: any = null;
+    try {
+      const emailSnap = await adminDb.collection("accountRecoveryRequests_by_email").doc(normalizedEmail).get();
+      if (emailSnap.exists) {
+        requestData = emailSnap.data();
+      }
+    } catch (e) {}
+
+    if (!requestData) {
+      const db = readDb();
+      requestData = db.account_recovery_requests?.find((r: any) => r.email === normalizedEmail) || null;
+    }
+
+    if (!requestData) {
+      return res.json({
+        success: true,
+        status: "none",
+        requestId: null
+      });
+    }
+
+    return res.json({
+      success: true,
+      status: requestData.status || "pending",
+      requestId: requestData.requestId || requestData.id,
+      submittedAt: requestData.submittedAt,
+      handledAt: requestData.handledAt || requestData.reviewedAt,
+      rejectionReason: requestData.rejectionReason || requestData.notes || ""
+    });
+  } catch (err: any) {
+    console.error("Recovery request status error:", err);
+    res.status(500).json({ success: false, error: err.message || "Failed to fetch status." });
+  }
+});
+
+// 3. Fetch All Account Recovery Requests for Admin Review
+app.get("/api/admin/recovery-requests", requireAuth, async (req: AuthRequest, res) => {
+  try {
+    const callerUid = req.user?.uid;
+    if (!callerUid || !(await isUserAdminServer(callerUid))) {
+      return res.status(403).json({ error: "Forbidden: Admin access required." });
+    }
+
+    let requests: any[] = [];
+    try {
+      const snap = await adminDb.collection("accountRecoveryRequests").get();
+      if (snap && !snap.empty) {
+        requests = snap.docs.map(d => ({ ...d.data(), id: d.id }));
+      }
+    } catch (e) {}
+
+    const db = readDb();
+    const localRequests = db.account_recovery_requests || [];
+    for (const lr of localRequests) {
+      if (!requests.some(r => r.id === lr.id || r.requestId === lr.requestId)) {
+        requests.push(lr);
+      }
+    }
+
+    return res.json({ success: true, requests });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || "Failed to fetch recovery requests." });
+  }
+});
+
+// 4. Admin Handle (Approve / Reject) Account Recovery Request
+app.post("/api/admin/handle-recovery-request", requireAuth, async (req: AuthRequest, res) => {
+  try {
+    const callerUid = req.user?.uid;
+    if (!callerUid || !(await isUserAdminServer(callerUid))) {
+      return res.status(403).json({ error: "Forbidden: Admin access required." });
+    }
+
+    const { requestId, email, action, rejectionReason } = req.body;
+    if (!action || (action !== "approve" && action !== "reject")) {
+      return res.status(400).json({ error: "Valid action ('approve' or 'reject') is required." });
+    }
+
+    let requestData: any = null;
+    if (requestId) {
+      try {
+        const snap = await adminDb.collection("accountRecoveryRequests").doc(requestId).get();
+        if (snap.exists) requestData = snap.data();
+      } catch (e) {}
+    }
+
+    const targetEmail = (requestData?.email || email || "").trim().toLowerCase();
+    if (!targetEmail) {
+      return res.status(400).json({ error: "Target request email is required." });
+    }
+
+    if (!requestData) {
+      const db = readDb();
+      requestData = db.account_recovery_requests?.find((r: any) => r.email === targetEmail || r.id === requestId);
+    }
+
+    const nowIso = new Date().toISOString();
+    const newStatus = action === "approve" ? "approved" : "rejected";
+
+    const updatedRequestDoc = {
+      ...(requestData || {}),
+      email: targetEmail,
+      status: newStatus,
+      handledAt: nowIso,
+      reviewedAt: nowIso,
+      reviewedBy: callerUid,
+      rejectionReason: action === "reject" ? (rejectionReason || "Identity or documentation could not be verified.") : null
+    };
+
+    try {
+      if (requestData?.requestId) {
+        await adminDb.collection("accountRecoveryRequests").doc(requestData.requestId).set(updatedRequestDoc, { merge: true });
+      }
+      await adminDb.collection("accountRecoveryRequests_by_email").doc(targetEmail).set(updatedRequestDoc, { merge: true });
+    } catch (e) {}
+
+    const db = readDb();
+    if (!db.account_recovery_requests) db.account_recovery_requests = [];
+    const existingIdx = db.account_recovery_requests.findIndex((r: any) => r.email === targetEmail || r.id === requestId);
+    if (existingIdx >= 0) {
+      db.account_recovery_requests[existingIdx] = updatedRequestDoc;
+    } else {
+      db.account_recovery_requests.push(updatedRequestDoc);
+    }
+    writeDb(db);
+
+    const lifecycle = await getAccountLifecycleRecord(targetEmail);
+    if (lifecycle) {
+      await setAccountLifecycleRecord({
+        ...lifecycle,
+        status: action === "approve" ? "ADMIN_APPROVED" : "ADMIN_REJECTED",
+        reactivationStatus: newStatus,
+        updatedAt: nowIso
+      });
+    }
+
+    if (action === "approve") {
+      try {
+        await restoreAccountFullServer(targetEmail);
+        console.log(`[ADMIN_APPROVE_RECOVERY] Full restoration executed for ${targetEmail}`);
+      } catch (rErr) {
+        console.warn("Full restoration execution error on admin approval:", rErr);
+      }
+    }
+
+    // Dispatch notification email via Resend in Zakir BLUE design
+    try {
+      const userFullName = requestData?.fullName || targetEmail.split("@")[0];
+      if (action === "approve") {
+        const mailContent = buildRecoveryApprovalEmailHtml({
+          userName: userFullName,
+          email: targetEmail
+        });
+        await sendSystemMail(targetEmail, mailContent.subject, mailContent.text, mailContent.html);
+      } else {
+        const mailContent = buildRecoveryRejectionEmailHtml({
+          userName: userFullName,
+          email: targetEmail,
+          rejectionReason: rejectionReason
+        });
+        await sendSystemMail(targetEmail, mailContent.subject, mailContent.text, mailContent.html);
+      }
+    } catch (mailErr) {
+      console.warn("Recovery decision email delivery warning:", mailErr);
+    }
+
+    return res.json({
+      success: true,
+      message: action === "approve"
+        ? "Account recovery request approved! The user has been notified via email to proceed with verification."
+        : "Account recovery request rejected. The user has been notified with the provided reason."
+    });
+  } catch (err: any) {
+    console.error("Handle recovery request error:", err);
+    res.status(500).json({ error: err.message || "Failed to handle recovery request." });
+  }
+});
+
+// 5. Send Approval OTP Code (User post-approval step)
+app.post("/api/auth/recovery-request/send-approval-otp", otpLimiter, async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email || typeof email !== "string" || !email.trim()) {
+      return res.status(400).json({ success: false, error: "Email is required." });
+    }
+    const normalizedEmail = email.trim().toLowerCase();
+
+    let reqStatus = "";
+    try {
+      const emailSnap = await adminDb.collection("accountRecoveryRequests_by_email").doc(normalizedEmail).get();
+      if (emailSnap.exists) {
+        reqStatus = emailSnap.data()?.status || "";
+      }
+    } catch (e) {}
+
+    if (!reqStatus) {
+      const db = readDb();
+      const localReq = db.account_recovery_requests?.find((r: any) => r.email === normalizedEmail);
+      reqStatus = localReq?.status || "";
+    }
+
+    if (reqStatus !== "approved") {
+      const lifecycle = await getAccountLifecycleRecord(normalizedEmail);
+      if (lifecycle?.status !== "ADMIN_APPROVED" && lifecycle?.reactivationStatus !== "approved") {
+        return res.status(400).json({
+          success: false,
+          error: "Your recovery request has not yet been approved by an administrator."
+        });
+      }
+    }
+
+    const otpCode = crypto.randomInt(100000, 1000000).toString();
+    const codeHash = hashVerificationCode(otpCode);
+    const nowMs = Date.now();
+    const expiresAt = new Date(nowMs + 10 * 60 * 1000).toISOString();
+    const docId = `recovery_otp_${normalizedEmail.replace(/[^a-zA-Z0-9]/g, '_')}`;
+
+    const record = {
+      id: docId,
+      email: normalizedEmail,
+      codeHash: codeHash,
+      type: "account_recovery",
+      expiresAt: expiresAt,
+      attempts: 0,
+      used: false,
+      createdAt: new Date().toISOString()
+    };
+
+    try {
+      await adminDb.collection("verification_codes").doc(docId).set(record);
+      await adminDb.collection("verification_codes").doc(normalizedEmail).set(record);
+    } catch (e) {}
+
+    const db = readDb();
+    if (!db.verification_codes) db.verification_codes = [];
+    db.verification_codes = db.verification_codes.filter((vc: any) => vc.id !== docId && vc.id !== normalizedEmail);
+    db.verification_codes.push(record);
+    writeDb(db);
+
+    const emailObj = buildOtpEmailHtml({
+      email: normalizedEmail,
+      otpCode: otpCode,
+      type: "account_recovery"
+    });
+
+    const mailResult = await sendSystemMail(normalizedEmail, emailObj.subject, emailObj.text, emailObj.html);
+
+    return res.json({
+      success: true,
+      message: `Verification code sent to ${normalizedEmail}`,
+      expiresAt,
+      emailSent: !mailResult.simulated,
+      devCode: mailResult.simulated ? otpCode : undefined
+    });
+  } catch (err: any) {
+    console.error("Send approval OTP error:", err);
+    res.status(500).json({ success: false, error: err.message || "Failed to send verification code." });
+  }
+});
+
+// 6. Verify OTP and Restore Account
+app.post("/api/auth/recovery-request/verify-otp-and-restore", otpLimiter, async (req, res) => {
+  try {
+    const { email, code, newPassword } = req.body;
+    if (!email || !code) {
+      return res.status(400).json({ success: false, error: "Email and verification code are required." });
+    }
+    const normalizedEmail = email.trim().toLowerCase();
+    const inputCode = String(code).trim();
+    const docId = `recovery_otp_${normalizedEmail.replace(/[^a-zA-Z0-9]/g, '_')}`;
+
+    let otpRecord: any = null;
+    try {
+      const snap = await adminDb.collection("verification_codes").doc(docId).get();
+      if (snap.exists && !snap.data()?.used) {
+        otpRecord = snap.data();
+      }
+      if (!otpRecord) {
+        const emSnap = await adminDb.collection("verification_codes").doc(normalizedEmail).get();
+        if (emSnap.exists && !emSnap.data()?.used) {
+          otpRecord = emSnap.data();
+        }
+      }
+    } catch (e) {}
+
+    if (!otpRecord) {
+      const db = readDb();
+      otpRecord = db.verification_codes?.find((vc: any) => (vc.id === docId || vc.email === normalizedEmail) && !vc.used);
+    }
+
+    if (!otpRecord) {
+      return res.status(400).json({
+        success: false,
+        error: "No active verification code found or code has already been used. Please request a new code."
+      });
+    }
+
+    const expiresAt = new Date(otpRecord.expiresAt).getTime();
+    if (expiresAt <= Date.now()) {
+      return res.status(400).json({
+        success: false,
+        error: "Verification code has expired. Please request a new code."
+      });
+    }
+
+    const cleanInputHash = hashVerificationCode(inputCode);
+    const isMatch = otpRecord.codeHash ? otpRecord.codeHash === cleanInputHash : otpRecord.code === inputCode;
+
+    if (!isMatch) {
+      return res.status(400).json({
+        success: false,
+        error: "Invalid verification code. Please check your email and try again."
+      });
+    }
+
+    try {
+      await adminDb.collection("verification_codes").doc(docId).update({ used: true });
+    } catch (e) {}
+
+    const nowIso = new Date().toISOString();
+    try {
+      await adminDb.collection("accountRecoveryRequests_by_email").doc(normalizedEmail).update({
+        status: "restored",
+        restoredAt: nowIso
+      });
+    } catch (e) {}
+
+    const db = readDb();
+    if (db.account_recovery_requests) {
+      const rItem = db.account_recovery_requests.find((r: any) => r.email === normalizedEmail);
+      if (rItem) rItem.status = "restored";
+      writeDb(db);
+    }
+
+    const restoreRes = await restoreAccountFullServer(normalizedEmail, newPassword);
+    if (!restoreRes.success || !restoreRes.user) {
+      return res.status(500).json({ success: false, error: restoreRes.error || "Failed to restore account profile." });
+    }
+
+    let customToken: string = "";
+    try {
+      customToken = await adminAuth.createCustomToken(restoreRes.user.id);
+    } catch (tErr) {
+      console.warn("createCustomToken warning on recovery restoration:", tErr);
+    }
+
+    return res.json({
+      success: true,
+      customToken,
+      user: restoreRes.user,
+      message: "Your account has been successfully restored! You may now sign in."
+    });
+  } catch (err: any) {
+    console.error("Verify OTP and restore error:", err);
+    res.status(500).json({ success: false, error: err.message || "Failed to complete account restoration." });
+  }
+});
+
 app.delete("/api/admin/delete-user/:uid", requireAuth, async (req: AuthRequest, res) => {
   const targetUid = req.params.uid;
   try {
@@ -5348,14 +6070,13 @@ app.delete("/api/admin/delete-user/:uid", requireAuth, async (req: AuthRequest, 
       console.warn("Support tickets deletion warning:", ticketErr?.message);
     }
 
-    // 3. Delete from Firebase Authentication - must fail entire request if it fails
+    // 3. Disable in Firebase Authentication (preserve Auth UID identity for restoration)
     try {
-      await adminAuth.deleteUser(targetUid);
-      console.log("USER_AUTH_DELETED", { targetUid });
+      await adminAuth.updateUser(targetUid, { disabled: true });
+      console.log("USER_AUTH_DISABLED", { targetUid });
     } catch (authErr: any) {
       if (authErr.code !== "auth/user-not-found") {
-        console.error("USER_AUTH_DELETE_FAILED", { targetUid, error: authErr?.message });
-        return res.status(500).json({ error: `Failed to delete user account from Firebase Authentication: ${authErr.message}` });
+        console.warn("USER_AUTH_DISABLE_WARNING", { targetUid, error: authErr?.message });
       }
     }
 
@@ -5382,11 +6103,19 @@ app.delete("/api/admin/delete-user/:uid", requireAuth, async (req: AuthRequest, 
   }
 });
 
-app.delete("/api/auth/delete-account", requireAuth, async (req: AuthRequest, res) => {
-  const targetUid = req.user?.uid;
+app.all("/api/auth/delete-account", requireAuth, async (req: AuthRequest, res) => {
+  let targetUid = req.user?.uid;
   try {
+    if (!targetUid && req.body?.email) {
+      try {
+        const db = readDb();
+        const found = db.users?.find((u: any) => u.email?.trim().toLowerCase() === (req.body.email || "").trim().toLowerCase());
+        if (found) targetUid = found.id;
+      } catch (e) {}
+    }
+
     if (!targetUid) {
-      return res.status(401).json({ error: "Unauthorized" });
+      return res.status(401).json({ error: "Unauthorized: Could not determine user identity for deletion." });
     }
 
     console.log("USER_SELF_DELETE_STARTED", { targetUid });
@@ -5478,14 +6207,13 @@ app.delete("/api/auth/delete-account", requireAuth, async (req: AuthRequest, res
       console.warn("Revoke refresh tokens warning:", tokenErr?.message);
     }
 
-    // 2. Delete from Firebase Authentication
+    // 2. Disable in Firebase Authentication (preserve Auth UID identity for restoration)
     try {
-      await adminAuth.deleteUser(targetUid);
-      console.log("USER_SELF_AUTH_DELETED", { targetUid });
+      await adminAuth.updateUser(targetUid, { disabled: true });
+      console.log("USER_SELF_AUTH_DISABLED", { targetUid });
     } catch (authErr: any) {
       if (authErr.code !== "auth/user-not-found") {
-        console.error("USER_SELF_AUTH_DELETE_FAILED", { targetUid, error: authErr?.message });
-        return res.status(500).json({ error: `Failed to delete account from Firebase Authentication: ${authErr.message}` });
+        console.warn("USER_SELF_AUTH_DISABLE_WARNING", { targetUid, error: authErr?.message });
       }
     }
 
@@ -6207,26 +6935,26 @@ app.get("/api/world-bank", async (req, res) => {
 });
 
 // --- INTERACTIVE POSTGRESQL QUERY SIMULATOR ---
-app.post("/api/database/schema", requireAuth, async (req: AuthRequest, res) => {
-  console.log("[DEBUG] req.user =", req.user);
+app.all("/api/database/schema", requireAuth, async (req: AuthRequest, res) => {
+  try {
     const authUserId = req.user?.uid;
-  const authUserEmail = req.user?.email || "";
-  if (!authUserId) {
-    return res.status(401).json({ error: "Unauthorized: Missing authentication token" });
-  }
+    if (!authUserId) {
+      return res.status(401).json({ error: "Unauthorized: Missing authentication token" });
+    }
 
-  const db = readDb();
-  const user = db.users.find((u: any) => u.id === authUserId);
-  const isUserAdmin = await isUserAdminServer(authUserId);
-  const userRole = user ? user.role : (isUserAdmin ? "CEO" : "Analyst");
+    const db = readDb();
+    const usersArr = Array.isArray(db?.users) ? db.users : [];
+    const user = usersArr.find((u: any) => u.id === authUserId);
+    const isUserAdmin = await isUserAdminServer(authUserId);
+    const userRole = user ? user.role : (isUserAdmin ? "CEO" : "Analyst");
 
-  const isAuthorized = userRole === "CEO" || userRole === "Admin" || userRole === "Compliance Officer" || isUserAdmin;
-  if (!isAuthorized) {
-    return res.status(403).json({ error: "Forbidden: Restricted to administrative and compliance personnel only." });
-  }
+    const isAuthorized = userRole === "CEO" || userRole === "Admin" || userRole === "Compliance Officer" || isUserAdmin;
+    if (!isAuthorized) {
+      return res.status(403).json({ error: "Forbidden: Restricted to administrative and compliance personnel only." });
+    }
 
-  // Returns DDL schema for user visibility
-  const schemaDdl = `-- PostgreSQL Database Schema for Zakir (ذَكِرْ)
+    // Returns DDL schema for user visibility
+    const schemaDdl = `-- PostgreSQL Database Schema for Zakir (ذَكِرْ)
 -- Securely stores institutional causal memories, audit metrics, and RBAC
 
 CREATE TYPE user_role AS ENUM ('CEO', 'Admin', 'Compliance Officer', 'Analyst');
@@ -6276,7 +7004,11 @@ CREATE TABLE user_metrics (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );`;
 
-  res.json({ ddl: schemaDdl });
+    return res.json({ ddl: schemaDdl });
+  } catch (err: any) {
+    console.error("Error fetching database schema:", err);
+    return res.status(500).json({ error: err.message || "Failed to fetch database schema" });
+  }
 });
 
 app.post("/api/database/query", requireAuth, async (req: AuthRequest, res) => {
