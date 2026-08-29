@@ -431,3 +431,40 @@ body:not(.dark) input:-webkit-autofill:active {
   transition: background-color 5000s ease-in-out 0s !important;
 }
 
+/* ==========================================
+   STRIPE CHECKOUT MODAL & SCROLLING OPTIMIZATION
+   ========================================== */
+#stripe-checkout-modal-backdrop {
+  height: 100dvh;
+  max-height: 100dvh;
+  touch-action: pan-y;
+}
+
+#stripe-checkout-modal-dialog {
+  display: flex;
+  flex-direction: column;
+  max-height: min(94dvh, 880px);
+}
+
+#stripe-checkout-scroll-container,
+#stripe-receipt-scroll-container {
+  flex: 1 1 0%;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  touch-action: pan-y;
+}
+
+#stripe-embedded-checkout-host {
+  overflow: visible;
+  touch-action: pan-y;
+}
+
+#stripe-embedded-checkout-host iframe {
+  width: 100% !important;
+  border: none !important;
+}
+
+

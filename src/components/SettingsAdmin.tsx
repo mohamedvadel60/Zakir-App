@@ -2884,134 +2884,185 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
 
       {/* CHECKOUT & PAYMENT MODAL WITH IN-APP STRIPE EMBEDDED CHECKOUT */}
       {selectedPlanForCheckout && (
-        <div className={`fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto ${completedReceipt ? "printable-receipt-modal" : ""}`}>
-          <div className={`w-full max-w-2xl rounded-2xl border shadow-2xl p-6 md:p-8 space-y-6 ${
-            theme === "dark" ? "bg-slate-900 border-slate-800 text-white" : "bg-white border-slate-200 text-slate-900"
-          }`}>
-            
+        <div 
+          id="stripe-checkout-modal-backdrop"
+          className={`fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-2 sm:p-4 md:p-6 overflow-hidden ${
+            completedReceipt ? "printable-receipt-modal" : ""
+          }`}
+          style={{ height: "100dvh", maxHeight: "100dvh" }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget && !completedReceipt) {
+              handleReturnToPlans();
+            }
+          }}
+        >
+          <div 
+            id="stripe-checkout-modal-dialog"
+            className={`w-full max-w-2xl md:max-w-3xl rounded-2xl border shadow-2xl flex flex-col overflow-hidden transition-all ${
+              theme === "dark" ? "bg-slate-900 border-slate-800 text-white" : "bg-white border-slate-200 text-slate-900"
+            }`}
+            style={{
+              maxHeight: "min(94dvh, 880px)",
+              height: "auto",
+            }}
+          >
             {!completedReceipt ? (
               <>
-                {/* Modal Header with Prominent Back Button */}
-                <div className="flex items-center justify-between pb-4 border-b border-slate-800 gap-3 flex-wrap">
+                {/* 1. FIXED / STICKY HEADER WITH PROMINENT BACK & CLOSE BUTTONS */}
+                <div className="shrink-0 px-4 py-3.5 sm:px-6 sm:py-4 border-b border-slate-700/60 dark:border-slate-800/80 flex items-center justify-between gap-3 bg-slate-900/95 dark:bg-slate-900/95 text-white backdrop-blur-sm z-10">
+                  {/* Prominent Back Button */}
                   <button
                     type="button"
                     onClick={handleReturnToPlans}
-                    className="px-4 py-2.5 bg-slate-800/90 hover:bg-slate-800 border border-slate-700/80 text-slate-200 hover:text-white text-xs font-bold rounded-xl transition-all flex items-center gap-2 cursor-pointer group shadow-sm"
+                    className="px-3.5 py-2 sm:px-4 sm:py-2 bg-slate-800 hover:bg-slate-700 active:bg-slate-900 border border-slate-700 text-white text-xs sm:text-sm font-bold rounded-xl transition-all flex items-center gap-2 cursor-pointer group shadow-sm active:scale-95"
+                    id="checkout-back-button"
                   >
-                    <ArrowLeft className={`w-4 h-4 text-[#0075DE] group-hover:-translate-x-0.5 transition-transform ${lang === "ar" ? "rotate-180" : ""}`} />
+                    <ArrowLeft className={`w-4 h-4 text-[#0075DE] group-hover:-translate-x-1 transition-transform ${lang === "ar" ? "rotate-180" : ""}`} />
                     <span>
                       {lang === "ar"
-                        ? "← العودة إلى اختيار الباقة"
+                        ? "← رجوع"
                         : lang === "fr"
-                        ? "← Retour aux forfaits"
-                        : "← Back to plans"}
+                        ? "← Retour"
+                        : "← Back"}
                     </span>
                   </button>
 
-                  <div className="flex items-center gap-3">
-                    <div className="text-right hidden sm:block">
-                      <h3 className="text-sm font-bold flex items-center gap-1.5 justify-end">
+                  {/* Plan Info Badge & Secure indicator */}
+                  <div className="flex items-center gap-2 text-center">
+                    <div className="flex flex-col items-center sm:items-end">
+                      <span className="text-xs sm:text-sm font-bold flex items-center gap-1.5 text-white">
                         <CreditCard className="w-4 h-4 text-[#0075DE]" />
-                        <span>{lang === "ar" ? "بوابة الدفع الإلكتروني — Stripe" : "Secure Payment Gateway — Stripe"}</span>
-                      </h3>
-                      <p className="text-[11px] text-slate-400">
-                        {lang === "ar" 
-                          ? `الاشتراك بخطة ${selectedPlanForCheckout} (${billingCycle === "annual" ? "سنوي" : "شهري"})` 
-                          : `Subscribing to ${selectedPlanForCheckout} Plan (${billingCycle === "annual" ? "Annual" : "Monthly"})`}
-                      </p>
+                        <span>{lang === "ar" ? "الدفع الآمن — Stripe" : "Secure Checkout — Stripe"}</span>
+                      </span>
+                      <span className="text-[11px] text-slate-400 font-medium">
+                        {selectedPlanForCheckout} Plan ({billingCycle === "annual" ? (lang === "ar" ? "سنوي" : "Annual") : (lang === "ar" ? "شهري" : "Monthly")})
+                      </span>
                     </div>
-                    <button
-                      type="button"
-                      onClick={handleReturnToPlans}
-                      className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 cursor-pointer transition-all"
-                      title={lang === "ar" ? "إغلاق والعودة للباقات" : "Close & return to plans"}
-                      aria-label="Close"
-                    >
-                      <X className="w-5 h-5" />
-                    </button>
                   </div>
+
+                  {/* Close Button */}
+                  <button
+                    type="button"
+                    onClick={handleReturnToPlans}
+                    className="p-2 sm:p-2.5 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 cursor-pointer transition-all active:scale-95"
+                    title={lang === "ar" ? "إغلاق والعودة للباقات" : "Close & return to plans"}
+                    aria-label="Close"
+                    id="checkout-close-button"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
                 </div>
 
-                {/* Selected Plan Summary Banner */}
-                <div className="p-4 rounded-xl bg-[#0075DE]/10 border border-[#0075DE]/30 flex items-center justify-between gap-4 flex-wrap">
-                  <div className="flex items-center gap-3">
-                    <Zap className="w-5 h-5 text-[#0075DE] shrink-0" />
-                    <div>
-                      <p className="text-xs text-slate-400">{lang === "ar" ? "تفاصيل الطلب:" : "Order Summary:"}</p>
+                {/* 2. DEDICATED SCROLLABLE PAYMENT CONTENT CONTAINER */}
+                <div 
+                  id="stripe-checkout-scroll-container"
+                  className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden p-4 sm:p-6 space-y-4 overscroll-contain"
+                  style={{
+                    WebkitOverflowScrolling: "touch",
+                    overscrollBehavior: "contain",
+                  }}
+                >
+                  {/* Selected Plan Summary Banner with Change Plan Quick Action */}
+                  <div className="p-3.5 sm:p-4 rounded-xl bg-[#0075DE]/10 border border-[#0075DE]/30 flex items-center justify-between gap-3 flex-wrap">
+                    <div className="flex items-center gap-2.5">
+                      <Zap className="w-5 h-5 text-[#0075DE] shrink-0" />
+                      <div>
+                        <p className="text-[11px] text-slate-400">{lang === "ar" ? "تفاصيل الطلب:" : "Order Summary:"}</p>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <p className="text-xs sm:text-sm font-extrabold text-[#0075DE]">
+                            {selectedPlanForCheckout} Plan ({billingCycle === "annual" ? (lang === "ar" ? "سنوي - وفر 20%" : "Annual - Save 20%") : (lang === "ar" ? "شهري" : "Monthly")})
+                          </p>
+                          <button
+                            type="button"
+                            onClick={handleReturnToPlans}
+                            className="text-[11px] text-slate-300 hover:text-white underline cursor-pointer font-semibold"
+                          >
+                            ({lang === "ar" ? "تغيير الباقة / الفترة" : lang === "fr" ? "Changer de forfait" : "Change plan / interval"})
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-[11px] text-slate-400">{lang === "ar" ? "المبلغ المستحق:" : "Total Amount:"}</p>
+                      <p className="text-sm sm:text-base font-black text-emerald-400">
+                        {selectedPlanForCheckout === "Starter" ? (billingCycle === "annual" ? "$50.00 USD" : "$6.00 USD") : selectedPlanForCheckout === "Enterprise" ? (billingCycle === "annual" ? "$699.00 USD" : "$849.00 USD") : (billingCycle === "annual" ? "$149.00 USD" : "$189.00 USD")}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Error Banner if Any */}
+                  {paymentError && (
+                    <div className="p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-400 text-xs flex items-center justify-between gap-2 flex-wrap">
                       <div className="flex items-center gap-2">
-                        <p className="text-sm font-extrabold text-[#0075DE]">
-                          {selectedPlanForCheckout} Plan ({billingCycle === "annual" ? (lang === "ar" ? "سنوي" : "Annual") : (lang === "ar" ? "شهري" : "Monthly")})
-                        </p>
+                        <AlertCircle className="w-4 h-4 shrink-0" />
+                        <span>{paymentError}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => handleStripeCheckout(selectedPlanForCheckout)}
+                          className="px-2.5 py-1 bg-rose-600 hover:bg-rose-500 text-white font-bold rounded-lg text-[10px] cursor-pointer"
+                        >
+                          {lang === "ar" ? "إعادة المحاولة" : "Try Again"}
+                        </button>
                         <button
                           type="button"
                           onClick={handleReturnToPlans}
-                          className="text-[11px] text-slate-300 hover:text-white underline cursor-pointer font-semibold"
+                          className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold rounded-lg text-[10px] cursor-pointer"
                         >
-                          ({lang === "ar" ? "تغيير الباقة" : lang === "fr" ? "Changer de forfait" : "Change plan"})
+                          {lang === "ar" ? "العودة للباقات" : "Back to plans"}
                         </button>
                       </div>
                     </div>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-xs text-slate-400">{lang === "ar" ? "المبلغ المستحق:" : "Total Amount:"}</p>
-                    <p className="text-base font-black text-emerald-400">
-                      {selectedPlanForCheckout === "Starter" ? (billingCycle === "annual" ? "$50.00 USD" : "$6.00 USD") : selectedPlanForCheckout === "Enterprise" ? (billingCycle === "annual" ? "$699.00 USD" : "$849.00 USD") : (billingCycle === "annual" ? "$149.00 USD" : "$189.00 USD")}
-                    </p>
-                  </div>
-                </div>
+                  )}
 
-                {/* Error Banner if Any */}
-                {paymentError && (
-                  <div className="p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-400 text-xs flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <AlertCircle className="w-4 h-4 shrink-0" />
-                      <span>{paymentError}</span>
+                  {/* Embedded Checkout Body without restrictive overflow: hidden */}
+                  {isProcessingPayment && !checkoutClientSecret ? (
+                    <div className="py-16 text-center space-y-4">
+                      <RefreshCw className="w-8 h-8 text-[#0075DE] animate-spin mx-auto" />
+                      <p className="text-xs text-slate-300 font-medium">
+                        {lang === "ar" ? "جاري تهيئة بوابة Stripe للدفع الآمن داخل المنصة..." : "Initializing secure in-app Stripe Checkout..."}
+                      </p>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => handleStripeCheckout(selectedPlanForCheckout)}
-                      className="px-2.5 py-1 bg-rose-600 hover:bg-rose-500 text-white font-bold rounded-lg text-[10px]"
+                  ) : checkoutClientSecret && stripePromise && embeddedCheckoutOptions ? (
+                    <div 
+                      key={checkoutClientSecret} 
+                      className="rounded-2xl bg-white text-slate-900 border border-slate-200 p-2 sm:p-4 min-h-[420px]"
+                      id="stripe-embedded-checkout-host"
                     >
-                      {lang === "ar" ? "إعادة المحاولة" : "Try Again"}
-                    </button>
-                  </div>
-                )}
-
-                {/* Embedded Checkout Body */}
-                {isProcessingPayment && !checkoutClientSecret ? (
-                  <div className="py-16 text-center space-y-4">
-                    <RefreshCw className="w-8 h-8 text-[#0075DE] animate-spin mx-auto" />
-                    <p className="text-xs text-slate-300 font-medium">
-                      {lang === "ar" ? "جاري تهيئة بوابة Stripe للدفع الآمن داخل المنصة..." : "Initializing secure in-app Stripe Checkout..."}
-                    </p>
-                  </div>
-                ) : checkoutClientSecret && stripePromise && embeddedCheckoutOptions ? (
-                  <div key={checkoutClientSecret} className="p-2 rounded-2xl bg-white text-slate-900 border border-slate-200 min-h-[380px] overflow-hidden flex flex-col">
-                    <PaymentErrorBoundary
-                      lang={lang}
-                      onRetry={() => handleStripeCheckout(selectedPlanForCheckout, true)}
-                    >
-                      <EmbeddedCheckoutProvider
-                        key={checkoutClientSecret}
-                        stripe={stripePromise}
-                        options={embeddedCheckoutOptions}
+                      <PaymentErrorBoundary
+                        lang={lang}
+                        onRetry={() => handleStripeCheckout(selectedPlanForCheckout, true)}
                       >
-                        <EmbeddedCheckout />
-                      </EmbeddedCheckoutProvider>
-                    </PaymentErrorBoundary>
-                  </div>
-                ) : !paymentError ? (
-                  <div className="py-12 text-center space-y-4">
-                    <RefreshCw className="w-8 h-8 text-[#0075DE] animate-spin mx-auto" />
-                    <p className="text-xs text-slate-400">
-                      {lang === "ar" ? "جاري الاتصال بخوادم Stripe..." : "Connecting to Stripe..."}
-                    </p>
-                  </div>
-                ) : null}
+                        <EmbeddedCheckoutProvider
+                          key={checkoutClientSecret}
+                          stripe={stripePromise}
+                          options={embeddedCheckoutOptions}
+                        >
+                          <EmbeddedCheckout />
+                        </EmbeddedCheckoutProvider>
+                      </PaymentErrorBoundary>
+                    </div>
+                  ) : !paymentError ? (
+                    <div className="py-12 text-center space-y-4">
+                      <RefreshCw className="w-8 h-8 text-[#0075DE] animate-spin mx-auto" />
+                      <p className="text-xs text-slate-400">
+                        {lang === "ar" ? "جاري الاتصال بخوادم Stripe..." : "Connecting to Stripe..."}
+                      </p>
+                    </div>
+                  ) : null}
+                </div>
               </>
             ) : (
               /* PAYMENT CONFIRMATION RECEIPT / INVOICE DISPLAY */
-              <div className="space-y-6 text-slate-900 dark:text-white">
+              <div 
+                id="stripe-receipt-scroll-container"
+                className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden p-4 sm:p-6 space-y-6 text-slate-900 dark:text-white overscroll-contain"
+                style={{
+                  WebkitOverflowScrolling: "touch",
+                  overscrollBehavior: "contain",
+                }}
+              >
                 <div className="p-6 rounded-2xl bg-slate-950 border border-emerald-500/40 text-center space-y-3">
                   <div className="w-12 h-12 rounded-full bg-emerald-500/20 border border-emerald-500 text-emerald-400 flex items-center justify-center mx-auto">
                     <CheckCircle className="w-7 h-7" />
