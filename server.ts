@@ -5588,9 +5588,9 @@ app.post("/api/auth/recovery-request/submit", async (req, res) => {
 });
 
 // 2. Fetch Account Recovery Request Status for User
-app.post("/api/auth/recovery-request/status", async (req, res) => {
+app.get("/api/auth/recovery-request/status", async (req, res) => {
   try {
-    const { email } = req.body;
+    const email = req.query?.email;
     if (!email || typeof email !== "string") {
       return res.status(400).json({ success: false, error: "Email parameter is required." });
     }
@@ -5613,18 +5613,21 @@ app.post("/api/auth/recovery-request/status", async (req, res) => {
       return res.json({
         success: true,
         status: "none",
-        requestId: null
+        recoveryRequest: null
       });
     }
 
-    return res.json({
+    const responseStatus = requestData.status || "pending";
+    const baseResponse: any = {
       success: true,
-      status: requestData.status || "pending",
-      requestId: requestData.requestId || requestData.id,
-      submittedAt: requestData.submittedAt,
-      handledAt: requestData.handledAt || requestData.reviewedAt,
-      rejectionReason: requestData.rejectionReason || requestData.notes || ""
-    });
+      status: responseStatus,
+      recoveryRequest: {
+        status: responseStatus,
+        rejectionReason: responseStatus === "rejected" ? (requestData.rejectionReason || requestData.notes || "Request was declined by an administrator.") : null
+      }
+    };
+
+    return res.json(baseResponse);
   } catch (err: any) {
     console.error("Recovery request status error:", err);
     res.status(500).json({ success: false, error: err.message || "Failed to fetch status." });

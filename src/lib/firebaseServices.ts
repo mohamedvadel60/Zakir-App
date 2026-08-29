@@ -1566,7 +1566,7 @@ export async function checkAccountLifecycleApi(email: string) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email })
     });
-    return await res.json();
+    return await safeParseJsonResponse(res);
   } catch (err: any) {
     console.error("checkAccountLifecycleApi error:", err);
     return { success: false, error: err.message || "فشل التحقق من حالة البريد الإلكتروني." };
@@ -1590,7 +1590,7 @@ export async function submitAccountRecoveryRequestApi(payload: {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload)
     });
-    return await res.json();
+    return await safeParseJsonResponse(res);
   } catch (err: any) {
     console.error("submitAccountRecoveryRequestApi error:", err);
     return { success: false, error: err.message || "فشل تقديم طلب استعادة الحساب." };
@@ -1600,7 +1600,7 @@ export async function submitAccountRecoveryRequestApi(payload: {
 export async function fetchAccountRecoveryStatusApi(email: string) {
   try {
     const res = await fetch(getAuthApiUrl(`/api/auth/recovery-request/status?email=${encodeURIComponent(email)}`));
-    return await res.json();
+    return await safeParseJsonResponse(res);
   } catch (err: any) {
     console.error("fetchAccountRecoveryStatusApi error:", err);
     return { success: false, error: err.message || "فشل جلب حالة الاستعادة." };
@@ -1612,7 +1612,7 @@ export async function fetchAdminRecoveryRequestsApi(idToken: string) {
     const res = await fetch("/api/admin/recovery-requests", {
       headers: { "Authorization": `Bearer ${idToken}` }
     });
-    return await res.json();
+    return await safeParseJsonResponse(res);
   } catch (err: any) {
     console.error("fetchAdminRecoveryRequestsApi error:", err);
     return { success: false, error: err.message || "فشل جلب طلبات الاستعادة." };
@@ -1636,7 +1636,7 @@ export async function handleAdminRecoveryRequestDecisionApi(
       },
       body: JSON.stringify({ requestId, email, action, rejectionReason, notes })
     });
-    return await res.json();
+    return await safeParseJsonResponse(res);
   } catch (err: any) {
     console.error("handleAdminRecoveryRequestDecisionApi error:", err);
     return { success: false, error: err.message || "فشل اتخاذ القرار." };
@@ -1650,7 +1650,7 @@ export async function sendRecoveryApprovalOtpApi(email: string) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email: email.trim().toLowerCase() })
     });
-    return await res.json();
+    return await safeParseJsonResponse(res);
   } catch (err: any) {
     console.error("sendRecoveryApprovalOtpApi error:", err);
     return { success: false, error: err.message || "فشل إرسال رمز التحقق." };
@@ -1664,7 +1664,7 @@ export async function verifyRecoveryApprovalOtpAndRestoreApi(email: string, code
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email: email.trim().toLowerCase(), code: code.trim() })
     });
-    return await res.json();
+    return await safeParseJsonResponse(res);
   } catch (err: any) {
     console.error("verifyRecoveryApprovalOtpAndRestoreApi error:", err);
     return { success: false, error: err.message || "فشل التحقق من الرمز واستعادة الحساب." };
@@ -1678,7 +1678,7 @@ export async function requestAccountReactivationApi(email: string, reason?: stri
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email, reason })
     });
-    return await res.json();
+    return await safeParseJsonResponse(res);
   } catch (err: any) {
     console.error("requestAccountReactivationApi error:", err);
     return { success: false, error: err.message || "فشل تقديم طلب إعادة تفعيل الحساب." };
@@ -1692,7 +1692,7 @@ export async function sendAccountRecoveryOtpApi(email: string) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email: email.trim().toLowerCase(), type: "account_recovery" })
     });
-    return await res.json();
+    return await safeParseJsonResponse(res);
   } catch (err: any) {
     console.error("sendAccountRecoveryOtpApi error:", err);
     return { success: false, error: err.message || "فشل إرسال رمز التحقق للاستعادة." };
@@ -1711,7 +1711,7 @@ export async function restoreAccountApi(email: string, code: string, password?: 
         password: password ? password.trim() : undefined 
       })
     });
-    return await res.json();
+    return await safeParseJsonResponse(res);
   } catch (err: any) {
     console.error("restoreAccountApi error:", err);
     return { success: false, error: err.message || "فشل استعادة الحساب." };
