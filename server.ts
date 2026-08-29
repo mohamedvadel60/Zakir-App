@@ -1237,8 +1237,18 @@ async function sendSystemMail(
   if (typeof toOrOptions === "string") {
     to = toOrOptions;
     subject = subjectArg || "";
-    text = textArg || "";
-    html = htmlArg || "";
+    const arg3 = textArg || "";
+    const arg4 = htmlArg || "";
+    if (arg3.includes("<!DOCTYPE") || arg3.includes("<html") || arg3.includes("<table") || arg3.includes("<div")) {
+      html = arg3;
+      text = arg4;
+    } else if (arg4.includes("<!DOCTYPE") || arg4.includes("<html") || arg4.includes("<table") || arg4.includes("<div")) {
+      html = arg4;
+      text = arg3;
+    } else {
+      text = arg3;
+      html = arg4;
+    }
   } else if (toOrOptions && typeof toOrOptions === "object") {
     to = toOrOptions.to;
     subject = toOrOptions.subject;
@@ -1439,7 +1449,7 @@ function buildMasterEmailHtml(options: {
           
           <!-- Primary Accent Line -->
           <tr>
-            <td style="background-color: #7C3AED; height: 4px; font-size: 0; line-height: 0;">&nbsp;</td>
+            <td style="background-color: #2563EB; height: 4px; font-size: 0; line-height: 0;">&nbsp;</td>
           </tr>
 
           <!-- Header -->
@@ -1470,8 +1480,8 @@ function buildMasterEmailHtml(options: {
               ${greeting ? `<p style="color: #0f172a; font-size: 15px; font-weight: 600; margin: 0 0 16px 0;">${escapeHtml(greeting)}</p>` : ''}
               ${bodyHtml}
               ${securityNote ? `
-              <div style="margin-top: 28px; padding: 14px 16px; background-color: #f8fafc; border-left: 3px solid #0891b2; border-radius: 4px;">
-                <p style="margin: 0; color: #475569; font-size: 13px; line-height: 1.5;">
+              <div style="margin-top: 28px; padding: 14px 16px; background-color: #eff6ff; border-left: 3px solid #2563eb; border-radius: 4px;">
+                <p style="margin: 0; color: #1e3a8a; font-size: 13px; line-height: 1.5;">
                   <strong>Security note:</strong> ${escapeHtml(securityNote)}
                 </p>
               </div>
@@ -1557,8 +1567,8 @@ function buildOtpEmailHtml(options: BuildOtpEmailOptions): { subject: string; te
       </p>
       <table border="0" cellpadding="0" cellspacing="0" align="center" style="margin: 28px auto;">
         <tr>
-          <td align="center" bgcolor="#7c3aed" style="border-radius: 10px;">
-            <a href="${appBaseUrl}" target="_blank" style="font-size: 15px; font-weight: 700; color: #ffffff; text-decoration: none; display: inline-block; padding: 14px 32px; border-radius: 10px; background-color: #7c3aed; border: 1px solid #7c3aed;">
+          <td align="center" bgcolor="#2563eb" style="border-radius: 10px;">
+            <a href="${appBaseUrl}" target="_blank" style="font-size: 15px; font-weight: 700; color: #ffffff; text-decoration: none; display: inline-block; padding: 14px 32px; border-radius: 10px; background-color: #2563eb; border: 1px solid #2563eb;">
               Open Zakir
             </a>
           </td>
@@ -1572,8 +1582,8 @@ function buildOtpEmailHtml(options: BuildOtpEmailOptions): { subject: string; te
       </p>
       <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin: 24px 0;">
         <tr>
-          <td align="center" style="padding: 20px 24px; background-color: #f3e8ff; border: 1px solid #ddd6fe; border-radius: 12px;">
-            <div style="font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, Courier, monospace, -apple-system, sans-serif; font-size: 32px; font-weight: 800; color: #7c3aed; letter-spacing: 6px; text-align: center; margin: 0; user-select: all; -webkit-user-select: all;">
+          <td align="center" style="padding: 20px 24px; background-color: #eff6ff; border: 1px solid #dbeafe; border-radius: 12px;">
+            <div style="font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, Courier, monospace, -apple-system, sans-serif; font-size: 32px; font-weight: 800; color: #1d4ed8; letter-spacing: 6px; text-align: center; margin: 0; user-select: all; -webkit-user-select: all;">
               ${escapeHtml(cleanCode)}
             </div>
           </td>
@@ -1630,7 +1640,7 @@ function buildInvitationEmailHtml(options: {
         </tr>
         <tr>
           <td style="padding: 6px 0; color: #64748b; font-weight: 500;">Assigned Role:</td>
-          <td style="padding: 6px 0;"><span style="display: inline-block; padding: 2px 8px; background-color: #f3e8ff; color: #7c3aed; font-weight: 700; font-size: 12px; border-radius: 4px;">${escapeHtml(designatedRole)}</span></td>
+          <td style="padding: 6px 0;"><span style="display: inline-block; padding: 2px 8px; background-color: #eff6ff; color: #1d4ed8; font-weight: 700; font-size: 12px; border-radius: 4px;">${escapeHtml(designatedRole)}</span></td>
         </tr>
         <tr>
           <td style="padding: 6px 0; color: #64748b; font-weight: 500;">Expires:</td>
@@ -1643,8 +1653,8 @@ function buildInvitationEmailHtml(options: {
   const ctaButtonHtml = `
     <table border="0" cellpadding="0" cellspacing="0" align="center" style="margin: 28px auto 20px auto;">
       <tr>
-        <td align="center" bgcolor="#7c3aed" style="border-radius: 10px;">
-          <a href="${inviteLink}" target="_blank" style="font-size: 15px; font-weight: 700; color: #ffffff; text-decoration: none; display: inline-block; padding: 14px 32px; border-radius: 10px; background-color: #7c3aed; border: 1px solid #7c3aed;">
+        <td align="center" bgcolor="#2563eb" style="border-radius: 10px;">
+          <a href="${inviteLink}" target="_blank" style="font-size: 15px; font-weight: 700; color: #ffffff; text-decoration: none; display: inline-block; padding: 14px 32px; border-radius: 10px; background-color: #2563eb; border: 1px solid #2563eb;">
             Accept invitation
           </a>
         </td>
@@ -1652,7 +1662,7 @@ function buildInvitationEmailHtml(options: {
     </table>
     <p style="color: #64748b; font-size: 12px; line-height: 1.5; margin: 0; text-align: center; word-break: break-all;">
       If the button above does not work, copy and paste this URL into your browser:<br/>
-      <a href="${inviteLink}" style="color: #0891b2; text-decoration: underline;">${inviteLink}</a>
+      <a href="${inviteLink}" style="color: #2563eb; text-decoration: underline;">${inviteLink}</a>
     </p>
   `;
 
@@ -1695,8 +1705,8 @@ function buildSupportReplyEmailHtml(options: {
       Our support team has replied to your request.
     </p>
     
-    <div style="margin: 20px 0; padding: 16px; background-color: #f8fafc; border-left: 4px solid #7c3aed; border-radius: 6px;">
-      <p style="margin: 0; font-weight: 700; color: #7c3aed; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px;">Ticket #${escapeHtml(ticketId)}</p>
+    <div style="margin: 20px 0; padding: 16px; background-color: #f8fafc; border-left: 4px solid #2563eb; border-radius: 6px;">
+      <p style="margin: 0; font-weight: 700; color: #1d4ed8; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px;">Ticket #${escapeHtml(ticketId)}</p>
       <p style="margin: 4px 0 0 0; font-weight: 700; color: #0f172a; font-size: 15px;">${escapeHtml(ticketSubject)}</p>
     </div>
 
