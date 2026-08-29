@@ -2,6 +2,7 @@ import "./env.js";
 import { cert, getApps, initializeApp } from "firebase-admin/app";
 import { getAuth } from "firebase-admin/auth";
 import { getFirestore } from "firebase-admin/firestore";
+import { getStorage } from "firebase-admin/storage";
 import fs from "fs";
 import path from "path";
 
@@ -79,6 +80,7 @@ export const isFirebaseAdminConfigured = Boolean(projectId && clientEmail && has
 let rawApp: any = null;
 let rawFirestore: any = null;
 let rawAuth: any = null;
+let rawStorage: any = null;
 
 if (isFirebaseAdminConfigured) {
   try {
@@ -91,19 +93,23 @@ if (isFirebaseAdminConfigured) {
           clientEmail: clientEmail!,
           privateKey: cleanedKey,
         }),
+        storageBucket: process.env.FIREBASE_STORAGE_BUCKET || "potent-turbine-47c1c.firebasestorage.app",
       });
     }
     rawFirestore = getFirestore(rawApp, "ai-studio-zakir1-7e6134f1-66d1-4393-82aa-9c7be9dad725");
     rawAuth = getAuth(rawApp);
+    rawStorage = getStorage(rawApp);
   } catch (err) {
     console.warn("Failed to initialize Firebase Admin with credentials:", err);
     rawApp = null;
     rawFirestore = null;
     rawAuth = null;
+    rawStorage = null;
   }
 }
 
 export const isFirebaseAdminAvailable = Boolean(rawFirestore && rawAuth);
+export const adminStorage = rawStorage;
 
 // Helper for local mock collection mappings
 function getCollectionArrayName(colName: string): string {

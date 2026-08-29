@@ -25,7 +25,8 @@ import {
   submitAccountRecoveryRequestApi, 
   sendRecoveryApprovalOtpApi, 
   verifyRecoveryApprovalOtpAndRestoreApi,
-  loginWithCustomToken
+  loginWithCustomToken,
+  uploadRecoveryDocumentApi
 } from "../lib/firebaseServices.js";
 import { User, AccountRecoveryRequest } from "../types.js";
 
@@ -71,12 +72,18 @@ export const DeletedAccountRecovery: React.FC<DeletedAccountRecoveryProps> = ({
   
   // File Upload State
   const [attachedDoc, setAttachedDoc] = useState<{
-    id: string;
-    name: string;
-    type: string;
+    documentId: string;
+    storageReference: string;
+    fileName: string;
     mimeType: string;
-    dataUrl: string;
+    size: number;
+    uploadedAt: string;
+    uploadToken?: string;
+    id?: string;
+    name?: string;
+    type?: string;
   } | null>(null);
+  const [isUploadingFile, setIsUploadingFile] = useState<boolean>(false);
 
   // Email OTP Verification State (After Approval)
   const [otpCode, setOtpCode] = useState<string>("");
@@ -127,7 +134,7 @@ export const DeletedAccountRecovery: React.FC<DeletedAccountRecoveryProps> = ({
   }, [resendCooldown]);
 
   // Handle Document Attachment
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -140,18 +147,42 @@ export const DeletedAccountRecovery: React.FC<DeletedAccountRecoveryProps> = ({
       return;
     }
 
-    const reader = new FileReader();
-    reader.onload = () => {
+    const allowedMimeTypes = ["application/pdf", "image/png", "image/jpeg", "image/jpg"];
+    if (!allowedMimeTypes.includes(file.type)) {
+      setErrorMessage(
+        lang === "ar"
+          ? "امتداد وصيغة الملف غير مدعومة. يسمح فقط بملفات PDF, PNG, JPG."
+          : "Unsupported document format. Only PDF, PNG, and JPEG files are allowed."
+      );
+      return;
+    }
+
+    setIsUploadingFile(true);
+    setErrorMessage(null);
+
+    try {
+      const res = await uploadRecoveryDocumentApi(file);
+      if (!res.success) {
+        throw new Error(res.error || (lang === "ar" ? "فشل رفع الملف." : "Failed to upload document."));
+      }
+      
+      // Keep name/id/type compatibility for backward compatibility with UI rendering
       setAttachedDoc({
-        id: `doc_${Date.now()}`,
-        name: file.name,
-        type: file.type.includes("pdf") ? "pdf" : "identity_document",
-        mimeType: file.type || "application/octet-stream",
-        dataUrl: reader.result as string
+        ...res.document,
+        id: res.document.documentId,
+        name: res.document.fileName,
+        type: res.document.mimeType.includes("pdf") ? "pdf" : "identity_document"
       });
       setErrorMessage(null);
-    };
-    reader.readAsDataURL(file);
+    } catch (err: any) {
+      console.error("Document upload error:", err);
+      setErrorMessage(
+        err.message || 
+        (lang === "ar" ? "حدث خطأ أثناء رفع المستند." : "An error occurred during file upload.")
+      );
+    } finally {
+      setIsUploadingFile(false);
+    }
   };
 
   // Submit Multi-step Recovery Form
@@ -345,7 +376,7 @@ export const DeletedAccountRecovery: React.FC<DeletedAccountRecoveryProps> = ({
                     className="w-full py-3 px-4 bg-[#2563EB] hover:bg-[#1D4ED8] text-white rounded-xl text-xs font-bold transition-colors shadow-md shadow-blue-500/20 flex items-center justify-center gap-2 cursor-pointer"
                   >
                     <FileText className="w-4 h-4" />
-                    <span>{lang === "ar" ? "تقديم طلب استعادة الحساب" : "Request account recovery"}</span>
+                    <span>{lang === "ar" ? `تقديم طلب استعادة الحساب (${normalizedEmail})` : `Request account recovery (${normalizedEmail})`}</span>
                   </button>
                 </div>
               )}
@@ -427,7 +458,7 @@ export const DeletedAccountRecovery: React.FC<DeletedAccountRecoveryProps> = ({
                     className="w-full py-3 px-4 bg-[#2563EB] hover:bg-[#1D4ED8] text-white rounded-xl text-xs font-bold transition-colors shadow-md shadow-blue-500/20 flex items-center justify-center gap-2 cursor-pointer"
                   >
                     <RotateCcw className="w-4 h-4" />
-                    <span>{lang === "ar" ? "تقديم طلب استعادة جديد" : "Submit a new recovery request"}</span>
+                    <span>{lang === "ar" ? `تقديم طلب استعادة جديد (${normalizedEmail})` : `Submit a new recovery request (${normalizedEmail})`}</span>
                   </button>
                 </div>
               )}
@@ -716,7 +747,14 @@ export const DeletedAccountRecovery: React.FC<DeletedAccountRecoveryProps> = ({
               </h3>
 
               <div className="p-4 rounded-xl border border-dashed border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/40 text-center space-y-3">
-                {attachedDoc ? (
+                {isUploadingFile ? (
+                  <div className="flex flex-col items-center justify-center py-4 space-y-2">
+                    <RefreshCw className="w-6 h-6 text-[#2563EB] animate-spin" />
+                    <p className="text-xs font-bold text-slate-500">
+                      {lang === "ar" ? "جاري رفع المستند بأمان..." : "Uploading document securely..."}
+                    </p>
+                  </div>
+                ) : attachedDoc ? (
                   <div className="flex items-center justify-between p-3 bg-blue-500/10 border border-blue-500/30 rounded-xl">
                     <div className="flex items-center gap-2.5 text-left rtl:text-right">
                       <FileText className="w-5 h-5 text-[#2563EB] shrink-0" />
@@ -744,7 +782,6 @@ export const DeletedAccountRecovery: React.FC<DeletedAccountRecoveryProps> = ({
                         {lang === "ar" ? "الصيغ المقبولة: PDF, PNG, JPG (الحد الأقصى 5 ميجابايت)" : "Accepted formats: PDF, PNG, JPG (Up to 5MB)"}
                       </p>
                     </div>
-
                     <label className="inline-flex items-center gap-2 px-4 py-2 bg-[#2563EB] hover:bg-[#1D4ED8] text-white rounded-xl text-xs font-bold transition-colors cursor-pointer shadow-sm">
                       <Upload className="w-3.5 h-3.5" />
                       <span>{lang === "ar" ? "اختيار ملف" : "Choose File"}</span>
@@ -848,7 +885,7 @@ export const DeletedAccountRecovery: React.FC<DeletedAccountRecoveryProps> = ({
                   ) : (
                     <Send className="w-4 h-4" />
                   )}
-                  <span>{lang === "ar" ? "إرسال طلب الاستعادة للإدارة" : "Submit recovery request"}</span>
+                  <span>{lang === "ar" ? `إرسال طلب الاستعادة للإدارة (${normalizedEmail})` : `Submit recovery request (${normalizedEmail})`}</span>
                 </button>
               </div>
             </div>

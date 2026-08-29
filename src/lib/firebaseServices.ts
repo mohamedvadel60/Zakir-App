@@ -1573,6 +1573,21 @@ export async function checkAccountLifecycleApi(email: string) {
   }
 }
 
+export async function uploadRecoveryDocumentApi(file: File) {
+  try {
+    const formData = new FormData();
+    formData.append("document", file);
+    const res = await fetch(getAuthApiUrl("/api/auth/recovery-request/upload"), {
+      method: "POST",
+      body: formData
+    });
+    return await safeParseJsonResponse(res);
+  } catch (err: any) {
+    console.error("uploadRecoveryDocumentApi error:", err);
+    return { success: false, error: err.message || "Failed to upload document." };
+  }
+}
+
 export async function submitAccountRecoveryRequestApi(payload: {
   email: string;
   fullName: string;
@@ -1582,7 +1597,15 @@ export async function submitAccountRecoveryRequestApi(payload: {
   previousWorkspaceInfo?: string;
   reason: string;
   termsAccepted: boolean;
-  documents: Array<{ id: string; name: string; type: string; mimeType: string; dataUrl?: string }>;
+  documents: Array<{
+    documentId: string;
+    storageReference: string;
+    fileName: string;
+    mimeType: string;
+    size: number;
+    uploadedAt: string;
+    uploadToken?: string;
+  }>;
 }) {
   try {
     const res = await fetch(getAuthApiUrl("/api/auth/recovery-request/submit"), {
@@ -1904,6 +1927,11 @@ export const getAuthApiUrl = (endpoint: string) => {
  * Safely parse JSON response with Content-Type validation and HTML fallback handling
  */
 export async function safeParseJsonResponse(res: Response) {
+  if (res.status === 413) {
+    throw new Error(
+      "The uploaded verification file is too large. Please choose a smaller file (maximum 5MB)."
+    );
+  }
   const contentType = res.headers.get("content-type");
   if (contentType && contentType.includes("application/json")) {
     const data = await res.json();

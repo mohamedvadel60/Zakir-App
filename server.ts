@@ -1,6 +1,7 @@
 import "./src/lib/env.js";
 import { Resend } from "resend";
 import express from "express";
+import multer from "multer";
 import cors from "cors";
 import crypto from "crypto";
 import http from "http";
@@ -15,7 +16,7 @@ import { users as sqlUsers, gmailLogs } from "./src/db/schema.js";
 import { getOrCreateUser } from "./src/db/users.js";
 import { requireAuth, requireAdmin, isUserAdminServer, AuthRequest } from "./src/middleware/auth.js";
 import { createRateLimiter } from "./src/middleware/rateLimiter.js";
-import { adminAuth, adminDb, isFirebaseAdminAvailable } from "./src/lib/firebase-admin.js";
+import { adminAuth, adminDb, adminStorage, isFirebaseAdminAvailable } from "./src/lib/firebase-admin.js";
 import { eq, desc } from "drizzle-orm";
 import { generateWorldBankFallbackData } from "./src/lib/worldBankFallback.js";
 import { Resvg } from "@resvg/resvg-js";
@@ -657,7 +658,7 @@ app.use((req, res, next) => {
   next();
 });
 
-app.use(express.json());
+app.use(express.json({ limit: "500kb" }));
 
 // --- STRIPE CHECKOUT & SUBSCRIPTION ENDPOINTS ---
 const inFlightCheckoutUsers = new Set<string>();
@@ -5509,7 +5510,358 @@ app.post("/api/admin/handle-reactivation-request", requireAuth, async (req: Auth
 
 // --- ACCOUNT RECOVERY REQUEST WORKFLOW ENDPOINTS ---
 
-// 1. Submit Account Recovery Request (User submission)
+function validateFileSignature(buffer: Buffer, mimeType: string): boolean {
+  if (buffer.length < 4) return false;
+  const hex = buffer.toString("hex", 0, 4).toLowerCase();
+  if (mimeType.includes("pdf")) {
+    return hex.startsWith("25504446"); // %PDF
+  }
+  if (mimeType.includes("png")) {
+    return hex.startsWith("89504e47"); // PNG
+  }
+  if (mimeType.includes("jpeg") || mimeType.includes("jpg")) {
+    return hex.startsWith("ffd8ff"); // JPEG/JPG starts with FF D8 FF
+  }
+  return false;
+}
+
+const recoveryUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 5 * 1024 * 1024, // 5MB limit
+  }
+});
+
+// Safe Persistent Storage Helpers
+async function saveDocumentToPersistentStorage(documentId: string, buffer: Buffer, mimeType: string): Promise<void> {
+  if (isFirebaseAdminAvailable && adminStorage) {
+    try {
+      const bucket = adminStorage.bucket();
+      const fileRef = bucket.file(`secure_uploads/${documentId}`);
+      await fileRef.save(buffer, {
+        metadata: { contentType: mimeType }
+      });
+      return;
+    } catch (err) {
+      console.warn("Firebase Storage save failed, falling back to local file path", err);
+    }
+  }
+
+  // Fallback to local storage
+  const UPLOADS_DIR = path.join(process.cwd(), "secure_uploads");
+  if (!fs.existsSync(UPLOADS_DIR)) {
+    fs.mkdirSync(UPLOADS_DIR, { recursive: true });
+  }
+  fs.writeFileSync(path.join(UPLOADS_DIR, documentId), buffer);
+}
+
+async function getDocumentFromPersistentStorage(documentId: string): Promise<Buffer> {
+  if (isFirebaseAdminAvailable && adminStorage) {
+    try {
+      const bucket = adminStorage.bucket();
+      const fileRef = bucket.file(`secure_uploads/${documentId}`);
+      const [exists] = await fileRef.exists();
+      if (exists) {
+        const [fileBuffer] = await fileRef.download();
+        return fileBuffer;
+      }
+    } catch (err) {
+      console.warn("Firebase Storage download failed, falling back to local file path", err);
+    }
+  }
+
+  // Fallback to local storage
+  const filePath = path.join(process.cwd(), "secure_uploads", documentId);
+  if (!fs.existsSync(filePath)) {
+    throw new Error("Document file not found on disk or storage bucket.");
+  }
+  return fs.readFileSync(filePath);
+}
+
+async function deleteDocumentFromPersistentStorage(documentId: string): Promise<void> {
+  if (isFirebaseAdminAvailable && adminStorage) {
+    try {
+      const bucket = adminStorage.bucket();
+      const fileRef = bucket.file(`secure_uploads/${documentId}`);
+      const [exists] = await fileRef.exists();
+      if (exists) {
+        await fileRef.delete();
+      }
+    } catch (err) {
+      console.warn("Firebase Storage delete failed, falling back to local file path", err);
+    }
+  }
+
+  // Fallback to local storage
+  const filePath = path.join(process.cwd(), "secure_uploads", documentId);
+  if (fs.existsSync(filePath)) {
+    fs.unlinkSync(filePath);
+  }
+}
+
+async function registerPendingUpload(documentId: string, uploadToken: string, meta: any) {
+  // Save to Local DB
+  const db = readDb();
+  if (!db.pending_recovery_uploads) {
+    db.pending_recovery_uploads = [];
+  }
+  db.pending_recovery_uploads.push({
+    documentId,
+    uploadToken,
+    fileName: meta.fileName,
+    mimeType: meta.mimeType,
+    size: meta.size,
+    uploadedAt: meta.uploadedAt,
+    associated: false
+  });
+  writeDb(db);
+
+  // Sync to Firestore if available
+  if (isFirebaseAdminAvailable) {
+    try {
+      await adminDb.collection("pendingRecoveryUploads").doc(documentId).set({
+        documentId,
+        uploadToken,
+        fileName: meta.fileName,
+        mimeType: meta.mimeType,
+        size: meta.size,
+        uploadedAt: meta.uploadedAt,
+        associated: false
+      });
+    } catch (err) {}
+  }
+}
+
+async function verifyPendingUpload(documentId: string, uploadToken: string): Promise<boolean> {
+  let record: any = null;
+
+  // Check Firestore first if available
+  if (isFirebaseAdminAvailable) {
+    try {
+      const snap = await adminDb.collection("pendingRecoveryUploads").doc(documentId).get();
+      if (snap.exists) {
+        record = snap.data();
+      }
+    } catch (err) {}
+  }
+
+  // Fallback to local DB
+  if (!record) {
+    const db = readDb();
+    record = db.pending_recovery_uploads?.find((u: any) => u.documentId === documentId);
+  }
+
+  if (!record) return false;
+  
+  // Verify token matches cryptographically
+  if (record.uploadToken !== uploadToken) return false;
+  if (record.associated) return false; // Must not be already assigned elsewhere
+
+  return true;
+}
+
+async function markUploadAssociated(documentId: string, requestId: string) {
+  const db = readDb();
+  const index = db.pending_recovery_uploads?.findIndex((u: any) => u.documentId === documentId);
+  if (index >= 0) {
+    db.pending_recovery_uploads[index].associated = true;
+    db.pending_recovery_uploads[index].associatedRequestId = requestId;
+  }
+  writeDb(db);
+
+  if (isFirebaseAdminAvailable) {
+    try {
+      await adminDb.collection("pendingRecoveryUploads").doc(documentId).set({
+        associated: true,
+        associatedRequestId: requestId
+      }, { merge: true });
+    } catch (err) {}
+  }
+}
+
+async function runOrphanCleanup() {
+  try {
+    const oneHourAgo = Date.now() - 60 * 60 * 1000;
+    const db = readDb();
+    const uploads = db.pending_recovery_uploads || [];
+    const orphans = uploads.filter((u: any) => !u.associated && new Date(u.uploadedAt).getTime() < oneHourAgo);
+
+    for (const orphan of orphans) {
+      console.log(`[ORPHAN_CLEANUP] Deleting orphan document ${orphan.documentId} uploaded at ${orphan.uploadedAt}`);
+      await deleteDocumentFromPersistentStorage(orphan.documentId);
+    }
+
+    // Filter out orphans from local db
+    db.pending_recovery_uploads = uploads.filter((u: any) => !(!u.associated && new Date(u.uploadedAt).getTime() < oneHourAgo));
+    writeDb(db);
+
+    // Sync Firestore if available
+    if (isFirebaseAdminAvailable) {
+      try {
+        const snap = await adminDb.collection("pendingRecoveryUploads").where("associated", "==", false).get();
+        if (snap && !snap.empty) {
+          for (const doc of snap.docs) {
+            const data = doc.data();
+            if (new Date(data.uploadedAt).getTime() < oneHourAgo) {
+              await deleteDocumentFromPersistentStorage(doc.id);
+              await adminDb.collection("pendingRecoveryUploads").doc(doc.id).delete();
+            }
+          }
+        }
+      } catch (err) {}
+    }
+  } catch (err) {
+    console.warn("Orphan cleanup failed gracefully:", err);
+  }
+}
+
+// 1. Upload Identity Verification Document
+app.post("/api/auth/recovery-request/upload", recoveryUpload.single("document"), async (req, res) => {
+  try {
+    // Run self-healing cleanup asynchronously to avoid blocking the user
+    runOrphanCleanup().catch(e => console.warn("Background orphan cleanup error:", e));
+
+    if (!req.file) {
+      return res.status(400).json({ success: false, error: "No file was uploaded." });
+    }
+
+    // Validate size (5MB)
+    if (req.file.size > 5 * 1024 * 1024) {
+      return res.status(400).json({ success: false, error: "IDENTITY_DOCUMENT_TOO_LARGE" });
+    }
+
+    // Validate MIME type
+    const allowedMimeTypes = ["application/pdf", "image/png", "image/jpeg", "image/jpg"];
+    if (!allowedMimeTypes.includes(req.file.mimetype)) {
+      return res.status(400).json({ success: false, error: "Unsupported document format. Only PDF, PNG, and JPEG files are allowed." });
+    }
+
+    // Validate file extension
+    const originalName = req.file.originalname || "document";
+    const ext = path.extname(originalName).toLowerCase();
+    const allowedExtensions = [".pdf", ".png", ".jpg", ".jpeg"];
+    if (!allowedExtensions.includes(ext)) {
+      return res.status(400).json({ success: false, error: "Invalid file extension." });
+    }
+
+    // Validate file signature / magic bytes
+    if (!validateFileSignature(req.file.buffer, req.file.mimetype)) {
+      return res.status(400).json({ success: false, error: "File content does not match its format signature." });
+    }
+
+    // Ensure safe, clean filename
+    const safeName = path.basename(originalName).replace(/[^a-zA-Z0-9.-]/g, "_");
+
+    // Generate secure random ID for the file and a secure token
+    const documentId = `doc_${Date.now()}_${Math.floor(Math.random() * 10000)}`;
+    const uploadToken = crypto.randomBytes(32).toString("hex");
+
+    // Save to persistent storage engine
+    await saveDocumentToPersistentStorage(documentId, req.file.buffer, req.file.mimetype);
+
+    const docMeta = {
+      documentId,
+      uploadToken,
+      storageReference: `secure_uploads/${documentId}`,
+      fileName: safeName,
+      mimeType: req.file.mimetype,
+      size: req.file.size,
+      uploadedAt: new Date().toISOString()
+    };
+
+    // Register pending upload record securely in database
+    await registerPendingUpload(documentId, uploadToken, docMeta);
+
+    // Return the secure reference metadata AND uploadToken
+    return res.json({
+      success: true,
+      document: docMeta
+    });
+  } catch (err: any) {
+    console.error("Recovery upload error:", err);
+    return res.status(500).json({ success: false, error: err.message || "Failed to upload document." });
+  }
+});
+
+// 2. Fetch/Download Identity Verification Document (Admin only)
+app.get("/api/admin/recovery-request/document/:documentId", requireAuth, async (req: AuthRequest, res) => {
+  try {
+    const callerUid = req.user?.uid;
+    if (!callerUid || !(await isUserAdminServer(callerUid))) {
+      return res.status(403).json({ error: "Forbidden: Admin access required." });
+    }
+
+    const { documentId } = req.params;
+    if (!documentId || typeof documentId !== "string") {
+      return res.status(400).json({ error: "Document ID is required." });
+    }
+
+    // STRICT path traversal check: strictly allow only alphanumeric and underscores for safe document IDs
+    if (!/^[a-zA-Z0-9_]+$/.test(documentId)) {
+      return res.status(400).json({ error: "Invalid Document ID structure (path traversal detected)." });
+    }
+
+    const safeDocId = documentId;
+
+    // DOCUMENT OWNERSHIP & AUTHORIZATION CHECK
+    // Verify that this document belongs to a legitimate registered recovery request
+    let docMeta: any = null;
+    const db = readDb();
+    const localRequests = db.account_recovery_requests || [];
+    for (const r of localRequests) {
+      const found = r.documents?.find((d: any) => d.documentId === safeDocId);
+      if (found) {
+        docMeta = found;
+        break;
+      }
+    }
+
+    if (!docMeta) {
+      try {
+        const snap = await adminDb.collection("accountRecoveryRequests").get();
+        if (snap && !snap.empty) {
+          for (const doc of snap.docs) {
+            const data = doc.data();
+            const found = data.documents?.find((d: any) => d.documentId === safeDocId);
+            if (found) {
+              docMeta = found;
+              break;
+            }
+          }
+        }
+      } catch (e) {}
+    }
+
+    // STRICT: If the document is not linked to an active, submitted request, deny access!
+    if (!docMeta) {
+      return res.status(403).json({ error: "Forbidden: Document does not belong to a legitimate recovery request." });
+    }
+
+    // Download the file from our safe persistent storage engine
+    let fileBuffer: Buffer;
+    try {
+      fileBuffer = await getDocumentFromPersistentStorage(safeDocId);
+    } catch (err: any) {
+      return res.status(404).json({ error: "Document file not found in persistent store." });
+    }
+
+    const mimeType = docMeta.mimeType || "application/octet-stream";
+    const originalName = docMeta.fileName || "document";
+
+    // Set high-security, safe download headers to prevent script/HTML injection
+    res.setHeader("X-Content-Type-Options", "nosniff");
+    res.setHeader("Content-Security-Policy", "default-src 'none';");
+    res.setHeader("Content-Type", mimeType);
+    res.setHeader("Content-Disposition", `inline; filename="${originalName}"`);
+
+    return res.send(fileBuffer);
+  } catch (err: any) {
+    console.error("Document download error:", err);
+    res.status(500).json({ error: err.message || "Failed to download document." });
+  }
+});
+
+// 3. Submit Account Recovery Request (User submission)
 app.post("/api/auth/recovery-request/submit", async (req, res) => {
   try {
     const {
@@ -5527,6 +5879,33 @@ app.post("/api/auth/recovery-request/submit", async (req, res) => {
     if (!email || typeof email !== "string" || !email.trim()) {
       return res.status(400).json({ success: false, error: "Email is required." });
     }
+
+    // Server-side safety verification on uploaded documents references
+    if (!documents || !Array.isArray(documents) || documents.length === 0) {
+      return res.status(400).json({ success: false, error: "An identity verification document is required." });
+    }
+
+    if (documents.length > 2) {
+      return res.status(400).json({ success: false, error: "Maximum 2 identity verification documents allowed." });
+    }
+
+    // STRICT Cryptographic verification of each document's upload token
+    for (const doc of documents) {
+      if (!doc.documentId || !doc.uploadToken) {
+        return res.status(400).json({ success: false, error: "Missing document verification details." });
+      }
+
+      // Check format to prevent path traversal injection
+      if (!/^[a-zA-Z0-9_]+$/.test(doc.documentId)) {
+        return res.status(400).json({ success: false, error: "Invalid document reference format." });
+      }
+
+      const isValid = await verifyPendingUpload(doc.documentId, doc.uploadToken);
+      if (!isValid) {
+        return res.status(400).json({ success: false, error: "Document reference integrity check failed. Unrecognized or hijacked file." });
+      }
+    }
+
     const normalizedEmail = email.trim().toLowerCase();
     const nowIso = new Date().toISOString();
     const requestId = `REQ-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
@@ -5543,11 +5922,23 @@ app.post("/api/auth/recovery-request/submit", async (req, res) => {
       previousWorkspaceInfo: (previousWorkspaceInfo || "").trim(),
       acceptedTerms: !!acceptedTerms,
       termsAcceptedAt: nowIso,
-      documents: Array.isArray(documents) ? documents : [],
+      documents: documents.map(d => ({
+        documentId: d.documentId,
+        storageReference: d.storageReference,
+        fileName: d.fileName,
+        mimeType: d.mimeType,
+        size: d.size,
+        uploadedAt: d.uploadedAt
+      })),
       status: "pending",
       submittedAt: nowIso,
       updatedAt: nowIso
     };
+
+    // Mark the pending uploads as associated so they won't be cleaned up as orphans
+    for (const doc of documents) {
+      await markUploadAssociated(doc.documentId, requestId);
+    }
 
     // Save to Firestore
     try {
