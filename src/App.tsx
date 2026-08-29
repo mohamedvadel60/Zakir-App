@@ -531,53 +531,8 @@ export default function App() {
       setAuthMode("login");
       return;
     }
-    try {
-      const res = await authenticatedFetch("/api/stripe/create-checkout-session", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          plan,
-          billingCycle: landingBillingCycle,
-          companyName: currentUser?.companyName || "Organization",
-        }),
-      });
-      const data = await res.json();
-      if (data.url) {
-        if (data.url.includes("checkout.stripe.com")) {
-          const newTab = window.open(data.url, "_blank");
-          if (!newTab || newTab.closed || typeof newTab.closed === "undefined") {
-            window.location.href = data.url;
-          }
-        } else if (data.url.includes("checkout=success")) {
-          const urlObj = new URL(data.url, window.location.origin);
-          const sessionId = urlObj.searchParams.get("session_id") || `cs_${Date.now()}`;
-          try {
-            const rcRes = await authenticatedFetch(`/api/stripe/receipt/${sessionId}?plan=${plan}&cycle=${landingBillingCycle}`);
-            const rcData = await rcRes.json();
-            if (rcData.receipt) {
-              setStripeReceiptData(rcData.receipt);
-            }
-          } catch (e) {
-            console.error("Landing receipt fetch error:", e);
-          }
-          if (currentUser) {
-            const updatedUser: User = {
-              ...currentUser,
-              subscriptionPlan: plan,
-              subscriptionStatus: "Active",
-              billingCycle: landingBillingCycle,
-              lastPaymentDate: new Date().toISOString(),
-              lastPaymentAmount: plan === "Starter" ? (landingBillingCycle === "annual" ? "$50.00 USD" : "$6.00 USD") : plan === "Enterprise" ? (landingBillingCycle === "annual" ? "$699.00 USD" : "$849.00 USD") : (landingBillingCycle === "annual" ? "$149.00 USD" : "$189.00 USD"),
-            };
-            setCurrentUser(updatedUser);
-          }
-        } else {
-          window.location.href = data.url;
-        }
-      }
-    } catch (err) {
-      console.error("Landing Stripe checkout error:", err);
-    }
+    setActiveTab("settings");
+    setSettingsActiveSubTab("subscription");
   };
 
   useEffect(() => {

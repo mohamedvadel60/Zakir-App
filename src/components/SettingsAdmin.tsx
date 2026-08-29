@@ -2986,12 +2986,13 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
                     </p>
                   </div>
                 ) : checkoutClientSecret && stripePromise && embeddedCheckoutOptions ? (
-                  <div className="p-2 rounded-2xl bg-white text-slate-900 border border-slate-200 min-h-[380px] overflow-hidden">
+                  <div key={checkoutClientSecret} className="p-2 rounded-2xl bg-white text-slate-900 border border-slate-200 min-h-[380px] overflow-hidden flex flex-col">
                     <PaymentErrorBoundary
                       lang={lang}
                       onRetry={() => handleStripeCheckout(selectedPlanForCheckout, true)}
                     >
                       <EmbeddedCheckoutProvider
+                        key={checkoutClientSecret}
                         stripe={stripePromise}
                         options={embeddedCheckoutOptions}
                       >

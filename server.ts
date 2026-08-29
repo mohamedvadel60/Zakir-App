@@ -389,7 +389,7 @@ app.post("/api/webhooks/resend", webhookLimiter, express.json(), (req, res) => {
 
 
 // STRIPE WEBHOOK ROUTE (Raw body parser before express.json)
-app.post("/api/stripe/webhook", webhookLimiter, express.raw({ type: "application/json" }), async (req, res) => {
+app.post(["/api/webhooks/stripe", "/api/stripe/webhook"], webhookLimiter, express.raw({ type: "application/json" }), async (req, res) => {
   const stripe = getStripe();
   const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
   let event: any;
@@ -397,17 +397,26 @@ app.post("/api/stripe/webhook", webhookLimiter, express.raw({ type: "application
   try {
     if (stripe && webhookSecret) {
       const sig = req.headers["stripe-signature"] as string;
+      if (!sig) {
+        console.warn("[Stripe Webhook] Missing stripe-signature header.");
+        return res.status(400).send("Webhook Error: Missing stripe-signature header.");
+      }
       event = stripe.webhooks.constructEvent(req.body, sig, webhookSecret);
+      console.log(`[Stripe Webhook] Event signature verified successfully: ${event.type} (id: ${event.id})`);
     } else {
+      if (!webhookSecret) {
+        console.warn("[Stripe Webhook] Warning: STRIPE_WEBHOOK_SECRET is not configured.");
+      }
       if (process.env.NODE_ENV === "production") {
         console.error("Stripe Webhook Error: Signature verification is strictly required in production mode.");
         return res.status(400).send("Webhook Error: Signature verification required.");
       }
       const bodyStr = req.body instanceof Buffer ? req.body.toString("utf-8") : JSON.stringify(req.body);
       event = JSON.parse(bodyStr || "{}");
+      console.log(`[Stripe Webhook] Development fallback payload parsed: ${event.type}`);
     }
   } catch (err: any) {
-    console.error(`Webhook Error: ${err.message}`);
+    console.error(`[Stripe Webhook] Signature verification failed: ${err.message}`);
     return res.status(400).send(`Webhook Error: ${err.message}`);
   }
 
@@ -420,6 +429,12 @@ app.post("/api/stripe/webhook", webhookLimiter, express.raw({ type: "application
         const cycle = session.metadata?.billingCycle || "annual";
         const userEmail = session.customer_details?.email || session.metadata?.userEmail;
 
+        console.log(`[Stripe Webhook] checkout.session.completed: userId=${userId}, plan=${plan}, cycle=${cycle}, customer=${session.customer}`);
+
+        const nextBill = new Date();
+        if (cycle === "annual") nextBill.setFullYear(nextBill.getFullYear() + 1);
+        else nextBill.setMonth(nextBill.getMonth() + 1);
+
         const db = readDb();
         const user = db.users.find((u: any) => u.id === userId || (userEmail && u.email?.toLowerCase() === userEmail.toLowerCase()));
         if (user) {
@@ -430,10 +445,11 @@ app.post("/api/stripe/webhook", webhookLimiter, express.raw({ type: "application
           user.stripeSubscriptionId = session.subscription;
           user.lastPaymentDate = new Date().toISOString();
           user.lastPaymentAmount = `$${((session.amount_total || 0) / 100).toFixed(2)} USD`;
+          user.nextBillingDate = nextBill.toISOString();
           writeDb(db);
         }
 
-        // Also sync subscription directly to Firestore user document
+        // Sync subscription directly to Firestore user document
         const targetFsUid = user?.id || userId;
         if (targetFsUid) {
           try {
@@ -444,18 +460,91 @@ app.post("/api/stripe/webhook", webhookLimiter, express.raw({ type: "application
               stripeCustomerId: session.customer,
               stripeSubscriptionId: session.subscription,
               lastPaymentDate: new Date().toISOString(),
-              lastPaymentAmount: `$${((session.amount_total || 0) / 100).toFixed(2)} USD`
+              lastPaymentAmount: `$${((session.amount_total || 0) / 100).toFixed(2)} USD`,
+              nextBillingDate: nextBill.toISOString()
             }, { merge: true });
+            console.log(`[Stripe Webhook] Firestore updated for user ${targetFsUid} -> Active (${plan})`);
           } catch (fsErr: any) {
             console.warn("Stripe webhook Firestore sync warning:", fsErr?.message);
           }
         }
         break;
       }
+      case "customer.subscription.created": {
+        const sub = event.data.object;
+        console.log(`[Stripe Webhook] customer.subscription.created: id=${sub.id}, customer=${sub.customer}, status=${sub.status}`);
+        const db = readDb();
+        const user = db.users.find((u: any) => u.stripeSubscriptionId === sub.id || u.stripeCustomerId === sub.customer);
+        if (user) {
+          user.stripeSubscriptionId = sub.id;
+          if (sub.status === "active" || sub.status === "trialing") {
+            user.subscriptionStatus = "Active";
+          }
+          writeDb(db);
+          try {
+            await adminDb.collection("users").doc(user.id).set({
+              stripeSubscriptionId: sub.id,
+              subscriptionStatus: user.subscriptionStatus
+            }, { merge: true });
+          } catch (fsErr: any) {
+            console.warn("Stripe webhook sub create Firestore sync warning:", fsErr?.message);
+          }
+        }
+        break;
+      }
+      case "customer.subscription.updated": {
+        const sub = event.data.object;
+        console.log(`[Stripe Webhook] customer.subscription.updated: id=${sub.id}, status=${sub.status}`);
+        const db = readDb();
+        const user = db.users.find((u: any) => u.stripeSubscriptionId === sub.id || u.stripeCustomerId === sub.customer);
+        if (user) {
+          const isActive = sub.status === "active" || sub.status === "trialing";
+          user.subscriptionStatus = isActive ? "Active" : sub.status === "past_due" ? "Past Due" : "Inactive";
+          if (sub.current_period_end) {
+            user.nextBillingDate = new Date(sub.current_period_end * 1000).toISOString();
+          }
+          writeDb(db);
+          try {
+            await adminDb.collection("users").doc(user.id).set({
+              subscriptionStatus: user.subscriptionStatus,
+              nextBillingDate: user.nextBillingDate || null
+            }, { merge: true });
+          } catch (fsErr: any) {
+            console.warn("Stripe webhook sub update Firestore sync warning:", fsErr?.message);
+          }
+        }
+        break;
+      }
+      case "customer.subscription.deleted": {
+        const sub = event.data.object;
+        console.log(`[Stripe Webhook] customer.subscription.deleted: id=${sub.id}`);
+        const db = readDb();
+        const user = db.users.find((u: any) => u.stripeSubscriptionId === sub.id || u.stripeCustomerId === sub.customer);
+        if (user) {
+          user.subscriptionPlan = undefined;
+          user.subscriptionStatus = "Inactive";
+          writeDb(db);
+        }
+
+        if (user?.id) {
+          try {
+            await adminDb.collection("users").doc(user.id).set({
+              subscriptionPlan: null,
+              subscriptionStatus: "Inactive"
+            }, { merge: true });
+            console.log(`[Stripe Webhook] Subscription marked Inactive for user ${user.id}`);
+          } catch (fsErr: any) {
+            console.warn("Stripe webhook Firestore sub delete warning:", fsErr?.message);
+          }
+        }
+        break;
+      }
+      case "invoice.paid":
       case "invoice.payment_succeeded": {
         const invoice = event.data.object;
         const customerId = invoice.customer;
         const subscriptionId = invoice.subscription;
+        console.log(`[Stripe Webhook] invoice payment succeeded: invoiceId=${invoice.id}, amount=${invoice.amount_paid}`);
         const db = readDb();
         const user = db.users.find((u: any) => 
           (subscriptionId && u.stripeSubscriptionId === subscriptionId) || 
@@ -478,51 +567,27 @@ app.post("/api/stripe/webhook", webhookLimiter, express.raw({ type: "application
         }
         break;
       }
-      case "customer.subscription.updated": {
-        const sub = event.data.object;
+      case "invoice.payment_failed": {
+        const invoice = event.data.object;
+        console.warn(`[Stripe Webhook] invoice payment failed: invoiceId=${invoice.id}, customer=${invoice.customer}`);
         const db = readDb();
-        const user = db.users.find((u: any) => u.stripeSubscriptionId === sub.id || u.stripeCustomerId === sub.customer);
+        const user = db.users.find((u: any) => u.stripeCustomerId === invoice.customer || (invoice.subscription && u.stripeSubscriptionId === invoice.subscription));
         if (user) {
-          const isActive = sub.status === "active" || sub.status === "trialing";
-          user.subscriptionStatus = isActive ? "Active" : "Inactive";
+          user.subscriptionStatus = "Past Due";
           writeDb(db);
           try {
             await adminDb.collection("users").doc(user.id).set({
-              subscriptionStatus: user.subscriptionStatus
+              subscriptionStatus: "Past Due"
             }, { merge: true });
-          } catch (fsErr: any) {
-            console.warn("Stripe webhook sub update Firestore sync warning:", fsErr?.message);
-          }
-        }
-        break;
-      }
-      case "customer.subscription.deleted": {
-        const sub = event.data.object;
-        const db = readDb();
-        const user = db.users.find((u: any) => u.stripeSubscriptionId === sub.id || u.stripeCustomerId === sub.customer);
-        if (user) {
-          user.subscriptionPlan = undefined;
-          user.subscriptionStatus = "Inactive";
-          writeDb(db);
-        }
-
-        if (user?.id) {
-          try {
-            await adminDb.collection("users").doc(user.id).set({
-              subscriptionPlan: null,
-              subscriptionStatus: "Inactive"
-            }, { merge: true });
-          } catch (fsErr: any) {
-            console.warn("Stripe webhook Firestore sub delete warning:", fsErr?.message);
-          }
+          } catch (fsErr: any) {}
         }
         break;
       }
       default:
-        console.log(`Received Stripe event ${event.type}`);
+        console.log(`[Stripe Webhook] Received Stripe event: ${event.type}`);
     }
   } catch (handlerErr) {
-    console.error("Error processing Stripe webhook event:", handlerErr);
+    console.error("[Stripe Webhook] Error processing Stripe webhook event:", handlerErr);
   }
 
   res.json({ received: true });
@@ -595,21 +660,38 @@ app.use((req, res, next) => {
 app.use(express.json());
 
 // --- STRIPE CHECKOUT & SUBSCRIPTION ENDPOINTS ---
+const inFlightCheckoutUsers = new Set<string>();
+
 app.get("/api/stripe/config", (req, res) => {
-  const pubKey = process.env.VITE_STRIPE_PUBLIC_KEY || process.env.STRIPE_PUBLIC_KEY || "";
+  const pubKey = process.env.VITE_STRIPE_PUBLISHABLE_KEY || process.env.VITE_STRIPE_PUBLIC_KEY || process.env.STRIPE_PUBLISHABLE_KEY || process.env.STRIPE_PUBLIC_KEY || "";
+  const hasSecretKey = Boolean(process.env.STRIPE_SECRET_KEY && process.env.STRIPE_SECRET_KEY.trim());
   res.json({
     publishableKey: pubKey,
-    hasSecretKey: !!process.env.STRIPE_SECRET_KEY
+    hasSecretKey: hasSecretKey,
+    mode: pubKey.startsWith("pk_test") ? "test" : "live"
   });
 });
 
 app.post("/api/stripe/create-checkout-session", requireAuth, async (req: AuthRequest, res) => {
-  try {
-    const authUserId = req.user?.uid || (req.user as any)?.user_id;
-    if (!authUserId) {
-      return res.status(401).json({ error: "تعذر التحقق من جلسة حسابك. يرجى تحديث الجلسة والمحاولة مرة أخرى." });
-    }
+  const authUserId = req.user?.uid || (req.user as any)?.user_id;
+  if (!authUserId) {
+    return res.status(401).json({ 
+      success: false,
+      error: "تعذر التحقق من جلسة حسابك. يرجى تحديث الجلسة والمحاولة مرة أخرى." 
+    });
+  }
 
+  // Concurrency guard to prevent multiple simultaneous session requests
+  if (inFlightCheckoutUsers.has(authUserId)) {
+    return res.status(429).json({
+      success: false,
+      error: "جاري معالجة طلب اشتراك سابق. يرجى الانتظار بضع ثوانٍ."
+    });
+  }
+
+  inFlightCheckoutUsers.add(authUserId);
+
+  try {
     const { plan = "Professional", billingCycle = "annual", companyName } = req.body;
 
     const db = readDb();
@@ -640,103 +722,163 @@ app.post("/api/stripe/create-checkout-session", requireAuth, async (req: AuthReq
     const monthlyRate = PLAN_PRICES[requestedPlan][requestedCycle];
     const unitAmountCents = Math.round(monthlyRate * 100);
 
-    // Required logging for verification (sensitive tokens, keys, and card data are strictly omitted)
-    console.log(`[Stripe Checkout] Payment request received: plan=${requestedPlan}, billingCycle=${requestedCycle}`);
-    console.log(`[Stripe Checkout] Authenticated user verified: uid=${authUserId}, email=${finalUserEmail}`);
-    console.log(`[Stripe Checkout] Firebase UID verified: ${finalUserId}`);
-    console.log(`[Stripe Checkout] Plan validated: ${requestedPlan} ($${monthlyRate})`);
-    console.log(`[Stripe Checkout] Stripe parameters validated: amount=${unitAmountCents} cents`);
+    console.log(`[Stripe Checkout] 1. Payment request received: plan=${requestedPlan}, cycle=${requestedCycle}, user=${finalUserId}`);
 
     const stripe = getStripe();
-
-    if (stripe) {
-      const sessionParams: Stripe.Checkout.SessionCreateParams = {
-        mode: "subscription",
-        payment_method_types: ["card"],
-        line_items: [
-          {
-            price_data: {
-              currency: "usd",
-              product_data: {
-                name: `Zakir ${requestedPlan} Plan (${requestedCycle === "annual" ? "Annual Billing - Save 20%" : "Monthly Billing"})`,
-                description: `Institutional Causal Memory Engine & AI Risk Intelligence Suite for ${finalCompanyName}.`,
-              },
-              unit_amount: unitAmountCents,
-              recurring: {
-                interval: requestedCycle === "annual" ? "year" : "month",
-                interval_count: 1,
-              },
-            },
-            quantity: 1,
-          },
-        ],
-        client_reference_id: finalUserId,
-        metadata: {
-          userId: finalUserId,
-          userEmail: finalUserEmail,
-          companyName: finalCompanyName,
-          plan: requestedPlan,
-          billingCycle: requestedCycle,
-        },
-        ui_mode: "embedded",
-        redirect_on_completion: "never",
-      };
-
-      if (user?.stripeCustomerId) {
-        try {
-          const existingCust = await stripe.customers.retrieve(user.stripeCustomerId);
-          if (existingCust && !("deleted" in existingCust && existingCust.deleted)) {
-            sessionParams.customer = user.stripeCustomerId;
-          } else if (finalUserEmail) {
-            sessionParams.customer_email = finalUserEmail;
-          }
-        } catch {
-          if (finalUserEmail) {
-            sessionParams.customer_email = finalUserEmail;
-          }
-        }
-      } else if (finalUserEmail) {
-        sessionParams.customer_email = finalUserEmail;
-      }
-
-      let session: Stripe.Checkout.Session;
-      try {
-        session = await stripe.checkout.sessions.create(sessionParams);
-      } catch (uiErr: any) {
-        if (uiErr?.message && uiErr.message.includes("ui_mode: embedded")) {
-          session = await stripe.checkout.sessions.create({
-            ...sessionParams,
-            ui_mode: "embedded_page" as any,
-          });
-        } else {
-          throw uiErr;
-        }
-      }
-
-      console.log(`[Stripe Checkout] Checkout Session created: sessionId=${session.id}`);
-      console.log(`[Stripe Checkout] client_secret returned successfully`);
-
-      db.stripe_sessions = db.stripe_sessions || {};
-      db.stripe_sessions[session.id] = finalUserId;
-      writeDb(db);
-
-      return res.json({
-        success: true,
-        sessionId: session.id,
-        clientSecret: session.client_secret,
-        publishableKey: process.env.VITE_STRIPE_PUBLIC_KEY || process.env.STRIPE_PUBLIC_KEY || "",
+    if (!stripe) {
+      console.warn("[Stripe Checkout] Stripe configuration missing: STRIPE_SECRET_KEY is not defined or invalid.");
+      return res.status(400).json({
+        success: false,
+        error: "خادم الدفع غير مهيأ حالياً (STRIPE_SECRET_KEY مفقود). يرجى التواصل مع إدارة النظام.",
       });
     }
 
-    console.warn("[Stripe Checkout] Stripe is not configured on the server. STRIPE_SECRET_KEY is missing.");
-    return res.status(400).json({
-      success: false,
-      error: "Stripe is not configured on the server. Please provide STRIPE_SECRET_KEY.",
+    // Check for duplicate active subscription
+    if (user?.subscriptionStatus === "Active" && user?.stripeSubscriptionId) {
+      try {
+        const activeSub = await stripe.subscriptions.retrieve(user.stripeSubscriptionId);
+        if (activeSub && (activeSub.status === "active" || activeSub.status === "trialing")) {
+          console.warn(`[Stripe Checkout] User ${finalUserId} already has active subscription ${activeSub.id}`);
+          return res.status(400).json({
+            success: false,
+            code: "SUBSCRIPTION_ALREADY_ACTIVE",
+            error: "لديك بالفعل اشتراك نشط في منصة Zakir. يمكنك إدارة خطتك الحالية أو ترقيتها من صفحة الإعدادات.",
+          });
+        }
+      } catch (subCheckErr) {
+        console.warn("[Stripe Checkout] Active subscription check notice:", subCheckErr);
+      }
+    }
+
+    // Customer Management: Look up or create customer
+    let stripeCustomerId = user?.stripeCustomerId;
+    if (stripeCustomerId) {
+      try {
+        const existingCust = await stripe.customers.retrieve(stripeCustomerId);
+        if (existingCust && !("deleted" in existingCust && existingCust.deleted)) {
+          console.log(`[Stripe Checkout] Found existing Stripe Customer: ${stripeCustomerId}`);
+        } else {
+          stripeCustomerId = null;
+        }
+      } catch {
+        stripeCustomerId = null;
+      }
+    }
+
+    if (!stripeCustomerId && finalUserEmail) {
+      try {
+        const newCust = await stripe.customers.create({
+          email: finalUserEmail,
+          name: finalCompanyName,
+          metadata: {
+            zakirUserId: finalUserId,
+            userId: finalUserId
+          }
+        });
+        stripeCustomerId = newCust.id;
+        console.log(`[Stripe Checkout] Created new Stripe Customer: ${stripeCustomerId}`);
+
+        if (user) {
+          user.stripeCustomerId = stripeCustomerId;
+          writeDb(db);
+        }
+        try {
+          await adminDb.collection("users").doc(finalUserId).set({ stripeCustomerId }, { merge: true });
+        } catch (fsCustErr) {
+          console.warn("[Stripe Checkout] Firestore customer id save notice:", fsCustErr);
+        }
+      } catch (createCustErr: any) {
+        console.warn("[Stripe Checkout] Customer creation notice:", createCustErr?.message);
+      }
+    }
+
+    // Price ID Resolution
+    let resolvedPriceId: string | null = null;
+    const envPriceId = requestedCycle === "annual" 
+      ? (process.env.STRIPE_YEARLY_PRICE_ID || process.env.STRIPE_ANNUAL_PRICE_ID)
+      : (process.env.STRIPE_MONTHLY_PRICE_ID);
+
+    if (envPriceId && envPriceId.trim().startsWith("price_")) {
+      try {
+        const retrievedPrice = await stripe.prices.retrieve(envPriceId.trim());
+        if (retrievedPrice && retrievedPrice.active && retrievedPrice.type === "recurring") {
+          resolvedPriceId = retrievedPrice.id;
+          console.log(`[Stripe Checkout] Using verified environment Price ID: ${resolvedPriceId}`);
+        }
+      } catch (priceCheckErr) {
+        console.warn(`[Stripe Checkout] Environment price ID ${envPriceId} could not be retrieved from Stripe, falling back to dynamic price_data`);
+      }
+    }
+
+    // Build Line Items
+    const lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] = resolvedPriceId
+      ? [{ price: resolvedPriceId, quantity: 1 }]
+      : [{
+          price_data: {
+            currency: "usd",
+            product_data: {
+              name: `Zakir ${requestedPlan} Plan (${requestedCycle === "annual" ? "Annual Billing - Save 20%" : "Monthly Billing"})`,
+              description: `Institutional Causal Memory Engine & Decision Intelligence Suite for ${finalCompanyName}.`,
+            },
+            unit_amount: unitAmountCents,
+            recurring: {
+              interval: requestedCycle === "annual" ? "year" : "month",
+              interval_count: 1,
+            },
+          },
+          quantity: 1,
+        }];
+
+    // Build Session Parameters with ui_mode: "embedded" and return_url
+    const returnUrl = `${baseUrl}/?view=settings&tab=subscription&session_id={CHECKOUT_SESSION_ID}`;
+    const sessionParams: Stripe.Checkout.SessionCreateParams = {
+      mode: "subscription",
+      payment_method_types: ["card"],
+      line_items: lineItems,
+      client_reference_id: finalUserId,
+      metadata: {
+        userId: finalUserId,
+        userEmail: finalUserEmail,
+        companyName: finalCompanyName,
+        plan: requestedPlan,
+        billingCycle: requestedCycle,
+      },
+      ui_mode: "embedded",
+      return_url: returnUrl,
+    };
+
+    if (stripeCustomerId) {
+      sessionParams.customer = stripeCustomerId;
+    } else if (finalUserEmail) {
+      sessionParams.customer_email = finalUserEmail;
+    }
+
+    console.log(`[Stripe Checkout] Creating Embedded Checkout Session for user ${finalUserId}...`);
+    const session = await stripe.checkout.sessions.create(sessionParams);
+
+    console.log(`[Stripe Checkout] Checkout Session created successfully: id=${session.id}`);
+
+    db.stripe_sessions = db.stripe_sessions || {};
+    db.stripe_sessions[session.id] = finalUserId;
+    writeDb(db);
+
+    const publishableKey = process.env.VITE_STRIPE_PUBLISHABLE_KEY || process.env.VITE_STRIPE_PUBLIC_KEY || process.env.STRIPE_PUBLISHABLE_KEY || process.env.STRIPE_PUBLIC_KEY || "";
+
+    return res.json({
+      success: true,
+      sessionId: session.id,
+      clientSecret: session.client_secret,
+      publishableKey: publishableKey,
     });
 
   } catch (err: any) {
-    console.error("Error creating Stripe checkout session:", err);
-    res.status(500).json({ error: err.message || "Failed to initiate Stripe Checkout" });
+    console.error("[Stripe Checkout] Error creating Stripe checkout session:", err);
+    res.status(500).json({ 
+      success: false,
+      error: err.message || "Failed to initiate Stripe Checkout" 
+    });
+  } finally {
+    inFlightCheckoutUsers.delete(authUserId);
   }
 });
 
@@ -1601,39 +1743,36 @@ export async function resolveUserByEmailOrId(params: {
       }
     } catch (err) {}
 
-    // d) Check soft-deleted users in accountLifecycle / users_retained
+    // d) Check soft-deleted users in accountLifecycle / users_retained / deletedUsers
     try {
-      const lcDoc = await adminDb.collection("accountLifecycle").doc(normalizedEmail).get();
-      if (lcDoc.exists) {
-        const lcData = lcDoc.data();
-        if (lcData?.originalUserId) {
-          let retainedData: any = null;
-          try {
-            const retSnap = await adminDb.collection("users_retained").doc(lcData.originalUserId).get();
-            if (retSnap.exists) {
-              retainedData = retSnap.data();
-            }
-          } catch (e) {}
-          if (!retainedData) {
-            const db = readDb();
-            retainedData = db.retained_users?.find((u: any) => u.id === lcData.originalUserId || u.email?.toLowerCase() === normalizedEmail);
+      const lifecycleRecord = await getAccountLifecycleRecord(normalizedEmail);
+      if (lifecycleRecord && lifecycleRecord.originalUserId) {
+        let retainedData: any = null;
+        try {
+          const retSnap = await adminDb.collection("users_retained").doc(lifecycleRecord.originalUserId).get();
+          if (retSnap.exists) {
+            retainedData = retSnap.data();
           }
-
-          console.info("OTP USER RESOLUTION (RETAINED LIFECYCLE)", {
-            email: normalizedEmail,
-            firestoreUserFound: Boolean(retainedData),
-            resolvedUserId: lcData.originalUserId,
-            source: "account_lifecycle_retained"
-          });
-
-          return {
-            userId: lcData.originalUserId,
-            email: normalizedEmail,
-            phone: retainedData?.phone || inputPhone,
-            userDoc: retainedData || { email: normalizedEmail, role: "CEO" },
-            source: "account_lifecycle_retained"
-          };
+        } catch (e) {}
+        if (!retainedData) {
+          const db = readDb();
+          retainedData = db.retained_users?.find((u: any) => u.id === lifecycleRecord.originalUserId || u.email?.toLowerCase() === normalizedEmail);
         }
+
+        console.info("OTP USER RESOLUTION (RETAINED LIFECYCLE)", {
+          email: normalizedEmail,
+          firestoreUserFound: Boolean(retainedData),
+          resolvedUserId: lifecycleRecord.originalUserId,
+          source: "account_lifecycle_retained"
+        });
+
+        return {
+          userId: lifecycleRecord.originalUserId,
+          email: normalizedEmail,
+          phone: retainedData?.phone || inputPhone,
+          userDoc: retainedData || { email: normalizedEmail, role: "CEO" },
+          source: "account_lifecycle_retained"
+        };
       }
     } catch (lcErr) {}
   }
@@ -1708,17 +1847,70 @@ export async function resolveUserByEmailOrId(params: {
 
 // Send Dynamic Verification Code (Email/SMS)
 app.post("/api/auth/send-verification-code", otpLimiter, async (req, res) => {
+  const isRecovery = req.body.type === "account_recovery";
+  const recoveryRequestId = isRecovery ? `RECOVERY-${crypto.randomBytes(4).toString("hex").toUpperCase()}` : null;
+
   try {
     const { email, phone, type = "account_registration", userId } = req.body;
     if (!email && !phone && !userId) {
+      if (isRecovery) {
+        console.warn(`[RECOVERY] FAILED (id: ${recoveryRequestId}, stage: "input_validation", error: "Missing email/phone/userId")`);
+      }
       return res.status(400).json({ error: "Email, phone, or userId is required" });
+    }
+
+    if (isRecovery) {
+      console.log(`[RECOVERY] request received (id: ${recoveryRequestId}, type: ${type})`);
     }
 
     const resolvedUser = await resolveUserByEmailOrId({ userId, email, phone });
     const targetIdentifier = resolvedUser.email || (email || phone || "").trim().toLowerCase();
-    const foundUid = resolvedUser.userId;
+    let foundUid = resolvedUser.userId;
+
+    // For account recovery, check lifecycle records explicitly
+    let lifecycleRecord: any = null;
+    if (isRecovery && targetIdentifier) {
+      lifecycleRecord = await getAccountLifecycleRecord(targetIdentifier);
+      if (lifecycleRecord) {
+        console.log(`[RECOVERY] deleted account found (id: ${recoveryRequestId}, userId: ${lifecycleRecord.originalUserId || foundUid || "known"}, status: ${lifecycleRecord.status})`);
+        
+        if (lifecycleRecord.status === "PURGED" || (lifecycleRecord.restoreUntil && Date.now() > new Date(lifecycleRecord.restoreUntil).getTime())) {
+          console.warn(`[RECOVERY] FAILED (id: ${recoveryRequestId}, stage: "lifecycle_check", error: "RESTORE_EXPIRED")`);
+          return res.status(400).json({
+            success: false,
+            code: "RESTORE_EXPIRED",
+            error: "انتهت مهلة 31 يوماً المتاحة لاستعادة هذا الحساب. تم حذف البيانات بشكل نهائي ولم يعد قابلاً للاستعادة.",
+            userFriendlyMessage: "انتهت فترة استعادة الحساب المحددة بـ 31 يوماً."
+          });
+        }
+
+        if (lifecycleRecord.status === "ADMIN_DELETED" || lifecycleRecord.deletionType === "admin") {
+          console.warn(`[RECOVERY] FAILED (id: ${recoveryRequestId}, stage: "lifecycle_check", error: "ADMIN_APPROVAL_REQUIRED")`);
+          return res.status(400).json({
+            success: false,
+            code: "ADMIN_APPROVAL_REQUIRED",
+            error: "هذا الحساب تم حذفه أو إيقافه بواسطة إدارة المنصة. يرجى تقديم طلب استعادة للمسؤول.",
+            userFriendlyMessage: "هذا الحساب يتطلب موافقة إدارة المنصة للاستعادة."
+          });
+        }
+
+        if (!foundUid) {
+          foundUid = lifecycleRecord.originalUserId || `usr_${targetIdentifier.replace(/[^a-zA-Z0-9]/g, '_')}`;
+        }
+        console.log(`[RECOVERY] recovery allowed (id: ${recoveryRequestId})`);
+      }
+    }
 
     if (!foundUid) {
+      if (isRecovery) {
+        console.warn(`[RECOVERY] FAILED (id: ${recoveryRequestId}, stage: "user_lookup", error: "DELETED_ACCOUNT_NOT_FOUND")`);
+        return res.status(400).json({
+          success: false,
+          error: "لا يوجد حساب محذوف قابل للاستعادة بهذا البريد الإلكتروني.",
+          userFriendlyMessage: "لا يوجد حساب محذوف قابل للاستعادة بهذا البريد الإلكتروني."
+        });
+      }
+
       console.warn("OTP_SEND_FAILED", {
         reason: "USER_NOT_FOUND",
         userId: null,
@@ -1764,6 +1956,9 @@ app.post("/api/auth/send-verification-code", otpLimiter, async (req, res) => {
         if (nowMs < cooldownUntilMs) {
           const remainingSecs = Math.ceil((cooldownUntilMs - nowMs) / 1000);
           console.log(`[OTP COOLDOWN ACTIVE] User ${docId} is in 10-min cooldown for ${remainingSecs}s.`);
+          if (isRecovery) {
+            console.warn(`[RECOVERY] FAILED (id: ${recoveryRequestId}, stage: "cooldown", remaining: ${remainingSecs}s)`);
+          }
           return res.status(400).json({
             success: false,
             error: "You've reached the maximum number of code requests. Please wait a few minutes before requesting a new verification code.",
@@ -1800,6 +1995,10 @@ app.post("/api/auth/send-verification-code", otpLimiter, async (req, res) => {
         db.verification_codes.push(updatedCooldownRecord);
         writeDb(db);
 
+        if (isRecovery) {
+          console.warn(`[RECOVERY] FAILED (id: ${recoveryRequestId}, stage: "max_sends_cooldown")`);
+        }
+
         return res.status(400).json({
           success: false,
           error: "You've reached the maximum number of code requests. Please wait a few minutes before requesting a new verification code.",
@@ -1815,6 +2014,9 @@ app.post("/api/auth/send-verification-code", otpLimiter, async (req, res) => {
         const timeSinceLastSent = nowMs - new Date(existingRecord.lastSentAt).getTime();
         if (timeSinceLastSent < 30 * 1000) {
           const waitRemaining = Math.ceil((30 * 1000 - timeSinceLastSent) / 1000);
+          if (isRecovery) {
+            console.warn(`[RECOVERY] FAILED (id: ${recoveryRequestId}, stage: "throttle_30s", remaining: ${waitRemaining}s)`);
+          }
           return res.status(400).json({
             success: false,
             error: `Please wait ${waitRemaining}s before requesting a new verification code.`,
@@ -1829,6 +2031,10 @@ app.post("/api/auth/send-verification-code", otpLimiter, async (req, res) => {
     const otpCode = crypto.randomInt(100000, 1000000).toString();
     const codeHash = hashVerificationCode(otpCode);
     const expiresAt = new Date(nowMs + 10 * 60 * 1000).toISOString(); // 10 minutes expiry
+
+    if (isRecovery) {
+      console.log(`[RECOVERY] OTP generated (id: ${recoveryRequestId}, generated: true)`);
+    }
 
     let reqName = req.body.name || req.body.userName || req.body.ownerName || req.body.fullName || "";
     let firestoreUserData = resolvedUser.userDoc;
@@ -1850,15 +2056,29 @@ app.post("/api/auth/send-verification-code", otpLimiter, async (req, res) => {
       type: type
     });
 
+    if (isRecovery) {
+      console.log(`[RECOVERY] email send started (id: ${recoveryRequestId}, provider: Resend)`);
+    }
+
     // Dispatch OTP email (via Resend or graceful local simulation fallback)
     const mailResult = await sendSystemMail(targetIdentifier, emailSubject, textBody, htmlBody);
     
     if (!mailResult.success && !mailResult.simulated) {
       console.error("[OTP DELIVERY FAILURE]", mailResult.error);
+      if (isRecovery) {
+        console.error(`[RECOVERY] FAILED (id: ${recoveryRequestId}, stage: "email_dispatch", error: ${mailResult.error?.message || mailResult.error || "Unknown"})`);
+      }
       return res.status(500).json({ 
         success: false, 
-        error: "تعذر إرسال رمز الاستعادة. حاول مرة أخرى." 
+        error: "تعذر إرسال رمز الاستعادة. يرجى المحاولة مرة أخرى.",
+        userFriendlyMessage: "تعذر إرسال رمز الاستعادة. يرجى المحاولة مرة أخرى."
       });
+    }
+
+    if (isRecovery) {
+      const resStatus = mailResult.success ? 200 : (mailResult.error?.statusCode || 500);
+      const resMsgId = mailResult.messageId || "none";
+      console.log(`[RECOVERY] Resend response status: ${resStatus}, message ID: ${resMsgId}`);
     }
 
     const emailSent = !mailResult.simulated;
@@ -1889,20 +2109,31 @@ app.post("/api/auth/send-verification-code", otpLimiter, async (req, res) => {
 
     console.log("Saving OTP for Doc ID:", docId, "Count:", newSendCount, "Name:", resolvedUserName || "(none)");
 
-    // Save record to Firestore and local JSON db
+    // Save record to Firestore and local JSON db under both UID and email to ensure seamless recovery verification
     try {
       await adminDb.collection("verification_codes").doc(docId).set(record);
+      if (docId !== targetIdentifier) {
+        await adminDb.collection("verification_codes").doc(targetIdentifier).set({ ...record, id: targetIdentifier });
+      }
     } catch (dbErr) {
       console.error("Failed to write to Firestore verification_codes:", dbErr);
     }
 
     try {
       if (!db.verification_codes) db.verification_codes = [];
-      db.verification_codes = db.verification_codes.filter((vc: any) => vc.id !== docId);
+      db.verification_codes = db.verification_codes.filter((vc: any) => vc.id !== docId && vc.id !== targetIdentifier);
       db.verification_codes.push(record);
+      if (docId !== targetIdentifier) {
+        db.verification_codes.push({ ...record, id: targetIdentifier });
+      }
       writeDb(db);
     } catch (err) {
       console.warn("Fallback JSON DB write failed:", err);
+    }
+
+    if (isRecovery) {
+      console.log(`[RECOVERY] OTP stored (id: ${recoveryRequestId}, docId: ${docId})`);
+      console.log(`[RECOVERY] email send completed (id: ${recoveryRequestId})`);
     }
 
     console.log(`[VERIFICATION CODE RECORDED] Target: ${targetIdentifier} | Code: [SECURE 6-DIGITS RECORDED] | Send Count: ${newSendCount}`);
@@ -1918,6 +2149,9 @@ app.post("/api/auth/send-verification-code", otpLimiter, async (req, res) => {
       sendCountRemaining: Math.max(0, 3 - newSendCount)
     });
   } catch (error: any) {
+    if (isRecovery) {
+      console.error(`[RECOVERY] FAILED (id: ${recoveryRequestId}, stage: "exception", error: ${error?.message || String(error)})`);
+    }
     console.error("Verification Sending Error:", error);
     return res.status(500).json({ success: false, error: error?.message || "Failed to generate verification code" });
   }
