@@ -1374,6 +1374,20 @@ function hashVerificationCode(code: string): string {
 }
 
 /**
+ * Safely masks email addresses for diagnostic logging (e.g. m***@example.com)
+ */
+function maskEmail(email?: string | null): string {
+  if (!email || typeof email !== "string") return "u***@example.com";
+  const trimmed = email.trim();
+  const parts = trimmed.split("@");
+  if (parts.length !== 2) return "***@***";
+  const name = parts[0];
+  const domain = parts[1];
+  const maskedName = name.length > 2 ? `${name[0]}***${name[name.length - 1]}` : (name.length === 2 ? `${name[0]}*` : "*");
+  return `${maskedName}@${domain}`;
+}
+
+/**
  * Sanitizes and validates user names for dynamic email templates.
  * Returns empty string if the name is a generic placeholder or invalid.
  */
@@ -2246,9 +2260,10 @@ app.post("/api/auth/send-verification-code", otpLimiter, async (req, res) => {
     }
 
     if (isRecovery) {
-      const resStatus = mailResult.success ? 200 : (mailResult.error?.statusCode || 500);
+      const resStatus = mailResult.success ? 200 : (mailResult.statusCode || 500);
       const resMsgId = mailResult.messageId || "none";
-      console.log(`[RECOVERY] Resend response status: ${resStatus}, message ID: ${resMsgId}`);
+      console.log(`Recovery email Resend ID: ${resMsgId}`);
+      console.log(`[RECOVERY] Resend response status: ${resStatus}, recipient: ${maskEmail(targetIdentifier)}, message ID: ${resMsgId}`);
     }
 
     const emailSent = !mailResult.simulated;

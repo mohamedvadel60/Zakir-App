@@ -1561,7 +1561,7 @@ export async function fetchAllUsersForAdmin(): Promise<AdminUserRecord[]> {
  */
 export async function checkAccountLifecycleApi(email: string) {
   try {
-    const res = await fetch("/api/auth/check-lifecycle", {
+    const res = await fetch(getAuthApiUrl("/api/auth/check-lifecycle"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email })
@@ -1575,7 +1575,7 @@ export async function checkAccountLifecycleApi(email: string) {
 
 export async function requestAccountReactivationApi(email: string, reason?: string) {
   try {
-    const res = await fetch("/api/auth/request-reactivation", {
+    const res = await fetch(getAuthApiUrl("/api/auth/request-reactivation"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email, reason })
@@ -1589,7 +1589,7 @@ export async function requestAccountReactivationApi(email: string, reason?: stri
 
 export async function sendAccountRecoveryOtpApi(email: string) {
   try {
-    const res = await fetch("/api/auth/send-verification-code", {
+    const res = await fetch(getAuthApiUrl("/api/auth/send-verification-code"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email: email.trim().toLowerCase(), type: "account_recovery" })
@@ -1603,7 +1603,7 @@ export async function sendAccountRecoveryOtpApi(email: string) {
 
 export async function restoreAccountApi(email: string, code: string, password?: string) {
   try {
-    const res = await fetch("/api/auth/restore-account", {
+    const res = await fetch(getAuthApiUrl("/api/auth/restore-account"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ 
