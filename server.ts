@@ -15,7 +15,7 @@ import { users as sqlUsers, gmailLogs } from "./src/db/schema.js";
 import { getOrCreateUser } from "./src/db/users.js";
 import { requireAuth, requireAdmin, isUserAdminServer, AuthRequest } from "./src/middleware/auth.js";
 import { createRateLimiter } from "./src/middleware/rateLimiter.js";
-import { adminAuth, adminDb } from "./src/lib/firebase-admin.js";
+import { adminAuth, adminDb, isFirebaseAdminAvailable } from "./src/lib/firebase-admin.js";
 import { eq, desc } from "drizzle-orm";
 import { generateWorldBankFallbackData } from "./src/lib/worldBankFallback.js";
 import { Resvg } from "@resvg/resvg-js";
@@ -1226,6 +1226,7 @@ async function sendSystemMail(
   userFriendlyMessage?: string;
   provider?: string;
   sender?: string;
+  statusCode?: number;
 }> {
   let to: string;
   let subject: string;
@@ -1251,9 +1252,11 @@ async function sendSystemMail(
     text = "";
   }
 
-  let fromSender = (process.env.EMAIL_FROM || "").trim();
+  let fromSender = (process.env.RESEND_FROM || process.env.EMAIL_FROM || "").trim();
   if (!fromSender || fromSender.includes("yourdomain.com") || fromSender.includes("example.com")) {
     fromSender = "Zakir Platform <onboarding@resend.dev>";
+  } else if (!fromSender.includes("<")) {
+    fromSender = `Zakir Platform <${fromSender}>`;
   }
 
   try {
@@ -1271,19 +1274,6 @@ async function sendSystemMail(
     console.log(`[EMAIL DISPATCH ATTEMPT] To: ${to} | Subject: "${subject}" | Sender: ${fromSender}`);
 
     const attachments: any[] = [...userAttachments];
-
-    // Attach official PNG logo as CID inline image if referenced in HTML
-    if (html.includes("cid:zakir-logo")) {
-      const logoBuf = getOfficialPngLogo();
-      if (logoBuf && logoBuf.length > 0) {
-        attachments.push({
-          filename: "logo.png",
-          content: logoBuf,
-          contentId: "zakir-logo",
-          contentType: "image/png"
-        });
-      }
-    }
 
     const emailPayload: any = {
       from: fromSender,
@@ -1318,35 +1308,52 @@ async function sendSystemMail(
     const response = await resend.emails.send(emailPayload);
 
     if (response.error) {
+      const errStatus = (response.error as any).statusCode || (response.error as any).status || 400;
       console.error("[EMAIL DELIVERY FAILURE]", {
-        code: response.error.statusCode || response.error.name,
+        code: response.error.name || "RESEND_ERROR",
         message: response.error.message,
         provider: "Resend",
-        httpStatus: response.error.statusCode || 400
+        httpStatus: errStatus
       });
 
       return {
         success: false,
-        error: response.error.message || "Failed to deliver email"
+        error: response.error,
+        statusCode: errStatus,
+        userFriendlyMessage: "تعذر إرسال رمز الاستعادة. يرجى المحاولة مرة أخرى."
       };
     }
 
-    console.log(`[EMAIL SENT SUCCESS] ID: ${response.data?.id} to ${to} via ${fromSender}`);
+    if (response.data && response.data.id) {
+      console.log(`[EMAIL SENT SUCCESS] ID: ${response.data.id} to ${to} via ${fromSender}`);
+      return {
+        success: true,
+        messageId: response.data.id,
+        statusCode: 200,
+        provider: "resend"
+      };
+    }
+
     return {
-      success: true,
-      messageId: response.data?.id,
-      provider: "resend"
+      success: false,
+      error: new Error("No message ID returned from Resend"),
+      statusCode: 500,
+      userFriendlyMessage: "تعذر إرسال رمز الاستعادة. يرجى المحاولة مرة أخرى."
     };
 
   } catch (resendErr: any) {
+    const errStatus = resendErr?.statusCode || resendErr?.status || 500;
     console.error("[EMAIL DELIVERY EXCEPTION]", {
-      code: resendErr?.statusCode || resendErr?.code || "UNKNOWN",
+      code: resendErr?.code || resendErr?.name || "UNKNOWN",
       message: resendErr?.message || String(resendErr),
-      provider: "Resend"
+      provider: "Resend",
+      httpStatus: errStatus
     });
     return {
       success: false,
-      error: "Exception during email delivery"
+      error: resendErr,
+      statusCode: errStatus,
+      userFriendlyMessage: "تعذر إرسال رمز الاستعادة. يرجى المحاولة مرة أخرى."
     };
   }
 }
@@ -1397,158 +1404,88 @@ function cleanUserName(rawName?: string, email?: string): string {
   return trimmed;
 }
 
-export interface BuildOtpEmailOptions {
-  email: string;
-  userName?: string;
-  otpCode: string;
-  type?: "account_registration" | "password_reset" | "email_verification" | "email_link" | string;
-  baseUrl?: string;
+function escapeHtml(str: string): string {
+  if (!str) return "";
+  return String(str)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
 }
 
-/**
- * Generates clean, high-precision, 100% English SaaS HTML email template matching Zakir's visual identity.
- * Specifications: White background (#FFFFFF), dark text (#0F172A / #334155), Zakir brand blue (#0075DE) rectangular OTP container.
- */
-function buildOtpEmailHtml(options: BuildOtpEmailOptions): { subject: string; text: string; html: string } {
-  const { email, userName, otpCode, type = "account_registration" } = options;
-  const cleanName = cleanUserName(userName, email);
-  const appBaseUrl = options.baseUrl || getAppBaseUrl();
-  const emailLogoUrl = `${appBaseUrl}/api/logo.png`;
-
-  const isReset = type === "password_reset";
-  const isLink = type === "email_link";
-  const isRecovery = type === "account_recovery";
-
-  // Subject (100% English ONLY)
-  let subject = "Your Zakir Verification Code";
-  if (isReset) {
-    subject = "Reset your Zakir password";
-  } else if (isLink) {
-    subject = "Link your Email Account to Zakir";
-  } else if (isRecovery) {
-    subject = `Restore your Zakir account: ${otpCode.trim()}`;
-  }
-
-  // Greeting
-  const greeting = cleanName ? `Hello ${cleanName},` : `Hello,`;
-
-  // Dynamic Titles & Introductions
-  let actionTitle = "Verify Your Email";
-  if (isReset) {
-    actionTitle = "Reset Your Password";
-  } else if (isLink) {
-    actionTitle = "Link Email Account";
-  } else if (isRecovery) {
-    actionTitle = "Restore Your Account";
-  }
-
-  let introText = "Welcome to Zakir. Use the verification code below to complete your verification and activate your account:";
-  if (isReset) {
-    introText = "We received a request to reset the password for your Zakir account. Use the verification code below to set a new password:";
-  } else if (isLink) {
-    introText = "We received a request to link this email account to your Zakir profile. Use the verification code below to complete the secure verification:";
-  } else if (isRecovery) {
-    introText = "We received a request to restore your previously deleted Zakir account and retained workspace data. Use the verification code below to securely verify your identity and restore your account:";
-  }
-
-  // OTP Code without spaces
-  const cleanCode = otpCode.trim();
-
-  // Plain Text Version
-  const textBody = `${greeting}\n\n${introText}\n\n[ ${cleanCode} ]\n\nThis code expires in 10 minutes.\n\nFor your security: Never share this code with anyone. The Zakir team will never ask for your verification code.\n\nIf you didn't request this code, you can safely ignore this email.\n\nThe Zakir Team`;
-
-  // Production-grade HTML Email (Gmail, Outlook, Apple Mail, Yahoo, Mobile/Desktop Compatible)
-  const html = `<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+function buildMasterEmailHtml(options: {
+  subject: string;
+  title: string;
+  greeting?: string;
+  bodyHtml: string;
+  securityNote?: string;
+}): string {
+  const { subject, title, greeting, bodyHtml, securityNote } = options;
+  return `<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml" lang="en">
 <head>
   <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <meta name="x-apple-disable-message-reformatting" />
-  <title>${subject}</title>
+  <title>${escapeHtml(subject)}</title>
 </head>
-<body style="margin: 0; padding: 0; background-color: #ffffff; font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #0f172a; -webkit-font-smoothing: antialiased; word-spacing: normal;">
-  <table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #ffffff; table-layout: fixed;">
+<body style="margin: 0; padding: 0; background-color: #f8fafc; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #0f172a; -webkit-font-smoothing: antialiased;">
+  <table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #f8fafc; table-layout: fixed; padding: 40px 16px;">
     <tr>
-      <td align="center" style="padding: 40px 16px;">
-        <table border="0" cellpadding="0" cellspacing="0" width="100%" style="max-width: 520px; background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);">
+      <td align="center">
+        <!-- Master Card -->
+        <table border="0" cellpadding="0" cellspacing="0" width="100%" style="max-width: 600px; background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 16px rgba(15, 23, 42, 0.04);">
           
-          <!-- Top Blue Accent Line -->
+          <!-- Primary Accent Line -->
           <tr>
-            <td style="background-color: #0075DE; height: 5px; font-size: 0; line-height: 0;">&nbsp;</td>
+            <td style="background-color: #7C3AED; height: 4px; font-size: 0; line-height: 0;">&nbsp;</td>
           </tr>
 
           <!-- Header -->
           <tr>
-            <td style="padding: 32px 32px 20px 32px; text-align: center; border-bottom: 1px solid #f1f5f9;">
-              <table border="0" cellpadding="0" cellspacing="0" align="center" style="margin: 0 auto 12px auto;">
+            <td style="padding: 32px 32px 24px 32px; text-align: center; border-bottom: 1px solid #f1f5f9;">
+              <table border="0" cellpadding="0" cellspacing="0" align="center" style="margin: 0 auto;">
                 <tr>
-                  <td align="center" valign="middle" style="width: 80px; height: 80px; border-radius: 12px; padding: 10px;">
-                    <img src="cid:zakir-logo" alt="Zakir" width="80" height="auto" style="display: block; margin: 0 auto; width: 80px; height: auto; border: 0;" />
+                  <td align="center" valign="middle">
+                    <img src="https://getzakir.com/api/logo.png" alt="Zakir" width="48" height="48" style="display: block; width: 48px; height: 48px; border: 0; outline: none; text-decoration: none;" />
                   </td>
                 </tr>
               </table>
-              <div style="font-size: 26px; font-weight: 900; color: #0f172a; letter-spacing: 3px; font-family: 'Plus Jakarta Sans', -apple-system, sans-serif;">
-                ZAKIR
+              <div style="font-size: 22px; font-weight: 800; color: #0f172a; letter-spacing: 1.5px; margin-top: 10px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+                Zakir
               </div>
-              <div style="font-size: 13px; font-weight: 600; color: #0075DE; text-transform: uppercase; letter-spacing: 1.5px; margin-top: 6px;">
-                ${actionTitle}
+              <div style="font-size: 12px; font-weight: 500; color: #64748b; margin-top: 4px;">
+                Organizational Causal Memory &amp; Decision Intelligence
               </div>
             </td>
           </tr>
 
-          <!-- Main Content -->
+          <!-- Body -->
           <tr>
             <td style="padding: 32px; text-align: left;">
-              
-              <h1 style="color: #0f172a; font-size: 18px; font-weight: 700; margin: 0 0 16px 0; line-height: 1.4;">
-                ${greeting}
+              <h1 style="color: #0f172a; font-size: 22px; font-weight: 700; margin: 0 0 16px 0; line-height: 1.3;">
+                ${escapeHtml(title)}
               </h1>
-
-              <p style="color: #334155; font-size: 15px; line-height: 1.6; margin: 0 0 28px 0;">
-                ${introText}
-              </p>
-
-              <!-- Blue Compact Single-Line OTP Container -->
-              <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin: 28px 0;">
-                <tr>
-                  <td align="center" style="padding: 18px 20px; background-color: #0075DE; border-radius: 12px; box-shadow: 0 4px 12px rgba(0, 117, 222, 0.25);">
-                    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 32px; font-weight: 800; color: #ffffff; letter-spacing: 4px; text-align: center; margin: 0; white-space: nowrap; text-shadow: 0 1px 2px rgba(0,0,0,0.15);">
-                      ${cleanCode}
-                    </div>
-                  </td>
-                </tr>
-              </table>
-
-              <p style="color: #64748b; font-size: 13px; line-height: 1.5; margin: 0 0 16px 0; font-weight: 500;">
-                This code expires in <strong>10 minutes</strong>.
-              </p>
-
-              <!-- Security Warning Box (Clean, No Emoji Icons) -->
-              <p style="color: #475569; font-size: 13px; line-height: 1.5; margin: 0 0 16px 0; padding: 12px 16px; background-color: #f8fafc; border-left: 3px solid #0075DE; border-radius: 4px;">
-                <strong>For your security:</strong> Never share this code with anyone. The Zakir team will never ask for your verification code.
-              </p>
-
-              <p style="color: #94a3b8; font-size: 13px; line-height: 1.5; margin: 0;">
-                If you didn't request this code, you can safely ignore this email.
-              </p>
-
-              <!-- Sign Off -->
-              <div style="margin-top: 32px; padding-top: 20px; border-top: 1px solid #f1f5f9; color: #334155; font-size: 14px; font-weight: 600;">
-                The Zakir Team
+              ${greeting ? `<p style="color: #0f172a; font-size: 15px; font-weight: 600; margin: 0 0 16px 0;">${escapeHtml(greeting)}</p>` : ''}
+              ${bodyHtml}
+              ${securityNote ? `
+              <div style="margin-top: 28px; padding: 14px 16px; background-color: #f8fafc; border-left: 3px solid #0891b2; border-radius: 4px;">
+                <p style="margin: 0; color: #475569; font-size: 13px; line-height: 1.5;">
+                  <strong>Security note:</strong> ${escapeHtml(securityNote)}
+                </p>
               </div>
-
+              ` : ''}
             </td>
           </tr>
 
           <!-- Footer -->
           <tr>
-            <td style="padding: 20px 32px; background-color: #f8fafc; border-top: 1px solid #e2e8f0; text-align: center;">
-              <p style="color: #64748b; font-size: 12px; margin: 0 0 6px 0; line-height: 1.5;">
-                This is an automated system message from Zakir. Please do not reply directly to this email.
-              </p>
-              <p style="color: #94a3b8; font-size: 11px; margin: 0; font-weight: 600;">
-                &copy; 2026 Zakir Enterprise. All rights reserved.
-              </p>
+            <td style="padding: 24px 32px; background-color: #f8fafc; border-top: 1px solid #f1f5f9; text-align: center;">
+              <p style="margin: 0 0 4px 0; font-size: 13px; font-weight: 700; color: #0f172a;">Zakir</p>
+              <p style="margin: 0 0 12px 0; font-size: 12px; color: #64748b;">Organizational Causal Memory &amp; Decision Intelligence</p>
+              <p style="margin: 0 0 8px 0; font-size: 12px; color: #94a3b8; line-height: 1.5;">This is an automated message from Zakir. Please do not reply to this email.</p>
+              <p style="margin: 0; font-size: 12px; color: #94a3b8;">&copy; 2026 Zakir. All rights reserved.</p>
             </td>
           </tr>
 
@@ -1558,8 +1495,231 @@ function buildOtpEmailHtml(options: BuildOtpEmailOptions): { subject: string; te
   </table>
 </body>
 </html>`;
+}
+
+export interface BuildOtpEmailOptions {
+  email: string;
+  userName?: string;
+  otpCode: string;
+  type?: "account_registration" | "password_reset" | "email_verification" | "email_link" | "account_recovery" | "welcome" | string;
+  baseUrl?: string;
+}
+
+/**
+ * Generates clean, enterprise SaaS HTML email templates matching Zakir's brand design system.
+ */
+function buildOtpEmailHtml(options: BuildOtpEmailOptions): { subject: string; text: string; html: string } {
+  const { email, userName, otpCode, type = "account_registration" } = options;
+  const cleanName = cleanUserName(userName, email);
+  const appBaseUrl = options.baseUrl || getAppBaseUrl();
+
+  const isReset = type === "password_reset";
+  const isLink = type === "email_link";
+  const isRecovery = type === "account_recovery";
+  const isWelcome = type === "welcome";
+
+  const cleanCode = otpCode ? otpCode.trim() : "";
+
+  let subject = "Verify your Zakir email";
+  let title = "Verify your email";
+  let introText = "Use the verification code below to complete your registration and activate your account:";
+  let securityNote = "For your security, never share this code with anyone. The Zakir team will never ask for your verification code.";
+
+  if (isReset) {
+    subject = "Reset your Zakir password";
+    title = "Reset your Zakir password";
+    introText = "A password reset request was made for your Zakir account. Use the verification code below to set a new password:";
+    securityNote = "If you did not request a password reset, no action is required.";
+  } else if (isLink) {
+    subject = "Your Zakir security code";
+    title = "Verify your email";
+    introText = "We received a request to link this email account to your Zakir profile. Use the security code below to complete the verification:";
+    securityNote = "If you did not request this verification code, no action is required.";
+  } else if (isRecovery) {
+    subject = "Recover your Zakir account";
+    title = "Recover your Zakir account";
+    introText = "A request was initiated to recover your Zakir account and restore your workspace data. Use the verification code below to continue:";
+    securityNote = "If you did not request this recovery, you can safely ignore this email.";
+  } else if (isWelcome) {
+    subject = "Welcome to Zakir";
+    title = "Welcome to Zakir";
+    introText = "Welcome to Zakir — Organizational Causal Memory & Decision Intelligence. Your workspace is ready.";
+    securityNote = "Keep your account details safe and secure.";
+  }
+
+  const greeting = cleanName ? `Hello ${cleanName},` : `Hello,`;
+
+  let bodyHtml = "";
+  if (isWelcome) {
+    bodyHtml = `
+      <p style="color: #334155; font-size: 15px; line-height: 1.6; margin: 0 0 24px 0;">
+        ${escapeHtml(introText)}
+      </p>
+      <table border="0" cellpadding="0" cellspacing="0" align="center" style="margin: 28px auto;">
+        <tr>
+          <td align="center" bgcolor="#7c3aed" style="border-radius: 10px;">
+            <a href="${appBaseUrl}" target="_blank" style="font-size: 15px; font-weight: 700; color: #ffffff; text-decoration: none; display: inline-block; padding: 14px 32px; border-radius: 10px; background-color: #7c3aed; border: 1px solid #7c3aed;">
+              Open Zakir
+            </a>
+          </td>
+        </tr>
+      </table>
+    `;
+  } else {
+    bodyHtml = `
+      <p style="color: #334155; font-size: 15px; line-height: 1.6; margin: 0 0 24px 0;">
+        ${escapeHtml(introText)}
+      </p>
+      <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin: 24px 0;">
+        <tr>
+          <td align="center" style="padding: 20px 24px; background-color: #f3e8ff; border: 1px solid #ddd6fe; border-radius: 12px;">
+            <div style="font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, Courier, monospace, -apple-system, sans-serif; font-size: 32px; font-weight: 800; color: #7c3aed; letter-spacing: 6px; text-align: center; margin: 0; user-select: all; -webkit-user-select: all;">
+              ${escapeHtml(cleanCode)}
+            </div>
+          </td>
+        </tr>
+      </table>
+      <p style="color: #64748b; font-size: 13px; line-height: 1.5; margin: 0 0 16px 0;">
+        This code expires in <strong>10 minutes</strong>.
+      </p>
+    `;
+  }
+
+  const html = buildMasterEmailHtml({
+    subject,
+    title,
+    greeting,
+    bodyHtml,
+    securityNote
+  });
+
+  const textBody = isWelcome
+    ? `${greeting}\n\n${introText}\n\nOpen Zakir: ${appBaseUrl}\n\nThe Zakir Team`
+    : `${greeting}\n\n${introText}\n\n[ ${cleanCode} ]\n\nThis code expires in 10 minutes.\n\nSecurity note: ${securityNote}\n\nThe Zakir Team`;
 
   return { subject, text: textBody, html };
+}
+
+function buildInvitationEmailHtml(options: {
+  companyName: string;
+  memberName: string;
+  inviterName: string;
+  designatedRole: string;
+  inviteLink: string;
+  isReminder?: boolean;
+}): { subject: string; text: string; html: string } {
+  const { companyName, memberName, inviterName, designatedRole, inviteLink, isReminder } = options;
+  const subject = `You're invited to Zakir`;
+  const title = `You've been invited to Zakir`;
+  const greeting = memberName ? `Hello ${memberName},` : `Hello,`;
+
+  const introText = isReminder
+    ? `This is a reminder that ${inviterName} has invited you to join ${companyName} on Zakir as a ${designatedRole}.`
+    : `${inviterName} has invited you to join ${companyName} on Zakir as a ${designatedRole}.`;
+
+  const detailsHtml = `
+    <div style="margin: 24px 0; padding: 20px; background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px;">
+      <table border="0" cellpadding="0" cellspacing="0" width="100%" style="font-size: 14px; color: #334155;">
+        <tr>
+          <td style="padding: 6px 0; color: #64748b; width: 120px; font-weight: 500;">Organization:</td>
+          <td style="padding: 6px 0; font-weight: 700; color: #0f172a;">${escapeHtml(companyName)}</td>
+        </tr>
+        <tr>
+          <td style="padding: 6px 0; color: #64748b; font-weight: 500;">Invited by:</td>
+          <td style="padding: 6px 0; font-weight: 600; color: #0f172a;">${escapeHtml(inviterName)}</td>
+        </tr>
+        <tr>
+          <td style="padding: 6px 0; color: #64748b; font-weight: 500;">Assigned Role:</td>
+          <td style="padding: 6px 0;"><span style="display: inline-block; padding: 2px 8px; background-color: #f3e8ff; color: #7c3aed; font-weight: 700; font-size: 12px; border-radius: 4px;">${escapeHtml(designatedRole)}</span></td>
+        </tr>
+        <tr>
+          <td style="padding: 6px 0; color: #64748b; font-weight: 500;">Expires:</td>
+          <td style="padding: 6px 0; font-weight: 500; color: #64748b;">7 days</td>
+        </tr>
+      </table>
+    </div>
+  `;
+
+  const ctaButtonHtml = `
+    <table border="0" cellpadding="0" cellspacing="0" align="center" style="margin: 28px auto 20px auto;">
+      <tr>
+        <td align="center" bgcolor="#7c3aed" style="border-radius: 10px;">
+          <a href="${inviteLink}" target="_blank" style="font-size: 15px; font-weight: 700; color: #ffffff; text-decoration: none; display: inline-block; padding: 14px 32px; border-radius: 10px; background-color: #7c3aed; border: 1px solid #7c3aed;">
+            Accept invitation
+          </a>
+        </td>
+      </tr>
+    </table>
+    <p style="color: #64748b; font-size: 12px; line-height: 1.5; margin: 0; text-align: center; word-break: break-all;">
+      If the button above does not work, copy and paste this URL into your browser:<br/>
+      <a href="${inviteLink}" style="color: #0891b2; text-decoration: underline;">${inviteLink}</a>
+    </p>
+  `;
+
+  const bodyHtml = `
+    <p style="color: #334155; font-size: 15px; line-height: 1.6; margin: 0 0 20px 0;">
+      ${escapeHtml(introText)}
+    </p>
+    ${detailsHtml}
+    ${ctaButtonHtml}
+  `;
+
+  const securityNote = "If you were not expecting this invitation, you can safely ignore this email.";
+
+  const html = buildMasterEmailHtml({
+    subject,
+    title,
+    greeting,
+    bodyHtml,
+    securityNote
+  });
+
+  const text = `${greeting}\n\n${introText}\n\nOrganization: ${companyName}\nInvited by: ${inviterName}\nRole: ${designatedRole}\n\nAccept invitation: ${inviteLink}\n\nThis invitation expires in 7 days.`;
+
+  return { subject, text, html };
+}
+
+function buildSupportReplyEmailHtml(options: {
+  recipientName: string;
+  ticketId: string;
+  ticketSubject: string;
+  message: string;
+}): { subject: string; text: string; html: string } {
+  const { recipientName, ticketId, ticketSubject, message } = options;
+  const subject = `Zakir Support: ${ticketSubject}`;
+  const title = "Support Ticket Reply";
+  const greeting = recipientName ? `Hello ${recipientName},` : `Hello,`;
+
+  const bodyHtml = `
+    <p style="color: #334155; font-size: 15px; line-height: 1.6; margin: 0 0 20px 0;">
+      Our support team has replied to your request.
+    </p>
+    
+    <div style="margin: 20px 0; padding: 16px; background-color: #f8fafc; border-left: 4px solid #7c3aed; border-radius: 6px;">
+      <p style="margin: 0; font-weight: 700; color: #7c3aed; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px;">Ticket #${escapeHtml(ticketId)}</p>
+      <p style="margin: 4px 0 0 0; font-weight: 700; color: #0f172a; font-size: 15px;">${escapeHtml(ticketSubject)}</p>
+    </div>
+
+    <div style="background: #f1f5f9; border-radius: 10px; padding: 20px; margin-bottom: 20px; border: 1px solid #e2e8f0;">
+      <p style="margin: 0 0 8px 0; font-size: 11px; font-weight: 700; text-transform: uppercase; color: #64748b;">Latest Response from Support:</p>
+      <p style="margin: 0; color: #0f172a; white-space: pre-wrap; font-size: 14px; line-height: 1.6;">${escapeHtml(message)}</p>
+    </div>
+
+    <p style="margin-bottom: 0; color: #475569; font-size: 14px;">
+      Open your Zakir account to view the response and continue the conversation.
+    </p>
+  `;
+
+  const html = buildMasterEmailHtml({
+    subject,
+    title,
+    greeting,
+    bodyHtml
+  });
+
+  const text = `${greeting}\n\nOur support team has replied to your request.\n\nTicket #${ticketId}: ${ticketSubject}\n\nResponse:\n${message}\n\nOpen your Zakir account to view the response and continue the conversation.`;
+
+  return { subject, text, html };
 }
 
 // Helper: Robust user identity resolution across Firebase Auth, Firestore, and local DB
@@ -3136,48 +3296,24 @@ app.post("/api/admin/send-invitation", requireAuth, async (req: AuthRequest, res
     }
 
     // 9. Dispatch Email via Resend / System Mailer
-    const appBaseUrl = process.env.APP_URL || process.env.PUBLIC_APP_URL || "https://ais-dev-wrad7fj3g254qilpi2t3jv-657720925988.europe-west2.run.app";
+    const appBaseUrl = process.env.APP_URL || process.env.PUBLIC_APP_URL || getAppBaseUrl();
     const inviteLink = `${appBaseUrl}/?invitationToken=${secureToken}&email=${encodeURIComponent(normalizedEmail)}`;
+    const inviterName = ceoData?.ownerName || ceoData?.email || "Workspace Admin";
 
-    const emailSubject = `دعوة للانضمام إلى فريق ${companyName} على منصة ذاكر (Zakir)`;
-    const emailHtml = `
-      <div dir="rtl" style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto; background-color: #0b0f19; color: #f8fafc; border: 1px solid #1e293b; border-radius: 16px; overflow: hidden;">
-        <div style="background: linear-gradient(135deg, #0075DE 0%, #005BAB 100%); padding: 32px 24px; text-align: center;">
-          <h1 style="margin: 0; color: #ffffff; font-size: 24px; font-weight: 800;">منصة ذاكر - Zakir Platform</h1>
-          <p style="margin: 8px 0 0 0; color: #e0f2fe; font-size: 14px;">دعوة انضمام رسمية لمؤسسة ${companyName}</p>
-        </div>
-        <div style="padding: 32px 24px;">
-          <p style="font-size: 16px; line-height: 1.6; color: #cbd5e1;">مرحباً <strong>${memberName}</strong>،</p>
-          <p style="font-size: 14px; line-height: 1.6; color: #94a3b8;">
-            يدعوك المدير التنفيذي (<strong>${ceoData.ownerName || ceoData.email}</strong>) للانضمام رسمياً إلى بيئة العمل الخاصة بمؤسسة <strong>${companyName}</strong> بصفة: <span style="color: #38bdf8; font-weight: 700;">${designatedRole}</span>.
-          </p>
-          
-          <div style="margin: 28px 0; text-align: center;">
-            <a href="${inviteLink}" style="display: inline-block; background-color: #0075DE; color: #ffffff; font-weight: 700; font-size: 15px; padding: 14px 32px; border-radius: 12px; text-decoration: none; box-shadow: 0 4px 12px rgba(0, 117, 222, 0.3);">
-              قبول الدعوة والانضمام للفريق ←
-            </a>
-          </div>
-
-          <p style="font-size: 12px; color: #64748b; line-height: 1.5; margin-top: 24px;">
-            أو يمكنك استخدام الرابط المباشر التالي:
-            <br/>
-            <a href="${inviteLink}" style="color: #38bdf8; word-break: break-all;">${inviteLink}</a>
-          </p>
-          <p style="font-size: 12px; color: #64748b; margin-top: 16px;">
-            تنتهي صلاحية هذه الدعوة تلقائياً بعد 7 أيام.
-          </p>
-        </div>
-        <div style="background-color: #020617; padding: 16px 24px; border-top: 1px solid #1e293b; text-align: center; font-size: 12px; color: #64748b;">
-          &copy; ${new Date().getFullYear()} Zakir Platform. جميع الحقوق محفوظة.
-        </div>
-      </div>
-    `;
+    const { subject: emailSubject, text: emailText, html: emailHtml } = buildInvitationEmailHtml({
+      companyName,
+      memberName,
+      inviterName,
+      designatedRole,
+      inviteLink,
+      isReminder: false
+    });
 
     const mailResult = await sendSystemMail({
       to: normalizedEmail,
       subject: emailSubject,
       html: emailHtml,
-      text: `مرحباً ${memberName}، يدعوك ${ceoData.ownerName || ceoData.email} للانضمام إلى ${companyName}. اضغط الرابط للقبول: ${inviteLink}`
+      text: emailText
     });
 
     if (mailResult.success) {
@@ -3284,43 +3420,27 @@ app.post("/api/admin/resend-invitation", requireAuth, async (req: AuthRequest, r
     else db.invitations.push(invRecord);
     writeDb(db);
 
-    const companyName = invRecord.companyName || ceoData?.companyName || "ZakIr Platform";
+    const companyName = invRecord.companyName || ceoData?.companyName || "Zakir Workspace";
     const memberName = invRecord.name || normalizedEmail.split("@")[0];
     const designatedRole = invRecord.role || "Contributor";
-    const appBaseUrl = process.env.APP_URL || process.env.PUBLIC_APP_URL || "https://ais-dev-wrad7fj3g254qilpi2t3jv-657720925988.europe-west2.run.app";
+    const appBaseUrl = process.env.APP_URL || process.env.PUBLIC_APP_URL || getAppBaseUrl();
     const inviteLink = `${appBaseUrl}/?invitationToken=${secureToken}&email=${encodeURIComponent(normalizedEmail)}`;
+    const inviterName = ceoData?.ownerName || ceoData?.email || "Workspace Admin";
 
-    const emailSubject = `إعادة إرسال: دعوة للانضمام إلى فريق ${companyName} على منصة ذاكر (Zakir)`;
-    const emailHtml = `
-      <div dir="rtl" style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto; background-color: #0b0f19; color: #f8fafc; border: 1px solid #1e293b; border-radius: 16px; overflow: hidden;">
-        <div style="background: linear-gradient(135deg, #0075DE 0%, #005BAB 100%); padding: 32px 24px; text-align: center;">
-          <h1 style="margin: 0; color: #ffffff; font-size: 24px; font-weight: 800;">منصة ذاكر - Zakir Platform</h1>
-          <p style="margin: 8px 0 0 0; color: #e0f2fe; font-size: 14px;">إعادة إرسال دعوة انضمام رسمية لمؤسسة ${companyName}</p>
-        </div>
-        <div style="padding: 32px 24px;">
-          <p style="font-size: 16px; line-height: 1.6; color: #cbd5e1;">مرحباً <strong>${memberName}</strong>،</p>
-          <p style="font-size: 14px; line-height: 1.6; color: #94a3b8;">
-            نود تذكيرك بالدعوة الموجهة من المدير التنفيذي للانضمام إلى بيئة العمل بصفة: <span style="color: #38bdf8; font-weight: 700;">${designatedRole}</span>.
-          </p>
-          
-          <div style="margin: 28px 0; text-align: center;">
-            <a href="${inviteLink}" style="display: inline-block; background-color: #0075DE; color: #ffffff; font-weight: 700; font-size: 15px; padding: 14px 32px; border-radius: 12px; text-decoration: none;">
-              قبول الدعوة والانضمام للفريق ←
-            </a>
-          </div>
-
-          <p style="font-size: 12px; color: #64748b; line-height: 1.5; margin-top: 24px;">
-            أو استخدم الرابط المباشر: <a href="${inviteLink}" style="color: #38bdf8; word-break: break-all;">${inviteLink}</a>
-          </p>
-        </div>
-      </div>
-    `;
+    const { subject: emailSubject, text: emailText, html: emailHtml } = buildInvitationEmailHtml({
+      companyName,
+      memberName,
+      inviterName,
+      designatedRole,
+      inviteLink,
+      isReminder: true
+    });
 
     const mailResult = await sendSystemMail({
       to: normalizedEmail,
       subject: emailSubject,
       html: emailHtml,
-      text: `تذكير بدعوة الانضمام إلى ${companyName}. الرابط: ${inviteLink}`
+      text: emailText
     });
 
     return res.json({
@@ -3805,42 +3925,18 @@ app.post("/api/support/tickets/:id/messages", requireAuth, async (req: AuthReque
     // Dispatch Email Notification via Resend (if admin reply)
     if (senderType === "admin" && recipientEmail) {
       try {
-        const supportLogoUrl = `${getAppBaseUrl(req)}/api/logo.png`;
-        const emailHtml = `
-          <div style="font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif; background-color: #f8fafc; padding: 32px 16px; color: #0f172a;">
-            <div style="max-width: 580px; margin: 0 auto; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 16px; overflow: hidden; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05);">
-              <div style="background: #090d16; padding: 24px; text-align: center; border-bottom: 2px solid #f59e0b;">
-                <img src="cid:zakir-logo" alt="Zakir" width="40" height="40" style="display: block; margin: 0 auto 10px auto;" />
-                <h1 style="color: #ffffff; margin: 0; font-size: 20px; font-weight: 800; letter-spacing: -0.5px;">Zakir Support Center</h1>
-              </div>
-              <div style="padding: 32px; font-size: 14px; line-height: 1.6; color: #334155;">
-                <p style="margin-top: 0; font-size: 16px; font-weight: 700; color: #0f172a;">Hello ${recipientName},</p>
-                <p style="margin-bottom: 24px; color: #475569;">Our support team has replied to your request.</p>
-                
-                <div style="background-color: #fffbebfb; border: 1px solid #fef3c7; border-left: 4px solid #f59e0b; padding: 16px; border-radius: 8px; margin-bottom: 24px;">
-                  <p style="margin: 0; font-weight: 800; color: #92400e; font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px;">Ticket #${ticket.id}</p>
-                  <p style="margin: 4px 0 0 0; font-weight: 700; color: #1e293b; font-size: 15px;">${ticket.subject}</p>
-                </div>
-
-                <div style="background: #f1f5f9; border-radius: 12px; padding: 20px; margin-bottom: 24px; border: 1px solid #e2e8f0;">
-                  <p style="margin: 0 0 8px 0; font-size: 11px; font-weight: 700; text-transform: uppercase; color: #64748b;">Latest Response from Support:</p>
-                  <p style="margin: 0; color: #1e293b; white-space: pre-wrap; font-size: 14px; line-height: 1.6;">${message}</p>
-                </div>
-
-                <p style="margin-bottom: 0; color: #475569;">Open your Zakir account to view the response and continue the conversation.</p>
-              </div>
-              <div style="background-color: #f8fafc; padding: 20px; text-align: center; border-top: 1px solid #e2e8f0; font-size: 12px; color: #94a3b8;">
-                &copy; ${new Date().getFullYear()} Zakir Platform. All rights reserved.
-              </div>
-            </div>
-          </div>
-        `;
+        const { subject: emailSubject, text: emailText, html: emailHtml } = buildSupportReplyEmailHtml({
+          recipientName,
+          ticketId: String(ticket.id),
+          ticketSubject: String(ticket.subject || "Support Ticket"),
+          message: String(message)
+        });
 
         await sendSystemMail({
           to: recipientEmail,
-          subject: `Zakir Support has replied to your request: ${ticket.subject}`,
+          subject: emailSubject,
           html: emailHtml,
-          text: `Hello ${recipientName},\n\nOur support team has replied to your request.\n\nTicket: #${ticket.id}\nSubject: ${ticket.subject}\n\nResponse:\n${message}\n\nOpen your Zakir account to view the response and continue the conversation.`
+          text: emailText
         });
         console.log("SUPPORT_REPLY_EMAIL_SENT", { recipientEmail, ticketId: id });
       } catch (mailErr: any) {
@@ -4410,22 +4506,44 @@ export async function purgeRetainedUserDataServer(userId: string): Promise<void>
 // Background cleanup job for expired self-deleted accounts
 export async function purgeExpiredAccountsJob(): Promise<void> {
   try {
-    const snap = await adminDb.collection("accountLifecycle")
-      .where("deletionType", "==", "self")
-      .where("status", "==", "SELF_DELETED")
-      .get();
-    if (snap && !snap.empty) {
-      const nowMs = Date.now();
-      for (const docSnap of snap.docs) {
-        const data = docSnap.data();
-        if (data.restoreUntil && nowMs > new Date(data.restoreUntil).getTime()) {
-          console.log(`[BACKGROUND PURGE] Expired account lifecycle ${docSnap.id}`);
-          await getAccountLifecycleRecord(docSnap.id);
+    if (isFirebaseAdminAvailable) {
+      const snap = await adminDb.collection("accountLifecycle")
+        .where("deletionType", "==", "self")
+        .where("status", "==", "SELF_DELETED")
+        .get();
+      if (snap && !snap.empty) {
+        const nowMs = Date.now();
+        for (const docSnap of snap.docs) {
+          const data = docSnap.data();
+          if (data.restoreUntil && nowMs > new Date(data.restoreUntil).getTime()) {
+            console.log(`[BACKGROUND PURGE] Expired account lifecycle ${docSnap.id}`);
+            await getAccountLifecycleRecord(docSnap.id);
+          }
         }
       }
     }
-  } catch (e) {
-    console.warn("purgeExpiredAccountsJob background error:", e);
+  } catch (e: any) {
+    if (!e?.message?.includes("PERMISSION_DENIED") && e?.code !== 7) {
+      console.warn("purgeExpiredAccountsJob background error:", e);
+    }
+  }
+
+  // Also clean up expired records in local DB store
+  try {
+    const db = readDb();
+    if (db.account_lifecycle && Array.isArray(db.account_lifecycle)) {
+      const nowMs = Date.now();
+      for (const record of db.account_lifecycle) {
+        if (record.deletionType === "self" && record.status === "SELF_DELETED" && record.restoreUntil) {
+          if (nowMs > new Date(record.restoreUntil).getTime()) {
+            console.log(`[BACKGROUND PURGE LOCAL] Expired account lifecycle ${record.emailNormalized}`);
+            await getAccountLifecycleRecord(record.emailNormalized);
+          }
+        }
+      }
+    }
+  } catch (err) {
+    // quiet
   }
 }
 

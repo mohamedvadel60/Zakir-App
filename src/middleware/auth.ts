@@ -29,14 +29,26 @@ export async function isUserAdminServer(uid: string): Promise<boolean> {
   }
   try {
     const userDoc = await adminDb.collection("users").doc(uid).get();
-    if (!userDoc || !userDoc.exists) return false;
-    const userData = userDoc.data();
-    const role = (userData?.role || "").toUpperCase();
-    return role === "CEO" || role === "ADMIN";
+    if (userDoc && userDoc.exists) {
+      const userData = userDoc.data();
+      const role = (userData?.role || "").toUpperCase();
+      if (role === "CEO" || role === "ADMIN") return true;
+    }
   } catch (err) {
-    console.error("Error checking admin status in server:", err);
-    return false;
+    // continue to local check
   }
+
+  // Fallback to local DB store check
+  try {
+    const db = readDbForAuth();
+    const localUser = db.users?.find((u: any) => u.id === uid);
+    if (localUser) {
+      const role = (localUser.role || "").toUpperCase();
+      return role === "CEO" || role === "ADMIN";
+    }
+  } catch (e) {}
+
+  return false;
 }
 
 export const requireAdmin = async (
