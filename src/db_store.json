@@ -968,6 +968,18 @@
       "storageStatus": "pending",
       "associated": true,
       "associatedRequestId": "REQ-1788376516165-496"
+    },
+    {
+      "documentId": "doc_1788380954321_8291892f",
+      "uploadToken": "ff3f57db683a5a114351208c64699d4a6b601dcf89440d549abd3ee31397d7fd",
+      "fileHash": "7fef0d8820b2ec446627e8daa4521746eaf88040ef726e39b32684b995b7f005",
+      "fileName": "final_verification.pdf",
+      "mimeType": "application/pdf",
+      "size": 76,
+      "uploadedAt": "2026-09-02T20:29:16.831Z",
+      "storageStatus": "pending",
+      "associated": true,
+      "associatedRequestId": "REQ-1788380957230-860"
     }
   ],
   "account_recovery_requests": [
@@ -1261,40 +1273,6 @@
       "updatedAt": "2026-09-02T17:36:48.839Z"
     },
     {
-      "id": "REQ-1788371346312-169",
-      "requestId": "REQ-1788371346312-169",
-      "email": "director@zakir.ai",
-      "fullName": "Director Zakir",
-      "phone": "+15551234567",
-      "phoneVerified": false,
-      "reason": "Account recovery with verified identification documents",
-      "organizationName": "",
-      "previousWorkspaceInfo": "",
-      "acceptedTerms": false,
-      "termsAcceptedAt": "2026-09-02T17:49:06.312Z",
-      "documents": [
-        {
-          "documentId": "doc_1788371342986_b52b973a",
-          "storageReference": "secure_uploads/doc_1788371342986_b52b973a",
-          "fileName": "id_doc.pdf",
-          "mimeType": "application/pdf",
-          "size": 76,
-          "uploadedAt": "2026-09-02T17:49:04.368Z"
-        },
-        {
-          "documentId": "doc_1788371344668_464e0366",
-          "storageReference": "secure_uploads/doc_1788371344668_464e0366",
-          "fileName": "id_card.png",
-          "mimeType": "image/png",
-          "size": 16,
-          "uploadedAt": "2026-09-02T17:49:05.123Z"
-        }
-      ],
-      "status": "pending",
-      "submittedAt": "2026-09-02T17:49:06.312Z",
-      "updatedAt": "2026-09-02T17:49:06.312Z"
-    },
-    {
       "id": "REQ-1788371892743-875",
       "requestId": "REQ-1788371892743-875",
       "email": "user.verification@zakir.ai",
@@ -1345,6 +1323,32 @@
       "status": "pending",
       "submittedAt": "2026-09-02T19:15:16.165Z",
       "updatedAt": "2026-09-02T19:15:16.165Z"
+    },
+    {
+      "id": "REQ-1788380957230-860",
+      "requestId": "REQ-1788380957230-860",
+      "email": "director@zakir.ai",
+      "fullName": "Zakir Institutional Director",
+      "phone": "+971501234567",
+      "phoneVerified": false,
+      "reason": "Complete recovery verification check",
+      "organizationName": "",
+      "previousWorkspaceInfo": "",
+      "acceptedTerms": false,
+      "termsAcceptedAt": "2026-09-02T20:29:17.230Z",
+      "documents": [
+        {
+          "documentId": "doc_1788380954321_8291892f",
+          "storageReference": "secure_uploads/doc_1788380954321_8291892f",
+          "fileName": "final_verification.pdf",
+          "mimeType": "application/pdf",
+          "size": 76,
+          "uploadedAt": "2026-09-02T20:29:16.831Z"
+        }
+      ],
+      "status": "pending",
+      "submittedAt": "2026-09-02T20:29:17.230Z",
+      "updatedAt": "2026-09-02T20:29:17.230Z"
     }
   ],
   "recovery_documents_store": {
@@ -1703,6 +1707,18 @@
       "syncAttempts": 1,
       "createdAt": "2026-09-02T19:15:14.561Z",
       "expiresAt": "2026-09-16T19:15:14.561Z",
+      "syncError": "Primary Firestore chunk storage active (Bucket unprovisioned)"
+    },
+    "doc_1788380954321_8291892f": {
+      "documentId": "doc_1788380954321_8291892f",
+      "mimeType": "application/pdf",
+      "size": 76,
+      "fileName": "final_verification.pdf",
+      "fileHash": "7fef0d8820b2ec446627e8daa4521746eaf88040ef726e39b32684b995b7f005",
+      "storageStatus": "firestore_durable",
+      "syncAttempts": 1,
+      "createdAt": "2026-09-02T20:29:14.322Z",
+      "expiresAt": "2026-09-16T20:29:14.322Z",
       "syncError": "Primary Firestore chunk storage active (Bucket unprovisioned)"
     }
   }
