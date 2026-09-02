@@ -52,7 +52,9 @@ import {
   fetchSupportTicketsApi,
   addSupportTicketMessageApi,
   updateSupportTicketStatusApi,
-  subscribeToSupportTickets
+  subscribeToSupportTickets,
+  fetchAdminRecoveryRequestsApi,
+  handleAdminRecoveryRequestDecisionApi
 } from "../lib/firebaseServices.js";
 import { openOrDownloadUserFile, openUserFileInNewTab, downloadUserFile } from "../lib/fileViewerUtils.js";
 
@@ -269,20 +271,58 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     }
   };
 
+  const handleViewRecoveryDocument = async (documentId: string, fileName?: string) => {
+    try {
+      const { auth } = await import("../firebase");
+      const idToken = await auth.currentUser?.getIdToken();
+      const res = await fetch(`/api/admin/recovery-request/document/${documentId}`, {
+        headers: idToken ? { "Authorization": `Bearer ${idToken}` } : {}
+      });
+      if (!res.ok) {
+        alert(lang === "ar" ? "تعذر تحميل مستند الهوية من الخادم." : "Failed to load document from server.");
+        return;
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const win = window.open(url, "_blank");
+      if (!win) {
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = fileName || `document_${documentId}`;
+        a.click();
+      }
+    } catch (err: any) {
+      console.error("View recovery document error:", err);
+      alert(lang === "ar" ? "حدث خطأ أثناء تحميل مستند الهوية" : "Error opening document");
+    }
+  };
+
   const fetchReactivationRequests = async () => {
     setLoadingReactivations(true);
     try {
       const { auth } = await import("../firebase");
-      const idToken = await auth.currentUser?.getIdToken();
-      if (!idToken) return;
+      const idToken = await auth.currentUser?.getIdToken() || "";
 
-      const res = await fetch("/api/admin/reactivation-requests", {
-        headers: { "Authorization": `Bearer ${idToken}` }
-      });
-      const data = await res.json();
-      if (data.success && Array.isArray(data.requests)) {
-        setReactivationRequests(data.requests);
+      const [recRes, reactRes] = await Promise.all([
+        fetchAdminRecoveryRequestsApi(idToken),
+        fetch("/api/admin/reactivation-requests", {
+          headers: idToken ? { "Authorization": `Bearer ${idToken}` } : {}
+        }).then(r => r.json()).catch(() => ({ success: false, requests: [] }))
+      ]);
+
+      const combined: any[] = [];
+      if (recRes?.success && Array.isArray(recRes.requests)) {
+        combined.push(...recRes.requests);
       }
+      if (reactRes?.success && Array.isArray(reactRes.requests)) {
+        for (const req of reactRes.requests) {
+          if (!combined.some(c => c.id === req.id || c.requestId === req.requestId || (c.email === req.email && c.status === req.status))) {
+            combined.push(req);
+          }
+        }
+      }
+
+      setReactivationRequests(combined);
     } catch (err) {
       console.warn("fetchReactivationRequests error:", err);
     } finally {
@@ -301,31 +341,40 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     fetchReactivationRequests();
   }, []);
 
-  const handleReactivationDecision = async (email: string, action: "approve" | "reject") => {
-    const confirmMsg = action === "approve"
-      ? (lang === "ar" ? `هل أنت متأكد من الموافقة على إعادة تفعيل الحساب (${email}) والسماح له بالتسجيل؟` : `Approve reactivation for (${email})? User will be allowed to register.`)
-      : (lang === "ar" ? `هل أنت متأكد من رفض طلب إعادة التفعيل (${email})؟ سيبقى الحساب محظوراً.` : `Reject reactivation for (${email})? Account will remain blocked.`);
-    if (!window.confirm(confirmMsg)) return;
+  const handleReactivationDecision = async (email: string, action: "approve" | "reject", requestId?: string) => {
+    let rejectionReason = "";
+    if (action === "reject") {
+      const input = window.prompt(
+        lang === "ar"
+          ? "يرجى كتابة سبب رفض طلب الاسترجاع (سيتم إرساله للمستخدم):"
+          : "Please provide a reason for rejecting this recovery request:"
+      );
+      if (input === null) return;
+      rejectionReason = input.trim();
+    } else {
+      const confirmMsg = lang === "ar"
+        ? `هل أنت متأكد من الموافقة على طلب استرجاع الحساب (${email})؟`
+        : `Approve recovery request for (${email})?`;
+      if (!window.confirm(confirmMsg)) return;
+    }
 
-    setActionInProgress(email);
+    setActionInProgress(requestId || email);
     try {
       const { auth } = await import("../firebase");
-      const idToken = await auth.currentUser?.getIdToken();
-      if (!idToken) throw new Error("Authentication required");
+      const idToken = await auth.currentUser?.getIdToken() || "";
 
-      const res = await fetch("/api/admin/handle-reactivation-request", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${idToken}`
-        },
-        body: JSON.stringify({ email, action })
-      });
-      const data = await res.json();
-      if (!res.ok || !data.success) {
-        throw new Error(data.error || "Action failed");
+      const res = await handleAdminRecoveryRequestDecisionApi(
+        idToken,
+        requestId || "",
+        email,
+        action,
+        rejectionReason
+      );
+
+      if (!res.success) {
+        throw new Error(res.error || "Action failed");
       }
-      alert(data.message || (lang === "ar" ? "تم تنفيذ الإجراء بنجاح!" : "Action completed successfully!"));
+      alert(res.message || (lang === "ar" ? "تم تنفيذ الإجراء بنجاح!" : "Action completed successfully!"));
       await fetchReactivationRequests();
     } catch (err: any) {
       alert(err.message || (lang === "ar" ? "حدث خطأ" : "Error"));
@@ -682,7 +731,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             }`}
           >
             <ShieldAlert className="w-4 h-4" />
-            <span>{lang === "ar" ? "طلبات إعادة التفعيل" : "Reactivation Requests"}</span>
+            <span>{lang === "ar" ? "طلبات استرجاع الحسابات" : "Account Recovery Requests"}</span>
             {reactivationRequests.filter(r => r.status === "pending").length > 0 && (
               <span className="px-2 py-0.5 rounded-full bg-amber-500 text-white text-xs font-mono font-black animate-pulse">
                 {reactivationRequests.filter(r => r.status === "pending").length}
@@ -1347,7 +1396,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           </div>
         )}
 
-        {/* ACCOUNT REACTIVATIONS SECTION */}
+        {/* ACCOUNT RECOVERY REQUESTS SECTION */}
         {activeAdminTab === "reactivations" && (
           <div className="space-y-6">
             <div className={`p-6 rounded-2xl border flex flex-col md:flex-row items-start md:items-center justify-between gap-4 ${
@@ -1358,12 +1407,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   theme === "dark" ? "text-white" : "text-slate-900"
                 }`}>
                   <ShieldAlert className="w-5 h-5 text-amber-500" />
-                  <span>{lang === "ar" ? "طلبات إعادة تفعيل الحسابات المحذوفة" : "Account Reactivation Requests"}</span>
+                  <span>{lang === "ar" ? "طلبات استرجاع وإعادة تفعيل الحسابات" : "Account Recovery Requests"}</span>
                 </h3>
                 <p className="text-xs text-slate-400 mt-1">
                   {lang === "ar"
-                    ? "مراجعة واعتماد طلبات المستخدمين الذين تم تعطيل حساباتهم بواسطة الإدارة ويرغبون في إعادة التسجيل بنفس البريد الإلكتروني."
-                    : "Review and approve requests from users whose accounts were disabled by an administrator."}
+                    ? "مراجعة واعتماد طلبات استرجاع الحسابات المحذوفة والمستندات الثبوتية المرفقة من المستخدمين."
+                    : "Review and approve account recovery requests and verification documents submitted by users."}
                 </p>
               </div>
 
@@ -1426,10 +1475,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               }`}>
                 <CheckCircle2 className="w-12 h-12 text-emerald-500/60 mx-auto mb-3" />
                 <p className={`text-sm font-semibold ${theme === "dark" ? "text-slate-300" : "text-slate-700"}`}>
-                  {lang === "ar" ? "لا توجد طلبات إعادة تفعيل حالياً" : "No pending reactivation requests found"}
+                  {lang === "ar" ? "لا توجد طلبات استرجاع حسابات حالياً" : "No pending account recovery requests found"}
                 </p>
                 <p className="text-xs text-slate-500 mt-1">
-                  {lang === "ar" ? "جميع الحسابات المعطلة في وضع سليم." : "All disabled accounts are in good standing."}
+                  {lang === "ar" ? "جميع طلبات الاسترجاع تمت معالجتها بالكامل." : "All recovery requests have been processed."}
                 </p>
               </div>
             ) : (
@@ -1439,20 +1488,28 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   .map((req) => {
                     const isPending = req.status === "pending";
                     const isApproved = req.status === "approved";
-                    const isProcessing = actionInProgress === req.email;
+                    const isRejected = req.status === "rejected";
+                    const reqId = req.requestId || req.id || req.email;
+                    const isProcessing = actionInProgress === reqId || actionInProgress === req.email;
+                    const docs = req.documents || [];
 
                     return (
                       <div
-                        key={req.id || req.email}
+                        key={reqId}
                         className={`p-5 rounded-2xl border space-y-4 transition-colors ${
                           theme === "dark"
                             ? "bg-slate-900/70 border-slate-800 hover:border-slate-700"
                             : "bg-white border-slate-200 hover:border-slate-300 shadow-sm"
                         }`}
                       >
-                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b pb-3 border-slate-200 dark:border-slate-800">
                           <div className="space-y-1">
-                            <div className="flex items-center gap-2.5">
+                            <div className="flex flex-wrap items-center gap-2.5">
+                              {req.requestId && (
+                                <span className="px-2.5 py-0.5 rounded-lg text-xs font-mono font-bold bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20">
+                                  {req.requestId}
+                                </span>
+                              )}
                               <span className={`font-mono text-sm font-bold ${
                                 theme === "dark" ? "text-white" : "text-slate-900"
                               }`}>{req.email}</span>
@@ -1466,14 +1523,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                 {isPending
                                   ? (lang === "ar" ? "قيد مراجعة الإدارة" : "Pending Review")
                                   : isApproved
-                                  ? (lang === "ar" ? "معتمد (مسموح بالتسجيل)" : "Approved (Can Register)")
-                                  : (lang === "ar" ? "مرفوض (محظور)" : "Rejected")}
+                                  ? (lang === "ar" ? "معتمد (تمت الاستعادة)" : "Approved & Restored")
+                                  : (lang === "ar" ? "مرفوض" : "Rejected")}
                               </span>
                             </div>
-                            <div className="flex items-center gap-3 text-xs text-slate-400 font-mono">
-                              <span>{lang === "ar" ? "تاريخ الطلب:" : "Requested:"} {safeFormatDateTime(req.requestedAt)}</span>
-                              {req.handledAt && (
-                                <span>• {lang === "ar" ? "تاريخ المعالجة:" : "Handled:"} {safeFormatDateTime(req.handledAt)}</span>
+                            <div className="flex flex-wrap items-center gap-3 text-xs text-slate-400 font-mono">
+                              <span>{lang === "ar" ? "تاريخ تقديم الطلب:" : "Submitted:"} {safeFormatDateTime(req.submittedAt || req.requestedAt || req.createdAt)}</span>
+                              {req.reviewedAt && (
+                                <span>• {lang === "ar" ? "تاريخ المراجعة:" : "Reviewed:"} {safeFormatDateTime(req.reviewedAt)}</span>
                               )}
                             </div>
                           </div>
@@ -1483,7 +1540,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                             {isPending ? (
                               <>
                                 <button
-                                  onClick={() => handleReactivationDecision(req.email, "approve")}
+                                  onClick={() => handleReactivationDecision(req.email, "approve", req.requestId || req.id)}
                                   disabled={isProcessing}
                                   className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shadow-md shadow-emerald-600/20 cursor-pointer disabled:opacity-50"
                                 >
@@ -1492,21 +1549,21 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                   ) : (
                                     <CheckCircle className="w-3.5 h-3.5" />
                                   )}
-                                  <span>{lang === "ar" ? "موافقة واعتماد" : "Approve"}</span>
+                                  <span>{lang === "ar" ? "موافقة واستعادة الحساب" : "Approve & Restore"}</span>
                                 </button>
 
                                 <button
-                                  onClick={() => handleReactivationDecision(req.email, "reject")}
+                                  onClick={() => handleReactivationDecision(req.email, "reject", req.requestId || req.id)}
                                   disabled={isProcessing}
                                   className="px-4 py-2 bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-600 dark:bg-rose-600/20 dark:hover:bg-rose-600 dark:text-rose-300 dark:hover:text-white dark:border-rose-500/30 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
                                 >
                                   <X className="w-3.5 h-3.5" />
-                                  <span>{lang === "ar" ? "رفض" : "Reject"}</span>
+                                  <span>{lang === "ar" ? "رفض الطلب" : "Reject"}</span>
                                 </button>
                               </>
                             ) : isApproved ? (
                               <button
-                                onClick={() => handleReactivationDecision(req.email, "reject")}
+                                onClick={() => handleReactivationDecision(req.email, "reject", req.requestId || req.id)}
                                 disabled={isProcessing}
                                 className={`px-3 py-1.5 text-xs rounded-xl transition-all cursor-pointer border ${
                                   theme === "dark"
@@ -1514,11 +1571,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                     : "bg-slate-100 hover:bg-rose-50 text-slate-600 hover:text-rose-600 border-slate-200"
                                 }`}
                               >
-                                {lang === "ar" ? "إلغاء الاعتماد وحظر" : "Revoke Approval"}
+                                {lang === "ar" ? "إلغاء الاعتماد" : "Revoke Approval"}
                               </button>
                             ) : (
                               <button
-                                onClick={() => handleReactivationDecision(req.email, "approve")}
+                                onClick={() => handleReactivationDecision(req.email, "approve", req.requestId || req.id)}
                                 disabled={isProcessing}
                                 className="px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 dark:bg-emerald-600/20 dark:hover:bg-emerald-600 dark:text-emerald-300 dark:hover:text-white dark:border-emerald-500/30 text-xs rounded-xl transition-all cursor-pointer font-bold"
                               >
@@ -1528,17 +1585,96 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                           </div>
                         </div>
 
+                        {/* USER DETAILS GRID */}
+                        {(req.fullName || req.phone || req.organization || req.previousWorkspaceInfo) && (
+                          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
+                            {req.fullName && (
+                              <div className={`p-2.5 rounded-xl border ${theme === "dark" ? "bg-slate-950/50 border-slate-800" : "bg-slate-50 border-slate-200"}`}>
+                                <span className="text-slate-400 font-bold block">{lang === "ar" ? "الاسم الكامل:" : "Full Name:"}</span>
+                                <span className={`font-semibold ${theme === "dark" ? "text-slate-200" : "text-slate-800"}`}>{req.fullName}</span>
+                              </div>
+                            )}
+                            {req.phone && (
+                              <div className={`p-2.5 rounded-xl border ${theme === "dark" ? "bg-slate-950/50 border-slate-800" : "bg-slate-50 border-slate-200"}`}>
+                                <span className="text-slate-400 font-bold block">{lang === "ar" ? "رقم الهاتف:" : "Phone:"}</span>
+                                <span className={`font-semibold ${theme === "dark" ? "text-slate-200" : "text-slate-800"}`}>{req.phone} {req.phoneVerified ? "✓" : ""}</span>
+                              </div>
+                            )}
+                            {req.organization && (
+                              <div className={`p-2.5 rounded-xl border ${theme === "dark" ? "bg-slate-950/50 border-slate-800" : "bg-slate-50 border-slate-200"}`}>
+                                <span className="text-slate-400 font-bold block">{lang === "ar" ? "المؤسسة / الشركة:" : "Organization:"}</span>
+                                <span className={`font-semibold ${theme === "dark" ? "text-slate-200" : "text-slate-800"}`}>{req.organization}</span>
+                              </div>
+                            )}
+                            {req.previousWorkspaceInfo && (
+                              <div className={`p-2.5 rounded-xl border ${theme === "dark" ? "bg-slate-950/50 border-slate-800" : "bg-slate-50 border-slate-200"}`}>
+                                <span className="text-slate-400 font-bold block">{lang === "ar" ? "بيئة العمل السابقة:" : "Previous Workspace:"}</span>
+                                <span className={`font-semibold ${theme === "dark" ? "text-slate-200" : "text-slate-800"}`}>{req.previousWorkspaceInfo}</span>
+                              </div>
+                            )}
+                          </div>
+                        )}
+
                         {/* REASON */}
                         <div className={`p-3.5 rounded-xl border text-xs ${
                           theme === "dark" ? "bg-slate-950/70 border-slate-800" : "bg-slate-50 border-slate-200"
                         }`}>
                           <span className="text-slate-400 font-bold block mb-1">
-                            {lang === "ar" ? "سبب طلب إعادة التفعيل المرسل من المستخدم:" : "Reason provided by user:"}
+                            {lang === "ar" ? "سبب طلب الاسترجاع المقدم من المستخدم:" : "Reason provided by user:"}
                           </span>
                           <p className={`leading-relaxed font-sans ${theme === "dark" ? "text-slate-200" : "text-slate-700"}`}>
                             {req.reason || (lang === "ar" ? "(لم يقدم المستخدم سبباً تفصيلياً)" : "(No specific reason provided)")}
                           </p>
                         </div>
+
+                        {/* ATTACHED DOCUMENTS */}
+                        {docs.length > 0 && (
+                          <div className={`p-3.5 rounded-xl border text-xs space-y-2 ${
+                            theme === "dark" ? "bg-slate-950/90 border-slate-800" : "bg-slate-100/80 border-slate-200"
+                          }`}>
+                            <span className="text-slate-400 font-bold flex items-center gap-2">
+                              <FileText className="w-4 h-4 text-indigo-400" />
+                              <span>{lang === "ar" ? `المستندات الثبوتية المرفقة (${docs.length}):` : `Attached Identity Verification Documents (${docs.length}):`}</span>
+                            </span>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2">
+                              {docs.map((doc: any, dIdx: number) => (
+                                <div
+                                  key={doc.documentId || dIdx}
+                                  className={`p-2.5 rounded-lg border flex items-center justify-between gap-2 ${
+                                    theme === "dark" ? "bg-slate-900 border-slate-800" : "bg-white border-slate-200"
+                                  }`}
+                                >
+                                  <div className="flex items-center gap-2 min-w-0">
+                                    <FileCode className="w-4 h-4 text-indigo-500 shrink-0" />
+                                    <div className="min-w-0">
+                                      <p className={`font-semibold truncate ${theme === "dark" ? "text-slate-200" : "text-slate-800"}`}>
+                                        {doc.fileName || `Document ${dIdx + 1}`}
+                                      </p>
+                                      <p className="text-[10px] text-slate-400 font-mono">
+                                        {doc.size ? formatBytes(doc.size) : "ID Document"} • {doc.mimeType || "file"}
+                                      </p>
+                                    </div>
+                                  </div>
+                                  <button
+                                    onClick={() => handleViewRecoveryDocument(doc.documentId, doc.fileName)}
+                                    className="px-2.5 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-[11px] font-bold rounded-lg transition-colors shrink-0 cursor-pointer flex items-center gap-1 shadow-sm"
+                                  >
+                                    <ExternalLink className="w-3 h-3" />
+                                    <span>{lang === "ar" ? "معاينة" : "View"}</span>
+                                  </button>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* REJECTION REASON IF PRESENT */}
+                        {req.rejectionReason && (
+                          <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-xs text-rose-500 font-medium">
+                            <span className="font-bold">{lang === "ar" ? "سبب الرفض:" : "Rejection Reason:"} </span>
+                            {req.rejectionReason}
+                          </div>
+                        )}
                       </div>
                     );
                   })}

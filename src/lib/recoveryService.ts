@@ -431,12 +431,17 @@ export async function getRecoveryStatus(email: string): Promise<{
   const normalizedEmail = email.trim().toLowerCase();
   let requestData: any = null;
 
-  // 1. Check accountRecoveryRequests_by_email in Firestore
+  // 1. Check recoveryRequests_by_email in Firestore
   if (isFirebaseAdminAvailable && adminDb) {
     try {
-      const emailSnap = await adminDb.collection("accountRecoveryRequests_by_email").doc(normalizedEmail).get();
+      const emailSnap = await adminDb.collection("recoveryRequests_by_email").doc(normalizedEmail).get();
       if (emailSnap.exists) {
         requestData = emailSnap.data();
+      } else {
+        const legacySnap = await adminDb.collection("accountRecoveryRequests_by_email").doc(normalizedEmail).get();
+        if (legacySnap.exists) {
+          requestData = legacySnap.data();
+        }
       }
     } catch (e) {}
   }
@@ -559,9 +564,14 @@ export async function submitRecoveryRequest(payload: {
   const nowIso = new Date().toISOString();
   const requestId = `REQ-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
 
+  const lifecycle = await getAccountLifecycleRecord(normalizedEmail);
+  const documentIds = documents.map(d => d.documentId);
+
   const requestDoc = {
     id: requestId,
     requestId,
+    userId: lifecycle?.originalUserId || `usr_${normalizedEmail.replace(/[^a-zA-Z0-9]/g, "_")}`,
+    accountId: lifecycle?.accountId || `acc_${normalizedEmail.replace(/[^a-zA-Z0-9]/g, "_")}`,
     email: normalizedEmail,
     fullName: fullName.trim(),
     phone: phone.trim(),
@@ -571,6 +581,7 @@ export async function submitRecoveryRequest(payload: {
     reason: reason.trim(),
     termsAccepted: true,
     termsAcceptedAt: nowIso,
+    documentIds,
     documents: documents.map(d => ({
       documentId: d.documentId,
       storageReference: d.storageReference || `secure_uploads/${d.documentId}`,
@@ -580,20 +591,32 @@ export async function submitRecoveryRequest(payload: {
       uploadedAt: d.uploadedAt || nowIso
     })),
     status: "pending",
+    createdAt: nowIso,
     submittedAt: nowIso,
-    updatedAt: nowIso
+    updatedAt: nowIso,
+    reviewedAt: null,
+    reviewedBy: null
   };
 
   for (const doc of documents) {
     await markUploadAssociated(doc.documentId, requestId);
   }
 
+  // Authoritative write to Firestore
   if (isFirebaseAdminAvailable && adminDb) {
     try {
-      await adminDb.collection("accountRecoveryRequests").doc(requestId).set(requestDoc);
-      await adminDb.collection("accountRecoveryRequests_by_email").doc(normalizedEmail).set(requestDoc);
-    } catch (fsErr) {
-      console.warn("[RecoveryService] Firestore request write warning:", fsErr);
+      await adminDb.collection("recoveryRequests").doc(requestId).set(requestDoc);
+      await adminDb.collection("recoveryRequests_by_email").doc(normalizedEmail).set(requestDoc);
+      // Legacy mirror write
+      await adminDb.collection("accountRecoveryRequests").doc(requestId).set(requestDoc).catch(() => {});
+      await adminDb.collection("accountRecoveryRequests_by_email").doc(normalizedEmail).set(requestDoc).catch(() => {});
+    } catch (fsErr: any) {
+      console.error("[RecoveryService] Firestore request write error:", fsErr);
+      return {
+        success: false,
+        error: "RECOVERY_REQUEST_PERSISTENCE_FAILED",
+        message: "Failed to persist recovery request to database. Please try again."
+      };
     }
   }
 
@@ -603,7 +626,6 @@ export async function submitRecoveryRequest(payload: {
   db.account_recovery_requests.push(requestDoc);
   writeDb(db);
 
-  const lifecycle = await getAccountLifecycleRecord(normalizedEmail);
   if (lifecycle) {
     await setAccountLifecycleRecord({
       ...lifecycle,
@@ -641,9 +663,14 @@ export async function sendApprovalOtp(email: string): Promise<{
   let reqStatus = "";
   if (isFirebaseAdminAvailable && adminDb) {
     try {
-      const emailSnap = await adminDb.collection("accountRecoveryRequests_by_email").doc(normalizedEmail).get();
+      const emailSnap = await adminDb.collection("recoveryRequests_by_email").doc(normalizedEmail).get();
       if (emailSnap.exists) {
         reqStatus = emailSnap.data()?.status || "";
+      } else {
+        const legacySnap = await adminDb.collection("accountRecoveryRequests_by_email").doc(normalizedEmail).get();
+        if (legacySnap.exists) {
+          reqStatus = legacySnap.data()?.status || "";
+        }
       }
     } catch (e) {}
   }
@@ -853,20 +880,38 @@ export async function getAdminRecoveryRequests(): Promise<{
   let requests: any[] = [];
   if (isFirebaseAdminAvailable && adminDb) {
     try {
-      const snap = await adminDb.collection("accountRecoveryRequests").orderBy("submittedAt", "desc").get();
-      requests = snap.docs.map((d: any) => ({ ...d.data(), id: d.id }));
-    } catch (e) {
+      const snap = await adminDb.collection("recoveryRequests").get();
+      if (snap && !snap.empty) {
+        requests = snap.docs.map((d: any) => ({ ...d.data(), id: d.id }));
+      }
+    } catch (e) {}
+
+    // Fallback query legacy collection if empty
+    if (requests.length === 0) {
       try {
         const snap = await adminDb.collection("accountRecoveryRequests").get();
-        requests = snap.docs.map((d: any) => ({ ...d.data(), id: d.id }));
+        if (snap && !snap.empty) {
+          requests = snap.docs.map((d: any) => ({ ...d.data(), id: d.id }));
+        }
       } catch (e2) {}
     }
   }
 
-  if (requests.length === 0) {
-    const db = readDb();
-    requests = db.account_recovery_requests || [];
+  // Merge local DB fallback items if not present
+  const db = readDb();
+  const localRequests = db.account_recovery_requests || [];
+  for (const lr of localRequests) {
+    if (!requests.some(r => r.id === lr.id || r.requestId === lr.requestId)) {
+      requests.push(lr);
+    }
   }
+
+  // Sort descending by submittedAt
+  requests.sort((a, b) => {
+    const tA = new Date(a.submittedAt || a.createdAt || 0).getTime();
+    const tB = new Date(b.submittedAt || b.createdAt || 0).getTime();
+    return tB - tA;
+  });
 
   return { success: true, requests };
 }
@@ -906,8 +951,11 @@ export async function handleAdminRecoveryDecision(params: {
 
   if (isFirebaseAdminAvailable && adminDb) {
     try {
-      await adminDb.collection("accountRecoveryRequests").doc(requestId).set(updateData, { merge: true });
-      await adminDb.collection("accountRecoveryRequests_by_email").doc(normalizedEmail).set(updateData, { merge: true });
+      await adminDb.collection("recoveryRequests").doc(requestId).set(updateData, { merge: true });
+      await adminDb.collection("recoveryRequests_by_email").doc(normalizedEmail).set(updateData, { merge: true });
+      // Legacy mirror update
+      await adminDb.collection("accountRecoveryRequests").doc(requestId).set(updateData, { merge: true }).catch(() => {});
+      await adminDb.collection("accountRecoveryRequests_by_email").doc(normalizedEmail).set(updateData, { merge: true }).catch(() => {});
     } catch (e) {}
   }
 

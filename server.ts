@@ -6477,20 +6477,25 @@ app.post("/api/auth/recovery-request/submit", async (req, res) => {
 
     const normalizedEmail = email.trim().toLowerCase();
     const nowIso = new Date().toISOString();
+    const lifecycle = await getAccountLifecycleRecord(normalizedEmail);
     const requestId = `REQ-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+    const documentIds = documents.map(d => d.documentId);
 
     const requestDoc = {
       id: requestId,
       requestId,
+      userId: lifecycle?.originalUserId || `usr_${normalizedEmail.replace(/[^a-zA-Z0-9]/g, "_")}`,
+      accountId: lifecycle?.accountId || `acc_${normalizedEmail.replace(/[^a-zA-Z0-9]/g, "_")}`,
       email: normalizedEmail,
       fullName: (fullName || "").trim(),
       phone: (phone || "").trim(),
       phoneVerified: !!phoneVerified,
-      reason: (reason || "").trim(),
-      organizationName: (organizationName || "").trim(),
+      organization: (organizationName || "").trim(),
       previousWorkspaceInfo: (previousWorkspaceInfo || "").trim(),
-      acceptedTerms: !!acceptedTerms,
+      reason: (reason || "").trim(),
+      termsAccepted: !!acceptedTerms,
       termsAcceptedAt: nowIso,
+      documentIds,
       documents: documents.map(d => ({
         documentId: d.documentId,
         storageReference: d.storageReference,
@@ -6500,8 +6505,11 @@ app.post("/api/auth/recovery-request/submit", async (req, res) => {
         uploadedAt: d.uploadedAt
       })),
       status: "pending",
+      createdAt: nowIso,
       submittedAt: nowIso,
-      updatedAt: nowIso
+      updatedAt: nowIso,
+      reviewedAt: null,
+      reviewedBy: null
     };
 
     // Mark the pending uploads as associated so they won't be cleaned up as orphans
@@ -6509,12 +6517,20 @@ app.post("/api/auth/recovery-request/submit", async (req, res) => {
       await markUploadAssociated(doc.documentId, requestId);
     }
 
-    // Save to Firestore
+    // Save to Firestore with atomic confirmation
     try {
-      await adminDb.collection("accountRecoveryRequests").doc(requestId).set(requestDoc);
-      await adminDb.collection("accountRecoveryRequests_by_email").doc(normalizedEmail).set(requestDoc);
-    } catch (fsErr) {
-      console.warn("Firestore recovery request write warning:", fsErr);
+      await adminDb.collection("recoveryRequests").doc(requestId).set(requestDoc);
+      await adminDb.collection("recoveryRequests_by_email").doc(normalizedEmail).set(requestDoc);
+      // Legacy mirror write
+      await adminDb.collection("accountRecoveryRequests").doc(requestId).set(requestDoc).catch(() => {});
+      await adminDb.collection("accountRecoveryRequests_by_email").doc(normalizedEmail).set(requestDoc).catch(() => {});
+    } catch (fsErr: any) {
+      console.error("Firestore recovery request write error:", fsErr);
+      return res.status(500).json({
+        success: false,
+        error: "RECOVERY_REQUEST_PERSISTENCE_FAILED",
+        message: "Failed to persist recovery request to database. Please try again."
+      });
     }
 
     // Save to local JSON DB fallback
@@ -6525,7 +6541,6 @@ app.post("/api/auth/recovery-request/submit", async (req, res) => {
     writeDb(db);
 
     // Update account lifecycle record to ADMIN_APPROVAL_PENDING
-    const lifecycle = await getAccountLifecycleRecord(normalizedEmail);
     if (lifecycle) {
       await setAccountLifecycleRecord({
         ...lifecycle,
@@ -6539,6 +6554,7 @@ app.post("/api/auth/recovery-request/submit", async (req, res) => {
     return res.json({
       success: true,
       requestId,
+      request: requestDoc,
       message: "Your account recovery request has been submitted for administrative review."
     });
   } catch (err: any) {
@@ -6558,9 +6574,14 @@ app.get("/api/auth/recovery-request/status", async (req, res) => {
 
     let requestData: any = null;
     try {
-      const emailSnap = await adminDb.collection("accountRecoveryRequests_by_email").doc(normalizedEmail).get();
+      const emailSnap = await adminDb.collection("recoveryRequests_by_email").doc(normalizedEmail).get();
       if (emailSnap.exists) {
         requestData = emailSnap.data();
+      } else {
+        const legacySnap = await adminDb.collection("accountRecoveryRequests_by_email").doc(normalizedEmail).get();
+        if (legacySnap.exists) {
+          requestData = legacySnap.data();
+        }
       }
     } catch (e) {}
 
@@ -6604,11 +6625,20 @@ app.get("/api/admin/recovery-requests", requireAuth, async (req: AuthRequest, re
 
     let requests: any[] = [];
     try {
-      const snap = await adminDb.collection("accountRecoveryRequests").get();
+      const snap = await adminDb.collection("recoveryRequests").get();
       if (snap && !snap.empty) {
         requests = snap.docs.map(d => ({ ...d.data(), id: d.id }));
       }
     } catch (e) {}
+
+    if (requests.length === 0) {
+      try {
+        const snap = await adminDb.collection("accountRecoveryRequests").get();
+        if (snap && !snap.empty) {
+          requests = snap.docs.map(d => ({ ...d.data(), id: d.id }));
+        }
+      } catch (e2) {}
+    }
 
     const db = readDb();
     const localRequests = db.account_recovery_requests || [];
@@ -6617,6 +6647,12 @@ app.get("/api/admin/recovery-requests", requireAuth, async (req: AuthRequest, re
         requests.push(lr);
       }
     }
+
+    requests.sort((a, b) => {
+      const tA = new Date(a.submittedAt || a.createdAt || 0).getTime();
+      const tB = new Date(b.submittedAt || b.createdAt || 0).getTime();
+      return tB - tA;
+    });
 
     return res.json({ success: true, requests });
   } catch (err: any) {
@@ -6640,9 +6676,15 @@ app.post("/api/admin/handle-recovery-request", requireAuth, async (req: AuthRequ
     let requestData: any = null;
     if (requestId) {
       try {
-        const snap = await adminDb.collection("accountRecoveryRequests").doc(requestId).get();
+        const snap = await adminDb.collection("recoveryRequests").doc(requestId).get();
         if (snap.exists) requestData = snap.data();
       } catch (e) {}
+      if (!requestData) {
+        try {
+          const snap = await adminDb.collection("accountRecoveryRequests").doc(requestId).get();
+          if (snap.exists) requestData = snap.data();
+        } catch (e) {}
+      }
     }
 
     const targetEmail = (requestData?.email || email || "").trim().toLowerCase();
@@ -6669,10 +6711,11 @@ app.post("/api/admin/handle-recovery-request", requireAuth, async (req: AuthRequ
     };
 
     try {
-      if (requestData?.requestId) {
-        await adminDb.collection("accountRecoveryRequests").doc(requestData.requestId).set(updatedRequestDoc, { merge: true });
-      }
-      await adminDb.collection("accountRecoveryRequests_by_email").doc(targetEmail).set(updatedRequestDoc, { merge: true });
+      const targetReqId = requestData?.requestId || requestId || `REQ-${Date.now()}`;
+      await adminDb.collection("recoveryRequests").doc(targetReqId).set(updatedRequestDoc, { merge: true });
+      await adminDb.collection("recoveryRequests_by_email").doc(targetEmail).set(updatedRequestDoc, { merge: true });
+      await adminDb.collection("accountRecoveryRequests").doc(targetReqId).set(updatedRequestDoc, { merge: true }).catch(() => {});
+      await adminDb.collection("accountRecoveryRequests_by_email").doc(targetEmail).set(updatedRequestDoc, { merge: true }).catch(() => {});
     } catch (e) {}
 
     const db = readDb();

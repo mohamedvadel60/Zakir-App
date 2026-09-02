@@ -111,6 +111,30 @@
         "reviewedBy": { "type": "string" },
         "notes": { "type": "string" }
       }
+    },
+    "RecoveryRequest": {
+      "path": "/recoveryRequests/{requestId}",
+      "fields": {
+        "requestId": { "type": "string" },
+        "userId": { "type": "string" },
+        "accountId": { "type": "string" },
+        "email": { "type": "string" },
+        "fullName": { "type": "string" },
+        "phone": { "type": "string" },
+        "phoneVerified": { "type": "boolean" },
+        "organization": { "type": "string" },
+        "previousWorkspaceInfo": { "type": "string" },
+        "reason": { "type": "string" },
+        "status": { "type": "string" },
+        "documentIds": { "type": "array", "items": { "type": "string" } },
+        "termsAccepted": { "type": "boolean" },
+        "termsAcceptedAt": { "type": "string" },
+        "submittedAt": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" },
+        "reviewedAt": { "type": "string" },
+        "reviewedBy": { "type": "string" }
+      }
     }
   }
 }
