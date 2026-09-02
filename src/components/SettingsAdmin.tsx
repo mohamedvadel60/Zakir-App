@@ -350,7 +350,7 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
   }, [checkoutClientSecret]);
 
   const handleStripeCheckout = async (plan: "Starter" | "Professional" | "Enterprise", isRetry = false) => {
-    if (isProcessingPayment) return;
+    if (isProcessingPayment && !isRetry) return;
 
     setIsProcessingPayment(true);
     setPaymentError(null);
@@ -373,31 +373,9 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
         return;
       }
 
-      let idToken: string | null = null;
-      if (fbUser) {
-        try {
-          idToken = await fbUser.getIdToken(true); // Always get a fresh token for payment
-        } catch (tokenErr) {
-          console.warn("[Stripe Checkout] Direct token fetch warning:", tokenErr);
-        }
-      }
-
-      const headers: Record<string, string> = { "Content-Type": "application/json" };
-      if (idToken) {
-        headers["Authorization"] = `Bearer ${idToken}`;
-      } else {
-        setPaymentError(
-          lang === "ar"
-            ? "تعذر التحقق من جلسة حسابك. يرجى تحديث الجلسة والمحاولة مرة أخرى."
-            : "Session verification failed. Please refresh your session and try again."
-        );
-        setIsProcessingPayment(false);
-        return;
-      }
-
-      const res = await fetch("/api/stripe/create-checkout-session", {
+      const res = await authenticatedFetch("/api/stripe/create-checkout-session", {
         method: "POST",
-        headers,
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           plan,
           billingCycle,
@@ -405,27 +383,21 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
         }),
       });
 
-      if (res.status === 401) {
-        if (!isRetry && fbUser) {
-          console.info("[Stripe Checkout] 401 received. Refreshing Firebase session token & retrying once...");
-          return await handleStripeCheckout(plan, true);
-        }
-        setPaymentError(
-          lang === "ar"
-            ? "تعذر التحقق من جلسة حسابك. يرجى تحديث الجلسة والمحاولة مرة أخرى."
-            : "Could not verify your account session. Please refresh your session and try again."
-        );
-        setIsProcessingPayment(false);
-        return;
+      let data: any = null;
+      try {
+        data = await res.json();
+      } catch (jsonErr) {
+        console.warn("[Stripe Checkout] Failed to parse JSON response:", jsonErr);
       }
 
-      const data = await res.json();
-      if (!res.ok || !data.success || !data.clientSecret) {
-        console.error("[Stripe Checkout] Session creation error:", data);
+      if (!res.ok || !data || !data.success || !data.clientSecret) {
+        console.error("[Stripe Checkout] Session creation error:", { status: res.status, data });
         setPaymentError(
-          lang === "ar"
-            ? (data.error || "تعذر إعداد جلسة الدفع الآمن حالياً. يرجى المحاولة لاحقاً.")
-            : (data.error || "Unable to initialize Stripe checkout. Please try again.")
+          data?.error || (
+            lang === "ar"
+              ? "تعذر إعداد جلسة الدفع الآمن حالياً. يرجى المحاولة لاحقاً."
+              : "Unable to initialize Stripe checkout. Please try again."
+          )
         );
         setIsProcessingPayment(false);
         return;
@@ -440,9 +412,11 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
     } catch (err: any) {
       console.error("[Stripe Checkout] Initialization error:", err);
       setPaymentError(
-        lang === "ar"
-          ? "تعذر التحقق من جلسة حسابك أو الاتصال بخادم الدفع. يرجى المحاولة مرة أخرى."
-          : "Could not verify your account session. Please refresh your session and try again."
+        err?.message || (
+          lang === "ar"
+            ? "تعذر التحقق من جلسة حسابك أو الاتصال بخادم الدفع. يرجى المحاولة مرة أخرى."
+            : "Could not verify your account session. Please refresh your session and try again."
+        )
       );
     } finally {
       setIsProcessingPayment(false);
@@ -3000,7 +2974,7 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
                       <div className="flex items-center gap-2">
                         <button
                           type="button"
-                          onClick={() => handleStripeCheckout(selectedPlanForCheckout)}
+                          onClick={() => handleStripeCheckout(selectedPlanForCheckout, true)}
                           className="px-2.5 py-1 bg-rose-600 hover:bg-rose-500 text-white font-bold rounded-lg text-[10px] cursor-pointer"
                         >
                           {lang === "ar" ? "إعادة المحاولة" : "Try Again"}
