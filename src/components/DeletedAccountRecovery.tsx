@@ -49,7 +49,8 @@ export const DeletedAccountRecovery: React.FC<DeletedAccountRecoveryProps> = ({
   onRestored
 }) => {
   const isRtl = lang === "ar";
-  const normalizedEmail = email.trim().toLowerCase();
+  const [recoveryEmail, setRecoveryEmail] = useState<string>((email || "").trim().toLowerCase());
+  const normalizedEmail = recoveryEmail;
 
   // Mode states: "status_view" | "form_view" | "verify_email_view" | "success_view"
   const [viewMode, setViewMode] = useState<"status_view" | "form_view" | "verify_email_view" | "success_view">("status_view");
@@ -70,8 +71,8 @@ export const DeletedAccountRecovery: React.FC<DeletedAccountRecoveryProps> = ({
   const [deletionReason, setDeletionReason] = useState<string>("");
   const [termsAccepted, setTermsAccepted] = useState<boolean>(false);
   
-  // File Upload State
-  const [attachedDoc, setAttachedDoc] = useState<{
+  // File Upload State (Supports up to 2 documents)
+  const [attachedDocs, setAttachedDocs] = useState<Array<{
     documentId: string;
     storageReference: string;
     fileName: string;
@@ -82,8 +83,12 @@ export const DeletedAccountRecovery: React.FC<DeletedAccountRecoveryProps> = ({
     id?: string;
     name?: string;
     type?: string;
-  } | null>(null);
+  }>>([]);
   const [isUploadingFile, setIsUploadingFile] = useState<boolean>(false);
+
+  const removeDocument = (docId: string) => {
+    setAttachedDocs(prev => prev.filter(d => (d.documentId !== docId && d.id !== docId)));
+  };
 
   // Email OTP Verification State (After Approval)
   const [otpCode, setOtpCode] = useState<string>("");
@@ -98,6 +103,10 @@ export const DeletedAccountRecovery: React.FC<DeletedAccountRecoveryProps> = ({
 
   // Load request status on mount
   const checkStatus = async () => {
+    if (!normalizedEmail) {
+      setLoadingStatus(false);
+      return;
+    }
     setLoadingStatus(true);
     setErrorMessage(null);
     try {
@@ -133,10 +142,22 @@ export const DeletedAccountRecovery: React.FC<DeletedAccountRecoveryProps> = ({
     return () => clearInterval(timer);
   }, [resendCooldown]);
 
-  // Handle Document Attachment
+  // Handle Document Attachment (Up to 2 documents)
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
     const file = e.target.files?.[0];
     if (!file) return;
+
+    if (attachedDocs.length >= 2) {
+      setErrorMessage(
+        lang === "ar"
+          ? "الحد الأقصى للوثائق المرفقة هو وثيقتان فقط."
+          : "Maximum 2 identity documents allowed."
+      );
+      if (e.target) e.target.value = "";
+      return;
+    }
 
     if (file.size > 5 * 1024 * 1024) {
       setErrorMessage(
@@ -144,16 +165,21 @@ export const DeletedAccountRecovery: React.FC<DeletedAccountRecoveryProps> = ({
           ? "حجم الملف يتجاوز الحد المسموح به (5 ميجابايت)."
           : "File size exceeds the 5MB limit."
       );
+      if (e.target) e.target.value = "";
       return;
     }
 
     const allowedMimeTypes = ["application/pdf", "image/png", "image/jpeg", "image/jpg"];
-    if (!allowedMimeTypes.includes(file.type)) {
+    const ext = file.name.split(".").pop()?.toLowerCase() || "";
+    const allowedExts = ["pdf", "png", "jpg", "jpeg"];
+
+    if (!allowedMimeTypes.includes(file.type) && !allowedExts.includes(ext)) {
       setErrorMessage(
         lang === "ar"
           ? "امتداد وصيغة الملف غير مدعومة. يسمح فقط بملفات PDF, PNG, JPG."
           : "Unsupported document format. Only PDF, PNG, and JPEG files are allowed."
       );
+      if (e.target) e.target.value = "";
       return;
     }
 
@@ -162,17 +188,28 @@ export const DeletedAccountRecovery: React.FC<DeletedAccountRecoveryProps> = ({
 
     try {
       const res = await uploadRecoveryDocumentApi(file);
-      if (!res.success) {
-        throw new Error(res.error || (lang === "ar" ? "فشل رفع الملف." : "Failed to upload document."));
+      if (!res.success || (!res.document && !res.documentId)) {
+        throw new Error(res.error || res.message || (lang === "ar" ? "فشل رفع الملف." : "Failed to upload document."));
       }
       
-      // Keep name/id/type compatibility for backward compatibility with UI rendering
-      setAttachedDoc({
-        ...res.document,
-        id: res.document.documentId,
-        name: res.document.fileName,
-        type: res.document.mimeType.includes("pdf") ? "pdf" : "identity_document"
-      });
+      const docData = res.document || {
+        documentId: res.documentId,
+        uploadToken: res.uploadToken,
+        fileName: file.name,
+        mimeType: file.type || "application/octet-stream",
+        size: file.size,
+        storageReference: `secure_uploads/${res.documentId}`,
+        uploadedAt: new Date().toISOString()
+      };
+
+      const newDoc = {
+        ...docData,
+        id: docData.documentId,
+        name: docData.fileName,
+        type: docData.mimeType?.includes("pdf") ? "pdf" : "identity_document"
+      };
+
+      setAttachedDocs(prev => [...prev, newDoc]);
       setErrorMessage(null);
     } catch (err: any) {
       console.error("Document upload error:", err);
@@ -182,6 +219,7 @@ export const DeletedAccountRecovery: React.FC<DeletedAccountRecoveryProps> = ({
       );
     } finally {
       setIsUploadingFile(false);
+      if (e.target) e.target.value = "";
     }
   };
 
@@ -211,8 +249,13 @@ export const DeletedAccountRecovery: React.FC<DeletedAccountRecoveryProps> = ({
       setFormStep(3);
       return;
     }
-    if (!attachedDoc) {
-      setErrorMessage(lang === "ar" ? "يرجى إرفاق وثيقة اثبات الهوية." : "Please attach an identity verification document.");
+    if (attachedDocs.length === 0) {
+      setErrorMessage(lang === "ar" ? "يرجى إرفاق وثيقة إثبات الهوية (مستند واحد على الأقل)." : "Please attach at least one identity verification document.");
+      setFormStep(4);
+      return;
+    }
+    if (attachedDocs.length > 2) {
+      setErrorMessage(lang === "ar" ? "الحد الأقصى للوثائق المرفقة هو وثيقتان فقط." : "Maximum 2 identity documents allowed.");
       setFormStep(4);
       return;
     }
@@ -229,7 +272,7 @@ export const DeletedAccountRecovery: React.FC<DeletedAccountRecoveryProps> = ({
         previousWorkspaceInfo: previousWorkspaceInfo.trim(),
         reason: deletionReason.trim(),
         termsAccepted: true,
-        documents: [attachedDoc]
+        documents: attachedDocs
       };
 
       const res = await submitAccountRecoveryRequestApi(payload);
@@ -311,21 +354,73 @@ export const DeletedAccountRecovery: React.FC<DeletedAccountRecoveryProps> = ({
           <ShieldAlert className="w-7 h-7 text-[#2563EB]" />
         </div>
 
-        <h2 className="text-xl sm:text-2xl font-extrabold tracking-tight text-slate-900 dark:text-white">
-          {lang === "ar" ? "تم حذف حسابك" : "Your account has been deleted"}
+        <h2 className="text-xl sm:text-2xl font-extrabold tracking-tight text-slate-900 dark:text-white flex flex-wrap items-center justify-center gap-x-1.5" dir={isRtl ? "rtl" : "ltr"}>
+          <span>
+            {lang === "ar" 
+              ? "طلب استعادة الحساب" 
+              : lang === "fr" 
+              ? "Demande de récupération de compte" 
+              : "Request Account Recovery"}
+          </span>
         </h2>
 
-        <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 max-w-md mx-auto leading-relaxed">
-          {lang === "ar"
-            ? `البريد الإلكتروني (${normalizedEmail}) مرتبط بحساب تم حذفه سابقاً ولا يمكن الوصول إليه كالمعتاد. تتطلب استعادة الحساب تقديم طلب مراجعة من قبل الإدارة.`
-            : `The account associated with (${normalizedEmail}) was previously deleted and cannot be accessed normally. Account recovery requires submitting a request for administrator review.`}
+        <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 max-w-md mx-auto leading-relaxed" dir={isRtl ? "rtl" : "ltr"}>
+          {email?.trim() ? (
+            lang === "ar" ? (
+              <>
+                البريد الإلكتروني{" "}
+                <span dir="ltr" className="inline-flex items-center text-[#2563EB] dark:text-blue-400 font-mono font-semibold">
+                  (
+                  <a href={`mailto:${normalizedEmail}`} className="hover:underline">
+                    {normalizedEmail}
+                  </a>
+                  )
+                </span>{" "}
+                مرتبط بحساب تم حذفه سابقاً ولا يمكن الوصول إليه كالمعتاد. تتطلب استعادة الحساب تقديم طلب مراجعة من قبل الإدارة.
+              </>
+            ) : lang === "fr" ? (
+              <>
+                L'adresse e-mail{" "}
+                <span dir="ltr" className="inline-flex items-center text-[#2563EB] dark:text-blue-400 font-mono font-semibold">
+                  (
+                  <a href={`mailto:${normalizedEmail}`} className="hover:underline">
+                    {normalizedEmail}
+                  </a>
+                  )
+                </span>{" "}
+                est associée à un compte précédemment supprimé et n'est pas accessible normalement. La récupération de compte nécessite de soumettre une demande d'approbation d'administrateur.
+              </>
+            ) : (
+              <>
+                The account associated with{" "}
+                <span dir="ltr" className="inline-flex items-center text-[#2563EB] dark:text-blue-400 font-mono font-semibold">
+                  (
+                  <a href={`mailto:${normalizedEmail}`} className="hover:underline">
+                    {normalizedEmail}
+                  </a>
+                  )
+                </span>{" "}
+                was previously deleted and cannot be accessed normally. Account recovery requires submitting a request for administrator review.
+              </>
+            )
+          ) : (
+            lang === "ar" ? (
+              "يرجى إدخال البريد الإلكتروني المرتبط بالحساب المقتطع لتسهيل مراجعة الطلب من قبل الإدارة."
+            ) : lang === "fr" ? (
+              "Veuillez saisir l'adresse e-mail associée au compte supprimé pour faciliter l'examen de la demande par l'administration."
+            ) : (
+              "Please enter the email address associated with the deleted account to facilitate request review by management."
+            )
+          )}
         </p>
 
         {/* Email Badge */}
-        <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#EFF6FF] text-[#1D4ED8] dark:bg-blue-950/50 dark:text-blue-300 font-mono text-xs font-semibold border border-blue-200 dark:border-blue-900">
-          <Mail className="w-3.5 h-3.5 text-[#2563EB]" />
-          <span>{normalizedEmail}</span>
-        </div>
+        {!!email?.trim() && (
+          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#EFF6FF] text-[#1D4ED8] dark:bg-blue-950/50 dark:text-blue-300 font-mono text-xs font-semibold border border-blue-200 dark:border-blue-900">
+            <Mail className="w-3.5 h-3.5 text-[#2563EB]" />
+            <span>{normalizedEmail}</span>
+          </div>
+        )}
       </div>
 
       {/* Error Alert Box */}
@@ -376,7 +471,10 @@ export const DeletedAccountRecovery: React.FC<DeletedAccountRecoveryProps> = ({
                     className="w-full py-3 px-4 bg-[#2563EB] hover:bg-[#1D4ED8] text-white rounded-xl text-xs font-bold transition-colors shadow-md shadow-blue-500/20 flex items-center justify-center gap-2 cursor-pointer"
                   >
                     <FileText className="w-4 h-4" />
-                    <span>{lang === "ar" ? `تقديم طلب استعادة الحساب (${normalizedEmail})` : `Request account recovery (${normalizedEmail})`}</span>
+                    <span>
+                      {lang === "ar" ? "تقديم طلب استعادة الحساب" : "Request account recovery"}{" "}
+                      {!!email?.trim() && <span className="font-mono">({normalizedEmail})</span>}
+                    </span>
                   </button>
                 </div>
               )}
@@ -458,7 +556,10 @@ export const DeletedAccountRecovery: React.FC<DeletedAccountRecoveryProps> = ({
                     className="w-full py-3 px-4 bg-[#2563EB] hover:bg-[#1D4ED8] text-white rounded-xl text-xs font-bold transition-colors shadow-md shadow-blue-500/20 flex items-center justify-center gap-2 cursor-pointer"
                   >
                     <RotateCcw className="w-4 h-4" />
-                    <span>{lang === "ar" ? `تقديم طلب استعادة جديد (${normalizedEmail})` : `Submit a new recovery request (${normalizedEmail})`}</span>
+                    <span>
+                      {lang === "ar" ? "تقديم طلب استعادة جديد" : "Submit a new recovery request"}{" "}
+                      {!!email?.trim() && <span className="font-mono">({normalizedEmail})</span>}
+                    </span>
                   </button>
                 </div>
               )}
@@ -548,11 +649,21 @@ export const DeletedAccountRecovery: React.FC<DeletedAccountRecoveryProps> = ({
                   <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                     {lang === "ar" ? "البريد الإلكتروني للحساب" : "Account Email Address"}
                   </label>
-                  <input
+                   <input
                     type="text"
-                    disabled
-                    value={normalizedEmail}
-                    className="w-full p-2.5 rounded-xl text-xs font-mono bg-slate-100 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-slate-500 cursor-not-allowed"
+                    disabled={!!email?.trim()}
+                    value={recoveryEmail}
+                    onChange={(e) => {
+                      if (!email?.trim()) {
+                        setRecoveryEmail(e.target.value);
+                      }
+                    }}
+                    placeholder={lang === "ar" ? "أدخل البريد الإلكتروني للحساب" : "Enter account email address"}
+                    className={`w-full p-2.5 rounded-xl text-xs font-mono border ${
+                      !!email?.trim()
+                        ? "bg-slate-100 dark:bg-slate-800/80 border-slate-200 dark:border-slate-700 text-slate-500 cursor-not-allowed"
+                        : "bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white focus:ring-2 focus:ring-[#2563EB] outline-none"
+                    }`}
                   />
                 </div>
 
@@ -738,63 +849,119 @@ export const DeletedAccountRecovery: React.FC<DeletedAccountRecoveryProps> = ({
             </div>
           )}
 
-          {/* STEP 4: Identity Verification Document */}
+          {/* STEP 4: Identity Verification Document (Up to 2 documents) */}
           {formStep === 4 && (
             <div className="space-y-4 animate-fade-in">
-              <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                <FileCheck className="w-4 h-4 text-[#2563EB]" />
-                <span>{lang === "ar" ? "إثبات الهوية والوثائق" : "Identity Verification Document"}</span>
-              </h3>
+              <div className="space-y-1">
+                <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center justify-between">
+                  <span className="flex items-center gap-2">
+                    <FileCheck className="w-4 h-4 text-[#2563EB]" />
+                    <span>{lang === "ar" ? "إثبات الهوية والوثائق الرسمية" : "Identity Verification Documents"}</span>
+                  </span>
+                  <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/50 text-[#2563EB] dark:text-blue-300 font-mono">
+                    {attachedDocs.length}/2 {lang === "ar" ? "وثائق" : "documents"}
+                  </span>
+                </h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  {lang === "ar"
+                    ? "يرجى إرفاق وثيقة إثبات هوية سارية (جواز سفر، بطاقة هوية وطنية، أو رخصة قيادة). يمكنك إرفاق حتى وثيقتين (مثلاً الوجهين أو وثيقة دعم إضافية)."
+                    : "Please attach valid official identification (Passport, National ID, or Driver's License). You can attach up to 2 documents (e.g. front & back)."}
+                </p>
+              </div>
 
-              <div className="p-4 rounded-xl border border-dashed border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/40 text-center space-y-3">
-                {isUploadingFile ? (
-                  <div className="flex flex-col items-center justify-center py-4 space-y-2">
-                    <RefreshCw className="w-6 h-6 text-[#2563EB] animate-spin" />
-                    <p className="text-xs font-bold text-slate-500">
-                      {lang === "ar" ? "جاري رفع المستند بأمان..." : "Uploading document securely..."}
-                    </p>
-                  </div>
-                ) : attachedDoc ? (
-                  <div className="flex items-center justify-between p-3 bg-blue-500/10 border border-blue-500/30 rounded-xl">
-                    <div className="flex items-center gap-2.5 text-left rtl:text-right">
-                      <FileText className="w-5 h-5 text-[#2563EB] shrink-0" />
-                      <div>
-                        <p className="text-xs font-bold text-slate-800 dark:text-slate-200">{attachedDoc.name}</p>
-                        <span className="text-[10px] text-slate-400 font-mono">{attachedDoc.mimeType}</span>
-                      </div>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => setAttachedDoc(null)}
-                      className="p-1 rounded-lg hover:bg-rose-500/20 text-rose-500 transition-colors"
+              {/* List of uploaded documents */}
+              {attachedDocs.length > 0 && (
+                <div className="space-y-2">
+                  {attachedDocs.map((doc, idx) => (
+                    <div
+                      key={doc.documentId || doc.id || idx}
+                      className="flex items-center justify-between p-3 bg-blue-500/10 border border-blue-500/30 rounded-xl"
                     >
-                      <X className="w-4 h-4" />
-                    </button>
-                  </div>
-                ) : (
-                  <>
-                    <Upload className="w-8 h-8 text-[#2563EB] mx-auto opacity-80" />
-                    <div className="space-y-1">
-                      <p className="text-xs font-bold text-slate-800 dark:text-slate-200">
-                        {lang === "ar" ? "ارفق رسمياً وثيقة إثبات الهوية (جواز سفر / هوية وطنية / رخصة)" : "Attach official identity document (Passport, National ID, Driver's License)"}
-                      </p>
-                      <p className="text-[11px] text-slate-400">
-                        {lang === "ar" ? "الصيغ المقبولة: PDF, PNG, JPG (الحد الأقصى 5 ميجابايت)" : "Accepted formats: PDF, PNG, JPG (Up to 5MB)"}
+                      <div className="flex items-center gap-2.5 text-left rtl:text-right min-w-0 flex-1">
+                        <FileText className="w-5 h-5 text-[#2563EB] shrink-0" />
+                        <div className="min-w-0 flex-1">
+                          <p className="text-xs font-bold text-slate-800 dark:text-slate-200 truncate">
+                            <span className="inline-block px-1.5 py-0.5 text-[10px] bg-[#2563EB] text-white rounded font-mono mr-1.5 rtl:ml-1.5 rtl:mr-0">
+                              #{idx + 1}
+                            </span>
+                            {doc.fileName || doc.name}
+                          </p>
+                          <div className="flex items-center gap-2 text-[10px] text-slate-400 font-mono mt-0.5">
+                            <span>{doc.mimeType}</span>
+                            {doc.size > 0 && <span>• {(doc.size / 1024).toFixed(1)} KB</span>}
+                          </div>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => removeDocument(doc.documentId || doc.id || "")}
+                        className="p-1.5 rounded-lg hover:bg-rose-500/20 text-rose-500 transition-colors ml-2 rtl:mr-2 rtl:ml-0 cursor-pointer"
+                        title={lang === "ar" ? "حذف الوثيقة" : "Remove document"}
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Upload Dropzone / Button (Shown if < 2 documents) */}
+              {attachedDocs.length < 2 && (
+                <div className="p-4 rounded-xl border border-dashed border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/40 text-center space-y-3">
+                  {isUploadingFile ? (
+                    <div className="flex flex-col items-center justify-center py-4 space-y-2">
+                      <RefreshCw className="w-6 h-6 text-[#2563EB] animate-spin" />
+                      <p className="text-xs font-bold text-slate-500">
+                        {lang === "ar" ? "جاري رفع المستند بأمان..." : "Uploading document securely..."}
                       </p>
                     </div>
-                    <label className="inline-flex items-center gap-2 px-4 py-2 bg-[#2563EB] hover:bg-[#1D4ED8] text-white rounded-xl text-xs font-bold transition-colors cursor-pointer shadow-sm">
-                      <Upload className="w-3.5 h-3.5" />
-                      <span>{lang === "ar" ? "اختيار ملف" : "Choose File"}</span>
+                  ) : (
+                    <>
+                      <Upload className="w-8 h-8 text-[#2563EB] mx-auto opacity-80" />
+                      <div className="space-y-1">
+                        <p className="text-xs font-bold text-slate-800 dark:text-slate-200">
+                          {attachedDocs.length === 0
+                            ? (lang === "ar" ? "ارفق رسمياً وثيقة إثبات الهوية الأولى" : "Attach First Official Identity Document")
+                            : (lang === "ar" ? "إرفاق وثيقة ثانية إضافية (اختياري)" : "Attach Second Supporting Document (Optional)")}
+                        </p>
+                        <p className="text-[11px] text-slate-400">
+                          {lang === "ar" ? "الصيغ المقبولة: PDF, PNG, JPG (الحد الأقصى 5 ميجابايت للملف)" : "Accepted formats: PDF, PNG, JPG (Max 5MB per file)"}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          document.getElementById("recovery-file-input")?.click();
+                        }}
+                        className="inline-flex items-center gap-2 px-4 py-2 bg-[#2563EB] hover:bg-[#1D4ED8] text-white rounded-xl text-xs font-bold transition-colors cursor-pointer shadow-sm"
+                      >
+                        <Upload className="w-3.5 h-3.5" />
+                        <span>
+                          {attachedDocs.length === 0
+                            ? (lang === "ar" ? "اختيار ملف الوثيقة" : "Choose File")
+                            : (lang === "ar" ? "اختيار الوثيقة الثانية" : "Choose Second Document")}
+                        </span>
+                      </button>
                       <input
+                        id="recovery-file-input"
                         type="file"
-                        accept="image/png,image/jpeg,application/pdf"
+                        accept=".pdf,.png,.jpg,.jpeg,application/pdf,image/png,image/jpeg"
                         onChange={handleFileUpload}
                         className="hidden"
                       />
-                    </label>
-                  </>
-                )}
-              </div>
+                    </>
+                  )}
+                </div>
+              )}
+
+              {attachedDocs.length >= 2 && (
+                <div className="p-3 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-900 rounded-xl text-xs font-semibold text-emerald-700 dark:text-emerald-300 flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 shrink-0" />
+                  <span>{lang === "ar" ? "تم إرفاق الحد الأقصى من الوثائق (مستندان)." : "Maximum number of documents attached (2 documents)."}</span>
+                </div>
+              )}
 
               <div className="p-3 bg-slate-100 dark:bg-slate-800/60 rounded-xl text-[11px] text-slate-500 dark:text-slate-400 flex items-start gap-2">
                 <Lock className="w-3.5 h-3.5 text-[#2563EB] shrink-0 mt-0.5" />
@@ -816,8 +983,8 @@ export const DeletedAccountRecovery: React.FC<DeletedAccountRecoveryProps> = ({
                 <button
                   type="button"
                   onClick={() => {
-                    if (!attachedDoc) {
-                      setErrorMessage(lang === "ar" ? "يرجى إرفاق الوثيقة." : "Please attach identity document.");
+                    if (attachedDocs.length === 0) {
+                      setErrorMessage(lang === "ar" ? "يرجى إرفاق وثيقة واحدة على الأقل." : "Please attach at least one identity document.");
                       return;
                     }
                     setErrorMessage(null);
@@ -842,15 +1009,26 @@ export const DeletedAccountRecovery: React.FC<DeletedAccountRecoveryProps> = ({
               <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 space-y-2 text-xs">
                 <div className="flex justify-between border-b border-slate-200 dark:border-slate-700 pb-2">
                   <span className="text-slate-400">{lang === "ar" ? "مقدم الطلب:" : "Applicant:"}</span>
-                  <span className="font-bold">{fullName} ({normalizedEmail})</span>
+                  <span className="font-bold">
+                    {fullName}{" "}
+                    <span dir="ltr" className="font-mono text-xs text-[#2563EB] dark:text-blue-400">
+                      ({normalizedEmail})
+                    </span>
+                  </span>
                 </div>
                 <div className="flex justify-between border-b border-slate-200 dark:border-slate-700 pb-2">
                   <span className="text-slate-400">{lang === "ar" ? "رقم الهاتف:" : "Phone:"}</span>
                   <span className="font-mono">{phone}</span>
                 </div>
                 <div className="flex justify-between border-b border-slate-200 dark:border-slate-700 pb-2">
-                  <span className="text-slate-400">{lang === "ar" ? "الوثيقة المرفقة:" : "Identity Doc:"}</span>
-                  <span className="font-semibold text-[#2563EB]">{attachedDoc?.name}</span>
+                  <span className="text-slate-400">{lang === "ar" ? "الوثائق المرفقة:" : "Identity Docs:"}</span>
+                  <div className="text-right rtl:text-left space-y-1">
+                    {attachedDocs.map((d, i) => (
+                      <p key={d.documentId || d.id || i} className="font-semibold text-[#2563EB] text-xs">
+                        #{i + 1} {d.fileName || d.name}
+                      </p>
+                    ))}
+                  </div>
                 </div>
                 <div className="pt-1">
                   <span className="text-slate-400 block mb-1">{lang === "ar" ? "سبب الاستعادة:" : "Recovery Reason:"}</span>
@@ -885,7 +1063,10 @@ export const DeletedAccountRecovery: React.FC<DeletedAccountRecoveryProps> = ({
                   ) : (
                     <Send className="w-4 h-4" />
                   )}
-                  <span>{lang === "ar" ? `إرسال طلب الاستعادة للإدارة (${normalizedEmail})` : `Submit recovery request (${normalizedEmail})`}</span>
+                  <span>
+                    {lang === "ar" ? "إرسال طلب الاستعادة للإدارة" : "Submit recovery request"}{" "}
+                    <span className="font-mono">({normalizedEmail})</span>
+                  </span>
                 </button>
               </div>
             </div>
@@ -902,10 +1083,32 @@ export const DeletedAccountRecovery: React.FC<DeletedAccountRecoveryProps> = ({
               <Mail className="w-4 h-4 text-[#2563EB]" />
               <span>{lang === "ar" ? "رمز التحقق لإكمال الاستعادة" : "Verification Code for Account Restoration"}</span>
             </h3>
-            <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
-              {lang === "ar"
-                ? `تم إرسال رمز تحقق مكون من 6 أرقام إلى بريدك الإلكتروني (${normalizedEmail}) لإكمال تفعيل واستعادة حسابك.`
-                : `A 6-digit verification code was sent to (${normalizedEmail}) to finalize restoring your approved account.`}
+            <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed" dir={isRtl ? "rtl" : "ltr"}>
+              {lang === "ar" ? (
+                <>
+                  تم إرسال رمز تحقق مكون من 6 أرقام إلى بريدك الإلكتروني{" "}
+                  <span dir="ltr" className="inline-flex items-center text-[#2563EB] dark:text-blue-400 font-mono font-semibold">
+                    (
+                    <a href={`mailto:${normalizedEmail}`} className="hover:underline">
+                      {normalizedEmail}
+                    </a>
+                    )
+                  </span>{" "}
+                  لإكمال تفعيل واستعادة حسابك.
+                </>
+              ) : (
+                <>
+                  A 6-digit verification code was sent to{" "}
+                  <span dir="ltr" className="inline-flex items-center text-[#2563EB] dark:text-blue-400 font-mono font-semibold">
+                    (
+                    <a href={`mailto:${normalizedEmail}`} className="hover:underline">
+                      {normalizedEmail}
+                    </a>
+                    )
+                  </span>{" "}
+                  to finalize restoring your approved account.
+                </>
+              )}
             </p>
           </div>
 

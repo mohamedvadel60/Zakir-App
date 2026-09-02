@@ -1563,6 +1563,7 @@ export async function checkAccountLifecycleApi(email: string) {
   try {
     const res = await fetch(getAuthApiUrl("/api/auth/check-lifecycle"), {
       method: "POST",
+      credentials: "include",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email })
     });
@@ -1576,14 +1577,16 @@ export async function checkAccountLifecycleApi(email: string) {
 export async function uploadRecoveryDocumentApi(file: File) {
   try {
     const formData = new FormData();
+    formData.append("file", file);
     formData.append("document", file);
     const res = await fetch(getAuthApiUrl("/api/auth/recovery-request/upload"), {
       method: "POST",
+      credentials: "include",
       body: formData
     });
     return await safeParseJsonResponse(res);
   } catch (err: any) {
-    console.error("uploadRecoveryDocumentApi error:", err);
+    console.warn("uploadRecoveryDocumentApi notice:", err?.message || err);
     return { success: false, error: err.message || "Failed to upload document." };
   }
 }
@@ -1610,34 +1613,43 @@ export async function submitAccountRecoveryRequestApi(payload: {
   try {
     const res = await fetch(getAuthApiUrl("/api/auth/recovery-request/submit"), {
       method: "POST",
+      credentials: "include",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload)
     });
     return await safeParseJsonResponse(res);
   } catch (err: any) {
-    console.error("submitAccountRecoveryRequestApi error:", err);
+    console.warn("submitAccountRecoveryRequestApi notice:", err?.message || err);
     return { success: false, error: err.message || "فشل تقديم طلب استعادة الحساب." };
   }
 }
 
 export async function fetchAccountRecoveryStatusApi(email: string) {
   try {
-    const res = await fetch(getAuthApiUrl(`/api/auth/recovery-request/status?email=${encodeURIComponent(email)}`));
+    if (!email || !email.trim()) {
+      return { success: true, status: "none", recoveryRequest: null };
+    }
+    const res = await fetch(getAuthApiUrl(`/api/auth/recovery-request/status?email=${encodeURIComponent(email.trim().toLowerCase())}`), {
+      method: "GET",
+      credentials: "include"
+    });
     return await safeParseJsonResponse(res);
   } catch (err: any) {
-    console.error("fetchAccountRecoveryStatusApi error:", err);
-    return { success: false, error: err.message || "فشل جلب حالة الاستعادة." };
+    console.warn("fetchAccountRecoveryStatusApi notice:", err?.message || err);
+    return { success: false, status: "none", recoveryRequest: null, error: err.message || "فشل جلب حالة الاستعادة." };
   }
 }
 
 export async function fetchAdminRecoveryRequestsApi(idToken: string) {
   try {
-    const res = await fetch("/api/admin/recovery-requests", {
-      headers: { "Authorization": `Bearer ${idToken}` }
+    const res = await fetch(getAuthApiUrl("/api/admin/recovery-requests"), {
+      method: "GET",
+      credentials: "include",
+      headers: idToken ? { "Authorization": `Bearer ${idToken}` } : {}
     });
     return await safeParseJsonResponse(res);
   } catch (err: any) {
-    console.error("fetchAdminRecoveryRequestsApi error:", err);
+    console.warn("fetchAdminRecoveryRequestsApi notice:", err?.message || err);
     return { success: false, error: err.message || "فشل جلب طلبات الاستعادة." };
   }
 }
@@ -1651,17 +1663,18 @@ export async function handleAdminRecoveryRequestDecisionApi(
   notes?: string
 ) {
   try {
-    const res = await fetch("/api/admin/handle-recovery-request", {
+    const res = await fetch(getAuthApiUrl("/api/admin/handle-recovery-request"), {
       method: "POST",
+      credentials: "include",
       headers: {
         "Content-Type": "application/json",
-        "Authorization": `Bearer ${idToken}`
+        ...(idToken ? { "Authorization": `Bearer ${idToken}` } : {})
       },
       body: JSON.stringify({ requestId, email, action, rejectionReason, notes })
     });
     return await safeParseJsonResponse(res);
   } catch (err: any) {
-    console.error("handleAdminRecoveryRequestDecisionApi error:", err);
+    console.warn("handleAdminRecoveryRequestDecisionApi notice:", err?.message || err);
     return { success: false, error: err.message || "فشل اتخاذ القرار." };
   }
 }
@@ -1670,12 +1683,13 @@ export async function sendRecoveryApprovalOtpApi(email: string) {
   try {
     const res = await fetch(getAuthApiUrl("/api/auth/recovery-request/send-approval-otp"), {
       method: "POST",
+      credentials: "include",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email: email.trim().toLowerCase() })
     });
     return await safeParseJsonResponse(res);
   } catch (err: any) {
-    console.error("sendRecoveryApprovalOtpApi error:", err);
+    console.warn("sendRecoveryApprovalOtpApi notice:", err?.message || err);
     return { success: false, error: err.message || "فشل إرسال رمز التحقق." };
   }
 }
@@ -1684,12 +1698,13 @@ export async function verifyRecoveryApprovalOtpAndRestoreApi(email: string, code
   try {
     const res = await fetch(getAuthApiUrl("/api/auth/recovery-request/verify-otp-and-restore"), {
       method: "POST",
+      credentials: "include",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email: email.trim().toLowerCase(), code: code.trim() })
     });
     return await safeParseJsonResponse(res);
   } catch (err: any) {
-    console.error("verifyRecoveryApprovalOtpAndRestoreApi error:", err);
+    console.warn("verifyRecoveryApprovalOtpAndRestoreApi notice:", err?.message || err);
     return { success: false, error: err.message || "فشل التحقق من الرمز واستعادة الحساب." };
   }
 }
@@ -1698,6 +1713,7 @@ export async function requestAccountReactivationApi(email: string, reason?: stri
   try {
     const res = await fetch(getAuthApiUrl("/api/auth/request-reactivation"), {
       method: "POST",
+      credentials: "include",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email, reason })
     });
@@ -1712,6 +1728,7 @@ export async function sendAccountRecoveryOtpApi(email: string) {
   try {
     const res = await fetch(getAuthApiUrl("/api/auth/send-verification-code"), {
       method: "POST",
+      credentials: "include",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email: email.trim().toLowerCase(), type: "account_recovery" })
     });
@@ -1726,6 +1743,7 @@ export async function restoreAccountApi(email: string, code: string, password?: 
   try {
     const res = await fetch(getAuthApiUrl("/api/auth/restore-account"), {
       method: "POST",
+      credentials: "include",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ 
         email: email.trim().toLowerCase(), 
@@ -1891,27 +1909,7 @@ export const getAuthApiUrl = (endpoint: string) => {
   const formattedEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
 
   if (typeof window !== "undefined") {
-    const hostname = window.location.hostname;
-    // If running on getzakir.com, Vercel, local dev, or Cloud Run container, use relative path directly
-    if (
-      hostname.includes("getzakir.com") ||
-      hostname.includes("vercel.app") ||
-      hostname.includes("run.app") ||
-      hostname.includes("localhost") ||
-      hostname.includes("127.0.0.1") ||
-      !hostname
-    ) {
-      return formattedEndpoint;
-    }
-
-    const customBase = (import.meta as any).env?.VITE_API_BASE_URL || (import.meta as any).env?.VITE_BACKEND_URL;
-    if (customBase) {
-      if (window.location.origin === customBase.replace(/\/$/, '')) {
-        return formattedEndpoint;
-      }
-      return `${customBase.replace(/\/$/, '')}${formattedEndpoint}`;
-    }
-
+    // Always use relative paths in the browser to ensure requests are routed to the current running origin (local dev server or cloud run container)
     return formattedEndpoint;
   }
 

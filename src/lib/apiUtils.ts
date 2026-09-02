@@ -108,6 +108,7 @@ export async function authenticatedFetch(
   const executeFetch = async (retryCount = 0): Promise<Response> => {
     try {
       const response = await fetch(targetUrl, {
+        credentials: "include",
         ...options,
         headers
       });
@@ -120,6 +121,7 @@ export async function authenticatedFetch(
           if (freshToken) {
             headers.set("Authorization", `Bearer ${freshToken}`);
             return await fetch(targetUrl, {
+              credentials: "include",
               ...options,
               headers
             });
