@@ -1993,41 +1993,47 @@ export async function safeParseJsonResponse(res: Response) {
     );
   }
 
-  const contentType = res.headers.get("content-type");
-  if (contentType && contentType.includes("application/json")) {
-    const data = await res.json();
+  let text = "";
+  let data: any = null;
+  try {
+    text = await res.text();
+    if (text) {
+      data = JSON.parse(text);
+    }
+  } catch (e) {
+    // Response body is not valid JSON
+  }
+
+  if (data !== null) {
     if (!res.ok) {
-      const errMsg = data.error || data.message || `Request failed with status ${res.status}`;
+      const errMsg = data.userFriendlyMessage || data.error || data.message || `Request failed with status ${res.status}`;
       console.warn("API Error Response:", res.status, errMsg);
       throw new Error(errMsg);
     }
     return data;
-  } else {
-    const text = await res.text();
-    if (text.includes("<!DOCTYPE") || text.includes("<html")) {
-      if (res.status === 404) {
-        throw new Error("The requested service endpoint was not found (404).");
-      }
-      throw new Error(`Server returned unexpected format (${res.status}). Please try again.`);
-    }
-
-    if (text.includes("FUNCTION_INVOCATION_FAILED") || text.includes("FUNCTION_INVOCATION_TIMEOUT")) {
-      throw new Error(`Server temporarily unavailable during processing (${res.status}). Please retry.`);
-    }
-
-    try {
-      const data = JSON.parse(text);
-      if (!res.ok) throw new Error(data.error || data.message || `Request failed (${res.status})`);
-      return data;
-    } catch (e: any) {
-      if (res.status === 400) throw new Error("Invalid request data submitted.");
-      if (res.status === 401) throw new Error("Authentication required.");
-      if (res.status === 403) throw new Error("Access denied for this action.");
-      if (res.status === 404) throw new Error("Requested resource was not found.");
-      if (res.status >= 500) throw new Error(`Server error (${res.status}). Please try again.`);
-      throw new Error(`Response error (${res.status}): ${text.slice(0, 100) || 'Invalid response'}`);
-    }
   }
+
+  if (text.includes("<!DOCTYPE") || text.includes("<html")) {
+    if (res.status === 404) {
+      throw new Error("The requested service endpoint was not found (404).");
+    }
+    throw new Error(`Server returned unexpected format (${res.status}). Please try again.`);
+  }
+
+  if (text.includes("FUNCTION_INVOCATION_FAILED") || text.includes("FUNCTION_INVOCATION_TIMEOUT")) {
+    throw new Error(`Server temporarily unavailable during processing (${res.status}). Please retry.`);
+  }
+
+  if (!res.ok) {
+    if (res.status === 400) throw new Error("Invalid request data submitted.");
+    if (res.status === 401) throw new Error("Authentication required.");
+    if (res.status === 403) throw new Error("Access denied for this action.");
+    if (res.status === 404) throw new Error("Requested resource was not found.");
+    if (res.status >= 500) throw new Error(`Server error (${res.status}). Please try again.`);
+    throw new Error(`Response error (${res.status}): ${text.slice(0, 100) || 'Invalid response'}`);
+  }
+
+  return { success: true };
 }
 
 /**

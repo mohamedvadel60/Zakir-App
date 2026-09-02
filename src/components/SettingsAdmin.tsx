@@ -392,13 +392,12 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
 
       if (!res.ok || !data || !data.success || !data.clientSecret) {
         console.error("[Stripe Checkout] Session creation error:", { status: res.status, data });
-        setPaymentError(
-          data?.error || (
-            lang === "ar"
-              ? "تعذر إعداد جلسة الدفع الآمن حالياً. يرجى المحاولة لاحقاً."
-              : "Unable to initialize Stripe checkout. Please try again."
-          )
+        const errMsg = data?.userFriendlyMessage || data?.error || (
+          lang === "ar"
+            ? (res.status === 401 ? "جلسة حسابك غير صالحة. يرجى تسجيل الدخول مجدداً." : "تعذر إعداد جلسة الدفع الآمن حالياً. يرجى المحاولة لاحقاً.")
+            : (res.status === 401 ? "Invalid account session. Please log in again." : "Unable to initialize Stripe checkout. Please try again.")
         );
+        setPaymentError(errMsg);
         setIsProcessingPayment(false);
         return;
       }
@@ -406,8 +405,10 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
       setCheckoutSessionId(data.sessionId);
       setCheckoutClientSecret(data.clientSecret);
 
-      if (data.publishableKey) {
-        setStripePromise(getCachedStripe(data.publishableKey));
+      const envObj = (import.meta as any).env || {};
+      const resolvedPubKey = data.publishableKey || envObj.VITE_STRIPE_PUBLISHABLE_KEY || envObj.VITE_STRIPE_PUBLIC_KEY;
+      if (resolvedPubKey) {
+        setStripePromise(getCachedStripe(resolvedPubKey));
       }
     } catch (err: any) {
       console.error("[Stripe Checkout] Initialization error:", err);

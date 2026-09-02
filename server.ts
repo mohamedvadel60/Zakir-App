@@ -732,11 +732,17 @@ app.post("/api/stripe/create-checkout-session", requireAuth, async (req: AuthReq
     const protocol = req.headers["x-forwarded-proto"] || "https";
     const baseUrl = process.env.APP_URL || `${protocol}://${host}`;
 
-    // Backend-determined pricing: strictly computed from server benchmark
-    const monthlyRate = PLAN_PRICES[requestedPlan][requestedCycle];
-    const unitAmountCents = Math.round(monthlyRate * 100);
+    // Benchmark Plan Prices (Total Amount charged per interval)
+    const BENCHMARK_PLAN_PRICES = {
+      Starter: { monthly: 6, annual: 50 },          // $6/month or $50/year total
+      Professional: { monthly: 189, annual: 1788 },   // $189/month or $1,788/year total ($149/mo)
+      Enterprise: { monthly: 849, annual: 8388 }      // $849/month or $8,388/year total ($699/mo)
+    };
 
-    console.log(`[Stripe Checkout] 1. Payment request received: plan=${requestedPlan}, cycle=${requestedCycle}, user=${finalUserId}`);
+    const totalAmountUSD = BENCHMARK_PLAN_PRICES[requestedPlan][requestedCycle];
+    const unitAmountCents = Math.round(totalAmountUSD * 100);
+
+    console.log(`[Stripe Checkout] 1. Payment request received: plan=${requestedPlan}, cycle=${requestedCycle}, user=${finalUserId}, amount=$${totalAmountUSD}`);
 
     const stripe = getStripe();
     if (!stripe) {
@@ -744,6 +750,7 @@ app.post("/api/stripe/create-checkout-session", requireAuth, async (req: AuthReq
       return res.status(400).json({
         success: false,
         error: "خادم الدفع غير مهيأ حالياً (STRIPE_SECRET_KEY مفقود). يرجى التواصل مع إدارة النظام.",
+        userFriendlyMessage: "خادم الدفع غير مهيأ حالياً (STRIPE_SECRET_KEY مفقود). يرجى التواصل مع إدارة النظام."
       });
     }
 
@@ -757,12 +764,22 @@ app.post("/api/stripe/create-checkout-session", requireAuth, async (req: AuthReq
             success: false,
             code: "SUBSCRIPTION_ALREADY_ACTIVE",
             error: "لديك بالفعل اشتراك نشط في منصة Zakir. يمكنك إدارة خطتك الحالية أو ترقيتها من صفحة الإعدادات.",
+            userFriendlyMessage: "لديك بالفعل اشتراك نشط في منصة Zakir. يمكنك إدارة خطتك الحالية أو ترقيتها من صفحة الإعدادات."
           });
         }
       } catch (subCheckErr) {
         console.warn("[Stripe Checkout] Active subscription check notice:", subCheckErr);
       }
     }
+
+    // Email Validator
+    const isValidEmail = (emailStr?: string) => {
+      if (!emailStr || typeof emailStr !== "string") return false;
+      const clean = emailStr.trim().toLowerCase();
+      return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(clean);
+    };
+
+    const validUserEmail = isValidEmail(finalUserEmail) ? finalUserEmail.trim().toLowerCase() : undefined;
 
     // Customer Management: Look up or create customer
     let stripeCustomerId = user?.stripeCustomerId;
@@ -779,10 +796,10 @@ app.post("/api/stripe/create-checkout-session", requireAuth, async (req: AuthReq
       }
     }
 
-    if (!stripeCustomerId && finalUserEmail) {
+    if (!stripeCustomerId && validUserEmail) {
       try {
         const newCust = await stripe.customers.create({
-          email: finalUserEmail,
+          email: validUserEmail,
           name: finalCompanyName,
           metadata: {
             zakirUserId: finalUserId,
@@ -806,12 +823,22 @@ app.post("/api/stripe/create-checkout-session", requireAuth, async (req: AuthReq
       }
     }
 
-    // Price ID Resolution
-    let resolvedPriceId: string | null = null;
-    const envPriceId = requestedCycle === "annual" 
-      ? (process.env.STRIPE_YEARLY_PRICE_ID || process.env.STRIPE_ANNUAL_PRICE_ID)
-      : (process.env.STRIPE_MONTHLY_PRICE_ID);
+    // Price ID Resolution (Plan-Specific + Cycle-Specific)
+    const planUpper = requestedPlan.toUpperCase();
+    const cycleUpper = requestedCycle === "annual" ? "YEARLY" : "MONTHLY";
+    const altCycleUpper = requestedCycle === "annual" ? "ANNUAL" : "MONTHLY";
 
+    let envPriceId =
+      process.env[`STRIPE_PRICE_${planUpper}_${cycleUpper}`] ||
+      process.env[`STRIPE_PRICE_${planUpper}_${altCycleUpper}`];
+
+    if (!envPriceId && requestedPlan === "Professional") {
+      envPriceId = requestedCycle === "annual"
+        ? (process.env.STRIPE_YEARLY_PRICE_ID || process.env.STRIPE_ANNUAL_PRICE_ID)
+        : process.env.STRIPE_MONTHLY_PRICE_ID;
+    }
+
+    let resolvedPriceId: string | null = null;
     if (envPriceId && envPriceId.trim().startsWith("price_")) {
       try {
         const retrievedPrice = await stripe.prices.retrieve(envPriceId.trim());
@@ -819,8 +846,8 @@ app.post("/api/stripe/create-checkout-session", requireAuth, async (req: AuthReq
           resolvedPriceId = retrievedPrice.id;
           console.log(`[Stripe Checkout] Using verified environment Price ID: ${resolvedPriceId}`);
         }
-      } catch (priceCheckErr) {
-        console.warn(`[Stripe Checkout] Environment price ID ${envPriceId} could not be retrieved from Stripe, falling back to dynamic price_data`);
+      } catch (priceCheckErr: any) {
+        console.warn(`[Stripe Checkout] Configured price ID ${envPriceId} could not be retrieved from Stripe (${priceCheckErr?.message}), using dynamic price_data`);
       }
     }
 
@@ -831,7 +858,7 @@ app.post("/api/stripe/create-checkout-session", requireAuth, async (req: AuthReq
           price_data: {
             currency: "usd",
             product_data: {
-              name: `Zakir ${requestedPlan} Plan (${requestedCycle === "annual" ? "Annual Billing - Save 20%" : "Monthly Billing"})`,
+              name: `Zakir ${requestedPlan} Plan (${requestedCycle === "annual" ? "Annual Billing" : "Monthly Billing"})`,
               description: `Institutional Causal Memory Engine & Decision Intelligence Suite for ${finalCompanyName}.`,
             },
             unit_amount: unitAmountCents,
@@ -847,12 +874,11 @@ app.post("/api/stripe/create-checkout-session", requireAuth, async (req: AuthReq
     const returnUrl = `${baseUrl}/?view=settings&tab=subscription&session_id={CHECKOUT_SESSION_ID}`;
     const sessionParams: Stripe.Checkout.SessionCreateParams = {
       mode: "subscription",
-      payment_method_types: ["card"],
       line_items: lineItems,
       client_reference_id: finalUserId,
       metadata: {
         userId: finalUserId,
-        userEmail: finalUserEmail,
+        userEmail: validUserEmail || finalUserEmail || "",
         companyName: finalCompanyName,
         plan: requestedPlan,
         billingCycle: requestedCycle,
@@ -863,8 +889,8 @@ app.post("/api/stripe/create-checkout-session", requireAuth, async (req: AuthReq
 
     if (stripeCustomerId) {
       sessionParams.customer = stripeCustomerId;
-    } else if (finalUserEmail) {
-      sessionParams.customer_email = finalUserEmail;
+    } else if (validUserEmail) {
+      sessionParams.customer_email = validUserEmail;
     }
 
     console.log(`[Stripe Checkout] Creating Embedded Checkout Session for user ${finalUserId}...`);
@@ -886,10 +912,19 @@ app.post("/api/stripe/create-checkout-session", requireAuth, async (req: AuthReq
     });
 
   } catch (err: any) {
-    console.error("[Stripe Checkout] Error creating Stripe checkout session:", err);
-    res.status(500).json({ 
+    console.error("[Stripe Checkout] Error creating Stripe checkout session:", {
+      message: err?.message,
+      type: err?.type,
+      code: err?.code,
+      statusCode: err?.statusCode,
+      stack: err?.stack,
+    });
+
+    res.status(err?.statusCode && err?.statusCode >= 400 && err?.statusCode < 600 ? err.statusCode : 500).json({ 
       success: false,
-      error: err.message || "Failed to initiate Stripe Checkout" 
+      code: err?.code || "PAYMENT_SESSION_CREATION_FAILED",
+      error: err?.message || "Failed to initiate Stripe Checkout",
+      userFriendlyMessage: err?.message || "تعذر إعداد جلسة الدفع الآمن حالياً. يرجى المحاولة لاحقاً."
     });
   } finally {
     inFlightCheckoutUsers.delete(authUserId);
@@ -2183,16 +2218,20 @@ app.post("/api/auth/send-verification-code", otpLimiter, async (req, res) => {
         });
       }
 
-      console.warn("OTP_SEND_FAILED", {
-        reason: "USER_NOT_FOUND",
-        userId: null,
-        email: targetIdentifier
-      });
-      return res.status(400).json({
-        success: false,
-        error: "No registered user found for this email address.",
-        userFriendlyMessage: "No registered user found for this email address."
-      });
+      if (type === "account_registration" && targetIdentifier) {
+        foundUid = userId || `usr_${targetIdentifier.replace(/[^a-zA-Z0-9]/g, '_')}`;
+      } else {
+        console.warn("OTP_SEND_FAILED", {
+          reason: "USER_NOT_FOUND",
+          userId: null,
+          email: targetIdentifier
+        });
+        return res.status(400).json({
+          success: false,
+          error: "No registered user found for this email address.",
+          userFriendlyMessage: "لم يتم العثور على حساب مسجل بهذا البريد الإلكتروني."
+        });
+      }
     }
 
     const docId = foundUid; // CRITICAL: Document ID MUST be the resolved userId!
@@ -2441,7 +2480,7 @@ app.post("/api/auth/verify-code", otpLimiter, async (req, res) => {
     const resolvedUser = await resolveUserByEmailOrId({ userId, email, phone });
     const targetIdentifier = resolvedUser.email || (email || phone || "").trim().toLowerCase();
     const cleanCode = String(code).trim();
-    const foundUid = resolvedUser.userId;
+    let foundUid = resolvedUser.userId;
 
     console.log("Verifying OTP for:", targetIdentifier);
 
@@ -2453,12 +2492,20 @@ app.post("/api/auth/verify-code", otpLimiter, async (req, res) => {
     });
 
     if (!foundUid) {
-      console.warn("OTP_VERIFY_FAILED", {
-        reason: "USER_NOT_FOUND",
-        userId: null,
-        email: targetIdentifier,
-      });
-      return res.status(400).json({ error: "No registered user found for this email address." });
+      if (type === "account_registration" && targetIdentifier) {
+        foundUid = userId || `usr_${targetIdentifier.replace(/[^a-zA-Z0-9]/g, '_')}`;
+      } else {
+        console.warn("OTP_VERIFY_FAILED", {
+          reason: "USER_NOT_FOUND",
+          userId: null,
+          email: targetIdentifier,
+        });
+        return res.status(400).json({
+          success: false,
+          error: "No registered user found for this email address.",
+          userFriendlyMessage: "لم يتم العثور على حساب مسجل بهذا البريد الإلكتروني."
+        });
+      }
     }
 
     const docId = foundUid; // CRITICAL: documentId MUST be the resolved userId!
