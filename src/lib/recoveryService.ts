@@ -916,61 +916,430 @@ export async function getAdminRecoveryRequests(): Promise<{
   return { success: true, requests };
 }
 
+export async function restoreAccountFullServer(email: string, newPassword?: string): Promise<{ success: boolean; user?: any; error?: string }> {
+  const normalizedEmail = (email || "").trim().toLowerCase();
+  if (!normalizedEmail) return { success: false, error: "Email parameter is required." };
+
+  const nowIso = new Date().toISOString();
+  const lifecycle = await getAccountLifecycleRecord(normalizedEmail);
+  const targetUid = lifecycle?.originalUserId;
+
+  // 1. Locate retained user profile & existing user document
+  let retainedProfile: any = null;
+  let existingUserDoc: any = null;
+
+  if (targetUid && isFirebaseAdminAvailable && adminDb) {
+    try {
+      const rSnap = await adminDb.collection("users_retained").doc(targetUid).get();
+      if (rSnap.exists) retainedProfile = rSnap.data();
+    } catch (e) {}
+  }
+
+  if (!retainedProfile) {
+    try {
+      const db = readDb();
+      retainedProfile = db.retained_users?.find((u: any) =>
+        (targetUid && u.id === targetUid) || u.email?.trim().toLowerCase() === normalizedEmail
+      );
+    } catch (e) {}
+  }
+
+  // Check existing user document in users collection
+  if (targetUid && isFirebaseAdminAvailable && adminDb) {
+    try {
+      const uSnap = await adminDb.collection("users").doc(targetUid).get();
+      if (uSnap.exists) existingUserDoc = uSnap.data();
+    } catch (e) {}
+  }
+
+  if (!existingUserDoc && isFirebaseAdminAvailable && adminDb) {
+    try {
+      const uSnap = await adminDb.collection("users").where("email", "==", normalizedEmail).limit(1).get();
+      if (!uSnap.empty) existingUserDoc = uSnap.docs[0].data();
+    } catch (e) {}
+  }
+
+  // 2. Identify UID
+  let finalUid = targetUid || existingUserDoc?.id || existingUserDoc?.uid || retainedProfile?.id;
+
+  let authUser: any = null;
+  if (finalUid && isFirebaseAdminAvailable && adminAuth) {
+    try {
+      authUser = await adminAuth.getUser(finalUid);
+    } catch (e) {}
+  }
+
+  if (!authUser && normalizedEmail && isFirebaseAdminAvailable && adminAuth) {
+    try {
+      authUser = await adminAuth.getUserByEmail(normalizedEmail);
+      if (authUser) finalUid = authUser.uid;
+    } catch (e) {}
+  }
+
+  if (!finalUid) {
+    finalUid = `usr_${Date.now().toString(36)}`;
+  }
+
+  // 3. Re-enable Firebase Auth user (preserve password, disabled: false)
+  if (authUser && isFirebaseAdminAvailable && adminAuth) {
+    const updatePayload: any = { disabled: false, emailVerified: false };
+    if (newPassword && newPassword.trim()) {
+      updatePayload.password = newPassword.trim();
+    }
+    try {
+      await adminAuth.updateUser(authUser.uid, updatePayload);
+      console.log(`[RESTORE_FULL] Firebase Auth user ${authUser.uid} re-enabled.`);
+    } catch (uErr: any) {
+      console.warn(`[RESTORE_FULL] Warning updating Firebase Auth user ${authUser.uid}:`, uErr?.message);
+    }
+  } else if (isFirebaseAdminAvailable && adminAuth) {
+    try {
+      const createPayload: any = {
+        uid: finalUid,
+        email: normalizedEmail,
+        emailVerified: false,
+        displayName: retainedProfile?.ownerName || existingUserDoc?.ownerName || normalizedEmail.split("@")[0]
+      };
+      if (newPassword && newPassword.trim()) {
+        createPayload.password = newPassword.trim();
+      } else {
+        createPayload.password = "RestoredPass_" + Math.random().toString(36).substring(2, 8) + "123!";
+      }
+      authUser = await adminAuth.createUser(createPayload);
+      console.log(`[RESTORE_FULL] Created Firebase Auth user ${finalUid}`);
+    } catch (cErr: any) {
+      console.warn(`[RESTORE_FULL] Firebase Auth user creation warning for ${finalUid}:`, cErr?.message);
+    }
+  }
+
+  // 4. Remove deletedUsers marker in Firestore
+  if (isFirebaseAdminAvailable && adminDb) {
+    try {
+      if (finalUid) {
+        await adminDb.collection("deletedUsers").doc(finalUid).delete();
+      }
+      const delEmailSnap = await adminDb.collection("deletedUsers").where("email", "==", normalizedEmail).get();
+      for (const dDoc of delEmailSnap.docs) {
+        await dDoc.ref.delete();
+      }
+    } catch (dErr) {
+      console.warn("[RESTORE_FULL] Deleted marker removal warning:", dErr);
+    }
+  }
+
+  // 5. Restore Firestore user document users/{finalUid}
+  // PRESERVE AUTHORITATIVE ROLE (CEO, Admin, Analyst, Compliance Officer, etc.)
+  const preservedRole = existingUserDoc?.role || retainedProfile?.role || "CEO";
+  const preservedWorkspaceId = existingUserDoc?.workspaceId || retainedProfile?.workspaceId || retainedProfile?.workspace?.id || `ws_${finalUid.substring(0, 8)}`;
+  const preservedWorkspace = existingUserDoc?.workspace || retainedProfile?.workspace || {
+    id: preservedWorkspaceId,
+    name: `${retainedProfile?.companyName || existingUserDoc?.companyName || "Restored"} Workspace`,
+    ownerId: finalUid,
+    createdAt: retainedProfile?.createdAt || existingUserDoc?.createdAt || nowIso,
+    memberCount: 1
+  };
+
+  const restoredUserDoc = {
+    ...(retainedProfile || {}),
+    ...(existingUserDoc || {}),
+    id: finalUid,
+    uid: finalUid,
+    email: normalizedEmail,
+    role: preservedRole,
+    workspaceId: preservedWorkspaceId,
+    workspace: preservedWorkspace,
+    powers: existingUserDoc?.powers || retainedProfile?.powers,
+    companyName: existingUserDoc?.companyName || retainedProfile?.companyName || "Restored Account",
+    ownerName: existingUserDoc?.ownerName || retainedProfile?.ownerName || normalizedEmail.split("@")[0],
+    subscriptionStatus: existingUserDoc?.subscriptionStatus || retainedProfile?.subscriptionStatus || "Active",
+    userPreferences: existingUserDoc?.userPreferences || retainedProfile?.userPreferences || { theme: "light", language: "ar" },
+    status: "VERIFICATION_REQUIRED",
+    accountStatus: "active",
+    deleted: false,
+    deletedAt: null,
+    deletedBy: null,
+    isVerified: false,
+    isEmailVerified: false,
+    emailVerified: false,
+    email_verified: false,
+    verification_status: "unverified",
+    verification_required: true,
+    lastActiveAt: nowIso,
+    lastLoginAt: nowIso,
+    restoredAt: nowIso
+  };
+
+  if (isFirebaseAdminAvailable && adminDb) {
+    try {
+      await adminDb.collection("users").doc(finalUid).set(restoredUserDoc, { merge: true });
+      console.log(`[RESTORE_FULL] Saved restored user profile to Firestore users/${finalUid}`);
+    } catch (fsErr: any) {
+      console.error("[RESTORE_FULL] Failed to save Firestore user profile:", fsErr);
+      return { success: false, error: "Failed to save restored user profile to Firestore database." };
+    }
+  }
+
+  // Restore subcollections if retained
+  if (retainedProfile && isFirebaseAdminAvailable && adminDb) {
+    try {
+      const memSnap = await adminDb.collection("users_retained").doc(finalUid).collection("memories").get();
+      for (const mDoc of memSnap.docs) {
+        await adminDb.collection("users").doc(finalUid).collection("memories").doc(mDoc.id).set(mDoc.data(), { merge: true });
+      }
+      const alertSnap = await adminDb.collection("users_retained").doc(finalUid).collection("riskAlerts").get();
+      for (const aDoc of alertSnap.docs) {
+        await adminDb.collection("users").doc(finalUid).collection("riskAlerts").doc(aDoc.id).set(aDoc.data(), { merge: true });
+      }
+    } catch (subErr) {}
+  }
+
+  // 6. Update local JSON DB
+  try {
+    const db = readDb();
+    if (!db.users) db.users = [];
+    db.users = db.users.filter((u: any) => u.id !== finalUid && u.email?.trim().toLowerCase() !== normalizedEmail);
+    db.users.push(restoredUserDoc);
+
+    if (db.retained_users) {
+      db.retained_users = db.retained_users.filter((u: any) => u.id !== finalUid && u.email?.trim().toLowerCase() !== normalizedEmail);
+    }
+    writeDb(db);
+  } catch (dbErr) {}
+
+  // 7. Update lifecycle record
+  const activeLifecycle = {
+    accountId: normalizedEmail,
+    emailNormalized: normalizedEmail,
+    status: "ACTIVE",
+    deletionType: null,
+    deletedAt: null,
+    deletedBy: null,
+    restoreUntil: null,
+    originalUserId: finalUid,
+    updatedAt: nowIso
+  };
+  await setAccountLifecycleRecord(activeLifecycle);
+
+  // 8. SERVER-SIDE RESTORATION VERIFICATION
+  if (isFirebaseAdminAvailable && adminAuth) {
+    try {
+      const checkAuth = await adminAuth.getUser(finalUid);
+      if (checkAuth.disabled) {
+        return { success: false, error: "Firebase Auth user is still disabled after restoration." };
+      }
+    } catch (verAuthErr: any) {
+      console.warn("Verification warning for Firebase Auth user:", verAuthErr);
+    }
+  }
+
+  if (isFirebaseAdminAvailable && adminDb) {
+    try {
+      const checkDoc = await adminDb.collection("users").doc(finalUid).get();
+      if (!checkDoc.exists || checkDoc.data()?.deleted === true) {
+        return { success: false, error: "Firestore user document is missing or still marked deleted." };
+      }
+    } catch (verFsErr: any) {
+      console.warn("Verification warning for Firestore user doc:", verFsErr);
+    }
+  }
+
+  return { success: true, user: restoredUserDoc };
+}
+
 export async function handleAdminRecoveryDecision(params: {
-  requestId: string;
-  email: string;
+  requestId?: string;
+  email?: string;
   action: "approve" | "reject";
   rejectionReason?: string;
   notes?: string;
   callerUid?: string;
 }): Promise<{
   success: boolean;
+  status?: "approved" | "rejected";
+  requestId?: string;
+  email?: string;
   message?: string;
+  reviewedBy?: string;
+  reviewedAt?: string;
   error?: string;
+  code?: string;
 }> {
   const { requestId, email, action, rejectionReason, notes, callerUid } = params;
-  if (!requestId || !email || !action) {
-    return { success: false, error: "Missing required decision parameters." };
+
+  if (!requestId && !email) {
+    return { success: false, code: "INVALID_PARAMS", error: "Missing requestId or email parameter." };
+  }
+  if (!action || (action !== "approve" && action !== "reject")) {
+    return { success: false, code: "INVALID_ACTION", error: "Valid action ('approve' or 'reject') is required." };
   }
 
-  const normalizedEmail = email.trim().toLowerCase();
+  // Verify Admin Authorization if callerUid is supplied
+  if (callerUid) {
+    try {
+      const { isUserAdminServer } = await import("../middleware/auth.js");
+      const isAdmin = await isUserAdminServer(callerUid);
+      if (!isAdmin) {
+        return { success: false, code: "FORBIDDEN", error: "Forbidden: Administrative authorization required." };
+      }
+    } catch (authErr) {
+      console.warn("Admin role verification warning in handleAdminRecoveryDecision:", authErr);
+    }
+  }
+
+  // 1. Locate existing recovery request document
+  let requestDoc: any = null;
+  let targetReqId = requestId || "";
+  let normalizedEmail = (email || "").trim().toLowerCase();
+
+  if (targetReqId && isFirebaseAdminAvailable && adminDb) {
+    try {
+      const snap = await adminDb.collection("recoveryRequests").doc(targetReqId).get();
+      if (snap.exists) requestDoc = snap.data();
+    } catch (e) {}
+
+    if (!requestDoc) {
+      try {
+        const snap = await adminDb.collection("accountRecoveryRequests").doc(targetReqId).get();
+        if (snap.exists) requestDoc = snap.data();
+      } catch (e) {}
+    }
+  }
+
+  if (!requestDoc && normalizedEmail && isFirebaseAdminAvailable && adminDb) {
+    try {
+      const snap = await adminDb.collection("recoveryRequests_by_email").doc(normalizedEmail).get();
+      if (snap.exists) requestDoc = snap.data();
+    } catch (e) {}
+
+    if (!requestDoc) {
+      try {
+        const snap = await adminDb.collection("accountRecoveryRequests_by_email").doc(normalizedEmail).get();
+        if (snap.exists) requestDoc = snap.data();
+      } catch (e) {}
+    }
+  }
+
+  if (!requestDoc) {
+    const db = readDb();
+    requestDoc = db.account_recovery_requests?.find((r: any) =>
+      (targetReqId && (r.id === targetReqId || r.requestId === targetReqId)) ||
+      (normalizedEmail && r.email?.trim().toLowerCase() === normalizedEmail)
+    );
+  }
+
+  if (!requestDoc) {
+    return { success: false, code: "REQUEST_NOT_FOUND", error: "Recovery request not found." };
+  }
+
+  targetReqId = requestDoc.requestId || requestDoc.id || targetReqId || `REQ-${Date.now()}`;
+  normalizedEmail = (requestDoc.email || normalizedEmail).trim().toLowerCase();
+
+  // 2. CHECK STATUS - DOUBLE ACTION & CONCURRENCY CONTROL
+  const currentStatus = requestDoc.status || "pending";
+  if (currentStatus !== "pending") {
+    return {
+      success: false,
+      code: "REQUEST_ALREADY_PROCESSED",
+      error: `This recovery request has already been processed (current status: ${currentStatus}).`
+    };
+  }
+
+  // ATOMIC TRANSACTION CHECK IN FIRESTORE
   const nowIso = new Date().toISOString();
   const newStatus = action === "approve" ? "approved" : "rejected";
+  let transactionFailedAlreadyProcessed = false;
 
+  if (isFirebaseAdminAvailable && adminDb) {
+    const reqRef = adminDb.collection("recoveryRequests").doc(targetReqId);
+    try {
+      await adminDb.runTransaction(async (tx) => {
+        const snap = await tx.get(reqRef);
+        if (snap.exists) {
+          const cur = snap.data()?.status;
+          if (cur && cur !== "pending") {
+            transactionFailedAlreadyProcessed = true;
+            return;
+          }
+        }
+        tx.set(reqRef, {
+          status: newStatus,
+          decision: newStatus,
+          reviewedBy: callerUid || "admin",
+          reviewedAt: nowIso,
+          updatedAt: nowIso,
+          notes: notes || undefined,
+          ...(action === "reject" ? { rejectionReason: rejectionReason || "Identity or documentation could not be verified." } : {})
+        }, { merge: true });
+      });
+    } catch (txErr: any) {
+      console.warn("Firestore transaction notice:", txErr?.message);
+    }
+  }
+
+  if (transactionFailedAlreadyProcessed) {
+    return {
+      success: false,
+      code: "REQUEST_ALREADY_PROCESSED",
+      error: "This recovery request has already been processed by another administrator."
+    };
+  }
+
+  // 3. EXECUTE ACTION
+  if (action === "approve") {
+    // ACTUAL ACCOUNT RESTORATION
+    console.log(`[ADMIN_RECOVERY_DECISION] Approving & restoring account for ${normalizedEmail}...`);
+    const restoreRes = await restoreAccountFullServer(normalizedEmail);
+    if (!restoreRes.success) {
+      // Revert transaction status back to pending if restoration failed
+      if (isFirebaseAdminAvailable && adminDb) {
+        try {
+          await adminDb.collection("recoveryRequests").doc(targetReqId).set({ status: "pending", restorationError: restoreRes.error }, { merge: true });
+        } catch (e) {}
+      }
+      return {
+        success: false,
+        code: "RESTORATION_FAILED",
+        error: restoreRes.error || "Failed to restore user account during approval."
+      };
+    }
+  }
+
+  // 4. PERSIST UPDATED DECISION TO ALL MIRROR COLLECTIONS & LOCAL DB
   const updateData: any = {
+    ...requestDoc,
     status: newStatus,
-    updatedAt: nowIso,
-    reviewedAt: nowIso,
+    decision: newStatus,
     reviewedBy: callerUid || "admin",
+    reviewedAt: nowIso,
+    updatedAt: nowIso,
     notes: notes || undefined
   };
 
-  if (action === "reject" && rejectionReason) {
-    updateData.rejectionReason = rejectionReason;
+  if (action === "reject") {
+    updateData.rejectionReason = rejectionReason || "Identity or documentation could not be verified.";
   }
 
   if (isFirebaseAdminAvailable && adminDb) {
     try {
-      await adminDb.collection("recoveryRequests").doc(requestId).set(updateData, { merge: true });
+      await adminDb.collection("recoveryRequests").doc(targetReqId).set(updateData, { merge: true });
       await adminDb.collection("recoveryRequests_by_email").doc(normalizedEmail).set(updateData, { merge: true });
-      // Legacy mirror update
-      await adminDb.collection("accountRecoveryRequests").doc(requestId).set(updateData, { merge: true }).catch(() => {});
+      await adminDb.collection("accountRecoveryRequests").doc(targetReqId).set(updateData, { merge: true }).catch(() => {});
       await adminDb.collection("accountRecoveryRequests_by_email").doc(normalizedEmail).set(updateData, { merge: true }).catch(() => {});
     } catch (e) {}
   }
 
   const db = readDb();
   if (db.account_recovery_requests) {
-    const idx = db.account_recovery_requests.findIndex((r: any) => r.id === requestId || r.requestId === requestId || r.email === normalizedEmail);
+    const idx = db.account_recovery_requests.findIndex((r: any) => r.id === targetReqId || r.requestId === targetReqId || r.email === normalizedEmail);
     if (idx >= 0) {
-      db.account_recovery_requests[idx] = {
-        ...db.account_recovery_requests[idx],
-        ...updateData
-      };
-      writeDb(db);
+      db.account_recovery_requests[idx] = { ...db.account_recovery_requests[idx], ...updateData };
+    } else {
+      db.account_recovery_requests.push(updateData);
     }
+    writeDb(db);
   }
 
+  // Update Account Lifecycle Record
   const lifecycle = await getAccountLifecycleRecord(normalizedEmail);
   if (lifecycle) {
     await setAccountLifecycleRecord({
@@ -981,30 +1350,47 @@ export async function handleAdminRecoveryDecision(params: {
     });
   }
 
-  // Send notification email
+  // 5. AUDIT LOG RECORD
+  if (isFirebaseAdminAvailable && adminDb) {
+    try {
+      const auditDoc = {
+        id: `audit_recovery_${Date.now()}_${Math.random().toString(36).substring(2,6)}`,
+        action: action === "approve" ? "RECOVERY_REQUEST_APPROVED" : "RECOVERY_REQUEST_REJECTED",
+        requestId: targetReqId,
+        targetEmail: normalizedEmail,
+        reviewedBy: callerUid || "admin",
+        reviewedAt: nowIso,
+        previousStatus: "pending",
+        newStatus: newStatus,
+        rejectionReason: action === "reject" ? (rejectionReason || null) : null,
+        timestamp: nowIso
+      };
+      await adminDb.collection("auditLogs").doc(auditDoc.id).set(auditDoc);
+    } catch (aErr) {}
+  }
+
+  // 6. NOTIFICATION EMAIL
   try {
+    const userFullName = requestDoc.fullName || cleanNameFromEmail(normalizedEmail);
     if (action === "approve") {
       const emailObj = buildRecoveryApprovalEmailHtml({
-        userName: cleanNameFromEmail(normalizedEmail),
+        userName: userFullName,
         email: normalizedEmail
       });
       await sendSystemMail(normalizedEmail, emailObj.subject, emailObj.text, emailObj.html);
     } else {
       const emailObj = buildRecoveryRejectionEmailHtml({
-        userName: cleanNameFromEmail(normalizedEmail),
+        userName: userFullName,
         email: normalizedEmail,
         rejectionReason: rejectionReason
       });
       await sendSystemMail(normalizedEmail, emailObj.subject, emailObj.text, emailObj.html);
-      
-      // If rejected, clean up uploaded documents to respect privacy
-      if (db.account_recovery_requests) {
-        const req = db.account_recovery_requests.find((r: any) => r.id === requestId || r.requestId === requestId);
-        if (req?.documents) {
-          for (const d of req.documents) {
-            if (d.documentId) {
-              await deleteDocumentFromPersistentStorage(d.documentId);
-            }
+
+      // Clean up uploaded document chunks on rejection
+      if (requestDoc?.documents && Array.isArray(requestDoc.documents)) {
+        for (const d of requestDoc.documents) {
+          if (d.documentId) {
+            await deleteDocumentFromPersistentStorage(d.documentId);
           }
         }
       }
@@ -1015,7 +1401,14 @@ export async function handleAdminRecoveryDecision(params: {
 
   return {
     success: true,
-    message: `Account recovery request has been ${newStatus}.`
+    status: newStatus,
+    requestId: targetReqId,
+    email: normalizedEmail,
+    reviewedBy: callerUid || "admin",
+    reviewedAt: nowIso,
+    message: action === "approve"
+      ? "Account recovery request approved! The user account has been fully restored."
+      : "Account recovery request rejected."
   };
 }
 
@@ -1023,3 +1416,4 @@ function cleanNameFromEmail(email: string): string {
   const local = email.split("@")[0] || "User";
   return local.charAt(0).toUpperCase() + local.slice(1);
 }
+

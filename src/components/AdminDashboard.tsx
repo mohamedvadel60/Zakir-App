@@ -28,6 +28,7 @@ import {
   AlertCircle,
   Save,
   CheckCircle,
+  XCircle,
   AlertTriangle,
   Trash2,
   LifeBuoy,
@@ -94,6 +95,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [loadingReactivations, setLoadingReactivations] = useState<boolean>(false);
   const [actionInProgress, setActionInProgress] = useState<string | null>(null);
   const [reactivationFilter, setReactivationFilter] = useState<string>("all");
+
+  // Recovery Action Modals State
+  const [approvalModalReq, setApprovalModalReq] = useState<any | null>(null);
+  const [rejectionModalReq, setRejectionModalReq] = useState<any | null>(null);
+  const [rejectionReasonInput, setRejectionReasonInput] = useState<string>("");
+  const [rejectionReasonError, setRejectionReasonError] = useState<string>("");
+  const [decisionErrorMessage, setDecisionErrorMessage] = useState<string | null>(null);
+  const [decisionSuccessMessage, setDecisionSuccessMessage] = useState<string | null>(null);
 
   // Support Tickets State
   const [supportTickets, setSupportTickets] = useState<SupportTicket[]>([]);
@@ -341,45 +350,73 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     fetchReactivationRequests();
   }, []);
 
-  const handleReactivationDecision = async (email: string, action: "approve" | "reject", requestId?: string) => {
-    let rejectionReason = "";
-    if (action === "reject") {
-      const input = window.prompt(
-        lang === "ar"
-          ? "يرجى كتابة سبب رفض طلب الاسترجاع (سيتم إرساله للمستخدم):"
-          : "Please provide a reason for rejecting this recovery request:"
-      );
-      if (input === null) return;
-      rejectionReason = input.trim();
-    } else {
-      const confirmMsg = lang === "ar"
-        ? `هل أنت متأكد من الموافقة على طلب استرجاع الحساب (${email})؟`
-        : `Approve recovery request for (${email})?`;
-      if (!window.confirm(confirmMsg)) return;
-    }
+  const handleOpenApproveModal = (req: any) => {
+    setApprovalModalReq(req);
+    setDecisionErrorMessage(null);
+    setDecisionSuccessMessage(null);
+  };
+
+  const handleOpenRejectModal = (req: any) => {
+    setRejectionModalReq(req);
+    setRejectionReasonInput("");
+    setRejectionReasonError("");
+    setDecisionErrorMessage(null);
+    setDecisionSuccessMessage(null);
+  };
+
+  const executeReactivationDecision = async (
+    req: any,
+    action: "approve" | "reject",
+    rejectionReason?: string
+  ) => {
+    const email = req.email;
+    const requestId = req.requestId || req.id || req.email;
 
     setActionInProgress(requestId || email);
+    setDecisionErrorMessage(null);
+    setDecisionSuccessMessage(null);
+
     try {
       const { auth } = await import("../firebase");
       const idToken = await auth.currentUser?.getIdToken() || "";
 
       const res = await handleAdminRecoveryRequestDecisionApi(
         idToken,
-        requestId || "",
+        requestId,
         email,
         action,
         rejectionReason
       );
 
       if (!res.success) {
-        throw new Error(res.error || "Action failed");
+        throw new Error(res.error || res.message || "Action failed");
       }
-      alert(res.message || (lang === "ar" ? "تم تنفيذ الإجراء بنجاح!" : "Action completed successfully!"));
+
+      const successMsg = res.message || (
+        action === "approve"
+          ? (lang === "ar" ? "تمت الموافقة واستعادة الحساب بنجاح!" : "Account approved and restored successfully!")
+          : (lang === "ar" ? "تم رفض الطلب بنجاح." : "Request rejected successfully.")
+      );
+
+      setDecisionSuccessMessage(successMsg);
+      setApprovalModalReq(null);
+      setRejectionModalReq(null);
       await fetchReactivationRequests();
     } catch (err: any) {
-      alert(err.message || (lang === "ar" ? "حدث خطأ" : "Error"));
+      const errorText = err.message || (lang === "ar" ? "حدث خطأ أثناء معالجة الطلب." : "An error occurred while processing request.");
+      setDecisionErrorMessage(errorText);
+      await fetchReactivationRequests();
     } finally {
       setActionInProgress(null);
+    }
+  };
+
+  const handleReactivationDecision = async (email: string, action: "approve" | "reject", requestId?: string) => {
+    const req = reactivationRequests.find(r => (requestId && (r.requestId === requestId || r.id === requestId)) || r.email === email) || { email, requestId };
+    if (action === "approve") {
+      handleOpenApproveModal(req);
+    } else {
+      handleOpenRejectModal(req);
     }
   };
 
@@ -1562,25 +1599,34 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                 </button>
                               </>
                             ) : isApproved ? (
-                              <button
-                                onClick={() => handleReactivationDecision(req.email, "reject", req.requestId || req.id)}
-                                disabled={isProcessing}
-                                className={`px-3 py-1.5 text-xs rounded-xl transition-all cursor-pointer border ${
-                                  theme === "dark"
-                                    ? "bg-slate-800 hover:bg-rose-950/40 text-slate-400 hover:text-rose-300 border-transparent"
-                                    : "bg-slate-100 hover:bg-rose-50 text-slate-600 hover:text-rose-600 border-slate-200"
-                                }`}
-                              >
-                                {lang === "ar" ? "إلغاء الاعتماد" : "Revoke Approval"}
-                              </button>
+                              <div className="flex flex-col items-end text-xs font-mono text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-3 py-1.5 rounded-xl">
+                                <span className="font-bold flex items-center gap-1">
+                                  <CheckCircle className="w-3.5 h-3.5 shrink-0" />
+                                  {lang === "ar" ? "اعتمد بواسطة:" : "Approved by:"} {req.reviewedBy || "Admin"}
+                                </span>
+                                {req.reviewedAt && (
+                                  <span className="text-[10px] opacity-80">
+                                    {safeFormatDateTime(req.reviewedAt)}
+                                  </span>
+                                )}
+                              </div>
                             ) : (
-                              <button
-                                onClick={() => handleReactivationDecision(req.email, "approve", req.requestId || req.id)}
-                                disabled={isProcessing}
-                                className="px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 dark:bg-emerald-600/20 dark:hover:bg-emerald-600 dark:text-emerald-300 dark:hover:text-white dark:border-emerald-500/30 text-xs rounded-xl transition-all cursor-pointer font-bold"
-                              >
-                                {lang === "ar" ? "إعادة النظر والموافقة" : "Re-approve"}
-                              </button>
+                              <div className="flex flex-col items-end text-xs font-mono text-rose-600 dark:text-rose-400 bg-rose-500/10 border border-rose-500/20 px-3 py-1.5 rounded-xl max-w-xs text-right">
+                                <span className="font-bold flex items-center gap-1">
+                                  <XCircle className="w-3.5 h-3.5 shrink-0" />
+                                  {lang === "ar" ? "رُفض بواسطة:" : "Rejected by:"} {req.reviewedBy || "Admin"}
+                                </span>
+                                {req.rejectionReason && (
+                                  <span className="text-[11px] text-slate-500 dark:text-slate-400 truncate max-w-full">
+                                    {lang === "ar" ? "السبب:" : "Reason:"} {req.rejectionReason}
+                                  </span>
+                                )}
+                                {req.reviewedAt && (
+                                  <span className="text-[10px] opacity-80">
+                                    {safeFormatDateTime(req.reviewedAt)}
+                                  </span>
+                                )}
+                              </div>
                             )}
                           </div>
                         </div>
@@ -2127,6 +2173,210 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 }`}
               >
                 {lang === "ar" ? "إغلاق" : "Close Window"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* RECOVERY APPROVAL CONFIRMATION MODAL */}
+      {approvalModalReq && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-fade-in">
+          <div className={`w-full max-w-lg rounded-2xl border shadow-2xl overflow-hidden ${
+            theme === "dark" ? "bg-slate-900 border-slate-800 text-white" : "bg-white border-slate-200 text-slate-900"
+          }`}>
+            <div className="p-5 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between bg-emerald-500/10">
+              <div className="flex items-center gap-2.5">
+                <CheckCircle className="w-5 h-5 text-emerald-500" />
+                <h3 className="font-bold text-base">
+                  {lang === "ar" ? "تأكيد الموافقة واستعادة الحساب" : lang === "fr" ? "Confirmer l'approbation du rétablissement" : "Confirm Recovery Approval"}
+                </h3>
+              </div>
+              <button
+                onClick={() => setApprovalModalReq(null)}
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-white p-1 rounded-lg"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4 text-sm">
+              <p className="text-slate-600 dark:text-slate-300">
+                {lang === "ar"
+                  ? `أنت على وشك الموافقة على طلب استرجاع الحساب للمستخدم:`
+                  : lang === "fr"
+                  ? `Vous êtes sur le point d'approuver la demande de rétablissement pour:`
+                  : `You are about to approve the account recovery request for:`}
+              </p>
+
+              <div className={`p-3.5 rounded-xl border space-y-1 font-mono text-xs ${
+                theme === "dark" ? "bg-slate-950 border-slate-800" : "bg-slate-50 border-slate-200"
+              }`}>
+                <div><strong className="text-slate-400">{lang === "ar" ? "معرّف الطلب:" : "Request ID:"}</strong> {approvalModalReq.requestId || approvalModalReq.id}</div>
+                <div><strong className="text-slate-400">{lang === "ar" ? "البريد الإلكتروني:" : "Email:"}</strong> {approvalModalReq.email}</div>
+                {approvalModalReq.fullName && <div><strong className="text-slate-400">{lang === "ar" ? "الاسم:" : "Name:"}</strong> {approvalModalReq.fullName}</div>}
+              </div>
+
+              <div className="p-3.5 bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/20 rounded-xl text-xs text-emerald-800 dark:text-emerald-300 space-y-1">
+                <p className="font-bold flex items-center gap-1.5">
+                  <CheckCircle className="w-4 h-4 shrink-0" />
+                  {lang === "ar" ? "العمليات التي ستنفذ تلقائياً:" : "Automated actions upon approval:"}
+                </p>
+                <ul className="list-disc list-inside space-y-0.5 text-[11px] opacity-90">
+                  <li>{lang === "ar" ? "إلغاء تعطيل حساب Firebase Auth واستعادته بالكامل" : "Re-enable Firebase Auth user account"}</li>
+                  <li>{lang === "ar" ? "تحديث حالة مستند المستخدم إلى active والحفاظ على دور المستخدم الأصلي (CEO/Admin)" : "Restore Firestore user profile & preserve original role"}</li>
+                  <li>{lang === "ar" ? "تحديث سجل دورة حياة الحساب وإرسال بريد إلكتروني رسمي للمستخدم" : "Update account lifecycle record & dispatch confirmation email"}</li>
+                </ul>
+              </div>
+
+              {decisionErrorMessage && (
+                <div className="p-3 bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/20 rounded-xl text-xs text-rose-600 dark:text-rose-400 font-semibold flex items-center gap-2">
+                  <AlertTriangle className="w-4 h-4 shrink-0" />
+                  <span>{decisionErrorMessage}</span>
+                </div>
+              )}
+            </div>
+
+            <div className={`p-4 border-t flex items-center justify-end gap-3 ${
+              theme === "dark" ? "border-slate-800 bg-slate-900/50" : "border-slate-200 bg-slate-50"
+            }`}>
+              <button
+                onClick={() => setApprovalModalReq(null)}
+                disabled={Boolean(actionInProgress)}
+                className="px-4 py-2 rounded-xl text-xs font-bold text-slate-500 hover:text-slate-800 dark:hover:text-white cursor-pointer disabled:opacity-50"
+              >
+                {lang === "ar" ? "إلغاء" : "Cancel"}
+              </button>
+
+              <button
+                onClick={() => executeReactivationDecision(approvalModalReq, "approve")}
+                disabled={Boolean(actionInProgress)}
+                className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl text-xs shadow-lg shadow-emerald-600/20 flex items-center gap-2 cursor-pointer disabled:opacity-50"
+              >
+                {actionInProgress ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 animate-spin" />
+                    <span>{lang === "ar" ? "جاري الموافقة والاستعادة..." : "Approving & Restoring..."}</span>
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle className="w-4 h-4" />
+                    <span>{lang === "ar" ? "موافقة واستعادة الحساب" : "Confirm Approval & Restore"}</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* RECOVERY REJECTION CONFIRMATION MODAL */}
+      {rejectionModalReq && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-fade-in">
+          <div className={`w-full max-w-lg rounded-2xl border shadow-2xl overflow-hidden ${
+            theme === "dark" ? "bg-slate-900 border-slate-800 text-white" : "bg-white border-slate-200 text-slate-900"
+          }`}>
+            <div className="p-5 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between bg-rose-500/10">
+              <div className="flex items-center gap-2.5">
+                <XCircle className="w-5 h-5 text-rose-500" />
+                <h3 className="font-bold text-base">
+                  {lang === "ar" ? "رفض طلب استرجاع الحساب" : lang === "fr" ? "Rejeter la demande de rétablissement" : "Reject Recovery Request"}
+                </h3>
+              </div>
+              <button
+                onClick={() => setRejectionModalReq(null)}
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-white p-1 rounded-lg"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4 text-sm">
+              <p className="text-slate-600 dark:text-slate-300">
+                {lang === "ar"
+                  ? `أنت على وشك رفض طلب استرجاع الحساب للمستخدم:`
+                  : `You are about to reject the account recovery request for:`}
+              </p>
+
+              <div className={`p-3.5 rounded-xl border space-y-1 font-mono text-xs ${
+                theme === "dark" ? "bg-slate-950 border-slate-800" : "bg-slate-50 border-slate-200"
+              }`}>
+                <div><strong className="text-slate-400">{lang === "ar" ? "معرّف الطلب:" : "Request ID:"}</strong> {rejectionModalReq.requestId || rejectionModalReq.id}</div>
+                <div><strong className="text-slate-400">{lang === "ar" ? "البريد الإلكتروني:" : "Email:"}</strong> {rejectionModalReq.email}</div>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
+                  {lang === "ar" ? "سبب الرفض (مطلوب) *" : lang === "fr" ? "Raison du rejet (Obligatoire) *" : "Reason for Rejection (Required) *"}
+                </label>
+                <textarea
+                  value={rejectionReasonInput}
+                  onChange={(e) => {
+                    setRejectionReasonInput(e.target.value);
+                    if (rejectionReasonError) setRejectionReasonError("");
+                  }}
+                  rows={3}
+                  placeholder={
+                    lang === "ar"
+                      ? "اكتب سبب الرفض هنا ليتم إرساله في بريد الإشعار الموجه للمستخدم..."
+                      : "Provide a detailed reason for rejecting this recovery request..."
+                  }
+                  className={`w-full p-3 text-xs rounded-xl border outline-none transition-all ${
+                    rejectionReasonError
+                      ? "border-rose-500 focus:ring-2 focus:ring-rose-500/30"
+                      : theme === "dark"
+                      ? "bg-slate-950 border-slate-800 focus:border-indigo-500 text-white"
+                      : "bg-slate-50 border-slate-200 focus:border-indigo-600 text-slate-900"
+                  }`}
+                />
+                {rejectionReasonError && (
+                  <p className="text-xs text-rose-500 font-semibold">{rejectionReasonError}</p>
+                )}
+              </div>
+
+              {decisionErrorMessage && (
+                <div className="p-3 bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/20 rounded-xl text-xs text-rose-600 dark:text-rose-400 font-semibold flex items-center gap-2">
+                  <AlertTriangle className="w-4 h-4 shrink-0" />
+                  <span>{decisionErrorMessage}</span>
+                </div>
+              )}
+            </div>
+
+            <div className={`p-4 border-t flex items-center justify-end gap-3 ${
+              theme === "dark" ? "border-slate-800 bg-slate-900/50" : "border-slate-200 bg-slate-50"
+            }`}>
+              <button
+                onClick={() => setRejectionModalReq(null)}
+                disabled={Boolean(actionInProgress)}
+                className="px-4 py-2 rounded-xl text-xs font-bold text-slate-500 hover:text-slate-800 dark:hover:text-white cursor-pointer disabled:opacity-50"
+              >
+                {lang === "ar" ? "إلغاء" : "Cancel"}
+              </button>
+
+              <button
+                onClick={() => {
+                  if (!rejectionReasonInput.trim()) {
+                    setRejectionReasonError(
+                      lang === "ar" ? "يرجى إدخال سبب الرفض أولاً." : "Reason for rejection is required."
+                    );
+                    return;
+                  }
+                  executeReactivationDecision(rejectionModalReq, "reject", rejectionReasonInput.trim());
+                }}
+                disabled={Boolean(actionInProgress)}
+                className="px-5 py-2.5 bg-rose-600 hover:bg-rose-500 text-white font-bold rounded-xl text-xs shadow-lg shadow-rose-600/20 flex items-center gap-2 cursor-pointer disabled:opacity-50"
+              >
+                {actionInProgress ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 animate-spin" />
+                    <span>{lang === "ar" ? "جاري الرفض..." : "Rejecting..."}</span>
+                  </>
+                ) : (
+                  <>
+                    <XCircle className="w-4 h-4" />
+                    <span>{lang === "ar" ? "تأكيد الرفض" : "Confirm Rejection"}</span>
+                  </>
+                )}
               </button>
             </div>
           </div>

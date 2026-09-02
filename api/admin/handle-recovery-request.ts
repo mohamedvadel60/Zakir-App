@@ -1,5 +1,19 @@
 import { handleAdminRecoveryDecision } from "../../src/lib/recoveryService.js";
 
+async function getCallerUid(req: any): Promise<string | null> {
+  const authHeader = req.headers?.authorization || req.headers?.Authorization;
+  if (!authHeader || !authHeader.startsWith("Bearer ")) return null;
+  const token = authHeader.split("Bearer ")[1]?.trim();
+  if (!token) return null;
+  try {
+    const { adminAuth } = await import("../../src/lib/firebase-admin.js");
+    const decoded = await adminAuth.verifyIdToken(token);
+    return decoded?.uid || null;
+  } catch (e) {
+    return null;
+  }
+}
+
 export default async function handler(req: any, res: any) {
   res.setHeader("Access-Control-Allow-Credentials", "true");
   res.setHeader("Access-Control-Allow-Origin", req.headers?.origin || "*");
@@ -19,24 +33,30 @@ export default async function handler(req: any, res: any) {
   }
 
   try {
+    const callerUid = await getCallerUid(req);
     const { requestId, email, action, rejectionReason, notes } = req.body || {};
-    if (!requestId || !email || !action) {
+
+    if (!requestId && !email) {
       return res.status(400).json({
         success: false,
-        error: "Missing requestId, email, or action."
+        error: "Missing requestId or email parameter."
       });
     }
 
     const result = await handleAdminRecoveryDecision({
       requestId,
       email,
-      action,
+      action: action || "approve",
       rejectionReason,
-      notes
+      notes,
+      callerUid: callerUid || undefined
     });
 
     if (!result.success) {
-      return res.status(400).json(result);
+      const statusCode = result.code === "REQUEST_ALREADY_PROCESSED" ? 409 :
+                         result.code === "REQUEST_NOT_FOUND" ? 404 :
+                         result.code === "FORBIDDEN" ? 403 : 400;
+      return res.status(statusCode).json(result);
     }
 
     return res.status(200).json(result);

@@ -20,6 +20,7 @@ import { createRateLimiter } from "./src/middleware/rateLimiter.js";
 import { adminAuth, adminDb, adminStorage, isFirebaseAdminAvailable, getSafeBucket } from "./src/lib/firebase-admin.js";
 import { eq, desc } from "drizzle-orm";
 import { generateWorldBankFallbackData } from "./src/lib/worldBankFallback.js";
+import { handleAdminRecoveryDecision } from "./src/lib/recoveryService.js";
 
 dotenv.config();
 
@@ -6660,135 +6661,131 @@ app.get("/api/admin/recovery-requests", requireAuth, async (req: AuthRequest, re
   }
 });
 
-// 4. Admin Handle (Approve / Reject) Account Recovery Request
+// 4. Admin Recovery Decision Routes (Approve / Reject)
+app.post("/api/admin/recovery-requests/:requestId/approve", requireAuth, async (req: AuthRequest, res) => {
+  try {
+    const callerUid = req.user?.uid;
+    if (!callerUid || !(await isUserAdminServer(callerUid))) {
+      return res.status(403).json({ success: false, code: "FORBIDDEN", error: "Forbidden: Administrative authorization required." });
+    }
+    const { requestId } = req.params;
+    const { email, notes } = req.body || {};
+
+    const result = await handleAdminRecoveryDecision({
+      requestId,
+      email,
+      action: "approve",
+      notes,
+      callerUid
+    });
+
+    if (!result.success) {
+      const statusCode = result.code === "REQUEST_ALREADY_PROCESSED" ? 409 :
+                         result.code === "REQUEST_NOT_FOUND" ? 404 :
+                         result.code === "FORBIDDEN" ? 403 : 500;
+      return res.status(statusCode).json(result);
+    }
+
+    return res.json(result);
+  } catch (err: any) {
+    console.error("[Approve Recovery Endpoint Error]", err);
+    res.status(500).json({ success: false, error: err.message || "Failed to approve recovery request." });
+  }
+});
+
+app.post("/api/admin/recovery-requests/:requestId/reject", requireAuth, async (req: AuthRequest, res) => {
+  try {
+    const callerUid = req.user?.uid;
+    if (!callerUid || !(await isUserAdminServer(callerUid))) {
+      return res.status(403).json({ success: false, code: "FORBIDDEN", error: "Forbidden: Administrative authorization required." });
+    }
+    const { requestId } = req.params;
+    const { email, rejectionReason, notes } = req.body || {};
+
+    const result = await handleAdminRecoveryDecision({
+      requestId,
+      email,
+      action: "reject",
+      rejectionReason,
+      notes,
+      callerUid
+    });
+
+    if (!result.success) {
+      const statusCode = result.code === "REQUEST_ALREADY_PROCESSED" ? 409 :
+                         result.code === "REQUEST_NOT_FOUND" ? 404 :
+                         result.code === "FORBIDDEN" ? 403 : 500;
+      return res.status(statusCode).json(result);
+    }
+
+    return res.json(result);
+  } catch (err: any) {
+    console.error("[Reject Recovery Endpoint Error]", err);
+    res.status(500).json({ success: false, error: err.message || "Failed to reject recovery request." });
+  }
+});
+
 app.post("/api/admin/handle-recovery-request", requireAuth, async (req: AuthRequest, res) => {
   try {
     const callerUid = req.user?.uid;
     if (!callerUid || !(await isUserAdminServer(callerUid))) {
-      return res.status(403).json({ error: "Forbidden: Admin access required." });
+      return res.status(403).json({ success: false, code: "FORBIDDEN", error: "Forbidden: Administrative authorization required." });
     }
 
-    const { requestId, email, action, rejectionReason } = req.body;
-    if (!action || (action !== "approve" && action !== "reject")) {
-      return res.status(400).json({ error: "Valid action ('approve' or 'reject') is required." });
-    }
+    const { requestId, email, action, rejectionReason, notes } = req.body || {};
 
-    let requestData: any = null;
-    if (requestId) {
-      try {
-        const snap = await adminDb.collection("recoveryRequests").doc(requestId).get();
-        if (snap.exists) requestData = snap.data();
-      } catch (e) {}
-      if (!requestData) {
-        try {
-          const snap = await adminDb.collection("accountRecoveryRequests").doc(requestId).get();
-          if (snap.exists) requestData = snap.data();
-        } catch (e) {}
-      }
-    }
-
-    const targetEmail = (requestData?.email || email || "").trim().toLowerCase();
-    if (!targetEmail) {
-      return res.status(400).json({ error: "Target request email is required." });
-    }
-
-    if (!requestData) {
-      const db = readDb();
-      requestData = db.account_recovery_requests?.find((r: any) => r.email === targetEmail || r.id === requestId);
-    }
-
-    const nowIso = new Date().toISOString();
-    const newStatus = action === "approve" ? "approved" : "rejected";
-
-    const updatedRequestDoc = {
-      ...(requestData || {}),
-      email: targetEmail,
-      status: newStatus,
-      handledAt: nowIso,
-      reviewedAt: nowIso,
-      reviewedBy: callerUid,
-      rejectionReason: action === "reject" ? (rejectionReason || "Identity or documentation could not be verified.") : null
-    };
-
-    try {
-      const targetReqId = requestData?.requestId || requestId || `REQ-${Date.now()}`;
-      await adminDb.collection("recoveryRequests").doc(targetReqId).set(updatedRequestDoc, { merge: true });
-      await adminDb.collection("recoveryRequests_by_email").doc(targetEmail).set(updatedRequestDoc, { merge: true });
-      await adminDb.collection("accountRecoveryRequests").doc(targetReqId).set(updatedRequestDoc, { merge: true }).catch(() => {});
-      await adminDb.collection("accountRecoveryRequests_by_email").doc(targetEmail).set(updatedRequestDoc, { merge: true }).catch(() => {});
-    } catch (e) {}
-
-    const db = readDb();
-    if (!db.account_recovery_requests) db.account_recovery_requests = [];
-    const existingIdx = db.account_recovery_requests.findIndex((r: any) => r.email === targetEmail || r.id === requestId);
-    if (existingIdx >= 0) {
-      db.account_recovery_requests[existingIdx] = updatedRequestDoc;
-    } else {
-      db.account_recovery_requests.push(updatedRequestDoc);
-    }
-    writeDb(db);
-
-    const lifecycle = await getAccountLifecycleRecord(targetEmail);
-    if (lifecycle) {
-      await setAccountLifecycleRecord({
-        ...lifecycle,
-        status: action === "approve" ? "ADMIN_APPROVED" : "ADMIN_REJECTED",
-        reactivationStatus: newStatus,
-        updatedAt: nowIso
-      });
-    }
-
-    if (action === "approve") {
-      try {
-        await restoreAccountFullServer(targetEmail);
-        console.log(`[ADMIN_APPROVE_RECOVERY] Full restoration executed for ${targetEmail}`);
-      } catch (rErr) {
-        console.warn("Full restoration execution error on admin approval:", rErr);
-      }
-    } else if (action === "reject") {
-      // Privacy & Security: Immediately purge uploaded identity documents on rejection
-      if (requestData?.documents && Array.isArray(requestData.documents)) {
-        (async () => {
-          for (const doc of requestData.documents) {
-            if (doc.documentId) {
-              console.log(`[ADMIN_REJECT_RECOVERY] Purging identity document ${doc.documentId} on rejection`);
-              await deleteDocumentFromPersistentStorage(doc.documentId);
-            }
-          }
-        })().catch((pErr) => console.warn("Document purge notice on rejection:", pErr));
-      }
-    }
-
-    // Dispatch notification email via Resend in Zakir BLUE design
-    try {
-      const userFullName = requestData?.fullName || targetEmail.split("@")[0];
-      if (action === "approve") {
-        const mailContent = buildRecoveryApprovalEmailHtml({
-          userName: userFullName,
-          email: targetEmail
-        });
-        await sendSystemMail(targetEmail, mailContent.subject, mailContent.text, mailContent.html);
-      } else {
-        const mailContent = buildRecoveryRejectionEmailHtml({
-          userName: userFullName,
-          email: targetEmail,
-          rejectionReason: rejectionReason
-        });
-        await sendSystemMail(targetEmail, mailContent.subject, mailContent.text, mailContent.html);
-      }
-    } catch (mailErr) {
-      console.warn("Recovery decision email delivery warning:", mailErr);
-    }
-
-    return res.json({
-      success: true,
-      message: action === "approve"
-        ? "Account recovery request approved! The user has been notified via email to proceed with verification."
-        : "Account recovery request rejected. The user has been notified with the provided reason."
+    const result = await handleAdminRecoveryDecision({
+      requestId,
+      email,
+      action: action || "approve",
+      rejectionReason,
+      notes,
+      callerUid
     });
+
+    if (!result.success) {
+      const statusCode = result.code === "REQUEST_ALREADY_PROCESSED" ? 409 :
+                         result.code === "REQUEST_NOT_FOUND" ? 404 :
+                         result.code === "FORBIDDEN" ? 403 : 500;
+      return res.status(statusCode).json(result);
+    }
+
+    return res.json(result);
   } catch (err: any) {
-    console.error("Handle recovery request error:", err);
-    res.status(500).json({ error: err.message || "Failed to handle recovery request." });
+    console.error("[Handle Recovery Request Error]", err);
+    res.status(500).json({ success: false, error: err.message || "Failed to handle recovery request." });
+  }
+});
+
+app.post("/api/admin/handle-reactivation-request", requireAuth, async (req: AuthRequest, res) => {
+  try {
+    const callerUid = req.user?.uid;
+    if (!callerUid || !(await isUserAdminServer(callerUid))) {
+      return res.status(403).json({ success: false, code: "FORBIDDEN", error: "Forbidden: Administrative authorization required." });
+    }
+
+    const { requestId, email, action, rejectionReason, notes } = req.body || {};
+
+    const result = await handleAdminRecoveryDecision({
+      requestId,
+      email,
+      action: action || "approve",
+      rejectionReason,
+      notes,
+      callerUid
+    });
+
+    if (!result.success) {
+      const statusCode = result.code === "REQUEST_ALREADY_PROCESSED" ? 409 :
+                         result.code === "REQUEST_NOT_FOUND" ? 404 :
+                         result.code === "FORBIDDEN" ? 403 : 500;
+      return res.status(statusCode).json(result);
+    }
+
+    return res.json(result);
+  } catch (err: any) {
+    console.error("[Handle Reactivation Request Error]", err);
+    res.status(500).json({ success: false, error: err.message || "Failed to handle reactivation request." });
   }
 });
 
