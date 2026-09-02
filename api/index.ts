@@ -2,7 +2,7 @@ process.env.SKIP_SERVER_LISTEN = "true";
 process.env.VERCEL = "1";
 
 import type { IncomingMessage, ServerResponse } from "http";
-import app from "../server.js";
+import app from "../server";
 
 export default function handler(req: IncomingMessage, res: ServerResponse) {
   try {
