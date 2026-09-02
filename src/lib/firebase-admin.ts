@@ -69,13 +69,61 @@ function cleanPrivateKey(rawKey: string | undefined): string {
   return key;
 }
 
-const rawKey = process.env.FIREBASE_PRIVATE_KEY;
-const cleanedKey = cleanPrivateKey(rawKey);
-const hasPemKey = cleanedKey.includes("-----BEGIN PRIVATE KEY-----");
-const projectId = process.env.FIREBASE_PROJECT_ID;
-const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
+function resolveFirebaseCredentials() {
+  let projectId = process.env.FIREBASE_PROJECT_ID;
+  let clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
+  let rawKey = process.env.FIREBASE_PRIVATE_KEY;
 
-export const isFirebaseAdminConfigured = Boolean(projectId && clientEmail && hasPemKey);
+  // Fallback to firebase-applet-config.json for projectId
+  if (!projectId) {
+    try {
+      const configPath = path.join(process.cwd(), "firebase-applet-config.json");
+      if (fs.existsSync(configPath)) {
+        const parsed = JSON.parse(fs.readFileSync(configPath, "utf-8"));
+        if (parsed.projectId) projectId = parsed.projectId;
+      }
+    } catch (e) {}
+  }
+
+  // Check for JSON service account in various common environment variables
+  const candidateJsonVars = [
+    process.env.FIREBASE_SERVICE_ACCOUNT,
+    process.env.FIREBASE_SERVICE_ACCOUNT_KEY,
+    process.env.FIREBASE_CONFIG,
+    process.env.GOOGLE_SERVICE_ACCOUNT,
+    process.env.FIREBASE_ADMIN_CREDENTIALS,
+  ];
+
+  for (const candidate of candidateJsonVars) {
+    if (candidate && candidate.trim().startsWith("{")) {
+      try {
+        const parsed = JSON.parse(candidate);
+        if (parsed.project_id) projectId = projectId || parsed.project_id;
+        if (parsed.client_email) clientEmail = clientEmail || parsed.client_email;
+        if (parsed.private_key) rawKey = rawKey || parsed.private_key;
+      } catch (e) {}
+    }
+  }
+
+  // Also check if rawKey itself is JSON
+  if (rawKey && rawKey.trim().startsWith("{")) {
+    try {
+      const parsed = JSON.parse(rawKey);
+      if (parsed.project_id) projectId = projectId || parsed.project_id;
+      if (parsed.client_email) clientEmail = clientEmail || parsed.client_email;
+      if (parsed.private_key) rawKey = parsed.private_key;
+    } catch (e) {}
+  }
+
+  const cleanedKey = cleanPrivateKey(rawKey);
+  const hasPemKey = cleanedKey.includes("-----BEGIN PRIVATE KEY-----");
+  const isConfigured = Boolean(projectId && clientEmail && hasPemKey);
+
+  return { projectId, clientEmail, cleanedKey, isConfigured };
+}
+
+const creds = resolveFirebaseCredentials();
+export const isFirebaseAdminConfigured = creds.isConfigured;
 
 let rawApp: any = null;
 let rawFirestore: any = null;
@@ -89,14 +137,28 @@ if (isFirebaseAdminConfigured) {
     } else {
       rawApp = initializeApp({
         credential: cert({
-          projectId: projectId!,
-          clientEmail: clientEmail!,
-          privateKey: cleanedKey,
+          projectId: creds.projectId!,
+          clientEmail: creds.clientEmail!,
+          privateKey: creds.cleanedKey,
         }),
         storageBucket: process.env.FIREBASE_STORAGE_BUCKET || "potent-turbine-47c1c.firebasestorage.app",
       });
     }
-    const dbId = process.env.FIREBASE_DATABASE_ID || "ai-studio-zakir1-7e6134f1-66d1-4393-82aa-9c7be9dad725";
+
+    let dbId = process.env.FIREBASE_DATABASE_ID;
+    if (!dbId) {
+      try {
+        const configPath = path.join(process.cwd(), "firebase-applet-config.json");
+        if (fs.existsSync(configPath)) {
+          const parsed = JSON.parse(fs.readFileSync(configPath, "utf-8"));
+          if (parsed.firestoreDatabaseId) dbId = parsed.firestoreDatabaseId;
+        }
+      } catch (e) {}
+    }
+    if (!dbId) {
+      dbId = "ai-studio-zakir1-7e6134f1-66d1-4393-82aa-9c7be9dad725";
+    }
+
     try {
       rawFirestore = getFirestore(rawApp, dbId);
     } catch (e) {
@@ -125,7 +187,8 @@ if (isFirebaseAdminConfigured) {
   }
 }
 
-export const isFirebaseAdminAvailable = Boolean(rawFirestore && rawAuth);
+export const isFirebaseAdminAvailable = Boolean(rawFirestore);
+export const isFirebaseAuthAvailable = Boolean(rawAuth);
 export const adminStorage = rawStorage;
 
 export function getSafeBucket(): any {
@@ -440,38 +503,7 @@ function createSafeAdminDb(realDb: any): any {
         return new MockCollectionRef(colName);
       }
       try {
-        const realCol = realDb.collection(colName);
-        return new Proxy(realCol, {
-          get(target, prop, receiver) {
-            const val = Reflect.get(target, prop, receiver);
-            if (typeof val === "function") {
-              return function (...args: any[]) {
-                try {
-                  const res = val.apply(target, args);
-                  if (res && typeof res.catch === "function") {
-                    return res.catch((err: any) => {
-                      if (err?.message?.includes("PERMISSION_DENIED") || err?.code === 7) {
-                        const fallbackCol = new MockCollectionRef(colName);
-                        if (prop === "get") return fallbackCol.get();
-                      }
-                      throw err;
-                    });
-                  }
-                  return res;
-                } catch (err: any) {
-                  if (err?.message?.includes("PERMISSION_DENIED") || err?.code === 7) {
-                    const fallbackCol = new MockCollectionRef(colName);
-                    if (typeof (fallbackCol as any)[prop] === "function") {
-                      return (fallbackCol as any)[prop](...args);
-                    }
-                  }
-                  throw err;
-                }
-              };
-            }
-            return val;
-          }
-        });
+        return realDb.collection(colName);
       } catch (err) {
         return new MockCollectionRef(colName);
       }

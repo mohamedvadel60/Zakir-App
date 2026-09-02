@@ -5605,8 +5605,11 @@ async function saveDocumentToPersistentStorage(
   const nowIso = new Date(nowMs).toISOString();
   const expiresAtIso = new Date(nowMs + RECOVERY_DOC_RETENTION_MS).toISOString();
 
+  console.log("[RecoveryUpload] chunk generation started");
+
   if (isFirebaseAdminAvailable && adminDb) {
     try {
+      console.log("[RecoveryUpload] metadata persistence started");
       // Save master document record with durable sync state and expiration metadata
       await adminDb.collection("recoveryDocuments").doc(documentId).set({
         documentId,
@@ -5621,7 +5624,9 @@ async function saveDocumentToPersistentStorage(
         updatedAt: nowIso,
         expiresAt: expiresAtIso
       });
+      console.log("[RecoveryUpload] metadata persisted");
 
+      console.log("[RecoveryUpload] Firestore chunk persistence started");
       // Save binary chunks (Base64 encoded, 300KB each)
       const chunkPromises: Promise<any>[] = [];
       for (let i = 0; i < totalChunks; i++) {
@@ -5644,11 +5649,13 @@ async function saveDocumentToPersistentStorage(
         );
       }
       await Promise.all(chunkPromises);
+      console.log("[RecoveryUpload] Firestore chunks persisted");
     } catch (fsErr: any) {
-      console.error("[Recovery Upload] Firestore durable chunks write error:", fsErr);
+      console.error("[RecoveryUpload] FAILED at Firestore chunk persistence:", fsErr?.message || fsErr);
       throw new Error(`Durable persistence failed: ${fsErr?.message || fsErr}`);
     }
   } else if (isServerless) {
+    console.error("[RecoveryUpload] FAILED at Firestore chunk persistence: Firestore is unavailable in serverless environment");
     throw new Error("Durable persistence failed: Firestore is unavailable in serverless environment");
   }
 
@@ -6029,12 +6036,16 @@ async function registerPendingUpload(documentId: string, uploadToken: string, me
         storageStatus: meta.storageStatus || "pending",
         associated: false
       });
+      console.log("[RecoveryUpload] pending synchronization registered");
     } catch (err: any) {
-      console.error("[Recovery Upload] Firestore pending upload registration error:", err);
+      console.error("[RecoveryUpload] FAILED at pending synchronization registered:", err?.message || err);
       throw new Error(`Failed to register pending upload in durable store: ${err?.message || err}`);
     }
   } else if (isServerless) {
+    console.error("[RecoveryUpload] FAILED at pending synchronization registered: Firestore unavailable in serverless environment");
     throw new Error("Failed to register pending upload: Firestore is unavailable in serverless environment");
+  } else {
+    console.log("[RecoveryUpload] pending synchronization registered (local store)");
   }
 }
 
@@ -6154,9 +6165,10 @@ async function runOrphanCleanup() {
 
 // 1. Upload Identity Verification Document
 app.post("/api/auth/recovery-request/upload", (req, res, next) => {
-  console.log("[Recovery Upload] Request received");
+  console.log("[RecoveryUpload] request received");
   recoveryUpload.fields([{ name: "document", maxCount: 1 }, { name: "file", maxCount: 1 }])(req, res, (err: any) => {
     if (err) {
+      console.error("[RecoveryUpload] FAILED at multipart parsed:", err?.message || err);
       if (err.code === "LIMIT_FILE_SIZE") {
         return res.status(413).json({
           success: false,
@@ -6170,26 +6182,36 @@ app.post("/api/auth/recovery-request/upload", (req, res, next) => {
         message: err.message || "File upload error"
       });
     }
+    console.log("[RecoveryUpload] multipart parsed");
     next();
   });
 }, async (req, res) => {
+  let currentStage = "file detected";
   try {
-    // Run self-healing orphan cleanup asynchronously in the background (VM only)
+    // Run self-healing orphan cleanup asynchronously in the background (VM only, unref'd timer)
     if (!isServerless) {
-      runOrphanCleanup().catch((e) => console.warn("Background orphan cleanup notice:", e));
+      setImmediate(() => {
+        runOrphanCleanup().catch((e) => console.warn("Background orphan cleanup notice:", e));
+      });
     }
 
     const file = req.file || (req.files as any)?.document?.[0] || (req.files as any)?.file?.[0];
     if (!file) {
+      console.error("[RecoveryUpload] FAILED at file detected: missing file in multipart payload");
       return res.status(400).json({
         success: false,
         error: "MISSING_FILE",
         message: "No document file was uploaded in request."
       });
     }
+    console.log("[RecoveryUpload] file detected");
+
+    currentStage = "file validation started";
+    console.log("[RecoveryUpload] file validation started");
 
     // Validate size (5MB max)
     if (file.size > 5 * 1024 * 1024) {
+      console.error("[RecoveryUpload] FAILED at file validation: file exceeds 5MB");
       return res.status(413).json({
         success: false,
         error: "IDENTITY_DOCUMENT_TOO_LARGE",
@@ -6200,6 +6222,7 @@ app.post("/api/auth/recovery-request/upload", (req, res, next) => {
     // Validate MIME type
     const allowedMimeTypes = ["application/pdf", "image/png", "image/jpeg", "image/jpg"];
     if (!allowedMimeTypes.includes(file.mimetype)) {
+      console.error("[RecoveryUpload] FAILED at file validation: unsupported mime type", file.mimetype);
       return res.status(400).json({
         success: false,
         error: "UNSUPPORTED_FORMAT",
@@ -6212,6 +6235,7 @@ app.post("/api/auth/recovery-request/upload", (req, res, next) => {
     const ext = path.extname(originalName).toLowerCase();
     const allowedExtensions = [".pdf", ".png", ".jpg", ".jpeg"];
     if (!allowedExtensions.includes(ext)) {
+      console.error("[RecoveryUpload] FAILED at file validation: invalid extension", ext);
       return res.status(400).json({
         success: false,
         error: "INVALID_EXTENSION",
@@ -6221,6 +6245,7 @@ app.post("/api/auth/recovery-request/upload", (req, res, next) => {
 
     // Validate file signature / magic bytes
     if (!validateFileSignature(file.buffer, file.mimetype)) {
+      console.error("[RecoveryUpload] FAILED at file validation: invalid file signature");
       return res.status(400).json({
         success: false,
         error: "INVALID_FILE_SIGNATURE",
@@ -6228,11 +6253,17 @@ app.post("/api/auth/recovery-request/upload", (req, res, next) => {
       });
     }
 
-    console.log("[Recovery Upload] File validated");
+    console.log("[RecoveryUpload] file validation passed");
 
-    // Compute cryptographic SHA-256 hash of file content for idempotency and integrity
+    // Generate cryptographically secure documentId and uploadToken
+    const documentId = `doc_${Date.now()}_${crypto.randomBytes(4).toString("hex")}`;
+    const uploadToken = crypto.randomBytes(32).toString("hex");
+    console.log("[RecoveryUpload] documentId generated");
+
+    currentStage = "SHA-256 calculated";
     const fileHash = crypto.createHash("sha256").update(file.buffer).digest("hex");
     const safeName = path.basename(originalName).replace(/[^a-zA-Z0-9.-]/g, "_");
+    console.log("[RecoveryUpload] SHA-256 calculated");
 
     // Safe Duplicate / Retry Handling: check if exact file was uploaded in the last 10 minutes
     const tenMinutesAgo = Date.now() - 10 * 60 * 1000;
@@ -6246,7 +6277,8 @@ app.post("/api/auth/recovery-request/upload", (req, res, next) => {
     );
 
     if (existingUpload) {
-      console.log(`[Recovery Upload] Idempotent hit: reusing recent pending upload ${existingUpload.documentId}`);
+      console.log(`[RecoveryUpload] Idempotent hit: reusing recent pending upload ${existingUpload.documentId}`);
+      console.log("[RecoveryUpload] HTTP 200 response");
       return res.status(200).json({
         success: true,
         documentId: existingUpload.documentId,
@@ -6265,19 +6297,13 @@ app.post("/api/auth/recovery-request/upload", (req, res, next) => {
       });
     }
 
-    // Generate cryptographically secure documentId and uploadToken
-    const documentId = `doc_${Date.now()}_${crypto.randomBytes(4).toString("hex")}`;
-    const uploadToken = crypto.randomBytes(32).toString("hex");
-
     // 1. Critical Path: Persist document to DURABLE primary storage layer immediately
+    currentStage = "Firestore persistence";
     await saveDocumentToPersistentStorage(documentId, file.buffer, file.mimetype, {
       fileName: safeName,
       size: file.size,
       fileHash
     });
-
-    console.log(`[Recovery Upload] Primary persistence successful`);
-    console.log(`[Recovery Upload] documentId generated: ${documentId}`);
 
     const docMeta = {
       documentId,
@@ -6292,6 +6318,7 @@ app.post("/api/auth/recovery-request/upload", (req, res, next) => {
     };
 
     // Register pending upload record securely in database
+    currentStage = "pending synchronization registered";
     await registerPendingUpload(documentId, uploadToken, docMeta);
 
     // 2. Non-Critical Path: Dispatch background cloud storage synchronization asynchronously without blocking (VM only)
@@ -6303,7 +6330,7 @@ app.post("/api/auth/recovery-request/upload", (req, res, next) => {
       });
     }
 
-    console.log("[Recovery Upload] HTTP response sent");
+    console.log("[RecoveryUpload] HTTP 200 response");
 
     // 3. Critical Path: Return deterministic HTTP 200 JSON response immediately
     return res.status(200).json({
@@ -6314,7 +6341,7 @@ app.post("/api/auth/recovery-request/upload", (req, res, next) => {
       document: docMeta
     });
   } catch (err: any) {
-    console.error("[Recovery Upload] Unexpected upload error:", err);
+    console.error(`[RecoveryUpload] FAILED at ${currentStage}:`, err?.message || err);
     return res.status(500).json({
       success: false,
       error: "DOCUMENT_UPLOAD_FAILED",
