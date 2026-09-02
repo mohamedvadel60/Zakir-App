@@ -7,6 +7,7 @@ import crypto from "crypto";
 import http from "http";
 import path from "path";
 import fs from "fs";
+import os from "os";
 import { GoogleGenAI } from "@google/genai";
 import dotenv from "dotenv";
 import Stripe from "stripe";
@@ -16,12 +17,19 @@ import { users as sqlUsers, gmailLogs } from "./src/db/schema.js";
 import { getOrCreateUser } from "./src/db/users.js";
 import { requireAuth, requireAdmin, isUserAdminServer, AuthRequest } from "./src/middleware/auth.js";
 import { createRateLimiter } from "./src/middleware/rateLimiter.js";
-import { adminAuth, adminDb, adminStorage, isFirebaseAdminAvailable } from "./src/lib/firebase-admin.js";
+import { adminAuth, adminDb, adminStorage, isFirebaseAdminAvailable, getSafeBucket } from "./src/lib/firebase-admin.js";
 import { eq, desc } from "drizzle-orm";
 import { generateWorldBankFallbackData } from "./src/lib/worldBankFallback.js";
-import { Resvg } from "@resvg/resvg-js";
 
 dotenv.config();
+
+export const isServerless = Boolean(
+  process.env.VERCEL ||
+  process.env.VERCEL_ENV ||
+  process.env.NOW_REGION ||
+  process.env.AWS_LAMBDA_FUNCTION_NAME ||
+  process.env.LAMBDA_TASK_ROOT
+);
 
 const app = express();
 const PORT = 3000;
@@ -660,6 +668,10 @@ app.use((req, res, next) => {
 
 app.use(express.json({ limit: "500kb" }));
 
+app.get("/api/health", (req, res) => {
+  res.json({ status: "ok", serverless: isServerless });
+});
+
 // --- STRIPE CHECKOUT & SUBSCRIPTION ENDPOINTS ---
 const inFlightCheckoutUsers = new Set<string>();
 
@@ -1100,17 +1112,19 @@ function getOfficialPngLogo(): Buffer {
   }
   const pngPath = path.join(process.cwd(), "src", "assets", "zakir-official-logo.png");
   if (fs.existsSync(pngPath)) {
-    officialPngLogoCache = fs.readFileSync(pngPath);
-    return officialPngLogoCache;
+    try {
+      officialPngLogoCache = fs.readFileSync(pngPath);
+      return officialPngLogoCache;
+    } catch (e) {}
   }
-  try {
-    const resvg = new Resvg(OFFICIAL_ZAKIR_SVG, { fitTo: { mode: "width", value: 512 } });
-    officialPngLogoCache = Buffer.from(resvg.render().asPng());
-    return officialPngLogoCache;
-  } catch (e) {
-    console.error("Error generating PNG logo with resvg:", e);
-    return Buffer.alloc(0);
+  const publicPng = path.join(process.cwd(), "public", "zakir-official-logo.png");
+  if (fs.existsSync(publicPng)) {
+    try {
+      officialPngLogoCache = fs.readFileSync(publicPng);
+      return officialPngLogoCache;
+    } catch (e) {}
   }
+  return Buffer.alloc(0);
 }
 
 function getAppBaseUrl(req?: express.Request): string {
@@ -4836,9 +4850,13 @@ export async function restoreAccountFullServer(email: string, newPassword?: stri
   return { success: true, user: restoredUserDoc };
 }
 
-// Run periodic cleanup every 1 hour & on startup
-setInterval(purgeExpiredAccountsJob, 60 * 60 * 1000);
-setTimeout(purgeExpiredAccountsJob, 5000);
+// Run periodic cleanup every 1 hour & on startup (VM/persistent server only)
+if (!isServerless) {
+  const tPurge = setInterval(purgeExpiredAccountsJob, 60 * 60 * 1000);
+  if (tPurge?.unref) tPurge.unref();
+  const tStartup = setTimeout(purgeExpiredAccountsJob, 5000);
+  if (tStartup?.unref) tStartup.unref();
+}
 
 // --- ACCOUNT LIFECYCLE API ENDPOINTS ---
 
@@ -5537,18 +5555,49 @@ const CHUNK_BYTE_SIZE = 300 * 1024; // 300KB chunks for Firestore documents
 const RECOVERY_DOC_RETENTION_MS = 14 * 24 * 60 * 60 * 1000; // 14 days maximum retention for sensitive identity proofs
 const ORPHAN_UPLOAD_TTL_MS = 60 * 60 * 1000; // 1 hour for unassociated pending uploads
 
+function getLocalUploadsDir(): string {
+  const base = isServerless ? os.tmpdir() : process.cwd();
+  return path.join(base, "secure_uploads");
+}
+
+function saveToLocalDiskCache(documentId: string, buffer: Buffer): void {
+  try {
+    const dir = getLocalUploadsDir();
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+    fs.writeFileSync(path.join(dir, documentId), buffer);
+  } catch (err: any) {
+    // In serverless or read-only environments, local disk cache is secondary.
+    // Primary durable persistence is safely maintained in Firestore chunks.
+    console.warn("[Recovery Storage] Local disk cache write notice:", err?.message || err);
+  }
+}
+
+function getFromLocalDiskCache(documentId: string): Buffer | null {
+  try {
+    const candidatePaths = [
+      path.join(getLocalUploadsDir(), documentId),
+      path.join(os.tmpdir(), "secure_uploads", documentId),
+      path.join(process.cwd(), "secure_uploads", documentId)
+    ];
+    for (const p of candidatePaths) {
+      if (fs.existsSync(p)) {
+        return fs.readFileSync(p);
+      }
+    }
+  } catch (err) {}
+  return null;
+}
+
 async function saveDocumentToPersistentStorage(
   documentId: string,
   buffer: Buffer,
   mimeType: string,
   meta?: { fileName?: string; size?: number; fileHash?: string }
 ): Promise<void> {
-  // 1. Write to local disk cache immediately
-  const UPLOADS_DIR = path.join(process.cwd(), "secure_uploads");
-  if (!fs.existsSync(UPLOADS_DIR)) {
-    fs.mkdirSync(UPLOADS_DIR, { recursive: true });
-  }
-  fs.writeFileSync(path.join(UPLOADS_DIR, documentId), buffer);
+  // 1. Write to local disk cache (using /tmp in serverless, wrapped safely)
+  saveToLocalDiskCache(documentId, buffer);
 
   // 2. Persist durably in Database (Firestore chunks & metadata with TTL) to survive container restarts & serverless recycles
   const totalChunks = Math.ceil(buffer.length / CHUNK_BYTE_SIZE);
@@ -5596,8 +5645,11 @@ async function saveDocumentToPersistentStorage(
       }
       await Promise.all(chunkPromises);
     } catch (fsErr: any) {
-      console.warn("[Recovery Upload] Firestore durable chunks write notice:", fsErr?.message);
+      console.error("[Recovery Upload] Firestore durable chunks write error:", fsErr);
+      throw new Error(`Durable persistence failed: ${fsErr?.message || fsErr}`);
     }
+  } else if (isServerless) {
+    throw new Error("Durable persistence failed: Firestore is unavailable in serverless environment");
   }
 
   // 3. Keep in local DB store for immediate node lifecycle persistence
@@ -5623,7 +5675,8 @@ async function saveDocumentToPersistentStorage(
 
 // Background Cloud Storage Synchronization with durable queue reconciliation
 async function syncDocumentToCloudStorage(documentId: string, buffer?: Buffer, mimeType?: string): Promise<boolean> {
-  if (!isFirebaseAdminAvailable || !adminStorage) {
+  const bucket = getSafeBucket();
+  if (!bucket) {
     return false;
   }
 
@@ -5688,6 +5741,7 @@ async function syncDocumentToCloudStorage(documentId: string, buffer?: Buffer, m
   let lastError: any = null;
 
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    let timeoutHandle: any = null;
     try {
       if (attempt > 1) {
         await new Promise((res) => setTimeout(res, 1000));
@@ -5695,7 +5749,6 @@ async function syncDocumentToCloudStorage(documentId: string, buffer?: Buffer, m
 
       await Promise.race([
         (async () => {
-          const bucket = adminStorage.bucket();
           const fileRef = bucket.file(`secure_uploads/${documentId}`);
           const [exists] = await fileRef.exists().catch(() => [false]);
           if (!exists) {
@@ -5704,9 +5757,13 @@ async function syncDocumentToCloudStorage(documentId: string, buffer?: Buffer, m
             });
           }
         })(),
-        new Promise((_, reject) =>
-          setTimeout(() => reject(new Error(`Storage upload timeout (${ATTEMPT_TIMEOUT_MS}ms)`)), ATTEMPT_TIMEOUT_MS)
-        )
+        new Promise((_, reject) => {
+          timeoutHandle = setTimeout(
+            () => reject(new Error(`Storage upload timeout (${ATTEMPT_TIMEOUT_MS}ms)`)),
+            ATTEMPT_TIMEOUT_MS
+          );
+          if (timeoutHandle?.unref) timeoutHandle.unref();
+        })
       ]);
 
       await updateStatus("synced", undefined, attempt);
@@ -5735,6 +5792,8 @@ async function syncDocumentToCloudStorage(documentId: string, buffer?: Buffer, m
         console.log(`[Recovery Storage] Document ${documentId} safely stored in primary durable Firestore chunks.`);
         return true;
       }
+    } finally {
+      if (timeoutHandle) clearTimeout(timeoutHandle);
     }
   }
 
@@ -5747,7 +5806,10 @@ async function syncDocumentToCloudStorage(documentId: string, buffer?: Buffer, m
 
 // Durable Background Reconciliation Worker: Scans for 'pending' uploads and syncs them
 async function runDurableSyncWorker() {
-  if (!isFirebaseAdminAvailable || !adminStorage) return;
+  if (!isFirebaseAdminAvailable) return;
+  const bucket = getSafeBucket();
+  if (!bucket) return;
+
   try {
     // 1. Check local DB pending sync items
     const db = readDb();
@@ -5780,36 +5842,34 @@ async function runDurableSyncWorker() {
   } catch (err) {}
 }
 
-// Periodic background runner (every 5 minutes) for sync reconciliation and TTL cleanup
-setInterval(() => {
-  runDurableSyncWorker().catch(() => {});
-  runComprehensiveStorageCleanup().catch(() => {});
-}, 5 * 60 * 1000);
+// Periodic background runner (every 5 minutes) for sync reconciliation and TTL cleanup (VM only)
+if (!isServerless) {
+  const tSync = setInterval(() => {
+    runDurableSyncWorker().catch(() => {});
+    runComprehensiveStorageCleanup().catch(() => {});
+  }, 5 * 60 * 1000);
+  if (tSync?.unref) tSync.unref();
+}
 
 async function getDocumentFromPersistentStorage(documentId: string): Promise<Buffer> {
   // 1. Check local container storage first for fastest response
-  const filePath = path.join(process.cwd(), "secure_uploads", documentId);
-  if (fs.existsSync(filePath)) {
-    try {
-      return fs.readFileSync(filePath);
-    } catch (e) {}
+  const cached = getFromLocalDiskCache(documentId);
+  if (cached) {
+    return cached;
   }
 
   // 2. Check Firebase Cloud Storage with bounded timeout
-  if (isFirebaseAdminAvailable && adminStorage) {
+  const bucket = getSafeBucket();
+  if (bucket) {
+    let timeoutHandle: any = null;
     try {
-      const bucket = adminStorage.bucket();
       const fileRef = bucket.file(`secure_uploads/${documentId}`);
       const downloadPromise = async () => {
-        const [exists] = await fileRef.exists();
+        const [exists] = await fileRef.exists().catch(() => [false]);
         if (exists) {
           const [fileBuffer] = await fileRef.download();
-          // Write back to local cache
-          try {
-            const UPLOADS_DIR = path.join(process.cwd(), "secure_uploads");
-            if (!fs.existsSync(UPLOADS_DIR)) fs.mkdirSync(UPLOADS_DIR, { recursive: true });
-            fs.writeFileSync(filePath, fileBuffer);
-          } catch (e) {}
+          // Write back to local cache safely
+          saveToLocalDiskCache(documentId, fileBuffer);
           return fileBuffer;
         }
         return null;
@@ -5817,12 +5877,17 @@ async function getDocumentFromPersistentStorage(documentId: string): Promise<Buf
 
       const buffer = await Promise.race([
         downloadPromise(),
-        new Promise<null>((resolve) => setTimeout(() => resolve(null), 4000))
+        new Promise<null>((resolve) => {
+          timeoutHandle = setTimeout(() => resolve(null), 4000);
+          if (timeoutHandle?.unref) timeoutHandle.unref();
+        })
       ]);
 
       if (buffer) return buffer;
     } catch (err) {
       // Continue to durable Firestore chunks fallback
+    } finally {
+      if (timeoutHandle) clearTimeout(timeoutHandle);
     }
   }
 
@@ -5830,7 +5895,7 @@ async function getDocumentFromPersistentStorage(documentId: string): Promise<Buf
   if (isFirebaseAdminAvailable && adminDb) {
     try {
       const docSnap = await adminDb.collection("recoveryDocuments").doc(documentId).get();
-      if (docSnap.exists) {
+      if (docSnap && docSnap.exists) {
         const meta = docSnap.data();
         const totalChunks = meta?.totalChunks || 1;
         const chunksSnap = await adminDb
@@ -5855,12 +5920,8 @@ async function getDocumentFromPersistentStorage(documentId: string): Promise<Buf
 
           if (buffers.length === totalChunks) {
             const fullBuffer = Buffer.concat(buffers);
-            // Cache to local disk
-            try {
-              const UPLOADS_DIR = path.join(process.cwd(), "secure_uploads");
-              if (!fs.existsSync(UPLOADS_DIR)) fs.mkdirSync(UPLOADS_DIR, { recursive: true });
-              fs.writeFileSync(filePath, fullBuffer);
-            } catch (e) {}
+            // Cache to local disk safely
+            saveToLocalDiskCache(documentId, fullBuffer);
             return fullBuffer;
           }
         }
@@ -5877,12 +5938,18 @@ async function deleteDocumentFromPersistentStorage(documentId: string): Promise<
   console.log(`[Storage Purge] Completely purging document: ${documentId}`);
 
   // 1. Delete from local container storage
-  const filePath = path.join(process.cwd(), "secure_uploads", documentId);
-  if (fs.existsSync(filePath)) {
-    try {
-      fs.unlinkSync(filePath);
-    } catch (e) {}
-  }
+  try {
+    const candidatePaths = [
+      path.join(getLocalUploadsDir(), documentId),
+      path.join(os.tmpdir(), "secure_uploads", documentId),
+      path.join(process.cwd(), "secure_uploads", documentId)
+    ];
+    for (const p of candidatePaths) {
+      if (fs.existsSync(p)) {
+        try { fs.unlinkSync(p); } catch (e) {}
+      }
+    }
+  } catch (e) {}
 
   // 2. Delete all Firestore chunks and metadata doc
   if (isFirebaseAdminAvailable && adminDb) {
@@ -5898,13 +5965,13 @@ async function deleteDocumentFromPersistentStorage(documentId: string): Promise<
   }
 
   // 3. Delete from Firebase Storage if available
-  if (isFirebaseAdminAvailable && adminStorage) {
+  const bucket = getSafeBucket();
+  if (bucket) {
     try {
-      const bucket = adminStorage.bucket();
       const fileRef = bucket.file(`secure_uploads/${documentId}`);
-      const [exists] = await fileRef.exists();
+      const [exists] = await fileRef.exists().catch(() => [false]);
       if (exists) {
-        await fileRef.delete();
+        await fileRef.delete().catch(() => {});
       }
     } catch (err) {}
   }
@@ -5949,7 +6016,7 @@ async function registerPendingUpload(documentId: string, uploadToken: string, me
   writeDb(db);
 
   // Sync to Firestore if available
-  if (isFirebaseAdminAvailable) {
+  if (isFirebaseAdminAvailable && adminDb) {
     try {
       await adminDb.collection("pendingRecoveryUploads").doc(documentId).set({
         documentId,
@@ -5962,7 +6029,12 @@ async function registerPendingUpload(documentId: string, uploadToken: string, me
         storageStatus: meta.storageStatus || "pending",
         associated: false
       });
-    } catch (err) {}
+    } catch (err: any) {
+      console.error("[Recovery Upload] Firestore pending upload registration error:", err);
+      throw new Error(`Failed to register pending upload in durable store: ${err?.message || err}`);
+    }
+  } else if (isServerless) {
+    throw new Error("Failed to register pending upload: Firestore is unavailable in serverless environment");
   }
 }
 
@@ -6102,8 +6174,10 @@ app.post("/api/auth/recovery-request/upload", (req, res, next) => {
   });
 }, async (req, res) => {
   try {
-    // Run self-healing orphan cleanup asynchronously in the background
-    runOrphanCleanup().catch((e) => console.warn("Background orphan cleanup notice:", e));
+    // Run self-healing orphan cleanup asynchronously in the background (VM only)
+    if (!isServerless) {
+      runOrphanCleanup().catch((e) => console.warn("Background orphan cleanup notice:", e));
+    }
 
     const file = req.file || (req.files as any)?.document?.[0] || (req.files as any)?.file?.[0];
     if (!file) {
@@ -6220,12 +6294,14 @@ app.post("/api/auth/recovery-request/upload", (req, res, next) => {
     // Register pending upload record securely in database
     await registerPendingUpload(documentId, uploadToken, docMeta);
 
-    // 2. Non-Critical Path: Dispatch background cloud storage synchronization asynchronously without blocking
-    setImmediate(() => {
-      syncDocumentToCloudStorage(documentId, file.buffer, file.mimetype).catch((syncErr) => {
-        console.warn("[Recovery Upload] Background cloud sync error caught safely:", syncErr?.message || syncErr);
+    // 2. Non-Critical Path: Dispatch background cloud storage synchronization asynchronously without blocking (VM only)
+    if (!isServerless) {
+      setImmediate(() => {
+        syncDocumentToCloudStorage(documentId, file.buffer, file.mimetype).catch((syncErr) => {
+          console.warn("[Recovery Upload] Background cloud sync error caught safely:", syncErr?.message || syncErr);
+        });
       });
-    });
+    }
 
     console.log("[Recovery Upload] HTTP response sent");
 
@@ -6241,7 +6317,7 @@ app.post("/api/auth/recovery-request/upload", (req, res, next) => {
     console.error("[Recovery Upload] Unexpected upload error:", err);
     return res.status(500).json({
       success: false,
-      error: "PRIMARY_PERSISTENCE_FAILURE",
+      error: "DOCUMENT_UPLOAD_FAILED",
       message: err.message || "Failed to persist document to primary durable storage."
     });
   }
@@ -8531,15 +8607,20 @@ async function startServer() {
   });
 }
 
-const isVercelServerless = !!(
-  process.env.VERCEL ||
-  process.env.VERCEL_ENV ||
-  process.env.NOW_REGION ||
-  process.env.AWS_LAMBDA_FUNCTION_NAME ||
-  process.env.LAMBDA_TASK_ROOT
-);
+const isStandalone =
+  !isServerless &&
+  !process.env.SKIP_SERVER_LISTEN &&
+  process.env.NODE_ENV !== "test" &&
+  (
+    (process.argv[1] && (
+      process.argv[1].endsWith("server.ts") ||
+      process.argv[1].endsWith("server.js") ||
+      process.argv[1].endsWith("server.cjs")
+    )) ||
+    process.env.STANDALONE_SERVER === "true"
+  );
 
-if (!isVercelServerless && process.env.NODE_ENV !== "test" && !process.env.SKIP_SERVER_LISTEN) {
+if (isStandalone) {
   startServer().catch((err) => {
     console.error("Failed to start standalone server:", err);
   });

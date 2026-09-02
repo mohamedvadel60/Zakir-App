@@ -96,9 +96,26 @@ if (isFirebaseAdminConfigured) {
         storageBucket: process.env.FIREBASE_STORAGE_BUCKET || "potent-turbine-47c1c.firebasestorage.app",
       });
     }
-    rawFirestore = getFirestore(rawApp, "ai-studio-zakir1-7e6134f1-66d1-4393-82aa-9c7be9dad725");
-    rawAuth = getAuth(rawApp);
-    rawStorage = getStorage(rawApp);
+    const dbId = process.env.FIREBASE_DATABASE_ID || "ai-studio-zakir1-7e6134f1-66d1-4393-82aa-9c7be9dad725";
+    try {
+      rawFirestore = getFirestore(rawApp, dbId);
+    } catch (e) {
+      try {
+        rawFirestore = getFirestore(rawApp);
+      } catch (e2) {
+        rawFirestore = null;
+      }
+    }
+    try {
+      rawAuth = getAuth(rawApp);
+    } catch (e) {
+      rawAuth = null;
+    }
+    try {
+      rawStorage = getStorage(rawApp);
+    } catch (e) {
+      rawStorage = null;
+    }
   } catch (err) {
     console.warn("Failed to initialize Firebase Admin with credentials:", err);
     rawApp = null;
@@ -110,6 +127,24 @@ if (isFirebaseAdminConfigured) {
 
 export const isFirebaseAdminAvailable = Boolean(rawFirestore && rawAuth);
 export const adminStorage = rawStorage;
+
+export function getSafeBucket(): any {
+  try {
+    if (!rawStorage && isFirebaseAdminAvailable && rawApp) {
+      try {
+        rawStorage = getStorage(rawApp);
+      } catch (e) {
+        return null;
+      }
+    }
+    if (!rawStorage || typeof rawStorage.bucket !== "function") return null;
+    const bucketName = process.env.FIREBASE_STORAGE_BUCKET || "potent-turbine-47c1c.firebasestorage.app";
+    return rawStorage.bucket(bucketName);
+  } catch (err) {
+    console.warn("Notice: getSafeBucket warning:", (err as any)?.message || err);
+    return null;
+  }
+}
 
 // Helper for local mock collection mappings
 function getCollectionArrayName(colName: string): string {
@@ -440,6 +475,37 @@ function createSafeAdminDb(realDb: any): any {
       } catch (err) {
         return new MockCollectionRef(colName);
       }
+    },
+
+    batch(): any {
+      if (isFirebaseAdminAvailable && realDb && typeof realDb.batch === "function") {
+        try {
+          return realDb.batch();
+        } catch (e) {
+          // fall through
+        }
+      }
+      const ops: Array<() => Promise<any> | any> = [];
+      return {
+        set(ref: any, data: any, options?: any) {
+          ops.push(() => (ref?.set ? ref.set(data, options) : null));
+          return this;
+        },
+        update(ref: any, data: any) {
+          ops.push(() => (ref?.update ? ref.update(data) : null));
+          return this;
+        },
+        delete(ref: any) {
+          ops.push(() => (ref?.delete ? ref.delete() : null));
+          return this;
+        },
+        async commit() {
+          for (const op of ops) {
+            try { await op(); } catch (e) {}
+          }
+          return [];
+        }
+      };
     }
   };
 }
@@ -602,7 +668,7 @@ function createSafeAdminAuth(realAuth: any): any {
   };
 }
 
-export const adminDb = isFirebaseAdminAvailable ? createSafeAdminDb(rawFirestore) : new MockCollectionRef("") as any;
+export const adminDb = createSafeAdminDb(rawFirestore);
 export const adminAuth = createSafeAdminAuth(rawAuth);
 
 

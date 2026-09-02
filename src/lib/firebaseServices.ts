@@ -1953,13 +1953,17 @@ export async function safeParseJsonResponse(res: Response) {
       throw new Error(`Server returned HTML instead of JSON (${res.status} ${res.statusText}): ${cleanSnippet || 'Route or function fallback'}`);
     }
 
+    if (text.includes("FUNCTION_INVOCATION_FAILED") || text.includes("FUNCTION_INVOCATION_TIMEOUT")) {
+      throw new Error(`Server temporarily unavailable during processing (${res.status}). Please try again.`);
+    }
+
     try {
       const data = JSON.parse(text);
       if (!res.ok) throw new Error(data.error || `Server returned error status ${res.status}`);
       return data;
     } catch (e: any) {
       console.error("Fetch Error Detail (JSON parse failure):", e, text);
-      throw new Error(`Server response parsing failed (${res.status} ${res.statusText}): ${text.slice(0, 100) || 'Invalid response'}`);
+      throw new Error(`Server response error (${res.status}): ${text.slice(0, 100) || 'Invalid response'}`);
     }
   }
 }
