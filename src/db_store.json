@@ -886,39 +886,6 @@
       "associatedRequestId": "REQ-1788366165076-355"
     },
     {
-      "documentId": "doc_1788366100314_d888a463",
-      "uploadToken": "54e30d5e5e3cd31969876f4047146a1c83d220f2b06bd525c9b6065d04ad3a9c",
-      "fileHash": "6b7fa434f92a8b80aab02d9bf1a12e49ffcae424e4013a1c4f68b67e3d2bbcd0",
-      "fileName": "test_id_document.png",
-      "mimeType": "image/png",
-      "size": 70,
-      "uploadedAt": "2026-09-02T16:21:40.699Z",
-      "storageStatus": "pending",
-      "associated": false
-    },
-    {
-      "documentId": "doc_1788366100909_0fb98ee3",
-      "uploadToken": "cd09c00a11bb0024496d4e69d77430e64a439fb35e4f2a5ec7058b635b773b66",
-      "fileHash": "9650f149d622055c4b495e65e9148ebfc5e61b1bb00e83538e76afe48c496eaf",
-      "fileName": "test_id_document.jpg",
-      "mimeType": "image/jpeg",
-      "size": 134,
-      "uploadedAt": "2026-09-02T16:21:41.282Z",
-      "storageStatus": "pending",
-      "associated": false
-    },
-    {
-      "documentId": "doc_1788366101477_3f7c8bd7",
-      "uploadToken": "bc7737214d6d5f9ba5d367e4b1ea8216ce0901db19f6fc6ff3e569a4e6931465",
-      "fileHash": "0aef17cd586789c36985f07d9135e012f0a54cbd27a05974940b4028306bcc3e",
-      "fileName": "test_id_document2.pdf",
-      "mimeType": "application/pdf",
-      "size": 159,
-      "uploadedAt": "2026-09-02T16:21:41.820Z",
-      "storageStatus": "pending",
-      "associated": false
-    },
-    {
       "documentId": "doc_1788368444370_b9ed7f9e",
       "uploadToken": "aed50ae5e107a3776613c087526cee6c5f39568a910b3b980cf6e28fcf406f72",
       "fileHash": "b8d7e809b0999232a72dcec1d534a8cfae28947f77b22e24ee1c34398a2597f7",
@@ -1039,6 +1006,52 @@
       "uploadedAt": "2026-09-02T17:12:33.954Z",
       "storageStatus": "pending",
       "associated": false
+    },
+    {
+      "documentId": "doc_1788370243884_4a68a2ec",
+      "uploadToken": "dd59a4e55a03b9cddc9ab3a8e159320046750a258c632519a530db6910b7675e",
+      "fileHash": "7fef0d8820b2ec446627e8daa4521746eaf88040ef726e39b32684b995b7f005",
+      "fileName": "national_id.pdf",
+      "mimeType": "application/pdf",
+      "size": 76,
+      "uploadedAt": "2026-09-02T17:30:45.128Z",
+      "storageStatus": "pending",
+      "associated": false
+    },
+    {
+      "documentId": "doc_1788370603600_7ee6c28c",
+      "uploadToken": "8e416d964baea46b8020f838fd87c66b0c83b1281947108b8b3f93a9614512a2",
+      "fileHash": "7fef0d8820b2ec446627e8daa4521746eaf88040ef726e39b32684b995b7f005",
+      "fileName": "national_passport.pdf",
+      "mimeType": "application/pdf",
+      "size": 76,
+      "uploadedAt": "2026-09-02T17:36:44.344Z",
+      "storageStatus": "pending",
+      "associated": false
+    },
+    {
+      "documentId": "doc_1788370606286_afb5b674",
+      "uploadToken": "be7db1f1b1da66959755635baf75ce14ae6813fad6fd9e0c0e2c12410a94eae3",
+      "fileHash": "02a3e298f1533f62558c58e4c70edcab9af5a50d62d925fd5390942020fb0fb8",
+      "fileName": "id_front.png",
+      "mimeType": "image/png",
+      "size": 16,
+      "uploadedAt": "2026-09-02T17:36:47.511Z",
+      "storageStatus": "pending",
+      "associated": true,
+      "associatedRequestId": "REQ-1788370608839-932"
+    },
+    {
+      "documentId": "doc_1788370607846_929c5e7b",
+      "uploadToken": "2ff46eac2c259e2b336a57d90a191b6b43557d3d80d11b8ed8a1acbb167d38c3",
+      "fileHash": "3c4bae649b6c0fade21c149e6ee9773e734d620fda91248a44c58b11c71f3ba9",
+      "fileName": "id_back.jpg",
+      "mimeType": "image/jpeg",
+      "size": 12,
+      "uploadedAt": "2026-09-02T17:36:48.301Z",
+      "storageStatus": "pending",
+      "associated": true,
+      "associatedRequestId": "REQ-1788370608839-932"
     }
   ],
   "account_recovery_requests": [
@@ -1296,6 +1309,40 @@
       "status": "pending",
       "submittedAt": "2026-09-02T17:12:34.711Z",
       "updatedAt": "2026-09-02T17:12:34.711Z"
+    },
+    {
+      "id": "REQ-1788370608839-932",
+      "requestId": "REQ-1788370608839-932",
+      "email": "ceo@zakir-institutional.com",
+      "fullName": "Zakir CEO",
+      "phone": "+971501234567",
+      "phoneVerified": false,
+      "reason": "Recovery flow verification with real identity documents",
+      "organizationName": "",
+      "previousWorkspaceInfo": "",
+      "acceptedTerms": false,
+      "termsAcceptedAt": "2026-09-02T17:36:48.839Z",
+      "documents": [
+        {
+          "documentId": "doc_1788370606286_afb5b674",
+          "storageReference": "secure_uploads/doc_1788370606286_afb5b674",
+          "fileName": "id_front.png",
+          "mimeType": "image/png",
+          "size": 16,
+          "uploadedAt": "2026-09-02T17:36:47.511Z"
+        },
+        {
+          "documentId": "doc_1788370607846_929c5e7b",
+          "storageReference": "secure_uploads/doc_1788370607846_929c5e7b",
+          "fileName": "id_back.jpg",
+          "mimeType": "image/jpeg",
+          "size": 12,
+          "uploadedAt": "2026-09-02T17:36:48.301Z"
+        }
+      ],
+      "status": "pending",
+      "submittedAt": "2026-09-02T17:36:48.839Z",
+      "updatedAt": "2026-09-02T17:36:48.839Z"
     }
   ],
   "recovery_documents_store": {
@@ -1470,10 +1517,11 @@
       "size": 76,
       "fileName": "sample.pdf",
       "fileHash": "7fef0d8820b2ec446627e8daa4521746eaf88040ef726e39b32684b995b7f005",
-      "storageStatus": "pending",
-      "syncAttempts": 0,
+      "storageStatus": "firestore_durable",
+      "syncAttempts": 1,
       "createdAt": "2026-09-02T17:08:17.747Z",
-      "expiresAt": "2026-09-16T17:08:17.747Z"
+      "expiresAt": "2026-09-16T17:08:17.747Z",
+      "syncError": "Primary Firestore chunk storage active (Bucket unprovisioned)"
     },
     "doc_1788369062099_ff1e4901": {
       "documentId": "doc_1788369062099_ff1e4901",
@@ -1505,10 +1553,11 @@
       "size": 12,
       "fileName": "passport.jpg",
       "fileHash": "3c4bae649b6c0fade21c149e6ee9773e734d620fda91248a44c58b11c71f3ba9",
-      "storageStatus": "pending",
-      "syncAttempts": 0,
+      "storageStatus": "firestore_durable",
+      "syncAttempts": 1,
       "createdAt": "2026-09-02T17:11:03.883Z",
-      "expiresAt": "2026-09-16T17:11:03.883Z"
+      "expiresAt": "2026-09-16T17:11:03.883Z",
+      "syncError": "Primary Firestore chunk storage active (Bucket unprovisioned)"
     },
     "doc_1788369152546_a372bc91": {
       "documentId": "doc_1788369152546_a372bc91",
@@ -1516,10 +1565,11 @@
       "size": 76,
       "fileName": "identity.pdf",
       "fileHash": "7fef0d8820b2ec446627e8daa4521746eaf88040ef726e39b32684b995b7f005",
-      "storageStatus": "pending",
-      "syncAttempts": 0,
+      "storageStatus": "firestore_durable",
+      "syncAttempts": 1,
       "createdAt": "2026-09-02T17:12:32.547Z",
-      "expiresAt": "2026-09-16T17:12:32.547Z"
+      "expiresAt": "2026-09-16T17:12:32.547Z",
+      "syncError": "Primary Firestore chunk storage active (Bucket unprovisioned)"
     },
     "doc_1788369153622_ce9ac6d6": {
       "documentId": "doc_1788369153622_ce9ac6d6",
@@ -1531,6 +1581,54 @@
       "syncAttempts": 1,
       "createdAt": "2026-09-02T17:12:33.623Z",
       "expiresAt": "2026-09-16T17:12:33.623Z",
+      "syncError": "Primary Firestore chunk storage active (Bucket unprovisioned)"
+    },
+    "doc_1788370243884_4a68a2ec": {
+      "documentId": "doc_1788370243884_4a68a2ec",
+      "mimeType": "application/pdf",
+      "size": 76,
+      "fileName": "national_id.pdf",
+      "fileHash": "7fef0d8820b2ec446627e8daa4521746eaf88040ef726e39b32684b995b7f005",
+      "storageStatus": "firestore_durable",
+      "syncAttempts": 1,
+      "createdAt": "2026-09-02T17:30:43.885Z",
+      "expiresAt": "2026-09-16T17:30:43.885Z",
+      "syncError": "Primary Firestore chunk storage active (Bucket unprovisioned)"
+    },
+    "doc_1788370603600_7ee6c28c": {
+      "documentId": "doc_1788370603600_7ee6c28c",
+      "mimeType": "application/pdf",
+      "size": 76,
+      "fileName": "national_passport.pdf",
+      "fileHash": "7fef0d8820b2ec446627e8daa4521746eaf88040ef726e39b32684b995b7f005",
+      "storageStatus": "firestore_durable",
+      "syncAttempts": 1,
+      "createdAt": "2026-09-02T17:36:43.601Z",
+      "expiresAt": "2026-09-16T17:36:43.601Z",
+      "syncError": "Primary Firestore chunk storage active (Bucket unprovisioned)"
+    },
+    "doc_1788370606286_afb5b674": {
+      "documentId": "doc_1788370606286_afb5b674",
+      "mimeType": "image/png",
+      "size": 16,
+      "fileName": "id_front.png",
+      "fileHash": "02a3e298f1533f62558c58e4c70edcab9af5a50d62d925fd5390942020fb0fb8",
+      "storageStatus": "firestore_durable",
+      "syncAttempts": 1,
+      "createdAt": "2026-09-02T17:36:46.287Z",
+      "expiresAt": "2026-09-16T17:36:46.287Z",
+      "syncError": "Primary Firestore chunk storage active (Bucket unprovisioned)"
+    },
+    "doc_1788370607846_929c5e7b": {
+      "documentId": "doc_1788370607846_929c5e7b",
+      "mimeType": "image/jpeg",
+      "size": 12,
+      "fileName": "id_back.jpg",
+      "fileHash": "3c4bae649b6c0fade21c149e6ee9773e734d620fda91248a44c58b11c71f3ba9",
+      "storageStatus": "firestore_durable",
+      "syncAttempts": 1,
+      "createdAt": "2026-09-02T17:36:47.847Z",
+      "expiresAt": "2026-09-16T17:36:47.847Z",
       "syncError": "Primary Firestore chunk storage active (Bucket unprovisioned)"
     }
   }
