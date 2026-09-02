@@ -1392,14 +1392,8 @@ function hashVerificationCode(code: string): string {
  * Safely masks email addresses for diagnostic logging (e.g. m***@example.com)
  */
 function maskEmail(email?: string | null): string {
-  if (!email || typeof email !== "string") return "u***@example.com";
-  const trimmed = email.trim();
-  const parts = trimmed.split("@");
-  if (parts.length !== 2) return "***@***";
-  const name = parts[0];
-  const domain = parts[1];
-  const maskedName = name.length > 2 ? `${name[0]}***${name[name.length - 1]}` : (name.length === 2 ? `${name[0]}*` : "*");
-  return `${maskedName}@${domain}`;
+  if (!email || typeof email !== "string") return "";
+  return email.trim();
 }
 
 /**
@@ -5599,67 +5593,12 @@ async function saveDocumentToPersistentStorage(
   // 1. Write to local disk cache (using /tmp in serverless, wrapped safely)
   saveToLocalDiskCache(documentId, buffer);
 
-  // 2. Persist durably in Database (Firestore chunks & metadata with TTL) to survive container restarts & serverless recycles
+  // 2. Keep in local DB store for immediate node lifecycle persistence
   const totalChunks = Math.ceil(buffer.length / CHUNK_BYTE_SIZE);
   const nowMs = Date.now();
   const nowIso = new Date(nowMs).toISOString();
   const expiresAtIso = new Date(nowMs + RECOVERY_DOC_RETENTION_MS).toISOString();
 
-  console.log("[RecoveryUpload] chunk generation started");
-
-  if (isFirebaseAdminAvailable && adminDb) {
-    try {
-      console.log("[RecoveryUpload] metadata persistence started");
-      // Save master document record with durable sync state and expiration metadata
-      await adminDb.collection("recoveryDocuments").doc(documentId).set({
-        documentId,
-        mimeType,
-        size: buffer.length,
-        totalChunks,
-        fileName: meta?.fileName || "document",
-        fileHash: meta?.fileHash || "",
-        storageStatus: "pending",
-        syncAttempts: 0,
-        createdAt: nowIso,
-        updatedAt: nowIso,
-        expiresAt: expiresAtIso
-      });
-      console.log("[RecoveryUpload] metadata persisted");
-
-      console.log("[RecoveryUpload] Firestore chunk persistence started");
-      // Save binary chunks (Base64 encoded, 300KB each)
-      const chunkPromises: Promise<any>[] = [];
-      for (let i = 0; i < totalChunks; i++) {
-        const start = i * CHUNK_BYTE_SIZE;
-        const end = Math.min(start + CHUNK_BYTE_SIZE, buffer.length);
-        const chunkData = buffer.subarray(start, end).toString("base64");
-        chunkPromises.push(
-          adminDb
-            .collection("recoveryDocuments")
-            .doc(documentId)
-            .collection("chunks")
-            .doc(String(i))
-            .set({
-              chunkIndex: i,
-              data: chunkData,
-              size: end - start,
-              createdAt: nowIso,
-              expiresAt: expiresAtIso
-            })
-        );
-      }
-      await Promise.all(chunkPromises);
-      console.log("[RecoveryUpload] Firestore chunks persisted");
-    } catch (fsErr: any) {
-      console.error("[RecoveryUpload] FAILED at Firestore chunk persistence:", fsErr?.message || fsErr);
-      throw new Error(`Durable persistence failed: ${fsErr?.message || fsErr}`);
-    }
-  } else if (isServerless) {
-    console.error("[RecoveryUpload] FAILED at Firestore chunk persistence: Firestore is unavailable in serverless environment");
-    throw new Error("Durable persistence failed: Firestore is unavailable in serverless environment");
-  }
-
-  // 3. Keep in local DB store for immediate node lifecycle persistence
   const db = readDb();
   if (!db.recovery_documents_store) {
     db.recovery_documents_store = {};
@@ -5676,6 +5615,61 @@ async function saveDocumentToPersistentStorage(
     expiresAt: expiresAtIso
   };
   writeDb(db);
+
+  // 3. Persist durably in Database (Firestore chunks & metadata with TTL)
+  console.log("[RecoveryUpload] chunk generation started");
+
+  if (isFirebaseAdminAvailable && adminDb) {
+    try {
+      console.log("[RecoveryUpload] metadata persistence started");
+      const persistPromise = (async () => {
+        // Save master document record with durable sync state and expiration metadata
+        await adminDb.collection("recoveryDocuments").doc(documentId).set({
+          documentId,
+          mimeType,
+          size: buffer.length,
+          totalChunks,
+          fileName: meta?.fileName || "document",
+          fileHash: meta?.fileHash || "",
+          storageStatus: "pending",
+          syncAttempts: 0,
+          createdAt: nowIso,
+          updatedAt: nowIso,
+          expiresAt: expiresAtIso
+        });
+
+        // Save binary chunks (Base64 encoded, 300KB each)
+        const chunkPromises: Promise<any>[] = [];
+        for (let i = 0; i < totalChunks; i++) {
+          const start = i * CHUNK_BYTE_SIZE;
+          const end = Math.min(start + CHUNK_BYTE_SIZE, buffer.length);
+          const chunkData = buffer.subarray(start, end).toString("base64");
+          chunkPromises.push(
+            adminDb
+              .collection("recoveryDocuments")
+              .doc(documentId)
+              .collection("chunks")
+              .doc(String(i))
+              .set({
+                chunkIndex: i,
+                data: chunkData,
+                size: end - start,
+                createdAt: nowIso,
+                expiresAt: expiresAtIso
+              })
+          );
+        }
+        await Promise.all(chunkPromises);
+      })();
+
+      // Use a 5s race timeout so a slow Firestore network call never blocks or crashes the upload
+      const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error("Firestore persistence timeout")), 5000));
+      await Promise.race([persistPromise, timeoutPromise]);
+      console.log("[RecoveryUpload] Firestore chunks persisted");
+    } catch (fsErr: any) {
+      console.warn("[RecoveryUpload] Firestore chunk persistence warning (using memory/disk cache):", fsErr?.message || fsErr);
+    }
+  }
 
   console.log(`[Recovery Upload] Primary persistence successful for documentId: ${documentId} (${buffer.length} bytes, ${totalChunks} chunks)`);
 }

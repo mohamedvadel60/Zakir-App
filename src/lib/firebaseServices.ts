@@ -1575,20 +1575,53 @@ export async function checkAccountLifecycleApi(email: string) {
 }
 
 export async function uploadRecoveryDocumentApi(file: File) {
-  try {
-    const formData = new FormData();
-    formData.append("file", file);
-    formData.append("document", file);
-    const res = await fetch(getAuthApiUrl("/api/auth/recovery-request/upload"), {
-      method: "POST",
-      credentials: "include",
-      body: formData
-    });
-    return await safeParseJsonResponse(res);
-  } catch (err: any) {
-    console.warn("uploadRecoveryDocumentApi notice:", err?.message || err);
-    return { success: false, error: err.message || "Failed to upload document." };
+  let lastError: any = null;
+  const maxAttempts = 3;
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("document", file);
+
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 20000); // 20s timeout per attempt
+
+      const res = await fetch(getAuthApiUrl("/api/auth/recovery-request/upload"), {
+        method: "POST",
+        credentials: "include",
+        body: formData,
+        signal: controller.signal
+      });
+      clearTimeout(timeoutId);
+
+      const parsed = await safeParseJsonResponse(res);
+      if (parsed && (parsed.success || parsed.documentId || parsed.document)) {
+        return {
+          success: true,
+          ...parsed,
+          documentId: parsed.documentId || parsed.document?.documentId,
+          uploadToken: parsed.uploadToken || parsed.document?.uploadToken
+        };
+      }
+      return parsed;
+    } catch (err: any) {
+      lastError = err;
+      console.warn(`uploadRecoveryDocumentApi attempt ${attempt}/${maxAttempts} notice:`, err?.message || err);
+      // Wait before retrying on network/transient failure
+      if (attempt < maxAttempts) {
+        await new Promise(r => setTimeout(r, attempt * 600));
+      }
+    }
   }
+
+  const errMsg = lastError?.name === "AbortError"
+    ? "انتهت مهلة الاتصال بالخادم أثناء رفع المستند. يرجى المحاولة مرة أخرى."
+    : (lastError?.message && !lastError.message.includes("Failed to fetch")
+        ? lastError.message
+        : "تعذر الاتصال بخادم رفع الوثائق. يرجى التحقق من اتصال الإنترنت وإعادة المحاولة.");
+
+  return { success: false, error: errMsg };
 }
 
 export async function submitAccountRecoveryRequestApi(payload: {
@@ -1610,18 +1643,38 @@ export async function submitAccountRecoveryRequestApi(payload: {
     uploadToken?: string;
   }>;
 }) {
-  try {
-    const res = await fetch(getAuthApiUrl("/api/auth/recovery-request/submit"), {
-      method: "POST",
-      credentials: "include",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload)
-    });
-    return await safeParseJsonResponse(res);
-  } catch (err: any) {
-    console.warn("submitAccountRecoveryRequestApi notice:", err?.message || err);
-    return { success: false, error: err.message || "فشل تقديم طلب استعادة الحساب." };
+  let lastError: any = null;
+  const maxAttempts = 2;
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 15000);
+
+      const res = await fetch(getAuthApiUrl("/api/auth/recovery-request/submit"), {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+        signal: controller.signal
+      });
+      clearTimeout(timeoutId);
+
+      return await safeParseJsonResponse(res);
+    } catch (err: any) {
+      lastError = err;
+      console.warn(`submitAccountRecoveryRequestApi attempt ${attempt}/${maxAttempts} notice:`, err?.message || err);
+      if (attempt < maxAttempts) {
+        await new Promise(r => setTimeout(r, 600));
+      }
+    }
   }
+
+  const errMsg = lastError?.message && !lastError.message.includes("Failed to fetch")
+    ? lastError.message
+    : "تعذر إرسال طلب الاستعادة إلى الخادم. يرجى التحقق من اتصالك والمحاولة مجدداً.";
+
+  return { success: false, error: errMsg };
 }
 
 export async function fetchAccountRecoveryStatusApi(email: string) {
@@ -1922,48 +1975,58 @@ export const getAuthApiUrl = (endpoint: string) => {
 };
 
 /**
- * Safely parse JSON response with Content-Type validation and HTML fallback handling
+ * Safely parse JSON response with Content-Type validation and comprehensive HTTP status handling
  */
 export async function safeParseJsonResponse(res: Response) {
   if (res.status === 413) {
     throw new Error(
-      "The uploaded verification file is too large. Please choose a smaller file (maximum 5MB)."
+      "The uploaded document is too large. Please select a file up to 5MB."
     );
   }
+  if (res.status === 429) {
+    throw new Error(
+      "Too many requests. Please wait a moment before trying again."
+    );
+  }
+  if (res.status === 503) {
+    throw new Error(
+      "The recovery service is temporarily unavailable. Please try again shortly."
+    );
+  }
+
   const contentType = res.headers.get("content-type");
   if (contentType && contentType.includes("application/json")) {
     const data = await res.json();
     if (!res.ok) {
-      const errMsg = data.error || data.message || `Server returned status ${res.status}`;
-      console.error("Fetch Error Detail (JSON response error):", errMsg, data);
+      const errMsg = data.error || data.message || `Request failed with status ${res.status}`;
+      console.warn("API Error Response:", res.status, errMsg);
       throw new Error(errMsg);
     }
     return data;
   } else {
     const text = await res.text();
-    console.error("Fetch Error Detail (Non-JSON response):", {
-      status: res.status,
-      statusText: res.statusText,
-      contentType,
-      bodyText: text
-    });
-
     if (text.includes("<!DOCTYPE") || text.includes("<html")) {
-      const cleanSnippet = text.replace(/<[^>]*>?/gm, ' ').slice(0, 150).trim();
-      throw new Error(`Server returned HTML instead of JSON (${res.status} ${res.statusText}): ${cleanSnippet || 'Route or function fallback'}`);
+      if (res.status === 404) {
+        throw new Error("The requested service endpoint was not found (404).");
+      }
+      throw new Error(`Server returned unexpected format (${res.status}). Please try again.`);
     }
 
     if (text.includes("FUNCTION_INVOCATION_FAILED") || text.includes("FUNCTION_INVOCATION_TIMEOUT")) {
-      throw new Error(`Server temporarily unavailable during processing (${res.status}). Please try again.`);
+      throw new Error(`Server temporarily unavailable during processing (${res.status}). Please retry.`);
     }
 
     try {
       const data = JSON.parse(text);
-      if (!res.ok) throw new Error(data.error || `Server returned error status ${res.status}`);
+      if (!res.ok) throw new Error(data.error || data.message || `Request failed (${res.status})`);
       return data;
     } catch (e: any) {
-      console.error("Fetch Error Detail (JSON parse failure):", e, text);
-      throw new Error(`Server response error (${res.status}): ${text.slice(0, 100) || 'Invalid response'}`);
+      if (res.status === 400) throw new Error("Invalid request data submitted.");
+      if (res.status === 401) throw new Error("Authentication required.");
+      if (res.status === 403) throw new Error("Access denied for this action.");
+      if (res.status === 404) throw new Error("Requested resource was not found.");
+      if (res.status >= 500) throw new Error(`Server error (${res.status}). Please try again.`);
+      throw new Error(`Response error (${res.status}): ${text.slice(0, 100) || 'Invalid response'}`);
     }
   }
 }

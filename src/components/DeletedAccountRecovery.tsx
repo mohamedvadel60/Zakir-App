@@ -1,1185 +1,1360 @@
-import React, { useState, useEffect } from "react";
-import { 
-  ShieldAlert, 
-  ShieldCheck, 
-  Clock, 
-  ArrowLeft, 
-  ArrowRight, 
-  CheckCircle2, 
-  AlertTriangle, 
-  RefreshCw, 
-  Mail, 
-  Lock, 
-  Upload, 
-  FileText, 
-  User as UserIcon, 
-  Building2, 
-  Phone, 
+import React, { useState, useEffect, useRef } from "react";
+import { motion, AnimatePresence } from "motion/react";
+import {
+  ShieldCheck,
+  RotateCcw,
+  UploadCloud,
+  FileText,
+  Image as ImageIcon,
+  CheckCircle2,
+  AlertCircle,
+  Clock,
+  ArrowRight,
+  ArrowLeft,
   X,
+  Copy,
+  Check,
+  RefreshCw,
+  Lock,
+  UserCheck,
   FileCheck,
   Send,
-  RotateCcw
+  Sparkles,
+  HelpCircle,
+  ExternalLink,
+  ChevronRight,
+  ChevronLeft,
+  Info,
+  Mail
 } from "lucide-react";
-import { 
-  fetchAccountRecoveryStatusApi, 
-  submitAccountRecoveryRequestApi, 
-  sendRecoveryApprovalOtpApi, 
+import {
+  uploadRecoveryDocumentApi,
+  submitAccountRecoveryRequestApi,
+  fetchAccountRecoveryStatusApi,
+  sendRecoveryApprovalOtpApi,
   verifyRecoveryApprovalOtpAndRestoreApi,
-  loginWithCustomToken,
-  uploadRecoveryDocumentApi
-} from "../lib/firebaseServices.js";
-import { User, AccountRecoveryRequest } from "../types.js";
+  checkAccountLifecycleApi
+} from "../lib/firebaseServices";
+import { User } from "../types";
 
-interface DeletedAccountRecoveryProps {
+export interface DeletedAccountRecoveryProps {
   email: string;
   daysRemaining?: number;
   restoreUntil?: string | null;
   isExpired?: boolean;
-  lang: "ar" | "en" | "fr";
-  theme?: "light" | "dark" | "custom";
+  lang: "ar" | "fr" | "en";
+  theme?: "light" | "dark";
   onCancel: () => void;
-  onRestored: (user: User, customToken?: string) => void;
+  onRestored: (user: User) => void;
+}
+
+interface UploadedDocumentItem {
+  id: string;
+  file: File;
+  name: string;
+  size: number;
+  type: string;
+  status: "selected" | "uploading" | "uploaded" | "failed";
+  progress: number;
+  documentId?: string;
+  uploadToken?: string;
+  storageReference?: string;
+  error?: string;
 }
 
 export const DeletedAccountRecovery: React.FC<DeletedAccountRecoveryProps> = ({
-  email,
-  lang,
+  email: initialEmail,
+  daysRemaining: initialDays,
+  restoreUntil,
+  isExpired = false,
+  lang = "ar",
   theme = "light",
   onCancel,
   onRestored
 }) => {
   const isRtl = lang === "ar";
-  const [recoveryEmail, setRecoveryEmail] = useState<string>((email || "").trim().toLowerCase());
-  const normalizedEmail = recoveryEmail;
+  const ArrowBackIcon = isRtl ? ArrowRight : ArrowLeft;
+  const ArrowForwardIcon = isRtl ? ArrowLeft : ArrowRight;
 
-  // Mode states: "status_view" | "form_view" | "verify_email_view" | "success_view"
-  const [viewMode, setViewMode] = useState<"status_view" | "form_view" | "verify_email_view" | "success_view">("status_view");
-  const [formStep, setFormStep] = useState<number>(1);
+  // View state: "request" | "status" | "success" | "restore_otp"
+  const [activeTab, setActiveTab] = useState<"request" | "status">("request");
+  const [currentStep, setCurrentStep] = useState<1 | 2 | 3>(1);
 
-  // Status state from backend
-  const [loadingStatus, setLoadingStatus] = useState<boolean>(true);
-  const [requestData, setRequestData] = useState<AccountRecoveryRequest | null>(null);
-  const [statusType, setStatusType] = useState<"none" | "pending" | "under_review" | "approved" | "rejected">("none");
-  const [rejectionReason, setRejectionReason] = useState<string | null>(null);
+  // Email & Lifecycle state
+  const [email, setEmail] = useState((initialEmail || "").trim().toLowerCase());
+  const [dynamicDays, setDynamicDays] = useState<number>(initialDays ?? 30);
+  const [isLoadingLifecycle, setIsLoadingLifecycle] = useState(false);
 
-  // Form Fields State
-  const [fullName, setFullName] = useState<string>("");
-  const [phone, setPhone] = useState<string>("");
-  const [phoneVerified, setPhoneVerified] = useState<boolean>(false);
-  const [organization, setOrganization] = useState<string>("");
-  const [previousWorkspaceInfo, setPreviousWorkspaceInfo] = useState<string>("");
-  const [deletionReason, setDeletionReason] = useState<string>("");
-  const [termsAccepted, setTermsAccepted] = useState<boolean>(false);
-  
-  // File Upload State (Supports up to 2 documents)
-  const [attachedDocs, setAttachedDocs] = useState<Array<{
-    documentId: string;
-    storageReference: string;
-    fileName: string;
-    mimeType: string;
-    size: number;
-    uploadedAt: string;
-    uploadToken?: string;
-    id?: string;
-    name?: string;
-    type?: string;
-  }>>([]);
-  const [isUploadingFile, setIsUploadingFile] = useState<boolean>(false);
+  useEffect(() => {
+    if (initialEmail) {
+      const formatted = initialEmail.trim().toLowerCase();
+      setEmail(formatted);
+      setStatusEmail(prev => prev || formatted);
+    }
+  }, [initialEmail]);
 
-  const removeDocument = (docId: string) => {
-    setAttachedDocs(prev => prev.filter(d => (d.documentId !== docId && d.id !== docId)));
+  // Form Fields
+  const [fullName, setFullName] = useState("");
+  const [phone, setPhone] = useState("");
+  const [organization, setOrganization] = useState("");
+  const [recoveryReason, setRecoveryReason] = useState("");
+  const [termsAccepted, setTermsAccepted] = useState(false);
+
+  // Document Uploads State
+  const [documents, setDocuments] = useState<UploadedDocumentItem[]>([]);
+  const [isDragging, setIsDragging] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Submission State
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submittedRequestId, setSubmittedRequestId] = useState<string | null>(null);
+  const [submissionSuccessData, setSubmissionSuccessData] = useState<any | null>(null);
+  const [copiedRequestId, setCopiedRequestId] = useState(false);
+
+  // Error & Alert States
+  const [formError, setFormError] = useState<string | null>(null);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+
+  // Status Check State
+  const [statusEmail, setStatusEmail] = useState(initialEmail.trim().toLowerCase());
+  const [isCheckingStatus, setIsCheckingStatus] = useState(false);
+  const [statusResult, setStatusResult] = useState<{
+    recoverable: boolean;
+    status: "none" | "pending" | "under_review" | "approved" | "rejected";
+    remainingDays?: number;
+    recoveryRequest: any | null;
+  } | null>(null);
+
+  // OTP Restoration State (if approved)
+  const [otpCode, setOtpCode] = useState("");
+  const [isSendingOtp, setIsSendingOtp] = useState(false);
+  const [isVerifyingOtp, setIsVerifyingOtp] = useState(false);
+  const [otpSent, setOtpSent] = useState(false);
+  const [otpError, setOtpError] = useState<string | null>(null);
+
+  // Format File Size
+  const formatFileSize = (bytes: number): string => {
+    if (bytes === 0) return "0 B";
+    const k = 1024;
+    const sizes = ["B", "KB", "MB", "GB"];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + " " + sizes[i];
   };
 
-  // Email OTP Verification State (After Approval)
-  const [otpCode, setOtpCode] = useState<string>("");
-  const [isSendingOtp, setIsSendingOtp] = useState<boolean>(false);
-  const [isVerifyingOtp, setIsVerifyingOtp] = useState<boolean>(false);
-  const [resendCooldown, setResendCooldown] = useState<number>(0);
+  // Translations Map
+  const t = {
+    badge: lang === "ar" ? "استعادة الحساب" : lang === "fr" ? "Récupération de compte" : "Account Recovery",
+    title: lang === "ar" ? "استعادة الحساب المحذوف" : lang === "fr" ? "Récupération du compte supprimé" : "Recover Deleted Account",
+    subtitle:
+      lang === "ar"
+        ? "تم العثور على حسابك المحذوف سابقاً وهو متاح للاستعادة بالكامل مع كافة البيانات والمستندات المحفوظة خلال الفترة النظامية."
+        : lang === "fr"
+        ? "Votre compte précédemment supprimé a été détecté et reste récupérable avec toutes vos données durant la période autorisée."
+        : "Your previously deleted account was detected and is eligible for full restoration with all documents and settings.",
+    statusAvailable:
+      lang === "ar"
+        ? `الاستعادة متاحة • متبقي ${dynamicDays} يوماً`
+        : lang === "fr"
+        ? `Récupération disponible • ${dynamicDays} jours restants`
+        : `Recovery Available • ${dynamicDays} days remaining`,
+    tabNewRequest: lang === "ar" ? "تقديم طلب استعادة" : lang === "fr" ? "Nouvelle demande" : "Submit Request",
+    tabCheckStatus: lang === "ar" ? "متابعة حالة الطلب" : lang === "fr" ? "Suivi du statut" : "Track Status",
+    step1: lang === "ar" ? "1. معلومات الحساب" : lang === "fr" ? "1. Informations" : "1. Account Info",
+    step2: lang === "ar" ? "2. وثائق التحقق" : lang === "fr" ? "2. Documents" : "2. Verification Docs",
+    step3: lang === "ar" ? "3. تأكيد التقديم" : lang === "fr" ? "3. Confirmation" : "3. Review & Submit",
+    infoTitle: lang === "ar" ? "معلومات مهمة حول إجراءات الاستعادة:" : lang === "fr" ? "Informations importantes sur la récupération :" : "Important Information Regarding Recovery:",
+    infoPoint1:
+      lang === "ar"
+        ? "تظل بيانات ومستندات مساحة العمل محفوظة بشكل آمن خلال فترة السماح."
+        : lang === "fr"
+        ? "Vos données et documents restent sécurisés durant la période de rétention."
+        : "Your workspace data and files remain securely retained during the retention window.",
+    infoPoint2:
+      lang === "ar"
+        ? "يتطلب تقديم وثيقة رسمية سارية (بطاقة الهوية، جواز السفر، أو السجل التجاري) لإثبات الملكية."
+        : lang === "fr"
+        ? "Une pièce d'identité officielle (carte d'identité, passeport ou registre) est requise."
+        : "A valid official document (National ID, Passport, or Business Registry) is required for ownership verification.",
+    infoPoint3:
+      lang === "ar"
+        ? "تتم مراجعة الطلب من قبل إدارة المنصة خلال 24 إلى 48 ساعة واستعادة الحساب فور الموافقة."
+        : lang === "fr"
+        ? "Votre demande sera traitée par l'administration sous 24 à 48 heures."
+        : "The administrative team reviews requests within 24–48 hours, restoring immediate access upon approval.",
+    fullNameLabel: lang === "ar" ? "الاسم الكامل لصاحب الحساب *" : lang === "fr" ? "Nom complet du titulaire *" : "Account Owner Full Name *",
+    fullNamePlaceholder: lang === "ar" ? "أدخل اسمك الثلاثي أو الرباعي" : lang === "fr" ? "Entrez votre nom complet" : "Enter your full legal name",
+    phoneLabel: lang === "ar" ? "رقم الهاتف للتواصل والتحقق *" : lang === "fr" ? "Numéro de téléphone *" : "Contact Phone Number *",
+    phonePlaceholder: lang === "ar" ? "+222 XX XX XX XX" : "+1 (555) 000-0000",
+    orgLabel: lang === "ar" ? "اسم الشركة أو المؤسسة (اختياري)" : lang === "fr" ? "Nom de l'entreprise (optionnel)" : "Company / Organization Name (Optional)",
+    orgPlaceholder: lang === "ar" ? "اسم المنشأة أو مساحة العمل" : lang === "fr" ? "Nom de la société" : "Company or Workspace name",
+    reasonLabel: lang === "ar" ? "سبب وتفاصيل طلب الاستعادة *" : lang === "fr" ? "Motif de la demande *" : "Reason for Recovery Request *",
+    reasonPlaceholder:
+      lang === "ar"
+        ? "يرجى توضيح سبب طلب استعادة الحساب وتفاصيل مساحة العمل السابقة لمطابقتها..."
+        : lang === "fr"
+        ? "Veuillez expliquer le motif de la récupération de votre compte..."
+        : "Please explain the reason for recovering the account and any previous workspace details...",
+    uploadZoneTitle:
+      lang === "ar"
+        ? "اسحب وأفلت وثائق الهوية هنا، أو انقر للتصفح"
+        : lang === "fr"
+        ? "Glissez-déposez vos documents ici, ou cliquez pour parcourir"
+        : "Drag & drop identity documents here, or click to browse",
+    uploadZoneSubtitle:
+      lang === "ar"
+        ? "الصيغ المدعومة: PDF, PNG, JPG, JPEG (الحد الأقصى: 5 ميغابايت لكل ملف - وثيقتان كحد أقصى)"
+        : lang === "fr"
+        ? "Formats supportés : PDF, PNG, JPG, JPEG (Max 5 Mo par fichier - 2 documents max)"
+        : "Supported formats: PDF, PNG, JPG, JPEG (Max 5MB per file — up to 2 documents)",
+    uploadBrowseBtn: lang === "ar" ? "اختيار ملف من الجهاز" : lang === "fr" ? "Parcourir les fichiers" : "Browse Files",
+    uploadedDocsTitle: lang === "ar" ? "المستندات المرفقة للتحقق:" : lang === "fr" ? "Documents joints pour vérification :" : "Attached Verification Documents:",
+    statusUploading: lang === "ar" ? "جاري الرفع..." : lang === "fr" ? "Téléversement..." : "Uploading...",
+    statusUploaded: lang === "ar" ? "تم الرفع بنجاح" : lang === "fr" ? "Téléversé avec succès" : "Uploaded Successfully",
+    statusFailed: lang === "ar" ? "فشل الرفع" : lang === "fr" ? "Échec du téléversement" : "Upload Failed",
+    retryBtn: lang === "ar" ? "إعادة المحاولة" : lang === "fr" ? "Réessayer" : "Retry",
+    removeBtn: lang === "ar" ? "حذف" : lang === "fr" ? "Supprimer" : "Remove",
+    termsText:
+      lang === "ar"
+        ? "أقر بأنني المالك الشرعي لهذا الحساب وأن كافة المعلومات والوثائق المرفقة صحيحة ومطابقة للهوية الرسمية."
+        : lang === "fr"
+        ? "Je certifie être le titulaire légitime de ce compte et que les informations et documents fournis sont authentiques."
+        : "I confirm that I am the rightful owner of this account and all submitted information and documents are authentic.",
+    btnNext: lang === "ar" ? "المتابعة للخطوة التالية" : lang === "fr" ? "Continuer" : "Continue",
+    btnBack: lang === "ar" ? "السابق" : lang === "fr" ? "Retour" : "Back",
+    btnSubmit: lang === "ar" ? "تقديم طلب استعادة الحساب" : lang === "fr" ? "Soumettre la demande de récupération" : "Submit Recovery Request",
+    btnSubmitting: lang === "ar" ? "جاري تقديم الطلب..." : lang === "fr" ? "Soumission en cours..." : "Submitting Request...",
+    btnCancel: lang === "ar" ? "إلغاء والعودة لتسجيل الدخول" : lang === "fr" ? "Annuler et retourner à la connexion" : "Cancel & Return to Login",
+    successTitle: lang === "ar" ? "تم تقديم طلب استعادة الحساب بنجاح" : lang === "fr" ? "Demande de récupération soumise avec succès" : "Recovery Request Submitted Successfully",
+    successMsg:
+      lang === "ar"
+        ? "تم استلام طلبك ومستندات التحقق المرفقة بأمان. يقوم فريق الإدارة بمراجعة الطلب والتحقق من الهوية."
+        : lang === "fr"
+        ? "Votre demande a été reçue. Notre équipe administrative vérifie vos documents."
+        : "Your request and attached documents have been received. Our administrative team will verify your identity.",
+    requestIdLabel: lang === "ar" ? "رقم الطلب المرجعي:" : lang === "fr" ? "Numéro de référence du dossier :" : "Request Reference ID:",
+    statusLabel: lang === "ar" ? "حالة الطلب الحالية:" : lang === "fr" ? "Statut actuel :" : "Current Status:",
+    statusPendingReview: lang === "ar" ? "قيد المراجعة الإدارية" : lang === "fr" ? "En attente d'examen" : "Pending Administrative Review",
+    btnBackToLogin: lang === "ar" ? "العودة لصفحة الدخول" : lang === "fr" ? "Retour à la connexion" : "Back to Sign In",
+    btnViewStatus: lang === "ar" ? "متابعة حالة هذا الطلب" : lang === "fr" ? "Suivre cette demande" : "Track Recovery Status",
+    copySuccess: lang === "ar" ? "تم نسخ رقم الطلب" : lang === "fr" ? "Copié !" : "Copied!",
+    copyId: lang === "ar" ? "نسخ الرقم" : lang === "fr" ? "Copier" : "Copy ID",
+    statusCheckPlaceholder: lang === "ar" ? "أدخل بريدك الإلكتروني لمتابعة الطلب" : lang === "fr" ? "Entrez votre email de récupération" : "Enter email to check recovery status",
+    btnCheckStatusNow: lang === "ar" ? "استعلام عن الحالة" : lang === "fr" ? "Vérifier le statut" : "Check Status",
+    noRequestFound:
+      lang === "ar"
+        ? "لم يتم العثور على طلب استعادة نشط لهذا البريد الإلكتروني. يمكنك تقديم طلب جديد الآن."
+        : lang === "fr"
+        ? "Aucune demande de récupération trouvée pour cet email. Vous pouvez soumettre une nouvelle demande."
+        : "No active recovery request found for this email. You can submit a new request now.",
+    reqApprovedTitle: lang === "ar" ? "تهانينا! تمت الموافقة على طلب الاستعادة" : lang === "fr" ? "Félicitations ! Demande approuvée" : "Congratulations! Request Approved",
+    reqApprovedSubtitle:
+      lang === "ar"
+        ? "وافقت الإدارة على طلبك. انقر أدناه لإرسال رمز التحقق واستعادة حسابك فوراً."
+        : lang === "fr"
+        ? "Votre demande a été approuvée. Cliquez ci-dessous pour recevoir votre code OTP et restaurer votre compte."
+        : "Your recovery request has been approved. Click below to receive your verification code and restore your account.",
+    btnSendRestoreOtp: lang === "ar" ? "إرسال رمز التحقق للاستعادة" : lang === "fr" ? "Envoyer le code OTP" : "Send Recovery Verification Code",
+    otpCodeLabel: lang === "ar" ? "رمز التحقق (6 أرقام)" : lang === "fr" ? "Code de vérification (6 chiffres)" : "Verification Code (6 digits)",
+    btnRestoreAccountNow: lang === "ar" ? "تأكيد واستعادة الحساب الآن" : lang === "fr" ? "Confirmer et restaurer le compte" : "Confirm & Restore Account Now",
+    reqRejectedTitle: lang === "ar" ? "لم تتم الموافقة على طلب الاستعادة" : lang === "fr" ? "Demande non approuvée" : "Recovery Request Declined",
+    rejectionReasonLabel: lang === "ar" ? "سبب عدم الموافقة:" : lang === "fr" ? "Motif du refus :" : "Reason:",
+    btnSubmitNewWithDocs: lang === "ar" ? "تقديم طلب جديد بوثائق محدثة" : lang === "fr" ? "Soumettre une nouvelle demande" : "Submit New Request with Updated Docs"
+  };
 
-  // General Error & Feedback
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [isSubmittingForm, setIsSubmittingForm] = useState<boolean>(false);
-  const [restoredUser, setRestoredUser] = useState<User | null>(null);
-
-  // Load request status on mount
-  const checkStatus = async () => {
-    if (!normalizedEmail) {
-      setLoadingStatus(false);
-      return;
-    }
-    setLoadingStatus(true);
-    setErrorMessage(null);
-    try {
-      const res = await fetchAccountRecoveryStatusApi(normalizedEmail);
-      if (res.success && res.recoveryRequest) {
-        setRequestData(res.recoveryRequest);
-        setStatusType(res.recoveryRequest.status || "pending");
-        setRejectionReason(res.recoveryRequest.rejectionReason || null);
-      } else if (res.success && res.status === "APPROVED") {
-        setStatusType("approved");
-      } else {
-        setStatusType("none");
-        setRequestData(null);
+  // Fetch live lifecycle data on mount
+  useEffect(() => {
+    let isMounted = true;
+    const loadLifecycle = async () => {
+      if (!initialEmail) return;
+      setIsLoadingLifecycle(true);
+      try {
+        const res = await checkAccountLifecycleApi(initialEmail.trim().toLowerCase());
+        if (isMounted && res && res.success) {
+          if (res.daysRemaining !== undefined) {
+            setDynamicDays(res.daysRemaining);
+          }
+        }
+      } catch (e) {
+        console.warn("Lifecycle check warning:", e);
+      } finally {
+        if (isMounted) setIsLoadingLifecycle(false);
       }
-    } catch (err: any) {
-      console.error("Error loading recovery status:", err);
-      setStatusType("none");
-    } finally {
-      setLoadingStatus(false);
-    }
-  };
+    };
+    loadLifecycle();
+    return () => {
+      isMounted = false;
+    };
+  }, [initialEmail]);
 
-  useEffect(() => {
-    checkStatus();
-  }, [normalizedEmail]);
-
-  // Resend cooldown timer
-  useEffect(() => {
-    if (resendCooldown <= 0) return;
-    const timer = setInterval(() => {
-      setResendCooldown((prev) => (prev > 0 ? prev - 1 : 0));
-    }, 1000);
-    return () => clearInterval(timer);
-  }, [resendCooldown]);
-
-  // Handle Document Attachment (Up to 2 documents)
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Handle Drag & Drop
+  const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    const file = e.target.files?.[0];
-    if (!file) return;
+    setIsDragging(true);
+  };
 
-    if (attachedDocs.length >= 2) {
-      setErrorMessage(
-        lang === "ar"
-          ? "الحد الأقصى للوثائق المرفقة هو وثيقتان فقط."
-          : "Maximum 2 identity documents allowed."
-      );
-      if (e.target) e.target.value = "";
-      return;
-    }
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+  };
 
-    if (file.size > 5 * 1024 * 1024) {
-      setErrorMessage(
-        lang === "ar"
-          ? "حجم الملف يتجاوز الحد المسموح به (5 ميجابايت)."
-          : "File size exceeds the 5MB limit."
-      );
-      if (e.target) e.target.value = "";
-      return;
-    }
-
-    const allowedMimeTypes = ["application/pdf", "image/png", "image/jpeg", "image/jpg"];
-    const ext = file.name.split(".").pop()?.toLowerCase() || "";
-    const allowedExts = ["pdf", "png", "jpg", "jpeg"];
-
-    if (!allowedMimeTypes.includes(file.type) && !allowedExts.includes(ext)) {
-      setErrorMessage(
-        lang === "ar"
-          ? "امتداد وصيغة الملف غير مدعومة. يسمح فقط بملفات PDF, PNG, JPG."
-          : "Unsupported document format. Only PDF, PNG, and JPEG files are allowed."
-      );
-      if (e.target) e.target.value = "";
-      return;
-    }
-
-    setIsUploadingFile(true);
-    setErrorMessage(null);
-
-    try {
-      const res = await uploadRecoveryDocumentApi(file);
-      if (!res.success || (!res.document && !res.documentId)) {
-        throw new Error(res.error || res.message || (lang === "ar" ? "فشل رفع الملف." : "Failed to upload document."));
-      }
-      
-      const docData = res.document || {
-        documentId: res.documentId,
-        uploadToken: res.uploadToken,
-        fileName: file.name,
-        mimeType: file.type || "application/octet-stream",
-        size: file.size,
-        storageReference: `secure_uploads/${res.documentId}`,
-        uploadedAt: new Date().toISOString()
-      };
-
-      const newDoc = {
-        ...docData,
-        id: docData.documentId,
-        name: docData.fileName,
-        type: docData.mimeType?.includes("pdf") ? "pdf" : "identity_document"
-      };
-
-      setAttachedDocs(prev => [...prev, newDoc]);
-      setErrorMessage(null);
-    } catch (err: any) {
-      console.error("Document upload error:", err);
-      setErrorMessage(
-        err.message || 
-        (lang === "ar" ? "حدث خطأ أثناء رفع المستند." : "An error occurred during file upload.")
-      );
-    } finally {
-      setIsUploadingFile(false);
-      if (e.target) e.target.value = "";
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      handleFilesSelected(Array.from(e.dataTransfer.files));
     }
   };
 
-  // Submit Multi-step Recovery Form
-  const handleSubmitForm = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setErrorMessage(null);
+  const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      handleFilesSelected(Array.from(e.target.files));
+    }
+    if (e.target) e.target.value = "";
+  };
 
-    // Form Validations
+  // Process & Upload Selected Files
+  const handleFilesSelected = (files: File[]) => {
+    setUploadError(null);
+    setFormError(null);
+
+    const allowedTypes = ["application/pdf", "image/png", "image/jpeg", "image/jpg"];
+    const allowedExtensions = [".pdf", ".png", ".jpg", ".jpeg"];
+
+    if (documents.length + files.length > 2) {
+      setUploadError(
+        lang === "ar"
+          ? "يمكنك إرفاق وثيقتين كحد أقصى (مثال: الهوية الوطنية + وثيقة داعمة أو السجل التجاري)."
+          : "You can attach a maximum of 2 documents."
+      );
+      return;
+    }
+
+    const newDocs: UploadedDocumentItem[] = [];
+
+    for (const file of files) {
+      const ext = "." + file.name.split(".").pop()?.toLowerCase();
+      if (!allowedTypes.includes(file.type) && !allowedExtensions.includes(ext)) {
+        setUploadError(
+          lang === "ar"
+            ? `الملف (${file.name}) بصيغة غير مدعومة. يرجى رفع ملفات PDF أو صور PNG و JPG فقط.`
+            : `File (${file.name}) is unsupported. Please upload PDF, PNG, or JPG files.`
+        );
+        return;
+      }
+
+      if (file.size > 5 * 1024 * 1024) {
+        setUploadError(
+          lang === "ar"
+            ? `حجم الملف (${file.name}) يتجاوز الحد المسموح 5 ميغابايت. يرجى اختيار ملف أصغر.`
+            : `File (${file.name}) exceeds 5MB limit. Please choose a smaller file.`
+        );
+        return;
+      }
+
+      const item: UploadedDocumentItem = {
+        id: `doc_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`,
+        file,
+        name: file.name,
+        size: file.size,
+        type: file.type || "application/octet-stream",
+        status: "uploading",
+        progress: 30
+      };
+      newDocs.push(item);
+    }
+
+    setDocuments(prev => [...prev, ...newDocs]);
+
+    // Trigger individual uploads
+    newDocs.forEach(item => {
+      uploadSingleDocument(item);
+    });
+  };
+
+  // Upload single document helper
+  const uploadSingleDocument = async (item: UploadedDocumentItem) => {
+    setDocuments(prev =>
+      prev.map(d => (d.id === item.id ? { ...d, status: "uploading", progress: 50, error: undefined } : d))
+    );
+
+    try {
+      const result = await uploadRecoveryDocumentApi(item.file);
+      if (result && result.success && (result.documentId || result.document?.documentId)) {
+        const docId = result.documentId || result.document?.documentId;
+        const uploadToken = result.uploadToken || result.document?.uploadToken;
+        const storageRef = result.document?.storageReference || `secure_uploads/${docId}`;
+
+        setDocuments(prev =>
+          prev.map(d =>
+            d.id === item.id
+              ? {
+                  ...d,
+                  status: "uploaded",
+                  progress: 100,
+                  documentId: docId,
+                  uploadToken: uploadToken,
+                  storageReference: storageRef
+                }
+              : d
+          )
+        );
+      } else {
+        const errorMsg = result?.error || result?.message || (lang === "ar" ? "فشل رفع الملف." : "Upload failed.");
+        setDocuments(prev =>
+          prev.map(d => (d.id === item.id ? { ...d, status: "failed", error: errorMsg } : d))
+        );
+      }
+    } catch (err: any) {
+      const errorMsg = err?.message || (lang === "ar" ? "خطأ في الاتصال بالخادم أثناء الرفع." : "Network connection error.");
+      setDocuments(prev =>
+        prev.map(d => (d.id === item.id ? { ...d, status: "failed", error: errorMsg } : d))
+      );
+    }
+  };
+
+  // Remove document
+  const handleRemoveDocument = (id: string) => {
+    setDocuments(prev => prev.filter(d => d.id !== id));
+  };
+
+  // Submit Final Recovery Request
+  const handleSubmitRequest = async () => {
+    setFormError(null);
+
     if (!fullName.trim()) {
-      setErrorMessage(lang === "ar" ? "يرجى إدخال الاسم الكامل." : "Please enter your full name.");
-      setFormStep(1);
+      setFormError(lang === "ar" ? "يرجى إدخال الاسم الكامل لصاحب الحساب." : "Please enter your full name.");
+      setCurrentStep(1);
       return;
     }
     if (!phone.trim()) {
-      setErrorMessage(lang === "ar" ? "يرجى إدخال رقم الهاتف." : "Please enter your phone number.");
-      setFormStep(1);
+      setFormError(lang === "ar" ? "يرجى إدخال رقم الهاتف للتواصل والتحقق." : "Please enter a valid phone number.");
+      setCurrentStep(1);
       return;
     }
-    if (!deletionReason.trim()) {
-      setErrorMessage(lang === "ar" ? "يرجى توضيح سبب حذف/استعادة الحساب." : "Please specify the reason for account deletion/recovery.");
-      setFormStep(2);
-      return;
-    }
-    if (!termsAccepted) {
-      setErrorMessage(lang === "ar" ? "يجب الموافقة على شروط خدمة وسياقات المنصة." : "You must accept the Terms of Service.");
-      setFormStep(3);
-      return;
-    }
-    if (attachedDocs.length === 0) {
-      setErrorMessage(lang === "ar" ? "يرجى إرفاق وثيقة إثبات الهوية (مستند واحد على الأقل)." : "Please attach at least one identity verification document.");
-      setFormStep(4);
-      return;
-    }
-    if (attachedDocs.length > 2) {
-      setErrorMessage(lang === "ar" ? "الحد الأقصى للوثائق المرفقة هو وثيقتان فقط." : "Maximum 2 identity documents allowed.");
-      setFormStep(4);
+    if (!recoveryReason.trim()) {
+      setFormError(lang === "ar" ? "يرجى كتابة سبب وتفاصيل طلب الاستعادة." : "Please describe the reason for recovery.");
+      setCurrentStep(1);
       return;
     }
 
-    setIsSubmittingForm(true);
+    const uploadedDocs = documents.filter(d => d.status === "uploaded" && d.documentId);
+    if (uploadedDocs.length === 0) {
+      setFormError(
+        lang === "ar"
+          ? "يرجى رفع وثيقة إثبات هوية رسمية واحدة على الأقل قبل إرسال الطلب."
+          : "Please upload at least one valid identification document before submitting."
+      );
+      setCurrentStep(2);
+      return;
+    }
+
+    const hasUploading = documents.some(d => d.status === "uploading");
+    if (hasUploading) {
+      setFormError(
+        lang === "ar"
+          ? "يرجى الانتظار حتى يكتمل رفع كافة المستندات الجاري رفعها."
+          : "Please wait until all document uploads have completed."
+      );
+      return;
+    }
+
+    if (!termsAccepted) {
+      setFormError(
+        lang === "ar"
+          ? "يجب الموافقة على إقرار صحة البيانات وملكية الحساب للمتابعة."
+          : "You must accept the terms of service and ownership declaration."
+      );
+      return;
+    }
+
+    setIsSubmitting(true);
 
     try {
       const payload = {
-        email: normalizedEmail,
+        email: email.trim().toLowerCase(),
         fullName: fullName.trim(),
         phone: phone.trim(),
-        phoneVerified: phoneVerified,
-        organization: organization.trim(),
-        previousWorkspaceInfo: previousWorkspaceInfo.trim(),
-        reason: deletionReason.trim(),
+        phoneVerified: false,
+        organization: organization.trim() || undefined,
+        reason: recoveryReason.trim(),
         termsAccepted: true,
-        documents: attachedDocs
+        documents: uploadedDocs.map(d => ({
+          documentId: d.documentId!,
+          uploadToken: d.uploadToken,
+          storageReference: d.storageReference || `secure_uploads/${d.documentId}`,
+          fileName: d.name,
+          mimeType: d.type,
+          size: d.size,
+          uploadedAt: new Date().toISOString()
+        }))
       };
 
-      const res = await submitAccountRecoveryRequestApi(payload);
-      if (!res.success) {
-        throw new Error(res.error || (lang === "ar" ? "فشل تقديم طلب الاستعادة." : "Failed to submit recovery request."));
-      }
+      const result = await submitAccountRecoveryRequestApi(payload);
 
-      setStatusType("pending");
-      setRequestData(res.request || null);
-      setViewMode("status_view");
+      if (result && result.success) {
+        const reqId = result.requestId || result.request?.id || `REQ-${Date.now()}`;
+        setSubmittedRequestId(reqId);
+        setSubmissionSuccessData(result.request || result);
+        setActiveTab("request");
+      } else {
+        const errorMsg = result?.error || result?.message || (lang === "ar" ? "فشل تقديم طلب الاستعادة. يرجى المحاولة لاحقاً." : "Failed to submit recovery request.");
+        setFormError(errorMsg);
+      }
     } catch (err: any) {
-      setErrorMessage(err.message || (lang === "ar" ? "حدث خطأ أثناء تقديم الطلب." : "An error occurred during submission."));
+      setFormError(err?.message || (lang === "ar" ? "حدث خطأ غير متوقع أثناء إرسال الطلب." : "An unexpected error occurred."));
     } finally {
-      setIsSubmittingForm(false);
+      setIsSubmitting(false);
     }
   };
 
-  // Start Email Verification (for Approved requests)
-  const handleStartEmailVerification = async () => {
-    setIsSendingOtp(true);
-    setErrorMessage(null);
+  // Copy Request ID to clipboard
+  const handleCopyRequestId = () => {
+    if (!submittedRequestId) return;
+    navigator.clipboard.writeText(submittedRequestId);
+    setCopiedRequestId(true);
+    setTimeout(() => setCopiedRequestId(false), 3000);
+  };
+
+  // Status Check Handler
+  const handleCheckStatus = async (targetEmail?: string) => {
+    const emailToQuery = (targetEmail || statusEmail || email).trim().toLowerCase();
+    if (!emailToQuery) {
+      setFormError(lang === "ar" ? "يرجى كتابة البريد الإلكتروني للاستعلام." : "Please enter an email address.");
+      return;
+    }
+
+    setIsCheckingStatus(true);
+    setFormError(null);
 
     try {
-      const res = await sendRecoveryApprovalOtpApi(normalizedEmail);
-      if (!res.success) {
-        throw new Error(res.error || (lang === "ar" ? "فشل إرسال رمز التحقق." : "Failed to send verification code."));
+      const res = await fetchAccountRecoveryStatusApi(emailToQuery);
+      if (res && res.success) {
+        setStatusResult(res);
+      } else {
+        setFormError(res?.error || (lang === "ar" ? "تعذر جلب حالة الطلب." : "Could not fetch status."));
       }
-      setResendCooldown(60);
-      setViewMode("verify_email_view");
     } catch (err: any) {
-      setErrorMessage(err.message || (lang === "ar" ? "تعذر إرسال رمز التحقق." : "Unable to send verification code."));
+      setFormError(err?.message || (lang === "ar" ? "خطأ في الاتصال بالخادم." : "Server connection error."));
+    } finally {
+      setIsCheckingStatus(false);
+    }
+  };
+
+  // Send Recovery Approval OTP
+  const handleSendApprovalOtp = async () => {
+    setIsSendingOtp(true);
+    setOtpError(null);
+    try {
+      const res = await sendRecoveryApprovalOtpApi(statusEmail || email);
+      if (res && res.success) {
+        setOtpSent(true);
+      } else {
+        setOtpError(res?.error || (lang === "ar" ? "فشل إرسال رمز التحقق." : "Failed to send verification code."));
+      }
+    } catch (err: any) {
+      setOtpError(err?.message || (lang === "ar" ? "خطأ في إرسال الرمز." : "Error sending code."));
     } finally {
       setIsSendingOtp(false);
     }
   };
 
-  // Verify Approval OTP and Complete Account Restoration
-  const handleVerifyOtp = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!otpCode.trim() || otpCode.trim().length < 4) {
-      setErrorMessage(lang === "ar" ? "يرجى إدخال رمز التحقق المكون من 6 أرقام." : "Please enter the 6-digit code.");
+  // Verify OTP and Restore Account
+  const handleVerifyOtpAndRestore = async () => {
+    if (!otpCode.trim()) {
+      setOtpError(lang === "ar" ? "يرجى إدخال رمز التحقق المكون من 6 أرقام." : "Please enter the 6-digit code.");
       return;
     }
-
     setIsVerifyingOtp(true);
-    setErrorMessage(null);
-
+    setOtpError(null);
     try {
-      const res = await verifyRecoveryApprovalOtpAndRestoreApi(normalizedEmail, otpCode.trim());
-      if (!res.success || !res.user) {
-        throw new Error(res.error || (lang === "ar" ? "فشل استعادة الحساب. يرجى التأكد من الرمز." : "Failed to restore account."));
+      const res = await verifyRecoveryApprovalOtpAndRestoreApi(statusEmail || email, otpCode);
+      if (res && res.success && res.user) {
+        onRestored(res.user);
+      } else {
+        setOtpError(res?.error || (lang === "ar" ? "رمز التحقق غير صحيح أو منتهي الصلاحية." : "Invalid or expired verification code."));
       }
-
-      const user = res.user as User;
-      setRestoredUser(user);
-      setViewMode("success_view");
-
-      setTimeout(() => {
-        onCancel();
-      }, 2500);
-
     } catch (err: any) {
-      setErrorMessage(err.message || (lang === "ar" ? "رمز التحقق غير صحيح أو انتهت صلاحيته." : "Invalid or expired verification code."));
+      setOtpError(err?.message || (lang === "ar" ? "فشل تأكيد الرمز واستعادة الحساب." : "Failed to restore account."));
     } finally {
       setIsVerifyingOtp(false);
     }
   };
 
+  // Determine readiness for next step
+  const isStep1Valid = fullName.trim().length > 2 && phone.trim().length > 5 && recoveryReason.trim().length > 3;
+  const isStep2Valid = documents.some(d => d.status === "uploaded");
+  const isCanSubmit = isStep1Valid && isStep2Valid && termsAccepted && !isSubmitting && !documents.some(d => d.status === "uploading");
+
   return (
-    <div className={`w-full max-w-xl mx-auto p-6 sm:p-8 rounded-3xl border shadow-xl transition-all ${
-      theme === "dark" 
-        ? "bg-slate-900/90 border-slate-800 text-slate-100 shadow-slate-950/50" 
-        : "bg-white border-slate-200 text-slate-900 shadow-slate-200/50"
-    }`} dir={isRtl ? "rtl" : "ltr"}>
-      
-      {/* Header Banner */}
-      <div className="text-center space-y-3 mb-6">
-        <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-[#EFF6FF] border border-[#2563EB]/20 text-[#2563EB] mb-1 shadow-sm">
-          <ShieldAlert className="w-7 h-7 text-[#2563EB]" />
-        </div>
+    <div
+      id="account-recovery-container"
+      dir={isRtl ? "rtl" : "ltr"}
+      className="w-full max-w-2xl mx-auto bg-white dark:bg-[#0C101A] border border-slate-200/90 dark:border-slate-800/90 rounded-2xl shadow-xl dark:shadow-[0_20px_50px_rgba(0,0,0,0.4)] p-5 sm:p-7 text-slate-900 dark:text-slate-100 transition-all font-sans"
+    >
+      {/* TOP BAR / NAVIGATION */}
+      <div className="flex items-center justify-between gap-3 pb-4 mb-5 border-b border-slate-100 dark:border-slate-800/80">
+        <button
+          id="btn-recovery-back-top"
+          type="button"
+          onClick={onCancel}
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800/60 transition-all cursor-pointer"
+        >
+          <ArrowBackIcon className="w-3.5 h-3.5" />
+          <span>{t.btnCancel}</span>
+        </button>
 
-        <h2 className="text-xl sm:text-2xl font-extrabold tracking-tight text-slate-900 dark:text-white flex flex-wrap items-center justify-center gap-x-1.5" dir={isRtl ? "rtl" : "ltr"}>
-          <span>
-            {lang === "ar" 
-              ? "طلب استعادة الحساب" 
-              : lang === "fr" 
-              ? "Demande de récupération de compte" 
-              : "Request Account Recovery"}
+        <div className="flex items-center gap-2">
+          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-blue-50 dark:bg-blue-950/50 text-[#0075DE] dark:text-blue-400 border border-blue-200/60 dark:border-blue-800/50">
+            <ShieldCheck className="w-3.5 h-3.5" />
+            <span>{t.badge}</span>
           </span>
-        </h2>
-
-        <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 max-w-md mx-auto leading-relaxed" dir={isRtl ? "rtl" : "ltr"}>
-          {email?.trim() ? (
-            lang === "ar" ? (
-              <>
-                البريد الإلكتروني{" "}
-                <span dir="ltr" className="inline-flex items-center text-[#2563EB] dark:text-blue-400 font-mono font-semibold">
-                  (
-                  <a href={`mailto:${normalizedEmail}`} className="hover:underline">
-                    {normalizedEmail}
-                  </a>
-                  )
-                </span>{" "}
-                مرتبط بحساب تم حذفه سابقاً ولا يمكن الوصول إليه كالمعتاد. تتطلب استعادة الحساب تقديم طلب مراجعة من قبل الإدارة.
-              </>
-            ) : lang === "fr" ? (
-              <>
-                L'adresse e-mail{" "}
-                <span dir="ltr" className="inline-flex items-center text-[#2563EB] dark:text-blue-400 font-mono font-semibold">
-                  (
-                  <a href={`mailto:${normalizedEmail}`} className="hover:underline">
-                    {normalizedEmail}
-                  </a>
-                  )
-                </span>{" "}
-                est associée à un compte précédemment supprimé et n'est pas accessible normalement. La récupération de compte nécessite de soumettre une demande d'approbation d'administrateur.
-              </>
-            ) : (
-              <>
-                The account associated with{" "}
-                <span dir="ltr" className="inline-flex items-center text-[#2563EB] dark:text-blue-400 font-mono font-semibold">
-                  (
-                  <a href={`mailto:${normalizedEmail}`} className="hover:underline">
-                    {normalizedEmail}
-                  </a>
-                  )
-                </span>{" "}
-                was previously deleted and cannot be accessed normally. Account recovery requires submitting a request for administrator review.
-              </>
-            )
-          ) : (
-            lang === "ar" ? (
-              "يرجى إدخال البريد الإلكتروني المرتبط بالحساب المقتطع لتسهيل مراجعة الطلب من قبل الإدارة."
-            ) : lang === "fr" ? (
-              "Veuillez saisir l'adresse e-mail associée au compte supprimé pour faciliter l'examen de la demande par l'administration."
-            ) : (
-              "Please enter the email address associated with the deleted account to facilitate request review by management."
-            )
-          )}
-        </p>
-
-        {/* Email Badge */}
-        {!!email?.trim() && (
-          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#EFF6FF] text-[#1D4ED8] dark:bg-blue-950/50 dark:text-blue-300 font-mono text-xs font-semibold border border-blue-200 dark:border-blue-900">
-            <Mail className="w-3.5 h-3.5 text-[#2563EB]" />
-            <span>{normalizedEmail}</span>
-          </div>
-        )}
+        </div>
       </div>
 
-      {/* Error Alert Box */}
-      {errorMessage && (
-        <div className="mb-6 p-4 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-700 dark:text-rose-300 text-xs font-medium flex items-start gap-3 animate-fade-in">
-          <AlertTriangle className="w-4 h-4 text-rose-500 shrink-0 mt-0.5" />
-          <div className="space-y-1">
-            <span className="font-bold">{lang === "ar" ? "تنبيه:" : "Notice:"}</span>
-            <p className="leading-normal">{errorMessage}</p>
-          </div>
+      {/* HEADER SECTION */}
+      <div className="text-start space-y-1.5 mb-6">
+        <h1 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white tracking-tight">
+          {t.title}
+        </h1>
+        <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
+          {t.subtitle}
+        </p>
+
+        {/* Dynamic Days Remaining Banner */}
+        <div className="inline-flex items-center gap-2 mt-2 px-3 py-1.5 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200/80 dark:border-emerald-800/60 rounded-xl text-xs font-bold text-emerald-700 dark:text-emerald-300">
+          <Clock className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+          <span>{t.statusAvailable}</span>
+        </div>
+      </div>
+
+      {/* TABS SWITCHER: NEW REQUEST vs TRACK STATUS */}
+      {!submittedRequestId && (
+        <div className="grid grid-cols-2 gap-1.5 p-1 bg-slate-100 dark:bg-slate-800/60 rounded-xl mb-6">
+          <button
+            id="tab-new-recovery-request"
+            type="button"
+            onClick={() => {
+              setActiveTab("request");
+              setFormError(null);
+            }}
+            className={`py-2 px-3 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer ${
+              activeTab === "request"
+                ? "bg-white dark:bg-[#151B28] text-[#0075DE] dark:text-blue-400 shadow-sm"
+                : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+            }`}
+          >
+            <RotateCcw className="w-3.5 h-3.5" />
+            <span>{t.tabNewRequest}</span>
+          </button>
+          <button
+            id="tab-track-recovery-status"
+            type="button"
+            onClick={() => {
+              setActiveTab("status");
+              setFormError(null);
+              if (email) handleCheckStatus(email);
+            }}
+            className={`py-2 px-3 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer ${
+              activeTab === "status"
+                ? "bg-white dark:bg-[#151B28] text-[#0075DE] dark:text-blue-400 shadow-sm"
+                : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+            }`}
+          >
+            <Clock className="w-3.5 h-3.5" />
+            <span>{t.tabCheckStatus}</span>
+          </button>
         </div>
       )}
 
-      {/* VIEW 1: STATUS OVERVIEW */}
-      {viewMode === "status_view" && (
-        <div className="space-y-6">
-          {loadingStatus ? (
-            <div className="p-8 text-center space-y-3">
-              <RefreshCw className="w-8 h-8 text-[#2563EB] animate-spin mx-auto" />
-              <p className="text-xs text-slate-400 font-medium">
-                {lang === "ar" ? "جارٍ التحقق من حالة طلب الاستعادة…" : "Checking recovery status…"}
-              </p>
-            </div>
-          ) : (
-            <div className="space-y-5">
-              
-              {/* Status 1: NO REQUEST SUBMITTED */}
-              {statusType === "none" && (
-                <div className="p-5 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/80 space-y-4">
-                  <div className="flex items-center gap-3">
-                    <span className="px-3 py-1 rounded-full text-xs font-bold bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300">
-                      {lang === "ar" ? "لم يتم تقديم طلب استعادة" : "No recovery request submitted"}
-                    </span>
-                  </div>
-
-                  <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
-                    {lang === "ar"
-                      ? "لاستعادة الوصول إلى حسابك، يلزم تقديم طلب استعادة يتضمن تفاصيل الهوية وسبب الاستعادة لمراجعته من قبل مسؤولي المنصة."
-                      : "To restore access to your account and workspace data, you must submit an account recovery request with identity verification for administrator review."}
-                  </p>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setFormStep(1);
-                      setViewMode("form_view");
-                    }}
-                    className="w-full py-3 px-4 bg-[#2563EB] hover:bg-[#1D4ED8] text-white rounded-xl text-xs font-bold transition-colors shadow-md shadow-blue-500/20 flex items-center justify-center gap-2 cursor-pointer"
-                  >
-                    <FileText className="w-4 h-4" />
-                    <span>
-                      {lang === "ar" ? "تقديم طلب استعادة الحساب" : "Request account recovery"}{" "}
-                      {!!email?.trim() && <span className="font-mono">({normalizedEmail})</span>}
-                    </span>
-                  </button>
-                </div>
-              )}
-
-              {/* Status 2: REQUEST PENDING */}
-              {(statusType === "pending" || statusType === "under_review") && (
-                <div className="p-5 rounded-2xl bg-amber-500/10 border border-amber-500/30 space-y-4">
-                  <div className="flex items-center justify-between">
-                    <span className="px-3 py-1 rounded-full text-xs font-bold bg-amber-500/20 text-amber-700 dark:text-amber-300 border border-amber-500/30 flex items-center gap-1.5">
-                      <Clock className="w-3.5 h-3.5 text-amber-500" />
-                      <span>{lang === "ar" ? "طلب الاستعادة قيد المراجعة" : "Recovery request pending"}</span>
-                    </span>
-
-                    {requestData?.submittedAt && (
-                      <span className="text-[11px] font-mono text-slate-400">
-                        {new Date(requestData.submittedAt).toLocaleDateString()}
-                      </span>
-                    )}
-                  </div>
-
-                  <div className="space-y-2">
-                    <p className="text-xs font-bold text-slate-800 dark:text-slate-200">
-                      {lang === "ar" 
-                        ? "سيتم مراجعة طلب الاستعادة الخاص بك من قبل مسؤول النظام. وسيتم إخطارك فور اتخاذ القرار."
-                        : "Your recovery request will be reviewed by an administrator. You will be notified when a decision is made."}
-                    </p>
-                    <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                      {lang === "ar"
-                        ? "يرجى الانتظار حتى اكتمال المراجعة. لا يمكنك تقديم طلب جديد أثناء وجود طلب قيد المراجعة."
-                        : "Please wait for administrator review. Duplicate requests are blocked while review is pending."}
-                    </p>
-                  </div>
-
-                  <div className="pt-2 flex items-center gap-3">
-                    <button
-                      type="button"
-                      onClick={checkStatus}
-                      className="px-4 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-slate-700 dark:text-slate-300 rounded-lg text-xs font-semibold transition-colors flex items-center gap-1.5 cursor-pointer"
-                    >
-                      <RefreshCw className="w-3.5 h-3.5" />
-                      <span>{lang === "ar" ? "تحديث الحالة" : "Refresh Status"}</span>
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {/* Status 3: REQUEST REJECTED */}
-              {statusType === "rejected" && (
-                <div className="p-5 rounded-2xl bg-rose-500/10 border border-rose-500/30 space-y-4">
-                  <div className="flex items-center justify-between">
-                    <span className="px-3 py-1 rounded-full text-xs font-bold bg-rose-500/20 text-rose-700 dark:text-rose-300 border border-rose-500/30">
-                      {lang === "ar" ? "تم رفض طلب الاستعادة" : "Recovery request rejected"}
-                    </span>
-                  </div>
-
-                  {rejectionReason && (
-                    <div className="p-3 bg-rose-500/15 rounded-xl border border-rose-500/20 space-y-1">
-                      <span className="text-[11px] font-bold text-rose-800 dark:text-rose-200">
-                        {lang === "ar" ? "سبب الرفض الموضح من الإدارة:" : "Reason for rejection:"}
-                      </span>
-                      <p className="text-xs text-rose-700 dark:text-rose-300 leading-relaxed font-medium">
-                        "{rejectionReason}"
-                      </p>
-                    </div>
-                  )}
-
-                  <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
-                    {lang === "ar"
-                      ? "تم مراجعة طلبك السابق ورفضه. يمكنك تقديم طلب استعادة جديد متضمناً الوثائق وتوضيح الأسباب."
-                      : "Your previous recovery request was reviewed and rejected. You may submit a new recovery request with updated details."}
-                  </p>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setFormStep(1);
-                      setViewMode("form_view");
-                    }}
-                    className="w-full py-3 px-4 bg-[#2563EB] hover:bg-[#1D4ED8] text-white rounded-xl text-xs font-bold transition-colors shadow-md shadow-blue-500/20 flex items-center justify-center gap-2 cursor-pointer"
-                  >
-                    <RotateCcw className="w-4 h-4" />
-                    <span>
-                      {lang === "ar" ? "تقديم طلب استعادة جديد" : "Submit a new recovery request"}{" "}
-                      {!!email?.trim() && <span className="font-mono">({normalizedEmail})</span>}
-                    </span>
-                  </button>
-                </div>
-              )}
-
-              {/* Status 4: REQUEST APPROVED */}
-              {statusType === "approved" && (
-                <div className="p-5 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 space-y-4">
-                  <div className="flex items-center justify-between">
-                    <span className="px-3 py-1 rounded-full text-xs font-bold bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30 flex items-center gap-1.5">
-                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
-                      <span>{lang === "ar" ? "تمت الموافقة على طلب الاستعادة" : "Recovery request approved"}</span>
-                    </span>
-                  </div>
-
-                  <p className="text-xs text-slate-700 dark:text-slate-200 leading-relaxed">
-                    {lang === "ar"
-                      ? "تمت الموافقة على طلب استعادة حسابك من قبل الإدارة! للمتابعة واستعادة الحساب، يرجى إجراء إثبات ملكية البريد الإلكتروني."
-                      : "Your account recovery request has been approved by an administrator! To complete restoration, please proceed to verify your email address."}
-                  </p>
-
-                  <button
-                    type="button"
-                    onClick={handleStartEmailVerification}
-                    disabled={isSendingOtp}
-                    className="w-full py-3 px-4 bg-[#2563EB] hover:bg-[#1D4ED8] text-white rounded-xl text-xs font-bold transition-colors shadow-md shadow-blue-500/20 flex items-center justify-center gap-2 cursor-pointer"
-                  >
-                    {isSendingOtp ? (
-                      <RefreshCw className="w-4 h-4 animate-spin" />
-                    ) : (
-                      <Mail className="w-4 h-4" />
-                    )}
-                    <span>{lang === "ar" ? "المتابعة لإثبات ملكية البريد الإلكتروني" : "Proceed to Email Verification"}</span>
-                  </button>
-                </div>
-              )}
-
-            </div>
-          )}
-
-          {/* Action Footer */}
-          <div className="pt-4 border-t border-slate-200 dark:border-slate-800 flex justify-center">
+      {/* ERROR BANNER */}
+      <AnimatePresence>
+        {formError && (
+          <motion.div
+            initial={{ opacity: 0, y: -6 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -6 }}
+            className="mb-5 p-3.5 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800/60 rounded-xl text-xs font-medium text-rose-700 dark:text-rose-300 flex items-start gap-2.5 text-start"
+          >
+            <AlertCircle className="w-4 h-4 text-rose-600 dark:text-rose-400 shrink-0 mt-0.5" />
+            <div className="flex-1 leading-relaxed">{formError}</div>
             <button
               type="button"
-              onClick={onCancel}
-              className="text-xs font-bold text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 transition-colors cursor-pointer flex items-center gap-1.5"
+              onClick={() => setFormError(null)}
+              className="text-rose-500 hover:text-rose-700 dark:hover:text-rose-200 cursor-pointer"
             >
-              {isRtl ? <ArrowRight className="w-3.5 h-3.5" /> : <ArrowLeft className="w-3.5 h-3.5" />}
-              <span>{lang === "ar" ? "العودة لتسجيل الدخول" : "Back to Sign In"}</span>
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ---------------------------------------------------- */}
+      {/* 1. SUCCESS CONFIRMATION SCREEN                      */}
+      {/* ---------------------------------------------------- */}
+      {submittedRequestId ? (
+        <motion.div
+          initial={{ opacity: 0, scale: 0.98 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="space-y-6 text-center py-4"
+        >
+          <div className="w-16 h-16 rounded-2xl bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-200 dark:border-emerald-800/80 text-emerald-600 dark:text-emerald-400 flex items-center justify-center mx-auto shadow-sm">
+            <CheckCircle2 className="w-8 h-8" />
+          </div>
+
+          <div className="space-y-2 max-w-lg mx-auto">
+            <h2 className="text-xl font-black text-slate-900 dark:text-white">
+              {t.successTitle}
+            </h2>
+            <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
+              {t.successMsg}
+            </p>
+          </div>
+
+          {/* REQUEST SUMMARY CARD */}
+          <div className="max-w-md mx-auto p-4 bg-slate-50 dark:bg-[#131926] border border-slate-200 dark:border-slate-800 rounded-xl text-start space-y-3">
+            <div className="flex items-center justify-between gap-2 pb-2 border-b border-slate-200/80 dark:border-slate-700/60">
+              <span className="text-xs font-bold text-slate-500 dark:text-slate-400">
+                {t.requestIdLabel}
+              </span>
+              <div className="flex items-center gap-1.5">
+                <span className="font-mono font-bold text-xs text-[#0075DE] dark:text-blue-400">
+                  {submittedRequestId}
+                </span>
+                <button
+                  type="button"
+                  onClick={handleCopyRequestId}
+                  className="p-1 rounded-md hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-500 transition-colors cursor-pointer"
+                  title={t.copyId}
+                >
+                  {copiedRequestId ? (
+                    <Check className="w-3.5 h-3.5 text-emerald-500" />
+                  ) : (
+                    <Copy className="w-3.5 h-3.5" />
+                  )}
+                </button>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-xs font-bold text-slate-500 dark:text-slate-400">
+                {t.statusLabel}
+              </span>
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800/50">
+                <Clock className="w-3 h-3" />
+                <span>{t.statusPendingReview}</span>
+              </span>
+            </div>
+
+            <div className="flex items-center justify-between gap-2 text-xs text-slate-600 dark:text-slate-400">
+              <span>البريد الإلكتروني:</span>
+              <span className="font-medium text-slate-800 dark:text-slate-200">{email}</span>
+            </div>
+          </div>
+
+          {/* ACTION BUTTONS */}
+          <div className="flex flex-col sm:flex-row gap-3 max-w-md mx-auto pt-2">
+            <button
+              id="btn-success-back-to-login"
+              type="button"
+              onClick={onCancel}
+              className="flex-1 h-11 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-bold text-xs transition-all flex items-center justify-center gap-2 cursor-pointer"
+            >
+              <ArrowBackIcon className="w-3.5 h-3.5" />
+              <span>{t.btnBackToLogin}</span>
+            </button>
+            <button
+              id="btn-success-view-status"
+              type="button"
+              onClick={() => {
+                setSubmittedRequestId(null);
+                setActiveTab("status");
+                handleCheckStatus(email);
+              }}
+              className="flex-1 h-11 rounded-xl bg-[#0075DE] hover:bg-[#0060B6] text-white font-bold text-xs transition-all flex items-center justify-center gap-2 shadow-md shadow-blue-500/20 cursor-pointer"
+            >
+              <Clock className="w-3.5 h-3.5" />
+              <span>{t.btnViewStatus}</span>
             </button>
           </div>
+        </motion.div>
+      ) : activeTab === "status" ? (
+        /* ---------------------------------------------------- */
+        /* 2. TRACK STATUS TAB                                 */
+        /* ---------------------------------------------------- */
+        <div className="space-y-5 text-start">
+          <div className="flex gap-2">
+            <input
+              type="email"
+              value={statusEmail}
+              onChange={e => setStatusEmail(e.target.value)}
+              placeholder={t.statusCheckPlaceholder}
+              className="flex-1 h-11 px-3.5 rounded-xl bg-slate-50 dark:bg-[#131926] border border-slate-200 dark:border-slate-800 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-[#0075DE]/40 dark:focus:ring-blue-500/40"
+            />
+            <button
+              id="btn-query-recovery-status"
+              type="button"
+              onClick={() => handleCheckStatus()}
+              disabled={isCheckingStatus}
+              className="h-11 px-5 rounded-xl bg-[#0075DE] hover:bg-[#0060B6] text-white font-bold text-xs transition-all flex items-center gap-2 disabled:opacity-50 cursor-pointer shrink-0"
+            >
+              {isCheckingStatus ? (
+                <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+              ) : (
+                <Clock className="w-3.5 h-3.5" />
+              )}
+              <span>{t.btnCheckStatusNow}</span>
+            </button>
+          </div>
+
+          {statusResult && (
+            <div className="p-4 sm:p-5 bg-slate-50 dark:bg-[#131926] border border-slate-200 dark:border-slate-800 rounded-xl space-y-4">
+              {statusResult.status === "none" ? (
+                <div className="text-center py-4 space-y-2">
+                  <Info className="w-6 h-6 text-slate-400 mx-auto" />
+                  <p className="text-xs font-semibold text-slate-600 dark:text-slate-300">
+                    {t.noRequestFound}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab("request")}
+                    className="inline-flex items-center gap-1.5 text-xs font-bold text-[#0075DE] hover:underline pt-2 cursor-pointer"
+                  >
+                    <span>{t.tabNewRequest}</span>
+                    <ArrowForwardIcon className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              ) : statusResult.status === "approved" ? (
+                /* APPROVED STATE -> OTP RESTORE FLOW */
+                <div className="space-y-4">
+                  <div className="p-3 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60 rounded-xl text-emerald-800 dark:text-emerald-200 flex items-start gap-3">
+                    <CheckCircle2 className="w-5 h-5 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
+                    <div className="space-y-1">
+                      <h4 className="text-xs font-bold">{t.reqApprovedTitle}</h4>
+                      <p className="text-[11px] leading-relaxed text-emerald-700 dark:text-emerald-300">
+                        {t.reqApprovedSubtitle}
+                      </p>
+                    </div>
+                  </div>
+
+                  {!otpSent ? (
+                    <button
+                      type="button"
+                      onClick={handleSendApprovalOtp}
+                      disabled={isSendingOtp}
+                      className="w-full h-11 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs transition-all flex items-center justify-center gap-2 shadow-md shadow-emerald-600/20 disabled:opacity-50 cursor-pointer"
+                    >
+                      {isSendingOtp ? (
+                        <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                      ) : (
+                        <Send className="w-3.5 h-3.5" />
+                      )}
+                      <span>{t.btnSendRestoreOtp}</span>
+                    </button>
+                  ) : (
+                    <div className="space-y-3 pt-2">
+                      {otpError && (
+                        <p className="text-xs text-rose-600 font-semibold">{otpError}</p>
+                      )}
+                      <div>
+                        <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                          {t.otpCodeLabel}
+                        </label>
+                        <input
+                          type="text"
+                          maxLength={6}
+                          value={otpCode}
+                          onChange={e => setOtpCode(e.target.value.replace(/[^0-9]/g, ""))}
+                          placeholder="123456"
+                          className="w-full h-11 text-center font-mono tracking-widest text-lg font-black rounded-xl bg-white dark:bg-[#0C101A] border border-slate-300 dark:border-slate-700 focus:ring-2 focus:ring-emerald-500/40"
+                        />
+                      </div>
+                      <button
+                        type="button"
+                        onClick={handleVerifyOtpAndRestore}
+                        disabled={isVerifyingOtp || otpCode.length < 6}
+                        className="w-full h-11 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs transition-all flex items-center justify-center gap-2 shadow-md shadow-emerald-600/20 disabled:opacity-50 cursor-pointer"
+                      >
+                        {isVerifyingOtp ? (
+                          <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                        ) : (
+                          <UserCheck className="w-3.5 h-3.5" />
+                        )}
+                        <span>{t.btnRestoreAccountNow}</span>
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ) : statusResult.status === "rejected" ? (
+                /* REJECTED STATE */
+                <div className="space-y-3">
+                  <div className="p-3 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800/60 rounded-xl text-rose-800 dark:text-rose-200 flex items-start gap-3">
+                    <AlertCircle className="w-5 h-5 text-rose-600 dark:text-rose-400 shrink-0 mt-0.5" />
+                    <div className="space-y-1">
+                      <h4 className="text-xs font-bold">{t.reqRejectedTitle}</h4>
+                      {statusResult.recoveryRequest?.rejectionReason && (
+                        <p className="text-[11px] leading-relaxed text-rose-700 dark:text-rose-300">
+                          <strong>{t.rejectionReasonLabel}</strong>{" "}
+                          {statusResult.recoveryRequest.rejectionReason}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab("request")}
+                    className="w-full h-10 rounded-xl bg-[#0075DE] hover:bg-[#0060B6] text-white font-bold text-xs transition-all flex items-center justify-center gap-2 cursor-pointer"
+                  >
+                    <span>{t.btnSubmitNewWithDocs}</span>
+                  </button>
+                </div>
+              ) : (
+                /* PENDING / UNDER REVIEW STATE */
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between gap-2 pb-2 border-b border-slate-200 dark:border-slate-800">
+                    <span className="text-xs font-bold text-slate-500">
+                      {t.requestIdLabel}
+                    </span>
+                    <span className="font-mono text-xs font-bold text-[#0075DE]">
+                      {statusResult.recoveryRequest?.requestId || statusResult.recoveryRequest?.id || "—"}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-xs font-bold text-slate-500">{t.statusLabel}</span>
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border border-amber-200">
+                      <Clock className="w-3 h-3" />
+                      <span>{t.statusPendingReview}</span>
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-500 leading-relaxed pt-1">
+                    طلبك قيد الدراسة والمطابقة مع الوثائق المرفوعة. سيتم إشعارك فور اتخاذ القرار.
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
         </div>
-      )}
+      ) : (
+        /* ---------------------------------------------------- */
+        /* 3. NEW RECOVERY REQUEST FORM                        */
+        /* ---------------------------------------------------- */
+        <div className="space-y-6 text-start">
+          {/* STEP INDICATORS */}
+          <div className="flex items-center justify-between gap-2 pb-2 border-b border-slate-100 dark:border-slate-800/80">
+            <div
+              className={`flex items-center gap-1.5 text-xs font-bold cursor-pointer transition-colors ${
+                currentStep === 1
+                  ? "text-[#0075DE] dark:text-blue-400"
+                  : currentStep > 1
+                  ? "text-emerald-600 dark:text-emerald-400"
+                  : "text-slate-400"
+              }`}
+              onClick={() => setCurrentStep(1)}
+            >
+              {currentStep > 1 ? (
+                <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+              ) : (
+                <span className="w-5 h-5 rounded-full bg-blue-100 dark:bg-blue-950 text-[#0075DE] text-[11px] flex items-center justify-center font-black">
+                  1
+                </span>
+              )}
+              <span>{t.step1}</span>
+            </div>
 
-      {/* VIEW 2: MULTI-STEP RECOVERY FORM */}
-      {viewMode === "form_view" && (
-        <form onSubmit={handleSubmitForm} className="space-y-5">
-          {/* Step Progress Bar */}
-          <div className="flex items-center justify-between gap-1 mb-4">
-            {[1, 2, 3, 4, 5].map((stepNum) => (
-              <div 
-                key={stepNum} 
-                className={`h-1.5 flex-1 rounded-full transition-all ${
-                  stepNum === formStep 
-                    ? "bg-[#2563EB]" 
-                    : stepNum < formStep 
-                    ? "bg-[#1D4ED8]/40" 
-                    : "bg-slate-200 dark:bg-slate-700"
-                }`} 
-              />
-            ))}
+            <ChevronRight className={`w-3.5 h-3.5 text-slate-300 dark:text-slate-700 ${isRtl ? "rotate-180" : ""}`} />
+
+            <div
+              className={`flex items-center gap-1.5 text-xs font-bold cursor-pointer transition-colors ${
+                currentStep === 2
+                  ? "text-[#0075DE] dark:text-blue-400"
+                  : currentStep > 2
+                  ? "text-emerald-600 dark:text-emerald-400"
+                  : "text-slate-400"
+              }`}
+              onClick={() => {
+                if (isStep1Valid) setCurrentStep(2);
+              }}
+            >
+              {currentStep > 2 ? (
+                <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+              ) : (
+                <span className="w-5 h-5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-[11px] flex items-center justify-center font-black">
+                  2
+                </span>
+              )}
+              <span>{t.step2}</span>
+            </div>
+
+            <ChevronRight className={`w-3.5 h-3.5 text-slate-300 dark:text-slate-700 ${isRtl ? "rotate-180" : ""}`} />
+
+            <div
+              className={`flex items-center gap-1.5 text-xs font-bold cursor-pointer transition-colors ${
+                currentStep === 3
+                  ? "text-[#0075DE] dark:text-blue-400"
+                  : "text-slate-400"
+              }`}
+              onClick={() => {
+                if (isStep1Valid && isStep2Valid) setCurrentStep(3);
+              }}
+            >
+              <span className="w-5 h-5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-[11px] flex items-center justify-center font-black">
+                3
+              </span>
+              <span>{t.step3}</span>
+            </div>
           </div>
 
-          <div className="text-xs font-bold text-slate-400 font-mono">
-            {lang === "ar" ? `الخطوة ${formStep} من 5` : `Step ${formStep} of 5`}
+          {/* INFORMATION ACCORDION / CARD */}
+          <div className="p-3.5 bg-blue-50/70 dark:bg-blue-950/30 border border-blue-100 dark:border-blue-900/40 rounded-xl text-xs space-y-2">
+            <h4 className="font-bold text-[#0075DE] dark:text-blue-400 flex items-center gap-1.5">
+              <Info className="w-3.5 h-3.5" />
+              <span>{t.infoTitle}</span>
+            </h4>
+            <ul className="space-y-1 text-slate-700 dark:text-slate-300 list-disc list-inside text-[11px] leading-relaxed">
+              <li>{t.infoPoint1}</li>
+              <li>{t.infoPoint2}</li>
+              <li>{t.infoPoint3}</li>
+            </ul>
           </div>
 
-          {/* STEP 1: Account Information */}
-          {formStep === 1 && (
-            <div className="space-y-4 animate-fade-in">
-              <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                <UserIcon className="w-4 h-4 text-[#2563EB]" />
-                <span>{lang === "ar" ? "معلومات الحساب والتواصل" : "Account & Contact Information"}</span>
-              </h3>
-
-              <div className="space-y-3">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                    {lang === "ar" ? "البريد الإلكتروني للحساب" : "Account Email Address"}
-                  </label>
-                   <input
-                    type="text"
-                    disabled={!!email?.trim()}
-                    value={recoveryEmail}
-                    onChange={(e) => {
-                      if (!email?.trim()) {
-                        setRecoveryEmail(e.target.value);
-                      }
+          {/* ------------------------------------------- */}
+          {/* STEP 1: ACCOUNT & CONTACT INFO             */}
+          {/* ------------------------------------------- */}
+          {currentStep === 1 && (
+            <div className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                  {lang === "ar" ? "البريد الإلكتروني للحساب المطلوب استعادته *" : lang === "fr" ? "E-mail du compte à récupérer *" : "Account Email to Recover *"}
+                </label>
+                <div className="relative">
+                  <Mail className="w-4 h-4 text-slate-400 dark:text-slate-500 absolute top-1/2 -translate-y-1/2 left-3.5 rtl:right-3.5 rtl:left-auto pointer-events-none" />
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={e => {
+                      const val = e.target.value;
+                      setEmail(val);
+                      if (!statusEmail) setStatusEmail(val);
                     }}
-                    placeholder={lang === "ar" ? "أدخل البريد الإلكتروني للحساب" : "Enter account email address"}
-                    className={`w-full p-2.5 rounded-xl text-xs font-mono border ${
-                      !!email?.trim()
-                        ? "bg-slate-100 dark:bg-slate-800/80 border-slate-200 dark:border-slate-700 text-slate-500 cursor-not-allowed"
-                        : "bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white focus:ring-2 focus:ring-[#2563EB] outline-none"
-                    }`}
+                    placeholder={lang === "ar" ? "أدخل البريد الإلكتروني للحساب" : lang === "fr" ? "Entrez l'adresse e-mail du compte" : "Enter account email"}
+                    className="w-full h-11 pl-10 pr-3.5 rtl:pr-10 rtl:pl-3.5 rounded-xl bg-white dark:bg-[#0C101A] border border-slate-300 dark:border-slate-700 text-xs font-semibold text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-[#0075DE]/40"
                   />
                 </div>
+              </div>
 
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                  {t.fullNameLabel}
+                </label>
+                <input
+                  type="text"
+                  value={fullName}
+                  onChange={e => setFullName(e.target.value)}
+                  placeholder={t.fullNamePlaceholder}
+                  className="w-full h-11 px-3.5 rounded-xl bg-white dark:bg-[#0C101A] border border-slate-300 dark:border-slate-700 text-xs font-medium focus:ring-2 focus:ring-[#0075DE]/40"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                    {lang === "ar" ? "الاسم الكامل *" : "Full Name *"}
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                    {t.phoneLabel}
                   </label>
                   <input
-                    type="text"
-                    required
-                    value={fullName}
-                    onChange={(e) => setFullName(e.target.value)}
-                    placeholder={lang === "ar" ? "أدخل اسمك الكامل" : "Enter your full name"}
-                    className="w-full p-2.5 rounded-xl text-xs bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 focus:ring-2 focus:ring-[#2563EB] outline-none"
+                    type="tel"
+                    value={phone}
+                    onChange={e => setPhone(e.target.value)}
+                    placeholder={t.phonePlaceholder}
+                    className="w-full h-11 px-3.5 rounded-xl bg-white dark:bg-[#0C101A] border border-slate-300 dark:border-slate-700 text-xs font-medium focus:ring-2 focus:ring-[#0075DE]/40"
                   />
                 </div>
-
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                    {lang === "ar" ? "رقم الهاتف *" : "Phone Number *"}
-                  </label>
-                  <div className="relative">
-                    <input
-                      type="tel"
-                      required
-                      value={phone}
-                      onChange={(e) => setPhone(e.target.value)}
-                      placeholder="+966 50 123 4567"
-                      className="w-full p-2.5 rounded-xl text-xs bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 focus:ring-2 focus:ring-[#2563EB] outline-none font-mono"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                    {lang === "ar" ? "اسم المنظمة / الشركة (إن وجد)" : "Organization / Company Name (Optional)"}
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                    {t.orgLabel}
                   </label>
                   <input
                     type="text"
                     value={organization}
-                    onChange={(e) => setOrganization(e.target.value)}
-                    placeholder={lang === "ar" ? "اسم الشركة أو المؤسسة" : "Company or organization name"}
-                    className="w-full p-2.5 rounded-xl text-xs bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 focus:ring-2 focus:ring-[#2563EB] outline-none"
+                    onChange={e => setOrganization(e.target.value)}
+                    placeholder={t.orgPlaceholder}
+                    className="w-full h-11 px-3.5 rounded-xl bg-white dark:bg-[#0C101A] border border-slate-300 dark:border-slate-700 text-xs font-medium focus:ring-2 focus:ring-[#0075DE]/40"
                   />
                 </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                  {t.reasonLabel}
+                </label>
+                <textarea
+                  rows={3}
+                  value={recoveryReason}
+                  onChange={e => setRecoveryReason(e.target.value)}
+                  placeholder={t.reasonPlaceholder}
+                  className="w-full p-3 rounded-xl bg-white dark:bg-[#0C101A] border border-slate-300 dark:border-slate-700 text-xs font-medium focus:ring-2 focus:ring-[#0075DE]/40 resize-none leading-relaxed"
+                />
               </div>
 
               <button
                 type="button"
                 onClick={() => {
-                  if (!fullName.trim() || !phone.trim()) {
-                    setErrorMessage(lang === "ar" ? "يرجى تعبئة الحقول المطلوبة." : "Please fill in required fields.");
+                  if (!fullName.trim() || !phone.trim() || !recoveryReason.trim()) {
+                    setFormError(lang === "ar" ? "يرجى تعبئة كافة الحقول المطلوبة للمتابعة." : "Please fill in all required fields.");
                     return;
                   }
-                  setErrorMessage(null);
-                  setFormStep(2);
+                  setFormError(null);
+                  setCurrentStep(2);
                 }}
-                className="w-full py-2.5 bg-[#2563EB] hover:bg-[#1D4ED8] text-white rounded-xl text-xs font-bold transition-colors cursor-pointer"
+                className="w-full h-11 rounded-xl bg-[#0075DE] hover:bg-[#0060B6] text-white font-bold text-xs transition-all flex items-center justify-center gap-2 shadow-md shadow-blue-500/20 cursor-pointer"
               >
-                {lang === "ar" ? "التالي: سبب الاستعادة" : "Next: Recovery Reason"}
+                <span>{t.btnNext}</span>
+                <ArrowForwardIcon className="w-3.5 h-3.5" />
               </button>
             </div>
           )}
 
-          {/* STEP 2: Reason for Deletion / Recovery */}
-          {formStep === 2 && (
-            <div className="space-y-4 animate-fade-in">
-              <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                <FileText className="w-4 h-4 text-[#2563EB]" />
-                <span>{lang === "ar" ? "سبب حذف واستعادة الحساب" : "Reason for Deletion & Recovery"}</span>
-              </h3>
+          {/* ------------------------------------------- */}
+          {/* STEP 2: DOCUMENT UPLOADS                   */}
+          {/* ------------------------------------------- */}
+          {currentStep === 2 && (
+            <div className="space-y-4">
+              {/* DRAG & DROP ZONE */}
+              <div
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+                onDrop={handleDrop}
+                onClick={() => fileInputRef.current?.click()}
+                className={`p-6 sm:p-8 rounded-2xl border-2 border-dashed transition-all text-center cursor-pointer flex flex-col items-center justify-center gap-2.5 ${
+                  isDragging
+                    ? "border-[#0075DE] bg-blue-50/50 dark:bg-blue-950/40 scale-[1.01]"
+                    : "border-slate-300 dark:border-slate-700 hover:border-slate-400 bg-slate-50/50 dark:bg-[#131926]/50"
+                }`}
+              >
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  multiple
+                  accept=".pdf,.png,.jpg,.jpeg,application/pdf,image/png,image/jpeg"
+                  onChange={handleFileInputChange}
+                  className="hidden"
+                />
 
-              <div className="space-y-3">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                    {lang === "ar" ? "لماذا تم حذف الحساب ولماذا ترغب في استعادته؟ *" : "Why was the account deleted and why do you wish to recover it? *"}
-                  </label>
-                  <textarea
-                    required
-                    rows={4}
-                    value={deletionReason}
-                    onChange={(e) => setDeletionReason(e.target.value)}
-                    placeholder={lang === "ar" 
-                      ? "وضح بالتفصيل سبب حذف الحساب السابق والسياق الداعي لاستعادته الآن..." 
-                      : "Explain the details regarding account deletion and the context for restoring it..."}
-                    className="w-full p-3 rounded-xl text-xs bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 focus:ring-2 focus:ring-[#2563EB] outline-none"
-                  />
+                <div className="w-12 h-12 rounded-xl bg-blue-50 dark:bg-blue-950/60 text-[#0075DE] dark:text-blue-400 flex items-center justify-center shadow-inner">
+                  <UploadCloud className="w-6 h-6" />
                 </div>
 
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                    {lang === "ar" ? "معلومات مساحة العمل السابقة (اختياري)" : "Previous Workspace Info (Optional)"}
-                  </label>
-                  <input
-                    type="text"
-                    value={previousWorkspaceInfo}
-                    onChange={(e) => setPreviousWorkspaceInfo(e.target.value)}
-                    placeholder={lang === "ar" ? "مثال: اسم مساحة العمل، الملفات المخزنة" : "e.g. Workspace name, projects"}
-                    className="w-full p-2.5 rounded-xl text-xs bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 focus:ring-2 focus:ring-[#2563EB] outline-none"
-                  />
-                </div>
-              </div>
-
-              <div className="flex items-center gap-3">
-                <button
-                  type="button"
-                  onClick={() => setFormStep(1)}
-                  className="px-4 py-2.5 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-xl text-xs font-bold cursor-pointer"
-                >
-                  {lang === "ar" ? "السابق" : "Back"}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (!deletionReason.trim()) {
-                      setErrorMessage(lang === "ar" ? "يرجى كتابة سبب الاستعادة." : "Please enter recovery reason.");
-                      return;
-                    }
-                    setErrorMessage(null);
-                    setFormStep(3);
-                  }}
-                  className="flex-1 py-2.5 bg-[#2563EB] hover:bg-[#1D4ED8] text-white rounded-xl text-xs font-bold transition-colors cursor-pointer"
-                >
-                  {lang === "ar" ? "التالي: الموافقة على الشروط" : "Next: Terms Agreement"}
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* STEP 3: Platform Terms Acknowledgement */}
-          {formStep === 3 && (
-            <div className="space-y-4 animate-fade-in">
-              <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                <ShieldCheck className="w-4 h-4 text-[#2563EB]" />
-                <span>{lang === "ar" ? "الموافقة على شروط المنصة" : "Platform Terms Acknowledgement"}</span>
-              </h3>
-
-              <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 space-y-3">
-                <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
-                  {lang === "ar"
-                    ? "بتقديم هذا الطلب، أقر بصحة جميع البيانات المدخلة وبأحقيتي القانونية في طلب استعادة الحساب، وأتعهد بالالتزام التام بسياسات الاستخدام العادل وشروط الخدمة الخاصة بـ Zakir."
-                    : "By submitting this request, I declare that all information provided is true and accurate, and I agree to comply with Zakir's Terms of Service and security policies."}
-                </p>
-
-                <label className="flex items-start gap-3 cursor-pointer pt-2 border-t border-slate-200 dark:border-slate-700">
-                  <input
-                    type="checkbox"
-                    checked={termsAccepted}
-                    onChange={(e) => setTermsAccepted(e.target.checked)}
-                    className="mt-0.5 rounded text-[#2563EB] focus:ring-[#2563EB] w-4 h-4 cursor-pointer"
-                  />
-                  <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
-                    {lang === "ar"
-                      ? "أقر وأوافق على الالتزام بشروط خدمة Zakir وسياسات الاستخدام."
-                      : "I acknowledge and agree to comply with Zakir's Terms of Service and platform policies."}
-                  </span>
-                </label>
-              </div>
-
-              <div className="flex items-center gap-3">
-                <button
-                  type="button"
-                  onClick={() => setFormStep(2)}
-                  className="px-4 py-2.5 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-xl text-xs font-bold cursor-pointer"
-                >
-                  {lang === "ar" ? "السابق" : "Back"}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (!termsAccepted) {
-                      setErrorMessage(lang === "ar" ? "يجب الموافقة على الشروط للمتابعة." : "You must accept terms to proceed.");
-                      return;
-                    }
-                    setErrorMessage(null);
-                    setFormStep(4);
-                  }}
-                  className="flex-1 py-2.5 bg-[#2563EB] hover:bg-[#1D4ED8] text-white rounded-xl text-xs font-bold transition-colors cursor-pointer"
-                >
-                  {lang === "ar" ? "التالي: إثبات الهوية" : "Next: Identity Verification"}
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* STEP 4: Identity Verification Document (Up to 2 documents) */}
-          {formStep === 4 && (
-            <div className="space-y-4 animate-fade-in">
-              <div className="space-y-1">
-                <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center justify-between">
-                  <span className="flex items-center gap-2">
-                    <FileCheck className="w-4 h-4 text-[#2563EB]" />
-                    <span>{lang === "ar" ? "إثبات الهوية والوثائق الرسمية" : "Identity Verification Documents"}</span>
-                  </span>
-                  <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/50 text-[#2563EB] dark:text-blue-300 font-mono">
-                    {attachedDocs.length}/2 {lang === "ar" ? "وثائق" : "documents"}
-                  </span>
-                </h3>
-                <p className="text-xs text-slate-500 dark:text-slate-400">
-                  {lang === "ar"
-                    ? "يرجى إرفاق وثيقة إثبات هوية سارية (جواز سفر، بطاقة هوية وطنية، أو رخصة قيادة). يمكنك إرفاق حتى وثيقتين (مثلاً الوجهين أو وثيقة دعم إضافية)."
-                    : "Please attach valid official identification (Passport, National ID, or Driver's License). You can attach up to 2 documents (e.g. front & back)."}
-                </p>
-              </div>
-
-              {/* List of uploaded documents */}
-              {attachedDocs.length > 0 && (
-                <div className="space-y-2">
-                  {attachedDocs.map((doc, idx) => (
-                    <div
-                      key={doc.documentId || doc.id || idx}
-                      className="flex items-center justify-between p-3 bg-blue-500/10 border border-blue-500/30 rounded-xl"
-                    >
-                      <div className="flex items-center gap-2.5 text-left rtl:text-right min-w-0 flex-1">
-                        <FileText className="w-5 h-5 text-[#2563EB] shrink-0" />
-                        <div className="min-w-0 flex-1">
-                          <p className="text-xs font-bold text-slate-800 dark:text-slate-200 truncate">
-                            <span className="inline-block px-1.5 py-0.5 text-[10px] bg-[#2563EB] text-white rounded font-mono mr-1.5 rtl:ml-1.5 rtl:mr-0">
-                              #{idx + 1}
-                            </span>
-                            {doc.fileName || doc.name}
-                          </p>
-                          <div className="flex items-center gap-2 text-[10px] text-slate-400 font-mono mt-0.5">
-                            <span>{doc.mimeType}</span>
-                            {doc.size > 0 && <span>• {(doc.size / 1024).toFixed(1)} KB</span>}
-                          </div>
-                        </div>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => removeDocument(doc.documentId || doc.id || "")}
-                        className="p-1.5 rounded-lg hover:bg-rose-500/20 text-rose-500 transition-colors ml-2 rtl:mr-2 rtl:ml-0 cursor-pointer"
-                        title={lang === "ar" ? "حذف الوثيقة" : "Remove document"}
-                      >
-                        <X className="w-4 h-4" />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {/* Upload Dropzone / Button (Shown if < 2 documents) */}
-              {attachedDocs.length < 2 && (
-                <div className="p-4 rounded-xl border border-dashed border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/40 text-center space-y-3">
-                  {isUploadingFile ? (
-                    <div className="flex flex-col items-center justify-center py-4 space-y-2">
-                      <RefreshCw className="w-6 h-6 text-[#2563EB] animate-spin" />
-                      <p className="text-xs font-bold text-slate-500">
-                        {lang === "ar" ? "جاري رفع المستند بأمان..." : "Uploading document securely..."}
-                      </p>
-                    </div>
-                  ) : (
-                    <>
-                      <Upload className="w-8 h-8 text-[#2563EB] mx-auto opacity-80" />
-                      <div className="space-y-1">
-                        <p className="text-xs font-bold text-slate-800 dark:text-slate-200">
-                          {attachedDocs.length === 0
-                            ? (lang === "ar" ? "ارفق رسمياً وثيقة إثبات الهوية الأولى" : "Attach First Official Identity Document")
-                            : (lang === "ar" ? "إرفاق وثيقة ثانية إضافية (اختياري)" : "Attach Second Supporting Document (Optional)")}
-                        </p>
-                        <p className="text-[11px] text-slate-400">
-                          {lang === "ar" ? "الصيغ المقبولة: PDF, PNG, JPG (الحد الأقصى 5 ميجابايت للملف)" : "Accepted formats: PDF, PNG, JPG (Max 5MB per file)"}
-                        </p>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          document.getElementById("recovery-file-input")?.click();
-                        }}
-                        className="inline-flex items-center gap-2 px-4 py-2 bg-[#2563EB] hover:bg-[#1D4ED8] text-white rounded-xl text-xs font-bold transition-colors cursor-pointer shadow-sm"
-                      >
-                        <Upload className="w-3.5 h-3.5" />
-                        <span>
-                          {attachedDocs.length === 0
-                            ? (lang === "ar" ? "اختيار ملف الوثيقة" : "Choose File")
-                            : (lang === "ar" ? "اختيار الوثيقة الثانية" : "Choose Second Document")}
-                        </span>
-                      </button>
-                      <input
-                        id="recovery-file-input"
-                        type="file"
-                        accept=".pdf,.png,.jpg,.jpeg,application/pdf,image/png,image/jpeg"
-                        onChange={handleFileUpload}
-                        className="hidden"
-                      />
-                    </>
-                  )}
-                </div>
-              )}
-
-              {attachedDocs.length >= 2 && (
-                <div className="p-3 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-900 rounded-xl text-xs font-semibold text-emerald-700 dark:text-emerald-300 flex items-center gap-2">
-                  <CheckCircle2 className="w-4 h-4 shrink-0" />
-                  <span>{lang === "ar" ? "تم إرفاق الحد الأقصى من الوثائق (مستندان)." : "Maximum number of documents attached (2 documents)."}</span>
-                </div>
-              )}
-
-              <div className="p-3 bg-slate-100 dark:bg-slate-800/60 rounded-xl text-[11px] text-slate-500 dark:text-slate-400 flex items-start gap-2">
-                <Lock className="w-3.5 h-3.5 text-[#2563EB] shrink-0 mt-0.5" />
-                <span>
-                  {lang === "ar"
-                    ? "يتم نقل وتشفير وثائق الهوية بأمان، وتقتصر إمكانية الوصول عليها على مسؤولي المنصة المخولين فقط لغرض التحقق من الملكية."
-                    : "Identity documents are transmitted securely and restricted strictly to authorized administrators for verification purposes."}
-                </span>
-              </div>
-
-              <div className="flex items-center gap-3">
-                <button
-                  type="button"
-                  onClick={() => setFormStep(3)}
-                  className="px-4 py-2.5 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-xl text-xs font-bold cursor-pointer"
-                >
-                  {lang === "ar" ? "السابق" : "Back"}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (attachedDocs.length === 0) {
-                      setErrorMessage(lang === "ar" ? "يرجى إرفاق وثيقة واحدة على الأقل." : "Please attach at least one identity document.");
-                      return;
-                    }
-                    setErrorMessage(null);
-                    setFormStep(5);
-                  }}
-                  className="flex-1 py-2.5 bg-[#2563EB] hover:bg-[#1D4ED8] text-white rounded-xl text-xs font-bold transition-colors cursor-pointer"
-                >
-                  {lang === "ar" ? "التالي: المراجعة والإرسال" : "Next: Review & Submit"}
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* STEP 5: Confirmation & Submission */}
-          {formStep === 5 && (
-            <div className="space-y-4 animate-fade-in">
-              <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                <Send className="w-4 h-4 text-[#2563EB]" />
-                <span>{lang === "ar" ? "مراجعة الطلب وتأكيد الإرسال" : "Review & Confirm Request"}</span>
-              </h3>
-
-              <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 space-y-2 text-xs">
-                <div className="flex justify-between border-b border-slate-200 dark:border-slate-700 pb-2">
-                  <span className="text-slate-400">{lang === "ar" ? "مقدم الطلب:" : "Applicant:"}</span>
-                  <span className="font-bold">
-                    {fullName}{" "}
-                    <span dir="ltr" className="font-mono text-xs text-[#2563EB] dark:text-blue-400">
-                      ({normalizedEmail})
-                    </span>
-                  </span>
-                </div>
-                <div className="flex justify-between border-b border-slate-200 dark:border-slate-700 pb-2">
-                  <span className="text-slate-400">{lang === "ar" ? "رقم الهاتف:" : "Phone:"}</span>
-                  <span className="font-mono">{phone}</span>
-                </div>
-                <div className="flex justify-between border-b border-slate-200 dark:border-slate-700 pb-2">
-                  <span className="text-slate-400">{lang === "ar" ? "الوثائق المرفقة:" : "Identity Docs:"}</span>
-                  <div className="text-right rtl:text-left space-y-1">
-                    {attachedDocs.map((d, i) => (
-                      <p key={d.documentId || d.id || i} className="font-semibold text-[#2563EB] text-xs">
-                        #{i + 1} {d.fileName || d.name}
-                      </p>
-                    ))}
-                  </div>
-                </div>
-                <div className="pt-1">
-                  <span className="text-slate-400 block mb-1">{lang === "ar" ? "سبب الاستعادة:" : "Recovery Reason:"}</span>
-                  <p className="p-2 bg-white dark:bg-slate-800 rounded-lg text-slate-700 dark:text-slate-300 italic">
-                    "{deletionReason}"
+                <div className="space-y-1 max-w-sm">
+                  <h4 className="text-xs sm:text-sm font-bold text-slate-800 dark:text-slate-200">
+                    {t.uploadZoneTitle}
+                  </h4>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
+                    {t.uploadZoneSubtitle}
                   </p>
                 </div>
-              </div>
 
-              <div className="p-3.5 bg-[#EFF6FF] dark:bg-blue-950/40 border border-blue-200 dark:border-blue-900 rounded-xl text-xs font-semibold text-[#1D4ED8] dark:text-blue-300">
-                {lang === "ar"
-                  ? "سيتم مراجعة طلب الاستعادة الخاص بك من قبل مسؤول النظام. وسيتم إخطارك فور اتخاذ القرار."
-                  : "Your recovery request will be reviewed by an administrator. You will be notified when a decision is made."}
-              </div>
-
-              <div className="flex items-center gap-3">
                 <button
                   type="button"
-                  onClick={() => setFormStep(4)}
-                  className="px-4 py-2.5 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-xl text-xs font-bold cursor-pointer"
+                  className="mt-1 px-4 py-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-700 dark:text-slate-200 shadow-sm hover:bg-slate-100 dark:hover:bg-slate-700/80 transition-all pointer-events-none"
                 >
-                  {lang === "ar" ? "السابق" : "Back"}
+                  {t.uploadBrowseBtn}
                 </button>
+              </div>
 
+              {/* UPLOAD ERROR DISPLAY */}
+              {uploadError && (
+                <p className="text-xs text-rose-600 font-semibold text-start flex items-center gap-1.5">
+                  <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                  <span>{uploadError}</span>
+                </p>
+              )}
+
+              {/* ATTACHED DOCUMENTS LIST */}
+              {documents.length > 0 && (
+                <div className="space-y-2 pt-1">
+                  <h4 className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                    {t.uploadedDocsTitle} ({documents.length}/2)
+                  </h4>
+
+                  <div className="space-y-2">
+                    {documents.map(item => {
+                      const isPdf = item.type.includes("pdf") || item.name.toLowerCase().endsWith(".pdf");
+                      return (
+                        <div
+                          key={item.id}
+                          className="p-3 bg-white dark:bg-[#131926] border border-slate-200 dark:border-slate-800 rounded-xl flex items-center justify-between gap-3 shadow-sm"
+                        >
+                          <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                            <div className="w-8 h-8 rounded-lg bg-blue-50 dark:bg-blue-950/60 text-[#0075DE] dark:text-blue-400 flex items-center justify-center shrink-0">
+                              {isPdf ? <FileText className="w-4 h-4" /> : <ImageIcon className="w-4 h-4" />}
+                            </div>
+                            <div className="min-w-0 flex-1 text-start">
+                              <p className="text-xs font-bold text-slate-800 dark:text-slate-200 truncate">
+                                {item.name}
+                              </p>
+                              <div className="flex items-center gap-2 text-[10px] text-slate-500">
+                                <span>{formatFileSize(item.size)}</span>
+                                <span>•</span>
+                                {item.status === "uploaded" ? (
+                                  <span className="text-emerald-600 dark:text-emerald-400 font-bold flex items-center gap-1">
+                                    <Check className="w-3 h-3" />
+                                    {t.statusUploaded}
+                                  </span>
+                                ) : item.status === "uploading" ? (
+                                  <span className="text-[#0075DE] dark:text-blue-400 font-bold flex items-center gap-1">
+                                    <RefreshCw className="w-3 h-3 animate-spin" />
+                                    {t.statusUploading}
+                                  </span>
+                                ) : (
+                                  <span className="text-rose-600 font-bold flex items-center gap-1">
+                                    <AlertCircle className="w-3 h-3" />
+                                    {t.statusFailed}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            {item.status === "failed" && (
+                              <button
+                                type="button"
+                                onClick={() => uploadSingleDocument(item)}
+                                className="px-2.5 py-1 rounded-lg bg-blue-50 dark:bg-blue-950 text-[#0075DE] text-[11px] font-bold hover:bg-blue-100 transition-colors cursor-pointer"
+                              >
+                                {t.retryBtn}
+                              </button>
+                            )}
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveDocument(item.id)}
+                              className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/50 transition-colors cursor-pointer"
+                              title={t.removeBtn}
+                            >
+                              <X className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* NAVIGATION BUTTONS */}
+              <div className="flex gap-2 pt-2">
                 <button
-                  type="submit"
-                  disabled={isSubmittingForm}
-                  className="flex-1 py-3 px-4 bg-[#2563EB] hover:bg-[#1D4ED8] text-white rounded-xl text-xs font-bold transition-colors shadow-md shadow-blue-500/20 flex items-center justify-center gap-2 cursor-pointer"
+                  type="button"
+                  onClick={() => setCurrentStep(1)}
+                  className="h-11 px-4 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold text-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer"
                 >
-                  {isSubmittingForm ? (
-                    <RefreshCw className="w-4 h-4 animate-spin" />
-                  ) : (
-                    <Send className="w-4 h-4" />
-                  )}
-                  <span>
-                    {lang === "ar" ? "إرسال طلب الاستعادة للإدارة" : "Submit recovery request"}{" "}
-                    <span className="font-mono">({normalizedEmail})</span>
-                  </span>
+                  <ArrowBackIcon className="w-3.5 h-3.5" />
+                  <span>{t.btnBack}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!isStep2Valid) {
+                      setFormError(lang === "ar" ? "يرجى رفع وثيقة إثبات هوية رسمية واحدة على الأقل." : "Please upload at least one identification document.");
+                      return;
+                    }
+                    setFormError(null);
+                    setCurrentStep(3);
+                  }}
+                  disabled={!isStep2Valid}
+                  className="flex-1 h-11 rounded-xl bg-[#0075DE] hover:bg-[#0060B6] text-white font-bold text-xs transition-all flex items-center justify-center gap-2 shadow-md shadow-blue-500/20 disabled:opacity-50 cursor-pointer"
+                >
+                  <span>{t.btnNext}</span>
+                  <ArrowForwardIcon className="w-3.5 h-3.5" />
                 </button>
               </div>
             </div>
           )}
 
-        </form>
-      )}
+          {/* ------------------------------------------- */}
+          {/* STEP 3: SUMMARY & SUBMIT                   */}
+          {/* ------------------------------------------- */}
+          {currentStep === 3 && (
+            <div className="space-y-4">
+              {/* SUMMARY BOX */}
+              <div className="p-4 bg-slate-50 dark:bg-[#131926] border border-slate-200 dark:border-slate-800 rounded-xl space-y-2.5 text-xs">
+                <h4 className="font-bold text-slate-800 dark:text-slate-200 pb-1 border-b border-slate-200 dark:border-slate-800">
+                  ملخص بيانات طلب الاستعادة:
+                </h4>
+                <div className="flex justify-between">
+                  <span className="text-slate-500">البريد الإلكتروني:</span>
+                  <span className="font-semibold text-slate-800 dark:text-slate-200">{email || "-"}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-500">الاسم الكامل:</span>
+                  <span className="font-semibold text-slate-800 dark:text-slate-200">{fullName}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-500">رقم الهاتف:</span>
+                  <span className="font-semibold text-slate-800 dark:text-slate-200">{phone}</span>
+                </div>
+                {organization && (
+                  <div className="flex justify-between">
+                    <span className="text-slate-500">المنشأة:</span>
+                    <span className="font-semibold text-slate-800 dark:text-slate-200">{organization}</span>
+                  </div>
+                )}
+                <div className="flex justify-between">
+                  <span className="text-slate-500">الوثائق المرفقة:</span>
+                  <span className="font-semibold text-emerald-600 dark:text-emerald-400">
+                    {documents.filter(d => d.status === "uploaded").length} وثيقة تم التحقق منها
+                  </span>
+                </div>
+              </div>
 
-      {/* VIEW 3: EMAIL VERIFICATION AFTER APPROVAL */}
-      {viewMode === "verify_email_view" && (
-        <form onSubmit={handleVerifyOtp} className="space-y-5 animate-fade-in">
-          <div className="p-4 rounded-xl bg-[#EFF6FF] border border-blue-200 dark:bg-blue-950/40 dark:border-blue-900 space-y-2">
-            <h3 className="text-xs font-bold text-[#1D4ED8] dark:text-blue-300 flex items-center gap-1.5">
-              <Mail className="w-4 h-4 text-[#2563EB]" />
-              <span>{lang === "ar" ? "رمز التحقق لإكمال الاستعادة" : "Verification Code for Account Restoration"}</span>
-            </h3>
-            <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed" dir={isRtl ? "rtl" : "ltr"}>
-              {lang === "ar" ? (
-                <>
-                  تم إرسال رمز تحقق مكون من 6 أرقام إلى بريدك الإلكتروني{" "}
-                  <span dir="ltr" className="inline-flex items-center text-[#2563EB] dark:text-blue-400 font-mono font-semibold">
-                    (
-                    <a href={`mailto:${normalizedEmail}`} className="hover:underline">
-                      {normalizedEmail}
-                    </a>
-                    )
-                  </span>{" "}
-                  لإكمال تفعيل واستعادة حسابك.
-                </>
-              ) : (
-                <>
-                  A 6-digit verification code was sent to{" "}
-                  <span dir="ltr" className="inline-flex items-center text-[#2563EB] dark:text-blue-400 font-mono font-semibold">
-                    (
-                    <a href={`mailto:${normalizedEmail}`} className="hover:underline">
-                      {normalizedEmail}
-                    </a>
-                    )
-                  </span>{" "}
-                  to finalize restoring your approved account.
-                </>
-              )}
-            </p>
-          </div>
+              {/* TERMS ACCEPTANCE CHECKBOX */}
+              <label className="flex items-start gap-2.5 p-3 rounded-xl bg-slate-50 dark:bg-[#131926] border border-slate-200 dark:border-slate-800 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={termsAccepted}
+                  onChange={e => setTermsAccepted(e.target.checked)}
+                  className="w-4 h-4 mt-0.5 rounded border-slate-300 text-[#0075DE] focus:ring-[#0075DE] cursor-pointer"
+                />
+                <span className="text-xs text-slate-700 dark:text-slate-300 leading-relaxed">
+                  {t.termsText}
+                </span>
+              </label>
 
-          <div>
-            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-              {lang === "ar" ? "رمز التحقق (6 أرقام)" : "Verification Code (6 digits)"}
-            </label>
-            <input
-              type="text"
-              required
-              maxLength={6}
-              value={otpCode}
-              onChange={(e) => setOtpCode(e.target.value)}
-              placeholder="123456"
-              className="w-full p-3 rounded-xl text-center font-mono text-base tracking-widest bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 focus:ring-2 focus:ring-[#2563EB] outline-none"
-            />
-          </div>
-
-          <div className="flex items-center justify-between text-xs">
-            <button
-              type="button"
-              disabled={resendCooldown > 0 || isSendingOtp}
-              onClick={handleStartEmailVerification}
-              className="text-[#2563EB] hover:underline disabled:opacity-50 cursor-pointer font-semibold"
-            >
-              {resendCooldown > 0 
-                ? (lang === "ar" ? `إعادة الإرسال بعد (${resendCooldown}ث)` : `Resend in (${resendCooldown}s)`)
-                : (lang === "ar" ? "إعادة إرسال الرمز" : "Resend Code")}
-            </button>
-          </div>
-
-          <button
-            type="submit"
-            disabled={isVerifyingOtp}
-            className="w-full py-3 px-4 bg-[#2563EB] hover:bg-[#1D4ED8] text-white rounded-xl text-xs font-bold transition-colors shadow-md shadow-blue-500/20 flex items-center justify-center gap-2 cursor-pointer"
-          >
-            {isVerifyingOtp ? (
-              <RefreshCw className="w-4 h-4 animate-spin" />
-            ) : (
-              <CheckCircle2 className="w-4 h-4" />
-            )}
-            <span>{lang === "ar" ? "تأكيد واستعادة الحساب" : "Verify & Restore Account"}</span>
-          </button>
-        </form>
-      )}
-
-      {/* VIEW 4: SUCCESS VIEW */}
-      {viewMode === "success_view" && (
-        <div className="text-center space-y-4 py-4 animate-fade-in">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-emerald-500/20 text-emerald-500 border border-emerald-500/30 mb-1">
-            <CheckCircle2 className="w-8 h-8" />
-          </div>
-
-          <h3 className="text-lg font-bold text-slate-900 dark:text-white">
-            {lang === "ar" ? "تمت استعادة حسابك بنجاح!" : "Account Restored Successfully!"}
-          </h3>
-
-          <p className="text-xs text-slate-500 dark:text-slate-400 max-w-sm mx-auto">
-            {lang === "ar"
-              ? "تمت استعادة حسابك وصلاحياتك وتوجيهك مباشرة إلى جلسة العمل."
-              : "Your account and workspace role have been fully restored. Transitioning to your active session..."}
-          </p>
-
-          {restoredUser && (
-            <div className="p-3.5 bg-slate-50 dark:bg-slate-800/80 rounded-xl text-xs font-mono space-y-1 text-slate-600 dark:text-slate-300">
-              <div>{lang === "ar" ? "الدور المحفوظ:" : "Preserved Role:"} <span className="font-bold text-[#2563EB]">{restoredUser.role || "CEO"}</span></div>
+              {/* ACTION BUTTONS */}
+              <div className="flex gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setCurrentStep(2)}
+                  className="h-11 px-4 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold text-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                >
+                  <ArrowBackIcon className="w-3.5 h-3.5" />
+                  <span>{t.btnBack}</span>
+                </button>
+                <button
+                  id="btn-submit-recovery-request"
+                  type="button"
+                  onClick={handleSubmitRequest}
+                  disabled={!isCanSubmit}
+                  className="flex-1 h-11 rounded-xl bg-[#0075DE] hover:bg-[#0060B6] text-white font-bold text-xs transition-all flex items-center justify-center gap-2 shadow-md shadow-blue-500/20 disabled:opacity-50 cursor-pointer"
+                >
+                  {isSubmitting ? (
+                    <>
+                      <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                      <span>{t.btnSubmitting}</span>
+                    </>
+                  ) : (
+                    <>
+                      <Send className="w-3.5 h-3.5" />
+                      <span>{t.btnSubmit}</span>
+                    </>
+                  )}
+                </button>
+              </div>
             </div>
           )}
         </div>
       )}
-
     </div>
   );
 };

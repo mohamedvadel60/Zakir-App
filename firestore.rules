@@ -97,6 +97,19 @@ service cloud.firestore {
       allow update, delete: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin()) && (request.resource == null || request.resource.data.userId == resource.data.userId);
     }
 
+    // Identity Verification & Recovery Documents
+    match /recoveryDocuments/{documentId} {
+      allow read, write: if isAdmin();
+      match /chunks/{chunkId} {
+        allow read, write: if isAdmin();
+      }
+    }
+
+    match /recoveryRequests/{requestId} {
+      allow create: if true;
+      allow read, update, delete: if isAdmin();
+    }
+
     // Customer Support Tickets
     match /support_tickets/{ticketId} {
       allow read: if (isSignedIn() && (resource.data.userId == request.auth.uid || resource.data.userEmail == request.auth.token.email)) || isAdmin();
