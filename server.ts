@@ -6174,14 +6174,14 @@ async function runOrphanCleanup() {
 // 1. Upload Identity Verification Document
 app.post("/api/auth/recovery-request/upload", (req, res, next) => {
   console.log("[RecoveryUpload] request received");
-  recoveryUpload.fields([{ name: "document", maxCount: 1 }, { name: "file", maxCount: 1 }])(req, res, (err: any) => {
+  recoveryUpload.any()(req, res, (err: any) => {
     if (err) {
       console.error("[RecoveryUpload] FAILED at multipart parsed:", err?.message || err);
       if (err.code === "LIMIT_FILE_SIZE") {
         return res.status(413).json({
           success: false,
           error: "IDENTITY_DOCUMENT_TOO_LARGE",
-          message: "File exceeds the 5MB size limit."
+          message: "File exceeds the 10MB size limit."
         });
       }
       return res.status(400).json({
@@ -6203,7 +6203,7 @@ app.post("/api/auth/recovery-request/upload", (req, res, next) => {
       });
     }
 
-    const file = req.file || (req.files as any)?.document?.[0] || (req.files as any)?.file?.[0];
+    const file = req.file || (Array.isArray(req.files) ? req.files[0] : ((req.files as any)?.document?.[0] || (req.files as any)?.file?.[0]));
     if (!file) {
       console.error("[RecoveryUpload] FAILED at file detected: missing file in multipart payload");
       return res.status(400).json({

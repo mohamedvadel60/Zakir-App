@@ -18,12 +18,9 @@ const uploadMiddleware = multer({
   storage,
   limits: {
     fileSize: 10 * 1024 * 1024, // 10MB
-    files: 1
+    files: 5
   }
-}).fields([
-  { name: "document", maxCount: 1 },
-  { name: "file", maxCount: 1 }
-]);
+}).any();
 
 function runMiddleware(req: any, res: any, fn: any) {
   return new Promise((resolve, reject) => {
@@ -72,7 +69,7 @@ export default async function handler(req: any, res: any) {
       });
     }
 
-    const file = req.file || (req.files as any)?.document?.[0] || (req.files as any)?.file?.[0];
+    const file = req.file || (Array.isArray(req.files) ? req.files[0] : ((req.files as any)?.document?.[0] || (req.files as any)?.file?.[0]));
     if (!file || !file.buffer) {
       return res.status(400).json({
         success: false,

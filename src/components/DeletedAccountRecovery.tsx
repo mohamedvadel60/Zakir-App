@@ -406,7 +406,17 @@ export const DeletedAccountRecovery: React.FC<DeletedAccountRecoveryProps> = ({
           )
         );
       } else {
-        const errorMsg = result?.error || result?.message || (lang === "ar" ? "فشل رفع الملف." : "Upload failed.");
+        const rawErr = result?.message || result?.error;
+        let errorMsg = lang === "ar" ? "فشل رفع الملف." : "Upload failed.";
+        if (rawErr) {
+          if (rawErr === "FILE_UPLOAD_ERROR" || rawErr === "UNSUPPORTED_FORMAT") {
+            errorMsg = lang === "ar" ? "صيغة الملف غير مدعومة أو حدث خطأ أثناء معالجة الملف." : "Unsupported file format or upload processing error.";
+          } else if (rawErr === "IDENTITY_DOCUMENT_TOO_LARGE") {
+            errorMsg = lang === "ar" ? "حجم الملف يتجاوز الحد المسموح 10 ميغابايت." : "File exceeds the 10MB size limit.";
+          } else {
+            errorMsg = rawErr;
+          }
+        }
         setDocuments(prev =>
           prev.map(d => (d.id === item.id ? { ...d, status: "failed", error: errorMsg } : d))
         );

@@ -1582,7 +1582,6 @@ export async function uploadRecoveryDocumentApi(file: File) {
     try {
       const formData = new FormData();
       formData.append("file", file);
-      formData.append("document", file);
 
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 20000); // 20s timeout per attempt
