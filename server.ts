@@ -4765,7 +4765,15 @@ export async function restoreAccountFullServer(email: string, newPassword?: stri
     memberCount: 1
   };
 
-  const restoredUserDoc = {
+  const defaultPowers = {
+    fileVault: true,
+    memoryVault: true,
+    riskRadar: true,
+    marketIntel: true,
+    settings: true
+  };
+
+  const rawRestoredUserDoc = {
     ...(retainedProfile || {}),
     id: finalUid,
     uid: finalUid,
@@ -4773,7 +4781,7 @@ export async function restoreAccountFullServer(email: string, newPassword?: stri
     role: preservedRole,
     workspaceId: preservedWorkspaceId,
     workspace: preservedWorkspace,
-    powers: retainedProfile?.powers,
+    powers: retainedProfile?.powers || defaultPowers,
     companyName: retainedProfile?.companyName || "Restored Account",
     ownerName: retainedProfile?.ownerName || normalizedEmail.split("@")[0],
     subscriptionStatus: retainedProfile?.subscriptionStatus || "Active",
@@ -4794,11 +4802,38 @@ export async function restoreAccountFullServer(email: string, newPassword?: stri
     restoredAt: nowIso
   };
 
+  function sanitizeForFirestoreServer(obj: any): any {
+    if (obj === null || obj === undefined) return null;
+    if (typeof obj !== "object") return obj;
+    if (obj instanceof Date) return obj.toISOString();
+    if (Array.isArray(obj)) return obj.map(item => sanitizeForFirestoreServer(item));
+    const clean: Record<string, any> = {};
+    for (const [key, value] of Object.entries(obj)) {
+      if (value !== undefined) {
+        clean[key] = sanitizeForFirestoreServer(value);
+      }
+    }
+    return clean;
+  }
+
+  const restoredUserDoc = sanitizeForFirestoreServer(rawRestoredUserDoc);
+
   try {
     await adminDb.collection("users").doc(finalUid).set(restoredUserDoc, { merge: true });
     console.log(`[RESTORE_FULL] Saved restored user profile to Firestore users/${finalUid}`);
   } catch (fsErr: any) {
-    console.error("[RESTORE_FULL] Failed to save Firestore user profile:", fsErr);
+    console.error("[RESTORE_FULL] Failed to save Firestore user profile:", {
+      message: fsErr?.message || String(fsErr),
+      code: fsErr?.code,
+      details: fsErr?.details,
+      stack: fsErr?.stack,
+      collection: "users",
+      docId: finalUid
+    });
+    return { 
+      success: false, 
+      error: `Failed to save restored user profile to Firestore database (${finalUid}): ${fsErr?.message || fsErr}` 
+    };
   }
 
   // Restore subcollections if retained

@@ -161,9 +161,15 @@ if (isFirebaseAdminConfigured) {
 
     try {
       rawFirestore = getFirestore(rawApp, dbId);
+      try {
+        rawFirestore.settings({ ignoreUndefinedProperties: true });
+      } catch (sErr) {}
     } catch (e) {
       try {
         rawFirestore = getFirestore(rawApp);
+        try {
+          rawFirestore.settings({ ignoreUndefinedProperties: true });
+        } catch (sErr2) {}
       } catch (e2) {
         rawFirestore = null;
       }
