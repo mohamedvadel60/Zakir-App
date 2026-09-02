@@ -320,8 +320,8 @@ export const DeletedAccountRecovery: React.FC<DeletedAccountRecoveryProps> = ({
     setUploadError(null);
     setFormError(null);
 
-    const allowedTypes = ["application/pdf", "image/png", "image/jpeg", "image/jpg"];
-    const allowedExtensions = [".pdf", ".png", ".jpg", ".jpeg"];
+    const allowedExtensions = [".pdf", ".png", ".jpg", ".jpeg", ".doc", ".docx", ".webp", ".heic", ".heif", ".txt"];
+    const allowedTypeKeywords = ["pdf", "image", "png", "jpeg", "jpg", "msword", "officedocument", "text", "octet-stream"];
 
     if (documents.length + files.length > 2) {
       setUploadError(
@@ -336,20 +336,24 @@ export const DeletedAccountRecovery: React.FC<DeletedAccountRecoveryProps> = ({
 
     for (const file of files) {
       const ext = "." + file.name.split(".").pop()?.toLowerCase();
-      if (!allowedTypes.includes(file.type) && !allowedExtensions.includes(ext)) {
+      const fileType = (file.type || "").toLowerCase();
+      const isExtValid = allowedExtensions.includes(ext);
+      const isTypeValid = allowedTypeKeywords.some(kw => fileType.includes(kw));
+
+      if (!isExtValid && !isTypeValid) {
         setUploadError(
           lang === "ar"
-            ? `الملف (${file.name}) بصيغة غير مدعومة. يرجى رفع ملفات PDF أو صور PNG و JPG فقط.`
-            : `File (${file.name}) is unsupported. Please upload PDF, PNG, or JPG files.`
+            ? `الملف (${file.name}) بصيغة غير مدعومة. يرجى رفع ملفات PDF أو Word أو صور PNG و JPG.`
+            : `File (${file.name}) is unsupported. Please upload PDF, Word, PNG, or JPG files.`
         );
         return;
       }
 
-      if (file.size > 5 * 1024 * 1024) {
+      if (file.size > 10 * 1024 * 1024) {
         setUploadError(
           lang === "ar"
-            ? `حجم الملف (${file.name}) يتجاوز الحد المسموح 5 ميغابايت. يرجى اختيار ملف أصغر.`
-            : `File (${file.name}) exceeds 5MB limit. Please choose a smaller file.`
+            ? `حجم الملف (${file.name}) يتجاوز الحد المسموح 10 ميغابايت. يرجى اختيار ملف أصغر.`
+            : `File (${file.name}) exceeds 10MB limit. Please choose a smaller file.`
         );
         return;
       }
@@ -1136,7 +1140,7 @@ export const DeletedAccountRecovery: React.FC<DeletedAccountRecoveryProps> = ({
                   ref={fileInputRef}
                   type="file"
                   multiple
-                  accept=".pdf,.png,.jpg,.jpeg,application/pdf,image/png,image/jpeg"
+                  accept=".pdf,.png,.jpg,.jpeg,.doc,.docx,.webp,.heic,.heif,.txt,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,image/*,text/plain"
                   onChange={handleFileInputChange}
                   className="hidden"
                 />
@@ -1208,8 +1212,8 @@ export const DeletedAccountRecovery: React.FC<DeletedAccountRecoveryProps> = ({
                                   </span>
                                 ) : (
                                   <span className="text-rose-600 font-bold flex items-center gap-1">
-                                    <AlertCircle className="w-3 h-3" />
-                                    {t.statusFailed}
+                                    <AlertCircle className="w-3 h-3 shrink-0" />
+                                    <span>{t.statusFailed}{item.error ? `: ${item.error}` : ""}</span>
                                   </span>
                                 )}
                               </div>

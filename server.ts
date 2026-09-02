@@ -5523,24 +5523,38 @@ app.post("/api/admin/handle-reactivation-request", requireAuth, async (req: Auth
 // --- ACCOUNT RECOVERY REQUEST WORKFLOW ENDPOINTS ---
 
 function validateFileSignature(buffer: Buffer, mimeType: string): boolean {
-  if (!buffer || buffer.length < 4) return false;
-  const hex = buffer.toString("hex", 0, 4).toLowerCase();
-  if (mimeType.includes("pdf")) {
-    return hex.startsWith("25504446"); // %PDF (25 50 44 46)
+  if (!buffer || buffer.length < 2) return false;
+  const hex = buffer.toString("hex", 0, Math.min(buffer.length, 12)).toLowerCase();
+  const mime = (mimeType || "").toLowerCase();
+
+  if (mime.includes("pdf") || hex.startsWith("25504446")) {
+    return hex.startsWith("25504446");
   }
-  if (mimeType.includes("png")) {
-    return hex.startsWith("89504e47"); // PNG (89 50 4E 47)
+  if (mime.includes("png") || hex.startsWith("89504e47")) {
+    return hex.startsWith("89504e47");
   }
-  if (mimeType.includes("jpeg") || mimeType.includes("jpg")) {
-    return hex.startsWith("ffd8ff"); // JPEG/JPG (FF D8 FF)
+  if (mime.includes("jpeg") || mime.includes("jpg") || hex.startsWith("ffd8ff")) {
+    return hex.startsWith("ffd8ff");
   }
-  return false;
+  if (mime.includes("webp") || hex.startsWith("52494646")) {
+    return hex.startsWith("52494646");
+  }
+  if (mime.includes("officedocument") || mime.includes("zip") || hex.startsWith("504b0304")) {
+    return hex.startsWith("504b0304");
+  }
+  if (mime.includes("msword") || hex.startsWith("d0cf11e0")) {
+    return hex.startsWith("d0cf11e0");
+  }
+  if (mime.includes("text")) {
+    return true;
+  }
+  return buffer.length >= 4;
 }
 
 const recoveryUpload = multer({
   storage: multer.memoryStorage(),
   limits: {
-    fileSize: 5 * 1024 * 1024, // 5MB limit
+    fileSize: 10 * 1024 * 1024, // 10MB limit
   }
 });
 
@@ -6203,42 +6217,36 @@ app.post("/api/auth/recovery-request/upload", (req, res, next) => {
     currentStage = "file validation started";
     console.log("[RecoveryUpload] file validation started");
 
-    // Validate size (5MB max)
-    if (file.size > 5 * 1024 * 1024) {
-      console.error("[RecoveryUpload] FAILED at file validation: file exceeds 5MB");
+    // Validate size (10MB max)
+    if (file.size > 10 * 1024 * 1024) {
+      console.error("[RecoveryUpload] FAILED at file validation: file exceeds 10MB");
       return res.status(413).json({
         success: false,
         error: "IDENTITY_DOCUMENT_TOO_LARGE",
-        message: "File exceeds the 5MB size limit."
+        message: "File exceeds the 10MB size limit."
       });
     }
 
-    // Validate MIME type
-    const allowedMimeTypes = ["application/pdf", "image/png", "image/jpeg", "image/jpg"];
-    if (!allowedMimeTypes.includes(file.mimetype)) {
-      console.error("[RecoveryUpload] FAILED at file validation: unsupported mime type", file.mimetype);
+    const originalName = file.originalname || "document";
+    const ext = path.extname(originalName).toLowerCase();
+    const allowedExtensions = [".pdf", ".png", ".jpg", ".jpeg", ".doc", ".docx", ".webp", ".heic", ".heif", ".txt"];
+    const allowedMimeKeywords = ["pdf", "image", "png", "jpeg", "jpg", "msword", "officedocument", "text", "octet-stream"];
+
+    const fileMime = (file.mimetype || "").toLowerCase();
+    const isMimeValid = allowedMimeKeywords.some(kw => fileMime.includes(kw));
+    const isExtValid = allowedExtensions.includes(ext);
+
+    if (!isMimeValid && !isExtValid) {
+      console.error("[RecoveryUpload] FAILED at file validation: unsupported mime/extension", file.mimetype, ext);
       return res.status(400).json({
         success: false,
         error: "UNSUPPORTED_FORMAT",
-        message: "Unsupported document format. Only PDF, PNG, and JPEG files are allowed."
-      });
-    }
-
-    // Validate file extension
-    const originalName = file.originalname || "document";
-    const ext = path.extname(originalName).toLowerCase();
-    const allowedExtensions = [".pdf", ".png", ".jpg", ".jpeg"];
-    if (!allowedExtensions.includes(ext)) {
-      console.error("[RecoveryUpload] FAILED at file validation: invalid extension", ext);
-      return res.status(400).json({
-        success: false,
-        error: "INVALID_EXTENSION",
-        message: "Invalid file extension. Only .pdf, .png, .jpg, and .jpeg are allowed."
+        message: "Unsupported file format. Please upload PDF, Word (.doc/.docx), PNG, JPEG, or TXT documents."
       });
     }
 
     // Validate file signature / magic bytes
-    if (!validateFileSignature(file.buffer, file.mimetype)) {
+    if (!validateFileSignature(file.buffer, file.mimetype || ext)) {
       console.error("[RecoveryUpload] FAILED at file validation: invalid file signature");
       return res.status(400).json({
         success: false,

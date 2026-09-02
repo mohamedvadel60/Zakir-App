@@ -17,7 +17,7 @@ const storage = multer.memoryStorage();
 const uploadMiddleware = multer({
   storage,
   limits: {
-    fileSize: 5 * 1024 * 1024, // 5MB
+    fileSize: 10 * 1024 * 1024, // 10MB
     files: 1
   }
 }).fields([
@@ -62,7 +62,7 @@ export default async function handler(req: any, res: any) {
         return res.status(413).json({
           success: false,
           error: "IDENTITY_DOCUMENT_TOO_LARGE",
-          message: "The uploaded file exceeds the 5MB size limit."
+          message: "The uploaded file exceeds the 10MB size limit."
         });
       }
       return res.status(400).json({
@@ -81,35 +81,32 @@ export default async function handler(req: any, res: any) {
       });
     }
 
-    if (file.size > 5 * 1024 * 1024) {
+    if (file.size > 10 * 1024 * 1024) {
       return res.status(413).json({
         success: false,
         error: "IDENTITY_DOCUMENT_TOO_LARGE",
-        message: "The uploaded file exceeds the 5MB size limit."
-      });
-    }
-
-    const allowedMimeTypes = ["application/pdf", "image/png", "image/jpeg", "image/jpg"];
-    if (!allowedMimeTypes.includes(file.mimetype)) {
-      return res.status(400).json({
-        success: false,
-        error: "UNSUPPORTED_FORMAT",
-        message: "Unsupported file format. Only PDF, PNG, and JPEG files are allowed."
+        message: "The uploaded file exceeds the 10MB size limit."
       });
     }
 
     const originalName = file.originalname || "document";
     const ext = path.extname(originalName).toLowerCase();
-    const allowedExtensions = [".pdf", ".png", ".jpg", ".jpeg"];
-    if (!allowedExtensions.includes(ext)) {
+    const allowedExtensions = [".pdf", ".png", ".jpg", ".jpeg", ".doc", ".docx", ".webp", ".heic", ".heif", ".txt"];
+    const allowedMimeKeywords = ["pdf", "image", "png", "jpeg", "jpg", "msword", "officedocument", "text", "octet-stream"];
+
+    const fileMime = (file.mimetype || "").toLowerCase();
+    const isMimeValid = allowedMimeKeywords.some(kw => fileMime.includes(kw));
+    const isExtValid = allowedExtensions.includes(ext);
+
+    if (!isMimeValid && !isExtValid) {
       return res.status(400).json({
         success: false,
-        error: "INVALID_EXTENSION",
-        message: "Invalid file extension. Only .pdf, .png, .jpg, and .jpeg are allowed."
+        error: "UNSUPPORTED_FORMAT",
+        message: "Unsupported file format. Please upload PDF, Word (.doc/.docx), PNG, JPEG, or TXT documents."
       });
     }
 
-    if (!validateFileSignature(file.buffer, file.mimetype)) {
+    if (!validateFileSignature(file.buffer, file.mimetype || ext)) {
       return res.status(400).json({
         success: false,
         error: "INVALID_FILE_SIGNATURE",

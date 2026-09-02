@@ -55,39 +55,48 @@ function writeDb(data: any): void {
 }
 
 export function validateFileSignature(buffer: Buffer, mimeType: string): boolean {
-  if (!buffer || buffer.length < 4) return false;
+  if (!buffer || buffer.length < 2) return false;
 
-  // PDF signature: %PDF (0x25 0x50 0x44 0x46)
-  if (mimeType === "application/pdf") {
-    return (
-      buffer[0] === 0x25 &&
-      buffer[1] === 0x50 &&
-      buffer[2] === 0x44 &&
-      buffer[3] === 0x46
-    );
+  const hex = buffer.toString("hex", 0, Math.min(buffer.length, 12)).toLowerCase();
+  const mime = (mimeType || "").toLowerCase();
+
+  // PDF signature: %PDF (25 50 44 46)
+  if (mime.includes("pdf") || hex.startsWith("25504446")) {
+    return hex.startsWith("25504446");
   }
 
-  // PNG signature: 0x89 0x50 0x4E 0x47 0x0D 0x0A 0x1A 0x0A
-  if (mimeType === "image/png") {
-    if (buffer.length < 8) return false;
-    return (
-      buffer[0] === 0x89 &&
-      buffer[1] === 0x50 &&
-      buffer[2] === 0x4e &&
-      buffer[3] === 0x47 &&
-      buffer[4] === 0x0d &&
-      buffer[5] === 0x0a &&
-      buffer[6] === 0x1a &&
-      buffer[7] === 0x0a
-    );
+  // PNG signature: 89 50 4e 47
+  if (mime.includes("png") || hex.startsWith("89504e47")) {
+    return hex.startsWith("89504e47");
   }
 
-  // JPEG / JPG signature: 0xFF 0xD8 0xFF
-  if (mimeType === "image/jpeg" || mimeType === "image/jpg") {
-    return buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff;
+  // JPEG / JPG signature: ff d8 ff
+  if (mime.includes("jpeg") || mime.includes("jpg") || hex.startsWith("ffd8ff")) {
+    return hex.startsWith("ffd8ff");
   }
 
-  return false;
+  // WEBP signature: RIFF ... WEBP (52 49 46 46)
+  if (mime.includes("webp") || hex.startsWith("52494646")) {
+    return hex.startsWith("52494646");
+  }
+
+  // Word DOCX / ZIP: 50 4b 03 04
+  if (mime.includes("officedocument") || mime.includes("zip") || hex.startsWith("504b0304")) {
+    return hex.startsWith("504b0304");
+  }
+
+  // Word DOC (Legacy OLE format): d0 cf 11 e0
+  if (mime.includes("msword") || hex.startsWith("d0cf11e0")) {
+    return hex.startsWith("d0cf11e0");
+  }
+
+  // Plain text / UTF-8
+  if (mime.includes("text")) {
+    return true;
+  }
+
+  // Fallback: if buffer is valid non-empty binary/document
+  return buffer.length >= 4;
 }
 
 function getLocalUploadsDir(): string {
