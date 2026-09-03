@@ -982,28 +982,6 @@
       "associatedRequestId": "REQ-1788380957230-860"
     },
     {
-      "documentId": "doc_1788383062771_dcd1fe5c",
-      "uploadToken": "7379a234f056d687e2cf3d536eeb62909573e12cd6e8b9e1f8b6c9bd1e06d12e",
-      "fileHash": "8ec3323dc3e95201f5e627e301da927233ed40f027a7f6defaca632371cea26f",
-      "fileName": "___________________________________________Zakir________________________________________________________________.pdf",
-      "mimeType": "application/pdf",
-      "size": 160152,
-      "uploadedAt": "2026-09-02T21:04:24.062Z",
-      "storageStatus": "pending",
-      "associated": false
-    },
-    {
-      "documentId": "doc_1788383165908_5cda45dd",
-      "uploadToken": "544db98f474545a67363f22a9523d2287f1a641ca2192f71e25de3a7f2edfdb7",
-      "fileHash": "4ffd8bb30991e3a6f28d1d03f1aedcd02ccf8e0cc16bb9e969e7bc2bda1ddf03",
-      "fileName": "test_id.png",
-      "mimeType": "image/png",
-      "size": 33,
-      "uploadedAt": "2026-09-02T21:06:08.278Z",
-      "storageStatus": "pending",
-      "associated": false
-    },
-    {
       "documentId": "doc_1788383543275_ac4c9d3e",
       "uploadToken": "7df1104c10659d5625279f406816ad7da48650e27cc5aba16f21d6515346b89f",
       "fileHash": "d7dd0115be8b79ae057b3f6ca0fcee578085ba6919dcb70e8643a2aff537d9b5",
@@ -1813,6 +1791,18 @@
       "syncAttempts": 1,
       "createdAt": "2026-09-02T21:12:23.276Z",
       "expiresAt": "2026-09-16T21:12:23.276Z",
+      "syncError": "Primary Firestore chunk storage active (Bucket unprovisioned)"
+    },
+    "doc_1788385655852_96356f8b": {
+      "documentId": "doc_1788385655852_96356f8b",
+      "mimeType": "application/pdf",
+      "size": 160152,
+      "fileName": "___________________________________________Zakir________________________________________________________________.pdf",
+      "fileHash": "8ec3323dc3e95201f5e627e301da927233ed40f027a7f6defaca632371cea26f",
+      "storageStatus": "firestore_durable",
+      "syncAttempts": 1,
+      "createdAt": "2026-09-02T21:47:35.855Z",
+      "expiresAt": "2026-09-16T21:47:35.855Z",
       "syncError": "Primary Firestore chunk storage active (Bucket unprovisioned)"
     }
   }

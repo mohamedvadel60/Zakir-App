@@ -163,6 +163,34 @@ export function formatBytes(bytes: number, decimals = 2): string {
   return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
 }
 
+/**
+ * Executes a Firestore getDoc with retry and exponential backoff to handle
+ * transient auth propagation latency (permission denied errors immediately after login).
+ */
+export async function getDocWithRetry(docRef: any, maxRetries = 3, initialDelay = 150): Promise<any> {
+  let delay = initialDelay;
+  for (let i = 0; i < maxRetries; i++) {
+    try {
+      return await getDoc(docRef);
+    } catch (err: any) {
+      const errStr = err instanceof Error ? err.message : String(err);
+      const isPermissionError =
+        errStr.toLowerCase().includes("permission") ||
+        errStr.toLowerCase().includes("denied") ||
+        errStr.toLowerCase().includes("unauthenticated") ||
+        err?.code === "permission-denied";
+
+      if (isPermissionError && i < maxRetries - 1) {
+        console.warn(`[Firestore getDoc retry] Permission denied, retrying in ${delay}ms (attempt ${i + 1}/${maxRetries})...`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+        delay *= 2;
+        continue;
+      }
+      throw err;
+    }
+  }
+}
+
 /* ================= AUTHENTICATION & USER PROFILE ================= */
 
 /**
@@ -190,7 +218,7 @@ export async function registerFirebaseUser(
 
   // Check if profile was already created by authoritative server endpoint (/api/auth/register)
   try {
-    const existingSnap = await getDoc(userDocRef);
+    const existingSnap = await getDocWithRetry(userDocRef);
     if (existingSnap && existingSnap.exists()) {
       const existingData = existingSnap.data() as User;
       setLocalItem(`user_${uid}`, existingData);
@@ -249,7 +277,7 @@ export async function registerFirebaseUser(
   } catch (error) {
     // If setDoc failed (e.g. race condition where server created profile concurrently), retry reading doc
     try {
-      const retrySnap = await getDoc(userDocRef);
+      const retrySnap = await getDocWithRetry(userDocRef);
       if (retrySnap && retrySnap.exists()) {
         const retryData = retrySnap.data() as User;
         setLocalItem(`user_${uid}`, retryData);
@@ -301,7 +329,7 @@ export async function loginFirebaseUser(email: string, pass: string): Promise<Us
 
   // Check if account was marked deleted in /deletedUsers/{uid} — FAIL CLOSED
   try {
-    const deletedSnap = await getDoc(doc(db, "deletedUsers", uid));
+    const deletedSnap = await getDocWithRetry(doc(db, "deletedUsers", uid));
     if (deletedSnap.exists()) {
       await signOut(auth);
       clearUserLocalCache(uid);
@@ -322,7 +350,7 @@ export async function loginFirebaseUser(email: string, pass: string): Promise<Us
   const userDocRef = doc(db, "users", uid);
   let userSnap;
   try {
-    userSnap = await getDoc(userDocRef);
+    userSnap = await getDocWithRetry(userDocRef);
   } catch (error) {
     const errMessage = error instanceof Error ? error.message : String(error);
     if (errMessage.toLowerCase().includes('offline') || errMessage.toLowerCase().includes('network')) {
@@ -717,7 +745,7 @@ export function subscribeToFirebaseAuthState(callback: (user: User | null) => vo
     try {
       // Check if user account is marked deleted in /deletedUsers/{uid} — FAIL CLOSED
       try {
-        const deletedSnap = await getDoc(doc(db, "deletedUsers", fbUser.uid));
+        const deletedSnap = await getDocWithRetry(doc(db, "deletedUsers", fbUser.uid));
         if (deletedSnap.exists()) {
           console.warn("User account is marked as deleted in /deletedUsers/", fbUser.uid);
           await signOut(auth);
@@ -738,7 +766,7 @@ export function subscribeToFirebaseAuthState(callback: (user: User | null) => vo
 
       let userSnap;
       try {
-        userSnap = await getDoc(doc(db, "users", fbUser.uid));
+        userSnap = await getDocWithRetry(doc(db, "users", fbUser.uid));
         isFirestoreOffline = false; // Successfully connected!
       } catch (error) {
         const errMessage = error instanceof Error ? error.message : String(error);
@@ -827,7 +855,7 @@ export function subscribeToFirebaseAuthState(callback: (user: User | null) => vo
         } catch (e) {
           console.warn("Failed to create default profile in Firestore:", e);
           try {
-            const retrySnap = await getDoc(doc(db, "users", fbUser.uid));
+            const retrySnap = await getDocWithRetry(doc(db, "users", fbUser.uid));
             if (retrySnap && retrySnap.exists()) {
               const rData = retrySnap.data() as User;
               setLocalItem(`user_${fbUser.uid}`, rData);
