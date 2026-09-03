@@ -465,9 +465,12 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
       const data = await res.json();
       if (data.url) {
         window.location.href = data.url;
+      } else {
+        alert(data.userFriendlyMessage || data.error || (lang === "ar" ? "تعذر فتح بوابة إدارة الاشتراك حالياً." : "Could not open customer portal."));
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error("Portal redirect error:", err);
+      alert(lang === "ar" ? "حدث خطأ أثناء الاتصال ببوابة إدارة الاشتراكات." : "An error occurred while connecting to the subscription portal.");
     }
   };
 

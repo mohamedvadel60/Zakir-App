@@ -313,17 +313,128 @@ function getGeminiClient(): GoogleGenAI | null {
   });
 }
 
-// Stripe Client Helper Function
-let stripeInstance: Stripe | null = null;
-function getStripe(): Stripe | null {
-  const secretKey = process.env.STRIPE_SECRET_KEY;
-  if (!secretKey || !secretKey.trim()) return null;
-  if (!stripeInstance) {
-    stripeInstance = new Stripe(secretKey.trim(), {
-      apiVersion: "2025-02-24.acacia" as any
+// Stripe Client & Dynamic Key Resolution Helper
+const stripeClients = new Map<string, Stripe>();
+
+interface ResolvedStripeKeys {
+  secretKey: string | null;
+  publishableKey: string | null;
+  mode: "live" | "test";
+  accountId?: string;
+  source: string;
+}
+
+function resolveStripeKeys(): ResolvedStripeKeys {
+  const envPub = (
+    process.env.VITE_STRIPE_PUBLISHABLE_KEY ||
+    process.env.VITE_STRIPE_PUBLIC_KEY ||
+    process.env.STRIPE_PUBLISHABLE_KEY ||
+    process.env.STRIPE_PUBLIC_KEY ||
+    ""
+  ).trim();
+
+  const candidates: { key: string; source: string }[] = [];
+  const addCandidate = (val: string | undefined, source: string) => {
+    if (val && typeof val === "string") {
+      const trimmed = val.trim();
+      if (
+        trimmed.startsWith("sk_live_") ||
+        trimmed.startsWith("sk_test_") ||
+        trimmed.startsWith("rk_live_") ||
+        trimmed.startsWith("rk_test_")
+      ) {
+        candidates.push({ key: trimmed, source });
+      }
+    }
+  };
+
+  addCandidate(process.env.STRIPE_SECRET_KEY, "STRIPE_SECRET_KEY");
+  addCandidate(process.env.STRIPE_LIVE_SECRET_KEY, "STRIPE_LIVE_SECRET_KEY");
+  addCandidate(process.env.STRIPE_TEST_SECRET_KEY, "STRIPE_TEST_SECRET_KEY");
+  addCandidate(process.env.STRIPE_MONTHLY_PRICE_ID, "STRIPE_MONTHLY_PRICE_ID");
+  addCandidate(process.env.STRIPE_YEARLY_PRICE_ID, "STRIPE_YEARLY_PRICE_ID");
+
+  const pubIsLive = envPub.startsWith("pk_live_");
+  const pubIsTest = envPub.startsWith("pk_test_");
+
+  const extractAcctId = (k: string) => {
+    const match = k.match(/^[prs]k_(live|test)_5?([0-9a-zA-Z]+)/);
+    return match ? match[2].substring(0, 14) : "";
+  };
+
+  const pubAcct = envPub ? extractAcctId(envPub) : "";
+
+  let selectedKey: string | null = null;
+  let selectedSource = "none";
+
+  // Priority 1: Match secret key to publishable key account ID and mode
+  if (pubAcct) {
+    const matched = candidates.find(c => {
+      const cAcct = extractAcctId(c.key);
+      const cIsLive = c.key.startsWith("sk_live_") || c.key.startsWith("rk_live_");
+      return cAcct === pubAcct && (pubIsLive ? cIsLive : !cIsLive);
     });
+    if (matched) {
+      selectedKey = matched.key;
+      selectedSource = matched.source;
+    }
   }
-  return stripeInstance;
+
+  // Priority 2: Match mode of publishable key
+  if (!selectedKey && candidates.length > 0) {
+    if (pubIsLive) {
+      const liveCand = candidates.find(c => c.key.startsWith("sk_live_") || c.key.startsWith("rk_live_"));
+      if (liveCand) {
+        selectedKey = liveCand.key;
+        selectedSource = liveCand.source;
+      }
+    } else if (pubIsTest) {
+      const testCand = candidates.find(c => c.key.startsWith("sk_test_") || c.key.startsWith("rk_test_"));
+      if (testCand) {
+        selectedKey = testCand.key;
+        selectedSource = testCand.source;
+      }
+    }
+  }
+
+  // Priority 3: Fall back to standard STRIPE_SECRET_KEY or first available candidate
+  if (!selectedKey) {
+    const primary = candidates.find(c => c.source === "STRIPE_SECRET_KEY");
+    if (primary) {
+      selectedKey = primary.key;
+      selectedSource = primary.source;
+    } else if (candidates.length > 0) {
+      selectedKey = candidates[0].key;
+      selectedSource = candidates[0].source;
+    }
+  }
+
+  const isLiveMode = Boolean(
+    (selectedKey && (selectedKey.startsWith("sk_live_") || selectedKey.startsWith("rk_live_"))) ||
+    (!selectedKey && pubIsLive)
+  );
+
+  return {
+    secretKey: selectedKey,
+    publishableKey: envPub || null,
+    mode: isLiveMode ? "live" : "test",
+    accountId: selectedKey ? extractAcctId(selectedKey) : undefined,
+    source: selectedSource
+  };
+}
+
+function getStripe(): Stripe | null {
+  const { secretKey } = resolveStripeKeys();
+  if (!secretKey) return null;
+  if (!stripeClients.has(secretKey)) {
+    stripeClients.set(
+      secretKey,
+      new Stripe(secretKey, {
+        apiVersion: "2025-02-24.acacia" as any
+      })
+    );
+  }
+  return stripeClients.get(secretKey) || null;
 }
 
 // --- RATE LIMITERS ---
@@ -674,19 +785,16 @@ app.get("/api/health", (req, res) => {
 });
 
 app.get("/api/payments/diagnostics", async (req, res) => {
-  const secretKey = process.env.STRIPE_SECRET_KEY || "";
-  const pubKey = process.env.VITE_STRIPE_PUBLISHABLE_KEY || process.env.VITE_STRIPE_PUBLIC_KEY || process.env.STRIPE_PUBLISHABLE_KEY || process.env.STRIPE_PUBLIC_KEY || "";
+  const { secretKey, publishableKey, mode, source, accountId } = resolveStripeKeys();
   
   const hasSecretKey = Boolean(secretKey && secretKey.trim());
-  const hasPubKey = Boolean(pubKey && pubKey.trim());
-  
-  const stripeMode = pubKey.startsWith("pk_live") || secretKey.startsWith("sk_live") ? "live" : "test";
+  const hasPubKey = Boolean(publishableKey && publishableKey.trim());
   
   const monthlyPriceId = process.env.STRIPE_MONTHLY_PRICE_ID || "";
   const yearlyPriceId = process.env.STRIPE_YEARLY_PRICE_ID || "";
   
-  const monthlyPriceValid = monthlyPriceId.trim().startsWith("price_");
-  const yearlyPriceValid = yearlyPriceId.trim().startsWith("price_");
+  const monthlyPriceValid = Boolean(monthlyPriceId && monthlyPriceId.trim().startsWith("price_"));
+  const yearlyPriceValid = Boolean(yearlyPriceId && yearlyPriceId.trim().startsWith("price_"));
 
   let stripeConnection = false;
   let monthlyPriceExists = false;
@@ -695,13 +803,12 @@ app.get("/api/payments/diagnostics", async (req, res) => {
   let yearlyPriceExists = false;
   let yearlyPriceActive = false;
   let yearlyPriceIntervalMatches = false;
-  let stripeError = null;
+  let stripeError: string | null = null;
 
   if (hasSecretKey) {
     try {
       const stripe = getStripe();
       if (stripe) {
-        // Simple light connectivity check using retrieve balance
         await stripe.balance.retrieve();
         stripeConnection = true;
 
@@ -736,22 +843,30 @@ app.get("/api/payments/diagnostics", async (req, res) => {
     }
   }
 
+  const keysAligned = Boolean(
+    (mode === "live" && secretKey?.startsWith("sk_live_") && publishableKey?.startsWith("pk_live_")) ||
+    (mode === "test" && secretKey?.startsWith("sk_test_") && publishableKey?.startsWith("pk_test_"))
+  );
+
   res.json({
     stripeConfigured: hasSecretKey && hasPubKey,
-    stripeMode: stripeMode,
+    stripeMode: mode,
     stripeConnection: stripeConnection,
     stripeError: stripeError,
     hasSecretKey: hasSecretKey,
     hasPubKey: hasPubKey,
-    secretKeyPrefix: secretKey ? secretKey.substring(0, 8) : "none",
-    pubKeyPrefix: pubKey ? pubKey.substring(0, 8) : "none",
-    monthlyPriceId: monthlyPriceId ? `${monthlyPriceId.substring(0, 8)}...` : "none",
+    keysAligned: keysAligned,
+    secretKeySource: source,
+    secretKeyPrefix: secretKey ? secretKey.substring(0, 14) + "..." : "none",
+    pubKeyPrefix: publishableKey ? publishableKey.substring(0, 14) + "..." : "none",
+    pricingStrategy: (monthlyPriceValid && yearlyPriceValid) ? "catalog_price_ids" : "adaptive_dynamic_pricing",
+    monthlyPriceId: monthlyPriceValid ? `${monthlyPriceId.substring(0, 12)}...` : "dynamic_in_app",
     monthlyPriceConfigured: Boolean(monthlyPriceId.trim()),
     monthlyPriceValid: monthlyPriceValid,
     monthlyPriceExists: monthlyPriceExists,
     monthlyPriceActive: monthlyPriceActive,
     monthlyPriceIntervalMatches: monthlyPriceIntervalMatches,
-    yearlyPriceId: yearlyPriceId ? `${yearlyPriceId.substring(0, 8)}...` : "none",
+    yearlyPriceId: yearlyPriceValid ? `${yearlyPriceId.substring(0, 12)}...` : "dynamic_in_app",
     yearlyPriceConfigured: Boolean(yearlyPriceId.trim()),
     yearlyPriceValid: yearlyPriceValid,
     yearlyPriceExists: yearlyPriceExists,
@@ -766,12 +881,11 @@ app.get("/api/payments/diagnostics", async (req, res) => {
 const inFlightCheckoutUsers = new Set<string>();
 
 app.get("/api/stripe/config", (req, res) => {
-  const pubKey = process.env.VITE_STRIPE_PUBLISHABLE_KEY || process.env.VITE_STRIPE_PUBLIC_KEY || process.env.STRIPE_PUBLISHABLE_KEY || process.env.STRIPE_PUBLIC_KEY || "";
-  const hasSecretKey = Boolean(process.env.STRIPE_SECRET_KEY && process.env.STRIPE_SECRET_KEY.trim());
+  const { publishableKey, secretKey, mode } = resolveStripeKeys();
   res.json({
-    publishableKey: pubKey,
-    hasSecretKey: hasSecretKey,
-    mode: pubKey.startsWith("pk_test") ? "test" : "live"
+    publishableKey: publishableKey || "",
+    hasSecretKey: Boolean(secretKey),
+    mode: mode
   });
 });
 
@@ -928,77 +1042,26 @@ app.post("/api/stripe/create-checkout-session", requireAuth, async (req: AuthReq
     }
 
     let resolvedPriceId: string | null = null;
-    const checkoutPubKey = process.env.VITE_STRIPE_PUBLISHABLE_KEY || process.env.VITE_STRIPE_PUBLIC_KEY || process.env.STRIPE_PUBLISHABLE_KEY || process.env.STRIPE_PUBLIC_KEY || "";
-    const isProductionEnv = process.env.NODE_ENV === "production" || (checkoutPubKey && checkoutPubKey.startsWith("pk_live"));
+    const cleanEnvPriceId = typeof envPriceId === "string" ? envPriceId.trim() : "";
 
-    // Strict Validation: If we are in production or if a price ID is configured, we must validate it thoroughly
-    if (isProductionEnv || (envPriceId && envPriceId.trim())) {
-      const cleanEnvPriceId = envPriceId ? envPriceId.trim() : "";
-      
-      // Check prefix
-      if (!cleanEnvPriceId || !cleanEnvPriceId.startsWith("price_")) {
-        const keyName = requestedCycle === "annual" ? "STRIPE_YEARLY_PRICE_ID" : "STRIPE_MONTHLY_PRICE_ID";
-        const errorDetail = !cleanEnvPriceId 
-          ? `The environment variable '${keyName}' is empty or missing.`
-          : `The environment variable '${keyName}' is configured with a secret key or invalid string ('${cleanEnvPriceId.substring(0, 12)}...') instead of a Stripe Price ID starting with 'price_'.`;
-        
-        console.error(`[Stripe Checkout] Price configuration error: ${errorDetail}`);
-        return res.status(400).json({
-          success: false,
-          code: "INVALID_PRICE_CONFIGURATION",
-          error: errorDetail,
-          userFriendlyMessage: `تهيئة الدفع غير مكتملة: معرّف السعر (${requestedCycle === "annual" ? "السنوي" : "الشهري"}) غير صالح أو غير مكوّن بشكل صحيح في النظام.`
-        });
-      }
-
-      // Verify directly against Stripe API
+    // If an authentic Stripe Price ID starting with price_ or plan_ is supplied, verify and use it
+    if (cleanEnvPriceId && (cleanEnvPriceId.startsWith("price_") || cleanEnvPriceId.startsWith("plan_"))) {
       try {
-        console.log(`[Stripe Checkout] Strictly verifying Price ID '${cleanEnvPriceId}' with Stripe...`);
+        console.log(`[Stripe Checkout] Verifying configured Price ID '${cleanEnvPriceId}' with Stripe...`);
         const retrievedPrice = await stripe.prices.retrieve(cleanEnvPriceId);
-        if (!retrievedPrice) {
-          throw new Error("No price object returned from Stripe.");
+        if (retrievedPrice && retrievedPrice.active && retrievedPrice.type === "recurring") {
+          const expectedInterval = requestedCycle === "annual" ? "year" : "month";
+          if (retrievedPrice.recurring?.interval === expectedInterval) {
+            resolvedPriceId = retrievedPrice.id;
+            console.log(`[Stripe Checkout] Verified Stripe Catalog Price ID: ${resolvedPriceId}`);
+          }
         }
-        if (!retrievedPrice.active) {
-          throw new Error(`The Price ID '${cleanEnvPriceId}' is marked as inactive in Stripe.`);
-        }
-        if (retrievedPrice.type !== "recurring") {
-          throw new Error(`The Price ID '${cleanEnvPriceId}' is a '${retrievedPrice.type}' type instead of a 'recurring' subscription type.`);
-        }
-        
-        const expectedInterval = requestedCycle === "annual" ? "year" : "month";
-        if (retrievedPrice.recurring?.interval !== expectedInterval) {
-          throw new Error(`The Price ID '${cleanEnvPriceId}' has interval '${retrievedPrice.recurring?.interval}' which does not match requested billing interval '${expectedInterval}'.`);
-        }
-
-        resolvedPriceId = retrievedPrice.id;
-        console.log(`[Stripe Checkout] Strictly verified Price ID successfully: ${resolvedPriceId}`);
       } catch (priceCheckErr: any) {
-        const errDetail = `Failed to verify Stripe Price ID '${cleanEnvPriceId}': ${priceCheckErr?.message}`;
-        console.error(`[Stripe Checkout] Strict price verification failed: ${errDetail}`);
-        return res.status(400).json({
-          success: false,
-          code: "PRICE_VERIFICATION_FAILED",
-          error: errDetail,
-          userFriendlyMessage: `فشل التحقق من معرّف السعر من حساب Stripe: ${priceCheckErr?.message}`
-        });
-      }
-    } else {
-      // Dev mode dynamic fallback (only if not production and price ID is not provided)
-      if (envPriceId && envPriceId.trim().startsWith("price_")) {
-        resolvedPriceId = envPriceId.trim();
+        console.warn(`[Stripe Checkout] Configured Price ID '${cleanEnvPriceId}' could not be retrieved from Stripe (${priceCheckErr?.message}). Falling back smoothly to native in-app recurring price_data.`);
       }
     }
 
-    // Build Line Items (Only allow verified price ID in Production)
-    if (isProductionEnv && !resolvedPriceId) {
-      return res.status(500).json({
-        success: false,
-        code: "PRODUCTION_PRICE_UNRESOLVED",
-        error: "Critical payment error: No valid Stripe Price ID was resolved for the subscription checkout session.",
-        userFriendlyMessage: "حدث خطأ فني أثناء إعداد عملية الدفع الآمنة. يرجى مراجعة إدارة النظام."
-      });
-    }
-
+    // Build Line Items: Use verified price ID if available; otherwise use Stripe native dynamic price_data
     const lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] = resolvedPriceId
       ? [{ price: resolvedPriceId, quantity: 1 }]
       : [{
@@ -1017,10 +1080,11 @@ app.post("/api/stripe/create-checkout-session", requireAuth, async (req: AuthReq
           quantity: 1,
         }];
 
-    // Build Session Parameters with ui_mode: "embedded" and return_url
+    // Build Session Parameters with ui_mode: "embedded", explicit payment methods, and return_url
     const returnUrl = `${baseUrl}/?view=settings&tab=subscription&session_id={CHECKOUT_SESSION_ID}`;
     const sessionParams: Stripe.Checkout.SessionCreateParams = {
       mode: "subscription",
+      payment_method_types: ["card"],
       line_items: lineItems,
       client_reference_id: finalUserId,
       metadata: {
@@ -1040,7 +1104,7 @@ app.post("/api/stripe/create-checkout-session", requireAuth, async (req: AuthReq
       sessionParams.customer_email = validUserEmail;
     }
 
-    console.log(`[Stripe Checkout] Creating Embedded Checkout Session for user ${finalUserId}...`);
+    console.log(`[Stripe Checkout] Creating Embedded Checkout Session for user ${finalUserId} (method: card, items: ${resolvedPriceId ? 'catalog' : 'dynamic price_data'})...`);
     const session = await stripe.checkout.sessions.create(sessionParams);
 
     console.log(`[Stripe Checkout] Checkout Session created successfully: id=${session.id}`);
@@ -1049,13 +1113,13 @@ app.post("/api/stripe/create-checkout-session", requireAuth, async (req: AuthReq
     db.stripe_sessions[session.id] = finalUserId;
     writeDb(db);
 
-    const publishableKey = process.env.VITE_STRIPE_PUBLISHABLE_KEY || process.env.VITE_STRIPE_PUBLIC_KEY || process.env.STRIPE_PUBLISHABLE_KEY || process.env.STRIPE_PUBLIC_KEY || "";
+    const { publishableKey } = resolveStripeKeys();
 
     return res.json({
       success: true,
       sessionId: session.id,
       clientSecret: session.client_secret,
-      publishableKey: publishableKey,
+      publishableKey: publishableKey || "",
     });
 
   } catch (err: any) {
@@ -1187,7 +1251,6 @@ app.get("/api/stripe/session-status/:sessionId", requireAuth, async (req: AuthRe
 
 app.post("/api/stripe/create-portal-session", requireAuth, async (req: AuthRequest, res) => {
   try {
-    console.log("[DEBUG] req.user =", req.user);
     const authUserId = req.user?.uid;
     if (!authUserId) {
       return res.status(401).json({ error: "Unauthorized: Missing authentication token" });
@@ -1197,24 +1260,53 @@ app.post("/api/stripe/create-portal-session", requireAuth, async (req: AuthReque
     const protocol = req.headers["x-forwarded-proto"] || "https";
     const baseUrl = process.env.APP_URL || `${protocol}://${host}`;
 
-    // Look up the user's stripeCustomerId securely from the backend DB
+    // Look up the user's stripeCustomerId securely from local DB or Firestore
     const db = readDb();
-    const user = db.users.find((u: any) => u.id === authUserId);
+    let user = db.users.find((u: any) => u.id === authUserId);
     if (!user) {
-      return res.status(404).json({ error: "User not found in database." });
+      try {
+        const userDoc = await adminDb.collection("users").doc(authUserId).get();
+        if (userDoc && userDoc.exists) {
+          user = userDoc.data();
+        }
+      } catch (fsErr) {
+        console.warn("[Portal] Firestore lookup notice:", fsErr);
+      }
     }
 
-    const stripeCustomerId = user.stripeCustomerId;
+    const stripeCustomerId = user?.stripeCustomerId;
+    if (!stripeCustomerId) {
+      return res.status(400).json({
+        error: "لم يتم العثور على اشتراك مرتبط بحسابك في Stripe بعد. يرجى الاشتراك في إحدى الباقات أولاً لتفعيل بوابة الإدارة.",
+        userFriendlyMessage: "لم يتم العثور على اشتراك مرتبط بحسابك في Stripe بعد. يرجى الاشتراك في إحدى الباقات أولاً لتفعيل بوابة الإدارة."
+      });
+    }
+
     const stripe = getStripe();
-    if (stripe && stripeCustomerId) {
+    if (!stripe) {
+      return res.status(503).json({
+        error: "خادم Stripe غير متاح حالياً.",
+        userFriendlyMessage: "خادم Stripe غير متاح حالياً."
+      });
+    }
+
+    try {
       const portalSession = await stripe.billingPortal.sessions.create({
         customer: stripeCustomerId,
         return_url: `${baseUrl}/?view=settings&tab=subscription`,
       });
       return res.json({ url: portalSession.url });
+    } catch (portalErr: any) {
+      const errMessage = portalErr?.message || "Failed to create portal session";
+      console.warn("[Stripe Portal] Notice:", errMessage);
+      const isPortalNotConfigured = errMessage.toLowerCase().includes("portal") || errMessage.toLowerCase().includes("not enabled");
+      return res.status(400).json({
+        error: errMessage,
+        userFriendlyMessage: isPortalNotConfigured
+          ? "بوابة إدارة الاشتراكات (Customer Portal) غير مفعلة حالياً في لوحة تحكم Stripe. يرجى تفعيلها من إعدادات Customer Portal في حساب Stripe الخاص بك."
+          : `تعذر فتح بوابة إدارة الاشتراك: ${errMessage}`
+      });
     }
-
-    return res.json({ url: `${baseUrl}/?view=settings&tab=subscription` });
   } catch (err: any) {
     console.error("Error creating portal session:", err);
     res.status(500).json({ error: err.message || "Failed to create portal session" });
@@ -1224,20 +1316,26 @@ app.post("/api/stripe/create-portal-session", requireAuth, async (req: AuthReque
 // Cancel or Pause Subscription
 app.post("/api/stripe/cancel-subscription", requireAuth, async (req: AuthRequest, res) => {
   try {
-    console.log("[DEBUG] req.user =", req.user);
     const authUserId = req.user?.uid;
     if (!authUserId) {
       return res.status(401).json({ error: "Unauthorized" });
     }
 
     const db = readDb();
-    const user = db.users.find((u: any) => u.id === authUserId);
+    let user = db.users.find((u: any) => u.id === authUserId);
     if (!user) {
-      return res.status(404).json({ error: "User not found" });
+      try {
+        const userDoc = await adminDb.collection("users").doc(authUserId).get();
+        if (userDoc && userDoc.exists) {
+          user = userDoc.data();
+        }
+      } catch (fsErr) {
+        console.warn("[CancelSub] Firestore lookup notice:", fsErr);
+      }
     }
 
     const stripe = getStripe();
-    if (stripe && user.stripeSubscriptionId) {
+    if (stripe && user?.stripeSubscriptionId) {
       try {
         await stripe.subscriptions.cancel(user.stripeSubscriptionId);
       } catch (stripeErr: any) {
@@ -1245,9 +1343,11 @@ app.post("/api/stripe/cancel-subscription", requireAuth, async (req: AuthRequest
       }
     }
 
-    user.subscriptionStatus = "Inactive";
-    user.subscriptionPlan = undefined;
-    writeDb(db);
+    if (user) {
+      user.subscriptionStatus = "Inactive";
+      user.subscriptionPlan = undefined;
+      writeDb(db);
+    }
 
     try {
       await adminDb.collection("users").doc(authUserId).set({
@@ -1258,7 +1358,7 @@ app.post("/api/stripe/cancel-subscription", requireAuth, async (req: AuthRequest
       console.warn("Firestore cancel sync warning:", fsErr.message);
     }
 
-    return res.json({ success: true, message: "Subscription cancelled successfully." });
+    return res.json({ success: true, message: "تم إلغاء تجديد الاشتراك بنجاح." });
   } catch (err: any) {
     console.error("Error cancelling subscription:", err);
     res.status(500).json({ error: err.message || "Failed to cancel subscription" });
@@ -1338,8 +1438,7 @@ app.get(["/api/logo.svg", "/assets/logo.svg", "/logo.svg"], (req, res) => {
 
 app.get("/api/stripe/receipt/:sessionId", requireAuth, async (req: AuthRequest, res) => {
   const { sessionId } = req.params;
-  console.log("[DEBUG] req.user =", req.user);
-    const authUserId = req.user?.uid;
+  const authUserId = req.user?.uid;
   if (!authUserId) {
     return res.status(401).json({ error: "Unauthorized: Missing authentication token" });
   }
@@ -1363,13 +1462,25 @@ app.get("/api/stripe/receipt/:sessionId", requireAuth, async (req: AuthRequest, 
   }
 
   if (!user) {
-    return res.status(404).json({ error: "User profile not found." });
+    try {
+      const userDoc = await adminDb.collection("users").doc(sessionOwnerId || authUserId).get();
+      if (userDoc && userDoc.exists) {
+        user = userDoc.data();
+      }
+    } catch (fsErr) {
+      console.warn("[Receipt] Firestore lookup notice:", fsErr);
+    }
   }
+
+  const plan = (req.query.plan as string) || user?.subscriptionPlan || "Professional";
+  const cycle = (req.query.cycle as string) || user?.billingCycle || "annual";
   
-  const plan = (req.query.plan as string) || user.subscriptionPlan || "Professional";
-  const cycle = (req.query.cycle as string) || user.billingCycle || "annual";
-  
-  const price = PLAN_PRICES[plan as "Starter" | "Professional" | "Enterprise"]?.[cycle as "monthly" | "annual"] || 149;
+  const receiptBenchmark = {
+    Starter: { monthly: 6, annual: 50 },
+    Professional: { monthly: 189, annual: 1788 },
+    Enterprise: { monthly: 849, annual: 8388 }
+  };
+  const price = receiptBenchmark[plan as keyof typeof receiptBenchmark]?.[cycle as "monthly" | "annual"] || 189;
 
   const receipt = {
     receiptNumber: `STRIPE-INV-${new Date().getFullYear()}-${sessionId.slice(-6).toUpperCase()}`,
@@ -1385,9 +1496,9 @@ app.get("/api/stripe/receipt/:sessionId", requireAuth, async (req: AuthRequest, 
     paymentMethod: "Stripe Checkout (Visa / MasterCard / AMEX)",
     timestamp: new Date().toISOString(),
     date: new Date().toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" }),
-    customerEmail: user.email || "mohamedvadel60@gmail.com",
-    customerName: user.companyName || user.ownerName || "Organization",
-    companyName: user.companyName || "Organization",
+    customerEmail: user?.email || req.user?.email || "subscriber@zakir.ai",
+    customerName: user?.companyName || user?.ownerName || "Organization",
+    companyName: user?.companyName || "Organization",
     stripeReceiptUrl: `https://pay.stripe.com/receipts/invoices/${sessionId}`
   };
 

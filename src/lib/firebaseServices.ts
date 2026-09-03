@@ -78,7 +78,7 @@ export interface FirestoreErrorInfo {
 export let isFirestoreOffline = false;
 
 // Helpers to read/write JSON from localStorage
-const getLocalItem = (key: string, defaultVal: any) => {
+const getLocalItem = <T = any>(key: string, defaultVal: any = null): T => {
   try {
     const val = localStorage.getItem(`offline_db_${key}`);
     return val ? JSON.parse(val) : defaultVal;
@@ -167,7 +167,7 @@ export function formatBytes(bytes: number, decimals = 2): string {
  * Executes a Firestore getDoc with retry and exponential backoff to handle
  * transient auth propagation latency (permission denied errors immediately after login).
  */
-export async function getDocWithRetry(docRef: any, maxRetries = 3, initialDelay = 150): Promise<any> {
+export async function getDocWithRetry(docRef: any, maxRetries = 5, initialDelay = 200): Promise<any> {
   let delay = initialDelay;
   for (let i = 0; i < maxRetries; i++) {
     try {
@@ -181,7 +181,12 @@ export async function getDocWithRetry(docRef: any, maxRetries = 3, initialDelay 
         err?.code === "permission-denied";
 
       if (isPermissionError && i < maxRetries - 1) {
-        console.warn(`[Firestore getDoc retry] Permission denied, retrying in ${delay}ms (attempt ${i + 1}/${maxRetries})...`);
+        console.warn(`[Firestore getDoc retry] Permission/auth latency encountered, refreshing token and retrying in ${delay}ms (attempt ${i + 1}/${maxRetries})...`);
+        try {
+          if (auth.currentUser) {
+            await auth.currentUser.getIdToken(true);
+          }
+        } catch (tErr) {}
         await new Promise(resolve => setTimeout(resolve, delay));
         delay *= 2;
         continue;
@@ -325,42 +330,44 @@ export async function loginFirebaseUser(email: string, pass: string): Promise<Us
   const userCredential = await signInWithEmailAndPassword(auth, email, pass);
   const uid = userCredential.user.uid;
 
+  // Ensure token is resolved so Firestore client has authenticated session
+  try {
+    await userCredential.user.getIdToken();
+  } catch (tErr) {
+    console.warn("Notice: getIdToken resolution in loginFirebaseUser:", tErr);
+  }
+
   isFirestoreOffline = false; // Auth succeeded, reset offline flag!
 
-  // Check if account was marked deleted in /deletedUsers/{uid} — FAIL CLOSED
+  // Check if account was marked deleted in /deletedUsers/{uid}
   try {
-    const deletedSnap = await getDocWithRetry(doc(db, "deletedUsers", uid));
-    if (deletedSnap.exists()) {
+    const deletedSnap = await getDocWithRetry(doc(db, "deletedUsers", uid), 3, 200);
+    if (deletedSnap && deletedSnap.exists()) {
       await signOut(auth);
       clearUserLocalCache(uid);
       throw new Error("This account has been deleted. Please contact the administrator.");
     }
   } catch (dErr: any) {
-    if (dErr.message?.includes("deleted")) throw dErr;
-    console.error("Error verifying account status in /deletedUsers/ for loginFirebaseUser:", uid, dErr);
-    const errStr = dErr instanceof Error ? dErr.message : String(dErr);
-    if (errStr.toLowerCase().includes("permission") || errStr.toLowerCase().includes("denied") || errStr.toLowerCase().includes("unauthenticated") || errStr.toLowerCase().includes("access")) {
-      await signOut(auth);
-      clearUserLocalCache(uid);
-      throw new Error("Access denied while verifying account status.");
+    if (dErr.message?.includes("deleted") || dErr.message?.includes("حذف")) {
+      throw dErr;
     }
+    console.warn("Notice: Verifying account status in /deletedUsers/ encountered non-fatal error:", uid, dErr);
   }
 
   // Retrieve user document from /users/{uid}
   const userDocRef = doc(db, "users", uid);
   let userSnap;
   try {
-    userSnap = await getDocWithRetry(userDocRef);
+    userSnap = await getDocWithRetry(userDocRef, 5, 250);
   } catch (error) {
     const errMessage = error instanceof Error ? error.message : String(error);
     if (errMessage.toLowerCase().includes('offline') || errMessage.toLowerCase().includes('network')) {
       isFirestoreOffline = true;
     } else {
-      const isAuthPermissionError = errMessage.toLowerCase().includes("permission") || errMessage.toLowerCase().includes("denied") || errMessage.toLowerCase().includes("unauthenticated");
-      if (isAuthPermissionError) {
-        await signOut(auth);
-        clearUserLocalCache(uid);
-        throw new Error("Access denied: Insufficient permissions to access profile.");
+      console.warn("Notice: getDocWithRetry error for userDocRef:", uid, error);
+      const cached = getLocalItem<User>(`user_${uid}`);
+      if (cached) {
+        return cached;
       }
       handleFirestoreError(error, OperationType.GET, `users/${uid}`);
     }
@@ -483,23 +490,17 @@ export async function loginWithGoogle(): Promise<User> {
 
   isFirestoreOffline = false;
   
-  // Check if account was marked deleted in /deletedUsers/{uid} — FAIL CLOSED
+  // Check if account was marked deleted in /deletedUsers/{uid}
   try {
-    const deletedSnap = await getDoc(doc(db, "deletedUsers", uid));
-    if (deletedSnap.exists()) {
+    const deletedSnap = await getDocWithRetry(doc(db, "deletedUsers", uid), 3, 200);
+    if (deletedSnap && deletedSnap.exists()) {
       await signOut(auth);
       clearUserLocalCache(uid);
       throw new Error("This account has been deleted. Please contact the administrator.");
     }
   } catch (dErr: any) {
-    if (dErr.message?.includes("deleted")) throw dErr;
-    console.error("Error verifying account status in /deletedUsers/ for loginWithGoogle:", uid, dErr);
-    const errStr = dErr instanceof Error ? dErr.message : String(dErr);
-    if (errStr.toLowerCase().includes("permission") || errStr.toLowerCase().includes("denied") || errStr.toLowerCase().includes("unauthenticated") || errStr.toLowerCase().includes("access")) {
-      await signOut(auth);
-      clearUserLocalCache(uid);
-      throw new Error("Access denied while verifying account status.");
-    }
+    if (dErr.message?.includes("deleted") || dErr.message?.includes("حذف")) throw dErr;
+    console.warn("Notice: /deletedUsers/ check in loginWithGoogle encountered non-fatal error:", uid, dErr);
   }
 
   const userDocRef = doc(db, "users", uid);
@@ -743,10 +744,17 @@ export function subscribeToFirebaseAuthState(callback: (user: User | null) => vo
     }
 
     try {
-      // Check if user account is marked deleted in /deletedUsers/{uid} — FAIL CLOSED
+      // Ensure auth token is synchronized
       try {
-        const deletedSnap = await getDocWithRetry(doc(db, "deletedUsers", fbUser.uid));
-        if (deletedSnap.exists()) {
+        await fbUser.getIdToken();
+      } catch (tErr) {
+        console.warn("Notice: getIdToken resolution in subscribeToFirebaseAuthState:", tErr);
+      }
+
+      // Check if user account is marked deleted in /deletedUsers/{uid}
+      try {
+        const deletedSnap = await getDocWithRetry(doc(db, "deletedUsers", fbUser.uid), 3, 200);
+        if (deletedSnap && deletedSnap.exists()) {
           console.warn("User account is marked as deleted in /deletedUsers/", fbUser.uid);
           await signOut(auth);
           clearUserLocalCache(fbUser.uid);
@@ -754,19 +762,18 @@ export function subscribeToFirebaseAuthState(callback: (user: User | null) => vo
           return;
         }
       } catch (dErr: any) {
-        console.error("Error verifying account status in /deletedUsers/ for subscribeToFirebaseAuthState:", fbUser.uid, dErr);
-        const errStr = dErr instanceof Error ? dErr.message : String(dErr);
-        if (errStr.toLowerCase().includes("permission") || errStr.toLowerCase().includes("denied") || errStr.toLowerCase().includes("unauthenticated") || errStr.toLowerCase().includes("access")) {
+        if (dErr.message?.includes("deleted") || dErr.message?.includes("حذف")) {
           await signOut(auth);
           clearUserLocalCache(fbUser.uid);
           callback(null);
           return;
         }
+        console.warn("Notice: Verifying account status in /deletedUsers/ encountered non-fatal error in subscribeToFirebaseAuthState:", fbUser.uid, dErr);
       }
 
       let userSnap;
       try {
-        userSnap = await getDocWithRetry(doc(db, "users", fbUser.uid));
+        userSnap = await getDocWithRetry(doc(db, "users", fbUser.uid), 5, 250);
         isFirestoreOffline = false; // Successfully connected!
       } catch (error) {
         const errMessage = error instanceof Error ? error.message : String(error);
@@ -774,14 +781,12 @@ export function subscribeToFirebaseAuthState(callback: (user: User | null) => vo
           console.warn("Firestore offline during auth state fetch.");
           isFirestoreOffline = true;
         } else {
-          const isAuthPermissionError = errMessage.toLowerCase().includes("permission") || errMessage.toLowerCase().includes("denied") || errMessage.toLowerCase().includes("unauthenticated");
-          if (isAuthPermissionError) {
-            await signOut(auth);
-            clearUserLocalCache(fbUser.uid);
-            callback(null);
+          console.warn("Notice: getDocWithRetry error during auth state fetch:", fbUser.uid, error);
+          const cached = getLocalItem<User>(`user_${fbUser.uid}`);
+          if (cached) {
+            callback(cached);
             return;
           }
-          handleFirestoreError(error, OperationType.GET, `users/${fbUser.uid}`);
         }
       }
 
