@@ -826,6 +826,7 @@ export default function App() {
     const errCode = ((err?.code || "") as string).toLowerCase().trim();
     const lowerMsg = errMsg.toLowerCase();
 
+    // 1. Unauthorized Domain
     if (
       errCode === "auth/unauthorized-domain" || 
       lowerMsg.includes("unauthorized-domain") || 
@@ -869,6 +870,68 @@ This hosting domain (**${currentDomain}**) has not been authorized in your Fireb
       }
     }
 
+    // 2. Disabled Account
+    if (
+      errCode === "auth/user-disabled" ||
+      lowerMsg.includes("user-disabled") ||
+      lowerMsg.includes("admin_deleted_blocked")
+    ) {
+      return lang === "ar" 
+        ? "هذا الحساب معطّل حالياً. يرجى تقديم طلب استعادة الحساب أو التواصل مع الإدارة." 
+        : lang === "fr" 
+        ? "Ce compte est actuellement désactivé. Veuillez soumettre une demande de réactivation." 
+        : "This account is currently disabled. Please submit an account recovery request.";
+    }
+
+    // 3. Rate Limit / Too Many Requests
+    if (
+      errCode === "auth/too-many-requests" ||
+      lowerMsg.includes("too-many-requests") ||
+      lowerMsg.includes("too many login") ||
+      lowerMsg.includes("too many requests") ||
+      lowerMsg.includes("تم تجاوز عدد المحاولات")
+    ) {
+      return lang === "ar" 
+        ? "تم حظر الطلبات مؤقتاً لكثرة المحاولات. يرجى الانتظار دقيقة والمحاولة لاحقاً." 
+        : lang === "fr" 
+        ? "Trop de tentatives infructueuses. Veuillez patienter une minute et réessayer." 
+        : "Too many failed attempts. Please wait a minute and try again.";
+    }
+
+    // 4. Network / Connection Errors
+    if (
+      errCode === "auth/network-request-failed" ||
+      lowerMsg.includes("network-request-failed") ||
+      lowerMsg.includes("failed to fetch") ||
+      lowerMsg.includes("networkerror") ||
+      lowerMsg.includes("<!doctype") ||
+      lowerMsg.includes("<html") ||
+      lowerMsg.includes("unexpected token") ||
+      lowerMsg.includes("not valid json") ||
+      lowerMsg.includes("json.parse") ||
+      lowerMsg.includes("syntaxerror")
+    ) {
+      return lang === "ar" 
+        ? "تعذر إتمام العملية بسبب انقطاع مؤقت في الاتصال. يرجى التحقق من اتصال الإنترنت والمحاولة مجدداً." 
+        : lang === "fr" 
+        ? "Impossible de se connecter en raison d'une interruption réseau temporaire. Veuillez vérifier votre connexion." 
+        : "Unable to sign in due to a temporary connection issue. Please check your internet connection and try again.";
+    }
+
+    // 5. User Not Found
+    if (
+      errCode === "auth/user-not-found" ||
+      lowerMsg.includes("user-not-found") ||
+      lowerMsg.includes("email_not_found")
+    ) {
+      return lang === "ar" 
+        ? "لم يتم العثور على حساب مسجل بهذا البريد الإلكتروني." 
+        : lang === "fr" 
+        ? "Aucun compte trouvé avec cette adresse e-mail." 
+        : "No registered account found for this email.";
+    }
+
+    // 6. Invalid Credentials (Specific and Fallback matching for login failure)
     if (
       errCode === "auth/invalid-credential" || 
       errCode === "auth/invalid-login-credentials" ||
@@ -879,7 +942,14 @@ This hosting domain (**${currentDomain}**) has not been authorized in your Fireb
       lowerMsg.includes("wrong-password") ||
       lowerMsg.includes("invalid password") ||
       lowerMsg.includes("invalid email or password") ||
-      lowerMsg.includes("invalid-password")
+      lowerMsg.includes("invalid-password") ||
+      lowerMsg.includes("فشل تسجيل الدخول") ||
+      lowerMsg.includes("login failed") ||
+      lowerMsg.includes("login_failed") ||
+      lowerMsg.includes("failed to log in") ||
+      lowerMsg.includes("failed to login") ||
+      lowerMsg.includes("authentication failed") ||
+      lowerMsg.includes("بيانات الدخول غير صحيحة")
     ) {
       return lang === "ar" 
         ? "بيانات الدخول غير صحيحة. يرجى التحقق من البريد الإلكتروني وكلمة المرور." 
@@ -888,58 +958,7 @@ This hosting domain (**${currentDomain}**) has not been authorized in your Fireb
         : "Invalid login credentials. Please check your email and password.";
     }
 
-    if (
-      errCode === "auth/user-not-found" ||
-      lowerMsg.includes("user-not-found") ||
-      lowerMsg.includes("email_not_found")
-    ) {
-      return lang === "ar" 
-        ? "لم يتم العثور على حساب مسجل بهذا البريد الإلكتروني." 
-        : lang === "fr" 
-        ? "Aucun compte trouvé avec cet e-mail." 
-        : "No registered account found for this email.";
-    }
-
-    if (
-      errCode === "auth/user-disabled" ||
-      lowerMsg.includes("user-disabled")
-    ) {
-      return lang === "ar" 
-        ? "هذا الحساب معطّل حالياً. يرجى تقديم طلب استعادة الحساب." 
-        : lang === "fr" 
-        ? "Ce compte est actuellement désactivé." 
-        : "This account is currently disabled. Please submit an account recovery request.";
-    }
-
-    if (
-      errCode === "auth/network-request-failed" ||
-      lowerMsg.includes("network-request-failed") ||
-      lowerMsg.includes("failed to fetch") ||
-      lowerMsg.includes("<!doctype") ||
-      lowerMsg.includes("<html") ||
-      lowerMsg.includes("unexpected token") ||
-      lowerMsg.includes("not valid json") ||
-      lowerMsg.includes("json.parse") ||
-      lowerMsg.includes("syntaxerror")
-    ) {
-      return lang === "ar" 
-        ? "تعذر إتمام العملية بسبب انقطاع مؤقت في الاتصال. يرجى التحقق من بيانات الدخول والمحاولة مجدداً." 
-        : lang === "fr" 
-        ? "Impossible de se connecter en raison d'une interruption temporaire. Veuillez vérifier vos identifiants et réessayer." 
-        : "Unable to sign in due to a temporary connection issue. Please check your credentials and try again.";
-    }
-
-    if (
-      errCode === "auth/too-many-requests" ||
-      lowerMsg.includes("too-many-requests")
-    ) {
-      return lang === "ar" 
-        ? "تم حظر الطلبات مؤقتاً لكثرة المحاولات الفاشلة. يرجى المحاولة لاحقاً." 
-        : lang === "fr" 
-        ? "Trop de tentatives. Veuillez réessayer plus tard." 
-        : "Too many failed attempts. Please try again later.";
-    }
-
+    // 7. Other Specific Firebase Statuses
     if (errCode === "auth/operation-not-allowed" || lowerMsg.includes("operation-not-allowed")) {
       return lang === "ar" 
         ? "طريقة تسجيل الدخول غير مفعّلة في النظام." 
@@ -962,6 +981,7 @@ This hosting domain (**${currentDomain}**) has not been authorized in your Fireb
         : "The password is too weak (minimum 6 characters).";
     }
 
+    // 8. Clean custom human-readable server message if provided
     let cleanMsg = errMsg;
     if (cleanMsg.includes("Firebase:")) {
       cleanMsg = cleanMsg.replace(/^Firebase:\s*/i, "").trim();
@@ -976,7 +996,7 @@ This hosting domain (**${currentDomain}**) has not been authorized in your Fireb
       return lang === "ar"
         ? "بيانات الدخول غير صحيحة. يرجى التحقق من البريد الإلكتروني وكلمة المرور."
         : lang === "fr"
-        ? "Identifiants invalides. Veuillez vérifier vos identifiants."
+        ? "Identifiants invalides. Veuillez vérifier votre e-mail et votre mot de passe."
         : "Invalid login credentials. Please check your email and password.";
     }
     
@@ -991,13 +1011,22 @@ This hosting domain (**${currentDomain}**) has not been authorized in your Fireb
     }
     clean = clean.replace(/^[.\s:]+/, "").trim();
 
-    if (!clean || clean.length <= 1) {
+    const lowerClean = clean.toLowerCase();
+    if (
+      !clean || 
+      clean.length <= 1 ||
+      lowerClean === "فشل تسجيل الدخول" ||
+      lowerClean === "فشل تسجيل الدخول." ||
+      lowerClean === "login failed" ||
+      lowerClean === "login failed."
+    ) {
       clean = lang === "ar"
         ? "بيانات الدخول غير صحيحة. يرجى التحقق من البريد الإلكتروني وكلمة المرور."
-        : "Invalid login credentials. Please check your credentials.";
+        : lang === "fr"
+        ? "Identifiants invalides. Veuillez vérifier votre e-mail et votre mot de passe."
+        : "Invalid login credentials. Please check your email and password.";
     }
 
-    const lowerClean = clean.toLowerCase();
     if (
       lowerClean.includes("<!doctype") ||
       lowerClean.includes("<html") ||

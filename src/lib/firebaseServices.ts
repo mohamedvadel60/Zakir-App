@@ -418,7 +418,10 @@ export async function loginFirebaseUser(email: string, pass: string): Promise<Us
       body: JSON.stringify({ email: normalizedEmail, password: pass })
     });
     
-    const srvData = await safeJsonResponse(srvRes, "فشل تسجيل الدخول");
+    const srvData = await safeJsonResponse(
+      srvRes,
+      "بيانات الدخول غير صحيحة. يرجى التحقق من البريد الإلكتروني وكلمة المرور."
+    );
 
     if (srvRes.ok && srvData && (srvData.user || srvData.id)) {
       const authenticatedUser: User = srvData.user || srvData;
@@ -435,12 +438,34 @@ export async function loginFirebaseUser(email: string, pass: string): Promise<Us
       setLocalItem(`user_${authenticatedUser.id}`, authenticatedUser);
       return authenticatedUser;
     } else if (srvData && (srvData.error || srvData.message || srvData.code)) {
-      const errorObj: any = new Error(srvData.message || srvData.error || "بيانات الدخول غير صحيحة. يرجى التحقق من البريد الإلكتروني وكلمة المرور.");
-      errorObj.code = srvData.code || (clientAuthError ? clientAuthError.code : "auth/invalid-credential");
+      const errorMsg =
+        srvData.message ||
+        srvData.userFriendlyMessage ||
+        (srvData.error && srvData.error !== "INVALID_CREDENTIALS" ? srvData.error : null) ||
+        "بيانات الدخول غير صحيحة. يرجى التحقق من البريد الإلكتروني وكلمة المرور.";
+      const errorObj: any = new Error(errorMsg);
+      errorObj.code =
+        srvData.code ||
+        (srvData.statusCode === 429
+          ? "auth/too-many-requests"
+          : srvData.statusCode >= 500
+          ? "auth/network-request-failed"
+          : clientAuthError
+          ? clientAuthError.code
+          : "auth/invalid-credential");
       throw errorObj;
     }
   } catch (srvErr: any) {
     const srvMsg = String(srvErr?.message || "");
+    const lowerSrvMsg = srvMsg.toLowerCase();
+
+    // If fetch failed due to network / connection issue
+    if (lowerSrvMsg.includes("failed to fetch") || lowerSrvMsg.includes("networkerror") || lowerSrvMsg.includes("network request failed")) {
+      const netErr: any = new Error("تعذر إتمام العملية بسبب انقطاع مؤقت في الاتصال. يرجى التحقق من اتصال الإنترنت والمحاولة مجدداً.");
+      netErr.code = "auth/network-request-failed";
+      throw netErr;
+    }
+
     // If it is a structured authentication error and NOT a raw HTML/JSON parser error, rethrow it
     if (
       srvErr?.code && 
@@ -454,12 +479,14 @@ export async function loginFirebaseUser(email: string, pass: string): Promise<Us
     console.warn("Notice: Server-backed login attempt unfulfilled:", srvMsg);
   }
 
-  // 4. If both client and server attempts could not authenticate, throw the client error
+  // 4. If both client and server attempts could not authenticate, throw the client error if available
   if (clientAuthError) {
     throw clientAuthError;
   }
 
-  throw new Error("بيانات الدخول غير صحيحة. يرجى التحقق من البريد الإلكتروني وكلمة المرور.");
+  const defaultErr: any = new Error("بيانات الدخول غير صحيحة. يرجى التحقق من البريد الإلكتروني وكلمة المرور.");
+  defaultErr.code = "auth/invalid-credential";
+  throw defaultErr;
 }
 
 export async function loginWithGoogle(): Promise<User> {
