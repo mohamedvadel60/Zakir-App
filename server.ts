@@ -673,7 +673,7 @@ app.get("/api/health", (req, res) => {
   res.json({ status: "ok", serverless: isServerless });
 });
 
-app.get("/api/payments/diagnostics", (req, res) => {
+app.get("/api/payments/diagnostics", async (req, res) => {
   const secretKey = process.env.STRIPE_SECRET_KEY || "";
   const pubKey = process.env.VITE_STRIPE_PUBLISHABLE_KEY || process.env.VITE_STRIPE_PUBLIC_KEY || process.env.STRIPE_PUBLISHABLE_KEY || process.env.STRIPE_PUBLIC_KEY || "";
   
@@ -688,19 +688,75 @@ app.get("/api/payments/diagnostics", (req, res) => {
   const monthlyPriceValid = monthlyPriceId.trim().startsWith("price_");
   const yearlyPriceValid = yearlyPriceId.trim().startsWith("price_");
 
+  let stripeConnection = false;
+  let monthlyPriceExists = false;
+  let monthlyPriceActive = false;
+  let monthlyPriceIntervalMatches = false;
+  let yearlyPriceExists = false;
+  let yearlyPriceActive = false;
+  let yearlyPriceIntervalMatches = false;
+  let stripeError = null;
+
+  if (hasSecretKey) {
+    try {
+      const stripe = getStripe();
+      if (stripe) {
+        // Simple light connectivity check using retrieve balance
+        await stripe.balance.retrieve();
+        stripeConnection = true;
+
+        if (monthlyPriceValid) {
+          try {
+            const mPrice = await stripe.prices.retrieve(monthlyPriceId.trim());
+            if (mPrice) {
+              monthlyPriceExists = true;
+              monthlyPriceActive = mPrice.active;
+              monthlyPriceIntervalMatches = mPrice.recurring?.interval === "month";
+            }
+          } catch (mErr: any) {
+            console.warn("[Diagnostics] Monthly price verify fail:", mErr?.message);
+          }
+        }
+
+        if (yearlyPriceValid) {
+          try {
+            const yPrice = await stripe.prices.retrieve(yearlyPriceId.trim());
+            if (yPrice) {
+              yearlyPriceExists = true;
+              yearlyPriceActive = yPrice.active;
+              yearlyPriceIntervalMatches = yPrice.recurring?.interval === "year";
+            }
+          } catch (yErr: any) {
+            console.warn("[Diagnostics] Yearly price verify fail:", yErr?.message);
+          }
+        }
+      }
+    } catch (connErr: any) {
+      stripeError = connErr?.message || "Connection failed";
+    }
+  }
+
   res.json({
     stripeConfigured: hasSecretKey && hasPubKey,
     stripeMode: stripeMode,
+    stripeConnection: stripeConnection,
+    stripeError: stripeError,
     hasSecretKey: hasSecretKey,
     hasPubKey: hasPubKey,
     secretKeyPrefix: secretKey ? secretKey.substring(0, 8) : "none",
     pubKeyPrefix: pubKey ? pubKey.substring(0, 8) : "none",
+    monthlyPriceId: monthlyPriceId ? `${monthlyPriceId.substring(0, 8)}...` : "none",
     monthlyPriceConfigured: Boolean(monthlyPriceId.trim()),
-    monthlyPricePrefix: monthlyPriceId ? monthlyPriceId.substring(0, 8) : "none",
     monthlyPriceValid: monthlyPriceValid,
+    monthlyPriceExists: monthlyPriceExists,
+    monthlyPriceActive: monthlyPriceActive,
+    monthlyPriceIntervalMatches: monthlyPriceIntervalMatches,
+    yearlyPriceId: yearlyPriceId ? `${yearlyPriceId.substring(0, 8)}...` : "none",
     yearlyPriceConfigured: Boolean(yearlyPriceId.trim()),
-    yearlyPricePrefix: yearlyPriceId ? yearlyPriceId.substring(0, 8) : "none",
     yearlyPriceValid: yearlyPriceValid,
+    yearlyPriceExists: yearlyPriceExists,
+    yearlyPriceActive: yearlyPriceActive,
+    yearlyPriceIntervalMatches: yearlyPriceIntervalMatches,
     isServerless: isServerless,
     nodeEnv: process.env.NODE_ENV || "development"
   });
@@ -872,19 +928,77 @@ app.post("/api/stripe/create-checkout-session", requireAuth, async (req: AuthReq
     }
 
     let resolvedPriceId: string | null = null;
-    if (envPriceId && envPriceId.trim().startsWith("price_")) {
+    const checkoutPubKey = process.env.VITE_STRIPE_PUBLISHABLE_KEY || process.env.VITE_STRIPE_PUBLIC_KEY || process.env.STRIPE_PUBLISHABLE_KEY || process.env.STRIPE_PUBLIC_KEY || "";
+    const isProductionEnv = process.env.NODE_ENV === "production" || (checkoutPubKey && checkoutPubKey.startsWith("pk_live"));
+
+    // Strict Validation: If we are in production or if a price ID is configured, we must validate it thoroughly
+    if (isProductionEnv || (envPriceId && envPriceId.trim())) {
+      const cleanEnvPriceId = envPriceId ? envPriceId.trim() : "";
+      
+      // Check prefix
+      if (!cleanEnvPriceId || !cleanEnvPriceId.startsWith("price_")) {
+        const keyName = requestedCycle === "annual" ? "STRIPE_YEARLY_PRICE_ID" : "STRIPE_MONTHLY_PRICE_ID";
+        const errorDetail = !cleanEnvPriceId 
+          ? `The environment variable '${keyName}' is empty or missing.`
+          : `The environment variable '${keyName}' is configured with a secret key or invalid string ('${cleanEnvPriceId.substring(0, 12)}...') instead of a Stripe Price ID starting with 'price_'.`;
+        
+        console.error(`[Stripe Checkout] Price configuration error: ${errorDetail}`);
+        return res.status(400).json({
+          success: false,
+          code: "INVALID_PRICE_CONFIGURATION",
+          error: errorDetail,
+          userFriendlyMessage: `تهيئة الدفع غير مكتملة: معرّف السعر (${requestedCycle === "annual" ? "السنوي" : "الشهري"}) غير صالح أو غير مكوّن بشكل صحيح في النظام.`
+        });
+      }
+
+      // Verify directly against Stripe API
       try {
-        const retrievedPrice = await stripe.prices.retrieve(envPriceId.trim());
-        if (retrievedPrice && retrievedPrice.active && retrievedPrice.type === "recurring") {
-          resolvedPriceId = retrievedPrice.id;
-          console.log(`[Stripe Checkout] Using verified environment Price ID: ${resolvedPriceId}`);
+        console.log(`[Stripe Checkout] Strictly verifying Price ID '${cleanEnvPriceId}' with Stripe...`);
+        const retrievedPrice = await stripe.prices.retrieve(cleanEnvPriceId);
+        if (!retrievedPrice) {
+          throw new Error("No price object returned from Stripe.");
         }
+        if (!retrievedPrice.active) {
+          throw new Error(`The Price ID '${cleanEnvPriceId}' is marked as inactive in Stripe.`);
+        }
+        if (retrievedPrice.type !== "recurring") {
+          throw new Error(`The Price ID '${cleanEnvPriceId}' is a '${retrievedPrice.type}' type instead of a 'recurring' subscription type.`);
+        }
+        
+        const expectedInterval = requestedCycle === "annual" ? "year" : "month";
+        if (retrievedPrice.recurring?.interval !== expectedInterval) {
+          throw new Error(`The Price ID '${cleanEnvPriceId}' has interval '${retrievedPrice.recurring?.interval}' which does not match requested billing interval '${expectedInterval}'.`);
+        }
+
+        resolvedPriceId = retrievedPrice.id;
+        console.log(`[Stripe Checkout] Strictly verified Price ID successfully: ${resolvedPriceId}`);
       } catch (priceCheckErr: any) {
-        console.warn(`[Stripe Checkout] Configured price ID ${envPriceId} could not be retrieved from Stripe (${priceCheckErr?.message}), using dynamic price_data`);
+        const errDetail = `Failed to verify Stripe Price ID '${cleanEnvPriceId}': ${priceCheckErr?.message}`;
+        console.error(`[Stripe Checkout] Strict price verification failed: ${errDetail}`);
+        return res.status(400).json({
+          success: false,
+          code: "PRICE_VERIFICATION_FAILED",
+          error: errDetail,
+          userFriendlyMessage: `فشل التحقق من معرّف السعر من حساب Stripe: ${priceCheckErr?.message}`
+        });
+      }
+    } else {
+      // Dev mode dynamic fallback (only if not production and price ID is not provided)
+      if (envPriceId && envPriceId.trim().startsWith("price_")) {
+        resolvedPriceId = envPriceId.trim();
       }
     }
 
-    // Build Line Items
+    // Build Line Items (Only allow verified price ID in Production)
+    if (isProductionEnv && !resolvedPriceId) {
+      return res.status(500).json({
+        success: false,
+        code: "PRODUCTION_PRICE_UNRESOLVED",
+        error: "Critical payment error: No valid Stripe Price ID was resolved for the subscription checkout session.",
+        userFriendlyMessage: "حدث خطأ فني أثناء إعداد عملية الدفع الآمنة. يرجى مراجعة إدارة النظام."
+      });
+    }
+
     const lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] = resolvedPriceId
       ? [{ price: resolvedPriceId, quantity: 1 }]
       : [{
