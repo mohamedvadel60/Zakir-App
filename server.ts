@@ -8014,33 +8014,220 @@ app.post("/api/auth/register", loginRegisterLimiter, async (req, res) => {
   }
 });
 
-app.post("/api/auth/login", loginRegisterLimiter, (req, res) => {
-  const { email, password } = req.body;
-  if (!email || !password) {
-    return res.status(400).json({ error: "Email and password are required." });
+app.post("/api/auth/login", loginRegisterLimiter, async (req, res) => {
+  try {
+    const { email, password } = req.body;
+    if (!email || !password) {
+      return res.status(400).json({ error: "Email and password are required." });
+    }
+
+    const normalizedEmail = email.trim().toLowerCase();
+
+    // 1. Account lifecycle check: check if account was deleted
+    try {
+      const lifecycleRecord = await getAccountLifecycleRecord(normalizedEmail);
+      if (lifecycleRecord) {
+        if (lifecycleRecord.status === "ADMIN_DELETED" || lifecycleRecord.status === "ADMIN_APPROVAL_REQUIRED" || lifecycleRecord.deletionType === "admin") {
+          return res.status(403).json({
+            code: "auth/user-disabled",
+            error: "ADMIN_DELETED_BLOCKED",
+            message: "تم تعطيل هذا الحساب بواسطة مسؤول المنصة."
+          });
+        }
+        if (lifecycleRecord.status === "SELF_DELETED" && lifecycleRecord.restoreUntil) {
+          const nowMs = Date.now();
+          const restoreUntilMs = new Date(lifecycleRecord.restoreUntil).getTime();
+          if (nowMs <= restoreUntilMs) {
+            const daysRemaining = Math.max(1, Math.ceil((restoreUntilMs - nowMs) / (24 * 3600 * 1000)));
+            return res.status(403).json({
+              code: "SELF_RESTORE_AVAILABLE",
+              error: "SELF_RESTORE_AVAILABLE",
+              daysRemaining,
+              restoreUntil: lifecycleRecord.restoreUntil,
+              message: `تم العثور على حساب سابق محذوف. يرجى استعادة الحساب (متبقي ${daysRemaining} يوماً).`
+            });
+          }
+        }
+      }
+    } catch (lcErr) {
+      console.warn("Notice: Lifecycle check in /api/auth/login:", lcErr);
+    }
+
+    // 2. Authoritative verification via Firebase Identity Platform REST API
+    let authUid: string | null = null;
+    let authIdToken: string | null = null;
+    const apiKey = process.env.VITE_FIREBASE_API_KEY || process.env.FIREBASE_API_KEY || "AIzaSyAvjj-PBHknriQ73FYyQc2nhhBNCF_lvnE";
+
+    try {
+      const restRes = await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${apiKey}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: normalizedEmail,
+          password: password,
+          returnSecureToken: true
+        })
+      });
+      const restData = (await restRes.json()) as any;
+      if (restRes.ok && restData.localId) {
+        authUid = restData.localId;
+        authIdToken = restData.idToken;
+      } else {
+        const errMessage = restData?.error?.message || "";
+        console.warn("Firebase Auth REST sign in response:", errMessage);
+        if (errMessage === "EMAIL_NOT_FOUND") {
+          return res.status(401).json({
+            code: "auth/user-not-found",
+            error: "EMAIL_NOT_FOUND",
+            message: "لم يتم العثور على حساب مسجل بهذا البريد الإلكتروني."
+          });
+        }
+        if (errMessage === "INVALID_PASSWORD" || errMessage === "INVALID_LOGIN_CREDENTIALS") {
+          return res.status(401).json({
+            code: "auth/invalid-credential",
+            error: "INVALID_CREDENTIALS",
+            message: "بيانات الدخول غير صحيحة. يرجى التحقق من البريد الإلكتروني وكلمة المرور."
+          });
+        }
+        if (errMessage === "USER_DISABLED") {
+          return res.status(403).json({
+            code: "auth/user-disabled",
+            error: "USER_DISABLED",
+            message: "هذا الحساب معطّل حالياً."
+          });
+        }
+      }
+    } catch (apiErr) {
+      console.warn("Identity toolkit REST call error:", apiErr);
+    }
+
+    // 3. Fallback to local DB check if Firebase Auth REST didn't match (offline or seeded user)
+    let userFromDb: any = null;
+    if (!authUid) {
+      const localDb = readDb();
+      userFromDb = localDb.users?.find(
+        (u: any) => u.email?.toLowerCase() === normalizedEmail && (u.passwordHash === password || u.password === password)
+      );
+      if (userFromDb) {
+        authUid = userFromDb.id;
+      }
+    }
+
+    if (!authUid) {
+      return res.status(401).json({
+        code: "auth/invalid-credential",
+        error: "INVALID_CREDENTIALS",
+        message: "بيانات الدخول غير صحيحة. يرجى التحقق من البريد الإلكتروني وكلمة المرور."
+      });
+    }
+
+    // 4. Retrieve user document from Firestore users/{uid}
+    let userProfile: any = null;
+    try {
+      const docSnap = await adminDb.collection("users").doc(authUid).get();
+      if (docSnap.exists) {
+        userProfile = docSnap.data();
+      } else {
+        const emailSnap = await adminDb.collection("users").where("email", "==", normalizedEmail).limit(1).get();
+        if (!emailSnap.empty) {
+          userProfile = emailSnap.docs[0].data();
+        }
+      }
+    } catch (fsErr) {
+      console.warn("adminDb user lookup error in login:", fsErr);
+    }
+
+    if (!userProfile && userFromDb) {
+      userProfile = userFromDb;
+    }
+
+    const nowIso = new Date().toISOString();
+
+    // If profile is not found, construct default profile
+    if (!userProfile) {
+      const workspaceId = `ws_${authUid.substring(0, 8)}_${Date.now().toString(36)}`;
+      userProfile = {
+        id: authUid,
+        email: normalizedEmail,
+        companyName: "Personal Account",
+        ownerName: normalizedEmail.split("@")[0],
+        role: "CEO",
+        workspaceId: workspaceId,
+        workspace: {
+          id: workspaceId,
+          name: "Personal Workspace",
+          ownerId: authUid,
+          createdAt: nowIso,
+          memberCount: 1
+        },
+        subscriptionStatus: "Pending Selection",
+        createdAt: nowIso,
+        trialExpiresAt: new Date(Date.now() + 24 * 3600 * 1000).toISOString(),
+        lastActiveAt: nowIso,
+        lastLoginAt: nowIso,
+        isVerified: true,
+        isEmailVerified: true,
+        email_verified: true,
+        emailVerified: true,
+        verification_required: false,
+        verification_status: "verified"
+      };
+      try {
+        await adminDb.collection("users").doc(authUid).set(userProfile, { merge: true });
+      } catch (e) {}
+    } else {
+      userProfile.lastActiveAt = nowIso;
+      userProfile.lastLoginAt = nowIso;
+      try {
+        await adminDb.collection("users").doc(authUid).update({
+          lastActiveAt: nowIso,
+          lastLoginAt: nowIso
+        });
+      } catch (e) {}
+    }
+
+    // 5. Generate a Firebase custom token for instant client session setup
+    let customToken: string | null = null;
+    try {
+      customToken = await adminAuth.createCustomToken(authUid);
+    } catch (ctErr) {
+      console.warn("Notice: adminAuth createCustomToken error:", ctErr);
+    }
+
+    // Sync into local DB store
+    try {
+      const localDb = readDb();
+      if (!localDb.users) localDb.users = [];
+      const existingIdx = localDb.users.findIndex((u: any) => u.id === authUid || u.email?.toLowerCase() === normalizedEmail);
+      if (existingIdx >= 0) {
+        localDb.users[existingIdx] = { ...localDb.users[existingIdx], ...userProfile };
+      } else {
+        localDb.users.push(userProfile);
+      }
+      writeDb(localDb);
+    } catch (e) {}
+
+    const isVerified = userProfile.isVerified === true || userProfile.isEmailVerified === true || userProfile.emailVerified === true || userProfile.verification_status === "verified" || userProfile.verification_required === false;
+
+    const { passwordHash, ...cleanProfile } = userProfile;
+    return res.json({
+      success: true,
+      customToken,
+      idToken: authIdToken,
+      user: {
+        ...cleanProfile,
+        isVerified,
+        isEmailVerified: isVerified,
+        email_verified: isVerified,
+        emailVerified: isVerified,
+        verification_required: !isVerified,
+        verification_status: isVerified ? "verified" : "unverified"
+      }
+    });
+  } catch (err: any) {
+    console.error("Login endpoint error:", err);
+    return res.status(500).json({ error: "Internal login error", message: err?.message || String(err) });
   }
-
-  const db = readDb();
-  const user = db.users.find(
-    (u: any) => u.email.toLowerCase() === email.toLowerCase() && u.passwordHash === password
-  );
-
-  if (!user) {
-    return res.status(401).json({ error: "Invalid email or password." });
-  }
-
-  const isVerified = user.isVerified === true || user.isEmailVerified === true || user.emailVerified === true || user.verification_status === "verified" || user.verification_required === false;
-
-  const { passwordHash, ...userResponse } = user;
-  res.json({
-    ...userResponse,
-    isVerified,
-    isEmailVerified: isVerified,
-    email_verified: isVerified,
-    emailVerified: isVerified,
-    verification_required: !isVerified,
-    verification_status: isVerified ? "verified" : "unverified"
-  });
 });
 
 // --- MEMORIES ENDPOINTS ---

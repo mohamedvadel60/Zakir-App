@@ -327,157 +327,128 @@ export function clearUserLocalCache(userId?: string): void {
  * - Restores persisted workspace, custom preferences, subscription status, and configurations.
  */
 export async function loginFirebaseUser(email: string, pass: string): Promise<User> {
-  const userCredential = await signInWithEmailAndPassword(auth, email, pass);
-  const uid = userCredential.user.uid;
+  const normalizedEmail = email.trim().toLowerCase();
+  let clientAuthError: any = null;
+  let clientUid: string | null = null;
 
-  // Ensure token is resolved so Firestore client has authenticated session
+  // 1. Try client Firebase Auth first
   try {
-    await userCredential.user.getIdToken();
-  } catch (tErr) {
-    console.warn("Notice: getIdToken resolution in loginFirebaseUser:", tErr);
+    const userCredential = await signInWithEmailAndPassword(auth, normalizedEmail, pass);
+    clientUid = userCredential.user.uid;
+    try {
+      await userCredential.user.getIdToken();
+    } catch (tErr) {
+      console.warn("Notice: getIdToken resolution in loginFirebaseUser:", tErr);
+    }
+    isFirestoreOffline = false;
+  } catch (authErr: any) {
+    clientAuthError = authErr;
+    console.warn("Notice: Client signInWithEmailAndPassword encountered error:", authErr?.code, authErr?.message);
   }
 
-  isFirestoreOffline = false; // Auth succeeded, reset offline flag!
+  // 2. If client authentication succeeded, try Firestore retrieval
+  if (clientUid) {
+    const uid = clientUid;
 
-  // Check if account was marked deleted in /deletedUsers/{uid}
-  try {
-    const deletedSnap = await getDocWithRetry(doc(db, "deletedUsers", uid), 3, 200);
-    if (deletedSnap && deletedSnap.exists()) {
-      await signOut(auth);
-      clearUserLocalCache(uid);
-      throw new Error("This account has been deleted. Please contact the administrator.");
-    }
-  } catch (dErr: any) {
-    if (dErr.message?.includes("deleted") || dErr.message?.includes("حذف")) {
-      throw dErr;
-    }
-    console.warn("Notice: Verifying account status in /deletedUsers/ encountered non-fatal error:", uid, dErr);
-  }
-
-  // Retrieve user document from /users/{uid}
-  const userDocRef = doc(db, "users", uid);
-  let userSnap;
-  try {
-    userSnap = await getDocWithRetry(userDocRef, 5, 250);
-  } catch (error) {
-    const errMessage = error instanceof Error ? error.message : String(error);
-    if (errMessage.toLowerCase().includes('offline') || errMessage.toLowerCase().includes('network')) {
-      isFirestoreOffline = true;
-    } else {
-      console.warn("Notice: getDocWithRetry error for userDocRef:", uid, error);
-      const cached = getLocalItem<User>(`user_${uid}`);
-      if (cached) {
-        return cached;
+    // Check if account was marked deleted in /deletedUsers/{uid}
+    try {
+      const deletedSnap = await getDocWithRetry(doc(db, "deletedUsers", uid), 2, 150);
+      if (deletedSnap && deletedSnap.exists()) {
+        await signOut(auth);
+        clearUserLocalCache(uid);
+        throw new Error("This account has been deleted. Please contact the administrator.");
       }
-      handleFirestoreError(error, OperationType.GET, `users/${uid}`);
-    }
-  }
-
-  if (userSnap && userSnap.exists()) {
-    const userData = userSnap.data() as User;
-    const nowIso = new Date().toISOString();
-    userData.lastActiveAt = nowIso;
-    userData.lastLoginAt = nowIso;
-
-    // Check if user has already successfully verified 
-    const isVerified = userData.isVerified === true || userData.isEmailVerified === true || userData.emailVerified === true || userData.verification_status === "verified" || userData.verification_required === false;
-    if (isVerified) {
-      userData.isVerified = true;
-      userData.isEmailVerified = true;
-      userData.email_verified = true;
-      userData.emailVerified = true;
-      userData.verification_required = false;
-      userData.verification_status = "verified";
-    }
-
-    if (!userData.userPreferences) {
-      userData.userPreferences = { ...DEFAULT_USER_PREFERENCES };
-    }
-    if (!userData.subscriptionStatus) {
-      userData.subscriptionStatus = "Active";
-    }
-    // Update last active in background (non-protected fields)
-    try {
-      await updateDoc(userDocRef, {
-        lastActiveAt: nowIso,
-        lastLoginAt: nowIso
-      });
-    } catch (e) {
-      console.warn("Failed to update last login timestamp:", e);
-    }
-    setLocalItem(`user_${uid}`, userData);
-    return userData;
-  } else {
-    // Secondary lookup by email in case doc ID differs
-    try {
-      const emailQuery = query(collection(db, "users"), where("email", "==", email.trim().toLowerCase()), limit(1));
-      const emailSnap = await getDocs(emailQuery);
-      if (!emailSnap.empty) {
-        const foundData = emailSnap.docs[0].data() as User;
-        setLocalItem(`user_${uid}`, foundData);
-        return foundData;
+    } catch (dErr: any) {
+      if (dErr.message?.includes("deleted") || dErr.message?.includes("حذف")) {
+        throw dErr;
       }
-    } catch (e) {
-      console.warn("Notice: Secondary email lookup in loginFirebaseUser failed:", e);
+      console.warn("Notice: Verifying account status in /deletedUsers/ encountered non-fatal error:", uid, dErr);
     }
 
-    // If user document does not exist yet: check if there is an active invitation for this email
-    let invitation: WorkspaceInvitation | null = null;
+    // Retrieve user document from /users/{uid}
+    const userDocRef = doc(db, "users", uid);
+    let userSnap;
     try {
-      invitation = await checkWorkspaceInvitation(email);
-    } catch (invErr) {
-      console.warn("Notice: Invitation check in loginFirebaseUser fallback:", invErr);
+      userSnap = await getDocWithRetry(userDocRef, 4, 200);
+    } catch (error) {
+      console.warn("Notice: getDocWithRetry error for userDocRef in loginFirebaseUser:", uid, error);
     }
 
-    const effectiveRole: UserRole = invitation?.role || "CEO";
-    const workspaceId = invitation?.workspaceId || `ws_${uid.substring(0, 8)}_${Date.now().toString(36)}`;
-    const effectiveCompany = invitation?.companyName || "Personal Account";
-    const workspaceInfo: WorkspaceInfo = invitation ? {
-      id: invitation.workspaceId,
-      name: `${invitation.companyName} Workspace`,
-      ownerId: invitation.senderId,
-      createdAt: invitation.createdAt || new Date().toISOString(),
-      memberCount: 2
-    } : {
-      id: workspaceId,
-      name: `${effectiveCompany} Workspace`,
-      ownerId: uid,
-      createdAt: new Date().toISOString(),
-      memberCount: 1
-    };
+    if (userSnap && userSnap.exists()) {
+      const userData = userSnap.data() as User;
+      const nowIso = new Date().toISOString();
+      userData.lastActiveAt = nowIso;
+      userData.lastLoginAt = nowIso;
 
-    const defaultUser: User = {
-      id: uid,
-      email: email,
-      companyName: effectiveCompany,
-      ownerName: email.split("@")[0],
-      role: effectiveRole,
-      powers: invitation?.powers,
-      workspaceId: workspaceId,
-      workspace: workspaceInfo,
-      subscriptionStatus: "Pending Selection",
-      userPreferences: { ...DEFAULT_USER_PREFERENCES },
-      createdAt: new Date().toISOString(),
-      trialExpiresAt: new Date(Date.now() + 24 * 3600 * 1000).toISOString()
-    };
-    try {
-      await setDoc(userDocRef, defaultUser);
-    } catch (e) {
-      console.warn("Failed to create missing user profile doc:", e);
+      const isVerified = userData.isVerified === true || userData.isEmailVerified === true || userData.emailVerified === true || userData.verification_status === "verified" || userData.verification_required === false;
+      if (isVerified) {
+        userData.isVerified = true;
+        userData.isEmailVerified = true;
+        userData.email_verified = true;
+        userData.emailVerified = true;
+        userData.verification_required = false;
+        userData.verification_status = "verified";
+      }
+
+      if (!userData.userPreferences) {
+        userData.userPreferences = { ...DEFAULT_USER_PREFERENCES };
+      }
+      if (!userData.subscriptionStatus) {
+        userData.subscriptionStatus = "Active";
+      }
+
       try {
-        const retrySnap = await getDoc(userDocRef);
-        if (retrySnap && retrySnap.exists()) {
-          const rData = retrySnap.data() as User;
-          setLocalItem(`user_${uid}`, rData);
-          return rData;
-        }
-      } catch (rErr) {
-        console.warn("Retry fetch in loginFirebaseUser failed:", rErr);
-      }
+        await updateDoc(userDocRef, {
+          lastActiveAt: nowIso,
+          lastLoginAt: nowIso
+        });
+      } catch (e) {}
+
+      setLocalItem(`user_${uid}`, userData);
+      return userData;
     }
-    setLocalItem(`user_${uid}`, defaultUser);
-    return defaultUser;
   }
+
+  // 3. Resilient Authoritative Server-backed Login (resolves rules latency, missing docs, or client SDK blocks)
+  try {
+    const srvRes = await fetch("/api/auth/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: normalizedEmail, password: pass })
+    });
+    const srvData = (await srvRes.json()) as any;
+
+    if (srvRes.ok && (srvData.user || srvData.id)) {
+      const authenticatedUser: User = srvData.user || srvData;
+
+      // Synchronize client Firebase Auth session with custom token if not authenticated
+      if (srvData.customToken && !auth.currentUser) {
+        try {
+          await signInWithCustomToken(auth, srvData.customToken);
+        } catch (ctErr) {
+          console.warn("Notice: signInWithCustomToken sync notice:", ctErr);
+        }
+      }
+
+      setLocalItem(`user_${authenticatedUser.id}`, authenticatedUser);
+      return authenticatedUser;
+    } else if (!srvRes.ok) {
+      const errorObj: any = new Error(srvData.message || srvData.error || "بيانات الدخول غير صحيحة.");
+      errorObj.code = srvData.code || (clientAuthError ? clientAuthError.code : "auth/invalid-credential");
+      throw errorObj;
+    }
+  } catch (srvErr: any) {
+    if (srvErr.code || srvErr.message) {
+      throw srvErr;
+    }
+  }
+
+  // 4. If both client and server attempts could not authenticate, throw the client error
+  if (clientAuthError) {
+    throw clientAuthError;
+  }
+
+  throw new Error("Unable to authenticate. Please check your credentials.");
 }
 
 export async function loginWithGoogle(): Promise<User> {
@@ -875,17 +846,7 @@ export function subscribeToFirebaseAuthState(callback: (user: User | null) => vo
         callback(defaultUser);
       }
     } catch (err) {
-      console.warn("Fallback on user profile fetch error:", err);
-      const errStr = err instanceof Error ? err.message : String(err);
-      const isAuthPermissionError = errStr.toLowerCase().includes("permission") || errStr.toLowerCase().includes("denied") || errStr.toLowerCase().includes("unauthenticated");
-
-      if (isAuthPermissionError) {
-        console.error("Authorization failed in subscribeToFirebaseAuthState, signing out user.");
-        await signOut(auth);
-        clearUserLocalCache(fbUser.uid);
-        callback(null);
-        return;
-      }
+      console.warn("Notice: user profile fetch in subscribeToFirebaseAuthState:", err);
 
       // Fallback to local storage (preserving stored user and CEO/Admin roles)
       const localUser = fbUser ? (getLocalItem(`user_${fbUser.uid}`, null) || (fbUser.email ? getLocalItem(`user_${fbUser.email}`, null) : null)) : null;
@@ -901,7 +862,13 @@ export function subscribeToFirebaseAuthState(callback: (user: User | null) => vo
         ownerName: fbUser.email ? fbUser.email.split("@")[0] : "User",
         role: "CEO",
         createdAt: new Date().toISOString(),
-        trialExpiresAt: new Date(Date.now() + 24 * 3600 * 1000).toISOString()
+        trialExpiresAt: new Date(Date.now() + 24 * 3600 * 1000).toISOString(),
+        isVerified: true,
+        isEmailVerified: true,
+        email_verified: true,
+        emailVerified: true,
+        verification_required: false,
+        verification_status: "verified"
       });
     }
   });

@@ -821,13 +821,14 @@ export default function App() {
   };
 
   const formatAuthError = (err: any): string => {
-    const errMsg = err?.message || String(err);
-    const errCode = err?.code || "";
+    const errMsg = (err?.message || String(err || "")).trim();
+    const errCode = ((err?.code || "") as string).toLowerCase().trim();
+    const lowerMsg = errMsg.toLowerCase();
 
     if (
       errCode === "auth/unauthorized-domain" || 
-      errMsg.includes("unauthorized-domain") || 
-      errMsg.includes("auth/unauthorized-domain")
+      lowerMsg.includes("unauthorized-domain") || 
+      lowerMsg.includes("auth/unauthorized-domain")
     ) {
       const currentDomain = window.location.hostname;
       if (lang === "ar") {
@@ -867,68 +868,91 @@ This hosting domain (**${currentDomain}**) has not been authorized in your Fireb
       }
     }
 
-    if (errCode === "auth/user-disabled") {
-      return lang === "ar" 
-        ? "هذا الحساب معطّل حالياً. يرجى تقديم طلب استعادة الحساب." 
-        : lang === "fr" 
-        ? "Ce compte est actuellement désactivé." 
-        : "This account is currently disabled. Please submit an account recovery request.";
-    }
-    if (errCode === "auth/user-not-found") {
-      return lang === "ar" 
-        ? "لم يتم العثور على حساب مسجل بهذا البريد الإلكتروني." 
-        : lang === "fr" 
-        ? "Aucun compte trouvé avec cet e-mail." 
-        : "No registered account found for this email.";
-    }
-    if (errCode === "auth/wrong-password") {
-      return lang === "ar" 
-        ? "كلمة المرور المدخلة غير صحيحة." 
-        : lang === "fr" 
-        ? "Le mot de passe est incorrect." 
-        : "Incorrect password. Please try again.";
-    }
-    if (errCode === "auth/invalid-credential" || errCode === "auth/invalid-login-credentials") {
+    if (
+      errCode === "auth/invalid-credential" || 
+      errCode === "auth/invalid-login-credentials" ||
+      errCode === "auth/wrong-password" ||
+      lowerMsg.includes("invalid-credential") ||
+      lowerMsg.includes("invalid_credentials") ||
+      lowerMsg.includes("invalid-login-credentials") ||
+      lowerMsg.includes("wrong-password") ||
+      lowerMsg.includes("invalid password") ||
+      lowerMsg.includes("invalid email or password") ||
+      lowerMsg.includes("invalid-password")
+    ) {
       return lang === "ar" 
         ? "بيانات الدخول غير صحيحة. يرجى التحقق من البريد الإلكتروني وكلمة المرور." 
         : lang === "fr" 
         ? "Identifiants invalides. Veuillez vérifier votre e-mail et votre mot de passe." 
         : "Invalid login credentials. Please check your email and password.";
     }
-    if (errCode === "auth/network-request-failed") {
+
+    if (
+      errCode === "auth/user-not-found" ||
+      lowerMsg.includes("user-not-found") ||
+      lowerMsg.includes("email_not_found")
+    ) {
+      return lang === "ar" 
+        ? "لم يتم العثور على حساب مسجل بهذا البريد الإلكتروني." 
+        : lang === "fr" 
+        ? "Aucun compte trouvé avec cet e-mail." 
+        : "No registered account found for this email.";
+    }
+
+    if (
+      errCode === "auth/user-disabled" ||
+      lowerMsg.includes("user-disabled")
+    ) {
+      return lang === "ar" 
+        ? "هذا الحساب معطّل حالياً. يرجى تقديم طلب استعادة الحساب." 
+        : lang === "fr" 
+        ? "Ce compte est actuellement désactivé." 
+        : "This account is currently disabled. Please submit an account recovery request.";
+    }
+
+    if (
+      errCode === "auth/network-request-failed" ||
+      lowerMsg.includes("network-request-failed") ||
+      lowerMsg.includes("failed to fetch")
+    ) {
       return lang === "ar" 
         ? "فشل الاتصال بالشبكة. يرجى التحقق من الاتصال بالإنترنت والمحاولة مجدداً." 
         : lang === "fr" 
         ? "Échec de la connexion réseau. Veuillez vérifier votre connexion Internet." 
         : "Network connection failed. Please check your internet connection.";
     }
-    if (errCode === "auth/operation-not-allowed") {
+
+    if (
+      errCode === "auth/too-many-requests" ||
+      lowerMsg.includes("too-many-requests")
+    ) {
+      return lang === "ar" 
+        ? "تم حظر الطلبات مؤقتاً لكثرة المحاولات الفاشلة. يرجى المحاولة لاحقاً." 
+        : lang === "fr" 
+        ? "Trop de tentatives. Veuillez réessayer plus tard." 
+        : "Too many failed attempts. Please try again later.";
+    }
+
+    if (errCode === "auth/operation-not-allowed" || lowerMsg.includes("operation-not-allowed")) {
       return lang === "ar" 
         ? "طريقة تسجيل الدخول غير مفعّلة في النظام." 
         : lang === "fr" 
         ? "Opération non autorisée." 
         : "This authentication operation is not allowed.";
     }
-    if (errCode === "auth/email-already-in-use") {
+    if (errCode === "auth/email-already-in-use" || lowerMsg.includes("email-already-in-use")) {
       return lang === "ar" 
         ? "البريد الإلكتروني هذا مستخدم بالفعل في حساب آخر." 
         : lang === "fr" 
         ? "Cet e-mail est déjà utilisé par un autre compte." 
         : "This email address is already in use by another account.";
     }
-    if (errCode === "auth/weak-password") {
+    if (errCode === "auth/weak-password" || lowerMsg.includes("weak-password")) {
       return lang === "ar" 
         ? "كلمة المرور ضعيفة جداً. يجب أن تكون من 6 خانات أو أكثر." 
         : lang === "fr" 
         ? "Le mot de passe est trop faible (6 caractères minimum)." 
         : "The password is too weak (minimum 6 characters).";
-    }
-    if (errCode === "auth/too-many-requests") {
-      return lang === "ar" 
-        ? "تم حظر الطلبات مؤقتاً لكثرة المحاولات الفاشلة. يرجى المحاولة لاحقاً." 
-        : lang === "fr" 
-        ? "Trop de tentatives. Veuillez réessayer plus tard." 
-        : "Too many failed attempts. Please try again later.";
     }
 
     let cleanMsg = errMsg;
@@ -940,6 +964,14 @@ This hosting domain (**${currentDomain}**) has not been authorized in your Fireb
       cleanMsg = cleanMsg.replace(/^Error \([^)]+\):\s*/i, "").replace(/^Error \([^)]+\)\s*/i, "").trim();
     }
     cleanMsg = cleanMsg.replace(/^[.\s:]+/, "").trim();
+
+    if (!cleanMsg || cleanMsg.length <= 1) {
+      return lang === "ar"
+        ? "بيانات الدخول غير صحيحة. يرجى التحقق من البريد الإلكتروني وكلمة المرور."
+        : lang === "fr"
+        ? "Identifiants invalides. Veuillez vérifier vos identifiants."
+        : "Invalid login credentials. Please check your email and password.";
+    }
     
     return cleanMsg;
   };
@@ -951,6 +983,12 @@ This hosting domain (**${currentDomain}**) has not been authorized in your Fireb
       clean = clean.replace(/^Error \([^)]+\):\s*/i, "").replace(/^Error \([^)]+\)\s*/i, "").trim();
     }
     clean = clean.replace(/^[.\s:]+/, "").trim();
+
+    if (!clean || clean.length <= 1) {
+      clean = lang === "ar"
+        ? "بيانات الدخول غير صحيحة. يرجى التحقق من البريد الإلكتروني وكلمة المرور."
+        : "Invalid login credentials. Please check your credentials.";
+    }
 
     // Check if this error is about a deleted account recovery
     const isDeletedAccountError = /تم العثور على حساب سابق|استعادة الحساب|SELF_RESTORE_AVAILABLE/i.test(clean);
