@@ -593,6 +593,7 @@ export default function App() {
   // Login Form State
   const [loginEmail, setLoginEmail] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
+  const [showLoginPassword, setShowLoginPassword] = useState(false);
   const [loginError, setLoginError] = useState("");
   const [isSubmittingLogin, setIsSubmittingLogin] = useState(false);
 
@@ -1876,7 +1877,7 @@ This hosting domain (**${currentDomain}**) has not been authorized in your Fireb
     setLoginError("");
     setIsSubmittingLogin(true);
     try {
-      const userProfile = await loginFirebaseUser(loginEmail, loginPassword);
+      const userProfile = await loginFirebaseUser(loginEmail.trim(), loginPassword);
       
       const isUserVerified = userProfile.isVerified === true || userProfile.isEmailVerified === true || userProfile.emailVerified === true || userProfile.verification_status === "verified" || userProfile.verification_required === false;
 
@@ -3785,7 +3786,10 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                       <input 
                         type="email" 
                         value={loginEmail}
-                        onChange={(e) => setLoginEmail(e.target.value)}
+                        onChange={(e) => {
+                          setLoginEmail(e.target.value);
+                          if (loginError) setLoginError("");
+                        }}
                         onBlur={() => checkDeletedAccountForEmail(loginEmail)}
                         className="w-full h-10 px-3.5 bg-slate-50 dark:bg-slate-900/70 border border-slate-200 dark:border-slate-800 rounded-lg text-slate-900 dark:text-white text-xs focus:outline-none focus:border-[#0075DE] focus:ring-2 focus:ring-[#0075DE]/20 transition-all placeholder:text-slate-400 shadow-xs"
                         placeholder="name@company.com"
@@ -3812,14 +3816,27 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                           {lang === "fr" ? "Mot de passe oublié ?" : (lang === "ar" ? "نسيت كلمة المرور؟" : "Forgot password?")}
                         </button>
                       </div>
-                      <input 
-                        type="password" 
-                        value={loginPassword}
-                        onChange={(e) => setLoginPassword(e.target.value)}
-                        className="w-full h-10 px-3.5 bg-slate-50 dark:bg-slate-900/70 border border-slate-200 dark:border-slate-800 rounded-lg text-slate-900 dark:text-white text-xs focus:outline-none focus:border-[#0075DE] focus:ring-2 focus:ring-[#0075DE]/20 transition-all placeholder:text-slate-400 font-mono shadow-xs"
-                        placeholder="••••••••"
-                        required
-                      />
+                      <div className="relative">
+                        <input 
+                          type={showLoginPassword ? "text" : "password"} 
+                          value={loginPassword}
+                          onChange={(e) => {
+                            setLoginPassword(e.target.value);
+                            if (loginError) setLoginError("");
+                          }}
+                          className="w-full h-10 px-3.5 pe-10 bg-slate-50 dark:bg-slate-900/70 border border-slate-200 dark:border-slate-800 rounded-lg text-slate-900 dark:text-white text-xs focus:outline-none focus:border-[#0075DE] focus:ring-2 focus:ring-[#0075DE]/20 transition-all placeholder:text-slate-400 font-mono shadow-xs"
+                          placeholder="••••••••"
+                          required
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowLoginPassword(!showLoginPassword)}
+                          className="absolute end-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors p-1"
+                          title={showLoginPassword ? "Hide password" : "Show password"}
+                        >
+                          {showLoginPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        </button>
+                      </div>
                     </div>
 
                     <button 
