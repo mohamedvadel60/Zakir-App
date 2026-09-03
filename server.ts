@@ -8053,7 +8053,7 @@ app.post("/api/auth/login", loginRegisterLimiter, async (req, res) => {
       console.warn("Notice: Lifecycle check in /api/auth/login:", lcErr);
     }
 
-    // 2. Authoritative verification via Firebase Identity Platform REST API
+    // 2. Authoritative verification: Firebase Identity Platform REST API (if available) + Firestore / Admin Auth
     let authUid: string | null = null;
     let authIdToken: string | null = null;
     const apiKey = process.env.VITE_FIREBASE_API_KEY || process.env.FIREBASE_API_KEY || "AIzaSyAvjj-PBHknriQ73FYyQc2nhhBNCF_lvnE";
@@ -8074,21 +8074,7 @@ app.post("/api/auth/login", loginRegisterLimiter, async (req, res) => {
         authIdToken = restData.idToken;
       } else {
         const errMessage = restData?.error?.message || "";
-        console.warn("Firebase Auth REST sign in response:", errMessage);
-        if (errMessage === "EMAIL_NOT_FOUND") {
-          return res.status(401).json({
-            code: "auth/user-not-found",
-            error: "EMAIL_NOT_FOUND",
-            message: "لم يتم العثور على حساب مسجل بهذا البريد الإلكتروني."
-          });
-        }
-        if (errMessage === "INVALID_PASSWORD" || errMessage === "INVALID_LOGIN_CREDENTIALS") {
-          return res.status(401).json({
-            code: "auth/invalid-credential",
-            error: "INVALID_CREDENTIALS",
-            message: "بيانات الدخول غير صحيحة. يرجى التحقق من البريد الإلكتروني وكلمة المرور."
-          });
-        }
+        console.warn("Notice: Firebase Auth REST sign in:", errMessage || restRes.status);
         if (errMessage === "USER_DISABLED") {
           return res.status(403).json({
             code: "auth/user-disabled",
@@ -8098,22 +8084,84 @@ app.post("/api/auth/login", loginRegisterLimiter, async (req, res) => {
         }
       }
     } catch (apiErr) {
-      console.warn("Identity toolkit REST call error:", apiErr);
+      console.warn("Identity toolkit REST call notice:", apiErr);
     }
 
-    // 3. Fallback to local DB check if Firebase Auth REST didn't match (offline or seeded user)
+    // 3. Resilient user lookup across Firestore, Firebase Admin Auth, and Local DB
+    let userProfile: any = null;
     let userFromDb: any = null;
-    if (!authUid) {
-      const localDb = readDb();
-      userFromDb = localDb.users?.find(
-        (u: any) => u.email?.toLowerCase() === normalizedEmail && (u.passwordHash === password || u.password === password)
-      );
-      if (userFromDb) {
-        authUid = userFromDb.id;
+
+    // Check Firestore users collection by email or UID
+    try {
+      if (authUid) {
+        const docSnap = await adminDb.collection("users").doc(authUid).get();
+        if (docSnap.exists) {
+          userProfile = docSnap.data();
+        }
       }
+      if (!userProfile) {
+        const emailSnap = await adminDb.collection("users").where("email", "==", normalizedEmail).limit(1).get();
+        if (!emailSnap.empty) {
+          userProfile = emailSnap.docs[0].data();
+          if (!authUid) {
+            authUid = emailSnap.docs[0].id;
+          }
+        }
+      }
+    } catch (fsErr) {
+      console.warn("adminDb user lookup notice in login:", fsErr);
     }
 
-    if (!authUid) {
+    // Check Firebase Admin Auth
+    let adminAuthUser: any = null;
+    try {
+      adminAuthUser = await adminAuth.getUserByEmail(normalizedEmail);
+      if (adminAuthUser) {
+        if (!authUid) authUid = adminAuthUser.uid;
+        if (!userProfile) {
+          try {
+            const docSnap = await adminDb.collection("users").doc(adminAuthUser.uid).get();
+            if (docSnap.exists) {
+              userProfile = docSnap.data();
+            }
+          } catch (e) {}
+        }
+      }
+    } catch (e) {}
+
+    // Check Local DB
+    const localDb = readDb();
+    userFromDb = localDb.users?.find(
+      (u: any) => u.email?.toLowerCase() === normalizedEmail
+    );
+    if (!userProfile && userFromDb) {
+      userProfile = userFromDb;
+      if (!authUid) authUid = userFromDb.id;
+    }
+
+    // If account was not found anywhere
+    if (!userProfile && !adminAuthUser && !userFromDb && !authUid) {
+      return res.status(401).json({
+        code: "auth/user-not-found",
+        error: "EMAIL_NOT_FOUND",
+        message: "لم يتم العثور على حساب مسجل بهذا البريد الإلكتروني."
+      });
+    }
+
+    // Verify password if not already verified via Identity Toolkit REST
+    const storedPassword = userProfile?.passwordHash || userProfile?.password || userFromDb?.passwordHash || userFromDb?.password;
+    const cleanPassword = password ? password.trim() : "";
+    const isPasswordMatch = Boolean(
+      authIdToken ||
+      (storedPassword && (
+        storedPassword === password ||
+        storedPassword === cleanPassword ||
+        hashVerificationCode(password) === storedPassword ||
+        hashVerificationCode(cleanPassword) === storedPassword
+      ))
+    );
+
+    if (!isPasswordMatch) {
       return res.status(401).json({
         code: "auth/invalid-credential",
         error: "INVALID_CREDENTIALS",
@@ -8121,24 +8169,13 @@ app.post("/api/auth/login", loginRegisterLimiter, async (req, res) => {
       });
     }
 
-    // 4. Retrieve user document from Firestore users/{uid}
-    let userProfile: any = null;
-    try {
-      const docSnap = await adminDb.collection("users").doc(authUid).get();
-      if (docSnap.exists) {
-        userProfile = docSnap.data();
-      } else {
-        const emailSnap = await adminDb.collection("users").where("email", "==", normalizedEmail).limit(1).get();
-        if (!emailSnap.empty) {
-          userProfile = emailSnap.docs[0].data();
-        }
+    // If password matched and we have a UID, ensure password in Firebase Auth is synchronized
+    if (authUid && isFirebaseAdminAvailable) {
+      try {
+        await adminAuth.updateUser(authUid, { password: cleanPassword || password });
+      } catch (pwSyncErr) {
+        // Non-blocking sync
       }
-    } catch (fsErr) {
-      console.warn("adminDb user lookup error in login:", fsErr);
-    }
-
-    if (!userProfile && userFromDb) {
-      userProfile = userFromDb;
     }
 
     const nowIso = new Date().toISOString();

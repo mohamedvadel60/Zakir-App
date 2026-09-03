@@ -418,23 +418,7 @@ export async function loginFirebaseUser(email: string, pass: string): Promise<Us
       body: JSON.stringify({ email: normalizedEmail, password: pass })
     });
     
-    let srvData: any = null;
-    const contentType = srvRes.headers.get("content-type") || "";
-    if (contentType.includes("application/json")) {
-      try {
-        srvData = await srvRes.json();
-      } catch (jsonErr) {
-        console.warn("Notice: JSON parsing failed on /api/auth/login response:", jsonErr);
-      }
-    } else {
-      const text = await srvRes.text().catch(() => "");
-      try {
-        srvData = JSON.parse(text);
-      } catch {
-        // Non-JSON response (such as HTML error or gateway timeout page)
-        console.warn("Notice: Non-JSON response received from /api/auth/login with status", srvRes.status);
-      }
-    }
+    const srvData = await safeJsonResponse(srvRes, "فشل تسجيل الدخول");
 
     if (srvRes.ok && srvData && (srvData.user || srvData.id)) {
       const authenticatedUser: User = srvData.user || srvData;

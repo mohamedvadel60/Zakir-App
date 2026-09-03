@@ -174,6 +174,63 @@
       "subscriptionPlan": "Enterprise",
       "subscriptionStatus": "Active",
       "createdAt": "2026-08-08T18:06:07.777Z"
+    },
+    {
+      "id": "IKd49SpWgBa5XubDF2sLqaslOyF3",
+      "email": "sarasara222341@gmail.com",
+      "passwordHash": "Chow._.9i",
+      "companyName": "ACM GROUP",
+      "ownerName": "محمد",
+      "role": "CEO",
+      "workspaceId": "ws_IKd49SpW_mtd3ujo7",
+      "workspace": {
+        "id": "ws_IKd49SpW_mtd3ujo7",
+        "name": "ACM GROUP Workspace",
+        "ownerId": "IKd49SpWgBa5XubDF2sLqaslOyF3",
+        "createdAt": "2026-08-28T15:27:02.167Z",
+        "memberCount": 1
+      },
+      "subscriptionStatus": "Pending Selection",
+      "createdAt": "2026-08-28T15:27:02.167Z",
+      "trialExpiresAt": "2026-08-29T15:27:02.167Z",
+      "emailVerified": true,
+      "email_verified": true,
+      "isPhoneVerified": true,
+      "verification_required": false,
+      "verificationInfo": {
+        "verifiedAt": "2026-08-28T15:27:23.196Z",
+        "status": "verified"
+      },
+      "isVerified": true,
+      "verification_status": "verified",
+      "isEmailVerified": true,
+      "teamMembersList": [
+        {
+          "id": "tm-owner",
+          "name": "محمد",
+          "email": "sarasara222341@gmail.com",
+          "role": "CEO / Owner",
+          "powers": {
+            "fileVault": true,
+            "memoryVault": true,
+            "riskRadar": true,
+            "marketIntel": true,
+            "settings": true
+          },
+          "addedAt": "2026-01-01"
+        }
+      ],
+      "userPreferences": {
+        "emailNotifications": true,
+        "riskRadarAlerts": true,
+        "defaultView": "overview",
+        "language": "ar",
+        "theme": "light",
+        "autoSaveMemories": true
+      },
+      "stripeCustomerId": "cus_VA2giyi4tcHOyr",
+      "lastActiveAt": "2026-09-03T12:41:28.535Z",
+      "lastLoginAt": "2026-09-03T12:41:28.535Z"
     }
   ],
   "verification_codes": [
