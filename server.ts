@@ -673,6 +673,39 @@ app.get("/api/health", (req, res) => {
   res.json({ status: "ok", serverless: isServerless });
 });
 
+app.get("/api/payments/diagnostics", (req, res) => {
+  const secretKey = process.env.STRIPE_SECRET_KEY || "";
+  const pubKey = process.env.VITE_STRIPE_PUBLISHABLE_KEY || process.env.VITE_STRIPE_PUBLIC_KEY || process.env.STRIPE_PUBLISHABLE_KEY || process.env.STRIPE_PUBLIC_KEY || "";
+  
+  const hasSecretKey = Boolean(secretKey && secretKey.trim());
+  const hasPubKey = Boolean(pubKey && pubKey.trim());
+  
+  const stripeMode = pubKey.startsWith("pk_live") || secretKey.startsWith("sk_live") ? "live" : "test";
+  
+  const monthlyPriceId = process.env.STRIPE_MONTHLY_PRICE_ID || "";
+  const yearlyPriceId = process.env.STRIPE_YEARLY_PRICE_ID || "";
+  
+  const monthlyPriceValid = monthlyPriceId.trim().startsWith("price_");
+  const yearlyPriceValid = yearlyPriceId.trim().startsWith("price_");
+
+  res.json({
+    stripeConfigured: hasSecretKey && hasPubKey,
+    stripeMode: stripeMode,
+    hasSecretKey: hasSecretKey,
+    hasPubKey: hasPubKey,
+    secretKeyPrefix: secretKey ? secretKey.substring(0, 8) : "none",
+    pubKeyPrefix: pubKey ? pubKey.substring(0, 8) : "none",
+    monthlyPriceConfigured: Boolean(monthlyPriceId.trim()),
+    monthlyPricePrefix: monthlyPriceId ? monthlyPriceId.substring(0, 8) : "none",
+    monthlyPriceValid: monthlyPriceValid,
+    yearlyPriceConfigured: Boolean(yearlyPriceId.trim()),
+    yearlyPricePrefix: yearlyPriceId ? yearlyPriceId.substring(0, 8) : "none",
+    yearlyPriceValid: yearlyPriceValid,
+    isServerless: isServerless,
+    nodeEnv: process.env.NODE_ENV || "development"
+  });
+});
+
 // --- STRIPE CHECKOUT & SUBSCRIPTION ENDPOINTS ---
 const inFlightCheckoutUsers = new Set<string>();
 
