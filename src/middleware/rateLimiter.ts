@@ -46,7 +46,9 @@ export const createRateLimiter = (options: {
     if (record.count > max) {
       console.warn(`[RATE LIMIT EXCEEDED] IP: ${ip} on ${endpointName}. Count: ${record.count}/${max}`);
       return res.status(429).json({
+        code: "auth/too-many-requests",
         error: message || "Too many requests from this IP, please try again later.",
+        message: message || "تم حظر المحاولات مؤقتاً لكثرة المحاولات. يرجى الانتظار قليلاً والمحاولة مجدداً.",
         cooldownRemainingSeconds: Math.ceil((record.resetTime - now) / 1000),
       });
     }

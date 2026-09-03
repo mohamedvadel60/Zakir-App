@@ -913,13 +913,19 @@ This hosting domain (**${currentDomain}**) has not been authorized in your Fireb
     if (
       errCode === "auth/network-request-failed" ||
       lowerMsg.includes("network-request-failed") ||
-      lowerMsg.includes("failed to fetch")
+      lowerMsg.includes("failed to fetch") ||
+      lowerMsg.includes("<!doctype") ||
+      lowerMsg.includes("<html") ||
+      lowerMsg.includes("unexpected token") ||
+      lowerMsg.includes("not valid json") ||
+      lowerMsg.includes("json.parse") ||
+      lowerMsg.includes("syntaxerror")
     ) {
       return lang === "ar" 
-        ? "فشل الاتصال بالشبكة. يرجى التحقق من الاتصال بالإنترنت والمحاولة مجدداً." 
+        ? "تعذر إتمام العملية بسبب انقطاع مؤقت في الاتصال. يرجى التحقق من بيانات الدخول والمحاولة مجدداً." 
         : lang === "fr" 
-        ? "Échec de la connexion réseau. Veuillez vérifier votre connexion Internet." 
-        : "Network connection failed. Please check your internet connection.";
+        ? "Impossible de se connecter en raison d'une interruption temporaire. Veuillez vérifier vos identifiants et réessayer." 
+        : "Unable to sign in due to a temporary connection issue. Please check your credentials and try again.";
     }
 
     if (
@@ -988,6 +994,22 @@ This hosting domain (**${currentDomain}**) has not been authorized in your Fireb
       clean = lang === "ar"
         ? "بيانات الدخول غير صحيحة. يرجى التحقق من البريد الإلكتروني وكلمة المرور."
         : "Invalid login credentials. Please check your credentials.";
+    }
+
+    const lowerClean = clean.toLowerCase();
+    if (
+      lowerClean.includes("<!doctype") ||
+      lowerClean.includes("<html") ||
+      lowerClean.includes("unexpected token") ||
+      lowerClean.includes("not valid json") ||
+      lowerClean.includes("json.parse") ||
+      lowerClean.includes("syntaxerror")
+    ) {
+      clean = lang === "ar"
+        ? "تعذر إتمام العملية بسبب انقطاع مؤقت في الاتصال. يرجى التحقق من بيانات الدخول والمحاولة مجدداً."
+        : lang === "fr"
+        ? "Impossible de se connecter en raison d'une interruption temporaire. Veuillez vérifier vos identifiants et réessayer."
+        : "Unable to sign in due to a temporary connection issue. Please check your credentials and try again.";
     }
 
     // Check if this error is about a deleted account recovery

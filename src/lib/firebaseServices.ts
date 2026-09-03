@@ -32,7 +32,7 @@ import {
   deleteObject 
 } from "firebase/storage";
 import { auth, db, storage } from "../firebase.js";
-import { authenticatedFetch } from "./apiUtils.js";
+import { authenticatedFetch, safeJsonResponse } from "./apiUtils.js";
 import { 
   User, 
   Memory, 
@@ -411,14 +411,32 @@ export async function loginFirebaseUser(email: string, pass: string): Promise<Us
 
   // 3. Resilient Authoritative Server-backed Login (resolves rules latency, missing docs, or client SDK blocks)
   try {
-    const srvRes = await fetch("/api/auth/login", {
+    const url = getAuthApiUrl("/api/auth/login");
+    const srvRes = await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email: normalizedEmail, password: pass })
     });
-    const srvData = (await srvRes.json()) as any;
+    
+    let srvData: any = null;
+    const contentType = srvRes.headers.get("content-type") || "";
+    if (contentType.includes("application/json")) {
+      try {
+        srvData = await srvRes.json();
+      } catch (jsonErr) {
+        console.warn("Notice: JSON parsing failed on /api/auth/login response:", jsonErr);
+      }
+    } else {
+      const text = await srvRes.text().catch(() => "");
+      try {
+        srvData = JSON.parse(text);
+      } catch {
+        // Non-JSON response (such as HTML error or gateway timeout page)
+        console.warn("Notice: Non-JSON response received from /api/auth/login with status", srvRes.status);
+      }
+    }
 
-    if (srvRes.ok && (srvData.user || srvData.id)) {
+    if (srvRes.ok && srvData && (srvData.user || srvData.id)) {
       const authenticatedUser: User = srvData.user || srvData;
 
       // Synchronize client Firebase Auth session with custom token if not authenticated
@@ -432,15 +450,24 @@ export async function loginFirebaseUser(email: string, pass: string): Promise<Us
 
       setLocalItem(`user_${authenticatedUser.id}`, authenticatedUser);
       return authenticatedUser;
-    } else if (!srvRes.ok) {
-      const errorObj: any = new Error(srvData.message || srvData.error || "بيانات الدخول غير صحيحة.");
+    } else if (srvData && (srvData.error || srvData.message || srvData.code)) {
+      const errorObj: any = new Error(srvData.message || srvData.error || "بيانات الدخول غير صحيحة. يرجى التحقق من البريد الإلكتروني وكلمة المرور.");
       errorObj.code = srvData.code || (clientAuthError ? clientAuthError.code : "auth/invalid-credential");
       throw errorObj;
     }
   } catch (srvErr: any) {
-    if (srvErr.code || srvErr.message) {
+    const srvMsg = String(srvErr?.message || "");
+    // If it is a structured authentication error and NOT a raw HTML/JSON parser error, rethrow it
+    if (
+      srvErr?.code && 
+      !srvMsg.includes("<!DOCTYPE") && 
+      !srvMsg.includes("<html") && 
+      !srvMsg.includes("Unexpected token") && 
+      !srvMsg.includes("is not valid JSON")
+    ) {
       throw srvErr;
     }
+    console.warn("Notice: Server-backed login attempt unfulfilled:", srvMsg);
   }
 
   // 4. If both client and server attempts could not authenticate, throw the client error
@@ -448,7 +475,7 @@ export async function loginFirebaseUser(email: string, pass: string): Promise<Us
     throw clientAuthError;
   }
 
-  throw new Error("Unable to authenticate. Please check your credentials.");
+  throw new Error("بيانات الدخول غير صحيحة. يرجى التحقق من البريد الإلكتروني وكلمة المرور.");
 }
 
 export async function loginWithGoogle(): Promise<User> {
@@ -1362,9 +1389,9 @@ export async function sendWorkspaceInvitationApi(invData: {
     })
   });
 
-  const data = await res.json();
+  const data = await safeJsonResponse(res, "تعذر إرسال الدعوة حالياً. يرجى التحقق من الاتصال بالخادم والمحاولة مجدداً.");
   if (!res.ok || !data.success) {
-    throw new Error(data.userFriendlyMessage || data.error || "Failed to send invitation");
+    throw new Error(data.userFriendlyMessage || data.error || data.message || "Failed to send invitation");
   }
 
   if (data.invitation) {
@@ -1385,9 +1412,9 @@ export async function resendWorkspaceInvitationApi(email: string): Promise<{ suc
     body: JSON.stringify({ email: emailKey })
   });
 
-  const data = await res.json();
+  const data = await safeJsonResponse(res, "تعذر إعادة إرسال الدعوة حالياً. يرجى المحاولة بعد قليل.");
   if (!res.ok || !data.success) {
-    throw new Error(data.userFriendlyMessage || data.error || "Failed to resend invitation");
+    throw new Error(data.userFriendlyMessage || data.error || data.message || "Failed to resend invitation");
   }
 
   if (data.invitation) {
@@ -1423,9 +1450,9 @@ export async function deleteWorkspaceInvitation(email: string): Promise<void> {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email: emailKey })
     });
-    const data = await res.json();
+    const data = await safeJsonResponse(res);
     if (!res.ok || !data.success) {
-      console.warn("Revoke invitation backend notice:", data.error);
+      console.warn("Revoke invitation backend notice:", data?.error);
     }
   } catch (err) {
     console.warn("Revoke invitation backend endpoint error, clearing locally:", err);
@@ -1830,7 +1857,7 @@ export async function loginWithCustomToken(customToken: string): Promise<User | 
 export async function checkWorkspaceInvitationApi(email: string) {
   try {
     const res = await fetch(`/api/auth/check-invitation?email=${encodeURIComponent(email)}`);
-    const data = await res.json();
+    const data = await safeJsonResponse(res);
     return data?.invitation || null;
   } catch (err) {
     return null;
@@ -2154,7 +2181,7 @@ export async function createSupportTicketApi(ticketData: {
       throw new Error(errorMsg);
     }
 
-    const data = await res.json();
+    const data = await safeJsonResponse(res, "فشل إنشاء تذكرة الدعم.");
     const ticket = data.ticket;
 
     // 2. Secondary Sync to Firestore collection support_tickets (Non-blocking fallback)
@@ -2217,7 +2244,7 @@ export async function fetchSupportTicketsApi(userId?: string, userEmail?: string
           headers: token ? { "Authorization": `Bearer ${token}` } : {}
         });
         if (res.ok) {
-          const data = await res.json();
+          const data = await safeJsonResponse(res);
           tickets = data.tickets || [];
         } else if (res.status === 401) {
           return [];
@@ -2250,9 +2277,9 @@ export async function addSupportTicketMessageApi(ticketId: string, messageData: 
       headers: { "Content-Type": "application/json", ...(token ? { "Authorization": `Bearer ${token}` } : {}) },
       body: JSON.stringify(messageData)
     });
-    const data = await res.json();
-    if (!res.ok) {
-      throw new Error(data.error || "Failed to add message");
+    const data = await safeJsonResponse(res, "فشل إضافة الرسالة");
+    if (!res.ok || !data.success) {
+      throw new Error(data.userFriendlyMessage || data.error || "Failed to add message");
     }
 
     const updatedTicket = data.ticket;
@@ -2288,9 +2315,9 @@ export async function updateSupportTicketStatusApi(ticketId: string, updateData:
       headers: { "Content-Type": "application/json", ...(token ? { "Authorization": `Bearer ${token}` } : {}) },
       body: JSON.stringify(updateData)
     });
-    const data = await res.json();
-    if (!res.ok) {
-      throw new Error(data.error || "Failed to update ticket status");
+    const data = await safeJsonResponse(res, "فشل تحديث حالة التذكرة");
+    if (!res.ok || !data.success) {
+      throw new Error(data.userFriendlyMessage || data.error || "Failed to update ticket status");
     }
 
     const updatedTicket = data.ticket;

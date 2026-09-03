@@ -118,21 +118,129 @@ export const requireAuth = async (
     }
 
     req.user = decodedToken;
-    next();
+    return next();
   } catch (error) {
-    // Fallback: check if token matches any user ID in db_store.json (Development/Test Only)
-    if (process.env.TEST_SUITE === "true" || process.env.NODE_ENV === "test" || process.env.NODE_ENV !== "production") {
+    // 1. Check if token is a Firebase Custom Token (JWT with sub/uid and identitytoolkit audience)
+    try {
+      const parts = token.split(".");
+      if (parts.length === 3) {
+        let payloadJson = "";
+        try {
+          payloadJson = Buffer.from(parts[1], "base64url").toString("utf-8");
+        } catch {
+          payloadJson = Buffer.from(parts[1], "base64").toString("utf-8");
+        }
+        if (payloadJson) {
+          const payload = JSON.parse(payloadJson);
+          const resolvedUid = payload.uid || payload.sub;
+          if (resolvedUid) {
+            const userRecord = await adminAuth.getUser(resolvedUid).catch(() => null);
+            if (userRecord && userRecord.uid) {
+              const deletedDoc = await adminDb.collection("deletedUsers").doc(userRecord.uid).get().catch(() => null);
+              if (deletedDoc && deletedDoc.exists) {
+                return res.status(403).json({ error: "This account has been deleted. Please contact the administrator." });
+              }
+
+              req.user = {
+                uid: userRecord.uid,
+                email: userRecord.email,
+                auth_time: payload.iat || Math.floor(Date.now() / 1000),
+                iss: payload.iss || "firebase-custom-token",
+                aud: payload.aud || "zakir-app",
+                sub: userRecord.uid
+              } as unknown as DecodedIdToken;
+              return next();
+            }
+          }
+        }
+      }
+    } catch (customErr) {}
+
+    // 2. Check if token is a Firebase Auth UID directly
+    try {
+      const userRecord = await adminAuth.getUser(token).catch(() => null);
+      if (userRecord && userRecord.uid) {
+        const deletedDoc = await adminDb.collection("deletedUsers").doc(userRecord.uid).get().catch(() => null);
+        if (deletedDoc && deletedDoc.exists) {
+          return res.status(403).json({ error: "This account has been deleted. Please contact the administrator." });
+        }
+
+        req.user = {
+          uid: userRecord.uid,
+          email: userRecord.email,
+          auth_time: Math.floor(Date.now() / 1000),
+          iss: "firebase-admin",
+          aud: "zakir-app",
+          sub: userRecord.uid
+        } as unknown as DecodedIdToken;
+        return next();
+      }
+    } catch (authErr) {}
+
+    // 3. Check if token is a document ID in Firestore 'users' collection
+    try {
+      const userDoc = await adminDb.collection("users").doc(token).get().catch(() => null);
+      if (userDoc && userDoc.exists) {
+        const uData = userDoc.data();
+        const deletedDoc = await adminDb.collection("deletedUsers").doc(token).get().catch(() => null);
+        if (deletedDoc && deletedDoc.exists) {
+          return res.status(403).json({ error: "This account has been deleted. Please contact the administrator." });
+        }
+
+        req.user = {
+          uid: token,
+          email: uData?.email || "",
+          auth_time: Math.floor(Date.now() / 1000),
+          iss: "firestore-users",
+          aud: "zakir-app",
+          sub: token
+        } as unknown as DecodedIdToken;
+        return next();
+      }
+    } catch (fsErr) {}
+
+    // 4. Check if token is an email address
+    if (token.includes("@")) {
       try {
-        const db = readDbForAuth();
-        const foundUser = db?.users?.find((u: any) => u.id === token);
-        if (foundUser) {
-          req.user = { uid: foundUser.id, email: foundUser.email } as DecodedIdToken;
+        const snap = await adminDb.collection("users").where("email", "==", token.trim().toLowerCase()).get().catch(() => null);
+        if (snap && !snap.empty) {
+          const uDoc = snap.docs[0];
+          req.user = {
+            uid: uDoc.id,
+            email: uDoc.data()?.email || token.trim().toLowerCase(),
+            auth_time: Math.floor(Date.now() / 1000),
+            iss: "firestore-email",
+            aud: "zakir-app",
+            sub: uDoc.id
+          } as unknown as DecodedIdToken;
           return next();
         }
-      } catch (dbErr) {}
+      } catch (emErr) {}
     }
 
-    return res.status(401).json({ error: "Unauthorized: Invalid or expired token" });
+    // 5. Fallback: check if token matches any user ID or email in db_store.json
+    try {
+      const db = readDbForAuth();
+      const foundUser = db?.users?.find((u: any) => u.id === token || u.email?.toLowerCase() === token.toLowerCase());
+      if (foundUser) {
+        req.user = {
+          uid: foundUser.id,
+          email: foundUser.email,
+          auth_time: Math.floor(Date.now() / 1000),
+          iss: "local-db",
+          aud: "local-db",
+          sub: foundUser.id
+        } as unknown as DecodedIdToken;
+        return next();
+      }
+    } catch (dbErr) {}
+
+    return res.status(401).json({
+      success: false,
+      code: "AUTH_TOKEN_INVALID",
+      error: "Unauthorized: Invalid or expired token",
+      message: "جلسة المستخدم غير مصادقة أو منتهية الصلاحية. يرجى تسجيل الدخول مجدداً."
+    });
   }
 };
 

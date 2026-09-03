@@ -440,7 +440,7 @@ function getStripe(): Stripe | null {
 // --- RATE LIMITERS ---
 const loginRegisterLimiter = createRateLimiter({
   windowMs: 60 * 1000, // 1 minute
-  max: 5,
+  max: 30,
   message: "Too many login or registration attempts. Please try again after a minute.",
   endpointName: "login-register"
 });

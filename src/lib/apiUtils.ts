@@ -164,3 +164,79 @@ export async function getAuthHeader(forceRefresh = false): Promise<Record<string
   const token = await getFreshAuthToken(forceRefresh);
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
+
+/**
+ * Safely parse JSON from a Response object, guarding against empty bodies,
+ * truncated streams, HTML gateway error pages, and network dropouts.
+ */
+export async function safeJsonResponse<T = any>(
+  response: Response,
+  fallbackMessage?: string
+): Promise<T> {
+  let text = "";
+  try {
+    text = await response.text();
+  } catch (readErr) {
+    console.warn("[safeJsonResponse] Failed to read response body:", readErr);
+  }
+
+  const trimmed = (text || "").trim();
+
+  // If the body is completely empty
+  if (!trimmed) {
+    if (!response.ok) {
+      const defaultStatusMsg =
+        response.status === 401
+          ? "انتهت جلسة تسجيل الدخول أو غير مصرح. يرجى تسجيل الدخول مجدداً."
+          : response.status === 403
+          ? "ليس لديك صلاحية لتنفيذ هذا الإجراء (مطلوب حساب مدير)."
+          : response.status === 404
+          ? "الخدمة أو المسار المطلوب غير متوفر حالياً."
+          : response.status === 429
+          ? "تم تجاوز عدد المحاولات المسموح بها مؤقتاً. يرجى الانتظار والمحاولة لاحقاً."
+          : response.status >= 500
+          ? "تعذر إتمام الطلب من الخادم حالياً. يرجى المحاولة بعد لحظات."
+          : "تعذر إتمام الإجراء المطلوب. يرجى المحاولة مرة أخرى.";
+
+      return {
+        success: false,
+        statusCode: response.status,
+        error: fallbackMessage || defaultStatusMsg,
+        userFriendlyMessage: fallbackMessage || defaultStatusMsg
+      } as unknown as T;
+    }
+    return { success: true } as unknown as T;
+  }
+
+  // If the response is HTML error from Vite, Nginx, or Cloud Run gateway
+  if (
+    trimmed.startsWith("<!DOCTYPE") ||
+    trimmed.startsWith("<html") ||
+    trimmed.startsWith("<head")
+  ) {
+    const htmlMsg =
+      fallbackMessage ||
+      (response.status >= 500
+        ? "الخادم قيد التحديث أو إعادة التشغيل حالياً. يرجى المحاولة بعد لحظات."
+        : "استجابة غير متوقعة من بوابة الخادم. يرجى إعادة المحاولة.");
+    return {
+      success: false,
+      statusCode: response.status,
+      error: htmlMsg,
+      userFriendlyMessage: htmlMsg
+    } as unknown as T;
+  }
+
+  try {
+    return JSON.parse(trimmed) as T;
+  } catch (parseErr) {
+    console.warn("[safeJsonResponse] JSON parse exception:", parseErr, "Body sample:", trimmed.substring(0, 100));
+    const parseMsg = fallbackMessage || "حدث خطأ أثناء معالجة بيانات الخادم. يرجى المحاولة لاحقاً.";
+    return {
+      success: false,
+      statusCode: response.status,
+      error: parseMsg,
+      userFriendlyMessage: parseMsg
+    } as unknown as T;
+  }
+}

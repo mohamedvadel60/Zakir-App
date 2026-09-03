@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect, useMemo } from "react";
 import { loadStripe, Stripe as StripeType } from "@stripe/stripe-js";
 import { EmbeddedCheckoutProvider, EmbeddedCheckout } from "@stripe/react-stripe-js";
 import { auth } from "../firebase.js";
-import { authenticatedFetch, getAuthenticatedFirebaseUser, getFreshAuthToken } from "../lib/apiUtils.js";
+import { authenticatedFetch, getAuthenticatedFirebaseUser, getFreshAuthToken, safeJsonResponse } from "../lib/apiUtils.js";
 import { 
   User as UserIcon, 
   Building, 
@@ -238,9 +238,9 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
         method: "DELETE",
         headers: { "Content-Type": "application/json" }
       });
-      const data = await res.json();
+      const data = await safeJsonResponse(res, "تعذر حذف الحساب حالياً.");
       if (!res.ok || !data.success) {
-        throw new Error(data.error || "Failed to delete account");
+        throw new Error(data.userFriendlyMessage || data.error || "Failed to delete account");
       }
       localStorage.removeItem("zakir_auth_token");
       localStorage.removeItem("zakir_current_user");
@@ -287,9 +287,9 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
   useEffect(() => {
     // Load Stripe Config dynamically using cached singleton
     fetch("/api/stripe/config")
-      .then((res) => res.json())
+      .then((res) => safeJsonResponse(res))
       .then((data) => {
-        if (data.publishableKey) {
+        if (data?.publishableKey) {
           setStripePromise(getCachedStripe(data.publishableKey));
         }
       })
@@ -432,7 +432,7 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ userId: currentUser.id })
       });
-      const data = await res.json();
+      const data = await safeJsonResponse(res, "فشل إلغاء الاشتراك حالياً.");
       if (res.ok && data.success) {
         const updated: User = {
           ...currentUser,
@@ -442,7 +442,7 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
         onUpdateUser(updated);
         setShowCancelConfirm(false);
       } else {
-        alert(data.error || "Failed to cancel subscription");
+        alert(data.userFriendlyMessage || data.error || "Failed to cancel subscription");
       }
     } catch (err: any) {
       console.error("Cancel subscription error:", err);
@@ -462,7 +462,7 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
           userId: currentUser.id,
         }),
       });
-      const data = await res.json();
+      const data = await safeJsonResponse(res, "تعذر فتح بوابة إدارة الاشتراك حالياً.");
       if (data.url) {
         window.location.href = data.url;
       } else {
@@ -768,7 +768,7 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
           isGoogleUser: !currentUser.hasPasswordSet
         })
       });
-      const data = await res.json();
+      const data = await safeJsonResponse(res, "فشل تحديث كلمة المرور.");
       if (!res.ok || !data.success) {
         throw new Error(data.userFriendlyMessage || data.error || (lang === "ar" ? "فشل تحديث كلمة المرور." : "Failed to update password."));
       }
@@ -820,7 +820,7 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
           lockedModules: encryptedSecurity.lockedModules
         })
       });
-      const data = await res.json();
+      const data = await safeJsonResponse(res, "فشل إعادة تعيين رمز التشفير.");
       if (!res.ok || !data.success) {
         throw new Error(data.userFriendlyMessage || data.error || (lang === "ar" ? "فشل إعادة تعيين رمز التشفير." : "Failed to reset encryption key."));
       }
@@ -966,7 +966,19 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
       setTimeout(() => setInvSuccessMsg(null), 6000);
     } catch (err: any) {
       console.error("Failed to send invitation:", err);
-      const errMsg = err.message || (lang === "ar" ? "فشل إرسال الدعوة، يرجى المحاولة لاحقاً." : "Failed to send invitation.");
+      let errMsg = err.message || (lang === "ar" ? "فشل إرسال الدعوة، يرجى المحاولة لاحقاً." : "Failed to send invitation.");
+      const lower = errMsg.toLowerCase();
+      if (
+        lower.includes("json") ||
+        lower.includes("unexpected end") ||
+        lower.includes("failed to fetch") ||
+        lower.includes("<!doctype") ||
+        lower.includes("<html")
+      ) {
+        errMsg = lang === "ar"
+          ? "تعذر إرسال الدعوة حالياً بسبب انقطاع مؤقت في الاتصال بالخادم. يرجى المحاولة مرة أخرى."
+          : "Unable to send invitation due to a temporary server connection issue. Please try again.";
+      }
       setInvError(errMsg);
     } finally {
       setIsSendingInv(false);
@@ -986,7 +998,20 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
         setInvitations(list);
       }
     } catch (err: any) {
-      setInvError(err.message || (lang === "ar" ? "فشل إعادة إرسال الدعوة." : "Failed to resend invitation."));
+      let errMsg = err.message || (lang === "ar" ? "فشل إعادة إرسال الدعوة." : "Failed to resend invitation.");
+      const lower = errMsg.toLowerCase();
+      if (
+        lower.includes("json") ||
+        lower.includes("unexpected end") ||
+        lower.includes("failed to fetch") ||
+        lower.includes("<!doctype") ||
+        lower.includes("<html")
+      ) {
+        errMsg = lang === "ar"
+          ? "تعذر إعادة إرسال الدعوة حالياً. يرجى المحاولة بعد قليل."
+          : "Unable to resend invitation right now. Please try again shortly.";
+      }
+      setInvError(errMsg);
     } finally {
       setActionEmailLoading(null);
     }
@@ -1008,7 +1033,18 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
       setInvSuccessMsg(lang === "ar" ? "تم سحب وإلغاء الدعوة بنجاح." : "Invitation revoked successfully.");
       setTimeout(() => setInvSuccessMsg(null), 5000);
     } catch (err: any) {
-      setInvError(err.message || (lang === "ar" ? "فشل إلغاء الدعوة." : "Failed to revoke invitation."));
+      let errMsg = err.message || (lang === "ar" ? "فشل إلغاء الدعوة." : "Failed to revoke invitation.");
+      const lower = errMsg.toLowerCase();
+      if (
+        lower.includes("json") ||
+        lower.includes("unexpected end") ||
+        lower.includes("failed to fetch")
+      ) {
+        errMsg = lang === "ar"
+          ? "تعذر إلغاء الدعوة من الخادم، تم تحديث القائمة محلياً."
+          : "Could not cancel on server, local list updated.";
+      }
+      setInvError(errMsg);
     } finally {
       setActionEmailLoading(null);
     }
@@ -1615,7 +1651,7 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
         try {
           const statusRes = await authenticatedFetch(`/api/stripe/session-status/${checkoutSessionId}`);
           if (statusRes.ok) {
-            const statusData = await statusRes.json();
+            const statusData = await safeJsonResponse(statusRes);
             console.log("Stripe session status verified:", statusData);
           }
         } catch (statusErr) {
