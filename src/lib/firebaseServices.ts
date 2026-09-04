@@ -973,6 +973,9 @@ export async function saveFirebaseUserProfile(user: User): Promise<void> {
 
   const userDocRef = doc(db, "users", user.id);
 
+  // Check if non-admin user is trying to update protected organization/role fields
+  const isCeoOrAdmin = (user.role || "").toUpperCase() === "CEO" || (user.role || "").toUpperCase() === "ADMIN";
+
   // Omit protected system fields that non-admin clients are not allowed to modify on update
   const {
     role,
@@ -980,10 +983,25 @@ export async function saveFirebaseUserProfile(user: User): Promise<void> {
     trialExpiresAt,
     stripeSubscriptionId,
     subscriptionStatus,
+    companyName,
+    organizationName,
+    workspaceId,
+    workspace,
+    powers,
     ...updatableProfile
   } = user;
 
-  const sanitizedUser = sanitizeFirestoreData(updatableProfile);
+  const sanitizedUser = sanitizeFirestoreData({
+    ...updatableProfile,
+    ...(isCeoOrAdmin ? {
+      companyName,
+      organizationName,
+      workspaceId,
+      workspace,
+      powers
+    } : {})
+  });
+
   try {
     await setDoc(userDocRef, sanitizedUser, { merge: true });
     isFirestoreOffline = false; // Successfully connected!
@@ -993,9 +1011,23 @@ export async function saveFirebaseUserProfile(user: User): Promise<void> {
       isFirestoreOffline = true;
     } else {
       handleFirestoreError(error, OperationType.UPDATE, `users/${user.id}`);
-      throw error;
     }
   }
+
+  // Also sync with server-side endpoint
+  try {
+    const token = await auth.currentUser?.getIdToken();
+    if (token) {
+      await fetch(getAuthApiUrl("/api/users/profile"), {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`
+        },
+        body: JSON.stringify(user)
+      });
+    }
+  } catch (syncErr) {}
 }
 
 export async function updateUserPreferences(userId: string, newPrefs: Partial<UserPreferences>): Promise<UserPreferences> {

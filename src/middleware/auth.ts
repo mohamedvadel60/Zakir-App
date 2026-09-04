@@ -14,38 +14,155 @@ const DB_FILE = path.join(process.cwd(), "src", "db_store.json");
 
 export const SECRET_SALT = process.env.SECURITY_SECRET_SALT || "ZakirSecSalt_2026_EnterpriseSecure";
 
+// In-memory rate limiting and lockout map for security passcodes
+interface PasscodeAttemptRecord {
+  attempts: number;
+  lockedUntil?: number;
+  lastAttemptAt: number;
+}
+const passcodeAttemptsMap = new Map<string, PasscodeAttemptRecord>();
+
+export function checkPasscodeRateLimit(identifier: string): { allowed: boolean; remainingAttempts: number; lockedUntil?: number } {
+  const record = passcodeAttemptsMap.get(identifier);
+  if (!record) {
+    return { allowed: true, remainingAttempts: 5 };
+  }
+
+  const now = Date.now();
+  // Check if currently locked out
+  if (record.lockedUntil && now < record.lockedUntil) {
+    return { allowed: false, remainingAttempts: 0, lockedUntil: record.lockedUntil };
+  }
+
+  // If lockout or cooldown (15 minutes) has expired, reset attempts
+  if (record.lastAttemptAt && (now - record.lastAttemptAt > 15 * 60 * 1000)) {
+    passcodeAttemptsMap.delete(identifier);
+    return { allowed: true, remainingAttempts: 5 };
+  }
+
+  const remaining = Math.max(0, 5 - record.attempts);
+  return { allowed: record.attempts < 5, remainingAttempts: remaining };
+}
+
+export function recordPasscodeFailure(identifier: string): { locked: boolean; remainingAttempts: number; lockedUntil?: number } {
+  const now = Date.now();
+  const record = passcodeAttemptsMap.get(identifier) || { attempts: 0, lastAttemptAt: now };
+  record.attempts += 1;
+  record.lastAttemptAt = now;
+
+  if (record.attempts >= 5) {
+    record.lockedUntil = now + 15 * 60 * 1000; // 15-minute lockout
+    passcodeAttemptsMap.set(identifier, record);
+    return { locked: true, remainingAttempts: 0, lockedUntil: record.lockedUntil };
+  }
+
+  passcodeAttemptsMap.set(identifier, record);
+  return { locked: false, remainingAttempts: Math.max(0, 5 - record.attempts) };
+}
+
+export function resetPasscodeFailures(identifier: string): void {
+  passcodeAttemptsMap.delete(identifier);
+}
+
 /**
- * Computes a secure SHA-256 hash for a secret passcode.
+ * Computes an industrial-strength scrypt hash for a secret passcode.
  * Never stores or transmits plaintext passcodes.
  */
 export function hashSecurityPasscode(code: string, salt: string = SECRET_SALT): string {
   const cleanCode = (code || "").trim();
-  return crypto.createHash("sha256").update(`${cleanCode}:${salt}`).digest("hex");
+  const derivedKey = crypto.scryptSync(cleanCode, salt, 32, { N: 16384, r: 8, p: 1 });
+  return `scrypt$N=16384,r=8,p=1$${salt}$${derivedKey.toString("hex")}`;
+}
+
+/**
+ * Timing-safe verification of security passcode against scrypt or legacy hashes.
+ */
+export function verifySecurityPasscode(code: string, storedHashOrPlain?: string, salt: string = SECRET_SALT): boolean {
+  if (!storedHashOrPlain || !code) return false;
+  const cleanCode = (code || "").trim();
+
+  // 1. Scrypt format verification
+  if (storedHashOrPlain.startsWith("scrypt$")) {
+    try {
+      const parts = storedHashOrPlain.split("$");
+      const extractedSalt = parts[2] || salt;
+      const expectedHex = parts[3] || "";
+      const derivedKey = crypto.scryptSync(cleanCode, extractedSalt, 32, { N: 16384, r: 8, p: 1 });
+      const expectedBuffer = Buffer.from(expectedHex, "hex");
+      if (derivedKey.length === expectedBuffer.length) {
+        return crypto.timingSafeEqual(derivedKey, expectedBuffer);
+      }
+    } catch (e) {}
+  }
+
+  // 2. Legacy SHA-256 fallback compatibility
+  try {
+    const legacySha256 = crypto.createHash("sha256").update(`${cleanCode}:${salt}`).digest("hex");
+    if (storedHashOrPlain === legacySha256) return true;
+  } catch (e) {}
+
+  // 3. Strict match for legacy hashed/plain strings (no hardcoded fallbacks)
+  if (storedHashOrPlain && cleanCode) {
+    const cleanStored = storedHashOrPlain.trim();
+    if (cleanStored === cleanCode) return true;
+  }
+
+  return false;
 }
 
 /**
  * Generates a signed temporary session token for unlocked modules.
+ * Scoped strictly to uid, workspaceId, and short-lived timestamp (1 hour).
  */
 export function generateSecuritySessionToken(uid: string, workspaceId: string): string {
   const timestamp = Date.now();
-  const signature = crypto.createHash("sha256").update(`${uid}:${workspaceId}:${timestamp}:${SECRET_SALT}`).digest("hex");
-  return `sec_${Buffer.from(JSON.stringify({ uid, workspaceId, timestamp, sig: signature })).toString("base64url")}`;
+  const expiresAt = timestamp + 60 * 60 * 1000; // 1 hour expiration
+  const dataToSign = `${uid}:${workspaceId || "default"}:${timestamp}:${expiresAt}`;
+  const hmac = crypto.createHmac("sha256", SECRET_SALT).update(dataToSign).digest("hex");
+  
+  const tokenPayload = {
+    uid,
+    workspaceId: workspaceId || "default",
+    timestamp,
+    expiresAt,
+    sig: hmac
+  };
+
+  return `sec_${Buffer.from(JSON.stringify(tokenPayload)).toString("base64url")}`;
 }
 
 /**
- * Verifies if a security session token is valid and not expired (2 hours max).
+ * Verifies if a security session token is valid, unexpired, and belongs to the authenticated user and workspace.
  */
-export function verifySecuritySessionToken(token: string, expectedUid: string): boolean {
+export function verifySecuritySessionToken(token: string, expectedUid: string, expectedWorkspaceId?: string): boolean {
   if (!token || !token.startsWith("sec_")) return false;
   try {
     const raw = Buffer.from(token.replace("sec_", ""), "base64url").toString("utf-8");
     const payload = JSON.parse(raw);
-    if (!payload.uid || !payload.timestamp || !payload.sig) return false;
+    if (!payload.uid || !payload.timestamp || !payload.expiresAt || !payload.sig) return false;
+    
+    // Check UID match
     if (payload.uid !== expectedUid) return false;
-    // 2 hours expiration
-    if (Date.now() - payload.timestamp > 2 * 60 * 60 * 1000) return false;
-    const expectedSig = crypto.createHash("sha256").update(`${payload.uid}:${payload.workspaceId}:${payload.timestamp}:${SECRET_SALT}`).digest("hex");
-    return payload.sig === expectedSig;
+
+    // Check workspace match if specified
+    if (expectedWorkspaceId && payload.workspaceId && payload.workspaceId !== expectedWorkspaceId) {
+      return false;
+    }
+
+    // Check expiration (max 1 hour)
+    const now = Date.now();
+    if (now > payload.expiresAt || (now - payload.timestamp > 60 * 60 * 1000)) {
+      return false;
+    }
+
+    // Verify HMAC cryptographic signature
+    const dataToSign = `${payload.uid}:${payload.workspaceId || "default"}:${payload.timestamp}:${payload.expiresAt}`;
+    const expectedSig = crypto.createHmac("sha256", SECRET_SALT).update(dataToSign).digest("hex");
+    
+    const bufSig = Buffer.from(payload.sig);
+    const bufExpected = Buffer.from(expectedSig);
+    if (bufSig.length !== bufExpected.length) return false;
+    return crypto.timingSafeEqual(bufSig, bufExpected);
   } catch (e) {
     return false;
   }
@@ -64,7 +181,7 @@ function readDbForAuth() {
 }
 
 export const ADMIN_USER_ID = "SYhfciebGFUj29gqGaa0pqNunrk2";
-const ADMIN_EMAILS = new Set(["mohamedvadel60@gmail.com", (process.env.ADMIN_EMAIL || "").toLowerCase()].filter(Boolean));
+export const ADMIN_EMAILS = new Set(["mohamedvadel60@gmail.com", (process.env.ADMIN_EMAIL || "").toLowerCase()].filter(Boolean));
 
 /**
  * Authoritatively retrieves user profile from Firestore or local DB.

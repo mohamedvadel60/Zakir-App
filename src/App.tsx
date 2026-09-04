@@ -1816,8 +1816,10 @@ This hosting domain (**${currentDomain}**) has not been authorized in your Fireb
       if (
         normalizedEmail &&
         (normalizedCode === "LOGIN_SELF_DELETED" ||
+          normalizedCode === "LOGIN_ADMIN_DELETED" ||
           normalizedCode === "LOGIN_USER_DISABLED" ||
           (err as any)?.loginCode === "LOGIN_SELF_DELETED" ||
+          (err as any)?.loginCode === "LOGIN_ADMIN_DELETED" ||
           (err as any)?.originalCode === "SELF_RESTORE_AVAILABLE")
       ) {
         try {
@@ -1936,6 +1938,23 @@ This hosting domain (**${currentDomain}**) has not been authorized in your Fireb
   const hasAccess = (requiredRoles: UserRole[]) => {
     if (!currentUser) return false;
     return requiredRoles.includes(currentUser.role);
+  };
+
+  // Granular module access check (strictly enforces First Administrator / CEO access for sensitive modules)
+  const canUserAccessModule = (moduleId: string): boolean => {
+    if (!currentUser) return false;
+    if (currentUser.role === "CEO" || currentUser.role === "Admin") return true;
+    if (moduleId === "dashboard" || moduleId === "support" || moduleId === "gmail" || moduleId === "smart") return true;
+    if (!currentUser.powers) return false;
+    switch (moduleId) {
+      case "files": return Boolean(currentUser.powers.fileVault);
+      case "library":
+      case "add": return Boolean(currentUser.powers.memoryVault);
+      case "alerts": return Boolean(currentUser.powers.riskRadar);
+      case "market": return Boolean(currentUser.powers.marketIntel);
+      case "settings": return Boolean(currentUser.powers.settings);
+      default: return false;
+    }
   };
 
   // Action: Add Memory (Firestore /users/{uid}/memories)
@@ -3361,7 +3380,38 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                         applyUserPreferences(userProfile);
                         setAuthMode("landing");
                       } catch (err: any) {
-                        setRegError(formatAuthError(err));
+                        const normCode = err instanceof LoginError ? err.loginCode : normalizeLoginError(err);
+                        const gEmail = (err?.email || "").trim().toLowerCase();
+                        if (
+                          gEmail && (
+                            normCode === "LOGIN_SELF_DELETED" ||
+                            normCode === "LOGIN_ADMIN_DELETED" ||
+                            normCode === "LOGIN_USER_DISABLED" ||
+                            err?.daysRemaining !== undefined
+                          )
+                        ) {
+                          setDeletedAccountRecovery({
+                            email: gEmail,
+                            daysRemaining: err.daysRemaining ?? 31,
+                            restoreUntil: err.restoreUntil,
+                            isExpired: false
+                          });
+                        } else if (gEmail) {
+                          checkAccountLifecycleApi(gEmail).then(lifecycle => {
+                            if (lifecycle && lifecycle.success && (lifecycle.status === "SELF_DELETED" || lifecycle.status === "ADMIN_DELETED" || lifecycle.status === "ADMIN_APPROVAL_PENDING")) {
+                              setDeletedAccountRecovery({
+                                email: gEmail,
+                                daysRemaining: lifecycle.daysRemaining ?? 31,
+                                restoreUntil: lifecycle.restoreUntil,
+                                isExpired: false
+                              });
+                            } else {
+                              setRegError(formatAuthError(err));
+                            }
+                          }).catch(() => setRegError(formatAuthError(err)));
+                        } else {
+                          setRegError(formatAuthError(err));
+                        }
                       }
                     }}
                     className="w-full py-2.5 px-4 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-800 dark:text-slate-200 text-xs font-semibold rounded-lg border border-slate-200 dark:border-slate-800 transition-all cursor-pointer flex items-center justify-center gap-2.5 mb-4 shadow-xs hover:border-slate-300 dark:hover:border-slate-700"
@@ -3688,7 +3738,38 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                           applyUserPreferences(userProfile);
                           setAuthMode("landing");
                         } catch (err: any) {
-                          setLoginError(formatAuthError(err));
+                          const normCode = err instanceof LoginError ? err.loginCode : normalizeLoginError(err);
+                          const gEmail = (err?.email || "").trim().toLowerCase();
+                          if (
+                            gEmail && (
+                              normCode === "LOGIN_SELF_DELETED" ||
+                              normCode === "LOGIN_ADMIN_DELETED" ||
+                              normCode === "LOGIN_USER_DISABLED" ||
+                              err?.daysRemaining !== undefined
+                            )
+                          ) {
+                            setDeletedAccountRecovery({
+                              email: gEmail,
+                              daysRemaining: err.daysRemaining ?? 31,
+                              restoreUntil: err.restoreUntil,
+                              isExpired: false
+                            });
+                          } else if (gEmail) {
+                            checkAccountLifecycleApi(gEmail).then(lifecycle => {
+                              if (lifecycle && lifecycle.success && (lifecycle.status === "SELF_DELETED" || lifecycle.status === "ADMIN_DELETED" || lifecycle.status === "ADMIN_APPROVAL_PENDING")) {
+                                setDeletedAccountRecovery({
+                                  email: gEmail,
+                                  daysRemaining: lifecycle.daysRemaining ?? 31,
+                                  restoreUntil: lifecycle.restoreUntil,
+                                  isExpired: false
+                                });
+                              } else {
+                                setLoginError(formatAuthError(err));
+                              }
+                            }).catch(() => setLoginError(formatAuthError(err)));
+                          } else {
+                            setLoginError(formatAuthError(err));
+                          }
                         }
                       }}
                       className="w-full py-2.5 px-4 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-800 dark:text-slate-200 text-xs font-semibold rounded-lg border border-slate-200 dark:border-slate-800 transition-all cursor-pointer flex items-center justify-center gap-2.5 mb-4 shadow-xs hover:border-slate-300 dark:hover:border-slate-700"
@@ -3968,18 +4049,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                 ] as { group: string; items: { id: string; label: any; icon: any; badge?: number }[] }[]
               ).map((section, idx) => {
                 const filteredItems = section.items.filter((item) => {
-                  if (!currentUser) return true;
-                  if (currentUser.role === "CEO") return true;
-                  if (!currentUser.powers) return true;
-                  switch (item.id) {
-                    case "files": return !!currentUser.powers.fileVault;
-                    case "library":
-                    case "add": return !!currentUser.powers.memoryVault;
-                    case "alerts": return !!currentUser.powers.riskRadar;
-                    case "market": return !!currentUser.powers.marketIntel;
-                    case "settings": return !!currentUser.powers.settings;
-                    default: return true;
-                  }
+                  return canUserAccessModule(item.id);
                 });
 
                 if (filteredItems.length === 0) return null;
@@ -4393,13 +4463,15 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                           </div>
 
                           <div className={`flex items-center gap-3 ${isRtl ? "justify-start md:justify-end" : "justify-start"}`}>
-                            <button 
-                              onClick={() => setActiveTab("add")} 
-                              className="h-10 px-5 bg-[#0075DE] hover:bg-[#005BAB] text-white font-black text-xs rounded-xl flex items-center gap-2 shadow-md shadow-[#0075DE]/10 hover:shadow-[#0075DE]/20 transition-all cursor-pointer transform hover:-translate-y-0.5"
-                            >
-                              <PlusCircle className="w-4 h-4 shrink-0" />
-                              <span>{t.logMemoryBtn}</span>
-                            </button>
+                            {canUserAccessModule("add") && (
+                              <button 
+                                onClick={() => setActiveTab("add")} 
+                                className="h-10 px-5 bg-[#0075DE] hover:bg-[#005BAB] text-white font-black text-xs rounded-xl flex items-center gap-2 shadow-md shadow-[#0075DE]/10 hover:shadow-[#0075DE]/20 transition-all cursor-pointer transform hover:-translate-y-0.5"
+                              >
+                                <PlusCircle className="w-4 h-4 shrink-0" />
+                                <span>{t.logMemoryBtn}</span>
+                              </button>
+                            )}
 
                             <button 
                               onClick={() => { setActiveTab("smart"); runSmartAnalysis(); }} 
@@ -4517,13 +4589,13 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                           
                           {/* CELL A: Strategic Knowledge Wealth (Spans 2 columns) */}
                           <div 
-                            onClick={() => setActiveTab("library")}
-                            className={`md:col-span-2 p-6 rounded-2xl border transition-all cursor-pointer group/kpi border-slate-800 flex flex-col justify-between ${
+                            onClick={() => canUserAccessModule("library") && setActiveTab("library")}
+                            className={`md:col-span-2 p-6 rounded-2xl border transition-all ${canUserAccessModule("library") ? "cursor-pointer group/kpi" : "opacity-80"} border-slate-800 flex flex-col justify-between ${
                               theme === "dark" 
                                 ? "bg-slate-900/40 hover:bg-slate-800/80 hover:border-[#0075DE]/50 shadow-black/20" 
                                 : "bg-white hover:bg-slate-50 hover:border-[#0075DE]/50 shadow-sm shadow-slate-100"
                             }`}
-                            title={dl.clickExplore}
+                            title={canUserAccessModule("library") ? dl.clickExplore : undefined}
                           >
                             <div className="flex items-center justify-between">
                               <span className="text-[10px] text-[#0075DE] font-black uppercase tracking-wider">
@@ -4557,20 +4629,22 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                             </div>
 
                             <div className="text-[11px] text-slate-400 group-hover/kpi:text-[#0075DE] transition-colors font-medium border-t border-slate-800/50 pt-2.5 flex items-center justify-between">
-                              <span>{dl.clickExplore}</span>
-                              <ChevronRight className={`w-3.5 h-3.5 transform group-hover/kpi:translate-x-1 transition-transform ${isRtl ? "rotate-180" : ""}`} />
+                              <span>{canUserAccessModule("library") ? dl.clickExplore : (lang === "ar" ? "وصول محمي" : "Protected Section")}</span>
+                              {canUserAccessModule("library") && (
+                                <ChevronRight className={`w-3.5 h-3.5 transform group-hover/kpi:translate-x-1 transition-transform ${isRtl ? "rotate-180" : ""}`} />
+                              )}
                             </div>
                           </div>
 
                           {/* CELL B: Active Institutional Threats */}
                           <div 
-                            onClick={() => setActiveTab("alerts")}
-                            className={`p-6 rounded-2xl border transition-all cursor-pointer group/kpi flex flex-col justify-between ${
+                            onClick={() => canUserAccessModule("alerts") && setActiveTab("alerts")}
+                            className={`p-6 rounded-2xl border transition-all ${canUserAccessModule("alerts") ? "cursor-pointer group/kpi" : "opacity-80"} flex flex-col justify-between ${
                               theme === "dark" 
                                 ? "bg-slate-900/40 hover:bg-slate-800/80 border-slate-800 hover:border-rose-500/40" 
                                 : "bg-white hover:bg-rose-50/35 border-slate-200 hover:border-rose-300"
                             }`}
-                            title={dl.clickThreats}
+                            title={canUserAccessModule("alerts") ? dl.clickThreats : undefined}
                           >
                             <div className="flex items-center justify-between">
                               <span className="text-[10px] text-rose-500 font-black uppercase tracking-wider">
@@ -5001,7 +5075,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
               )}
 
               {/* VIEW: MEMORY LIBRARY */}
-              {activeTab === "library" && (
+              {activeTab === "library" && canUserAccessModule("library") && (
                 <motion.div 
                   initial={{ opacity: 0 }} 
                   animate={{ opacity: 1 }} 
@@ -5448,7 +5522,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
               )}
 
               {/* VIEW: ADD MEMORY */}
-              {activeTab === "add" && (
+              {activeTab === "add" && canUserAccessModule("add") && (
                 <motion.div 
                   initial={{ opacity: 0 }} 
                   animate={{ opacity: 1 }} 
@@ -5850,7 +5924,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
               )}
 
               {/* VIEW: FILE VAULT & STORAGE (FIREBASE) */}
-              {activeTab === "files" && (
+              {activeTab === "files" && canUserAccessModule("files") && (
                 <motion.div
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
@@ -6431,7 +6505,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
               {/* VIEW: RISK ALERTS */}
 
               {/* VIEW: RISK ALERTS */}
-              {activeTab === "alerts" && (
+              {activeTab === "alerts" && canUserAccessModule("alerts") && (
                 <motion.div 
                   initial={{ opacity: 0 }} 
                   animate={{ opacity: 1 }} 
@@ -6542,7 +6616,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
               )}
 
               {/* VIEW: SETTINGS & ADMINISTRATION */}
-              {activeTab === "settings" && (
+              {activeTab === "settings" && canUserAccessModule("settings") && (
                 <motion.div 
                   initial={{ opacity: 0, y: 10 }} 
                   animate={{ opacity: 1, y: 0 }} 
@@ -6582,6 +6656,33 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                     currentUser={currentUser}
                     lang={lang}
                   />
+                </motion.div>
+              )}
+
+              {/* VIEW: ACCESS RESTRICTED FALLBACK */}
+              {!canUserAccessModule(activeTab) && (
+                <motion.div 
+                  initial={{ opacity: 0, scale: 0.96 }} 
+                  animate={{ opacity: 1, scale: 1 }} 
+                  className="p-8 text-center max-w-lg mx-auto my-16 bg-slate-900/40 border border-rose-500/20 rounded-2xl shadow-xl shadow-black/20"
+                >
+                  <div className="w-14 h-14 bg-rose-500/10 border border-rose-500/20 rounded-2xl flex items-center justify-center mx-auto mb-4 text-rose-500">
+                    <ShieldAlert className="w-7 h-7" />
+                  </div>
+                  <h2 className="text-xl font-black text-slate-100 mb-2">
+                    {lang === "ar" ? "قسم محمي ومقيد الصلاحيات" : (lang === "fr" ? "Section Protégée et Restreinte" : "Access Restricted Module")}
+                  </h2>
+                  <p className="text-sm text-slate-400 mb-6 leading-relaxed">
+                    {lang === "ar" 
+                      ? "هذا القسم مخصص للمسؤول الأول (CEO) أو يتطلب تصريحاً صريحاً بالصلاحيات المشفرة."
+                      : "This module is strictly restricted to the First Administrator / CEO or requires explicit granted permissions."}
+                  </p>
+                  <button 
+                    onClick={() => setActiveTab("dashboard")} 
+                    className="h-10 px-6 bg-[#0075DE] hover:bg-[#005BAB] text-white font-bold text-xs rounded-xl shadow-md shadow-[#0075DE]/20 transition-all cursor-pointer"
+                  >
+                    {lang === "ar" ? "العودة للوحة التحكم الرئيسية" : "Return to Dashboard"}
+                  </button>
                 </motion.div>
               )}
 
@@ -6629,33 +6730,43 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
             </p>
 
             <form 
-              onSubmit={(e) => {
+              onSubmit={async (e) => {
                 e.preventDefault();
                 if (!unlockMemoryTarget) return;
-                const activePasscode = currentUser?.encryptedSecurity?.secretPasscode;
-                if (!activePasscode || activePasscode.trim() === "") {
+                try {
+                  const res = await authenticatedFetch("/api/security/verify-code", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                      code: unlockMemoryPinInput.trim(),
+                      module: "memoryVault"
+                    })
+                  });
+                  const data = await res.json().catch(() => ({}));
+                  if (res.ok && (data.verified || data.success)) {
+                    setUnlockedMemoryIds(prev => new Set(prev).add(unlockMemoryTarget.id));
+                    setExpandedMemoryId(unlockMemoryTarget.id);
+                    setUnlockMemoryTarget(null);
+                    setUnlockMemoryPinInput("");
+                    setUnlockMemoryError("");
+                  } else {
+                    setUnlockMemoryError(
+                      data.error || data.message || (
+                        lang === "ar"
+                          ? "الرمز السري غير صحيح! يرجى التأكد من الرمز المدخل لفك التشفير."
+                          : (lang === "fr"
+                            ? "Code secret invalide ! La vérification a échoué."
+                            : "Invalid secret passcode! Verification failed.")
+                      )
+                    );
+                  }
+                } catch (err: any) {
                   setUnlockMemoryError(
-                    lang === "ar"
-                      ? "لم يتم تعيين رمز سري بعد! يرجى الذهاب إلى الإعدادات > الأمان لتعيين رمزك السري أولاً."
-                      : (lang === "fr"
-                        ? "Aucun code secret n'est encore configuré ! Veuillez d'abord configurer votre code secret dans Paramètres > Sécurité."
-                        : "No secret passcode set yet! Please configure your secret passcode in Settings > Security first.")
-                  );
-                  return;
-                }
-                if (unlockMemoryPinInput.trim() === activePasscode.trim()) {
-                  setUnlockedMemoryIds(prev => new Set(prev).add(unlockMemoryTarget.id));
-                  setExpandedMemoryId(unlockMemoryTarget.id);
-                  setUnlockMemoryTarget(null);
-                  setUnlockMemoryPinInput("");
-                  setUnlockMemoryError("");
-                } else {
-                  setUnlockMemoryError(
-                    lang === "ar"
-                      ? "الرمز السري غير صحيح! يرجى التأكد من الرمز المدخل لفك التشفير."
-                      : (lang === "fr"
-                        ? "Code secret invalide ! La vérification a échoué."
-                        : "Invalid secret passcode! Verification failed.")
+                    err.message || (
+                      lang === "ar"
+                        ? "فشل التحقق من الرمز السري."
+                        : "Failed to verify passcode."
+                    )
                   );
                 }
               }} 

@@ -9,6 +9,7 @@ export type LoginErrorCode =
   | "LOGIN_USER_NOT_FOUND"
   | "LOGIN_USER_DISABLED"
   | "LOGIN_SELF_DELETED"
+  | "LOGIN_ADMIN_DELETED"
   | "LOGIN_TOO_MANY_REQUESTS"
   | "LOGIN_NETWORK_ERROR"
   | "LOGIN_UNAUTHORIZED_DOMAIN"
@@ -336,6 +337,13 @@ export function formatLoginErrorMessage(code: LoginErrorCode, lang: string = "ar
         : lang === "fr"
         ? "Votre compte précédemment supprimé a été retrouvé et peut être restauré."
         : "Your previously deleted account was found and is available for restoration.";
+
+    case "LOGIN_ADMIN_DELETED":
+      return lang === "ar"
+        ? "تم حذف هذا الحساب بقرار إداري. يرجى التواصل مع مسؤول النظام."
+        : lang === "fr"
+        ? "Ce compte a été supprimé par l'administrateur."
+        : "This account was deleted by an administrator.";
 
     case "LOGIN_TOO_MANY_REQUESTS":
       return lang === "ar"

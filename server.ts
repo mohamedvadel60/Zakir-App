@@ -15,7 +15,7 @@ import nodemailer from "nodemailer";
 import { db as sqlDb, withRetry } from "./src/db/index.js";
 import { users as sqlUsers, gmailLogs } from "./src/db/schema.js";
 import { getOrCreateUser } from "./src/db/users.js";
-import { requireAuth, requireAdmin, isUserAdminServer, requireModulePermission, hashSecurityPasscode, generateSecuritySessionToken, getUserProfileServer, AuthRequest } from "./src/middleware/auth.js";
+import { requireAuth, requireAdmin, isUserAdminServer, requireModulePermission, hashSecurityPasscode, verifySecurityPasscode, checkPasscodeRateLimit, recordPasscodeFailure, resetPasscodeFailures, generateSecuritySessionToken, getUserProfileServer, AuthRequest, ADMIN_EMAILS } from "./src/middleware/auth.js";
 import { createRateLimiter } from "./src/middleware/rateLimiter.js";
 import { adminAuth, adminDb, adminStorage, isFirebaseAdminAvailable, getSafeBucket } from "./src/lib/firebase-admin.js";
 import { eq, desc } from "drizzle-orm";
@@ -2358,7 +2358,7 @@ export async function resolveUserByEmailOrId(params: {
           userId: lifecycleRecord.originalUserId,
           email: normalizedEmail,
           phone: retainedData?.phone || inputPhone,
-          userDoc: retainedData || { email: normalizedEmail, role: "CEO" },
+          userDoc: retainedData || { email: normalizedEmail, role: lifecycleRecord?.originalRole || "Contributor" },
           source: "account_lifecycle_retained"
         };
       }
@@ -2965,7 +2965,7 @@ app.post("/api/auth/verify-code", otpLimiter, async (req, res) => {
 
     const resolvedFinalUser = firestoreUser || user || resolvedUser.userDoc || null;
     if (resolvedFinalUser && !resolvedFinalUser.role) {
-      resolvedFinalUser.role = "CEO";
+      resolvedFinalUser.role = (resolvedFinalUser.email && ADMIN_EMAILS.has(resolvedFinalUser.email.toLowerCase())) ? "Admin" : "Contributor";
     }
 
     return res.status(200).json({
@@ -3420,7 +3420,7 @@ app.post("/api/auth/set-password", async (req, res) => {
         email: cleanEmail,
         passwordHash: newPassword,
         hasPasswordSet: true,
-        role: "CEO",
+        role: ADMIN_EMAILS.has(cleanEmail.toLowerCase()) ? "Admin" : "Contributor",
         createdAt: new Date().toISOString()
       };
       db.users.push(newUser);
@@ -5619,7 +5619,11 @@ export async function restoreAccountFullServer(email: string, newPassword?: stri
   const authoritativeOwnerId = retainedProfile?.workspace?.ownerId;
   const isOriginalWorkspaceCreator = authoritativeOwnerId ? authoritativeOwnerId === finalUid : (retainedProfile?.role === "CEO");
 
-  const preservedRole = retainedProfile?.role || (isOriginalWorkspaceCreator ? "CEO" : "Contributor"); // PRESERVE AUTHORITATIVE ROLE
+  const preservedRole = retainedProfile?.role || lifecycle?.originalRole;
+  if (!preservedRole) {
+    console.error(`[RESTORE_FULL] Security Error: Original role missing for ${normalizedEmail}. Restoration blocked.`);
+    return { success: false, error: "Cannot verify original user role and permissions. Account restoration blocked for security." };
+  }
   const preservedWorkspaceId = retainedProfile?.workspaceId || retainedProfile?.workspace?.id || `ws_${finalUid.substring(0, 8)}`;
   const preservedWorkspace = retainedProfile?.workspace || {
     id: preservedWorkspaceId,
@@ -6106,15 +6110,19 @@ app.post("/api/auth/restore-account", async (req, res) => {
     }
 
     const nowIso = new Date().toISOString();
-    // Preserve authoritative role, workspace, powers, preferences from retained profile without privilege escalation
-    const authoritativeOwnerId = retainedProfile?.workspace?.ownerId;
-    const isOriginalWorkspaceCreator = authoritativeOwnerId ? authoritativeOwnerId === userId : (retainedProfile?.role === "CEO");
-
-    const preservedRole = retainedProfile?.role || (isOriginalWorkspaceCreator ? "CEO" : "Contributor");
+    // Strictly preserve authoritative role, workspace, powers, preferences from retained profile/record without privilege escalation
+    const preservedRole = retainedProfile?.role || record?.originalRole;
+    if (!preservedRole) {
+      console.error(`[RESTORE_SELF] Security Error: Original role missing for ${normalizedEmail}. Restoration blocked.`);
+      return res.status(400).json({ success: false, error: "Cannot verify original user role and permissions. Account restoration blocked for security." });
+    }
+    const preservedWorkspaceId = retainedProfile?.workspaceId || record?.originalWorkspaceId || retainedProfile?.workspace?.id || `ws_${userId.substring(0, 8)}`;
+    const authoritativeOwnerId = retainedProfile?.workspace?.ownerId || (preservedRole === "CEO" ? userId : undefined);
+    
     const preservedWorkspace = retainedProfile?.workspace || {
-      id: retainedProfile?.workspaceId || `ws_${userId.substring(0, 8)}`,
+      id: preservedWorkspaceId,
       name: `${retainedProfile?.companyName || "Restored"} Workspace`,
-      ownerId: authoritativeOwnerId || userId,
+      ownerId: authoritativeOwnerId || (preservedRole === "CEO" ? userId : `ws_owner_${preservedWorkspaceId}`),
       createdAt: retainedProfile?.createdAt || nowIso,
       memberCount: 1
     };
@@ -6124,9 +6132,9 @@ app.post("/api/auth/restore-account", async (req, res) => {
       id: userId,
       email: normalizedEmail,
       role: preservedRole,
-      workspaceId: retainedProfile?.workspaceId || preservedWorkspace.id,
+      workspaceId: preservedWorkspaceId,
       workspace: preservedWorkspace,
-      powers: retainedProfile?.powers,
+      powers: retainedProfile?.powers || record?.originalPowers,
       companyName: retainedProfile?.companyName || "Restored Account",
       ownerName: retainedProfile?.ownerName || normalizedEmail.split("@")[0],
       subscriptionStatus: retainedProfile?.subscriptionStatus || "Active Trial",
@@ -8141,6 +8149,9 @@ app.all("/api/auth/delete-account", requireAuth, async (req: AuthRequest, res) =
         deletedBy: targetUid,
         restoreUntil: restoreUntilIso,
         originalUserId: targetUid,
+        originalRole: userDocData?.role || "Contributor",
+        originalWorkspaceId: userDocData?.workspaceId,
+        originalPowers: userDocData?.powers,
         retainedDataDocPath: `users_retained/${targetUid}`,
         adminApprovalRequired: false
       });
@@ -8747,18 +8758,33 @@ app.post("/api/auth/login", loginRegisterLimiter, async (req, res) => {
 
     // If profile is not found, construct default profile
     if (!userProfile) {
-      const workspaceId = `ws_${authUid.substring(0, 8)}_${Date.now().toString(36)}`;
+      let invitedRole = "CEO";
+      let invitedWorkspaceId: string | undefined = undefined;
+      let invitedPowers: any = undefined;
+
+      try {
+        const invSnap = await adminDb.collection("workspace_invitations").where("email", "==", normalizedEmail).get();
+        if (!invSnap.empty) {
+          const invData = invSnap.docs[0].data();
+          invitedRole = invData.role || "Contributor";
+          invitedWorkspaceId = invData.workspaceId;
+          invitedPowers = invData.powers;
+        }
+      } catch (invErr) {}
+
+      const workspaceId = invitedWorkspaceId || `ws_${authUid.substring(0, 8)}_${Date.now().toString(36)}`;
       userProfile = {
         id: authUid,
         email: normalizedEmail,
-        companyName: "Personal Account",
+        companyName: invitedRole === "CEO" ? "Personal Account" : "Organization Member",
         ownerName: normalizedEmail.split("@")[0],
-        role: "CEO",
+        role: ADMIN_EMAILS.has(normalizedEmail) ? "Admin" : invitedRole,
         workspaceId: workspaceId,
+        powers: invitedPowers,
         workspace: {
           id: workspaceId,
-          name: "Personal Workspace",
-          ownerId: authUid,
+          name: invitedRole === "CEO" ? "Personal Workspace" : "Organization Workspace",
+          ownerId: invitedRole === "CEO" ? authUid : `owner_${workspaceId}`,
           createdAt: nowIso,
           memberCount: 1
         },
@@ -8910,6 +8936,18 @@ app.post("/api/security/verify-code", requireAuth, async (req: AuthRequest, res)
     const userProfile = await getUserProfileServer(authUid, authEmail);
     if (!userProfile) return res.status(404).json({ error: "User profile not found" });
 
+    const rateLimitKey = `passcode_${authUid}`;
+    const limitCheck = checkPasscodeRateLimit(rateLimitKey);
+    if (!limitCheck.allowed) {
+      const minutesRemaining = limitCheck.lockedUntil ? Math.max(1, Math.ceil((limitCheck.lockedUntil - Date.now()) / 60000)) : 15;
+      return res.status(429).json({
+        success: false,
+        code: "PASSCODE_LOCKED",
+        error: `تم تجاوز الحد الأقصى للمحاولات الخاطئة. تم قفل التحقق مؤقتاً لمدة ${minutesRemaining} دقيقة لحماية الحساب.`,
+        message: `Too many failed attempts. Verification locked for ${minutesRemaining} minutes.`
+      });
+    }
+
     const { code, module: reqModule } = req.body;
     if (!code || typeof code !== "string") {
       return res.status(400).json({ error: "Passcode is required." });
@@ -8917,31 +8955,35 @@ app.post("/api/security/verify-code", requireAuth, async (req: AuthRequest, res)
 
     // Find the relevant security settings (from user or workspace owner)
     let targetSecurity = userProfile.encryptedSecurity;
-    if (!targetSecurity?.secretPasscodeHash && userProfile.workspace?.ownerId && userProfile.workspace.ownerId !== authUid) {
+    if (!targetSecurity?.secretPasscodeHash && !targetSecurity?.secretPasscode && userProfile.workspace?.ownerId && userProfile.workspace.ownerId !== authUid) {
       const ownerProfile = await getUserProfileServer(userProfile.workspace.ownerId);
       if (ownerProfile?.encryptedSecurity) {
         targetSecurity = ownerProfile.encryptedSecurity;
       }
     }
 
-    const inputHash = hashSecurityPasscode(code.trim());
-    let isMatch = false;
-
-    if (targetSecurity?.secretPasscodeHash) {
-      isMatch = targetSecurity.secretPasscodeHash === inputHash;
-    } else if (targetSecurity?.secretPasscode) {
-      isMatch = targetSecurity.secretPasscode === code.trim();
-    } else {
-      isMatch = code.trim() === "1234" || code.trim() === "0000";
-    }
+    const storedPasscode = targetSecurity?.secretPasscodeHash || targetSecurity?.secretPasscode;
+    const isMatch = verifySecurityPasscode(code.trim(), storedPasscode);
 
     if (!isMatch) {
+      const failInfo = recordPasscodeFailure(rateLimitKey);
+      if (failInfo.locked) {
+        return res.status(429).json({
+          success: false,
+          code: "PASSCODE_LOCKED",
+          error: "تم قفل التحقق من رمز الأمان لمدة 15 دقيقة بعد 5 محاولات خاطئة متتالية.",
+          message: "Passcode verification locked for 15 minutes after 5 consecutive failed attempts."
+        });
+      }
       return res.status(403).json({
         success: false,
-        error: "رمز الأمان السري غير صحيح.",
-        message: "Incorrect security passcode."
+        code: "PASSCODE_INCORRECT",
+        error: `رمز الأمان السري غير صحيح. متبقي ${failInfo.remainingAttempts} محاولات قبل القفل المؤقت.`,
+        message: `Incorrect security passcode. ${failInfo.remainingAttempts} attempts remaining.`
       });
     }
+
+    resetPasscodeFailures(rateLimitKey);
 
     const workspaceId = userProfile.workspaceId || userProfile.workspace?.id || `ws_${authUid}`;
     const token = generateSecuritySessionToken(authUid, workspaceId);
@@ -8956,6 +8998,131 @@ app.post("/api/security/verify-code", requireAuth, async (req: AuthRequest, res)
   } catch (err: any) {
     console.error("Verify security code error:", err);
     res.status(500).json({ error: "Failed to verify security code" });
+  }
+});
+
+// --- SECURE USER PROFILE UPDATE (SERVER-SIDE AUTHORIZATION ENFORCEMENT) ---
+app.post("/api/users/profile", requireAuth, async (req: AuthRequest, res) => {
+  try {
+    const authUid = req.user?.uid;
+    const authEmail = req.user?.email;
+    if (!authUid) return res.status(401).json({ error: "Unauthorized" });
+
+    const existingProfile = await getUserProfileServer(authUid, authEmail);
+    if (!existingProfile) return res.status(404).json({ error: "User profile not found" });
+
+    const isOwnerOrCeo = (existingProfile.role || "").toUpperCase() === "CEO" || 
+                         (existingProfile.role || "").toUpperCase() === "ADMIN" || 
+                         existingProfile.workspace?.ownerId === authUid ||
+                         (await isUserAdminServer(authUid, authEmail));
+
+    const incomingData = req.body || {};
+
+    // If non-CEO user attempts to modify organization, workspace, role, powers, or language, block or sanitize strictly
+    if (!isOwnerOrCeo) {
+      if (incomingData.role && incomingData.role !== existingProfile.role) {
+        return res.status(403).json({
+          error: "Forbidden: Non-admin users cannot alter account roles.",
+          code: "ROLE_TAMPERING_FORBIDDEN"
+        });
+      }
+      if (incomingData.workspaceId && incomingData.workspaceId !== existingProfile.workspaceId) {
+        return res.status(403).json({
+          error: "Forbidden: Non-admin users cannot change organization membership.",
+          code: "ORGANIZATION_CHANGE_FORBIDDEN"
+        });
+      }
+      if (incomingData.companyName && incomingData.companyName !== existingProfile.companyName) {
+        return res.status(403).json({
+          error: "Forbidden: Non-admin users cannot rename the organization.",
+          code: "ORGANIZATION_RENAME_FORBIDDEN"
+        });
+      }
+      if (incomingData.powers && JSON.stringify(incomingData.powers) !== JSON.stringify(existingProfile.powers || {})) {
+        return res.status(403).json({
+          error: "Forbidden: Non-admin users cannot alter module permissions.",
+          code: "POWERS_TAMPERING_FORBIDDEN"
+        });
+      }
+      if (
+        incomingData.userPreferences?.language &&
+        existingProfile.userPreferences?.language &&
+        incomingData.userPreferences.language !== existingProfile.userPreferences.language
+      ) {
+        return res.status(403).json({
+          error: "Forbidden: Organization language is managed by administration.",
+          code: "LANGUAGE_CHANGE_FORBIDDEN"
+        });
+      }
+    }
+
+    // Construct sanitized updated user profile
+    const updatedProfile: any = {
+      ...existingProfile,
+      ownerName: incomingData.ownerName || incomingData.fullName || existingProfile.ownerName,
+      fullName: incomingData.fullName || incomingData.ownerName || existingProfile.fullName,
+      jobTitle: incomingData.jobTitle !== undefined ? incomingData.jobTitle : existingProfile.jobTitle,
+      department: incomingData.department !== undefined ? incomingData.department : existingProfile.department,
+      issuingEntity: incomingData.issuingEntity !== undefined ? incomingData.issuingEntity : existingProfile.issuingEntity,
+      avatarUrl: incomingData.avatarUrl !== undefined ? incomingData.avatarUrl : existingProfile.avatarUrl,
+      phone: incomingData.phone !== undefined ? incomingData.phone : existingProfile.phone,
+      updatedAt: new Date().toISOString()
+    };
+
+    // CEO / Admin allowed fields
+    if (isOwnerOrCeo) {
+      if (incomingData.companyName) {
+        updatedProfile.companyName = incomingData.companyName;
+        updatedProfile.organizationName = incomingData.companyName;
+      }
+      if (incomingData.companyLogoUrl !== undefined) {
+        updatedProfile.companyLogoUrl = incomingData.companyLogoUrl;
+      }
+      if (incomingData.signatureUrl !== undefined) {
+        updatedProfile.signatureUrl = incomingData.signatureUrl;
+      }
+      if (incomingData.userPreferences) {
+        updatedProfile.userPreferences = {
+          ...(existingProfile.userPreferences || {}),
+          ...incomingData.userPreferences
+        };
+      }
+    } else {
+      // Non-CEO personal preferences (theme only, keep organization language)
+      if (incomingData.userPreferences) {
+        updatedProfile.userPreferences = {
+          ...(existingProfile.userPreferences || {}),
+          theme: incomingData.userPreferences.theme || existingProfile.userPreferences?.theme || "light",
+          language: existingProfile.userPreferences?.language || "ar" // Locked
+        };
+      }
+    }
+
+    // Persist to Firestore
+    if (isFirebaseAdminAvailable && adminDb) {
+      try {
+        await adminDb.collection("users").doc(authUid).set(updatedProfile, { merge: true });
+      } catch (e) {}
+    }
+
+    // Persist to Local DB
+    const db = readDb();
+    if (db.users) {
+      const uIdx = db.users.findIndex((u: any) => u.id === authUid || u.email === authEmail);
+      if (uIdx >= 0) {
+        db.users[uIdx] = { ...db.users[uIdx], ...updatedProfile };
+        writeDb(db);
+      }
+    }
+
+    res.json({
+      success: true,
+      user: updatedProfile,
+      message: "User profile updated securely."
+    });
+  } catch (err: any) {
+    console.error("Profile update error:", err);
+    res.status(500).json({ error: "Failed to update user profile", details: err?.message });
   }
 });
 

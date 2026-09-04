@@ -831,7 +831,10 @@ export async function verifyOtpAndRestore(email: string, code: string, newPasswo
   const nowIso = new Date().toISOString();
 
   // Strictly preserve authoritative role, workspace, and powers without privilege escalation
-  const preservedRole = restoredUserData?.role || (restoredUserData?.workspace?.ownerId === targetUid ? "CEO" : "Contributor");
+  const preservedRole = restoredUserData?.role;
+  if (!preservedRole) {
+    throw new Error("Cannot verify original user role and permissions. Account restoration blocked for security.");
+  }
   const preservedWorkspaceId = restoredUserData?.workspaceId || restoredUserData?.workspace?.id || `ws_${targetUid.substring(0, 8)}`;
   const preservedWorkspace = restoredUserData?.workspace || {
     id: preservedWorkspaceId,
@@ -1066,7 +1069,10 @@ export async function restoreAccountFullServer(email: string, newPassword?: stri
   const authoritativeOwnerId = retainedProfile?.workspace?.ownerId || existingUserDoc?.workspace?.ownerId;
   const isOriginalWorkspaceCreator = authoritativeOwnerId ? authoritativeOwnerId === finalUid : (retainedProfile?.role === "CEO" || existingUserDoc?.role === "CEO");
 
-  const preservedRole = retainedProfile?.role || existingUserDoc?.role || (isOriginalWorkspaceCreator ? "CEO" : "Contributor");
+  const preservedRole = retainedProfile?.role || existingUserDoc?.role;
+  if (!preservedRole) {
+    throw new Error("Cannot verify original user role and permissions. Account restoration blocked for security.");
+  }
   const preservedWorkspaceId = retainedProfile?.workspaceId || existingUserDoc?.workspaceId || retainedProfile?.workspace?.id || existingUserDoc?.workspace?.id || `ws_${finalUid.substring(0, 8)}`;
   const preservedWorkspace = retainedProfile?.workspace || existingUserDoc?.workspace || {
     id: preservedWorkspaceId,
