@@ -187,25 +187,37 @@ export async function safeJsonResponse<T = any>(
     if (!response.ok) {
       const defaultStatusMsg =
         response.status === 401
-          ? "انتهت جلسة تسجيل الدخول أو غير مصرح. يرجى تسجيل الدخول مجدداً."
+          ? "غير مصرح أو الجلسة غير صالحة."
           : response.status === 403
-          ? "ليس لديك صلاحية لتنفيذ هذا الإجراء (مطلوب حساب مدير)."
+          ? "ليس لديك صلاحية لتنفيذ هذا الإجراء."
           : response.status === 404
           ? "الخدمة أو المسار المطلوب غير متوفر حالياً."
           : response.status === 429
-          ? "تم تجاوز عدد المحاولات المسموح بها مؤقتاً. يرجى الانتظار والمحاولة لاحقاً."
+          ? "تم تجاوز عدد المحاولات المسموح بها مؤقتاً."
           : response.status >= 500
-          ? "تعذر إتمام الطلب من الخادم حالياً. يرجى المحاولة بعد لحظات."
-          : "تعذر إتمام الإجراء المطلوب. يرجى المحاولة مرة أخرى.";
+          ? "تعذر إتمام الطلب من الخادم حالياً."
+          : "تعذر إتمام الإجراء المطلوب.";
+
+      const statusErrCode =
+        response.status === 401
+          ? "UNAUTHORIZED"
+          : response.status === 403
+          ? "FORBIDDEN"
+          : response.status === 429
+          ? "TOO_MANY_REQUESTS"
+          : response.status >= 500
+          ? "SERVER_ERROR"
+          : `HTTP_${response.status}`;
 
       return {
         success: false,
         statusCode: response.status,
+        code: statusErrCode,
         error: fallbackMessage || defaultStatusMsg,
         userFriendlyMessage: fallbackMessage || defaultStatusMsg
       } as unknown as T;
     }
-    return { success: true } as unknown as T;
+    return { success: true, statusCode: response.status } as unknown as T;
   }
 
   // If the response is HTML error from Vite, Nginx, or Cloud Run gateway
@@ -222,19 +234,30 @@ export async function safeJsonResponse<T = any>(
     return {
       success: false,
       statusCode: response.status,
+      code: response.status >= 500 ? "SERVER_ERROR" : "GATEWAY_HTML_RESPONSE",
       error: htmlMsg,
       userFriendlyMessage: htmlMsg
     } as unknown as T;
   }
 
   try {
-    return JSON.parse(trimmed) as T;
+    const parsed = JSON.parse(trimmed);
+    if (parsed && typeof parsed === "object") {
+      if (!("statusCode" in parsed)) {
+        parsed.statusCode = response.status;
+      }
+      if (!response.ok && !parsed.code && !parsed.error) {
+        parsed.code = `HTTP_${response.status}`;
+      }
+    }
+    return parsed as T;
   } catch (parseErr) {
     console.warn("[safeJsonResponse] JSON parse exception:", parseErr, "Body sample:", trimmed.substring(0, 100));
     const parseMsg = fallbackMessage || "حدث خطأ أثناء معالجة بيانات الخادم. يرجى المحاولة لاحقاً.";
     return {
       success: false,
       statusCode: response.status,
+      code: "INVALID_JSON_RESPONSE",
       error: parseMsg,
       userFriendlyMessage: parseMsg
     } as unknown as T;

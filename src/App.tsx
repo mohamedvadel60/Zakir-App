@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import Markdown from "react-markdown";
 import { 
   Database, 
@@ -155,6 +155,13 @@ import {
   restoreAccountApi,
   API_BASE_URL
 } from "./lib/firebaseServices.js";
+import {
+  LoginError,
+  LoginErrorCode,
+  normalizeLoginError,
+  formatLoginErrorMessage,
+  logLoginTrace
+} from "./lib/authErrors.js";
 import { auth } from "./firebase.js";
 
 const FALLBACK_MEMORIES: Memory[] = [
@@ -596,6 +603,7 @@ export default function App() {
   const [showLoginPassword, setShowLoginPassword] = useState(false);
   const [loginError, setLoginError] = useState("");
   const [isSubmittingLogin, setIsSubmittingLogin] = useState(false);
+  const activeLoginAttemptIdRef = useRef<string | null>(null);
 
   // Password Reset State
   const [showForgotPassword, setShowForgotPassword] = useState(false);
@@ -822,16 +830,59 @@ export default function App() {
   };
 
   const formatAuthError = (err: any): string => {
-    const errMsg = (err?.message || String(err || "")).trim();
-    const errCode = ((err?.code || "") as string).toLowerCase().trim();
-    const lowerMsg = errMsg.toLowerCase();
+    if (err instanceof LoginError) {
+      if (err.loginCode === "LOGIN_UNAUTHORIZED_DOMAIN") {
+        const currentDomain = window.location.hostname;
+        if (lang === "ar") {
+          return `⚠️ **خطأ: نطاق غير مصرح به (Unauthorized Domain)**
+لم يتم التصريح لـ Zakir للاتصال بـ Firebase من هذا النطاق المستضيف: **${currentDomain}**.
 
-    // 1. Unauthorized Domain
-    if (
-      errCode === "auth/unauthorized-domain" || 
-      lowerMsg.includes("unauthorized-domain") || 
-      lowerMsg.includes("auth/unauthorized-domain")
-    ) {
+**طريقة الحل السريعة:**
+1. افتح **منصة Firebase** (Firebase Console) عبر الرابط: [console.firebase.google.com](https://console.firebase.google.com)
+2. اختر مشروعك الخاص بـ Zakir.
+3. انتقل إلى القائمة الجانبية: **Build** (بناء) -> **Authentication** (المصادقة).
+4. اضغط على تبويب **Settings** (الإعدادات) في الأعلى.
+5. ابحث عن قسم **Authorized domains** (النطاقات المصرح بها / المعتمدة).
+6. اضغط على زر **Add domain** (إضافة نطاق) واكتب النطاق الحالي تماماً: **${currentDomain}**
+7. احفظ التغييرات وأعد تحميل هذه الصفحة للتجربة مجدداً!`;
+        } else if (lang === "fr") {
+          return `⚠️ **Erreur : Domaine non autorisé (Unauthorized Domain)**
+Ce domaine d'hébergement (**${currentDomain}**) n'est pas autorisé à communiquer avec Firebase Auth.
+
+**Comment résoudre ce problème :**
+1. Allez sur la **Console Firebase** : [console.firebase.google.com](https://console.firebase.google.com)
+2. Sélectionnez votre projet Firebase.
+3. Allez dans **Authentication** -> onglet **Settings**.
+4. Dans la section **Authorized domains**, cliquez sur **Add domain**.
+5. Ajoutez le domaine actuel : **${currentDomain}**
+6. Enregistrez et rechargez cette page !`;
+        } else {
+          return `⚠️ **Error: Unauthorized Domain (auth/unauthorized-domain)**
+This hosting domain (**${currentDomain}**) has not been authorized in your Firebase Project configuration.
+
+**How to solve this in 1 minute:**
+1. Open the **Firebase Console**: [console.firebase.google.com](https://console.firebase.google.com)
+2. Select your Firebase project.
+3. Navigate to **Authentication** (on the left menu) -> click the **Settings** tab.
+4. Locate the **Authorized domains** section.
+5. Click **Add domain** and enter this exact domain: **${currentDomain}**
+6. Save the settings and reload this page to try again!`;
+        }
+      }
+      return formatLoginErrorMessage(err.loginCode, lang);
+    }
+
+    const errCode = ((err?.code || "") as string).toLowerCase().trim();
+    if (errCode === "auth/email-already-in-use" || String(err?.message || "").toLowerCase().includes("email-already-in-use")) {
+      return lang === "ar" 
+        ? "البريد الإلكتروني هذا مستخدم بالفعل في حساب آخر." 
+        : lang === "fr" 
+        ? "Cet e-mail est déjà utilisé par un autre compte." 
+        : "This email address is already in use by another account.";
+    }
+
+    const normalized = normalizeLoginError(err);
+    if (normalized === "LOGIN_UNAUTHORIZED_DOMAIN") {
       const currentDomain = window.location.hostname;
       if (lang === "ar") {
         return `⚠️ **خطأ: نطاق غير مصرح به (Unauthorized Domain)**
@@ -870,137 +921,7 @@ This hosting domain (**${currentDomain}**) has not been authorized in your Fireb
       }
     }
 
-    // 2. Disabled Account
-    if (
-      errCode === "auth/user-disabled" ||
-      lowerMsg.includes("user-disabled") ||
-      lowerMsg.includes("admin_deleted_blocked")
-    ) {
-      return lang === "ar" 
-        ? "هذا الحساب معطّل حالياً. يرجى تقديم طلب استعادة الحساب أو التواصل مع الإدارة." 
-        : lang === "fr" 
-        ? "Ce compte est actuellement désactivé. Veuillez soumettre une demande de réactivation." 
-        : "This account is currently disabled. Please submit an account recovery request.";
-    }
-
-    // 3. Rate Limit / Too Many Requests
-    if (
-      errCode === "auth/too-many-requests" ||
-      lowerMsg.includes("too-many-requests") ||
-      lowerMsg.includes("too many login") ||
-      lowerMsg.includes("too many requests") ||
-      lowerMsg.includes("تم تجاوز عدد المحاولات")
-    ) {
-      return lang === "ar" 
-        ? "تم حظر الطلبات مؤقتاً لكثرة المحاولات. يرجى الانتظار دقيقة والمحاولة لاحقاً." 
-        : lang === "fr" 
-        ? "Trop de tentatives infructueuses. Veuillez patienter une minute et réessayer." 
-        : "Too many failed attempts. Please wait a minute and try again.";
-    }
-
-    // 4. Network / Connection Errors
-    if (
-      errCode === "auth/network-request-failed" ||
-      lowerMsg.includes("network-request-failed") ||
-      lowerMsg.includes("failed to fetch") ||
-      lowerMsg.includes("networkerror") ||
-      lowerMsg.includes("<!doctype") ||
-      lowerMsg.includes("<html") ||
-      lowerMsg.includes("unexpected token") ||
-      lowerMsg.includes("not valid json") ||
-      lowerMsg.includes("json.parse") ||
-      lowerMsg.includes("syntaxerror")
-    ) {
-      return lang === "ar" 
-        ? "تعذر إتمام العملية بسبب انقطاع مؤقت في الاتصال. يرجى التحقق من اتصال الإنترنت والمحاولة مجدداً." 
-        : lang === "fr" 
-        ? "Impossible de se connecter en raison d'une interruption réseau temporaire. Veuillez vérifier votre connexion." 
-        : "Unable to sign in due to a temporary connection issue. Please check your internet connection and try again.";
-    }
-
-    // 5. User Not Found
-    if (
-      errCode === "auth/user-not-found" ||
-      lowerMsg.includes("user-not-found") ||
-      lowerMsg.includes("email_not_found")
-    ) {
-      return lang === "ar" 
-        ? "لم يتم العثور على حساب مسجل بهذا البريد الإلكتروني." 
-        : lang === "fr" 
-        ? "Aucun compte trouvé avec cette adresse e-mail." 
-        : "No registered account found for this email.";
-    }
-
-    // 6. Invalid Credentials (Specific and Fallback matching for login failure)
-    if (
-      errCode === "auth/invalid-credential" || 
-      errCode === "auth/invalid-login-credentials" ||
-      errCode === "auth/wrong-password" ||
-      lowerMsg.includes("invalid-credential") ||
-      lowerMsg.includes("invalid_credentials") ||
-      lowerMsg.includes("invalid-login-credentials") ||
-      lowerMsg.includes("wrong-password") ||
-      lowerMsg.includes("invalid password") ||
-      lowerMsg.includes("invalid email or password") ||
-      lowerMsg.includes("invalid-password") ||
-      lowerMsg.includes("فشل تسجيل الدخول") ||
-      lowerMsg.includes("login failed") ||
-      lowerMsg.includes("login_failed") ||
-      lowerMsg.includes("failed to log in") ||
-      lowerMsg.includes("failed to login") ||
-      lowerMsg.includes("authentication failed") ||
-      lowerMsg.includes("بيانات الدخول غير صحيحة")
-    ) {
-      return lang === "ar" 
-        ? "بيانات الدخول غير صحيحة. يرجى التحقق من البريد الإلكتروني وكلمة المرور." 
-        : lang === "fr" 
-        ? "Identifiants invalides. Veuillez vérifier votre e-mail et votre mot de passe." 
-        : "Invalid login credentials. Please check your email and password.";
-    }
-
-    // 7. Other Specific Firebase Statuses
-    if (errCode === "auth/operation-not-allowed" || lowerMsg.includes("operation-not-allowed")) {
-      return lang === "ar" 
-        ? "طريقة تسجيل الدخول غير مفعّلة في النظام." 
-        : lang === "fr" 
-        ? "Opération non autorisée." 
-        : "This authentication operation is not allowed.";
-    }
-    if (errCode === "auth/email-already-in-use" || lowerMsg.includes("email-already-in-use")) {
-      return lang === "ar" 
-        ? "البريد الإلكتروني هذا مستخدم بالفعل في حساب آخر." 
-        : lang === "fr" 
-        ? "Cet e-mail est déjà utilisé par un autre compte." 
-        : "This email address is already in use by another account.";
-    }
-    if (errCode === "auth/weak-password" || lowerMsg.includes("weak-password")) {
-      return lang === "ar" 
-        ? "كلمة المرور ضعيفة جداً. يجب أن تكون من 6 خانات أو أكثر." 
-        : lang === "fr" 
-        ? "Le mot de passe est trop faible (6 caractères minimum)." 
-        : "The password is too weak (minimum 6 characters).";
-    }
-
-    // 8. Clean custom human-readable server message if provided
-    let cleanMsg = errMsg;
-    if (cleanMsg.includes("Firebase:")) {
-      cleanMsg = cleanMsg.replace(/^Firebase:\s*/i, "").trim();
-    }
-    cleanMsg = cleanMsg.replace(/^[.\s:]+/, "").trim();
-    if (cleanMsg.startsWith("Error (")) {
-      cleanMsg = cleanMsg.replace(/^Error \([^)]+\):\s*/i, "").replace(/^Error \([^)]+\)\s*/i, "").trim();
-    }
-    cleanMsg = cleanMsg.replace(/^[.\s:]+/, "").trim();
-
-    if (!cleanMsg || cleanMsg.length <= 1) {
-      return lang === "ar"
-        ? "بيانات الدخول غير صحيحة. يرجى التحقق من البريد الإلكتروني وكلمة المرور."
-        : lang === "fr"
-        ? "Identifiants invalides. Veuillez vérifier votre e-mail et votre mot de passe."
-        : "Invalid login credentials. Please check your email and password.";
-    }
-    
-    return cleanMsg;
+    return formatLoginErrorMessage(normalized, lang);
   };
 
   const renderErrorContent = (errorMsg: string) => {
@@ -1010,37 +931,6 @@ This hosting domain (**${currentDomain}**) has not been authorized in your Fireb
       clean = clean.replace(/^Error \([^)]+\):\s*/i, "").replace(/^Error \([^)]+\)\s*/i, "").trim();
     }
     clean = clean.replace(/^[.\s:]+/, "").trim();
-
-    const lowerClean = clean.toLowerCase();
-    if (
-      !clean || 
-      clean.length <= 1 ||
-      lowerClean === "فشل تسجيل الدخول" ||
-      lowerClean === "فشل تسجيل الدخول." ||
-      lowerClean === "login failed" ||
-      lowerClean === "login failed."
-    ) {
-      clean = lang === "ar"
-        ? "بيانات الدخول غير صحيحة. يرجى التحقق من البريد الإلكتروني وكلمة المرور."
-        : lang === "fr"
-        ? "Identifiants invalides. Veuillez vérifier votre e-mail et votre mot de passe."
-        : "Invalid login credentials. Please check your email and password.";
-    }
-
-    if (
-      lowerClean.includes("<!doctype") ||
-      lowerClean.includes("<html") ||
-      lowerClean.includes("unexpected token") ||
-      lowerClean.includes("not valid json") ||
-      lowerClean.includes("json.parse") ||
-      lowerClean.includes("syntaxerror")
-    ) {
-      clean = lang === "ar"
-        ? "تعذر إتمام العملية بسبب انقطاع مؤقت في الاتصال. يرجى التحقق من بيانات الدخول والمحاولة مجدداً."
-        : lang === "fr"
-        ? "Impossible de se connecter en raison d'une interruption temporaire. Veuillez vérifier vos identifiants et réessayer."
-        : "Unable to sign in due to a temporary connection issue. Please check your credentials and try again.";
-    }
 
     // Check if this error is about a deleted account recovery
     const isDeletedAccountError = /تم العثور على حساب سابق|استعادة الحساب|SELF_RESTORE_AVAILABLE/i.test(clean);
@@ -1103,10 +993,12 @@ This hosting domain (**${currentDomain}**) has not been authorized in your Fireb
   };
 
   const checkDeletedAccountForEmail = async (emailToCheck: string) => {
+    if (isSubmittingLogin || activeLoginAttemptIdRef.current) return;
     const normalized = (emailToCheck || "").trim().toLowerCase();
     if (!normalized || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalized)) return;
     try {
       const lifecycle = await checkAccountLifecycleApi(normalized);
+      if (isSubmittingLogin || activeLoginAttemptIdRef.current) return;
       if (lifecycle && lifecycle.success) {
         if (lifecycle.status === "SELF_DELETED" || lifecycle.status === "SELF_RESTORE_AVAILABLE" || lifecycle.canRestore === true) {
           if (!lifecycle.isExpired && (lifecycle.daysRemaining === undefined || lifecycle.daysRemaining > 0)) {
@@ -1903,10 +1795,16 @@ This hosting domain (**${currentDomain}**) has not been authorized in your Fireb
   // Login Submit (Firebase Auth)
   const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoginError("");
+    if (isSubmittingLogin) return;
+
+    const attemptId = `attempt_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+    activeLoginAttemptIdRef.current = attemptId;
     setIsSubmittingLogin(true);
+    setLoginError("");
+
     try {
-      const userProfile = await loginFirebaseUser(loginEmail.trim(), loginPassword);
+      const userProfile = await loginFirebaseUser(loginEmail.trim(), loginPassword, attemptId);
+      if (activeLoginAttemptIdRef.current !== attemptId) return;
       
       const isUserVerified = userProfile.isVerified === true || userProfile.isEmailVerified === true || userProfile.emailVerified === true || userProfile.verification_status === "verified" || userProfile.verification_required === false;
 
@@ -1926,16 +1824,26 @@ This hosting domain (**${currentDomain}**) has not been authorized in your Fireb
       setLoginPassword("");
       setAuthMode("landing");
     } catch (err: any) {
-      console.error("Firebase Login Error Raw:", { code: err?.code, message: err?.message, err });
-      const errMsg = err?.message || String(err);
+      if (activeLoginAttemptIdRef.current !== attemptId) return;
+
+      const normalizedCode: LoginErrorCode =
+        err instanceof LoginError ? err.loginCode : normalizeLoginError(err);
+
+      logLoginTrace("LOGIN_ERROR_NORMALIZED", {
+        attemptId,
+        email: loginEmail,
+        normalizedErrorCode: normalizedCode,
+        originalCode: err?.code || err?.originalCode,
+        message: err?.message
+      });
+
       const normalizedEmail = loginEmail.trim().toLowerCase();
 
       // Check if account is disabled or deleted before showing recovery modal
-      const isDisabledOrDeletedErr = err?.code === "auth/user-disabled" || errMsg.includes("deleted") || errMsg.includes("disabled");
-
-      if (normalizedEmail && isDisabledOrDeletedErr) {
+      if (normalizedEmail && normalizedCode === "LOGIN_USER_DISABLED") {
         try {
           const lifecycle = await checkAccountLifecycleApi(normalizedEmail);
+          if (activeLoginAttemptIdRef.current !== attemptId) return;
           if (lifecycle && lifecycle.success) {
             if (
               lifecycle.status === "ADMIN_DELETED" ||
@@ -1966,9 +1874,17 @@ This hosting domain (**${currentDomain}**) has not been authorized in your Fireb
         }
       }
 
-      setLoginError(formatAuthError(err));
+      const formattedError = formatAuthError(err);
+      logLoginTrace("LOGIN_UI_ERROR_SET", {
+        attemptId,
+        normalizedErrorCode: normalizedCode,
+        errorString: formattedError
+      });
+      setLoginError(formattedError);
     } finally {
-      setIsSubmittingLogin(false);
+      if (activeLoginAttemptIdRef.current === attemptId) {
+        setIsSubmittingLogin(false);
+      }
     }
   };
 
@@ -3818,6 +3734,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                         onChange={(e) => {
                           setLoginEmail(e.target.value);
                           if (loginError) setLoginError("");
+                          activeLoginAttemptIdRef.current = null;
                         }}
                         onBlur={() => checkDeletedAccountForEmail(loginEmail)}
                         className="w-full h-10 px-3.5 bg-slate-50 dark:bg-slate-900/70 border border-slate-200 dark:border-slate-800 rounded-lg text-slate-900 dark:text-white text-xs focus:outline-none focus:border-[#0075DE] focus:ring-2 focus:ring-[#0075DE]/20 transition-all placeholder:text-slate-400 shadow-xs"
@@ -3852,6 +3769,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                           onChange={(e) => {
                             setLoginPassword(e.target.value);
                             if (loginError) setLoginError("");
+                            activeLoginAttemptIdRef.current = null;
                           }}
                           className="w-full h-10 px-3.5 pe-10 bg-slate-50 dark:bg-slate-900/70 border border-slate-200 dark:border-slate-800 rounded-lg text-slate-900 dark:text-white text-xs focus:outline-none focus:border-[#0075DE] focus:ring-2 focus:ring-[#0075DE]/20 transition-all placeholder:text-slate-400 font-mono shadow-xs"
                           placeholder="••••••••"

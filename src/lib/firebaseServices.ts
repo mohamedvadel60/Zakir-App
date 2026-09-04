@@ -33,6 +33,20 @@ import {
 } from "firebase/storage";
 import { auth, db, storage } from "../firebase.js";
 import { authenticatedFetch, safeJsonResponse } from "./apiUtils.js";
+import {
+  LoginError,
+  LoginErrorCode,
+  logLoginTrace,
+  normalizeLoginError,
+  isNetworkException,
+  formatLoginErrorMessage
+} from "./authErrors.js";
+export {
+  LoginError,
+  normalizeLoginError,
+  formatLoginErrorMessage
+};
+export type { LoginErrorCode };
 import { 
   User, 
   Memory, 
@@ -326,10 +340,16 @@ export function clearUserLocalCache(userId?: string): void {
  * - Fetches user profile from /users/{uid} in Firestore.
  * - Restores persisted workspace, custom preferences, subscription status, and configurations.
  */
-export async function loginFirebaseUser(email: string, pass: string): Promise<User> {
+export async function loginFirebaseUser(email: string, pass: string, attemptId?: string): Promise<User> {
   const normalizedEmail = email.trim().toLowerCase();
+  const currentAttemptId = attemptId || `login_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
   let clientAuthError: any = null;
   let clientUid: string | null = null;
+
+  logLoginTrace("LOGIN_ATTEMPT_START", {
+    attemptId: currentAttemptId,
+    email: normalizedEmail
+  });
 
   // 1. Try client Firebase Auth first
   try {
@@ -341,9 +361,40 @@ export async function loginFirebaseUser(email: string, pass: string): Promise<Us
       console.warn("Notice: getIdToken resolution in loginFirebaseUser:", tErr);
     }
     isFirestoreOffline = false;
+    logLoginTrace("LOGIN_FIREBASE_RESULT", {
+      attemptId: currentAttemptId,
+      email: normalizedEmail,
+      success: true
+    });
   } catch (authErr: any) {
     clientAuthError = authErr;
-    console.warn("Notice: Client signInWithEmailAndPassword encountered error:", authErr?.code, authErr?.message);
+    const fbCode = authErr?.code || "";
+    logLoginTrace("LOGIN_FIREBASE_RESULT", {
+      attemptId: currentAttemptId,
+      email: normalizedEmail,
+      firebaseErrorCode: fbCode,
+      success: false
+    });
+
+    // Deterministic early exits for non-credential client errors:
+    if (fbCode === "auth/user-disabled") {
+      throw new LoginError("LOGIN_USER_DISABLED", "User account is disabled.", {
+        originalCode: fbCode,
+        attemptId: currentAttemptId
+      });
+    }
+    if (fbCode === "auth/too-many-requests") {
+      throw new LoginError("LOGIN_TOO_MANY_REQUESTS", "Too many requests.", {
+        originalCode: fbCode,
+        attemptId: currentAttemptId
+      });
+    }
+    if (fbCode === "auth/unauthorized-domain") {
+      throw new LoginError("LOGIN_UNAUTHORIZED_DOMAIN", "Domain unauthorized.", {
+        originalCode: fbCode,
+        attemptId: currentAttemptId
+      });
+    }
   }
 
   // 2. If client authentication succeeded, try Firestore retrieval
@@ -356,11 +407,18 @@ export async function loginFirebaseUser(email: string, pass: string): Promise<Us
       if (deletedSnap && deletedSnap.exists()) {
         await signOut(auth);
         clearUserLocalCache(uid);
-        throw new Error("This account has been deleted. Please contact the administrator.");
+        throw new LoginError("LOGIN_USER_DISABLED", "This account has been deleted. Please contact the administrator.", {
+          originalCode: "auth/user-disabled",
+          attemptId: currentAttemptId
+        });
       }
     } catch (dErr: any) {
+      if (dErr instanceof LoginError) throw dErr;
       if (dErr.message?.includes("deleted") || dErr.message?.includes("حذف")) {
-        throw dErr;
+        throw new LoginError("LOGIN_USER_DISABLED", dErr.message, {
+          originalCode: "auth/user-disabled",
+          attemptId: currentAttemptId
+        });
       }
       console.warn("Notice: Verifying account status in /deletedUsers/ encountered non-fatal error:", uid, dErr);
     }
@@ -418,13 +476,16 @@ export async function loginFirebaseUser(email: string, pass: string): Promise<Us
       body: JSON.stringify({ email: normalizedEmail, password: pass })
     });
     
-    const srvData = await safeJsonResponse(
-      srvRes,
-      "بيانات الدخول غير صحيحة. يرجى التحقق من البريد الإلكتروني وكلمة المرور."
-    );
+    const srvData = await safeJsonResponse(srvRes);
 
     if (srvRes.ok && srvData && (srvData.user || srvData.id)) {
       const authenticatedUser: User = srvData.user || srvData;
+      logLoginTrace("LOGIN_SERVER_RESULT", {
+        attemptId: currentAttemptId,
+        email: normalizedEmail,
+        serverHttpStatus: srvRes.status,
+        success: true
+      });
 
       // Synchronize client Firebase Auth session with custom token if not authenticated
       if (srvData.customToken && !auth.currentUser) {
@@ -437,56 +498,140 @@ export async function loginFirebaseUser(email: string, pass: string): Promise<Us
 
       setLocalItem(`user_${authenticatedUser.id}`, authenticatedUser);
       return authenticatedUser;
-    } else if (srvData && (srvData.error || srvData.message || srvData.code)) {
-      const errorMsg =
-        srvData.message ||
-        srvData.userFriendlyMessage ||
-        (srvData.error && srvData.error !== "INVALID_CREDENTIALS" ? srvData.error : null) ||
-        "بيانات الدخول غير صحيحة. يرجى التحقق من البريد الإلكتروني وكلمة المرور.";
-      const errorObj: any = new Error(errorMsg);
-      errorObj.code =
-        srvData.code ||
-        (srvData.statusCode === 429
-          ? "auth/too-many-requests"
-          : srvData.statusCode >= 500
-          ? "auth/network-request-failed"
-          : clientAuthError
-          ? clientAuthError.code
-          : "auth/invalid-credential");
-      throw errorObj;
-    }
-  } catch (srvErr: any) {
-    const srvMsg = String(srvErr?.message || "");
-    const lowerSrvMsg = srvMsg.toLowerCase();
-
-    // If fetch failed due to network / connection issue
-    if (lowerSrvMsg.includes("failed to fetch") || lowerSrvMsg.includes("networkerror") || lowerSrvMsg.includes("network request failed")) {
-      const netErr: any = new Error("تعذر إتمام العملية بسبب انقطاع مؤقت في الاتصال. يرجى التحقق من اتصال الإنترنت والمحاولة مجدداً.");
-      netErr.code = "auth/network-request-failed";
-      throw netErr;
     }
 
-    // If it is a structured authentication error and NOT a raw HTML/JSON parser error, rethrow it
+    // Server error responses classified deterministically
+    const serverStatus = srvRes.status;
+    const serverCode = srvData?.code || srvData?.error || "";
+    logLoginTrace("LOGIN_SERVER_RESULT", {
+      attemptId: currentAttemptId,
+      email: normalizedEmail,
+      serverHttpStatus: serverStatus,
+      serverErrorCode: serverCode,
+      success: false
+    });
+
+    if (serverStatus === 429 || serverCode === "TOO_MANY_REQUESTS" || serverCode === "auth/too-many-requests") {
+      throw new LoginError("LOGIN_TOO_MANY_REQUESTS", "Too many requests", {
+        originalCode: serverCode || "TOO_MANY_REQUESTS",
+        statusCode: 429,
+        attemptId: currentAttemptId
+      });
+    }
+
     if (
-      srvErr?.code && 
-      !srvMsg.includes("<!DOCTYPE") && 
-      !srvMsg.includes("<html") && 
-      !srvMsg.includes("Unexpected token") && 
-      !srvMsg.includes("is not valid JSON")
+      serverStatus === 403 ||
+      serverCode === "auth/user-disabled" ||
+      serverCode === "USER_DISABLED" ||
+      serverCode === "ADMIN_DELETED_BLOCKED"
     ) {
+      throw new LoginError("LOGIN_USER_DISABLED", srvData?.message || "User disabled", {
+        originalCode: serverCode || "auth/user-disabled",
+        statusCode: 403,
+        attemptId: currentAttemptId
+      });
+    }
+
+    if (serverCode === "auth/user-not-found" || serverCode === "EMAIL_NOT_FOUND" || serverCode === "USER_NOT_FOUND") {
+      throw new LoginError("LOGIN_USER_NOT_FOUND", srvData?.message || "User not found", {
+        originalCode: serverCode,
+        statusCode: 401,
+        attemptId: currentAttemptId
+      });
+    }
+
+    if (
+      serverStatus === 401 ||
+      serverCode === "auth/invalid-credential" ||
+      serverCode === "INVALID_CREDENTIALS"
+    ) {
+      throw new LoginError("LOGIN_INVALID_CREDENTIALS", "Invalid credentials", {
+        originalCode: serverCode || "auth/invalid-credential",
+        statusCode: 401,
+        attemptId: currentAttemptId
+      });
+    }
+
+    if (serverStatus >= 500) {
+      // If client already established invalid credentials, keep invalid credentials
+      if (
+        clientAuthError?.code === "auth/invalid-credential" ||
+        clientAuthError?.code === "auth/invalid-login-credentials" ||
+        clientAuthError?.code === "auth/wrong-password"
+      ) {
+        throw new LoginError("LOGIN_INVALID_CREDENTIALS", "Invalid credentials", {
+          originalCode: clientAuthError.code,
+          attemptId: currentAttemptId
+        });
+      }
+      throw new LoginError("LOGIN_SERVER_ERROR", "Server error", {
+        originalCode: serverCode || "SERVER_ERROR",
+        statusCode: serverStatus,
+        attemptId: currentAttemptId
+      });
+    }
+
+    const norm = normalizeLoginError({
+      firebaseError: clientAuthError,
+      serverResponse: srvData,
+      httpStatus: serverStatus
+    });
+    throw new LoginError(norm, "Authentication failed", {
+      originalCode: serverCode || (clientAuthError ? clientAuthError.code : undefined),
+      statusCode: serverStatus,
+      attemptId: currentAttemptId
+    });
+  } catch (srvErr: any) {
+    if (srvErr instanceof LoginError) {
       throw srvErr;
     }
-    console.warn("Notice: Server-backed login attempt unfulfilled:", srvMsg);
+
+    // Fetch threw a network error
+    if (isNetworkException(srvErr)) {
+      if (
+        clientAuthError?.code === "auth/invalid-credential" ||
+        clientAuthError?.code === "auth/invalid-login-credentials" ||
+        clientAuthError?.code === "auth/wrong-password"
+      ) {
+        throw new LoginError("LOGIN_INVALID_CREDENTIALS", "Invalid credentials", {
+          originalCode: clientAuthError.code,
+          attemptId: currentAttemptId
+        });
+      }
+      throw new LoginError("LOGIN_NETWORK_ERROR", "Network connection failed", {
+        originalCode: "NETWORK_ERROR",
+        attemptId: currentAttemptId
+      });
+    }
+
+    // If client had a known error
+    if (clientAuthError) {
+      const norm = normalizeLoginError(clientAuthError);
+      throw new LoginError(norm, clientAuthError.message, {
+        originalCode: clientAuthError.code,
+        attemptId: currentAttemptId
+      });
+    }
+
+    const norm = normalizeLoginError(srvErr);
+    throw new LoginError(norm, srvErr?.message || "Login failed", {
+      attemptId: currentAttemptId
+    });
   }
 
-  // 4. If both client and server attempts could not authenticate, throw the client error if available
+  // 4. Final safety guarantee
   if (clientAuthError) {
-    throw clientAuthError;
+    const norm = normalizeLoginError(clientAuthError);
+    throw new LoginError(norm, clientAuthError.message, {
+      originalCode: clientAuthError.code,
+      attemptId: currentAttemptId
+    });
   }
 
-  const defaultErr: any = new Error("بيانات الدخول غير صحيحة. يرجى التحقق من البريد الإلكتروني وكلمة المرور.");
-  defaultErr.code = "auth/invalid-credential";
-  throw defaultErr;
+  throw new LoginError("LOGIN_INVALID_CREDENTIALS", "Invalid credentials", {
+    originalCode: "auth/invalid-credential",
+    attemptId: currentAttemptId
+  });
 }
 
 export async function loginWithGoogle(): Promise<User> {
