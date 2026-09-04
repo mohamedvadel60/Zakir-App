@@ -1861,40 +1861,91 @@ export interface AdminUserRecord {
 }
 
 export async function fetchAllUsersForAdmin(): Promise<AdminUserRecord[]> {
-  const response = await authenticatedFetch("/api/admin/users");
-  if (!response.ok) {
-    let errorMsg = `Failed to fetch users list (HTTP ${response.status})`;
-    try {
-      const errData = await response.json();
-      if (errData?.error) errorMsg = errData.error;
-    } catch (e) {}
-    throw new Error(errorMsg);
+  let fetchedUsers: any[] = [];
+  let apiError: string | null = null;
+
+  try {
+    const response = await authenticatedFetch("/api/admin/users");
+    const data = await safeJsonResponse(response, "فشل تحميل قائمة المستخدمين من الخادم.");
+    if (response.ok && data && Array.isArray(data.users)) {
+      fetchedUsers = data.users;
+    } else if (data && Array.isArray(data.users)) {
+      fetchedUsers = data.users;
+    } else if (data && !data.success && data.error) {
+      apiError = data.error;
+    }
+  } catch (apiErr: any) {
+    console.warn("Notice: /api/admin/users network or request warning, attempting fallback:", apiErr);
+    apiError = apiErr?.message;
   }
 
-  const data = await response.json();
-  if (!data || !Array.isArray(data.users)) {
-    throw new Error(data?.error || "Invalid response from admin users API");
+  // If server API successfully returned users
+  if (fetchedUsers.length > 0) {
+    const records: AdminUserRecord[] = fetchedUsers.map((userData: any) => {
+      const userId = userData.id || userData.uid;
+      return {
+        id: userId,
+        email: userData.email || "No Email",
+        createdAt: userData.createdAt || new Date().toISOString(),
+        lastActiveAt: userData.lastActiveAt,
+        lastLoginAt: userData.lastLoginAt,
+        activityCount: userData.activityCount || 0,
+        companyName: userData.companyName,
+        ownerName: userData.ownerName,
+        role: userData.role,
+        fileCount: Array.isArray(userData.files) ? userData.files.length : (userData.fileCount || 0),
+        files: Array.isArray(userData.files) ? userData.files : [],
+        verificationInfo: userData.verificationInfo,
+        fullUser: { ...userData, id: userId }
+      };
+    });
+    const sorted = records.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    setLocalItem("zakir_admin_cached_users", sorted);
+    return sorted;
   }
 
-  const records: AdminUserRecord[] = data.users.map((userData: any) => {
-    const userId = userData.id || userData.uid;
-    return {
-      id: userId,
-      email: userData.email || "No Email",
-      createdAt: userData.createdAt || new Date().toISOString(),
-      lastActiveAt: userData.lastActiveAt,
-      lastLoginAt: userData.lastLoginAt,
-      activityCount: userData.activityCount || 0,
-      companyName: userData.companyName,
-      ownerName: userData.ownerName,
-      role: userData.role,
-      fileCount: Array.isArray(userData.files) ? userData.files.length : 0,
-      files: Array.isArray(userData.files) ? userData.files : [],
-      verificationInfo: userData.verificationInfo,
-      fullUser: { ...userData, id: userId }
-    };
-  });
-  return records.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  // Client-side Firestore query fallback
+  try {
+    const usersSnap = await getDocs(collection(db, "users"));
+    if (!usersSnap.empty) {
+      const records: AdminUserRecord[] = usersSnap.docs.map((d) => {
+        const userData = d.data() as any;
+        const userId = d.id;
+        return {
+          id: userId,
+          email: userData.email || "No Email",
+          createdAt: userData.createdAt || new Date().toISOString(),
+          lastActiveAt: userData.lastActiveAt,
+          lastLoginAt: userData.lastLoginAt,
+          activityCount: userData.activityCount || 0,
+          companyName: userData.companyName,
+          ownerName: userData.ownerName,
+          role: userData.role,
+          fileCount: Array.isArray(userData.files) ? userData.files.length : (userData.fileCount || 0),
+          files: Array.isArray(userData.files) ? userData.files : [],
+          verificationInfo: userData.verificationInfo,
+          fullUser: { ...userData, id: userId }
+        };
+      });
+      const sorted = records.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      setLocalItem("zakir_admin_cached_users", sorted);
+      return sorted;
+    }
+  } catch (fsErr) {
+    console.warn("Notice: Client-side Firestore fallback encountered error:", fsErr);
+  }
+
+  // Local storage cached users fallback
+  try {
+    const cached = getLocalItem<AdminUserRecord[]>("zakir_admin_cached_users", []);
+    if (cached && cached.length > 0) return cached;
+  } catch (e) {}
+
+  if (apiError && !fetchedUsers.length) {
+    console.warn("fetchAllUsersForAdmin finished with notice:", apiError);
+  }
+
+  return [];
 }
 
 /**

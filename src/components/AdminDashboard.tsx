@@ -57,6 +57,7 @@ import {
   fetchAdminRecoveryRequestsApi,
   handleAdminRecoveryRequestDecisionApi
 } from "../lib/firebaseServices.js";
+import { authenticatedFetch, safeJsonResponse } from "../lib/apiUtils.js";
 import { openOrDownloadUserFile, openUserFileInNewTab, downloadUserFile } from "../lib/fileViewerUtils.js";
 
 interface AdminDashboardProps {
@@ -282,11 +283,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   const handleViewRecoveryDocument = async (documentId: string, fileName?: string) => {
     try {
-      const { auth } = await import("../firebase");
-      const idToken = await auth.currentUser?.getIdToken();
-      const res = await fetch(`/api/admin/recovery-request/document/${documentId}`, {
-        headers: idToken ? { "Authorization": `Bearer ${idToken}` } : {}
-      });
+      const res = await authenticatedFetch(`/api/admin/recovery-request/document/${documentId}`);
       if (!res.ok) {
         alert(lang === "ar" ? "تعذر تحميل مستند الهوية من الخادم." : "Failed to load document from server.");
         return;
@@ -314,9 +311,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
       const [recRes, reactRes] = await Promise.all([
         fetchAdminRecoveryRequestsApi(idToken),
-        fetch("/api/admin/reactivation-requests", {
-          headers: idToken ? { "Authorization": `Bearer ${idToken}` } : {}
-        }).then(r => r.json()).catch(() => ({ success: false, requests: [] }))
+        authenticatedFetch("/api/admin/reactivation-requests")
+          .then(r => safeJsonResponse(r, "تعذر جلب طلبات إعادة التنشيط"))
+          .catch(() => ({ success: false, requests: [] }))
       ]);
 
       const combined: any[] = [];
@@ -487,22 +484,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
     try {
       // 1. Call backend server to delete from Firebase Authentication & record deletedUsers marker
-      const { auth } = await import("../firebase");
-      const idToken = await auth.currentUser?.getIdToken();
-      if (!idToken) {
-        throw new Error("Authentication token unavailable. Please sign in again.");
-      }
-
-      const response = await fetch(`/api/admin/delete-user/${userId}`, {
-        method: "DELETE",
-        headers: {
-          "Authorization": `Bearer ${idToken}`
-        }
+      const response = await authenticatedFetch(`/api/admin/delete-user/${userId}`, {
+        method: "DELETE"
       });
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || `Server deletion failed with status ${response.status}`);
+      const data = await safeJsonResponse(response, "فشل حذف حساب المستخدم من الخادم.");
+
+      if (!response.ok || !data?.success) {
+        throw new Error(data?.error || data?.userFriendlyMessage || `Server deletion failed with status ${response.status}`);
       }
 
       setUsers((prev) => prev.filter((u) => u.id !== userId));
