@@ -207,10 +207,11 @@ export const requireModulePermission = (moduleKey: "fileVault" | "memoryVault" |
       return next();
     }
 
-    // Check powers map
-    if (profile.powers && profile.powers[moduleKey] === false) {
+    // Check powers map: strictly require explicit permission for non-admin/non-CEO roles
+    const hasPermission = Boolean(profile.powers && profile.powers[moduleKey] === true);
+    if (!hasPermission) {
       return res.status(403).json({ 
-        error: `Forbidden: Access to ${moduleKey} is restricted for your role (${profile.role}).`,
+        error: `Forbidden: Access to ${moduleKey} is restricted for your role (${profile.role || "Member"}).`,
         code: "MODULE_ACCESS_RESTRICTED",
         module: moduleKey
       });

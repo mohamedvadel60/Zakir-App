@@ -1233,7 +1233,7 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          code: testPinInput.trim()
+          code: testEnteredPin.trim()
         })
       });
       const data = await res.json().catch(() => ({}));

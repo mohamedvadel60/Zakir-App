@@ -773,6 +773,32 @@ export async function loginWithGoogle(): Promise<User> {
 
   isFirestoreOffline = false;
   
+  const normEmail = (email || "").trim().toLowerCase();
+  if (normEmail) {
+    try {
+      const lc = await checkAccountLifecycleApi(normEmail);
+      if (lc && lc.success && (lc.status === "SELF_DELETED" || lc.status === "SELF_RESTORE_AVAILABLE")) {
+        await signOut(auth);
+        clearUserLocalCache(uid);
+        throw new LoginError("LOGIN_SELF_DELETED", lc.userFriendlyMessage || "Account deleted, restoration available", {
+          originalCode: "SELF_RESTORE_AVAILABLE",
+          email: normEmail,
+          daysRemaining: lc.daysRemaining ?? 31,
+          restoreUntil: lc.restoreUntil
+        });
+      } else if (lc && lc.success && (lc.status === "ADMIN_DELETED" || lc.status === "ADMIN_APPROVAL_REQUIRED")) {
+        await signOut(auth);
+        clearUserLocalCache(uid);
+        throw new LoginError("LOGIN_ADMIN_DELETED", lc.userFriendlyMessage || "Account deleted by administrator", {
+          originalCode: "ADMIN_DELETED",
+          email: normEmail
+        });
+      }
+    } catch (lcErr: any) {
+      if (lcErr instanceof LoginError || lcErr.name === "LoginError") throw lcErr;
+    }
+  }
+
   // Check if account was marked deleted in /deletedUsers/{uid}
   try {
     const deletedSnap = await getDocWithRetry(doc(db, "deletedUsers", uid), 3, 200);
