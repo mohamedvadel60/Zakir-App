@@ -53,7 +53,7 @@ import {
 } from "lucide-react";
 import { CustomerSupport } from "./CustomerSupport.js";
 import { User, UserRole, TeamMember, ModulePermissions, EncryptedModuleSettings, AccountVerificationDoc, VerificationInfo, VerificationStatus } from "../types.js";
-import { saveWorkspaceInvitation, deleteWorkspaceInvitation, fetchWorkspaceInvitations, WorkspaceInvitation, sendWorkspaceInvitationApi, resendWorkspaceInvitationApi, saveFirebaseUserProfile, uploadFirebaseUserFile, deleteFirebaseUserFile } from "../lib/firebaseServices.js";
+import { saveWorkspaceInvitation, deleteWorkspaceInvitation, fetchWorkspaceInvitations, fetchWorkspaceTeamApi, WorkspaceInvitation, sendWorkspaceInvitationApi, resendWorkspaceInvitationApi, saveFirebaseUserProfile, uploadFirebaseUserFile, deleteFirebaseUserFile } from "../lib/firebaseServices.js";
 import { openOrDownloadUserFile, openUserFileInNewTab, downloadUserFile } from "../lib/fileViewerUtils.js";
 import { translations } from "../translations.js";
 
@@ -530,14 +530,33 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
   const [invitations, setInvitations] = useState<WorkspaceInvitation[]>([]);
 
   useEffect(() => {
-    async function loadInvitations() {
-      if (currentUser.role === "CEO" && currentUser.workspaceId) {
-        const list = await fetchWorkspaceInvitations(currentUser.workspaceId);
-        setInvitations(list);
+    async function loadTeamAndInvitations() {
+      if ((currentUser.role === "CEO" || currentUser.role === "Admin") && currentUser.workspaceId) {
+        try {
+          const teamData = await fetchWorkspaceTeamApi();
+          if (teamData && teamData.success) {
+            if (Array.isArray(teamData.teamMembers) && teamData.teamMembers.length > 0) {
+              setTeamMembers(teamData.teamMembers);
+            }
+            if (Array.isArray(teamData.invitations)) {
+              setInvitations(teamData.invitations);
+            }
+            return;
+          }
+        } catch (teamErr) {
+          console.warn("Notice: Fetching workspace team via API encountered notice, falling back:", teamErr);
+        }
+
+        try {
+          const list = await fetchWorkspaceInvitations(currentUser.workspaceId);
+          setInvitations(list);
+        } catch (invErr) {
+          console.warn("Notice: Falling back to local workspace invitations:", invErr);
+        }
       }
     }
-    loadInvitations();
-  }, [currentUser]);
+    loadTeamAndInvitations();
+  }, [currentUser.workspaceId, currentUser.role]);
 
   // New Team Member Form State
   const [newMemberName, setNewMemberName] = useState("");
@@ -1075,9 +1094,9 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
     const pin = secretPasscodeVal.trim();
     const confirmPin = secretPasscodeConfirmVal.trim();
 
-    if (!pin) {
+    if (!pin || pin.length < 4) {
       setPasscodeConfirmError(
-        lang === "ar" ? "يرجى إدخال رمز سري صالح" : "Please enter a valid secret code."
+        lang === "ar" ? "يرجى إدخال رمز سري صالح (4 خانات على الأقل)" : "Please enter a valid secret code (at least 4 digits)."
       );
       return;
     }
@@ -1091,9 +1110,28 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
 
     setIsSavingEncryption(true);
     try {
+      // Call server-side API to securely hash and store the passcode without plaintext exposure
+      const res = await authenticatedFetch("/api/security/set-code", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          code: pin,
+          lockedModules: {
+            fileVault: true,
+            memoryVault: true,
+            riskRadar: true,
+            settings: encryptedSecurity.lockedModules.settings
+          }
+        })
+      });
+
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || "Failed to set security passcode.");
+      }
+
       // Automatically lock File Vault, Memory Vault, and Risk Radar upon confirmation
       const newSecurityObj: EncryptedModuleSettings = {
-        secretPasscode: pin,
         isPinSet: true,
         lockedModules: {
           fileVault: true,
@@ -1147,52 +1185,64 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
     }
   };
 
-  const handleConfirmCancelLock = () => {
+  const handleConfirmCancelLock = async () => {
     if (!cancelLockModuleTarget) return;
-    const activePasscode = encryptedSecurity.secretPasscode;
-    if (!activePasscode || activePasscode.trim() === "") {
-      setCancelLockError(
-        lang === "ar"
-          ? "لم يتم تعيين رمز سري بعد! يرجى تعيين رمز سري وتأكيده في الأعلى أولاً."
-          : "No secret passcode configured yet! Please set one above first."
-      );
-      return;
-    }
 
-    if (cancelLockPinInput.trim() !== activePasscode.trim()) {
-      setCancelLockError(
-        lang === "ar" ? "الرمز السري غير صحيح! تعذر إلغاء قفل هذا القسم." : "Incorrect secret passcode! Failed to cancel module lock."
-      );
-      return;
-    }
+    try {
+      const res = await authenticatedFetch("/api/security/verify-code", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          code: cancelLockPinInput.trim(),
+          module: cancelLockModuleTarget
+        })
+      });
 
-    // Passcode verified! Unlock module
-    const updatedObj: EncryptedModuleSettings = {
-      ...encryptedSecurity,
-      lockedModules: {
-        ...encryptedSecurity.lockedModules,
-        [cancelLockModuleTarget]: false
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.verified) {
+        setCancelLockError(
+          data?.error || (lang === "ar" ? "الرمز السري غير صحيح! تعذر إلغاء قفل هذا القسم." : "Incorrect secret passcode! Failed to cancel module lock.")
+        );
+        return;
       }
-    };
-    setEncryptedSecurity(updatedObj);
-    onUpdateUser({
-      ...currentUser,
-      encryptedSecurity: updatedObj
-    });
-    setCancelLockModuleTarget(null);
-    setCancelLockPinInput("");
-    setCancelLockError("");
+
+      // Passcode verified! Unlock module
+      const updatedObj: EncryptedModuleSettings = {
+        ...encryptedSecurity,
+        lockedModules: {
+          ...encryptedSecurity.lockedModules,
+          [cancelLockModuleTarget]: false
+        }
+      };
+      setEncryptedSecurity(updatedObj);
+      onUpdateUser({
+        ...currentUser,
+        encryptedSecurity: updatedObj
+      });
+      setCancelLockModuleTarget(null);
+      setCancelLockPinInput("");
+      setCancelLockError("");
+    } catch (err: any) {
+      setCancelLockError(lang === "ar" ? "فشل التحقق من الرمز." : "Failed to verify passcode.");
+    }
   };
 
-  const handleVerifyTestPasscode = () => {
-    const activePasscode = encryptedSecurity.secretPasscode;
-    if (!activePasscode || activePasscode.trim() === "") {
-      setTestUnlockStatus("error");
-      return;
-    }
-    if (testEnteredPin.trim() === activePasscode.trim()) {
-      setTestUnlockStatus("success");
-    } else {
+  const handleVerifyTestPasscode = async () => {
+    try {
+      const res = await authenticatedFetch("/api/security/verify-code", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          code: testPinInput.trim()
+        })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.verified) {
+        setTestUnlockStatus("success");
+      } else {
+        setTestUnlockStatus("error");
+      }
+    } catch {
       setTestUnlockStatus("error");
     }
   };

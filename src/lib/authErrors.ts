@@ -8,6 +8,7 @@ export type LoginErrorCode =
   | "LOGIN_INVALID_CREDENTIALS"
   | "LOGIN_USER_NOT_FOUND"
   | "LOGIN_USER_DISABLED"
+  | "LOGIN_SELF_DELETED"
   | "LOGIN_TOO_MANY_REQUESTS"
   | "LOGIN_NETWORK_ERROR"
   | "LOGIN_UNAUTHORIZED_DOMAIN"
@@ -21,11 +22,21 @@ export class LoginError extends Error {
   public readonly originalCode?: string;
   public readonly statusCode?: number;
   public readonly attemptId?: string;
+  public readonly email?: string;
+  public readonly daysRemaining?: number;
+  public readonly restoreUntil?: string;
 
   constructor(
     loginCode: LoginErrorCode,
     message: string,
-    options?: { originalCode?: string; statusCode?: number; attemptId?: string }
+    options?: {
+      originalCode?: string;
+      statusCode?: number;
+      attemptId?: string;
+      email?: string;
+      daysRemaining?: number;
+      restoreUntil?: string;
+    }
   ) {
     super(message);
     this.name = "LoginError";
@@ -33,6 +44,9 @@ export class LoginError extends Error {
     this.originalCode = options?.originalCode;
     this.statusCode = options?.statusCode;
     this.attemptId = options?.attemptId;
+    this.email = options?.email;
+    this.daysRemaining = options?.daysRemaining;
+    this.restoreUntil = options?.restoreUntil;
   }
 }
 
@@ -315,6 +329,13 @@ export function formatLoginErrorMessage(code: LoginErrorCode, lang: string = "ar
         : lang === "fr"
         ? "Ce compte est actuellement désactivé. Veuillez soumettre une demande de réactivation."
         : "This account is currently disabled. Please submit an account recovery request.";
+
+    case "LOGIN_SELF_DELETED":
+      return lang === "ar"
+        ? "تم العثور على حسابك المحذوف سابقاً، ولا يزال متاحاً للاستعادة."
+        : lang === "fr"
+        ? "Votre compte précédemment supprimé a été retrouvé et peut être restauré."
+        : "Your previously deleted account was found and is available for restoration.";
 
     case "LOGIN_TOO_MANY_REQUESTS":
       return lang === "ar"

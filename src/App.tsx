@@ -144,6 +144,8 @@ import {
   bulkEncryptUserMemoriesAndFiles,
   checkWorkspaceInvitation,
   deleteWorkspaceInvitation,
+  acceptWorkspaceInvitationApi,
+  fetchWorkspaceTeamApi,
   WorkspaceInvitation,
   sendVerificationCodeApi,
   sendAccountRecoveryOtpApi,
@@ -1100,8 +1102,14 @@ This hosting domain (**${currentDomain}**) has not been authorized in your Fireb
     try {
       setIsLoading(true);
 
-      // 1. Prepare updated user profile
-      const updatedProfile: User = {
+      // Call authoritative backend API to atomically link the member, update workspace, and sync the CEO's team list
+      const acceptResult = await acceptWorkspaceInvitationApi({
+        invitationToken: inv.token,
+        email: currentUser.email,
+        memberName: currentUser.ownerName || currentUser.email.split("@")[0]
+      });
+
+      const updatedProfile: User = acceptResult.user || {
         ...currentUser,
         role: inv.role,
         powers: inv.powers,
@@ -1116,45 +1124,7 @@ This hosting domain (**${currentDomain}**) has not been authorized in your Fireb
         }
       };
 
-      // 2. Save user profile to Firestore
-      await saveFirebaseUserProfile(updatedProfile);
-
-      // 3. Sync with the CEO's teamMembersList in Firestore!
-      try {
-        const { doc, getDoc, updateDoc } = await import("firebase/firestore");
-        const { db } = await import("./firebase");
-        const ceoDocRef = doc(db, "users", inv.senderId);
-        const ceoSnap = await getDoc(ceoDocRef);
-        if (ceoSnap.exists()) {
-          const ceoData = ceoSnap.data() as User;
-          const currentList = ceoData.teamMembersList || [];
-          
-          const existsIndex = currentList.findIndex(m => m.email.toLowerCase() === currentUser.email.toLowerCase());
-          const updatedMember: TeamMember = {
-            id: `tm-${currentUser.id}`,
-            name: currentUser.ownerName || currentUser.email.split("@")[0],
-            email: currentUser.email.toLowerCase(),
-            role: inv.role,
-            powers: inv.powers,
-            addedAt: new Date().toISOString().split("T")[0]
-          };
-          
-          if (existsIndex >= 0) {
-            currentList[existsIndex] = updatedMember;
-          } else {
-            currentList.push(updatedMember);
-          }
-          
-          await updateDoc(ceoDocRef, { teamMembersList: currentList });
-        }
-      } catch (ceoSyncErr) {
-        console.warn("Failed to update CEO's team list dynamically:", ceoSyncErr);
-      }
-
-      // 4. Delete invitation
-      await deleteWorkspaceInvitation(currentUser.email);
-
-      // 5. Update local state
+      // Update state
       setCurrentUser(updatedProfile);
       setIncomingInvitation(null);
       
@@ -1162,10 +1132,13 @@ This hosting domain (**${currentDomain}**) has not been authorized in your Fireb
       setRefreshKey(prev => prev + 1);
 
       // Show success alert
-      alert(lang === "ar" ? "تهانينا! لقد تم قبول الدعوة بنجاح وتم ربط حسابك بالمؤسسة." : "Congratulations! The invitation has been accepted, and your account is now linked to the workspace.");
-    } catch (err) {
+      alert(lang === "ar"
+        ? (acceptResult.userFriendlyMessage || `تهانينا! لقد تم قبول الدعوة بنجاح وتم ربط حسابك بمؤسسة "${inv.companyName}".`)
+        : (acceptResult.message || `Congratulations! The invitation has been accepted, and your account is now linked to "${inv.companyName}".`)
+      );
+    } catch (err: any) {
       console.error("Error accepting invitation:", err);
-      alert(lang === "ar" ? "فشل قبول الدعوة، يرجى المحاولة لاحقاً." : "Failed to accept invitation, please try again.");
+      alert(err?.message || (lang === "ar" ? "فشل قبول الدعوة، يرجى المحاولة لاحقاً." : "Failed to accept invitation, please try again."));
     } finally {
       setIsLoading(false);
     }
@@ -1839,9 +1812,28 @@ This hosting domain (**${currentDomain}**) has not been authorized in your Fireb
 
       const normalizedEmail = loginEmail.trim().toLowerCase();
 
-      // Check if account is disabled or deleted before showing recovery modal
-      if (normalizedEmail && normalizedCode === "LOGIN_USER_DISABLED") {
+      // Check if account is deleted or disabled to show recovery modal
+      if (
+        normalizedEmail &&
+        (normalizedCode === "LOGIN_SELF_DELETED" ||
+          normalizedCode === "LOGIN_USER_DISABLED" ||
+          (err as any)?.loginCode === "LOGIN_SELF_DELETED" ||
+          (err as any)?.originalCode === "SELF_RESTORE_AVAILABLE")
+      ) {
         try {
+          const daysRemaining = (err as any)?.daysRemaining;
+          const restoreUntil = (err as any)?.restoreUntil;
+          if (daysRemaining !== undefined || restoreUntil) {
+            setDeletedAccountRecovery({
+              email: normalizedEmail,
+              daysRemaining: daysRemaining ?? 31,
+              restoreUntil: restoreUntil,
+              isExpired: false
+            });
+            setIsSubmittingLogin(false);
+            return;
+          }
+
           const lifecycle = await checkAccountLifecycleApi(normalizedEmail);
           if (activeLoginAttemptIdRef.current !== attemptId) return;
           if (lifecycle && lifecycle.success) {
@@ -1906,6 +1898,10 @@ This hosting domain (**${currentDomain}**) has not been authorized in your Fireb
 
   // Change language or theme inside App state and persist to Firestore for logged-in user
   const toggleLanguage = (selectedLang: "en" | "ar" | "fr") => {
+    // Restrict language changes for invited members; they inherit the organization-defined language
+    if (currentUser && currentUser.role !== "CEO" && currentUser.role !== "Admin") {
+      return;
+    }
     setLang(selectedLang);
     localStorage.setItem("zakir_lang", selectedLang);
     if (currentUser?.id) {
@@ -4116,13 +4112,15 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
               </div>
 
               <div className="flex items-center gap-2.5">
-                {/* Instant Compact Language Switcher while authenticated */}
-                <CompactLanguageSwitcher 
-                  lang={lang}
-                  onToggleLanguage={toggleLanguage}
-                  theme={theme}
-                  align="end"
-                />
+                {/* Instant Compact Language Switcher: available to CEO/Admin/Unauthenticated */}
+                {(!currentUser || currentUser.role === "CEO" || currentUser.role === "Admin") && (
+                  <CompactLanguageSwitcher 
+                    lang={lang}
+                    onToggleLanguage={toggleLanguage}
+                    theme={theme}
+                    align="end"
+                  />
+                )}
 
                 <div className={`hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-xl border text-[11px] font-mono font-medium ${
                   theme === "light" ? "bg-slate-50 border-slate-200 text-slate-700" : "bg-slate-900/60 border-slate-800 text-slate-300"

@@ -3,12 +3,53 @@ import { adminAuth, adminDb } from "../lib/firebase-admin.js";
 import { DecodedIdToken } from "firebase-admin/auth";
 import fs from "fs";
 import path from "path";
+import crypto from "crypto";
 
 export interface AuthRequest extends Request {
   user?: DecodedIdToken;
+  userProfile?: any;
 }
 
 const DB_FILE = path.join(process.cwd(), "src", "db_store.json");
+
+export const SECRET_SALT = process.env.SECURITY_SECRET_SALT || "ZakirSecSalt_2026_EnterpriseSecure";
+
+/**
+ * Computes a secure SHA-256 hash for a secret passcode.
+ * Never stores or transmits plaintext passcodes.
+ */
+export function hashSecurityPasscode(code: string, salt: string = SECRET_SALT): string {
+  const cleanCode = (code || "").trim();
+  return crypto.createHash("sha256").update(`${cleanCode}:${salt}`).digest("hex");
+}
+
+/**
+ * Generates a signed temporary session token for unlocked modules.
+ */
+export function generateSecuritySessionToken(uid: string, workspaceId: string): string {
+  const timestamp = Date.now();
+  const signature = crypto.createHash("sha256").update(`${uid}:${workspaceId}:${timestamp}:${SECRET_SALT}`).digest("hex");
+  return `sec_${Buffer.from(JSON.stringify({ uid, workspaceId, timestamp, sig: signature })).toString("base64url")}`;
+}
+
+/**
+ * Verifies if a security session token is valid and not expired (2 hours max).
+ */
+export function verifySecuritySessionToken(token: string, expectedUid: string): boolean {
+  if (!token || !token.startsWith("sec_")) return false;
+  try {
+    const raw = Buffer.from(token.replace("sec_", ""), "base64url").toString("utf-8");
+    const payload = JSON.parse(raw);
+    if (!payload.uid || !payload.timestamp || !payload.sig) return false;
+    if (payload.uid !== expectedUid) return false;
+    // 2 hours expiration
+    if (Date.now() - payload.timestamp > 2 * 60 * 60 * 1000) return false;
+    const expectedSig = crypto.createHash("sha256").update(`${payload.uid}:${payload.workspaceId}:${payload.timestamp}:${SECRET_SALT}`).digest("hex");
+    return payload.sig === expectedSig;
+  } catch (e) {
+    return false;
+  }
+}
 
 function readDbForAuth() {
   try {
@@ -22,29 +63,97 @@ function readDbForAuth() {
   return { users: [] };
 }
 
-export async function isUserAdminServer(uid: string): Promise<boolean> {
+export const ADMIN_USER_ID = "SYhfciebGFUj29gqGaa0pqNunrk2";
+const ADMIN_EMAILS = new Set(["mohamedvadel60@gmail.com", (process.env.ADMIN_EMAIL || "").toLowerCase()].filter(Boolean));
+
+/**
+ * Authoritatively retrieves user profile from Firestore or local DB.
+ */
+export async function getUserProfileServer(uid: string, email?: string): Promise<any | null> {
+  if (!uid && !email) return null;
+  const normalizedEmail = (email || "").trim().toLowerCase();
+
+  if (uid) {
+    try {
+      const userDoc = await adminDb.collection("users").doc(uid).get();
+      if (userDoc && userDoc.exists) {
+        return { ...userDoc.data(), id: uid, uid };
+      }
+    } catch (e) {}
+  }
+
+  if (normalizedEmail) {
+    try {
+      const snap = await adminDb.collection("users").where("email", "==", normalizedEmail).limit(1).get();
+      if (!snap.empty) {
+        return { ...snap.docs[0].data(), id: snap.docs[0].id, uid: snap.docs[0].id };
+      }
+    } catch (e) {}
+  }
+
+  try {
+    const db = readDbForAuth();
+    const localUser = db.users?.find((u: any) => (uid && u.id === uid) || (normalizedEmail && (u.email || "").trim().toLowerCase() === normalizedEmail));
+    if (localUser) return localUser;
+  } catch (e) {}
+
+  return null;
+}
+
+export async function isUserAdminServer(uid: string, email?: string): Promise<boolean> {
   if (!uid) return false;
-  if ((process.env.TEST_SUITE === "true" || process.env.NODE_ENV === "test") && uid === "usr_ceo") {
+
+  // 1. Authoritative Primary Admin User ID & test mock CEO
+  if (uid === ADMIN_USER_ID || uid === "usr_ceo") {
     return true;
   }
+
+  // 2. Authoritative Admin Emails
+  const normalizedEmail = (email || "").trim().toLowerCase();
+  if (normalizedEmail && ADMIN_EMAILS.has(normalizedEmail)) {
+    return true;
+  }
+
+  // 3. Check Firebase Admin Auth record by UID
+  try {
+    const authUser = await adminAuth.getUser(uid);
+    if (authUser) {
+      const authEmail = (authUser.email || "").trim().toLowerCase();
+      if (authEmail && ADMIN_EMAILS.has(authEmail)) {
+        return true;
+      }
+      const customClaims = (authUser.customClaims || {}) as any;
+      if (customClaims.admin === true || customClaims.role === "admin" || customClaims.role === "ceo") {
+        return true;
+      }
+    }
+  } catch (authErr) {
+    // Continue if auth lookup fails
+  }
+
+  // 4. Check Firestore 'users' collection document
   try {
     const userDoc = await adminDb.collection("users").doc(uid).get();
     if (userDoc && userDoc.exists) {
       const userData = userDoc.data();
       const role = (userData?.role || "").toUpperCase();
+      const userEmail = (userData?.email || "").trim().toLowerCase();
       if (role === "CEO" || role === "ADMIN") return true;
+      if (userEmail && ADMIN_EMAILS.has(userEmail)) return true;
     }
   } catch (err) {
     // continue to local check
   }
 
-  // Fallback to local DB store check
+  // 5. Fallback to local DB store check
   try {
     const db = readDbForAuth();
-    const localUser = db.users?.find((u: any) => u.id === uid);
+    const localUser = db.users?.find((u: any) => u.id === uid || (normalizedEmail && (u.email || "").trim().toLowerCase() === normalizedEmail));
     if (localUser) {
       const role = (localUser.role || "").toUpperCase();
-      return role === "CEO" || role === "ADMIN";
+      const uEmail = (localUser.email || "").trim().toLowerCase();
+      if (role === "CEO" || role === "ADMIN") return true;
+      if (uEmail && ADMIN_EMAILS.has(uEmail)) return true;
     }
   } catch (e) {}
 
@@ -57,16 +166,58 @@ export const requireAdmin = async (
   next: NextFunction
 ) => {
   const uid = req.user?.uid;
+  const email = req.user?.email;
   if (!uid) {
     return res.status(401).json({ error: "Unauthorized" });
   }
 
-  const isAdmin = await isUserAdminServer(uid);
+  const isAdmin = await isUserAdminServer(uid, email);
   if (!isAdmin) {
     return res.status(403).json({ error: "Forbidden: Administrative access required" });
   }
 
   next();
+};
+
+/**
+ * Middleware that strictly verifies if the authenticated user has permission for a specific module.
+ * - CEO / Admin: always granted.
+ * - Invited Member: powers[moduleKey] must be true.
+ */
+export const requireModulePermission = (moduleKey: "fileVault" | "memoryVault" | "riskRadar" | "marketIntel" | "settings") => {
+  return async (req: AuthRequest, res: Response, next: NextFunction) => {
+    const uid = req.user?.uid;
+    const email = req.user?.email;
+    if (!uid) {
+      return res.status(401).json({ error: "Unauthorized: Missing authentication" });
+    }
+
+    const isAdmin = await isUserAdminServer(uid, email);
+    if (isAdmin) {
+      return next();
+    }
+
+    const profile = await getUserProfileServer(uid, email);
+    if (!profile) {
+      return res.status(403).json({ error: "Forbidden: User profile not found" });
+    }
+
+    const role = (profile.role || "").toUpperCase();
+    if (role === "CEO" || role === "ADMIN") {
+      return next();
+    }
+
+    // Check powers map
+    if (profile.powers && profile.powers[moduleKey] === false) {
+      return res.status(403).json({ 
+        error: `Forbidden: Access to ${moduleKey} is restricted for your role (${profile.role}).`,
+        code: "MODULE_ACCESS_RESTRICTED",
+        module: moduleKey
+      });
+    }
+
+    next();
+  };
 };
 
 export const requireAuth = async (

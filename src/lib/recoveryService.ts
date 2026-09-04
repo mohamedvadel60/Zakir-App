@@ -809,28 +809,55 @@ export async function verifyOtpAndRestore(email: string, code: string, newPasswo
         restoredUserData = usersSnap.docs[0].data();
       }
     } catch (e) {}
+
+    // Also look up retained profile in users_retained
+    if (!restoredUserData) {
+      try {
+        const retainedSnap = await adminDb.collection("users_retained").where("email", "==", normalizedEmail).limit(1).get();
+        if (!retainedSnap.empty) {
+          targetUid = retainedSnap.docs[0].id;
+          restoredUserData = retainedSnap.docs[0].data();
+        }
+      } catch (e) {}
+    }
   }
 
   if (!restoredUserData) {
     const db = readDb();
-    restoredUserData = db.users?.find((u: any) => u.email === normalizedEmail);
+    restoredUserData = db.users?.find((u: any) => u.email === normalizedEmail) || db.retained_users?.find((u: any) => u.email === normalizedEmail);
     if (restoredUserData?.id) targetUid = restoredUserData.id;
   }
 
   const nowIso = new Date().toISOString();
+
+  // Strictly preserve authoritative role, workspace, and powers without privilege escalation
+  const preservedRole = restoredUserData?.role || (restoredUserData?.workspace?.ownerId === targetUid ? "CEO" : "Contributor");
+  const preservedWorkspaceId = restoredUserData?.workspaceId || restoredUserData?.workspace?.id || `ws_${targetUid.substring(0, 8)}`;
+  const preservedWorkspace = restoredUserData?.workspace || {
+    id: preservedWorkspaceId,
+    name: `${restoredUserData?.companyName || "Restored"} Workspace`,
+    ownerId: restoredUserData?.workspace?.ownerId || targetUid,
+    createdAt: restoredUserData?.createdAt || nowIso,
+    memberCount: 1
+  };
+
   const updatedUser = {
     ...(restoredUserData || {}),
     id: targetUid,
+    uid: targetUid,
     email: normalizedEmail,
     companyName: restoredUserData?.companyName || "Restored Workspace",
     ownerName: restoredUserData?.ownerName || cleanNameFromEmail(normalizedEmail),
-    role: restoredUserData?.role || "CEO",
+    role: preservedRole,
+    workspaceId: preservedWorkspaceId,
+    workspace: preservedWorkspace,
+    powers: restoredUserData?.powers,
     isVerified: true,
     isEmailVerified: true,
     isPhoneVerified: true,
     verification_status: "verified",
     verification_required: false,
-    subscriptionStatus: "Active",
+    subscriptionStatus: restoredUserData?.subscriptionStatus || "Active",
     restoredAt: nowIso,
     lastActiveAt: nowIso,
     lastLoginAt: nowIso
@@ -916,22 +943,29 @@ export async function getAdminRecoveryRequests(): Promise<{
   return { success: true, requests };
 }
 
-export async function restoreAccountFullServer(email: string, newPassword?: string): Promise<{ success: boolean; user?: any; error?: string }> {
+export async function restoreAccountFullServer(email: string, newPassword?: string, fallbackProfile?: any): Promise<{ success: boolean; user?: any; error?: string }> {
   const normalizedEmail = (email || "").trim().toLowerCase();
   if (!normalizedEmail) return { success: false, error: "Email parameter is required." };
 
   const nowIso = new Date().toISOString();
   const lifecycle = await getAccountLifecycleRecord(normalizedEmail);
-  const targetUid = lifecycle?.originalUserId;
+  const targetUid = lifecycle?.originalUserId || fallbackProfile?.id || fallbackProfile?.uid;
 
   // 1. Locate retained user profile & existing user document
-  let retainedProfile: any = null;
+  let retainedProfile: any = fallbackProfile || null;
   let existingUserDoc: any = null;
 
   if (targetUid && isFirebaseAdminAvailable && adminDb) {
     try {
       const rSnap = await adminDb.collection("users_retained").doc(targetUid).get();
       if (rSnap.exists) retainedProfile = rSnap.data();
+    } catch (e) {}
+  }
+
+  if (!retainedProfile && isFirebaseAdminAvailable && adminDb) {
+    try {
+      const rSnap = await adminDb.collection("users_retained").where("email", "==", normalizedEmail).limit(1).get();
+      if (!rSnap.empty) retainedProfile = rSnap.docs[0].data();
     } catch (e) {}
   }
 
@@ -1028,13 +1062,16 @@ export async function restoreAccountFullServer(email: string, newPassword?: stri
   }
 
   // 5. Restore Firestore user document users/{finalUid}
-  // PRESERVE AUTHORITATIVE ROLE (CEO, Admin, Analyst, Compliance Officer, etc.)
-  const preservedRole = existingUserDoc?.role || retainedProfile?.role || "CEO";
-  const preservedWorkspaceId = existingUserDoc?.workspaceId || retainedProfile?.workspaceId || retainedProfile?.workspace?.id || `ws_${finalUid.substring(0, 8)}`;
-  const preservedWorkspace = existingUserDoc?.workspace || retainedProfile?.workspace || {
+  // PRESERVE AUTHORITATIVE ROLE & WORKSPACE (CEO, Admin, Analyst, Compliance Officer, etc.)
+  const authoritativeOwnerId = retainedProfile?.workspace?.ownerId || existingUserDoc?.workspace?.ownerId;
+  const isOriginalWorkspaceCreator = authoritativeOwnerId ? authoritativeOwnerId === finalUid : (retainedProfile?.role === "CEO" || existingUserDoc?.role === "CEO");
+
+  const preservedRole = retainedProfile?.role || existingUserDoc?.role || (isOriginalWorkspaceCreator ? "CEO" : "Contributor");
+  const preservedWorkspaceId = retainedProfile?.workspaceId || existingUserDoc?.workspaceId || retainedProfile?.workspace?.id || existingUserDoc?.workspace?.id || `ws_${finalUid.substring(0, 8)}`;
+  const preservedWorkspace = retainedProfile?.workspace || existingUserDoc?.workspace || {
     id: preservedWorkspaceId,
     name: `${retainedProfile?.companyName || existingUserDoc?.companyName || "Restored"} Workspace`,
-    ownerId: finalUid,
+    ownerId: authoritativeOwnerId || finalUid,
     createdAt: retainedProfile?.createdAt || existingUserDoc?.createdAt || nowIso,
     memberCount: 1
   };

@@ -13,7 +13,8 @@
         "verifiedAt": "2026-01-15T09:00:00Z"
       },
       "createdAt": "2026-01-15T09:00:00Z",
-      "trialExpiresAt": "2026-08-05T17:22:39.654Z"
+      "trialExpiresAt": "2026-08-05T17:22:39.654Z",
+      "stripeCustomerId": "cus_VCQh178bj0VYba"
     },
     {
       "id": "usr_analyst",
@@ -231,6 +232,47 @@
       "stripeCustomerId": "cus_VA2giyi4tcHOyr",
       "lastActiveAt": "2026-09-03T13:32:04.570Z",
       "lastLoginAt": "2026-09-03T13:32:04.570Z"
+    },
+    {
+      "id": "usr_mtnb3jas",
+      "email": "risk.auditor@testcompany.com",
+      "role": "Risk Auditor",
+      "companyName": "Restored Account",
+      "workspaceId": "ws_ceo_main",
+      "workspace": {
+        "id": "ws_ceo_main",
+        "name": "Global Audit Workspace",
+        "ownerId": "usr_ceo_real",
+        "createdAt": "2025-01-01T00:00:00Z"
+      },
+      "powers": {
+        "marketIntel": true,
+        "settings": true,
+        "fileVault": true,
+        "memoryVault": true,
+        "riskRadar": true
+      },
+      "isVerified": false,
+      "verification_status": "unverified",
+      "deletedBy": null,
+      "isEmailVerified": false,
+      "accountStatus": "active",
+      "uid": "usr_mtnb3jas",
+      "ownerName": "risk.auditor",
+      "userPreferences": {
+        "language": "ar",
+        "theme": "light"
+      },
+      "subscriptionStatus": "Active",
+      "email_verified": false,
+      "verification_required": true,
+      "restoredAt": "2026-09-04T18:48:04.582Z",
+      "lastActiveAt": "2026-09-04T18:48:04.582Z",
+      "emailVerified": false,
+      "deletedAt": null,
+      "deleted": false,
+      "lastLoginAt": "2026-09-04T18:48:04.582Z",
+      "status": "VERIFICATION_REQUIRED"
     }
   ],
   "verification_codes": [
@@ -651,7 +693,11 @@
     "cs_test_a1ul6UsKDeBY7KrSVA7Pan5LQ07X1ximLPHcS2Xc9e7Xd1ku22F4ZTUo97": "ElyZcGgenUZWsY3o9bq0ObHaNJo1",
     "cs_test_a1moObjaLH2clxB3vc8Yq3KuJ9ZeK00PPXxdIZd6y4sy3mVv4uTAWXtUBO": "usr_ceo",
     "cs_test_a1BQDAXkZoSgUU510HYt5wzI16id5B3faMrIa1frm8G54b96nZTu4QJcRN": "usr_ceo",
-    "cs_test_a1oL0eF1IDFYfJCNm84e9ogeOmQHQLMIR715spH13o3yzN641Tav1UjgyE": "usr_ceo"
+    "cs_test_a1oL0eF1IDFYfJCNm84e9ogeOmQHQLMIR715spH13o3yzN641Tav1UjgyE": "usr_ceo",
+    "cs_live_a1dHt0JYajPX2ePBiq38iEcdg2yCRm3PTela8GnfCCidpnD9mOWYYqx5X6": "usr_ceo",
+    "cs_live_a1AvgcoSqj8KrMuLvo7ImYtvJmF9zRKksi72tlLVGc22b8inijAxdgLare": "usr_ceo",
+    "cs_live_a1zyOiJGcjowlBL3X8svELqZtG0geczsUuRjkxGpUGcTnUZnkRrQHHMVeU": "usr_ceo",
+    "cs_live_a1CEogTas31YDiYY2SJJHSpDJMrBL0Crz8bJVYC0KQmLagPvOpuE8eCVX6": "usr_ceo"
   },
   "account_lifecycle": [
     {
@@ -718,6 +764,43 @@
       "retainedDataDocPath": "users_retained/MwlaEvpmSUYQl5oopJOj7Gc3dd52",
       "adminApprovalRequired": false,
       "updatedAt": "2026-08-29T12:39:51.163Z"
+    },
+    {
+      "accountId": "anas1220045@gmail.com",
+      "emailNormalized": "anas1220045@gmail.com",
+      "status": "ACTIVE",
+      "deletionType": null,
+      "deletedAt": null,
+      "deletedBy": null,
+      "restoreUntil": null,
+      "originalUserId": "vUmVVdZ6c3Xa9TDrHcJ9DzdvlRX2",
+      "retainedDataDocPath": null,
+      "adminApprovalRequired": false,
+      "updatedAt": "2026-09-04T18:12:17.629Z"
+    },
+    {
+      "accountId": "mohamedvadel60@gmail.com",
+      "emailNormalized": "mohamedvadel60@gmail.com",
+      "status": "ACTIVE",
+      "deletionType": null,
+      "deletedAt": null,
+      "deletedBy": null,
+      "restoreUntil": null,
+      "originalUserId": "SYhfciebGFUj29gqGaa0pqNunrk2",
+      "retainedDataDocPath": null,
+      "adminApprovalRequired": false,
+      "updatedAt": "2026-09-04T18:12:18.215Z"
+    },
+    {
+      "accountId": "risk.auditor@testcompany.com",
+      "emailNormalized": "risk.auditor@testcompany.com",
+      "status": "ACTIVE",
+      "deletionType": null,
+      "deletedAt": null,
+      "deletedBy": null,
+      "restoreUntil": null,
+      "originalUserId": "usr_mtnb3jas",
+      "updatedAt": "2026-09-04T18:48:04.582Z"
     }
   ],
   "account_reactivation_requests": [

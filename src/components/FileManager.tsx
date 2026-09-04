@@ -31,6 +31,7 @@ import {
   formatBytes 
 } from "../lib/firebaseServices.js";
 import { openOrDownloadUserFile, downloadUserFile as downloadUserFileUtil, openUserFileInNewTab as openUserFileInNewTabUtil } from "../lib/fileViewerUtils.js";
+import { authenticatedFetch } from "../lib/apiUtils.js";
 
 interface FileManagerProps {
   userId: string;
@@ -270,36 +271,55 @@ export const FileManager: React.FC<FileManagerProps> = ({
   };
 
   // Passcode Verification Submission
-  const handleVerifyPasscodeSubmit = (e: React.FormEvent) => {
+  const handleVerifyPasscodeSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const file = passcodeModal.file;
     if (!file) return;
 
-    const passcodeToMatch = (secretPasscode && secretPasscode.trim() !== "") ? secretPasscode.trim() : "1234";
+    try {
+      // Call authoritative server-side endpoint with cryptographic hash validation
+      const res = await authenticatedFetch("/api/security/verify-code", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          code: enteredPasscode.trim(),
+          module: "fileVault"
+        })
+      });
 
-    if (enteredPasscode.trim() === passcodeToMatch) {
-      // Session unlock
-      setUnlockedFileIds(prev => new Set(prev).add(file.id));
+      const data = await res.json().catch(() => ({}));
 
-      if (passcodeModal.action === "decryptToggle") {
-        // Permanently un-encrypt file in DB and state
-        setFiles(prev => prev.map(f => f.id === file.id ? { ...f, isEncrypted: false } : f));
-        updateFirebaseUserFile(userId, file.id, { isEncrypted: false }).catch(e => console.warn("Toggle encryption error:", e));
+      if (res.ok && (data.verified || data.success)) {
+        // Session unlock
+        setUnlockedFileIds(prev => new Set(prev).add(file.id));
+
+        if (passcodeModal.action === "decryptToggle") {
+          // Permanently un-encrypt file in DB and state
+          setFiles(prev => prev.map(f => f.id === file.id ? { ...f, isEncrypted: false } : f));
+          updateFirebaseUserFile(userId, file.id, { isEncrypted: false }).catch(e => console.warn("Toggle encryption error:", e));
+        }
+
+        // Transition modal state to options choice (isVerified: true)
+        setPasscodeModal(prev => ({
+          ...prev,
+          isVerified: true,
+          error: ""
+        }));
+        setEnteredPasscode("");
+      } else {
+        setPasscodeModal(prev => ({
+          ...prev,
+          error: data?.error || (lang === "ar"
+            ? "رمز/كلمة السر لفك التشفير غير صحيحة! تعذر فك تشفير الملف."
+            : "Incorrect passcode! Decryption verification failed.")
+        }));
       }
-
-      // Transition modal state to options choice (isVerified: true)
-      setPasscodeModal(prev => ({
-        ...prev,
-        isVerified: true,
-        error: ""
-      }));
-      setEnteredPasscode("");
-    } else {
+    } catch (err: any) {
       setPasscodeModal(prev => ({
         ...prev,
         error: lang === "ar"
-          ? "رمز/كلمة السر لفك التشفير غير صحيحة! تعذر فك تشفير الملف."
-          : "Incorrect passcode! Decryption verification failed."
+          ? "تعذر التحقق من الرمز السري. يرجى المحاولة مرة أخرى."
+          : "Failed to verify security passcode. Please try again."
       }));
     }
   };

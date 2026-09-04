@@ -14,8 +14,20 @@
       "destination": "/api/auth/recovery-request/:path*"
     },
     {
+      "source": "/api/stripe/:path*",
+      "destination": "/api"
+    },
+    {
+      "source": "/stripe/:path*",
+      "destination": "/api"
+    },
+    {
+      "source": "/api/(.*)",
+      "destination": "/api"
+    },
+    {
       "source": "/api/:path*",
-      "destination": "/api/index.ts"
+      "destination": "/api"
     },
     {
       "source": "/((?!api/).*)",

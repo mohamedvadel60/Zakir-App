@@ -378,8 +378,34 @@ export async function loginFirebaseUser(email: string, pass: string, attemptId?:
 
     // Deterministic early exits for non-credential client errors:
     if (fbCode === "auth/user-disabled") {
+      try {
+        const lc = await checkAccountLifecycleApi(normalizedEmail);
+        if (lc && lc.success) {
+          if (lc.status === "SELF_DELETED" || lc.status === "SELF_RESTORE_AVAILABLE") {
+            throw new LoginError("LOGIN_SELF_DELETED", lc.userFriendlyMessage || "Account deleted, restoration available", {
+              originalCode: "SELF_RESTORE_AVAILABLE",
+              email: normalizedEmail,
+              daysRemaining: lc.daysRemaining ?? 31,
+              restoreUntil: lc.restoreUntil,
+              statusCode: 403,
+              attemptId: currentAttemptId
+            });
+          }
+          if (lc.status === "ADMIN_DELETED" || lc.status === "ADMIN_APPROVAL_REQUIRED") {
+            throw new LoginError("LOGIN_USER_DISABLED", lc.userFriendlyMessage || "User account is disabled.", {
+              originalCode: "auth/user-disabled",
+              email: normalizedEmail,
+              statusCode: 403,
+              attemptId: currentAttemptId
+            });
+          }
+        }
+      } catch (lcErr) {
+        if (lcErr instanceof LoginError) throw lcErr;
+      }
       throw new LoginError("LOGIN_USER_DISABLED", "User account is disabled.", {
         originalCode: fbCode,
+        email: normalizedEmail,
         attemptId: currentAttemptId
       });
     }
@@ -407,8 +433,23 @@ export async function loginFirebaseUser(email: string, pass: string, attemptId?:
       if (deletedSnap && deletedSnap.exists()) {
         await signOut(auth);
         clearUserLocalCache(uid);
+        try {
+          const lc = await checkAccountLifecycleApi(normalizedEmail);
+          if (lc && lc.success && (lc.status === "SELF_DELETED" || lc.status === "SELF_RESTORE_AVAILABLE")) {
+            throw new LoginError("LOGIN_SELF_DELETED", lc.userFriendlyMessage || "Account deleted, restoration available", {
+              originalCode: "SELF_RESTORE_AVAILABLE",
+              email: normalizedEmail,
+              daysRemaining: lc.daysRemaining ?? 31,
+              restoreUntil: lc.restoreUntil,
+              attemptId: currentAttemptId
+            });
+          }
+        } catch (lcErr) {
+          if (lcErr instanceof LoginError) throw lcErr;
+        }
         throw new LoginError("LOGIN_USER_DISABLED", "This account has been deleted. Please contact the administrator.", {
           originalCode: "auth/user-disabled",
+          email: normalizedEmail,
           attemptId: currentAttemptId
         });
       }
@@ -417,6 +458,7 @@ export async function loginFirebaseUser(email: string, pass: string, attemptId?:
       if (dErr.message?.includes("deleted") || dErr.message?.includes("حذف")) {
         throw new LoginError("LOGIN_USER_DISABLED", dErr.message, {
           originalCode: "auth/user-disabled",
+          email: normalizedEmail,
           attemptId: currentAttemptId
         });
       }
@@ -511,6 +553,17 @@ export async function loginFirebaseUser(email: string, pass: string, attemptId?:
       success: false
     });
 
+    if (serverCode === "SELF_RESTORE_AVAILABLE" || srvData?.error === "SELF_RESTORE_AVAILABLE") {
+      throw new LoginError("LOGIN_SELF_DELETED", srvData?.message || "Self deleted account found", {
+        originalCode: "SELF_RESTORE_AVAILABLE",
+        email: normalizedEmail,
+        daysRemaining: srvData?.daysRemaining ?? 31,
+        restoreUntil: srvData?.restoreUntil,
+        statusCode: 403,
+        attemptId: currentAttemptId
+      });
+    }
+
     if (serverStatus === 429 || serverCode === "TOO_MANY_REQUESTS" || serverCode === "auth/too-many-requests") {
       throw new LoginError("LOGIN_TOO_MANY_REQUESTS", "Too many requests", {
         originalCode: serverCode || "TOO_MANY_REQUESTS",
@@ -525,14 +578,65 @@ export async function loginFirebaseUser(email: string, pass: string, attemptId?:
       serverCode === "USER_DISABLED" ||
       serverCode === "ADMIN_DELETED_BLOCKED"
     ) {
+      try {
+        const lc = await checkAccountLifecycleApi(normalizedEmail);
+        if (lc && lc.success) {
+          if (lc.status === "SELF_DELETED" || lc.status === "SELF_RESTORE_AVAILABLE") {
+            throw new LoginError("LOGIN_SELF_DELETED", lc.userFriendlyMessage || "Account deleted, restoration available", {
+              originalCode: "SELF_RESTORE_AVAILABLE",
+              email: normalizedEmail,
+              daysRemaining: lc.daysRemaining ?? 31,
+              restoreUntil: lc.restoreUntil,
+              statusCode: 403,
+              attemptId: currentAttemptId
+            });
+          }
+          if (lc.status === "ADMIN_DELETED" || lc.status === "ADMIN_APPROVAL_REQUIRED") {
+            throw new LoginError("LOGIN_USER_DISABLED", lc.userFriendlyMessage || "Account disabled by admin", {
+              originalCode: "auth/user-disabled",
+              email: normalizedEmail,
+              statusCode: 403,
+              attemptId: currentAttemptId
+            });
+          }
+        }
+      } catch (lcErr) {
+        if (lcErr instanceof LoginError) throw lcErr;
+      }
       throw new LoginError("LOGIN_USER_DISABLED", srvData?.message || "User disabled", {
         originalCode: serverCode || "auth/user-disabled",
+        email: normalizedEmail,
         statusCode: 403,
         attemptId: currentAttemptId
       });
     }
 
     if (serverCode === "auth/user-not-found" || serverCode === "EMAIL_NOT_FOUND" || serverCode === "USER_NOT_FOUND") {
+      try {
+        const lc = await checkAccountLifecycleApi(normalizedEmail);
+        if (lc && lc.success) {
+          if (lc.status === "SELF_DELETED" || lc.status === "SELF_RESTORE_AVAILABLE") {
+            throw new LoginError("LOGIN_SELF_DELETED", lc.userFriendlyMessage || "Account deleted, restoration available", {
+              originalCode: "SELF_RESTORE_AVAILABLE",
+              email: normalizedEmail,
+              daysRemaining: lc.daysRemaining ?? 31,
+              restoreUntil: lc.restoreUntil,
+              statusCode: 403,
+              attemptId: currentAttemptId
+            });
+          }
+          if (lc.status === "ADMIN_DELETED" || lc.status === "ADMIN_APPROVAL_REQUIRED") {
+            throw new LoginError("LOGIN_USER_DISABLED", lc.userFriendlyMessage || "Account disabled by admin", {
+              originalCode: "auth/user-disabled",
+              email: normalizedEmail,
+              statusCode: 403,
+              attemptId: currentAttemptId
+            });
+          }
+        }
+      } catch (lcErr) {
+        if (lcErr instanceof LoginError) throw lcErr;
+      }
       throw new LoginError("LOGIN_USER_NOT_FOUND", srvData?.message || "User not found", {
         originalCode: serverCode,
         statusCode: 401,
@@ -545,6 +649,31 @@ export async function loginFirebaseUser(email: string, pass: string, attemptId?:
       serverCode === "auth/invalid-credential" ||
       serverCode === "INVALID_CREDENTIALS"
     ) {
+      try {
+        const lc = await checkAccountLifecycleApi(normalizedEmail);
+        if (lc && lc.success) {
+          if (lc.status === "SELF_DELETED" || lc.status === "SELF_RESTORE_AVAILABLE") {
+            throw new LoginError("LOGIN_SELF_DELETED", lc.userFriendlyMessage || "Account deleted, restoration available", {
+              originalCode: "SELF_RESTORE_AVAILABLE",
+              email: normalizedEmail,
+              daysRemaining: lc.daysRemaining ?? 31,
+              restoreUntil: lc.restoreUntil,
+              statusCode: 403,
+              attemptId: currentAttemptId
+            });
+          }
+          if (lc.status === "ADMIN_DELETED" || lc.status === "ADMIN_APPROVAL_REQUIRED") {
+            throw new LoginError("LOGIN_USER_DISABLED", lc.userFriendlyMessage || "Account disabled by admin", {
+              originalCode: "auth/user-disabled",
+              email: normalizedEmail,
+              statusCode: 403,
+              attemptId: currentAttemptId
+            });
+          }
+        }
+      } catch (lcErr) {
+        if (lcErr instanceof LoginError) throw lcErr;
+      }
       throw new LoginError("LOGIN_INVALID_CREDENTIALS", "Invalid credentials", {
         originalCode: serverCode || "auth/invalid-credential",
         statusCode: 401,
@@ -1706,37 +1835,75 @@ export interface AdminUserRecord {
 }
 
 export async function fetchAllUsersForAdmin(): Promise<AdminUserRecord[]> {
-  try {
-    const response = await authenticatedFetch("/api/admin/users");
-    if (response.ok) {
-      const data = await response.json();
-      if (data && Array.isArray(data.users)) {
-        const records: AdminUserRecord[] = data.users.map((userData: any) => {
-          const userId = userData.id || userData.uid;
-          return {
-            id: userId,
-            email: userData.email || "No Email",
-            createdAt: userData.createdAt || new Date().toISOString(),
-            lastActiveAt: userData.lastActiveAt,
-            lastLoginAt: userData.lastLoginAt,
-            activityCount: userData.activityCount || 0,
-            companyName: userData.companyName,
-            ownerName: userData.ownerName,
-            role: userData.role,
-            fileCount: Array.isArray(userData.files) ? userData.files.length : 0,
-            files: Array.isArray(userData.files) ? userData.files : [],
-            verificationInfo: userData.verificationInfo,
-            fullUser: { ...userData, id: userId }
-          };
-        });
-        return records.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-      }
-    }
-  } catch (apiErr) {
-    console.error("Backend admin users endpoint fetch failed:", apiErr);
+  const response = await authenticatedFetch("/api/admin/users");
+  if (!response.ok) {
+    let errorMsg = `Failed to fetch users list (HTTP ${response.status})`;
+    try {
+      const errData = await response.json();
+      if (errData?.error) errorMsg = errData.error;
+    } catch (e) {}
+    throw new Error(errorMsg);
   }
 
-  return [];
+  const data = await response.json();
+  if (!data || !Array.isArray(data.users)) {
+    throw new Error(data?.error || "Invalid response from admin users API");
+  }
+
+  const records: AdminUserRecord[] = data.users.map((userData: any) => {
+    const userId = userData.id || userData.uid;
+    return {
+      id: userId,
+      email: userData.email || "No Email",
+      createdAt: userData.createdAt || new Date().toISOString(),
+      lastActiveAt: userData.lastActiveAt,
+      lastLoginAt: userData.lastLoginAt,
+      activityCount: userData.activityCount || 0,
+      companyName: userData.companyName,
+      ownerName: userData.ownerName,
+      role: userData.role,
+      fileCount: Array.isArray(userData.files) ? userData.files.length : 0,
+      files: Array.isArray(userData.files) ? userData.files : [],
+      verificationInfo: userData.verificationInfo,
+      fullUser: { ...userData, id: userId }
+    };
+  });
+  return records.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+}
+
+/**
+ * Workspace Invitation & Team Synchronization APIs
+ */
+export async function acceptWorkspaceInvitationApi(payload: {
+  invitationToken?: string;
+  email?: string;
+  memberName?: string;
+}): Promise<{ success: boolean; user?: User; invitation?: any; message?: string; userFriendlyMessage?: string }> {
+  const res = await authenticatedFetch("/api/workspace/invitations/accept", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload)
+  });
+  const data = await safeParseJsonResponse(res);
+  if (!res.ok || !data.success) {
+    throw new Error(data?.userFriendlyMessage || data?.error || "Failed to accept workspace invitation");
+  }
+  return data;
+}
+
+export async function fetchWorkspaceTeamApi(): Promise<{
+  success: boolean;
+  workspaceId: string;
+  companyName: string;
+  teamMembers: any[];
+  invitations: any[];
+}> {
+  const res = await authenticatedFetch("/api/workspace/team");
+  const data = await safeParseJsonResponse(res);
+  if (!res.ok || !data.success) {
+    throw new Error(data?.error || "Failed to fetch workspace team");
+  }
+  return data;
 }
 
 /**
