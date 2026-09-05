@@ -2,31 +2,11 @@
   "version": 2,
   "rewrites": [
     {
-      "source": "/api/admin/handle-recovery-request",
-      "destination": "/api/admin/handle-recovery-request"
-    },
-    {
-      "source": "/api/admin/recovery-requests",
-      "destination": "/api/admin/recovery-requests"
-    },
-    {
-      "source": "/api/auth/recovery-request/:path*",
-      "destination": "/api/auth/recovery-request/:path*"
-    },
-    {
-      "source": "/api/stripe/:path*",
-      "destination": "/api"
-    },
-    {
-      "source": "/stripe/:path*",
-      "destination": "/api"
-    },
-    {
       "source": "/api/(.*)",
       "destination": "/api"
     },
     {
-      "source": "/api/:path*",
+      "source": "/api",
       "destination": "/api"
     },
     {

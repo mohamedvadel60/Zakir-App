@@ -1,4 +1,9 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
+
+export const ZAKIR_BUILD_ID = "ZAKIR_BUILD_2026_09_04_v2.4.2_BUILD_MARKER_AUDIT";
+if (typeof window !== "undefined") {
+  (window as any).ZAKIR_BUILD_ID = ZAKIR_BUILD_ID;
+}
 import Markdown from "react-markdown";
 import { 
   Database, 
@@ -935,7 +940,7 @@ This hosting domain (**${currentDomain}**) has not been authorized in your Fireb
     clean = clean.replace(/^[.\s:]+/, "").trim();
 
     // Check if this error is about a deleted account recovery
-    const isDeletedAccountError = /تم العثور على حساب سابق|استعادة الحساب|SELF_RESTORE_AVAILABLE/i.test(clean);
+    const isDeletedAccountError = /تم العثور على حساب سابق|استعادة الحساب|SELF_RESTORE_AVAILABLE|previously deleted account|restoration available|compte précédemment supprimé/i.test(clean);
     if (isDeletedAccountError) {
       const matchDays = clean.match(/(\d+)\s*(?:يوماً|يوم|days?)/i);
       const parsedDays = matchDays ? parseInt(matchDays[1], 10) : 31;
@@ -1812,63 +1817,31 @@ This hosting domain (**${currentDomain}**) has not been authorized in your Fireb
 
       const normalizedEmail = loginEmail.trim().toLowerCase();
 
-      // Check if account is deleted or disabled to show recovery modal
+      // Check if this error represents an eligible deleted account recovery
       if (
-        normalizedEmail &&
-        (normalizedCode === "LOGIN_SELF_DELETED" ||
-          normalizedCode === "LOGIN_ADMIN_DELETED" ||
-          normalizedCode === "LOGIN_USER_DISABLED" ||
-          (err as any)?.loginCode === "LOGIN_SELF_DELETED" ||
-          (err as any)?.loginCode === "LOGIN_ADMIN_DELETED" ||
-          (err as any)?.originalCode === "SELF_RESTORE_AVAILABLE")
+        normalizedCode === "LOGIN_SELF_DELETED" ||
+        err?.originalCode === "SELF_RESTORE_AVAILABLE" ||
+        err?.code === "LOGIN_SELF_DELETED" ||
+        err?.loginCode === "LOGIN_SELF_DELETED"
       ) {
-        try {
-          const daysRemaining = (err as any)?.daysRemaining;
-          const restoreUntil = (err as any)?.restoreUntil;
-          if (daysRemaining !== undefined || restoreUntil) {
-            setDeletedAccountRecovery({
-              email: normalizedEmail,
-              daysRemaining: daysRemaining ?? 31,
-              restoreUntil: restoreUntil,
-              isExpired: false
-            });
-            setIsSubmittingLogin(false);
-            return;
-          }
-
-          const lifecycle = await checkAccountLifecycleApi(normalizedEmail);
-          if (activeLoginAttemptIdRef.current !== attemptId) return;
-          if (lifecycle && lifecycle.success) {
-            if (
-              lifecycle.status === "ADMIN_DELETED" ||
-              lifecycle.status === "ADMIN_APPROVAL_PENDING" ||
-              lifecycle.status === "SELF_DELETED" ||
-              lifecycle.status === "SELF_RESTORE_AVAILABLE"
-            ) {
-              setDeletedAccountRecovery({
-                email: normalizedEmail,
-                daysRemaining: lifecycle.daysRemaining ?? 31,
-                restoreUntil: lifecycle.restoreUntil,
-                isExpired: false
-              });
-              setIsSubmittingLogin(false);
-              return;
-            } else if (lifecycle.status === "RESTORE_EXPIRED") {
-              setDeletedAccountRecovery({
-                email: normalizedEmail,
-                daysRemaining: 0,
-                isExpired: true
-              });
-              setIsSubmittingLogin(false);
-              return;
-            }
-          }
-        } catch (lcErr) {
-          console.warn("Login lifecycle check error:", lcErr);
-        }
+        const targetEmail = err?.email || normalizedEmail;
+        const daysRemaining = err?.daysRemaining ?? 31;
+        const restoreUntil = err?.restoreUntil;
+        setDeletedAccountRecovery({
+          email: targetEmail,
+          daysRemaining: daysRemaining,
+          restoreUntil: restoreUntil,
+          isExpired: false
+        });
+        setLoginError("");
+        setRegError("");
+        return;
       }
 
-      const formattedError = formatAuthError(err);
+      // Normal login errors display generic invalid credentials.
+      const formattedError = lang === "ar" 
+        ? "بيانات الدخول غير صحيحة. يرجى التحقق من البريد الإلكتروني وكلمة المرور."
+        : formatAuthError(err);
       logLoginTrace("LOGIN_UI_ERROR_SET", {
         attemptId,
         normalizedErrorCode: normalizedCode,
@@ -3380,38 +3353,22 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                         applyUserPreferences(userProfile);
                         setAuthMode("landing");
                       } catch (err: any) {
-                        const normCode = err instanceof LoginError ? err.loginCode : normalizeLoginError(err);
-                        const gEmail = (err?.email || "").trim().toLowerCase();
                         if (
-                          gEmail && (
-                            normCode === "LOGIN_SELF_DELETED" ||
-                            normCode === "LOGIN_ADMIN_DELETED" ||
-                            normCode === "LOGIN_USER_DISABLED" ||
-                            err?.daysRemaining !== undefined
-                          )
+                          err?.loginCode === "LOGIN_SELF_DELETED" ||
+                          err?.originalCode === "SELF_RESTORE_AVAILABLE" ||
+                          err?.code === "LOGIN_SELF_DELETED"
                         ) {
                           setDeletedAccountRecovery({
-                            email: gEmail,
-                            daysRemaining: err.daysRemaining ?? 31,
-                            restoreUntil: err.restoreUntil,
+                            email: err?.email || regEmail.trim().toLowerCase(),
+                            daysRemaining: err?.daysRemaining ?? 31,
+                            restoreUntil: err?.restoreUntil,
                             isExpired: false
                           });
-                        } else if (gEmail) {
-                          checkAccountLifecycleApi(gEmail).then(lifecycle => {
-                            if (lifecycle && lifecycle.success && (lifecycle.status === "SELF_DELETED" || lifecycle.status === "ADMIN_DELETED" || lifecycle.status === "ADMIN_APPROVAL_PENDING")) {
-                              setDeletedAccountRecovery({
-                                email: gEmail,
-                                daysRemaining: lifecycle.daysRemaining ?? 31,
-                                restoreUntil: lifecycle.restoreUntil,
-                                isExpired: false
-                              });
-                            } else {
-                              setRegError(formatAuthError(err));
-                            }
-                          }).catch(() => setRegError(formatAuthError(err)));
-                        } else {
-                          setRegError(formatAuthError(err));
+                          setRegError("");
+                          setLoginError("");
+                          return;
                         }
+                        setRegError(lang === "ar" ? "بيانات الدخول غير صحيحة. يرجى التحقق من البريد الإلكتروني وكلمة المرور." : formatAuthError(err));
                       }
                     }}
                     className="w-full py-2.5 px-4 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-800 dark:text-slate-200 text-xs font-semibold rounded-lg border border-slate-200 dark:border-slate-800 transition-all cursor-pointer flex items-center justify-center gap-2.5 mb-4 shadow-xs hover:border-slate-300 dark:hover:border-slate-700"
@@ -3738,38 +3695,22 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                           applyUserPreferences(userProfile);
                           setAuthMode("landing");
                         } catch (err: any) {
-                          const normCode = err instanceof LoginError ? err.loginCode : normalizeLoginError(err);
-                          const gEmail = (err?.email || "").trim().toLowerCase();
                           if (
-                            gEmail && (
-                              normCode === "LOGIN_SELF_DELETED" ||
-                              normCode === "LOGIN_ADMIN_DELETED" ||
-                              normCode === "LOGIN_USER_DISABLED" ||
-                              err?.daysRemaining !== undefined
-                            )
+                            err?.loginCode === "LOGIN_SELF_DELETED" ||
+                            err?.originalCode === "SELF_RESTORE_AVAILABLE" ||
+                            err?.code === "LOGIN_SELF_DELETED"
                           ) {
                             setDeletedAccountRecovery({
-                              email: gEmail,
-                              daysRemaining: err.daysRemaining ?? 31,
-                              restoreUntil: err.restoreUntil,
+                              email: err?.email || loginEmail.trim().toLowerCase(),
+                              daysRemaining: err?.daysRemaining ?? 31,
+                              restoreUntil: err?.restoreUntil,
                               isExpired: false
                             });
-                          } else if (gEmail) {
-                            checkAccountLifecycleApi(gEmail).then(lifecycle => {
-                              if (lifecycle && lifecycle.success && (lifecycle.status === "SELF_DELETED" || lifecycle.status === "ADMIN_DELETED" || lifecycle.status === "ADMIN_APPROVAL_PENDING")) {
-                                setDeletedAccountRecovery({
-                                  email: gEmail,
-                                  daysRemaining: lifecycle.daysRemaining ?? 31,
-                                  restoreUntil: lifecycle.restoreUntil,
-                                  isExpired: false
-                                });
-                              } else {
-                                setLoginError(formatAuthError(err));
-                              }
-                            }).catch(() => setLoginError(formatAuthError(err)));
-                          } else {
-                            setLoginError(formatAuthError(err));
+                            setLoginError("");
+                            setRegError("");
+                            return;
                           }
+                          setLoginError(lang === "ar" ? "بيانات الدخول غير صحيحة. يرجى التحقق من البريد الإلكتروني وكلمة المرور." : formatAuthError(err));
                         }
                       }}
                       className="w-full py-2.5 px-4 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-800 dark:text-slate-200 text-xs font-semibold rounded-lg border border-slate-200 dark:border-slate-800 transition-all cursor-pointer flex items-center justify-center gap-2.5 mb-4 shadow-xs hover:border-slate-300 dark:hover:border-slate-700"
@@ -3876,7 +3817,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                     </button>
                   </form>
 
-                  <div className="mt-5 text-center border-t border-slate-200/80 dark:border-slate-800/80 pt-3.5">
+                  <div className="mt-5 text-center border-t border-slate-200/80 dark:border-slate-800/80 pt-3.5 space-y-2">
                     <p className="text-xs text-slate-500 dark:text-slate-400">
                       {lang === "fr" ? "Pas encore de compte ?" : (lang === "ar" ? "ليس لديك حساب؟" : "Don't have an account?")}{" "}
                       <button 
@@ -3886,6 +3827,22 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                         <span>{lang === "fr" ? "Créer un compte" : (lang === "ar" ? "إنشاء حساب جديد" : "Create account")}</span>
                       </button>
                     </p>
+                    <div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setDeletedAccountRecovery({
+                            email: loginEmail.trim().toLowerCase() || "",
+                            daysRemaining: 30,
+                            isExpired: false
+                          });
+                        }}
+                        className="text-[11px] text-slate-400 hover:text-[#0075DE] hover:underline font-medium transition-colors cursor-pointer inline-flex items-center gap-1"
+                      >
+                        <RotateCcw className="w-3 h-3 text-[#0075DE]" />
+                        <span>{lang === "ar" ? "استعادة الحساب المحذوف" : (lang === "fr" ? "Restaurer un compte supprimé" : "Recover Deleted Account")}</span>
+                      </button>
+                    </div>
                   </div>
                 </div>
               )}

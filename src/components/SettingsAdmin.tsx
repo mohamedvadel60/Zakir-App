@@ -214,6 +214,15 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
   const [themeErrorMsg, setThemeErrorMsg] = useState<string | null>(null);
 
   const [saveSuccess, setSaveSuccess] = useState(false);
+  
+  const isCeoOrFirstAdmin = 
+    (currentUser.role || "").toUpperCase() === "CEO" ||
+    (currentUser.role || "").toUpperCase() === "FIRST ADMINISTRATOR" ||
+    (currentUser.role || "").toUpperCase() === "FIRST_ADMINISTRATOR" ||
+    (currentUser.role || "").toUpperCase() === "ADMIN" ||
+    currentUser.workspace?.ownerId === currentUser.id ||
+    currentUser.id === "usr_admin_001" ||
+    currentUser.email === "admin@zakir.ai";
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const companyLogoInputRef = useRef<HTMLInputElement | null>(null);
   const signatureInputRef = useRef<HTMLInputElement | null>(null);
@@ -537,6 +546,14 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
           if (teamData && teamData.success) {
             if (Array.isArray(teamData.teamMembers) && teamData.teamMembers.length > 0) {
               setTeamMembers(teamData.teamMembers);
+              // Synced authoritative list to parent profile to prevent state conflicts
+              const hasDifference = JSON.stringify(teamData.teamMembers) !== JSON.stringify(currentUser.teamMembersList);
+              if (hasDifference) {
+                onUpdateUser({
+                  ...currentUser,
+                  teamMembersList: teamData.teamMembers
+                });
+              }
             }
             if (Array.isArray(teamData.invitations)) {
               setInvitations(teamData.invitations);
@@ -3824,420 +3841,424 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
             </form>
           </div>
 
-          {/* Success Toast for Encryption Passcode */}
-          {passcodeSaveNotify && (
-            <div className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-bold flex items-center justify-between animate-fade-in">
-              <div className="flex items-center gap-2">
-                <ShieldCheck className="w-5 h-5 text-emerald-400" />
-                <span>
-                  {lang === "ar" 
-                    ? "تم حفظ وتفعيل الرمز السري وتشفير الأقسام الحساسة في Firestore بنجاح!" 
-                    : "CEO secret encryption code & module locks saved and activated successfully!"}
-                </span>
-              </div>
-              <span className="text-[10px] opacity-80">Encrypted</span>
-            </div>
-          )}
-
-          {/* Main Encryption Control Panel Header */}
-          <div className={`p-6 rounded-2xl border space-y-6 ${theme === "dark" ? "bg-slate-900/40 border-slate-800" : "bg-white border-slate-200 shadow-sm"}`}>
-            <div>
-              <span className="px-3 py-1 rounded-full bg-[#0075DE]/15 border border-[#0075DE]/30 text-[#0075DE] text-[10px] font-extrabold uppercase tracking-wider flex items-center gap-1.5 w-fit mb-2">
-                <Lock className="w-3.5 h-3.5" />
-                {lang === "ar" ? "مركز التشفير والرمز السري (CEO)" : "CEO Encryption & Secret Code Center"}
-              </span>
-              <h2 className={`text-2xl font-black ${theme === "dark" ? "text-white" : "text-slate-900"}`}>
-                {lang === "ar" ? "تشفير وحماية إدارة الملفات والذكريات والمخاطر برمز سري" : "Encrypt & Protect Files, Memories, Risks & Sensitive Data"}
-              </h2>
-              <p className="text-xs text-slate-400 mt-1">
-                {lang === "ar" 
-                  ? "يمكن للمدير التنفيذي (CEO) وضع رمز سري وتشفير أقسام إدارة الملفات والذكريات المؤسسية والتنبيهات الحساسة لمنع الوصول غير المصرح به" 
-                  : "Set a master secret passcode to lock and encrypt sensitive workspace modules including File Management, Memory Vault, Risk Radar, and System Settings."}
-              </p>
-            </div>
-
-            {/* Secret Passcode Configuration Box */}
-            <div className={`p-6 rounded-2xl border space-y-5 ${
-              theme === "dark" ? "border-[#0075DE]/30 bg-slate-950/80" : "border-[#0075DE]/30 bg-slate-50"
-            }`}>
-              <div className={`flex items-center justify-between pb-3 border-b ${
-                theme === "dark" ? "border-slate-800" : "border-slate-200"
-              }`}>
-                <div className="flex items-center gap-2.5">
-                  <div className="w-9 h-9 rounded-xl bg-[#0075DE]/20 text-[#0075DE] flex items-center justify-center border border-[#0075DE]/30">
-                    <Key className="w-5 h-5" />
+          {/* Main Encryption Control Panel Header (CEO / First Administrator ONLY) */}
+          {isCeoOrFirstAdmin && (
+            <>
+              {/* Success Toast for Encryption Passcode */}
+              {passcodeSaveNotify && (
+                <div className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-bold flex items-center justify-between animate-fade-in">
+                  <div className="flex items-center gap-2">
+                    <ShieldCheck className="w-5 h-5 text-emerald-400" />
+                    <span>
+                      {lang === "ar" 
+                        ? "تم حفظ وتفعيل الرمز السري وتشفير الأقسام الحساسة في Firestore بنجاح!" 
+                        : "CEO secret encryption code & module locks saved and activated successfully!"}
+                    </span>
                   </div>
-                  <div>
-                    <h3 className={`text-sm font-bold ${
-                      theme === "dark" ? "text-white" : "text-slate-900"
-                    }`}>
-                      {lang === "ar" ? "الرمز السري المعتمد للتشفير (Master Encryption PIN):" : "Master Encryption Security Code / PIN:"}
-                    </h3>
-                    <p className={`text-[11px] ${
-                      theme === "dark" ? "text-slate-400" : "text-slate-500"
-                    }`}>
-                      {lang === "ar" ? "رمز الوصول الحصري المطلوب لفك تشفير الأقسام المحمية" : "Required passkey to unlock encrypted modules"}
-                    </p>
-                  </div>
+                  <span className="text-[10px] opacity-80">Encrypted</span>
+                </div>
+              )}
+
+              <div className={`p-6 rounded-2xl border space-y-6 ${theme === "dark" ? "bg-slate-900/40 border-slate-800" : "bg-white border-slate-200 shadow-sm"}`}>
+                <div>
+                  <span className="px-3 py-1 rounded-full bg-[#0075DE]/15 border border-[#0075DE]/30 text-[#0075DE] text-[10px] font-extrabold uppercase tracking-wider flex items-center gap-1.5 w-fit mb-2">
+                    <Lock className="w-3.5 h-3.5" />
+                    {lang === "ar" ? "مركز التشفير والرمز السري (CEO)" : "CEO Encryption & Secret Code Center"}
+                  </span>
+                  <h2 className={`text-2xl font-black ${theme === "dark" ? "text-white" : "text-slate-900"}`}>
+                    {lang === "ar" ? "تشفير وحماية إدارة الملفات والذكريات والمخاطر برمز سري" : "Encrypt & Protect Files, Memories, Risks & Sensitive Data"}
+                  </h2>
+                  <p className="text-xs text-slate-400 mt-1">
+                    {lang === "ar" 
+                      ? "يمكن للمدير التنفيذي (CEO) وضع رمز سري وتشفير أقسام إدارة الملفات والذكريات المؤسسية والتنبيهات الحساسة لمنع الوصول غير المصرح به" 
+                      : "Set a master secret passcode to lock and encrypt sensitive workspace modules including File Management, Memory Vault, Risk Radar, and System Settings."}
+                  </p>
                 </div>
 
-                <span className={`px-3 py-1 rounded-full font-bold text-xs ${
-                  encryptedSecurity.isPinSet 
-                    ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30" 
-                    : "bg-red-500/20 text-red-400 border border-red-500/30"
+                {/* Secret Passcode Configuration Box */}
+                <div className={`p-6 rounded-2xl border space-y-5 ${
+                  theme === "dark" ? "border-[#0075DE]/30 bg-slate-950/80" : "border-[#0075DE]/30 bg-slate-50"
                 }`}>
-                  {encryptedSecurity.isPinSet ? (lang === "ar" ? "الرمز مفعل ومحمي" : "Passcode Active") : (lang === "ar" ? "غير مفعل" : "PIN Disabled")}
-                </span>
-              </div>
+                  <div className={`flex items-center justify-between pb-3 border-b ${
+                    theme === "dark" ? "border-slate-800" : "border-slate-200"
+                  }`}>
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-9 h-9 rounded-xl bg-[#0075DE]/20 text-[#0075DE] flex items-center justify-center border border-[#0075DE]/30">
+                        <Key className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <h3 className={`text-sm font-bold ${
+                          theme === "dark" ? "text-white" : "text-slate-900"
+                        }`}>
+                          {lang === "ar" ? "الرمز السري المعتمد للتشفير (Master Encryption PIN):" : "Master Encryption Security Code / PIN:"}
+                        </h3>
+                        <p className={`text-[11px] ${
+                          theme === "dark" ? "text-slate-400" : "text-slate-500"
+                        }`}>
+                          {lang === "ar" ? "رمز الوصول الحصري المطلوب لفك تشفير الأقسام المحمية" : "Required passkey to unlock encrypted modules"}
+                        </p>
+                      </div>
+                    </div>
 
-              <div className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className={`block text-xs font-bold mb-1.5 ${
-                      theme === "dark" ? "text-slate-400" : "text-slate-600"
+                    <span className={`px-3 py-1 rounded-full font-bold text-xs ${
+                      encryptedSecurity.isPinSet 
+                        ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30" 
+                        : "bg-red-500/20 text-red-400 border border-red-500/30"
                     }`}>
-                      {lang === "ar" ? "1. أدخل الرمز السري الجديد:" : "1. Enter Secret Code / Passcode:"}
-                    </label>
-                    <div className="relative">
-                      <input
-                        type={showSecretPasscode ? "text" : "password"}
-                        value={secretPasscodeVal}
-                        onChange={(e) => setSecretPasscodeVal(e.target.value)}
-                        placeholder={lang === "ar" ? "أدخل الرمز السري الخاص (مثلاً: 1234)" : "Enter secret passcode (e.g. 1234)"}
-                        className={`w-full h-11 pl-3 pr-10 border text-[#0075DE] font-mono text-sm rounded-xl focus:border-[#0075DE] focus:outline-none tracking-widest ${
-                          theme === "dark" ? "bg-slate-900 border-slate-800" : "bg-white border-slate-300"
-                        }`}
-                      />
+                      {encryptedSecurity.isPinSet ? (lang === "ar" ? "الرمز مفعل ومحمي" : "Passcode Active") : (lang === "ar" ? "غير مفعل" : "PIN Disabled")}
+                    </span>
+                  </div>
+
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className={`block text-xs font-bold mb-1.5 ${
+                          theme === "dark" ? "text-slate-400" : "text-slate-600"
+                        }`}>
+                          {lang === "ar" ? "1. أدخل الرمز السري الجديد:" : "1. Enter Secret Code / Passcode:"}
+                        </label>
+                        <div className="relative">
+                          <input
+                            type={showSecretPasscode ? "text" : "password"}
+                            value={secretPasscodeVal}
+                            onChange={(e) => setSecretPasscodeVal(e.target.value)}
+                            placeholder={lang === "ar" ? "أدخل الرمز السري الخاص (مثلاً: 1234)" : "Enter secret passcode (e.g. 1234)"}
+                            className={`w-full h-11 pl-3 pr-10 border text-[#0075DE] font-mono text-sm rounded-xl focus:border-[#0075DE] focus:outline-none tracking-widest ${
+                              theme === "dark" ? "bg-slate-900 border-slate-800" : "bg-white border-slate-300"
+                            }`}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowSecretPasscode(!showSecretPasscode)}
+                            className={`absolute right-3 top-1/2 -translate-y-1/2 cursor-pointer ${
+                              theme === "dark" ? "text-slate-400 hover:text-white" : "text-slate-400 hover:text-slate-700"
+                            }`}
+                          >
+                            {showSecretPasscode ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                          </button>
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className={`block text-xs font-bold mb-1.5 ${
+                          theme === "dark" ? "text-slate-400" : "text-slate-600"
+                        }`}>
+                          {lang === "ar" ? "2. إعـادة التأكـد مـن الـرمـز السـري:" : "2. Re-check & Confirm Secret Code:"}
+                        </label>
+                        <div className="relative">
+                          <input
+                            type={showSecretPasscode ? "text" : "password"}
+                            value={secretPasscodeConfirmVal}
+                            onChange={(e) => setSecretPasscodeConfirmVal(e.target.value)}
+                            placeholder={lang === "ar" ? "أدخل نفس الرمز للتأكيد" : "Confirm secret passcode"}
+                            className={`w-full h-11 pl-3 pr-10 border text-[#0075DE] font-mono text-sm rounded-xl focus:border-[#0075DE] focus:outline-none tracking-widest ${
+                              theme === "dark" ? "bg-slate-900 border-slate-800" : "bg-white border-slate-300"
+                            }`}
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {secretPasscodeVal && secretPasscodeConfirmVal && (
+                      <div className="pt-1">
+                        {secretPasscodeVal.trim() === secretPasscodeConfirmVal.trim() ? (
+                          <div className="p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-bold flex items-center gap-2 animate-fade-in">
+                            <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                            <span>{lang === "ar" ? "✓ الرمز السري متطابق تماماً وجاهز للتأكيد والتشفير التلقائي" : "✓ Secret codes match! Ready to confirm & auto-encrypt data."}</span>
+                          </div>
+                        ) : (
+                          <div className="p-2.5 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-400 text-xs font-bold flex items-center gap-2 animate-fade-in">
+                            <ShieldAlert className="w-4 h-4 text-rose-400 shrink-0" />
+                            <span>{lang === "ar" ? "✕ الرمز السري غير متطابق! يرجى إعادة التأكد من الرمز المدخل" : "✕ Passcodes do not match! Please verify both fields."}</span>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {passcodeConfirmError && (
+                      <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-xs font-bold flex items-center gap-2">
+                        <ShieldAlert className="w-4 h-4 text-red-400 shrink-0" />
+                        <span>{passcodeConfirmError}</span>
+                      </div>
+                    )}
+
+                    <div className="flex flex-col sm:flex-row gap-3 pt-2">
                       <button
                         type="button"
-                        onClick={() => setShowSecretPasscode(!showSecretPasscode)}
-                        className={`absolute right-3 top-1/2 -translate-y-1/2 cursor-pointer ${
-                          theme === "dark" ? "text-slate-400 hover:text-white" : "text-slate-400 hover:text-slate-700"
+                        onClick={handleSaveEncryptionSettings}
+                        disabled={isSavingEncryption}
+                        className="flex-1 h-11 bg-gradient-to-r from-[#0075DE] to-[#005BAB] hover:from-[#005BAB] hover:to-[#005BAB] disabled:opacity-50 text-white font-black text-xs rounded-xl flex items-center justify-center gap-2 cursor-pointer transition-all shadow-lg shadow-[#0075DE]/20"
+                      >
+                        {isSavingEncryption ? (
+                          <>
+                            <RefreshCw className="w-4 h-4 animate-spin" />
+                            <span>{lang === "ar" ? "جارٍ الحفظ وتفعيل التشفير..." : "Saving & Encrypting..."}</span>
+                          </>
+                        ) : (
+                          <>
+                            <Save className="w-4 h-4" />
+                            <span>{lang === "ar" ? "تأكيد الرمز والتشفير التلقائي" : "Confirm Code & Auto-Encrypt All Data"}</span>
+                          </>
+                        )}
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setTestUnlockModalOpen(true);
+                          setTestEnteredPin("");
+                          setTestUnlockStatus(null);
+                        }}
+                        className={`px-5 h-11 font-bold text-xs rounded-xl flex items-center justify-center gap-2 cursor-pointer border ${
+                          theme === "dark" ? "bg-slate-800 hover:bg-slate-700 text-slate-200 border-slate-700" : "bg-white hover:bg-slate-100 text-slate-800 border-slate-300"
                         }`}
                       >
-                        {showSecretPasscode ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        <Unlock className="w-4 h-4 text-[#0075DE]" />
+                        <span>{lang === "ar" ? "اختبار فك القفل" : "Test Unlock"}</span>
+                      </button>
+                    </div>
+
+                    {/* Reset Encryption Key in case forgotten using Account Password */}
+                    <div className={`pt-3 border-t flex items-center justify-between flex-wrap gap-2 ${
+                      theme === "dark" ? "border-slate-800/80" : "border-slate-200"
+                    }`}>
+                      <span className={`text-[11px] ${
+                        theme === "dark" ? "text-slate-400" : "text-slate-500"
+                      }`}>
+                        {lang === "ar" 
+                          ? "هل نسيت رمز التشفير السري الخاص بك؟ يمكنك استعادته عبر كلمة مرور حسابك." 
+                          : "Forgot your encryption passcode? You can reset it using your account password."}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowResetEncryptionModal(true);
+                          setResetEncError("");
+                          setResetEncSuccess(false);
+                          setAccountPasswordForReset("");
+                          setNewEncPasscodeForReset("");
+                          setConfirmEncPasscodeForReset("");
+                        }}
+                        className="px-3.5 py-1.5 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/30 text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer"
+                      >
+                        <Key className="w-3.5 h-3.5" />
+                        <span>{lang === "ar" ? "إعادة تعيين رمز التشفير بكلمة المرور" : "Reset Passcode with Password"}</span>
                       </button>
                     </div>
                   </div>
-
-                  <div>
-                    <label className={`block text-xs font-bold mb-1.5 ${
-                      theme === "dark" ? "text-slate-400" : "text-slate-600"
-                    }`}>
-                      {lang === "ar" ? "2. إعـادة التأكـد مـن الـرمـز السـري:" : "2. Re-check & Confirm Secret Code:"}
-                    </label>
-                    <div className="relative">
-                      <input
-                        type={showSecretPasscode ? "text" : "password"}
-                        value={secretPasscodeConfirmVal}
-                        onChange={(e) => setSecretPasscodeConfirmVal(e.target.value)}
-                        placeholder={lang === "ar" ? "أدخل نفس الرمز للتأكيد" : "Confirm secret passcode"}
-                        className={`w-full h-11 pl-3 pr-10 border text-[#0075DE] font-mono text-sm rounded-xl focus:border-[#0075DE] focus:outline-none tracking-widest ${
-                          theme === "dark" ? "bg-slate-900 border-slate-800" : "bg-white border-slate-300"
-                        }`}
-                      />
-                    </div>
-                  </div>
                 </div>
 
-                {secretPasscodeVal && secretPasscodeConfirmVal && (
-                  <div className="pt-1">
-                    {secretPasscodeVal.trim() === secretPasscodeConfirmVal.trim() ? (
-                      <div className="p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-bold flex items-center gap-2 animate-fade-in">
-                        <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-                        <span>{lang === "ar" ? "✓ الرمز السري متطابق تماماً وجاهز للتأكيد والتشفير التلقائي" : "✓ Secret codes match! Ready to confirm & auto-encrypt data."}</span>
-                      </div>
-                    ) : (
-                      <div className="p-2.5 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-400 text-xs font-bold flex items-center gap-2 animate-fade-in">
-                        <ShieldAlert className="w-4 h-4 text-rose-400 shrink-0" />
-                        <span>{lang === "ar" ? "✕ الرمز السري غير متطابق! يرجى إعادة التأكد من الرمز المدخل" : "✕ Passcodes do not match! Please verify both fields."}</span>
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {passcodeConfirmError && (
-                  <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-xs font-bold flex items-center gap-2">
-                    <ShieldAlert className="w-4 h-4 text-red-400 shrink-0" />
-                    <span>{passcodeConfirmError}</span>
-                  </div>
-                )}
-
-                <div className="flex flex-col sm:flex-row gap-3 pt-2">
-                  <button
-                    type="button"
-                    onClick={handleSaveEncryptionSettings}
-                    disabled={isSavingEncryption}
-                    className="flex-1 h-11 bg-gradient-to-r from-[#0075DE] to-[#005BAB] hover:from-[#005BAB] hover:to-[#005BAB] disabled:opacity-50 text-white font-black text-xs rounded-xl flex items-center justify-center gap-2 cursor-pointer transition-all shadow-lg shadow-[#0075DE]/20"
-                  >
-                    {isSavingEncryption ? (
-                      <>
-                        <RefreshCw className="w-4 h-4 animate-spin" />
-                        <span>{lang === "ar" ? "جارٍ الحفظ وتفعيل التشفير..." : "Saving & Encrypting..."}</span>
-                      </>
-                    ) : (
-                      <>
-                        <Save className="w-4 h-4" />
-                        <span>{lang === "ar" ? "تأكيد الرمز والتشفير التلقائي" : "Confirm Code & Auto-Encrypt All Data"}</span>
-                      </>
-                    )}
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setTestUnlockModalOpen(true);
-                      setTestEnteredPin("");
-                      setTestUnlockStatus(null);
-                    }}
-                    className={`px-5 h-11 font-bold text-xs rounded-xl flex items-center justify-center gap-2 cursor-pointer border ${
-                      theme === "dark" ? "bg-slate-800 hover:bg-slate-700 text-slate-200 border-slate-700" : "bg-white hover:bg-slate-100 text-slate-800 border-slate-300"
-                    }`}
-                  >
-                    <Unlock className="w-4 h-4 text-[#0075DE]" />
-                    <span>{lang === "ar" ? "اختبار فك القفل" : "Test Unlock"}</span>
-                  </button>
-                </div>
-
-                {/* Reset Encryption Key in case forgotten using Account Password */}
-                <div className={`pt-3 border-t flex items-center justify-between flex-wrap gap-2 ${
-                  theme === "dark" ? "border-slate-800/80" : "border-slate-200"
-                }`}>
-                  <span className={`text-[11px] ${
-                    theme === "dark" ? "text-slate-400" : "text-slate-500"
+                {/* Encrypted Modules Selection Grid */}
+                <div className="space-y-4 pt-2">
+                  <h3 className={`text-sm font-bold flex items-center gap-2 ${
+                    theme === "dark" ? "text-white" : "text-slate-900"
                   }`}>
-                    {lang === "ar" 
-                      ? "هل نسيت رمز التشفير السري الخاص بك؟ يمكنك استعادته عبر كلمة مرور حسابك." 
-                      : "Forgot your encryption passcode? You can reset it using your account password."}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowResetEncryptionModal(true);
-                      setResetEncError("");
-                      setResetEncSuccess(false);
-                      setAccountPasswordForReset("");
-                      setNewEncPasscodeForReset("");
-                      setConfirmEncPasscodeForReset("");
-                    }}
-                    className="px-3.5 py-1.5 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/30 text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer"
-                  >
-                    <Key className="w-3.5 h-3.5" />
-                    <span>{lang === "ar" ? "إعادة تعيين رمز التشفير بكلمة المرور" : "Reset Passcode with Password"}</span>
-                  </button>
+                    <Shield className="w-4 h-4 text-[#0075DE]" />
+                    <span>{lang === "ar" ? "تحديد الأقسام القابلة للتشفير والإغلاق بالرمز السري:" : "Select Modules to Encrypt & Lock with Secret Code:"}</span>
+                  </h3>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    
+                    {/* 1. FILE MANAGEMENT VAULT LOCK */}
+                    <div className={`p-5 rounded-2xl border transition-all flex items-center justify-between ${
+                      encryptedSecurity.lockedModules.fileVault 
+                        ? "bg-[#0075DE]/10 border-[#0075DE]/40" 
+                        : theme === "dark" ? "bg-slate-950/60 border-slate-800" : "bg-slate-50 border-slate-200"
+                    }`}>
+                      <div className="flex items-center gap-3">
+                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
+                          encryptedSecurity.lockedModules.fileVault ? "bg-[#0075DE]/20 text-[#0075DE]" : theme === "dark" ? "bg-slate-800 text-slate-400" : "bg-slate-200 text-slate-500"
+                        }`}>
+                          <FileText className="w-5 h-5" />
+                        </div>
+                        <div>
+                          <h4 className={`text-sm font-bold flex items-center gap-2 ${
+                            theme === "dark" ? "text-white" : "text-slate-900"
+                          }`}>
+                            <span>{lang === "ar" ? "تشفير إدارة الملفات (File Vault)" : "Encrypted File Management"}</span>
+                            {encryptedSecurity.lockedModules.fileVault && (
+                              <span className="px-2 py-0.5 rounded bg-[#0075DE]/20 text-[#0075DE] text-[10px] font-bold">LOCKED</span>
+                            )}
+                          </h4>
+                          <p className={`text-[11px] ${theme === "dark" ? "text-slate-400" : "text-slate-500"}`}>
+                            {lang === "ar" ? "يتطلب إدخال الرمز السري لعرض وتحميل المستندات" : "Requires secret passcode to view and download files"}
+                          </p>
+                        </div>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => handleToggleModuleLock("fileVault")}
+                        className={`w-12 h-6 rounded-full transition-colors relative cursor-pointer ${
+                          encryptedSecurity.lockedModules.fileVault ? "bg-[#0075DE]" : theme === "dark" ? "bg-slate-800" : "bg-slate-300"
+                        }`}
+                      >
+                        <span className={`w-5 h-5 rounded-full absolute top-0.5 transition-transform ${
+                          theme === "dark" ? "bg-slate-950" : "bg-white shadow-sm"
+                        } ${
+                          encryptedSecurity.lockedModules.fileVault ? "left-6" : "left-0.5"
+                        }`} />
+                      </button>
+                    </div>
+
+                    {/* 2. MEMORY LIBRARY VAULT LOCK */}
+                    <div className={`p-5 rounded-2xl border transition-all flex items-center justify-between ${
+                      encryptedSecurity.lockedModules.memoryVault 
+                        ? "bg-[#0075DE]/10 border-[#0075DE]/40" 
+                        : theme === "dark" ? "bg-slate-950/60 border-slate-800" : "bg-slate-50 border-slate-200"
+                    }`}>
+                      <div className="flex items-center gap-3">
+                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
+                          encryptedSecurity.lockedModules.memoryVault ? "bg-[#0075DE]/20 text-[#0075DE]" : theme === "dark" ? "bg-slate-800 text-slate-400" : "bg-slate-200 text-slate-500"
+                        }`}>
+                          <Sparkles className="w-5 h-5" />
+                        </div>
+                        <div>
+                          <h4 className={`text-sm font-bold flex items-center gap-2 ${
+                            theme === "dark" ? "text-white" : "text-slate-900"
+                          }`}>
+                            <span>{lang === "ar" ? "تشفير مكتبة الذكريات (Memory Vault)" : "Encrypted Memory Vault"}</span>
+                            {encryptedSecurity.lockedModules.memoryVault && (
+                              <span className="px-2 py-0.5 rounded bg-[#0075DE]/20 text-[#0075DE] text-[10px] font-bold">LOCKED</span>
+                            )}
+                          </h4>
+                          <p className={`text-[11px] ${theme === "dark" ? "text-slate-400" : "text-slate-500"}`}>
+                            {lang === "ar" ? "حماية الذكريات والقرارات الاستراتيجية بالرمز السري" : "Locks institutional memories & causal factors behind PIN"}
+                          </p>
+                        </div>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => handleToggleModuleLock("memoryVault")}
+                        className={`w-12 h-6 rounded-full transition-colors relative cursor-pointer ${
+                          encryptedSecurity.lockedModules.memoryVault ? "bg-[#0075DE]" : theme === "dark" ? "bg-slate-800" : "bg-slate-300"
+                        }`}
+                      >
+                        <span className={`w-5 h-5 rounded-full absolute top-0.5 transition-transform ${
+                          theme === "dark" ? "bg-slate-950" : "bg-white shadow-sm"
+                        } ${
+                          encryptedSecurity.lockedModules.memoryVault ? "left-6" : "left-0.5"
+                        }`} />
+                      </button>
+                    </div>
+
+                    {/* 3. RISK RADAR & SENSITIVE ALERTS LOCK */}
+                    <div className={`p-5 rounded-2xl border transition-all flex items-center justify-between ${
+                      encryptedSecurity.lockedModules.riskRadar 
+                        ? "bg-[#0075DE]/10 border-[#0075DE]/40" 
+                        : theme === "dark" ? "bg-slate-950/60 border-slate-800" : "bg-slate-50 border-slate-200"
+                    }`}>
+                      <div className="flex items-center gap-3">
+                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
+                          encryptedSecurity.lockedModules.riskRadar ? "bg-[#0075DE]/20 text-[#0075DE]" : theme === "dark" ? "bg-slate-800 text-slate-400" : "bg-slate-200 text-slate-500"
+                        }`}>
+                          <ShieldAlert className="w-5 h-5" />
+                        </div>
+                        <div>
+                          <h4 className={`text-sm font-bold flex items-center gap-2 ${
+                            theme === "dark" ? "text-white" : "text-slate-900"
+                          }`}>
+                            <span>{lang === "ar" ? "تشفير رادار المخاطر والمعلومات الحساسة" : "Encrypted Risk Radar & Alerts"}</span>
+                            {encryptedSecurity.lockedModules.riskRadar && (
+                              <span className="px-2 py-0.5 rounded bg-[#0075DE]/20 text-[#0075DE] text-[10px] font-bold">LOCKED</span>
+                            )}
+                          </h4>
+                          <p className={`text-[11px] ${theme === "dark" ? "text-slate-400" : "text-slate-500"}`}>
+                            {lang === "ar" ? "إغلاق سجل المخاطر الحرجة والتقارير المالية الحساسة" : "Encrypts high-risk warnings & internal audit data"}
+                          </p>
+                        </div>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => handleToggleModuleLock("riskRadar")}
+                        className={`w-12 h-6 rounded-full transition-colors relative cursor-pointer ${
+                          encryptedSecurity.lockedModules.riskRadar ? "bg-[#0075DE]" : theme === "dark" ? "bg-slate-800" : "bg-slate-300"
+                        }`}
+                      >
+                        <span className={`w-5 h-5 rounded-full absolute top-0.5 transition-transform ${
+                          theme === "dark" ? "bg-slate-950" : "bg-white shadow-sm"
+                        } ${
+                          encryptedSecurity.lockedModules.riskRadar ? "left-6" : "left-0.5"
+                        }`} />
+                      </button>
+                    </div>
+
+                    {/* 4. SYSTEM SETTINGS LOCK */}
+                    <div className={`p-5 rounded-2xl border transition-all flex items-center justify-between ${
+                      encryptedSecurity.lockedModules.settings 
+                        ? "bg-[#0075DE]/10 border-[#0075DE]/40" 
+                        : theme === "dark" ? "bg-slate-950/60 border-slate-800" : "bg-slate-50 border-slate-200"
+                    }`}>
+                      <div className="flex items-center gap-3">
+                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
+                          encryptedSecurity.lockedModules.settings ? "bg-[#0075DE]/20 text-[#0075DE]" : theme === "dark" ? "bg-slate-800 text-slate-400" : "bg-slate-200 text-slate-500"
+                        }`}>
+                          <Lock className="w-5 h-5" />
+                        </div>
+                        <div>
+                          <h4 className={`text-sm font-bold flex items-center gap-2 ${
+                            theme === "dark" ? "text-white" : "text-slate-900"
+                          }`}>
+                            <span>{lang === "ar" ? "تشفير إعدادات لوحة التحكم" : "Encrypted System Settings"}</span>
+                            {encryptedSecurity.lockedModules.settings && (
+                              <span className="px-2 py-0.5 rounded bg-[#0075DE]/20 text-[#0075DE] text-[10px] font-bold">LOCKED</span>
+                            )}
+                          </h4>
+                          <p className={`text-[11px] ${theme === "dark" ? "text-slate-400" : "text-slate-500"}`}>
+                            {lang === "ar" ? "قفل تعديلات الاشتراك وصلاحيات الفريق بالرمز السري" : "Locks admin controls & billing updates with secret code"}
+                          </p>
+                        </div>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => handleToggleModuleLock("settings")}
+                        className={`w-12 h-6 rounded-full transition-colors relative cursor-pointer ${
+                          encryptedSecurity.lockedModules.settings ? "bg-[#0075DE]" : theme === "dark" ? "bg-slate-800" : "bg-slate-300"
+                        }`}
+                      >
+                        <span className={`w-5 h-5 rounded-full absolute top-0.5 transition-transform ${
+                          theme === "dark" ? "bg-slate-950" : "bg-white shadow-sm"
+                        } ${
+                          encryptedSecurity.lockedModules.settings ? "left-6" : "left-0.5"
+                        }`} />
+                      </button>
+                    </div>
+
+                  </div>
                 </div>
+
+                {/* SYSTEM BACKUP EXPORT SECTION */}
+                <div className={`pt-6 border-t space-y-3 ${theme === "dark" ? "border-slate-800" : "border-slate-200"}`}>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className={`text-xs font-bold ${theme === "dark" ? "text-white" : "text-slate-900"}`}>{lang === "ar" ? "تصدير نسخ احتياطية مشفرة (JSON)" : "Export Encrypted Full Memory Vault Backup (JSON)"}</p>
+                      <p className={`text-[11px] mt-0.5 ${theme === "dark" ? "text-slate-400" : "text-slate-500"}`}>{lang === "ar" ? "تحميل سجل الذكريات والتنبيهات المعتمدة" : "Download encrypted snapshot of institutional memories and permissions"}</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(currentUser));
+                        const downloadAnchor = document.createElement("a");
+                        downloadAnchor.setAttribute("href", dataStr);
+                        downloadAnchor.setAttribute("download", `memoryos_backup_${Date.now()}.json`);
+                        document.body.appendChild(downloadAnchor);
+                        downloadAnchor.click();
+                        downloadAnchor.remove();
+                      }}
+                      className="px-4 py-2.5 bg-[#0075DE] hover:bg-[#005BAB] text-white font-bold text-xs rounded-xl flex items-center gap-2 cursor-pointer transition-all"
+                    >
+                      <Download className="w-3.5 h-3.5" />
+                      <span>{lang === "ar" ? "تصدير الآن" : "Export Backup"}</span>
+                    </button>
+                  </div>
+                </div>
+
               </div>
-            </div>
-
-            {/* Encrypted Modules Selection Grid */}
-            <div className="space-y-4 pt-2">
-              <h3 className={`text-sm font-bold flex items-center gap-2 ${
-                theme === "dark" ? "text-white" : "text-slate-900"
-              }`}>
-                <Shield className="w-4 h-4 text-[#0075DE]" />
-                <span>{lang === "ar" ? "تحديد الأقسام القابلة للتشفير والإغلاق بالرمز السري:" : "Select Modules to Encrypt & Lock with Secret Code:"}</span>
-              </h3>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                
-                {/* 1. FILE MANAGEMENT VAULT LOCK */}
-                <div className={`p-5 rounded-2xl border transition-all flex items-center justify-between ${
-                  encryptedSecurity.lockedModules.fileVault 
-                    ? "bg-[#0075DE]/10 border-[#0075DE]/40" 
-                    : theme === "dark" ? "bg-slate-950/60 border-slate-800" : "bg-slate-50 border-slate-200"
-                }`}>
-                  <div className="flex items-center gap-3">
-                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
-                      encryptedSecurity.lockedModules.fileVault ? "bg-[#0075DE]/20 text-[#0075DE]" : theme === "dark" ? "bg-slate-800 text-slate-400" : "bg-slate-200 text-slate-500"
-                    }`}>
-                      <FileText className="w-5 h-5" />
-                    </div>
-                    <div>
-                      <h4 className={`text-sm font-bold flex items-center gap-2 ${
-                        theme === "dark" ? "text-white" : "text-slate-900"
-                      }`}>
-                        <span>{lang === "ar" ? "تشفير إدارة الملفات (File Vault)" : "Encrypted File Management"}</span>
-                        {encryptedSecurity.lockedModules.fileVault && (
-                          <span className="px-2 py-0.5 rounded bg-[#0075DE]/20 text-[#0075DE] text-[10px] font-bold">LOCKED</span>
-                        )}
-                      </h4>
-                      <p className={`text-[11px] ${theme === "dark" ? "text-slate-400" : "text-slate-500"}`}>
-                        {lang === "ar" ? "يتطلب إدخال الرمز السري لعرض وتحميل المستندات" : "Requires secret passcode to view and download files"}
-                      </p>
-                    </div>
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={() => handleToggleModuleLock("fileVault")}
-                    className={`w-12 h-6 rounded-full transition-colors relative cursor-pointer ${
-                      encryptedSecurity.lockedModules.fileVault ? "bg-[#0075DE]" : theme === "dark" ? "bg-slate-800" : "bg-slate-300"
-                    }`}
-                  >
-                    <span className={`w-5 h-5 rounded-full absolute top-0.5 transition-transform ${
-                      theme === "dark" ? "bg-slate-950" : "bg-white shadow-sm"
-                    } ${
-                      encryptedSecurity.lockedModules.fileVault ? "left-6" : "left-0.5"
-                    }`} />
-                  </button>
-                </div>
-
-                {/* 2. MEMORY LIBRARY VAULT LOCK */}
-                <div className={`p-5 rounded-2xl border transition-all flex items-center justify-between ${
-                  encryptedSecurity.lockedModules.memoryVault 
-                    ? "bg-[#0075DE]/10 border-[#0075DE]/40" 
-                    : theme === "dark" ? "bg-slate-950/60 border-slate-800" : "bg-slate-50 border-slate-200"
-                }`}>
-                  <div className="flex items-center gap-3">
-                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
-                      encryptedSecurity.lockedModules.memoryVault ? "bg-[#0075DE]/20 text-[#0075DE]" : theme === "dark" ? "bg-slate-800 text-slate-400" : "bg-slate-200 text-slate-500"
-                    }`}>
-                      <Sparkles className="w-5 h-5" />
-                    </div>
-                    <div>
-                      <h4 className={`text-sm font-bold flex items-center gap-2 ${
-                        theme === "dark" ? "text-white" : "text-slate-900"
-                      }`}>
-                        <span>{lang === "ar" ? "تشفير مكتبة الذكريات (Memory Vault)" : "Encrypted Memory Vault"}</span>
-                        {encryptedSecurity.lockedModules.memoryVault && (
-                          <span className="px-2 py-0.5 rounded bg-[#0075DE]/20 text-[#0075DE] text-[10px] font-bold">LOCKED</span>
-                        )}
-                      </h4>
-                      <p className={`text-[11px] ${theme === "dark" ? "text-slate-400" : "text-slate-500"}`}>
-                        {lang === "ar" ? "حماية الذكريات والقرارات الاستراتيجية بالرمز السري" : "Locks institutional memories & causal factors behind PIN"}
-                      </p>
-                    </div>
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={() => handleToggleModuleLock("memoryVault")}
-                    className={`w-12 h-6 rounded-full transition-colors relative cursor-pointer ${
-                      encryptedSecurity.lockedModules.memoryVault ? "bg-[#0075DE]" : theme === "dark" ? "bg-slate-800" : "bg-slate-300"
-                    }`}
-                  >
-                    <span className={`w-5 h-5 rounded-full absolute top-0.5 transition-transform ${
-                      theme === "dark" ? "bg-slate-950" : "bg-white shadow-sm"
-                    } ${
-                      encryptedSecurity.lockedModules.memoryVault ? "left-6" : "left-0.5"
-                    }`} />
-                  </button>
-                </div>
-
-                {/* 3. RISK RADAR & SENSITIVE ALERTS LOCK */}
-                <div className={`p-5 rounded-2xl border transition-all flex items-center justify-between ${
-                  encryptedSecurity.lockedModules.riskRadar 
-                    ? "bg-[#0075DE]/10 border-[#0075DE]/40" 
-                    : theme === "dark" ? "bg-slate-950/60 border-slate-800" : "bg-slate-50 border-slate-200"
-                }`}>
-                  <div className="flex items-center gap-3">
-                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
-                      encryptedSecurity.lockedModules.riskRadar ? "bg-[#0075DE]/20 text-[#0075DE]" : theme === "dark" ? "bg-slate-800 text-slate-400" : "bg-slate-200 text-slate-500"
-                    }`}>
-                      <ShieldAlert className="w-5 h-5" />
-                    </div>
-                    <div>
-                      <h4 className={`text-sm font-bold flex items-center gap-2 ${
-                        theme === "dark" ? "text-white" : "text-slate-900"
-                      }`}>
-                        <span>{lang === "ar" ? "تشفير رادار المخاطر والمعلومات الحساسة" : "Encrypted Risk Radar & Alerts"}</span>
-                        {encryptedSecurity.lockedModules.riskRadar && (
-                          <span className="px-2 py-0.5 rounded bg-[#0075DE]/20 text-[#0075DE] text-[10px] font-bold">LOCKED</span>
-                        )}
-                      </h4>
-                      <p className={`text-[11px] ${theme === "dark" ? "text-slate-400" : "text-slate-500"}`}>
-                        {lang === "ar" ? "إغلاق سجل المخاطر الحرجة والتقارير المالية الحساسة" : "Encrypts high-risk warnings & internal audit data"}
-                      </p>
-                    </div>
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={() => handleToggleModuleLock("riskRadar")}
-                    className={`w-12 h-6 rounded-full transition-colors relative cursor-pointer ${
-                      encryptedSecurity.lockedModules.riskRadar ? "bg-[#0075DE]" : theme === "dark" ? "bg-slate-800" : "bg-slate-300"
-                    }`}
-                  >
-                    <span className={`w-5 h-5 rounded-full absolute top-0.5 transition-transform ${
-                      theme === "dark" ? "bg-slate-950" : "bg-white shadow-sm"
-                    } ${
-                      encryptedSecurity.lockedModules.riskRadar ? "left-6" : "left-0.5"
-                    }`} />
-                  </button>
-                </div>
-
-                {/* 4. SYSTEM SETTINGS LOCK */}
-                <div className={`p-5 rounded-2xl border transition-all flex items-center justify-between ${
-                  encryptedSecurity.lockedModules.settings 
-                    ? "bg-[#0075DE]/10 border-[#0075DE]/40" 
-                    : theme === "dark" ? "bg-slate-950/60 border-slate-800" : "bg-slate-50 border-slate-200"
-                }`}>
-                  <div className="flex items-center gap-3">
-                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
-                      encryptedSecurity.lockedModules.settings ? "bg-[#0075DE]/20 text-[#0075DE]" : theme === "dark" ? "bg-slate-800 text-slate-400" : "bg-slate-200 text-slate-500"
-                    }`}>
-                      <Lock className="w-5 h-5" />
-                    </div>
-                    <div>
-                      <h4 className={`text-sm font-bold flex items-center gap-2 ${
-                        theme === "dark" ? "text-white" : "text-slate-900"
-                      }`}>
-                        <span>{lang === "ar" ? "تشفير إعدادات لوحة التحكم" : "Encrypted System Settings"}</span>
-                        {encryptedSecurity.lockedModules.settings && (
-                          <span className="px-2 py-0.5 rounded bg-[#0075DE]/20 text-[#0075DE] text-[10px] font-bold">LOCKED</span>
-                        )}
-                      </h4>
-                      <p className={`text-[11px] ${theme === "dark" ? "text-slate-400" : "text-slate-500"}`}>
-                        {lang === "ar" ? "قفل تعديلات الاشتراك وصلاحيات الفريق بالرمز السري" : "Locks admin controls & billing updates with secret code"}
-                      </p>
-                    </div>
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={() => handleToggleModuleLock("settings")}
-                    className={`w-12 h-6 rounded-full transition-colors relative cursor-pointer ${
-                      encryptedSecurity.lockedModules.settings ? "bg-[#0075DE]" : theme === "dark" ? "bg-slate-800" : "bg-slate-300"
-                    }`}
-                  >
-                    <span className={`w-5 h-5 rounded-full absolute top-0.5 transition-transform ${
-                      theme === "dark" ? "bg-slate-950" : "bg-white shadow-sm"
-                    } ${
-                      encryptedSecurity.lockedModules.settings ? "left-6" : "left-0.5"
-                    }`} />
-                  </button>
-                </div>
-
-              </div>
-            </div>
-
-            {/* SYSTEM BACKUP EXPORT SECTION */}
-            <div className={`pt-6 border-t space-y-3 ${theme === "dark" ? "border-slate-800" : "border-slate-200"}`}>
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className={`text-xs font-bold ${theme === "dark" ? "text-white" : "text-slate-900"}`}>{lang === "ar" ? "تصدير نسخ احتياطية مشفرة (JSON)" : "Export Encrypted Full Memory Vault Backup (JSON)"}</p>
-                  <p className={`text-[11px] mt-0.5 ${theme === "dark" ? "text-slate-400" : "text-slate-500"}`}>{lang === "ar" ? "تحميل سجل الذكريات والتنبيهات المعتمدة" : "Download encrypted snapshot of institutional memories and permissions"}</p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(currentUser));
-                    const downloadAnchor = document.createElement("a");
-                    downloadAnchor.setAttribute("href", dataStr);
-                    downloadAnchor.setAttribute("download", `memoryos_backup_${Date.now()}.json`);
-                    document.body.appendChild(downloadAnchor);
-                    downloadAnchor.click();
-                    downloadAnchor.remove();
-                  }}
-                  className="px-4 py-2.5 bg-[#0075DE] hover:bg-[#005BAB] text-white font-bold text-xs rounded-xl flex items-center gap-2 cursor-pointer transition-all"
-                >
-                  <Download className="w-3.5 h-3.5" />
-                  <span>{lang === "ar" ? "تصدير الآن" : "Export Backup"}</span>
-                </button>
-              </div>
-            </div>
-
-          </div>
+            </>
+          )}
         </div>
       )}
 

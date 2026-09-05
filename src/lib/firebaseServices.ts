@@ -376,12 +376,17 @@ export async function loginFirebaseUser(email: string, pass: string, attemptId?:
       success: false
     });
 
-    // Deterministic early exits for non-credential client errors:
-    if (fbCode === "auth/user-disabled") {
+    // Deterministic early exits for non-credential client errors & lifecycle checks:
+    if (
+      fbCode === "auth/user-disabled" ||
+      fbCode === "auth/invalid-credential" ||
+      fbCode === "auth/user-not-found" ||
+      fbCode === "auth/invalid-login-credentials"
+    ) {
       try {
         const lc = await checkAccountLifecycleApi(normalizedEmail);
         if (lc && lc.success) {
-          if (lc.status === "SELF_DELETED" || lc.status === "SELF_RESTORE_AVAILABLE") {
+          if (lc.status === "SELF_DELETED" || lc.status === "SELF_RESTORE_AVAILABLE" || lc.canRestore === true) {
             throw new LoginError("LOGIN_SELF_DELETED", lc.userFriendlyMessage || "Account deleted, restoration available", {
               originalCode: "SELF_RESTORE_AVAILABLE",
               email: normalizedEmail,
@@ -403,11 +408,13 @@ export async function loginFirebaseUser(email: string, pass: string, attemptId?:
       } catch (lcErr) {
         if (lcErr instanceof LoginError) throw lcErr;
       }
-      throw new LoginError("LOGIN_USER_DISABLED", "User account is disabled.", {
-        originalCode: fbCode,
-        email: normalizedEmail,
-        attemptId: currentAttemptId
-      });
+      if (fbCode === "auth/user-disabled") {
+        throw new LoginError("LOGIN_USER_DISABLED", "User account is disabled.", {
+          originalCode: fbCode,
+          email: normalizedEmail,
+          attemptId: currentAttemptId
+        });
+      }
     }
     if (fbCode === "auth/too-many-requests") {
       throw new LoginError("LOGIN_TOO_MANY_REQUESTS", "Too many requests.", {
@@ -2019,18 +2026,37 @@ export async function fetchWorkspaceTeamApi(): Promise<{
  * Account Lifecycle & Recovery API Client Functions
  */
 export async function checkAccountLifecycleApi(email: string) {
-  try {
-    const res = await fetch(getAuthApiUrl("/api/auth/check-lifecycle"), {
-      method: "POST",
-      credentials: "include",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email })
-    });
-    return await safeParseJsonResponse(res);
-  } catch (err: any) {
-    console.error("checkAccountLifecycleApi error:", err);
-    return { success: false, error: err.message || "فشل التحقق من حالة البريد الإلكتروني." };
+  const normEmail = (email || "").trim().toLowerCase();
+  if (!normEmail) {
+    return { success: false, error: "البريد الإلكتروني مطلوب" };
   }
+
+  let lastError: any = null;
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 8000);
+
+      const res = await fetch(getAuthApiUrl("/api/auth/check-lifecycle"), {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: normEmail }),
+        signal: controller.signal
+      });
+      clearTimeout(timeoutId);
+
+      return await safeParseJsonResponse(res);
+    } catch (err: any) {
+      lastError = err;
+      if (attempt < 3 && err?.name !== "AbortError") {
+        await new Promise(r => setTimeout(r, 400 * attempt));
+      }
+    }
+  }
+
+  console.warn("checkAccountLifecycleApi notice:", lastError?.message || lastError);
+  return { success: false, error: lastError?.message || "فشل التحقق من حالة البريد الإلكتروني." };
 }
 
 export async function uploadRecoveryDocumentApi(file: File) {

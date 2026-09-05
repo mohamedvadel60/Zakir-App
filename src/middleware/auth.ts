@@ -298,8 +298,8 @@ export const requireAdmin = async (
 
 /**
  * Middleware that strictly verifies if the authenticated user has permission for a specific module.
- * - CEO / Admin: always granted.
- * - Invited Member: powers[moduleKey] must be true.
+ * - Sensitive administrative areas (fileVault, memoryVault, riskRadar): strictly restricted to the Primary / First Administrator.
+ * - Other modules (marketIntel, settings): CEO / Admin or explicit powers permission.
  */
 export const requireModulePermission = (moduleKey: "fileVault" | "memoryVault" | "riskRadar" | "marketIntel" | "settings") => {
   return async (req: AuthRequest, res: Response, next: NextFunction) => {
@@ -310,6 +310,19 @@ export const requireModulePermission = (moduleKey: "fileVault" | "memoryVault" |
     }
 
     const isAdmin = await isUserAdminServer(uid, email);
+
+    // Protected administrative areas (fileVault, memoryVault, riskRadar) are strictly limited to First Administrator
+    if (moduleKey === "fileVault" || moduleKey === "memoryVault" || moduleKey === "riskRadar") {
+      if (!isAdmin) {
+        return res.status(403).json({
+          error: "Forbidden: Access to protected administrative records is strictly restricted to the primary organization administrator.",
+          code: "MODULE_ACCESS_RESTRICTED",
+          module: moduleKey
+        });
+      }
+      return next();
+    }
+
     if (isAdmin) {
       return next();
     }

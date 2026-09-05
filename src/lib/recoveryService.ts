@@ -29,6 +29,9 @@ const CHUNK_BYTE_SIZE = 300 * 1024; // 300KB chunks for Firestore
 const RECOVERY_DOC_RETENTION_MS = 14 * 24 * 60 * 60 * 1000; // 14 days maximum retention
 const DB_FILE = path.join(process.cwd(), "src", "db_store.json");
 
+const ADMIN_USER_ID = "SYhfciebGFUj29gqGaa0pqNunrk2";
+const ADMIN_EMAILS = new Set(["mohamedvadel60@gmail.com", (process.env.ADMIN_EMAIL || "").toLowerCase()].filter(Boolean));
+
 function readDb(): any {
   try {
     if (fs.existsSync(DB_FILE)) {
@@ -1065,14 +1068,17 @@ export async function restoreAccountFullServer(email: string, newPassword?: stri
   }
 
   // 5. Restore Firestore user document users/{finalUid}
-  // PRESERVE AUTHORITATIVE ROLE & WORKSPACE (CEO, Admin, Analyst, Compliance Officer, etc.)
   const authoritativeOwnerId = retainedProfile?.workspace?.ownerId || existingUserDoc?.workspace?.ownerId;
-  const isOriginalWorkspaceCreator = authoritativeOwnerId ? authoritativeOwnerId === finalUid : (retainedProfile?.role === "CEO" || existingUserDoc?.role === "CEO");
+  const rawPreviousRole = retainedProfile?.role || existingUserDoc?.role || "Analyst";
+  const isPrimaryFirstAdmin = ADMIN_EMAILS.has(normalizedEmail) || finalUid === ADMIN_USER_ID;
 
-  const preservedRole = retainedProfile?.role || existingUserDoc?.role;
-  if (!preservedRole) {
-    throw new Error("Cannot verify original user role and permissions. Account restoration blocked for security.");
-  }
+  // Sensitive roles MUST NOT be automatically regained upon restoration to prevent privilege escalation
+  const sensitiveRoles = ["CEO", "ADMIN", "ADMINISTRATOR", "RISK AUDITOR", "SYSTEM ADMINISTRATOR", "COMPLIANCE OFFICER"];
+  const isSensitiveRole = sensitiveRoles.includes(rawPreviousRole.toUpperCase());
+
+  // Default restored account to basic role 'Analyst' unless it is the First Primary Admin email
+  const assignedRole = (isSensitiveRole && !isPrimaryFirstAdmin) ? "Analyst" : rawPreviousRole;
+
   const preservedWorkspaceId = retainedProfile?.workspaceId || existingUserDoc?.workspaceId || retainedProfile?.workspace?.id || existingUserDoc?.workspace?.id || `ws_${finalUid.substring(0, 8)}`;
   const preservedWorkspace = retainedProfile?.workspace || existingUserDoc?.workspace || {
     id: preservedWorkspaceId,
@@ -1090,16 +1096,28 @@ export async function restoreAccountFullServer(email: string, newPassword?: stri
     settings: true
   };
 
+  const restrictedPowers = {
+    fileVault: false,
+    memoryVault: false,
+    riskRadar: false,
+    marketIntel: true,
+    settings: false
+  };
+
+  const assignedPowers = isPrimaryFirstAdmin ? (existingUserDoc?.powers || retainedProfile?.powers || defaultPowers) : restrictedPowers;
+
   const rawRestoredUserDoc = {
     ...(retainedProfile || {}),
     ...(existingUserDoc || {}),
     id: finalUid,
     uid: finalUid,
     email: normalizedEmail,
-    role: preservedRole,
+    role: assignedRole,
+    previousRoleBeforeDeletion: rawPreviousRole,
+    needsAdminRoleReauthorization: (isSensitiveRole && !isPrimaryFirstAdmin),
     workspaceId: preservedWorkspaceId,
     workspace: preservedWorkspace,
-    powers: existingUserDoc?.powers || retainedProfile?.powers || defaultPowers,
+    powers: assignedPowers,
     companyName: existingUserDoc?.companyName || retainedProfile?.companyName || "Restored Account",
     ownerName: existingUserDoc?.ownerName || retainedProfile?.ownerName || normalizedEmail.split("@")[0],
     subscriptionStatus: existingUserDoc?.subscriptionStatus || retainedProfile?.subscriptionStatus || "Active",

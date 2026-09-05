@@ -15,7 +15,7 @@ import nodemailer from "nodemailer";
 import { db as sqlDb, withRetry } from "./src/db/index.js";
 import { users as sqlUsers, gmailLogs } from "./src/db/schema.js";
 import { getOrCreateUser } from "./src/db/users.js";
-import { requireAuth, requireAdmin, isUserAdminServer, requireModulePermission, hashSecurityPasscode, verifySecurityPasscode, checkPasscodeRateLimit, recordPasscodeFailure, resetPasscodeFailures, generateSecuritySessionToken, getUserProfileServer, AuthRequest, ADMIN_EMAILS } from "./src/middleware/auth.js";
+import { requireAuth, requireAdmin, isUserAdminServer, requireModulePermission, hashSecurityPasscode, verifySecurityPasscode, checkPasscodeRateLimit, recordPasscodeFailure, resetPasscodeFailures, generateSecuritySessionToken, getUserProfileServer, AuthRequest, ADMIN_EMAILS, ADMIN_USER_ID } from "./src/middleware/auth.js";
 import { createRateLimiter } from "./src/middleware/rateLimiter.js";
 import { adminAuth, adminDb, adminStorage, isFirebaseAdminAvailable, getSafeBucket } from "./src/lib/firebase-admin.js";
 import { eq, desc } from "drizzle-orm";
@@ -23,6 +23,8 @@ import { generateWorldBankFallbackData } from "./src/lib/worldBankFallback.js";
 import { handleAdminRecoveryDecision } from "./src/lib/recoveryService.js";
 
 dotenv.config();
+
+export const ZAKIR_BUILD_ID = "ZAKIR_BUILD_2026_09_04_v2.4.2_BUILD_MARKER_AUDIT";
 
 export const isServerless = Boolean(
   process.env.VERCEL ||
@@ -771,6 +773,7 @@ app.use((req, res, next) => {
   res.setHeader("X-Content-Type-Options", "nosniff");
   res.setHeader("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
   res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
+  res.setHeader("X-Zakir-Build-ID", ZAKIR_BUILD_ID);
 
   if (req.method === "OPTIONS") {
     return res.status(200).end();
@@ -781,7 +784,11 @@ app.use((req, res, next) => {
 app.use(express.json({ limit: "500kb" }));
 
 app.get("/api/health", (req, res) => {
-  res.json({ status: "ok", serverless: isServerless });
+  res.json({ status: "ok", serverless: isServerless, buildId: ZAKIR_BUILD_ID, timestamp: new Date().toISOString() });
+});
+
+app.get("/api/version", (req, res) => {
+  res.json({ buildId: ZAKIR_BUILD_ID, timestamp: new Date().toISOString(), nodeEnv: process.env.NODE_ENV || "development" });
 });
 
 app.get("/api/payments/diagnostics", async (req, res) => {
@@ -1957,34 +1964,92 @@ function buildInvitationEmailHtml(options: {
   designatedRole: string;
   inviteLink: string;
   isReminder?: boolean;
+  language?: "ar" | "en" | "fr";
 }): { subject: string; text: string; html: string } {
-  const { companyName, memberName, inviterName, designatedRole, inviteLink, isReminder } = options;
-  const subject = `You're invited to Zakir`;
-  const title = `You've been invited to Zakir`;
-  const greeting = memberName ? `Hello ${memberName},` : `Hello,`;
+  const { companyName, memberName, inviterName, designatedRole, inviteLink, isReminder, language = "ar" } = options;
 
-  const introText = isReminder
-    ? `This is a reminder that ${inviterName} has invited you to join ${companyName} on Zakir as a ${designatedRole}.`
-    : `${inviterName} has invited you to join ${companyName} on Zakir as a ${designatedRole}.`;
+  let subject = "";
+  let title = "";
+  let greeting = "";
+  let introText = "";
+  let orgLabel = "";
+  let inviterLabel = "";
+  let roleLabel = "";
+  let expiresLabel = "";
+  let expiresVal = "";
+  let ctaText = "";
+  let fallbackText = "";
+  let securityNote = "";
+
+  if (language === "fr") {
+    subject = `Invitation à rejoindre l'entreprise "${companyName}" sur Zakir`;
+    title = `Invitation de l'entreprise`;
+    greeting = memberName ? `Bonjour ${memberName},` : `Bonjour,`;
+    introText = isReminder
+      ? `Ceci est un rappel que ${inviterName} vous a invité à rejoindre l'entreprise "${companyName}" sur Zakir en tant que ${designatedRole}.`
+      : `${inviterName} vous a invité à rejoindre l'entreprise "${companyName}" sur Zakir en tant que ${designatedRole}.`;
+    orgLabel = "Entreprise :";
+    inviterLabel = "Invité par :";
+    roleLabel = "Rôle assigné :";
+    expiresLabel = "Expire dans :";
+    expiresVal = "7 jours";
+    ctaText = "Accepter l'invitation";
+    fallbackText = "Si le bouton ci-dessus ne fonctionne pas, copiez et collez cette URL dans votre navigateur :";
+    securityNote = "Si vous n'attendiez pas cette invitation, vous pouvez ignorer cet e-mail en toute sécurité.";
+  } else if (language === "en") {
+    subject = `Invitation to join "${companyName}" on Zakir`;
+    title = `Workspace Invitation`;
+    greeting = memberName ? `Hello ${memberName},` : `Hello,`;
+    introText = isReminder
+      ? `This is a reminder that ${inviterName} has invited you to join "${companyName}" on Zakir as a ${designatedRole}.`
+      : `${inviterName} has invited you to join "${companyName}" on Zakir as a ${designatedRole}.`;
+    orgLabel = "Organization:";
+    inviterLabel = "Invited by:";
+    roleLabel = "Assigned Role:";
+    expiresLabel = "Expires in:";
+    expiresVal = "7 days";
+    ctaText = "Accept invitation";
+    fallbackText = "If the button above does not work, copy and paste this URL into your browser:";
+    securityNote = "If you were not expecting this invitation, you can safely ignore this email.";
+  } else {
+    // Default to Arabic
+    subject = `دعوة للانضمام إلى مؤسسة "${companyName}" على منصة ذاكر (Zakir)`;
+    title = `دعوة انضمام لمساحة عمل المؤسسة`;
+    greeting = memberName ? `مرحباً ${memberName}،` : `مرحباً،`;
+    introText = isReminder
+      ? `هذا تذكير بأن المسؤول "${inviterName}" قد دعاك للانضمام إلى مؤسسة "${companyName}" على منصة ذاكر بصفة "${designatedRole}".`
+      : `لقد قام المسؤول "${inviterName}" بدعوتك للانضمام إلى مؤسسة "${companyName}" على منصة ذاكر بصفة "${designatedRole}".`;
+    orgLabel = "المؤسسة:";
+    inviterLabel = "المرسل / المسؤول:";
+    roleLabel = "الدور المحدد:";
+    expiresLabel = "الصلاحية:";
+    expiresVal = "7 أيام";
+    ctaText = "قبول الدعوة والانضمام";
+    fallbackText = "إذا لم يعمل الزر أعلاه، يرجى نسخ الرابط التالي ولصقه في متصفحك:";
+    securityNote = "إذا لم تكن تتوقع هذه الدعوة، يمكنك تجاهل هذا البريد الإلكتروني بأمان.";
+  }
+
+  const direction = language === "ar" ? "rtl" : "ltr";
+  const textAlign = language === "ar" ? "right" : "left";
 
   const detailsHtml = `
-    <div style="margin: 24px 0; padding: 20px; background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px;">
+    <div style="margin: 24px 0; padding: 20px; background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; direction: ${direction}; text-align: ${textAlign};">
       <table border="0" cellpadding="0" cellspacing="0" width="100%" style="font-size: 14px; color: #334155;">
         <tr>
-          <td style="padding: 6px 0; color: #64748b; width: 120px; font-weight: 500;">Organization:</td>
-          <td style="padding: 6px 0; font-weight: 700; color: #0f172a;">${escapeHtml(companyName)}</td>
+          <td style="padding: 6px 0; color: #64748b; width: 140px; font-weight: 500; text-align: ${textAlign};">${escapeHtml(orgLabel)}</td>
+          <td style="padding: 6px 0; font-weight: 700; color: #0f172a; text-align: ${textAlign};">${escapeHtml(companyName)}</td>
         </tr>
         <tr>
-          <td style="padding: 6px 0; color: #64748b; font-weight: 500;">Invited by:</td>
-          <td style="padding: 6px 0; font-weight: 600; color: #0f172a;">${escapeHtml(inviterName)}</td>
+          <td style="padding: 6px 0; color: #64748b; font-weight: 500; text-align: ${textAlign};">${escapeHtml(inviterLabel)}</td>
+          <td style="padding: 6px 0; font-weight: 600; color: #0f172a; text-align: ${textAlign};">${escapeHtml(inviterName)}</td>
         </tr>
         <tr>
-          <td style="padding: 6px 0; color: #64748b; font-weight: 500;">Assigned Role:</td>
-          <td style="padding: 6px 0;"><span style="display: inline-block; padding: 2px 8px; background-color: #eff6ff; color: #1d4ed8; font-weight: 700; font-size: 12px; border-radius: 4px;">${escapeHtml(designatedRole)}</span></td>
+          <td style="padding: 6px 0; color: #64748b; font-weight: 500; text-align: ${textAlign};">${escapeHtml(roleLabel)}</td>
+          <td style="padding: 6px 0; text-align: ${textAlign};"><span style="display: inline-block; padding: 2px 8px; background-color: #eff6ff; color: #1d4ed8; font-weight: 700; font-size: 12px; border-radius: 4px;">${escapeHtml(designatedRole)}</span></td>
         </tr>
         <tr>
-          <td style="padding: 6px 0; color: #64748b; font-weight: 500;">Expires:</td>
-          <td style="padding: 6px 0; font-weight: 500; color: #64748b;">7 days</td>
+          <td style="padding: 6px 0; color: #64748b; font-weight: 500; text-align: ${textAlign};">${escapeHtml(expiresLabel)}</td>
+          <td style="padding: 6px 0; font-weight: 500; color: #64748b; text-align: ${textAlign};">${escapeHtml(expiresVal)}</td>
         </tr>
       </table>
     </div>
@@ -1995,26 +2060,26 @@ function buildInvitationEmailHtml(options: {
       <tr>
         <td align="center" bgcolor="#2563eb" style="border-radius: 10px;">
           <a href="${inviteLink}" target="_blank" style="font-size: 15px; font-weight: 700; color: #ffffff; text-decoration: none; display: inline-block; padding: 14px 32px; border-radius: 10px; background-color: #2563eb; border: 1px solid #2563eb;">
-            Accept invitation
+            ${escapeHtml(ctaText)}
           </a>
         </td>
       </tr>
     </table>
-    <p style="color: #64748b; font-size: 12px; line-height: 1.5; margin: 0; text-align: center; word-break: break-all;">
-      If the button above does not work, copy and paste this URL into your browser:<br/>
+    <p style="color: #64748b; font-size: 12px; line-height: 1.5; margin: 0; text-align: center; word-break: break-all; direction: ${direction};">
+      ${escapeHtml(fallbackText)}<br/>
       <a href="${inviteLink}" style="color: #2563eb; text-decoration: underline;">${inviteLink}</a>
     </p>
   `;
 
   const bodyHtml = `
-    <p style="color: #334155; font-size: 15px; line-height: 1.6; margin: 0 0 20px 0;">
-      ${escapeHtml(introText)}
-    </p>
+    <div style="direction: ${direction}; text-align: ${textAlign};">
+      <p style="color: #334155; font-size: 15px; line-height: 1.6; margin: 0 0 20px 0;">
+        ${escapeHtml(introText)}
+      </p>
+    </div>
     ${detailsHtml}
     ${ctaButtonHtml}
   `;
-
-  const securityNote = "If you were not expecting this invitation, you can safely ignore this email.";
 
   const html = buildMasterEmailHtml({
     subject,
@@ -2024,7 +2089,7 @@ function buildInvitationEmailHtml(options: {
     securityNote
   });
 
-  const text = `${greeting}\n\n${introText}\n\nOrganization: ${companyName}\nInvited by: ${inviterName}\nRole: ${designatedRole}\n\nAccept invitation: ${inviteLink}\n\nThis invitation expires in 7 days.`;
+  const text = `${greeting}\n\n${introText}\n\n${orgLabel} ${companyName}\n${inviterLabel} ${inviterName}\n${roleLabel} ${designatedRole}\n\n${ctaText}: ${inviteLink}\n\n${expiresLabel} ${expiresVal}`;
 
   return { subject, text, html };
 }
@@ -3482,31 +3547,39 @@ app.post("/api/auth/verify-account-password", async (req, res) => {
   }
 });
 
-// Reset / Change Encryption Key using Current Account Password
-app.post("/api/auth/reset-encryption-with-password", async (req, res) => {
+// Reset / Change Encryption Key using Current Account Password (CEO / First Administrator ONLY)
+app.post("/api/auth/reset-encryption-with-password", requireAuth, async (req: AuthRequest, res) => {
   try {
-    const { userId, email, accountPassword, newPasscode, lockedModules } = req.body;
-    if (!newPasscode || newPasscode.trim().length === 0) {
-      return res.status(400).json({ error: "New secret passcode is required." });
+    const authUid = req.user?.uid;
+    const authEmail = req.user?.email;
+    if (!authUid) return res.status(401).json({ error: "Unauthorized" });
+
+    const callingUser = await getUserProfileServer(authUid, authEmail);
+    if (!callingUser) return res.status(404).json({ error: "User profile not found" });
+
+    // Strict Server-Side Authorization: CEO or First Administrator ONLY
+    const isOwnerOrCeo = (callingUser.role || "").toUpperCase() === "CEO" || 
+                         (callingUser.role || "").toUpperCase() === "FIRST ADMINISTRATOR" || 
+                         (callingUser.role || "").toUpperCase() === "FIRST_ADMINISTRATOR" || 
+                         (callingUser.role || "").toUpperCase() === "ADMIN" || 
+                         callingUser.workspace?.ownerId === authUid ||
+                         (await isUserAdminServer(authUid, authEmail));
+
+    if (!isOwnerOrCeo) {
+      return res.status(403).json({
+        success: false,
+        code: "FORBIDDEN_CEO_ONLY",
+        error: "Forbidden: Only First Administrator or CEO can manage or reset the file protection security passcode.",
+        userFriendlyMessage: "غير مصرح: إدارة وتغيير رمز كود حماية الملفات مقتصر حصرياً على المدير التنفيذي (CEO) والمسؤول الأول."
+      });
     }
 
-    const cleanEmail = email ? email.trim().toLowerCase() : "";
-    const db = readDb();
-    let user = db.users.find((u: any) => u.id === userId || (cleanEmail && u.email?.toLowerCase() === cleanEmail));
-    let uid = userId || user?.id;
-
-    let firestoreUserData: any = null;
-    if (uid) {
-      try {
-        const docRef = adminDb.collection("users").doc(uid);
-        const docSnap = await docRef.get();
-        if (docSnap.exists) {
-          firestoreUserData = docSnap.data();
-        }
-      } catch (e) {}
+    const { accountPassword, newPasscode, lockedModules } = req.body;
+    if (!newPasscode || typeof newPasscode !== "string" || newPasscode.trim().length < 4) {
+      return res.status(400).json({ error: "Valid new secret passcode (minimum 4 characters) is required." });
     }
 
-    const storedPassword = firestoreUserData?.passwordHash || user?.passwordHash;
+    const storedPassword = callingUser.passwordHash;
 
     // If account has a password, verify accountPassword
     if (storedPassword && accountPassword) {
@@ -3520,9 +3593,10 @@ app.post("/api/auth/reset-encryption-with-password", async (req, res) => {
       }
     }
 
+    const passcodeHash = hashSecurityPasscode(newPasscode.trim());
     const newSecuritySettings = {
-      secretPasscode: newPasscode.trim(),
       isPinSet: true,
+      secretPasscodeHash: passcodeHash,
       lockedModules: lockedModules || {
         fileVault: true,
         memoryVault: true,
@@ -3532,20 +3606,25 @@ app.post("/api/auth/reset-encryption-with-password", async (req, res) => {
       updatedAt: new Date().toISOString()
     };
 
-    if (uid) {
+    if (isFirebaseAdminAvailable && adminDb) {
       try {
-        await adminDb.collection("users").doc(uid).set({
+        await adminDb.collection("users").doc(authUid).set({
           encryptedSecurity: newSecuritySettings
         }, { merge: true });
-        console.log(`[ENCRYPTION RESET] Updated security settings for uid: ${uid}`);
+        console.log(`[ENCRYPTION RESET] Updated security settings for uid: ${authUid}`);
       } catch (fsErr) {
         console.warn("Firestore encryption update warning:", fsErr);
       }
     }
 
-    if (user) {
-      user.encryptedSecurity = newSecuritySettings;
-      writeDb(db);
+    const db = readDb();
+    if (db.users) {
+      const uIdx = db.users.findIndex((u: any) => u.id === authUid || u.email === authEmail);
+      if (uIdx >= 0) {
+        db.users[uIdx].encryptedSecurity = newSecuritySettings;
+        delete db.users[uIdx].secretPasscode;
+        writeDb(db);
+      }
     }
 
     return res.json({
@@ -3555,8 +3634,8 @@ app.post("/api/auth/reset-encryption-with-password", async (req, res) => {
       encryptedSecurity: newSecuritySettings
     });
   } catch (err: any) {
-    console.error("Error resetting encryption passcode:", err);
-    res.status(500).json({ error: err.message || "Failed to reset encryption passcode." });
+    console.error("Reset encryption passcode error:", err);
+    return res.status(500).json({ error: err?.message || "Failed to reset encryption passcode." });
   }
 });
 
@@ -3672,12 +3751,28 @@ app.post("/api/admin/send-invitation", requireAuth, async (req: AuthRequest, res
       }
     } catch (e) {}
 
+    if (existingInv && existingInv.status === "ACCEPTED") {
+      return res.status(400).json({
+        success: false,
+        code: "ALREADY_ACCEPTED",
+        error: "Invitation has already been accepted.",
+        userFriendlyMessage: "لقد تم قبول هذه الدعوة بالفعل والعضو نشط في الفريق."
+      });
+    }
+
     // 7. Generate Secure Token & Expiration
     const secureToken = crypto.randomBytes(24).toString("hex");
     const nowIso = new Date().toISOString();
     const expiresAtIso = new Date(Date.now() + 7 * 24 * 3600 * 1000).toISOString();
 
-    const companyName = ceoData.companyName || "ZakIr Platform";
+    const companyName = (
+      ceoData.companyName || 
+      ceoData.organizationName || 
+      ceoData.workspaceName || 
+      ceoData.workspace?.name || 
+      ceoData.workspace?.companyName || 
+      "ZakIr Platform"
+    ).trim();
     const memberName = (name || normalizedEmail.split("@")[0]).trim();
     const designatedRole = role || "Contributor";
     const defaultPowers = powers || {
@@ -3706,11 +3801,17 @@ app.post("/api/admin/send-invitation", requireAuth, async (req: AuthRequest, res
       resendCount: (existingInv?.resendCount || 0) + (existingInv ? 1 : 0)
     };
 
-    // 8. Persist Invitation in Firestore & Local DB
+    // 8. Persist Invitation in Firestore (Authoritative)
     try {
       await adminDb.collection("invitations").doc(normalizedEmail).set(invitationRecord);
-    } catch (fsErr) {
+    } catch (fsErr: any) {
       console.error("Failed to write invitation to Firestore:", fsErr);
+      return res.status(500).json({
+        success: false,
+        code: "FIRESTORE_WRITE_FAILED",
+        error: fsErr?.message || String(fsErr),
+        userFriendlyMessage: "فشل حفظ بيانات الدعوة في قاعدة البيانات الأساسية. تعذر إرسال البريد الإلكتروني."
+      });
     }
 
     const db = readDb();
@@ -3747,7 +3848,8 @@ app.post("/api/admin/send-invitation", requireAuth, async (req: AuthRequest, res
       inviterName,
       designatedRole,
       inviteLink,
-      isReminder: false
+      isReminder: false,
+      language: ceoData?.language || "ar"
     });
 
     const mailResult = await sendSystemMail({
@@ -3774,17 +3876,25 @@ app.post("/api/admin/send-invitation", requireAuth, async (req: AuthRequest, res
         recipient: normalizedEmail,
         error: mailResult.error
       });
+      
+      // Rollback or mark as email_failed in Firestore
       invitationRecord.status = "email_failed";
       try {
-        await adminDb.collection("invitations").doc(normalizedEmail).update({ status: "email_failed" });
+        await adminDb.collection("invitations").doc(normalizedEmail).set({ status: "email_failed" }, { merge: true });
       } catch (e) {}
 
-      return res.json({
-        success: true,
-        emailSent: false,
+      // Rollback the pending addition to CEO's teamMembersList to prevent a phantom entry
+      try {
+        const ceoRef = adminDb.collection("users").doc(callerUid);
+        const rolledBackList = teamMembersList.filter((m: any) => m.email?.trim().toLowerCase() !== normalizedEmail);
+        await ceoRef.update({ teamMembersList: rolledBackList });
+      } catch (e) {}
+
+      return res.status(500).json({
+        success: false,
         code: "EMAIL_SEND_FAILED",
-        userFriendlyMessage: `تمت إضافة الدعوة بنجاح، لكن تعذر تسليم البريد الإلكتروني حالياً. يمكنك إعادة إرسال الدعوة لاحقاً من القائمة.`,
-        invitation: invitationRecord
+        error: mailResult.error || "Mail service failed to deliver message",
+        userFriendlyMessage: `تعذر إرسال البريد الإلكتروني للدعوة حالياً (${mailResult.error || "خطأ في خدمة إرسال البريد"}). يرجى التحقق من صحة بريد المستلم والمحاولة مجدداً.`
       });
     }
 
@@ -4119,6 +4229,28 @@ app.post(["/api/workspace/invitations/accept", "/api/team/invitations/accept"], 
     }
 
     const invitationEmail = (invRecord.email || targetEmail).trim().toLowerCase();
+
+    // Check if the authenticated user's email matches the invited email (unauthorized access check)
+    if (callerEmail && invitationEmail && callerEmail !== invitationEmail) {
+      return res.status(403).json({
+        success: false,
+        code: "EMAIL_MISMATCH",
+        error: "Authenticated email does not match the invited email address.",
+        userFriendlyMessage: `هذه الدعوة مخصصة للبريد الإلكتروني "${invitationEmail}"، لكنك مسجل الدخول حالياً بالبريد "${callerEmail}". يرجى تسجيل الدخول بالحساب الصحيح.`
+      });
+    }
+
+    // Check expiration
+    const now = new Date();
+    if (invRecord.expiresAt && new Date(invRecord.expiresAt) < now && invRecord.status !== "ACCEPTED") {
+      return res.status(400).json({
+        success: false,
+        code: "INVITATION_EXPIRED",
+        error: "This invitation has expired.",
+        userFriendlyMessage: "انتهت صلاحية هذه الدعوة. يرجى طلب دعوة جديدة من مسؤول المؤسسة."
+      });
+    }
+
     const workspaceId = invRecord.workspaceId || `ws_${(invRecord.senderId || "org").substring(0, 8)}`;
     const companyName = invRecord.companyName || "ZakIr Platform";
     const role = invRecord.role || "Contributor";
@@ -4133,6 +4265,17 @@ app.post(["/api/workspace/invitations/accept", "/api/team/invitations/accept"], 
       const mSnap = await memberDocRef.get();
       if (mSnap.exists) memberData = mSnap.data() || {};
     } catch (e) {}
+
+    // Check Idempotency: if already accepted, return success immediately
+    if (invRecord.status === "ACCEPTED") {
+      return res.json({
+        success: true,
+        message: "Invitation was already accepted.",
+        userFriendlyMessage: `لقد تم قبول هذه الدعوة مسبقاً وتفعيل عضويتك في مؤسسة "${companyName}".`,
+        user: memberData.workspaceId === workspaceId ? memberData : { ...memberData, workspaceId, companyName, role, powers },
+        invitation: invRecord
+      });
+    }
 
     const resolvedMemberName = (memberName || memberData.ownerName || memberData.name || invRecord.name || invitationEmail.split("@")[0]).trim();
 
@@ -5617,13 +5760,11 @@ export async function restoreAccountFullServer(email: string, newPassword?: stri
 
   // 5. Restore Firestore user document users/{finalUid}
   const authoritativeOwnerId = retainedProfile?.workspace?.ownerId;
-  const isOriginalWorkspaceCreator = authoritativeOwnerId ? authoritativeOwnerId === finalUid : (retainedProfile?.role === "CEO");
+  const rawPreviousRole = retainedProfile?.role || lifecycle?.originalRole || "Contributor";
+  
+  // Strictly restore the exact pre-deletion role and powers without auto-promotion or demotion
+  const assignedRole = rawPreviousRole;
 
-  const preservedRole = retainedProfile?.role || lifecycle?.originalRole;
-  if (!preservedRole) {
-    console.error(`[RESTORE_FULL] Security Error: Original role missing for ${normalizedEmail}. Restoration blocked.`);
-    return { success: false, error: "Cannot verify original user role and permissions. Account restoration blocked for security." };
-  }
   const preservedWorkspaceId = retainedProfile?.workspaceId || retainedProfile?.workspace?.id || `ws_${finalUid.substring(0, 8)}`;
   const preservedWorkspace = retainedProfile?.workspace || {
     id: preservedWorkspaceId,
@@ -5641,15 +5782,18 @@ export async function restoreAccountFullServer(email: string, newPassword?: stri
     settings: true
   };
 
+  const assignedPowers = retainedProfile?.powers || lifecycle?.originalPowers || defaultPowers;
+
   const rawRestoredUserDoc = {
     ...(retainedProfile || {}),
     id: finalUid,
     uid: finalUid,
     email: normalizedEmail,
-    role: preservedRole,
+    role: assignedRole,
+    previousRoleBeforeDeletion: rawPreviousRole,
     workspaceId: preservedWorkspaceId,
     workspace: preservedWorkspace,
-    powers: retainedProfile?.powers || defaultPowers,
+    powers: assignedPowers,
     companyName: retainedProfile?.companyName || "Restored Account",
     ownerName: retainedProfile?.ownerName || normalizedEmail.split("@")[0],
     subscriptionStatus: retainedProfile?.subscriptionStatus || "Active",
@@ -8599,30 +8743,43 @@ app.post("/api/auth/login", loginRegisterLimiter, async (req, res) => {
 
     const normalizedEmail = email.trim().toLowerCase();
 
-    // 1. Account lifecycle check: check if account was deleted
+    // 1. Account lifecycle check: if account was deleted and within restoration window, return restoration details
     try {
       const lifecycleRecord = await getAccountLifecycleRecord(normalizedEmail);
       if (lifecycleRecord) {
-        if (lifecycleRecord.status === "ADMIN_DELETED" || lifecycleRecord.status === "ADMIN_APPROVAL_REQUIRED" || lifecycleRecord.deletionType === "admin") {
-          return res.status(403).json({
-            code: "auth/user-disabled",
-            error: "ADMIN_DELETED_BLOCKED",
-            message: "تم تعطيل هذا الحساب بواسطة مسؤول المنصة."
-          });
-        }
-        if (lifecycleRecord.status === "SELF_DELETED" && lifecycleRecord.restoreUntil) {
+        if (
+          lifecycleRecord.status === "SELF_DELETED" ||
+          lifecycleRecord.status === "SELF_RESTORE_AVAILABLE"
+        ) {
+          const restoreUntilIso = lifecycleRecord.restoreUntil;
           const nowMs = Date.now();
-          const restoreUntilMs = new Date(lifecycleRecord.restoreUntil).getTime();
-          if (nowMs <= restoreUntilMs) {
-            const daysRemaining = Math.max(1, Math.ceil((restoreUntilMs - nowMs) / (24 * 3600 * 1000)));
+          const restoreUntilMs = restoreUntilIso ? new Date(restoreUntilIso).getTime() : 0;
+          const remainingMs = restoreUntilMs - nowMs;
+          const daysRemaining = Math.max(1, Math.ceil(remainingMs / (24 * 3600 * 1000)));
+
+          if (!restoreUntilIso || restoreUntilMs > nowMs) {
             return res.status(403).json({
               code: "SELF_RESTORE_AVAILABLE",
               error: "SELF_RESTORE_AVAILABLE",
-              daysRemaining,
-              restoreUntil: lifecycleRecord.restoreUntil,
-              message: `تم العثور على حساب سابق محذوف. يرجى استعادة الحساب (متبقي ${daysRemaining} يوماً).`
+              status: "SELF_RESTORE_AVAILABLE",
+              email: normalizedEmail,
+              daysRemaining: daysRemaining,
+              restoreUntil: restoreUntilIso,
+              message: "تم العثور على حسابك المحذوف سابقاً، وهو متاح للاستعادة."
             });
           }
+        } else if (
+          lifecycleRecord.status === "ADMIN_DELETED" ||
+          lifecycleRecord.status === "ADMIN_APPROVAL_REQUIRED" ||
+          lifecycleRecord.deletionType === "admin"
+        ) {
+          return res.status(403).json({
+            code: "auth/user-disabled",
+            error: "ADMIN_DELETED",
+            status: "ADMIN_DELETED",
+            email: normalizedEmail,
+            message: "تم تعطيل هذا الحساب بواسطة المسؤول."
+          });
         }
       }
     } catch (lcErr) {
@@ -8761,14 +8918,27 @@ app.post("/api/auth/login", loginRegisterLimiter, async (req, res) => {
       let invitedRole = "CEO";
       let invitedWorkspaceId: string | undefined = undefined;
       let invitedPowers: any = undefined;
+      let companyName = "Personal Account";
 
       try {
-        const invSnap = await adminDb.collection("workspace_invitations").where("email", "==", normalizedEmail).get();
-        if (!invSnap.empty) {
-          const invData = invSnap.docs[0].data();
+        // Try invitations first
+        const invDoc = await adminDb.collection("invitations").doc(normalizedEmail).get();
+        if (invDoc.exists) {
+          const invData = invDoc.data();
           invitedRole = invData.role || "Contributor";
           invitedWorkspaceId = invData.workspaceId;
           invitedPowers = invData.powers;
+          companyName = invData.companyName || "Organization Member";
+        } else {
+          // Fall back to workspace_invitations
+          const invSnap = await adminDb.collection("workspace_invitations").where("email", "==", normalizedEmail).get();
+          if (!invSnap.empty) {
+            const invData = invSnap.docs[0].data();
+            invitedRole = invData.role || "Contributor";
+            invitedWorkspaceId = invData.workspaceId;
+            invitedPowers = invData.powers;
+            companyName = invData.companyName || "Organization Member";
+          }
         }
       } catch (invErr) {}
 
@@ -8776,14 +8946,14 @@ app.post("/api/auth/login", loginRegisterLimiter, async (req, res) => {
       userProfile = {
         id: authUid,
         email: normalizedEmail,
-        companyName: invitedRole === "CEO" ? "Personal Account" : "Organization Member",
+        companyName: companyName,
         ownerName: normalizedEmail.split("@")[0],
         role: ADMIN_EMAILS.has(normalizedEmail) ? "Admin" : invitedRole,
         workspaceId: workspaceId,
         powers: invitedPowers,
         workspace: {
           id: workspaceId,
-          name: invitedRole === "CEO" ? "Personal Workspace" : "Organization Workspace",
+          name: invitedRole === "CEO" ? "Personal Workspace" : `${companyName} Workspace`,
           ownerId: invitedRole === "CEO" ? authUid : `owner_${workspaceId}`,
           createdAt: nowIso,
           memberCount: 1
@@ -8838,6 +9008,10 @@ app.post("/api/auth/login", loginRegisterLimiter, async (req, res) => {
     const isVerified = userProfile.isVerified === true || userProfile.isEmailVerified === true || userProfile.emailVerified === true || userProfile.verification_status === "verified" || userProfile.verification_required === false;
 
     const { passwordHash, secretPasscode, ...cleanProfile } = userProfile;
+    if (cleanProfile.encryptedSecurity) {
+      const { secretPasscode: _sp, secretPasscodeHash: _sph, ...cleanEncSec } = cleanProfile.encryptedSecurity;
+      cleanProfile.encryptedSecurity = cleanEncSec;
+    }
     return res.json({
       success: true,
       customToken,

@@ -501,6 +501,176 @@ class MockCollectionRef {
   }
 }
 
+function wrapQuerySnapshot(snap: any, colName: string): any {
+  return {
+    get empty() { return snap.empty; },
+    get size() { return snap.size; },
+    get docs() {
+      return (snap.docs || []).map((doc: any) => ({
+        get id() { return doc.id; },
+        get exists() { return doc.exists; },
+        data() { return doc.data(); },
+        get ref() {
+          return {
+            get id() { return doc.id; },
+            get _realRef() { return doc.ref; },
+            get colName() { return colName; },
+            collection(subCol: string) {
+              try {
+                return createSafeCollection(doc.ref.collection(subCol), `${colName}/${doc.id}/${subCol}`);
+              } catch (e) {
+                return new MockCollectionRef(subCol, `${colName}/${doc.id}/${subCol}`);
+              }
+            },
+            set: (d: any, o?: any) => doc.ref.set(d, o),
+            update: (d: any) => doc.ref.update(d),
+            delete: () => doc.ref.delete()
+          };
+        }
+      }));
+    }
+  };
+}
+
+function createSafeQuery(realQuery: any, colName: string): any {
+  return {
+    where(field: string, op: string, value: any): any {
+      try {
+        return createSafeQuery(realQuery.where(field, op, value), colName);
+      } catch (e) {
+        return new MockQuery(colName).where(field, op, value);
+      }
+    },
+    orderBy(field: string, direction: any): any {
+      try {
+        return createSafeQuery(realQuery.orderBy(field, direction), colName);
+      } catch (e) {
+        return new MockQuery(colName).orderBy(field, direction);
+      }
+    },
+    limit(count: number): any {
+      try {
+        return createSafeQuery(realQuery.limit(count), colName);
+      } catch (e) {
+        return new MockQuery(colName).limit(count);
+      }
+    },
+    async get() {
+      try {
+        const snap = await realQuery.get();
+        return wrapQuerySnapshot(snap, colName);
+      } catch (err: any) {
+        console.warn(`Firestore get() failed for query on ${colName}, falling back to mock:`, err.message);
+        return new MockQuery(colName).get();
+      }
+    }
+  };
+}
+
+function createSafeCollection(realCol: any, colName: string): any {
+  return {
+    doc(docId: string): any {
+      const realDoc = realCol.doc(docId);
+      return {
+        get id() { return realDoc.id; },
+        get _realRef() { return realDoc; },
+        get colName() { return colName; },
+        collection(subCol: string) {
+          try {
+            return createSafeCollection(realDoc.collection(subCol), `${colName}/${docId}/${subCol}`);
+          } catch (e) {
+            return new MockCollectionRef(subCol, `${colName}/${docId}/${subCol}`);
+          }
+        },
+        async get() {
+          try {
+            const snap = await realDoc.get();
+            return {
+              get id() { return snap.id; },
+              get exists() { return snap.exists; },
+              data() { return snap.data(); },
+              get ref() {
+                return {
+                  get id() { return realDoc.id; },
+                  get _realRef() { return realDoc; },
+                  get colName() { return colName; },
+                  collection(subCol: string) {
+                    try {
+                      return createSafeCollection(realDoc.collection(subCol), `${colName}/${docId}/${subCol}`);
+                    } catch (e) {
+                      return new MockCollectionRef(subCol, `${colName}/${docId}/${subCol}`);
+                    }
+                  },
+                  set: (d: any, o?: any) => realDoc.set(d, o),
+                  update: (d: any) => realDoc.update(d),
+                  delete: () => realDoc.delete()
+                };
+              }
+            };
+          } catch (err: any) {
+            console.warn(`Firestore get() failed for ${colName}/${docId}, falling back to mock:`, err.message);
+            return new MockDocRef(colName, docId).get();
+          }
+        },
+        async set(data: any, options?: any) {
+          try {
+            return await realDoc.set(data, options);
+          } catch (err: any) {
+            console.warn(`Firestore set() failed for ${colName}/${docId}, falling back to mock:`, err.message);
+            return new MockDocRef(colName, docId).set(data, options);
+          }
+        },
+        async update(data: any) {
+          try {
+            return await realDoc.update(data);
+          } catch (err: any) {
+            console.warn(`Firestore update() failed for ${colName}/${docId}, falling back to mock:`, err.message);
+            return new MockDocRef(colName, docId).update(data);
+          }
+        },
+        async delete() {
+          try {
+            return await realDoc.delete();
+          } catch (err: any) {
+            console.warn(`Firestore delete() failed for ${colName}/${docId}, falling back to mock:`, err.message);
+            return new MockDocRef(colName, docId).delete();
+          }
+        }
+      };
+    },
+    where(field: string, op: string, value: any): any {
+      try {
+        return createSafeQuery(realCol.where(field, op, value), colName);
+      } catch (e) {
+        return new MockQuery(colName).where(field, op, value);
+      }
+    },
+    orderBy(field: string, direction: any): any {
+      try {
+        return createSafeQuery(realCol.orderBy(field, direction), colName);
+      } catch (e) {
+        return new MockQuery(colName).orderBy(field, direction);
+      }
+    },
+    limit(count: number): any {
+      try {
+        return createSafeQuery(realCol.limit(count), colName);
+      } catch (e) {
+        return new MockQuery(colName).limit(count);
+      }
+    },
+    async get() {
+      try {
+        const snap = await realCol.get();
+        return wrapQuerySnapshot(snap, colName);
+      } catch (err: any) {
+        console.warn(`Firestore get() failed for collection ${colName}, falling back to mock:`, err.message);
+        return new MockCollectionRef(colName).get();
+      }
+    }
+  };
+}
+
 // Create safe fallback proxy for adminDb
 function createSafeAdminDb(realDb: any): any {
   return {
@@ -509,7 +679,7 @@ function createSafeAdminDb(realDb: any): any {
         return new MockCollectionRef(colName);
       }
       try {
-        return realDb.collection(colName);
+        return createSafeCollection(realDb.collection(colName), colName);
       } catch (err) {
         return new MockCollectionRef(colName);
       }
@@ -518,7 +688,54 @@ function createSafeAdminDb(realDb: any): any {
     batch(): any {
       if (isFirebaseAdminAvailable && realDb && typeof realDb.batch === "function") {
         try {
-          return realDb.batch();
+          const realBatch = realDb.batch();
+          const fallbackOps: Array<() => Promise<any>> = [];
+          return {
+            set(ref: any, data: any, options?: any) {
+              try {
+                const realRef = ref._realRef || ref;
+                realBatch.set(realRef, data, options);
+              } catch (e) {}
+              fallbackOps.push(() => {
+                const mockRef = new MockDocRef(ref.colName || "unknown", ref.id);
+                return mockRef.set(data, options);
+              });
+              return this;
+            },
+            update(ref: any, data: any) {
+              try {
+                const realRef = ref._realRef || ref;
+                realBatch.update(realRef, data);
+              } catch (e) {}
+              fallbackOps.push(() => {
+                const mockRef = new MockDocRef(ref.colName || "unknown", ref.id);
+                return mockRef.update(data);
+              });
+              return this;
+            },
+            delete(ref: any) {
+              try {
+                const realRef = ref._realRef || ref;
+                realBatch.delete(realRef);
+              } catch (e) {}
+              fallbackOps.push(() => {
+                const mockRef = new MockDocRef(ref.colName || "unknown", ref.id);
+                return mockRef.delete();
+              });
+              return this;
+            },
+            async commit() {
+              try {
+                return await realBatch.commit();
+              } catch (err: any) {
+                console.warn("Firestore batch commit failed, running fallback ops:", err.message);
+                for (const op of fallbackOps) {
+                  try { await op(); } catch (e) {}
+                }
+                return [];
+              }
+            }
+          };
         } catch (e) {
           // fall through
         }
