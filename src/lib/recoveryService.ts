@@ -63,43 +63,24 @@ export function validateFileSignature(buffer: Buffer, mimeType: string): boolean
   const hex = buffer.toString("hex", 0, Math.min(buffer.length, 12)).toLowerCase();
   const mime = (mimeType || "").toLowerCase();
 
+  // Strict: Identity & recovery documents support ONLY PDF, PNG, JPG, JPEG
   // PDF signature: %PDF (25 50 44 46)
-  if (mime.includes("pdf") || hex.startsWith("25504446")) {
-    return hex.startsWith("25504446");
-  }
-
-  // PNG signature: 89 50 4e 47
-  if (mime.includes("png") || hex.startsWith("89504e47")) {
-    return hex.startsWith("89504e47");
-  }
-
-  // JPEG / JPG signature: ff d8 ff
-  if (mime.includes("jpeg") || mime.includes("jpg") || hex.startsWith("ffd8ff")) {
-    return hex.startsWith("ffd8ff");
-  }
-
-  // WEBP signature: RIFF ... WEBP (52 49 46 46)
-  if (mime.includes("webp") || hex.startsWith("52494646")) {
-    return hex.startsWith("52494646");
-  }
-
-  // Word DOCX / ZIP: 50 4b 03 04
-  if (mime.includes("officedocument") || mime.includes("zip") || hex.startsWith("504b0304")) {
-    return hex.startsWith("504b0304");
-  }
-
-  // Word DOC (Legacy OLE format): d0 cf 11 e0
-  if (mime.includes("msword") || hex.startsWith("d0cf11e0")) {
-    return hex.startsWith("d0cf11e0");
-  }
-
-  // Plain text / UTF-8
-  if (mime.includes("text")) {
+  if (hex.startsWith("25504446") || (mime.includes("pdf") && hex.startsWith("25504446"))) {
     return true;
   }
 
-  // Fallback: if buffer is valid non-empty binary/document
-  return buffer.length >= 4;
+  // PNG signature: 89 50 4e 47
+  if (hex.startsWith("89504e47") || (mime.includes("png") && hex.startsWith("89504e47"))) {
+    return true;
+  }
+
+  // JPEG / JPG signature: ff d8 ff
+  if (hex.startsWith("ffd8ff") || ((mime.includes("jpeg") || mime.includes("jpg")) && hex.startsWith("ffd8ff"))) {
+    return true;
+  }
+
+  // Reject all other formats
+  return false;
 }
 
 function getLocalUploadsDir(): string {

@@ -5,6 +5,14 @@ import app from "../server.js";
  * Normalizes incoming request paths across different Vercel edge rewrite configurations
  * and delegates all requests directly to the single authoritative Express application in server.ts.
  */
+export const config = {
+  api: {
+    bodyParser: false,
+    responseLimit: false,
+    externalResolver: true,
+  },
+};
+
 export default async function handler(req: any, res: any) {
   // 1. CORS Preflight & Global Headers
   const origin = req.headers?.origin;

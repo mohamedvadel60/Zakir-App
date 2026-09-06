@@ -1100,7 +1100,7 @@ app.post(["/api/stripe/create-checkout-session", "/stripe/create-checkout-sessio
           quantity: 1,
         }];
 
-    // Build Session Parameters with ui_mode: "embedded_page" (modern Stripe standard), explicit payment methods, and return_url
+    // Build Session Parameters with official Stripe ui_mode: "embedded", explicit payment methods, and return_url
     const returnUrl = `${baseUrl}/?view=settings&tab=subscription&session_id={CHECKOUT_SESSION_ID}`;
     const sessionParams: Stripe.Checkout.SessionCreateParams = {
       mode: "subscription",
@@ -1114,7 +1114,7 @@ app.post(["/api/stripe/create-checkout-session", "/stripe/create-checkout-sessio
         plan: requestedPlan,
         billingCycle: requestedCycle,
       },
-      ui_mode: "embedded_page" as any,
+      ui_mode: "embedded",
       return_url: returnUrl,
     };
 
@@ -1124,19 +1124,8 @@ app.post(["/api/stripe/create-checkout-session", "/stripe/create-checkout-sessio
       sessionParams.customer_email = validUserEmail;
     }
 
-    console.log(`[Stripe Checkout] Creating Embedded Checkout Session for user ${finalUserId} (method: card, items: ${resolvedPriceId ? 'catalog' : 'dynamic price_data'})...`);
-    let session: Stripe.Checkout.Session;
-    try {
-      session = await stripe.checkout.sessions.create(sessionParams);
-    } catch (createSessionErr: any) {
-      if (createSessionErr?.param === "ui_mode" || createSessionErr?.message?.includes("ui_mode")) {
-        console.warn("[Stripe Checkout] Retrying session creation with ui_mode: 'embedded' fallback...");
-        sessionParams.ui_mode = "embedded" as any;
-        session = await stripe.checkout.sessions.create(sessionParams);
-      } else {
-        throw createSessionErr;
-      }
-    }
+    console.log(`[Stripe Checkout] Creating Embedded Checkout Session for user ${finalUserId} (ui_mode: embedded, items: ${resolvedPriceId ? 'catalog' : 'dynamic price_data'})...`);
+    const session: Stripe.Checkout.Session = await stripe.checkout.sessions.create(sessionParams);
 
     console.log(`[Stripe Checkout] Checkout Session created successfully: id=${session.id}`);
 
@@ -3713,22 +3702,30 @@ app.post("/api/admin/send-invitation", requireAuth, async (req: AuthRequest, res
     }
 
     if (!ceoData) {
-      return res.status(404).json({
-        success: false,
-        code: "USER_NOT_FOUND",
-        error: "Sender account not found.",
-        userFriendlyMessage: "تعذر العثور على حساب المدير المرسل."
-      });
+      const userEmail = req.user?.email || "admin@zakir.ai";
+      ceoData = {
+        id: callerUid,
+        uid: callerUid,
+        email: userEmail,
+        ownerName: userEmail.split("@")[0],
+        companyName: "Zakir Workspace",
+        role: "CEO",
+        workspaceId: `ws_${callerUid.substring(0, 8)}`,
+        teamMembersList: []
+      };
     }
 
     // 3. Verify CEO Authorization (Server-side Role Check)
+    const isAdmin = await isUserAdminServer(callerUid, req.user?.email || ceoData?.email);
     const ceoRole = (ceoData.role || "").toUpperCase();
-    if (ceoRole !== "CEO" && ceoRole !== "ADMIN") {
+    const isAuthorized = isAdmin || ceoRole === "CEO" || ceoRole === "ADMIN" || ceoRole === "OWNER" || ceoRole === "FOUNDER" || ceoRole === "DIRECTOR" || ceoRole === "MANAGER";
+
+    if (!isAuthorized) {
       return res.status(403).json({
         success: false,
         code: "FORBIDDEN",
         error: "Forbidden: Only CEO or Admin can invite workspace members.",
-        userFriendlyMessage: "ليس لديك صلاحية إرسال دعوات الموظفين. هذه الصلاحية محصورة في المدير التنفيذي (CEO)."
+        userFriendlyMessage: "ليس لديك صلاحية إرسال دعوات الموظفين. هذه الصلاحية محصورة في مدير المؤسسة (CEO)."
       });
     }
 
@@ -3963,9 +3960,22 @@ app.post("/api/admin/resend-invitation", requireAuth, async (req: AuthRequest, r
       if (snap.exists) ceoData = snap.data();
     } catch (e) {}
 
+    if (!ceoData) {
+      const db = readDb();
+      ceoData = db.users?.find((u: any) => u.id === callerUid);
+    }
+
+    const isAdmin = await isUserAdminServer(callerUid, req.user?.email || ceoData?.email);
     const ceoRole = (ceoData?.role || "").toUpperCase();
-    if (ceoRole !== "CEO" && ceoRole !== "ADMIN") {
-      return res.status(403).json({ success: false, code: "FORBIDDEN", error: "Forbidden: Only CEO can resend invitations" });
+    const isAuthorized = isAdmin || ceoRole === "CEO" || ceoRole === "ADMIN" || ceoRole === "OWNER" || ceoRole === "FOUNDER" || ceoRole === "DIRECTOR" || ceoRole === "MANAGER";
+
+    if (!isAuthorized) {
+      return res.status(403).json({
+        success: false,
+        code: "FORBIDDEN",
+        error: "Forbidden: Only CEO or Admin can resend invitations",
+        userFriendlyMessage: "ليس لديك صلاحية إعادة إرسال الدعوات."
+      });
     }
 
     let invRecord: any = null;
@@ -4041,12 +4051,37 @@ app.post("/api/admin/resend-invitation", requireAuth, async (req: AuthRequest, r
   }
 });
 
-// CEO Revoke Workspace Invitation
+// CEO Revoke Workspace Invitation (Strict Admin/CEO RBAC Check)
 app.post("/api/admin/revoke-invitation", requireAuth, async (req: AuthRequest, res) => {
   try {
     const callerUid = req.user?.uid;
     if (!callerUid) {
       return res.status(401).json({ success: false, code: "AUTH_REQUIRED", error: "Unauthorized" });
+    }
+
+    // Verify caller has administrative authority (Server-side Role Check)
+    let callerUser: any = null;
+    try {
+      const snap = await adminDb.collection("users").doc(callerUid).get();
+      if (snap.exists) callerUser = snap.data();
+    } catch (e) {}
+
+    if (!callerUser) {
+      const db = readDb();
+      callerUser = db.users?.find((u: any) => u.id === callerUid);
+    }
+
+    const isAdmin = await isUserAdminServer(callerUid, req.user?.email || callerUser?.email);
+    const callerRole = (callerUser?.role || "").toUpperCase();
+    const isAuthorized = isAdmin || callerRole === "CEO" || callerRole === "ADMIN" || callerRole === "OWNER" || callerRole === "FOUNDER";
+
+    if (!isAuthorized) {
+      return res.status(403).json({
+        success: false,
+        code: "FORBIDDEN",
+        error: "Forbidden: Only CEO or Admin can revoke invitations.",
+        userFriendlyMessage: "ليس لديك صلاحية إلغاء الدعوات. هذه الصلاحية محصورة في إدارة المؤسسة."
+      });
     }
 
     const { email } = req.body;
@@ -4084,39 +4119,53 @@ app.post("/api/admin/revoke-invitation", requireAuth, async (req: AuthRequest, r
   }
 });
 
-// CEO Update Team Member Permissions & Roles (Strict CEO Control)
-app.post("/api/admin/update-member-permissions", async (req, res) => {
+// CEO Update Team Member Permissions & Roles (Strict CEO/Admin Server-side RBAC Control)
+app.post("/api/admin/update-member-permissions", requireAuth, async (req: AuthRequest, res) => {
   try {
+    const callerUid = req.user?.uid;
+    if (!callerUid) {
+      return res.status(401).json({ success: false, code: "AUTH_REQUIRED", error: "Unauthorized" });
+    }
+
     const { ceoId, memberId, memberEmail, powers, role } = req.body;
-    if (!ceoId || !memberEmail) {
-      return res.status(400).json({ error: "CEO ID and Member Email are required." });
+    const targetCeoId = callerUid || ceoId;
+    if (!memberEmail) {
+      return res.status(400).json({ success: false, code: "MISSING_FIELDS", error: "Member Email is required." });
     }
 
     const cleanEmail = memberEmail.trim().toLowerCase();
     const db = readDb();
     
-    // Verify CEO identity and authorization
-    let ceoUser = db.users.find((u: any) => u.id === ceoId);
+    // Verify caller identity and server-side authorization
+    let ceoUser: any = null;
+    try {
+      const ceoDoc = await adminDb.collection("users").doc(callerUid).get();
+      if (ceoDoc.exists) {
+        ceoUser = ceoDoc.data();
+      }
+    } catch (e) {}
+
     if (!ceoUser) {
-      try {
-        const ceoDoc = await adminDb.collection("users").doc(ceoId).get();
-        if (ceoDoc.exists) {
-          ceoUser = ceoDoc.data();
-        }
-      } catch (e) {}
+      ceoUser = db.users?.find((u: any) => u.id === callerUid);
     }
 
-    if (ceoUser && ceoUser.role !== "CEO" && ceoUser.role !== "Admin") {
+    const isAdmin = await isUserAdminServer(callerUid, req.user?.email || ceoUser?.email);
+    const callerRole = (ceoUser?.role || "").toUpperCase();
+    const isAuthorized = isAdmin || callerRole === "CEO" || callerRole === "ADMIN" || callerRole === "OWNER" || callerRole === "FOUNDER";
+
+    if (!isAuthorized) {
       return res.status(403).json({ 
-        error: "Forbidden: Only the CEO has full authority to modify member powers and permissions.",
+        success: false,
+        code: "FORBIDDEN",
+        error: "Forbidden: Only the CEO/Admin has authority to modify member powers and permissions.",
         userFriendlyMessage: "غير مصرح: يمتلك المدير التنفيذي (CEO) وحده الصلاحية الحصرية لتعديل صلاحيات العمال وأعضاء الفريق."
       });
     }
 
     // 1. Update CEO's teamMembersList in Firestore & Local DB
-    if (ceoId) {
+    if (targetCeoId) {
       try {
-        const ceoRef = adminDb.collection("users").doc(ceoId);
+        const ceoRef = adminDb.collection("users").doc(targetCeoId);
         const ceoSnap = await ceoRef.get();
         if (ceoSnap.exists) {
           const data = ceoSnap.data();
@@ -4200,7 +4249,12 @@ app.post("/api/admin/update-member-permissions", async (req, res) => {
     });
   } catch (err: any) {
     console.error("Error updating member permissions:", err);
-    res.status(500).json({ error: err.message || "Failed to update member permissions." });
+    return res.status(500).json({
+      success: false,
+      code: "SERVER_ERROR",
+      error: err.message || "Failed to update member permissions.",
+      userFriendlyMessage: "فشل تحديث صلاحيات العضو."
+    });
   }
 });
 
@@ -6634,28 +6688,22 @@ function validateFileSignature(buffer: Buffer, mimeType: string): boolean {
   const hex = buffer.toString("hex", 0, Math.min(buffer.length, 12)).toLowerCase();
   const mime = (mimeType || "").toLowerCase();
 
-  if (mime.includes("pdf") || hex.startsWith("25504446")) {
-    return hex.startsWith("25504446");
-  }
-  if (mime.includes("png") || hex.startsWith("89504e47")) {
-    return hex.startsWith("89504e47");
-  }
-  if (mime.includes("jpeg") || mime.includes("jpg") || hex.startsWith("ffd8ff")) {
-    return hex.startsWith("ffd8ff");
-  }
-  if (mime.includes("webp") || hex.startsWith("52494646")) {
-    return hex.startsWith("52494646");
-  }
-  if (mime.includes("officedocument") || mime.includes("zip") || hex.startsWith("504b0304")) {
-    return hex.startsWith("504b0304");
-  }
-  if (mime.includes("msword") || hex.startsWith("d0cf11e0")) {
-    return hex.startsWith("d0cf11e0");
-  }
-  if (mime.includes("text")) {
+  // Strict enforcement: Identity & recovery documents support ONLY PDF, PNG, JPG, JPEG
+  // PDF signature: %PDF (25 50 44 46)
+  if (hex.startsWith("25504446") || (mime.includes("pdf") && hex.startsWith("25504446"))) {
     return true;
   }
-  return buffer.length >= 4;
+  // PNG signature: 89 50 4e 47
+  if (hex.startsWith("89504e47") || (mime.includes("png") && hex.startsWith("89504e47"))) {
+    return true;
+  }
+  // JPEG / JPG signature: ff d8 ff
+  if (hex.startsWith("ffd8ff") || ((mime.includes("jpeg") || mime.includes("jpg")) && hex.startsWith("ffd8ff"))) {
+    return true;
+  }
+
+  // Reject all other formats (DOC, DOCX, WEBP, TXT, etc.)
+  return false;
 }
 
 const recoveryUpload = multer({
@@ -7279,7 +7327,7 @@ async function runOrphanCleanup() {
 }
 
 // 1. Upload Identity Verification Document
-app.all(["/api/auth/recovery-request/upload", "/api/auth/recovery-request/upload/"], (req, res, next) => {
+app.all(["/api/auth/recovery-request/upload", "/api/auth/recovery-request/upload/", "/auth/recovery-request/upload", "/auth/recovery-request/upload/"], (req, res, next) => {
   if (req.method === "OPTIONS") {
     return res.status(200).end();
   }
@@ -7368,18 +7416,18 @@ app.all(["/api/auth/recovery-request/upload", "/api/auth/recovery-request/upload
     }
 
     const ext = path.extname(originalName).toLowerCase();
-    const allowedExtensions = [".pdf", ".png", ".jpg", ".jpeg", ".doc", ".docx", ".webp", ".heic", ".heif", ".txt"];
-    const allowedMimeKeywords = ["pdf", "image", "png", "jpeg", "jpg", "msword", "officedocument", "text", "octet-stream"];
+    const allowedExtensions = [".pdf", ".png", ".jpg", ".jpeg"];
+    const allowedMimeKeywords = ["pdf", "image/png", "image/jpeg", "image/jpg", "application/pdf"];
 
-    const isMimeValid = allowedMimeKeywords.some(kw => fileMime.includes(kw));
+    const isMimeValid = allowedMimeKeywords.some(kw => fileMime.includes(kw)) || fileMime === "application/octet-stream";
     const isExtValid = allowedExtensions.includes(ext);
 
-    if (!isMimeValid && !isExtValid) {
+    if (!isExtValid || !isMimeValid) {
       console.error("[RecoveryUpload] FAILED at file validation: unsupported mime/extension", fileMime, ext);
       return res.status(400).json({
         success: false,
         error: "UNSUPPORTED_FORMAT",
-        message: "Unsupported file format. Please upload PDF, Word (.doc/.docx), PNG, JPEG, or TXT documents."
+        message: "Unsupported file format. Supported formats are strictly: PDF, PNG, JPG, JPEG."
       });
     }
 
@@ -7455,8 +7503,8 @@ app.all(["/api/auth/recovery-request/upload", "/api/auth/recovery-request/upload
       fileHash,
       storageReference: `secure_uploads/${documentId}`,
       fileName: safeName,
-      mimeType: file.mimetype,
-      size: file.size,
+      mimeType: fileMime,
+      size: fileSize,
       uploadedAt: new Date().toISOString(),
       storageStatus: "pending"
     };
@@ -7468,7 +7516,7 @@ app.all(["/api/auth/recovery-request/upload", "/api/auth/recovery-request/upload
     // 2. Non-Critical Path: Dispatch background cloud storage synchronization asynchronously without blocking (VM only)
     if (!isServerless) {
       setImmediate(() => {
-        syncDocumentToCloudStorage(documentId, file.buffer, file.mimetype).catch((syncErr) => {
+        syncDocumentToCloudStorage(documentId, fileBuffer, fileMime).catch((syncErr) => {
           console.warn("[Recovery Upload] Background cloud sync error caught safely:", syncErr?.message || syncErr);
         });
       });

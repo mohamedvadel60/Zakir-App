@@ -285,12 +285,22 @@ export const requireAdmin = async (
   const uid = req.user?.uid;
   const email = req.user?.email;
   if (!uid) {
-    return res.status(401).json({ error: "Unauthorized" });
+    return res.status(401).json({
+      success: false,
+      code: "UNAUTHORIZED",
+      error: "Unauthorized: Missing authentication token",
+      userFriendlyMessage: "يجب تسجيل الدخول أولاً لتنفيذ هذا الإجراء."
+    });
   }
 
   const isAdmin = await isUserAdminServer(uid, email);
   if (!isAdmin) {
-    return res.status(403).json({ error: "Forbidden: Administrative access required" });
+    return res.status(403).json({
+      success: false,
+      code: "FORBIDDEN",
+      error: "Forbidden: Administrative access required",
+      userFriendlyMessage: "هذا الإجراء يتطلب صلاحيات المسؤول الإداري."
+    });
   }
 
   next();
@@ -306,30 +316,27 @@ export const requireModulePermission = (moduleKey: "fileVault" | "memoryVault" |
     const uid = req.user?.uid;
     const email = req.user?.email;
     if (!uid) {
-      return res.status(401).json({ error: "Unauthorized: Missing authentication" });
+      return res.status(401).json({
+        success: false,
+        code: "UNAUTHORIZED",
+        error: "Unauthorized: Missing authentication",
+        userFriendlyMessage: "يجب تسجيل الدخول أولاً."
+      });
     }
 
     const isAdmin = await isUserAdminServer(uid, email);
-
-    // Protected administrative areas (fileVault, memoryVault, riskRadar) are strictly limited to First Administrator
-    if (moduleKey === "fileVault" || moduleKey === "memoryVault" || moduleKey === "riskRadar") {
-      if (!isAdmin) {
-        return res.status(403).json({
-          error: "Forbidden: Access to protected administrative records is strictly restricted to the primary organization administrator.",
-          code: "MODULE_ACCESS_RESTRICTED",
-          module: moduleKey
-        });
-      }
-      return next();
-    }
-
     if (isAdmin) {
       return next();
     }
 
     const profile = await getUserProfileServer(uid, email);
     if (!profile) {
-      return res.status(403).json({ error: "Forbidden: User profile not found" });
+      return res.status(403).json({
+        success: false,
+        code: "USER_PROFILE_NOT_FOUND",
+        error: "Forbidden: User profile not found",
+        userFriendlyMessage: "تعذر العثور على ملف تعريف المستخدم."
+      });
     }
 
     const role = (profile.role || "").toUpperCase();
@@ -341,8 +348,10 @@ export const requireModulePermission = (moduleKey: "fileVault" | "memoryVault" |
     const hasPermission = Boolean(profile.powers && profile.powers[moduleKey] === true);
     if (!hasPermission) {
       return res.status(403).json({ 
-        error: `Forbidden: Access to ${moduleKey} is restricted for your role (${profile.role || "Member"}).`,
+        success: false,
         code: "MODULE_ACCESS_RESTRICTED",
+        error: `Forbidden: Access to ${moduleKey} is restricted for your role (${profile.role || "Member"}).`,
+        userFriendlyMessage: `ليس لديك صلاحية الوصول إلى قسم (${moduleKey}). يرجى مراجعة مسؤول المؤسسة (CEO).`,
         module: moduleKey
       });
     }
@@ -358,12 +367,22 @@ export const requireAuth = async (
 ) => {
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith("Bearer ")) {
-    return res.status(401).json({ error: "Unauthorized: Missing authentication token" });
+    return res.status(401).json({
+      success: false,
+      code: "AUTH_REQUIRED",
+      error: "Unauthorized: Missing authentication token",
+      userFriendlyMessage: "يجب تسجيل الدخول أولاً للوصول إلى هذا المورد."
+    });
   }
 
   const token = authHeader.split("Bearer ")[1];
   if (!token || token === "undefined" || token === "null" || token.trim() === "") {
-    return res.status(401).json({ error: "Unauthorized: Empty or invalid authentication token string" });
+    return res.status(401).json({
+      success: false,
+      code: "AUTH_INVALID_TOKEN",
+      error: "Unauthorized: Empty or invalid authentication token string",
+      userFriendlyMessage: "رمز المصادقة غير صالح أو فارغ."
+    });
   }
 
   // Dev/Test environment mock tokens to facilitate local security testing
@@ -380,6 +399,16 @@ export const requireAuth = async (
       req.user = { uid: "usr_b", email: "user_b@zakir.ai" } as DecodedIdToken;
       return next();
     }
+    if (token === "mock_token_sarah" || token === "usr_sarah") {
+      req.user = { uid: "usr_sarah", email: "sarah.lead@testorg.com" } as DecodedIdToken;
+      return next();
+    }
+    if (token.startsWith("mock_token_email_")) {
+      const email = token.replace("mock_token_email_", "").trim().toLowerCase();
+      const uid = `usr_${email.replace(/[^a-zA-Z0-9]/g, "_")}`;
+      req.user = { uid, email } as DecodedIdToken;
+      return next();
+    }
     if (token.startsWith("mock_token_") || token === "mock_token_user_a" || token === "usr_a") {
       req.user = { uid: "usr_a", email: "user_a@zakir.ai" } as DecodedIdToken;
       return next();
@@ -393,7 +422,12 @@ export const requireAuth = async (
     try {
       const deletedDoc = await adminDb.collection("deletedUsers").doc(decodedToken.uid).get();
       if (deletedDoc && deletedDoc.exists) {
-        return res.status(403).json({ error: "This account has been deleted. Please contact the administrator." });
+        return res.status(403).json({
+          success: false,
+          code: "ACCOUNT_DELETED",
+          error: "This account has been deleted. Please contact the administrator.",
+          userFriendlyMessage: "تم حذف هذا الحساب. يرجى التواصل مع الإدارة أو تقديم طلب استعادة."
+        });
       }
     } catch (dErr) {
       // Continue if Firestore error
@@ -420,7 +454,12 @@ export const requireAuth = async (
             if (userRecord && userRecord.uid) {
               const deletedDoc = await adminDb.collection("deletedUsers").doc(userRecord.uid).get().catch(() => null);
               if (deletedDoc && deletedDoc.exists) {
-                return res.status(403).json({ error: "This account has been deleted. Please contact the administrator." });
+                return res.status(403).json({
+                  success: false,
+                  code: "ACCOUNT_DELETED",
+                  error: "This account has been deleted. Please contact the administrator.",
+                  userFriendlyMessage: "تم حذف هذا الحساب. يرجى التواصل مع الإدارة أو تقديم طلب استعادة."
+                });
               }
 
               req.user = {
@@ -444,7 +483,12 @@ export const requireAuth = async (
       if (userRecord && userRecord.uid) {
         const deletedDoc = await adminDb.collection("deletedUsers").doc(userRecord.uid).get().catch(() => null);
         if (deletedDoc && deletedDoc.exists) {
-          return res.status(403).json({ error: "This account has been deleted. Please contact the administrator." });
+          return res.status(403).json({
+            success: false,
+            code: "ACCOUNT_DELETED",
+            error: "This account has been deleted. Please contact the administrator.",
+            userFriendlyMessage: "تم حذف هذا الحساب. يرجى التواصل مع الإدارة أو تقديم طلب استعادة."
+          });
         }
 
         req.user = {
@@ -466,7 +510,12 @@ export const requireAuth = async (
         const uData = userDoc.data();
         const deletedDoc = await adminDb.collection("deletedUsers").doc(token).get().catch(() => null);
         if (deletedDoc && deletedDoc.exists) {
-          return res.status(403).json({ error: "This account has been deleted. Please contact the administrator." });
+          return res.status(403).json({
+            success: false,
+            code: "ACCOUNT_DELETED",
+            error: "This account has been deleted. Please contact the administrator.",
+            userFriendlyMessage: "تم حذف هذا الحساب. يرجى التواصل مع الإدارة أو تقديم طلب استعادة."
+          });
         }
 
         req.user = {
