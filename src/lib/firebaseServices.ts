@@ -2059,24 +2059,66 @@ export async function checkAccountLifecycleApi(email: string) {
   return { success: false, error: lastError?.message || "فشل التحقق من حالة البريد الإلكتروني." };
 }
 
+function fileToBase64DataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = (e) => reject(e);
+    reader.readAsDataURL(file);
+  });
+}
+
 export async function uploadRecoveryDocumentApi(file: File) {
   let lastError: any = null;
   const maxAttempts = 3;
 
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     try {
-      const formData = new FormData();
-      formData.append("file", file);
-
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 20000); // 20s timeout per attempt
+      const timeoutId = setTimeout(() => controller.abort(), 25000); // 25s timeout per attempt
 
-      const res = await fetch(getAuthApiUrl("/api/auth/recovery-request/upload"), {
-        method: "POST",
-        credentials: "include",
-        body: formData,
-        signal: controller.signal
-      });
+      let res: Response;
+
+      // Attempt 1: Multipart FormData; Attempt 2 & 3: Try Base64 JSON fallback if previous attempt had issues
+      if (attempt === 1) {
+        const formData = new FormData();
+        formData.append("file", file);
+
+        res = await fetch(getAuthApiUrl("/api/auth/recovery-request/upload"), {
+          method: "POST",
+          credentials: "include",
+          body: formData,
+          signal: controller.signal
+        });
+      } else {
+        try {
+          const base64Data = await fileToBase64DataUrl(file);
+          res = await fetch(getAuthApiUrl("/api/auth/recovery-request/upload"), {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json"
+            },
+            credentials: "include",
+            body: JSON.stringify({
+              fileBase64: base64Data,
+              fileName: file.name,
+              mimeType: file.type || "application/octet-stream",
+              size: file.size
+            }),
+            signal: controller.signal
+          });
+        } catch (base64Err) {
+          const formData = new FormData();
+          formData.append("file", file);
+          res = await fetch(getAuthApiUrl("/api/auth/recovery-request/upload"), {
+            method: "POST",
+            credentials: "include",
+            body: formData,
+            signal: controller.signal
+          });
+        }
+      }
+
       clearTimeout(timeoutId);
 
       const parsed = await safeParseJsonResponse(res);
@@ -2312,9 +2354,18 @@ export async function loginWithCustomToken(customToken: string): Promise<User | 
   return null;
 }
 
-export async function checkWorkspaceInvitationApi(email: string) {
+export async function checkWorkspaceInvitationApi(param: string | { email?: string; token?: string }) {
   try {
-    const res = await fetch(`/api/auth/check-invitation?email=${encodeURIComponent(email)}`);
+    let url = "/api/auth/check-invitation?";
+    if (typeof param === "string") {
+      url += `email=${encodeURIComponent(param.trim().toLowerCase())}`;
+    } else {
+      const searchParams = new URLSearchParams();
+      if (param.email) searchParams.append("email", param.email.trim().toLowerCase());
+      if (param.token) searchParams.append("token", param.token.trim());
+      url += searchParams.toString();
+    }
+    const res = await fetch(url);
     const data = await safeJsonResponse(res);
     return data?.invitation || null;
   } catch (err) {
@@ -2514,6 +2565,7 @@ export async function safeParseJsonResponse(res: Response) {
     if (res.status === 401) throw new Error("Authentication required.");
     if (res.status === 403) throw new Error("Access denied for this action.");
     if (res.status === 404) throw new Error("Requested resource was not found.");
+    if (res.status === 405) throw new Error("Request method not allowed on this endpoint. Please retry.");
     if (res.status >= 500) throw new Error(`Server error (${res.status}). Please try again.`);
     throw new Error(`Response error (${res.status}): ${text.slice(0, 100) || 'Invalid response'}`);
   }

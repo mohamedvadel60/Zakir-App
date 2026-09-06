@@ -298,7 +298,7 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
     fetch("/api/stripe/config")
       .then((res) => safeJsonResponse(res))
       .then((data) => {
-        if (data?.publishableKey) {
+        if (data?.publishableKey && typeof data.publishableKey === "string" && data.publishableKey.startsWith("pk_")) {
           setStripePromise(getCachedStripe(data.publishableKey));
         }
       })
@@ -415,7 +415,14 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
       setCheckoutClientSecret(data.clientSecret);
 
       const envObj = (import.meta as any).env || {};
-      const resolvedPubKey = data.publishableKey || envObj.VITE_STRIPE_PUBLISHABLE_KEY || envObj.VITE_STRIPE_PUBLIC_KEY;
+      const envCandidate = (typeof envObj.VITE_STRIPE_PUBLISHABLE_KEY === "string" && envObj.VITE_STRIPE_PUBLISHABLE_KEY.startsWith("pk_"))
+        ? envObj.VITE_STRIPE_PUBLISHABLE_KEY
+        : (typeof envObj.VITE_STRIPE_PUBLIC_KEY === "string" && envObj.VITE_STRIPE_PUBLIC_KEY.startsWith("pk_")
+            ? envObj.VITE_STRIPE_PUBLIC_KEY
+            : null);
+      const resolvedPubKey = (typeof data.publishableKey === "string" && data.publishableKey.startsWith("pk_"))
+        ? data.publishableKey
+        : envCandidate;
       if (resolvedPubKey) {
         setStripePromise(getCachedStripe(resolvedPubKey));
       }
@@ -537,6 +544,15 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
   const [editingMemberModal, setEditingMemberModal] = useState<TeamMember | null>(null);
   const [powerSaveNotify, setPowerSaveNotify] = useState(false);
   const [invitations, setInvitations] = useState<WorkspaceInvitation[]>([]);
+  const [copiedLinkEmail, setCopiedLinkEmail] = useState<string | null>(null);
+
+  const handleCopyInviteLink = (inv: WorkspaceInvitation) => {
+    const token = inv.token || "";
+    const inviteUrl = `${window.location.origin}/?invitationToken=${encodeURIComponent(token)}&email=${encodeURIComponent(inv.email)}`;
+    navigator.clipboard.writeText(inviteUrl);
+    setCopiedLinkEmail(inv.email);
+    setTimeout(() => setCopiedLinkEmail(null), 2500);
+  };
 
   useEffect(() => {
     async function loadTeamAndInvitations() {
@@ -3606,6 +3622,8 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
               <div className="space-y-3 pt-1">
                 {invitations.map((inv) => {
                   const isLoadingThis = actionEmailLoading === inv.email;
+                  const isAccepted = inv.status?.toLowerCase() === "accepted";
+                  const isFailed = inv.status?.toLowerCase() === "email_failed";
                   return (
                     <div
                       key={inv.email}
@@ -3613,7 +3631,7 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
                         theme === "dark" ? "bg-slate-900/60 border-slate-800/80" : "bg-white border-slate-200 shadow-sm"
                       }`}
                     >
-                      <div className="space-y-1">
+                      <div className="space-y-2">
                         <div className="flex items-center gap-2 flex-wrap">
                           <span className={`text-sm font-bold ${
                             theme === "dark" ? "text-white" : "text-slate-900"
@@ -3627,6 +3645,28 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
                             {inv.role}
                           </span>
                         </div>
+                        
+                        {/* Powers granted badges */}
+                        {inv.powers && (
+                          <div className="flex items-center gap-1.5 flex-wrap text-[10px]">
+                            {inv.powers.fileVault && (
+                              <span className="px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-500 font-medium">📁 {lang === "ar" ? "الملفات" : "Files"}</span>
+                            )}
+                            {inv.powers.memoryVault && (
+                              <span className="px-1.5 py-0.5 rounded bg-purple-500/10 text-purple-500 font-medium">🧠 {lang === "ar" ? "الذاكرة" : "Memory"}</span>
+                            )}
+                            {inv.powers.riskRadar && (
+                              <span className="px-1.5 py-0.5 rounded bg-rose-500/10 text-rose-500 font-medium">⚠️ {lang === "ar" ? "المخاطر" : "Risks"}</span>
+                            )}
+                            {inv.powers.marketIntel && (
+                              <span className="px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-500 font-medium">📈 {lang === "ar" ? "السوق" : "Market"}</span>
+                            )}
+                            {inv.powers.settings && (
+                              <span className="px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-500 font-medium">⚙️ {lang === "ar" ? "الإعدادات" : "Settings"}</span>
+                            )}
+                          </div>
+                        )}
+
                         <div className={`flex items-center gap-3 text-[11px] ${
                           theme === "dark" ? "text-slate-400" : "text-slate-500"
                         }`}>
@@ -3644,12 +3684,12 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
 
                       <div className="flex items-center gap-3 self-end sm:self-center flex-wrap">
                         {/* Status Badge */}
-                        {inv.status === "accepted" ? (
+                        {isAccepted ? (
                           <span className="px-2.5 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-xs font-bold flex items-center gap-1">
                             <CheckCircle2 className="w-3.5 h-3.5" />
                             <span>{lang === "ar" ? "تم القبول" : "Accepted"}</span>
                           </span>
-                        ) : inv.status === "email_failed" ? (
+                        ) : isFailed ? (
                           <span className="px-2.5 py-1 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-400 text-xs font-bold flex items-center gap-1">
                             <AlertCircle className="w-3.5 h-3.5" />
                             <span>{lang === "ar" ? "تعذر تسليم البريد" : "Delivery Failed"}</span>
@@ -3662,8 +3702,32 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
                         )}
 
                         {/* Actions */}
-                        {inv.status !== "accepted" && (
+                        {!isAccepted && (
                           <div className="flex items-center gap-2">
+                            {/* Direct Link Copy Button */}
+                            <button
+                              type="button"
+                              onClick={() => handleCopyInviteLink(inv)}
+                              className={`px-3 py-1.5 border text-xs font-bold rounded-lg flex items-center gap-1.5 cursor-pointer transition-all ${
+                                copiedLinkEmail === inv.email
+                                  ? "bg-emerald-500/15 border-emerald-500/30 text-emerald-500"
+                                  : "bg-slate-500/10 hover:bg-slate-500/20 border-slate-500/30 text-slate-700 dark:text-slate-300"
+                              }`}
+                              title={lang === "ar" ? "نسخ رابط الدعوة المباشر لمشاركته" : "Copy Direct Invitation Link"}
+                            >
+                              {copiedLinkEmail === inv.email ? (
+                                <>
+                                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
+                                  <span>{lang === "ar" ? "تم النسخ!" : "Copied!"}</span>
+                                </>
+                              ) : (
+                                <>
+                                  <Copy className="w-3.5 h-3.5" />
+                                  <span>{lang === "ar" ? "نسخ الرابط" : "Copy Link"}</span>
+                                </>
+                              )}
+                            </button>
+
                             <button
                               type="button"
                               disabled={isLoadingThis}

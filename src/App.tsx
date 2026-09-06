@@ -27,6 +27,7 @@ import {
   CreditCard, 
   FileText, 
   Clock, 
+  AlertCircle,
   Volume2, 
   ChevronRight, 
   ChevronLeft,
@@ -148,6 +149,7 @@ import {
   resolveFirebaseUserRiskAlert,
   bulkEncryptUserMemoriesAndFiles,
   checkWorkspaceInvitation,
+  checkWorkspaceInvitationApi,
   deleteWorkspaceInvitation,
   acceptWorkspaceInvitationApi,
   fetchWorkspaceTeamApi,
@@ -1069,6 +1071,44 @@ This hosting domain (**${currentDomain}**) has not been authorized in your Fireb
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [showRefreshToast, setShowRefreshToast] = useState(false);
   const [incomingInvitation, setIncomingInvitation] = useState<WorkspaceInvitation | null>(null);
+  const [urlInvitation, setUrlInvitation] = useState<WorkspaceInvitation | null>(null);
+  const [invitationMismatch, setInvitationMismatch] = useState<{ invitedEmail: string; loggedInEmail: string } | null>(null);
+
+  // Parse invitation URL parameters on mount
+  useEffect(() => {
+    try {
+      const searchParams = new URLSearchParams(window.location.search);
+      const token = searchParams.get("invitationToken") || searchParams.get("inviteToken") || searchParams.get("token") || searchParams.get("invite");
+      const emailParam = searchParams.get("email");
+
+      if (token || emailParam) {
+        checkWorkspaceInvitationApi({ email: emailParam || undefined, token: token || undefined }).then((inv) => {
+          if (inv) {
+            setUrlInvitation(inv);
+            if (!currentUser) {
+              setAuthMode("register");
+              if (inv.email) setRegEmail(inv.email);
+              if (inv.companyName) setRegCompanyName(inv.companyName);
+            }
+          }
+        });
+      }
+    } catch (e) {}
+  }, []);
+
+  // Sync urlInvitation when currentUser is available or changes
+  useEffect(() => {
+    if (urlInvitation && currentUser) {
+      const invEmail = (urlInvitation.email || "").trim().toLowerCase();
+      const currentEmail = (currentUser.email || "").trim().toLowerCase();
+      if (invEmail && currentEmail && invEmail !== currentEmail) {
+        setInvitationMismatch({ invitedEmail: invEmail, loggedInEmail: currentEmail });
+      } else {
+        setIncomingInvitation(urlInvitation);
+        setInvitationMismatch(null);
+      }
+    }
+  }, [urlInvitation, currentUser]);
 
   // Last Update Timer States
   const [lastUpdatedTimestamp, setLastUpdatedTimestamp] = useState<number>(Date.now());
@@ -3126,6 +3166,22 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                   lang={lang}
                 />
 
+                {urlInvitation && !showForgotPassword && (
+                  <div className="mt-4 mb-2 p-3.5 rounded-xl border border-[#0075DE]/30 bg-[#0075DE]/10 text-xs text-slate-800 dark:text-slate-200 flex items-start gap-2.5 shadow-sm">
+                    <Sparkles className="w-4 h-4 text-[#0075DE] shrink-0 mt-0.5" />
+                    <div className="flex-1 space-y-1 text-start">
+                      <p className="font-bold text-[#0075DE]">
+                        {lang === "ar" ? "دعوة انضمام لمساحة العمل" : "Workspace Invitation"}
+                      </p>
+                      <p className="text-[11px] text-slate-600 dark:text-slate-300 leading-relaxed">
+                        {lang === "ar"
+                          ? `تمت دعوتك للانضمام إلى مؤسسة "${urlInvitation.companyName}" بصفة "${urlInvitation.role}". أكمل التسجيل أو سجّل الدخول بالبريد المدعو لتفعيل عضويتك فوراً.`
+                          : `You have been invited to join "${urlInvitation.companyName}" as a "${urlInvitation.role}". Complete registration or log in with your invited email to activate membership.`}
+                      </p>
+                    </div>
+                  </div>
+                )}
+
               {showForgotPassword ? (
                 /* FORGOT PASSWORD FORM */
                 <div>
@@ -4160,6 +4216,40 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
 
             {/* APP CONTENT VIEWS CONTROLLER */}
             <div className="p-8 max-w-7xl mx-auto space-y-8">
+
+              {/* INVITATION EMAIL MISMATCH NOTIFICATION */}
+              {invitationMismatch && (
+                <motion.div
+                  initial={{ opacity: 0, y: -15 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="p-5 rounded-2xl border-2 border-amber-500/40 bg-amber-500/10 shadow-lg relative overflow-hidden backdrop-blur-md"
+                >
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div className="flex items-start gap-3">
+                      <AlertCircle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
+                      <div className="space-y-1">
+                        <h3 className="text-sm font-bold text-amber-600 dark:text-amber-400">
+                          {lang === "ar" ? "دعوة موجهة لبريد إلكتروني آخر" : "Invitation For a Different Email Address"}
+                        </h3>
+                        <p className="text-xs text-slate-700 dark:text-slate-300 leading-relaxed">
+                          {lang === "ar"
+                            ? `هذه الدعوة مخصصة لـ (${invitationMismatch.invitedEmail})، لكنك مسجل حالياً بحساب (${invitationMismatch.loggedInEmail}). يرجى تسجيل الخروج والدخول بالحساب المدعو لقبول الدعوة.`
+                            : `This invitation was issued to (${invitationMismatch.invitedEmail}), but you are signed in as (${invitationMismatch.loggedInEmail}). Please switch accounts to accept.`}
+                        </p>
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => handleLogout()}
+                      className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold text-xs shrink-0 cursor-pointer transition-all flex items-center justify-center gap-1.5 shadow-sm"
+                    >
+                      <LogOut className="w-4 h-4" />
+                      <span>{lang === "ar" ? "تسجيل الخروج والتبديل" : "Sign Out & Switch"}</span>
+                    </button>
+                  </div>
+                </motion.div>
+              )}
 
               {/* INCOMING WORKSPACE INVITATION WARNING / ACTION BANNER */}
               {incomingInvitation && (

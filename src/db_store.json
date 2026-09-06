@@ -1132,6 +1132,17 @@
       "storageStatus": "pending",
       "associated": true,
       "associatedRequestId": "REQ-1788383547812-938"
+    },
+    {
+      "documentId": "doc_1788712138111_13befe8d",
+      "uploadToken": "db697a83a812c080423e20def354c7790fac4e8a716aede7f98e96ab342569ea",
+      "fileHash": "610ab4a54771e4f298f096048d6edf740048eed1943aafe0c9c5b2ec399264f6",
+      "fileName": "test_doc.txt",
+      "mimeType": "text/plain",
+      "size": 16,
+      "uploadedAt": "2026-09-06T16:28:58.502Z",
+      "storageStatus": "pending",
+      "associated": false
     }
   ],
   "account_recovery_requests": [
@@ -1944,6 +1955,17 @@
       "createdAt": "2026-09-02T21:47:35.855Z",
       "expiresAt": "2026-09-16T21:47:35.855Z",
       "syncError": "Primary Firestore chunk storage active (Bucket unprovisioned)"
+    },
+    "doc_1788712138111_13befe8d": {
+      "documentId": "doc_1788712138111_13befe8d",
+      "mimeType": "text/plain",
+      "size": 16,
+      "fileName": "test_doc.txt",
+      "fileHash": "610ab4a54771e4f298f096048d6edf740048eed1943aafe0c9c5b2ec399264f6",
+      "storageStatus": "pending",
+      "syncAttempts": 0,
+      "createdAt": "2026-09-06T16:28:58.113Z",
+      "expiresAt": "2026-09-20T16:28:58.113Z"
     }
   },
   "invitations": [

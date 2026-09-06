@@ -327,16 +327,25 @@ interface ResolvedStripeKeys {
 }
 
 function resolveStripeKeys(): ResolvedStripeKeys {
-  const envPub = (
-    process.env.VITE_STRIPE_PUBLISHABLE_KEY ||
-    process.env.VITE_STRIPE_PUBLIC_KEY ||
-    process.env.STRIPE_PUBLISHABLE_KEY ||
-    process.env.STRIPE_PUBLIC_KEY ||
-    ""
-  ).trim();
+  const pubCandidates: { key: string; source: string }[] = [];
+  const checkPubCandidate = (val: string | undefined, source: string) => {
+    if (val && typeof val === "string") {
+      const trimmed = val.trim();
+      if (trimmed.startsWith("pk_live_") || trimmed.startsWith("pk_test_")) {
+        if (!pubCandidates.some(p => p.key === trimmed)) {
+          pubCandidates.push({ key: trimmed, source });
+        }
+      }
+    }
+  };
 
-  const candidates: { key: string; source: string }[] = [];
-  const addCandidate = (val: string | undefined, source: string) => {
+  checkPubCandidate(process.env.VITE_STRIPE_PUBLISHABLE_KEY, "VITE_STRIPE_PUBLISHABLE_KEY");
+  checkPubCandidate(process.env.STRIPE_PUBLISHABLE_KEY, "STRIPE_PUBLISHABLE_KEY");
+  checkPubCandidate(process.env.VITE_STRIPE_PUBLIC_KEY, "VITE_STRIPE_PUBLIC_KEY");
+  checkPubCandidate(process.env.STRIPE_PUBLIC_KEY, "STRIPE_PUBLIC_KEY");
+
+  const secretCandidates: { key: string; source: string }[] = [];
+  const addSecretCandidate = (val: string | undefined, source: string) => {
     if (val && typeof val === "string") {
       const trimmed = val.trim();
       if (
@@ -345,33 +354,37 @@ function resolveStripeKeys(): ResolvedStripeKeys {
         trimmed.startsWith("rk_live_") ||
         trimmed.startsWith("rk_test_")
       ) {
-        candidates.push({ key: trimmed, source });
+        if (!secretCandidates.some(c => c.key === trimmed)) {
+          secretCandidates.push({ key: trimmed, source });
+        }
       }
     }
   };
 
-  addCandidate(process.env.STRIPE_SECRET_KEY, "STRIPE_SECRET_KEY");
-  addCandidate(process.env.STRIPE_LIVE_SECRET_KEY, "STRIPE_LIVE_SECRET_KEY");
-  addCandidate(process.env.STRIPE_TEST_SECRET_KEY, "STRIPE_TEST_SECRET_KEY");
-  addCandidate(process.env.STRIPE_MONTHLY_PRICE_ID, "STRIPE_MONTHLY_PRICE_ID");
-  addCandidate(process.env.STRIPE_YEARLY_PRICE_ID, "STRIPE_YEARLY_PRICE_ID");
+  addSecretCandidate(process.env.STRIPE_SECRET_KEY, "STRIPE_SECRET_KEY");
+  addSecretCandidate(process.env.STRIPE_LIVE_SECRET_KEY, "STRIPE_LIVE_SECRET_KEY");
+  addSecretCandidate(process.env.STRIPE_TEST_SECRET_KEY, "STRIPE_TEST_SECRET_KEY");
+  addSecretCandidate(process.env.VITE_STRIPE_PUBLIC_KEY, "VITE_STRIPE_PUBLIC_KEY");
+  addSecretCandidate(process.env.STRIPE_MONTHLY_PRICE_ID, "STRIPE_MONTHLY_PRICE_ID");
+  addSecretCandidate(process.env.STRIPE_YEARLY_PRICE_ID, "STRIPE_YEARLY_PRICE_ID");
 
-  const pubIsLive = envPub.startsWith("pk_live_");
-  const pubIsTest = envPub.startsWith("pk_test_");
+  const primaryPub = pubCandidates[0]?.key || null;
+  const pubIsLive = primaryPub ? primaryPub.startsWith("pk_live_") : false;
+  const pubIsTest = primaryPub ? primaryPub.startsWith("pk_test_") : false;
 
   const extractAcctId = (k: string) => {
-    const match = k.match(/^[prs]k_(live|test)_5?([0-9a-zA-Z]+)/);
-    return match ? match[2].substring(0, 14) : "";
+    const match = k.match(/^[prs]k_(?:live|test)_(?:51)?([0-9a-zA-Z]+)/);
+    return match ? match[1].substring(0, 14) : "";
   };
 
-  const pubAcct = envPub ? extractAcctId(envPub) : "";
+  const pubAcct = primaryPub ? extractAcctId(primaryPub) : "";
 
   let selectedKey: string | null = null;
   let selectedSource = "none";
 
   // Priority 1: Match secret key to publishable key account ID and mode
   if (pubAcct) {
-    const matched = candidates.find(c => {
+    const matched = secretCandidates.find(c => {
       const cAcct = extractAcctId(c.key);
       const cIsLive = c.key.startsWith("sk_live_") || c.key.startsWith("rk_live_");
       return cAcct === pubAcct && (pubIsLive ? cIsLive : !cIsLive);
@@ -383,15 +396,15 @@ function resolveStripeKeys(): ResolvedStripeKeys {
   }
 
   // Priority 2: Match mode of publishable key
-  if (!selectedKey && candidates.length > 0) {
+  if (!selectedKey && secretCandidates.length > 0) {
     if (pubIsLive) {
-      const liveCand = candidates.find(c => c.key.startsWith("sk_live_") || c.key.startsWith("rk_live_"));
+      const liveCand = secretCandidates.find(c => c.key.startsWith("sk_live_") || c.key.startsWith("rk_live_"));
       if (liveCand) {
         selectedKey = liveCand.key;
         selectedSource = liveCand.source;
       }
     } else if (pubIsTest) {
-      const testCand = candidates.find(c => c.key.startsWith("sk_test_") || c.key.startsWith("rk_test_"));
+      const testCand = secretCandidates.find(c => c.key.startsWith("sk_test_") || c.key.startsWith("rk_test_"));
       if (testCand) {
         selectedKey = testCand.key;
         selectedSource = testCand.source;
@@ -401,13 +414,13 @@ function resolveStripeKeys(): ResolvedStripeKeys {
 
   // Priority 3: Fall back to standard STRIPE_SECRET_KEY or first available candidate
   if (!selectedKey) {
-    const primary = candidates.find(c => c.source === "STRIPE_SECRET_KEY");
+    const primary = secretCandidates.find(c => c.source === "STRIPE_SECRET_KEY");
     if (primary) {
       selectedKey = primary.key;
       selectedSource = primary.source;
-    } else if (candidates.length > 0) {
-      selectedKey = candidates[0].key;
-      selectedSource = candidates[0].source;
+    } else if (secretCandidates.length > 0) {
+      selectedKey = secretCandidates[0].key;
+      selectedSource = secretCandidates[0].source;
     }
   }
 
@@ -418,7 +431,7 @@ function resolveStripeKeys(): ResolvedStripeKeys {
 
   return {
     secretKey: selectedKey,
-    publishableKey: envPub || null,
+    publishableKey: primaryPub,
     mode: isLiveMode ? "live" : "test",
     accountId: selectedKey ? extractAcctId(selectedKey) : undefined,
     source: selectedSource
@@ -1087,7 +1100,7 @@ app.post(["/api/stripe/create-checkout-session", "/stripe/create-checkout-sessio
           quantity: 1,
         }];
 
-    // Build Session Parameters with ui_mode: "embedded", explicit payment methods, and return_url
+    // Build Session Parameters with ui_mode: "embedded_page" (modern Stripe standard), explicit payment methods, and return_url
     const returnUrl = `${baseUrl}/?view=settings&tab=subscription&session_id={CHECKOUT_SESSION_ID}`;
     const sessionParams: Stripe.Checkout.SessionCreateParams = {
       mode: "subscription",
@@ -1101,7 +1114,7 @@ app.post(["/api/stripe/create-checkout-session", "/stripe/create-checkout-sessio
         plan: requestedPlan,
         billingCycle: requestedCycle,
       },
-      ui_mode: "embedded",
+      ui_mode: "embedded_page" as any,
       return_url: returnUrl,
     };
 
@@ -1112,7 +1125,18 @@ app.post(["/api/stripe/create-checkout-session", "/stripe/create-checkout-sessio
     }
 
     console.log(`[Stripe Checkout] Creating Embedded Checkout Session for user ${finalUserId} (method: card, items: ${resolvedPriceId ? 'catalog' : 'dynamic price_data'})...`);
-    const session = await stripe.checkout.sessions.create(sessionParams);
+    let session: Stripe.Checkout.Session;
+    try {
+      session = await stripe.checkout.sessions.create(sessionParams);
+    } catch (createSessionErr: any) {
+      if (createSessionErr?.param === "ui_mode" || createSessionErr?.message?.includes("ui_mode")) {
+        console.warn("[Stripe Checkout] Retrying session creation with ui_mode: 'embedded' fallback...");
+        sessionParams.ui_mode = "embedded" as any;
+        session = await stripe.checkout.sessions.create(sessionParams);
+      } else {
+        throw createSessionErr;
+      }
+    }
 
     console.log(`[Stripe Checkout] Checkout Session created successfully: id=${session.id}`);
 
@@ -1441,12 +1465,21 @@ function getOfficialPngLogo(): Buffer {
 }
 
 function getAppBaseUrl(req?: express.Request): string {
-  if (process.env.APP_URL && !process.env.APP_URL.includes("localhost") && !process.env.APP_URL.includes("127.0.0.1") && !process.env.APP_URL.includes("run.app")) {
-    return process.env.APP_URL.replace(/\/$/, "");
+  if (process.env.APP_URL && process.env.APP_URL.trim()) {
+    return process.env.APP_URL.trim().replace(/\/$/, "");
   }
-  if (req && req.headers && req.headers.host && !req.headers.host.includes("run.app") && !req.headers.host.includes("localhost")) {
-    const proto = req.headers["x-forwarded-proto"] || "https";
-    return `${proto}://${req.headers.host}`.replace(/\/$/, "");
+  if (process.env.PUBLIC_APP_URL && process.env.PUBLIC_APP_URL.trim()) {
+    return process.env.PUBLIC_APP_URL.trim().replace(/\/$/, "");
+  }
+  if (req) {
+    if (req.headers && req.headers.origin && typeof req.headers.origin === "string" && req.headers.origin.startsWith("http")) {
+      return req.headers.origin.replace(/\/$/, "");
+    }
+    const host = req.headers["x-forwarded-host"] || req.headers.host;
+    if (host && typeof host === "string") {
+      const proto = (req.headers["x-forwarded-proto"] as string) || "https";
+      return `${proto}://${host}`.replace(/\/$/, "");
+    }
   }
   return "https://www.getzakir.com";
 }
@@ -3838,7 +3871,7 @@ app.post("/api/admin/send-invitation", requireAuth, async (req: AuthRequest, res
     }
 
     // 9. Dispatch Email via Resend / System Mailer
-    const appBaseUrl = process.env.APP_URL || process.env.PUBLIC_APP_URL || getAppBaseUrl();
+    const appBaseUrl = process.env.APP_URL || process.env.PUBLIC_APP_URL || getAppBaseUrl(req);
     const inviteLink = `${appBaseUrl}/?invitationToken=${secureToken}&email=${encodeURIComponent(normalizedEmail)}`;
     const inviterName = ceoData?.ownerName || ceoData?.email || "Workspace Admin";
 
@@ -3974,7 +4007,7 @@ app.post("/api/admin/resend-invitation", requireAuth, async (req: AuthRequest, r
     const companyName = invRecord.companyName || ceoData?.companyName || "Zakir Workspace";
     const memberName = invRecord.name || normalizedEmail.split("@")[0];
     const designatedRole = invRecord.role || "Contributor";
-    const appBaseUrl = process.env.APP_URL || process.env.PUBLIC_APP_URL || getAppBaseUrl();
+    const appBaseUrl = process.env.APP_URL || process.env.PUBLIC_APP_URL || getAppBaseUrl(req);
     const inviteLink = `${appBaseUrl}/?invitationToken=${secureToken}&email=${encodeURIComponent(normalizedEmail)}`;
     const inviterName = ceoData?.ownerName || ceoData?.email || "Workspace Admin";
 
@@ -3984,7 +4017,8 @@ app.post("/api/admin/resend-invitation", requireAuth, async (req: AuthRequest, r
       inviterName,
       designatedRole,
       inviteLink,
-      isReminder: true
+      isReminder: true,
+      language: ceoData?.language || "ar"
     });
 
     const mailResult = await sendSystemMail({
@@ -6424,21 +6458,36 @@ app.post("/api/auth/restore-account", async (req, res) => {
 app.get("/api/auth/check-invitation", async (req, res) => {
   try {
     const email = (req.query.email as string || "").trim().toLowerCase();
-    if (!email) {
+    const token = (req.query.token as string || req.query.invitationToken as string || "").trim();
+    if (!email && !token) {
       return res.json({ success: true, invitation: null });
     }
 
     let invitation: any = null;
-    try {
-      const docSnap = await adminDb.collection("invitations").doc(email).get();
-      if (docSnap.exists) {
-        invitation = docSnap.data();
-      }
-    } catch (e) {}
+    if (email) {
+      try {
+        const docSnap = await adminDb.collection("invitations").doc(email).get();
+        if (docSnap.exists) {
+          invitation = docSnap.data();
+        }
+      } catch (e) {}
+    }
+
+    if (!invitation && token) {
+      try {
+        const qSnap = await adminDb.collection("invitations").where("token", "==", token).limit(1).get();
+        if (!qSnap.empty) {
+          invitation = qSnap.docs[0].data();
+        }
+      } catch (e) {}
+    }
 
     if (!invitation) {
       const db = readDb();
-      invitation = db.invitations?.find((i: any) => i.email?.trim().toLowerCase() === email) || null;
+      invitation = db.invitations?.find((i: any) => 
+        (email && i.email?.trim().toLowerCase() === email) ||
+        (token && i.token === token)
+      ) || null;
     }
 
     return res.json({ success: true, invitation });
@@ -7230,27 +7279,41 @@ async function runOrphanCleanup() {
 }
 
 // 1. Upload Identity Verification Document
-app.post("/api/auth/recovery-request/upload", (req, res, next) => {
-  console.log("[RecoveryUpload] request received");
-  recoveryUpload.any()(req, res, (err: any) => {
-    if (err) {
-      console.error("[RecoveryUpload] FAILED at multipart parsed:", err?.message || err);
-      if (err.code === "LIMIT_FILE_SIZE") {
-        return res.status(413).json({
+app.all(["/api/auth/recovery-request/upload", "/api/auth/recovery-request/upload/"], (req, res, next) => {
+  if (req.method === "OPTIONS") {
+    return res.status(200).end();
+  }
+  if (req.method !== "POST") {
+    return res.status(405).json({
+      success: false,
+      error: `Method ${req.method} Not Allowed. Please use POST.`,
+      userFriendlyMessage: "طريقة الطلب غير صالحة، يرجى استخدام POST."
+    });
+  }
+  next();
+}, (req, res, next) => {
+  const contentType = (req.headers["content-type"] || "").toLowerCase();
+  if (contentType.includes("multipart/form-data")) {
+    return recoveryUpload.any()(req, res, (err: any) => {
+      if (err) {
+        console.error("[RecoveryUpload] FAILED at multipart parsed:", err?.message || err);
+        if (err.code === "LIMIT_FILE_SIZE") {
+          return res.status(413).json({
+            success: false,
+            error: "IDENTITY_DOCUMENT_TOO_LARGE",
+            message: "File exceeds the 10MB size limit."
+          });
+        }
+        return res.status(400).json({
           success: false,
-          error: "IDENTITY_DOCUMENT_TOO_LARGE",
-          message: "File exceeds the 10MB size limit."
+          error: "FILE_UPLOAD_ERROR",
+          message: err.message || "File upload error"
         });
       }
-      return res.status(400).json({
-        success: false,
-        error: "FILE_UPLOAD_ERROR",
-        message: err.message || "File upload error"
-      });
-    }
-    console.log("[RecoveryUpload] multipart parsed");
-    next();
-  });
+      next();
+    });
+  }
+  next();
 }, async (req, res) => {
   let currentStage = "file detected";
   try {
@@ -7261,9 +7324,28 @@ app.post("/api/auth/recovery-request/upload", (req, res, next) => {
       });
     }
 
+    let fileBuffer: Buffer | null = null;
+    let originalName = "document";
+    let fileMime = "application/octet-stream";
+    let fileSize = 0;
+
     const file = req.file || (Array.isArray(req.files) ? req.files[0] : ((req.files as any)?.document?.[0] || (req.files as any)?.file?.[0]));
-    if (!file) {
-      console.error("[RecoveryUpload] FAILED at file detected: missing file in multipart payload");
+    if (file && file.buffer) {
+      fileBuffer = file.buffer;
+      originalName = file.originalname || "document";
+      fileMime = (file.mimetype || "").toLowerCase();
+      fileSize = file.size;
+    } else if (req.body?.fileBase64 || req.body?.data || req.body?.file) {
+      const rawBase64 = String(req.body.fileBase64 || req.body.data || req.body.file);
+      const cleanBase64 = rawBase64.replace(/^data:[^;]+;base64,/, "");
+      fileBuffer = Buffer.from(cleanBase64, "base64");
+      originalName = req.body.fileName || "document";
+      fileMime = (req.body.mimeType || "application/octet-stream").toLowerCase();
+      fileSize = fileBuffer.length;
+    }
+
+    if (!fileBuffer || fileBuffer.length === 0) {
+      console.error("[RecoveryUpload] FAILED at file detected: missing file payload");
       return res.status(400).json({
         success: false,
         error: "MISSING_FILE",
@@ -7276,7 +7358,7 @@ app.post("/api/auth/recovery-request/upload", (req, res, next) => {
     console.log("[RecoveryUpload] file validation started");
 
     // Validate size (10MB max)
-    if (file.size > 10 * 1024 * 1024) {
+    if (fileSize > 10 * 1024 * 1024) {
       console.error("[RecoveryUpload] FAILED at file validation: file exceeds 10MB");
       return res.status(413).json({
         success: false,
@@ -7285,17 +7367,15 @@ app.post("/api/auth/recovery-request/upload", (req, res, next) => {
       });
     }
 
-    const originalName = file.originalname || "document";
     const ext = path.extname(originalName).toLowerCase();
     const allowedExtensions = [".pdf", ".png", ".jpg", ".jpeg", ".doc", ".docx", ".webp", ".heic", ".heif", ".txt"];
     const allowedMimeKeywords = ["pdf", "image", "png", "jpeg", "jpg", "msword", "officedocument", "text", "octet-stream"];
 
-    const fileMime = (file.mimetype || "").toLowerCase();
     const isMimeValid = allowedMimeKeywords.some(kw => fileMime.includes(kw));
     const isExtValid = allowedExtensions.includes(ext);
 
     if (!isMimeValid && !isExtValid) {
-      console.error("[RecoveryUpload] FAILED at file validation: unsupported mime/extension", file.mimetype, ext);
+      console.error("[RecoveryUpload] FAILED at file validation: unsupported mime/extension", fileMime, ext);
       return res.status(400).json({
         success: false,
         error: "UNSUPPORTED_FORMAT",
@@ -7304,7 +7384,7 @@ app.post("/api/auth/recovery-request/upload", (req, res, next) => {
     }
 
     // Validate file signature / magic bytes
-    if (!validateFileSignature(file.buffer, file.mimetype || ext)) {
+    if (!validateFileSignature(fileBuffer, fileMime || ext)) {
       console.error("[RecoveryUpload] FAILED at file validation: invalid file signature");
       return res.status(400).json({
         success: false,
@@ -7321,8 +7401,12 @@ app.post("/api/auth/recovery-request/upload", (req, res, next) => {
     console.log("[RecoveryUpload] documentId generated");
 
     currentStage = "SHA-256 calculated";
-    const fileHash = crypto.createHash("sha256").update(file.buffer).digest("hex");
-    const safeName = path.basename(originalName).replace(/[^a-zA-Z0-9.-]/g, "_");
+    const fileHash = crypto.createHash("sha256").update(fileBuffer).digest("hex");
+    let decodedName = originalName;
+    try {
+      decodedName = decodeURIComponent(originalName);
+    } catch (e) {}
+    const safeName = decodedName.replace(/[\/\\?%*:|"<>]/g, "_").trim() || "document";
     console.log("[RecoveryUpload] SHA-256 calculated");
 
     // Safe Duplicate / Retry Handling: check if exact file was uploaded in the last 10 minutes
@@ -7359,9 +7443,9 @@ app.post("/api/auth/recovery-request/upload", (req, res, next) => {
 
     // 1. Critical Path: Persist document to DURABLE primary storage layer immediately
     currentStage = "Firestore persistence";
-    await saveDocumentToPersistentStorage(documentId, file.buffer, file.mimetype, {
+    await saveDocumentToPersistentStorage(documentId, fileBuffer, fileMime, {
       fileName: safeName,
-      size: file.size,
+      size: fileSize,
       fileHash
     });
 
