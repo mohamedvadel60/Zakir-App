@@ -1267,6 +1267,39 @@
       "uploadedAt": "2026-09-07T14:59:56.894Z",
       "storageStatus": "pending",
       "associated": false
+    },
+    {
+      "documentId": "doc_1788793345119_89ad59df",
+      "uploadToken": "998a4d90a491d0d31d7530e8137635ae2627036c874a1a19244670bb69df07fe",
+      "fileHash": "7f5532c918b30c1b6fc16f61d71baa93e1c2ce4b0183a9258cd866c31421fe92",
+      "fileName": "Screenshot 2026-07-20 114208.png",
+      "mimeType": "image/png",
+      "size": 117070,
+      "uploadedAt": "2026-09-07T15:02:26.162Z",
+      "storageStatus": "pending",
+      "associated": false
+    },
+    {
+      "documentId": "doc_1788794199913_9795e7a0",
+      "uploadToken": "4786f2ad1e355c7b337799507dc1858a1e30d5f8c5dd3259f00058910a98eb52",
+      "fileHash": "6b7fa434f92a8b80aab02d9bf1a12e49ffcae424e4013a1c4f68b67e3d2bbcd0",
+      "fileName": "verify_now.png",
+      "mimeType": "image/png",
+      "size": 70,
+      "uploadedAt": "2026-09-07T15:16:40.806Z",
+      "storageStatus": "pending",
+      "associated": false
+    },
+    {
+      "documentId": "doc_1788794394768_599ef8ac",
+      "uploadToken": "523783af6c8fcf2fa9f469c2daf6694a0dec38eee3e3abb1d11605f0d3802647",
+      "fileHash": "6b7fa434f92a8b80aab02d9bf1a12e49ffcae424e4013a1c4f68b67e3d2bbcd0",
+      "fileName": "doc.png",
+      "mimeType": "image/png",
+      "size": 70,
+      "uploadedAt": "2026-09-07T15:19:57.175Z",
+      "storageStatus": "pending",
+      "associated": false
     }
   ],
   "account_recovery_requests": [
@@ -2338,10 +2371,46 @@
       "size": 70,
       "fileName": "verify.png",
       "fileHash": "6b7fa434f92a8b80aab02d9bf1a12e49ffcae424e4013a1c4f68b67e3d2bbcd0",
+      "storageStatus": "firestore_durable",
+      "syncAttempts": 1,
+      "createdAt": "2026-09-07T14:59:56.446Z",
+      "expiresAt": "2026-09-21T14:59:56.446Z",
+      "syncError": "Primary Firestore chunk storage active (Bucket unprovisioned)"
+    },
+    "doc_1788793345119_89ad59df": {
+      "documentId": "doc_1788793345119_89ad59df",
+      "mimeType": "image/png",
+      "size": 117070,
+      "fileName": "Screenshot 2026-07-20 114208.png",
+      "fileHash": "7f5532c918b30c1b6fc16f61d71baa93e1c2ce4b0183a9258cd866c31421fe92",
+      "storageStatus": "firestore_durable",
+      "syncAttempts": 1,
+      "createdAt": "2026-09-07T15:02:25.123Z",
+      "expiresAt": "2026-09-21T15:02:25.123Z",
+      "syncError": "Primary Firestore chunk storage active (Bucket unprovisioned)"
+    },
+    "doc_1788794199913_9795e7a0": {
+      "documentId": "doc_1788794199913_9795e7a0",
+      "mimeType": "image/png",
+      "size": 70,
+      "fileName": "verify_now.png",
+      "fileHash": "6b7fa434f92a8b80aab02d9bf1a12e49ffcae424e4013a1c4f68b67e3d2bbcd0",
+      "storageStatus": "firestore_durable",
+      "syncAttempts": 1,
+      "createdAt": "2026-09-07T15:16:39.915Z",
+      "expiresAt": "2026-09-21T15:16:39.915Z",
+      "syncError": "Primary Firestore chunk storage active (Bucket unprovisioned)"
+    },
+    "doc_1788794394768_599ef8ac": {
+      "documentId": "doc_1788794394768_599ef8ac",
+      "mimeType": "image/png",
+      "size": 70,
+      "fileName": "doc.png",
+      "fileHash": "6b7fa434f92a8b80aab02d9bf1a12e49ffcae424e4013a1c4f68b67e3d2bbcd0",
       "storageStatus": "pending",
       "syncAttempts": 0,
-      "createdAt": "2026-09-07T14:59:56.446Z",
-      "expiresAt": "2026-09-21T14:59:56.446Z"
+      "createdAt": "2026-09-07T15:19:54.774Z",
+      "expiresAt": "2026-09-21T15:19:54.774Z"
     }
   },
   "invitations": [

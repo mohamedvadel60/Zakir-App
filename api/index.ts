@@ -119,7 +119,7 @@ export default async function handler(req: any, res: any) {
   res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS");
   res.setHeader(
     "Access-Control-Allow-Headers",
-    "Content-Type, Authorization, x-goog-api-key, X-Requested-With, Accept, Origin, X-Api-Key"
+    "Content-Type, Authorization, x-goog-api-key, X-Requested-With, Accept, Origin, X-Api-Key, X-HTTP-Method-Override, x-http-method-override"
   );
 
   if (req.method === "OPTIONS") {
