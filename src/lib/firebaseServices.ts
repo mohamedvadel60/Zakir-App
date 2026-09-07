@@ -2089,6 +2089,7 @@ export async function uploadRecoveryDocumentApi(file: File) {
         res = await fetch(getAuthApiUrl("/api/auth/recovery-request/upload"), {
           method: "POST",
           credentials: "include",
+          redirect: "follow",
           body: formData,
           signal: controller.signal
         });
@@ -2101,6 +2102,7 @@ export async function uploadRecoveryDocumentApi(file: File) {
               "Content-Type": "application/json"
             },
             credentials: "include",
+            redirect: "follow",
             body: JSON.stringify({
               fileBase64: base64Data,
               fileName: file.name,
@@ -2115,6 +2117,7 @@ export async function uploadRecoveryDocumentApi(file: File) {
           res = await fetch(getAuthApiUrl("/api/auth/recovery-request/upload"), {
             method: "POST",
             credentials: "include",
+            redirect: "follow",
             body: formData,
             signal: controller.signal
           });

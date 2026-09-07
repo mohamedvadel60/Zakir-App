@@ -909,12 +909,40 @@ app.get(["/api/stripe/config", "/stripe/config"], (req, res) => {
   });
 });
 
-app.post(["/api/stripe/create-checkout-session", "/stripe/create-checkout-session", "/api/create-checkout-session", "/create-checkout-session"], requireAuth, async (req: AuthRequest, res) => {
+app.post([
+  "/api/stripe/create-checkout-session",
+  "/api/stripe/create-checkout-session/",
+  "/stripe/create-checkout-session",
+  "/stripe/create-checkout-session/",
+  "/api/create-checkout-session",
+  "/api/create-checkout-session/",
+  "/create-checkout-session",
+  "/create-checkout-session/"
+], requireAuth, async (req: AuthRequest, res) => {
   const authUserId = req.user?.uid || (req.user as any)?.user_id;
   if (!authUserId) {
     return res.status(401).json({ 
       success: false,
       error: "تعذر التحقق من جلسة حسابك. يرجى تحديث الجلسة والمحاولة مرة أخرى." 
+    });
+  }
+
+  // Security Policy Check: Mock authentication tokens must NEVER create Live Stripe sessions
+  const stripeKeys = resolveStripeKeys();
+  const isMockAuth = Boolean((req as any).isMockAuth || (req.user as any)?.isMockUser);
+  const isLiveStripe = Boolean(
+    stripeKeys.secretKey?.startsWith("sk_live_") || 
+    stripeKeys.secretKey?.startsWith("rk_live_") ||
+    stripeKeys.publishableKey?.startsWith("pk_live_")
+  );
+
+  if (isMockAuth && isLiveStripe) {
+    console.error("[SECURITY VIOLATION BLOCKED] Attempt to initiate Live Stripe checkout session with mock authentication token.");
+    return res.status(403).json({
+      success: false,
+      code: "MOCK_AUTH_LIVE_STRIPE_BLOCKED",
+      error: "Security Violation: Mock authentication tokens cannot be used to create Live Stripe sessions. Real authenticated user session required.",
+      userFriendlyMessage: "إجراء أمني: لا يمكن استخدام جلسات الاختبار الوهمية لإنشاء معاملات دفع حية."
     });
   }
 
@@ -1173,14 +1201,32 @@ app.post(["/api/stripe/create-checkout-session", "/stripe/create-checkout-sessio
   }
 });
 
-// Explicit method-not-allowed fallback for create-checkout-session
-app.all(["/api/stripe/create-checkout-session", "/stripe/create-checkout-session", "/api/create-checkout-session", "/create-checkout-session"], (req, res) => {
-  if (req.method === "OPTIONS") {
+// Explicit method fallback for create-checkout-session
+app.all([
+  "/api/stripe/create-checkout-session",
+  "/api/stripe/create-checkout-session/",
+  "/stripe/create-checkout-session",
+  "/stripe/create-checkout-session/",
+  "/api/create-checkout-session",
+  "/api/create-checkout-session/",
+  "/create-checkout-session",
+  "/create-checkout-session/"
+], (req, res) => {
+  const methodUpper = (req.method || "POST").toUpperCase();
+  if (methodUpper === "OPTIONS") {
     return res.status(200).end();
+  }
+  if (methodUpper === "GET" || methodUpper === "HEAD") {
+    return res.status(200).json({
+      success: true,
+      endpoint: "/api/stripe/create-checkout-session",
+      status: "active",
+      message: "Stripe Embedded Checkout Session initialization endpoint is active. Please submit checkout parameters via POST."
+    });
   }
   return res.status(405).json({
     success: false,
-    error: `Method ${req.method} Not Allowed. Please use POST.`,
+    error: `Method ${methodUpper} Not Allowed. Please use POST.`,
     userFriendlyMessage: "طريقة الطلب غير صالحة، يرجى استخدام POST."
   });
 });
@@ -1299,6 +1345,20 @@ app.post(["/api/stripe/create-portal-session", "/stripe/create-portal-session"],
       return res.status(401).json({ error: "Unauthorized: Missing authentication token" });
     }
 
+    const stripeKeys = resolveStripeKeys();
+    const isMockAuth = Boolean((req as any).isMockAuth || (req.user as any)?.isMockUser);
+    const isLiveStripe = Boolean(
+      stripeKeys.secretKey?.startsWith("sk_live_") || 
+      stripeKeys.secretKey?.startsWith("rk_live_") ||
+      stripeKeys.publishableKey?.startsWith("pk_live_")
+    );
+    if (isMockAuth && isLiveStripe) {
+      return res.status(403).json({
+        error: "Security Violation: Mock authentication cannot access Live Stripe customer portals.",
+        code: "MOCK_AUTH_LIVE_STRIPE_BLOCKED"
+      });
+    }
+
     const host = req.headers.host || "localhost:3000";
     const protocol = req.headers["x-forwarded-proto"] || "https";
     const baseUrl = process.env.APP_URL || `${protocol}://${host}`;
@@ -1362,6 +1422,20 @@ app.post(["/api/stripe/cancel-subscription", "/stripe/cancel-subscription"], req
     const authUserId = req.user?.uid;
     if (!authUserId) {
       return res.status(401).json({ error: "Unauthorized" });
+    }
+
+    const stripeKeys = resolveStripeKeys();
+    const isMockAuth = Boolean((req as any).isMockAuth || (req.user as any)?.isMockUser);
+    const isLiveStripe = Boolean(
+      stripeKeys.secretKey?.startsWith("sk_live_") || 
+      stripeKeys.secretKey?.startsWith("rk_live_") ||
+      stripeKeys.publishableKey?.startsWith("pk_live_")
+    );
+    if (isMockAuth && isLiveStripe) {
+      return res.status(403).json({
+        error: "Security Violation: Mock authentication cannot cancel Live Stripe subscriptions.",
+        code: "MOCK_AUTH_LIVE_STRIPE_BLOCKED"
+      });
     }
 
     const db = readDb();
@@ -7405,13 +7479,22 @@ async function runOrphanCleanup() {
 
 // 1. Upload Identity Verification Document
 app.all(["/api/auth/recovery-request/upload", "/api/auth/recovery-request/upload/", "/auth/recovery-request/upload", "/auth/recovery-request/upload/"], (req, res, next) => {
-  if (req.method === "OPTIONS") {
+  const methodUpper = (req.method || "POST").toUpperCase();
+  if (methodUpper === "OPTIONS") {
     return res.status(200).end();
   }
-  if (req.method !== "POST") {
+  if (methodUpper === "GET" || methodUpper === "HEAD") {
+    return res.status(200).json({
+      success: true,
+      endpoint: "/api/auth/recovery-request/upload",
+      status: "active",
+      message: "Identity verification document upload endpoint is active. Please submit document payloads via POST."
+    });
+  }
+  if (methodUpper !== "POST") {
     return res.status(405).json({
       success: false,
-      error: `Method ${req.method} Not Allowed. Please use POST.`,
+      error: `Method ${methodUpper} Not Allowed. Please use POST.`,
       userFriendlyMessage: "طريقة الطلب غير صالحة، يرجى استخدام POST."
     });
   }

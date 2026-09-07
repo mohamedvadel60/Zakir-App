@@ -760,7 +760,11 @@
     "cs_live_a1ZjzzLyRz0QGSzatW8Jam7rRTcj0PjsP65vcykvXNtTG8hH9RqxrSrpve": "usr_ceo",
     "cs_live_a1hL6XN4KcmZHDeGg8tpVxH3k70P221ucFaIGMbMHxfDmjo74btsQqR20R": "usr_ceo",
     "cs_live_a1xYYMAkGfv8G4LZh6i2BAYI60hlcZBPCooPkpPYlZ89J0jhFA8Of8Nvel": "usr_ceo",
-    "cs_live_a13TojENnd9wbwaoqmqXkmNfMaLCtj5JV54xnXdoDXi3ddqUzr22DyjF8H": "usr_ceo"
+    "cs_live_a13TojENnd9wbwaoqmqXkmNfMaLCtj5JV54xnXdoDXi3ddqUzr22DyjF8H": "usr_ceo",
+    "cs_live_a1qNr97j9lGMj2v7tDYxRPbH33OuftE837Vu95ekswBHkijUqhWj0YLYQC": "usr_ceo",
+    "cs_live_a1VD7vEw9Y8NPCqSJE8VZXDFO322dB1AGqTpxYkKhyqqn9WvuM6SVg1OR1": "usr_ceo",
+    "cs_live_a13NhFMaJu9eEEqFja5gpArmOSLMAr5tfSa8EOQ4c59xaP4VFasw1GJMlo": "usr_ceo",
+    "cs_live_a13vpZPprGEORBiZdmCNXf0RGSQwOIJ59TkGEXCxToAjgEpUTX8TSIny0Y": "usr_ceo"
   },
   "account_lifecycle": [
     {
@@ -1210,112 +1214,46 @@
       "associatedRequestId": "REQ-1788383547812-938"
     },
     {
-      "documentId": "doc_1788714208094_0af8b87a",
-      "uploadToken": "146278c8c3f4702d1dcbd093804b784bb609b171cc6b689ce6505ad4f943383e",
-      "fileHash": "ca5932b4503e02a1032a7d4b4f05c889e4fa5ba7fda3a459b5515ad623bf29e8",
-      "fileName": "test-id.pdf",
-      "mimeType": "application/pdf",
-      "size": 86,
-      "uploadedAt": "2026-09-06T17:03:28.511Z",
-      "storageStatus": "pending",
-      "associated": false
-    },
-    {
-      "documentId": "doc_1788714342029_02f19b45",
-      "uploadToken": "e6d9aeed90c0fe8c47ad85d1d5453f74e9c82ff5c8efd6c19718eaa94552468f",
-      "fileHash": "e00ea68fa772b43fcf58ec64bf6e6f48a6e1b8f9f43ad2eac234b053bb39ab7b",
-      "fileName": "national_id.pdf",
-      "mimeType": "application/pdf",
-      "size": 37,
-      "uploadedAt": "2026-09-06T17:05:42.398Z",
-      "storageStatus": "pending",
-      "associated": false
-    },
-    {
-      "documentId": "doc_1788714419677_20f6f3e7",
-      "uploadToken": "f90a41dddca49643d11b135c7e90d49b795369094188563019aa2ab32807bdf0",
-      "fileHash": "b22bc82fbacabd665f6b3e9df97b67bc54c2f076cf575daf76f8e5ae57485d0f",
-      "fileName": "national_id.pdf",
-      "mimeType": "application/pdf",
-      "size": 32,
-      "uploadedAt": "2026-09-06T17:07:00.887Z",
-      "storageStatus": "pending",
-      "associated": false
-    },
-    {
-      "documentId": "doc_1788714581213_0dd9aa40",
-      "uploadToken": "6b20273b7231dbd5b02653d955bea3efab19e80b73d75801b4207f0e9077f050",
-      "fileHash": "af0e984c8a88d576cc783d0b9b70e430fdaf592571e32627976bfa8b207fc3aa",
-      "fileName": "passport.pdf",
-      "mimeType": "application/pdf",
-      "size": 20,
-      "uploadedAt": "2026-09-06T17:09:41.574Z",
-      "storageStatus": "pending",
-      "associated": false
-    },
-    {
-      "documentId": "doc_1788714981217_c927200b",
-      "uploadToken": "092fa673bf141f2def290878a9999048f46a1742830e1a84eba309b61fd9302a",
-      "fileHash": "85c9643a73d637cb42adae41127d12f869f97ed0cd8a0dd2dff829c65c67a66a",
-      "fileName": "test_id.pdf",
-      "mimeType": "application/pdf",
-      "size": 286,
-      "uploadedAt": "2026-09-06T17:16:21.573Z",
-      "storageStatus": "pending",
-      "associated": false
-    },
-    {
-      "documentId": "doc_1788714987060_8a4faae7",
-      "uploadToken": "c4193484648288d7d77c3a83ae059cfaf35e96b9ec7de9281c63a69a44f9a2aa",
-      "fileHash": "ebf4f635a17d10d6eb46ba680b70142419aa3220f228001a036d311a22ee9d2a",
-      "fileName": "test_id.png",
+      "documentId": "doc_1788786792860_581252d3",
+      "uploadToken": "d5bc54b680d61c0bbc846b270d88938c2ab51c93416ba656af49abae304e6639",
+      "fileHash": "4ffd8bb30991e3a6f28d1d03f1aedcd02ccf8e0cc16bb9e969e7bc2bda1ddf03",
+      "fileName": "test.png",
       "mimeType": "image/png",
-      "size": 67,
-      "uploadedAt": "2026-09-06T17:16:27.396Z",
+      "size": 33,
+      "uploadedAt": "2026-09-07T13:13:13.302Z",
       "storageStatus": "pending",
       "associated": false
     },
     {
-      "documentId": "doc_1788714987596_743799ee",
-      "uploadToken": "585fe34aaeb5f5bcd2042a733298ba546e88adbb26fdf3029d727a8b06f7c1b6",
-      "fileHash": "e09c97a3bc52489b66c0bd28eb21432551043f6c1da102b22bcbab7594d5b6ca",
-      "fileName": "test_id.jpg",
-      "mimeType": "image/jpeg",
-      "size": 27,
-      "uploadedAt": "2026-09-06T17:16:27.973Z",
-      "storageStatus": "pending",
-      "associated": false
-    },
-    {
-      "documentId": "doc_1788715556420_97419e8d",
-      "uploadToken": "79549863c290ae212bb64efae1e83615346dbe351f134b154c5b9bbbe6bb4a36",
-      "fileHash": "1f286a63ad3a6cf9a7d47538647c676b959bca261a7f9416d158f095e41ab2a5",
-      "fileName": "id_card.pdf",
-      "mimeType": "application/pdf",
-      "size": 93,
-      "uploadedAt": "2026-09-06T17:25:56.781Z",
-      "storageStatus": "pending",
-      "associated": false
-    },
-    {
-      "documentId": "doc_1788715908269_2833c54f",
-      "uploadToken": "b1fcdef31d38ca9d81962c51b8a00682b85db066f863ffe58604917a7cb6895c",
+      "documentId": "doc_1788787689122_345e2697",
+      "uploadToken": "21d8f3a1a3dfd9c151e2ab08cfb3ddd0d3d59e6157b35459da9600f76e88aff9",
       "fileHash": "6b7fa434f92a8b80aab02d9bf1a12e49ffcae424e4013a1c4f68b67e3d2bbcd0",
-      "fileName": "passport.png",
+      "fileName": "test.png",
       "mimeType": "image/png",
       "size": 70,
-      "uploadedAt": "2026-09-06T17:31:48.609Z",
+      "uploadedAt": "2026-09-07T13:28:10.215Z",
       "storageStatus": "pending",
       "associated": false
     },
     {
-      "documentId": "doc_1788716974337_cb19a3cf",
-      "uploadToken": "34214c01354a59b9ccad9690856b8d4e759621a3e92e3554159bddf149c930a8",
-      "fileHash": "c8c305f67c6f586b49cc3516aff7db0b2d0232b3c77ed68ed2f431d4dab4ee42",
-      "fileName": "test.pdf",
+      "documentId": "doc_1788787710157_11a4a62f",
+      "uploadToken": "2d6eabc97277dd33b5e9c7c1ed6222dee05d66f6eee49fc28ca38fef3626a911",
+      "fileHash": "ebf4f635a17d10d6eb46ba680b70142419aa3220f228001a036d311a22ee9d2a",
+      "fileName": "id_proof.png",
+      "mimeType": "image/png",
+      "size": 67,
+      "uploadedAt": "2026-09-07T13:28:30.677Z",
+      "storageStatus": "pending",
+      "associated": false
+    },
+    {
+      "documentId": "doc_1788788214119_dc3e6665",
+      "uploadToken": "8f8c229491981450221d1f52c67f3b81882e77f44cc798a41abf98b010cf28b0",
+      "fileHash": "cc62f59ed99d93647e7c53e2f851258cc157a709b689d6f8ea5fd69790e51006",
+      "fileName": "id_card.pdf",
       "mimeType": "application/pdf",
-      "size": 23,
-      "uploadedAt": "2026-09-06T17:49:34.903Z",
+      "size": 317,
+      "uploadedAt": "2026-09-07T13:36:55.302Z",
       "storageStatus": "pending",
       "associated": false
     }
@@ -2285,6 +2223,54 @@
       "syncAttempts": 0,
       "createdAt": "2026-09-06T17:49:34.340Z",
       "expiresAt": "2026-09-20T17:49:34.340Z"
+    },
+    "doc_1788786792860_581252d3": {
+      "documentId": "doc_1788786792860_581252d3",
+      "mimeType": "image/png",
+      "size": 33,
+      "fileName": "test.png",
+      "fileHash": "4ffd8bb30991e3a6f28d1d03f1aedcd02ccf8e0cc16bb9e969e7bc2bda1ddf03",
+      "storageStatus": "firestore_durable",
+      "syncAttempts": 1,
+      "createdAt": "2026-09-07T13:13:12.862Z",
+      "expiresAt": "2026-09-21T13:13:12.862Z",
+      "syncError": "Primary Firestore chunk storage active (Bucket unprovisioned)"
+    },
+    "doc_1788787689122_345e2697": {
+      "documentId": "doc_1788787689122_345e2697",
+      "mimeType": "image/png",
+      "size": 70,
+      "fileName": "test.png",
+      "fileHash": "6b7fa434f92a8b80aab02d9bf1a12e49ffcae424e4013a1c4f68b67e3d2bbcd0",
+      "storageStatus": "firestore_durable",
+      "syncAttempts": 1,
+      "createdAt": "2026-09-07T13:28:09.125Z",
+      "expiresAt": "2026-09-21T13:28:09.125Z",
+      "syncError": "Primary Firestore chunk storage active (Bucket unprovisioned)"
+    },
+    "doc_1788787710157_11a4a62f": {
+      "documentId": "doc_1788787710157_11a4a62f",
+      "mimeType": "image/png",
+      "size": 67,
+      "fileName": "id_proof.png",
+      "fileHash": "ebf4f635a17d10d6eb46ba680b70142419aa3220f228001a036d311a22ee9d2a",
+      "storageStatus": "firestore_durable",
+      "syncAttempts": 1,
+      "createdAt": "2026-09-07T13:28:30.158Z",
+      "expiresAt": "2026-09-21T13:28:30.158Z",
+      "syncError": "Primary Firestore chunk storage active (Bucket unprovisioned)"
+    },
+    "doc_1788788214119_dc3e6665": {
+      "documentId": "doc_1788788214119_dc3e6665",
+      "mimeType": "application/pdf",
+      "size": 317,
+      "fileName": "id_card.pdf",
+      "fileHash": "cc62f59ed99d93647e7c53e2f851258cc157a709b689d6f8ea5fd69790e51006",
+      "storageStatus": "firestore_durable",
+      "syncAttempts": 1,
+      "createdAt": "2026-09-07T13:36:54.121Z",
+      "expiresAt": "2026-09-21T13:36:54.121Z",
+      "syncError": "Primary Firestore chunk storage active (Bucket unprovisioned)"
     }
   },
   "invitations": [

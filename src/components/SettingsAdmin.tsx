@@ -400,13 +400,28 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
       }
 
       if (!res.ok || !data || !data.success || !data.clientSecret) {
-        console.error("[Stripe Checkout] Session creation error:", { status: res.status, data });
-        const errMsg = data?.userFriendlyMessage || data?.error || (
+        console.error("[Stripe Checkout] Session creation error diagnostics:", {
+          status: res.status,
+          statusText: res.statusText,
+          code: data?.code,
+          errorType: data?.errorType,
+          error: data?.error,
+          userFriendlyMessage: data?.userFriendlyMessage,
+          data
+        });
+
+        const rawDetail = data?.error || data?.message || data?.code;
+        const baseMsg = data?.userFriendlyMessage || (
           lang === "ar"
             ? (res.status === 401 ? "جلسة حسابك غير صالحة. يرجى تسجيل الدخول مجدداً." : "تعذر إعداد جلسة الدفع الآمن حالياً. يرجى المحاولة لاحقاً.")
             : (res.status === 401 ? "Invalid account session. Please log in again." : "Unable to initialize Stripe checkout. Please try again.")
         );
-        setPaymentError(errMsg);
+
+        const fullErrMsg = rawDetail && !baseMsg.includes(String(rawDetail))
+          ? `${baseMsg} (كود Diagnostic: HTTP ${res.status} ${data?.code ? `- ${data.code}` : ""} - ${rawDetail})`
+          : baseMsg;
+
+        setPaymentError(fullErrMsg);
         setIsProcessingPayment(false);
         return;
       }
@@ -597,7 +612,7 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
 
   useEffect(() => {
     let intervalId: any = null;
-    if (activeTab === "team") {
+    if (currentTab === "team") {
       loadTeamAndInvitations();
       intervalId = setInterval(() => {
         loadTeamAndInvitations(true);
@@ -606,7 +621,7 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
     return () => {
       if (intervalId) clearInterval(intervalId);
     };
-  }, [activeTab, loadTeamAndInvitations]);
+  }, [currentTab, loadTeamAndInvitations]);
 
   // New Team Member Form State
   const [newMemberName, setNewMemberName] = useState("");

@@ -105,7 +105,12 @@ export function resolveNormalizedUrl(req: any): string {
 }
 
 export default async function handler(req: any, res: any) {
-  // 1. CORS Preflight & Global Headers
+  // 1. Normalize method to uppercase
+  if (req.method && typeof req.method === "string") {
+    req.method = req.method.toUpperCase();
+  }
+
+  // 2. CORS Preflight & Global Headers
   const origin = req.headers?.origin;
   if (origin) {
     res.setHeader("Access-Control-Allow-Origin", origin);
@@ -121,12 +126,12 @@ export default async function handler(req: any, res: any) {
     return res.status(200).end();
   }
 
-  // 2. Resolve true requested URL path across Vercel rewrite strategies
+  // 3. Resolve true requested URL path across Vercel rewrite strategies
   const normalizedUrl = resolveNormalizedUrl(req);
   req.url = normalizedUrl;
   req.originalUrl = normalizedUrl;
 
-  // 3. Delegate to Express app (Single Source of Truth)
+  // 4. Delegate to Express app (Single Source of Truth)
   return app(req, res);
 }
 

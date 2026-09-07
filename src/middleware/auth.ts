@@ -388,29 +388,35 @@ export const requireAuth = async (
   // Dev/Test environment mock tokens to facilitate local security testing
   if (process.env.TEST_SUITE === "true" || process.env.NODE_ENV === "test" || process.env.NODE_ENV !== "production") {
     if (token === "mock_token_admin" || token === "usr_ceo") {
-      req.user = { uid: "usr_ceo", email: "mohamedvadel60@gmail.com" } as DecodedIdToken;
+      req.user = { uid: "usr_ceo", email: "mohamedvadel60@gmail.com", isMockUser: true } as any;
+      (req as any).isMockAuth = true;
       return next();
     }
     if (token === "mock_token_compliance" || token === "usr_compliance") {
-      req.user = { uid: "usr_compliance", email: "compliance@zakir.ai" } as DecodedIdToken;
+      req.user = { uid: "usr_compliance", email: "compliance@zakir.ai", isMockUser: true } as any;
+      (req as any).isMockAuth = true;
       return next();
     }
     if (token === "mock_token_user_b" || token === "usr_b") {
-      req.user = { uid: "usr_b", email: "user_b@zakir.ai" } as DecodedIdToken;
+      req.user = { uid: "usr_b", email: "user_b@zakir.ai", isMockUser: true } as any;
+      (req as any).isMockAuth = true;
       return next();
     }
     if (token === "mock_token_sarah" || token === "usr_sarah") {
-      req.user = { uid: "usr_sarah", email: "sarah.lead@testorg.com" } as DecodedIdToken;
+      req.user = { uid: "usr_sarah", email: "sarah.lead@testorg.com", isMockUser: true } as any;
+      (req as any).isMockAuth = true;
       return next();
     }
     if (token.startsWith("mock_token_email_")) {
       const email = token.replace("mock_token_email_", "").trim().toLowerCase();
       const uid = `usr_${email.replace(/[^a-zA-Z0-9]/g, "_")}`;
-      req.user = { uid, email } as DecodedIdToken;
+      req.user = { uid, email, isMockUser: true } as any;
+      (req as any).isMockAuth = true;
       return next();
     }
     if (token.startsWith("mock_token_") || token === "mock_token_user_a" || token === "usr_a") {
-      req.user = { uid: "usr_a", email: "user_a@zakir.ai" } as DecodedIdToken;
+      req.user = { uid: "usr_a", email: "user_a@zakir.ai", isMockUser: true } as any;
+      (req as any).isMockAuth = true;
       return next();
     }
   }
