@@ -1726,6 +1726,7 @@ export async function sendWorkspaceInvitationApi(invData: {
   name?: string;
   role?: string;
   powers?: ModulePermissions;
+  companyName?: string;
 }): Promise<{ success: boolean; userFriendlyMessage?: string; invitation?: WorkspaceInvitation }> {
   const emailKey = invData.email.trim().toLowerCase();
   const res = await authenticatedFetch("/api/admin/send-invitation", {
@@ -1735,7 +1736,8 @@ export async function sendWorkspaceInvitationApi(invData: {
       email: emailKey,
       name: invData.name,
       role: invData.role,
-      powers: invData.powers
+      powers: invData.powers,
+      companyName: invData.companyName
     })
   });
 

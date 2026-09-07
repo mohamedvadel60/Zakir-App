@@ -554,42 +554,59 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
     setTimeout(() => setCopiedLinkEmail(null), 2500);
   };
 
-  useEffect(() => {
-    async function loadTeamAndInvitations() {
-      if ((currentUser.role === "CEO" || currentUser.role === "Admin") && currentUser.workspaceId) {
-        try {
-          const teamData = await fetchWorkspaceTeamApi();
-          if (teamData && teamData.success) {
-            if (Array.isArray(teamData.teamMembers) && teamData.teamMembers.length > 0) {
-              setTeamMembers(teamData.teamMembers);
-              // Synced authoritative list to parent profile to prevent state conflicts
-              const hasDifference = JSON.stringify(teamData.teamMembers) !== JSON.stringify(currentUser.teamMembersList);
-              if (hasDifference) {
-                onUpdateUser({
-                  ...currentUser,
-                  teamMembersList: teamData.teamMembers
-                });
-              }
-            }
-            if (Array.isArray(teamData.invitations)) {
-              setInvitations(teamData.invitations);
-            }
-            return;
+  const loadTeamAndInvitations = React.useCallback(async (isBackground = false) => {
+    try {
+      const teamData = await fetchWorkspaceTeamApi();
+      if (teamData && teamData.success) {
+        if (Array.isArray(teamData.teamMembers)) {
+          setTeamMembers(teamData.teamMembers);
+          const hasDifference = JSON.stringify(teamData.teamMembers) !== JSON.stringify(currentUser.teamMembersList);
+          if (hasDifference) {
+            onUpdateUser({
+              ...currentUser,
+              teamMembersList: teamData.teamMembers
+            });
           }
-        } catch (teamErr) {
-          console.warn("Notice: Fetching workspace team via API encountered notice, falling back:", teamErr);
         }
+        if (Array.isArray(teamData.invitations)) {
+          setInvitations(teamData.invitations.filter((i: WorkspaceInvitation) => i.status?.toLowerCase() !== "accepted"));
+        }
+        return;
+      }
+    } catch (teamErr) {
+      if (!isBackground) {
+        console.warn("Notice: Fetching workspace team via API encountered notice, falling back:", teamErr);
+      }
+    }
 
-        try {
-          const list = await fetchWorkspaceInvitations(currentUser.workspaceId);
-          setInvitations(list);
-        } catch (invErr) {
+    if (currentUser.workspaceId) {
+      try {
+        const list = await fetchWorkspaceInvitations(currentUser.workspaceId);
+        setInvitations(list.filter((i: WorkspaceInvitation) => i.status?.toLowerCase() !== "accepted"));
+      } catch (invErr) {
+        if (!isBackground) {
           console.warn("Notice: Falling back to local workspace invitations:", invErr);
         }
       }
     }
+  }, [currentUser, onUpdateUser]);
+
+  useEffect(() => {
     loadTeamAndInvitations();
-  }, [currentUser.workspaceId, currentUser.role]);
+  }, [loadTeamAndInvitations]);
+
+  useEffect(() => {
+    let intervalId: any = null;
+    if (activeTab === "team") {
+      loadTeamAndInvitations();
+      intervalId = setInterval(() => {
+        loadTeamAndInvitations(true);
+      }, 7000);
+    }
+    return () => {
+      if (intervalId) clearInterval(intervalId);
+    };
+  }, [activeTab, loadTeamAndInvitations]);
 
   // New Team Member Form State
   const [newMemberName, setNewMemberName] = useState("");
@@ -984,11 +1001,19 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
     setInvSuccessMsg(null);
 
     try {
+      const orgName = (
+        currentUser?.companyName ||
+        currentUser?.organizationName ||
+        companyName ||
+        "Zakir Enterprise"
+      ).trim();
+
       const res = await sendWorkspaceInvitationApi({
         email: emailLower,
         name: newMemberName.trim(),
         role: newMemberRole,
-        powers: { ...newMemberPowers }
+        powers: { ...newMemberPowers },
+        companyName: orgName
       });
 
       if (res.invitation) {
@@ -3603,48 +3628,52 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
           </div>
 
           {/* PENDING & SENT INVITATIONS LIST */}
-          {invitations.length > 0 && (
-            <div className={`p-6 rounded-2xl border space-y-4 ${
-              theme === "dark" ? "bg-slate-950/60 border-slate-800" : "bg-white border-slate-200 shadow-sm"
-            }`}>
-              <div className="flex items-center justify-between">
-                <h3 className={`text-base font-bold flex items-center gap-2 ${
-                  theme === "dark" ? "text-white" : "text-slate-900"
-                }`}>
-                  <Mail className="w-4 h-4 text-[#0075DE]" />
-                  <span>{lang === "ar" ? "قائمة الدعوات الموجهة للموظفين:" : "Sent & Pending Invitations:"}</span>
-                </h3>
-                <span className="text-xs px-2.5 py-1 rounded-full bg-[#0075DE]/15 text-[#0075DE] font-mono font-bold">
-                  {invitations.length} {lang === "ar" ? "دعوة" : "invitations"}
-                </span>
-              </div>
+          {(() => {
+            const pendingInvitations = invitations.filter((inv) => inv.status?.toLowerCase() !== "accepted");
+            if (pendingInvitations.length === 0) return null;
 
-              <div className="space-y-3 pt-1">
-                {invitations.map((inv) => {
-                  const isLoadingThis = actionEmailLoading === inv.email;
-                  const isAccepted = inv.status?.toLowerCase() === "accepted";
-                  const isFailed = inv.status?.toLowerCase() === "email_failed";
-                  return (
-                    <div
-                      key={inv.email}
-                      className={`p-4 rounded-xl border flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
-                        theme === "dark" ? "bg-slate-900/60 border-slate-800/80" : "bg-white border-slate-200 shadow-sm"
-                      }`}
-                    >
-                      <div className="space-y-2">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className={`text-sm font-bold ${
-                            theme === "dark" ? "text-white" : "text-slate-900"
-                          }`}>{inv.name || inv.email.split("@")[0]}</span>
-                          <span className={`text-xs font-mono ${
-                            theme === "dark" ? "text-slate-400" : "text-slate-500"
-                          }`}>({inv.email})</span>
-                          <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-md border ${
-                            theme === "dark" ? "bg-slate-800 text-slate-300 border-slate-700" : "bg-slate-100 text-slate-700 border-slate-200"
-                          }`}>
-                            {inv.role}
-                          </span>
-                        </div>
+            return (
+              <div className={`p-6 rounded-2xl border space-y-4 ${
+                theme === "dark" ? "bg-slate-950/60 border-slate-800" : "bg-white border-slate-200 shadow-sm"
+              }`}>
+                <div className="flex items-center justify-between">
+                  <h3 className={`text-base font-bold flex items-center gap-2 ${
+                    theme === "dark" ? "text-white" : "text-slate-900"
+                  }`}>
+                    <Mail className="w-4 h-4 text-[#0075DE]" />
+                    <span>{lang === "ar" ? "قائمة الدعوات المعلقة للموظفين:" : "Pending Workspace Invitations:"}</span>
+                  </h3>
+                  <span className="text-xs px-2.5 py-1 rounded-full bg-[#0075DE]/15 text-[#0075DE] font-mono font-bold">
+                    {pendingInvitations.length} {lang === "ar" ? "دعوة معلقة" : "pending"}
+                  </span>
+                </div>
+
+                <div className="space-y-3 pt-1">
+                  {pendingInvitations.map((inv) => {
+                    const isLoadingThis = actionEmailLoading === inv.email;
+                    const isAccepted = inv.status?.toLowerCase() === "accepted";
+                    const isFailed = inv.status?.toLowerCase() === "email_failed";
+                    return (
+                      <div
+                        key={inv.email}
+                        className={`p-4 rounded-xl border flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
+                          theme === "dark" ? "bg-slate-900/60 border-slate-800/80" : "bg-white border-slate-200 shadow-sm"
+                        }`}
+                      >
+                        <div className="space-y-2">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className={`text-sm font-bold ${
+                              theme === "dark" ? "text-white" : "text-slate-900"
+                            }`}>{inv.name || inv.email.split("@")[0]}</span>
+                            <span className={`text-xs font-mono ${
+                              theme === "dark" ? "text-slate-400" : "text-slate-500"
+                            }`}>({inv.email})</span>
+                            <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-md border ${
+                              theme === "dark" ? "bg-slate-800 text-slate-300 border-slate-700" : "bg-slate-100 text-slate-700 border-slate-200"
+                            }`}>
+                              {inv.role}
+                            </span>
+                          </div>
                         
                         {/* Powers granted badges */}
                         {inv.powers && (
@@ -3758,7 +3787,8 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
                 })}
               </div>
             </div>
-          )}
+          );
+        })()}
 
         </div>
       )}

@@ -759,7 +759,8 @@
     "cs_live_a1cHJFZG1TRZEp0aHZKyTqLBw9elSYAJ9fhm0034LPPTbbi1tECheEvG2e": "usr_ceo",
     "cs_live_a1ZjzzLyRz0QGSzatW8Jam7rRTcj0PjsP65vcykvXNtTG8hH9RqxrSrpve": "usr_ceo",
     "cs_live_a1hL6XN4KcmZHDeGg8tpVxH3k70P221ucFaIGMbMHxfDmjo74btsQqR20R": "usr_ceo",
-    "cs_live_a1xYYMAkGfv8G4LZh6i2BAYI60hlcZBPCooPkpPYlZ89J0jhFA8Of8Nvel": "usr_ceo"
+    "cs_live_a1xYYMAkGfv8G4LZh6i2BAYI60hlcZBPCooPkpPYlZ89J0jhFA8Of8Nvel": "usr_ceo",
+    "cs_live_a13TojENnd9wbwaoqmqXkmNfMaLCtj5JV54xnXdoDXi3ddqUzr22DyjF8H": "usr_ceo"
   },
   "account_lifecycle": [
     {
@@ -1304,6 +1305,17 @@
       "mimeType": "image/png",
       "size": 70,
       "uploadedAt": "2026-09-06T17:31:48.609Z",
+      "storageStatus": "pending",
+      "associated": false
+    },
+    {
+      "documentId": "doc_1788716974337_cb19a3cf",
+      "uploadToken": "34214c01354a59b9ccad9690856b8d4e759621a3e92e3554159bddf149c930a8",
+      "fileHash": "c8c305f67c6f586b49cc3516aff7db0b2d0232b3c77ed68ed2f431d4dab4ee42",
+      "fileName": "test.pdf",
+      "mimeType": "application/pdf",
+      "size": 23,
+      "uploadedAt": "2026-09-06T17:49:34.903Z",
       "storageStatus": "pending",
       "associated": false
     }
@@ -2262,6 +2274,17 @@
       "createdAt": "2026-09-06T17:31:48.271Z",
       "expiresAt": "2026-09-20T17:31:48.271Z",
       "syncError": "Primary Firestore chunk storage active (Bucket unprovisioned)"
+    },
+    "doc_1788716974337_cb19a3cf": {
+      "documentId": "doc_1788716974337_cb19a3cf",
+      "mimeType": "application/pdf",
+      "size": 23,
+      "fileName": "test.pdf",
+      "fileHash": "c8c305f67c6f586b49cc3516aff7db0b2d0232b3c77ed68ed2f431d4dab4ee42",
+      "storageStatus": "pending",
+      "syncAttempts": 0,
+      "createdAt": "2026-09-06T17:49:34.340Z",
+      "expiresAt": "2026-09-20T17:49:34.340Z"
     }
   },
   "invitations": [

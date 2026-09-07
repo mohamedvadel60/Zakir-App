@@ -909,7 +909,7 @@ app.get(["/api/stripe/config", "/stripe/config"], (req, res) => {
   });
 });
 
-app.post(["/api/stripe/create-checkout-session", "/stripe/create-checkout-session"], requireAuth, async (req: AuthRequest, res) => {
+app.post(["/api/stripe/create-checkout-session", "/stripe/create-checkout-session", "/api/create-checkout-session", "/create-checkout-session"], requireAuth, async (req: AuthRequest, res) => {
   const authUserId = req.user?.uid || (req.user as any)?.user_id;
   if (!authUserId) {
     return res.status(401).json({ 
@@ -1174,7 +1174,7 @@ app.post(["/api/stripe/create-checkout-session", "/stripe/create-checkout-sessio
 });
 
 // Explicit method-not-allowed fallback for create-checkout-session
-app.all(["/api/stripe/create-checkout-session", "/stripe/create-checkout-session"], (req, res) => {
+app.all(["/api/stripe/create-checkout-session", "/stripe/create-checkout-session", "/api/create-checkout-session", "/create-checkout-session"], (req, res) => {
   if (req.method === "OPTIONS") {
     return res.status(200).end();
   }
@@ -3674,7 +3674,7 @@ app.post("/api/admin/send-invitation", requireAuth, async (req: AuthRequest, res
       });
     }
 
-    const { email, name, role, powers } = req.body;
+    const { email, name, role, powers, companyName: requestedCompanyName } = req.body;
     const normalizedEmail = (email || "").trim().toLowerCase();
 
     // 1. Validate Email Format
@@ -3708,12 +3708,67 @@ app.post("/api/admin/send-invitation", requireAuth, async (req: AuthRequest, res
         uid: callerUid,
         email: userEmail,
         ownerName: userEmail.split("@")[0],
-        companyName: "Zakir Workspace",
+        companyName: requestedCompanyName || "Zakir Workspace",
         role: "CEO",
         workspaceId: `ws_${callerUid.substring(0, 8)}`,
         teamMembersList: []
       };
     }
+
+    // Trace: authenticated inviter -> workspaceId -> organization record -> companyName -> invitation -> email template
+    const workspaceId = (ceoData.workspaceId || ceoData.workspace?.id || `ws_${callerUid.substring(0, 8)}`).trim();
+    let authoritativeCompanyName = "";
+
+    // A. Query organization record from Firestore
+    try {
+      const wsSnap = await adminDb.collection("workspaces").doc(workspaceId).get();
+      if (wsSnap.exists) {
+        const wsData = wsSnap.data() || {};
+        authoritativeCompanyName = wsData.companyName || wsData.name || "";
+      }
+    } catch (e) {}
+
+    if (!authoritativeCompanyName) {
+      try {
+        const orgSnap = await adminDb.collection("organizations").doc(workspaceId).get();
+        if (orgSnap.exists) {
+          const orgData = orgSnap.data() || {};
+          authoritativeCompanyName = orgData.companyName || orgData.name || "";
+        }
+      } catch (e) {}
+    }
+
+    // B. Query inviter profile and payload
+    if (!authoritativeCompanyName) {
+      authoritativeCompanyName =
+        ceoData.companyName ||
+        ceoData.organizationName ||
+        ceoData.workspaceName ||
+        ceoData.workspace?.companyName ||
+        ceoData.workspace?.name ||
+        "";
+    }
+
+    if (!authoritativeCompanyName && requestedCompanyName && typeof requestedCompanyName === "string") {
+      const cleanReq = requestedCompanyName.trim();
+      if (cleanReq && cleanReq !== "ZakIr Platform") {
+        authoritativeCompanyName = cleanReq;
+      }
+    }
+
+    if (!authoritativeCompanyName || authoritativeCompanyName.trim() === "ZakIr Platform") {
+      authoritativeCompanyName = (ceoData.companyName && ceoData.companyName !== "ZakIr Platform")
+        ? ceoData.companyName
+        : (ceoData.ownerName ? `${ceoData.ownerName}'s Organization` : "Zakir Enterprise");
+    }
+
+    authoritativeCompanyName = authoritativeCompanyName.trim();
+
+    // Persist companyName to user and workspace record so it remains consistent everywhere
+    try {
+      await adminDb.collection("users").doc(callerUid).set({ companyName: authoritativeCompanyName, workspaceId }, { merge: true });
+      await adminDb.collection("workspaces").doc(workspaceId).set({ companyName: authoritativeCompanyName, name: authoritativeCompanyName, id: workspaceId, ownerId: callerUid }, { merge: true });
+    } catch (e) {}
 
     // 3. Verify CEO Authorization (Server-side Role Check)
     const isAdmin = await isUserAdminServer(callerUid, req.user?.email || ceoData?.email);
@@ -3740,7 +3795,6 @@ app.post("/api/admin/send-invitation", requireAuth, async (req: AuthRequest, res
     }
 
     // 5. Prevent Inviting Existing Members
-    const workspaceId = ceoData.workspaceId || `ws_${callerUid.substring(0, 8)}`;
     const teamMembersList = ceoData.teamMembersList || [];
     const isAlreadyInTeam = teamMembersList.some((m: any) => {
       const mEmail = m.email?.trim().toLowerCase();
@@ -3795,14 +3849,7 @@ app.post("/api/admin/send-invitation", requireAuth, async (req: AuthRequest, res
     const nowIso = new Date().toISOString();
     const expiresAtIso = new Date(Date.now() + 7 * 24 * 3600 * 1000).toISOString();
 
-    const companyName = (
-      ceoData.companyName || 
-      ceoData.organizationName || 
-      ceoData.workspaceName || 
-      ceoData.workspace?.name || 
-      ceoData.workspace?.companyName || 
-      "ZakIr Platform"
-    ).trim();
+    const companyName = authoritativeCompanyName;
     const memberName = (name || normalizedEmail.split("@")[0]).trim();
     const designatedRole = role || "Contributor";
     const defaultPowers = powers || {
@@ -4014,7 +4061,23 @@ app.post("/api/admin/resend-invitation", requireAuth, async (req: AuthRequest, r
     else db.invitations.push(invRecord);
     writeDb(db);
 
-    const companyName = invRecord.companyName || ceoData?.companyName || "Zakir Workspace";
+    let companyName = (invRecord.companyName || ceoData?.companyName || "").trim();
+    if (!companyName || companyName === "ZakIr Platform") {
+      const wsId = (invRecord.workspaceId || ceoData?.workspaceId || "").trim();
+      if (wsId) {
+        try {
+          const wsSnap = await adminDb.collection("workspaces").doc(wsId).get();
+          if (wsSnap.exists) {
+            const wsData = wsSnap.data() || {};
+            companyName = wsData.companyName || wsData.name || "";
+          }
+        } catch (e) {}
+      }
+    }
+    if (!companyName || companyName === "ZakIr Platform") {
+      companyName = ceoData?.ownerName ? `${ceoData.ownerName}'s Organization` : "Zakir Enterprise";
+    }
+    invRecord.companyName = companyName;
     const memberName = invRecord.name || normalizedEmail.split("@")[0];
     const designatedRole = invRecord.role || "Contributor";
     const appBaseUrl = process.env.APP_URL || process.env.PUBLIC_APP_URL || getAppBaseUrl(req);
@@ -4537,7 +4600,18 @@ app.get("/api/workspace/team", requireAuth, async (req: AuthRequest, res) => {
       } catch (e) {}
     }
 
-    const companyName = ceoUser?.companyName || callerUser?.companyName || "ZakIr Platform";
+    let companyName = (ceoUser?.companyName || callerUser?.companyName || "").trim();
+    if (!companyName || companyName === "ZakIr Platform") {
+      try {
+        const wsSnap = await adminDb.collection("workspaces").doc(workspaceId).get();
+        if (wsSnap.exists) {
+          companyName = (wsSnap.data()?.companyName || wsSnap.data()?.name || "").trim();
+        }
+      } catch (e) {}
+    }
+    if (!companyName || companyName === "ZakIr Platform") {
+      companyName = (ceoUser?.ownerName ? `${ceoUser.ownerName}'s Organization` : "Zakir Enterprise");
+    }
 
     // 3. Fetch all users belonging to this workspace from Firestore
     const workspaceMembers: any[] = [];
@@ -4550,13 +4624,16 @@ app.get("/api/workspace/team", requireAuth, async (req: AuthRequest, res) => {
       }
     } catch (e) {}
 
-    // 4. Fetch all invitations for this workspace
+    // 4. Fetch all invitations for this workspace (excluding already ACCEPTED ones)
     const workspaceInvitations: any[] = [];
     try {
       const invSnap = await adminDb.collection("invitations").where("workspaceId", "==", workspaceId).get();
       if (!invSnap.empty) {
         invSnap.docs.forEach((d: any) => {
-          workspaceInvitations.push({ ...d.data(), id: d.id });
+          const inv = d.data();
+          if (inv.status !== "ACCEPTED") {
+            workspaceInvitations.push({ ...inv, id: d.id });
+          }
         });
       }
     } catch (e) {}
@@ -10394,9 +10471,19 @@ app.post("/api/render/services", async (req, res) => {
   }
 });
 
+// API root status endpoint
+app.get(["/api", "/api/"], (req, res) => {
+  res.json({
+    status: "ok",
+    service: "Zakir Institutional Decision Intelligence Suite API",
+    version: "2.4.2",
+    timestamp: new Date().toISOString()
+  });
+});
+
 // --- API 404 & JSON ERROR HANDLING (PREVENTS SPA HTML FALLBACK ON API ROUTES) ---
-// Guarantee that any unhandled /api/* route ALWAYS returns JSON 404, NEVER falling through to SPA HTML
-app.all("/api/*", (req, res) => {
+// Guarantee that any unhandled /api or /api/* route ALWAYS returns JSON 404, NEVER falling through to SPA HTML
+app.all(["/api", "/api/*"], (req, res) => {
   res.status(404).json({
     success: false,
     error: "API_ROUTE_NOT_FOUND",
