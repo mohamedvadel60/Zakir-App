@@ -1214,17 +1214,6 @@
       "associatedRequestId": "REQ-1788383547812-938"
     },
     {
-      "documentId": "doc_1788786792860_581252d3",
-      "uploadToken": "d5bc54b680d61c0bbc846b270d88938c2ab51c93416ba656af49abae304e6639",
-      "fileHash": "4ffd8bb30991e3a6f28d1d03f1aedcd02ccf8e0cc16bb9e969e7bc2bda1ddf03",
-      "fileName": "test.png",
-      "mimeType": "image/png",
-      "size": 33,
-      "uploadedAt": "2026-09-07T13:13:13.302Z",
-      "storageStatus": "pending",
-      "associated": false
-    },
-    {
       "documentId": "doc_1788787689122_345e2697",
       "uploadToken": "21d8f3a1a3dfd9c151e2ab08cfb3ddd0d3d59e6157b35459da9600f76e88aff9",
       "fileHash": "6b7fa434f92a8b80aab02d9bf1a12e49ffcae424e4013a1c4f68b67e3d2bbcd0",
@@ -2219,10 +2208,11 @@
       "size": 23,
       "fileName": "test.pdf",
       "fileHash": "c8c305f67c6f586b49cc3516aff7db0b2d0232b3c77ed68ed2f431d4dab4ee42",
-      "storageStatus": "pending",
-      "syncAttempts": 0,
+      "storageStatus": "firestore_durable",
+      "syncAttempts": 1,
       "createdAt": "2026-09-06T17:49:34.340Z",
-      "expiresAt": "2026-09-20T17:49:34.340Z"
+      "expiresAt": "2026-09-20T17:49:34.340Z",
+      "syncError": "Primary Firestore chunk storage active (Bucket unprovisioned)"
     },
     "doc_1788786792860_581252d3": {
       "documentId": "doc_1788786792860_581252d3",

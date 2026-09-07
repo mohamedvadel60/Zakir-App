@@ -1,4 +1,4 @@
-import app from "../server.ts";
+import app from "../server";
 
 /**
  * Central Vercel Serverless Function entrypoint.
