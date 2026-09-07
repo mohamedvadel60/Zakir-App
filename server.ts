@@ -7478,8 +7478,17 @@ async function runOrphanCleanup() {
 }
 
 // 1. Upload Identity Verification Document
-app.all(["/api/auth/recovery-request/upload", "/api/auth/recovery-request/upload/", "/auth/recovery-request/upload", "/auth/recovery-request/upload/"], (req, res, next) => {
-  const methodUpper = (req.method || "POST").toUpperCase();
+app.all([
+  "/api/auth/recovery-request/upload",
+  "/api/auth/recovery-request/upload/",
+  "/auth/recovery-request/upload",
+  "/auth/recovery-request/upload/",
+  "/api/recovery-request/upload",
+  "/api/recovery-request/upload/"
+], (req, res, next) => {
+  const methodOverride = (req.headers["x-http-method-override"] as string || "").toUpperCase();
+  const methodUpper = (methodOverride || req.method || "POST").toUpperCase().trim();
+
   if (methodUpper === "OPTIONS") {
     return res.status(200).end();
   }
@@ -7491,7 +7500,7 @@ app.all(["/api/auth/recovery-request/upload", "/api/auth/recovery-request/upload
       message: "Identity verification document upload endpoint is active. Please submit document payloads via POST."
     });
   }
-  if (methodUpper !== "POST") {
+  if (methodUpper !== "POST" && methodUpper !== "PUT" && methodUpper !== "PATCH") {
     return res.status(405).json({
       success: false,
       error: `Method ${methodUpper} Not Allowed. Please use POST.`,

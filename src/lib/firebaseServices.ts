@@ -2077,51 +2077,64 @@ export async function uploadRecoveryDocumentApi(file: File) {
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 25000); // 25s timeout per attempt
+      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30s timeout per attempt
 
       let res: Response;
+      const targetUrl = attempt === 3
+        ? getAuthApiUrl("/auth/recovery-request/upload")
+        : getAuthApiUrl("/api/auth/recovery-request/upload");
 
-      // Attempt 1: Multipart FormData; Attempt 2 & 3: Try Base64 JSON fallback if previous attempt had issues
+      // Attempt 1: Multipart FormData via POST
+      // Attempt 2: Base64 JSON fallback via POST with X-HTTP-Method-Override
+      // Attempt 3: Alternative endpoint /auth/recovery-request/upload or PUT fallback
       if (attempt === 1) {
         const formData = new FormData();
         formData.append("file", file);
 
-        res = await fetch(getAuthApiUrl("/api/auth/recovery-request/upload"), {
+        res = await fetch(targetUrl, {
           method: "POST",
           credentials: "include",
-          redirect: "follow",
           body: formData,
+          headers: {
+            "X-HTTP-Method-Override": "POST"
+          },
+          signal: controller.signal
+        });
+      } else if (attempt === 2) {
+        const base64Data = await fileToBase64DataUrl(file);
+        res = await fetch(targetUrl, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-HTTP-Method-Override": "POST"
+          },
+          credentials: "include",
+          body: JSON.stringify({
+            fileBase64: base64Data,
+            fileName: file.name,
+            mimeType: file.type || "application/octet-stream",
+            size: file.size
+          }),
           signal: controller.signal
         });
       } else {
-        try {
-          const base64Data = await fileToBase64DataUrl(file);
-          res = await fetch(getAuthApiUrl("/api/auth/recovery-request/upload"), {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json"
-            },
-            credentials: "include",
-            redirect: "follow",
-            body: JSON.stringify({
-              fileBase64: base64Data,
-              fileName: file.name,
-              mimeType: file.type || "application/octet-stream",
-              size: file.size
-            }),
-            signal: controller.signal
-          });
-        } catch (base64Err) {
-          const formData = new FormData();
-          formData.append("file", file);
-          res = await fetch(getAuthApiUrl("/api/auth/recovery-request/upload"), {
-            method: "POST",
-            credentials: "include",
-            redirect: "follow",
-            body: formData,
-            signal: controller.signal
-          });
-        }
+        // Attempt 3: Try PUT or alternative endpoint path
+        const base64Data = await fileToBase64DataUrl(file);
+        res = await fetch(targetUrl, {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            "X-HTTP-Method-Override": "POST"
+          },
+          credentials: "include",
+          body: JSON.stringify({
+            fileBase64: base64Data,
+            fileName: file.name,
+            mimeType: file.type || "application/octet-stream",
+            size: file.size
+          }),
+          signal: controller.signal
+        });
       }
 
       clearTimeout(timeoutId);
@@ -2146,11 +2159,16 @@ export async function uploadRecoveryDocumentApi(file: File) {
     }
   }
 
-  const errMsg = lastError?.name === "AbortError"
-    ? "انتهت مهلة الاتصال بالخادم أثناء رفع المستند. يرجى المحاولة مرة أخرى."
-    : (lastError?.message && !lastError.message.includes("Failed to fetch")
-        ? lastError.message
-        : "تعذر الاتصال بخادم رفع الوثائق. يرجى التحقق من اتصال الإنترنت وإعادة المحاولة.");
+  let errMsg = "تعذر الاتصال بخادم رفع الوثائق. يرجى التحقق من اتصال الإنترنت وإعادة المحاولة.";
+  if (lastError?.name === "AbortError") {
+    errMsg = "انتهت مهلة الاتصال بالخادم أثناء رفع المستند. يرجى المحاولة مرة أخرى.";
+  } else if (lastError?.message) {
+    if (lastError.message.includes("405") || lastError.message.includes("not allowed")) {
+      errMsg = "تعذر إتمام رفع الوثيقة بسبب قيود خادم الويب على طريقة الطلب. يرجى إعادة المحاولة.";
+    } else if (!lastError.message.includes("Failed to fetch")) {
+      errMsg = lastError.message;
+    }
+  }
 
   return { success: false, error: errMsg };
 }
@@ -2570,7 +2588,7 @@ export async function safeParseJsonResponse(res: Response) {
     if (res.status === 401) throw new Error("Authentication required.");
     if (res.status === 403) throw new Error("Access denied for this action.");
     if (res.status === 404) throw new Error("Requested resource was not found.");
-    if (res.status === 405) throw new Error("Request method not allowed on this endpoint. Please retry.");
+    if (res.status === 405) throw new Error("لم يقبل الخادم طريقة الطلب الحالية (405 Method Not Allowed). يرجى إعادة المحاولة.");
     if (res.status >= 500) throw new Error(`Server error (${res.status}). Please try again.`);
     throw new Error(`Response error (${res.status}): ${text.slice(0, 100) || 'Invalid response'}`);
   }
