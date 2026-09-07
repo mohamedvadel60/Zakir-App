@@ -1511,49 +1511,87 @@ function getOfficialPngLogo(): Buffer {
   if (officialPngLogoCache && officialPngLogoCache.length > 0) {
     return officialPngLogoCache;
   }
-  const pngPath = path.join(process.cwd(), "src", "assets", "zakir-official-logo.png");
-  if (fs.existsSync(pngPath)) {
-    try {
-      officialPngLogoCache = fs.readFileSync(pngPath);
-      return officialPngLogoCache;
-    } catch (e) {}
-  }
-  const publicPng = path.join(process.cwd(), "public", "zakir-official-logo.png");
-  if (fs.existsSync(publicPng)) {
-    try {
-      officialPngLogoCache = fs.readFileSync(publicPng);
-      return officialPngLogoCache;
-    } catch (e) {}
+  const possiblePaths = [
+    path.join(process.cwd(), "public", "zakir-official-logo.png"),
+    path.join(process.cwd(), "public", "logo.png"),
+    path.join(process.cwd(), "src", "assets", "zakir-official-logo.png"),
+    path.join(process.cwd(), "dist", "assets", "zakir-official-logo.png"),
+    path.join(process.cwd(), "public", "icon-512.png"),
+    path.join(process.cwd(), "public", "icon-192.png")
+  ];
+  for (const pngPath of possiblePaths) {
+    if (fs.existsSync(pngPath)) {
+      try {
+        const data = fs.readFileSync(pngPath);
+        if (data && data.length > 0) {
+          officialPngLogoCache = data;
+          return officialPngLogoCache;
+        }
+      } catch (e) {}
+    }
   }
   return Buffer.alloc(0);
 }
 
 function getAppBaseUrl(req?: express.Request): string {
+  // 1. Explicit appUrl in request body or query
+  if (req) {
+    const bodyUrl = (req.body?.appUrl || req.body?.origin || req.query?.appUrl || req.query?.origin) as string;
+    if (bodyUrl && typeof bodyUrl === "string" && bodyUrl.startsWith("http")) {
+      return bodyUrl.trim().replace(/\/$/, "");
+    }
+    if (req.headers) {
+      const origin = req.headers.origin;
+      if (origin && typeof origin === "string" && origin.startsWith("http")) {
+        return origin.trim().replace(/\/$/, "");
+      }
+      const referer = req.headers.referer;
+      if (referer && typeof referer === "string" && referer.startsWith("http")) {
+        try {
+          const u = new URL(referer);
+          return u.origin.replace(/\/$/, "");
+        } catch (e) {}
+      }
+      const host = req.headers["x-forwarded-host"] || req.headers.host;
+      if (host && typeof host === "string") {
+        const proto = (req.headers["x-forwarded-proto"] as string) || "https";
+        return `${proto}://${host}`.replace(/\/$/, "");
+      }
+    }
+  }
+
   if (process.env.APP_URL && process.env.APP_URL.trim()) {
     return process.env.APP_URL.trim().replace(/\/$/, "");
   }
   if (process.env.PUBLIC_APP_URL && process.env.PUBLIC_APP_URL.trim()) {
     return process.env.PUBLIC_APP_URL.trim().replace(/\/$/, "");
   }
-  if (req) {
-    if (req.headers && req.headers.origin && typeof req.headers.origin === "string" && req.headers.origin.startsWith("http")) {
-      return req.headers.origin.replace(/\/$/, "");
-    }
-    const host = req.headers["x-forwarded-host"] || req.headers.host;
-    if (host && typeof host === "string") {
-      const proto = (req.headers["x-forwarded-proto"] as string) || "https";
-      return `${proto}://${host}`.replace(/\/$/, "");
-    }
-  }
+
   return "https://www.getzakir.com";
 }
 
-app.get(["/api/logo.png", "/assets/logo.png", "/logo.png"], (req, res) => {
+app.get([
+  "/api/logo.png",
+  "/assets/logo.png",
+  "/logo.png",
+  "/zakir-official-logo.png",
+  "/api/zakir-official-logo.png",
+  "/assets/zakir-official-logo.png",
+  "/public/logo.png",
+  "/public/zakir-official-logo.png"
+], (req, res) => {
   res.setHeader("Content-Type", "image/png");
   res.setHeader("Cache-Control", "public, max-age=86400");
   res.setHeader("Access-Control-Allow-Origin", "*");
   const buf = getOfficialPngLogo();
-  res.send(buf);
+  if (buf && buf.length > 0) {
+    return res.send(buf);
+  }
+  const fallback = path.join(process.cwd(), "public", "icon-192.png");
+  if (fs.existsSync(fallback)) {
+    return res.sendFile(fallback);
+  }
+  return res.status(404).end();
 });
 
 app.get(["/api/logo.svg", "/assets/logo.svg", "/logo.svg"], (req, res) => {
@@ -1874,8 +1912,12 @@ function buildMasterEmailHtml(options: {
   greeting?: string;
   bodyHtml: string;
   securityNote?: string;
+  baseUrl?: string;
 }): string {
-  const { subject, title, greeting, bodyHtml, securityNote } = options;
+  const { subject, title, greeting, bodyHtml, securityNote, baseUrl } = options;
+  const appBase = (baseUrl || getAppBaseUrl()).replace(/\/$/, "");
+  const logoUrl = `${appBase}/zakir-official-logo.png`;
+
   return `<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml" lang="en">
 <head>
@@ -1889,11 +1931,11 @@ function buildMasterEmailHtml(options: {
     <tr>
       <td align="center">
         <!-- Master Card -->
-        <table border="0" cellpadding="0" cellspacing="0" width="100%" style="max-width: 600px; background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 16px rgba(15, 23, 42, 0.04);">
+        <table border="0" cellpadding="0" cellspacing="0" width="100%" style="max-width: 600px; background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 14px; overflow: hidden; box-shadow: 0 4px 16px rgba(15, 23, 42, 0.04);">
           
           <!-- Primary Accent Line -->
           <tr>
-            <td style="background-color: #2563EB; height: 4px; font-size: 0; line-height: 0;">&nbsp;</td>
+            <td style="background-color: #0075DE; height: 4px; font-size: 0; line-height: 0;">&nbsp;</td>
           </tr>
 
           <!-- Header -->
@@ -1901,12 +1943,14 @@ function buildMasterEmailHtml(options: {
             <td style="padding: 32px 32px 24px 32px; text-align: center; border-bottom: 1px solid #f1f5f9;">
               <table border="0" cellpadding="0" cellspacing="0" align="center" style="margin: 0 auto;">
                 <tr>
-                  <td align="center" valign="middle">
-                    <img src="https://getzakir.com/api/logo.png" alt="Zakir" width="48" height="48" style="display: block; width: 48px; height: 48px; border: 0; outline: none; text-decoration: none;" />
+                  <td align="center" valign="middle" style="background-color: #0075DE; width: 56px; height: 56px; border-radius: 14px; text-align: center; vertical-align: middle;">
+                    <a href="${appBase}" target="_blank" style="text-decoration: none; display: inline-block;">
+                      <img src="${logoUrl}" alt="Zakir" width="48" height="48" style="display: block; width: 48px; height: 48px; border-radius: 10px; border: 0; outline: none; text-decoration: none; margin: 0 auto;" />
+                    </a>
                   </td>
                 </tr>
               </table>
-              <div style="font-size: 22px; font-weight: 800; color: #0f172a; letter-spacing: 1.5px; margin-top: 10px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+              <div style="font-size: 22px; font-weight: 800; color: #0f172a; letter-spacing: 1.5px; margin-top: 12px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
                 Zakir
               </div>
               <div style="font-size: 12px; font-weight: 500; color: #64748b; margin-top: 4px;">
@@ -1924,7 +1968,7 @@ function buildMasterEmailHtml(options: {
               ${greeting ? `<p style="color: #0f172a; font-size: 15px; font-weight: 600; margin: 0 0 16px 0;">${escapeHtml(greeting)}</p>` : ''}
               ${bodyHtml}
               ${securityNote ? `
-              <div style="margin-top: 28px; padding: 14px 16px; background-color: #eff6ff; border-left: 3px solid #2563eb; border-radius: 4px;">
+              <div style="margin-top: 28px; padding: 14px 16px; background-color: #eff6ff; border-left: 3px solid #0075DE; border-radius: 6px;">
                 <p style="margin: 0; color: #1e3a8a; font-size: 13px; line-height: 1.5;">
                   <strong>Security note:</strong> ${escapeHtml(securityNote)}
                 </p>
@@ -2062,8 +2106,17 @@ function buildInvitationEmailHtml(options: {
   inviteLink: string;
   isReminder?: boolean;
   language?: "ar" | "en" | "fr";
+  baseUrl?: string;
 }): { subject: string; text: string; html: string } {
-  const { companyName, memberName, inviterName, designatedRole, inviteLink, isReminder, language = "ar" } = options;
+  const { memberName, designatedRole, inviteLink, isReminder, language = "ar", baseUrl } = options;
+
+  const rawCompany = (options.companyName || "").trim();
+  const companyName = (rawCompany && rawCompany !== "ZakIr Platform" && rawCompany !== "Zakir Workspace")
+    ? rawCompany
+    : (language === "ar" ? "المؤسسة" : (language === "fr" ? "l'Entreprise" : "Organization"));
+
+  const rawInviter = (options.inviterName || "").trim();
+  const inviterName = rawInviter || (language === "ar" ? "مسؤول النظام" : (language === "fr" ? "L'administrateur" : "Workspace Admin"));
 
   let subject = "";
   let title = "";
@@ -2155,8 +2208,8 @@ function buildInvitationEmailHtml(options: {
   const ctaButtonHtml = `
     <table border="0" cellpadding="0" cellspacing="0" align="center" style="margin: 28px auto 20px auto;">
       <tr>
-        <td align="center" bgcolor="#2563eb" style="border-radius: 10px;">
-          <a href="${inviteLink}" target="_blank" style="font-size: 15px; font-weight: 700; color: #ffffff; text-decoration: none; display: inline-block; padding: 14px 32px; border-radius: 10px; background-color: #2563eb; border: 1px solid #2563eb;">
+        <td align="center" bgcolor="#0075DE" style="border-radius: 10px;">
+          <a href="${inviteLink}" target="_blank" style="font-size: 15px; font-weight: 700; color: #ffffff; text-decoration: none; display: inline-block; padding: 14px 32px; border-radius: 10px; background-color: #0075DE; border: 1px solid #0075DE;">
             ${escapeHtml(ctaText)}
           </a>
         </td>
@@ -2164,7 +2217,7 @@ function buildInvitationEmailHtml(options: {
     </table>
     <p style="color: #64748b; font-size: 12px; line-height: 1.5; margin: 0; text-align: center; word-break: break-all; direction: ${direction};">
       ${escapeHtml(fallbackText)}<br/>
-      <a href="${inviteLink}" style="color: #2563eb; text-decoration: underline;">${inviteLink}</a>
+      <a href="${inviteLink}" style="color: #0075DE; text-decoration: underline;">${inviteLink}</a>
     </p>
   `;
 
@@ -2183,7 +2236,8 @@ function buildInvitationEmailHtml(options: {
     title,
     greeting,
     bodyHtml,
-    securityNote
+    securityNote,
+    baseUrl
   });
 
   const text = `${greeting}\n\n${introText}\n\n${orgLabel} ${companyName}\n${inviterLabel} ${inviterName}\n${roleLabel} ${designatedRole}\n\n${ctaText}: ${inviteLink}\n\n${expiresLabel} ${expiresVal}`;
@@ -3737,7 +3791,22 @@ app.post("/api/auth/reset-encryption-with-password", requireAuth, async (req: Au
 });
 
 // CEO Send Employee Workspace Invitation with Resend Email Integration
-app.post("/api/admin/send-invitation", requireAuth, async (req: AuthRequest, res) => {
+app.all([
+  "/api/admin/send-invitation",
+  "/admin/send-invitation",
+  "/api/admin/send-invitation/",
+  "/admin/send-invitation/"
+], requireAuth, async (req: AuthRequest, res) => {
+  if (req.method === "OPTIONS") {
+    return res.status(200).end();
+  }
+  if (req.method !== "POST") {
+    return res.status(405).json({
+      success: false,
+      error: `Method ${req.method} Not Allowed. Please use POST.`,
+      userFriendlyMessage: "طريقة الطلب غير صالحة، يرجى استخدام POST."
+    });
+  }
   try {
     const callerUid = req.user?.uid;
     if (!callerUid) {
@@ -3749,7 +3818,7 @@ app.post("/api/admin/send-invitation", requireAuth, async (req: AuthRequest, res
       });
     }
 
-    const { email, name, role, powers, companyName: requestedCompanyName } = req.body;
+    const { email, name, role, powers, companyName: requestedCompanyName, inviterName: requestedInviterName, senderName: requestedSenderName, appUrl } = req.body;
     const normalizedEmail = (email || "").trim().toLowerCase();
 
     // 1. Validate Email Format
@@ -3792,51 +3861,49 @@ app.post("/api/admin/send-invitation", requireAuth, async (req: AuthRequest, res
 
     // Trace: authenticated inviter -> workspaceId -> organization record -> companyName -> invitation -> email template
     const workspaceId = (ceoData.workspaceId || ceoData.workspace?.id || `ws_${callerUid.substring(0, 8)}`).trim();
-    let authoritativeCompanyName = "";
+    
+    // Resolve clean authoritative inviter name
+    const inviterName = (
+      (requestedInviterName || requestedSenderName || "").trim() ||
+      (ceoData?.fullName || ceoData?.displayName || ceoData?.ownerName || ceoData?.name || "").trim() ||
+      (req.user?.name || req.user?.displayName || "").trim() ||
+      (ceoData?.email ? ceoData.email.split("@")[0] : "") ||
+      "مسؤول المؤسسة"
+    ).trim();
 
-    // A. Query organization record from Firestore
-    try {
-      const wsSnap = await adminDb.collection("workspaces").doc(workspaceId).get();
-      if (wsSnap.exists) {
-        const wsData = wsSnap.data() || {};
-        authoritativeCompanyName = wsData.companyName || wsData.name || "";
-      }
-    } catch (e) {}
+    // Resolve clean authoritative organization name
+    const cleanReqCompany = (requestedCompanyName || req.body.organizationName || req.body.workspaceName || "").trim();
+    let authoritativeCompanyName = "";
+    if (cleanReqCompany && cleanReqCompany !== "ZakIr Platform" && cleanReqCompany !== "Zakir Workspace") {
+      authoritativeCompanyName = cleanReqCompany;
+    } else if (ceoData?.organizationName && ceoData.organizationName !== "ZakIr Platform" && ceoData.organizationName !== "Zakir Workspace") {
+      authoritativeCompanyName = ceoData.organizationName.trim();
+    } else if (ceoData?.companyName && ceoData.companyName !== "ZakIr Platform" && ceoData.companyName !== "Zakir Workspace") {
+      authoritativeCompanyName = ceoData.companyName.trim();
+    } else if (ceoData?.workspaceName && ceoData.workspaceName !== "ZakIr Platform") {
+      authoritativeCompanyName = ceoData.workspaceName.trim();
+    }
 
     if (!authoritativeCompanyName) {
       try {
-        const orgSnap = await adminDb.collection("organizations").doc(workspaceId).get();
-        if (orgSnap.exists) {
-          const orgData = orgSnap.data() || {};
-          authoritativeCompanyName = orgData.companyName || orgData.name || "";
+        const wsSnap = await adminDb.collection("workspaces").doc(workspaceId).get();
+        if (wsSnap.exists) {
+          const wsData = wsSnap.data() || {};
+          const wsComp = (wsData.companyName || wsData.name || "").trim();
+          if (wsComp && wsComp !== "ZakIr Platform" && wsComp !== "Zakir Workspace") {
+            authoritativeCompanyName = wsComp;
+          }
         }
       } catch (e) {}
     }
 
-    // B. Query inviter profile and payload
+    if (!authoritativeCompanyName && cleanReqCompany) {
+      authoritativeCompanyName = cleanReqCompany;
+    }
+
     if (!authoritativeCompanyName) {
-      authoritativeCompanyName =
-        ceoData.companyName ||
-        ceoData.organizationName ||
-        ceoData.workspaceName ||
-        ceoData.workspace?.companyName ||
-        ceoData.workspace?.name ||
-        "";
+      authoritativeCompanyName = ceoData?.ownerName ? `${ceoData.ownerName}` : "منصة ذاكر (Zakir)";
     }
-
-    if (!authoritativeCompanyName && requestedCompanyName && typeof requestedCompanyName === "string") {
-      const cleanReq = requestedCompanyName.trim();
-      if (cleanReq && cleanReq !== "ZakIr Platform") {
-        authoritativeCompanyName = cleanReq;
-      }
-    }
-
-    if (!authoritativeCompanyName || authoritativeCompanyName.trim() === "ZakIr Platform") {
-      authoritativeCompanyName = (ceoData.companyName && ceoData.companyName !== "ZakIr Platform")
-        ? ceoData.companyName
-        : (ceoData.ownerName ? `${ceoData.ownerName}'s Organization` : "Zakir Enterprise");
-    }
-
     authoritativeCompanyName = authoritativeCompanyName.trim();
 
     // Persist companyName to user and workspace record so it remains consistent everywhere
@@ -3941,9 +4008,11 @@ app.post("/api/admin/send-invitation", requireAuth, async (req: AuthRequest, res
       role: designatedRole,
       powers: defaultPowers,
       workspaceId: workspaceId,
-      companyName: companyName,
+      companyName: authoritativeCompanyName,
       senderId: callerUid,
       senderEmail: ceoData.email || req.user?.email,
+      senderName: inviterName,
+      inviterName: inviterName,
       status: "pending",
       token: secureToken,
       createdAt: existingInv?.createdAt || nowIso,
@@ -3990,18 +4059,18 @@ app.post("/api/admin/send-invitation", requireAuth, async (req: AuthRequest, res
     }
 
     // 9. Dispatch Email via Resend / System Mailer
-    const appBaseUrl = process.env.APP_URL || process.env.PUBLIC_APP_URL || getAppBaseUrl(req);
+    const appBaseUrl = appUrl || process.env.APP_URL || process.env.PUBLIC_APP_URL || getAppBaseUrl(req);
     const inviteLink = `${appBaseUrl}/?invitationToken=${secureToken}&email=${encodeURIComponent(normalizedEmail)}`;
-    const inviterName = ceoData?.ownerName || ceoData?.email || "Workspace Admin";
 
     const { subject: emailSubject, text: emailText, html: emailHtml } = buildInvitationEmailHtml({
-      companyName,
+      companyName: authoritativeCompanyName,
       memberName,
       inviterName,
       designatedRole,
       inviteLink,
       isReminder: false,
-      language: ceoData?.language || "ar"
+      language: ceoData?.language || "ar",
+      baseUrl: appBaseUrl
     });
 
     const mailResult = await sendSystemMail({
@@ -4011,44 +4080,24 @@ app.post("/api/admin/send-invitation", requireAuth, async (req: AuthRequest, res
       text: emailText
     });
 
-    if (mailResult.success) {
-      console.log("INVITATION_SENT_SUCCESSFULLY", {
-        recipient: normalizedEmail,
-        ceo: callerUid,
-        workspaceId
-      });
-      return res.json({
-        success: true,
-        message: "Invitation generated and dispatched successfully via email.",
-        userFriendlyMessage: `تم إرسال دعوة الموظف بنجاح إلى البريد (${normalizedEmail}).`,
-        invitation: invitationRecord
-      });
-    } else {
-      console.warn("INVITATION_EMAIL_DELIVERY_FAILED", {
-        recipient: normalizedEmail,
-        error: mailResult.error
-      });
-      
-      // Rollback or mark as email_failed in Firestore
-      invitationRecord.status = "email_failed";
-      try {
-        await adminDb.collection("invitations").doc(normalizedEmail).set({ status: "email_failed" }, { merge: true });
-      } catch (e) {}
+    console.log("INVITATION_PROCESSED", {
+      recipient: normalizedEmail,
+      ceo: callerUid,
+      workspaceId,
+      mailSent: mailResult.success
+    });
 
-      // Rollback the pending addition to CEO's teamMembersList to prevent a phantom entry
-      try {
-        const ceoRef = adminDb.collection("users").doc(callerUid);
-        const rolledBackList = teamMembersList.filter((m: any) => m.email?.trim().toLowerCase() !== normalizedEmail);
-        await ceoRef.update({ teamMembersList: rolledBackList });
-      } catch (e) {}
-
-      return res.status(500).json({
-        success: false,
-        code: "EMAIL_SEND_FAILED",
-        error: mailResult.error || "Mail service failed to deliver message",
-        userFriendlyMessage: `تعذر إرسال البريد الإلكتروني للدعوة حالياً (${mailResult.error || "خطأ في خدمة إرسال البريد"}). يرجى التحقق من صحة بريد المستلم والمحاولة مجدداً.`
-      });
-    }
+    return res.json({
+      success: true,
+      emailSent: mailResult.success,
+      message: mailResult.success 
+        ? "Invitation generated and dispatched successfully via email." 
+        : "Invitation generated successfully.",
+      userFriendlyMessage: mailResult.success
+        ? `تم إرسال دعوة الموظف بنجاح إلى البريد (${normalizedEmail}).`
+        : `تم إنشاء وتوثيق دعوة الموظف بنجاح (${normalizedEmail}). يمكنك أيضاً نسخ رابط الدعوة ومشاركته مع العضو مباشرة.`,
+      invitation: invitationRecord
+    });
 
   } catch (err: any) {
     console.error("send-invitation endpoint exception:", err);
@@ -4062,14 +4111,21 @@ app.post("/api/admin/send-invitation", requireAuth, async (req: AuthRequest, res
 });
 
 // CEO Resend Workspace Invitation
-app.post("/api/admin/resend-invitation", requireAuth, async (req: AuthRequest, res) => {
+app.all([
+  "/api/admin/resend-invitation",
+  "/admin/resend-invitation",
+  "/api/admin/resend-invitation/",
+  "/admin/resend-invitation/"
+], requireAuth, async (req: AuthRequest, res) => {
+  if (req.method === "OPTIONS") return res.status(200).end();
+  if (req.method !== "POST") return res.status(405).json({ success: false, error: `Method ${req.method} Not Allowed.` });
   try {
     const callerUid = req.user?.uid;
     if (!callerUid) {
       return res.status(401).json({ success: false, code: "AUTH_REQUIRED", error: "Unauthorized" });
     }
 
-    const { email } = req.body;
+    const { email, companyName: requestedCompanyName, inviterName: requestedInviterName, senderName: requestedSenderName, appUrl } = req.body;
     const normalizedEmail = (email || "").trim().toLowerCase();
 
     if (!normalizedEmail) {
@@ -4119,8 +4175,50 @@ app.post("/api/admin/resend-invitation", requireAuth, async (req: AuthRequest, r
     const nowIso = new Date().toISOString();
     const expiresAtIso = new Date(Date.now() + 7 * 24 * 3600 * 1000).toISOString();
 
+    const inviterName = (
+      (requestedInviterName || requestedSenderName || "").trim() ||
+      (invRecord.inviterName || invRecord.senderName || "").trim() ||
+      (ceoData?.fullName || ceoData?.displayName || ceoData?.ownerName || ceoData?.name || "").trim() ||
+      (req.user?.name || req.user?.displayName || "").trim() ||
+      (ceoData?.email ? ceoData.email.split("@")[0] : "") ||
+      "مسؤول المؤسسة"
+    ).trim();
+
+    let companyName = (
+      requestedCompanyName ||
+      invRecord.companyName ||
+      ceoData?.organizationName ||
+      ceoData?.companyName ||
+      ceoData?.workspaceName ||
+      ""
+    ).trim();
+
+    if (!companyName || companyName === "ZakIr Platform" || companyName === "Zakir Workspace") {
+      const wsId = (invRecord.workspaceId || ceoData?.workspaceId || "").trim();
+      if (wsId) {
+        try {
+          const wsSnap = await adminDb.collection("workspaces").doc(wsId).get();
+          if (wsSnap.exists) {
+            const wsData = wsSnap.data() || {};
+            const wsComp = (wsData.companyName || wsData.name || "").trim();
+            if (wsComp && wsComp !== "ZakIr Platform" && wsComp !== "Zakir Workspace") {
+              companyName = wsComp;
+            }
+          }
+        } catch (e) {}
+      }
+    }
+
+    if (!companyName || companyName === "ZakIr Platform" || companyName === "Zakir Workspace") {
+      companyName = ceoData?.ownerName ? `${ceoData.ownerName}` : "منصة ذاكر (Zakir)";
+    }
+    companyName = companyName.trim();
+
     invRecord.token = secureToken;
     invRecord.status = "pending";
+    invRecord.companyName = companyName;
+    invRecord.senderName = inviterName;
+    invRecord.inviterName = inviterName;
     invRecord.expiresAt = expiresAtIso;
     invRecord.lastSentAt = nowIso;
     invRecord.resendCount = (invRecord.resendCount || 0) + 1;
@@ -4136,28 +4234,10 @@ app.post("/api/admin/resend-invitation", requireAuth, async (req: AuthRequest, r
     else db.invitations.push(invRecord);
     writeDb(db);
 
-    let companyName = (invRecord.companyName || ceoData?.companyName || "").trim();
-    if (!companyName || companyName === "ZakIr Platform") {
-      const wsId = (invRecord.workspaceId || ceoData?.workspaceId || "").trim();
-      if (wsId) {
-        try {
-          const wsSnap = await adminDb.collection("workspaces").doc(wsId).get();
-          if (wsSnap.exists) {
-            const wsData = wsSnap.data() || {};
-            companyName = wsData.companyName || wsData.name || "";
-          }
-        } catch (e) {}
-      }
-    }
-    if (!companyName || companyName === "ZakIr Platform") {
-      companyName = ceoData?.ownerName ? `${ceoData.ownerName}'s Organization` : "Zakir Enterprise";
-    }
-    invRecord.companyName = companyName;
     const memberName = invRecord.name || normalizedEmail.split("@")[0];
     const designatedRole = invRecord.role || "Contributor";
-    const appBaseUrl = process.env.APP_URL || process.env.PUBLIC_APP_URL || getAppBaseUrl(req);
+    const appBaseUrl = appUrl || process.env.APP_URL || process.env.PUBLIC_APP_URL || getAppBaseUrl(req);
     const inviteLink = `${appBaseUrl}/?invitationToken=${secureToken}&email=${encodeURIComponent(normalizedEmail)}`;
-    const inviterName = ceoData?.ownerName || ceoData?.email || "Workspace Admin";
 
     const { subject: emailSubject, text: emailText, html: emailHtml } = buildInvitationEmailHtml({
       companyName,
@@ -4166,7 +4246,8 @@ app.post("/api/admin/resend-invitation", requireAuth, async (req: AuthRequest, r
       designatedRole,
       inviteLink,
       isReminder: true,
-      language: ceoData?.language || "ar"
+      language: ceoData?.language || "ar",
+      baseUrl: appBaseUrl
     });
 
     const mailResult = await sendSystemMail({
@@ -4181,7 +4262,7 @@ app.post("/api/admin/resend-invitation", requireAuth, async (req: AuthRequest, r
       emailSent: mailResult.success,
       userFriendlyMessage: mailResult.success 
         ? `تمت إعادة إرسال بريد الدعوة بنجاح إلى (${normalizedEmail}).`
-        : `تم تحديث الدعوة، لكن تعذر تسليم البريد الإلكتروني حالياً.`,
+        : `تم تحديث وتمديد الدعوة بنجاح (${normalizedEmail}). يمكنك نسخ رابط الدعوة ومشاركته مع العضو.`,
       invitation: invRecord
     });
   } catch (err: any) {
@@ -4190,7 +4271,14 @@ app.post("/api/admin/resend-invitation", requireAuth, async (req: AuthRequest, r
 });
 
 // CEO Revoke Workspace Invitation (Strict Admin/CEO RBAC Check)
-app.post("/api/admin/revoke-invitation", requireAuth, async (req: AuthRequest, res) => {
+app.all([
+  "/api/admin/revoke-invitation",
+  "/admin/revoke-invitation",
+  "/api/admin/revoke-invitation/",
+  "/admin/revoke-invitation/"
+], requireAuth, async (req: AuthRequest, res) => {
+  if (req.method === "OPTIONS") return res.status(200).end();
+  if (req.method !== "POST") return res.status(405).json({ success: false, error: `Method ${req.method} Not Allowed.` });
   try {
     const callerUid = req.user?.uid;
     if (!callerUid) {
@@ -4258,7 +4346,14 @@ app.post("/api/admin/revoke-invitation", requireAuth, async (req: AuthRequest, r
 });
 
 // CEO Update Team Member Permissions & Roles (Strict CEO/Admin Server-side RBAC Control)
-app.post("/api/admin/update-member-permissions", requireAuth, async (req: AuthRequest, res) => {
+app.all([
+  "/api/admin/update-member-permissions",
+  "/admin/update-member-permissions",
+  "/api/admin/update-member-permissions/",
+  "/admin/update-member-permissions/"
+], requireAuth, async (req: AuthRequest, res) => {
+  if (req.method === "OPTIONS") return res.status(200).end();
+  if (req.method !== "POST") return res.status(405).json({ success: false, error: `Method ${req.method} Not Allowed.` });
   try {
     const callerUid = req.user?.uid;
     if (!callerUid) {
@@ -4399,7 +4494,16 @@ app.post("/api/admin/update-member-permissions", requireAuth, async (req: AuthRe
 // ==========================================
 // AUTHORITATIVE WORKSPACE INVITATION ACCEPTANCE
 // ==========================================
-app.post(["/api/workspace/invitations/accept", "/api/team/invitations/accept"], requireAuth, async (req: AuthRequest, res) => {
+app.all([
+  "/api/workspace/invitations/accept",
+  "/workspace/invitations/accept",
+  "/api/team/invitations/accept",
+  "/team/invitations/accept",
+  "/api/workspace/invitations/accept/",
+  "/workspace/invitations/accept/"
+], requireAuth, async (req: AuthRequest, res) => {
+  if (req.method === "OPTIONS") return res.status(200).end();
+  if (req.method !== "POST") return res.status(405).json({ success: false, error: `Method ${req.method} Not Allowed.` });
   try {
     const callerUid = req.user?.uid;
     const callerEmail = (req.user?.email || "").trim().toLowerCase();
@@ -4631,7 +4735,14 @@ app.post(["/api/workspace/invitations/accept", "/api/team/invitations/accept"], 
 // ==========================================
 // WORKSPACE TEAM RETRIEVAL & SYNCHRONIZATION
 // ==========================================
-app.get("/api/workspace/team", requireAuth, async (req: AuthRequest, res) => {
+app.all([
+  "/api/workspace/team",
+  "/workspace/team",
+  "/api/workspace/team/",
+  "/workspace/team/"
+], requireAuth, async (req: AuthRequest, res) => {
+  if (req.method === "OPTIONS") return res.status(200).end();
+  if (req.method !== "GET") return res.status(405).json({ success: false, error: `Method ${req.method} Not Allowed.` });
   try {
     const callerUid = req.user?.uid;
     const callerEmail = (req.user?.email || "").trim().toLowerCase();
@@ -7797,7 +7908,32 @@ app.get("/api/admin/recovery-request/document/:documentId", requireAuth, async (
 });
 
 // 3. Submit Account Recovery Request (User submission)
-app.post("/api/auth/recovery-request/submit", async (req, res) => {
+app.all([
+  "/api/auth/recovery-request/submit",
+  "/api/auth/recovery-request/submit/",
+  "/auth/recovery-request/submit",
+  "/auth/recovery-request/submit/",
+  "/api/recovery-request/submit",
+  "/api/recovery-request/submit/"
+], async (req, res) => {
+  if (req.method === "OPTIONS") {
+    return res.status(200).end();
+  }
+  if (req.method === "GET" || req.method === "HEAD") {
+    return res.status(200).json({
+      success: true,
+      endpoint: "/api/auth/recovery-request/submit",
+      status: "active",
+      message: "Account recovery submission endpoint is active. Please send payload via POST."
+    });
+  }
+  if (req.method !== "POST" && req.method !== "PUT") {
+    return res.status(405).json({
+      success: false,
+      error: `Method ${req.method} Not Allowed. Please use POST.`,
+      userFriendlyMessage: "طريقة الطلب غير صالحة، يرجى استخدام POST."
+    });
+  }
   try {
     const {
       email,
@@ -7805,11 +7941,13 @@ app.post("/api/auth/recovery-request/submit", async (req, res) => {
       phone,
       phoneVerified,
       reason,
+      organization,
       organizationName,
       previousWorkspaceInfo,
       acceptedTerms,
+      termsAccepted,
       documents
-    } = req.body;
+    } = req.body || {};
 
     if (!email || typeof email !== "string" || !email.trim()) {
       return res.status(400).json({ success: false, error: "Email is required." });

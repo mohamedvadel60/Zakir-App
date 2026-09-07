@@ -1023,12 +1023,22 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
         "Zakir Enterprise"
       ).trim();
 
+      const senderDisplayName = (
+        currentUser?.fullName ||
+        currentUser?.ownerName ||
+        (currentUser as any)?.displayName ||
+        fullName ||
+        "مسؤول المؤسسة"
+      ).trim();
+
       const res = await sendWorkspaceInvitationApi({
         email: emailLower,
         name: newMemberName.trim(),
         role: newMemberRole,
         powers: { ...newMemberPowers },
-        companyName: orgName
+        companyName: orgName,
+        inviterName: senderDisplayName,
+        senderName: senderDisplayName
       });
 
       if (res.invitation) {
@@ -1082,7 +1092,27 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
     setInvError(null);
     setInvSuccessMsg(null);
     try {
-      const res = await resendWorkspaceInvitationApi(email);
+      const orgName = (
+        currentUser?.companyName ||
+        currentUser?.organizationName ||
+        companyName ||
+        "Zakir Enterprise"
+      ).trim();
+
+      const senderDisplayName = (
+        currentUser?.fullName ||
+        currentUser?.ownerName ||
+        (currentUser as any)?.displayName ||
+        fullName ||
+        "مسؤول المؤسسة"
+      ).trim();
+
+      const res = await resendWorkspaceInvitationApi({
+        email,
+        companyName: orgName,
+        inviterName: senderDisplayName,
+        senderName: senderDisplayName
+      });
       setInvSuccessMsg(res.userFriendlyMessage || (lang === "ar" ? "تمت إعادة إرسال الدعوة بنجاح!" : "Invitation resent successfully!"));
       setTimeout(() => setInvSuccessMsg(null), 6000);
       if (currentUser.workspaceId) {

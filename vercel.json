@@ -10,7 +10,19 @@
       "destination": "/api"
     },
     {
-      "source": "/((?!api).*)",
+      "source": "/auth/(.*)",
+      "destination": "/api?__path=auth/$1"
+    },
+    {
+      "source": "/admin/(.*)",
+      "destination": "/api?__path=admin/$1"
+    },
+    {
+      "source": "/stripe/(.*)",
+      "destination": "/api?__path=stripe/$1"
+    },
+    {
+      "source": "/((?!api|auth|admin|stripe).*)",
       "destination": "/index.html"
     }
   ]
