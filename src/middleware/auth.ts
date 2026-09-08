@@ -366,22 +366,31 @@ export const requireAuth = async (
   next: NextFunction
 ) => {
   const authHeader = req.headers.authorization;
-  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+  let token = "";
+  if (authHeader && authHeader.startsWith("Bearer ")) {
+    token = authHeader.split("Bearer ")[1];
+  } else if (req.headers["x-auth-token"]) {
+    token = String(req.headers["x-auth-token"]);
+  } else if (req.headers["x-id-token"]) {
+    token = String(req.headers["x-id-token"]);
+  } else if (req.query?.token) {
+    token = String(req.query.token);
+  } else if (req.query?.idToken) {
+    token = String(req.query.idToken);
+  } else if (req.query?.auth) {
+    token = String(req.query.auth);
+  } else if (req.body?.token) {
+    token = String(req.body.token);
+  } else if (req.body?.idToken) {
+    token = String(req.body.idToken);
+  }
+
+  if (!token || token === "undefined" || token === "null" || token.trim() === "") {
     return res.status(401).json({
       success: false,
       code: "AUTH_REQUIRED",
       error: "Unauthorized: Missing authentication token",
       userFriendlyMessage: "يجب تسجيل الدخول أولاً للوصول إلى هذا المورد."
-    });
-  }
-
-  const token = authHeader.split("Bearer ")[1];
-  if (!token || token === "undefined" || token === "null" || token.trim() === "") {
-    return res.status(401).json({
-      success: false,
-      code: "AUTH_INVALID_TOKEN",
-      error: "Unauthorized: Empty or invalid authentication token string",
-      userFriendlyMessage: "رمز المصادقة غير صالح أو فارغ."
     });
   }
 

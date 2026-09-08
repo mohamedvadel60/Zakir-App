@@ -115,12 +115,12 @@ class PaymentErrorBoundary extends React.Component<PaymentErrorBoundaryProps, Pa
     if (this.state.hasError) {
       const isAr = this.props.lang === "ar";
       return (
-        <div className="p-6 text-center space-y-4 rounded-xl border border-rose-500/30 bg-rose-500/10 text-rose-300">
-          <AlertCircle className="w-10 h-10 mx-auto text-rose-400" />
+        <div className="p-6 text-center space-y-4 rounded-xl border border-rose-200 dark:border-rose-500/30 bg-rose-50 dark:bg-rose-500/10 text-rose-800 dark:text-rose-300 shadow-sm">
+          <AlertCircle className="w-10 h-10 mx-auto text-rose-500 dark:text-rose-400" />
           <p className="text-sm font-bold">
             {isAr ? "تعذر تحميل بوابة الدفع. يرجى المحاولة مرة أخرى." : "Failed to load payment checkout. Please try again."}
           </p>
-          <p className="text-xs text-slate-400 font-mono max-w-sm mx-auto">
+          <p className="text-xs text-slate-600 dark:text-slate-400 font-mono max-w-sm mx-auto">
             {this.state.errorMessage}
           </p>
           <button
@@ -2874,21 +2874,31 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
 
             {/* Confirmation Modal for Subscription Cancellation */}
             {showCancelConfirm && (
-              <div className="mb-6 p-5 rounded-2xl bg-rose-950/40 border border-rose-500/40 text-slate-200 space-y-3">
-                <div className="flex items-center gap-2 text-rose-400 font-bold text-sm">
+              <div className={`mb-6 p-5 rounded-2xl border space-y-3 ${
+                theme === "dark" 
+                  ? "bg-rose-950/40 border-rose-500/40 text-slate-200" 
+                  : "bg-rose-50 border-rose-200 text-slate-800 shadow-sm"
+              }`}>
+                <div className={`flex items-center gap-2 font-bold text-sm ${
+                  theme === "dark" ? "text-rose-400" : "text-rose-700"
+                }`}>
                   <ShieldAlert className="w-5 h-5" />
                   <span>{lang === "ar" ? "تأكيد إلغاء الاشتراك الحالي" : "Confirm Subscription Cancellation"}</span>
                 </div>
-                <p className="text-xs text-slate-300">
+                <p className={`text-xs ${theme === "dark" ? "text-slate-300" : "text-slate-600"}`}>
                   {lang === "ar" 
-                    ? "هل أنت أثق من رغبتك في إلغاء التجديد التلقائي للاشتراك؟ ستستمر في التمتع بمزايا خطتك حتى نهاية الفترة المدفوعة." 
+                    ? "هل أنت متأكد من رغبتك في إلغاء التجديد التلقائي للاشتراك؟ ستستمر في التمتع بمزايا خطتك حتى نهاية الفترة المدفوعة." 
                     : "Are you sure you want to cancel automatic subscription renewal? You will retain access until the end of the billing period."}
                 </p>
                 <div className="flex items-center justify-end gap-3 pt-1">
                   <button
                     type="button"
                     onClick={() => setShowCancelConfirm(false)}
-                    className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold rounded-xl transition-all cursor-pointer"
+                    className={`px-4 py-2 text-xs font-bold rounded-xl transition-all cursor-pointer ${
+                      theme === "dark"
+                        ? "bg-slate-800 hover:bg-slate-700 text-slate-300"
+                        : "bg-slate-200 hover:bg-slate-300 text-slate-800"
+                    }`}
                   >
                     {lang === "ar" ? "التراجع" : "Keep Subscription"}
                   </button>
@@ -2896,7 +2906,7 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
                     type="button"
                     disabled={isCancellingSubscription}
                     onClick={handleCancelSubscription}
-                    className="px-4 py-2 bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs rounded-xl flex items-center gap-2 transition-all cursor-pointer"
+                    className="px-4 py-2 bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs rounded-xl flex items-center gap-2 transition-all cursor-pointer shadow-sm active:scale-95"
                   >
                     {isCancellingSubscription ? (
                       <>
@@ -3053,9 +3063,9 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
       {selectedPlanForCheckout && (
         <div 
           id="stripe-checkout-modal-backdrop"
-          className={`fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-2 sm:p-4 md:p-6 overflow-hidden ${
-            completedReceipt ? "printable-receipt-modal" : ""
-          }`}
+          className={`fixed inset-0 z-50 backdrop-blur-md flex items-center justify-center p-2 sm:p-4 md:p-6 overflow-hidden ${
+            theme === "dark" ? "bg-slate-950/85" : "bg-slate-900/50"
+          } ${completedReceipt ? "printable-receipt-modal" : ""}`}
           style={{ height: "100dvh", maxHeight: "100dvh" }}
           onClick={(e) => {
             if (e.target === e.currentTarget && !completedReceipt) {
@@ -3066,7 +3076,9 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
           <div 
             id="stripe-checkout-modal-dialog"
             className={`w-full max-w-2xl md:max-w-3xl rounded-2xl border shadow-2xl flex flex-col overflow-hidden transition-all ${
-              theme === "dark" ? "bg-slate-900 border-slate-800 text-white" : "bg-white border-slate-200 text-slate-900"
+              theme === "dark" 
+                ? "bg-slate-900 border-slate-800 text-white" 
+                : "bg-white border-slate-200 text-slate-900"
             }`}
             style={{
               maxHeight: "min(94dvh, 880px)",
@@ -3076,12 +3088,20 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
             {!completedReceipt ? (
               <>
                 {/* 1. FIXED / STICKY HEADER WITH PROMINENT BACK & CLOSE BUTTONS */}
-                <div className="shrink-0 px-4 py-3.5 sm:px-6 sm:py-4 border-b border-slate-700/60 dark:border-slate-800/80 flex items-center justify-between gap-3 bg-slate-900/95 dark:bg-slate-900/95 text-white backdrop-blur-sm z-10">
+                <div className={`shrink-0 px-4 py-3.5 sm:px-6 sm:py-4 border-b flex items-center justify-between gap-3 backdrop-blur-sm z-10 ${
+                  theme === "dark" 
+                    ? "bg-slate-900/95 border-slate-800 text-white" 
+                    : "bg-slate-50/95 border-slate-200 text-slate-900"
+                }`}>
                   {/* Prominent Back Button */}
                   <button
                     type="button"
                     onClick={handleReturnToPlans}
-                    className="px-3.5 py-2 sm:px-4 sm:py-2 bg-slate-800 hover:bg-slate-700 active:bg-slate-900 border border-slate-700 text-white text-xs sm:text-sm font-bold rounded-xl transition-all flex items-center gap-2 cursor-pointer group shadow-sm active:scale-95"
+                    className={`px-3.5 py-2 sm:px-4 sm:py-2 border text-xs sm:text-sm font-bold rounded-xl transition-all flex items-center gap-2 cursor-pointer group shadow-sm active:scale-95 ${
+                      theme === "dark"
+                        ? "bg-slate-800 hover:bg-slate-700 active:bg-slate-900 border-slate-700 text-white"
+                        : "bg-white hover:bg-slate-100 active:bg-slate-200 border-slate-300 text-slate-800"
+                    }`}
                     id="checkout-back-button"
                   >
                     <ArrowLeft className={`w-4 h-4 text-[#0075DE] group-hover:-translate-x-1 transition-transform ${lang === "ar" ? "rotate-180" : ""}`} />
@@ -3097,11 +3117,15 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
                   {/* Plan Info Badge & Secure indicator */}
                   <div className="flex items-center gap-2 text-center">
                     <div className="flex flex-col items-center sm:items-end">
-                      <span className="text-xs sm:text-sm font-bold flex items-center gap-1.5 text-white">
+                      <span className={`text-xs sm:text-sm font-bold flex items-center gap-1.5 ${
+                        theme === "dark" ? "text-white" : "text-slate-900"
+                      }`}>
                         <CreditCard className="w-4 h-4 text-[#0075DE]" />
                         <span>{lang === "ar" ? "الدفع الآمن — Stripe" : "Secure Checkout — Stripe"}</span>
                       </span>
-                      <span className="text-[11px] text-slate-400 font-medium">
+                      <span className={`text-[11px] font-medium ${
+                        theme === "dark" ? "text-slate-400" : "text-slate-500"
+                      }`}>
                         {selectedPlanForCheckout} Plan ({billingCycle === "annual" ? (lang === "ar" ? "سنوي" : "Annual") : (lang === "ar" ? "شهري" : "Monthly")})
                       </span>
                     </div>
@@ -3111,7 +3135,11 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
                   <button
                     type="button"
                     onClick={handleReturnToPlans}
-                    className="p-2 sm:p-2.5 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 cursor-pointer transition-all active:scale-95"
+                    className={`p-2 sm:p-2.5 rounded-xl cursor-pointer transition-all active:scale-95 ${
+                      theme === "dark"
+                        ? "text-slate-400 hover:text-white hover:bg-slate-800"
+                        : "text-slate-500 hover:text-slate-900 hover:bg-slate-200"
+                    }`}
                     title={lang === "ar" ? "إغلاق والعودة للباقات" : "Close & return to plans"}
                     aria-label="Close"
                     id="checkout-close-button"
@@ -3130,11 +3158,17 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
                   }}
                 >
                   {/* Selected Plan Summary Banner with Change Plan Quick Action */}
-                  <div className="p-3.5 sm:p-4 rounded-xl bg-[#0075DE]/10 border border-[#0075DE]/30 flex items-center justify-between gap-3 flex-wrap">
+                  <div className={`p-3.5 sm:p-4 rounded-xl border flex items-center justify-between gap-3 flex-wrap ${
+                    theme === "dark"
+                      ? "bg-[#0075DE]/10 border-[#0075DE]/30 text-white"
+                      : "bg-blue-50/90 border-blue-200 text-slate-900 shadow-sm"
+                  }`}>
                     <div className="flex items-center gap-2.5">
                       <Zap className="w-5 h-5 text-[#0075DE] shrink-0" />
                       <div>
-                        <p className="text-[11px] text-slate-400">{lang === "ar" ? "تفاصيل الطلب:" : "Order Summary:"}</p>
+                        <p className={`text-[11px] font-medium ${theme === "dark" ? "text-slate-400" : "text-slate-600"}`}>
+                          {lang === "ar" ? "تفاصيل الطلب:" : "Order Summary:"}
+                        </p>
                         <div className="flex items-center gap-2 flex-wrap">
                           <p className="text-xs sm:text-sm font-extrabold text-[#0075DE]">
                             {selectedPlanForCheckout} Plan ({billingCycle === "annual" ? (lang === "ar" ? "سنوي - وفر 20%" : "Annual - Save 20%") : (lang === "ar" ? "شهري" : "Monthly")})
@@ -3142,7 +3176,11 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
                           <button
                             type="button"
                             onClick={handleReturnToPlans}
-                            className="text-[11px] text-slate-300 hover:text-white underline cursor-pointer font-semibold"
+                            className={`text-[11px] underline cursor-pointer font-bold ${
+                              theme === "dark"
+                                ? "text-slate-300 hover:text-white"
+                                : "text-slate-700 hover:text-[#0075DE]"
+                            }`}
                           >
                             ({lang === "ar" ? "تغيير الباقة / الفترة" : lang === "fr" ? "Changer de forfait" : "Change plan / interval"})
                           </button>
@@ -3150,8 +3188,10 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
                       </div>
                     </div>
                     <div className="text-right">
-                      <p className="text-[11px] text-slate-400">{lang === "ar" ? "المبلغ المستحق:" : "Total Amount:"}</p>
-                      <p className="text-sm sm:text-base font-black text-emerald-400">
+                      <p className={`text-[11px] font-medium ${theme === "dark" ? "text-slate-400" : "text-slate-600"}`}>
+                        {lang === "ar" ? "المبلغ المستحق:" : "Total Amount:"}
+                      </p>
+                      <p className={`text-sm sm:text-base font-black ${theme === "dark" ? "text-emerald-400" : "text-emerald-600"}`}>
                         {selectedPlanForCheckout === "Starter" ? (billingCycle === "annual" ? "$50.00 USD" : "$6.00 USD") : selectedPlanForCheckout === "Enterprise" ? (billingCycle === "annual" ? "$699.00 USD" : "$849.00 USD") : (billingCycle === "annual" ? "$149.00 USD" : "$189.00 USD")}
                       </p>
                     </div>
@@ -3159,23 +3199,31 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
 
                   {/* Error Banner if Any */}
                   {paymentError && (
-                    <div className="p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-400 text-xs flex items-center justify-between gap-2 flex-wrap">
+                    <div className={`p-3.5 rounded-xl border text-xs flex items-center justify-between gap-2 flex-wrap ${
+                      theme === "dark"
+                        ? "bg-rose-500/10 border-rose-500/30 text-rose-300"
+                        : "bg-rose-50 border-rose-200 text-rose-800 shadow-sm"
+                    }`}>
                       <div className="flex items-center gap-2">
-                        <AlertCircle className="w-4 h-4 shrink-0" />
-                        <span>{paymentError}</span>
+                        <AlertCircle className={`w-4 h-4 shrink-0 ${theme === "dark" ? "text-rose-400" : "text-rose-600"}`} />
+                        <span className="font-medium">{paymentError}</span>
                       </div>
                       <div className="flex items-center gap-2">
                         <button
                           type="button"
                           onClick={() => handleStripeCheckout(selectedPlanForCheckout, true)}
-                          className="px-2.5 py-1 bg-rose-600 hover:bg-rose-500 text-white font-bold rounded-lg text-[10px] cursor-pointer"
+                          className="px-3 py-1.5 bg-rose-600 hover:bg-rose-500 text-white font-bold rounded-lg text-xs cursor-pointer shadow-sm active:scale-95 transition-all"
                         >
                           {lang === "ar" ? "إعادة المحاولة" : "Try Again"}
                         </button>
                         <button
                           type="button"
                           onClick={handleReturnToPlans}
-                          className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold rounded-lg text-[10px] cursor-pointer"
+                          className={`px-3 py-1.5 font-bold rounded-lg text-xs cursor-pointer transition-all shadow-sm active:scale-95 ${
+                            theme === "dark"
+                              ? "bg-slate-800 hover:bg-slate-700 text-slate-200"
+                              : "bg-slate-200 hover:bg-slate-300 text-slate-800"
+                          }`}
                         >
                           {lang === "ar" ? "العودة للباقات" : "Back to plans"}
                         </button>
@@ -3187,14 +3235,16 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
                   {isProcessingPayment && !checkoutClientSecret ? (
                     <div className="py-16 text-center space-y-4">
                       <RefreshCw className="w-8 h-8 text-[#0075DE] animate-spin mx-auto" />
-                      <p className="text-xs text-slate-300 font-medium">
+                      <p className={`text-xs font-medium ${theme === "dark" ? "text-slate-300" : "text-slate-700"}`}>
                         {lang === "ar" ? "جاري تهيئة بوابة Stripe للدفع الآمن داخل المنصة..." : "Initializing secure in-app Stripe Checkout..."}
                       </p>
                     </div>
                   ) : checkoutClientSecret && stripePromise && embeddedCheckoutOptions ? (
                     <div 
                       key={checkoutClientSecret} 
-                      className="rounded-2xl bg-white text-slate-900 border border-slate-200 p-2 sm:p-4 min-h-[420px]"
+                      className={`rounded-2xl border p-2 sm:p-4 min-h-[420px] ${
+                        theme === "dark" ? "bg-slate-950/60 border-slate-800" : "bg-white border-slate-200 shadow-sm"
+                      }`}
                       id="stripe-embedded-checkout-host"
                     >
                       <PaymentErrorBoundary
@@ -3213,7 +3263,7 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
                   ) : !paymentError ? (
                     <div className="py-12 text-center space-y-4">
                       <RefreshCw className="w-8 h-8 text-[#0075DE] animate-spin mx-auto" />
-                      <p className="text-xs text-slate-400">
+                      <p className={`text-xs ${theme === "dark" ? "text-slate-400" : "text-slate-600"}`}>
                         {lang === "ar" ? "جاري الاتصال بخوادم Stripe..." : "Connecting to Stripe..."}
                       </p>
                     </div>
@@ -3224,29 +3274,47 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
               /* PAYMENT CONFIRMATION RECEIPT / INVOICE DISPLAY */
               <div 
                 id="stripe-receipt-scroll-container"
-                className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden p-4 sm:p-6 space-y-6 text-slate-900 dark:text-white overscroll-contain"
+                className={`flex-1 min-h-0 overflow-y-auto overflow-x-hidden p-4 sm:p-6 space-y-6 overscroll-contain ${
+                  theme === "dark" ? "text-white" : "text-slate-900"
+                }`}
                 style={{
                   WebkitOverflowScrolling: "touch",
                   overscrollBehavior: "contain",
                 }}
               >
-                <div className="p-6 rounded-2xl bg-slate-950 border border-emerald-500/40 text-center space-y-3">
-                  <div className="w-12 h-12 rounded-full bg-emerald-500/20 border border-emerald-500 text-emerald-400 flex items-center justify-center mx-auto">
+                <div className={`p-6 rounded-2xl border text-center space-y-3 ${
+                  theme === "dark"
+                    ? "bg-slate-950 border-emerald-500/40 text-white"
+                    : "bg-emerald-50 border-emerald-300 text-slate-900 shadow-sm"
+                }`}>
+                  <div className={`w-12 h-12 rounded-full flex items-center justify-center mx-auto border ${
+                    theme === "dark"
+                      ? "bg-emerald-500/20 border-emerald-500 text-emerald-400"
+                      : "bg-emerald-100 border-emerald-400 text-emerald-700"
+                  }`}>
                     <CheckCircle className="w-7 h-7" />
                   </div>
-                  <h3 className="text-2xl font-black text-emerald-400">
+                  <h3 className={`text-2xl font-black ${theme === "dark" ? "text-emerald-400" : "text-emerald-800"}`}>
                     {lang === "ar" ? "تم دفع الرسوم وإصدار الوصل بنجاح!" : "Payment Successfully Processed & Verified!"}
                   </h3>
-                  <p className="text-xs text-slate-400">
+                  <p className={`text-xs ${theme === "dark" ? "text-slate-400" : "text-emerald-700"}`}>
                     {lang === "ar" ? "تمت معالجة المعاملة وتفعيل اشتراكك فوراً في النظام" : "Your transaction has been confirmed and subscription is now active."}
                   </p>
                 </div>
 
                 {/* Printable Invoice Details */}
-                <div className="p-6 rounded-2xl bg-slate-950/80 border border-slate-800 space-y-4 font-mono text-xs text-slate-300">
-                  <div className="flex items-center justify-between pb-3 border-b border-slate-800">
-                    <span className="font-bold text-white text-sm">ZAKIR Official Payment Receipt</span>
-                    <span className="px-2.5 py-1 rounded-lg bg-emerald-500/20 text-emerald-400 font-bold uppercase text-[10px]">
+                <div className={`p-6 rounded-2xl border space-y-4 font-mono text-xs ${
+                  theme === "dark"
+                    ? "bg-slate-950/80 border-slate-800 text-slate-300"
+                    : "bg-slate-50 border-slate-200 text-slate-800 shadow-sm"
+                }`}>
+                  <div className={`flex items-center justify-between pb-3 border-b ${
+                    theme === "dark" ? "border-slate-800" : "border-slate-200"
+                  }`}>
+                    <span className={`font-bold text-sm ${theme === "dark" ? "text-white" : "text-slate-900"}`}>
+                      ZAKIR Official Payment Receipt
+                    </span>
+                    <span className="px-2.5 py-1 rounded-lg bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 font-bold uppercase text-[10px]">
                       PAID & APPROVED
                     </span>
                   </div>
@@ -3254,11 +3322,11 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
                   <div className="grid grid-cols-2 gap-4 pt-1">
                     <div>
                       <p className="text-slate-500 text-[10px]">{lang === "ar" ? "رقم الوصل:" : "Receipt No:"}</p>
-                      <p className="font-bold text-white">{completedReceipt.invoiceNo}</p>
+                      <p className={`font-bold ${theme === "dark" ? "text-white" : "text-slate-900"}`}>{completedReceipt.invoiceNo}</p>
                     </div>
                     <div>
                       <p className="text-slate-500 text-[10px]">{lang === "ar" ? "تاريخ الدفع:" : "Date & Time:"}</p>
-                      <p className="font-bold text-white">{completedReceipt.date}</p>
+                      <p className={`font-bold ${theme === "dark" ? "text-white" : "text-slate-900"}`}>{completedReceipt.date}</p>
                     </div>
                     <div>
                       <p className="text-slate-500 text-[10px]">{lang === "ar" ? "الخطة المفعّلة:" : "Subscription Plan:"}</p>
@@ -3266,16 +3334,18 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
                     </div>
                     <div>
                       <p className="text-slate-500 text-[10px]">{lang === "ar" ? "المبلغ المدفوع:" : "Total Paid:"}</p>
-                      <p className="font-bold text-emerald-400 text-sm">{completedReceipt.amount}</p>
+                      <p className={`font-bold text-sm ${theme === "dark" ? "text-emerald-400" : "text-emerald-600"}`}>{completedReceipt.amount}</p>
                     </div>
                   </div>
 
-                  <div className="pt-3 border-t border-slate-800/80">
+                  <div className={`pt-3 border-t ${theme === "dark" ? "border-slate-800/80" : "border-slate-200"}`}>
                     <p className="text-slate-500 text-[10px]">{lang === "ar" ? "وسيلة الدفع المستعملة:" : "Payment Channel Used:"}</p>
-                    <p className="font-bold text-white">{completedReceipt.method}</p>
+                    <p className={`font-bold ${theme === "dark" ? "text-white" : "text-slate-900"}`}>{completedReceipt.method}</p>
                   </div>
 
-                  <div className="pt-2 border-t border-slate-800/80 text-[11px] text-slate-400">
+                  <div className={`pt-2 border-t text-[11px] ${
+                    theme === "dark" ? "border-slate-800/80 text-slate-400" : "border-slate-200 text-slate-600"
+                  }`}>
                     <p>Account Owner: {completedReceipt.payerName} ({completedReceipt.payerEmail})</p>
                   </div>
                 </div>
@@ -3303,7 +3373,11 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
                   <button
                     type="button"
                     onClick={() => window.print()}
-                    className="flex-1 min-w-[120px] py-3 bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-2 cursor-pointer transition-all"
+                    className={`flex-1 min-w-[120px] py-3 font-bold text-xs rounded-xl flex items-center justify-center gap-2 cursor-pointer transition-all ${
+                      theme === "dark"
+                        ? "bg-slate-800 hover:bg-slate-700 text-white"
+                        : "bg-slate-200 hover:bg-slate-300 text-slate-800"
+                    }`}
                   >
                     <Printer className="w-4 h-4" />
                     <span>{lang === "ar" ? "طباعة الوصل" : "Print Receipt"}</span>
@@ -3315,7 +3389,7 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
                       setSelectedPlanForCheckout(null);
                       setCompletedReceipt(null);
                     }}
-                    className="flex-1 min-w-[120px] py-3 bg-[#0075DE] hover:bg-[#005BAB] text-white font-bold text-xs rounded-xl flex items-center justify-center gap-2 cursor-pointer transition-all"
+                    className="flex-1 min-w-[120px] py-3 bg-[#0075DE] hover:bg-[#005BAB] text-white font-bold text-xs rounded-xl flex items-center justify-center gap-2 cursor-pointer transition-all shadow-md"
                   >
                     <span>{lang === "ar" ? "العودة للوحة" : "Return"}</span>
                   </button>

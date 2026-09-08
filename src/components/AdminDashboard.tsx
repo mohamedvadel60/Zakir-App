@@ -38,7 +38,10 @@ import {
   Tag,
   Bot,
   ShieldAlert,
-  RotateCcw
+  RotateCcw,
+  ZoomIn,
+  ZoomOut,
+  Maximize2
 } from "lucide-react";
 import { User, UserFile, VerificationStatus, VerificationInfo, SupportTicket, SupportStatus, SupportPriority } from "../types.js";
 import { 
@@ -49,6 +52,7 @@ import {
   saveFirebaseUserProfile, 
   deleteFirebaseUserFile, 
   deleteFirebaseUserAccount, 
+  deleteAdminUserAccountApi, 
   ADMIN_USER_ID,
   fetchSupportTicketsApi,
   addSupportTicketMessageApi,
@@ -120,6 +124,20 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [adminNoteInput, setAdminNoteInput] = useState<string>("");
   const [savingVerification, setSavingVerification] = useState<boolean>(false);
   const [verificationSuccessMsg, setVerificationSuccessMsg] = useState<string>("");
+
+  // Identity Document Preview Modal State
+  const [previewDocModal, setPreviewDocModal] = useState<{
+    documentId: string;
+    fileName: string;
+    mimeType?: string;
+    size?: number;
+    url?: string;
+    blobUrl?: string;
+    loading: boolean;
+    error?: string;
+    zoom: number;
+    requestInfo?: any;
+  } | null>(null);
 
   useEffect(() => {
     if (selectedTicket) {
@@ -281,25 +299,99 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     }
   };
 
-  const handleViewRecoveryDocument = async (documentId: string, fileName?: string) => {
+  const handleViewRecoveryDocument = async (
+    doc: { documentId?: string; id?: string; fileName?: string; mimeType?: string; size?: number; fileUrl?: string; [key: string]: any } | string,
+    fileNameOrReq?: string | any,
+    reqContext?: any
+  ) => {
+    let documentId = "";
+    let fileName = "document";
+    let mimeType = "";
+    let size: number | undefined;
+    let fileUrl: string | undefined;
+    let reqInfo = reqContext || (typeof fileNameOrReq === "object" ? fileNameOrReq : null);
+
+    if (typeof doc === "string") {
+      documentId = doc;
+      if (typeof fileNameOrReq === "string") fileName = fileNameOrReq;
+    } else if (doc && typeof doc === "object") {
+      documentId = doc.documentId || doc.id || "";
+      fileName = doc.fileName || (typeof fileNameOrReq === "string" ? fileNameOrReq : "document");
+      mimeType = doc.mimeType || "";
+      size = doc.size;
+      fileUrl = doc.fileUrl;
+    }
+
+    if (!documentId) {
+      alert(lang === "ar" ? "معرّف المستند غير صالح" : "Invalid Document ID");
+      return;
+    }
+
+    setPreviewDocModal({
+      documentId,
+      fileName,
+      mimeType,
+      size,
+      loading: true,
+      zoom: 1,
+      requestInfo: reqInfo
+    });
+
     try {
-      const res = await authenticatedFetch(`/api/admin/recovery-request/document/${documentId}`);
-      if (!res.ok) {
-        alert(lang === "ar" ? "تعذر تحميل مستند الهوية من الخادم." : "Failed to load document from server.");
+      if (fileUrl && (fileUrl.startsWith("http") || fileUrl.startsWith("data:") || fileUrl.startsWith("blob:"))) {
+        setPreviewDocModal({
+          documentId,
+          fileName,
+          mimeType,
+          size,
+          url: fileUrl,
+          blobUrl: fileUrl,
+          loading: false,
+          zoom: 1,
+          requestInfo: reqInfo
+        });
         return;
       }
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const win = window.open(url, "_blank");
-      if (!win) {
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = fileName || `document_${documentId}`;
-        a.click();
+
+      const { auth } = await import("../firebase");
+      const idToken = await auth.currentUser?.getIdToken() || "";
+
+      let res = await authenticatedFetch(`/api/admin/recovery-request/document/${encodeURIComponent(documentId)}?token=${encodeURIComponent(idToken)}`, {
+        headers: idToken ? { "Authorization": `Bearer ${idToken}` } : {}
+      });
+
+      if (!res.ok) {
+        // Fallback route without /api
+        const fallbackRes = await authenticatedFetch(`/admin/recovery-request/document/${encodeURIComponent(documentId)}?token=${encodeURIComponent(idToken)}`, {
+          headers: idToken ? { "Authorization": `Bearer ${idToken}` } : {}
+        }).catch(() => null);
+
+        if (fallbackRes && fallbackRes.ok) {
+          res = fallbackRes;
+        } else {
+          const errData = await safeJsonResponse(res).catch(() => ({}));
+          throw new Error(errData?.error || errData?.message || `HTTP ${res.status}: Failed to load document.`);
+        }
       }
+
+      const blob = await res.blob();
+      const detectedMime = res.headers.get("Content-Type") || mimeType || blob.type || "application/octet-stream";
+      const blobUrl = URL.createObjectURL(blob);
+
+      setPreviewDocModal(prev => prev ? ({
+        ...prev,
+        mimeType: detectedMime,
+        size: blob.size || size,
+        blobUrl,
+        loading: false
+      }) : null);
     } catch (err: any) {
       console.error("View recovery document error:", err);
-      alert(lang === "ar" ? "حدث خطأ أثناء تحميل مستند الهوية" : "Error opening document");
+      setPreviewDocModal(prev => prev ? ({
+        ...prev,
+        loading: false,
+        error: err.message || (lang === "ar" ? "تعذر تحميل مستند الهوية من الخادم." : "Failed to load document.")
+      }) : null);
     }
   };
 
@@ -483,16 +575,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     if (!window.confirm(confirmMsg)) return;
 
     try {
-      // 1. Call backend server to delete from Firebase Authentication & record deletedUsers marker
-      const response = await authenticatedFetch(`/api/admin/delete-user/${userId}`, {
-        method: "DELETE"
-      });
-
-      const data = await safeJsonResponse(response, "فشل حذف حساب المستخدم من الخادم.");
-
-      if (!response.ok || !data?.success) {
-        throw new Error(data?.error || data?.userFriendlyMessage || `Server deletion failed with status ${response.status}`);
-      }
+      // 1. Call resilient deletion helper which performs client Firestore cleanup + backend deletion
+      await deleteAdminUserAccountApi(userId, userEmail);
 
       setUsers((prev) => prev.filter((u) => u.id !== userId));
       if (selectedUserRecord?.id === userId) {
@@ -1691,10 +1775,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                     </div>
                                   </div>
                                   <button
-                                    onClick={() => handleViewRecoveryDocument(doc.documentId, doc.fileName)}
-                                    className="px-2.5 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-[11px] font-bold rounded-lg transition-colors shrink-0 cursor-pointer flex items-center gap-1 shadow-sm"
+                                    onClick={() => handleViewRecoveryDocument(doc, req)}
+                                    className="px-2.5 py-1.5 bg-indigo-600 hover:bg-indigo-500 active:scale-95 text-white text-[11px] font-bold rounded-lg transition-all shrink-0 cursor-pointer flex items-center gap-1.5 shadow-sm shadow-indigo-600/20"
+                                    title={lang === "ar" ? "معاينة المستند الثبوتي" : "Preview Identity Document"}
                                   >
-                                    <ExternalLink className="w-3 h-3" />
+                                    <Eye className="w-3.5 h-3.5" />
                                     <span>{lang === "ar" ? "معاينة" : "View"}</span>
                                   </button>
                                 </div>
@@ -2367,6 +2452,215 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   </>
                 )}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* IDENTITY DOCUMENT PREVIEW MODAL */}
+      {previewDocModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 md:p-6 bg-slate-950/85 backdrop-blur-md animate-fade-in">
+          <div className={`w-full max-w-5xl h-[90vh] max-h-[900px] flex flex-col rounded-2xl border shadow-2xl overflow-hidden ${
+            theme === "dark" ? "bg-slate-900 border-slate-800 text-white" : "bg-white border-slate-200 text-slate-900"
+          }`}>
+            {/* Modal Header */}
+            <div className={`px-4 py-3 border-b flex flex-wrap items-center justify-between gap-3 shrink-0 ${
+              theme === "dark" ? "bg-slate-950/80 border-slate-800" : "bg-slate-50 border-slate-200"
+            }`}>
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="p-2 rounded-xl bg-indigo-500/10 text-indigo-500 shrink-0">
+                  <FileText className="w-5 h-5" />
+                </div>
+                <div className="min-w-0">
+                  <h3 className="font-bold text-sm sm:text-base truncate flex items-center gap-2">
+                    <span className="truncate">{previewDocModal.fileName || "Identity Document"}</span>
+                    {previewDocModal.mimeType && (
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-normal bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 shrink-0">
+                        {previewDocModal.mimeType}
+                      </span>
+                    )}
+                  </h3>
+                  <p className="text-[11px] text-slate-400 truncate font-mono">
+                    ID: {previewDocModal.documentId}
+                    {previewDocModal.size ? ` • ${formatBytes(previewDocModal.size)}` : ""}
+                    {previewDocModal.requestInfo?.email ? ` • ${previewDocModal.requestInfo.email}` : ""}
+                  </p>
+                </div>
+              </div>
+
+              {/* Action Buttons Toolbar */}
+              <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+                {/* Zoom Controls for Images */}
+                {(previewDocModal.mimeType?.startsWith("image/") || (!previewDocModal.mimeType?.includes("pdf") && !previewDocModal.fileName?.endsWith(".pdf"))) && previewDocModal.blobUrl && (
+                  <div className="flex items-center bg-slate-800/40 dark:bg-slate-950/60 rounded-xl p-0.5 border border-slate-700/50">
+                    <button
+                      onClick={() => setPreviewDocModal(p => p ? { ...p, zoom: Math.max(0.4, p.zoom - 0.2) } : null)}
+                      className="p-1.5 hover:bg-slate-700/50 rounded-lg text-slate-300 hover:text-white transition-colors"
+                      title={lang === "ar" ? "تصغير" : "Zoom Out"}
+                    >
+                      <ZoomOut className="w-4 h-4" />
+                    </button>
+                    <span className="px-2 text-[11px] font-mono text-slate-300">
+                      {Math.round(previewDocModal.zoom * 100)}%
+                    </span>
+                    <button
+                      onClick={() => setPreviewDocModal(p => p ? { ...p, zoom: Math.min(3, p.zoom + 0.2) } : null)}
+                      className="p-1.5 hover:bg-slate-700/50 rounded-lg text-slate-300 hover:text-white transition-colors"
+                      title={lang === "ar" ? "تكبير" : "Zoom In"}
+                    >
+                      <ZoomIn className="w-4 h-4" />
+                    </button>
+                    {previewDocModal.zoom !== 1 && (
+                      <button
+                        onClick={() => setPreviewDocModal(p => p ? { ...p, zoom: 1 } : null)}
+                        className="px-1.5 py-1 text-[10px] hover:bg-slate-700/50 rounded-lg text-indigo-400 font-semibold transition-colors"
+                        title={lang === "ar" ? "إعادة ضبط" : "Reset"}
+                      >
+                        100%
+                      </button>
+                    )}
+                  </div>
+                )}
+
+                {/* Open in New Tab */}
+                {previewDocModal.blobUrl && (
+                  <a
+                    href={previewDocModal.blobUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className={`p-2 rounded-xl border text-xs font-semibold flex items-center gap-1 transition-all ${
+                      theme === "dark" 
+                        ? "bg-slate-800 hover:bg-slate-700 border-slate-700 text-slate-200" 
+                        : "bg-slate-100 hover:bg-slate-200 border-slate-200 text-slate-700"
+                    }`}
+                    title={lang === "ar" ? "فتح في نافذة مستقلة" : "Open in new window"}
+                  >
+                    <ExternalLink className="w-4 h-4" />
+                    <span className="hidden sm:inline">{lang === "ar" ? "نافذة جديدة" : "New Tab"}</span>
+                  </a>
+                )}
+
+                {/* Download Button */}
+                {previewDocModal.blobUrl && (
+                  <a
+                    href={previewDocModal.blobUrl}
+                    download={previewDocModal.fileName || `doc_${previewDocModal.documentId}`}
+                    className="p-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold flex items-center gap-1 transition-all shadow-sm shadow-indigo-600/20"
+                    title={lang === "ar" ? "تنزيل المستند" : "Download document"}
+                  >
+                    <Download className="w-4 h-4" />
+                    <span className="hidden sm:inline">{lang === "ar" ? "تنزيل" : "Download"}</span>
+                  </a>
+                )}
+
+                {/* Close Button */}
+                <button
+                  onClick={() => {
+                    if (previewDocModal.blobUrl && previewDocModal.blobUrl.startsWith("blob:")) {
+                      URL.revokeObjectURL(previewDocModal.blobUrl);
+                    }
+                    setPreviewDocModal(null);
+                  }}
+                  className="p-2 rounded-xl hover:bg-rose-500/10 hover:text-rose-500 text-slate-400 transition-colors"
+                  title={lang === "ar" ? "إغلاق" : "Close"}
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+
+            {/* Modal Body / Viewer */}
+            <div className={`flex-1 overflow-auto relative flex items-center justify-center p-4 ${
+              theme === "dark" ? "bg-slate-950/60" : "bg-slate-100/60"
+            }`}>
+              {/* Loading State */}
+              {previewDocModal.loading && (
+                <div className="flex flex-col items-center justify-center gap-3 p-8 text-center animate-fade-in">
+                  <RefreshCw className="w-8 h-8 text-indigo-500 animate-spin" />
+                  <p className="font-semibold text-sm">
+                    {lang === "ar" ? "جاري تحميل ومعالجة المستند الثبوتي بأمان..." : "Loading identity verification document..."}
+                  </p>
+                  <p className="text-xs text-slate-400 font-mono">ID: {previewDocModal.documentId}</p>
+                </div>
+              )}
+
+              {/* Error State */}
+              {!previewDocModal.loading && previewDocModal.error && (
+                <div className="flex flex-col items-center justify-center gap-3 p-8 max-w-md text-center">
+                  <div className="p-3 rounded-full bg-rose-500/10 text-rose-500">
+                    <AlertTriangle className="w-8 h-8" />
+                  </div>
+                  <h4 className="font-bold text-base text-rose-500">
+                    {lang === "ar" ? "تعذر عرض المستند" : "Failed to load document"}
+                  </h4>
+                  <p className="text-xs text-slate-400 leading-relaxed">
+                    {previewDocModal.error}
+                  </p>
+                  <button
+                    onClick={() => handleViewRecoveryDocument(previewDocModal.documentId, previewDocModal.fileName, previewDocModal.requestInfo)}
+                    className="mt-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold flex items-center gap-2 transition-all shadow-md"
+                  >
+                    <RefreshCw className="w-3.5 h-3.5" />
+                    <span>{lang === "ar" ? "إعادة المحاولة" : "Retry Loading"}</span>
+                  </button>
+                </div>
+              )}
+
+              {/* Document Content State */}
+              {!previewDocModal.loading && !previewDocModal.error && previewDocModal.blobUrl && (
+                <div className="w-full h-full flex items-center justify-center overflow-auto">
+                  {/* Image View */}
+                  {previewDocModal.mimeType?.startsWith("image/") || 
+                   previewDocModal.mimeType?.includes("svg") ||
+                   (!previewDocModal.mimeType?.includes("pdf") && !previewDocModal.fileName?.toLowerCase().endsWith(".pdf")) ? (
+                    <div className="w-full h-full flex items-center justify-center overflow-auto p-2">
+                      <img
+                        src={previewDocModal.blobUrl}
+                        alt={previewDocModal.fileName}
+                        style={{
+                          transform: `scale(${previewDocModal.zoom})`,
+                          transition: "transform 0.15s ease-out",
+                          maxHeight: previewDocModal.zoom <= 1 ? "100%" : "none",
+                          maxWidth: previewDocModal.zoom <= 1 ? "100%" : "none"
+                        }}
+                        className="object-contain rounded-lg shadow-lg"
+                      />
+                    </div>
+                  ) : (
+                    /* PDF / Embed View */
+                    <div className="w-full h-full flex flex-col rounded-xl overflow-hidden border border-slate-700/40 bg-slate-900">
+                      <object
+                        data={previewDocModal.blobUrl}
+                        type="application/pdf"
+                        className="w-full h-full"
+                      >
+                        <iframe
+                          src={previewDocModal.blobUrl}
+                          title={previewDocModal.fileName}
+                          className="w-full h-full border-0"
+                        />
+                      </object>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Modal Footer Info */}
+            <div className={`px-4 py-2.5 border-t text-xs flex flex-wrap items-center justify-between gap-2 shrink-0 ${
+              theme === "dark" ? "bg-slate-950 border-slate-800 text-slate-400" : "bg-slate-50 border-slate-200 text-slate-600"
+            }`}>
+              <div className="flex items-center gap-2">
+                <ShieldCheck className="w-4 h-4 text-emerald-500" />
+                <span>
+                  {lang === "ar" ? "قناة معاينة إدارية مشفرة وآمنة" : "Encrypted Admin Verification Channel"}
+                </span>
+              </div>
+              <div className="text-[11px] font-mono">
+                {previewDocModal.requestInfo?.createdAt 
+                  ? `${lang === "ar" ? "تاريخ التقديم:" : "Submitted:"} ${safeFormatDateTime(previewDocModal.requestInfo.createdAt)}`
+                  : ""}
+              </div>
             </div>
           </div>
         </div>

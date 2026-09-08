@@ -1463,14 +1463,8 @@ export async function handleAdminRecoveryDecision(params: {
       });
       await sendSystemMail(normalizedEmail, emailObj.subject, emailObj.text, emailObj.html);
 
-      // Clean up uploaded document chunks on rejection
-      if (requestDoc?.documents && Array.isArray(requestDoc.documents)) {
-        for (const d of requestDoc.documents) {
-          if (d.documentId) {
-            await deleteDocumentFromPersistentStorage(d.documentId);
-          }
-        }
-      }
+      // Retain document metadata and chunks for administrative audit/review window (cleaned up by 14-day TTL policy)
+      console.log(`[RecoveryDecision] Request ${targetReqId} rejected; documents retained for audit retention window.`);
     }
   } catch (mailErr) {
     console.warn("Failed to dispatch decision notification email:", mailErr);

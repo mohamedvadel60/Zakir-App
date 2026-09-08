@@ -1151,7 +1151,8 @@ This hosting domain (**${currentDomain}**) has not been authorized in your Fireb
       const acceptResult = await acceptWorkspaceInvitationApi({
         invitationToken: inv.token,
         email: currentUser.email,
-        memberName: currentUser.ownerName || currentUser.email.split("@")[0]
+        memberName: currentUser.ownerName || currentUser.email.split("@")[0],
+        invitation: inv
       });
 
       const updatedProfile: User = acceptResult.user || {
