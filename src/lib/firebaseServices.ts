@@ -2214,48 +2214,135 @@ function fileToBase64DataUrl(file: File): Promise<string> {
 export async function uploadRecoveryDocumentApi(file: File) {
   let lastError: any = null;
 
-  try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 30000);
-
-    const base64Data = await fileToBase64DataUrl(file);
-    const res = await fetch(getAuthApiUrl("/api/auth/recovery-request/upload"), {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Accept": "application/json"
-      },
-      credentials: "include",
-      body: JSON.stringify({
-        fileBase64: base64Data,
-        fileName: file.name,
-        mimeType: file.type || "application/octet-stream",
-        size: file.size
-      }),
-      signal: controller.signal
-    });
-
-    clearTimeout(timeoutId);
-
-    const parsed = await safeParseJsonResponse(res);
-    if (parsed && (parsed.success || parsed.documentId || parsed.document)) {
-      return {
-        success: true,
-        ...parsed,
-        documentId: parsed.documentId || parsed.document?.documentId,
-        uploadToken: parsed.uploadToken || parsed.document?.uploadToken
-      };
-    }
-    return parsed;
-  } catch (err: any) {
-    lastError = err;
-    console.warn("uploadRecoveryDocumentApi error:", err?.message || err);
+  // File client-side validation
+  if (!file) {
+    return { success: false, error: "لم يتم تحديد أي ملف للرفع." };
   }
 
-  let errMsg = "تعذر الاتصال بخادم رفع الوثائق. يرجى التحقق من اتصال الإنترنت وإعادة المحاولة.";
+  if (file.size > 10 * 1024 * 1024) {
+    return { success: false, error: "حجم الملف يتجاوز الحد المسموح 10 ميغابايت." };
+  }
+
+  let base64Data = "";
+  try {
+    base64Data = await fileToBase64DataUrl(file);
+  } catch (e: any) {
+    console.warn("Failed to convert file to base64:", e);
+  }
+
+  const candidateEndpoints = Array.from(new Set([
+    getAuthApiUrl("/api/auth/recovery-request/upload"),
+    getAuthApiUrl("/auth/recovery-request/upload"),
+    getAuthApiUrl("/api/recovery-request/upload"),
+    "/api/auth/recovery-request/upload",
+    "/auth/recovery-request/upload",
+    "/api/recovery-request/upload"
+  ].filter(Boolean)));
+
+  for (const endpoint of candidateEndpoints) {
+    // 1. Try JSON POST payload
+    if (base64Data) {
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 20000);
+
+        const res = await fetch(endpoint, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Accept": "application/json",
+            "X-HTTP-Method-Override": "POST"
+          },
+          credentials: "include",
+          body: JSON.stringify({
+            fileBase64: base64Data,
+            fileName: file.name,
+            mimeType: file.type || "application/octet-stream",
+            size: file.size
+          }),
+          signal: controller.signal
+        });
+
+        clearTimeout(timeoutId);
+
+        if (res.ok) {
+          const parsed = await safeParseJsonResponse(res);
+          if (parsed && (parsed.success || parsed.documentId || parsed.document)) {
+            return {
+              success: true,
+              ...parsed,
+              documentId: parsed.documentId || parsed.document?.documentId,
+              uploadToken: parsed.uploadToken || parsed.document?.uploadToken
+            };
+          }
+        } else {
+          let errText = "";
+          try {
+            const errData = await res.json();
+            if (errData?.userFriendlyMessage || errData?.error) {
+              lastError = new Error(errData.userFriendlyMessage || errData.error);
+            }
+          } catch (e) {
+            errText = await res.text().catch(() => "");
+          }
+          if (res.status === 405) {
+            console.warn(`Endpoint ${endpoint} returned 405 Method Not Allowed, trying next fallback...`);
+          }
+        }
+      } catch (err: any) {
+        lastError = err;
+        console.warn(`Upload attempt via JSON to ${endpoint} notice:`, err?.message || err);
+      }
+    }
+
+    // 2. Try FormData (multipart) fallback
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("fileName", file.name);
+      formData.append("mimeType", file.type || "application/octet-stream");
+      formData.append("size", String(file.size));
+      if (base64Data) {
+        formData.append("fileBase64", base64Data);
+      }
+
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 20000);
+
+      const res = await fetch(endpoint, {
+        method: "POST",
+        headers: {
+          "Accept": "application/json",
+          "X-HTTP-Method-Override": "POST"
+        },
+        credentials: "include",
+        body: formData,
+        signal: controller.signal
+      });
+
+      clearTimeout(timeoutId);
+
+      if (res.ok) {
+        const parsed = await safeParseJsonResponse(res);
+        if (parsed && (parsed.success || parsed.documentId || parsed.document)) {
+          return {
+            success: true,
+            ...parsed,
+            documentId: parsed.documentId || parsed.document?.documentId,
+            uploadToken: parsed.uploadToken || parsed.document?.uploadToken
+          };
+        }
+      }
+    } catch (err: any) {
+      lastError = err;
+      console.warn(`Upload attempt via FormData to ${endpoint} notice:`, err?.message || err);
+    }
+  }
+
+  let errMsg = "تعذر إكمال رفع الوثيقة إلى الخادم. يرجى إعادة المحاولة.";
   if (lastError?.name === "AbortError") {
     errMsg = "انتهت مهلة الاتصال بالخادم أثناء رفع المستند. يرجى المحاولة مرة أخرى.";
-  } else if (lastError?.message) {
+  } else if (lastError?.message && !lastError.message.includes("405")) {
     errMsg = lastError.message;
   }
 
@@ -2283,30 +2370,48 @@ export async function submitAccountRecoveryRequestApi(payload: {
 }) {
   let lastError: any = null;
 
-  try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 20000);
+  const candidateEndpoints = Array.from(new Set([
+    getAuthApiUrl("/api/auth/recovery-request/submit"),
+    getAuthApiUrl("/auth/recovery-request/submit"),
+    getAuthApiUrl("/api/recovery-request/submit"),
+    "/api/auth/recovery-request/submit",
+    "/auth/recovery-request/submit",
+    "/api/recovery-request/submit"
+  ].filter(Boolean)));
 
-    const res = await fetch(getAuthApiUrl("/api/auth/recovery-request/submit"), {
-      method: "POST",
-      credentials: "include",
-      headers: {
-        "Content-Type": "application/json",
-        "Accept": "application/json"
-      },
-      body: JSON.stringify(payload),
-      signal: controller.signal
-    });
-    clearTimeout(timeoutId);
+  for (const endpoint of candidateEndpoints) {
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 20000);
 
-    const parsed = await safeParseJsonResponse(res);
-    if (parsed && (parsed.success || parsed.requestId || parsed.request)) {
-      return parsed;
+      const res = await fetch(endpoint, {
+        method: "POST",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+          "Accept": "application/json",
+          "X-HTTP-Method-Override": "POST"
+        },
+        body: JSON.stringify(payload),
+        signal: controller.signal
+      });
+      clearTimeout(timeoutId);
+
+      if (res.ok) {
+        const parsed = await safeParseJsonResponse(res);
+        if (parsed && (parsed.success || parsed.requestId || parsed.request)) {
+          return parsed;
+        }
+      } else {
+        const errData = await res.json().catch(() => null);
+        if (errData?.userFriendlyMessage || errData?.error) {
+          lastError = new Error(errData.userFriendlyMessage || errData.error);
+        }
+      }
+    } catch (err: any) {
+      lastError = err;
+      console.warn(`submitAccountRecoveryRequestApi attempt on ${endpoint} notice:`, err?.message || err);
     }
-    return parsed;
-  } catch (err: any) {
-    lastError = err;
-    console.warn("submitAccountRecoveryRequestApi error:", err?.message || err);
   }
 
   const errMsg = lastError?.message && !lastError.message.includes("Failed to fetch")
