@@ -2213,107 +2213,50 @@ function fileToBase64DataUrl(file: File): Promise<string> {
 
 export async function uploadRecoveryDocumentApi(file: File) {
   let lastError: any = null;
-  const maxAttempts = 3;
 
-  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-    try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 25000); // 25s timeout per attempt
-
-      let res: Response;
-      const targetUrl = attempt === 3
-        ? getAuthApiUrl("/auth/recovery-request/upload")
-        : getAuthApiUrl("/api/auth/recovery-request/upload");
-
-      // Attempt 1 & 3: Structured JSON payload with Base64 encoding and explicit JSON accept header (bypasses proxy multipart issues)
-      // Attempt 2: Multipart FormData with explicit JSON accept header
-      if (attempt === 1 || attempt === 3) {
-        const base64Data = await fileToBase64DataUrl(file);
-        res = await fetch(targetUrl, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Accept": "application/json"
-          },
-          credentials: "include",
-          body: JSON.stringify({
-            fileBase64: base64Data,
-            fileName: file.name,
-            mimeType: file.type || "application/octet-stream",
-            size: file.size
-          }),
-          signal: controller.signal
-        });
-      } else {
-        const formData = new FormData();
-        formData.append("file", file);
-
-        res = await fetch(targetUrl, {
-          method: "POST",
-          headers: {
-            "Accept": "application/json"
-          },
-          credentials: "include",
-          body: formData,
-          signal: controller.signal
-        });
-      }
-
-      clearTimeout(timeoutId);
-
-      const parsed = await safeParseJsonResponse(res);
-      if (parsed && (parsed.success || parsed.documentId || parsed.document)) {
-        return {
-          success: true,
-          ...parsed,
-          documentId: parsed.documentId || parsed.document?.documentId,
-          uploadToken: parsed.uploadToken || parsed.document?.uploadToken
-        };
-      }
-      return parsed;
-    } catch (err: any) {
-      lastError = err;
-      console.warn(`uploadRecoveryDocumentApi attempt ${attempt}/${maxAttempts} notice:`, err?.message || err);
-      if (attempt < maxAttempts) {
-        await new Promise(r => setTimeout(r, attempt * 400));
-      }
-    }
-  }
-
-  // Graceful Resilient Client Fallback: If network gateway, proxy, or serverless endpoint encounters unexpected response,
-  // produce a validated client-side document descriptor so the recovery workflow is never blocked.
   try {
-    const docId = `doc_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
-    const uploadToken = `tok_${Date.now()}_${Math.random().toString(36).substring(2, 12)}`;
-    return {
-      success: true,
-      documentId: docId,
-      uploadToken: uploadToken,
-      storageStatus: "ready",
-      document: {
-        documentId: docId,
-        uploadToken: uploadToken,
-        storageReference: `secure_uploads/${docId}`,
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000);
+
+    const base64Data = await fileToBase64DataUrl(file);
+    const res = await fetch(getAuthApiUrl("/api/auth/recovery-request/upload"), {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Accept": "application/json"
+      },
+      credentials: "include",
+      body: JSON.stringify({
+        fileBase64: base64Data,
         fileName: file.name,
         mimeType: file.type || "application/octet-stream",
-        size: file.size,
-        uploadedAt: new Date().toISOString(),
-        storageStatus: "ready"
-      }
-    };
-  } catch (fallbackErr) {
-    console.warn("Client fallback document generation error:", fallbackErr);
+        size: file.size
+      }),
+      signal: controller.signal
+    });
+
+    clearTimeout(timeoutId);
+
+    const parsed = await safeParseJsonResponse(res);
+    if (parsed && (parsed.success || parsed.documentId || parsed.document)) {
+      return {
+        success: true,
+        ...parsed,
+        documentId: parsed.documentId || parsed.document?.documentId,
+        uploadToken: parsed.uploadToken || parsed.document?.uploadToken
+      };
+    }
+    return parsed;
+  } catch (err: any) {
+    lastError = err;
+    console.warn("uploadRecoveryDocumentApi error:", err?.message || err);
   }
 
   let errMsg = "تعذر الاتصال بخادم رفع الوثائق. يرجى التحقق من اتصال الإنترنت وإعادة المحاولة.";
   if (lastError?.name === "AbortError") {
     errMsg = "انتهت مهلة الاتصال بالخادم أثناء رفع المستند. يرجى المحاولة مرة أخرى.";
   } else if (lastError?.message) {
-    if (lastError.message.includes("405") || lastError.message.includes("not allowed")) {
-      errMsg = "تعذر إتمام رفع الوثيقة بسبب قيود خادم الويب على طريقة الطلب. يرجى إعادة المحاولة.";
-    } else if (!lastError.message.includes("Failed to fetch")) {
-      errMsg = lastError.message;
-    }
+    errMsg = lastError.message;
   }
 
   return { success: false, error: errMsg };
@@ -2339,88 +2282,31 @@ export async function submitAccountRecoveryRequestApi(payload: {
   }>;
 }) {
   let lastError: any = null;
-  const maxAttempts = 2;
 
-  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-    try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 15000);
-
-      const targetUrl = attempt === 2
-        ? getAuthApiUrl("/auth/recovery-request/submit")
-        : getAuthApiUrl("/api/auth/recovery-request/submit");
-
-      const res = await fetch(targetUrl, {
-        method: "POST",
-        credentials: "include",
-        headers: {
-          "Content-Type": "application/json",
-          "Accept": "application/json"
-        },
-        body: JSON.stringify(payload),
-        signal: controller.signal
-      });
-      clearTimeout(timeoutId);
-
-      const parsed = await safeParseJsonResponse(res);
-      if (parsed && (parsed.success || parsed.requestId || parsed.request)) {
-        return parsed;
-      }
-    } catch (err: any) {
-      lastError = err;
-      console.warn(`submitAccountRecoveryRequestApi attempt ${attempt}/${maxAttempts} notice:`, err?.message || err);
-      if (attempt < maxAttempts) {
-        await new Promise(r => setTimeout(r, 400));
-      }
-    }
-  }
-
-  // Resilient Direct Firestore Fallback (Runs if server returns 405, 404, or web proxy blocks POST)
   try {
-    const normalizedEmail = (payload.email || "").trim().toLowerCase();
-    const requestId = `REQ-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
-    const nowIso = new Date().toISOString();
-    const requestDoc = {
-      id: requestId,
-      requestId,
-      userId: `usr_${normalizedEmail.replace(/[^a-zA-Z0-9]/g, "_")}`,
-      accountId: `acc_${normalizedEmail.replace(/[^a-zA-Z0-9]/g, "_")}`,
-      email: normalizedEmail,
-      fullName: (payload.fullName || "").trim(),
-      phone: (payload.phone || "").trim(),
-      phoneVerified: !!payload.phoneVerified,
-      organization: (payload.organization || "").trim(),
-      previousWorkspaceInfo: (payload.previousWorkspaceInfo || "").trim(),
-      reason: (payload.reason || "").trim(),
-      termsAccepted: !!payload.termsAccepted,
-      termsAcceptedAt: nowIso,
-      documentIds: (payload.documents || []).map(d => d.documentId),
-      documents: (payload.documents || []).map(d => ({
-        documentId: d.documentId,
-        storageReference: d.storageReference || `secure_uploads/${d.documentId}`,
-        fileName: d.fileName,
-        mimeType: d.mimeType,
-        size: d.size,
-        uploadedAt: d.uploadedAt || nowIso
-      })),
-      status: "pending",
-      createdAt: nowIso,
-      submittedAt: nowIso,
-      updatedAt: nowIso,
-      reviewedAt: null,
-      reviewedBy: null
-    };
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 20000);
 
-    await setDoc(doc(db, "recoveryRequests", requestId), requestDoc);
-    console.log("[RecoverySubmit] Resilient Firestore fallback saved request:", requestId);
-    return {
-      success: true,
-      requestId,
-      status: "pending",
-      request: requestDoc
-    };
-  } catch (firestoreFallbackErr: any) {
-    console.warn("[RecoverySubmit] Firestore fallback notice:", firestoreFallbackErr?.message || firestoreFallbackErr);
+    const res = await fetch(getAuthApiUrl("/api/auth/recovery-request/submit"), {
+      method: "POST",
+      credentials: "include",
+      headers: {
+        "Content-Type": "application/json",
+        "Accept": "application/json"
+      },
+      body: JSON.stringify(payload),
+      signal: controller.signal
+    });
+    clearTimeout(timeoutId);
+
+    const parsed = await safeParseJsonResponse(res);
+    if (parsed && (parsed.success || parsed.requestId || parsed.request)) {
+      return parsed;
+    }
+    return parsed;
+  } catch (err: any) {
+    lastError = err;
+    console.warn("submitAccountRecoveryRequestApi error:", err?.message || err);
   }
 
   const errMsg = lastError?.message && !lastError.message.includes("Failed to fetch")
@@ -2431,17 +2317,23 @@ export async function submitAccountRecoveryRequestApi(payload: {
 }
 
 export async function fetchAccountRecoveryStatusApi(email: string) {
+  const normalizedEmail = (email || "").trim().toLowerCase();
+  if (!normalizedEmail) {
+    return { success: true, status: "none", recoveryRequest: null };
+  }
+
   try {
-    if (!email || !email.trim()) {
-      return { success: true, status: "none", recoveryRequest: null };
-    }
-    const res = await fetch(getAuthApiUrl(`/api/auth/recovery-request/status?email=${encodeURIComponent(email.trim().toLowerCase())}`), {
+    const res = await fetch(getAuthApiUrl(`/api/auth/recovery-request/status?email=${encodeURIComponent(normalizedEmail)}`), {
       method: "GET",
       credentials: "include"
     });
-    return await safeParseJsonResponse(res);
+    const parsed = await safeParseJsonResponse(res);
+    if (parsed && (parsed.success || parsed.recoveryRequest || parsed.status)) {
+      return parsed;
+    }
+    return parsed;
   } catch (err: any) {
-    console.warn("fetchAccountRecoveryStatusApi notice:", err?.message || err);
+    console.warn("fetchAccountRecoveryStatusApi API error:", err?.message || err);
     return { success: false, status: "none", recoveryRequest: null, error: err.message || "فشل جلب حالة الاستعادة." };
   }
 }

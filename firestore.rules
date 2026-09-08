@@ -106,8 +106,11 @@ service cloud.firestore {
     }
 
     match /recoveryRequests/{requestId} {
-      allow create: if true;
-      allow read, update, delete: if isAdmin();
+      allow read, write: if isAdmin();
+    }
+
+    match /recoveryRequests_by_email/{email} {
+      allow read, write: if isAdmin();
     }
 
     // Customer Support Tickets
