@@ -1,5 +1,5 @@
 // @ts-ignore
-import serverModule from "../dist/server.cjs";
+import serverModule from "./_server.cjs";
 const app = (serverModule as any)?.default || serverModule;
 
 /**
