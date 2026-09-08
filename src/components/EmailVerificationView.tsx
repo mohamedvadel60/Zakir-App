@@ -30,9 +30,45 @@ export const EmailVerificationView: React.FC<EmailVerificationViewProps> = ({
   const [cooldownTimeLeft, setCooldownTimeLeft] = useState(0);
   const [cooldownUntil, setCooldownUntil] = useState<string | null>(null);
 
+  // Auto bypass if already verified or invited workspace member
+  useEffect(() => {
+    const isAlreadyVerified =
+      currentUser.isVerified === true ||
+      currentUser.isEmailVerified === true ||
+      currentUser.email_verified === true ||
+      currentUser.emailVerified === true ||
+      currentUser.verification_required === false ||
+      currentUser.verification_status === "verified" ||
+      (currentUser.role && currentUser.role !== "CEO");
+
+    if (isAlreadyVerified) {
+      const verifiedUser: User = {
+        ...currentUser,
+        isVerified: true,
+        isEmailVerified: true,
+        email_verified: true,
+        emailVerified: true,
+        verification_required: false,
+        verification_status: "verified",
+      };
+      setCurrentUser(verifiedUser);
+      applyUserPreferences(verifiedUser);
+      return;
+    }
+  }, [currentUser?.id, currentUser?.isVerified, currentUser?.verification_required, currentUser?.role]);
+
   // 1. Automatically request initial OTP on mount without consuming resend attempts
   useEffect(() => {
     let isMounted = true;
+    const isAlreadyVerified =
+      currentUser.isVerified === true ||
+      currentUser.isEmailVerified === true ||
+      currentUser.verification_required === false ||
+      currentUser.verification_status === "verified" ||
+      (currentUser.role && currentUser.role !== "CEO");
+
+    if (isAlreadyVerified) return;
+
     const autoSentKey = `auto_sent_otp_${currentUser.id || currentUser.email}`;
     
     if (!sessionStorage.getItem(autoSentKey)) {

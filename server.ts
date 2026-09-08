@@ -979,9 +979,10 @@ app.post([
     const requestedPlan = (plan === "Enterprise" ? "Enterprise" : plan === "Starter" ? "Starter" : "Professional") as "Starter" | "Professional" | "Enterprise";
     const requestedCycle = (billingCycle === "monthly" ? "monthly" : "annual") as "monthly" | "annual";
 
-    const host = req.headers.host || "localhost:3000";
-    const protocol = req.headers["x-forwarded-proto"] || "https";
-    const baseUrl = process.env.APP_URL || `${protocol}://${host}`;
+    const rawHost = String(req.headers["x-forwarded-host"] || req.headers.host || "www.getzakir.com").split(",")[0].trim();
+    const rawProto = String(req.headers["x-forwarded-proto"] || "https").split(",")[0].trim();
+    const rawBaseUrl = process.env.APP_URL || `${rawProto}://${rawHost}`;
+    const baseUrl = rawBaseUrl.replace(/\/+$/, "");
 
     // Benchmark Plan Prices (Total Amount charged per interval)
     const BENCHMARK_PLAN_PRICES = {
@@ -1163,6 +1164,7 @@ app.post([
 
     const { publishableKey } = resolveStripeKeys();
 
+    res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
     return res.json({
       success: true,
       sessionId: session.id,
@@ -1189,19 +1191,20 @@ app.post([
         ? err.statusCode
         : 500;
 
+    res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
     res.status(httpStatusCode).json({ 
       success: false,
       code: errorDetails.stripeErrorCode,
       errorType: errorDetails.stripeErrorType,
       error: errorDetails.stripeErrorMessage,
-      userFriendlyMessage: err?.message || "تعذر إعداد جلسة الدفع الآمن حالياً. يرجى المحاولة لاحقاً."
+      userFriendlyMessage: err?.message ? `تعذر إعداد جلسة الدفع: ${err.message}` : "تعذر إعداد جلسة الدفع الآمن حالياً. يرجى المحاولة لاحقاً."
     });
   } finally {
     inFlightCheckoutUsers.delete(authUserId);
   }
 });
 
-// Explicit method fallback for create-checkout-session
+// Explicit method fallback for create-checkout-session (GET/OPTIONS only)
 app.all([
   "/api/stripe/create-checkout-session",
   "/api/stripe/create-checkout-session/",
@@ -1212,7 +1215,8 @@ app.all([
   "/create-checkout-session",
   "/create-checkout-session/"
 ], (req, res) => {
-  const methodUpper = (req.method || "POST").toUpperCase();
+  const methodUpper = (req.method || "GET").toUpperCase();
+  res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
   if (methodUpper === "OPTIONS") {
     return res.status(200).end();
   }
@@ -4672,6 +4676,12 @@ app.all([
       companyName: companyName,
       role: role,
       powers: powers,
+      isVerified: true,
+      isEmailVerified: true,
+      email_verified: true,
+      emailVerified: true,
+      verification_required: false,
+      verification_status: "verified",
       workspace: {
         id: workspaceId,
         name: `${companyName} Workspace`,
@@ -8675,6 +8685,13 @@ app.all([
   "/admin/users/:uid"
 ], requireAuth, async (req: AuthRequest, res) => {
   const targetUid = (req.params.uid || req.body?.uid || req.body?.userId || req.query?.uid || req.query?.userId || "").toString().trim();
+  let currentStep = "INITIALIZATION";
+  const executionAudit: Record<string, any> = {
+    stripe: { status: "pending", details: null },
+    database: { status: "pending", details: null },
+    auth: { status: "pending", details: null }
+  };
+
   try {
     const callerUid = req.user?.uid;
     const callerEmail = req.user?.email || (req as any).userEmail || "";
@@ -8698,15 +8715,15 @@ app.all([
     console.log("USER_DELETE_STARTED", { targetUid, callerUid, callerEmail });
 
     let targetEmail = (req.body?.userEmail || req.body?.email || req.query?.userEmail || req.query?.email || "").toString().trim();
-    if (!targetEmail) {
-      try {
-        const targetSnap = await adminDb.collection("users").doc(targetUid).get();
-        if (targetSnap.exists) {
-          targetEmail = targetSnap.data()?.email || "";
-        }
-      } catch (e) {
-        console.warn("Failed to retrieve target user email from Firestore:", e);
+    let userDocData: any = null;
+    try {
+      const targetSnap = await adminDb.collection("users").doc(targetUid).get();
+      if (targetSnap.exists) {
+        userDocData = targetSnap.data();
+        if (!targetEmail) targetEmail = userDocData?.email || "";
       }
+    } catch (e) {
+      console.warn("Failed to retrieve target user email from Firestore:", e);
     }
 
     if (!targetEmail) {
@@ -8716,8 +8733,60 @@ app.all([
         if (found?.email) {
           targetEmail = found.email;
         }
+        if (!userDocData && found) userDocData = found;
       } catch (e) {}
     }
+
+    // --- STEP 1: STRIPE SUBSCRIPTION CANCELLATION ---
+    currentStep = "STRIPE_CANCELLATION";
+    try {
+      const stripe = getStripe();
+      if (stripe) {
+        const subId = userDocData?.stripeSubscriptionId || userDocData?.subscriptionId;
+        const custId = userDocData?.stripeCustomerId || userDocData?.customerId;
+        let canceledCount = 0;
+
+        if (subId) {
+          try {
+            await stripe.subscriptions.cancel(subId);
+            canceledCount++;
+            console.log(`[AdminDelete] Canceled Stripe subscription ${subId} for target user ${targetUid}`);
+          } catch (subErr: any) {
+            if (subErr?.code === "resource_missing" || subErr?.statusCode === 404) {
+              console.log(`[AdminDelete] Stripe subscription ${subId} already canceled or non-existent.`);
+            } else {
+              console.warn(`[AdminDelete] Warning canceling subscription ${subId}:`, subErr?.message);
+            }
+          }
+        }
+
+        if (custId) {
+          try {
+            const activeSubs = await stripe.subscriptions.list({ customer: custId, status: "active" });
+            for (const sub of activeSubs.data) {
+              if (sub.id !== subId) {
+                await stripe.subscriptions.cancel(sub.id);
+                canceledCount++;
+                console.log(`[AdminDelete] Canceled additional active subscription ${sub.id} for customer ${custId}`);
+              }
+            }
+          } catch (custErr: any) {
+            console.warn(`[AdminDelete] Warning listing active subscriptions for customer ${custId}:`, custErr?.message);
+          }
+        }
+
+        executionAudit.stripe = { status: "completed", canceledSubscriptions: canceledCount };
+      } else {
+        executionAudit.stripe = { status: "skipped", reason: "Stripe SDK not initialized or key not configured." };
+      }
+    } catch (stripeErr: any) {
+      console.warn("[AdminDelete] Non-fatal error during Stripe cancellation step:", stripeErr?.message);
+      executionAudit.stripe = { status: "warning", error: stripeErr?.message || String(stripeErr) };
+    }
+
+    // --- STEP 2: DATABASE DATA, CAUSAL GRAPHS & RECORDS DELETION ---
+    currentStep = "DATABASE_DATA_DELETION";
+    let deletedRecordsCount = 0;
 
     // Update permanent account lifecycle record for ADMIN DELETED account
     if (targetEmail) {
@@ -8752,9 +8821,10 @@ app.all([
       console.warn("Firestore deletedUsers creation warning:", delErr?.message);
     }
 
-    // 2. Delete Firestore user-owned data and profile
+    // Delete Firestore user document users/{targetUid}
     try {
       await adminDb.collection("users").doc(targetUid).delete();
+      deletedRecordsCount++;
       console.log("USER_FIRESTORE_DELETED", { targetUid });
     } catch (fsErr: any) {
       console.warn("Firestore user doc delete warning:", fsErr?.message);
@@ -8766,6 +8836,7 @@ app.all([
       const vcSnap = await adminDb.collection("verification_codes").where("userId", "==", targetUid).get();
       for (const doc of vcSnap.docs) {
         await doc.ref.delete();
+        deletedRecordsCount++;
       }
     } catch (vcErr: any) {
       console.warn("Verification codes deletion warning:", vcErr?.message);
@@ -8776,27 +8847,36 @@ app.all([
       const userFilesSnap = await adminDb.collection("users").doc(targetUid).collection("files").get();
       for (const fDoc of userFilesSnap.docs) {
         await fDoc.ref.delete();
+        deletedRecordsCount++;
       }
       const topFilesSnap = await adminDb.collection("files").where("userId", "==", targetUid).get();
       for (const tfDoc of topFilesSnap.docs) {
         await tfDoc.ref.delete();
+        deletedRecordsCount++;
       }
     } catch (filesErr: any) {
       console.warn("Files metadata deletion warning:", filesErr?.message);
     }
 
-    // Delete user memories & risk alerts
+    // Delete user memories, causal graphs & risk alerts
     try {
       const memSnap = await adminDb.collection("users").doc(targetUid).collection("memories").get();
       for (const mDoc of memSnap.docs) {
         await mDoc.ref.delete();
+        deletedRecordsCount++;
       }
       const alertSnap = await adminDb.collection("users").doc(targetUid).collection("riskAlerts").get();
       for (const aDoc of alertSnap.docs) {
         await aDoc.ref.delete();
+        deletedRecordsCount++;
+      }
+      const cgSnap = await adminDb.collection("causal_graphs").where("userId", "==", targetUid).get();
+      for (const cgDoc of cgSnap.docs) {
+        await cgDoc.ref.delete();
+        deletedRecordsCount++;
       }
     } catch (memErr: any) {
-      console.warn("Memories/alerts deletion warning:", memErr?.message);
+      console.warn("Memories/graphs deletion warning:", memErr?.message);
     }
 
     // Delete support tickets owned by user
@@ -8804,50 +8884,84 @@ app.all([
       const ticketSnap = await adminDb.collection("support_tickets").where("userId", "==", targetUid).get();
       for (const tDoc of ticketSnap.docs) {
         await tDoc.ref.delete();
+        deletedRecordsCount++;
       }
     } catch (ticketErr: any) {
       console.warn("Support tickets deletion warning:", ticketErr?.message);
     }
 
-    // 3. Disable in Firebase Authentication (preserve Auth UID identity for restoration)
-    try {
-      await adminAuth.updateUser(targetUid, { disabled: true });
-      console.log("USER_AUTH_DISABLED", { targetUid });
-    } catch (authErr: any) {
-      if (authErr?.code !== "auth/user-not-found") {
-        console.warn("USER_AUTH_DISABLE_WARNING", { targetUid, error: authErr?.message });
-      }
-    }
-
-    // 4. Revoke active refresh tokens
-    try {
-      await adminAuth.revokeRefreshTokens(targetUid);
-      console.log("USER_TOKENS_REVOKED", { targetUid });
-    } catch (tokenErr: any) {
-      console.warn("Revoke refresh tokens warning:", tokenErr?.message);
-    }
-
-    // 5. Synchronize deletion to the local JSON file database store
+    // Synchronize deletion to local JSON file database store
     try {
       const dbData = readDb();
       if (dbData.users) dbData.users = dbData.users.filter((u: any) => u.id !== targetUid && u.uid !== targetUid);
       if (dbData.verification_codes) dbData.verification_codes = dbData.verification_codes.filter((vc: any) => vc.id !== targetUid && vc.userId !== targetUid);
       if (dbData.support_tickets) dbData.support_tickets = dbData.support_tickets.filter((st: any) => st.userId !== targetUid);
+      if (dbData.memories) dbData.memories = dbData.memories.filter((m: any) => m.userId !== targetUid);
+      if (dbData.causal_graphs) dbData.causal_graphs = dbData.causal_graphs.filter((cg: any) => cg.userId !== targetUid);
       writeDb(dbData);
     } catch (dbErr: any) {
       console.warn("Local db write warning during user deletion:", dbErr?.message);
     }
 
-    console.log("USER_DELETE_COMPLETED", { targetUid });
-    return res.json({ success: true, message: `Account ${targetUid} has been permanently deleted from all systems.` });
+    executionAudit.database = { status: "completed", recordsPurged: deletedRecordsCount };
+
+    // --- STEP 3: FIREBASE AUTHENTICATION DELETION & TOKEN REVOCATION ---
+    currentStep = "FIREBASE_AUTH_DELETION";
+
+    // 1. Disable/Delete in Firebase Auth
+    try {
+      await adminAuth.updateUser(targetUid, { disabled: true });
+      console.log("USER_AUTH_DISABLED", { targetUid });
+      executionAudit.auth.userDisabled = true;
+    } catch (authErr: any) {
+      if (authErr?.code === "auth/user-not-found") {
+        console.log("USER_AUTH_ALREADY_REMOVED", { targetUid });
+        executionAudit.auth.userDisabled = true;
+      } else {
+        console.warn("USER_AUTH_DISABLE_WARNING", { targetUid, error: authErr?.message });
+        executionAudit.auth.authError = authErr?.message;
+      }
+    }
+
+    // 2. Revoke active refresh tokens
+    try {
+      await adminAuth.revokeRefreshTokens(targetUid);
+      console.log("USER_TOKENS_REVOKED", { targetUid });
+      executionAudit.auth.tokensRevoked = true;
+    } catch (tokenErr: any) {
+      console.warn("Revoke refresh tokens warning:", tokenErr?.message);
+      executionAudit.auth.tokenError = tokenErr?.message;
+    }
+
+    executionAudit.auth.status = "completed";
+
+    console.log("USER_DELETE_COMPLETED", { targetUid, executionAudit });
+    return res.json({
+      success: true,
+      message: `Account ${targetUid} has been permanently deleted from all systems.`,
+      executionAudit
+    });
   } catch (err: any) {
-    console.error("USER_DELETE_FAILED", { targetUid, error: err.message || String(err) });
-    return res.status(500).json({ success: false, error: err.message || "Administrative deletion process failed." });
+    console.error(`USER_DELETE_FAILED during step [${currentStep}]`, { targetUid, error: err.message || String(err) });
+    return res.status(500).json({
+      success: false,
+      failedStep: currentStep,
+      error: err.message || "Administrative deletion process failed.",
+      userFriendlyMessage: `تعذر إتمام عملية حذف الحساب أثناء مرحلة (${currentStep}).`,
+      executionAudit
+    });
   }
 });
 
 app.all("/api/auth/delete-account", requireAuth, async (req: AuthRequest, res) => {
   let targetUid = req.user?.uid;
+  let currentStep = "INITIALIZATION";
+  const executionAudit: Record<string, any> = {
+    stripe: { status: "pending", details: null },
+    database: { status: "pending", details: null },
+    auth: { status: "pending", details: null }
+  };
+
   try {
     if (!targetUid && req.body?.email) {
       try {
@@ -8858,12 +8972,12 @@ app.all("/api/auth/delete-account", requireAuth, async (req: AuthRequest, res) =
     }
 
     if (!targetUid) {
-      return res.status(401).json({ error: "Unauthorized: Could not determine user identity for deletion." });
+      return res.status(401).json({ success: false, error: "Unauthorized: Could not determine user identity for deletion." });
     }
 
     console.log("USER_SELF_DELETE_STARTED", { targetUid });
 
-    // Archive user profile in users_retained/{targetUid} before deletion
+    // Read user profile data
     let userDocData: any = null;
     try {
       const userSnap = await adminDb.collection("users").doc(targetUid).get();
@@ -8872,8 +8986,66 @@ app.all("/api/auth/delete-account", requireAuth, async (req: AuthRequest, res) =
       }
     } catch (e) {}
 
+    if (!userDocData) {
+      try {
+        const localDb = readDb();
+        userDocData = localDb.users?.find((u: any) => u.id === targetUid || u.uid === targetUid) || null;
+      } catch (e) {}
+    }
+
     const targetEmail = userDocData?.email || req.user?.email || "";
     const normEmail = targetEmail.trim().toLowerCase();
+
+    // --- STEP 1: CANCEL ACTIVE STRIPE SUBSCRIPTIONS ---
+    currentStep = "STRIPE_SUBSCRIPTION_CANCELLATION";
+    try {
+      const stripe = getStripe();
+      if (stripe) {
+        const subId = userDocData?.stripeSubscriptionId || userDocData?.subscriptionId;
+        const custId = userDocData?.stripeCustomerId || userDocData?.customerId;
+        let canceledCount = 0;
+
+        if (subId) {
+          try {
+            await stripe.subscriptions.cancel(subId);
+            canceledCount++;
+            console.log(`[SelfDelete] Canceled active Stripe subscription ${subId} for user ${targetUid}`);
+          } catch (subErr: any) {
+            if (subErr?.code === "resource_missing" || subErr?.statusCode === 404) {
+              console.log(`[SelfDelete] Stripe subscription ${subId} already canceled or non-existent.`);
+            } else {
+              console.warn(`[SelfDelete] Stripe subscription cancel error for ${subId}:`, subErr?.message);
+            }
+          }
+        }
+
+        if (custId) {
+          try {
+            const activeSubs = await stripe.subscriptions.list({ customer: custId, status: "active" });
+            for (const sub of activeSubs.data) {
+              if (sub.id !== subId) {
+                await stripe.subscriptions.cancel(sub.id);
+                canceledCount++;
+                console.log(`[SelfDelete] Canceled additional active Stripe subscription ${sub.id} for customer ${custId}`);
+              }
+            }
+          } catch (custErr: any) {
+            console.warn(`[SelfDelete] Warning listing active subscriptions for customer ${custId}:`, custErr?.message);
+          }
+        }
+
+        executionAudit.stripe = { status: "completed", canceledSubscriptions: canceledCount };
+      } else {
+        executionAudit.stripe = { status: "skipped", reason: "Stripe SDK not configured." };
+      }
+    } catch (stripeErr: any) {
+      console.warn("[SelfDelete] Non-fatal error in Stripe cancellation step:", stripeErr?.message);
+      executionAudit.stripe = { status: "warning", error: stripeErr?.message || String(stripeErr) };
+    }
+
+    // --- STEP 2: DATABASE RECORDS, CAUSAL GRAPHS & ARCHIVE RETENTION ---
+    currentStep = "DATABASE_DATA_PURGE_AND_RETENTION";
+    let deletedDocsCount = 0;
 
     if (userDocData) {
       try {
@@ -8920,8 +9092,8 @@ app.all("/api/auth/delete-account", requireAuth, async (req: AuthRequest, res) =
           archivedFiles: localFiles
         });
         writeDb(db);
-      } catch (archErr) {
-        console.warn("Retention profile backup warning:", archErr);
+      } catch (archErr: any) {
+        console.warn("Retention profile backup warning:", archErr?.message);
       }
     }
 
@@ -8946,24 +9118,7 @@ app.all("/api/auth/delete-account", requireAuth, async (req: AuthRequest, res) =
       });
     }
 
-    // 1. Revoke active refresh tokens
-    try {
-      await adminAuth.revokeRefreshTokens(targetUid);
-    } catch (tokenErr: any) {
-      console.warn("Revoke refresh tokens warning:", tokenErr?.message);
-    }
-
-    // 2. Disable in Firebase Authentication (preserve Auth UID identity for restoration)
-    try {
-      await adminAuth.updateUser(targetUid, { disabled: true });
-      console.log("USER_SELF_AUTH_DISABLED", { targetUid });
-    } catch (authErr: any) {
-      if (authErr.code !== "auth/user-not-found") {
-        console.warn("USER_SELF_AUTH_DISABLE_WARNING", { targetUid, error: authErr?.message });
-      }
-    }
-
-    // 3. Create deleted marker in Firestore
+    // Create deleted marker in Firestore
     try {
       await adminDb.collection("deletedUsers").doc(targetUid).set({
         uid: targetUid,
@@ -8972,42 +9127,88 @@ app.all("/api/auth/delete-account", requireAuth, async (req: AuthRequest, res) =
         deletedBy: targetUid,
         reason: "self_deleted"
       });
+      deletedDocsCount++;
     } catch (dErr) {}
 
-    // 4. Delete Firestore user document users/{targetUid}
+    // Delete Firestore user document users/{targetUid}
     try {
       await adminDb.collection("users").doc(targetUid).delete();
+      deletedDocsCount++;
     } catch (fsErr: any) {}
 
-    // 5. Delete verification codes
+    // Delete verification codes
     try {
       await adminDb.collection("verification_codes").doc(targetUid).delete();
       const vcSnap = await adminDb.collection("verification_codes").where("userId", "==", targetUid).get();
       for (const doc of vcSnap.docs) {
         await doc.ref.delete();
+        deletedDocsCount++;
       }
     } catch (vcErr: any) {}
 
-    // 6. Delete top-level files metadata
+    // Delete top-level files metadata
     try {
       const topFilesSnap = await adminDb.collection("files").where("userId", "==", targetUid).get();
       for (const tfDoc of topFilesSnap.docs) {
         await tfDoc.ref.delete();
+        deletedDocsCount++;
       }
     } catch (filesErr: any) {}
 
-    // 7. Synchronize deletion to local JSON DB store
+    // Synchronize deletion to local JSON DB store
     const dbData = readDb();
     if (dbData.users) dbData.users = dbData.users.filter((u: any) => u.id !== targetUid);
     if (dbData.verification_codes) dbData.verification_codes = dbData.verification_codes.filter((vc: any) => vc.id !== targetUid && vc.userId !== targetUid);
     if (dbData.support_tickets) dbData.support_tickets = dbData.support_tickets.filter((st: any) => st.userId !== targetUid);
+    if (dbData.memories) dbData.memories = dbData.memories.filter((m: any) => m.userId !== targetUid);
+    if (dbData.causal_graphs) dbData.causal_graphs = dbData.causal_graphs.filter((cg: any) => cg.userId !== targetUid);
     writeDb(dbData);
 
-    console.log("USER_SELF_DELETE_COMPLETED", { targetUid });
-    res.json({ success: true, message: "Your account has been deleted. You have 31 days to restore it if you choose." });
+    executionAudit.database = { status: "completed", recordsProcessed: deletedDocsCount };
+
+    // --- STEP 3: FIREBASE AUTHENTICATION DELETION & REVOCATION ---
+    currentStep = "FIREBASE_AUTH_REVOCATION_AND_DISABLE";
+
+    // 1. Revoke active refresh tokens
+    try {
+      await adminAuth.revokeRefreshTokens(targetUid);
+      executionAudit.auth.tokensRevoked = true;
+    } catch (tokenErr: any) {
+      console.warn("Revoke refresh tokens warning:", tokenErr?.message);
+      executionAudit.auth.tokenWarning = tokenErr?.message;
+    }
+
+    // 2. Disable in Firebase Authentication (preserve Auth UID identity for 31-day restoration)
+    try {
+      await adminAuth.updateUser(targetUid, { disabled: true });
+      console.log("USER_SELF_AUTH_DISABLED", { targetUid });
+      executionAudit.auth.userDisabled = true;
+    } catch (authErr: any) {
+      if (authErr?.code !== "auth/user-not-found") {
+        console.warn("USER_SELF_AUTH_DISABLE_WARNING", { targetUid, error: authErr?.message });
+        executionAudit.auth.authWarning = authErr?.message;
+      } else {
+        executionAudit.auth.userDisabled = true;
+      }
+    }
+
+    executionAudit.auth.status = "completed";
+
+    console.log("USER_SELF_DELETE_COMPLETED", { targetUid, executionAudit });
+    res.json({
+      success: true,
+      message: "Your account has been deleted. You have 31 days to restore it if you choose.",
+      executionAudit
+    });
   } catch (err: any) {
-    console.error("USER_SELF_DELETE_FAILED", { targetUid, error: err.message || String(err) });
-    res.status(500).json({ error: err.message || "Account deletion failed." });
+    console.error(`USER_SELF_DELETE_FAILED during step [${currentStep}]`, { targetUid, error: err.message || String(err) });
+    res.status(500).json({
+      success: false,
+      failedStep: currentStep,
+      error: err.message || "Account deletion failed.",
+      userFriendlyMessage: `تعذر إتمام عملية حذف الحساب أثناء مرحلة (${currentStep}).`,
+      executionAudit
+    });
   }
 });
 
@@ -9129,6 +9330,14 @@ app.post("/api/auth/register", loginRegisterLimiter, async (req, res) => {
       }
     } catch (e) {}
     if (!invitation) {
+      try {
+        const invSnap = await adminDb.collection("workspace_invitations").where("email", "==", normalizedEmail).get();
+        if (!invSnap.empty) {
+          invitation = invSnap.docs[0].data();
+        }
+      } catch (e) {}
+    }
+    if (!invitation) {
       const dbTemp = readDb();
       invitation = dbTemp.invitations?.find((i: any) => i.email?.trim().toLowerCase() === normalizedEmail) || null;
     }
@@ -9138,6 +9347,8 @@ app.post("/api/auth/register", loginRegisterLimiter, async (req, res) => {
     const nowIso = new Date().toISOString();
     const workspaceId = invitation?.workspaceId || `ws_${userId.substring(0, 8)}_${Date.now().toString(36)}`;
     const resolvedOwnerName = ownerName || normalizedEmail.split("@")[0];
+
+    const isInvitedUser = !!invitation;
 
     const newUser = {
       id: userId,
@@ -9159,12 +9370,12 @@ app.post("/api/auth/register", loginRegisterLimiter, async (req, res) => {
       trialExpiresAt: new Date(Date.now() + 24 * 3600 * 1000).toISOString(),
       lastActiveAt: nowIso,
       lastLoginAt: nowIso,
-      isVerified: false,
-      isEmailVerified: false,
-      email_verified: false,
-      emailVerified: false,
-      verification_required: true,
-      verification_status: "unverified"
+      isVerified: isInvitedUser,
+      isEmailVerified: isInvitedUser,
+      email_verified: isInvitedUser,
+      emailVerified: isInvitedUser,
+      verification_required: !isInvitedUser,
+      verification_status: isInvitedUser ? "verified" : "unverified"
     };
 
     // SAVE USER TO PRODUCTION FIRESTORE users/{userId}
@@ -9281,6 +9492,27 @@ app.post("/api/auth/register", loginRegisterLimiter, async (req, res) => {
       retainedDataDocPath: null,
       adminApprovalRequired: false
     });
+
+    // If user registered through an invitation, skip OTP creation & dispatch!
+    if (isInvitedUser) {
+      console.log("INVITED_USER_REGISTERED_NO_OTP_REQUIRED", { userId, email: normalizedEmail });
+      const { passwordHash, ...userResponse } = newUser;
+      return res.status(201).json({
+        success: true,
+        user: {
+          ...userResponse,
+          isVerified: true,
+          isEmailVerified: true,
+          email_verified: true,
+          emailVerified: true,
+          verification_required: false,
+          verification_status: "verified"
+        },
+        initialOtpSent: false,
+        sendCount: 0,
+        message: "Registration completed successfully. Workspace invitation accepted."
+      });
+    }
 
     // CREATE OTP
     const otpCode = crypto.randomInt(100000, 1000000).toString();
@@ -9619,12 +9851,40 @@ app.post("/api/auth/login", loginRegisterLimiter, async (req, res) => {
         await adminDb.collection("users").doc(authUid).set(userProfile, { merge: true });
       } catch (e) {}
     } else {
+      // If user profile exists, check if user has an active or accepted invitation
+      if (!userProfile.isVerified || userProfile.verification_required !== false) {
+        let hasInvitation = false;
+        try {
+          const invDoc = await adminDb.collection("invitations").doc(normalizedEmail).get();
+          if (invDoc.exists) hasInvitation = true;
+          else {
+            const wsSnap = await adminDb.collection("workspace_invitations").where("email", "==", normalizedEmail).get();
+            if (!wsSnap.empty) hasInvitation = true;
+          }
+        } catch (e) {}
+
+        if (hasInvitation || (userProfile.role && userProfile.role !== "CEO") || (userProfile.workspaceId && !userProfile.workspaceId.startsWith("ws_" + authUid.substring(0, 8)))) {
+          userProfile.isVerified = true;
+          userProfile.isEmailVerified = true;
+          userProfile.email_verified = true;
+          userProfile.emailVerified = true;
+          userProfile.verification_required = false;
+          userProfile.verification_status = "verified";
+        }
+      }
+
       userProfile.lastActiveAt = nowIso;
       userProfile.lastLoginAt = nowIso;
       try {
         await adminDb.collection("users").doc(authUid).update({
           lastActiveAt: nowIso,
-          lastLoginAt: nowIso
+          lastLoginAt: nowIso,
+          isVerified: userProfile.isVerified,
+          isEmailVerified: userProfile.isEmailVerified,
+          email_verified: userProfile.email_verified,
+          emailVerified: userProfile.emailVerified,
+          verification_required: userProfile.verification_required,
+          verification_status: userProfile.verification_status
         });
       } catch (e) {}
     }

@@ -2287,6 +2287,12 @@ export async function acceptWorkspaceInvitationApi(payload: {
       role: role,
       powers: powers,
       workspaceId: workspaceId,
+      isVerified: true,
+      isEmailVerified: true,
+      email_verified: true,
+      emailVerified: true,
+      verification_required: false,
+      verification_status: "verified",
       workspace: {
         id: workspaceId,
         name: `${companyName} Workspace`,
