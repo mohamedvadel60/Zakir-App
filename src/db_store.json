@@ -1214,17 +1214,6 @@
       "storageStatus": "pending",
       "associated": true,
       "associatedRequestId": "REQ-1788383547812-938"
-    },
-    {
-      "documentId": "doc_1788821174358_016846fe",
-      "uploadToken": "5a965d18e84597b9dfb2ed386d281a8d38002ebfa849f3acacff482677110cb8",
-      "fileHash": "6b7fa434f92a8b80aab02d9bf1a12e49ffcae424e4013a1c4f68b67e3d2bbcd0",
-      "fileName": "test.png",
-      "mimeType": "image/png",
-      "size": 70,
-      "uploadedAt": "2026-09-07T22:46:15.483Z",
-      "storageStatus": "pending",
-      "associated": false
     }
   ],
   "account_recovery_requests": [
@@ -2366,10 +2355,11 @@
       "size": 70,
       "fileName": "doc.png",
       "fileHash": "6b7fa434f92a8b80aab02d9bf1a12e49ffcae424e4013a1c4f68b67e3d2bbcd0",
-      "storageStatus": "pending",
-      "syncAttempts": 0,
+      "storageStatus": "firestore_durable",
+      "syncAttempts": 1,
       "createdAt": "2026-09-07T15:19:54.774Z",
-      "expiresAt": "2026-09-21T15:19:54.774Z"
+      "expiresAt": "2026-09-21T15:19:54.774Z",
+      "syncError": "Primary Firestore chunk storage active (Bucket unprovisioned)"
     },
     "doc_1788821174358_016846fe": {
       "documentId": "doc_1788821174358_016846fe",
