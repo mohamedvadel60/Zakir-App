@@ -2,10 +2,7 @@
   "version": 2,
   "functions": {
     "api/index.ts": {
-      "includeFiles": [
-        "dist/server.cjs",
-        "src/db_store.json"
-      ]
+      "includeFiles": "{dist/server.cjs,src/db_store.json}"
     }
   },
   "rewrites": [
