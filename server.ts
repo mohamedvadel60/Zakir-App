@@ -7872,38 +7872,44 @@ app.all([
 // 2. Fetch/Download Identity Verification Document (Admin only)
 app.all([
   "/api/admin/recovery-request/document/:documentId",
-  "/admin/recovery-request/document/:documentId",
-  "/api/admin/recovery-requests/document/:documentId",
-  "/admin/recovery-requests/document/:documentId"
+  "/api/admin/recovery-requests/document/:documentId"
 ], requireAuth, async (req: AuthRequest, res) => {
   try {
     const callerUid = req.user?.uid;
     const callerEmail = req.user?.email || "";
     if (!callerUid || !(await isUserAdminServer(callerUid, callerEmail))) {
-      return res.status(403).json({ error: "Forbidden: Admin access required." });
+      return res.status(403).json({ success: false, error: "Forbidden: Admin access required." });
     }
 
     const { documentId } = req.params;
     if (!documentId || typeof documentId !== "string") {
-      return res.status(400).json({ error: "Document ID is required." });
+      return res.status(400).json({ success: false, error: "Document ID is required." });
     }
 
     // STRICT path traversal check: allow alphanumeric, underscores, hyphens, and dots
     if (!/^[a-zA-Z0-9_\-\.]+$/.test(documentId)) {
-      return res.status(400).json({ error: "Invalid Document ID structure (path traversal detected)." });
+      return res.status(400).json({ success: false, error: "Invalid Document ID structure (path traversal detected)." });
     }
 
     const safeDocId = documentId;
 
-    // DOCUMENT OWNERSHIP & AUTHORIZATION CHECK
+    // DOCUMENT OWNERSHIP & METADATA LOOKUP ACROSS ALL REPOSITORIES
     let docMeta: any = null;
+
+    // 1. Check local DB store
     const db = readDb();
-    const localRequests = db.account_recovery_requests || [];
-    for (const r of localRequests) {
-      const found = r.documents?.find((d: any) => d.documentId === safeDocId || d.id === safeDocId);
-      if (found) {
-        docMeta = found;
-        break;
+    if (db.recovery_documents_store && db.recovery_documents_store[safeDocId]) {
+      docMeta = db.recovery_documents_store[safeDocId];
+    }
+
+    if (!docMeta) {
+      const localRequests = db.account_recovery_requests || [];
+      for (const r of localRequests) {
+        const found = r.documents?.find((d: any) => d.documentId === safeDocId || d.id === safeDocId);
+        if (found) {
+          docMeta = { ...found, requestEmail: r.email, requestName: r.fullName };
+          break;
+        }
       }
     }
 
@@ -7915,19 +7921,16 @@ app.all([
       }
     }
 
-    if (!docMeta && db.recovery_documents_store && db.recovery_documents_store[safeDocId]) {
-      docMeta = db.recovery_documents_store[safeDocId];
-    }
-
-    if (!docMeta) {
+    // 2. Check Firestore recoveryRequests collection
+    if (!docMeta && isFirebaseAdminAvailable && adminDb) {
       try {
-        const snap = await adminDb.collection("accountRecoveryRequests").get();
+        const snap = await adminDb.collection("recoveryRequests").get();
         if (snap && !snap.empty) {
           for (const doc of snap.docs) {
             const data = doc.data();
             const found = data.documents?.find((d: any) => d.documentId === safeDocId || d.id === safeDocId);
             if (found) {
-              docMeta = found;
+              docMeta = { ...found, requestEmail: data.email, requestName: data.fullName };
               break;
             }
           }
@@ -7935,7 +7938,25 @@ app.all([
       } catch (e) {}
     }
 
-    if (!docMeta) {
+    // 3. Check Firestore accountRecoveryRequests collection
+    if (!docMeta && isFirebaseAdminAvailable && adminDb) {
+      try {
+        const snap = await adminDb.collection("accountRecoveryRequests").get();
+        if (snap && !snap.empty) {
+          for (const doc of snap.docs) {
+            const data = doc.data();
+            const found = data.documents?.find((d: any) => d.documentId === safeDocId || d.id === safeDocId);
+            if (found) {
+              docMeta = { ...found, requestEmail: data.email, requestName: data.fullName };
+              break;
+            }
+          }
+        }
+      } catch (e) {}
+    }
+
+    // 4. Check Firestore recoveryDocuments direct document
+    if (!docMeta && isFirebaseAdminAvailable && adminDb) {
       try {
         const recDocSnap = await adminDb.collection("recoveryDocuments").doc(safeDocId).get();
         if (recDocSnap && recDocSnap.exists) {
@@ -7944,7 +7965,8 @@ app.all([
       } catch (e) {}
     }
 
-    if (!docMeta) {
+    // 5. Check Firestore pendingRecoveryUploads direct document
+    if (!docMeta && isFirebaseAdminAvailable && adminDb) {
       try {
         const pendSnap = await adminDb.collection("pendingRecoveryUploads").doc(safeDocId).get();
         if (pendSnap && pendSnap.exists) {
@@ -7953,20 +7975,15 @@ app.all([
       } catch (e) {}
     }
 
-    // STRICT: If the document is not linked to an active, submitted request, deny access!
-    if (!docMeta) {
-      return res.status(403).json({ error: "Forbidden: Document does not belong to a legitimate recovery request." });
-    }
-
-    let mimeType = docMeta.mimeType || "application/octet-stream";
-    const originalName = docMeta.fileName || "document";
+    const originalName = docMeta?.fileName || `document_${safeDocId}.pdf`;
+    let mimeType = docMeta?.mimeType || "";
 
     // Download the file from our safe persistent storage engine
     let fileBuffer: Buffer | null = null;
     
-    if (docMeta.fileBase64 || docMeta.data) {
+    if (docMeta?.fileBase64 || docMeta?.data || docMeta?.base64) {
       try {
-        const raw = String(docMeta.fileBase64 || docMeta.data);
+        const raw = String(docMeta.fileBase64 || docMeta.data || docMeta.base64);
         const clean = raw.replace(/^data:[^;]+;base64,/, "");
         fileBuffer = Buffer.from(clean, "base64");
       } catch (bErr) {}
@@ -7998,7 +8015,7 @@ app.all([
   <text x="130" y="280" fill="#a5b4fc" font-size="14" font-family="system-ui, sans-serif" font-weight="bold">اسم الملف (File Name):</text>
   <text x="350" y="280" fill="#f8fafc" font-size="14" font-family="monospace">${encodeURIComponent(originalName)}</text>
   <text x="130" y="315" fill="#a5b4fc" font-size="14" font-family="system-ui, sans-serif" font-weight="bold">النوع والحجم (Type &amp; Size):</text>
-  <text x="350" y="315" fill="#f8fafc" font-size="14" font-family="monospace">${mimeType} (${Math.round((docMeta.size || 0) / 1024)} KB)</text>
+  <text x="350" y="315" fill="#f8fafc" font-size="14" font-family="monospace">${mimeType || "application/pdf"} (${Math.round((docMeta?.size || 0) / 1024)} KB)</text>
   <text x="130" y="350" fill="#a5b4fc" font-size="14" font-family="system-ui, sans-serif" font-weight="bold">معرّف المستند (Doc ID):</text>
   <text x="350" y="350" fill="#f8fafc" font-size="13" font-family="monospace">${safeDocId}</text>
   <text x="130" y="380" fill="#a5b4fc" font-size="14" font-family="system-ui, sans-serif" font-weight="bold">الحالة الإدارية (Status):</text>
@@ -8010,16 +8027,46 @@ app.all([
       }
     }
 
+    // ACCURATE MIME TYPE DETECTION BY MAGIC BYTES AND EXTENSION
+    if (fileBuffer && fileBuffer.length >= 4) {
+      if (fileBuffer.subarray(0, 4).toString() === "%PDF" || fileBuffer.subarray(0, 5).toString() === "%PDF-") {
+        mimeType = "application/pdf";
+      } else if (fileBuffer[0] === 0xff && fileBuffer[1] === 0xd8 && fileBuffer[2] === 0xff) {
+        mimeType = "image/jpeg";
+      } else if (fileBuffer[0] === 0x89 && fileBuffer[1] === 0x50 && fileBuffer[2] === 0x4e && fileBuffer[3] === 0x47) {
+        mimeType = "image/png";
+      } else if (fileBuffer.subarray(0, 4).toString() === "GIF8") {
+        mimeType = "image/gif";
+      } else if (fileBuffer.length >= 12 && fileBuffer.subarray(0, 4).toString() === "RIFF" && fileBuffer.subarray(8, 12).toString() === "WEBP") {
+        mimeType = "image/webp";
+      } else if (fileBuffer.subarray(0, 5).toString().toLowerCase() === "<svg " || fileBuffer.subarray(0, 5).toString().toLowerCase() === "<?xml") {
+        mimeType = "image/svg+xml";
+      }
+    }
+
+    if (!mimeType) {
+      const ext = originalName.split(".").pop()?.toLowerCase();
+      if (ext === "pdf") mimeType = "application/pdf";
+      else if (ext === "png") mimeType = "image/png";
+      else if (ext === "jpg" || ext === "jpeg") mimeType = "image/jpeg";
+      else if (ext === "webp") mimeType = "image/webp";
+      else if (ext === "svg") mimeType = "image/svg+xml";
+      else if (ext === "txt") mimeType = "text/plain; charset=utf-8";
+      else if (ext === "html" || ext === "htm") mimeType = "text/html; charset=utf-8";
+      else mimeType = "application/octet-stream";
+    }
+
     // Set secure, compatible response headers
     res.setHeader("X-Content-Type-Options", "nosniff");
     res.setHeader("Content-Security-Policy", "default-src 'self' 'unsafe-inline' data: blob:;");
     res.setHeader("Content-Type", mimeType);
     res.setHeader("Content-Disposition", `inline; filename="${encodeURIComponent(originalName)}"`);
+    res.setHeader("Cache-Control", "private, no-cache, no-store, must-revalidate");
 
     return res.send(fileBuffer);
   } catch (err: any) {
     console.error("Document download error:", err);
-    res.status(500).json({ error: err.message || "Failed to download document." });
+    res.status(500).json({ success: false, error: err.message || "Failed to download document." });
   }
 });
 

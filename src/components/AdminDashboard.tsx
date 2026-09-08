@@ -62,7 +62,7 @@ import {
   handleAdminRecoveryRequestDecisionApi
 } from "../lib/firebaseServices.js";
 import { authenticatedFetch, safeJsonResponse } from "../lib/apiUtils.js";
-import { openOrDownloadUserFile, openUserFileInNewTab, downloadUserFile } from "../lib/fileViewerUtils.js";
+import { openOrDownloadUserFile, openUserFileInNewTab, downloadUserFile, dataUrlToBlob } from "../lib/fileViewerUtils.js";
 
 interface AdminDashboardProps {
   currentUser: User;
@@ -300,7 +300,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   };
 
   const handleViewRecoveryDocument = async (
-    doc: { documentId?: string; id?: string; fileName?: string; mimeType?: string; size?: number; fileUrl?: string; [key: string]: any } | string,
+    doc: { documentId?: string; id?: string; fileName?: string; mimeType?: string; size?: number; fileUrl?: string; fileBase64?: string; data?: string; base64?: string; [key: string]: any } | string,
     fileNameOrReq?: string | any,
     reqContext?: any
   ) => {
@@ -309,6 +309,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     let mimeType = "";
     let size: number | undefined;
     let fileUrl: string | undefined;
+    let rawData: string | undefined;
     let reqInfo = reqContext || (typeof fileNameOrReq === "object" ? fileNameOrReq : null);
 
     if (typeof doc === "string") {
@@ -320,15 +321,28 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       mimeType = doc.mimeType || "";
       size = doc.size;
       fileUrl = doc.fileUrl;
+      rawData = doc.fileBase64 || doc.data || doc.base64;
     }
 
-    if (!documentId) {
+    if (!documentId && !fileUrl && !rawData) {
       alert(lang === "ar" ? "معرّف المستند غير صالح" : "Invalid Document ID");
       return;
     }
 
+    // Determine initial mimeType if missing
+    if (!mimeType) {
+      const ext = fileName.split(".").pop()?.toLowerCase();
+      if (ext === "pdf") mimeType = "application/pdf";
+      else if (ext === "png") mimeType = "image/png";
+      else if (ext === "jpg" || ext === "jpeg") mimeType = "image/jpeg";
+      else if (ext === "webp") mimeType = "image/webp";
+      else if (ext === "svg") mimeType = "image/svg+xml";
+      else if (ext === "txt") mimeType = "text/plain";
+      else if (ext === "html" || ext === "htm") mimeType = "text/html";
+    }
+
     setPreviewDocModal({
-      documentId,
+      documentId: documentId || "doc_preview",
       fileName,
       mimeType,
       size,
@@ -338,11 +352,32 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     });
 
     try {
-      if (fileUrl && (fileUrl.startsWith("http") || fileUrl.startsWith("data:") || fileUrl.startsWith("blob:"))) {
+      // 1. If document already has raw Base64 or Data URL
+      if (rawData || (fileUrl && fileUrl.startsWith("data:"))) {
+        const { blob, mime: detectedMime } = dataUrlToBlob(rawData || fileUrl!, mimeType);
+        if (blob.size > 0) {
+          const blobUrl = URL.createObjectURL(blob);
+          setPreviewDocModal({
+            documentId: documentId || "doc_preview",
+            fileName,
+            mimeType: detectedMime || mimeType || blob.type || "application/pdf",
+            size: blob.size || size,
+            url: blobUrl,
+            blobUrl,
+            loading: false,
+            zoom: 1,
+            requestInfo: reqInfo
+          });
+          return;
+        }
+      }
+
+      // 2. If direct HTTP or Blob URL is provided
+      if (fileUrl && (fileUrl.startsWith("http") || fileUrl.startsWith("blob:"))) {
         setPreviewDocModal({
-          documentId,
+          documentId: documentId || "doc_preview",
           fileName,
-          mimeType,
+          mimeType: mimeType || (fileName.toLowerCase().endsWith(".pdf") ? "application/pdf" : "image/jpeg"),
           size,
           url: fileUrl,
           blobUrl: fileUrl,
@@ -356,26 +391,52 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       const { auth } = await import("../firebase");
       const idToken = await auth.currentUser?.getIdToken() || "";
 
-      let res = await authenticatedFetch(`/api/admin/recovery-request/document/${encodeURIComponent(documentId)}?token=${encodeURIComponent(idToken)}`, {
+      const res = await fetch(`/api/admin/recovery-request/document/${encodeURIComponent(documentId)}?token=${encodeURIComponent(idToken)}`, {
         headers: idToken ? { "Authorization": `Bearer ${idToken}` } : {}
       });
 
       if (!res.ok) {
-        // Fallback route without /api
-        const fallbackRes = await authenticatedFetch(`/admin/recovery-request/document/${encodeURIComponent(documentId)}?token=${encodeURIComponent(idToken)}`, {
-          headers: idToken ? { "Authorization": `Bearer ${idToken}` } : {}
-        }).catch(() => null);
+        let errMsg = `HTTP ${res.status}: Failed to load document.`;
+        try {
+          const errData = await res.json();
+          errMsg = errData?.userFriendlyMessage || errData?.error || errData?.message || errMsg;
+        } catch (e) {}
+        throw new Error(errMsg);
+      }
 
-        if (fallbackRes && fallbackRes.ok) {
-          res = fallbackRes;
-        } else {
-          const errData = await safeJsonResponse(res).catch(() => ({}));
-          throw new Error(errData?.error || errData?.message || `HTTP ${res.status}: Failed to load document.`);
+      const contentType = res.headers.get("Content-Type") || "";
+      if (contentType.includes("text/html") && !fileName.toLowerCase().endsWith(".html")) {
+        const text = await res.text();
+        if (text.includes("<!DOCTYPE") || text.includes("<html")) {
+          throw new Error(lang === "ar" ? "تعذر العثور على ملف المستند في الخادم." : "Document file not found on server.");
         }
       }
 
-      const blob = await res.blob();
-      const detectedMime = res.headers.get("Content-Type") || mimeType || blob.type || "application/octet-stream";
+      const arrayBuffer = await res.arrayBuffer();
+      let detectedMime = contentType || mimeType || "application/octet-stream";
+
+      // Detect MIME by magic bytes
+      if (arrayBuffer.byteLength >= 4) {
+        const u8 = new Uint8Array(arrayBuffer.slice(0, 12));
+        const headStr = String.fromCharCode(...u8.slice(0, 5));
+        if (headStr.startsWith("%PDF")) {
+          detectedMime = "application/pdf";
+        } else if (u8[0] === 0xff && u8[1] === 0xd8 && u8[2] === 0xff) {
+          detectedMime = "image/jpeg";
+        } else if (u8[0] === 0x89 && u8[1] === 0x50 && u8[2] === 0x4e && u8[3] === 0x47) {
+          detectedMime = "image/png";
+        } else if (headStr.startsWith("GIF8")) {
+          detectedMime = "image/gif";
+        } else if (headStr.toLowerCase().startsWith("<svg") || headStr.toLowerCase().startsWith("<?xml")) {
+          detectedMime = "image/svg+xml";
+        }
+      }
+
+      if (fileName.toLowerCase().endsWith(".pdf") && (!detectedMime || detectedMime === "application/octet-stream")) {
+        detectedMime = "application/pdf";
+      }
+
+      const blob = new Blob([arrayBuffer], { type: detectedMime });
       const blobUrl = URL.createObjectURL(blob);
 
       setPreviewDocModal(prev => prev ? ({
@@ -2608,12 +2669,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
               {/* Document Content State */}
               {!previewDocModal.loading && !previewDocModal.error && previewDocModal.blobUrl && (
-                <div className="w-full h-full flex items-center justify-center overflow-auto">
+                <div className="w-full h-full flex items-center justify-center overflow-auto p-2">
                   {/* Image View */}
-                  {previewDocModal.mimeType?.startsWith("image/") || 
-                   previewDocModal.mimeType?.includes("svg") ||
-                   (!previewDocModal.mimeType?.includes("pdf") && !previewDocModal.fileName?.toLowerCase().endsWith(".pdf")) ? (
-                    <div className="w-full h-full flex items-center justify-center overflow-auto p-2">
+                  {(previewDocModal.mimeType?.startsWith("image/") ||
+                    previewDocModal.mimeType === "image/svg+xml" ||
+                    previewDocModal.fileName?.match(/\.(jpg|jpeg|png|webp|gif|svg)$/i)) ? (
+                    <div className="w-full h-full flex items-center justify-center overflow-auto">
                       <img
                         src={previewDocModal.blobUrl}
                         alt={previewDocModal.fileName}
@@ -2623,23 +2684,68 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                           maxHeight: previewDocModal.zoom <= 1 ? "100%" : "none",
                           maxWidth: previewDocModal.zoom <= 1 ? "100%" : "none"
                         }}
-                        className="object-contain rounded-lg shadow-lg"
+                        className="object-contain rounded-lg shadow-lg border border-slate-700/30"
                       />
                     </div>
-                  ) : (
+                  ) : (previewDocModal.mimeType === "application/pdf" || previewDocModal.fileName?.toLowerCase().endsWith(".pdf")) ? (
                     /* PDF / Embed View */
-                    <div className="w-full h-full flex flex-col rounded-xl overflow-hidden border border-slate-700/40 bg-slate-900">
-                      <object
-                        data={previewDocModal.blobUrl}
-                        type="application/pdf"
-                        className="w-full h-full"
-                      >
+                    <div className="w-full h-full flex flex-col rounded-xl overflow-hidden border border-slate-700/40 bg-slate-900 shadow-inner">
+                      <div className="px-4 py-2 bg-slate-950/90 border-b border-slate-800 flex items-center justify-between text-xs gap-2 shrink-0">
+                        <div className="flex items-center gap-2 text-indigo-400 font-bold">
+                          <FileText className="w-4 h-4" />
+                          <span>{lang === "ar" ? "عارض مستندات PDF المباشر" : "PDF Document Viewer"}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <a
+                            href={previewDocModal.blobUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="px-3 py-1 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-lg transition-all flex items-center gap-1 text-[11px] shadow-sm"
+                          >
+                            <ExternalLink className="w-3.5 h-3.5" />
+                            <span>{lang === "ar" ? "عرض بكامل الشاشة" : "Full View"}</span>
+                          </a>
+                        </div>
+                      </div>
+                      <div className="flex-1 w-full h-full relative bg-slate-800 flex flex-col min-h-[450px]">
                         <iframe
                           src={previewDocModal.blobUrl}
                           title={previewDocModal.fileName}
-                          className="w-full h-full border-0"
+                          className="w-full flex-1 border-0 min-h-[450px]"
                         />
-                      </object>
+                      </div>
+                    </div>
+                  ) : (
+                    /* Other Document Formats */
+                    <div className="flex flex-col items-center justify-center gap-4 p-8 max-w-md text-center bg-slate-900/60 rounded-2xl border border-slate-800">
+                      <div className="p-4 rounded-2xl bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
+                        <FileText className="w-12 h-12" />
+                      </div>
+                      <div>
+                        <h4 className="font-bold text-base text-slate-100 mb-1">{previewDocModal.fileName}</h4>
+                        <p className="text-xs text-slate-400 font-mono">
+                          {previewDocModal.mimeType || "application/octet-stream"} • {formatBytes(previewDocModal.size || 0)}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2 mt-2">
+                        <a
+                          href={previewDocModal.blobUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold flex items-center gap-2 transition-all shadow-md"
+                        >
+                          <ExternalLink className="w-4 h-4" />
+                          <span>{lang === "ar" ? "فتح في نافذة مستقلة" : "Open in New Tab"}</span>
+                        </a>
+                        <a
+                          href={previewDocModal.blobUrl}
+                          download={previewDocModal.fileName || `doc_${previewDocModal.documentId}`}
+                          className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-bold flex items-center gap-2 transition-all border border-slate-700"
+                        >
+                          <Download className="w-4 h-4" />
+                          <span>{lang === "ar" ? "تنزيل" : "Download"}</span>
+                        </a>
+                      </div>
                     </div>
                   )}
                 </div>
