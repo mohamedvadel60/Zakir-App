@@ -1712,7 +1712,7 @@ export interface WorkspaceInvitation {
   companyName: string;
   senderId: string;
   senderEmail: string;
-  status: "pending" | "accepted" | "email_failed" | "expired" | "revoked";
+  status: "pending" | "accepted" | "ACCEPTED" | "email_failed" | "expired" | "revoked" | string;
   token?: string;
   createdAt: string;
   updatedAt?: string;
@@ -1962,18 +1962,21 @@ export async function deleteWorkspaceInvitation(email: string): Promise<void> {
 
 export async function checkWorkspaceInvitation(email: string): Promise<WorkspaceInvitation | null> {
   const emailKey = email.trim().toLowerCase();
+  if (!emailKey) return null;
   
   // 1. Try secure backend endpoint first (works even before user is authenticated)
   try {
     const serverInv = await checkWorkspaceInvitationApi(emailKey);
-    if (serverInv) return serverInv;
+    if (serverInv && serverInv.status !== "ACCEPTED" && serverInv.status !== "accepted") {
+      return serverInv;
+    }
   } catch (e) {
     // silently continue to fallback
   }
 
   // 2. Check local storage cache
   const invitations = getLocalItem("invitations", []);
-  const localMatch = invitations.find((i: WorkspaceInvitation) => i.email.trim().toLowerCase() === emailKey);
+  const localMatch = invitations.find((i: WorkspaceInvitation) => (i.email || "").trim().toLowerCase() === emailKey && i.status !== "ACCEPTED" && i.status !== "accepted");
   if (localMatch) return localMatch;
 
   // 3. If user is signed in, check client Firestore safely without throwing permission error
@@ -1981,7 +1984,10 @@ export async function checkWorkspaceInvitation(email: string): Promise<Workspace
     try {
       const docSnap = await getDoc(doc(db, "invitations", emailKey));
       if (docSnap.exists()) {
-        return docSnap.data() as WorkspaceInvitation;
+        const invData = docSnap.data() as WorkspaceInvitation;
+        if (invData && invData.status !== "ACCEPTED" && invData.status !== "accepted") {
+          return invData;
+        }
       }
     } catch (fsErr) {
       console.warn("Client read for invitation skipped:", fsErr);
@@ -2205,6 +2211,21 @@ export async function acceptWorkspaceInvitationApi(payload: {
   }
 
   if (serverData) {
+    try {
+      if (serverData.user) {
+        localStorage.setItem("zakir_current_user", JSON.stringify(serverData.user));
+        const uid = serverData.user.id || serverData.user.uid;
+        if (uid) setLocalItem(`user_${uid}`, serverData.user);
+      }
+      const targetEmail = (normEmail || serverData.user?.email || "").trim().toLowerCase();
+      if (targetEmail) {
+        const localInvs = getLocalItem("invitations", []);
+        const filteredInvs = localInvs.filter((i: any) => (i.email || "").trim().toLowerCase() !== targetEmail);
+        setLocalItem("invitations", filteredInvs);
+      }
+    } catch (lsSyncErr) {
+      console.warn("[acceptWorkspaceInvitationApi] Local storage sync warning:", lsSyncErr);
+    }
     return serverData;
   }
 
@@ -2776,7 +2797,11 @@ export async function checkWorkspaceInvitationApi(param: string | { email?: stri
     }
     const res = await fetch(url);
     const data = await safeJsonResponse(res);
-    return data?.invitation || null;
+    const inv = data?.invitation || null;
+    if (inv && (inv.status === "ACCEPTED" || inv.status === "accepted")) {
+      return null;
+    }
+    return inv;
   } catch (err) {
     return null;
   }

@@ -1083,13 +1083,15 @@ This hosting domain (**${currentDomain}**) has not been authorized in your Fireb
 
       if (token || emailParam) {
         checkWorkspaceInvitationApi({ email: emailParam || undefined, token: token || undefined }).then((inv) => {
-          if (inv) {
+          if (inv && inv.status !== "ACCEPTED" && inv.status !== "accepted") {
             setUrlInvitation(inv);
             if (!currentUser) {
               setAuthMode("register");
               if (inv.email) setRegEmail(inv.email);
               if (inv.companyName) setRegCompanyName(inv.companyName);
             }
+          } else {
+            setUrlInvitation(null);
           }
         });
       }
@@ -1101,8 +1103,15 @@ This hosting domain (**${currentDomain}**) has not been authorized in your Fireb
     if (urlInvitation && currentUser) {
       const invEmail = (urlInvitation.email || "").trim().toLowerCase();
       const currentEmail = (currentUser.email || "").trim().toLowerCase();
-      if (invEmail && currentEmail && invEmail !== currentEmail) {
+      const isAccepted = urlInvitation.status === "ACCEPTED" || urlInvitation.status === "accepted";
+
+      if (isAccepted) {
+        setUrlInvitation(null);
+        setIncomingInvitation(null);
+        setInvitationMismatch(null);
+      } else if (invEmail && currentEmail && invEmail !== currentEmail) {
         setInvitationMismatch({ invitedEmail: invEmail, loggedInEmail: currentEmail });
+        setIncomingInvitation(null);
       } else {
         setIncomingInvitation(urlInvitation);
         setInvitationMismatch(null);
@@ -1170,9 +1179,23 @@ This hosting domain (**${currentDomain}**) has not been authorized in your Fireb
         }
       };
 
-      // Update state
+      // Persist updated user profile to localStorage immediately
+      try {
+        localStorage.setItem("zakir_current_user", JSON.stringify(updatedProfile));
+        if (currentUser.id) localStorage.setItem(`user_${currentUser.id}`, JSON.stringify(updatedProfile));
+      } catch (e) {}
+
+      // Update state and clear all invitation triggers
       setCurrentUser(updatedProfile);
       setIncomingInvitation(null);
+      setUrlInvitation(null);
+      setInvitationMismatch(null);
+
+      // Clean URL search parameters so browser reloads do not re-read invitation token
+      if (window.history && window.history.replaceState) {
+        const cleanUrl = window.location.pathname + window.location.hash;
+        window.history.replaceState({}, document.title, cleanUrl);
+      }
       
       // Force trigger data refetch
       setRefreshKey(prev => prev + 1);
@@ -1196,6 +1219,12 @@ This hosting domain (**${currentDomain}**) has not been authorized in your Fireb
       setIsLoading(true);
       await deleteWorkspaceInvitation(currentUser.email);
       setIncomingInvitation(null);
+      setUrlInvitation(null);
+      setInvitationMismatch(null);
+      if (window.history && window.history.replaceState) {
+        const cleanUrl = window.location.pathname + window.location.hash;
+        window.history.replaceState({}, document.title, cleanUrl);
+      }
       alert(lang === "ar" ? "تم رفض الدعوة بنجاح." : "Invitation declined successfully.");
     } catch (err) {
       console.error("Error declining invitation:", err);
@@ -1429,9 +1458,15 @@ This hosting domain (**${currentDomain}**) has not been authorized in your Fireb
 
           // Extract workspace invitation
           if (results[0].status === "fulfilled") {
-            setIncomingInvitation(results[0].value);
+            const inv = results[0].value;
+            if (inv && inv.status !== "ACCEPTED" && inv.status !== "accepted") {
+              setIncomingInvitation(inv);
+            } else {
+              setIncomingInvitation(null);
+            }
           } else {
             console.warn("Failed to check workspace invitations:", results[0].reason);
+            setIncomingInvitation(null);
           }
 
           // Extract memories

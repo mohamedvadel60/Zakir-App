@@ -4654,7 +4654,7 @@ app.all([
     // 3. Atomically perform updates using Firestore Batch
     const batch = adminDb.batch();
 
-    // A. Update Invitation document
+    // A. Update Invitation document across primary and secondary collections
     const updatedInv = {
       ...invRecord,
       status: "ACCEPTED",
@@ -4663,9 +4663,22 @@ app.all([
       acceptedByEmail: callerEmail || invitationEmail,
       updatedAt: nowIso
     };
-    batch.set(invDocRef, updatedInv, { merge: true });
+    if (invDocRef) {
+      batch.set(invDocRef, updatedInv, { merge: true });
+    }
+    batch.set(adminDb.collection("invitations").doc(invitationEmail), updatedInv, { merge: true });
+    batch.set(adminDb.collection("workspace_invitations").doc(invitationEmail), updatedInv, { merge: true });
 
-    // B. Update Member Profile
+    // B. Update Workspace document
+    batch.set(adminDb.collection("workspaces").doc(workspaceId), {
+      id: workspaceId,
+      name: `${companyName} Workspace`,
+      companyName: companyName,
+      ownerId: senderId || "CEO",
+      updatedAt: nowIso
+    }, { merge: true });
+
+    // C. Update Member Profile
     const updatedMemberProfile = {
       ...memberData,
       id: callerUid,
@@ -4693,7 +4706,7 @@ app.all([
     };
     batch.set(memberDocRef, updatedMemberProfile, { merge: true });
 
-    // C. Update CEO's teamMembersList
+    // D. Update CEO's teamMembersList
     let currentTeamList: any[] = [];
     if (senderId) {
       try {
@@ -4724,10 +4737,10 @@ app.all([
           };
           currentTeamList.push(newTeamMemberEntry);
 
-          batch.update(ceoRef, {
+          batch.set(ceoRef, {
             teamMembersList: currentTeamList,
             updatedAt: nowIso
-          });
+          }, { merge: true });
         }
       } catch (ceoErr) {
         console.warn("Notice: Updating CEO in batch encountered non-fatal warning:", ceoErr);
@@ -6855,6 +6868,10 @@ app.get("/api/auth/check-invitation", async (req, res) => {
       ) || null;
     }
 
+    if (invitation && (invitation.status === "ACCEPTED" || invitation.status === "accepted")) {
+      invitation = null;
+    }
+
     return res.json({ success: true, invitation });
   } catch (err) {
     return res.json({ success: true, invitation: null });
@@ -8066,11 +8083,26 @@ app.all([
       else mimeType = "application/octet-stream";
     }
 
+    // Safely format Content-Disposition header conforming strictly to RFC 6266 / RFC 5987
+    const cleanDocName = (originalName || "document.pdf").replace(/[\r\n\t]/g, " ").trim();
+    const docExtMatch = cleanDocName.match(/\.([a-zA-Z0-9]+)$/);
+    const docExt = docExtMatch ? `.${docExtMatch[1]}` : "";
+    const baseAsciiDocName = cleanDocName
+      .replace(/\.[a-zA-Z0-9]+$/, "")
+      .replace(/[^\x20-\x7E]/g, "_")
+      .replace(/["\\]/g, "_")
+      .trim();
+    const safeAsciiFilename = (baseAsciiDocName || "document") + docExt;
+    const utf8EncodedFilename = encodeURIComponent(cleanDocName);
+
     // Set secure, compatible response headers
     res.setHeader("X-Content-Type-Options", "nosniff");
     res.setHeader("Content-Security-Policy", "default-src 'self' 'unsafe-inline' data: blob:;");
     res.setHeader("Content-Type", mimeType);
-    res.setHeader("Content-Disposition", `inline; filename="${encodeURIComponent(originalName)}"`);
+    res.setHeader(
+      "Content-Disposition",
+      `inline; filename="${safeAsciiFilename}"; filename*=UTF-8''${utf8EncodedFilename}`
+    );
     res.setHeader("Cache-Control", "private, no-cache, no-store, must-revalidate");
 
     return res.send(fileBuffer);

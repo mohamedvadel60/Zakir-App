@@ -85,6 +85,7 @@ interface PaymentErrorBoundaryProps {
   children: React.ReactNode;
   onRetry: () => void;
   lang?: string;
+  clientSecret?: string | null;
 }
 
 interface PaymentErrorBoundaryState {
@@ -104,6 +105,12 @@ class PaymentErrorBoundary extends React.Component<PaymentErrorBoundaryProps, Pa
 
   componentDidCatch(error: Error, info: React.ErrorInfo) {
     console.error("[PaymentErrorBoundary] Caught payment checkout error:", error, info);
+  }
+
+  componentDidUpdate(prevProps: PaymentErrorBoundaryProps) {
+    if (prevProps.clientSecret !== this.props.clientSecret && this.state.hasError) {
+      this.setState({ hasError: false, errorMessage: "" });
+    }
   }
 
   handleRetry = () => {
@@ -298,8 +305,17 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
     fetch("/api/stripe/config")
       .then((res) => safeJsonResponse(res))
       .then((data) => {
-        if (data?.publishableKey && typeof data.publishableKey === "string" && data.publishableKey.startsWith("pk_")) {
-          setStripePromise(getCachedStripe(data.publishableKey));
+        const envObj = (import.meta as any).env || {};
+        const envCandidate = (typeof envObj.VITE_STRIPE_PUBLISHABLE_KEY === "string" && envObj.VITE_STRIPE_PUBLISHABLE_KEY.startsWith("pk_"))
+          ? envObj.VITE_STRIPE_PUBLISHABLE_KEY
+          : (typeof envObj.VITE_STRIPE_PUBLIC_KEY === "string" && envObj.VITE_STRIPE_PUBLIC_KEY.startsWith("pk_")
+              ? envObj.VITE_STRIPE_PUBLIC_KEY
+              : null);
+        const pubKey = (data?.publishableKey && typeof data.publishableKey === "string" && data.publishableKey.startsWith("pk_"))
+          ? data.publishableKey
+          : envCandidate;
+        if (pubKey) {
+          setStripePromise(getCachedStripe(pubKey));
         }
       })
       .catch((err) => console.warn("Failed to load Stripe publishable key:", err));
@@ -440,6 +456,13 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
         : envCandidate;
       if (resolvedPubKey) {
         setStripePromise(getCachedStripe(resolvedPubKey));
+      } else {
+        console.error("[Stripe Checkout] Missing publishable key! Neither API response nor VITE_STRIPE_PUBLISHABLE_KEY provided a valid 'pk_' key.");
+        setPaymentError(
+          lang === "ar"
+            ? "تعذر الحصول على مفتاح Stripe العام (Publishable Key). يرجى التأكد من ضبط VITE_STRIPE_PUBLISHABLE_KEY أو STRIPE_PUBLISHABLE_KEY."
+            : "Stripe Publishable Key is missing. Please ensure VITE_STRIPE_PUBLISHABLE_KEY or STRIPE_PUBLISHABLE_KEY is configured."
+        );
       }
     } catch (err: any) {
       console.error("[Stripe Checkout] Initialization error:", err);
@@ -3249,6 +3272,7 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
                     >
                       <PaymentErrorBoundary
                         lang={lang}
+                        clientSecret={checkoutClientSecret}
                         onRetry={() => handleStripeCheckout(selectedPlanForCheckout, true)}
                       >
                         <EmbeddedCheckoutProvider
@@ -3259,6 +3283,13 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
                           <EmbeddedCheckout />
                         </EmbeddedCheckoutProvider>
                       </PaymentErrorBoundary>
+                    </div>
+                  ) : checkoutClientSecret && !stripePromise && !paymentError ? (
+                    <div className="py-12 text-center space-y-4">
+                      <RefreshCw className="w-8 h-8 text-[#0075DE] animate-spin mx-auto" />
+                      <p className={`text-xs ${theme === "dark" ? "text-slate-300" : "text-slate-700"}`}>
+                        {lang === "ar" ? "جاري تحميل مكتبة Stripe.js للدفع..." : "Loading Stripe.js library..."}
+                      </p>
                     </div>
                   ) : !paymentError ? (
                     <div className="py-12 text-center space-y-4">
