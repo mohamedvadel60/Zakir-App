@@ -560,7 +560,11 @@ function createSafeQuery(realQuery: any, colName: string): any {
         const snap = await realQuery.get();
         return wrapQuerySnapshot(snap, colName);
       } catch (err: any) {
-        console.warn(`Firestore get() failed for query on ${colName}, falling back to mock:`, err.message);
+        if ((err?.message || "").includes("RESOURCE_EXHAUSTED") || (err?.message || "").includes("Quota limit exceeded") || err?.code === 8) {
+          console.warn(`[Firestore Quota] Daily quota reached for query on ${colName}, seamlessly using local DB fallback.`);
+        } else {
+          console.warn(`Firestore get() failed for query on ${colName}, falling back to mock:`, err.message);
+        }
         return new MockQuery(colName).get();
       }
     }
@@ -608,7 +612,11 @@ function createSafeCollection(realCol: any, colName: string): any {
               }
             };
           } catch (err: any) {
-            console.warn(`Firestore get() failed for ${colName}/${docId}, falling back to mock:`, err.message);
+            if ((err?.message || "").includes("RESOURCE_EXHAUSTED") || (err?.message || "").includes("Quota limit exceeded") || err?.code === 8) {
+              console.warn(`[Firestore Quota] Daily quota reached for ${colName}/${docId}, seamlessly using local DB fallback.`);
+            } else {
+              console.warn(`Firestore get() failed for ${colName}/${docId}, falling back to mock:`, err.message);
+            }
             return new MockDocRef(colName, docId).get();
           }
         },
@@ -616,7 +624,11 @@ function createSafeCollection(realCol: any, colName: string): any {
           try {
             return await realDoc.set(data, options);
           } catch (err: any) {
-            console.warn(`Firestore set() failed for ${colName}/${docId}, falling back to mock:`, err.message);
+            if ((err?.message || "").includes("RESOURCE_EXHAUSTED") || (err?.message || "").includes("Quota limit exceeded") || err?.code === 8) {
+              console.warn(`[Firestore Quota] Daily quota reached for set ${colName}/${docId}, seamlessly using local DB fallback.`);
+            } else {
+              console.warn(`Firestore set() failed for ${colName}/${docId}, falling back to mock:`, err.message);
+            }
             return new MockDocRef(colName, docId).set(data, options);
           }
         },
@@ -624,7 +636,11 @@ function createSafeCollection(realCol: any, colName: string): any {
           try {
             return await realDoc.update(data);
           } catch (err: any) {
-            console.warn(`Firestore update() failed for ${colName}/${docId}, falling back to mock:`, err.message);
+            if ((err?.message || "").includes("RESOURCE_EXHAUSTED") || (err?.message || "").includes("Quota limit exceeded") || err?.code === 8) {
+              console.warn(`[Firestore Quota] Daily quota reached for update ${colName}/${docId}, seamlessly using local DB fallback.`);
+            } else {
+              console.warn(`Firestore update() failed for ${colName}/${docId}, falling back to mock:`, err.message);
+            }
             return new MockDocRef(colName, docId).update(data);
           }
         },
@@ -632,7 +648,11 @@ function createSafeCollection(realCol: any, colName: string): any {
           try {
             return await realDoc.delete();
           } catch (err: any) {
-            console.warn(`Firestore delete() failed for ${colName}/${docId}, falling back to mock:`, err.message);
+            if ((err?.message || "").includes("RESOURCE_EXHAUSTED") || (err?.message || "").includes("Quota limit exceeded") || err?.code === 8) {
+              console.warn(`[Firestore Quota] Daily quota reached for delete ${colName}/${docId}, seamlessly using local DB fallback.`);
+            } else {
+              console.warn(`Firestore delete() failed for ${colName}/${docId}, falling back to mock:`, err.message);
+            }
             return new MockDocRef(colName, docId).delete();
           }
         }
@@ -664,7 +684,11 @@ function createSafeCollection(realCol: any, colName: string): any {
         const snap = await realCol.get();
         return wrapQuerySnapshot(snap, colName);
       } catch (err: any) {
-        console.warn(`Firestore get() failed for collection ${colName}, falling back to mock:`, err.message);
+        if ((err?.message || "").includes("RESOURCE_EXHAUSTED") || (err?.message || "").includes("Quota limit exceeded") || err?.code === 8) {
+          console.warn(`[Firestore Quota] Daily quota reached for collection ${colName}, seamlessly using local DB fallback.`);
+        } else {
+          console.warn(`Firestore get() failed for collection ${colName}, falling back to mock:`, err.message);
+        }
         return new MockCollectionRef(colName).get();
       }
     }

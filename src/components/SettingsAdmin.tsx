@@ -310,16 +310,21 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
   } | null>(null);
 
   useEffect(() => {
-    // Load Stripe Config dynamically using cached singleton
+    // 1. Immediately kick off Stripe.js load if VITE publishable key is available
+    const envObj = (import.meta as any).env || {};
+    const envCandidate = (typeof envObj.VITE_STRIPE_PUBLISHABLE_KEY === "string" && envObj.VITE_STRIPE_PUBLISHABLE_KEY.startsWith("pk_"))
+      ? envObj.VITE_STRIPE_PUBLISHABLE_KEY
+      : (typeof envObj.VITE_STRIPE_PUBLIC_KEY === "string" && envObj.VITE_STRIPE_PUBLIC_KEY.startsWith("pk_")
+          ? envObj.VITE_STRIPE_PUBLIC_KEY
+          : null);
+    if (envCandidate) {
+      setStripePromise(getCachedStripe(envCandidate));
+    }
+
+    // 2. Fetch server Stripe config to confirm/override publishableKey
     fetch("/api/stripe/config")
       .then((res) => safeJsonResponse(res))
       .then((data) => {
-        const envObj = (import.meta as any).env || {};
-        const envCandidate = (typeof envObj.VITE_STRIPE_PUBLISHABLE_KEY === "string" && envObj.VITE_STRIPE_PUBLISHABLE_KEY.startsWith("pk_"))
-          ? envObj.VITE_STRIPE_PUBLISHABLE_KEY
-          : (typeof envObj.VITE_STRIPE_PUBLIC_KEY === "string" && envObj.VITE_STRIPE_PUBLIC_KEY.startsWith("pk_")
-              ? envObj.VITE_STRIPE_PUBLIC_KEY
-              : null);
         const pubKey = (data?.publishableKey && typeof data.publishableKey === "string" && data.publishableKey.startsWith("pk_"))
           ? data.publishableKey
           : envCandidate;
@@ -386,7 +391,13 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
   const checkoutInFlightRef = useRef(false);
 
   const handleStripeCheckout = async (plan: "Starter" | "Professional" | "Enterprise", isRetry = false) => {
-    if ((isProcessingPayment || checkoutInFlightRef.current) && !isRetry) return;
+    const t0 = performance.now();
+    console.log(`[Stripe TRACE] A. Clicked '${plan}' subscribe button at +0.00ms`);
+
+    if ((isProcessingPayment || checkoutInFlightRef.current) && !isRetry) {
+      console.warn(`[Stripe TRACE] Clicks ignored (checkout session request in flight)`);
+      return;
+    }
 
     checkoutInFlightRef.current = true;
     setIsProcessingPayment(true);
@@ -398,8 +409,14 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
       setCheckoutSessionId(null);
     }
 
+    const t1 = performance.now();
+    console.log(`[Stripe TRACE] B. handleCheckout initialized at +${(t1 - t0).toFixed(2)}ms`);
+
     try {
       const fbUser = await getAuthenticatedFirebaseUser();
+      const t2 = performance.now();
+      console.log(`[Stripe TRACE] C. Firebase auth checked at +${(t2 - t0).toFixed(2)}ms`);
+
       if (!fbUser && !currentUser) {
         setPaymentError(
           lang === "ar"
@@ -410,6 +427,9 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
         return;
       }
 
+      const tFetchStart = performance.now();
+      console.log(`[Stripe TRACE] D. Dispatching POST /api/stripe/create-checkout-session at +${(tFetchStart - t0).toFixed(2)}ms`);
+
       const res = await authenticatedFetch("/api/stripe/create-checkout-session", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -419,6 +439,10 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
           companyName: currentUser?.companyName || currentUser?.organizationName || "Organization",
         }),
       });
+
+      const tFetchEnd = performance.now();
+      const apiMs = (tFetchEnd - tFetchStart).toFixed(2);
+      console.log(`[Stripe TRACE] E. API session response received at +${(tFetchEnd - t0).toFixed(2)}ms (Server Latency: ${apiMs}ms)`);
 
       let data: any = null;
       try {
@@ -454,6 +478,9 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
         return;
       }
 
+      const tClientSecret = performance.now();
+      console.log(`[Stripe TRACE] F. clientSecret stored at +${(tClientSecret - t0).toFixed(2)}ms`);
+
       setCheckoutSessionId(data.sessionId);
       setCheckoutClientSecret(data.clientSecret);
 
@@ -466,14 +493,17 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
       const resolvedPubKey = (typeof data.publishableKey === "string" && data.publishableKey.startsWith("pk_"))
         ? data.publishableKey
         : envCandidate;
+
       if (resolvedPubKey) {
+        const tStripePromise = performance.now();
         setStripePromise(getCachedStripe(resolvedPubKey));
+        console.log(`[Stripe TRACE] G. Embedded Checkout options initialized at +${(tStripePromise - t0).toFixed(2)}ms`);
       } else {
-        console.error("[Stripe Checkout] Missing publishable key! Neither API response nor VITE_STRIPE_PUBLISHABLE_KEY provided a valid 'pk_' key.");
+        console.error("[Stripe Checkout] Missing publishable key!");
         setPaymentError(
           lang === "ar"
-            ? "تعذر الحصول على مفتاح Stripe العام (Publishable Key). يرجى التأكد من ضبط VITE_STRIPE_PUBLISHABLE_KEY أو STRIPE_PUBLISHABLE_KEY."
-            : "Stripe Publishable Key is missing. Please ensure VITE_STRIPE_PUBLISHABLE_KEY or STRIPE_PUBLISHABLE_KEY is configured."
+            ? "تعذر الحصول على مفتاح Stripe العام (Publishable Key)."
+            : "Stripe Publishable Key is missing."
         );
       }
     } catch (err: any) {

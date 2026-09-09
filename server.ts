@@ -990,6 +990,15 @@ app.get("/api/payments/diagnostics", async (req, res) => {
 // --- STRIPE CHECKOUT & SUBSCRIPTION ENDPOINTS ---
 const inFlightCheckoutUsers = new Set<string>();
 
+// In-memory server caches for Stripe verification (<200ms latency target)
+interface CachedPriceEntry {
+  price: Stripe.Price;
+  cachedAt: number;
+}
+const stripePriceCache = new Map<string, CachedPriceEntry>();
+const PRICE_CACHE_TTL_MS = 15 * 60 * 1000; // 15 minutes TTL
+const stripeVerifiedCustomerCache = new Set<string>();
+
 app.get(["/api/stripe/config", "/stripe/config"], (req, res) => {
   const { publishableKey, secretKey, mode } = resolveStripeKeys();
   res.json({
@@ -1105,17 +1114,22 @@ app.post([
 
     // Case A: Stored Customer ID exists - Verify against active Stripe account/mode
     if (stripeCustomerId) {
-      try {
-        const existingCust: any = await stripe.customers.retrieve(stripeCustomerId);
-        if (existingCust && !existingCust.deleted) {
-          console.log(`[Stripe Checkout] Verified active Stripe Customer ID: ${stripeCustomerId}`);
-        } else {
-          console.warn(`[Stripe Checkout] Stale/deleted Customer ID detected (${stripeCustomerId}). Clearing...`);
+      if (stripeVerifiedCustomerCache.has(stripeCustomerId)) {
+        console.log(`[Stripe Checkout] Verified active Stripe Customer ID from in-memory cache: ${stripeCustomerId}`);
+      } else {
+        try {
+          const existingCust: any = await stripe.customers.retrieve(stripeCustomerId);
+          if (existingCust && !existingCust.deleted) {
+            stripeVerifiedCustomerCache.add(stripeCustomerId);
+            console.log(`[Stripe Checkout] Verified active Stripe Customer ID: ${stripeCustomerId}`);
+          } else {
+            console.warn(`[Stripe Checkout] Stale/deleted Customer ID detected (${stripeCustomerId}). Clearing...`);
+            stripeCustomerId = null;
+          }
+        } catch (custErr: any) {
+          console.warn(`[Stripe Checkout] Invalid Customer ID (${stripeCustomerId}) rejected by Stripe (${custErr?.message}). Clearing stale ID...`);
           stripeCustomerId = null;
         }
-      } catch (custErr: any) {
-        console.warn(`[Stripe Checkout] Invalid Customer ID (${stripeCustomerId}) rejected by Stripe (${custErr?.message}). Clearing stale ID...`);
-        stripeCustomerId = null;
       }
 
       if (!stripeCustomerId) {
@@ -1137,6 +1151,7 @@ app.post([
         const existingList = await stripe.customers.list({ email: validUserEmail, limit: 1 });
         if (existingList.data && existingList.data.length > 0) {
           stripeCustomerId = existingList.data[0].id;
+          stripeVerifiedCustomerCache.add(stripeCustomerId);
           console.log(`[Stripe Checkout] Matched existing customer in current Stripe account: ${stripeCustomerId}`);
         } else {
           const newCust = await stripe.customers.create({
@@ -1149,6 +1164,7 @@ app.post([
             }
           });
           stripeCustomerId = newCust.id;
+          stripeVerifiedCustomerCache.add(stripeCustomerId);
           console.log(`[Stripe Checkout] Created new Stripe Customer in current mode: ${stripeCustomerId}`);
         }
 
@@ -1200,7 +1216,18 @@ app.post([
     let verifiedPriceId: string | null = null;
     try {
       const expectedInterval = requestedCycle === "annual" ? "year" : "month";
-      const retrievedPrice = await stripe.prices.retrieve(targetPriceId);
+      let retrievedPrice: Stripe.Price;
+      const now = Date.now();
+      const cachedEntry = stripePriceCache.get(targetPriceId);
+
+      if (cachedEntry && (now - cachedEntry.cachedAt) < PRICE_CACHE_TTL_MS) {
+        retrievedPrice = cachedEntry.price;
+        console.log(`[Stripe Price Verification] Retrieved Price ID '${targetPriceId}' from in-memory cache`);
+      } else {
+        retrievedPrice = await stripe.prices.retrieve(targetPriceId);
+        stripePriceCache.set(targetPriceId, { price: retrievedPrice, cachedAt: now });
+        console.log(`[Stripe Price Verification] Retrieved Price ID '${targetPriceId}' from Stripe API`);
+      }
 
       const isPriceActive = retrievedPrice.active === true;
       const isUsd = retrievedPrice.currency?.toLowerCase() === "usd";
