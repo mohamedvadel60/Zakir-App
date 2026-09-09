@@ -1503,23 +1503,15 @@ This hosting domain (**${currentDomain}**) has not been authorized in your Fireb
           // Unauthenticated Guest Preview Mode (when not logged in) - load public endpoints in parallel
           setMemories(FALLBACK_MEMORIES);
           setSqlSchema(FALLBACK_SCHEMA);
+          setRiskAlerts(FALLBACK_ALERTS);
 
           const results = await Promise.allSettled([
-            fetch("/api/risk-alerts"),
             fetch("/api/metrics")
           ]);
 
-          // Extract alerts
+          // Extract metrics
           if (results[0].status === "fulfilled" && results[0].value.ok) {
             const data = await results[0].value.json().catch(() => []);
-            setRiskAlerts(data.length > 0 ? data : FALLBACK_ALERTS);
-          } else {
-            setRiskAlerts(FALLBACK_ALERTS);
-          }
-
-          // Extract metrics
-          if (results[1].status === "fulfilled" && results[1].value.ok) {
-            const data = await results[1].value.json().catch(() => []);
             setMetrics(data.length > 0 ? data : FALLBACK_METRICS);
           } else {
             setMetrics(FALLBACK_METRICS);
@@ -2087,7 +2079,7 @@ This hosting domain (**${currentDomain}**) has not been authorized in your Fireb
           savedAlert = await addFirebaseUserRiskAlert(dataOwnerId, alertPayload).catch(() => null);
         }
 
-        fetch("/api/risk-alerts", {
+        authenticatedFetch("/api/risk-alerts", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(alertPayload)
@@ -2796,7 +2788,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
         await resolveFirebaseUserRiskAlert(dataOwnerId, id);
       }
       setRiskAlerts(prev => prev.map(a => a.id === id ? { ...a, status: "Resolved" } : a));
-      fetch("/api/risk-alerts/resolve", {
+      authenticatedFetch("/api/risk-alerts/resolve", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id })

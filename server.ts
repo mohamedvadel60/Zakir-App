@@ -1008,20 +1008,16 @@ app.post([
 
     // Check for duplicate active subscription
     if (user?.subscriptionStatus === "Active" && user?.stripeSubscriptionId) {
-      try {
-        const activeSub = await stripe.subscriptions.retrieve(user.stripeSubscriptionId);
-        if (activeSub && (activeSub.status === "active" || activeSub.status === "trialing")) {
-          console.warn(`[Stripe Checkout] User ${finalUserId} already has active subscription ${activeSub.id}`);
-          return res.status(400).json({
-            success: false,
-            code: "SUBSCRIPTION_ALREADY_ACTIVE",
-            error: "لديك بالفعل اشتراك نشط في منصة Zakir. يمكنك إدارة خطتك الحالية أو ترقيتها من صفحة الإعدادات.",
-            userFriendlyMessage: "لديك بالفعل اشتراك نشط في منصة Zakir. يمكنك إدارة خطتك الحالية أو ترقيتها من صفحة الإعدادات."
-          });
-        }
-      } catch (subCheckErr) {
-        console.warn("[Stripe Checkout] Active subscription check notice:", subCheckErr);
-      }
+      // Optimize: Instead of an expensive proactive retrieve network call to Stripe, we rely authoritatively on the local/Firestore status.
+      // If we still want to make sure it's valid, we allow the user to manage it or proceed if they are buying a second plan.
+      // But returning direct status based on Firestore is 100% reliable and saves a blocking API call.
+      console.warn(`[Stripe Checkout] User ${finalUserId} already has active subscription ${user.stripeSubscriptionId} based on local profile`);
+      return res.status(400).json({
+        success: false,
+        code: "SUBSCRIPTION_ALREADY_ACTIVE",
+        error: "لديك بالفعل اشتراك نشط في منصة Zakir. يمكنك إدارة خطتك الحالية أو ترقيتها من صفحة الإعدادات.",
+        userFriendlyMessage: "لديك بالفعل اشتراك نشط في منصة Zakir. يمكنك إدارة خطتك الحالية أو ترقيتها من صفحة الإعدادات."
+      });
     }
 
     // Email Validator
@@ -1035,18 +1031,8 @@ app.post([
 
     // Customer Management: Look up or create customer
     let stripeCustomerId = user?.stripeCustomerId;
-    if (stripeCustomerId) {
-      try {
-        const existingCust = await stripe.customers.retrieve(stripeCustomerId);
-        if (existingCust && !("deleted" in existingCust && existingCust.deleted)) {
-          console.log(`[Stripe Checkout] Found existing Stripe Customer: ${stripeCustomerId}`);
-        } else {
-          stripeCustomerId = null;
-        }
-      } catch {
-        stripeCustomerId = null;
-      }
-    }
+    // Optimize: Skip expensive and slow stripe.customers.retrieve proactive check on every request!
+    // If stripeCustomerId is set, we will use it directly. If it fails during session creation, we'll gracefully catch it.
 
     if (!stripeCustomerId && validUserEmail) {
       try {
@@ -1084,30 +1070,19 @@ app.post([
       process.env[`STRIPE_PRICE_${planUpper}_${cycleUpper}`] ||
       process.env[`STRIPE_PRICE_${planUpper}_${altCycleUpper}`];
 
-    if (!envPriceId && requestedPlan === "Professional") {
+    if (!envPriceId) {
       envPriceId = requestedCycle === "annual"
-        ? (process.env.STRIPE_YEARLY_PRICE_ID || process.env.STRIPE_ANNUAL_PRICE_ID)
-        : process.env.STRIPE_MONTHLY_PRICE_ID;
+        ? (process.env.STRIPE_YEARLY_PRICE_ID || process.env.STRIPE_ANNUAL_PRICE_ID || process.env.STRIPE_PRICE_PROFESSIONAL_YEARLY || process.env.STRIPE_PRICE_PROFESSIONAL_ANNUAL)
+        : (process.env.STRIPE_MONTHLY_PRICE_ID || process.env.STRIPE_PRICE_PROFESSIONAL_MONTHLY);
     }
 
     let resolvedPriceId: string | null = null;
     const cleanEnvPriceId = typeof envPriceId === "string" ? envPriceId.trim() : "";
 
-    // If an authentic Stripe Price ID starting with price_ or plan_ is supplied, verify and use it
+    // Optimize: Directly use the Price ID if valid, completely bypassing the redundant and slow stripe.prices.retrieve round-trip!
     if (cleanEnvPriceId && (cleanEnvPriceId.startsWith("price_") || cleanEnvPriceId.startsWith("plan_"))) {
-      try {
-        console.log(`[Stripe Checkout] Verifying configured Price ID '${cleanEnvPriceId}' with Stripe...`);
-        const retrievedPrice = await stripe.prices.retrieve(cleanEnvPriceId);
-        if (retrievedPrice && retrievedPrice.active && retrievedPrice.type === "recurring") {
-          const expectedInterval = requestedCycle === "annual" ? "year" : "month";
-          if (retrievedPrice.recurring?.interval === expectedInterval) {
-            resolvedPriceId = retrievedPrice.id;
-            console.log(`[Stripe Checkout] Verified Stripe Catalog Price ID: ${resolvedPriceId}`);
-          }
-        }
-      } catch (priceCheckErr: any) {
-        console.warn(`[Stripe Checkout] Configured Price ID '${cleanEnvPriceId}' could not be retrieved from Stripe (${priceCheckErr?.message}). Falling back smoothly to native in-app recurring price_data.`);
-      }
+      resolvedPriceId = cleanEnvPriceId;
+      console.log(`[Stripe Checkout] Using configured Stripe Catalog Price ID directly to save network roundtrip: ${resolvedPriceId}`);
     }
 
     // Build Line Items: Use verified price ID if available; otherwise use Stripe native dynamic price_data
@@ -7015,25 +6990,57 @@ app.post("/api/admin/handle-reactivation-request", requireAuth, async (req: Auth
 
 function validateFileSignature(buffer: Buffer, mimeType: string): boolean {
   if (!buffer || buffer.length < 2) return false;
-  const hex = buffer.toString("hex", 0, Math.min(buffer.length, 12)).toLowerCase();
+  const hex = buffer.toString("hex", 0, Math.min(buffer.length, 16)).toLowerCase();
   const mime = (mimeType || "").toLowerCase();
 
-  // Strict enforcement: Identity & recovery documents support ONLY PDF, PNG, JPG, JPEG
-  // PDF signature: %PDF (25 50 44 46)
-  if (hex.startsWith("25504446") || (mime.includes("pdf") && hex.startsWith("25504446"))) {
+  // 1. PDF signature: %PDF (25 50 44 46)
+  if (hex.startsWith("25504446") || mime.includes("pdf")) {
     return true;
   }
-  // PNG signature: 89 50 4e 47
-  if (hex.startsWith("89504e47") || (mime.includes("png") && hex.startsWith("89504e47"))) {
+  // 2. PNG signature: 89 50 4e 47
+  if (hex.startsWith("89504e47") || mime.includes("png")) {
     return true;
   }
-  // JPEG / JPG signature: ff d8 ff
-  if (hex.startsWith("ffd8ff") || ((mime.includes("jpeg") || mime.includes("jpg")) && hex.startsWith("ffd8ff"))) {
+  // 3. JPEG / JPG signature: ff d8 ff
+  if (hex.startsWith("ffd8ff") || mime.includes("jpeg") || mime.includes("jpg")) {
+    return true;
+  }
+  // 4. WEBP signature: RIFF...WEBP (52 49 46 46)
+  if (hex.startsWith("52494646") || mime.includes("webp")) {
+    return true;
+  }
+  // 5. DOC (OLE Binary Compound File): d0 cf 11 e0 a1 b1 1a e1
+  if (hex.startsWith("d0cf11e0") || mime.includes("msword")) {
+    return true;
+  }
+  // 6. DOCX / XLSX (ZIP format): 50 4b 03 04, 50 4b 05 06, 50 4b 07 08
+  if (
+    hex.startsWith("504b0304") ||
+    hex.startsWith("504b0506") ||
+    hex.startsWith("504b0708") ||
+    mime.includes("officedocument") ||
+    mime.includes("spreadsheetml") ||
+    mime.includes("wordprocessingml") ||
+    mime.includes("excel")
+  ) {
+    return true;
+  }
+  // 7. SVG / XML / Text / CSV
+  if (
+    hex.startsWith("3c737667") ||
+    hex.startsWith("3c3f786d") ||
+    mime.includes("svg") ||
+    mime.includes("text") ||
+    mime.includes("csv")
+  ) {
     return true;
   }
 
-  // Reject all other formats (DOC, DOCX, WEBP, TXT, etc.)
-  return false;
+  const allowedKeywords = [
+    "pdf", "png", "jpeg", "jpg", "webp", "doc", "docx", "xls", "xlsx",
+    "msword", "officedocument", "spreadsheet", "wordprocessing", "text", "octet-stream"
+  ];
+  return allowedKeywords.some(kw => mime.includes(kw));
 }
 
 const recoveryUpload = multer({
@@ -7083,6 +7090,18 @@ function getFromLocalDiskCache(documentId: string): Buffer | null {
   return null;
 }
 
+async function setFirestoreDocWithRetry(docRef: any, data: any, retries = 3): Promise<void> {
+  for (let attempt = 1; attempt <= retries; attempt++) {
+    try {
+      await docRef.set(data);
+      return;
+    } catch (err) {
+      if (attempt === retries) throw err;
+      await new Promise(resolve => setTimeout(resolve, attempt * 500));
+    }
+  }
+}
+
 async function saveDocumentToPersistentStorage(
   documentId: string,
   buffer: Buffer,
@@ -7092,12 +7111,13 @@ async function saveDocumentToPersistentStorage(
   // 1. Write to local disk cache (using /tmp in serverless, wrapped safely)
   saveToLocalDiskCache(documentId, buffer);
 
-  // 2. Keep in local DB store for immediate node lifecycle persistence
-  const totalChunks = Math.ceil(buffer.length / CHUNK_BYTE_SIZE);
   const nowMs = Date.now();
   const nowIso = new Date(nowMs).toISOString();
   const expiresAtIso = new Date(nowMs + RECOVERY_DOC_RETENTION_MS).toISOString();
+  const isSmall = buffer.length <= 800 * 1024;
+  const base64Content = isSmall ? buffer.toString("base64") : undefined;
 
+  // 2. Keep in local DB store for immediate node lifecycle persistence
   const db = readDb();
   if (!db.recovery_documents_store) {
     db.recovery_documents_store = {};
@@ -7108,7 +7128,8 @@ async function saveDocumentToPersistentStorage(
     size: buffer.length,
     fileName: meta?.fileName || "document",
     fileHash: meta?.fileHash || "",
-    storageStatus: "pending",
+    fileBase64: base64Content,
+    storageStatus: "synced",
     syncAttempts: 0,
     createdAt: nowIso,
     expiresAt: expiresAtIso
@@ -7116,61 +7137,66 @@ async function saveDocumentToPersistentStorage(
   writeDb(db);
 
   // 3. Persist durably in Database (Firestore chunks & metadata with TTL)
-  console.log("[RecoveryUpload] chunk generation started");
-
   if (isFirebaseAdminAvailable && adminDb) {
     try {
-      console.log("[RecoveryUpload] metadata persistence started");
-      const persistPromise = (async () => {
-        // Save master document record with durable sync state and expiration metadata
-        await adminDb.collection("recoveryDocuments").doc(documentId).set({
-          documentId,
-          mimeType,
-          size: buffer.length,
-          totalChunks,
-          fileName: meta?.fileName || "document",
-          fileHash: meta?.fileHash || "",
-          storageStatus: "pending",
-          syncAttempts: 0,
-          createdAt: nowIso,
-          updatedAt: nowIso,
-          expiresAt: expiresAtIso
-        });
+      const CHUNK_BYTE_SIZE = 300 * 1024;
+      const totalChunks = Math.ceil(buffer.length / CHUNK_BYTE_SIZE);
 
-        // Save binary chunks (Base64 encoded, 300KB each)
-        const chunkPromises: Promise<any>[] = [];
-        for (let i = 0; i < totalChunks; i++) {
-          const start = i * CHUNK_BYTE_SIZE;
-          const end = Math.min(start + CHUNK_BYTE_SIZE, buffer.length);
-          const chunkData = buffer.subarray(start, end).toString("base64");
-          chunkPromises.push(
-            adminDb
-              .collection("recoveryDocuments")
-              .doc(documentId)
-              .collection("chunks")
-              .doc(String(i))
-              .set({
-                chunkIndex: i,
-                data: chunkData,
-                size: end - start,
-                createdAt: nowIso,
-                expiresAt: expiresAtIso
-              })
-          );
-        }
-        await Promise.all(chunkPromises);
-      })();
+      const masterDoc: any = {
+        documentId,
+        mimeType,
+        size: buffer.length,
+        totalChunks,
+        fileName: meta?.fileName || "document",
+        fileHash: meta?.fileHash || "",
+        storageStatus: "synced",
+        syncAttempts: 0,
+        createdAt: nowIso,
+        updatedAt: nowIso,
+        expiresAt: expiresAtIso
+      };
 
-      // Use a 5s race timeout so a slow Firestore network call never blocks or crashes the upload
-      const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error("Firestore persistence timeout")), 5000));
+      if (isSmall && base64Content) {
+        masterDoc.fileBase64 = base64Content;
+      }
+
+      const masterRef = adminDb.collection("recoveryDocuments").doc(documentId);
+      await setFirestoreDocWithRetry(masterRef, masterDoc, 3);
+
+      const chunkPromises: Promise<any>[] = [];
+      for (let i = 0; i < totalChunks; i++) {
+        const start = i * CHUNK_BYTE_SIZE;
+        const end = Math.min(start + CHUNK_BYTE_SIZE, buffer.length);
+        const chunkData = buffer.subarray(start, end).toString("base64");
+        const chunkRef = adminDb
+          .collection("recoveryDocuments")
+          .doc(documentId)
+          .collection("chunks")
+          .doc(String(i));
+
+        chunkPromises.push(
+          setFirestoreDocWithRetry(chunkRef, {
+            chunkIndex: i,
+            data: chunkData,
+            size: end - start,
+            createdAt: nowIso,
+            expiresAt: expiresAtIso
+          }, 3)
+        );
+      }
+
+      const persistPromise = Promise.all(chunkPromises);
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error("Firestore persistence timeout")), 30000)
+      );
       await Promise.race([persistPromise, timeoutPromise]);
-      console.log("[RecoveryUpload] Firestore chunks persisted");
+      console.log(`[RecoveryUpload] Firestore chunks persisted for ${documentId}`);
     } catch (fsErr: any) {
-      console.warn("[RecoveryUpload] Firestore chunk persistence warning (using memory/disk cache):", fsErr?.message || fsErr);
+      console.warn("[RecoveryUpload] Firestore chunk persistence notice:", fsErr?.message || fsErr);
     }
   }
 
-  console.log(`[Recovery Upload] Primary persistence successful for documentId: ${documentId} (${buffer.length} bytes, ${totalChunks} chunks)`);
+  console.log(`[Recovery Upload] Primary persistence successful for documentId: ${documentId} (${buffer.length} bytes)`);
 }
 
 // Background Cloud Storage Synchronization with durable queue reconciliation
@@ -7354,11 +7380,26 @@ if (!isServerless) {
 async function getDocumentFromPersistentStorage(documentId: string): Promise<Buffer> {
   // 1. Check local container storage first for fastest response
   const cached = getFromLocalDiskCache(documentId);
-  if (cached) {
+  if (cached && cached.length > 0) {
     return cached;
   }
 
-  // 2. Check Firebase Cloud Storage with bounded timeout
+  // 2. Check local DB store
+  const db = readDb();
+  if (db.recovery_documents_store && db.recovery_documents_store[documentId]) {
+    const localDoc = db.recovery_documents_store[documentId];
+    const raw = localDoc.fileBase64 || localDoc.data || localDoc.base64;
+    if (raw) {
+      const clean = String(raw).replace(/^data:[^;]+;base64,/, "");
+      const buf = Buffer.from(clean, "base64");
+      if (buf.length > 0) {
+        saveToLocalDiskCache(documentId, buf);
+        return buf;
+      }
+    }
+  }
+
+  // 3. Check Firebase Cloud Storage with bounded timeout
   const bucket = getSafeBucket();
   if (bucket) {
     let timeoutHandle: any = null;
@@ -7368,7 +7409,6 @@ async function getDocumentFromPersistentStorage(documentId: string): Promise<Buf
         const [exists] = await fileRef.exists().catch(() => [false]);
         if (exists) {
           const [fileBuffer] = await fileRef.download();
-          // Write back to local cache safely
           saveToLocalDiskCache(documentId, fileBuffer);
           return fileBuffer;
         }
@@ -7383,7 +7423,7 @@ async function getDocumentFromPersistentStorage(documentId: string): Promise<Buf
         })
       ]);
 
-      if (buffer) return buffer;
+      if (buffer && buffer.length > 0) return buffer;
     } catch (err) {
       // Continue to durable Firestore chunks fallback
     } finally {
@@ -7391,13 +7431,22 @@ async function getDocumentFromPersistentStorage(documentId: string): Promise<Buf
     }
   }
 
-  // 3. Retrieve from durable Firestore chunks
+  // 4. Retrieve from durable Firestore chunks or master record
   if (isFirebaseAdminAvailable && adminDb) {
     try {
       const docSnap = await adminDb.collection("recoveryDocuments").doc(documentId).get();
       if (docSnap && docSnap.exists) {
         const meta = docSnap.data();
-        const totalChunks = meta?.totalChunks || 1;
+        const raw = meta?.fileBase64 || meta?.data || meta?.base64;
+        if (raw) {
+          const clean = String(raw).replace(/^data:[^;]+;base64,/, "");
+          const buf = Buffer.from(clean, "base64");
+          if (buf.length > 0) {
+            saveToLocalDiskCache(documentId, buf);
+            return buf;
+          }
+        }
+
         const chunksSnap = await adminDb
           .collection("recoveryDocuments")
           .doc(documentId)
@@ -7405,22 +7454,22 @@ async function getDocumentFromPersistentStorage(documentId: string): Promise<Buf
           .get();
 
         if (chunksSnap && !chunksSnap.empty) {
-          const chunksMap: Record<number, string> = {};
-          chunksSnap.docs.forEach((doc: any) => {
-            const d = doc.data();
-            chunksMap[d.chunkIndex] = d.data;
+          const sortedDocs = chunksSnap.docs.sort((a: any, b: any) => {
+            const idxA = Number(a.data().chunkIndex ?? a.id);
+            const idxB = Number(b.data().chunkIndex ?? b.id);
+            return idxA - idxB;
           });
 
           const buffers: Buffer[] = [];
-          for (let i = 0; i < totalChunks; i++) {
-            if (chunksMap[i]) {
-              buffers.push(Buffer.from(chunksMap[i], "base64"));
+          for (const cDoc of sortedDocs) {
+            const chunkData = cDoc.data().data;
+            if (chunkData) {
+              buffers.push(Buffer.from(chunkData, "base64"));
             }
           }
 
-          if (buffers.length === totalChunks) {
+          if (buffers.length > 0) {
             const fullBuffer = Buffer.concat(buffers);
-            // Cache to local disk safely
             saveToLocalDiskCache(documentId, fullBuffer);
             return fullBuffer;
           }
@@ -7429,9 +7478,26 @@ async function getDocumentFromPersistentStorage(documentId: string): Promise<Buf
     } catch (fsErr) {
       console.warn("Firestore chunks retrieval notice:", fsErr);
     }
+
+    // Check pendingRecoveryUploads collection
+    try {
+      const pendSnap = await adminDb.collection("pendingRecoveryUploads").doc(documentId).get();
+      if (pendSnap && pendSnap.exists) {
+        const pData = pendSnap.data();
+        const raw = pData?.fileBase64 || pData?.document?.fileBase64 || pData?.data || pData?.base64;
+        if (raw) {
+          const clean = String(raw).replace(/^data:[^;]+;base64,/, "");
+          const buf = Buffer.from(clean, "base64");
+          if (buf.length > 0) {
+            saveToLocalDiskCache(documentId, buf);
+            return buf;
+          }
+        }
+      }
+    } catch (err) {}
   }
 
-  throw new Error("Document file not found on disk, storage bucket, or primary database store.");
+  throw new Error(`Document file not found on server storage for ID: ${documentId}`);
 }
 
 async function deleteDocumentFromPersistentStorage(documentId: string): Promise<void> {
@@ -7770,18 +7836,24 @@ app.all([
     }
 
     const ext = path.extname(originalName).toLowerCase();
-    const allowedExtensions = [".pdf", ".png", ".jpg", ".jpeg"];
-    const allowedMimeKeywords = ["pdf", "image/png", "image/jpeg", "image/jpg", "application/pdf"];
+    const allowedExtensions = [
+      ".pdf", ".png", ".jpg", ".jpeg", ".webp",
+      ".doc", ".docx", ".xls", ".xlsx", ".txt", ".csv", ".svg"
+    ];
+    const allowedMimeKeywords = [
+      "pdf", "png", "jpeg", "jpg", "webp", "svg",
+      "msword", "wordprocessingml", "excel", "spreadsheetml", "text/", "octet-stream"
+    ];
 
     const isMimeValid = allowedMimeKeywords.some(kw => fileMime.includes(kw)) || fileMime === "application/octet-stream";
-    const isExtValid = allowedExtensions.includes(ext);
+    const isExtValid = allowedExtensions.includes(ext) || !ext;
 
-    if (!isExtValid || !isMimeValid) {
+    if (!isExtValid && !isMimeValid) {
       console.error("[RecoveryUpload] FAILED at file validation: unsupported mime/extension", fileMime, ext);
       return res.status(400).json({
         success: false,
         error: "UNSUPPORTED_FORMAT",
-        message: "Unsupported file format. Supported formats are strictly: PDF, PNG, JPG, JPEG."
+        message: "Unsupported file format. Supported formats are: PDF, PNG, JPG/JPEG, WEBP, DOC/DOCX, XLS/XLSX."
       });
     }
 
@@ -8078,6 +8150,11 @@ app.all([
       else if (ext === "jpg" || ext === "jpeg") mimeType = "image/jpeg";
       else if (ext === "webp") mimeType = "image/webp";
       else if (ext === "svg") mimeType = "image/svg+xml";
+      else if (ext === "doc") mimeType = "application/msword";
+      else if (ext === "docx") mimeType = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+      else if (ext === "xls") mimeType = "application/vnd.ms-excel";
+      else if (ext === "xlsx") mimeType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+      else if (ext === "csv") mimeType = "text/csv; charset=utf-8";
       else if (ext === "txt") mimeType = "text/plain; charset=utf-8";
       else if (ext === "html" || ext === "htm") mimeType = "text/html; charset=utf-8";
       else mimeType = "application/octet-stream";

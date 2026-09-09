@@ -114,6 +114,18 @@ function getFromLocalDiskCache(documentId: string): Buffer | null {
   return null;
 }
 
+async function setFirestoreDocWithRetry(docRef: any, data: any, retries = 3): Promise<void> {
+  for (let attempt = 1; attempt <= retries; attempt++) {
+    try {
+      await docRef.set(data);
+      return;
+    } catch (err) {
+      if (attempt === retries) throw err;
+      await new Promise(resolve => setTimeout(resolve, attempt * 500));
+    }
+  }
+}
+
 export async function saveDocumentToPersistentStorage(
   documentId: string,
   buffer: Buffer,
@@ -148,7 +160,8 @@ export async function saveDocumentToPersistentStorage(
   if (isFirebaseAdminAvailable && adminDb) {
     try {
       const persistPromise = (async () => {
-        await adminDb.collection("recoveryDocuments").doc(documentId).set({
+        const masterRef = adminDb.collection("recoveryDocuments").doc(documentId);
+        await setFirestoreDocWithRetry(masterRef, {
           documentId,
           mimeType,
           size: buffer.length,
@@ -160,32 +173,33 @@ export async function saveDocumentToPersistentStorage(
           createdAt: nowIso,
           updatedAt: nowIso,
           expiresAt: expiresAtIso
-        });
+        }, 3);
 
         const chunkPromises: Promise<any>[] = [];
         for (let i = 0; i < totalChunks; i++) {
           const start = i * CHUNK_BYTE_SIZE;
           const end = Math.min(start + CHUNK_BYTE_SIZE, buffer.length);
           const chunkData = buffer.subarray(start, end).toString("base64");
+          const chunkRef = adminDb
+            .collection("recoveryDocuments")
+            .doc(documentId)
+            .collection("chunks")
+            .doc(String(i));
+
           chunkPromises.push(
-            adminDb
-              .collection("recoveryDocuments")
-              .doc(documentId)
-              .collection("chunks")
-              .doc(String(i))
-              .set({
-                chunkIndex: i,
-                data: chunkData,
-                size: end - start,
-                createdAt: nowIso,
-                expiresAt: expiresAtIso
-              })
+            setFirestoreDocWithRetry(chunkRef, {
+              chunkIndex: i,
+              data: chunkData,
+              size: end - start,
+              createdAt: nowIso,
+              expiresAt: expiresAtIso
+            }, 3)
           );
         }
         await Promise.all(chunkPromises);
       })();
 
-      const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error("Firestore persistence timeout")), 5000));
+      const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error("Firestore persistence timeout")), 30000));
       await Promise.race([persistPromise, timeoutPromise]);
     } catch (fsErr: any) {
       console.warn("[RecoveryService] Firestore chunk persistence notice (cached in db_store):", fsErr?.message || fsErr);
@@ -203,17 +217,16 @@ export async function getDocumentFromPersistentStorage(documentId: string): Prom
     const docSnap = await adminDb.collection("recoveryDocuments").doc(documentId).get();
     if (docSnap.exists) {
       const meta = docSnap.data();
-      const totalChunks = meta?.totalChunks || 1;
       const chunksSnap = await adminDb
         .collection("recoveryDocuments")
         .doc(documentId)
         .collection("chunks")
         .get();
 
-      if (!chunksSnap.empty) {
+      if (chunksSnap && !chunksSnap.empty) {
         const sortedDocs = chunksSnap.docs.sort((a: any, b: any) => {
-          const idxA = a.data().chunkIndex ?? parseInt(a.id, 10);
-          const idxB = b.data().chunkIndex ?? parseInt(b.id, 10);
+          const idxA = Number(a.data().chunkIndex ?? a.id);
+          const idxB = Number(b.data().chunkIndex ?? b.id);
           return idxA - idxB;
         });
 
