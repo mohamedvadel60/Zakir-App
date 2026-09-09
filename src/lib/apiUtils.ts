@@ -45,6 +45,29 @@ export async function getFreshAuthToken(forceRefresh = false): Promise<string | 
 }
 
 /**
+ * Helper to sanitize environment base URLs, stripping markdown links like [url](url) or extra brackets.
+ */
+export function sanitizeBaseUrl(rawUrl?: string): string {
+  if (!rawUrl || typeof rawUrl !== "string") return "";
+  let trimmed = rawUrl.trim();
+  
+  // Extract clean URL if markdown link syntax like [https://getzakir.com](https://getzakir.com) was passed
+  const markdownMatch = trimmed.match(/\[.*?\]\((https?:\/\/[^\)]+)\)/i);
+  if (markdownMatch && markdownMatch[1]) {
+    trimmed = markdownMatch[1].trim();
+  } else {
+    // Remove brackets, parentheses, or double quotes
+    trimmed = trimmed.replace(/[\[\]\(\)'"]/g, "").trim();
+  }
+
+  if (!/^https?:\/\//i.test(trimmed)) {
+    return "";
+  }
+
+  return trimmed.replace(/\/+$/, "");
+}
+
+/**
  * Helper to ensure endpoint URL formatted with correct origin or relative path.
  */
 function resolveEndpointUrl(url: string): string {
@@ -54,11 +77,22 @@ function resolveEndpointUrl(url: string): string {
   const formattedEndpoint = url.startsWith('/') ? url : `/${url}`;
   
   if (typeof window !== "undefined") {
-    const customBase = (import.meta as any).env?.VITE_API_BASE_URL || (import.meta as any).env?.VITE_BACKEND_URL;
-    if (customBase && typeof customBase === "string" && customBase.trim()) {
-      const cleanBase = customBase.trim().replace(/\/$/, '');
-      if (window.location.origin && !window.location.origin.includes(cleanBase)) {
+    const rawBase = (import.meta as any).env?.VITE_API_BASE_URL || (import.meta as any).env?.VITE_BACKEND_URL;
+    const cleanBase = sanitizeBaseUrl(rawBase);
+    
+    if (cleanBase) {
+      try {
+        const currentOrigin = window.location.origin.replace(/\/$/, '');
+        const currentHost = window.location.hostname.toLowerCase();
+        const baseHost = new URL(cleanBase).hostname.toLowerCase();
+
+        // If same origin or same host, always prefer clean relative path
+        if (currentHost === baseHost || currentOrigin === cleanBase) {
+          return formattedEndpoint;
+        }
         return `${cleanBase}${formattedEndpoint}`;
+      } catch (e) {
+        return formattedEndpoint;
       }
     }
   }

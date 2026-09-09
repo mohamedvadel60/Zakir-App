@@ -286,6 +286,21 @@ export const DeletedAccountRecovery: React.FC<DeletedAccountRecoveryProps> = ({
     };
   }, [initialEmail]);
 
+  // Auto fetch recovery status on mount or tab change
+  useEffect(() => {
+    const target = (statusEmail || initialEmail || email || "").trim().toLowerCase();
+    if (target) {
+      fetchAccountRecoveryStatusApi(target).then((res) => {
+        if (res && res.success) {
+          setStatusResult(res);
+          if (res.status === "approved" || res.status === "rejected") {
+            setActiveTab("status");
+          }
+        }
+      }).catch(() => {});
+    }
+  }, [initialEmail, email]);
+
   // Handle Drag & Drop
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();

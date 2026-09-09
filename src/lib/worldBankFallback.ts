@@ -1,3 +1,5 @@
+import { sanitizeBaseUrl } from "./apiUtils.js";
+
 export interface WorldBankRecord {
   year: number;
   value: number | null;
@@ -131,7 +133,7 @@ function getEnvVar(key: string): string {
   return '';
 }
 
-const envBaseUrl = getEnvVar('VITE_API_BASE_URL') || getEnvVar('VITE_BACKEND_URL') || '';
+const envBaseUrl = sanitizeBaseUrl(getEnvVar('VITE_API_BASE_URL') || getEnvVar('VITE_BACKEND_URL'));
 
 export const WORLD_BANK_API_BASE_URL = typeof process !== 'undefined' && process.env?.NODE_ENV === 'production' ? '' : envBaseUrl;
 
@@ -141,8 +143,8 @@ export async function fetchWorldBankProxyApi(
   startYear: number, 
   endYear: number
 ) {
-  const customBase = getEnvVar('VITE_API_BASE_URL') || getEnvVar('VITE_BACKEND_URL') || '';
-  const baseUrl = customBase ? customBase.replace(/\/$/, '') : WORLD_BANK_API_BASE_URL;
+  const customBase = sanitizeBaseUrl(getEnvVar('VITE_API_BASE_URL') || getEnvVar('VITE_BACKEND_URL'));
+  const baseUrl = customBase || WORLD_BANK_API_BASE_URL;
   const primaryUrl = baseUrl 
     ? `${baseUrl}/api/world-bank?country=${countryCode}&indicator=${indicatorCode}&startYear=${startYear}&endYear=${endYear}`
     : `/api/world-bank?country=${countryCode}&indicator=${indicatorCode}&startYear=${startYear}&endYear=${endYear}`;

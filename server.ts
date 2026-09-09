@@ -4528,6 +4528,13 @@ app.all([
 // ==========================================
 // AUTHORITATIVE WORKSPACE INVITATION ACCEPTANCE
 // ==========================================
+function cleanMemberName(name?: string): string {
+  if (!name) return "";
+  return name
+    .replace(/\s*[\(\[\{]?(معلق|معلقة|معلّق|Pending|pending)[\)\]\}]?\s*/gi, "")
+    .trim();
+}
+
 app.all([
   "/api/workspace/invitations/accept",
   "/workspace/invitations/accept",
@@ -4708,7 +4715,8 @@ app.all([
       });
     }
 
-    const resolvedMemberName = (memberName || memberData.ownerName || memberData.name || invRecord.name || invitationEmail.split("@")[0]).trim();
+    const rawMemberName = (memberName || memberData.ownerName || memberData.name || invRecord.name || invitationEmail.split("@")[0]).trim();
+    const resolvedMemberName = cleanMemberName(rawMemberName) || invitationEmail.split("@")[0];
 
     // 3. Atomically perform updates using Firestore Batch
     const batch = adminDb.batch();
@@ -4765,12 +4773,22 @@ app.all([
     };
     batch.set(memberDocRef, updatedMemberProfile, { merge: true });
 
-    // D. Update CEO's teamMembersList
+    // D. Update CEO's teamMembersList across candidate CEO documents
     let currentTeamList: any[] = [];
-    if (senderId) {
+    let ceoUserDocRef = senderId ? adminDb.collection("users").doc(senderId) : null;
+    
+    if (!ceoUserDocRef && workspaceId) {
       try {
-        const ceoRef = adminDb.collection("users").doc(senderId);
-        const ceoSnap = await ceoRef.get();
+        const ceoQuery = await adminDb.collection("users").where("workspaceId", "==", workspaceId).where("role", "==", "CEO").limit(1).get();
+        if (!ceoQuery.empty) {
+          ceoUserDocRef = ceoQuery.docs[0].ref;
+        }
+      } catch (e) {}
+    }
+
+    if (ceoUserDocRef) {
+      try {
+        const ceoSnap = await ceoUserDocRef.get();
         if (ceoSnap.exists) {
           const ceoData = ceoSnap.data() || {};
           currentTeamList = Array.isArray(ceoData.teamMembersList) ? [...ceoData.teamMembersList] : [];
@@ -4782,7 +4800,7 @@ app.all([
             return mEmail !== invitationEmail && mEmail !== callerEmail && mId !== callerUid && mId !== `tm-${callerUid}`;
           });
 
-          // Append active member
+          // Append active member with cleaned display name
           const newTeamMemberEntry = {
             id: `tm-${callerUid}`,
             uid: callerUid,
@@ -4796,7 +4814,7 @@ app.all([
           };
           currentTeamList.push(newTeamMemberEntry);
 
-          batch.set(ceoRef, {
+          batch.set(ceoUserDocRef, {
             teamMembersList: currentTeamList,
             updatedAt: nowIso
           }, { merge: true });
@@ -4930,14 +4948,19 @@ app.all([
       }
     } catch (e) {}
 
-    // 4. Fetch all invitations for this workspace (excluding already ACCEPTED ones)
+    // 4. Fetch all invitations for this workspace (excluding already ACCEPTED ones or ones whose user is active)
+    const workspaceMembersEmails = new Set(workspaceMembers.map((m: any) => (m.email || "").trim().toLowerCase()));
     const workspaceInvitations: any[] = [];
     try {
       const invSnap = await adminDb.collection("invitations").where("workspaceId", "==", workspaceId).get();
       if (!invSnap.empty) {
         invSnap.docs.forEach((d: any) => {
           const inv = d.data();
-          if (inv.status !== "ACCEPTED") {
+          const invEmail = (inv.email || d.id || "").trim().toLowerCase();
+          const isAcceptedStatus = (inv.status || "").toString().toUpperCase() === "ACCEPTED";
+          const isMemberRegistered = workspaceMembersEmails.has(invEmail);
+          
+          if (!isAcceptedStatus && !isMemberRegistered) {
             workspaceInvitations.push({ ...inv, id: d.id });
           }
         });
@@ -4954,7 +4977,7 @@ app.all([
       teamList.unshift({
         id: "tm-owner",
         uid: ceoUid || callerUid,
-        name: ceoUser?.ownerName || ceoUser?.name || "CEO / Owner",
+        name: cleanMemberName(ceoUser?.ownerName || ceoUser?.name) || "CEO / Owner",
         email: ceoEmail,
         role: "CEO / Owner",
         status: "Active",
@@ -4971,11 +4994,14 @@ app.all([
       if (!mEmail || mEmail === ceoEmail) continue;
 
       const existingIdx = teamList.findIndex((t: any) => (t.email || "").trim().toLowerCase() === mEmail || t.uid === mUid || t.id === `tm-${mUid}`);
+      const cleanName = cleanMemberName(member.ownerName || member.name || mEmail.split("@")[0]);
+
       if (existingIdx >= 0) {
-        // Upgrade to Active if it was pending or clean up pending label
-        if (teamList[existingIdx].status !== "Active" || teamList[existingIdx].name?.includes("معلق")) {
+        const currentName = teamList[existingIdx].name || "";
+        const needsClean = currentName.includes("معلق") || currentName.includes("Pending") || currentName.includes("معلقة");
+        if (teamList[existingIdx].status !== "Active" || needsClean) {
           teamList[existingIdx].status = "Active";
-          teamList[existingIdx].name = (member.ownerName || member.name || teamList[existingIdx].name || "").replace(/\s*\(معلق\)/g, "").replace(/\s*\(Pending\)/g, "").trim();
+          teamList[existingIdx].name = cleanName || cleanMemberName(currentName);
           teamList[existingIdx].uid = mUid;
           teamList[existingIdx].powers = member.powers || teamList[existingIdx].powers;
           teamList[existingIdx].role = member.role || teamList[existingIdx].role;
@@ -4985,7 +5011,7 @@ app.all([
         teamList.push({
           id: `tm-${mUid}`,
           uid: mUid,
-          name: member.ownerName || member.name || mEmail.split("@")[0],
+          name: cleanName,
           email: mEmail,
           role: member.role || "Contributor",
           powers: member.powers || { fileVault: true, memoryVault: true, riskRadar: false, marketIntel: false, settings: false },
@@ -8451,25 +8477,44 @@ app.get("/api/auth/recovery-request/status", async (req, res) => {
     }
     const normalizedEmail = email.trim().toLowerCase();
 
-    let requestData: any = null;
+    let requestDocs: any[] = [];
+    
+    // 1. Check recoveryRequests by email query
     try {
-      const emailSnap = await adminDb.collection("recoveryRequests_by_email").doc(normalizedEmail).get();
-      if (emailSnap.exists) {
-        requestData = emailSnap.data();
-      } else {
-        const legacySnap = await adminDb.collection("accountRecoveryRequests_by_email").doc(normalizedEmail).get();
-        if (legacySnap.exists) {
-          requestData = legacySnap.data();
-        }
+      const qSnap = await adminDb.collection("recoveryRequests").where("email", "==", normalizedEmail).get();
+      if (qSnap && !qSnap.empty) {
+        qSnap.docs.forEach((d) => requestDocs.push({ ...d.data(), _source: "recoveryRequests" }));
       }
     } catch (e) {}
 
-    if (!requestData) {
-      const db = readDb();
-      requestData = db.account_recovery_requests?.find((r: any) => r.email === normalizedEmail) || null;
-    }
+    // 2. Check recoveryRequests_by_email direct document
+    try {
+      const emailSnap = await adminDb.collection("recoveryRequests_by_email").doc(normalizedEmail).get();
+      if (emailSnap.exists) {
+        requestDocs.push({ ...emailSnap.data(), _source: "recoveryRequests_by_email" });
+      }
+    } catch (e) {}
 
-    if (!requestData) {
+    // 3. Check legacy accountRecoveryRequests
+    try {
+      const legacySnap = await adminDb.collection("accountRecoveryRequests_by_email").doc(normalizedEmail).get();
+      if (legacySnap.exists) {
+        requestDocs.push({ ...legacySnap.data(), _source: "accountRecoveryRequests_by_email" });
+      }
+    } catch (e) {}
+
+    // 4. Check local DB store
+    const db = readDb();
+    const localReqs = db.account_recovery_requests?.filter((r: any) => (r.email || "").trim().toLowerCase() === normalizedEmail) || [];
+    localReqs.forEach((r: any) => requestDocs.push({ ...r, _source: "localDb" }));
+
+    // 5. Check Account Lifecycle Record
+    let lifecycle: any = null;
+    try {
+      lifecycle = await getAccountLifecycleRecord(normalizedEmail);
+    } catch (e) {}
+
+    if (requestDocs.length === 0 && !lifecycle) {
       return res.json({
         success: true,
         status: "none",
@@ -8477,17 +8522,36 @@ app.get("/api/auth/recovery-request/status", async (req, res) => {
       });
     }
 
-    const responseStatus = requestData.status || "pending";
-    const baseResponse: any = {
-      success: true,
-      status: responseStatus,
-      recoveryRequest: {
-        status: responseStatus,
-        rejectionReason: responseStatus === "rejected" ? (requestData.rejectionReason || requestData.notes || "Request was declined by an administrator.") : null
-      }
-    };
+    // Determine highest priority request / decision state
+    const hasApprovedDoc = requestDocs.some((r) => r.status === "approved" || r.decision === "approved" || r.reactivationStatus === "approved");
+    const isLifecycleApproved = lifecycle && (lifecycle.reactivationStatus === "approved" || lifecycle.status === "ADMIN_APPROVED" || lifecycle.status === "ACTIVE");
+    
+    const hasRejectedDoc = requestDocs.some((r) => r.status === "rejected" || r.decision === "rejected" || r.reactivationStatus === "rejected");
+    const isLifecycleRejected = lifecycle && (lifecycle.reactivationStatus === "rejected" || lifecycle.status === "ADMIN_REJECTED");
 
-    return res.json(baseResponse);
+    let computedStatus = "pending";
+    if (hasApprovedDoc || isLifecycleApproved) {
+      computedStatus = "approved";
+    } else if (hasRejectedDoc || isLifecycleRejected) {
+      computedStatus = "rejected";
+    } else if (requestDocs.length === 0) {
+      computedStatus = "none";
+    }
+
+    const latestDoc = requestDocs[0] || {};
+    const rejectionReason = computedStatus === "rejected"
+      ? (latestDoc.rejectionReason || latestDoc.notes || lifecycle?.rejectionReason || "تم رفض طلب استعادة الحساب من قبل إدارة النظام.")
+      : null;
+
+    return res.json({
+      success: true,
+      status: computedStatus,
+      recoveryRequest: {
+        ...latestDoc,
+        status: computedStatus,
+        rejectionReason: rejectionReason
+      }
+    });
   } catch (err: any) {
     console.error("Recovery request status error:", err);
     res.status(500).json({ success: false, error: err.message || "Failed to fetch status." });

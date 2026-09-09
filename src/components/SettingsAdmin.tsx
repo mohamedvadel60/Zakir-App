@@ -57,6 +57,13 @@ import { saveWorkspaceInvitation, deleteWorkspaceInvitation, fetchWorkspaceInvit
 import { openOrDownloadUserFile, openUserFileInNewTab, downloadUserFile } from "../lib/fileViewerUtils.js";
 import { translations } from "../translations.js";
 
+function cleanMemberName(name?: string): string {
+  if (!name) return "";
+  return name
+    .replace(/\s*[\(\[\{]?(معلق|معلقة|معلّق|Pending|pending)[\)\]\}]?\s*/gi, "")
+    .trim();
+}
+
 // Cached singleton Stripe loader
 let cachedStripePromise: Promise<StripeType | null> | null = null;
 let cachedStripeKey: string | null = null;
@@ -3517,16 +3524,18 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
                   <tbody className={`divide-y text-xs ${
                     theme === "dark" ? "divide-slate-800/60 text-slate-200" : "divide-slate-200 text-slate-700"
                   }`}>
-                    {teamMembers.map((member) => (
+                    {teamMembers.map((member) => {
+                      const displayName = cleanMemberName(member.name);
+                      return (
                       <tr key={member.id} className={`transition-colors ${
                         theme === "dark" ? "hover:bg-slate-800/30" : "hover:bg-slate-50"
                       }`}>
                         <td className="py-3.5 px-4 font-bold flex items-center gap-2.5">
                           <div className="w-7 h-7 rounded-lg bg-[#0075DE]/20 text-[#0075DE] font-bold text-[10px] flex items-center justify-center shrink-0">
-                            {member.name.slice(0, 2).toUpperCase()}
+                            {displayName.slice(0, 2).toUpperCase()}
                           </div>
                           <div>
-                            <p className={`font-bold text-xs ${theme === "dark" ? "text-white" : "text-slate-900"}`}>{member.name}</p>
+                            <p className={`font-bold text-xs ${theme === "dark" ? "text-white" : "text-slate-900"}`}>{displayName}</p>
                             <p className={`text-[10px] font-mono ${theme === "dark" ? "text-slate-400" : "text-slate-500"}`}>{member.email}</p>
                           </div>
                         </td>
@@ -3554,7 +3563,8 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
                           </td>
                         ))}
                       </tr>
-                    ))}
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -3568,7 +3578,9 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
             </h3>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {teamMembers.map((member) => (
+              {teamMembers.map((member) => {
+                const displayName = cleanMemberName(member.name);
+                return (
                 <div 
                   key={member.id} 
                   className={`p-5 rounded-2xl border space-y-4 flex flex-col justify-between ${
@@ -3578,11 +3590,11 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex items-center gap-3">
                       <div className="w-10 h-10 rounded-xl bg-[#0075DE]/20 text-[#0075DE] font-extrabold text-sm flex items-center justify-center border border-[#0075DE]/30">
-                        {member.name.slice(0, 2).toUpperCase()}
+                        {displayName.slice(0, 2).toUpperCase()}
                       </div>
                       <div>
                         <h4 className={`text-sm font-bold flex items-center gap-2 ${theme === "dark" ? "text-white" : "text-slate-900"}`}>
-                          <span>{member.name}</span>
+                          <span>{displayName}</span>
                           {member.role.includes("CEO") && (
                             <span className="px-2 py-0.5 rounded bg-[#0075DE]/20 text-[#0075DE] text-[10px] font-bold">Owner</span>
                           )}
@@ -3654,7 +3666,8 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
                     )}
                   </div>
                 </div>
-              ))}
+                );
+              })}
             </div>
           </div>
 

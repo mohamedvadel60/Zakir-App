@@ -32,7 +32,7 @@ import {
   deleteObject 
 } from "firebase/storage";
 import { auth, db, storage } from "../firebase.js";
-import { authenticatedFetch, safeJsonResponse } from "./apiUtils.js";
+import { authenticatedFetch, safeJsonResponse, sanitizeBaseUrl } from "./apiUtils.js";
 import {
   LoginError,
   LoginErrorCode,
@@ -2992,19 +2992,22 @@ export async function resetFirebaseUserPassword(email: string): Promise<void> {
 
 // ================= USER VERIFICATION & SUPPORT SERVICES =================
 
-export const API_BASE_URL = typeof process !== 'undefined' && process.env?.NODE_ENV === 'production' ? '' : ((import.meta as any).env?.VITE_API_BASE_URL || (import.meta as any).env?.VITE_BACKEND_URL || '');
+export const API_BASE_URL = typeof process !== 'undefined' && process.env?.NODE_ENV === 'production'
+  ? ''
+  : sanitizeBaseUrl((import.meta as any).env?.VITE_API_BASE_URL || (import.meta as any).env?.VITE_BACKEND_URL);
 
 export const getAuthApiUrl = (endpoint: string) => {
   const formattedEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
 
   if (typeof window !== "undefined") {
-    // Always use relative paths in the browser to ensure requests are routed to the current running origin (local dev server or cloud run container)
+    // Always use relative paths in the browser to ensure requests are routed to the current running origin
     return formattedEndpoint;
   }
 
-  const customBase = (import.meta as any).env?.VITE_API_BASE_URL || (import.meta as any).env?.VITE_BACKEND_URL;
+  const rawBase = (import.meta as any).env?.VITE_API_BASE_URL || (import.meta as any).env?.VITE_BACKEND_URL;
+  const customBase = sanitizeBaseUrl(rawBase);
   if (customBase) {
-    return `${customBase.replace(/\/$/, '')}${formattedEndpoint}`;
+    return `${customBase}${formattedEndpoint}`;
   }
 
   return API_BASE_URL ? `${API_BASE_URL}${formattedEndpoint}` : formattedEndpoint;

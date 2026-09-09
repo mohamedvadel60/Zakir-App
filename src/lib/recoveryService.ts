@@ -213,40 +213,69 @@ export async function saveDocumentToPersistentStorage(
 
 export async function getDocumentFromPersistentStorage(documentId: string): Promise<Buffer> {
   const cached = getFromLocalDiskCache(documentId);
-  if (cached) {
+  if (cached && cached.length > 0) {
     return cached;
   }
 
+  // Check local DB store
+  const db = readDb();
+  if (db.recovery_documents_store && db.recovery_documents_store[documentId]) {
+    const localDoc = db.recovery_documents_store[documentId];
+    const raw = localDoc.fileBase64 || localDoc.data || localDoc.base64;
+    if (raw) {
+      const clean = String(raw).replace(/^data:[^;]+;base64,/, "");
+      const buf = Buffer.from(clean, "base64");
+      if (buf.length > 0) {
+        saveToLocalDiskCache(documentId, buf);
+        return buf;
+      }
+    }
+  }
+
   if (isFirebaseAdminAvailable && adminDb) {
-    const docSnap = await adminDb.collection("recoveryDocuments").doc(documentId).get();
-    if (docSnap.exists) {
-      const meta = docSnap.data();
-      const chunksSnap = await adminDb
-        .collection("recoveryDocuments")
-        .doc(documentId)
-        .collection("chunks")
-        .get();
-
-      if (chunksSnap && !chunksSnap.empty) {
-        const sortedDocs = chunksSnap.docs.sort((a: any, b: any) => {
-          const idxA = Number(a.data().chunkIndex ?? a.id);
-          const idxB = Number(b.data().chunkIndex ?? b.id);
-          return idxA - idxB;
-        });
-
-        const buffers: Buffer[] = [];
-        for (const cDoc of sortedDocs) {
-          const chunkData = cDoc.data().data;
-          if (chunkData) {
-            buffers.push(Buffer.from(chunkData, "base64"));
+    try {
+      const docSnap = await adminDb.collection("recoveryDocuments").doc(documentId).get();
+      if (docSnap.exists) {
+        const meta = docSnap.data();
+        const raw = meta?.fileBase64 || meta?.data || meta?.base64;
+        if (raw) {
+          const clean = String(raw).replace(/^data:[^;]+;base64,/, "");
+          const buf = Buffer.from(clean, "base64");
+          if (buf.length > 0) {
+            saveToLocalDiskCache(documentId, buf);
+            return buf;
           }
         }
-        if (buffers.length > 0) {
-          const fullBuffer = Buffer.concat(buffers);
-          saveToLocalDiskCache(documentId, fullBuffer);
-          return fullBuffer;
+
+        const chunksSnap = await adminDb
+          .collection("recoveryDocuments")
+          .doc(documentId)
+          .collection("chunks")
+          .get();
+
+        if (chunksSnap && !chunksSnap.empty) {
+          const sortedDocs = chunksSnap.docs.sort((a: any, b: any) => {
+            const idxA = Number(a.data().chunkIndex ?? a.id);
+            const idxB = Number(b.data().chunkIndex ?? b.id);
+            return idxA - idxB;
+          });
+
+          const buffers: Buffer[] = [];
+          for (const cDoc of sortedDocs) {
+            const chunkData = cDoc.data().data;
+            if (chunkData) {
+              buffers.push(Buffer.from(chunkData, "base64"));
+            }
+          }
+          if (buffers.length > 0) {
+            const fullBuffer = Buffer.concat(buffers);
+            saveToLocalDiskCache(documentId, fullBuffer);
+            return fullBuffer;
+          }
         }
       }
+    } catch (fsErr) {
+      console.warn("Firestore recovery doc retrieval warning:", fsErr);
     }
   }
 
@@ -261,6 +290,25 @@ export async function getDocumentFromPersistentStorage(documentId: string): Prom
         return downloaded;
       }
     } catch (e) {}
+  }
+
+  // Check pendingRecoveryUploads in Firestore as final fallback
+  if (isFirebaseAdminAvailable && adminDb) {
+    try {
+      const pendSnap = await adminDb.collection("pendingRecoveryUploads").doc(documentId).get();
+      if (pendSnap && pendSnap.exists) {
+        const pData = pendSnap.data();
+        const raw = pData?.fileBase64 || pData?.document?.fileBase64 || pData?.data || pData?.base64;
+        if (raw) {
+          const clean = String(raw).replace(/^data:[^;]+;base64,/, "");
+          const buf = Buffer.from(clean, "base64");
+          if (buf.length > 0) {
+            saveToLocalDiskCache(documentId, buf);
+            return buf;
+          }
+        }
+      }
+    } catch (err) {}
   }
 
   throw new Error(`Document ${documentId} could not be retrieved from persistent storage.`);

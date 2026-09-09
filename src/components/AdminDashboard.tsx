@@ -61,7 +61,7 @@ import {
   fetchAdminRecoveryRequestsApi,
   handleAdminRecoveryRequestDecisionApi
 } from "../lib/firebaseServices.js";
-import { authenticatedFetch, safeJsonResponse } from "../lib/apiUtils.js";
+import { authenticatedFetch, safeJsonResponse, getFreshAuthToken } from "../lib/apiUtils.js";
 import { openOrDownloadUserFile, openUserFileInNewTab, downloadUserFile, dataUrlToBlob } from "../lib/fileViewerUtils.js";
 
 interface AdminDashboardProps {
@@ -300,7 +300,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   };
 
   const handleViewRecoveryDocument = async (
-    doc: { documentId?: string; id?: string; fileName?: string; mimeType?: string; size?: number; fileUrl?: string; fileBase64?: string; data?: string; base64?: string; [key: string]: any } | string,
+    doc: { documentId?: string; id?: string; fileName?: string; mimeType?: string; size?: number; fileUrl?: string; fileBase64?: string; data?: string; base64?: string; storageReference?: string; [key: string]: any } | string,
     fileNameOrReq?: string | any,
     reqContext?: any
   ) => {
@@ -316,7 +316,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       documentId = doc;
       if (typeof fileNameOrReq === "string") fileName = fileNameOrReq;
     } else if (doc && typeof doc === "object") {
-      documentId = doc.documentId || doc.id || "";
+      documentId = doc.documentId || doc.id || (doc.storageReference ? doc.storageReference.replace(/^secure_uploads\//, "") : "") || "";
       fileName = doc.fileName || (typeof fileNameOrReq === "string" ? fileNameOrReq : "document");
       mimeType = doc.mimeType || "";
       size = doc.size;
@@ -336,9 +336,15 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       else if (ext === "png") mimeType = "image/png";
       else if (ext === "jpg" || ext === "jpeg") mimeType = "image/jpeg";
       else if (ext === "webp") mimeType = "image/webp";
+      else if (ext === "gif") mimeType = "image/gif";
       else if (ext === "svg") mimeType = "image/svg+xml";
       else if (ext === "txt") mimeType = "text/plain";
       else if (ext === "html" || ext === "htm") mimeType = "text/html";
+    }
+
+    // Revoke previous blob url if active
+    if (previewDocModal?.blobUrl && previewDocModal.blobUrl.startsWith("blob:")) {
+      try { URL.revokeObjectURL(previewDocModal.blobUrl); } catch (e) {}
     }
 
     setPreviewDocModal({
@@ -372,8 +378,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         }
       }
 
-      // 2. If direct HTTP or Blob URL is provided
-      if (fileUrl && (fileUrl.startsWith("http") || fileUrl.startsWith("blob:"))) {
+      // 2. If direct Blob URL is provided
+      if (fileUrl && fileUrl.startsWith("blob:")) {
         setPreviewDocModal({
           documentId: documentId || "doc_preview",
           fileName,
@@ -388,25 +394,50 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         return;
       }
 
-      const { auth } = await import("../firebase");
-      const idToken = await auth.currentUser?.getIdToken() || "";
+      // 3. Fetch from Admin API endpoint with auth token
+      const idToken = await getFreshAuthToken();
 
-      const res = await fetch(`/api/admin/recovery-request/document/${encodeURIComponent(documentId)}?token=${encodeURIComponent(idToken)}`, {
-        headers: idToken ? { "Authorization": `Bearer ${idToken}` } : {}
-      });
+      const candidateUrls = [
+        `/api/admin/recovery-request/document/${encodeURIComponent(documentId)}`,
+        `/api/admin/recovery-requests/document/${encodeURIComponent(documentId)}`
+      ];
 
-      if (!res.ok) {
-        let errMsg = `HTTP ${res.status}: Failed to load document.`;
+      let res: Response | null = null;
+      let lastErrMessage = "";
+
+      for (const endpoint of candidateUrls) {
         try {
-          const errData = await res.json();
-          errMsg = errData?.userFriendlyMessage || errData?.error || errData?.message || errMsg;
-        } catch (e) {}
+          const fullUrl = idToken ? `${endpoint}?token=${encodeURIComponent(idToken)}` : endpoint;
+          const r = await fetch(fullUrl, {
+            headers: idToken ? { "Authorization": `Bearer ${idToken}` } : {},
+            credentials: "include"
+          });
+          if (r.ok) {
+            res = r;
+            break;
+          } else if (r.status !== 404) {
+            res = r;
+            break;
+          }
+        } catch (e: any) {
+          lastErrMessage = e?.message || "";
+        }
+      }
+
+      if (!res || !res.ok) {
+        let errMsg = res ? `HTTP ${res.status}: Failed to load document.` : (lastErrMessage || "Failed to load document.");
+        if (res) {
+          try {
+            const errData = await res.json();
+            errMsg = errData?.userFriendlyMessage || errData?.error || errData?.message || errMsg;
+          } catch (e) {}
+        }
         throw new Error(errMsg);
       }
 
       const contentType = res.headers.get("Content-Type") || "";
       if (contentType.includes("text/html") && !fileName.toLowerCase().endsWith(".html")) {
-        const text = await res.text();
+        const text = await res.clone().text().catch(() => "");
         if (text.includes("<!DOCTYPE") || text.includes("<html")) {
           throw new Error(lang === "ar" ? "تعذر العثور على ملف المستند في الخادم." : "Document file not found on server.");
         }
@@ -1662,7 +1693,19 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     const isRejected = req.status === "rejected";
                     const reqId = req.requestId || req.id || req.email;
                     const isProcessing = actionInProgress === reqId || actionInProgress === req.email;
-                    const docs = req.documents || [];
+                    const rawDocs = req.documents || req.documentIds || req.files || [];
+                    const docs = Array.isArray(rawDocs)
+                      ? rawDocs.map((item: any, idx: number) => {
+                          if (typeof item === "string") {
+                            return {
+                              documentId: item,
+                              fileName: `ID_Document_${idx + 1}.pdf`,
+                              mimeType: "application/pdf"
+                            };
+                          }
+                          return item;
+                        })
+                      : [];
 
                     return (
                       <div
