@@ -631,19 +631,19 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       return;
     }
     const confirmMsg = lang === "ar"
-      ? `هل أنت متاكد من حذف حساب المستخدم (${userEmail}) نهائياً؟ سيتم مسح كافة ملفاته وسجلاته ورصيده من قاعدة البيانات.`
-      : `Are you sure you want to permanently delete user account (${userEmail})? All user files and records will be deleted.`;
+      ? `هل أنت متأكد من حذف حساب المستخدم (${userEmail})؟ سيتم مسح بياناته من مساحة العمل النشطة وأرشفة ملفاته وفقاً لسياسة استعادة الحساب.`
+      : `Are you sure you want to delete user account (${userEmail})? Active workspace data will be archived according to the account recovery policy.`;
     if (!window.confirm(confirmMsg)) return;
 
     try {
-      // 1. Call resilient deletion helper which performs client Firestore cleanup + backend deletion
-      await deleteAdminUserAccountApi(userId, userEmail);
+      // Call authoritative administrative deletion helper
+      const res = await deleteAdminUserAccountApi(userId, userEmail);
 
       setUsers((prev) => prev.filter((u) => u.id !== userId));
       if (selectedUserRecord?.id === userId) {
         setSelectedUserRecord(null);
       }
-      alert(lang === "ar" ? "تم حذف حساب المستخدم وجميع ملفاته وسجلاته من قاعدة البيانات والمصادقة بنجاح!" : "User account, files, and auth credentials deleted successfully!");
+      alert(res?.message || (lang === "ar" ? "تم حذف حساب المستخدم وأرشفة بياناته وفقًا لسياسة استعادة الحساب." : "The user's account has been deleted and archived according to the account recovery policy."));
     } catch (err: any) {
       console.error("Error deleting user account:", err);
       const errMsg = err instanceof Error ? err.message : String(err);

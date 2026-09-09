@@ -240,10 +240,23 @@ export async function sendSystemMail(
     text = "";
   }
 
-  let fromSender = (process.env.RESEND_FROM || process.env.EMAIL_FROM || "").trim();
-  if (!fromSender || fromSender.includes("yourdomain.com") || fromSender.includes("example.com")) {
-    fromSender = "Zakir Platform <onboarding@resend.dev>";
-  } else if (!fromSender.includes("<")) {
+  let fromSender = (
+    process.env.RESEND_FROM ||
+    process.env.RESEND_FROM_EMAIL ||
+    process.env.EMAIL_FROM ||
+    "noreply@getzakir.com"
+  ).trim();
+
+  if (
+    !fromSender ||
+    fromSender.includes("yourdomain.com") ||
+    fromSender.includes("example.com") ||
+    fromSender.includes("onboarding@resend.dev")
+  ) {
+    fromSender = "noreply@getzakir.com";
+  }
+
+  if (!fromSender.includes("<")) {
     fromSender = `Zakir Platform <${fromSender}>`;
   }
 

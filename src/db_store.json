@@ -330,6 +330,174 @@
         "memberCount": 2
       },
       "updatedAt": "2026-09-06T17:18:27.827Z"
+    },
+    {
+      "id": "test_verif_admin_1788960423824",
+      "uid": "test_verif_admin_1788960423824",
+      "email": "test_verif_1788960423824@zakir.ai",
+      "role": "Financial Analyst",
+      "companyName": "Acme Verification Corp",
+      "workspaceId": "ws_test_verif",
+      "workspace": {
+        "id": "ws_test_verif",
+        "name": "Acme Verification Workspace",
+        "ownerId": "test_verif_admin_1788960423824",
+        "memberCount": 1
+      },
+      "powers": {
+        "fileVault": false,
+        "memoryVault": false,
+        "riskRadar": false,
+        "marketIntel": true,
+        "settings": false
+      },
+      "stripeCustomerId": "cus_test_diag_123",
+      "stripeSubscriptionId": "sub_test_diag_456",
+      "createdAt": "2026-09-09T13:27:04.629Z",
+      "archivedAt": "2026-09-09T13:27:07.416Z",
+      "deletedBy": null,
+      "deletionType": "admin",
+      "previousRoleBeforeDeletion": "Financial Analyst",
+      "needsAdminRoleReauthorization": false,
+      "ownerName": "test_verif_1788960423824",
+      "subscriptionStatus": "Active",
+      "userPreferences": {
+        "theme": "light",
+        "language": "ar"
+      },
+      "status": "VERIFICATION_REQUIRED",
+      "accountStatus": "active",
+      "deleted": false,
+      "deletedAt": null,
+      "isVerified": false,
+      "isEmailVerified": false,
+      "emailVerified": false,
+      "email_verified": false,
+      "verification_status": "unverified",
+      "verification_required": true,
+      "lastActiveAt": "2026-09-09T13:27:17.645Z",
+      "lastLoginAt": "2026-09-09T13:27:17.645Z",
+      "restoredAt": "2026-09-09T13:27:17.645Z"
+    },
+    {
+      "id": "test_verif_admin_1788960481689",
+      "uid": "test_verif_admin_1788960481689",
+      "email": "test_verif_1788960481689@zakir.ai",
+      "role": "Financial Analyst",
+      "companyName": "Acme Verification Corp",
+      "workspaceId": "ws_test_verif",
+      "workspace": {
+        "id": "ws_test_verif",
+        "name": "Acme Verification Workspace",
+        "ownerId": "test_verif_admin_1788960481689",
+        "memberCount": 1
+      },
+      "powers": {
+        "fileVault": false,
+        "memoryVault": false,
+        "riskRadar": false,
+        "marketIntel": true,
+        "settings": false
+      },
+      "stripeCustomerId": "cus_test_diag_123",
+      "stripeSubscriptionId": "sub_test_diag_456",
+      "createdAt": "2026-09-09T13:28:02.561Z",
+      "archivedAt": "2026-09-09T13:28:06.172Z",
+      "deletedBy": null,
+      "deletionType": "admin",
+      "previousRoleBeforeDeletion": "Financial Analyst",
+      "needsAdminRoleReauthorization": false,
+      "ownerName": "test_verif_1788960481689",
+      "subscriptionStatus": "Active",
+      "userPreferences": {
+        "theme": "light",
+        "language": "ar"
+      },
+      "status": "VERIFICATION_REQUIRED",
+      "accountStatus": "active",
+      "deleted": false,
+      "deletedAt": null,
+      "isVerified": false,
+      "isEmailVerified": false,
+      "emailVerified": false,
+      "email_verified": false,
+      "verification_status": "unverified",
+      "verification_required": true,
+      "lastActiveAt": "2026-09-09T13:28:16.386Z",
+      "lastLoginAt": "2026-09-09T13:28:16.386Z",
+      "restoredAt": "2026-09-09T13:28:16.386Z"
+    },
+    {
+      "id": "ElyZcGgenUZWsY3o9bq0ObHaNJo1",
+      "uid": "ElyZcGgenUZWsY3o9bq0ObHaNJo1",
+      "email": "mohamedmed11332@gmail.com",
+      "role": "Contributor",
+      "previousRoleBeforeDeletion": "Contributor",
+      "workspaceId": "ws_ElyZcGge",
+      "workspace": {
+        "memberCount": 1,
+        "id": "ws_ElyZcGge",
+        "ownerId": "ElyZcGgenUZWsY3o9bq0ObHaNJo1",
+        "name": "Restored Workspace",
+        "createdAt": "2026-09-09T14:05:49.787Z"
+      },
+      "powers": {
+        "marketIntel": true,
+        "settings": true,
+        "fileVault": true,
+        "memoryVault": true,
+        "riskRadar": true
+      },
+      "companyName": "Restored Account",
+      "ownerName": "mohamedmed11332",
+      "passwordHash": "TestPassword123!",
+      "subscriptionStatus": "Active",
+      "userPreferences": {
+        "emailNotifications": true,
+        "riskRadarAlerts": true,
+        "defaultView": "overview",
+        "language": "ar",
+        "theme": "light",
+        "autoSaveMemories": true
+      },
+      "status": "VERIFICATION_REQUIRED",
+      "accountStatus": "active",
+      "deleted": false,
+      "deletedAt": null,
+      "deletedBy": null,
+      "isVerified": true,
+      "isEmailVerified": true,
+      "emailVerified": true,
+      "email_verified": true,
+      "verification_status": "verified",
+      "verification_required": false,
+      "lastActiveAt": "2026-09-09T14:05:52.877Z",
+      "lastLoginAt": "2026-09-09T14:05:52.877Z",
+      "restoredAt": "2026-09-09T14:05:49.787Z",
+      "archivedRiskAlerts": [],
+      "createdAt": "2026-08-28T11:58:04.808Z",
+      "encryptedSecurity": {
+        "isPinSet": false,
+        "secretPasscode": "",
+        "lockedModules": {
+          "settings": true,
+          "fileVault": true,
+          "memoryVault": true,
+          "riskRadar": true
+        }
+      },
+      "archivedFiles": [],
+      "updatedAt": "2026-08-28T14:22:47.837Z",
+      "isPhoneVerified": true,
+      "verificationInfo": {
+        "verifiedAt": "2026-08-28T13:49:19.443Z",
+        "status": "verified"
+      },
+      "trialExpiresAt": "2026-08-29T11:58:04.808Z",
+      "needsAdminRoleReauthorization": false,
+      "hasPasswordSet": true,
+      "archivedAt": "2026-08-28T14:40:04.450Z",
+      "archivedMemories": []
     }
   ],
   "verification_codes": [
@@ -536,6 +704,21 @@
       "lastSentAt": "2026-08-29T11:56:25.619Z",
       "used": false,
       "createdAt": "2026-08-29T11:56:25.619Z"
+    },
+    {
+      "id": "recovery_otp_mohamedmed11332_gmail_com",
+      "email": "mohamedmed11332@gmail.com",
+      "codeHash": "7a3c1bf2266db2bb59b6f1ef85300937e44dd644f05f416682a2e76d492a951c",
+      "type": "account_recovery",
+      "recoveryRequestId": "REQ-1788908190417-282",
+      "targetUserId": "ElyZcGgenUZWsY3o9bq0ObHaNJo1",
+      "expiresAt": "2026-09-09T14:15:44.759Z",
+      "attempts": 0,
+      "used": true,
+      "deliveryStatus": "sent",
+      "createdAt": "2026-09-09T14:05:44.760Z",
+      "resendEmailId": "2dd4d72b-0f6f-4f19-8f0a-3ffed1028f4a",
+      "usedAt": "2026-09-09T14:05:48.168Z"
     }
   ],
   "support_tickets": [
@@ -810,7 +993,7 @@
     {
       "accountId": "mohamedmed11332@gmail.com",
       "emailNormalized": "mohamedmed11332@gmail.com",
-      "status": "ADMIN_APPROVAL_PENDING",
+      "status": "ACTIVE",
       "deletionType": null,
       "deletedAt": null,
       "deletedBy": null,
@@ -818,7 +1001,7 @@
       "originalUserId": "ElyZcGgenUZWsY3o9bq0ObHaNJo1",
       "retainedDataDocPath": null,
       "adminApprovalRequired": false,
-      "updatedAt": "2026-09-07T22:17:37.908Z",
+      "updatedAt": "2026-09-09T14:05:51.458Z",
       "reactivationStatus": "pending",
       "recoveryRequestId": "REQ-1788819456755-179"
     },
@@ -884,6 +1067,107 @@
       "retainedDataDocPath": null,
       "adminApprovalRequired": false,
       "updatedAt": "2026-09-06T17:19:08.629Z"
+    },
+    {
+      "accountId": "test_verif_1788960180370@zakir.ai",
+      "emailNormalized": "test_verif_1788960180370@zakir.ai",
+      "status": "ACTIVE",
+      "deletionType": null,
+      "deletedAt": null,
+      "deletedBy": null,
+      "restoreUntil": null,
+      "originalUserId": "test_verif_admin_1788960180370",
+      "retainedDataDocPath": null,
+      "adminApprovalRequired": false,
+      "updatedAt": "2026-09-09T13:23:06.793Z"
+    },
+    {
+      "accountId": "test1234@example.com",
+      "emailNormalized": "test1234@example.com",
+      "status": "ADMIN_DELETED",
+      "deletionType": "admin",
+      "deletedAt": "2026-09-09T13:25:51.531Z",
+      "deletedBy": "usr_ceo",
+      "restoreUntil": null,
+      "adminApprovalRequired": true,
+      "originalUserId": "test_uid_123",
+      "originalRole": "Contributor",
+      "retainedDataDocPath": "users_retained/test_uid_123",
+      "updatedAt": "2026-09-09T13:25:51.531Z"
+    },
+    {
+      "accountId": "test_verif_1788960278604@zakir.ai",
+      "emailNormalized": "test_verif_1788960278604@zakir.ai",
+      "status": "ADMIN_DELETED",
+      "deletionType": "admin",
+      "deletedAt": "2026-09-09T13:26:01.333Z",
+      "deletedBy": "usr_ceo",
+      "restoreUntil": null,
+      "originalUserId": "test_verif_admin_1788960278604",
+      "retainedDataDocPath": "users_retained/test_verif_admin_1788960278604",
+      "adminApprovalRequired": true,
+      "updatedAt": "2026-09-09T13:26:01.333Z",
+      "originalRole": "Contributor"
+    },
+    {
+      "accountId": "test_verif_1788960377447@zakir.ai",
+      "emailNormalized": "test_verif_1788960377447@zakir.ai",
+      "status": "ADMIN_DELETED",
+      "deletionType": "admin",
+      "deletedAt": "2026-09-09T13:26:28.064Z",
+      "deletedBy": "usr_ceo",
+      "restoreUntil": null,
+      "adminApprovalRequired": true,
+      "originalUserId": "test_verif_admin_1788960377447",
+      "originalRole": "Contributor",
+      "retainedDataDocPath": "users_retained/test_verif_admin_1788960377447",
+      "updatedAt": "2026-09-09T13:26:28.064Z"
+    },
+    {
+      "accountId": "test_verif_1788960423824@zakir.ai",
+      "emailNormalized": "test_verif_1788960423824@zakir.ai",
+      "status": "ADMIN_APPROVED",
+      "deletionType": null,
+      "deletedAt": null,
+      "deletedBy": null,
+      "restoreUntil": null,
+      "adminApprovalRequired": true,
+      "originalUserId": "test_verif_admin_1788960423824",
+      "originalRole": "Contributor",
+      "retainedDataDocPath": "users_retained/test_verif_admin_1788960423824",
+      "updatedAt": "2026-09-09T13:27:17.644Z",
+      "originalPowers": {
+        "marketIntel": true,
+        "settings": true,
+        "fileVault": true,
+        "memoryVault": true,
+        "riskRadar": true
+      },
+      "originalWorkspaceId": "ws_test_verif",
+      "reactivationStatus": "approved"
+    },
+    {
+      "accountId": "test_verif_1788960481689@zakir.ai",
+      "emailNormalized": "test_verif_1788960481689@zakir.ai",
+      "status": "ADMIN_APPROVED",
+      "deletionType": null,
+      "deletedAt": null,
+      "deletedBy": null,
+      "restoreUntil": null,
+      "originalUserId": "test_verif_admin_1788960481689",
+      "retainedDataDocPath": "users_retained/test_verif_admin_1788960481689",
+      "adminApprovalRequired": true,
+      "updatedAt": "2026-09-09T13:28:16.385Z",
+      "originalRole": "Contributor",
+      "originalWorkspaceId": "ws_test_verif",
+      "originalPowers": {
+        "marketIntel": true,
+        "settings": true,
+        "fileVault": true,
+        "memoryVault": true,
+        "riskRadar": true
+      },
+      "reactivationStatus": "approved"
     }
   ],
   "account_reactivation_requests": [
@@ -903,53 +1187,6 @@
     }
   ],
   "retained_users": [
-    {
-      "companyName": "Personal Account",
-      "createdAt": "2026-08-28T11:58:04.808Z",
-      "ownerName": "mohamedmed11332",
-      "email": "mohamedmed11332@gmail.com",
-      "id": "ElyZcGgenUZWsY3o9bq0ObHaNJo1",
-      "trialExpiresAt": "2026-08-29T11:58:04.808Z",
-      "role": "Contributor",
-      "emailVerified": true,
-      "email_verified": true,
-      "isPhoneVerified": true,
-      "verification_required": false,
-      "isVerified": true,
-      "verification_status": "verified",
-      "isEmailVerified": true,
-      "verificationInfo": {
-        "status": "verified",
-        "verifiedAt": "2026-08-28T13:49:19.443Z"
-      },
-      "userPreferences": {
-        "emailNotifications": true,
-        "riskRadarAlerts": true,
-        "defaultView": "overview",
-        "language": "ar",
-        "theme": "light",
-        "autoSaveMemories": true
-      },
-      "encryptedSecurity": {
-        "isPinSet": false,
-        "secretPasscode": "",
-        "lockedModules": {
-          "settings": true,
-          "fileVault": true,
-          "memoryVault": true,
-          "riskRadar": true
-        }
-      },
-      "passwordHash": "Chow._.9i",
-      "hasPasswordSet": true,
-      "updatedAt": "2026-08-28T14:22:47.837Z",
-      "lastActiveAt": "2026-08-28T14:23:32.832Z",
-      "lastLoginAt": "2026-08-28T14:23:32.832Z",
-      "archivedAt": "2026-08-28T14:40:04.450Z",
-      "archivedMemories": [],
-      "archivedRiskAlerts": [],
-      "archivedFiles": []
-    },
     {
       "id": "MwlaEvpmSUYQl5oopJOj7Gc3dd52",
       "email": "mohamedvadhil0@gmail.com",
@@ -1648,7 +1885,7 @@
           "uploadedAt": "2026-09-07T15:19:57.175Z"
         }
       ],
-      "status": "pending",
+      "status": "restored",
       "createdAt": "2026-09-07T22:17:36.606Z",
       "submittedAt": "2026-09-07T22:17:36.606Z",
       "updatedAt": "2026-09-07T22:17:36.606Z",
@@ -1688,6 +1925,56 @@
       "updatedAt": "2026-09-08T20:31:20.677Z",
       "reviewedAt": null,
       "reviewedBy": null
+    },
+    {
+      "requestId": "req_1788960436830",
+      "id": "req_1788960436830",
+      "email": "test_verif_1788960423824@zakir.ai",
+      "fullName": "Verification Test User",
+      "companyName": "Acme Verification Corp",
+      "status": "approved",
+      "reason": "Administrative verification test",
+      "documents": [
+        {
+          "documentId": "doc_1788960436830",
+          "fileName": "identity_proof.pdf",
+          "mimeType": "application/pdf",
+          "size": 1024,
+          "uploadedAt": "2026-09-09T13:27:16.830Z"
+        }
+      ],
+      "createdAt": "2026-09-09T13:27:16.830Z",
+      "submittedAt": "2026-09-09T13:27:16.830Z",
+      "updatedAt": "2026-09-09T13:27:17.644Z",
+      "decision": "approved",
+      "reviewedBy": "usr_ceo",
+      "reviewedAt": "2026-09-09T13:27:17.644Z",
+      "notes": "Automated verification test approval"
+    },
+    {
+      "requestId": "req_1788960495570",
+      "id": "req_1788960495570",
+      "email": "test_verif_1788960481689@zakir.ai",
+      "fullName": "Verification Test User",
+      "companyName": "Acme Verification Corp",
+      "status": "approved",
+      "reason": "Administrative verification test",
+      "documents": [
+        {
+          "documentId": "doc_1788960495570",
+          "fileName": "identity_proof.pdf",
+          "mimeType": "application/pdf",
+          "size": 1024,
+          "uploadedAt": "2026-09-09T13:28:15.570Z"
+        }
+      ],
+      "createdAt": "2026-09-09T13:28:15.570Z",
+      "submittedAt": "2026-09-09T13:28:15.570Z",
+      "updatedAt": "2026-09-09T13:28:16.385Z",
+      "decision": "approved",
+      "reviewedBy": "usr_ceo",
+      "reviewedAt": "2026-09-09T13:28:16.385Z",
+      "notes": "Automated verification test approval"
     }
   ],
   "recovery_documents_store": {

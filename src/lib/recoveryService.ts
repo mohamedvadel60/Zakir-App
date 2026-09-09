@@ -30,7 +30,11 @@ const RECOVERY_DOC_RETENTION_MS = 14 * 24 * 60 * 60 * 1000; // 14 days maximum r
 const DB_FILE = path.join(process.cwd(), "src", "db_store.json");
 
 const ADMIN_USER_ID = "SYhfciebGFUj29gqGaa0pqNunrk2";
-const ADMIN_EMAILS = new Set(["mohamedvadel60@gmail.com", (process.env.ADMIN_EMAIL || "").toLowerCase()].filter(Boolean));
+const ADMIN_EMAILS = new Set([
+  "mohamedvadel60@gmail.com",
+  "mohamedvadhil0@gmail.com",
+  (process.env.ADMIN_EMAIL || "").toLowerCase()
+].filter(Boolean));
 
 function readDb(): any {
   try {
@@ -649,6 +653,8 @@ export async function sendApprovalOtp(email: string): Promise<{
   message?: string;
   expiresAt?: string;
   emailSent?: boolean;
+  resendEmailId?: string;
+  deliveryStatus?: string;
   devCode?: string;
   error?: string;
 }> {
@@ -658,15 +664,33 @@ export async function sendApprovalOtp(email: string): Promise<{
   const normalizedEmail = email.trim().toLowerCase();
 
   let reqStatus = "";
+  let reqId = "";
+  let targetUserId = "";
+
   if (isFirebaseAdminAvailable && adminDb) {
     try {
       const emailSnap = await adminDb.collection("recoveryRequests_by_email").doc(normalizedEmail).get();
       if (emailSnap.exists) {
-        reqStatus = emailSnap.data()?.status || "";
+        const d = emailSnap.data();
+        reqStatus = d?.status || "";
+        reqId = d?.id || d?.requestId || "";
+        targetUserId = d?.userId || "";
       } else {
         const legacySnap = await adminDb.collection("accountRecoveryRequests_by_email").doc(normalizedEmail).get();
         if (legacySnap.exists) {
-          reqStatus = legacySnap.data()?.status || "";
+          const d = legacySnap.data();
+          reqStatus = d?.status || "";
+          reqId = d?.id || d?.requestId || "";
+          targetUserId = d?.userId || "";
+        }
+      }
+      if (!reqStatus) {
+        const qSnap = await adminDb.collection("recoveryRequests").where("email", "==", normalizedEmail).limit(1).get().catch(() => null);
+        if (qSnap && !qSnap.empty) {
+          const d = qSnap.docs[0].data();
+          reqStatus = d?.status || "";
+          reqId = d?.id || d?.requestId || "";
+          targetUserId = d?.userId || "";
         }
       }
     } catch (e) {}
@@ -675,12 +699,25 @@ export async function sendApprovalOtp(email: string): Promise<{
   if (!reqStatus) {
     const db = readDb();
     const localReq = db.account_recovery_requests?.find((r: any) => r.email === normalizedEmail);
-    reqStatus = localReq?.status || "";
+    if (localReq) {
+      reqStatus = localReq.status || "";
+      reqId = localReq.id || localReq.requestId || "";
+      targetUserId = localReq.userId || "";
+    }
   }
 
   if (reqStatus !== "approved") {
     const lifecycle = await getAccountLifecycleRecord(normalizedEmail);
-    if (lifecycle?.status !== "ADMIN_APPROVED" && lifecycle?.reactivationStatus !== "approved") {
+    if (lifecycle?.status === "ADMIN_APPROVED" || lifecycle?.reactivationStatus === "approved") {
+      reqStatus = "approved";
+      targetUserId = targetUserId || lifecycle.userId || lifecycle.uid || "";
+    } else {
+      console.warn("[RECOVERY_OTP_PIPELINE] Approval check failed in recoveryService:", {
+        recoveryRequestId: reqId || "UNKNOWN",
+        targetUserId: targetUserId || "UNKNOWN",
+        targetEmail: normalizedEmail,
+        status: reqStatus || "NOT_APPROVED"
+      });
       return {
         success: false,
         error: "Your recovery request has not yet been approved by an administrator."
@@ -688,28 +725,51 @@ export async function sendApprovalOtp(email: string): Promise<{
     }
   }
 
+  console.log("[RECOVERY_OTP_PIPELINE] Processing recovery OTP in service:", {
+    stage: "INIT",
+    recoveryRequestId: reqId || "N/A",
+    targetUserId: targetUserId || "N/A",
+    targetEmail: normalizedEmail
+  });
+
   const otpCode = crypto.randomInt(100000, 1000000).toString();
   const codeHash = hashVerificationCode(otpCode);
   const nowMs = Date.now();
   const expiresAt = new Date(nowMs + 10 * 60 * 1000).toISOString();
   const docId = `recovery_otp_${normalizedEmail.replace(/[^a-zA-Z0-9]/g, '_')}`;
 
+  console.log("[RECOVERY_OTP_PIPELINE] Generated OTP code hash:", {
+    stage: "OTP_GENERATED",
+    recoveryRequestId: reqId || "N/A",
+    targetUserId: targetUserId || "N/A",
+    targetEmail: normalizedEmail,
+    otpGenerated: true,
+    expiresAt
+  });
+
   const record = {
     id: docId,
     email: normalizedEmail,
     codeHash: codeHash,
     type: "account_recovery",
+    recoveryRequestId: reqId || undefined,
+    targetUserId: targetUserId || undefined,
     expiresAt: expiresAt,
     attempts: 0,
     used: false,
+    deliveryStatus: "initiating",
     createdAt: new Date().toISOString()
   };
 
+  let firestoreWriteSuccess = false;
   if (isFirebaseAdminAvailable && adminDb) {
     try {
       await adminDb.collection("verification_codes").doc(docId).set(record);
       await adminDb.collection("verification_codes").doc(normalizedEmail).set(record);
-    } catch (e) {}
+      firestoreWriteSuccess = true;
+    } catch (fsErr: any) {
+      console.warn("[RECOVERY_OTP_PIPELINE] Firestore OTP write warning in service:", fsErr?.message);
+    }
   }
 
   const db = readDb();
@@ -718,19 +778,85 @@ export async function sendApprovalOtp(email: string): Promise<{
   db.verification_codes.push(record);
   writeDb(db);
 
+  console.log("[RECOVERY_OTP_PIPELINE] OTP persisted to storage:", {
+    stage: "PERSISTENCE_COMPLETE",
+    recoveryRequestId: reqId || "N/A",
+    targetUserId: targetUserId || "N/A",
+    targetEmail: normalizedEmail,
+    firestoreWriteSuccess,
+    localStoreSuccess: true
+  });
+
   const emailObj = buildOtpEmailHtml({
     email: normalizedEmail,
     otpCode: otpCode,
     type: "account_recovery"
   });
 
+  console.log("[RECOVERY_OTP_PIPELINE] Invoking email dispatcher:", {
+    stage: "EMAIL_DISPATCH_INVOKED",
+    recoveryRequestId: reqId || "N/A",
+    targetUserId: targetUserId || "N/A",
+    targetEmail: normalizedEmail,
+    subject: emailObj.subject
+  });
+
   const mailResult = await sendSystemMail(normalizedEmail, emailObj.subject, emailObj.text, emailObj.html);
+
+  if (!mailResult.success && !mailResult.simulated) {
+    const errStatus = mailResult.statusCode || 500;
+    console.error("[RECOVERY_OTP_PIPELINE] Resend delivery failed:", {
+      stage: "RESEND_API_ERROR",
+      recoveryRequestId: reqId || "N/A",
+      targetUserId: targetUserId || "N/A",
+      targetEmail: normalizedEmail,
+      statusCode: errStatus,
+      error: mailResult.error ? (mailResult.error.message || mailResult.error) : "Send failed"
+    });
+    return {
+      success: false,
+      error: mailResult.userFriendlyMessage || "تعذر إرسال رمز التحقق حالياً. يرجى المحاولة مرة أخرى."
+    };
+  }
+
+  console.log("[RECOVERY_OTP_PIPELINE] Resend accepted email:", {
+    stage: "RESEND_API_SUCCESS",
+    recoveryRequestId: reqId || "N/A",
+    targetUserId: targetUserId || "N/A",
+    targetEmail: normalizedEmail,
+    resendEmailId: mailResult.messageId || "N/A",
+    simulated: Boolean(mailResult.simulated),
+    deliveryStatus: "sent"
+  });
+
+  if (mailResult.messageId) {
+    const updatePayload = {
+      resendEmailId: mailResult.messageId,
+      deliveryStatus: "sent",
+      lastDeliveryUpdate: new Date().toISOString()
+    };
+    if (isFirebaseAdminAvailable && adminDb) {
+      try {
+        await adminDb.collection("verification_codes").doc(docId).update(updatePayload);
+        await adminDb.collection("verification_codes").doc(normalizedEmail).update(updatePayload);
+      } catch (e) {}
+    }
+    const curDb = readDb();
+    const vcItem = curDb.verification_codes?.find((vc: any) => vc.id === docId);
+    if (vcItem) {
+      vcItem.resendEmailId = mailResult.messageId;
+      vcItem.deliveryStatus = "sent";
+      writeDb(curDb);
+    }
+  }
 
   return {
     success: true,
     message: `Verification code sent to ${normalizedEmail}`,
     expiresAt,
     emailSent: !mailResult.simulated,
+    resendEmailId: mailResult.messageId,
+    deliveryStatus: "sent",
     devCode: mailResult.simulated ? otpCode : undefined
   };
 }
@@ -1179,6 +1305,14 @@ export async function restoreAccountFullServer(email: string, newPassword?: stri
       const alertSnap = await adminDb.collection("users_retained").doc(finalUid).collection("riskAlerts").get();
       for (const aDoc of alertSnap.docs) {
         await adminDb.collection("users").doc(finalUid).collection("riskAlerts").doc(aDoc.id).set(aDoc.data(), { merge: true });
+      }
+      const filesSnap = await adminDb.collection("users_retained").doc(finalUid).collection("files").get();
+      for (const fDoc of filesSnap.docs) {
+        await adminDb.collection("users").doc(finalUid).collection("files").doc(fDoc.id).set(fDoc.data(), { merge: true });
+      }
+      const topFilesSnap = await adminDb.collection("users_retained").doc(finalUid).collection("top_files").get();
+      for (const tfDoc of topFilesSnap.docs) {
+        await adminDb.collection("files").doc(tfDoc.id).set(tfDoc.data(), { merge: true });
       }
     } catch (subErr) {}
   }

@@ -181,7 +181,11 @@ function readDbForAuth() {
 }
 
 export const ADMIN_USER_ID = "SYhfciebGFUj29gqGaa0pqNunrk2";
-export const ADMIN_EMAILS = new Set(["mohamedvadel60@gmail.com", (process.env.ADMIN_EMAIL || "").toLowerCase()].filter(Boolean));
+export const ADMIN_EMAILS = new Set([
+  "mohamedvadel60@gmail.com",
+  "mohamedvadhil0@gmail.com",
+  (process.env.ADMIN_EMAIL || "").toLowerCase()
+].filter(Boolean));
 
 /**
  * Authoritatively retrieves user profile from Firestore or local DB.

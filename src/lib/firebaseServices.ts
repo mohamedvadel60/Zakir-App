@@ -2879,28 +2879,24 @@ export async function deleteFirebaseUserAccount(userId: string): Promise<void> {
 }
 
 /**
- * Resilient Admin deletion helper with multi-endpoint and client Firestore fallbacks
+ * Resilient Admin deletion helper that delegates authoritatively to backend endpoints,
+ * preserves account recovery architecture, and ensures atomic Firestore & Auth synchronization.
  */
 export async function deleteAdminUserAccountApi(userId: string, userEmail?: string): Promise<{ success: boolean; message?: string }> {
   if (!userId) {
-    throw new Error("User ID is required for deletion.");
+    throw new Error("معرّف المستخدم مطلوب لإتمام عملية الحذف.");
   }
 
-  // 1. Clean local storage and client-side Firestore documents
-  try {
-    await deleteFirebaseUserAccount(userId);
-  } catch (clientErr) {
-    console.warn("Client-side user cleanup warning:", clientErr);
-  }
+  const encodedId = encodeURIComponent(userId);
+  const emailParam = userEmail ? `?userEmail=${encodeURIComponent(userEmail)}&userId=${encodedId}` : `?userId=${encodedId}`;
 
-  // 2. Call backend endpoints with multi-path / multi-method fallbacks
   const endpoints = [
-    { url: `/api/admin/delete-user/${encodeURIComponent(userId)}`, method: "DELETE" },
-    { url: `/admin/delete-user/${encodeURIComponent(userId)}`, method: "DELETE" },
+    { url: `/api/admin/delete-user/${encodedId}${emailParam}`, method: "DELETE" },
     { url: `/api/admin/delete-user`, method: "POST" },
+    { url: `/api/admin/delete-user/${encodedId}`, method: "POST" },
+    { url: `/admin/delete-user/${encodedId}${emailParam}`, method: "DELETE" },
     { url: `/admin/delete-user`, method: "POST" },
-    { url: `/api/admin/users/${encodeURIComponent(userId)}`, method: "DELETE" },
-    { url: `/admin/users/${encodeURIComponent(userId)}`, method: "DELETE" }
+    { url: `/api/admin/users/${encodedId}${emailParam}`, method: "DELETE" }
   ];
 
   let lastError: any = null;
@@ -2927,10 +2923,15 @@ export async function deleteAdminUserAccountApi(userId: string, userEmail?: stri
       if (response.ok) {
         const data = await safeJsonResponse(response);
         backendSucceeded = true;
-        return { success: true, message: data?.message || "User account successfully deleted." };
+        clearUserLocalCache(userId);
+        return {
+          success: true,
+          message: data?.userFriendlyMessage || data?.message || "تم حذف حساب المستخدم وأرشفة بياناته وفقًا لسياسة استعادة الحساب."
+        };
       } else {
         const errData = await safeJsonResponse(response).catch(() => ({}));
-        lastError = new Error(errData?.error || `HTTP ${response.status}: ${response.statusText}`);
+        const serverErrMsg = errData?.userFriendlyMessage || errData?.error || `HTTP ${response.status}: ${response.statusText}`;
+        lastError = new Error(serverErrMsg);
       }
     } catch (reqErr: any) {
       lastError = reqErr;
@@ -2941,12 +2942,7 @@ export async function deleteAdminUserAccountApi(userId: string, userEmail?: stri
     return { success: true };
   }
 
-  // If backend was unreachable but client-side Firestore & cache cleanup completed, return success
-  if (isFirestoreOffline || (lastError && lastError.message && (lastError.message.includes("404") || lastError.message.includes("Network")))) {
-    return { success: true, message: "User account deleted from Firestore cache." };
-  }
-
-  throw lastError || new Error("Failed to delete user account across administrative endpoints.");
+  throw lastError || new Error("فشل حذف حساب المستخدم من الخادم.");
 }
 
 /**

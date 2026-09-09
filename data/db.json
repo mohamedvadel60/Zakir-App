@@ -1,0 +1,16 @@
+{
+  "verification_codes": [
+    {
+      "id": "recovery_otp_mohamedmed11332_gmail_com",
+      "email": "mohamedmed11332@gmail.com",
+      "codeHash": "3a7fdb17a02897bfd633445dccc1489edea725ec10caa0ab9e9c877580580df6",
+      "type": "account_recovery",
+      "recoveryRequestId": "REC_REQ_APPROVED_01",
+      "expiresAt": "2026-09-09T14:15:47.644Z",
+      "attempts": 0,
+      "used": false,
+      "deliveryStatus": "delivered",
+      "createdAt": "2026-09-09T14:05:47.644Z"
+    }
+  ]
+}

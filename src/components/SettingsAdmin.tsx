@@ -2660,12 +2660,12 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
                   <div>
                     <h3 className="text-base font-bold flex items-center gap-2 text-rose-500">
                       <Trash2 className="w-5 h-5 text-rose-500" />
-                      <span>{lang === "ar" ? "منطقة الخطر: حذف الحساب نهائياً" : "Danger Zone: Permanently Delete Account"}</span>
+                      <span>{lang === "ar" ? "منطقة الخطر: حذف الحساب" : "Danger Zone: Delete Account"}</span>
                     </h3>
                     <p className="text-xs text-slate-400 mt-1 max-w-xl">
                       {lang === "ar"
-                        ? "سيؤدي حذف حسابك إلى إزالة جميع بياناتك الشخصية ومستنداتك وملفاتك وسجلاتك بشكل نهائي من قاعدة البيانات ونظام المصادقة (Firebase Auth)، ولن تتمكن من تسجيل الدخول مجدداً."
-                        : "Deleting your account will permanently remove all your profile data, documents, files, and records from Firestore and Firebase Authentication. This action cannot be undone."}
+                        ? "سيؤدي حذف حسابك إلى مسح بياناتك الشخصية ومستنداتك وسجلاتك من مساحة العمل النشطة مع الاحتفاظ بأرشيف مؤقت وفقاً لسياسة استعادة الحساب لمدة 31 يوماً."
+                        : "Deleting your account will remove your personal data, documents, and records from the active workspace while retaining a temporary archive under the 31-day account recovery policy."}
                     </p>
                   </div>
                   <button
@@ -2674,7 +2674,7 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
                     className="px-5 py-2.5 bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs rounded-xl shadow-lg shadow-rose-600/20 flex items-center gap-2 transition-all cursor-pointer shrink-0"
                   >
                     <Trash2 className="w-4 h-4" />
-                    <span>{lang === "ar" ? "حذف حسابي نهائياً" : "Delete My Account"}</span>
+                    <span>{lang === "ar" ? "حذف حسابي" : "Delete My Account"}</span>
                   </button>
                 </div>
               </div>
@@ -2689,10 +2689,10 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
                       </div>
                       <div>
                         <h3 className="text-lg font-bold">
-                          {lang === "ar" ? "تأكيد حذف الحساب نهائياً؟" : "Confirm Permanent Account Deletion?"}
+                          {lang === "ar" ? "تأكيد حذف الحساب؟" : "Confirm Account Deletion?"}
                         </h3>
                         <p className="text-xs text-slate-400">
-                          {lang === "ar" ? "هذا الإجراء لا يمكن التراجع عنه نهائياً." : "This action is permanent and irreversible."}
+                          {lang === "ar" ? "يمكنك طلب استعادة الحساب خلال 31 يوماً وفقاً لسياسة الاستعادة." : "You can request account restoration within 31 days under the recovery policy."}
                         </p>
                       </div>
                     </div>
@@ -2703,8 +2703,8 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
                       </p>
                       <p className="leading-relaxed">
                         {lang === "ar"
-                          ? "سيتم حذف حسابك من نظام Firebase Authentication وتعطيل جلستك فوراً، وحذف بياناتك وسجلاتك من قاعدة البيانات."
-                          : "Your account will be deleted from Firebase Authentication, your session will be revoked, and your records will be purged."}
+                          ? "سيتم إيقاف جلسة تسجيل الدخول الحالية، وإلغاء أي اشتراكات نشطة، ومسح بيانات مساحة العمل النشطة مع أرشفة الملفات وفقاً لسياسة استعادة الحساب."
+                          : "Your active login session will be ended, active subscriptions canceled, and active workspace data removed with archive retention according to the account recovery policy."}
                       </p>
                     </div>
 
@@ -2752,7 +2752,7 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
                         {isDeletingMyAccount ? (
                           <>
                             <RefreshCw className="w-4 h-4 animate-spin" />
-                            <span>{lang === "ar" ? "جاري الحذف النهائي..." : "Deleting Account..."}</span>
+                            <span>{lang === "ar" ? "جاري حذف الحساب..." : "Deleting Account..."}</span>
                           </>
                         ) : (
                           <>

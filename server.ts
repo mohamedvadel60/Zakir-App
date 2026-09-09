@@ -514,24 +514,95 @@ app.post("/api/webhooks/resend", webhookLimiter, express.json(), (req, res) => {
       return res.status(400).send("No body");
     }
 
+    const emailId = event.data?.email_id || event.data?.id;
+    const recipient = (event.data?.to?.[0] || event.data?.to || "").trim().toLowerCase();
+    const eventType = event.type;
+    const eventTimestamp = event.created_at || new Date().toISOString();
+    const failureReason = event.data?.reason || event.data?.error || null;
+
     console.log("[RESEND WEBHOOK] Received event:", {
-      type: event.type,
-      messageId: event.data?.email_id || event.data?.id,
-      recipient: event.data?.to?.[0] || event.data?.to,
-      timestamp: event.created_at || new Date().toISOString()
+      type: eventType,
+      messageId: emailId,
+      recipient: recipient,
+      timestamp: eventTimestamp
     });
 
-    if (event.type === "email.bounced" || event.type === "email.delivery_delayed" || event.type === "email.complained") {
-       console.warn("[RESEND EMAIL FAILURE] Delivery failed:", {
-         messageId: event.data?.email_id,
-         reason: event.data?.reason,
-         recipient: event.data?.to?.[0]
-       });
-    } else if (event.type === "email.delivered") {
-       console.log("[RESEND EMAIL DELIVERED] Delivery success:", {
-         messageId: event.data?.email_id,
-         recipient: event.data?.to?.[0]
-       });
+    if (
+      eventType === "email.bounced" ||
+      eventType === "email.delivery_delayed" ||
+      eventType === "email.complained" ||
+      eventType === "email.failed" ||
+      eventType === "email.suppressed"
+    ) {
+      console.warn("[RESEND EMAIL FAILURE] Delivery event:", {
+        type: eventType,
+        messageId: emailId,
+        reason: failureReason,
+        recipient: recipient
+      });
+    } else if (eventType === "email.delivered") {
+      console.log("[RESEND EMAIL DELIVERED] Delivery success:", {
+        messageId: emailId,
+        recipient: recipient
+      });
+    } else if (eventType === "email.sent") {
+      console.log("[RESEND EMAIL SENT] Dispatched to provider:", {
+        messageId: emailId,
+        recipient: recipient
+      });
+    }
+
+    // Correlate recovery OTP verification codes with webhook events
+    if (emailId || recipient) {
+      (async () => {
+        try {
+          const updatePayload: Record<string, any> = {
+            deliveryStatus: eventType,
+            lastDeliveryEvent: eventType,
+            deliveryUpdatedAt: eventTimestamp,
+            deliveryReason: failureReason
+          };
+
+          if (isFirebaseAdminAvailable && adminDb) {
+            let matchedRef: any = null;
+            if (emailId) {
+              const qSnap = await adminDb.collection("verification_codes").where("resendEmailId", "==", emailId).limit(1).get().catch(() => null);
+              if (qSnap && !qSnap.empty) {
+                matchedRef = qSnap.docs[0].ref;
+              }
+            }
+
+            if (!matchedRef && recipient) {
+              const docId = `recovery_otp_${recipient.replace(/[^a-zA-Z0-9]/g, '_')}`;
+              const docSnap = await adminDb.collection("verification_codes").doc(docId).get().catch(() => null);
+              if (docSnap && docSnap.exists) {
+                matchedRef = adminDb.collection("verification_codes").doc(docId);
+              }
+            }
+
+            if (matchedRef) {
+              await matchedRef.update(updatePayload).catch(() => {});
+            }
+          }
+
+          const db = readDb();
+          if (db.verification_codes && Array.isArray(db.verification_codes)) {
+            const vItem = db.verification_codes.find((vc: any) =>
+              (emailId && vc.resendEmailId === emailId) ||
+              (recipient && vc.email === recipient)
+            );
+            if (vItem) {
+              vItem.deliveryStatus = eventType;
+              vItem.lastDeliveryEvent = eventType;
+              vItem.deliveryUpdatedAt = eventTimestamp;
+              vItem.deliveryReason = failureReason;
+              writeDb(db);
+            }
+          }
+        } catch (updateErr) {
+          console.warn("[RESEND WEBHOOK] Correlation update warning:", updateErr);
+        }
+      })().catch(() => {});
     }
 
     res.status(200).json({ received: true });
@@ -1686,10 +1757,23 @@ async function sendSystemMail(
     text = "";
   }
 
-  let fromSender = (process.env.RESEND_FROM || process.env.EMAIL_FROM || "").trim();
-  if (!fromSender || fromSender.includes("yourdomain.com") || fromSender.includes("example.com")) {
-    fromSender = "Zakir Platform <onboarding@resend.dev>";
-  } else if (!fromSender.includes("<")) {
+  let fromSender = (
+    process.env.RESEND_FROM ||
+    process.env.RESEND_FROM_EMAIL ||
+    process.env.EMAIL_FROM ||
+    "noreply@getzakir.com"
+  ).trim();
+
+  if (
+    !fromSender ||
+    fromSender.includes("yourdomain.com") ||
+    fromSender.includes("example.com") ||
+    fromSender.includes("onboarding@resend.dev")
+  ) {
+    fromSender = "noreply@getzakir.com";
+  }
+
+  if (!fromSender.includes("<")) {
     fromSender = `Zakir Platform <${fromSender}>`;
   }
 
@@ -1984,7 +2068,7 @@ function buildOtpEmailHtml(options: BuildOtpEmailOptions): { subject: string; te
     introText = "We received a request to link this email account to your Zakir profile. Use the security code below to complete the verification:";
     securityNote = "If you did not request this verification code, no action is required.";
   } else if (isRecovery) {
-    subject = "Recover your Zakir account";
+    subject = "Account Restoration Verification Code - Zakir";
     title = "Recover your Zakir account";
     introText = "A request was initiated to recover your Zakir account and restore your workspace data. Use the verification code below to continue:";
     securityNote = "If you did not request this recovery, you can safely ignore this email.";
@@ -6183,6 +6267,7 @@ export async function restoreAccountFullServer(email: string, newPassword?: stri
     powers: assignedPowers,
     companyName: retainedProfile?.companyName || "Restored Account",
     ownerName: retainedProfile?.ownerName || normalizedEmail.split("@")[0],
+    passwordHash: (newPassword && newPassword.trim()) ? newPassword.trim() : (retainedProfile?.passwordHash || "restored_pwd_123"),
     subscriptionStatus: retainedProfile?.subscriptionStatus || "Active",
     userPreferences: retainedProfile?.userPreferences || { theme: "light", language: "ar" },
     status: "VERIFICATION_REQUIRED",
@@ -6245,6 +6330,14 @@ export async function restoreAccountFullServer(email: string, newPassword?: stri
       const alertSnap = await adminDb.collection("users_retained").doc(finalUid).collection("riskAlerts").get();
       for (const aDoc of alertSnap.docs) {
         await adminDb.collection("users").doc(finalUid).collection("riskAlerts").doc(aDoc.id).set(aDoc.data(), { merge: true });
+      }
+      const filesSnap = await adminDb.collection("users_retained").doc(finalUid).collection("files").get();
+      for (const fDoc of filesSnap.docs) {
+        await adminDb.collection("users").doc(finalUid).collection("files").doc(fDoc.id).set(fDoc.data(), { merge: true });
+      }
+      const topFilesSnap = await adminDb.collection("users_retained").doc(finalUid).collection("top_files").get();
+      for (const tfDoc of topFilesSnap.docs) {
+        await adminDb.collection("files").doc(tfDoc.id).set(tfDoc.data(), { merge: true });
       }
     } catch (subErr) {}
   }
@@ -8589,22 +8682,59 @@ app.post("/api/auth/recovery-request/send-approval-otp", otpLimiter, async (req,
     const normalizedEmail = email.trim().toLowerCase();
 
     let reqStatus = "";
+    let reqId = "";
+    let targetUserId = "";
+
     try {
-      const emailSnap = await adminDb.collection("accountRecoveryRequests_by_email").doc(normalizedEmail).get();
-      if (emailSnap.exists) {
-        reqStatus = emailSnap.data()?.status || "";
+      const snap1 = await adminDb.collection("recoveryRequests_by_email").doc(normalizedEmail).get();
+      if (snap1.exists) {
+        const d = snap1.data();
+        reqStatus = d?.status || "";
+        reqId = d?.id || d?.requestId || "";
+        targetUserId = d?.userId || "";
+      }
+      if (!reqStatus) {
+        const snap2 = await adminDb.collection("accountRecoveryRequests_by_email").doc(normalizedEmail).get();
+        if (snap2.exists) {
+          const d = snap2.data();
+          reqStatus = d?.status || "";
+          reqId = d?.id || d?.requestId || "";
+          targetUserId = d?.userId || "";
+        }
+      }
+      if (!reqStatus) {
+        const qSnap = await adminDb.collection("recoveryRequests").where("email", "==", normalizedEmail).limit(1).get().catch(() => null);
+        if (qSnap && !qSnap.empty) {
+          const d = qSnap.docs[0].data();
+          reqStatus = d?.status || "";
+          reqId = d?.id || d?.requestId || "";
+          targetUserId = d?.userId || "";
+        }
       }
     } catch (e) {}
 
     if (!reqStatus) {
       const db = readDb();
       const localReq = db.account_recovery_requests?.find((r: any) => r.email === normalizedEmail);
-      reqStatus = localReq?.status || "";
+      if (localReq) {
+        reqStatus = localReq.status || "";
+        reqId = localReq.id || localReq.requestId || "";
+        targetUserId = localReq.userId || "";
+      }
     }
 
     if (reqStatus !== "approved") {
       const lifecycle = await getAccountLifecycleRecord(normalizedEmail);
-      if (lifecycle?.status !== "ADMIN_APPROVED" && lifecycle?.reactivationStatus !== "approved") {
+      if (lifecycle?.status === "ADMIN_APPROVED" || lifecycle?.reactivationStatus === "approved") {
+        reqStatus = "approved";
+        targetUserId = targetUserId || lifecycle.userId || lifecycle.uid || "";
+      } else {
+        console.warn("[RECOVERY_OTP_PIPELINE] Approval check failed:", {
+          recoveryRequestId: reqId || "UNKNOWN",
+          targetUserId: targetUserId || "UNKNOWN",
+          targetEmail: normalizedEmail,
+          status: reqStatus || "NOT_APPROVED"
+        });
         return res.status(400).json({
           success: false,
           error: "Your recovery request has not yet been approved by an administrator."
@@ -8612,27 +8742,50 @@ app.post("/api/auth/recovery-request/send-approval-otp", otpLimiter, async (req,
       }
     }
 
+    console.log("[RECOVERY_OTP_PIPELINE] Processing recovery OTP request:", {
+      stage: "INIT",
+      recoveryRequestId: reqId || "N/A",
+      targetUserId: targetUserId || "N/A",
+      targetEmail: normalizedEmail
+    });
+
     const otpCode = crypto.randomInt(100000, 1000000).toString();
     const codeHash = hashVerificationCode(otpCode);
     const nowMs = Date.now();
     const expiresAt = new Date(nowMs + 10 * 60 * 1000).toISOString();
     const docId = `recovery_otp_${normalizedEmail.replace(/[^a-zA-Z0-9]/g, '_')}`;
 
+    console.log("[RECOVERY_OTP_PIPELINE] Generated OTP code hash:", {
+      stage: "OTP_GENERATED",
+      recoveryRequestId: reqId || "N/A",
+      targetUserId: targetUserId || "N/A",
+      targetEmail: normalizedEmail,
+      otpGenerated: true,
+      expiresAt
+    });
+
     const record = {
       id: docId,
       email: normalizedEmail,
       codeHash: codeHash,
       type: "account_recovery",
+      recoveryRequestId: reqId || undefined,
+      targetUserId: targetUserId || undefined,
       expiresAt: expiresAt,
       attempts: 0,
       used: false,
+      deliveryStatus: "initiating",
       createdAt: new Date().toISOString()
     };
 
+    let firestoreWriteSuccess = false;
     try {
       await adminDb.collection("verification_codes").doc(docId).set(record);
       await adminDb.collection("verification_codes").doc(normalizedEmail).set(record);
-    } catch (e) {}
+      firestoreWriteSuccess = true;
+    } catch (fsWriteErr: any) {
+      console.warn("[RECOVERY_OTP_PIPELINE] Firestore OTP write warning:", fsWriteErr?.message);
+    }
 
     const db = readDb();
     if (!db.verification_codes) db.verification_codes = [];
@@ -8640,29 +8793,93 @@ app.post("/api/auth/recovery-request/send-approval-otp", otpLimiter, async (req,
     db.verification_codes.push(record);
     writeDb(db);
 
+    console.log("[RECOVERY_OTP_PIPELINE] OTP persisted to storage:", {
+      stage: "PERSISTENCE_COMPLETE",
+      recoveryRequestId: reqId || "N/A",
+      targetUserId: targetUserId || "N/A",
+      targetEmail: normalizedEmail,
+      firestoreWriteSuccess,
+      localStoreSuccess: true
+    });
+
     const emailObj = buildOtpEmailHtml({
       email: normalizedEmail,
       otpCode: otpCode,
       type: "account_recovery"
     });
 
+    console.log("[RECOVERY_OTP_PIPELINE] Invoking email dispatcher:", {
+      stage: "EMAIL_DISPATCH_INVOKED",
+      recoveryRequestId: reqId || "N/A",
+      targetUserId: targetUserId || "N/A",
+      targetEmail: normalizedEmail,
+      subject: emailObj.subject
+    });
+
     const mailResult = await sendSystemMail(normalizedEmail, emailObj.subject, emailObj.text, emailObj.html);
+
+    if (!mailResult.success && !mailResult.simulated) {
+      const errStatus = mailResult.statusCode || 500;
+      console.error("[RECOVERY_OTP_PIPELINE] Resend delivery failed:", {
+        stage: "RESEND_API_ERROR",
+        recoveryRequestId: reqId || "N/A",
+        targetUserId: targetUserId || "N/A",
+        targetEmail: normalizedEmail,
+        statusCode: errStatus,
+        error: mailResult.error ? (mailResult.error.message || mailResult.error) : "Send failed"
+      });
+      return res.status(errStatus).json({
+        success: false,
+        error: mailResult.userFriendlyMessage || "تعذر إرسال رمز التحقق حالياً. يرجى المحاولة مرة أخرى."
+      });
+    }
+
+    console.log("[RECOVERY_OTP_PIPELINE] Resend accepted email:", {
+      stage: "RESEND_API_SUCCESS",
+      recoveryRequestId: reqId || "N/A",
+      targetUserId: targetUserId || "N/A",
+      targetEmail: normalizedEmail,
+      resendEmailId: mailResult.messageId || "N/A",
+      simulated: Boolean(mailResult.simulated),
+      deliveryStatus: "sent"
+    });
+
+    if (mailResult.messageId) {
+      const updatePayload = {
+        resendEmailId: mailResult.messageId,
+        deliveryStatus: "sent",
+        lastDeliveryUpdate: new Date().toISOString()
+      };
+      try {
+        await adminDb.collection("verification_codes").doc(docId).update(updatePayload);
+        await adminDb.collection("verification_codes").doc(normalizedEmail).update(updatePayload);
+      } catch (e) {}
+      const curDb = readDb();
+      const vcItem = curDb.verification_codes?.find((vc: any) => vc.id === docId);
+      if (vcItem) {
+        vcItem.resendEmailId = mailResult.messageId;
+        vcItem.deliveryStatus = "sent";
+        writeDb(curDb);
+      }
+    }
 
     return res.json({
       success: true,
-      message: `Verification code sent to ${normalizedEmail}`,
+      message: `تم إرسال رمز التحقق بنجاح إلى ${normalizedEmail}`,
       expiresAt,
       emailSent: !mailResult.simulated,
+      resendEmailId: mailResult.messageId,
+      deliveryStatus: "sent",
       devCode: mailResult.simulated ? otpCode : undefined
     });
   } catch (err: any) {
-    console.error("Send approval OTP error:", err);
+    console.error("[RECOVERY_OTP_PIPELINE] Send approval OTP critical error:", err);
     res.status(500).json({ success: false, error: err.message || "Failed to send verification code." });
   }
 });
 
 // 6. Verify OTP and Restore Account
-app.post("/api/auth/recovery-request/verify-otp-and-restore", otpLimiter, async (req, res) => {
+app.post(["/api/auth/recovery-request/verify-otp-and-restore", "/api/auth/recovery-request/verify-approval-otp"], otpLimiter, async (req, res) => {
   try {
     const { email, code, newPassword } = req.body;
     if (!email || !code) {
@@ -8716,24 +8933,37 @@ app.post("/api/auth/recovery-request/verify-otp-and-restore", otpLimiter, async 
       });
     }
 
-    try {
-      await adminDb.collection("verification_codes").doc(docId).update({ used: true });
-    } catch (e) {}
-
     const nowIso = new Date().toISOString();
     try {
-      await adminDb.collection("accountRecoveryRequests_by_email").doc(normalizedEmail).update({
-        status: "restored",
-        restoredAt: nowIso
-      });
+      await adminDb.collection("verification_codes").doc(docId).set({ used: true, usedAt: nowIso }, { merge: true });
+      await adminDb.collection("verification_codes").doc(normalizedEmail).set({ used: true, usedAt: nowIso }, { merge: true });
+    } catch (e) {}
+
+    try {
+      await adminDb.collection("recoveryRequests_by_email").doc(normalizedEmail).set({ status: "restored", restoredAt: nowIso }, { merge: true });
+      await adminDb.collection("accountRecoveryRequests_by_email").doc(normalizedEmail).set({ status: "restored", restoredAt: nowIso }, { merge: true });
+      const qSnap = await adminDb.collection("recoveryRequests").where("email", "==", normalizedEmail).get().catch(() => null);
+      if (qSnap && !qSnap.empty) {
+        for (const doc of qSnap.docs) {
+          await doc.ref.set({ status: "restored", restoredAt: nowIso }, { merge: true }).catch(() => null);
+        }
+      }
     } catch (e) {}
 
     const db = readDb();
+    if (db.verification_codes) {
+      for (const vc of db.verification_codes) {
+        if (vc.id === docId || vc.email === normalizedEmail) {
+          vc.used = true;
+          vc.usedAt = nowIso;
+        }
+      }
+    }
     if (db.account_recovery_requests) {
       const rItem = db.account_recovery_requests.find((r: any) => r.email === normalizedEmail);
       if (rItem) rItem.status = "restored";
-      writeDb(db);
     }
+    writeDb(db);
 
     const restoreRes = await restoreAccountFullServer(normalizedEmail, newPassword);
     if (!restoreRes.success || !restoreRes.user) {
@@ -8818,7 +9048,19 @@ app.all([
     }
 
     if (targetUid === callerUid) {
-      return res.status(400).json({ success: false, error: "You cannot delete your own active administrative account." });
+      return res.status(400).json({
+        success: false,
+        error: "You cannot delete your own active administrative account.",
+        userFriendlyMessage: "لا يمكنك حذف حساب المسؤول الحالي الذي تستخدمه الآن."
+      });
+    }
+
+    if (targetUid === ADMIN_USER_ID) {
+      return res.status(400).json({
+        success: false,
+        error: "Primary administrator account cannot be deleted.",
+        userFriendlyMessage: "لا يمكن حذف الحساب الرئيسي للمسؤول."
+      });
     }
 
     console.log("USER_DELETE_STARTED", { targetUid, callerUid, callerEmail });
@@ -8844,6 +9086,15 @@ app.all([
         }
         if (!userDocData && found) userDocData = found;
       } catch (e) {}
+    }
+
+    if (!targetEmail) {
+      try {
+        const authUser = await adminAuth.getUser(targetUid);
+        if (authUser?.email) {
+          targetEmail = authUser.email;
+        }
+      } catch (authLookupErr) {}
     }
 
     // --- STEP 1: STRIPE SUBSCRIPTION CANCELLATION ---
@@ -8893,9 +9144,43 @@ app.all([
       executionAudit.stripe = { status: "warning", error: stripeErr?.message || String(stripeErr) };
     }
 
-    // --- STEP 2: DATABASE DATA, CAUSAL GRAPHS & RECORDS DELETION ---
+    // --- STEP 2: DATABASE DATA, ARCHIVE RETENTION & RECORDS DELETION ---
     currentStep = "DATABASE_DATA_DELETION";
     let deletedRecordsCount = 0;
+
+    // Archive user data to users_retained to maintain account recovery architecture
+    if (userDocData) {
+      try {
+        await adminDb.collection("users_retained").doc(targetUid).set({
+          ...userDocData,
+          archivedAt: new Date().toISOString(),
+          deletedBy: callerUid,
+          deletionType: "admin"
+        });
+
+        const memSnap = await adminDb.collection("users").doc(targetUid).collection("memories").get();
+        for (const mDoc of memSnap.docs) {
+          await adminDb.collection("users_retained").doc(targetUid).collection("memories").doc(mDoc.id).set(mDoc.data());
+        }
+
+        const alertSnap = await adminDb.collection("users").doc(targetUid).collection("riskAlerts").get();
+        for (const aDoc of alertSnap.docs) {
+          await adminDb.collection("users_retained").doc(targetUid).collection("riskAlerts").doc(aDoc.id).set(aDoc.data());
+        }
+
+        const filesSnap = await adminDb.collection("users").doc(targetUid).collection("files").get();
+        for (const fDoc of filesSnap.docs) {
+          await adminDb.collection("users_retained").doc(targetUid).collection("files").doc(fDoc.id).set(fDoc.data());
+        }
+
+        const topFilesSnap = await adminDb.collection("files").where("userId", "==", targetUid).get();
+        for (const tfDoc of topFilesSnap.docs) {
+          await adminDb.collection("users_retained").doc(targetUid).collection("top_files").doc(tfDoc.id).set(tfDoc.data());
+        }
+      } catch (archErr: any) {
+        console.warn("[AdminDelete] Retention archive warning:", archErr?.message);
+      }
+    }
 
     // Update permanent account lifecycle record for ADMIN DELETED account
     if (targetEmail) {
@@ -8910,7 +9195,11 @@ app.all([
           deletedBy: callerUid,
           restoreUntil: null,
           adminApprovalRequired: true,
-          originalUserId: targetUid
+          originalUserId: targetUid,
+          originalRole: userDocData?.role || "Contributor",
+          originalWorkspaceId: userDocData?.workspaceId,
+          originalPowers: userDocData?.powers,
+          retainedDataDocPath: `users_retained/${targetUid}`
         });
       } catch (lifecycleErr: any) {
         console.warn("Account lifecycle record update warning:", lifecycleErr?.message);
@@ -9017,7 +9306,7 @@ app.all([
     // --- STEP 3: FIREBASE AUTHENTICATION DELETION & TOKEN REVOCATION ---
     currentStep = "FIREBASE_AUTH_DELETION";
 
-    // 1. Disable/Delete in Firebase Auth
+    // 1. Disable in Firebase Auth (preserve UID for administrative reactivation audit)
     try {
       await adminAuth.updateUser(targetUid, { disabled: true });
       console.log("USER_AUTH_DISABLED", { targetUid });
@@ -9047,7 +9336,8 @@ app.all([
     console.log("USER_DELETE_COMPLETED", { targetUid, executionAudit });
     return res.json({
       success: true,
-      message: `Account ${targetUid} has been permanently deleted from all systems.`,
+      message: `The user's account has been deleted and archived according to the account recovery policy.`,
+      userFriendlyMessage: "تم حذف حساب المستخدم وأرشفة بياناته وفقًا لسياسة استعادة الحساب.",
       executionAudit
     });
   } catch (err: any) {

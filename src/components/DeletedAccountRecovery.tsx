@@ -869,6 +869,10 @@ export const DeletedAccountRecovery: React.FC<DeletedAccountRecoveryProps> = ({
                     </button>
                   ) : (
                     <div className="space-y-3 pt-2">
+                      <div className="p-2.5 bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800/60 rounded-xl text-blue-800 dark:text-blue-200 text-xs flex items-center gap-2">
+                        <CheckCircle2 className="w-4 h-4 text-blue-600 dark:text-blue-400 shrink-0" />
+                        <span className="truncate">{lang === "ar" ? `تم إرسال رمز التحقق إلى ${statusEmail || email}` : `Verification code sent to ${statusEmail || email}`}</span>
+                      </div>
                       {otpError && (
                         <p className="text-xs text-rose-600 font-semibold">{otpError}</p>
                       )}
@@ -898,6 +902,16 @@ export const DeletedAccountRecovery: React.FC<DeletedAccountRecoveryProps> = ({
                         )}
                         <span>{t.btnRestoreAccountNow}</span>
                       </button>
+                      <div className="text-center pt-1">
+                        <button
+                          type="button"
+                          onClick={handleSendApprovalOtp}
+                          disabled={isSendingOtp}
+                          className="text-[11px] font-bold text-[#0075DE] hover:underline disabled:opacity-50 cursor-pointer"
+                        >
+                          {isSendingOtp ? (lang === "ar" ? "جاري إعادة الإرسال..." : "Resending...") : (lang === "ar" ? "إعادة إرسال رمز التحقق" : "Resend verification code")}
+                        </button>
+                      </div>
                     </div>
                   )}
                 </div>
