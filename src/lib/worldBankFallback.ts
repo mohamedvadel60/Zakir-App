@@ -143,11 +143,11 @@ export async function fetchWorldBankProxyApi(
   startYear: number, 
   endYear: number
 ) {
-  const customBase = sanitizeBaseUrl(getEnvVar('VITE_API_BASE_URL') || getEnvVar('VITE_BACKEND_URL'));
+  const customBase = typeof window !== "undefined" ? "" : sanitizeBaseUrl(getEnvVar('VITE_API_BASE_URL') || getEnvVar('VITE_BACKEND_URL'));
   const baseUrl = customBase || WORLD_BANK_API_BASE_URL;
-  const primaryUrl = baseUrl 
-    ? `${baseUrl}/api/world-bank?country=${countryCode}&indicator=${indicatorCode}&startYear=${startYear}&endYear=${endYear}`
-    : `/api/world-bank?country=${countryCode}&indicator=${indicatorCode}&startYear=${startYear}&endYear=${endYear}`;
+  const primaryUrl = (typeof window !== "undefined" || !baseUrl)
+    ? `/api/world-bank?country=${countryCode}&indicator=${indicatorCode}&startYear=${startYear}&endYear=${endYear}`
+    : `${baseUrl}/api/world-bank?country=${countryCode}&indicator=${indicatorCode}&startYear=${startYear}&endYear=${endYear}`;
   
   let res: Response | null = null;
   try {

@@ -86,8 +86,12 @@ function resolveEndpointUrl(url: string): string {
         const currentHost = window.location.hostname.toLowerCase();
         const baseHost = new URL(cleanBase).hostname.toLowerCase();
 
-        // If same origin or same host, always prefer clean relative path
-        if (currentHost === baseHost || currentOrigin === cleanBase) {
+        // Standardize domain roots so getzakir.com and www.getzakir.com match seamlessly
+        const currentDomainRoot = currentHost.replace(/^www\./, '');
+        const baseDomainRoot = baseHost.replace(/^www\./, '');
+
+        // If same origin, same host, or same root domain (e.g. www.getzakir.com vs getzakir.com), always prefer clean relative path
+        if (currentHost === baseHost || currentOrigin === cleanBase || currentDomainRoot === baseDomainRoot) {
           return formattedEndpoint;
         }
         return `${cleanBase}${formattedEndpoint}`;
