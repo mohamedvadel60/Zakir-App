@@ -262,7 +262,7 @@
         "theme": "light",
         "autoSaveMemories": true
       },
-      "stripeCustomerId": "cus_VA2giyi4tcHOyr",
+      "stripeCustomerId": null,
       "lastActiveAt": "2026-09-03T13:32:04.570Z",
       "lastLoginAt": "2026-09-03T13:32:04.570Z"
     },

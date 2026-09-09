@@ -1879,7 +1879,7 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
         lastPaymentDate: new Date().toISOString(),
         lastPaymentAmount: planCost,
         nextBillingDate: nextDate.toISOString(),
-        stripeCustomerId: currentUser.stripeCustomerId || `cus_${Math.random().toString(36).substring(2, 9)}`,
+        stripeCustomerId: currentUser.stripeCustomerId,
       };
 
       onUpdateUser(updatedUser);

@@ -558,9 +558,24 @@ export default function App() {
     const plan = urlParams.get("plan") || "Professional";
     const cycle = urlParams.get("cycle") || "annual";
 
-    if (checkoutStatus === "success" && sessionId) {
-      const getReceipt = async () => {
+    if (sessionId) {
+      const verifyAndGetReceipt = async () => {
         try {
+          const statusRes = await authenticatedFetch(`/api/stripe/session-status/${sessionId}`);
+          if (statusRes.ok) {
+            const statusData = await statusRes.json();
+            if (statusData && (statusData.status === "complete" || statusData.paymentStatus === "paid")) {
+              if (currentUser) {
+                setCurrentUser({
+                  ...currentUser,
+                  subscriptionPlan: statusData.plan || plan,
+                  subscriptionStatus: "Active",
+                  billingCycle: statusData.billingCycle || cycle
+                } as User);
+              }
+            }
+          }
+
           const idToken = auth.currentUser ? await auth.currentUser.getIdToken() : "";
           const res = await fetch(`/api/stripe/receipt/${sessionId}?plan=${plan}&cycle=${cycle}`, {
             headers: idToken ? { "Authorization": `Bearer ${idToken}` } : {}
@@ -570,11 +585,11 @@ export default function App() {
             setStripeReceiptData(data.receipt);
           }
         } catch (err) {
-          console.error("Receipt fetch error:", err);
+          console.error("Session verification/receipt fetch error:", err);
         }
         window.history.replaceState({}, document.title, window.location.pathname);
       };
-      getReceipt();
+      verifyAndGetReceipt();
     }
   }, []);
 

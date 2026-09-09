@@ -1100,35 +1100,71 @@ app.post([
 
     const validUserEmail = isValidEmail(finalUserEmail) ? finalUserEmail.trim().toLowerCase() : undefined;
 
-    // Customer Management: Look up or create customer
+    // Resilient Customer Management: Validate stored Customer ID or create/look up a fresh one
     let stripeCustomerId = user?.stripeCustomerId;
-    // Optimize: Skip expensive and slow stripe.customers.retrieve proactive check on every request!
-    // If stripeCustomerId is set, we will use it directly. If it fails during session creation, we'll gracefully catch it.
 
-    if (!stripeCustomerId && validUserEmail) {
+    // Case A: Stored Customer ID exists - Verify against active Stripe account/mode
+    if (stripeCustomerId) {
       try {
-        const newCust = await stripe.customers.create({
-          email: validUserEmail,
-          name: finalCompanyName,
-          metadata: {
-            zakirUserId: finalUserId,
-            userId: finalUserId
-          }
-        });
-        stripeCustomerId = newCust.id;
-        console.log(`[Stripe Checkout] Created new Stripe Customer: ${stripeCustomerId}`);
+        const existingCust: any = await stripe.customers.retrieve(stripeCustomerId);
+        if (existingCust && !existingCust.deleted) {
+          console.log(`[Stripe Checkout] Verified active Stripe Customer ID: ${stripeCustomerId}`);
+        } else {
+          console.warn(`[Stripe Checkout] Stale/deleted Customer ID detected (${stripeCustomerId}). Clearing...`);
+          stripeCustomerId = null;
+        }
+      } catch (custErr: any) {
+        console.warn(`[Stripe Checkout] Invalid Customer ID (${stripeCustomerId}) rejected by Stripe (${custErr?.message}). Clearing stale ID...`);
+        stripeCustomerId = null;
+      }
 
+      if (!stripeCustomerId) {
         if (user) {
-          user.stripeCustomerId = stripeCustomerId;
+          user.stripeCustomerId = null;
           writeDb(db);
         }
         try {
-          await adminDb.collection("users").doc(finalUserId).set({ stripeCustomerId }, { merge: true });
-        } catch (fsCustErr) {
-          console.warn("[Stripe Checkout] Firestore customer id save notice:", fsCustErr);
+          await adminDb.collection("users").doc(finalUserId).set({ stripeCustomerId: null }, { merge: true });
+        } catch (fsClearErr) {
+          console.warn("[Stripe Checkout] Firestore customer clear notice:", fsClearErr);
+        }
+      }
+    }
+
+    // Case B: No Customer ID (or cleared above) - Look up existing customer by email in active mode or create a new one
+    if (!stripeCustomerId && validUserEmail) {
+      try {
+        const existingList = await stripe.customers.list({ email: validUserEmail, limit: 1 });
+        if (existingList.data && existingList.data.length > 0) {
+          stripeCustomerId = existingList.data[0].id;
+          console.log(`[Stripe Checkout] Matched existing customer in current Stripe account: ${stripeCustomerId}`);
+        } else {
+          const newCust = await stripe.customers.create({
+            email: validUserEmail,
+            name: finalCompanyName,
+            metadata: {
+              zakirUserId: finalUserId,
+              userId: finalUserId,
+              companyId: user?.companyId || user?.organizationId || ""
+            }
+          });
+          stripeCustomerId = newCust.id;
+          console.log(`[Stripe Checkout] Created new Stripe Customer in current mode: ${stripeCustomerId}`);
+        }
+
+        if (user && stripeCustomerId) {
+          user.stripeCustomerId = stripeCustomerId;
+          writeDb(db);
+        }
+        if (stripeCustomerId) {
+          try {
+            await adminDb.collection("users").doc(finalUserId).set({ stripeCustomerId }, { merge: true });
+          } catch (fsCustErr) {
+            console.warn("[Stripe Checkout] Firestore customer save notice:", fsCustErr);
+          }
         }
       } catch (createCustErr: any) {
-        console.warn("[Stripe Checkout] Customer creation notice:", createCustErr?.message);
+        console.warn("[Stripe Checkout] Customer lookup/creation notice:", createCustErr?.message);
       }
     }
 
@@ -1200,7 +1236,21 @@ app.post([
     }
 
     console.log(`[Stripe Checkout] Creating Embedded Checkout Session for user ${finalUserId} (ui_mode: embedded, items: ${resolvedPriceId ? 'catalog' : 'dynamic price_data'})...`);
-    const session: Stripe.Checkout.Session = await stripe.checkout.sessions.create(sessionParams);
+    let session: Stripe.Checkout.Session;
+    try {
+      session = await stripe.checkout.sessions.create(sessionParams);
+    } catch (sessionErr: any) {
+      if (sessionErr?.message?.includes("No such customer") || sessionErr?.code === "resource_missing") {
+        console.warn(`[Stripe Checkout] Checkout session creation hit invalid customer error (${sessionErr.message}). Self-healing: removing customer parameter and retrying...`);
+        delete sessionParams.customer;
+        if (validUserEmail) {
+          sessionParams.customer_email = validUserEmail;
+        }
+        session = await stripe.checkout.sessions.create(sessionParams);
+      } else {
+        throw sessionErr;
+      }
+    }
 
     console.log(`[Stripe Checkout] Checkout Session created successfully: id=${session.id}`);
 
