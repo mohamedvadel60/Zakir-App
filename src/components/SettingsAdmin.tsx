@@ -56,6 +56,8 @@ import { User, UserRole, TeamMember, ModulePermissions, EncryptedModuleSettings,
 import { saveWorkspaceInvitation, deleteWorkspaceInvitation, fetchWorkspaceInvitations, fetchWorkspaceTeamApi, WorkspaceInvitation, sendWorkspaceInvitationApi, resendWorkspaceInvitationApi, saveFirebaseUserProfile, uploadFirebaseUserFile, deleteFirebaseUserFile } from "../lib/firebaseServices.js";
 import { openOrDownloadUserFile, openUserFileInNewTab, downloadUserFile } from "../lib/fileViewerUtils.js";
 import { translations } from "../translations.js";
+import { PLAN_PRICES, getPlanCostUSD, formatPlanPriceUSD } from "../lib/pricingConfig.js";
+import { formatLocalCurrencyEstimate } from "../lib/currencyUtils.js";
 
 function cleanMemberName(name?: string): string {
   if (!name) return "";
@@ -381,9 +383,12 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
     };
   }, [checkoutClientSecret]);
 
-  const handleStripeCheckout = async (plan: "Starter" | "Professional" | "Enterprise", isRetry = false) => {
-    if (isProcessingPayment && !isRetry) return;
+  const checkoutInFlightRef = useRef(false);
 
+  const handleStripeCheckout = async (plan: "Starter" | "Professional" | "Enterprise", isRetry = false) => {
+    if ((isProcessingPayment || checkoutInFlightRef.current) && !isRetry) return;
+
+    checkoutInFlightRef.current = true;
     setIsProcessingPayment(true);
     setPaymentError(null);
     setSelectedPlanForCheckout(plan);
@@ -482,6 +487,7 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
       );
     } finally {
       setIsProcessingPayment(false);
+      checkoutInFlightRef.current = false;
     }
   };
 
@@ -1827,7 +1833,7 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
 
     const planName = selectedPlanForCheckout || "Professional";
     const cycle = billingCycle;
-    const planCost = planName === "Starter" ? (cycle === "annual" ? "$50.00 USD" : "$6.00 USD") : planName === "Enterprise" ? (cycle === "annual" ? "$699.00 USD" : "$849.00 USD") : (cycle === "annual" ? "$149.00 USD" : "$189.00 USD");
+    const planCost = formatPlanPriceUSD(planName, cycle, lang);
 
     try {
       if (checkoutSessionId) {
@@ -2963,14 +2969,21 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
                     <h3 className={`text-xl font-bold ${theme === "dark" ? "text-white" : "text-slate-900"}`}>Starter</h3>
                     <p className={`text-xs mt-1 ${theme === "dark" ? "text-slate-400" : "text-slate-600"}`}>{translations[lang as keyof typeof translations]?.planStarterDesc || (lang === "ar" ? "خطة استكشافية للمؤسسات والفرق ($50 سنوياً أو $6 شهرياً)" : "Exploration tier for teams ($50/year or $6/month)")}</p>
                   </div>
-                  <div className="flex items-baseline gap-1">
-                    <span className={`text-4xl font-black ${theme === "dark" ? "text-white" : "text-slate-900"}`}>
-                      ${billingCycle === "annual" ? "50" : "6"}
-                    </span>
-                    <span className={`text-xs ${theme === "dark" ? "text-slate-400" : "text-slate-600"}`}>
-                      / {billingCycle === "annual" ? (lang === "ar" ? "سنوياً" : "yr") : (lang === "ar" ? "شهرياً" : "mo")}
-                      {billingCycle === "annual" && <span className="text-[10px] text-[#0075DE] font-semibold ml-1">({lang === "ar" ? "تُدفع $50 سنوياً" : "billed $50 annually"})</span>}
-                    </span>
+                  <div>
+                    <div className="flex items-baseline gap-1">
+                      <span className={`text-4xl font-black ${theme === "dark" ? "text-white" : "text-slate-900"}`}>
+                        ${billingCycle === "annual" ? "50" : "6"}
+                      </span>
+                      <span className={`text-xs ${theme === "dark" ? "text-slate-400" : "text-slate-600"}`}>
+                        / {billingCycle === "annual" ? (lang === "ar" ? "سنوياً" : "yr") : (lang === "ar" ? "شهرياً" : "mo")}
+                        {billingCycle === "annual" && <span className="text-[10px] text-[#0075DE] font-semibold ml-1">({lang === "ar" ? "تُدفع $50 سنوياً" : "billed $50 annually"})</span>}
+                      </span>
+                    </div>
+                    {formatLocalCurrencyEstimate(getPlanCostUSD("Starter", billingCycle), lang) && (
+                      <p className={`text-xs font-bold mt-1 ${theme === "dark" ? "text-emerald-400" : "text-emerald-600"}`}>
+                        {formatLocalCurrencyEstimate(getPlanCostUSD("Starter", billingCycle), lang)}
+                      </p>
+                    )}
                   </div>
                   <ul className={`space-y-2.5 pt-4 text-xs border-t ${theme === "dark" ? "text-slate-300 border-slate-800" : "text-slate-700 border-slate-200"}`}>
                     <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" /> {lang === "ar" ? "دعوة الأعضاء وصلاحيات متعددة (RBAC)" : "Multi-user seat access & RBAC"}</li>
@@ -2982,7 +2995,7 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
                 <button
                   type="button"
                   onClick={() => handleStripeCheckout("Starter")}
-                  disabled={currentUser.subscriptionPlan === "Starter"}
+                  disabled={currentUser.subscriptionPlan === "Starter" || isProcessingPayment}
                   className={`w-full py-3.5 rounded-xl font-bold text-xs transition-all cursor-pointer flex items-center justify-center gap-2 ${
                     currentUser.subscriptionPlan === "Starter"
                       ? (theme === "dark" ? "bg-slate-800 text-slate-500 cursor-not-allowed" : "bg-slate-100 text-slate-400 cursor-not-allowed")
@@ -2995,7 +3008,7 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
                 </button>
               </div>
 
-              {/* PLAN 2: PROFESSIONAL ($149 Annual / $189 Monthly) — PRIMARY FEATURED BLUE CARD (MUST REMAIN WHITE TEXT IN LIGHT AND DARK MODES) */}
+              {/* PLAN 2: PROFESSIONAL ($1,788 Annual / $189 Monthly) — PRIMARY FEATURED BLUE CARD */}
               <div className="p-6 rounded-2xl border-2 border-[#0075DE] bg-gradient-to-b from-[#0075DE] to-[#005BAB] text-white shadow-2xl shadow-[#0075DE]/20 flex flex-col justify-between space-y-6 relative transform md:-translate-y-2">
                 <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 px-4 py-1 bg-white text-[#0075DE] font-black text-[10px] uppercase tracking-widest rounded-full shadow-lg">
                   {lang === "ar" ? "الخطة الأكثر شعبية" : "Most Popular"}
@@ -3008,13 +3021,20 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
                     </h3>
                     <p className="text-xs text-blue-100 mt-1">{translations[lang as keyof typeof translations]?.planProDesc || (lang === "ar" ? "للمؤسسات والشركات النامية" : "For growing organizations")}</p>
                   </div>
-                  <div className="flex items-baseline gap-1">
-                    <span className="text-4xl font-black text-white">
-                      ${billingCycle === "annual" ? "149" : "189"}
-                    </span>
-                    <span className="text-xs text-blue-100">
-                      / {lang === "ar" ? "شهرياً" : "mo"} {billingCycle === "annual" && <span className="text-[10px] text-amber-200 font-semibold">({lang === "ar" ? "تُدفع سنوياً - توفير 20%" : "billed annually"})</span>}
-                    </span>
+                  <div>
+                    <div className="flex items-baseline gap-1">
+                      <span className="text-4xl font-black text-white">
+                        ${billingCycle === "annual" ? "1,788" : "189"}
+                      </span>
+                      <span className="text-xs text-blue-100">
+                        / {billingCycle === "annual" ? (lang === "ar" ? "سنوياً" : "yr") : (lang === "ar" ? "شهرياً" : "mo")} {billingCycle === "annual" && <span className="text-[10px] text-amber-200 font-semibold">($149/{lang === "ar" ? "شهر" : "mo"})</span>}
+                      </span>
+                    </div>
+                    {formatLocalCurrencyEstimate(getPlanCostUSD("Professional", billingCycle), lang) && (
+                      <p className="text-xs font-extrabold text-emerald-200 mt-1">
+                        {formatLocalCurrencyEstimate(getPlanCostUSD("Professional", billingCycle), lang)}
+                      </p>
+                    )}
                   </div>
                   <ul className="space-y-2.5 pt-4 text-xs text-white border-t border-blue-400/30">
                     <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-white shrink-0" /> Unlimited Memories & Vault</li>
@@ -3036,7 +3056,7 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
                 </button>
               </div>
 
-              {/* PLAN 3: ENTERPRISE ($699 Annual / $849 Monthly) */}
+              {/* PLAN 3: ENTERPRISE ($8,388 Annual / $849 Monthly) */}
               <div className={`p-6 rounded-2xl border flex flex-col justify-between space-y-6 ${
                 theme === "dark" ? "bg-slate-950/80 border-slate-800" : "bg-white border-slate-200 shadow-sm"
               }`}>
@@ -3048,13 +3068,17 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
                   <div>
                     <div className="flex items-baseline gap-1">
                       <span className={`text-4xl font-black ${theme === "dark" ? "text-white" : "text-slate-900"}`}>
-                        ${billingCycle === "annual" ? "699" : "849"}
+                        ${billingCycle === "annual" ? "8,388" : "849"}
                       </span>
-                      <span className={`text-xs ${theme === "dark" ? "text-slate-400" : "text-slate-600"}`}>/ {lang === "ar" ? "شهرياً" : "mo"}</span>
+                      <span className={`text-xs ${theme === "dark" ? "text-slate-400" : "text-slate-600"}`}>
+                        / {billingCycle === "annual" ? (lang === "ar" ? "سنوياً" : "yr") : (lang === "ar" ? "شهرياً" : "mo")} {billingCycle === "annual" && <span className="text-[10px] text-[#0075DE] font-semibold">($699/{lang === "ar" ? "شهر" : "mo"})</span>}
+                      </span>
                     </div>
-                    <p className="text-[11px] text-[#0075DE] font-semibold mt-1">
-                      {translations[lang as keyof typeof translations]?.startingFrom || (lang === "ar" ? "تبدأ من $699/شهرياً" : "Starting from $699/mo")}
-                    </p>
+                    {formatLocalCurrencyEstimate(getPlanCostUSD("Enterprise", billingCycle), lang) && (
+                      <p className={`text-xs font-bold mt-1 ${theme === "dark" ? "text-emerald-400" : "text-emerald-600"}`}>
+                        {formatLocalCurrencyEstimate(getPlanCostUSD("Enterprise", billingCycle), lang)}
+                      </p>
+                    )}
                   </div>
                   <ul className={`space-y-2.5 pt-4 text-xs border-t ${theme === "dark" ? "text-slate-300 border-slate-800" : "text-slate-700 border-slate-200"}`}>
                     <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" /> Dedicated Firebase / Cloud SQL Instance</li>
@@ -3222,8 +3246,13 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
                         {lang === "ar" ? "المبلغ المستحق:" : "Total Amount:"}
                       </p>
                       <p className={`text-sm sm:text-base font-black ${theme === "dark" ? "text-emerald-400" : "text-emerald-600"}`}>
-                        {selectedPlanForCheckout === "Starter" ? (billingCycle === "annual" ? "$50.00 USD" : "$6.00 USD") : selectedPlanForCheckout === "Enterprise" ? (billingCycle === "annual" ? "$699.00 USD" : "$849.00 USD") : (billingCycle === "annual" ? "$149.00 USD" : "$189.00 USD")}
+                        {selectedPlanForCheckout ? formatPlanPriceUSD(selectedPlanForCheckout, billingCycle, lang) : ""}
                       </p>
+                      {selectedPlanForCheckout && formatLocalCurrencyEstimate(getPlanCostUSD(selectedPlanForCheckout, billingCycle), lang) && (
+                        <p className={`text-[11px] font-semibold ${theme === "dark" ? "text-slate-300" : "text-slate-700"}`}>
+                          ({formatLocalCurrencyEstimate(getPlanCostUSD(selectedPlanForCheckout, billingCycle), lang)})
+                        </p>
+                      )}
                     </div>
                   </div>
 

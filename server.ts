@@ -1168,48 +1168,76 @@ app.post([
       }
     }
 
-    // Price ID Resolution (Plan-Specific + Cycle-Specific)
-    const planUpper = requestedPlan.toUpperCase();
-    const cycleUpper = requestedCycle === "annual" ? "YEARLY" : "MONTHLY";
-    const altCycleUpper = requestedCycle === "annual" ? "ANNUAL" : "MONTHLY";
+    // Strict Plan + Billing Cycle Price ID Resolution (Server-Authoritative Mapping)
+    const PRICE_ID_MAP: Record<"Starter" | "Professional" | "Enterprise", Record<"monthly" | "annual", string | undefined>> = {
+      Starter: {
+        monthly: process.env.STRIPE_PRICE_STARTER_MONTHLY || process.env.STRIPE_STARTER_MONTHLY_PRICE_ID,
+        annual: process.env.STRIPE_PRICE_STARTER_YEARLY || process.env.STRIPE_STARTER_YEARLY_PRICE_ID,
+      },
+      Professional: {
+        monthly: process.env.STRIPE_PRICE_PROFESSIONAL_MONTHLY || process.env.STRIPE_MONTHLY_PRICE_ID,
+        annual: process.env.STRIPE_PRICE_PROFESSIONAL_YEARLY || process.env.STRIPE_YEARLY_PRICE_ID || process.env.STRIPE_ANNUAL_PRICE_ID,
+      },
+      Enterprise: {
+        monthly: process.env.STRIPE_PRICE_ENTERPRISE_MONTHLY || process.env.STRIPE_ENTERPRISE_MONTHLY_PRICE_ID,
+        annual: process.env.STRIPE_PRICE_ENTERPRISE_YEARLY || process.env.STRIPE_ENTERPRISE_YEARLY_PRICE_ID,
+      }
+    };
 
-    let envPriceId =
-      process.env[`STRIPE_PRICE_${planUpper}_${cycleUpper}`] ||
-      process.env[`STRIPE_PRICE_${planUpper}_${altCycleUpper}`];
+    const targetPriceId = PRICE_ID_MAP[requestedPlan]?.[requestedCycle]?.trim();
 
-    if (!envPriceId) {
-      envPriceId = requestedCycle === "annual"
-        ? (process.env.STRIPE_YEARLY_PRICE_ID || process.env.STRIPE_ANNUAL_PRICE_ID || process.env.STRIPE_PRICE_PROFESSIONAL_YEARLY || process.env.STRIPE_PRICE_PROFESSIONAL_ANNUAL)
-        : (process.env.STRIPE_MONTHLY_PRICE_ID || process.env.STRIPE_PRICE_PROFESSIONAL_MONTHLY);
+    if (!targetPriceId || (!targetPriceId.startsWith("price_") && !targetPriceId.startsWith("plan_"))) {
+      console.error(`[Stripe Checkout] FAIL CLOSED: Missing valid Stripe Price ID for plan '${requestedPlan}' (${requestedCycle}). Provided: '${targetPriceId || "NONE"}'`);
+      return res.status(400).json({
+        success: false,
+        code: "STRIPE_PRICE_NOT_CONFIGURED",
+        error: `Stripe Price ID for plan '${requestedPlan}' (${requestedCycle}) is not configured in environment variables.`,
+        userFriendlyMessage: `رمز السعر (Stripe Price ID) لخطة ${requestedPlan} (${requestedCycle === "annual" ? "سنوي" : "شهري"}) غير مهيأ في إعدادات البيئة. يرجى إضافة Price ID الخاص بالخطة في Stripe Dashboard والمحاولة مرة أخرى.`
+      });
     }
 
-    let resolvedPriceId: string | null = null;
-    const cleanEnvPriceId = typeof envPriceId === "string" ? envPriceId.trim() : "";
+    // Retrieve and verify Stripe Price against Stripe API (FAIL CLOSED on mismatch or missing)
+    let verifiedPriceId: string | null = null;
+    try {
+      const expectedInterval = requestedCycle === "annual" ? "year" : "month";
+      const retrievedPrice = await stripe.prices.retrieve(targetPriceId);
 
-    // Optimize: Directly use the Price ID if valid, completely bypassing the redundant and slow stripe.prices.retrieve round-trip!
-    if (cleanEnvPriceId && (cleanEnvPriceId.startsWith("price_") || cleanEnvPriceId.startsWith("plan_"))) {
-      resolvedPriceId = cleanEnvPriceId;
-      console.log(`[Stripe Checkout] Using configured Stripe Catalog Price ID directly to save network roundtrip: ${resolvedPriceId}`);
+      const isPriceActive = retrievedPrice.active === true;
+      const isUsd = retrievedPrice.currency?.toLowerCase() === "usd";
+      const intervalMatches = retrievedPrice.recurring?.interval === expectedInterval;
+      const intervalCountMatches = (retrievedPrice.recurring?.interval_count || 1) === 1;
+
+      if (!isPriceActive || !isUsd || !intervalMatches || !intervalCountMatches) {
+        console.error(`[Stripe Price Verification] FAIL CLOSED: Invalid Price ID '${targetPriceId}': active=${isPriceActive}, currency=${retrievedPrice.currency}, interval=${retrievedPrice.recurring?.interval} (expected '${expectedInterval}')`);
+        return res.status(400).json({
+          success: false,
+          code: "STRIPE_PRICE_VERIFICATION_FAILED",
+          error: `Stripe Price ID '${targetPriceId}' failed verification: active=${isPriceActive}, currency=${retrievedPrice.currency}, interval=${retrievedPrice.recurring?.interval}`,
+          userFriendlyMessage: `رمز السعر (Stripe Price ID) لخطة ${requestedPlan} (${requestedCycle === "annual" ? "سنوي" : "شهري"}) غير صالح أو غير نشط في Stripe Dashboard.`
+        });
+      }
+
+      if (retrievedPrice.unit_amount !== unitAmountCents) {
+        console.warn(`[Stripe Price Verification] Price ID '${targetPriceId}' amount ($${retrievedPrice.unit_amount ? retrievedPrice.unit_amount / 100 : 0}) differs from expected amount ($${totalAmountUSD}). Utilizing Stripe Dashboard Price ID as authoritative source of truth.`);
+      }
+
+      verifiedPriceId = retrievedPrice.id;
+      console.log(`[Stripe Price Verification] Price ID ${verifiedPriceId} verified successfully: active=true, currency=USD, interval=${expectedInterval}, amount=$${retrievedPrice.unit_amount ? retrievedPrice.unit_amount / 100 : 0}`);
+
+    } catch (priceErr: any) {
+      console.error(`[Stripe Price Verification] FAIL CLOSED: Failed to retrieve Price ID '${targetPriceId}' from Stripe API: ${priceErr?.message}`);
+      return res.status(400).json({
+        success: false,
+        code: "STRIPE_PRICE_RETRIEVAL_FAILED",
+        error: `Failed to retrieve Price ID '${targetPriceId}' from Stripe API: ${priceErr?.message}`,
+        userFriendlyMessage: `تعذر جلب بيانات السعر (Price ID: ${targetPriceId}) من حساب Stripe. يرجى التأكد من وجود Price ID في Stripe Dashboard TEST MODE.`
+      });
     }
 
-    // Build Line Items: Use verified price ID if available; otherwise use Stripe native dynamic price_data
-    const lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] = resolvedPriceId
-      ? [{ price: resolvedPriceId, quantity: 1 }]
-      : [{
-          price_data: {
-            currency: "usd",
-            product_data: {
-              name: `Zakir ${requestedPlan} Plan (${requestedCycle === "annual" ? "Annual Billing" : "Monthly Billing"})`,
-              description: `Institutional Causal Memory Engine & Decision Intelligence Suite for ${finalCompanyName}.`,
-            },
-            unit_amount: unitAmountCents,
-            recurring: {
-              interval: requestedCycle === "annual" ? "year" : "month",
-              interval_count: 1,
-            },
-          },
-          quantity: 1,
-        }];
+    // Line items MUST use the verified Price ID from Stripe Dashboard
+    const lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] = [
+      { price: verifiedPriceId, quantity: 1 }
+    ];
 
     // Build Session Parameters with official Stripe ui_mode: "embedded", explicit payment methods, and return_url
     const returnUrl = `${baseUrl}/?view=settings&tab=subscription&session_id={CHECKOUT_SESSION_ID}`;
@@ -1235,7 +1263,7 @@ app.post([
       sessionParams.customer_email = validUserEmail;
     }
 
-    console.log(`[Stripe Checkout] Creating Embedded Checkout Session for user ${finalUserId} (ui_mode: embedded, items: ${resolvedPriceId ? 'catalog' : 'dynamic price_data'})...`);
+    console.log(`[Stripe Checkout] Creating Embedded Checkout Session for user ${finalUserId} (ui_mode: embedded, verified price: ${verifiedPriceId})...`);
     let session: Stripe.Checkout.Session;
     try {
       session = await stripe.checkout.sessions.create(sessionParams);
@@ -1811,7 +1839,7 @@ async function sendSystemMail(
     process.env.RESEND_FROM ||
     process.env.RESEND_FROM_EMAIL ||
     process.env.EMAIL_FROM ||
-    "noreply@getzakir.com"
+    "Zakir <noreply@getzakir.com>"
   ).trim();
 
   if (
@@ -1820,12 +1848,14 @@ async function sendSystemMail(
     fromSender.includes("example.com") ||
     fromSender.includes("onboarding@resend.dev")
   ) {
-    fromSender = "noreply@getzakir.com";
+    fromSender = "Zakir <noreply@getzakir.com>";
   }
 
   if (!fromSender.includes("<")) {
-    fromSender = `Zakir Platform <${fromSender}>`;
+    fromSender = `Zakir <${fromSender}>`;
   }
+
+  const replyTo = (process.env.RESEND_REPLY_TO || "support@getzakir.com").trim();
 
   try {
     const resend = getResendInstance();
@@ -1839,7 +1869,7 @@ async function sendSystemMail(
       };
     }
 
-    console.log(`[EMAIL DISPATCH ATTEMPT] To: ${to} | Subject: "${subject}" | Sender: ${fromSender}`);
+    console.log(`[EMAIL DISPATCH ATTEMPT] To: ${to} | Subject: "${subject}" | Sender: ${fromSender} | ReplyTo: ${replyTo}`);
 
     const attachments: any[] = [...userAttachments];
 
@@ -1849,6 +1879,12 @@ async function sendSystemMail(
       subject: subject,
       html: html,
       text: text || undefined,
+      replyTo: replyTo,
+      headers: {
+        "X-Entity-Ref-ID": `zakir_${Date.now()}_${crypto.randomBytes(4).toString("hex")}`,
+        "X-Auto-Response-Suppress": "OOF, AutoReply",
+        "Auto-Submitted": "auto-generated",
+      }
     };
 
     if (attachments.length > 0) {
@@ -1888,7 +1924,7 @@ async function sendSystemMail(
         success: false,
         error: response.error,
         statusCode: errStatus,
-        userFriendlyMessage: "تعذر إرسال رمز الاستعادة. يرجى المحاولة مرة أخرى."
+        userFriendlyMessage: "تعذر إرسال بريد التحقق. يرجى المحاولة مرة أخرى."
       };
     }
 
@@ -1906,7 +1942,7 @@ async function sendSystemMail(
       success: false,
       error: new Error("No message ID returned from Resend"),
       statusCode: 500,
-      userFriendlyMessage: "تعذر إرسال رمز الاستعادة. يرجى المحاولة مرة أخرى."
+      userFriendlyMessage: "تعذر إرسال بريد التحقق. يرجى المحاولة مرة أخرى."
     };
 
   } catch (resendErr: any) {
@@ -1921,7 +1957,7 @@ async function sendSystemMail(
       success: false,
       error: resendErr,
       statusCode: errStatus,
-      userFriendlyMessage: "تعذر إرسال رمز الاستعادة. يرجى المحاولة مرة أخرى."
+      userFriendlyMessage: "تعذر إرسال بريد التحقق. يرجى المحاولة مرة أخرى."
     };
   }
 }
@@ -1999,8 +2035,9 @@ function buildMasterEmailHtml(options: {
   baseUrl?: string;
 }): string {
   const { subject, title, greeting, bodyHtml, securityNote, baseUrl } = options;
-  const appBase = (baseUrl || getAppBaseUrl()).replace(/\/$/, "");
-  const logoUrl = `${appBase}/zakir-official-logo.png`;
+  const canonicalDomain = "https://www.getzakir.com";
+  const appBase = (baseUrl || getAppBaseUrl() || canonicalDomain).replace(/\/$/, "");
+  const logoUrl = process.env.PUBLIC_LOGO_URL || `${canonicalDomain}/zakir-official-logo.png`;
 
   return `<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml" lang="en">
@@ -2024,12 +2061,12 @@ function buildMasterEmailHtml(options: {
 
           <!-- Header -->
           <tr>
-            <td style="padding: 32px 32px 24px 32px; text-align: center; border-bottom: 1px solid #f1f5f9;">
+            <td style="padding: 32px 32px 24px 32px; text-align: center; border-bottom: 1px solid #f1f5f9; background-color: #ffffff;">
               <table border="0" cellpadding="0" cellspacing="0" align="center" style="margin: 0 auto;">
                 <tr>
-                  <td align="center" valign="middle" style="background-color: #0075DE; width: 56px; height: 56px; border-radius: 14px; text-align: center; vertical-align: middle;">
-                    <a href="${appBase}" target="_blank" style="text-decoration: none; display: inline-block;">
-                      <img src="${logoUrl}" alt="Zakir" width="48" height="48" style="display: block; width: 48px; height: 48px; border-radius: 10px; border: 0; outline: none; text-decoration: none; margin: 0 auto;" />
+                  <td align="center" valign="middle" style="background-color: #ffffff; width: 64px; height: 64px; border-radius: 16px; border: 1px solid #e2e8f0; text-align: center; vertical-align: middle; box-shadow: 0 2px 8px rgba(15, 23, 42, 0.05);">
+                    <a href="${appBase}" target="_blank" style="text-decoration: none; display: block;">
+                      <img src="${logoUrl}" alt="Zakir" width="56" height="56" style="display: block; width: 56px; height: 56px; border-radius: 12px; border: 0; outline: none; text-decoration: none; margin: 0 auto;" />
                     </a>
                   </td>
                 </tr>
