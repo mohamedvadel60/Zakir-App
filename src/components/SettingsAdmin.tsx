@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useMemo } from "react";
 import { loadStripe, Stripe as StripeType } from "@stripe/stripe-js";
-import { EmbeddedCheckoutProvider, EmbeddedCheckout } from "@stripe/react-stripe-js";
+import { StripeEmbeddedCheckout } from "./StripeEmbeddedCheckout.js";
 import { auth } from "../firebase.js";
 import { authenticatedFetch, getAuthenticatedFirebaseUser, getFreshAuthToken, safeJsonResponse } from "../lib/apiUtils.js";
 import { 
@@ -298,6 +298,7 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
   const [checkoutSessionId, setCheckoutSessionId] = useState<string | null>(null);
   const [paymentError, setPaymentError] = useState<string | null>(null);
   const [stripePromise, setStripePromise] = useState<Promise<StripeType | null> | null>(null);
+  const [stripePublishableKey, setStripePublishableKey] = useState<string>("");
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const [isCancellingSubscription, setIsCancellingSubscription] = useState(false);
   const [completedReceipt, setCompletedReceipt] = useState<{
@@ -320,6 +321,7 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
           ? envObj.VITE_STRIPE_PUBLIC_KEY
           : null);
     if (envCandidate) {
+      setStripePublishableKey(envCandidate);
       setStripePromise(getCachedStripe(envCandidate));
     }
 
@@ -331,6 +333,7 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
           ? data.publishableKey
           : envCandidate;
         if (pubKey) {
+          setStripePublishableKey(pubKey);
           setStripePromise(getCachedStripe(pubKey));
         }
       })
@@ -432,7 +435,7 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
       const tFetchStart = performance.now();
       console.log(`[Stripe TRACE] D. Dispatching POST /api/stripe/create-checkout-session at +${(tFetchStart - t0).toFixed(2)}ms`);
 
-      const res = await authenticatedFetch("/api/stripe/create-checkout-session", {
+      const sessionPromise = authenticatedFetch("/api/stripe/create-checkout-session", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -441,6 +444,13 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
           companyName: currentUser?.companyName || currentUser?.organizationName || "Organization",
         }),
       });
+
+      // 15-second network timeout guard
+      const timeoutPromise = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error(lang === "ar" ? "استغرقت معالجة الطلب وقتاً طويلاً. يرجى المحاولة مرة أخرى." : "Request timed out. Please try again.")), 15000)
+      );
+
+      const res = await Promise.race([sessionPromise, timeoutPromise]);
 
       const tFetchEnd = performance.now();
       const apiMs = (tFetchEnd - tFetchStart).toFixed(2);
@@ -491,13 +501,14 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
         ? envObj.VITE_STRIPE_PUBLISHABLE_KEY
         : (typeof envObj.VITE_STRIPE_PUBLIC_KEY === "string" && envObj.VITE_STRIPE_PUBLIC_KEY.startsWith("pk_")
             ? envObj.VITE_STRIPE_PUBLIC_KEY
-            : null);
+            : (stripePublishableKey || null));
       const resolvedPubKey = (typeof data.publishableKey === "string" && data.publishableKey.startsWith("pk_"))
         ? data.publishableKey
         : envCandidate;
 
       if (resolvedPubKey) {
         const tStripePromise = performance.now();
+        setStripePublishableKey(resolvedPubKey);
         setStripePromise(getCachedStripe(resolvedPubKey));
         console.log(`[Stripe TRACE] G. Embedded Checkout options initialized at +${(tStripePromise - t0).toFixed(2)}ms`);
       } else {
@@ -3322,15 +3333,28 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
                     </div>
                   )}
 
-                  {/* Embedded Checkout Body without restrictive overflow: hidden */}
+                  {/* Embedded Checkout Body */}
                   {isProcessingPayment && !checkoutClientSecret ? (
                     <div className="py-16 text-center space-y-4">
                       <RefreshCw className="w-8 h-8 text-[#0075DE] animate-spin mx-auto" />
                       <p className={`text-xs font-medium ${theme === "dark" ? "text-slate-300" : "text-slate-700"}`}>
                         {lang === "ar" ? "جاري تهيئة بوابة Stripe للدفع الآمن داخل المنصة..." : "Initializing secure in-app Stripe Checkout..."}
                       </p>
+                      <div className="pt-2">
+                        <button
+                          type="button"
+                          onClick={handleReturnToPlans}
+                          className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                            theme === "dark"
+                              ? "bg-slate-800 hover:bg-slate-700 text-slate-300"
+                              : "bg-slate-200 hover:bg-slate-300 text-slate-700"
+                          }`}
+                        >
+                          {lang === "ar" ? "إلغاء والعودة للباقات" : "Cancel & Return to Plans"}
+                        </button>
+                      </div>
                     </div>
-                  ) : checkoutClientSecret && stripePromise && embeddedCheckoutOptions ? (
+                  ) : checkoutClientSecret && (stripePublishableKey || stripePromise) ? (
                     <div 
                       key={checkoutClientSecret} 
                       className={`rounded-2xl border p-2 sm:p-4 min-h-[420px] ${
@@ -3338,26 +3362,16 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
                       }`}
                       id="stripe-embedded-checkout-host"
                     >
-                      <PaymentErrorBoundary
-                        lang={lang}
+                      <StripeEmbeddedCheckout
+                        key={checkoutClientSecret}
                         clientSecret={checkoutClientSecret}
-                        onRetry={() => handleStripeCheckout(selectedPlanForCheckout, true)}
-                      >
-                        <EmbeddedCheckoutProvider
-                          key={checkoutClientSecret}
-                          stripe={stripePromise}
-                          options={embeddedCheckoutOptions}
-                        >
-                          <EmbeddedCheckout />
-                        </EmbeddedCheckoutProvider>
-                      </PaymentErrorBoundary>
-                    </div>
-                  ) : checkoutClientSecret && !stripePromise && !paymentError ? (
-                    <div className="py-12 text-center space-y-4">
-                      <RefreshCw className="w-8 h-8 text-[#0075DE] animate-spin mx-auto" />
-                      <p className={`text-xs ${theme === "dark" ? "text-slate-300" : "text-slate-700"}`}>
-                        {lang === "ar" ? "جاري تحميل مكتبة Stripe.js للدفع..." : "Loading Stripe.js library..."}
-                      </p>
+                        publishableKey={stripePublishableKey || ((import.meta as any).env?.VITE_STRIPE_PUBLISHABLE_KEY || "")}
+                        onComplete={handleConfirmPayment}
+                        onRetry={() => handleStripeCheckout(selectedPlanForCheckout!, true)}
+                        onBack={handleReturnToPlans}
+                        lang={lang}
+                        theme={theme}
+                      />
                     </div>
                   ) : !paymentError ? (
                     <div className="py-12 text-center space-y-4">
@@ -3365,6 +3379,19 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
                       <p className={`text-xs ${theme === "dark" ? "text-slate-400" : "text-slate-600"}`}>
                         {lang === "ar" ? "جاري الاتصال بخوادم Stripe..." : "Connecting to Stripe..."}
                       </p>
+                      <div className="pt-1">
+                        <button
+                          type="button"
+                          onClick={handleReturnToPlans}
+                          className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                            theme === "dark"
+                              ? "bg-slate-800 hover:bg-slate-700 text-slate-300"
+                              : "bg-slate-200 hover:bg-slate-300 text-slate-700"
+                          }`}
+                        >
+                          {lang === "ar" ? "العودة للباقات" : "Back to plans"}
+                        </button>
+                      </div>
                     </div>
                   ) : null}
                 </div>
