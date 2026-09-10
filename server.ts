@@ -1190,12 +1190,14 @@ app.post([
         monthly: resolveStrictPriceId([
           process.env.STRIPE_PRICE_STARTER_MONTHLY,
           process.env.STRIPE_STARTER_MONTHLY_PRICE_ID,
+          "price_1UEC5WFFyAo18vVy5APEHNBN",
         ]),
         annual: resolveStrictPriceId([
           process.env.STRIPE_PRICE_STARTER_YEARLY,
           process.env.STRIPE_PRICE_STARTER_ANNUAL,
           process.env.STRIPE_STARTER_YEARLY_PRICE_ID,
           process.env.STRIPE_STARTER_ANNUAL_PRICE_ID,
+          "price_1UEC2tFFyAo18vVyTN2gl6Bm",
         ]),
       },
       Professional: {
@@ -1203,6 +1205,7 @@ app.post([
           process.env.STRIPE_PRICE_PROFESSIONAL_MONTHLY,
           process.env.STRIPE_PROFESSIONAL_MONTHLY_PRICE_ID,
           process.env.STRIPE_MONTHLY_PRICE_ID,
+          "price_1UEC6NFFyAo18vVyZATNtv6Y",
         ]),
         annual: resolveStrictPriceId([
           process.env.STRIPE_PRICE_PROFESSIONAL_YEARLY,
@@ -1211,18 +1214,21 @@ app.post([
           process.env.STRIPE_PROFESSIONAL_ANNUAL_PRICE_ID,
           process.env.STRIPE_YEARLY_PRICE_ID,
           process.env.STRIPE_ANNUAL_PRICE_ID,
+          "price_1UEByqFFyAo18vVydh8OZrmp",
         ]),
       },
       Enterprise: {
         monthly: resolveStrictPriceId([
           process.env.STRIPE_PRICE_ENTERPRISE_MONTHLY,
           process.env.STRIPE_ENTERPRISE_MONTHLY_PRICE_ID,
+          "price_1UEC7HFFyAo18vVyHJB2zEFf",
         ]),
         annual: resolveStrictPriceId([
           process.env.STRIPE_PRICE_ENTERPRISE_YEARLY,
           process.env.STRIPE_PRICE_ENTERPRISE_ANNUAL,
           process.env.STRIPE_ENTERPRISE_YEARLY_PRICE_ID,
           process.env.STRIPE_ENTERPRISE_ANNUAL_PRICE_ID,
+          "price_1UEC3rFFyAo18vVy1a6DzeR3",
         ]),
       }
     };
