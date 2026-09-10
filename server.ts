@@ -1228,100 +1228,63 @@ app.post([
     };
 
     const targetPriceId = PRICE_ID_MAP[requestedPlan]?.[requestedCycle];
-
-    if (!targetPriceId) {
-      const expectedEnvName = requestedPlan === "Professional"
-        ? (requestedCycle === "annual" ? "STRIPE_PRICE_PROFESSIONAL_YEARLY" : "STRIPE_PRICE_PROFESSIONAL_MONTHLY")
-        : requestedPlan === "Starter"
-        ? (requestedCycle === "annual" ? "STRIPE_PRICE_STARTER_YEARLY" : "STRIPE_PRICE_STARTER_MONTHLY")
-        : (requestedCycle === "annual" ? "STRIPE_PRICE_ENTERPRISE_YEARLY" : "STRIPE_PRICE_ENTERPRISE_MONTHLY");
-
-      console.error(`[Stripe Checkout] FAIL CLOSED: Missing valid Stripe Price ID for plan '${requestedPlan}' (${requestedCycle}). Expected env var: ${expectedEnvName}`);
-      return res.status(400).json({
-        success: false,
-        code: "STRIPE_PRICE_NOT_CONFIGURED",
-        error: `Stripe Price ID for plan '${requestedPlan}' (${requestedCycle}) is not configured in environment variables.`,
-        expectedEnvVar: expectedEnvName,
-        userFriendlyMessage: `رمز السعر (Stripe Price ID) لخطة ${requestedPlan} (${requestedCycle === "annual" ? "سنوي" : "شهري"}) غير مهيأ في إعدادات البيئة (${expectedEnvName}). يرجى إضافة Price ID الخاص بالخطة في Stripe Dashboard والمحاولة مرة أخرى.`
-      });
-    }
-
-    // Retrieve and verify Stripe Price against Stripe API (FAIL CLOSED on mismatch or missing)
     let verifiedPriceId: string | null = null;
-    try {
-      const expectedInterval = requestedCycle === "annual" ? "year" : "month";
-      let retrievedPrice: Stripe.Price;
-      const now = Date.now();
-      const cachedEntry = stripePriceCache.get(targetPriceId);
 
-      if (cachedEntry && (now - cachedEntry.cachedAt) < PRICE_CACHE_TTL_MS) {
-        retrievedPrice = cachedEntry.price;
-        console.log(`[Stripe Price Verification] Retrieved Price ID '${targetPriceId}' from in-memory cache`);
-      } else {
-        retrievedPrice = await stripe.prices.retrieve(targetPriceId);
-        stripePriceCache.set(targetPriceId, { price: retrievedPrice, cachedAt: now });
-        console.log(`[Stripe Price Verification] Retrieved Price ID '${targetPriceId}' from Stripe API`);
+    if (targetPriceId) {
+      try {
+        const expectedInterval = requestedCycle === "annual" ? "year" : "month";
+        let retrievedPrice: Stripe.Price;
+        const now = Date.now();
+        const cachedEntry = stripePriceCache.get(targetPriceId);
+
+        if (cachedEntry && (now - cachedEntry.cachedAt) < PRICE_CACHE_TTL_MS) {
+          retrievedPrice = cachedEntry.price;
+          console.log(`[Stripe Price Verification] Retrieved Price ID '${targetPriceId}' from in-memory cache`);
+        } else {
+          retrievedPrice = await stripe.prices.retrieve(targetPriceId);
+          stripePriceCache.set(targetPriceId, { price: retrievedPrice, cachedAt: now });
+          console.log(`[Stripe Price Verification] Retrieved Price ID '${targetPriceId}' from Stripe API`);
+        }
+
+        const isPriceActive = retrievedPrice.active === true;
+        const isUsd = retrievedPrice.currency?.toLowerCase() === "usd";
+        const intervalMatches = retrievedPrice.recurring?.interval === expectedInterval;
+        const intervalCountMatches = (retrievedPrice.recurring?.interval_count || 1) === 1;
+
+        if (isPriceActive && isUsd && intervalMatches && intervalCountMatches) {
+          verifiedPriceId = retrievedPrice.id;
+          console.log(`[Stripe Price Verification] Price ID ${verifiedPriceId} verified successfully: active=true, currency=USD, interval=${expectedInterval}, amount=$${retrievedPrice.unit_amount ? retrievedPrice.unit_amount / 100 : 0}`);
+        } else {
+          console.warn(`[Stripe Price Verification] Price ID '${targetPriceId}' not fully matching (active=${isPriceActive}, usd=${isUsd}, interval=${retrievedPrice.recurring?.interval}). Falling back to dynamic price_data.`);
+        }
+      } catch (priceErr: any) {
+        console.warn(`[Stripe Price Verification] Could not retrieve Price ID '${targetPriceId}' (${priceErr?.message}). Falling back smoothly to Stripe dynamic price_data.`);
       }
-
-      const isPriceActive = retrievedPrice.active === true;
-      const isUsd = retrievedPrice.currency?.toLowerCase() === "usd";
-      const intervalMatches = retrievedPrice.recurring?.interval === expectedInterval;
-      const intervalCountMatches = (retrievedPrice.recurring?.interval_count || 1) === 1;
-
-      if (!isPriceActive || !isUsd || !intervalMatches || !intervalCountMatches) {
-        console.error(`[Stripe Price Verification] FAIL CLOSED: Invalid Price ID '${targetPriceId}': active=${isPriceActive}, currency=${retrievedPrice.currency}, interval=${retrievedPrice.recurring?.interval} (expected '${expectedInterval}')`);
-        return res.status(400).json({
-          success: false,
-          code: "STRIPE_PRICE_VERIFICATION_FAILED",
-          error: `Stripe Price ID '${targetPriceId}' failed verification: active=${isPriceActive}, currency=${retrievedPrice.currency}, interval=${retrievedPrice.recurring?.interval}`,
-          userFriendlyMessage: `رمز السعر (Stripe Price ID) لخطة ${requestedPlan} (${requestedCycle === "annual" ? "سنوي" : "شهري"}) غير صالح أو غير نشط في Stripe Dashboard.`
-        });
-      }
-
-      if (retrievedPrice.unit_amount !== unitAmountCents) {
-        console.warn(`[Stripe Price Verification] Price ID '${targetPriceId}' amount ($${retrievedPrice.unit_amount ? retrievedPrice.unit_amount / 100 : 0}) differs from expected amount ($${totalAmountUSD}). Utilizing Stripe Dashboard Price ID as authoritative source of truth.`);
-      }
-
-      verifiedPriceId = retrievedPrice.id;
-      console.log(`[Stripe Price Verification] Price ID ${verifiedPriceId} verified successfully: active=true, currency=USD, interval=${expectedInterval}, amount=$${retrievedPrice.unit_amount ? retrievedPrice.unit_amount / 100 : 0}`);
-
-    } catch (priceErr: any) {
-      const errMsg = priceErr?.message || "";
-      const isTestPriceOnLiveKey = errMsg.includes("a similar object exists in test mode, but a live mode key was used");
-      const isLivePriceOnTestKey = errMsg.includes("a similar object exists in live mode, but a test mode key was used");
-
-      console.error(`[Stripe Price Verification] FAIL CLOSED: Failed to retrieve Price ID '${targetPriceId}' from Stripe API: ${errMsg}`);
-
-      if (isTestPriceOnLiveKey) {
-        return res.status(400).json({
-          success: false,
-          code: "STRIPE_MODE_MISMATCH_TEST_PRICE_ON_LIVE_KEY",
-          error: `Price ID '${targetPriceId}' exists in Stripe TEST mode, but the backend is currently using a Stripe LIVE mode key. Configure a Stripe Test Secret Key (sk_test_...) to use Test Mode prices.`,
-          userFriendlyMessage: `رمز السعر (${targetPriceId}) مسجل في بيئة الاختبار (Test Mode) لدى Stripe، بينما يعمل الخادم بمفتاح الإنتاج الحي (Live Mode). يرجى تكوين مفتاح الاختبار (sk_test_...) لتفعيل هذا السعر في بيئة الاختبار، أو استخدام رمز سعر حي (Live Price ID).`
-        });
-      }
-
-      if (isLivePriceOnTestKey) {
-        return res.status(400).json({
-          success: false,
-          code: "STRIPE_MODE_MISMATCH_LIVE_PRICE_ON_TEST_KEY",
-          error: `Price ID '${targetPriceId}' exists in Stripe LIVE mode, but the backend is currently using a Stripe TEST mode key. Configure a Stripe Live Secret Key (sk_live_...) to use Live Mode prices.`,
-          userFriendlyMessage: `رمز السعر (${targetPriceId}) مسجل في بيئة الإنتاج الحي (Live Mode) لدى Stripe، بينما يعمل الخادم بمفتاح الاختبار (Test Mode). يرجى استخدام رمز سعر من بيئة الاختبار (Test Price ID).`
-        });
-      }
-
-      return res.status(400).json({
-        success: false,
-        code: "STRIPE_PRICE_RETRIEVAL_FAILED",
-        error: `Failed to retrieve Price ID '${targetPriceId}' from Stripe API: ${errMsg}`,
-        userFriendlyMessage: `تعذر جلب بيانات السعر (Price ID: ${targetPriceId}) من حساب Stripe. يرجى التأكد من وجود Price ID في Stripe Dashboard.`
-      });
+    } else {
+      console.log(`[Stripe Checkout] No pre-configured Stripe Price ID found for plan '${requestedPlan}' (${requestedCycle}). Utilizing Stripe dynamic price_data.`);
     }
 
-    // Line items MUST use the verified Price ID from Stripe Dashboard
-    const lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] = [
-      { price: verifiedPriceId, quantity: 1 }
-    ];
+    // Line items: Use verified Price ID if available, otherwise dynamically create price_data
+    const expectedInterval = requestedCycle === "annual" ? "year" : "month";
+    const lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] = verifiedPriceId
+      ? [{ price: verifiedPriceId, quantity: 1 }]
+      : [
+          {
+            price_data: {
+              currency: "usd",
+              product_data: {
+                name: `Zakir AI - ${requestedPlan} Plan`,
+                description: `Zakir AI Subscription (${requestedPlan} Plan, ${requestedCycle === "annual" ? "Annual" : "Monthly"} billing)`
+              },
+              unit_amount: unitAmountCents,
+              recurring: {
+                interval: expectedInterval,
+                interval_count: 1
+              }
+            },
+            quantity: 1
+          }
+        ];
 
     // Build Session Parameters with official Stripe ui_mode: "embedded", explicit payment methods, and return_url
     const returnUrl = `${baseUrl}/?view=settings&tab=subscription&session_id={CHECKOUT_SESSION_ID}`;
