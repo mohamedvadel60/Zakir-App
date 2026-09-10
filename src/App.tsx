@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef } from "react";
+import React, { useState, useEffect, useMemo, useRef, Suspense } from "react";
 
 export const ZAKIR_BUILD_ID = "ZAKIR_BUILD_2026_09_04_v2.4.2_BUILD_MARKER_AUDIT";
 if (typeof window !== "undefined") {
@@ -75,22 +75,8 @@ import {
   RotateCcw,
   Send
 } from "lucide-react";
-import { 
-  BarChart, 
-  Bar, 
-  LineChart,
-  Line,
-  XAxis, 
-  YAxis, 
-  CartesianGrid, 
-  Tooltip as ChartTooltip, 
-  ResponsiveContainer, 
-  PieChart, 
-  Pie, 
-  Cell, 
-  AreaChart, 
-  Area 
-} from "recharts";
+import { DashboardAnalyticsChart } from "./components/DashboardAnalyticsChart";
+import { TrialCountdown } from "./components/TrialCountdown";
 import { motion, AnimatePresence } from "motion/react";
 import { translations } from "./translations.js";
 import { 
@@ -107,9 +93,9 @@ import {
   ChatMessage,
   UserFile
 } from "./types.js";
-import { FileManager } from "./components/FileManager";
-import { AnimatedLandingPage } from "./components/AnimatedLandingPage";
-import { WorldBankPortal } from "./components/WorldBankPortal";
+const FileManager = React.lazy(() => import("./components/FileManager").then(m => ({ default: m.FileManager })));
+const AnimatedLandingPage = React.lazy(() => import("./components/AnimatedLandingPage").then(m => ({ default: m.AnimatedLandingPage })));
+const WorldBankPortal = React.lazy(() => import("./components/WorldBankPortal").then(m => ({ default: m.WorldBankPortal })));
 import { generateWorldBankFallbackData } from "./lib/worldBankFallback.js";
 import { ZakirLogo } from "./components/ZakirLogo";
 import { AuthSwitch } from "./components/ui/auth-switch";
@@ -118,18 +104,19 @@ import { CompactAppSwitcher } from "./components/ui/CompactAppSwitcher";
 import { CompactLanguageSwitcher } from "./components/ui/CompactLanguageSwitcher";
 import { applyGlobalTheme, ThemeMode } from "./lib/themeUtils.js";
 import { authenticatedFetch } from "./lib/apiUtils.js";
-import { SettingsAdmin } from "./components/SettingsAdmin";
+const SettingsAdmin = React.lazy(() => import("./components/SettingsAdmin").then(m => ({ default: m.SettingsAdmin })));
 import { InstallPrompt } from "./components/InstallPrompt";
-import { CustomerSupport } from "./components/CustomerSupport";
-import { PrintSystem } from "./components/print/PrintSystem";
-import { EmailVerificationView } from "./components/EmailVerificationView";
-import { RiskRadarChart } from "./components/RiskRadarChart";
-import { AdminDashboard } from "./components/AdminDashboard";
+const CustomerSupport = React.lazy(() => import("./components/CustomerSupport").then(m => ({ default: m.CustomerSupport })));
+const PrintSystem = React.lazy(() => import("./components/print/PrintSystem").then(m => ({ default: m.PrintSystem })));
+const EmailVerificationView = React.lazy(() => import("./components/EmailVerificationView").then(m => ({ default: m.EmailVerificationView })));
+const RiskRadarChart = React.lazy(() => import("./components/RiskRadarChart").then(m => ({ default: m.RiskRadarChart })));
+const AdminDashboard = React.lazy(() => import("./components/AdminDashboard").then(m => ({ default: m.AdminDashboard })));
 import { DesktopUpdateNotification } from "./components/DesktopUpdateNotification";
-import { DeletedAccountRecovery } from "./components/DeletedAccountRecovery";
-import GmailVault from "./components/GmailVault.tsx";
+const DeletedAccountRecovery = React.lazy(() => import("./components/DeletedAccountRecovery").then(m => ({ default: m.DeletedAccountRecovery })));
+const GmailVault = React.lazy(() => import("./components/GmailVault"));
 import {
   ADMIN_USER_ID,
+  isUserAdmin,
   registerFirebaseUser,
   loginFirebaseUser,
   loginWithGoogle,
@@ -456,6 +443,18 @@ function ReadMoreText({
   );
 }
 
+const ViewLoadingFallback = () => (
+  <div className="w-full min-h-[350px] flex items-center justify-center">
+    <div className="w-8 h-8 border-2 border-[#0075DE] border-t-transparent rounded-full animate-spin"></div>
+  </div>
+);
+
+const FullScreenFallback = () => (
+  <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex items-center justify-center">
+    <div className="w-8 h-8 border-2 border-[#0075DE] border-t-transparent rounded-full animate-spin"></div>
+  </div>
+);
+
 export default function App() {
   // Locale & Theme State
   const [lang, setLang] = useState<"en" | "ar" | "fr">(() => {
@@ -473,68 +472,16 @@ export default function App() {
   const [isInitialDataLoaded, setIsInitialDataLoaded] = useState(false);
   const [authMode, setAuthMode] = useState<"landing" | "register" | "login">("landing");
   
-  // User Verification and Password Reset States
-  const [verificationEmail, setVerificationEmail] = useState("");
-  const [verificationCode, setVerificationCode] = useState("");
-  const [verificationError, setVerificationError] = useState("");
-  const [verificationSuccess, setVerificationSuccess] = useState("");
-  const [isVerifyingCode, setIsVerifyingCode] = useState(false);
-  const [isResendingCode, setIsResendingCode] = useState(false);
-  const [resendCountdown, setResendCountdown] = useState(0);
-  const [resendAttempts, setResendAttempts] = useState(0);
-  const [cooldownUntil, setCooldownUntil] = useState<string | null>(null);
-  const [cooldownTimeLeft, setCooldownTimeLeft] = useState<number>(0);
-
-  // Reset input and messages when entering verification view
-  useEffect(() => {
-    if (currentUser && !currentUser.isEmailVerified && currentUser.verification_required !== false) {
-      setVerificationCode("");
-      setVerificationError("");
-      setVerificationSuccess(
-        lang === "ar"
-          ? "تم إرسال رمز التحقق إلى بريدك الإلكتروني."
-          : "Verification code sent to your email."
-      );
-    }
-  }, [currentUser?.id, currentUser?.isEmailVerified]);
-
-  useEffect(() => {
-    if (resendCountdown > 0) {
-      const timer = setTimeout(() => {
-        setResendCountdown(prev => prev - 1);
-      }, 1000);
-      return () => clearTimeout(timer);
-    }
-  }, [resendCountdown]);
-
-  useEffect(() => {
-    if (!cooldownUntil) {
-      setCooldownTimeLeft(0);
-      return;
-    }
-
-    const updateCooldown = () => {
-      const diff = Math.ceil((new Date(cooldownUntil).getTime() - Date.now()) / 1000);
-      if (diff <= 0) {
-        setCooldownUntil(null);
-        setCooldownTimeLeft(0);
-        setResendAttempts(0);
-      } else {
-        setCooldownTimeLeft(diff);
-      }
-    };
-
-    updateCooldown();
-    const interval = setInterval(updateCooldown, 1000);
-    return () => clearInterval(interval);
-  }, [cooldownUntil]);
-
+  // Utility & Timers
   const formatCountdown = (totalSeconds: number) => {
     const mins = Math.floor(totalSeconds / 60);
     const secs = totalSeconds % 60;
     return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
   };
 
+  const [lastUpdatedTimestamp, setLastUpdatedTimestamp] = useState<number>(Date.now());
+
+  // Password Reset States
   const [resetCode, setResetCode] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmNewPassword, setConfirmNewPassword] = useState("");
@@ -1134,17 +1081,6 @@ This hosting domain (**${currentDomain}**) has not been authorized in your Fireb
     }
   }, [urlInvitation, currentUser]);
 
-  // Last Update Timer States
-  const [lastUpdatedTimestamp, setLastUpdatedTimestamp] = useState<number>(Date.now());
-  const [secondsSinceUpdate, setSecondsSinceUpdate] = useState<number>(0);
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setSecondsSinceUpdate(Math.floor((Date.now() - lastUpdatedTimestamp) / 1000));
-    }, 1000);
-    return () => clearInterval(interval);
-  }, [lastUpdatedTimestamp]);
-
   // Enterprise Print & Document System State
   const [isPrintPreviewOpen, setIsPrintPreviewOpen] = useState(false);
   const [printPreviewMemoryId, setPrintPreviewMemoryId] = useState<string | null>(null);
@@ -1158,7 +1094,6 @@ This hosting domain (**${currentDomain}**) has not been authorized in your Fireb
     setIsRefreshing(true);
     setRefreshKey(prev => prev + 1);
     setLastUpdatedTimestamp(Date.now());
-    setSecondsSinceUpdate(0);
     setTimeout(() => {
       setIsRefreshing(false);
       setShowRefreshToast(true);
@@ -1338,9 +1273,6 @@ This hosting domain (**${currentDomain}**) has not been authorized in your Fireb
   const [sqlQuery, setSqlQuery] = useState("SELECT * FROM memories;");
   const [sqlResult, setSqlResult] = useState<SQLQueryResult | null>(null);
   const [sqlSchema, setSqlSchema] = useState("");
-
-  // Trial Timer state
-  const [timeLeftStr, setTimeLeftStr] = useState("18:41:09");
 
   // Load translations shortcut
   const t = translations[lang];
@@ -1554,25 +1486,6 @@ This hosting domain (**${currentDomain}**) has not been authorized in your Fireb
     }
   }, [activeTab, memories.length, riskAlerts.length, lang]);
 
-  // Handle countdown
-  useEffect(() => {
-    const interval = setInterval(() => {
-      if (!currentUser) return;
-      const expireTime = new Date(currentUser.trialExpiresAt).getTime();
-      const now = Date.now();
-      const diff = expireTime - now;
-      if (diff <= 0) {
-        setTimeLeftStr("00:00:00");
-      } else {
-        const h = Math.floor(diff / 3600000).toString().padStart(2, "0");
-        const m = Math.floor((diff % 3600000) / 60000).toString().padStart(2, "0");
-        const s = Math.floor((diff % 60000) / 1000).toString().padStart(2, "0");
-        setTimeLeftStr(`${h}:${m}:${s}`);
-      }
-    }, 1000);
-    return () => clearInterval(interval);
-  }, [currentUser]);
-
   // Password requirements validation memo
   const pwdValidation = useMemo(() => {
     const len = regPassword.length >= 8;
@@ -1759,14 +1672,8 @@ This hosting domain (**${currentDomain}**) has not been authorized in your Fireb
       sessionStorage.setItem(`auto_sent_otp_${createdUser.id}`, "true");
       sessionStorage.setItem(`auto_sent_otp_${createdUser.email}`, "true");
 
-      setVerificationEmail(regEmail);
-      setVerificationCode("");
-      setVerificationError("");
-      setVerificationSuccess(lang === "ar" ? "تم إرسال رمز التحقق إلى بريدك الإلكتروني!" : "Verification code sent to your email!");
-
       setCurrentUser(createdUser);
       applyUserPreferences(createdUser);
-      setResendAttempts(0);
       setRegOwnerName("");
       setRegCompanyName("");
       setRegEmail("");
@@ -2071,7 +1978,6 @@ This hosting domain (**${currentDomain}**) has not been authorized in your Fireb
 
       // Reset Last Update timer to 0s
       setLastUpdatedTimestamp(Date.now());
-      setSecondsSinceUpdate(0);
 
       // Automatically trigger a Systemic Risk Alert for High or Critical risk level memories
       if (newRiskLevel === "High" || newRiskLevel === "Critical") {
@@ -3136,17 +3042,19 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
       {/* AUTHENTICATION & LANDING GATEWAY */}
       {!currentUser ? (
         authMode === "landing" ? (
-          <AnimatedLandingPage
-            lang={lang}
-            theme={theme}
-            onToggleTheme={() => {
-              const newTheme = theme === "dark" ? "light" : "dark";
-              applyGlobalTheme(newTheme, setTheme, currentUser, setCurrentUser, true);
-            }}
-            onToggleLanguage={toggleLanguage}
-            onNavigateAuth={(mode) => setAuthMode(mode)}
-            onStripeCheckout={handleLandingStripeCheckout}
-          />
+          <Suspense fallback={<FullScreenFallback />}>
+            <AnimatedLandingPage
+              lang={lang}
+              theme={theme}
+              onToggleTheme={() => {
+                const newTheme = theme === "dark" ? "light" : "dark";
+                applyGlobalTheme(newTheme, setTheme, currentUser, setCurrentUser, true);
+              }}
+              onToggleLanguage={toggleLanguage}
+              onNavigateAuth={(mode) => setAuthMode(mode)}
+              onStripeCheckout={handleLandingStripeCheckout}
+            />
+          </Suspense>
         ) : (
           /* UNIFIED CLEAN MINIMAL AUTHENTICATION GATEWAY */
           <SplitLoginCard
@@ -3155,37 +3063,39 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
             onBackToHome={() => setAuthMode("landing")}
           >
             {deletedAccountRecovery ? (
-              <DeletedAccountRecovery
-                email={deletedAccountRecovery.email}
-                daysRemaining={deletedAccountRecovery.daysRemaining}
-                restoreUntil={deletedAccountRecovery.restoreUntil}
-                isExpired={deletedAccountRecovery.isExpired}
-                lang={lang}
-                theme={theme}
-                onCancel={() => {
-                  setDeletedAccountRecovery(null);
-                  setRegError("");
-                  setLoginError("");
-                }}
-                onRestored={(restoredUser) => {
-                  const activeUser: User = {
-                    ...restoredUser,
-                    isVerified: true,
-                    isEmailVerified: true,
-                    email_verified: true,
-                    emailVerified: true,
-                    verification_required: false,
-                    verification_status: "verified"
-                  };
-                  setCurrentUser(activeUser);
-                  applyUserPreferences(activeUser);
-                  setDeletedAccountRecovery(null);
-                  setRegLifecycleState(null);
-                  setRegEmail("");
-                  setLoginEmail("");
-                  setAuthMode("landing");
-                }}
-              />
+              <Suspense fallback={<FullScreenFallback />}>
+                <DeletedAccountRecovery
+                  email={deletedAccountRecovery.email}
+                  daysRemaining={deletedAccountRecovery.daysRemaining}
+                  restoreUntil={deletedAccountRecovery.restoreUntil}
+                  isExpired={deletedAccountRecovery.isExpired}
+                  lang={lang}
+                  theme={theme}
+                  onCancel={() => {
+                    setDeletedAccountRecovery(null);
+                    setRegError("");
+                    setLoginError("");
+                  }}
+                  onRestored={(restoredUser) => {
+                    const activeUser: User = {
+                      ...restoredUser,
+                      isVerified: true,
+                      isEmailVerified: true,
+                      email_verified: true,
+                      emailVerified: true,
+                      verification_required: false,
+                      verification_status: "verified"
+                    };
+                    setCurrentUser(activeUser);
+                    applyUserPreferences(activeUser);
+                    setDeletedAccountRecovery(null);
+                    setRegLifecycleState(null);
+                    setRegEmail("");
+                    setLoginEmail("");
+                    setAuthMode("landing");
+                  }}
+                />
+              </Suspense>
             ) : (
               <motion.div 
                 initial={{ opacity: 0, y: 12, scale: 0.99 }}
@@ -3949,24 +3859,28 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
             )}
           </SplitLoginCard>
         )
-      ) : (currentUser && !currentUser.isEmailVerified && currentUser.verification_required !== false) ? (
-        <EmailVerificationView
-          currentUser={currentUser}
-          lang={lang}
-          onLogout={handleLogout}
-          setCurrentUser={setCurrentUser}
-          applyUserPreferences={applyUserPreferences}
-        />
-      ) : currentUser.id === ADMIN_USER_ID ? (
+      ) : (currentUser && !currentUser.isEmailVerified && currentUser.verification_required !== false && !isUserAdmin(currentUser)) ? (
+        <Suspense fallback={<FullScreenFallback />}>
+          <EmailVerificationView
+            currentUser={currentUser}
+            lang={lang}
+            onLogout={handleLogout}
+            setCurrentUser={setCurrentUser}
+            applyUserPreferences={applyUserPreferences}
+          />
+        </Suspense>
+      ) : (currentUser && (currentUser.id === ADMIN_USER_ID || isUserAdmin(currentUser) || currentUser.role === "Admin")) ? (
         /* ADMIN DASHBOARD VIEW FOR ADMIN USER */
-        <AdminDashboard
-          currentUser={currentUser}
-          lang={lang}
-          theme={theme}
-          toggleLanguage={toggleLanguage}
-          toggleTheme={toggleTheme}
-          onLogout={handleLogout}
-        />
+        <Suspense fallback={<FullScreenFallback />}>
+          <AdminDashboard
+            currentUser={currentUser}
+            lang={lang}
+            theme={theme}
+            toggleLanguage={toggleLanguage}
+            toggleTheme={toggleTheme}
+            onLogout={handleLogout}
+          />
+        </Suspense>
       ) : (
         /* MAIN APPLICATION WORKSPACE LAYOUT */
         <div id="main-app-workspace" className="flex h-screen overflow-hidden">
@@ -4173,7 +4087,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-slate-500 font-bold uppercase tracking-wider">{lang === "ar" ? "التجريبي" : "TRIAL"}</span>
-                    <span className="text-amber-500 font-bold font-mono">{timeLeftStr}</span>
+                    <TrialCountdown trialExpiresAt={currentUser?.trialExpiresAt} />
                   </div>
                 </div>
               )}
@@ -4845,119 +4759,12 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                             </div>
 
                             <div className="h-80 relative">
-                              {chartDataCategory.length === 0 ? (
-                                <div className={`h-full flex flex-col items-center justify-center text-center p-6 border border-dashed rounded-xl ${
-                                  theme === "dark" ? "border-slate-800 bg-slate-950/20" : "border-slate-200 bg-slate-50"
-                                }`}>
-                                  <TrendingUp className="w-10 h-10 text-slate-500 mb-2 opacity-40" />
-                                  <p className="text-xs text-slate-400 font-medium">
-                                    {isRtl 
-                                      ? "لا توجد بيانات تصنيفية مسجلة بعد. أضف ذكريات جديدة لعرض التوزيع البياني." 
-                                      : "No category distribution data yet. Add memories to populate the chart."}
-                                  </p>
-                                </div>
-                              ) : (
-                                <ResponsiveContainer width="100%" height="100%">
-                                  {categoryChartType === "bar" ? (
-                                    <BarChart data={chartDataCategory} margin={{ top: 10, right: 10, left: -25, bottom: 0 }}>
-                                      <CartesianGrid strokeDasharray="3 3" stroke={theme === "dark" ? "#1e293b" : "#e2e8f0"} />
-                                      <XAxis dataKey="name" stroke="#64748b" fontSize={11} tickLine={false} />
-                                      <YAxis stroke="#64748b" fontSize={11} tickLine={false} />
-                                      <ChartTooltip 
-                                        contentStyle={{ 
-                                          backgroundColor: theme === "dark" ? "#0f172a" : "#ffffff", 
-                                          borderColor: theme === "dark" ? "#1e293b" : "#e2e8f0",
-                                          borderRadius: "8px",
-                                          color: theme === "dark" ? "#f8fafc" : "#0f172a",
-                                          fontSize: "12px"
-                                        }} 
-                                      />
-                                      <Bar dataKey="value" fill="#0075DE" radius={[4, 4, 0, 0]}>
-                                        {chartDataCategory.map((entry, index) => (
-                                          <Cell key={`cell-${index}`} fill={entry.color || (index % 2 === 0 ? "#0075DE" : "#005BAB")} />
-                                        ))}
-                                      </Bar>
-                                    </BarChart>
-                                  ) : categoryChartType === "line" ? (
-                                    <LineChart data={chartDataCategory} margin={{ top: 10, right: 10, left: -25, bottom: 0 }}>
-                                      <CartesianGrid strokeDasharray="3 3" stroke={theme === "dark" ? "#1e293b" : "#e2e8f0"} />
-                                      <XAxis dataKey="name" stroke="#64748b" fontSize={11} tickLine={false} />
-                                      <YAxis stroke="#64748b" fontSize={11} tickLine={false} />
-                                      <ChartTooltip 
-                                        contentStyle={{ 
-                                          backgroundColor: theme === "dark" ? "#0f172a" : "#ffffff", 
-                                          borderColor: theme === "dark" ? "#1e293b" : "#e2e8f0",
-                                          borderRadius: "8px",
-                                          color: theme === "dark" ? "#f8fafc" : "#0f172a",
-                                          fontSize: "12px"
-                                        }} 
-                                      />
-                                      <Line 
-                                        type="natural" 
-                                        dataKey="value" 
-                                        stroke="#0075DE" 
-                                        strokeWidth={3} 
-                                        dot={{ r: 5, fill: "#0075DE", stroke: theme === "dark" ? "#0b0f19" : "#ffffff", strokeWidth: 2 }} 
-                                        activeDot={{ r: 7, fill: "#ffffff", stroke: "#0075DE", strokeWidth: 2 }} 
-                                      />
-                                    </LineChart>
-                                  ) : categoryChartType === "area" ? (
-                                    <AreaChart data={chartDataCategory} margin={{ top: 10, right: 10, left: -25, bottom: 0 }}>
-                                      <defs>
-                                        <linearGradient id="colorValueCat" x1="0" y1="0" x2="0" y2="1">
-                                          <stop offset="5%" stopColor="#0075DE" stopOpacity={0.4}/>
-                                          <stop offset="95%" stopColor="#0075DE" stopOpacity={0.01}/>
-                                        </linearGradient>
-                                      </defs>
-                                      <CartesianGrid strokeDasharray="3 3" stroke={theme === "dark" ? "#1e293b" : "#e2e8f0"} />
-                                      <XAxis dataKey="name" stroke="#64748b" fontSize={11} tickLine={false} />
-                                      <YAxis stroke="#64748b" fontSize={11} tickLine={false} />
-                                      <ChartTooltip 
-                                        contentStyle={{ 
-                                          backgroundColor: theme === "dark" ? "#0f172a" : "#ffffff", 
-                                          borderColor: theme === "dark" ? "#1e293b" : "#e2e8f0",
-                                          borderRadius: "8px",
-                                          color: theme === "dark" ? "#f8fafc" : "#0f172a",
-                                          fontSize: "12px"
-                                        }} 
-                                      />
-                                      <Area 
-                                        type="natural" 
-                                        dataKey="value" 
-                                        stroke="#0075DE" 
-                                        strokeWidth={3} 
-                                        fillOpacity={1} 
-                                        fill="url(#colorValueCat)" 
-                                      />
-                                    </AreaChart>
-                                  ) : (
-                                    <PieChart>
-                                      <ChartTooltip 
-                                        contentStyle={{ 
-                                          backgroundColor: theme === "dark" ? "#0f172a" : "#ffffff", 
-                                          borderColor: theme === "dark" ? "#1e293b" : "#e2e8f0",
-                                          borderRadius: "8px",
-                                          color: theme === "dark" ? "#f8fafc" : "#0f172a",
-                                          fontSize: "12px"
-                                        }} 
-                                      />
-                                      <Pie
-                                        data={chartDataCategory}
-                                        cx="50%"
-                                        cy="45%"
-                                        innerRadius={65}
-                                        outerRadius={95}
-                                        paddingAngle={4}
-                                        dataKey="value"
-                                      >
-                                        {chartDataCategory.map((entry, index) => (
-                                          <Cell key={`cell-${index}`} fill={entry.color || ["#0075DE", "#005BAB", "#0D7A82", "#14B8A6", "#8B5CF6"][index % 5]} />
-                                        ))}
-                                      </Pie>
-                                    </PieChart>
-                                  )}
-                                </ResponsiveContainer>
-                              )}
+                              <DashboardAnalyticsChart
+                                categoryChartType={categoryChartType}
+                                chartDataCategory={chartDataCategory}
+                                theme={theme}
+                                isRtl={isRtl}
+                              />
 
                               {categoryChartType === "donut" && chartDataCategory.length > 0 && (
                                 <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none pb-8">
@@ -6035,13 +5842,15 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                     </div>
                   </div>
 
-                  <FileManager 
-                    userId={currentUser.role !== "CEO" && currentUser.workspace?.ownerId ? currentUser.workspace.ownerId : currentUser.id} 
-                    lang={lang} 
-                    theme={theme} 
-                    secretPasscode={currentUser.encryptedSecurity?.secretPasscode}
-                    isVaultLocked={currentUser.encryptedSecurity?.lockedModules?.fileVault}
-                  />
+                  <Suspense fallback={<ViewLoadingFallback />}>
+                    <FileManager 
+                      userId={currentUser.role !== "CEO" && currentUser.workspace?.ownerId ? currentUser.workspace.ownerId : currentUser.id} 
+                      lang={lang} 
+                      theme={theme} 
+                      secretPasscode={currentUser.encryptedSecurity?.secretPasscode}
+                      isVaultLocked={currentUser.encryptedSecurity?.lockedModules?.fileVault}
+                    />
+                  </Suspense>
                 </motion.div>
               )}
 
@@ -6395,36 +6204,38 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                   )}
 
                   {/* WORLD BANK OPEN DATA PORTAL SECTION */}
-                  <WorldBankPortal
-                    theme={theme}
-                    lang={lang}
-                    currentUser={currentUser}
-                    memories={memories}
-                    wbCountry={wbCountry}
-                    setWbCountry={setWbCountry}
-                    wbIndicator={wbIndicator}
-                    setWbIndicator={setWbIndicator}
-                    wbStartYear={wbStartYear}
-                    setWbStartYear={setWbStartYear}
-                    wbEndYear={wbEndYear}
-                    setWbEndYear={setWbEndYear}
-                    wbData={wbData}
-                    wbLoading={wbLoading}
-                    wbCausalAnalysis={wbCausalAnalysis}
-                    wbIsAnalyzing={wbIsAnalyzing}
-                    runWorldBankCausalAnalysis={runWorldBankCausalAnalysis}
-                    importWorldBankToMemory={importWorldBankToMemory}
-                    wbImportSuccessMsg={wbImportSuccessMsg}
-                    setWbImportSuccessMsg={setWbImportSuccessMsg}
-                    wbImportErrorMsg={wbImportErrorMsg}
-                    setWbImportErrorMsg={setWbImportErrorMsg}
-                    wbImporting={wbImporting}
-                    renderTextWithLinks={renderTextWithLinks}
-                    wbError={wbError}
-                    wbSourceInfo={wbSourceInfo}
-                    retryFetch={() => fetchWorldBankData(wbCountry, wbIndicator, wbStartYear, wbEndYear)}
-                    loadBenchmarkFallback={loadBenchmarkFallback}
-                  />
+                  <Suspense fallback={<ViewLoadingFallback />}>
+                    <WorldBankPortal
+                      theme={theme}
+                      lang={lang}
+                      currentUser={currentUser}
+                      memories={memories}
+                      wbCountry={wbCountry}
+                      setWbCountry={setWbCountry}
+                      wbIndicator={wbIndicator}
+                      setWbIndicator={setWbIndicator}
+                      wbStartYear={wbStartYear}
+                      setWbStartYear={setWbStartYear}
+                      wbEndYear={wbEndYear}
+                      setWbEndYear={setWbEndYear}
+                      wbData={wbData}
+                      wbLoading={wbLoading}
+                      wbCausalAnalysis={wbCausalAnalysis}
+                      wbIsAnalyzing={wbIsAnalyzing}
+                      runWorldBankCausalAnalysis={runWorldBankCausalAnalysis}
+                      importWorldBankToMemory={importWorldBankToMemory}
+                      wbImportSuccessMsg={wbImportSuccessMsg}
+                      setWbImportSuccessMsg={setWbImportSuccessMsg}
+                      wbImportErrorMsg={wbImportErrorMsg}
+                      setWbImportErrorMsg={setWbImportErrorMsg}
+                      wbImporting={wbImporting}
+                      renderTextWithLinks={renderTextWithLinks}
+                      wbError={wbError}
+                      wbSourceInfo={wbSourceInfo}
+                      retryFetch={() => fetchWorldBankData(wbCountry, wbIndicator, wbStartYear, wbEndYear)}
+                      loadBenchmarkFallback={loadBenchmarkFallback}
+                    />
+                  </Suspense>
                 </motion.div>
               )}
 
@@ -6620,12 +6431,14 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                   </div>
 
                   {/* RADAR CHART VISUALIZATION */}
-                  <RiskRadarChart
-                    riskAlerts={riskAlerts}
-                    memories={memories}
-                    lang={lang}
-                    theme={theme}
-                  />
+                  <Suspense fallback={<ViewLoadingFallback />}>
+                    <RiskRadarChart
+                      riskAlerts={riskAlerts}
+                      memories={memories}
+                      lang={lang}
+                      theme={theme}
+                    />
+                  </Suspense>
 
                   <div className="space-y-4 pt-2">
                     <h3 className="text-lg font-bold flex items-center gap-2">
@@ -6698,10 +6511,12 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                   className="space-y-6"
                   id="email-vault-view"
                 >
-                  <GmailVault
-                    lang={lang}
-                    theme={theme}
-                  />
+                  <Suspense fallback={<ViewLoadingFallback />}>
+                    <GmailVault
+                      lang={lang}
+                      theme={theme}
+                    />
+                  </Suspense>
                 </motion.div>
               )}
 
@@ -6713,24 +6528,26 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                   className="space-y-6"
                   id="settings-view"
                 >
-                  <SettingsAdmin
-                    currentUser={currentUser}
-                    onUpdateUser={async (updated) => {
-                      setCurrentUser(updated);
-                      if (!updated.customTheme?.approvedAt && updated.userPreferences?.theme) {
-                        applyGlobalTheme(updated.userPreferences.theme, setTheme, updated, setCurrentUser, false);
-                      }
-                      await saveFirebaseUserProfile(updated);
-                    }}
-                    onEncryptAllData={handleEncryptAllData}
-                    onLogout={handleLogout}
-                    lang={lang}
-                    setLang={toggleLanguage}
-                    theme={theme}
-                    setTheme={toggleTheme}
-                    activeSubTab={settingsActiveSubTab}
-                    setActiveSubTab={setSettingsActiveSubTab}
-                  />
+                  <Suspense fallback={<ViewLoadingFallback />}>
+                    <SettingsAdmin
+                      currentUser={currentUser}
+                      onUpdateUser={async (updated) => {
+                        setCurrentUser(updated);
+                        if (!updated.customTheme?.approvedAt && updated.userPreferences?.theme) {
+                          applyGlobalTheme(updated.userPreferences.theme, setTheme, updated, setCurrentUser, false);
+                        }
+                        await saveFirebaseUserProfile(updated);
+                      }}
+                      onEncryptAllData={handleEncryptAllData}
+                      onLogout={handleLogout}
+                      lang={lang}
+                      setLang={toggleLanguage}
+                      theme={theme}
+                      setTheme={toggleTheme}
+                      activeSubTab={settingsActiveSubTab}
+                      setActiveSubTab={setSettingsActiveSubTab}
+                    />
+                  </Suspense>
                 </motion.div>
               )}
 
@@ -6742,10 +6559,12 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                   className="space-y-6"
                   id="support-view"
                 >
-                  <CustomerSupport
-                    currentUser={currentUser}
-                    lang={lang}
-                  />
+                  <Suspense fallback={<ViewLoadingFallback />}>
+                    <CustomerSupport
+                      currentUser={currentUser}
+                      lang={lang}
+                    />
+                  </Suspense>
                 </motion.div>
               )}
 
@@ -7174,22 +6993,26 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
       <DesktopUpdateNotification lang={lang} />
 
       {/* Enterprise Print & Document System */}
-      <PrintSystem
-        isOpen={isPrintPreviewOpen}
-        onClose={() => setIsPrintPreviewOpen(false)}
-        memories={memories}
-        initialSelectedMemoryId={printPreviewMemoryId}
-        lang={lang}
-        companyName={currentUser?.organizationName || currentUser?.companyName || "Zakir Institutional Memory Engine"}
-        userName={currentUser?.fullName || currentUser?.ownerName || currentUser?.email?.split("@")[0] || "System Administrator"}
-        workspaceLogoUrl={currentUser?.companyLogoUrl || currentUser?.avatarUrl}
-        currentUser={currentUser}
-        onOpenProfileSettings={() => {
-          setIsPrintPreviewOpen(false);
-          setActiveTab("settings");
-        }}
-        theme={theme}
-      />
+      {isPrintPreviewOpen && (
+        <Suspense fallback={null}>
+          <PrintSystem
+            isOpen={isPrintPreviewOpen}
+            onClose={() => setIsPrintPreviewOpen(false)}
+            memories={memories}
+            initialSelectedMemoryId={printPreviewMemoryId}
+            lang={lang}
+            companyName={currentUser?.organizationName || currentUser?.companyName || "Zakir Institutional Memory Engine"}
+            userName={currentUser?.fullName || currentUser?.ownerName || currentUser?.email?.split("@")[0] || "System Administrator"}
+            workspaceLogoUrl={currentUser?.companyLogoUrl || currentUser?.avatarUrl}
+            currentUser={currentUser}
+            onOpenProfileSettings={() => {
+              setIsPrintPreviewOpen(false);
+              setActiveTab("settings");
+            }}
+            theme={theme}
+          />
+        </Suspense>
+      )}
 
     </div>
   );

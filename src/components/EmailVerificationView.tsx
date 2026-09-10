@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { motion } from "motion/react";
 import { ShieldCheck, AlertTriangle, CheckCircle, RefreshCw, LogOut } from "lucide-react";
 import { ZakirLogo } from "./ZakirLogo";
-import { sendVerificationCodeApi, verifyCodeApi } from "../lib/firebaseServices";
+import { sendVerificationCodeApi, verifyCodeApi, isUserAdmin } from "../lib/firebaseServices";
 import { User } from "../types";
 
 interface EmailVerificationViewProps {
@@ -30,7 +30,7 @@ export const EmailVerificationView: React.FC<EmailVerificationViewProps> = ({
   const [cooldownTimeLeft, setCooldownTimeLeft] = useState(0);
   const [cooldownUntil, setCooldownUntil] = useState<string | null>(null);
 
-  // Auto bypass if already verified or invited workspace member
+  // Auto bypass if already verified, Admin account, or invited workspace member
   useEffect(() => {
     const isAlreadyVerified =
       currentUser.isVerified === true ||
@@ -39,11 +39,13 @@ export const EmailVerificationView: React.FC<EmailVerificationViewProps> = ({
       currentUser.emailVerified === true ||
       currentUser.verification_required === false ||
       currentUser.verification_status === "verified" ||
+      isUserAdmin(currentUser) ||
       (currentUser.role && currentUser.role !== "CEO");
 
     if (isAlreadyVerified) {
       const verifiedUser: User = {
         ...currentUser,
+        role: isUserAdmin(currentUser) ? "Admin" : currentUser.role,
         isVerified: true,
         isEmailVerified: true,
         email_verified: true,
@@ -65,6 +67,7 @@ export const EmailVerificationView: React.FC<EmailVerificationViewProps> = ({
       currentUser.isEmailVerified === true ||
       currentUser.verification_required === false ||
       currentUser.verification_status === "verified" ||
+      isUserAdmin(currentUser) ||
       (currentUser.role && currentUser.role !== "CEO");
 
     if (isAlreadyVerified) return;
@@ -253,6 +256,10 @@ export const EmailVerificationView: React.FC<EmailVerificationViewProps> = ({
   };
 
   const remainingAttempts = Math.max(0, 3 - resendAttempts);
+
+  if (isUserAdmin(currentUser)) {
+    return null;
+  }
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col justify-between p-4 sm:p-6 relative selection:bg-[#0075DE]/30 text-slate-900 dark:text-slate-100">

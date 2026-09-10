@@ -511,6 +511,16 @@ export async function loginFirebaseUser(email: string, pass: string, attemptId?:
         });
       } catch (e) {}
 
+      if (isUserAdmin(userData)) {
+        userData.role = "Admin";
+        userData.isVerified = true;
+        userData.isEmailVerified = true;
+        userData.email_verified = true;
+        userData.emailVerified = true;
+        userData.verification_required = false;
+        userData.verification_status = "verified";
+      }
+
       setLocalItem(`user_${uid}`, userData);
       return userData;
     }
@@ -529,6 +539,15 @@ export async function loginFirebaseUser(email: string, pass: string, attemptId?:
 
     if (srvRes.ok && srvData && (srvData.user || srvData.id)) {
       const authenticatedUser: User = srvData.user || srvData;
+      if (isUserAdmin(authenticatedUser)) {
+        authenticatedUser.role = "Admin";
+        authenticatedUser.isVerified = true;
+        authenticatedUser.isEmailVerified = true;
+        authenticatedUser.email_verified = true;
+        authenticatedUser.emailVerified = true;
+        authenticatedUser.verification_required = false;
+        authenticatedUser.verification_status = "verified";
+      }
       logLoginTrace("LOGIN_SERVER_RESULT", {
         attemptId: currentAttemptId,
         email: normalizedEmail,
@@ -1079,7 +1098,19 @@ export async function updateUserPreferences(userId: string, newPrefs: Partial<Us
   return updatedPrefs;
 }
 
-export function subscribeToFirebaseAuthState(callback: (user: User | null) => void) {
+export function subscribeToFirebaseAuthState(rawCallback: (user: User | null) => void) {
+  const callback = (u: User | null) => {
+    if (u && isUserAdmin(u)) {
+      u.role = "Admin";
+      u.isVerified = true;
+      u.isEmailVerified = true;
+      u.email_verified = true;
+      u.emailVerified = true;
+      u.verification_required = false;
+      u.verification_status = "verified";
+    }
+    rawCallback(u);
+  };
   return onAuthStateChanged(auth, async (fbUser: FirebaseUser | null) => {
     if (!fbUser) {
       callback(null);
@@ -2031,6 +2062,19 @@ export async function fetchWorkspaceInvitations(workspaceId: string): Promise<Wo
 /* ================= ADMIN DASHBOARD SERVICES ================= */
 
 export const ADMIN_USER_ID = "SYhfciebGFUj29gqGaa0pqNunrk2";
+export const ADMIN_EMAILS: string[] = [
+  "mohamedvadel60@gmail.com",
+  "mohamedvadhil0@gmail.com"
+];
+
+export function isUserAdmin(user?: { id?: string | null; email?: string | null; role?: string | null } | null): boolean {
+  if (!user) return false;
+  if (user.id === ADMIN_USER_ID || user.id === "usr_ceo") return true;
+  if (user.role && (user.role.toUpperCase() === "ADMIN" || user.role === "Admin")) return true;
+  const email = (user.email || "").trim().toLowerCase();
+  if (email && ADMIN_EMAILS.includes(email)) return true;
+  return false;
+}
 
 export interface AdminUserRecord {
   id: string;
@@ -2954,6 +2998,15 @@ export function subscribeToFirebaseUserProfile(userId: string, callback: (user: 
   return onSnapshot(userDocRef, (docSnap) => {
     if (docSnap.exists()) {
       const uData = docSnap.data() as User;
+      if (isUserAdmin(uData)) {
+        uData.role = "Admin";
+        uData.isVerified = true;
+        uData.isEmailVerified = true;
+        uData.email_verified = true;
+        uData.emailVerified = true;
+        uData.verification_required = false;
+        uData.verification_status = "verified";
+      }
       setLocalItem(`user_${userId}`, uData);
       callback(uData);
     } else {

@@ -1994,6 +1994,9 @@ function hashVerificationCode(code: string): string {
   return crypto.createHash("sha256").update(code).digest("hex");
 }
 
+// Fast in-memory verification code registry to guarantee consistency across async Firestore/disk latency
+const activeVerificationCodes = new Map<string, any>();
+
 /**
  * Safely masks email addresses for diagnostic logging (e.g. m***@example.com)
  */
@@ -2081,27 +2084,13 @@ function buildMasterEmailHtml(options: {
         <!-- Master Card -->
         <table border="0" cellpadding="0" cellspacing="0" width="100%" style="max-width: 600px; background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 14px; overflow: hidden; box-shadow: 0 4px 16px rgba(15, 23, 42, 0.04);">
           
-          <!-- Primary Accent Line -->
-          <tr>
-            <td style="background-color: #0075DE; height: 4px; font-size: 0; line-height: 0;">&nbsp;</td>
-          </tr>
-
           <!-- Header -->
           <tr>
-            <td style="padding: 32px 32px 24px 32px; text-align: center; border-bottom: 1px solid #f1f5f9; background-color: #ffffff;">
-              <table border="0" cellpadding="0" cellspacing="0" align="center" style="margin: 0 auto;">
-                <tr>
-                  <td align="center" valign="middle" style="background-color: #ffffff; width: 64px; height: 64px; border-radius: 16px; border: 1px solid #e2e8f0; text-align: center; vertical-align: middle; box-shadow: 0 2px 8px rgba(15, 23, 42, 0.05);">
-                    <a href="${appBase}" target="_blank" style="text-decoration: none; display: block;">
-                      <img src="${logoUrl}" alt="Zakir" width="56" height="56" style="display: block; width: 56px; height: 56px; border-radius: 12px; border: 0; outline: none; text-decoration: none; margin: 0 auto;" />
-                    </a>
-                  </td>
-                </tr>
-              </table>
-              <div style="font-size: 22px; font-weight: 800; color: #0f172a; letter-spacing: 1.5px; margin-top: 12px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+            <td style="padding: 36px 32px 24px 32px; text-align: center; border-bottom: 1px solid #f1f5f9; background-color: #ffffff;">
+              <div style="font-size: 26px; font-weight: 800; color: #0f172a; letter-spacing: 1.5px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
                 Zakir
               </div>
-              <div style="font-size: 12px; font-weight: 500; color: #64748b; margin-top: 4px;">
+              <div style="font-size: 13px; font-weight: 500; color: #64748b; margin-top: 6px;">
                 Organizational Causal Memory &amp; Decision Intelligence
               </div>
             </td>
@@ -2880,6 +2869,23 @@ app.post("/api/auth/send-verification-code", otpLimiter, async (req, res) => {
     }
 
     const docId = foundUid; // CRITICAL: Document ID MUST be the resolved userId!
+
+    // ADMIN EXCEPTION: Admin accounts do NOT require Email OTP verification
+    const isTargetAdmin = (foundUid && await isUserAdminServer(foundUid, targetIdentifier))
+      || (targetIdentifier && ADMIN_EMAILS.has(targetIdentifier))
+      || (foundUid === ADMIN_USER_ID);
+
+    if (isTargetAdmin && (type === "account_registration" || type === "login")) {
+      console.log(`[AUTH EXCEPTION] Admin account (${targetIdentifier}) bypassed OTP generation.`);
+      return res.status(200).json({
+        success: true,
+        message: "Admin accounts do not require email verification.",
+        isAdmin: true,
+        verified: true,
+        sendCount: 0
+      });
+    }
+
     const db = readDb();
     if (!db.verification_codes) db.verification_codes = [];
 
@@ -3066,6 +3072,11 @@ app.post("/api/auth/send-verification-code", otpLimiter, async (req, res) => {
 
     console.log("Saving OTP for Doc ID:", docId, "Count:", newSendCount, "Name:", resolvedUserName || "(none)");
 
+    // Save record to fast in-memory registry, Firestore, and local JSON db
+    activeVerificationCodes.set(docId, record);
+    activeVerificationCodes.set(targetIdentifier, record);
+    if (foundUid) activeVerificationCodes.set(foundUid, record);
+
     // Save record to Firestore and local JSON db under both UID and email to ensure seamless recovery verification
     try {
       await adminDb.collection("verification_codes").doc(docId).set(record);
@@ -3127,6 +3138,21 @@ app.post("/api/auth/verify-code", otpLimiter, async (req, res) => {
     const cleanCode = String(code).trim();
     let foundUid = resolvedUser.userId;
 
+    // ADMIN EXCEPTION: Admin accounts do NOT require Email OTP verification
+    const isTargetAdmin = (foundUid && await isUserAdminServer(foundUid, targetIdentifier))
+      || (targetIdentifier && ADMIN_EMAILS.has(targetIdentifier))
+      || (foundUid === ADMIN_USER_ID);
+
+    if (isTargetAdmin) {
+      console.log(`[AUTH EXCEPTION] Admin account (${targetIdentifier}) bypassed OTP verification.`);
+      return res.status(200).json({
+        success: true,
+        message: "Admin account verified without OTP.",
+        isAdmin: true,
+        user: resolvedUser.userDoc || { id: foundUid, email: targetIdentifier, role: "Admin", isVerified: true }
+      });
+    }
+
     console.log("Verifying OTP for:", targetIdentifier);
 
     // Secure logging of OTP verification attempt (no OTP or hash logged)
@@ -3153,26 +3179,68 @@ app.post("/api/auth/verify-code", otpLimiter, async (req, res) => {
       }
     }
 
-    const docId = foundUid; // CRITICAL: documentId MUST be the resolved userId!
+    const docId = foundUid; // Document ID
     let activeRecord: any = null;
 
-    try {
-      const docSnap = await adminDb.collection("verification_codes").doc(docId).get();
-      if (docSnap.exists) {
-        activeRecord = docSnap.data();
+    // 1. Check in-memory fast registry first
+    const memCandidates = [foundUid, userId, targetIdentifier, docId].filter(Boolean);
+    for (const key of memCandidates) {
+      const rec = activeVerificationCodes.get(key);
+      if (rec && !rec.used) {
+        activeRecord = rec;
+        break;
       }
-    } catch (err) {
-      console.error("Failed to query Firestore verification_codes:", err);
     }
 
-    // Fallback lookup if not found under userId document ID
+    // 2. Check Firestore direct documents by foundUid, userId, targetIdentifier
     if (!activeRecord) {
-      const db = readDb();
-      if (!db.verification_codes) db.verification_codes = [];
-      activeRecord = db.verification_codes.find((vc: any) => vc.id === docId || vc.userId === docId);
+      const candidateDocIds = Array.from(new Set([foundUid, userId, targetIdentifier, docId].filter(Boolean)));
+      for (const cId of candidateDocIds) {
+        try {
+          const docSnap = await adminDb.collection("verification_codes").doc(cId).get();
+          if (docSnap.exists) {
+            const data = docSnap.data();
+            if (data && !data.used) {
+              activeRecord = data;
+              break;
+            } else if (!activeRecord) {
+              activeRecord = data;
+            }
+          }
+        } catch (err) {
+          console.warn(`Firestore read notice for verification code doc ${cId}:`, err);
+        }
+      }
+    }
 
-      if (!activeRecord) {
-        // Fallback for legacy records stored with email as documentId
+    // 3. Fallback lookup in local JSON DB
+    if (!activeRecord || activeRecord.used) {
+      const db = readDb();
+      if (db.verification_codes && Array.isArray(db.verification_codes)) {
+        const matches = db.verification_codes.filter((vc: any) => 
+          (foundUid && (vc.id === foundUid || vc.userId === foundUid)) ||
+          (userId && (vc.id === userId || vc.userId === userId)) ||
+          (docId && (vc.id === docId || vc.userId === docId)) ||
+          (targetIdentifier && (vc.id === targetIdentifier || (vc.email && vc.email.toLowerCase() === targetIdentifier)))
+        );
+
+        const unusedMatch = matches.filter((m: any) => !m.used).sort((a: any, b: any) => {
+          const tA = new Date(a.createdAt || a.lastSentAt || 0).getTime();
+          const tB = new Date(b.createdAt || b.lastSentAt || 0).getTime();
+          return tB - tA;
+        })[0];
+
+        if (unusedMatch) {
+          activeRecord = unusedMatch;
+        } else if (!activeRecord && matches.length > 0) {
+          activeRecord = matches[0];
+        }
+      }
+    }
+
+    // 4. Firestore collection query fallback if still no unused record found
+    if (!activeRecord || activeRecord.used) {
+      if (targetIdentifier) {
         try {
           const qSnap = await adminDb.collection("verification_codes")
             .where("email", "==", targetIdentifier)
@@ -3203,11 +3271,13 @@ app.post("/api/auth/verify-code", otpLimiter, async (req, res) => {
       return res.status(400).json({ error: "No active verification code found. Please click Resend Code." });
     }
 
-    if (activeRecord.userId && activeRecord.userId !== foundUid) {
+    // Validate target identity: if email is present on both, ensure it matches
+    const recEmail = (activeRecord.email || "").trim().toLowerCase();
+    if (recEmail && targetIdentifier && recEmail !== targetIdentifier) {
       console.warn("OTP_VERIFY_FAILED", {
-        reason: "INVALID_USER",
-        userId: foundUid,
-        email: targetIdentifier,
+        reason: "EMAIL_MISMATCH",
+        expectedEmail: recEmail,
+        providedEmail: targetIdentifier,
       });
       return res.status(400).json({ error: "Verification code does not match the active session." });
     }
@@ -3215,19 +3285,39 @@ app.post("/api/auth/verify-code", otpLimiter, async (req, res) => {
     const recordDocId = activeRecord.id || docId;
 
     const updateRecord = async (fields: any) => {
+      // 1. In-memory update
+      const memKeys = [activeRecord.id, activeRecord.userId, targetIdentifier, foundUid, userId, docId].filter(Boolean);
+      for (const k of memKeys) {
+        if (activeVerificationCodes.has(k)) {
+          const existing = activeVerificationCodes.get(k);
+          activeVerificationCodes.set(k, { ...existing, ...fields });
+        }
+      }
+
+      // 2. Firestore update
+      const fsIds = Array.from(new Set([recordDocId, activeRecord.id, targetIdentifier, foundUid].filter(Boolean)));
+      for (const dId of fsIds) {
+        try {
+          await adminDb.collection("verification_codes").doc(dId).update(fields);
+        } catch (err) {}
+      }
+
+      // 3. Local DB update
       try {
-        await adminDb.collection("verification_codes").doc(recordDocId).update(fields);
-      } catch (err) {
-        console.error("Failed to update Firestore verification code:", err);
-      }
-      // Update in local DB
-      const db = readDb();
-      if (!db.verification_codes) db.verification_codes = [];
-      const localRecord = db.verification_codes.find((vc: any) => vc.id === recordDocId || vc.id === docId);
-      if (localRecord) {
-        Object.assign(localRecord, fields);
-        writeDb(db);
-      }
+        const db = readDb();
+        if (db.verification_codes) {
+          db.verification_codes.forEach((vc: any) => {
+            if (
+              (targetIdentifier && vc.email?.toLowerCase() === targetIdentifier) ||
+              (recordDocId && vc.id === recordDocId) ||
+              (foundUid && (vc.userId === foundUid || vc.id === foundUid))
+            ) {
+              Object.assign(vc, fields);
+            }
+          });
+          writeDb(db);
+        }
+      } catch (err) {}
     };
 
     // Check expiration properly supporting Firestore Timestamp or Date string
@@ -3259,7 +3349,7 @@ app.post("/api/auth/verify-code", otpLimiter, async (req, res) => {
     const cleanCodeHash = hashVerificationCode(cleanCode);
     const isMatch = activeRecord.codeHash 
       ? activeRecord.codeHash === cleanCodeHash 
-      : activeRecord.code === cleanCode;
+      : (activeRecord.code === cleanCode || activeRecord.otpCode === cleanCode);
 
     // Check code equality
     if (!isMatch) {
@@ -10428,8 +10518,20 @@ app.post("/api/auth/login", loginRegisterLimiter, async (req, res) => {
         await adminDb.collection("users").doc(authUid).set(userProfile, { merge: true });
       } catch (e) {}
     } else {
-      // If user profile exists, check if user has an active or accepted invitation
-      if (!userProfile.isVerified || userProfile.verification_required !== false) {
+      // If user profile exists, check if user is Admin or has an active/accepted invitation
+      const isAdminAccount = (authUid && await isUserAdminServer(authUid, normalizedEmail)) 
+        || ADMIN_EMAILS.has(normalizedEmail) 
+        || authUid === ADMIN_USER_ID;
+
+      if (isAdminAccount) {
+        userProfile.role = "Admin";
+        userProfile.isVerified = true;
+        userProfile.isEmailVerified = true;
+        userProfile.email_verified = true;
+        userProfile.emailVerified = true;
+        userProfile.verification_required = false;
+        userProfile.verification_status = "verified";
+      } else if (!userProfile.isVerified || userProfile.verification_required !== false) {
         let hasInvitation = false;
         try {
           const invDoc = await adminDb.collection("invitations").doc(normalizedEmail).get();
@@ -10456,6 +10558,7 @@ app.post("/api/auth/login", loginRegisterLimiter, async (req, res) => {
         await adminDb.collection("users").doc(authUid).update({
           lastActiveAt: nowIso,
           lastLoginAt: nowIso,
+          role: userProfile.role,
           isVerified: userProfile.isVerified,
           isEmailVerified: userProfile.isEmailVerified,
           email_verified: userProfile.email_verified,

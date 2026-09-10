@@ -1168,6 +1168,20 @@
         "riskRadar": true
       },
       "reactivationStatus": "approved"
+    },
+    {
+      "accountId": "ceo@zakir.ai",
+      "emailNormalized": "ceo@zakir.ai",
+      "status": "ACTIVE",
+      "deletionType": null,
+      "deletedAt": null,
+      "deletedBy": null,
+      "restoreUntil": null,
+      "originalUserId": "usr_ceo",
+      "retainedDataDocPath": null,
+      "adminApprovalRequired": false,
+      "updatedAt": "2026-09-09T18:36:09.738Z",
+      "id": "ceo@zakir.ai"
     }
   ],
   "account_reactivation_requests": [
