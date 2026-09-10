@@ -2,16 +2,23 @@ import { auth } from "../firebase.js";
 
 /**
  * Ensures Firebase Auth state is initialized and returns the authenticated user if present.
+ * Uses a safe non-blocking timeout (max 1500ms) to guarantee the call never hangs indefinitely.
  */
 export async function getAuthenticatedFirebaseUser(): Promise<typeof auth.currentUser> {
-  if (!auth.currentUser && typeof auth.authStateReady === "function") {
+  if (auth?.currentUser) {
+    return auth.currentUser;
+  }
+  if (typeof auth?.authStateReady === "function") {
     try {
-      await auth.authStateReady();
+      await Promise.race([
+        auth.authStateReady(),
+        new Promise((resolve) => setTimeout(resolve, 1500))
+      ]);
     } catch (err) {
       console.warn("[apiUtils] authStateReady wait warning:", err);
     }
   }
-  return auth.currentUser;
+  return auth?.currentUser || null;
 }
 
 /**
@@ -22,7 +29,12 @@ export async function getFreshAuthToken(forceRefresh = false): Promise<string | 
   const user = await getAuthenticatedFirebaseUser();
   if (user) {
     try {
-      return await user.getIdToken(forceRefresh);
+      const tokenPromise = user.getIdToken(forceRefresh);
+      const token = await Promise.race([
+        tokenPromise,
+        new Promise<null>((resolve) => setTimeout(() => resolve(null), 2500))
+      ]);
+      if (token) return token;
     } catch (err) {
       console.warn("[getFreshAuthToken] Failed to retrieve Firebase ID token:", err);
     }

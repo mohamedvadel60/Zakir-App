@@ -80,11 +80,13 @@ function getCachedStripe(publishableKey?: string | null): Promise<StripeType | n
     try {
       cachedStripePromise = loadStripe(key).catch((err) => {
         console.warn("[Stripe] Failed to load Stripe.js script:", err);
+        cachedStripePromise = null;
         return null;
       });
     } catch (err) {
       console.warn("[Stripe] loadStripe synchronous error:", err);
-      cachedStripePromise = Promise.resolve(null);
+      cachedStripePromise = null;
+      return Promise.resolve(null);
     }
   }
   return cachedStripePromise;
@@ -3327,6 +3329,24 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
                       <p className={`text-xs font-medium ${theme === "dark" ? "text-slate-300" : "text-slate-700"}`}>
                         {lang === "ar" ? "جاري تهيئة بوابة Stripe للدفع الآمن داخل المنصة..." : "Initializing secure in-app Stripe Checkout..."}
                       </p>
+                      <div className="pt-2 flex items-center justify-center gap-3">
+                        <button
+                          type="button"
+                          onClick={() => handleStripeCheckout(selectedPlanForCheckout, true)}
+                          className="px-3 py-1.5 text-xs font-semibold text-[#0075DE] hover:bg-[#0075DE]/10 rounded-lg transition-colors cursor-pointer"
+                        >
+                          {lang === "ar" ? "إعادة المحاولة الآن" : "Retry now"}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleReturnToPlans}
+                          className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors cursor-pointer ${
+                            theme === "dark" ? "text-slate-400 hover:text-white" : "text-slate-600 hover:text-slate-900"
+                          }`}
+                        >
+                          {lang === "ar" ? "إلغاء والعودة" : "Cancel"}
+                        </button>
+                      </div>
                     </div>
                   ) : checkoutClientSecret && stripePromise && embeddedCheckoutOptions ? (
                     <div 
@@ -3359,10 +3379,17 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
                     </div>
                   ) : !paymentError ? (
                     <div className="py-12 text-center space-y-4">
-                      <RefreshCw className="w-8 h-8 text-[#0075DE] animate-spin mx-auto" />
                       <p className={`text-xs ${theme === "dark" ? "text-slate-400" : "text-slate-600"}`}>
-                        {lang === "ar" ? "جاري الاتصال بخوادم Stripe..." : "Connecting to Stripe..."}
+                        {lang === "ar" ? "اضغط على الزر أدناه لبدء عملية الدفع الآمنة عبر Stripe:" : "Click below to initialize secure Stripe checkout:"}
                       </p>
+                      <button
+                        type="button"
+                        onClick={() => handleStripeCheckout(selectedPlanForCheckout, true)}
+                        className="px-5 py-2.5 bg-[#0075DE] hover:bg-[#0075DE]/90 text-white font-bold text-xs rounded-xl shadow transition-all cursor-pointer inline-flex items-center gap-2"
+                      >
+                        <RefreshCw className="w-3.5 h-3.5" />
+                        <span>{lang === "ar" ? "بدء جلسة الدفع الآن" : "Start Checkout Session"}</span>
+                      </button>
                     </div>
                   ) : null}
                 </div>
