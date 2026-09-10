@@ -986,7 +986,6 @@ app.get("/api/payments/diagnostics", async (req, res) => {
 });
 
 // --- STRIPE CHECKOUT & SUBSCRIPTION ENDPOINTS ---
-const inFlightCheckoutUsers = new Set<string>();
 
 // In-memory server caches for Stripe verification (<200ms latency target)
 interface CachedPriceEntry {
@@ -1023,16 +1022,6 @@ app.post([
       error: "تعذر التحقق من جلسة حسابك. يرجى تحديث الجلسة والمحاولة مرة أخرى." 
     });
   }
-
-  // Concurrency guard to prevent multiple simultaneous session requests
-  if (inFlightCheckoutUsers.has(authUserId)) {
-    return res.status(429).json({
-      success: false,
-      error: "جاري معالجة طلب اشتراك سابق. يرجى الانتظار بضع ثوانٍ."
-    });
-  }
-
-  inFlightCheckoutUsers.add(authUserId);
 
   try {
     const { plan = "Professional", billingCycle = "annual", companyName } = req.body;
@@ -1418,8 +1407,6 @@ app.post([
       error: errorDetails.stripeErrorMessage,
       userFriendlyMessage: err?.message ? `تعذر إعداد جلسة الدفع: ${err.message}` : "تعذر إعداد جلسة الدفع الآمن حالياً. يرجى المحاولة لاحقاً."
     });
-  } finally {
-    inFlightCheckoutUsers.delete(authUserId);
   }
 });
 
