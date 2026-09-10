@@ -362,11 +362,9 @@ function resolveStripeKeys(): ResolvedStripeKeys {
   };
 
   addSecretCandidate(process.env.STRIPE_SECRET_KEY, "STRIPE_SECRET_KEY");
-  addSecretCandidate(process.env.STRIPE_LIVE_SECRET_KEY, "STRIPE_LIVE_SECRET_KEY");
   addSecretCandidate(process.env.STRIPE_TEST_SECRET_KEY, "STRIPE_TEST_SECRET_KEY");
+  addSecretCandidate(process.env.STRIPE_LIVE_SECRET_KEY, "STRIPE_LIVE_SECRET_KEY");
   addSecretCandidate(process.env.VITE_STRIPE_PUBLIC_KEY, "VITE_STRIPE_PUBLIC_KEY");
-  addSecretCandidate(process.env.STRIPE_MONTHLY_PRICE_ID, "STRIPE_MONTHLY_PRICE_ID");
-  addSecretCandidate(process.env.STRIPE_YEARLY_PRICE_ID, "STRIPE_YEARLY_PRICE_ID");
 
   const primaryPub = pubCandidates[0]?.key || null;
   const pubIsLive = primaryPub ? primaryPub.startsWith("pk_live_") : false;
@@ -1184,31 +1182,78 @@ app.post([
       }
     }
 
-    // Strict Plan + Billing Cycle Price ID Resolution (Server-Authoritative Mapping)
+    // Strict Plan + Billing Cycle Price ID Resolution (Server-Authoritative Mapping for all 6 combinations)
+    const resolveStrictPriceId = (candidates: (string | undefined)[]): string | undefined => {
+      for (const val of candidates) {
+        if (!val || typeof val !== "string") continue;
+        const trimmed = val.trim();
+        // Discard any secret keys, publishable keys or non-price strings
+        if (trimmed.startsWith("sk_") || trimmed.startsWith("pk_") || trimmed.startsWith("rk_")) continue;
+        if (trimmed.startsWith("price_") || trimmed.startsWith("plan_")) {
+          return trimmed;
+        }
+      }
+      return undefined;
+    };
+
     const PRICE_ID_MAP: Record<"Starter" | "Professional" | "Enterprise", Record<"monthly" | "annual", string | undefined>> = {
       Starter: {
-        monthly: process.env.STRIPE_PRICE_STARTER_MONTHLY || process.env.STRIPE_STARTER_MONTHLY_PRICE_ID,
-        annual: process.env.STRIPE_PRICE_STARTER_YEARLY || process.env.STRIPE_STARTER_YEARLY_PRICE_ID,
+        monthly: resolveStrictPriceId([
+          process.env.STRIPE_PRICE_STARTER_MONTHLY,
+          process.env.STRIPE_STARTER_MONTHLY_PRICE_ID,
+        ]),
+        annual: resolveStrictPriceId([
+          process.env.STRIPE_PRICE_STARTER_YEARLY,
+          process.env.STRIPE_PRICE_STARTER_ANNUAL,
+          process.env.STRIPE_STARTER_YEARLY_PRICE_ID,
+          process.env.STRIPE_STARTER_ANNUAL_PRICE_ID,
+        ]),
       },
       Professional: {
-        monthly: process.env.STRIPE_PRICE_PROFESSIONAL_MONTHLY || process.env.STRIPE_MONTHLY_PRICE_ID,
-        annual: process.env.STRIPE_PRICE_PROFESSIONAL_YEARLY || process.env.STRIPE_YEARLY_PRICE_ID || process.env.STRIPE_ANNUAL_PRICE_ID,
+        monthly: resolveStrictPriceId([
+          process.env.STRIPE_PRICE_PROFESSIONAL_MONTHLY,
+          process.env.STRIPE_PROFESSIONAL_MONTHLY_PRICE_ID,
+          process.env.STRIPE_MONTHLY_PRICE_ID,
+        ]),
+        annual: resolveStrictPriceId([
+          process.env.STRIPE_PRICE_PROFESSIONAL_YEARLY,
+          process.env.STRIPE_PRICE_PROFESSIONAL_ANNUAL,
+          process.env.STRIPE_PROFESSIONAL_YEARLY_PRICE_ID,
+          process.env.STRIPE_PROFESSIONAL_ANNUAL_PRICE_ID,
+          process.env.STRIPE_YEARLY_PRICE_ID,
+          process.env.STRIPE_ANNUAL_PRICE_ID,
+        ]),
       },
       Enterprise: {
-        monthly: process.env.STRIPE_PRICE_ENTERPRISE_MONTHLY || process.env.STRIPE_ENTERPRISE_MONTHLY_PRICE_ID,
-        annual: process.env.STRIPE_PRICE_ENTERPRISE_YEARLY || process.env.STRIPE_ENTERPRISE_YEARLY_PRICE_ID,
+        monthly: resolveStrictPriceId([
+          process.env.STRIPE_PRICE_ENTERPRISE_MONTHLY,
+          process.env.STRIPE_ENTERPRISE_MONTHLY_PRICE_ID,
+        ]),
+        annual: resolveStrictPriceId([
+          process.env.STRIPE_PRICE_ENTERPRISE_YEARLY,
+          process.env.STRIPE_PRICE_ENTERPRISE_ANNUAL,
+          process.env.STRIPE_ENTERPRISE_YEARLY_PRICE_ID,
+          process.env.STRIPE_ENTERPRISE_ANNUAL_PRICE_ID,
+        ]),
       }
     };
 
-    const targetPriceId = PRICE_ID_MAP[requestedPlan]?.[requestedCycle]?.trim();
+    const targetPriceId = PRICE_ID_MAP[requestedPlan]?.[requestedCycle];
 
-    if (!targetPriceId || (!targetPriceId.startsWith("price_") && !targetPriceId.startsWith("plan_"))) {
-      console.error(`[Stripe Checkout] FAIL CLOSED: Missing valid Stripe Price ID for plan '${requestedPlan}' (${requestedCycle}). Provided: '${targetPriceId || "NONE"}'`);
+    if (!targetPriceId) {
+      const expectedEnvName = requestedPlan === "Professional"
+        ? (requestedCycle === "annual" ? "STRIPE_PRICE_PROFESSIONAL_YEARLY" : "STRIPE_PRICE_PROFESSIONAL_MONTHLY")
+        : requestedPlan === "Starter"
+        ? (requestedCycle === "annual" ? "STRIPE_PRICE_STARTER_YEARLY" : "STRIPE_PRICE_STARTER_MONTHLY")
+        : (requestedCycle === "annual" ? "STRIPE_PRICE_ENTERPRISE_YEARLY" : "STRIPE_PRICE_ENTERPRISE_MONTHLY");
+
+      console.error(`[Stripe Checkout] FAIL CLOSED: Missing valid Stripe Price ID for plan '${requestedPlan}' (${requestedCycle}). Expected env var: ${expectedEnvName}`);
       return res.status(400).json({
         success: false,
         code: "STRIPE_PRICE_NOT_CONFIGURED",
         error: `Stripe Price ID for plan '${requestedPlan}' (${requestedCycle}) is not configured in environment variables.`,
-        userFriendlyMessage: `رمز السعر (Stripe Price ID) لخطة ${requestedPlan} (${requestedCycle === "annual" ? "سنوي" : "شهري"}) غير مهيأ في إعدادات البيئة. يرجى إضافة Price ID الخاص بالخطة في Stripe Dashboard والمحاولة مرة أخرى.`
+        expectedEnvVar: expectedEnvName,
+        userFriendlyMessage: `رمز السعر (Stripe Price ID) لخطة ${requestedPlan} (${requestedCycle === "annual" ? "سنوي" : "شهري"}) غير مهيأ في إعدادات البيئة (${expectedEnvName}). يرجى إضافة Price ID الخاص بالخطة في Stripe Dashboard والمحاولة مرة أخرى.`
       });
     }
 
@@ -1252,12 +1297,35 @@ app.post([
       console.log(`[Stripe Price Verification] Price ID ${verifiedPriceId} verified successfully: active=true, currency=USD, interval=${expectedInterval}, amount=$${retrievedPrice.unit_amount ? retrievedPrice.unit_amount / 100 : 0}`);
 
     } catch (priceErr: any) {
-      console.error(`[Stripe Price Verification] FAIL CLOSED: Failed to retrieve Price ID '${targetPriceId}' from Stripe API: ${priceErr?.message}`);
+      const errMsg = priceErr?.message || "";
+      const isTestPriceOnLiveKey = errMsg.includes("a similar object exists in test mode, but a live mode key was used");
+      const isLivePriceOnTestKey = errMsg.includes("a similar object exists in live mode, but a test mode key was used");
+
+      console.error(`[Stripe Price Verification] FAIL CLOSED: Failed to retrieve Price ID '${targetPriceId}' from Stripe API: ${errMsg}`);
+
+      if (isTestPriceOnLiveKey) {
+        return res.status(400).json({
+          success: false,
+          code: "STRIPE_MODE_MISMATCH_TEST_PRICE_ON_LIVE_KEY",
+          error: `Price ID '${targetPriceId}' exists in Stripe TEST mode, but the backend is currently using a Stripe LIVE mode key. Configure a Stripe Test Secret Key (sk_test_...) to use Test Mode prices.`,
+          userFriendlyMessage: `رمز السعر (${targetPriceId}) مسجل في بيئة الاختبار (Test Mode) لدى Stripe، بينما يعمل الخادم بمفتاح الإنتاج الحي (Live Mode). يرجى تكوين مفتاح الاختبار (sk_test_...) لتفعيل هذا السعر في بيئة الاختبار، أو استخدام رمز سعر حي (Live Price ID).`
+        });
+      }
+
+      if (isLivePriceOnTestKey) {
+        return res.status(400).json({
+          success: false,
+          code: "STRIPE_MODE_MISMATCH_LIVE_PRICE_ON_TEST_KEY",
+          error: `Price ID '${targetPriceId}' exists in Stripe LIVE mode, but the backend is currently using a Stripe TEST mode key. Configure a Stripe Live Secret Key (sk_live_...) to use Live Mode prices.`,
+          userFriendlyMessage: `رمز السعر (${targetPriceId}) مسجل في بيئة الإنتاج الحي (Live Mode) لدى Stripe، بينما يعمل الخادم بمفتاح الاختبار (Test Mode). يرجى استخدام رمز سعر من بيئة الاختبار (Test Price ID).`
+        });
+      }
+
       return res.status(400).json({
         success: false,
         code: "STRIPE_PRICE_RETRIEVAL_FAILED",
-        error: `Failed to retrieve Price ID '${targetPriceId}' from Stripe API: ${priceErr?.message}`,
-        userFriendlyMessage: `تعذر جلب بيانات السعر (Price ID: ${targetPriceId}) من حساب Stripe. يرجى التأكد من وجود Price ID في Stripe Dashboard TEST MODE.`
+        error: `Failed to retrieve Price ID '${targetPriceId}' from Stripe API: ${errMsg}`,
+        userFriendlyMessage: `تعذر جلب بيانات السعر (Price ID: ${targetPriceId}) من حساب Stripe. يرجى التأكد من وجود Price ID في Stripe Dashboard.`
       });
     }
 
