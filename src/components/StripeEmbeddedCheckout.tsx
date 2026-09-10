@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { loadStripe, Stripe } from "@stripe/stripe-js";
-import { RefreshCw, AlertCircle, RotateCcw, ArrowRight, ShieldCheck, Lock } from "lucide-react";
+import { RefreshCw, AlertCircle, RotateCcw, Lock } from "lucide-react";
 
 interface StripeEmbeddedCheckoutProps {
   clientSecret: string;
@@ -15,8 +15,8 @@ interface StripeEmbeddedCheckoutProps {
 let cachedStripePromise: Promise<Stripe | null> | null = null;
 let cachedStripeKey: string | null = null;
 
-function getCachedStripeInstance(publishableKey: string): Promise<Stripe | null> {
-  const cleanKey = publishableKey.trim();
+export function getCachedStripeInstance(publishableKey: string): Promise<Stripe | null> {
+  const cleanKey = publishableKey ? publishableKey.trim() : "";
   if (!cleanKey) return Promise.resolve(null);
   if (!cachedStripePromise || cachedStripeKey !== cleanKey) {
     cachedStripeKey = cleanKey;
@@ -48,7 +48,7 @@ export const StripeEmbeddedCheckout: React.FC<StripeEmbeddedCheckoutProps> = ({
     setStatus("initializing");
     setErrorMessage(null);
 
-    // Timeout guard: 12 seconds max before failing gracefully with explicit retry option
+    // Safety timeout guard: 12 seconds max before failing gracefully with explicit retry option
     const timeoutId = setTimeout(() => {
       if (!isCancelled && status !== "ready") {
         setStatus("error");
@@ -97,7 +97,7 @@ export const StripeEmbeddedCheckout: React.FC<StripeEmbeddedCheckoutProps> = ({
           );
         }
 
-        // Initialize embedded checkout instance
+        // Initialize embedded checkout instance immediately
         checkoutInstance = await (stripe as any).initEmbeddedCheckout({
           clientSecret,
           onComplete: () => {
@@ -118,7 +118,9 @@ export const StripeEmbeddedCheckout: React.FC<StripeEmbeddedCheckoutProps> = ({
           containerRef.current.innerHTML = "";
           checkoutInstance.mount(containerRef.current);
           clearTimeout(timeoutId);
-          setStatus("ready");
+          if (!isCancelled) {
+            setStatus("ready");
+          }
         }
       } catch (err: any) {
         console.error("[StripeEmbeddedCheckout] Mounting error:", err);
@@ -145,7 +147,7 @@ export const StripeEmbeddedCheckout: React.FC<StripeEmbeddedCheckoutProps> = ({
         try {
           checkoutInstance.destroy();
         } catch (e) {
-          console.warn("[StripeEmbeddedCheckout] cleanup error:", e);
+          console.warn("[StripeEmbeddedCheckout] cleanup notice:", e);
         }
       }
       if (containerRef.current) {
@@ -155,15 +157,15 @@ export const StripeEmbeddedCheckout: React.FC<StripeEmbeddedCheckoutProps> = ({
   }, [clientSecret, publishableKey, lang, onComplete]);
 
   return (
-    <div className="w-full relative">
-      {/* Loading state indicator */}
+    <div className="w-full relative min-h-[420px]">
+      {/* Loading state indicator — only visible while Stripe iframe is being fetched and mounted */}
       {status === "initializing" && (
-        <div className="py-14 text-center space-y-4 px-4">
+        <div className="py-12 text-center space-y-4 px-4 flex flex-col items-center justify-center min-h-[350px]">
           <div className="relative inline-block">
-            <RefreshCw className="w-10 h-10 text-[#0075DE] animate-spin mx-auto" />
+            <RefreshCw className="w-9 h-9 text-[#0075DE] animate-spin mx-auto" />
             <Lock className="w-4 h-4 text-emerald-500 absolute bottom-0 right-0 transform translate-x-1 translate-y-1" />
           </div>
-          <div className="space-y-1.5">
+          <div className="space-y-1.5 max-w-sm">
             <p className={`text-sm font-semibold ${theme === "dark" ? "text-slate-200" : "text-slate-800"}`}>
               {lang === "ar"
                 ? "جاري إعداد بوابة الدفع الآمنة عبر Stripe..."
@@ -179,7 +181,7 @@ export const StripeEmbeddedCheckout: React.FC<StripeEmbeddedCheckoutProps> = ({
             <button
               type="button"
               onClick={onBack}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+              className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer shadow-sm active:scale-95 ${
                 theme === "dark"
                   ? "bg-slate-800 hover:bg-slate-700 text-slate-300"
                   : "bg-slate-200 hover:bg-slate-300 text-slate-700"
@@ -193,7 +195,7 @@ export const StripeEmbeddedCheckout: React.FC<StripeEmbeddedCheckoutProps> = ({
 
       {/* Error state */}
       {status === "error" && (
-        <div className="p-6 text-center space-y-4 rounded-2xl border border-rose-500/30 bg-rose-500/10 text-rose-300 shadow-sm">
+        <div className="p-6 text-center space-y-4 rounded-2xl border border-rose-500/30 bg-rose-500/10 text-rose-300 shadow-sm my-4">
           <AlertCircle className="w-10 h-10 mx-auto text-rose-500" />
           <div className="space-y-1">
             <p className="text-sm font-bold text-rose-400">
@@ -231,8 +233,8 @@ export const StripeEmbeddedCheckout: React.FC<StripeEmbeddedCheckoutProps> = ({
       <div
         ref={containerRef}
         id="stripe-embedded-checkout"
-        className={`w-full transition-opacity duration-300 ${
-          status === "ready" ? "opacity-100 min-h-[420px]" : "opacity-0 absolute top-0 pointer-events-none h-0 overflow-hidden"
+        className={`w-full transition-opacity duration-200 ${
+          status === "ready" ? "opacity-100 min-h-[420px]" : "opacity-0 absolute top-0 pointer-events-none min-h-[420px] overflow-hidden"
         }`}
       />
     </div>
