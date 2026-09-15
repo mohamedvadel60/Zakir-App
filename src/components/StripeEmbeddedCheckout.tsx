@@ -177,19 +177,6 @@ export const StripeEmbeddedCheckout: React.FC<StripeEmbeddedCheckoutProps> = ({
                 : "Secured with end-to-end 256-bit encryption"}
             </p>
           </div>
-          <div className="pt-2">
-            <button
-              type="button"
-              onClick={onBack}
-              className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer shadow-sm active:scale-95 ${
-                theme === "dark"
-                  ? "bg-slate-800 hover:bg-slate-700 text-slate-300"
-                  : "bg-slate-200 hover:bg-slate-300 text-slate-700"
-              }`}
-            >
-              {lang === "ar" ? "إلغاء والعودة للباقات" : "Cancel & Return to Plans"}
-            </button>
-          </div>
         </div>
       )}
 
@@ -213,17 +200,6 @@ export const StripeEmbeddedCheckout: React.FC<StripeEmbeddedCheckoutProps> = ({
             >
               <RotateCcw className="w-3.5 h-3.5" />
               <span>{lang === "ar" ? "إعادة المحاولة" : "Try Again"}</span>
-            </button>
-            <button
-              type="button"
-              onClick={onBack}
-              className={`px-4 py-2 font-bold rounded-xl text-xs cursor-pointer transition-all shadow-sm active:scale-95 ${
-                theme === "dark"
-                  ? "bg-slate-800 hover:bg-slate-700 text-slate-200"
-                  : "bg-slate-200 hover:bg-slate-300 text-slate-800"
-              }`}
-            >
-              <span>{lang === "ar" ? "العودة للباقات" : "Back to plans"}</span>
             </button>
           </div>
         </div>

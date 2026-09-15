@@ -437,7 +437,7 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
       const tFetchStart = performance.now();
       console.log(`[Stripe TRACE] D. Dispatching POST /api/stripe/create-checkout-session at +${(tFetchStart - t0).toFixed(2)}ms`);
 
-      const sessionPromise = authenticatedFetch("/api/stripe/create-checkout-session", {
+      const res = await authenticatedFetch("/api/stripe/create-checkout-session", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -446,13 +446,6 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
           companyName: currentUser?.companyName || currentUser?.organizationName || "Organization",
         }),
       });
-
-      // 15-second network timeout guard
-      const timeoutPromise = new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error(lang === "ar" ? "استغرقت معالجة الطلب وقتاً طويلاً. يرجى المحاولة مرة أخرى." : "Request timed out. Please try again.")), 15000)
-      );
-
-      const res = await Promise.race([sessionPromise, timeoutPromise]);
 
       const tFetchEnd = performance.now();
       const apiMs = (tFetchEnd - tFetchStart).toFixed(2);
@@ -3259,7 +3252,7 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
                           ? "text-slate-400 hover:text-white hover:bg-slate-800"
                           : "text-slate-500 hover:text-slate-900 hover:bg-slate-200"
                       }`}
-                      title={lang === "ar" ? "إغلاق والعودة للباقات" : "Close & return to plans"}
+                      title={lang === "ar" ? "إغلاق" : "Close"}
                       aria-label="Close"
                       id="checkout-close-button"
                     >
@@ -3341,17 +3334,6 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
                         >
                           {lang === "ar" ? "إعادة المحاولة" : "Try Again"}
                         </button>
-                        <button
-                          type="button"
-                          onClick={handleReturnToPlans}
-                          className={`px-3 py-1.5 font-bold rounded-lg text-xs cursor-pointer transition-all shadow-sm active:scale-95 ${
-                            theme === "dark"
-                              ? "bg-slate-800 hover:bg-slate-700 text-slate-200"
-                              : "bg-slate-200 hover:bg-slate-300 text-slate-800"
-                          }`}
-                        >
-                          {lang === "ar" ? "العودة للباقات" : "Back to plans"}
-                        </button>
                       </div>
                     </div>
                   )}
@@ -3363,19 +3345,6 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
                       <p className={`text-xs font-medium ${theme === "dark" ? "text-slate-300" : "text-slate-700"}`}>
                         {lang === "ar" ? "جاري تهيئة بوابة Stripe للدفع الآمن داخل المنصة..." : "Initializing secure in-app Stripe Checkout..."}
                       </p>
-                      <div className="pt-2">
-                        <button
-                          type="button"
-                          onClick={handleReturnToPlans}
-                          className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                            theme === "dark"
-                              ? "bg-slate-800 hover:bg-slate-700 text-slate-300"
-                              : "bg-slate-200 hover:bg-slate-300 text-slate-700"
-                          }`}
-                        >
-                          {lang === "ar" ? "إلغاء والعودة للباقات" : "Cancel & Return to Plans"}
-                        </button>
-                      </div>
                     </div>
                   ) : checkoutClientSecret && (stripePublishableKey || stripePromise) ? (
                     <div 
@@ -3402,19 +3371,6 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
                       <p className={`text-xs ${theme === "dark" ? "text-slate-400" : "text-slate-600"}`}>
                         {lang === "ar" ? "جاري الاتصال بخوادم Stripe..." : "Connecting to Stripe..."}
                       </p>
-                      <div className="pt-1">
-                        <button
-                          type="button"
-                          onClick={handleReturnToPlans}
-                          className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                            theme === "dark"
-                              ? "bg-slate-800 hover:bg-slate-700 text-slate-300"
-                              : "bg-slate-200 hover:bg-slate-300 text-slate-700"
-                          }`}
-                        >
-                          {lang === "ar" ? "العودة للباقات" : "Back to plans"}
-                        </button>
-                      </div>
                     </div>
                   ) : null}
                 </div>

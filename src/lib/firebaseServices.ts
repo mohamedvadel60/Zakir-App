@@ -88,8 +88,22 @@ export interface FirestoreErrorInfo {
   };
 }
 
-// Global flag tracking if Firestore connection is offline
+// Global flags tracking if Firestore connection is offline or quota exceeded
 export let isFirestoreOffline = false;
+export let isFirestoreQuotaExceeded = false;
+
+export const isOfflineOrQuotaError = (err: unknown): boolean => {
+  if (!err) return false;
+  const msg = (err instanceof Error ? err.message : String(err)).toLowerCase();
+  return (
+    msg.includes('offline') ||
+    msg.includes('network') ||
+    msg.includes('unavailable') ||
+    msg.includes('quota') ||
+    msg.includes('resource-exhausted') ||
+    msg.includes('free daily read units')
+  );
+};
 
 // Helpers to read/write JSON from localStorage
 const getLocalItem = <T = any>(key: string, defaultVal: any = null): T => {
@@ -129,13 +143,19 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
     path
   };
 
-  const isOfflineError = errMessage.toLowerCase().includes('offline') || errMessage.toLowerCase().includes('network') || errMessage.toLowerCase().includes('unavailable');
-  if (isOfflineError) {
+  const isOfflineOrQuota = isOfflineOrQuotaError(error);
+  if (isOfflineOrQuota) {
     isFirestoreOffline = true;
-    console.warn('Firestore is operating in offline fallback mode:', errMessage);
-  } else {
-    console.error('Firestore Error: ', JSON.stringify(errInfo));
+    if (errMessage.toLowerCase().includes('quota') || errMessage.toLowerCase().includes('resource-exhausted') || errMessage.toLowerCase().includes('free daily read units')) {
+      isFirestoreQuotaExceeded = true;
+      console.warn('Firestore free daily quota reached. Seamlessly utilizing local offline cache storage.');
+    } else {
+      console.warn('Firestore is operating in offline fallback mode:', errMessage);
+    }
+    return;
   }
+
+  console.error('Firestore Error: ', JSON.stringify(errInfo));
   throw error;
 }
 
@@ -305,8 +325,7 @@ export async function registerFirebaseUser(
     } catch (rErr) {
       console.warn("Retry fetch failed in registerFirebaseUser:", rErr);
     }
-    const errMessage = error instanceof Error ? error.message : String(error);
-    if (errMessage.toLowerCase().includes('offline') || errMessage.toLowerCase().includes('network')) {
+    if (isOfflineOrQuotaError(error)) {
       isFirestoreOffline = true;
     } else {
       handleFirestoreError(error, OperationType.CREATE, `users/${uid}`);
@@ -843,10 +862,10 @@ export async function loginWithGoogle(): Promise<User> {
   try {
     userSnap = await getDoc(userDocRef);
   } catch (error) {
-    const errMessage = error instanceof Error ? error.message : String(error);
-    if (errMessage.toLowerCase().includes('offline') || errMessage.toLowerCase().includes('network')) {
+    if (isOfflineOrQuotaError(error)) {
       isFirestoreOffline = true;
     } else {
+      const errMessage = error instanceof Error ? error.message : String(error);
       const isAuthPermissionError = errMessage.toLowerCase().includes("permission") || errMessage.toLowerCase().includes("denied") || errMessage.toLowerCase().includes("unauthenticated");
       if (isAuthPermissionError) {
         await signOut(auth);
@@ -1032,8 +1051,7 @@ export async function saveFirebaseUserProfile(user: User): Promise<void> {
     await setDoc(userDocRef, sanitizedUser, { merge: true });
     isFirestoreOffline = false; // Successfully connected!
   } catch (error) {
-    const errMessage = error instanceof Error ? error.message : String(error);
-    if (errMessage.toLowerCase().includes('offline') || errMessage.toLowerCase().includes('network')) {
+    if (isOfflineOrQuotaError(error)) {
       isFirestoreOffline = true;
     } else {
       handleFirestoreError(error, OperationType.UPDATE, `users/${user.id}`);
@@ -1075,8 +1093,7 @@ export async function updateUserPreferences(userId: string, newPrefs: Partial<Us
     userSnap = await getDoc(userDocRef);
     isFirestoreOffline = false; // Successfully connected!
   } catch (error) {
-    const errMessage = error instanceof Error ? error.message : String(error);
-    if (errMessage.toLowerCase().includes('offline') || errMessage.toLowerCase().includes('network')) {
+    if (isOfflineOrQuotaError(error)) {
       isFirestoreOffline = true;
       return updatedPrefs;
     } else {
@@ -1088,8 +1105,7 @@ export async function updateUserPreferences(userId: string, newPrefs: Partial<Us
     await updateDoc(userDocRef, { userPreferences: updatedPrefs });
     isFirestoreOffline = false; // Successfully connected!
   } catch (error) {
-    const errMessage = error instanceof Error ? error.message : String(error);
-    if (errMessage.toLowerCase().includes('offline') || errMessage.toLowerCase().includes('network')) {
+    if (isOfflineOrQuotaError(error)) {
       isFirestoreOffline = true;
     } else {
       handleFirestoreError(error, OperationType.UPDATE, `users/${userId}`);
@@ -1155,9 +1171,8 @@ export function subscribeToFirebaseAuthState(rawCallback: (user: User | null) =>
         userSnap = await getDocWithRetry(doc(db, "users", fbUser.uid), 5, 250);
         isFirestoreOffline = false; // Successfully connected!
       } catch (error) {
-        const errMessage = error instanceof Error ? error.message : String(error);
-        if (errMessage.toLowerCase().includes('offline') || errMessage.toLowerCase().includes('network')) {
-          console.warn("Firestore offline during auth state fetch.");
+        if (isOfflineOrQuotaError(error)) {
+          console.warn("Firestore offline or quota exceeded during auth state fetch.");
           isFirestoreOffline = true;
         } else {
           console.warn("Notice: getDocWithRetry error during auth state fetch:", fbUser.uid, error);
@@ -1300,15 +1315,18 @@ export async function fetchFirebaseUserMemories(userId: string): Promise<Memory[
     setLocalItem(`memories_${userId}`, list);
     return list;
   } catch (err) {
-    const errMessage = err instanceof Error ? err.message : String(err);
-    if (errMessage.toLowerCase().includes('offline') || errMessage.toLowerCase().includes('network')) {
+    if (isOfflineOrQuotaError(err)) {
       isFirestoreOffline = true;
-      console.warn("Failed to fetch memories from Firestore due to offline. Loading from localStorage.");
+      console.warn("Loading memories from local storage cache (Firestore offline / quota limit reached).");
       return getLocalItem(`memories_${userId}`, []);
     }
     console.error("Failed to fetch memories from Firestore:", err);
-    handleFirestoreError(err, OperationType.LIST, path);
-    return [];
+    try {
+      handleFirestoreError(err, OperationType.LIST, path);
+    } catch {
+      // Graceful fallback to cached storage
+    }
+    return getLocalItem(`memories_${userId}`, []);
   }
 }
 
@@ -1334,8 +1352,7 @@ export async function addFirebaseUserMemory(userId: string, memoryData: Omit<Mem
     setLocalItem(`memories_${userId}`, updatedMemories);
     return savedMem;
   } catch (error) {
-    const errMessage = error instanceof Error ? error.message : String(error);
-    if (errMessage.toLowerCase().includes('offline') || errMessage.toLowerCase().includes('network')) {
+    if (isOfflineOrQuotaError(error)) {
       isFirestoreOffline = true;
       return newMemory;
     }
@@ -1360,8 +1377,7 @@ export async function deleteFirebaseUserMemory(userId: string, memoryId: string)
     const docRef = doc(db, "users", userId, "memories", memoryId);
     await deleteDoc(docRef);
   } catch (error) {
-    const errMessage = error instanceof Error ? error.message : String(error);
-    if (errMessage.toLowerCase().includes('offline') || errMessage.toLowerCase().includes('network')) {
+    if (isOfflineOrQuotaError(error)) {
       isFirestoreOffline = true;
     } else {
       handleFirestoreError(error, OperationType.DELETE, path);
@@ -1385,8 +1401,7 @@ export async function updateFirebaseUserMemory(userId: string, memoryId: string,
     const docRef = doc(db, "users", userId, "memories", memoryId);
     await updateDoc(docRef, updatedData);
   } catch (err) {
-    const errMessage = err instanceof Error ? err.message : String(err);
-    if (errMessage.toLowerCase().includes('offline') || errMessage.toLowerCase().includes('network')) {
+    if (isOfflineOrQuotaError(err)) {
       isFirestoreOffline = true;
     } else {
       console.warn("Firestore update memory non-critical error:", err);
@@ -1414,8 +1429,7 @@ export async function fetchFirebaseUserFiles(userId: string): Promise<UserFile[]
     });
   } catch (err) {
     console.warn("Top-level /files query fallback:", err);
-    const errMessage = err instanceof Error ? err.message : String(err);
-    if (errMessage.toLowerCase().includes('offline') || errMessage.toLowerCase().includes('network')) {
+    if (isOfflineOrQuotaError(err)) {
       isFirestoreOffline = true;
       return getLocalItem(`files_${userId}`, []);
     }
@@ -1525,8 +1539,7 @@ export async function uploadFirebaseUserFile(
     await setDoc(topFileDocRef, userFile);
   } catch (topErr) {
     console.warn("Firestore top-level /files save error:", topErr);
-    const errMessage = topErr instanceof Error ? topErr.message : String(topErr);
-    if (errMessage.toLowerCase().includes('offline') || errMessage.toLowerCase().includes('network')) {
+    if (isOfflineOrQuotaError(topErr)) {
       isFirestoreOffline = true;
       return userFile;
     }
@@ -1537,8 +1550,7 @@ export async function uploadFirebaseUserFile(
   try {
     await setDoc(fileDocRef, userFile);
   } catch (error) {
-    const errMessage = error instanceof Error ? error.message : String(error);
-    if (errMessage.toLowerCase().includes('offline') || errMessage.toLowerCase().includes('network')) {
+    if (isOfflineOrQuotaError(error)) {
       isFirestoreOffline = true;
     } else {
       handleFirestoreError(error, OperationType.CREATE, `users/${userId}/files/${fileId}`);
@@ -1658,15 +1670,18 @@ export async function fetchFirebaseUserRiskAlerts(userId: string): Promise<RiskA
     setLocalItem(`alerts_${userId}`, list);
     return list;
   } catch (err) {
-    const errMessage = err instanceof Error ? err.message : String(err);
-    if (errMessage.toLowerCase().includes('offline') || errMessage.toLowerCase().includes('network')) {
+    if (isOfflineOrQuotaError(err)) {
       isFirestoreOffline = true;
-      console.warn("Failed to fetch risk alerts from Firestore due to offline. Loading from localStorage.");
+      console.warn("Loading risk alerts from local storage cache (Firestore offline / quota limit reached).");
       return getLocalItem(`alerts_${userId}`, []);
     }
     console.error("Failed to fetch risk alerts from Firestore:", err);
-    handleFirestoreError(err, OperationType.LIST, path);
-    return [];
+    try {
+      handleFirestoreError(err, OperationType.LIST, path);
+    } catch {
+      // Graceful fallback to cached storage
+    }
+    return getLocalItem(`alerts_${userId}`, []);
   }
 }
 
@@ -1692,8 +1707,7 @@ export async function addFirebaseUserRiskAlert(userId: string, alertData: Omit<R
     setLocalItem(`alerts_${userId}`, updatedAlerts);
     return savedAlert;
   } catch (error) {
-    const errMessage = error instanceof Error ? error.message : String(error);
-    if (errMessage.toLowerCase().includes('offline') || errMessage.toLowerCase().includes('network')) {
+    if (isOfflineOrQuotaError(error)) {
       isFirestoreOffline = true;
       return newAlert;
     }
@@ -1718,8 +1732,7 @@ export async function resolveFirebaseUserRiskAlert(userId: string, alertId: stri
     const docRef = doc(db, "users", userId, "riskAlerts", alertId);
     await updateDoc(docRef, { status: "Resolved" });
   } catch (error) {
-    const errMessage = error instanceof Error ? error.message : String(error);
-    if (errMessage.toLowerCase().includes('offline') || errMessage.toLowerCase().includes('network')) {
+    if (isOfflineOrQuotaError(error)) {
       isFirestoreOffline = true;
     } else {
       handleFirestoreError(error, OperationType.UPDATE, path);
@@ -2049,11 +2062,10 @@ export async function fetchWorkspaceInvitations(workspaceId: string): Promise<Wo
     setLocalItem("invitations", list);
     return list;
   } catch (err) {
-    const errMessage = err instanceof Error ? err.message : String(err);
-    if (errMessage.toLowerCase().includes('offline') || errMessage.toLowerCase().includes('network')) {
+    if (isOfflineOrQuotaError(err)) {
       isFirestoreOffline = true;
     }
-    console.warn("Falling back to local workspace invitations cache:", errMessage);
+    console.warn("Falling back to local workspace invitations cache");
     const invitations = getLocalItem("invitations", []);
     return invitations.filter((i: WorkspaceInvitation) => !workspaceId || i.workspaceId === workspaceId);
   }

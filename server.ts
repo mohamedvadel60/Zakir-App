@@ -997,6 +997,7 @@ interface CachedPriceEntry {
   cachedAt: number;
 }
 const stripePriceCache = new Map<string, CachedPriceEntry>();
+const stripePriceFailedCache = new Set<string>();
 const PRICE_CACHE_TTL_MS = 15 * 60 * 1000; // 15 minutes TTL
 const stripeVerifiedCustomerCache = new Set<string>();
 
@@ -1100,7 +1101,7 @@ app.post([
 
     const validUserEmail = isValidEmail(finalUserEmail) ? finalUserEmail.trim().toLowerCase() : undefined;
 
-    // Resilient Customer Management: Validate stored Customer ID or create/look up a fresh one
+    // Resilient Customer Management: Fast-track customer resolution (<10ms target)
     let stripeCustomerId = user?.stripeCustomerId;
 
     // Case A: Stored Customer ID exists - Verify against active Stripe account/mode
@@ -1133,45 +1134,6 @@ app.post([
         } catch (fsClearErr) {
           console.warn("[Stripe Checkout] Firestore customer clear notice:", fsClearErr);
         }
-      }
-    }
-
-    // Case B: No Customer ID (or cleared above) - Look up existing customer by email in active mode or create a new one
-    if (!stripeCustomerId && validUserEmail) {
-      try {
-        const existingList = await stripe.customers.list({ email: validUserEmail, limit: 1 });
-        if (existingList.data && existingList.data.length > 0) {
-          stripeCustomerId = existingList.data[0].id;
-          stripeVerifiedCustomerCache.add(stripeCustomerId);
-          console.log(`[Stripe Checkout] Matched existing customer in current Stripe account: ${stripeCustomerId}`);
-        } else {
-          const newCust = await stripe.customers.create({
-            email: validUserEmail,
-            name: finalCompanyName,
-            metadata: {
-              zakirUserId: finalUserId,
-              userId: finalUserId,
-              companyId: user?.companyId || user?.organizationId || ""
-            }
-          });
-          stripeCustomerId = newCust.id;
-          stripeVerifiedCustomerCache.add(stripeCustomerId);
-          console.log(`[Stripe Checkout] Created new Stripe Customer in current mode: ${stripeCustomerId}`);
-        }
-
-        if (user && stripeCustomerId) {
-          user.stripeCustomerId = stripeCustomerId;
-          writeDb(db);
-        }
-        if (stripeCustomerId) {
-          try {
-            await adminDb.collection("users").doc(finalUserId).set({ stripeCustomerId }, { merge: true });
-          } catch (fsCustErr) {
-            console.warn("[Stripe Checkout] Firestore customer save notice:", fsCustErr);
-          }
-        }
-      } catch (createCustErr: any) {
-        console.warn("[Stripe Checkout] Customer lookup/creation notice:", createCustErr?.message);
       }
     }
 
@@ -1240,7 +1202,7 @@ app.post([
     const targetPriceId = PRICE_ID_MAP[requestedPlan]?.[requestedCycle];
     let verifiedPriceId: string | null = null;
 
-    if (targetPriceId) {
+    if (targetPriceId && !stripePriceFailedCache.has(targetPriceId)) {
       try {
         const expectedInterval = requestedCycle === "annual" ? "year" : "month";
         let retrievedPrice: Stripe.Price;
@@ -1265,13 +1227,15 @@ app.post([
           verifiedPriceId = retrievedPrice.id;
           console.log(`[Stripe Price Verification] Price ID ${verifiedPriceId} verified successfully: active=true, currency=USD, interval=${expectedInterval}, amount=$${retrievedPrice.unit_amount ? retrievedPrice.unit_amount / 100 : 0}`);
         } else {
-          console.warn(`[Stripe Price Verification] Price ID '${targetPriceId}' not fully matching (active=${isPriceActive}, usd=${isUsd}, interval=${retrievedPrice.recurring?.interval}). Falling back to dynamic price_data.`);
+          stripePriceFailedCache.add(targetPriceId);
+          console.warn(`[Stripe Price Verification] Price ID '${targetPriceId}' not fully matching. Falling back to dynamic price_data.`);
         }
       } catch (priceErr: any) {
+        stripePriceFailedCache.add(targetPriceId);
         console.warn(`[Stripe Price Verification] Could not retrieve Price ID '${targetPriceId}' (${priceErr?.message}). Falling back smoothly to Stripe dynamic price_data.`);
       }
     } else {
-      console.log(`[Stripe Checkout] No pre-configured Stripe Price ID found for plan '${requestedPlan}' (${requestedCycle}). Utilizing Stripe dynamic price_data.`);
+      console.log(`[Stripe Checkout] Utilizing Stripe dynamic price_data for plan '${requestedPlan}' (${requestedCycle}).`);
     }
 
     // Line items: Use verified Price ID if available, otherwise dynamically create price_data
@@ -1297,7 +1261,8 @@ app.post([
         ];
 
     // Determine whether caller requested hosted redirect mode or embedded in-app checkout
-    const requestedUiMode = req.body?.uiMode === "hosted" ? "hosted" : "embedded";
+    const isHosted = req.body?.uiMode === "hosted" || req.body?.uiMode === "hosted_page";
+    const requestedUiMode = isHosted ? "hosted" : "embedded";
     const returnUrl = `${baseUrl}/?view=settings&tab=subscription&session_id={CHECKOUT_SESSION_ID}`;
     const successUrl = `${baseUrl}/?view=settings&tab=subscription&checkout=success&session_id={CHECKOUT_SESSION_ID}&plan=${requestedPlan}&cycle=${requestedCycle}`;
     const cancelUrl = `${baseUrl}/?view=settings&tab=subscription&checkout=cancelled`;
@@ -1316,12 +1281,12 @@ app.post([
       },
     };
 
-    if (requestedUiMode === "hosted") {
-      sessionParams.ui_mode = "hosted";
+    if (isHosted) {
+      sessionParams.ui_mode = "hosted_page" as any;
       sessionParams.success_url = successUrl;
       sessionParams.cancel_url = cancelUrl;
     } else {
-      sessionParams.ui_mode = "embedded";
+      sessionParams.ui_mode = "embedded_page" as any;
       sessionParams.return_url = returnUrl;
     }
 
@@ -1336,7 +1301,24 @@ app.post([
     try {
       session = await stripe.checkout.sessions.create(sessionParams);
     } catch (sessionErr: any) {
-      if (sessionErr?.message?.includes("No such customer") || sessionErr?.code === "resource_missing") {
+      const errMsg = sessionErr?.message || "";
+      if (errMsg.includes("embedded_page")) {
+        console.warn("[Stripe Checkout] Falling back to ui_mode: 'embedded'...");
+        sessionParams.ui_mode = "embedded" as any;
+        session = await stripe.checkout.sessions.create(sessionParams);
+      } else if (errMsg.includes("hosted_page")) {
+        console.warn("[Stripe Checkout] Falling back to ui_mode: 'hosted'...");
+        sessionParams.ui_mode = "hosted" as any;
+        session = await stripe.checkout.sessions.create(sessionParams);
+      } else if (errMsg.includes("ui_mode value `embedded`")) {
+        console.warn("[Stripe Checkout] Falling back to ui_mode: 'embedded_page'...");
+        sessionParams.ui_mode = "embedded_page" as any;
+        session = await stripe.checkout.sessions.create(sessionParams);
+      } else if (errMsg.includes("ui_mode value `hosted`")) {
+        console.warn("[Stripe Checkout] Falling back to ui_mode: 'hosted_page'...");
+        sessionParams.ui_mode = "hosted_page" as any;
+        session = await stripe.checkout.sessions.create(sessionParams);
+      } else if (errMsg.includes("No such customer") || sessionErr?.code === "resource_missing") {
         console.warn(`[Stripe Checkout] Checkout session creation hit invalid customer error (${sessionErr.message}). Self-healing: removing customer parameter and retrying...`);
         delete sessionParams.customer;
         if (validUserEmail) {

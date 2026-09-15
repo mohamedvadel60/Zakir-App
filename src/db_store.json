@@ -14,7 +14,7 @@
       },
       "createdAt": "2026-01-15T09:00:00Z",
       "trialExpiresAt": "2026-08-05T17:22:39.654Z",
-      "stripeCustomerId": "cus_VEgFb2fy9VRM3J",
+      "stripeCustomerId": null,
       "teamMembersList": [
         {
           "id": "tm-inv-1788714580716",
@@ -992,7 +992,10 @@
     "cs_live_a1jdT5M01L1lyYo2TZZcAgBpwAubB1N1dU0vpggWJOTp8S5yaJpBeRkOLw": "test_user_all_1789478183604",
     "cs_live_a19dCcexEkgYbnQVj31oSUvgzmLHo4HhyxVivuoCDaDznAsTyceoIQkWam": "test_user_all_1789478183604",
     "cs_live_a1OAStepYW7RLBgoOzwFl01Rk2QZOXFX8NoQzhPptUfQekZGzMg08gXdOT": "test_user_all_1789478183604",
-    "cs_live_a1frv1PEmszqYNvRQVOaIqPbyduykWmqVkOHLUWiS82c52KlHXffCwDdiC": "test_user_all_1789478183604"
+    "cs_live_a1frv1PEmszqYNvRQVOaIqPbyduykWmqVkOHLUWiS82c52KlHXffCwDdiC": "test_user_all_1789478183604",
+    "cs_live_a1b4x1fgLXPqPqEWD3byqGwityyKhpKZNJ9xXJ5QxOnxUTQDhHJW9ravst": "usr_ceo",
+    "cs_live_a1059oU5nPOHt0tlCkCUkhwN8HbcXusiLvlyxYelslOV52WZgZk4XH5rtl": "usr_ceo",
+    "cs_live_a1WJ4mdIokRjJjbEj1HXNhEuXhWdCw4emTf0nC0vq0Nle9EFjycvACyKn7": "usr_ceo"
   },
   "account_lifecycle": [
     {
@@ -1384,6 +1387,19 @@
       "adminApprovalRequired": false,
       "updatedAt": "2026-09-10T17:30:05.992Z",
       "id": "sarasara222341@gmail.com"
+    },
+    {
+      "accountId": "stripe_test_verifier_2026@zakir.com",
+      "emailNormalized": "stripe_test_verifier_2026@zakir.com",
+      "status": "ACTIVE",
+      "deletionType": null,
+      "deletedAt": null,
+      "deletedBy": null,
+      "restoreUntil": null,
+      "originalUserId": "Wi9owfgOX0QZmrc034VViUySDpQ2",
+      "retainedDataDocPath": null,
+      "adminApprovalRequired": false,
+      "updatedAt": "2026-09-15T13:22:37.473Z"
     }
   ],
   "account_reactivation_requests": [
