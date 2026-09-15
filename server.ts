@@ -365,6 +365,10 @@ function resolveStripeKeys(): ResolvedStripeKeys {
   addSecretCandidate(process.env.STRIPE_TEST_SECRET_KEY, "STRIPE_TEST_SECRET_KEY");
   addSecretCandidate(process.env.STRIPE_LIVE_SECRET_KEY, "STRIPE_LIVE_SECRET_KEY");
   addSecretCandidate(process.env.VITE_STRIPE_PUBLIC_KEY, "VITE_STRIPE_PUBLIC_KEY");
+  addSecretCandidate(process.env.STRIPE_PUBLISHABLE_KEY, "STRIPE_PUBLISHABLE_KEY");
+  addSecretCandidate(process.env.STRIPE_PUBLIC_KEY, "STRIPE_PUBLIC_KEY");
+  addSecretCandidate(process.env.STRIPE_MONTHLY_PRICE_ID, "STRIPE_MONTHLY_PRICE_ID");
+  addSecretCandidate(process.env.STRIPE_YEARLY_PRICE_ID, "STRIPE_YEARLY_PRICE_ID");
 
   const primaryPub = pubCandidates[0]?.key || null;
   const pubIsLive = primaryPub ? primaryPub.startsWith("pk_live_") : false;
@@ -1292,8 +1296,12 @@ app.post([
           }
         ];
 
-    // Build Session Parameters with official Stripe ui_mode: "embedded", explicit payment methods, and return_url
+    // Determine whether caller requested hosted redirect mode or embedded in-app checkout
+    const requestedUiMode = req.body?.uiMode === "hosted" ? "hosted" : "embedded";
     const returnUrl = `${baseUrl}/?view=settings&tab=subscription&session_id={CHECKOUT_SESSION_ID}`;
+    const successUrl = `${baseUrl}/?view=settings&tab=subscription&checkout=success&session_id={CHECKOUT_SESSION_ID}&plan=${requestedPlan}&cycle=${requestedCycle}`;
+    const cancelUrl = `${baseUrl}/?view=settings&tab=subscription&checkout=cancelled`;
+
     const sessionParams: Stripe.Checkout.SessionCreateParams = {
       mode: "subscription",
       payment_method_types: ["card"],
@@ -1306,9 +1314,16 @@ app.post([
         plan: requestedPlan,
         billingCycle: requestedCycle,
       },
-      ui_mode: "embedded",
-      return_url: returnUrl,
     };
+
+    if (requestedUiMode === "hosted") {
+      sessionParams.ui_mode = "hosted";
+      sessionParams.success_url = successUrl;
+      sessionParams.cancel_url = cancelUrl;
+    } else {
+      sessionParams.ui_mode = "embedded";
+      sessionParams.return_url = returnUrl;
+    }
 
     if (stripeCustomerId) {
       sessionParams.customer = stripeCustomerId;
@@ -1316,7 +1331,7 @@ app.post([
       sessionParams.customer_email = validUserEmail;
     }
 
-    console.log(`[Stripe Checkout] Creating Embedded Checkout Session for user ${finalUserId} (ui_mode: embedded, verified price: ${verifiedPriceId})...`);
+    console.log(`[Stripe Checkout] Creating ${requestedUiMode.toUpperCase()} Checkout Session for user ${finalUserId} (verified price: ${verifiedPriceId})...`);
     let session: Stripe.Checkout.Session;
     try {
       session = await stripe.checkout.sessions.create(sessionParams);
@@ -1333,7 +1348,7 @@ app.post([
       }
     }
 
-    console.log(`[Stripe Checkout] Checkout Session created successfully: id=${session.id}`);
+    console.log(`[Stripe Checkout] Checkout Session created successfully: id=${session.id}, url=${session.url || "N/A (embedded)"}`);
 
     db.stripe_sessions = db.stripe_sessions || {};
     db.stripe_sessions[session.id] = finalUserId;
@@ -1345,6 +1360,7 @@ app.post([
     return res.json({
       success: true,
       sessionId: session.id,
+      url: session.url || null,
       clientSecret: session.client_secret,
       publishableKey: publishableKey || "",
     });

@@ -296,6 +296,7 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
   const [checkoutClientSecret, setCheckoutClientSecret] = useState<string | null>(null);
   const [checkoutSessionId, setCheckoutSessionId] = useState<string | null>(null);
+  const [checkoutHostedUrl, setCheckoutHostedUrl] = useState<string | null>(null);
   const [paymentError, setPaymentError] = useState<string | null>(null);
   const [stripePromise, setStripePromise] = useState<Promise<StripeType | null> | null>(null);
   const [stripePublishableKey, setStripePublishableKey] = useState<string>("");
@@ -344,6 +345,7 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
     setSelectedPlanForCheckout(null);
     setCheckoutClientSecret(null);
     setCheckoutSessionId(null);
+    setCheckoutHostedUrl(null);
     setPaymentError(null);
     setIsProcessingPayment(false);
     setCompletedReceipt(null);
@@ -495,6 +497,7 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
 
       setCheckoutSessionId(data.sessionId);
       setCheckoutClientSecret(data.clientSecret);
+      setCheckoutHostedUrl(data.url || null);
 
       const envObj = (import.meta as any).env || {};
       const envCandidate = (typeof envObj.VITE_STRIPE_PUBLISHABLE_KEY === "string" && envObj.VITE_STRIPE_PUBLISHABLE_KEY.startsWith("pk_"))
@@ -3228,21 +3231,41 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
                     </div>
                   </div>
 
-                  {/* Close Button */}
-                  <button
-                    type="button"
-                    onClick={handleReturnToPlans}
-                    className={`p-2 sm:p-2.5 rounded-xl cursor-pointer transition-all active:scale-95 ${
-                      theme === "dark"
-                        ? "text-slate-400 hover:text-white hover:bg-slate-800"
-                        : "text-slate-500 hover:text-slate-900 hover:bg-slate-200"
-                    }`}
-                    title={lang === "ar" ? "إغلاق والعودة للباقات" : "Close & return to plans"}
-                    aria-label="Close"
-                    id="checkout-close-button"
-                  >
-                    <X className="w-5 h-5" />
-                  </button>
+                  {/* Right Actions */}
+                  <div className="flex items-center gap-1.5">
+                    {checkoutHostedUrl && (
+                      <a
+                        href={checkoutHostedUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className={`px-2.5 py-1.5 border text-xs font-bold rounded-xl transition-all flex items-center gap-1.5 cursor-pointer shadow-sm active:scale-95 ${
+                          theme === "dark"
+                            ? "bg-slate-800 hover:bg-slate-700 border-slate-700 text-slate-200"
+                            : "bg-white hover:bg-slate-100 border-slate-300 text-slate-700"
+                        }`}
+                        title={lang === "ar" ? "فتح في نافذة Stripe المباشرة" : "Open in Stripe hosted tab"}
+                      >
+                        <ExternalLink className="w-3.5 h-3.5 text-[#0075DE]" />
+                        <span className="hidden sm:inline">{lang === "ar" ? "نافذة Stripe" : "Stripe Tab"}</span>
+                      </a>
+                    )}
+
+                    {/* Close Button */}
+                    <button
+                      type="button"
+                      onClick={handleReturnToPlans}
+                      className={`p-2 sm:p-2.5 rounded-xl cursor-pointer transition-all active:scale-95 ${
+                        theme === "dark"
+                          ? "text-slate-400 hover:text-white hover:bg-slate-800"
+                          : "text-slate-500 hover:text-slate-900 hover:bg-slate-200"
+                      }`}
+                      title={lang === "ar" ? "إغلاق والعودة للباقات" : "Close & return to plans"}
+                      aria-label="Close"
+                      id="checkout-close-button"
+                    >
+                      <X className="w-5 h-5" />
+                    </button>
+                  </div>
                 </div>
 
                 {/* 2. DEDICATED SCROLLABLE PAYMENT CONTENT CONTAINER */}

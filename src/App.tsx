@@ -512,24 +512,33 @@ export default function App() {
           if (statusRes.ok) {
             const statusData = await statusRes.json();
             if (statusData && (statusData.status === "complete" || statusData.paymentStatus === "paid")) {
-              if (currentUser) {
-                setCurrentUser({
-                  ...currentUser,
-                  subscriptionPlan: statusData.plan || plan,
+              const activePlan = (statusData.plan || plan) as "Starter" | "Professional" | "Enterprise";
+              const activeCycle = (statusData.billingCycle || cycle) as "monthly" | "annual";
+              setCurrentUser((prev: User | null) => {
+                if (!prev) return prev;
+                const updated: User = {
+                  ...prev,
+                  subscriptionPlan: activePlan,
                   subscriptionStatus: "Active",
-                  billingCycle: statusData.billingCycle || cycle
-                } as User);
-              }
+                  billingCycle: activeCycle,
+                  lastPaymentDate: new Date().toISOString(),
+                  lastPaymentAmount: statusData.amountTotal || prev.lastPaymentAmount,
+                  nextBillingDate: statusData.nextBillingDate || prev.nextBillingDate
+                };
+                try {
+                  localStorage.setItem("zakir_current_user", JSON.stringify(updated));
+                } catch (e) {}
+                return updated;
+              });
             }
           }
 
-          const idToken = auth.currentUser ? await auth.currentUser.getIdToken() : "";
-          const res = await fetch(`/api/stripe/receipt/${sessionId}?plan=${plan}&cycle=${cycle}`, {
-            headers: idToken ? { "Authorization": `Bearer ${idToken}` } : {}
-          });
-          const data = await res.json();
-          if (data.receipt) {
-            setStripeReceiptData(data.receipt);
+          const receiptRes = await authenticatedFetch(`/api/stripe/receipt/${sessionId}?plan=${plan}&cycle=${cycle}`);
+          if (receiptRes.ok) {
+            const data = await receiptRes.json();
+            if (data?.receipt) {
+              setStripeReceiptData(data.receipt);
+            }
           }
         } catch (err) {
           console.error("Session verification/receipt fetch error:", err);
