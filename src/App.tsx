@@ -1629,6 +1629,11 @@ This hosting domain (**${currentDomain}**) has not been authorized in your Fireb
       // 2. Check if there's a workspace invitation for this email
       const invitation = await checkWorkspaceInvitation(regEmail);
 
+      // Save ownerName to localStorage to prevent race conditions during auth state trigger
+      if (typeof localStorage !== "undefined" && regOwnerName) {
+        localStorage.setItem("pending_owner_name", regOwnerName.trim());
+      }
+
       // 3. Register user via backend API (creates user, writes to Firestore users/{userId}, verifies write, creates OTP, sends email)
       const regRes = await fetch(getAuthApiUrl("/api/auth/register"), {
         method: "POST",
@@ -4044,12 +4049,12 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                 {currentUser.avatarUrl ? (
                   <img 
                     src={currentUser.avatarUrl} 
-                    alt={currentUser.ownerName || currentUser.email} 
+                    alt={currentUser.fullName || currentUser.ownerName || currentUser.email} 
                     className="w-8 h-8 rounded-lg object-cover border border-[#0075DE]/20"
                   />
                 ) : (
                   <div className={`w-8 h-8 rounded-lg ${theme === "light" ? "bg-slate-200 border-slate-300 text-slate-700" : "bg-slate-900 border-slate-850 text-slate-300"} border flex items-center justify-center font-bold text-xs uppercase`}>
-                    {(currentUser.ownerName || currentUser.email).slice(0, 2)}
+                    {(currentUser.fullName || currentUser.ownerName || currentUser.email).slice(0, 2)}
                   </div>
                 )}
                 <div className={`absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-emerald-500 rounded-full border-2 ${theme === "light" ? "border-white" : "border-slate-950"} animate-pulse`}></div>
@@ -4058,7 +4063,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
               {!isSidebarCollapsed && (
                 <div className="overflow-hidden flex-1">
                   <h4 className={`text-xs font-bold truncate ${theme === "light" ? "text-slate-800" : "text-slate-200"} group-hover/profileCard:text-[#0075DE] transition-colors leading-tight`}>
-                    {currentUser.ownerName || currentUser.email}
+                    {currentUser.fullName || currentUser.ownerName || currentUser.email}
                   </h4>
                   <div className={`flex items-center gap-1.5 mt-0.5 text-[9px] font-bold ${theme === "light" ? "text-slate-500" : "text-slate-500"} uppercase tracking-wider`}>
                     <span className="text-[#0075DE]">●</span>
@@ -4428,7 +4433,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                   {(() => {
                     const dbt = {
                       en: {
-                        welcome: `Welcome back, ${currentUser?.ownerName || "Leader"}`,
+                        welcome: `Welcome back, ${currentUser?.fullName || currentUser?.ownerName || "Leader"}`,
                         subtitle: "Zakir Corporate Causal Memory & Intelligence Desk",
                         activeContext: "Active Context",
                         causalChain: "Causal Decision Flow",
@@ -4458,7 +4463,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                         clickAI: "Click to run AI models"
                       },
                       ar: {
-                        welcome: `مرحباً بك مجدداً، ${currentUser?.ownerName || "القائد"}`,
+                        welcome: `مرحباً بك مجدداً، ${currentUser?.fullName || currentUser?.ownerName || "القائد"}`,
                         subtitle: "منصة ذاكرة زاكير المؤسسية والذكاء السببي التراكمي",
                         activeContext: "السياق المؤسسي النشط",
                         causalChain: "التدفق السببي للقرارات",
@@ -4488,7 +4493,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                         clickAI: "انقر لتشغيل نماذج التنبؤ"
                       },
                       fr: {
-                        welcome: `Bienvenue, ${currentUser?.ownerName || "Leader"}`,
+                        welcome: `Bienvenue, ${currentUser?.fullName || currentUser?.ownerName || "Leader"}`,
                         subtitle: "Mémoire Causaliste & Intelligence Décisionnelle Zakir",
                         activeContext: "Contexte Institutionnel Actif",
                         causalChain: "Flux Décisionnel Causal",

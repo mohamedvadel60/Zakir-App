@@ -1247,12 +1247,27 @@ export function subscribeToFirebaseAuthState(rawCallback: (user: User | null) =>
           memberCount: 1
         };
 
+        let resolvedName = "User";
+        if (typeof localStorage !== "undefined") {
+          const pending = localStorage.getItem("pending_owner_name");
+          if (pending && pending.trim()) {
+            resolvedName = pending.trim();
+          }
+        }
+        if (resolvedName === "User" && fbUser.displayName) {
+          resolvedName = fbUser.displayName;
+        }
+        if (resolvedName === "User" && fbUser.email) {
+          resolvedName = fbUser.email.split("@")[0];
+        }
+
         // Firestore is online and user profile does not exist: create default profile for this UID
         const defaultUser: User = {
           id: fbUser.uid,
           email: fbUser.email || "",
           companyName: effectiveCompany,
-          ownerName: fbUser.email ? fbUser.email.split("@")[0] : "User",
+          ownerName: resolvedName,
+          fullName: resolvedName,
           role: effectiveRole,
           powers: invitation?.powers,
           workspaceId: workspaceId,
@@ -1278,12 +1293,27 @@ export function subscribeToFirebaseAuthState(rawCallback: (user: User | null) =>
         return;
       }
       
+      let resolvedFallbackName = "User";
+      if (typeof localStorage !== "undefined") {
+        const pending = localStorage.getItem("pending_owner_name");
+        if (pending && pending.trim()) {
+          resolvedFallbackName = pending.trim();
+        }
+      }
+      if (resolvedFallbackName === "User" && fbUser.displayName) {
+        resolvedFallbackName = fbUser.displayName;
+      }
+      if (resolvedFallbackName === "User" && fbUser.email) {
+        resolvedFallbackName = fbUser.email.split("@")[0];
+      }
+
       const fallbackRole: UserRole = (ADMIN_EMAILS.includes((fbUser?.email || "").toLowerCase()) || fbUser?.uid === ADMIN_USER_ID) ? "Admin" : "Contributor";
       callback({
         id: fbUser.uid,
         email: fbUser.email || "",
         companyName: "Personal Account",
-        ownerName: fbUser.email ? fbUser.email.split("@")[0] : "User",
+        ownerName: resolvedFallbackName,
+        fullName: resolvedFallbackName,
         role: fallbackRole,
         createdAt: new Date().toISOString(),
         trialExpiresAt: new Date(Date.now() + 24 * 3600 * 1000).toISOString(),
