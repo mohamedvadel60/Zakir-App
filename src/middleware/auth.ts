@@ -189,34 +189,66 @@ export const ADMIN_EMAILS = new Set([
 
 /**
  * Authoritatively retrieves user profile from Firestore or local DB.
+ * Strictly enforces that profile.id matches the authenticated firebaseUser.uid.
  */
-export async function getUserProfileServer(uid: string, email?: string): Promise<any | null> {
+export async function getUserProfileServer(uid?: string, email?: string): Promise<any | null> {
   if (!uid && !email) return null;
   const normalizedEmail = (email || "").trim().toLowerCase();
 
+  // Primary Path: Strict lookup by authenticated UID
   if (uid) {
+    let profileData: any = null;
+    let fetchedId: string | null = null;
+
     try {
       const userDoc = await adminDb.collection("users").doc(uid).get();
       if (userDoc && userDoc.exists) {
-        return { ...userDoc.data(), id: uid, uid };
+        profileData = userDoc.data();
+        fetchedId = userDoc.id || profileData?.id || profileData?.uid;
       }
     } catch (e) {}
+
+    if (!profileData) {
+      try {
+        const db = readDbForAuth();
+        const localUser = db.users?.find((u: any) => u.id === uid || u.uid === uid);
+        if (localUser) {
+          profileData = localUser;
+          fetchedId = localUser.id || localUser.uid;
+        }
+      } catch (e) {}
+    }
+
+    if (profileData) {
+      if (fetchedId && fetchedId !== uid) {
+        console.error(`[MANDATORY_UID_ASSERTION_FAILURE] Mismatch in getUserProfileServer: firebaseUser.uid (${uid}) !== profileDocument.id (${fetchedId})`);
+        throw new Error(`SECURITY_FATAL_UID_MISMATCH: firebaseUser.uid (${uid}) !== profileDocument.id (${fetchedId})`);
+      }
+      return { ...profileData, id: uid, uid: uid };
+    }
+
+    // When UID is provided, DO NOT fall back to arbitrary email matches that could return a mismatched profile ID.
+    return null;
   }
 
+  // Secondary Path: Pure email lookup when UID is omitted (e.g. system email pre-checks)
   if (normalizedEmail) {
     try {
       const snap = await adminDb.collection("users").where("email", "==", normalizedEmail).limit(1).get();
       if (!snap.empty) {
-        return { ...snap.docs[0].data(), id: snap.docs[0].id, uid: snap.docs[0].id };
+        const docData = snap.docs[0].data();
+        if (docData && (docData.email || "").trim().toLowerCase() === normalizedEmail) {
+          return { ...docData, id: snap.docs[0].id, uid: snap.docs[0].id };
+        }
       }
     } catch (e) {}
-  }
 
-  try {
-    const db = readDbForAuth();
-    const localUser = db.users?.find((u: any) => (uid && u.id === uid) || (normalizedEmail && (u.email || "").trim().toLowerCase() === normalizedEmail));
-    if (localUser) return localUser;
-  } catch (e) {}
+    try {
+      const db = readDbForAuth();
+      const localUser = db.users?.find((u: any) => (u.email || "").trim().toLowerCase() === normalizedEmail);
+      if (localUser) return localUser;
+    } catch (e) {}
+  }
 
   return null;
 }
@@ -229,13 +261,7 @@ export async function isUserAdminServer(uid: string, email?: string): Promise<bo
     return true;
   }
 
-  // 2. Authoritative Admin Emails
-  const normalizedEmail = (email || "").trim().toLowerCase();
-  if (normalizedEmail && ADMIN_EMAILS.has(normalizedEmail)) {
-    return true;
-  }
-
-  // 3. Check Firebase Admin Auth record by UID
+  // 2. Check Firebase Admin Auth record strictly by UID
   try {
     const authUser = await adminAuth.getUser(uid);
     if (authUser) {
@@ -252,7 +278,7 @@ export async function isUserAdminServer(uid: string, email?: string): Promise<bo
     // Continue if auth lookup fails
   }
 
-  // 4. Check Firestore 'users' collection document
+  // 3. Check Firestore 'users' collection document strictly by UID
   try {
     const userDoc = await adminDb.collection("users").doc(uid).get();
     if (userDoc && userDoc.exists) {
@@ -266,10 +292,10 @@ export async function isUserAdminServer(uid: string, email?: string): Promise<bo
     // continue to local check
   }
 
-  // 5. Fallback to local DB store check
+  // 4. Fallback to local DB store check strictly by UID
   try {
     const db = readDbForAuth();
-    const localUser = db.users?.find((u: any) => u.id === uid || (normalizedEmail && (u.email || "").trim().toLowerCase() === normalizedEmail));
+    const localUser = db.users?.find((u: any) => u.id === uid || u.uid === uid);
     if (localUser) {
       const role = (localUser.role || "").toLowerCase();
       const uEmail = (localUser.email || "").trim().toLowerCase();

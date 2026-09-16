@@ -42,15 +42,9 @@ export async function getFreshAuthToken(forceRefresh = false): Promise<string | 
 
   if (typeof window !== "undefined") {
     const localToken = localStorage.getItem("zakir_auth_token");
-    if (localToken) return localToken;
-
-    try {
-      const storedUser = localStorage.getItem("zakir_current_user");
-      if (storedUser) {
-        const parsed = JSON.parse(storedUser);
-        if (parsed?.id || parsed?.uid) return parsed.id || parsed.uid;
-      }
-    } catch (e) {}
+    if (localToken && (localToken.startsWith("ey") || localToken.startsWith("sec_") || localToken.startsWith("mock_token_"))) {
+      return localToken;
+    }
   }
 
   return null;
@@ -149,15 +143,9 @@ export async function authenticatedFetch(
   }
 
   if (!token && typeof window !== "undefined") {
-    token = localStorage.getItem("zakir_auth_token");
-    if (!token) {
-      try {
-        const storedUser = localStorage.getItem("zakir_current_user");
-        if (storedUser) {
-          const parsed = JSON.parse(storedUser);
-          token = parsed?.id || parsed?.uid || null;
-        }
-      } catch (e) {}
+    const localToken = localStorage.getItem("zakir_auth_token");
+    if (localToken && (localToken.startsWith("ey") || localToken.startsWith("sec_") || localToken.startsWith("mock_token_"))) {
+      token = localToken;
     }
   }
 

@@ -418,15 +418,10 @@ export async function loginFirebaseUser(email: string, pass: string, attemptId?:
     });
 
     // Deterministic early exits for non-credential client errors & lifecycle checks:
-    if (
-      fbCode === "auth/user-disabled" ||
-      fbCode === "auth/invalid-credential" ||
-      fbCode === "auth/user-not-found" ||
-      fbCode === "auth/invalid-login-credentials"
-    ) {
+    if (fbCode === "auth/user-disabled") {
       try {
         const lc = await checkAccountLifecycleApi(normalizedEmail);
-        if (lc && lc.success) {
+        if (lc && lc.success && lc.status !== "ACTIVE") {
           if (lc.status === "SELF_DELETED" || lc.status === "SELF_RESTORE_AVAILABLE" || lc.canRestore === true) {
             throw new LoginError("LOGIN_SELF_DELETED", lc.userFriendlyMessage || "Account deleted, restoration available", {
               originalCode: "SELF_RESTORE_AVAILABLE",
@@ -449,13 +444,23 @@ export async function loginFirebaseUser(email: string, pass: string, attemptId?:
       } catch (lcErr) {
         if (lcErr instanceof LoginError) throw lcErr;
       }
-      if (fbCode === "auth/user-disabled") {
-        throw new LoginError("LOGIN_USER_DISABLED", "User account is disabled.", {
-          originalCode: fbCode,
-          email: normalizedEmail,
-          attemptId: currentAttemptId
-        });
-      }
+      throw new LoginError("LOGIN_USER_DISABLED", "User account is disabled.", {
+        originalCode: fbCode,
+        email: normalizedEmail,
+        attemptId: currentAttemptId
+      });
+    }
+
+    if (
+      fbCode === "auth/invalid-credential" ||
+      fbCode === "auth/user-not-found" ||
+      fbCode === "auth/invalid-login-credentials"
+    ) {
+      throw new LoginError("LOGIN_INVALID_CREDENTIALS", "بيانات الدخول غير صحيحة. يرجى التحقق من البريد الإلكتروني وكلمة المرور.", {
+        originalCode: fbCode,
+        email: normalizedEmail,
+        attemptId: currentAttemptId
+      });
     }
     if (fbCode === "auth/too-many-requests") {
       throw new LoginError("LOGIN_TOO_MANY_REQUESTS", "Too many requests.", {
@@ -524,6 +529,7 @@ export async function loginFirebaseUser(email: string, pass: string, attemptId?:
 
     if (userSnap && userSnap.exists()) {
       const userData = userSnap.data() as User;
+      userData.id = uid;
       const nowIso = new Date().toISOString();
       userData.lastActiveAt = nowIso;
       userData.lastLoginAt = nowIso;
@@ -1205,29 +1211,15 @@ export function subscribeToFirebaseAuthState(rawCallback: (user: User | null) =>
 
       if (userSnap && userSnap.exists()) {
         const userObj = userSnap.data() as User;
-        setLocalItem(`user_${fbUser.uid}`, userObj);
-        callback(userObj);
+        const profileId = userObj.id || fbUser.uid;
+        if (profileId !== fbUser.uid) {
+          console.error(`[MANDATORY_UID_ASSERTION_FAILURE] Mismatch in subscribeToFirebaseAuthState: fbUser.uid (${fbUser.uid}) !== userObj.id (${profileId})`);
+          throw new Error(`SECURITY_FATAL_UID_MISMATCH: fbUser.uid (${fbUser.uid}) !== userObj.id (${profileId})`);
+        }
+        const validatedUser = { ...userObj, id: fbUser.uid };
+        setLocalItem(`user_${fbUser.uid}`, validatedUser);
+        callback(validatedUser);
       } else {
-        // Secondary lookup by email in case document ID is different
-        let emailUserData: User | null = null;
-        try {
-          if (fbUser.email) {
-            const emailQuery = query(collection(db, "users"), where("email", "==", fbUser.email.trim().toLowerCase()), limit(1));
-            const emailSnap = await getDocs(emailQuery);
-            if (!emailSnap.empty) {
-              emailUserData = emailSnap.docs[0].data() as User;
-            }
-          }
-        } catch (e) {
-          console.warn("Notice: Secondary email lookup in subscribeToFirebaseAuthState failed:", e);
-        }
-
-        if (emailUserData) {
-          setLocalItem(`user_${fbUser.uid}`, emailUserData);
-          callback(emailUserData);
-          return;
-        }
-
         // Check if there is an active invitation for this email
         let invitation: WorkspaceInvitation | null = null;
         try {
@@ -1238,7 +1230,7 @@ export function subscribeToFirebaseAuthState(rawCallback: (user: User | null) =>
           console.warn("Notice: Invitation check in subscribeToFirebaseAuthState fallback:", invErr);
         }
 
-        const effectiveRole: UserRole = invitation?.role || "CEO";
+        const effectiveRole: UserRole = invitation?.role || (ADMIN_EMAILS.includes((fbUser.email || "").toLowerCase()) || fbUser.uid === ADMIN_USER_ID ? "Admin" : "Contributor");
         const workspaceId = invitation?.workspaceId || `ws_${fbUser.uid.substring(0, 8)}_${Date.now().toString(36)}`;
         const effectiveCompany = invitation?.companyName || "Personal Account";
         const workspaceInfo: WorkspaceInfo = invitation ? {
@@ -1255,7 +1247,7 @@ export function subscribeToFirebaseAuthState(rawCallback: (user: User | null) =>
           memberCount: 1
         };
 
-        // Firestore is online and user profile does not exist: create default profile (CEO for new workspace or invited role)
+        // Firestore is online and user profile does not exist: create default profile for this UID
         const defaultUser: User = {
           id: fbUser.uid,
           email: fbUser.email || "",
@@ -1272,17 +1264,6 @@ export function subscribeToFirebaseAuthState(rawCallback: (user: User | null) =>
           await setDoc(doc(db, "users", fbUser.uid), defaultUser);
         } catch (e) {
           console.warn("Failed to create default profile in Firestore:", e);
-          try {
-            const retrySnap = await getDocWithRetry(doc(db, "users", fbUser.uid));
-            if (retrySnap && retrySnap.exists()) {
-              const rData = retrySnap.data() as User;
-              setLocalItem(`user_${fbUser.uid}`, rData);
-              callback(rData);
-              return;
-            }
-          } catch (rErr) {
-            console.warn("Retry fetch in subscribeToFirebaseAuthState failed:", rErr);
-          }
         }
         setLocalItem(`user_${fbUser.uid}`, defaultUser);
         callback(defaultUser);
@@ -1290,19 +1271,20 @@ export function subscribeToFirebaseAuthState(rawCallback: (user: User | null) =>
     } catch (err) {
       console.warn("Notice: user profile fetch in subscribeToFirebaseAuthState:", err);
 
-      // Fallback to local storage (preserving stored user and CEO/Admin roles)
-      const localUser = fbUser ? (getLocalItem(`user_${fbUser.uid}`, null) || (fbUser.email ? getLocalItem(`user_${fbUser.email}`, null) : null)) : null;
-      if (localUser) {
-        callback(localUser);
+      // Fallback to local storage strictly by UID
+      const localUser = fbUser ? getLocalItem(`user_${fbUser.uid}`, null) : null;
+      if (localUser && (localUser.id === fbUser.uid || localUser.uid === fbUser.uid)) {
+        callback({ ...localUser, id: fbUser.uid });
         return;
       }
       
+      const fallbackRole: UserRole = (ADMIN_EMAILS.includes((fbUser?.email || "").toLowerCase()) || fbUser?.uid === ADMIN_USER_ID) ? "Admin" : "Contributor";
       callback({
         id: fbUser.uid,
         email: fbUser.email || "",
         companyName: "Personal Account",
         ownerName: fbUser.email ? fbUser.email.split("@")[0] : "User",
-        role: "CEO",
+        role: fallbackRole,
         createdAt: new Date().toISOString(),
         trialExpiresAt: new Date(Date.now() + 24 * 3600 * 1000).toISOString(),
         isVerified: true,

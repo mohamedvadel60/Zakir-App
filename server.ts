@@ -6250,16 +6250,75 @@ export async function getAccountLifecycleRecord(email: string): Promise<any> {
   if (!normalizedEmail) return null;
 
   try {
+    // 0. Primary check: Is user active in Firebase Auth or 'users' collection or local DB?
+    try {
+      if (isFirebaseAdminAvailable) {
+        const authUser = await adminAuth.getUserByEmail(normalizedEmail).catch(() => null);
+        if (authUser && !authUser.disabled) {
+          const delSnap = await adminDb.collection("deletedUsers").doc(authUser.uid).get().catch(() => null);
+          if (!delSnap || !delSnap.exists) {
+            return {
+              accountId: normalizedEmail,
+              emailNormalized: normalizedEmail,
+              status: "ACTIVE",
+              canRestore: false,
+              adminApprovalRequired: false
+            };
+          }
+        }
+      }
+    } catch (authActiveErr) {}
+
+    try {
+      const activeUserSnap = await adminDb.collection("users").where("email", "==", normalizedEmail).limit(1).get();
+      if (!activeUserSnap.empty) {
+        const activeDoc = activeUserSnap.docs[0].data();
+        if (
+          activeDoc &&
+          (activeDoc.email || "").trim().toLowerCase() === normalizedEmail &&
+          activeDoc.deleted !== true &&
+          activeDoc.status !== "SELF_DELETED" &&
+          activeDoc.status !== "ADMIN_DELETED" &&
+          activeDoc.accountLifecycleStatus !== "PURGED"
+        ) {
+          return {
+            accountId: normalizedEmail,
+            emailNormalized: normalizedEmail,
+            status: "ACTIVE",
+            canRestore: false,
+            adminApprovalRequired: false
+          };
+        }
+      }
+    } catch (activeErr) {}
+
+    try {
+      const db = readDb();
+      const localActive = db.users?.find((u: any) => (u.email || "").trim().toLowerCase() === normalizedEmail);
+      if (localActive && localActive.deleted !== true && localActive.status !== "SELF_DELETED" && localActive.status !== "ADMIN_DELETED") {
+        return {
+          accountId: normalizedEmail,
+          emailNormalized: normalizedEmail,
+          status: "ACTIVE",
+          canRestore: false,
+          adminApprovalRequired: false
+        };
+      }
+    } catch (localActiveErr) {}
+
     const docRef = adminDb.collection("accountLifecycle").doc(normalizedEmail);
     const docSnap = await docRef.get();
     let record: any = null;
 
     if (docSnap.exists) {
-      record = docSnap.data();
+      const d = docSnap.data();
+      if (d && (d.emailNormalized === normalizedEmail || d.accountId === normalizedEmail || (d.email || "").trim().toLowerCase() === normalizedEmail)) {
+        record = d;
+      }
     } else {
       const db = readDb();
       if (!db.account_lifecycle) db.account_lifecycle = [];
-      record = db.account_lifecycle.find((r: any) => r.emailNormalized === normalizedEmail);
+      record = db.account_lifecycle.find((r: any) => (r.emailNormalized || r.accountId || r.email || "").trim().toLowerCase() === normalizedEmail);
     }
 
     // Fallback: check deletedUsers or users_retained if not found in accountLifecycle
@@ -6268,18 +6327,20 @@ export async function getAccountLifecycleRecord(email: string): Promise<any> {
         const delSnap = await adminDb.collection("deletedUsers").where("email", "==", normalizedEmail).limit(1).get();
         if (!delSnap.empty) {
           const dData = delSnap.docs[0].data();
-          const deletedAt = dData.deletedAt || new Date().toISOString();
-          const restoreUntil = new Date(new Date(deletedAt).getTime() + 31 * 24 * 60 * 60 * 1000).toISOString();
-          record = {
-            accountId: normalizedEmail,
-            emailNormalized: normalizedEmail,
-            status: dData.reason === "admin_deleted" ? "ADMIN_DELETED" : "SELF_DELETED",
-            deletionType: dData.reason === "admin_deleted" ? "admin" : "self",
-            deletedAt: deletedAt,
-            restoreUntil: restoreUntil,
-            originalUserId: dData.uid || delSnap.docs[0].id,
-            adminApprovalRequired: dData.reason === "admin_deleted"
-          };
+          if (dData && (dData.email || "").trim().toLowerCase() === normalizedEmail) {
+            const deletedAt = dData.deletedAt || new Date().toISOString();
+            const restoreUntil = new Date(new Date(deletedAt).getTime() + 31 * 24 * 60 * 60 * 1000).toISOString();
+            record = {
+              accountId: normalizedEmail,
+              emailNormalized: normalizedEmail,
+              status: dData.reason === "admin_deleted" ? "ADMIN_DELETED" : "SELF_DELETED",
+              deletionType: dData.reason === "admin_deleted" ? "admin" : "self",
+              deletedAt: deletedAt,
+              restoreUntil: restoreUntil,
+              originalUserId: dData.uid || delSnap.docs[0].id,
+              adminApprovalRequired: dData.reason === "admin_deleted"
+            };
+          }
         }
       } catch (e) {}
     }
@@ -10481,9 +10542,12 @@ app.post("/api/auth/login", loginRegisterLimiter, async (req, res) => {
       if (!userProfile) {
         const emailSnap = await adminDb.collection("users").where("email", "==", normalizedEmail).limit(1).get();
         if (!emailSnap.empty) {
-          userProfile = emailSnap.docs[0].data();
-          if (!authUid) {
-            authUid = emailSnap.docs[0].id;
+          const docData = emailSnap.docs[0].data();
+          if (docData && (docData.email || "").trim().toLowerCase() === normalizedEmail) {
+            userProfile = docData;
+            if (!authUid) {
+              authUid = emailSnap.docs[0].id;
+            }
           }
         }
       }

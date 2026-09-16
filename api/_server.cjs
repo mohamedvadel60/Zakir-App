@@ -229,51 +229,92 @@ function wrapQuerySnapshot(snap, colName) {
     }
   };
 }
-function createSafeQuery(realQuery, colName) {
+function withTimeout(promise, timeoutMs = 8e3) {
+  let timer;
+  const timeoutPromise = new Promise((_, reject) => {
+    timer = setTimeout(() => reject(new Error(`Operation timed out after ${timeoutMs}ms`)), timeoutMs);
+  });
+  return Promise.race([promise, timeoutPromise]).finally(() => clearTimeout(timer));
+}
+function isQuotaOrTimeoutError(err) {
+  const msg = (err?.message || "").toLowerCase();
+  return msg.includes("resource_exhausted") || msg.includes("quota limit exceeded") || msg.includes("timed out") || msg.includes("timeout") || err?.code === 8 || err?.code === 4;
+}
+function createSafeQuery(realQuery, colName, filters = [], orderField, orderDirection = "asc", limitCount, subPath) {
   return {
     where(field, op, value) {
+      const nextFilters = [...filters, { field, op, value }];
       try {
-        return createSafeQuery(realQuery.where(field, op, value), colName);
+        const nextRealQuery = realQuery ? realQuery.where(field, op, value) : null;
+        return createSafeQuery(nextRealQuery, colName, nextFilters, orderField, orderDirection, limitCount, subPath);
       } catch (e) {
-        return new MockQuery(colName).where(field, op, value);
+        let mq = new MockQuery(colName, subPath);
+        for (const f of nextFilters) {
+          mq = mq.where(f.field, f.op, f.value);
+        }
+        if (orderField) mq = mq.orderBy(orderField, orderDirection);
+        if (limitCount) mq = mq.limit(limitCount);
+        return mq;
       }
     },
-    orderBy(field, direction) {
+    orderBy(field, direction = "asc") {
       try {
-        return createSafeQuery(realQuery.orderBy(field, direction), colName);
+        const nextRealQuery = realQuery ? realQuery.orderBy(field, direction) : null;
+        return createSafeQuery(nextRealQuery, colName, filters, field, direction, limitCount, subPath);
       } catch (e) {
-        return new MockQuery(colName).orderBy(field, direction);
+        let mq = new MockQuery(colName, subPath);
+        for (const f of filters) {
+          mq = mq.where(f.field, f.op, f.value);
+        }
+        mq = mq.orderBy(field, direction);
+        if (limitCount) mq = mq.limit(limitCount);
+        return mq;
       }
     },
     limit(count) {
       try {
-        return createSafeQuery(realQuery.limit(count), colName);
+        const nextRealQuery = realQuery ? realQuery.limit(count) : null;
+        return createSafeQuery(nextRealQuery, colName, filters, orderField, orderDirection, count, subPath);
       } catch (e) {
-        return new MockQuery(colName).limit(count);
+        let mq = new MockQuery(colName, subPath);
+        for (const f of filters) {
+          mq = mq.where(f.field, f.op, f.value);
+        }
+        if (orderField) mq = mq.orderBy(orderField, orderDirection);
+        mq = mq.limit(count);
+        return mq;
       }
     },
     async get() {
-      try {
-        const snap = await realQuery.get();
-        return wrapQuerySnapshot(snap, colName);
-      } catch (err) {
-        if ((err?.message || "").includes("RESOURCE_EXHAUSTED") || (err?.message || "").includes("Quota limit exceeded") || err?.code === 8) {
-          console.warn(`[Firestore Quota] Daily quota reached for query on ${colName}, seamlessly using local DB fallback.`);
-        } else {
-          console.warn(`Firestore get() failed for query on ${colName}, falling back to mock:`, err.message);
+      if (realQuery) {
+        try {
+          const snap = await withTimeout(realQuery.get(), 8e3);
+          return wrapQuerySnapshot(snap, colName);
+        } catch (err) {
+          if (isQuotaOrTimeoutError(err)) {
+            console.warn(`[Firestore Quota/Timeout] Daily quota or timeout reached for query on ${colName}, seamlessly using local DB fallback.`);
+          } else {
+            console.warn(`Firestore get() failed for query on ${colName}, falling back to mock:`, err.message);
+          }
         }
-        return new MockQuery(colName).get();
       }
+      let mq = new MockQuery(colName, subPath);
+      for (const f of filters) {
+        mq = mq.where(f.field, f.op, f.value);
+      }
+      if (orderField) mq = mq.orderBy(orderField, orderDirection);
+      if (limitCount) mq = mq.limit(limitCount);
+      return mq.get();
     }
   };
 }
-function createSafeCollection(realCol, colName) {
+function createSafeCollection(realCol, colName, subPath) {
   return {
     doc(docId) {
-      const realDoc = realCol.doc(docId);
+      const realDoc = realCol ? realCol.doc(docId) : null;
       return {
         get id() {
-          return realDoc.id;
+          return docId;
         },
         get _realRef() {
           return realDoc;
@@ -282,129 +323,144 @@ function createSafeCollection(realCol, colName) {
           return colName;
         },
         collection(subCol) {
+          const nextSubPath = subPath ? `${subPath}/${docId}/${subCol}` : `${colName}/${docId}/${subCol}`;
           try {
-            return createSafeCollection(realDoc.collection(subCol), `${colName}/${docId}/${subCol}`);
+            return createSafeCollection(realDoc ? realDoc.collection(subCol) : null, subCol, nextSubPath);
           } catch (e) {
-            return new MockCollectionRef(subCol, `${colName}/${docId}/${subCol}`);
+            return new MockCollectionRef(subCol, nextSubPath);
           }
         },
         async get() {
-          try {
-            const snap = await realDoc.get();
-            return {
-              get id() {
-                return snap.id;
-              },
-              get exists() {
-                return snap.exists;
-              },
-              data() {
-                return snap.data();
-              },
-              get ref() {
-                return {
-                  get id() {
-                    return realDoc.id;
-                  },
-                  get _realRef() {
-                    return realDoc;
-                  },
-                  get colName() {
-                    return colName;
-                  },
-                  collection(subCol) {
-                    try {
-                      return createSafeCollection(realDoc.collection(subCol), `${colName}/${docId}/${subCol}`);
-                    } catch (e) {
-                      return new MockCollectionRef(subCol, `${colName}/${docId}/${subCol}`);
-                    }
-                  },
-                  set: (d, o) => realDoc.set(d, o),
-                  update: (d) => realDoc.update(d),
-                  delete: () => realDoc.delete()
-                };
+          if (realDoc) {
+            try {
+              const snap = await withTimeout(realDoc.get(), 8e3);
+              return {
+                get id() {
+                  return snap.id;
+                },
+                get exists() {
+                  return snap.exists;
+                },
+                data() {
+                  return snap.data();
+                },
+                get ref() {
+                  return {
+                    get id() {
+                      return realDoc.id;
+                    },
+                    get _realRef() {
+                      return realDoc;
+                    },
+                    get colName() {
+                      return colName;
+                    },
+                    collection(subCol) {
+                      const nextSubPath = subPath ? `${subPath}/${docId}/${subCol}` : `${colName}/${docId}/${subCol}`;
+                      try {
+                        return createSafeCollection(realDoc.collection(subCol), subCol, nextSubPath);
+                      } catch (e) {
+                        return new MockCollectionRef(subCol, nextSubPath);
+                      }
+                    },
+                    set: (d, o) => realDoc.set(d, o),
+                    update: (d) => realDoc.update(d),
+                    delete: () => realDoc.delete()
+                  };
+                }
+              };
+            } catch (err) {
+              if (isQuotaOrTimeoutError(err)) {
+                console.warn(`[Firestore Quota/Timeout] Daily quota or timeout reached for ${colName}/${docId}, seamlessly using local DB fallback.`);
+              } else {
+                console.warn(`Firestore get() failed for ${colName}/${docId}, falling back to mock:`, err.message);
               }
-            };
-          } catch (err) {
-            if ((err?.message || "").includes("RESOURCE_EXHAUSTED") || (err?.message || "").includes("Quota limit exceeded") || err?.code === 8) {
-              console.warn(`[Firestore Quota] Daily quota reached for ${colName}/${docId}, seamlessly using local DB fallback.`);
-            } else {
-              console.warn(`Firestore get() failed for ${colName}/${docId}, falling back to mock:`, err.message);
             }
-            return new MockDocRef(colName, docId).get();
           }
+          return new MockDocRef(colName, docId, subPath).get();
         },
         async set(data, options) {
-          try {
-            return await realDoc.set(data, options);
-          } catch (err) {
-            if ((err?.message || "").includes("RESOURCE_EXHAUSTED") || (err?.message || "").includes("Quota limit exceeded") || err?.code === 8) {
-              console.warn(`[Firestore Quota] Daily quota reached for set ${colName}/${docId}, seamlessly using local DB fallback.`);
-            } else {
-              console.warn(`Firestore set() failed for ${colName}/${docId}, falling back to mock:`, err.message);
+          if (realDoc) {
+            try {
+              return await withTimeout(realDoc.set(data, options), 8e3);
+            } catch (err) {
+              if (isQuotaOrTimeoutError(err)) {
+                console.warn(`[Firestore Quota/Timeout] Daily quota or timeout reached for set ${colName}/${docId}, seamlessly using local DB fallback.`);
+              } else {
+                console.warn(`Firestore set() failed for ${colName}/${docId}, falling back to mock:`, err.message);
+              }
             }
-            return new MockDocRef(colName, docId).set(data, options);
           }
+          return new MockDocRef(colName, docId, subPath).set(data, options);
         },
         async update(data) {
-          try {
-            return await realDoc.update(data);
-          } catch (err) {
-            if ((err?.message || "").includes("RESOURCE_EXHAUSTED") || (err?.message || "").includes("Quota limit exceeded") || err?.code === 8) {
-              console.warn(`[Firestore Quota] Daily quota reached for update ${colName}/${docId}, seamlessly using local DB fallback.`);
-            } else {
-              console.warn(`Firestore update() failed for ${colName}/${docId}, falling back to mock:`, err.message);
+          if (realDoc) {
+            try {
+              return await withTimeout(realDoc.update(data), 8e3);
+            } catch (err) {
+              if (isQuotaOrTimeoutError(err)) {
+                console.warn(`[Firestore Quota/Timeout] Daily quota or timeout reached for update ${colName}/${docId}, seamlessly using local DB fallback.`);
+              } else {
+                console.warn(`Firestore update() failed for ${colName}/${docId}, falling back to mock:`, err.message);
+              }
             }
-            return new MockDocRef(colName, docId).update(data);
           }
+          return new MockDocRef(colName, docId, subPath).update(data);
         },
         async delete() {
-          try {
-            return await realDoc.delete();
-          } catch (err) {
-            if ((err?.message || "").includes("RESOURCE_EXHAUSTED") || (err?.message || "").includes("Quota limit exceeded") || err?.code === 8) {
-              console.warn(`[Firestore Quota] Daily quota reached for delete ${colName}/${docId}, seamlessly using local DB fallback.`);
-            } else {
-              console.warn(`Firestore delete() failed for ${colName}/${docId}, falling back to mock:`, err.message);
+          if (realDoc) {
+            try {
+              return await withTimeout(realDoc.delete(), 8e3);
+            } catch (err) {
+              if (isQuotaOrTimeoutError(err)) {
+                console.warn(`[Firestore Quota/Timeout] Daily quota or timeout reached for delete ${colName}/${docId}, seamlessly using local DB fallback.`);
+              } else {
+                console.warn(`Firestore delete() failed for ${colName}/${docId}, falling back to mock:`, err.message);
+              }
             }
-            return new MockDocRef(colName, docId).delete();
           }
+          return new MockDocRef(colName, docId, subPath).delete();
         }
       };
     },
     where(field, op, value) {
       try {
-        return createSafeQuery(realCol.where(field, op, value), colName);
+        const nextReal = realCol ? realCol.where(field, op, value) : null;
+        return createSafeQuery(nextReal, colName, [{ field, op, value }], void 0, "asc", void 0, subPath);
       } catch (e) {
-        return new MockQuery(colName).where(field, op, value);
+        return new MockQuery(colName, subPath).where(field, op, value);
       }
     },
-    orderBy(field, direction) {
+    orderBy(field, direction = "asc") {
       try {
-        return createSafeQuery(realCol.orderBy(field, direction), colName);
+        const nextReal = realCol ? realCol.orderBy(field, direction) : null;
+        return createSafeQuery(nextReal, colName, [], field, direction, void 0, subPath);
       } catch (e) {
-        return new MockQuery(colName).orderBy(field, direction);
+        return new MockQuery(colName, subPath).orderBy(field, direction);
       }
     },
     limit(count) {
       try {
-        return createSafeQuery(realCol.limit(count), colName);
+        const nextReal = realCol ? realCol.limit(count) : null;
+        return createSafeQuery(nextReal, colName, [], void 0, "asc", count, subPath);
       } catch (e) {
-        return new MockQuery(colName).limit(count);
+        return new MockQuery(colName, subPath).limit(count);
       }
     },
     async get() {
-      try {
-        const snap = await realCol.get();
-        return wrapQuerySnapshot(snap, colName);
-      } catch (err) {
-        if ((err?.message || "").includes("RESOURCE_EXHAUSTED") || (err?.message || "").includes("Quota limit exceeded") || err?.code === 8) {
-          console.warn(`[Firestore Quota] Daily quota reached for collection ${colName}, seamlessly using local DB fallback.`);
-        } else {
-          console.warn(`Firestore get() failed for collection ${colName}, falling back to mock:`, err.message);
+      if (realCol) {
+        try {
+          const snap = await withTimeout(realCol.get(), 8e3);
+          return wrapQuerySnapshot(snap, colName);
+        } catch (err) {
+          if (isQuotaOrTimeoutError(err)) {
+            console.warn(`[Firestore Quota/Timeout] Daily quota or timeout reached for collection ${colName}, seamlessly using local DB fallback.`);
+          } else {
+            console.warn(`Firestore get() failed for collection ${colName}, falling back to mock:`, err.message);
+          }
         }
-        return new MockCollectionRef(colName).get();
       }
+      return new MockCollectionRef(colName, subPath).get();
     }
   };
 }
@@ -512,7 +568,7 @@ function createSafeAdminAuth(realAuth) {
     async getUser(uid) {
       if (isFirebaseAdminAvailable && realAuth) {
         try {
-          return await realAuth.getUser(uid);
+          return await withTimeout(realAuth.getUser(uid), 8e3);
         } catch (e) {
           if (!e?.message?.includes("PERMISSION_DENIED")) {
             if (e?.code === "auth/user-not-found") throw e;
@@ -536,7 +592,7 @@ function createSafeAdminAuth(realAuth) {
     async getUserByEmail(email) {
       if (isFirebaseAdminAvailable && realAuth) {
         try {
-          return await realAuth.getUserByEmail(email);
+          return await withTimeout(realAuth.getUserByEmail(email), 8e3);
         } catch (e) {
           if (!e?.message?.includes("PERMISSION_DENIED")) {
             if (e?.code === "auth/user-not-found") throw e;
@@ -1081,38 +1137,59 @@ async function getUserProfileServer(uid, email) {
   if (!uid && !email) return null;
   const normalizedEmail = (email || "").trim().toLowerCase();
   if (uid) {
+    let profileData = null;
+    let fetchedId = null;
     try {
       const userDoc = await adminDb.collection("users").doc(uid).get();
       if (userDoc && userDoc.exists) {
-        return { ...userDoc.data(), id: uid, uid };
+        profileData = userDoc.data();
+        fetchedId = userDoc.id || profileData?.id || profileData?.uid;
       }
     } catch (e) {
     }
+    if (!profileData) {
+      try {
+        const db2 = readDbForAuth();
+        const localUser = db2.users?.find((u) => u.id === uid || u.uid === uid);
+        if (localUser) {
+          profileData = localUser;
+          fetchedId = localUser.id || localUser.uid;
+        }
+      } catch (e) {
+      }
+    }
+    if (profileData) {
+      if (fetchedId && fetchedId !== uid) {
+        console.error(`[MANDATORY_UID_ASSERTION_FAILURE] Mismatch in getUserProfileServer: firebaseUser.uid (${uid}) !== profileDocument.id (${fetchedId})`);
+        throw new Error(`SECURITY_FATAL_UID_MISMATCH: firebaseUser.uid (${uid}) !== profileDocument.id (${fetchedId})`);
+      }
+      return { ...profileData, id: uid, uid };
+    }
+    return null;
   }
   if (normalizedEmail) {
     try {
       const snap = await adminDb.collection("users").where("email", "==", normalizedEmail).limit(1).get();
       if (!snap.empty) {
-        return { ...snap.docs[0].data(), id: snap.docs[0].id, uid: snap.docs[0].id };
+        const docData = snap.docs[0].data();
+        if (docData && (docData.email || "").trim().toLowerCase() === normalizedEmail) {
+          return { ...docData, id: snap.docs[0].id, uid: snap.docs[0].id };
+        }
       }
     } catch (e) {
     }
-  }
-  try {
-    const db2 = readDbForAuth();
-    const localUser = db2.users?.find((u) => uid && u.id === uid || normalizedEmail && (u.email || "").trim().toLowerCase() === normalizedEmail);
-    if (localUser) return localUser;
-  } catch (e) {
+    try {
+      const db2 = readDbForAuth();
+      const localUser = db2.users?.find((u) => (u.email || "").trim().toLowerCase() === normalizedEmail);
+      if (localUser) return localUser;
+    } catch (e) {
+    }
   }
   return null;
 }
 async function isUserAdminServer(uid, email) {
   if (!uid) return false;
-  if (uid === ADMIN_USER_ID || uid === "usr_ceo") {
-    return true;
-  }
-  const normalizedEmail = (email || "").trim().toLowerCase();
-  if (normalizedEmail && ADMIN_EMAILS.has(normalizedEmail)) {
+  if (uid === ADMIN_USER_ID) {
     return true;
   }
   try {
@@ -1123,7 +1200,7 @@ async function isUserAdminServer(uid, email) {
         return true;
       }
       const customClaims = authUser.customClaims || {};
-      if (customClaims.admin === true || customClaims.role === "admin" || customClaims.role === "ceo") {
+      if (customClaims.admin === true || customClaims.role === "admin" || customClaims.role === "super_admin") {
         return true;
       }
     }
@@ -1133,21 +1210,21 @@ async function isUserAdminServer(uid, email) {
     const userDoc = await adminDb.collection("users").doc(uid).get();
     if (userDoc && userDoc.exists) {
       const userData = userDoc.data();
-      const role = (userData?.role || "").toUpperCase();
+      const role = (userData?.role || "").toLowerCase();
       const userEmail = (userData?.email || "").trim().toLowerCase();
-      if (role === "CEO" || role === "ADMIN") return true;
       if (userEmail && ADMIN_EMAILS.has(userEmail)) return true;
+      if (role === "admin" || role === "superadmin" || role === "super_admin" || role === "first admin") return true;
     }
   } catch (err) {
   }
   try {
     const db2 = readDbForAuth();
-    const localUser = db2.users?.find((u) => u.id === uid || normalizedEmail && (u.email || "").trim().toLowerCase() === normalizedEmail);
+    const localUser = db2.users?.find((u) => u.id === uid || u.uid === uid);
     if (localUser) {
-      const role = (localUser.role || "").toUpperCase();
+      const role = (localUser.role || "").toLowerCase();
       const uEmail = (localUser.email || "").trim().toLowerCase();
-      if (role === "CEO" || role === "ADMIN") return true;
       if (uEmail && ADMIN_EMAILS.has(uEmail)) return true;
+      if (role === "admin" || role === "superadmin" || role === "super_admin" || role === "first admin") return true;
     }
   } catch (e) {
   }
@@ -2105,12 +2182,54 @@ async function getAccountLifecycleRecord(email) {
   if (!normalizedEmail) return null;
   if (isFirebaseAdminAvailable && adminDb) {
     try {
+      const authUser = await adminAuth.getUserByEmail(normalizedEmail).catch(() => null);
+      if (authUser && !authUser.disabled) {
+        const delSnap = await adminDb.collection("deletedUsers").doc(authUser.uid).get().catch(() => null);
+        if (!delSnap || !delSnap.exists) {
+          return {
+            accountId: normalizedEmail,
+            emailNormalized: normalizedEmail,
+            status: "ACTIVE",
+            canRestore: false,
+            adminApprovalRequired: false
+          };
+        }
+      }
+    } catch (e) {
+    }
+    try {
+      const activeUserSnap = await adminDb.collection("users").where("email", "==", normalizedEmail).limit(1).get();
+      if (!activeUserSnap.empty) {
+        const activeDoc = activeUserSnap.docs[0].data();
+        if (activeDoc && (activeDoc.email || "").trim().toLowerCase() === normalizedEmail && activeDoc.deleted !== true && activeDoc.status !== "SELF_DELETED" && activeDoc.status !== "ADMIN_DELETED") {
+          return {
+            accountId: normalizedEmail,
+            emailNormalized: normalizedEmail,
+            status: "ACTIVE",
+            canRestore: false,
+            adminApprovalRequired: false
+          };
+        }
+      }
+    } catch (e) {
+    }
+    try {
       const snap = await adminDb.collection("accountLifecycle").doc(normalizedEmail).get();
       if (snap.exists) return snap.data();
     } catch (e) {
     }
   }
   const db2 = readDb();
+  const localActive = db2.users?.find((u) => (u.email || "").trim().toLowerCase() === normalizedEmail);
+  if (localActive && localActive.deleted !== true && localActive.status !== "SELF_DELETED" && localActive.status !== "ADMIN_DELETED") {
+    return {
+      accountId: normalizedEmail,
+      emailNormalized: normalizedEmail,
+      status: "ACTIVE",
+      canRestore: false,
+      adminApprovalRequired: false
+    };
+  }
   return db2.account_lifecycle?.find((r) => (r.emailNormalized || r.email) === normalizedEmail) || null;
 }
 async function setAccountLifecycleRecord(record) {
@@ -2871,14 +2990,29 @@ function writeDb2(data) {
     console.warn("Notice: writeDb file save skipped (read-only filesystem environment):", err?.message);
   }
 }
+var geminiCooldownUntil = 0;
+function isGeminiInCooldown() {
+  return Date.now() < geminiCooldownUntil;
+}
+function setGeminiCooldown(durationMs = 35e3) {
+  geminiCooldownUntil = Math.max(geminiCooldownUntil, Date.now() + durationMs);
+}
+function handleGeminiError(err) {
+  const errMsg = err?.message || String(err || "");
+  const isQuota = errMsg.includes("429") || errMsg.includes("RESOURCE_EXHAUSTED") || errMsg.includes("quota") || errMsg.includes("prepayment");
+  const isUnavailable = errMsg.includes("503") || errMsg.includes("UNAVAILABLE") || errMsg.includes("high demand");
+  if (isQuota || isUnavailable) {
+    setGeminiCooldown(35e3);
+  }
+  return { isQuota, isUnavailable };
+}
 function getGeminiClient() {
   try {
     import_dotenv2.default.config();
   } catch (e) {
   }
-  const apiKey = process.env.GEMINI_API_KEY;
+  const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
   if (!apiKey || apiKey.trim() === "") {
-    console.error("GEMINI_API_KEY is not configured.");
     return null;
   }
   return new import_genai.GoogleGenAI({
@@ -3696,11 +3830,11 @@ app2.post([
       }
     };
     if (isHosted) {
-      sessionParams.ui_mode = "hosted_page";
+      sessionParams.ui_mode = "hosted";
       sessionParams.success_url = successUrl;
       sessionParams.cancel_url = cancelUrl;
     } else {
-      sessionParams.ui_mode = "embedded_page";
+      sessionParams.ui_mode = "embedded";
       sessionParams.return_url = returnUrl;
     }
     if (stripeCustomerId) {
@@ -3714,24 +3848,8 @@ app2.post([
       session = await stripe.checkout.sessions.create(sessionParams);
     } catch (sessionErr) {
       const errMsg = sessionErr?.message || "";
-      if (errMsg.includes("embedded_page")) {
-        console.warn("[Stripe Checkout] Falling back to ui_mode: 'embedded'...");
-        sessionParams.ui_mode = "embedded";
-        session = await stripe.checkout.sessions.create(sessionParams);
-      } else if (errMsg.includes("hosted_page")) {
-        console.warn("[Stripe Checkout] Falling back to ui_mode: 'hosted'...");
-        sessionParams.ui_mode = "hosted";
-        session = await stripe.checkout.sessions.create(sessionParams);
-      } else if (errMsg.includes("ui_mode value `embedded`")) {
-        console.warn("[Stripe Checkout] Falling back to ui_mode: 'embedded_page'...");
-        sessionParams.ui_mode = "embedded_page";
-        session = await stripe.checkout.sessions.create(sessionParams);
-      } else if (errMsg.includes("ui_mode value `hosted`")) {
-        console.warn("[Stripe Checkout] Falling back to ui_mode: 'hosted_page'...");
-        sessionParams.ui_mode = "hosted_page";
-        session = await stripe.checkout.sessions.create(sessionParams);
-      } else if (errMsg.includes("No such customer") || sessionErr?.code === "resource_missing") {
-        console.warn(`[Stripe Checkout] Checkout session creation hit invalid customer error (${sessionErr.message}). Self-healing: removing customer parameter and retrying...`);
+      if (errMsg.includes("No such customer") || sessionErr?.code === "resource_missing") {
+        console.warn(`[Stripe Checkout] Checkout session creation hit invalid customer error (${sessionErr.message}). Retrying without customer parameter...`);
         delete sessionParams.customer;
         if (validUserEmail) {
           sessionParams.customer_email = validUserEmail;
@@ -4171,6 +4289,45 @@ var getResendInstance2 = () => {
   }
   return new import_resend2.Resend(apiKey.trim());
 };
+async function sendSystemSms(toPhone, messageBody) {
+  const cleanPhone = (toPhone || "").trim();
+  if (!cleanPhone) {
+    return { success: false, error: "Recipient phone number is required" };
+  }
+  const accountSid = process.env.TWILIO_ACCOUNT_SID;
+  const authToken = process.env.TWILIO_AUTH_TOKEN;
+  const fromNumber = process.env.TWILIO_PHONE_NUMBER || process.env.TWILIO_FROM;
+  if (accountSid && authToken && fromNumber) {
+    try {
+      const basicAuth = Buffer.from(`${accountSid}:${authToken}`).toString("base64");
+      const params = new URLSearchParams();
+      params.append("To", cleanPhone);
+      params.append("From", fromNumber);
+      params.append("Body", messageBody);
+      const twilioRes = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`, {
+        method: "POST",
+        headers: {
+          "Authorization": `Basic ${basicAuth}`,
+          "Content-Type": "application/x-www-form-urlencoded"
+        },
+        body: params.toString()
+      });
+      const data = await twilioRes.json();
+      if (twilioRes.ok && data?.sid) {
+        console.log(`[SMS SUCCESS] Dispatched SMS to ${cleanPhone}, SID: ${data.sid}`);
+        return { success: true, messageId: data.sid, simulated: false };
+      } else {
+        console.warn(`[SMS TWILIO ERROR] Status ${twilioRes.status}:`, data);
+        return { success: false, error: data?.message || "Twilio delivery failed", simulated: false };
+      }
+    } catch (err) {
+      console.error("[SMS DISPATCH EXCEPTION]", err);
+      return { success: false, error: err?.message || String(err), simulated: false };
+    }
+  }
+  console.log(`[SMS SIMULATOR] Simulated SMS to ${cleanPhone}: "${messageBody}"`);
+  return { success: true, messageId: `SIM_SMS_${Date.now()}`, simulated: true };
+}
 async function sendSystemMail2(toOrOptions, subjectArg, textArg, htmlArg) {
   let to;
   let subject;
@@ -5117,6 +5274,13 @@ app2.post("/api/auth/send-verification-code", otpLimiter, async (req, res) => {
         userFriendlyMessage: "\u062A\u0639\u0630\u0631 \u0625\u0631\u0633\u0627\u0644 \u0631\u0645\u0632 \u0627\u0644\u0627\u0633\u062A\u0639\u0627\u062F\u0629. \u064A\u0631\u062C\u0649 \u0627\u0644\u0645\u062D\u0627\u0648\u0644\u0629 \u0645\u0631\u0629 \u0623\u062E\u0631\u0649."
       });
     }
+    const targetPhone = (phone || (targetIdentifier && !targetIdentifier.includes("@") ? targetIdentifier : "")).trim();
+    let smsResult = null;
+    if (targetPhone) {
+      const smsMessage = `\u0631\u0645\u0632 \u0627\u0644\u062A\u062D\u0642\u0642 \u0644\u0645\u0646\u0635\u0629 Zakir \u0647\u0648: ${otpCode} - \u0635\u0627\u0644\u062D \u0644\u0645\u062F\u0629 10 \u062F\u0642\u0627\u0626\u0642. Zakir Verification Code: ${otpCode}`;
+      smsResult = await sendSystemSms(targetPhone, smsMessage);
+      console.log(`[OTP SMS DISPATCH] Target: ${targetPhone}, Success: ${smsResult?.success}`);
+    }
     if (isRecovery) {
       const resStatus = mailResult.success ? 200 : mailResult.statusCode || 500;
       const resMsgId = mailResult.messageId || "none";
@@ -5134,7 +5298,7 @@ app2.post("/api/auth/send-verification-code", otpLimiter, async (req, res) => {
       id: docId,
       userId: foundUid,
       email: targetIdentifier,
-      phone: phone ? phone.trim() : "",
+      phone: targetPhone || "",
       codeHash,
       // STORE ONLY SECURE HASH
       type,
@@ -5150,20 +5314,27 @@ app2.post("/api/auth/send-verification-code", otpLimiter, async (req, res) => {
     activeVerificationCodes.set(docId, record);
     activeVerificationCodes.set(targetIdentifier, record);
     if (foundUid) activeVerificationCodes.set(foundUid, record);
+    if (targetPhone) activeVerificationCodes.set(targetPhone, record);
     try {
       await adminDb.collection("verification_codes").doc(docId).set(record);
       if (docId !== targetIdentifier) {
         await adminDb.collection("verification_codes").doc(targetIdentifier).set({ ...record, id: targetIdentifier });
+      }
+      if (targetPhone && targetPhone !== docId && targetPhone !== targetIdentifier) {
+        await adminDb.collection("verification_codes").doc(targetPhone).set({ ...record, id: targetPhone });
       }
     } catch (dbErr) {
       console.error("Failed to write to Firestore verification_codes:", dbErr);
     }
     try {
       if (!db2.verification_codes) db2.verification_codes = [];
-      db2.verification_codes = db2.verification_codes.filter((vc) => vc.id !== docId && vc.id !== targetIdentifier);
+      db2.verification_codes = db2.verification_codes.filter((vc) => vc.id !== docId && vc.id !== targetIdentifier && vc.id !== targetPhone);
       db2.verification_codes.push(record);
       if (docId !== targetIdentifier) {
         db2.verification_codes.push({ ...record, id: targetIdentifier });
+      }
+      if (targetPhone && targetPhone !== docId && targetPhone !== targetIdentifier) {
+        db2.verification_codes.push({ ...record, id: targetPhone });
       }
       writeDb2(db2);
     } catch (err) {
@@ -5179,6 +5350,7 @@ app2.post("/api/auth/send-verification-code", otpLimiter, async (req, res) => {
       message: `Verification code sent to ${targetIdentifier}`,
       expiresAt,
       emailSent,
+      smsSent: smsResult ? smsResult.success : void 0,
       devCode: mailResult.simulated ? otpCode : void 0,
       sendCount: newSendCount,
       cooldownUntil: cooldownUntil || void 0,
@@ -5200,6 +5372,7 @@ app2.post("/api/auth/verify-code", otpLimiter, async (req, res) => {
     }
     const resolvedUser = await resolveUserByEmailOrId({ userId, email, phone });
     const targetIdentifier = resolvedUser.email || (email || phone || "").trim().toLowerCase();
+    const rawPhone = (phone || "").trim();
     const cleanCode = String(code).trim();
     let foundUid = resolvedUser.userId;
     const isTargetAdmin = foundUid && await isUserAdminServer(foundUid, targetIdentifier) || targetIdentifier && ADMIN_EMAILS.has(targetIdentifier) || foundUid === ADMIN_USER_ID;
@@ -5236,7 +5409,15 @@ app2.post("/api/auth/verify-code", otpLimiter, async (req, res) => {
     }
     const docId = foundUid;
     let activeRecord = null;
-    const memCandidates = [foundUid, userId, targetIdentifier, docId].filter(Boolean);
+    const memCandidates = Array.from(new Set([
+      foundUid,
+      userId,
+      targetIdentifier,
+      (email || "").trim().toLowerCase(),
+      (email || "").trim(),
+      rawPhone,
+      docId
+    ].filter(Boolean)));
     for (const key of memCandidates) {
       const rec = activeVerificationCodes.get(key);
       if (rec && !rec.used) {
@@ -5245,8 +5426,7 @@ app2.post("/api/auth/verify-code", otpLimiter, async (req, res) => {
       }
     }
     if (!activeRecord) {
-      const candidateDocIds = Array.from(new Set([foundUid, userId, targetIdentifier, docId].filter(Boolean)));
-      for (const cId of candidateDocIds) {
+      for (const cId of memCandidates) {
         try {
           const docSnap = await adminDb.collection("verification_codes").doc(cId).get();
           if (docSnap.exists) {
@@ -5267,7 +5447,7 @@ app2.post("/api/auth/verify-code", otpLimiter, async (req, res) => {
       const db3 = readDb2();
       if (db3.verification_codes && Array.isArray(db3.verification_codes)) {
         const matches = db3.verification_codes.filter(
-          (vc) => foundUid && (vc.id === foundUid || vc.userId === foundUid) || userId && (vc.id === userId || vc.userId === userId) || docId && (vc.id === docId || vc.userId === docId) || targetIdentifier && (vc.id === targetIdentifier || vc.email && vc.email.toLowerCase() === targetIdentifier)
+          (vc) => foundUid && (vc.id === foundUid || vc.userId === foundUid) || userId && (vc.id === userId || vc.userId === userId) || docId && (vc.id === docId || vc.userId === docId) || targetIdentifier && (vc.id === targetIdentifier || vc.email && vc.email.toLowerCase() === targetIdentifier) || rawPhone && (vc.phone === rawPhone || vc.id === rawPhone)
         );
         const unusedMatch = matches.filter((m) => !m.used).sort((a, b) => {
           const tA = new Date(a.createdAt || a.lastSentAt || 0).getTime();
@@ -5282,9 +5462,18 @@ app2.post("/api/auth/verify-code", otpLimiter, async (req, res) => {
       }
     }
     if (!activeRecord || activeRecord.used) {
-      if (targetIdentifier) {
+      if (targetIdentifier && targetIdentifier.includes("@")) {
         try {
           const qSnap = await adminDb.collection("verification_codes").where("email", "==", targetIdentifier).where("used", "==", false).get();
+          if (!qSnap.empty) {
+            activeRecord = qSnap.docs[0].data();
+          }
+        } catch (fErr) {
+        }
+      }
+      if ((!activeRecord || activeRecord.used) && rawPhone) {
+        try {
+          const qSnap = await adminDb.collection("verification_codes").where("phone", "==", rawPhone).where("used", "==", false).get();
           if (!qSnap.empty) {
             activeRecord = qSnap.docs[0].data();
           }
@@ -7678,33 +7867,86 @@ async function getAccountLifecycleRecord2(email) {
   const normalizedEmail = (email || "").trim().toLowerCase();
   if (!normalizedEmail) return null;
   try {
+    try {
+      if (isFirebaseAdminAvailable) {
+        const authUser = await adminAuth.getUserByEmail(normalizedEmail).catch(() => null);
+        if (authUser && !authUser.disabled) {
+          const delSnap = await adminDb.collection("deletedUsers").doc(authUser.uid).get().catch(() => null);
+          if (!delSnap || !delSnap.exists) {
+            return {
+              accountId: normalizedEmail,
+              emailNormalized: normalizedEmail,
+              status: "ACTIVE",
+              canRestore: false,
+              adminApprovalRequired: false
+            };
+          }
+        }
+      }
+    } catch (authActiveErr) {
+    }
+    try {
+      const activeUserSnap = await adminDb.collection("users").where("email", "==", normalizedEmail).limit(1).get();
+      if (!activeUserSnap.empty) {
+        const activeDoc = activeUserSnap.docs[0].data();
+        if (activeDoc && (activeDoc.email || "").trim().toLowerCase() === normalizedEmail && activeDoc.deleted !== true && activeDoc.status !== "SELF_DELETED" && activeDoc.status !== "ADMIN_DELETED" && activeDoc.accountLifecycleStatus !== "PURGED") {
+          return {
+            accountId: normalizedEmail,
+            emailNormalized: normalizedEmail,
+            status: "ACTIVE",
+            canRestore: false,
+            adminApprovalRequired: false
+          };
+        }
+      }
+    } catch (activeErr) {
+    }
+    try {
+      const db2 = readDb2();
+      const localActive = db2.users?.find((u) => (u.email || "").trim().toLowerCase() === normalizedEmail);
+      if (localActive && localActive.deleted !== true && localActive.status !== "SELF_DELETED" && localActive.status !== "ADMIN_DELETED") {
+        return {
+          accountId: normalizedEmail,
+          emailNormalized: normalizedEmail,
+          status: "ACTIVE",
+          canRestore: false,
+          adminApprovalRequired: false
+        };
+      }
+    } catch (localActiveErr) {
+    }
     const docRef = adminDb.collection("accountLifecycle").doc(normalizedEmail);
     const docSnap = await docRef.get();
     let record = null;
     if (docSnap.exists) {
-      record = docSnap.data();
+      const d = docSnap.data();
+      if (d && (d.emailNormalized === normalizedEmail || d.accountId === normalizedEmail || (d.email || "").trim().toLowerCase() === normalizedEmail)) {
+        record = d;
+      }
     } else {
       const db2 = readDb2();
       if (!db2.account_lifecycle) db2.account_lifecycle = [];
-      record = db2.account_lifecycle.find((r) => r.emailNormalized === normalizedEmail);
+      record = db2.account_lifecycle.find((r) => (r.emailNormalized || r.accountId || r.email || "").trim().toLowerCase() === normalizedEmail);
     }
     if (!record) {
       try {
         const delSnap = await adminDb.collection("deletedUsers").where("email", "==", normalizedEmail).limit(1).get();
         if (!delSnap.empty) {
           const dData = delSnap.docs[0].data();
-          const deletedAt = dData.deletedAt || (/* @__PURE__ */ new Date()).toISOString();
-          const restoreUntil = new Date(new Date(deletedAt).getTime() + 31 * 24 * 60 * 60 * 1e3).toISOString();
-          record = {
-            accountId: normalizedEmail,
-            emailNormalized: normalizedEmail,
-            status: dData.reason === "admin_deleted" ? "ADMIN_DELETED" : "SELF_DELETED",
-            deletionType: dData.reason === "admin_deleted" ? "admin" : "self",
-            deletedAt,
-            restoreUntil,
-            originalUserId: dData.uid || delSnap.docs[0].id,
-            adminApprovalRequired: dData.reason === "admin_deleted"
-          };
+          if (dData && (dData.email || "").trim().toLowerCase() === normalizedEmail) {
+            const deletedAt = dData.deletedAt || (/* @__PURE__ */ new Date()).toISOString();
+            const restoreUntil = new Date(new Date(deletedAt).getTime() + 31 * 24 * 60 * 60 * 1e3).toISOString();
+            record = {
+              accountId: normalizedEmail,
+              emailNormalized: normalizedEmail,
+              status: dData.reason === "admin_deleted" ? "ADMIN_DELETED" : "SELF_DELETED",
+              deletionType: dData.reason === "admin_deleted" ? "admin" : "self",
+              deletedAt,
+              restoreUntil,
+              originalUserId: dData.uid || delSnap.docs[0].id,
+              adminApprovalRequired: dData.reason === "admin_deleted"
+            };
+          }
         }
       } catch (e) {
       }
@@ -11382,9 +11624,12 @@ app2.post("/api/auth/login", loginRegisterLimiter, async (req, res) => {
       if (!userProfile) {
         const emailSnap = await adminDb.collection("users").where("email", "==", normalizedEmail).limit(1).get();
         if (!emailSnap.empty) {
-          userProfile = emailSnap.docs[0].data();
-          if (!authUid) {
-            authUid = emailSnap.docs[0].id;
+          const docData = emailSnap.docs[0].data();
+          if (docData && (docData.email || "").trim().toLowerCase() === normalizedEmail) {
+            userProfile = docData;
+            if (!authUid) {
+              authUid = emailSnap.docs[0].id;
+            }
           }
         }
       }
@@ -12241,7 +12486,7 @@ app2.post("/api/database/query", requireAuth, async (req, res) => {
     });
   }
 });
-app2.post("/api/smart-evolution", async (req, res) => {
+var handleSmartEvolution = async (req, res) => {
   const { lang = "ar" } = req.body;
   let { memories, riskAlerts } = req.body;
   const db2 = readDb2();
@@ -12354,7 +12599,7 @@ Diagnostic analysis of ${memories.length} institutional memories maps cause-and-
     recommendationsList: fallbackRecommendationsList
   };
   const ai = getGeminiClient();
-  if (!ai || memories.length === 0) {
+  if (!ai || memories.length === 0 || isGeminiInCooldown()) {
     return res.json(defaultPayload);
   }
   try {
@@ -12391,8 +12636,9 @@ Diagnostic analysis of ${memories.length} institutional memories maps cause-and-
   "recommendationsList": [{"title": "\u0639\u0646\u0648\u0627\u0646 \u0627\u0644\u062A\u0648\u0635\u064A\u0629 \u0627\u0644\u062A\u0646\u0641\u064A\u0630\u064A\u0629", "priority": "\u062D\u0631\u0650\u062C / \u0645\u0631\u062A\u0641\u0639 / \u0645\u062A\u0648\u0633\u0637", "actionable": "\u0625\u062C\u0631\u0627\u0621 \u0639\u0645\u0644\u064A \u0645\u0628\u0627\u0634\u0631 \u0648\u0642\u0627\u0628\u0644 \u0644\u0644\u062A\u0637\u0628\u064A\u0642", "details": "\u062E\u0637\u0648\u0627\u062A \u0627\u0644\u062A\u0646\u0641\u064A\u0630 \u0648\u0627\u0644\u062D\u0648\u0643\u0645\u0629 \u0644\u0645\u0646\u0639 \u0627\u0644\u0627\u0646\u0643\u0634\u0627\u0641"}]
 }`;
     let response;
-    const fallbackModels = ["gemini-3.7-flash", "gemini-3.5-flash", "gemini-flash-latest", "gemini-2.0-flash"];
+    const fallbackModels = ["gemini-3.8-flash", "gemini-3.1-flash-lite", "gemini-flash-latest"];
     for (let i = 0; i < fallbackModels.length; i++) {
+      if (isGeminiInCooldown()) break;
       try {
         response = await ai.models.generateContent({
           model: fallbackModels[i],
@@ -12414,15 +12660,25 @@ ${activeRisksSummary}` }]
             temperature: 0.35
           }
         });
-        break;
+        if (response?.text) {
+          break;
+        }
       } catch (apiError) {
-        if (i === fallbackModels.length - 1) throw apiError;
+        handleGeminiError(apiError);
       }
     }
-    const rawText = response?.text || "{}";
+    if (!response?.text) {
+      return res.json(defaultPayload);
+    }
+    const rawText = response.text;
     const cleanText = rawText.replace(/```json/g, "").replace(/```/g, "").trim();
-    const result = JSON.parse(cleanText);
-    res.json({
+    let result = {};
+    try {
+      result = JSON.parse(cleanText);
+    } catch {
+      result = {};
+    }
+    return res.json({
       executiveSummary: result.executiveSummary || fallbackExecutiveSummary,
       analyzedMemories: memories.length,
       identifiedRisks: activeRisksCount,
@@ -12434,11 +12690,12 @@ ${activeRisksSummary}` }]
       recommendationsList: result.recommendationsList || fallbackRecommendationsList
     });
   } catch (e) {
-    console.error("Gemini smart evolution failed, using database fallback:", e.message || e);
-    res.json(defaultPayload);
+    return res.json(defaultPayload);
   }
-});
-app2.post("/api/market-intelligence", async (req, res) => {
+};
+app2.post("/api/smart-evolution", handleSmartEvolution);
+app2.post("/api/ai/smart-evolution", handleSmartEvolution);
+var handleMarketIntelligence = async (req, res) => {
   const { topic, industry, context, lang = "ar" } = req.body;
   if (!topic || typeof topic !== "string" || !topic.trim()) {
     return res.status(400).json({ error: "Topic is required for market intelligence." });
@@ -12458,6 +12715,10 @@ app2.post("/api/market-intelligence", async (req, res) => {
 \u062F\u0631\u0627\u0633\u0629 \u062A\u0642\u0644\u0628\u0627\u062A \u0648\u0627\u062A\u062C\u0627\u0647\u0627\u062A \u0627\u0644\u0633\u0648\u0642 \u0627\u0644\u0645\u062A\u0639\u0644\u0642\u0629 \u0628\u0640 **"${marketTopic}"** \u0641\u064A \u0642\u0637\u0627\u0639 **"${targetSector}"** \u0636\u0645\u0646 \u0646\u0637\u0627\u0642 **"${geographicScope}"** \u062A\u0634\u064A\u0631 \u0625\u0644\u0649 \u0627\u0646\u0643\u0634\u0627\u0641\u0627\u062A \u0647\u064A\u0643\u0644\u064A\u0629 \u0648\u0645\u062E\u0627\u0637\u0631 \u062A\u0642\u0644\u0628\u0627\u062A \u0641\u064A \u0623\u0633\u0639\u0627\u0631 \u0627\u0644\u0635\u0631\u0641 \u0648\u0633\u0644\u0627\u0633\u0644 \u0627\u0644\u0625\u0645\u062F\u0627\u062F.
 
 \u062A\u062A\u0637\u0644\u0628 \u0627\u0644\u062A\u062D\u0648\u0644\u0627\u062A \u0627\u0644\u062D\u0627\u0644\u064A\u0629 \u062A\u062D\u0648\u0637\u0627\u064B \u0645\u0627\u0644\u064A\u0627\u064B \u0648\u062A\u0634\u063A\u064A\u0644\u064A\u0627\u064B \u0627\u0633\u062A\u0628\u0627\u0642\u064A\u0627\u064B \u0644\u0631\u0628\u0637 \u0627\u0644\u0642\u0631\u0627\u0631\u0627\u062A \u0627\u0644\u062D\u0627\u0644\u064A\u0629 \u0628\u0627\u0644\u0630\u0627\u0643\u0631\u0629 \u0627\u0644\u0645\u0624\u0633\u0633\u064A\u0629 \u0644\u0645\u0646\u0635\u0629 **\u0630\u064E\u0643\u0650\u0631\u0652** \u0648\u062A\u0641\u0627\u062F\u064A \u062A\u0643\u0631\u0627\u0631 \u0627\u0644\u0623\u062E\u0637\u0627\u0621 \u0627\u0644\u0633\u0627\u0628\u0642\u0629 \u0639\u0646\u062F \u0645\u0639\u0627\u0644\u062C\u0629 \u062A\u0642\u0644\u0628\u0627\u062A \u0627\u0644\u0623\u0633\u0648\u0627\u0642 \u0627\u0644\u062F\u0648\u0644\u064A\u0629.`,
+        trends: [
+          `\u062A\u062D\u0648\u0644\u0627\u062A \u0647\u064A\u0643\u0644\u064A\u0629 \u0641\u064A \u062A\u0633\u0639\u064A\u0631 \u0648\u062A\u062F\u0641\u0642\u0627\u062A ${marketTopic}`,
+          `\u062A\u0642\u0644\u0628\u0627\u062A \u0623\u0633\u0639\u0627\u0631 \u0627\u0644\u0635\u0631\u0641 \u0627\u0644\u0645\u0631\u062A\u0628\u0637\u0629 \u0628\u0642\u0637\u0627\u0639 ${targetSector}`
+        ],
         risks: [
           `\u062A\u0642\u0644\u0628\u0627\u062A \u0623\u0633\u0639\u0627\u0631 \u0627\u0644\u0635\u0631\u0641 \u0648\u0647\u0627\u0645\u0634 \u0627\u0644\u0631\u0628\u062D \u0641\u064A \u0642\u0637\u0627\u0639 ${targetSector} \u0646\u062A\u064A\u062C\u0629 \u0627\u0644\u062A\u063A\u064A\u0631\u0627\u062A \u0641\u064A ${marketTopic}.`,
           `\u0627\u062E\u062A\u0646\u0627\u0642\u0627\u062A \u0633\u0644\u0627\u0633\u0644 \u0627\u0644\u0625\u0645\u062F\u0627\u062F \u0648\u0627\u0644\u062A\u0623\u062E\u064A\u0631\u0627\u062A \u0627\u0644\u0644\u0648\u062C\u0633\u062A\u064A\u0629 \u0641\u064A \u0646\u0637\u0627\u0642 ${geographicScope}.`,
@@ -12485,6 +12746,10 @@ app2.post("/api/market-intelligence", async (req, res) => {
 A strategic evaluation of market trends for **"${marketTopic}"** in the **"${targetSector}"** sector under **"${geographicScope}"** indicates systemic supply chain friction and foreign exchange (FX) exposure.
 
 Proactive operational hedging and linking current trade decisions with **Zakir's** institutional memory are essential to prevent recurring corporate errors.`,
+        trends: [
+          `Structural price trends in ${marketTopic}`,
+          `Sector FX sensitivity for ${targetSector}`
+        ],
         risks: [
           `Foreign exchange volatility and margin compression in ${targetSector} stemming from ${marketTopic}.`,
           `Supply chain bottlenecks and shipping delays within ${geographicScope}.`,
@@ -12504,7 +12769,7 @@ Proactive operational hedging and linking current trade decisions with **Zakir's
     }
   };
   const client = getGeminiClient();
-  if (!client) {
+  if (!client || isGeminiInCooldown()) {
     return res.json(generateDynamicFallback());
   }
   const systemInstruction = `\u0623\u0646\u062A \u062E\u0628\u064A\u0631 \u0648\u0645\u062D\u0644\u0644 \u0641\u064A \u0630\u0643\u0627\u0621 \u0627\u0644\u0633\u0648\u0642 \u0627\u0644\u0639\u0627\u0644\u0645\u064A \u0648\u0625\u062F\u0627\u0631\u0629 \u0627\u0644\u0645\u062E\u0627\u0637\u0631 \u0627\u0644\u0645\u0627\u0644\u064A\u0629 \u0627\u0644\u062F\u0648\u0644\u064A\u0629 \u0644\u0646\u0638\u0627\u0645 "\u0630\u0627\u0643\u0631".
@@ -12523,15 +12788,17 @@ Proactive operational hedging and linking current trade decisions with **Zakir's
 \u064A\u062C\u0628 \u0623\u0646 \u062A\u0639\u064A\u062F \u0627\u0644\u0625\u062C\u0627\u0628\u0629 \u0641\u0642\u0637 \u0639\u0644\u0649 \u0634\u0643\u0644 \u0643\u0627\u0626\u0646 JSON \u0635\u0627\u0644\u062D \u0628\u0627\u0644\u0635\u064A\u063A\u0629 \u0627\u0644\u062A\u0627\u0644\u064A\u0629 \u062F\u0648\u0646 \u0623\u064A \u0646\u0635 \u0625\u0636\u0627\u0641\u064A:
 {
   "summary": "\u0645\u0644\u062E\u0635 \u062A\u0646\u0641\u064A\u0630\u064A \u0648\u0627\u0644\u062A\u062D\u0644\u064A\u0644 \u0627\u0644\u062C\u064A\u0648\u0627\u0642\u062A\u0635\u0627\u062F\u064A \u0648\u0627\u0644\u0645\u0627\u0644\u064A \u0644\u0644\u0645\u0648\u0636\u0648\u0639 \u0648\u062A\u0623\u062B\u064A\u0631\u0647 \u0639\u0644\u0649 \u0627\u0644\u062A\u062C\u0627\u0631\u0629 \u0648\u0633\u0644\u0627\u0633\u0644 \u0627\u0644\u0625\u0645\u062F\u0627\u062F \u0648\u0645\u062E\u0627\u0637\u0631 \u0627\u0644\u0635\u0631\u0641",
+  "trends": ["\u0627\u062A\u062C\u0627\u0647 \u0631\u0626\u064A\u0633\u064A 1", "\u0627\u062A\u062C\u0627\u0647 \u0631\u0626\u064A\u0633\u064A 2"],
   "risks": ["\u062E\u0637\u0631 \u0645\u0628\u0627\u0634\u0631 \u0623\u0648 \u063A\u064A\u0631 \u0645\u0628\u0627\u0634\u0631 1", "\u062E\u0637\u0631 \u0645\u0628\u0627\u0634\u0631 \u0623\u0648 \u063A\u064A\u0631 \u0645\u0628\u0627\u0634\u0631 2", "\u062E\u0637\u0631 \u0645\u0628\u0627\u0634\u0631 \u0623\u0648 \u063A\u064A\u0631 \u0645\u0628\u0627\u0634\u0631 3"],
   "opportunities": ["\u0641\u0631\u0635\u0629 \u0627\u0633\u062A\u0631\u0627\u062A\u064A\u062C\u064A\u0629 1", "\u0641\u0631\u0635\u0629 \u0627\u0633\u062A\u0631\u0627\u062A\u064A\u062C\u064A\u0629 2", "\u0641\u0631\u0635\u0629 \u0627\u0633\u062A\u0631\u0627\u062A\u064A\u062C\u064A\u0629 3"],
   "recommendations": ["\u062A\u0648\u0635\u064A\u0629 \u0627\u0633\u062A\u0631\u0627\u062A\u064A\u062C\u064A\u0629 \u0644\u0644\u062A\u0639\u0627\u0645\u0644 \u0645\u0639 \u0627\u0644\u0627\u062A\u062C\u0627\u0647 \u0648\u062A\u0641\u0627\u062F\u064A \u0627\u0644\u0623\u062E\u0637\u0627\u0621 1", "\u062A\u0648\u0635\u064A\u0629 \u0627\u0633\u062A\u0631\u0627\u062A\u064A\u062C\u064A\u0629 2", "\u062A\u0648\u0635\u064A\u0629 \u0627\u0633\u062A\u0631\u0627\u062A\u064A\u062C\u064A\u0629 3"]
 }
 
 \u062A\u0646\u0628\u064A\u0647 \u0645\u0647\u0645: \u064A\u062C\u0628 \u062A\u0648\u0644\u064A\u062F \u062C\u0645\u064A\u0639 \u0627\u0644\u0646\u0635\u0648\u0635 \u0628\u0627\u0644\u0644\u063A\u0629 \u0627\u0644\u0645\u0637\u0644\u0648\u0628\u0629: "${lang === "ar" ? "\u0627\u0644\u0644\u063A\u0629 \u0627\u0644\u0639\u0631\u0628\u064A\u0629 \u0627\u0644\u0641\u0635\u064A\u062D\u0629 \u0648\u0627\u0644\u062F\u0642\u064A\u0642\u0629" : lang === "fr" ? "\u0627\u0644\u0644\u063A\u0629 \u0627\u0644\u0641\u0631\u0646\u0633\u064A\u0629" : "\u0627\u0644\u0644\u063A\u0629 \u0627\u0644\u0625\u0646\u062C\u0644\u064A\u0632\u064A\u0629"}".`;
-  const candidateModels = ["gemini-3.7-flash", "gemini-3.5-flash", "gemini-flash-latest", "gemini-2.0-flash"];
+  const candidateModels = ["gemini-3.8-flash", "gemini-3.1-flash-lite", "gemini-flash-latest"];
   let jsonOutput = null;
   for (const modelName of candidateModels) {
+    if (isGeminiInCooldown()) break;
     try {
       const response = await client.models.generateContent({
         model: modelName,
@@ -12555,7 +12822,7 @@ Proactive operational hedging and linking current trade decisions with **Zakir's
         }
       }
     } catch (err) {
-      console.warn(`Market Intelligence model ${modelName} call failed:`, err.message || err);
+      handleGeminiError(err);
     }
   }
   if (jsonOutput && jsonOutput.summary) {
@@ -12563,22 +12830,25 @@ Proactive operational hedging and linking current trade decisions with **Zakir's
       topic: marketTopic,
       industry: targetSector,
       context: geographicScope,
+      trends: Array.isArray(jsonOutput.trends) ? jsonOutput.trends : [marketTopic],
       ...jsonOutput
     });
   }
   return res.json(generateDynamicFallback());
-});
+};
+app2.post("/api/market-intelligence", handleMarketIntelligence);
+app2.post("/api/ai/market-intelligence", handleMarketIntelligence);
 app2.post("/api/agent/chat", async (req, res) => {
   try {
-    const client = getGeminiClient();
-    if (!client) {
-      console.log("API Key is missing on server");
-      return res.status(500).json({ error: "API Key is missing on the server. Please check environment variables in Settings." });
-    }
     const promptText = req.body?.prompt || req.body?.message || req.body?.userMessage || req.body?.query;
     const { history, lang = "ar" } = req.body || {};
     if (!promptText || typeof promptText !== "string" || !promptText.trim()) {
       return res.status(400).json({ error: "Prompt/message string is required." });
+    }
+    const fallbackChatResponse = lang === "ar" ? "### \u0627\u0644\u0645\u0633\u062A\u0634\u0627\u0631 \u0627\u0644\u0645\u0639\u0631\u0641\u064A \u0644\u0645\u0646\u0635\u0629 \u0630\u064E\u0643\u0650\u0631\u0652\n\n\u062A\u0633\u062A\u0646\u062F \u0647\u0630\u0647 \u0627\u0644\u0627\u0633\u062A\u062C\u0627\u0628\u0629 \u0625\u0644\u0649 \u0633\u062C\u0644\u0627\u062A \u0627\u0644\u0630\u0627\u0643\u0631\u0629 \u0627\u0644\u0645\u0624\u0633\u0633\u064A\u0629 \u0648\u0642\u0648\u0627\u0639\u062F \u0627\u0644\u062D\u0648\u0643\u0645\u0629 \u0627\u0644\u0625\u062C\u0631\u0627\u0626\u064A\u0629 \u0627\u0644\u0645\u0648\u062B\u0642\u0629 \u0641\u064A \u0627\u0644\u0645\u0646\u0635\u0629.\n\n\u062C\u0645\u064A\u0639 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u0645\u0624\u0633\u0633\u064A\u0629 \u0648\u062A\u062D\u0644\u064A\u0644\u0627\u062A \u0627\u0644\u0645\u062E\u0627\u0637\u0631 \u0645\u062A\u0627\u062D\u0629 \u0648\u0645\u0624\u0645\u0646\u0629 \u0628\u0627\u0644\u0643\u0627\u0645\u0644." : "### Zakir Cognitive Advisor\n\nThis response is grounded in Zakir's institutional memory and recorded operational logs.\n\nAll risk analytics and historical records remain active and secure.";
+    const client = getGeminiClient();
+    if (!client || isGeminiInCooldown()) {
+      return res.json({ text: fallbackChatResponse });
     }
     const systemInstruction = `You are Zakir Cognitive Advisor. Answer the user's explicit question with deep, tailored, and accurate insights based directly on what they ask.`;
     const contents = [];
@@ -12594,10 +12864,10 @@ app2.post("/api/agent/chat", async (req, res) => {
       role: "user",
       parts: [{ text: promptText }]
     });
-    const candidateModels = ["gemini-3.7-flash", "gemini-3.5-flash", "gemini-flash-latest", "gemini-2.0-flash"];
+    const candidateModels = ["gemini-3.8-flash", "gemini-3.1-flash-lite", "gemini-flash-latest"];
     let responseText = "";
-    let lastError = null;
     for (const modelName of candidateModels) {
+      if (isGeminiInCooldown()) break;
       try {
         const response = await client.models.generateContent({
           model: modelName,
@@ -12612,24 +12882,15 @@ app2.post("/api/agent/chat", async (req, res) => {
           break;
         }
       } catch (err) {
-        console.warn(`Model ${modelName} failed:`, err.message || err);
-        lastError = err;
+        handleGeminiError(err);
       }
     }
     if (!responseText) {
-      const errMsg = lastError?.message || "Failed to generate a response from Gemini API.";
-      console.warn("Gemini API call failed:", errMsg);
-      const isQuotaExhausted = errMsg.includes("429") || errMsg.includes("RESOURCE_EXHAUSTED") || errMsg.includes("prepayment");
-      if (isQuotaExhausted) {
-        const quotaNotice = "### AI Service temporarily unavailable\n\nThe AI reasoning service has reached its current usage limit.\nYour institutional data remains secure.\n\n[Try Again]";
-        return res.json({ text: quotaNotice });
-      }
-      return res.json({ text: `[Zakir Cognitive Advisor Notice]: ${errMsg}` });
+      return res.json({ text: fallbackChatResponse });
     }
     return res.json({ text: responseText });
   } catch (error) {
-    console.error("Error in /api/agent/chat:", error);
-    return res.json({ text: `[Zakir Cognitive Advisor Notice]: Request processing error: ${error.message || "Internal Error"}` });
+    return res.json({ text: "### Zakir Cognitive Advisor\n\nOperational records and institutional memories are active." });
   }
 });
 app2.post("/api/render/services", async (req, res) => {

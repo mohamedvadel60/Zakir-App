@@ -532,12 +532,24 @@ function wrapQuerySnapshot(snap: any, colName: string): any {
   };
 }
 
-function withTimeout<T>(promise: Promise<T>, timeoutMs: number = 2000): Promise<T> {
+function withTimeout<T>(promise: Promise<T>, timeoutMs: number = 8000): Promise<T> {
   let timer: any;
   const timeoutPromise = new Promise<T>((_, reject) => {
     timer = setTimeout(() => reject(new Error(`Operation timed out after ${timeoutMs}ms`)), timeoutMs);
   });
   return Promise.race([promise, timeoutPromise]).finally(() => clearTimeout(timer));
+}
+
+function isQuotaOrTimeoutError(err: any): boolean {
+  const msg = (err?.message || "").toLowerCase();
+  return (
+    msg.includes("resource_exhausted") ||
+    msg.includes("quota limit exceeded") ||
+    msg.includes("timed out") ||
+    msg.includes("timeout") ||
+    err?.code === 8 ||
+    err?.code === 4
+  );
 }
 
 function createSafeQuery(
@@ -596,11 +608,11 @@ function createSafeQuery(
     async get() {
       if (realQuery) {
         try {
-          const snap: any = await withTimeout(realQuery.get(), 2000);
+          const snap: any = await withTimeout(realQuery.get(), 8000);
           return wrapQuerySnapshot(snap, colName);
         } catch (err: any) {
-          if ((err?.message || "").includes("RESOURCE_EXHAUSTED") || (err?.message || "").includes("Quota limit exceeded") || err?.code === 8) {
-            console.warn(`[Firestore Quota] Daily quota reached for query on ${colName}, seamlessly using local DB fallback.`);
+          if (isQuotaOrTimeoutError(err)) {
+            console.warn(`[Firestore Quota/Timeout] Daily quota or timeout reached for query on ${colName}, seamlessly using local DB fallback.`);
           } else {
             console.warn(`Firestore get() failed for query on ${colName}, falling back to mock:`, err.message);
           }
@@ -636,7 +648,7 @@ function createSafeCollection(realCol: any, colName: string, subPath?: string): 
         async get() {
           if (realDoc) {
             try {
-              const snap: any = await withTimeout(realDoc.get(), 2000);
+              const snap: any = await withTimeout(realDoc.get(), 8000);
               return {
                 get id() { return snap.id; },
                 get exists() { return snap.exists; },
@@ -661,8 +673,8 @@ function createSafeCollection(realCol: any, colName: string, subPath?: string): 
                 }
               };
             } catch (err: any) {
-              if ((err?.message || "").includes("RESOURCE_EXHAUSTED") || (err?.message || "").includes("Quota limit exceeded") || err?.code === 8) {
-                console.warn(`[Firestore Quota] Daily quota reached for ${colName}/${docId}, seamlessly using local DB fallback.`);
+              if (isQuotaOrTimeoutError(err)) {
+                console.warn(`[Firestore Quota/Timeout] Daily quota or timeout reached for ${colName}/${docId}, seamlessly using local DB fallback.`);
               } else {
                 console.warn(`Firestore get() failed for ${colName}/${docId}, falling back to mock:`, err.message);
               }
@@ -673,10 +685,10 @@ function createSafeCollection(realCol: any, colName: string, subPath?: string): 
         async set(data: any, options?: any) {
           if (realDoc) {
             try {
-              return await withTimeout(realDoc.set(data, options), 2000);
+              return await withTimeout(realDoc.set(data, options), 8000);
             } catch (err: any) {
-              if ((err?.message || "").includes("RESOURCE_EXHAUSTED") || (err?.message || "").includes("Quota limit exceeded") || err?.code === 8) {
-                console.warn(`[Firestore Quota] Daily quota reached for set ${colName}/${docId}, seamlessly using local DB fallback.`);
+              if (isQuotaOrTimeoutError(err)) {
+                console.warn(`[Firestore Quota/Timeout] Daily quota or timeout reached for set ${colName}/${docId}, seamlessly using local DB fallback.`);
               } else {
                 console.warn(`Firestore set() failed for ${colName}/${docId}, falling back to mock:`, err.message);
               }
@@ -687,10 +699,10 @@ function createSafeCollection(realCol: any, colName: string, subPath?: string): 
         async update(data: any) {
           if (realDoc) {
             try {
-              return await withTimeout(realDoc.update(data), 2000);
+              return await withTimeout(realDoc.update(data), 8000);
             } catch (err: any) {
-              if ((err?.message || "").includes("RESOURCE_EXHAUSTED") || (err?.message || "").includes("Quota limit exceeded") || err?.code === 8) {
-                console.warn(`[Firestore Quota] Daily quota reached for update ${colName}/${docId}, seamlessly using local DB fallback.`);
+              if (isQuotaOrTimeoutError(err)) {
+                console.warn(`[Firestore Quota/Timeout] Daily quota or timeout reached for update ${colName}/${docId}, seamlessly using local DB fallback.`);
               } else {
                 console.warn(`Firestore update() failed for ${colName}/${docId}, falling back to mock:`, err.message);
               }
@@ -701,10 +713,10 @@ function createSafeCollection(realCol: any, colName: string, subPath?: string): 
         async delete() {
           if (realDoc) {
             try {
-              return await withTimeout(realDoc.delete(), 2000);
+              return await withTimeout(realDoc.delete(), 8000);
             } catch (err: any) {
-              if ((err?.message || "").includes("RESOURCE_EXHAUSTED") || (err?.message || "").includes("Quota limit exceeded") || err?.code === 8) {
-                console.warn(`[Firestore Quota] Daily quota reached for delete ${colName}/${docId}, seamlessly using local DB fallback.`);
+              if (isQuotaOrTimeoutError(err)) {
+                console.warn(`[Firestore Quota/Timeout] Daily quota or timeout reached for delete ${colName}/${docId}, seamlessly using local DB fallback.`);
               } else {
                 console.warn(`Firestore delete() failed for ${colName}/${docId}, falling back to mock:`, err.message);
               }
@@ -741,11 +753,11 @@ function createSafeCollection(realCol: any, colName: string, subPath?: string): 
     async get() {
       if (realCol) {
         try {
-          const snap = await withTimeout(realCol.get(), 2000);
+          const snap = await withTimeout(realCol.get(), 8000);
           return wrapQuerySnapshot(snap, colName);
         } catch (err: any) {
-          if ((err?.message || "").includes("RESOURCE_EXHAUSTED") || (err?.message || "").includes("Quota limit exceeded") || err?.code === 8) {
-            console.warn(`[Firestore Quota] Daily quota reached for collection ${colName}, seamlessly using local DB fallback.`);
+          if (isQuotaOrTimeoutError(err)) {
+            console.warn(`[Firestore Quota/Timeout] Daily quota or timeout reached for collection ${colName}, seamlessly using local DB fallback.`);
           } else {
             console.warn(`Firestore get() failed for collection ${colName}, falling back to mock:`, err.message);
           }
@@ -856,7 +868,7 @@ function createSafeAdminAuth(realAuth: any): any {
     async getUser(uid: string): Promise<any> {
       if (isFirebaseAdminAvailable && realAuth) {
         try {
-          return await withTimeout(realAuth.getUser(uid), 2000);
+          return await withTimeout(realAuth.getUser(uid), 8000);
         } catch (e: any) {
           if (!e?.message?.includes("PERMISSION_DENIED")) {
             // let auth/user-not-found pass through
@@ -882,7 +894,7 @@ function createSafeAdminAuth(realAuth: any): any {
     async getUserByEmail(email: string): Promise<any> {
       if (isFirebaseAdminAvailable && realAuth) {
         try {
-          return await withTimeout(realAuth.getUserByEmail(email), 2000);
+          return await withTimeout(realAuth.getUserByEmail(email), 8000);
         } catch (e: any) {
           if (!e?.message?.includes("PERMISSION_DENIED")) {
             if (e?.code === "auth/user-not-found") throw e;

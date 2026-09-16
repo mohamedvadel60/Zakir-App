@@ -980,7 +980,9 @@ This hosting domain (**${currentDomain}**) has not been authorized in your Fireb
       const lifecycle = await checkAccountLifecycleApi(normalized);
       if (isSubmittingLogin || activeLoginAttemptIdRef.current) return;
       if (lifecycle && lifecycle.success) {
-        if (lifecycle.status === "SELF_DELETED" || lifecycle.status === "SELF_RESTORE_AVAILABLE" || lifecycle.canRestore === true) {
+        if (lifecycle.status === "ACTIVE") {
+          setDeletedAccountRecovery(null);
+        } else if (lifecycle.status === "SELF_DELETED" || lifecycle.status === "SELF_RESTORE_AVAILABLE" || lifecycle.canRestore === true) {
           if (!lifecycle.isExpired && (lifecycle.daysRemaining === undefined || lifecycle.daysRemaining > 0)) {
             setDeletedAccountRecovery({
               email: normalized,
@@ -1865,6 +1867,7 @@ This hosting domain (**${currentDomain}**) has not been authorized in your Fireb
     setAgentMessages([]);
     setStripeReceiptData(null);
     setIncomingInvitation(null);
+    setDeletedAccountRecovery(null);
     applyUserPreferences(null);
     setAuthMode("landing");
     setActiveTab("dashboard");
@@ -3626,7 +3629,6 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                         type="email" 
                         value={regEmail}
                         onChange={(e) => setRegEmail(e.target.value)}
-                        onBlur={() => checkDeletedAccountForEmail(regEmail)}
                         className="w-full h-10 px-3.5 bg-slate-50 dark:bg-slate-900/70 border border-slate-200 dark:border-slate-800 rounded-lg text-slate-900 dark:text-white text-xs focus:outline-none focus:border-[#0075DE] focus:ring-2 focus:ring-[#0075DE]/20 transition-all placeholder:text-slate-400 shadow-xs"
                         placeholder="name@company.com"
                         required
@@ -3829,7 +3831,6 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                           if (loginError) setLoginError("");
                           activeLoginAttemptIdRef.current = null;
                         }}
-                        onBlur={() => checkDeletedAccountForEmail(loginEmail)}
                         className="w-full h-10 px-3.5 bg-slate-50 dark:bg-slate-900/70 border border-slate-200 dark:border-slate-800 rounded-lg text-slate-900 dark:text-white text-xs focus:outline-none focus:border-[#0075DE] focus:ring-2 focus:ring-[#0075DE]/20 transition-all placeholder:text-slate-400 shadow-xs"
                         placeholder="name@company.com"
                         required

@@ -426,12 +426,61 @@ export async function getAccountLifecycleRecord(email: string): Promise<any | nu
 
   if (isFirebaseAdminAvailable && adminDb) {
     try {
+      const authUser = await adminAuth.getUserByEmail(normalizedEmail).catch(() => null);
+      if (authUser && !authUser.disabled) {
+        const delSnap = await adminDb.collection("deletedUsers").doc(authUser.uid).get().catch(() => null);
+        if (!delSnap || !delSnap.exists) {
+          return {
+            accountId: normalizedEmail,
+            emailNormalized: normalizedEmail,
+            status: "ACTIVE",
+            canRestore: false,
+            adminApprovalRequired: false
+          };
+        }
+      }
+    } catch (e) {}
+
+    try {
+      const activeUserSnap = await adminDb.collection("users").where("email", "==", normalizedEmail).limit(1).get();
+      if (!activeUserSnap.empty) {
+        const activeDoc = activeUserSnap.docs[0].data();
+        if (
+          activeDoc &&
+          (activeDoc.email || "").trim().toLowerCase() === normalizedEmail &&
+          activeDoc.deleted !== true &&
+          activeDoc.status !== "SELF_DELETED" &&
+          activeDoc.status !== "ADMIN_DELETED"
+        ) {
+          return {
+            accountId: normalizedEmail,
+            emailNormalized: normalizedEmail,
+            status: "ACTIVE",
+            canRestore: false,
+            adminApprovalRequired: false
+          };
+        }
+      }
+    } catch (e) {}
+
+    try {
       const snap = await adminDb.collection("accountLifecycle").doc(normalizedEmail).get();
       if (snap.exists) return snap.data();
     } catch (e) {}
   }
 
   const db = readDb();
+  const localActive = db.users?.find((u: any) => (u.email || "").trim().toLowerCase() === normalizedEmail);
+  if (localActive && localActive.deleted !== true && localActive.status !== "SELF_DELETED" && localActive.status !== "ADMIN_DELETED") {
+    return {
+      accountId: normalizedEmail,
+      emailNormalized: normalizedEmail,
+      status: "ACTIVE",
+      canRestore: false,
+      adminApprovalRequired: false
+    };
+  }
+
   return db.account_lifecycle?.find((r: any) => (r.emailNormalized || r.email) === normalizedEmail) || null;
 }
 
