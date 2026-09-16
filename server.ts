@@ -2134,14 +2134,14 @@ function buildMasterEmailHtml(options: {
   const logoUrl = process.env.PUBLIC_LOGO_URL || `${canonicalDomain}/zakir-official-logo.png`;
 
   return `<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
-<html xmlns="http://www.w3.org/1999/xhtml" lang="en">
+<html xmlns="http://www.w3.org/1999/xhtml" lang="ar">
 <head>
   <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <meta name="x-apple-disable-message-reformatting" />
   <title>${escapeHtml(subject)}</title>
 </head>
-<body style="margin: 0; padding: 0; background-color: #f8fafc; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #0f172a; -webkit-font-smoothing: antialiased;">
+<body style="margin: 0; padding: 0; background-color: #f8fafc; font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #0f172a; -webkit-font-smoothing: antialiased;">
   <table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #f8fafc; table-layout: fixed; padding: 40px 16px;">
     <tr>
       <td align="center">
@@ -2151,27 +2151,28 @@ function buildMasterEmailHtml(options: {
           <!-- Header -->
           <tr>
             <td style="padding: 36px 32px 24px 32px; text-align: center; border-bottom: 1px solid #f1f5f9; background-color: #ffffff;">
-              <div style="font-size: 26px; font-weight: 800; color: #0f172a; letter-spacing: 1.5px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
-                Zakir
+              <div style="font-size: 28px; font-weight: 800; color: #0075DE; letter-spacing: 1px; font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+                Zakir | ذاكِر
               </div>
-              <div style="font-size: 13px; font-weight: 500; color: #64748b; margin-top: 6px;">
-                Organizational Causal Memory &amp; Decision Intelligence
+              <div style="font-size: 13px; font-weight: 600; color: #64748b; margin-top: 8px; line-height: 1.6;">
+                الذاكرة السببية للمنظمات وذكاء اتخاذ القرار<br/>
+                <span style="font-size: 11px; font-weight: 500; color: #94a3b8; letter-spacing: 0.5px;">Organizational Causal Memory &amp; Decision Intelligence</span>
               </div>
             </td>
           </tr>
 
           <!-- Body -->
           <tr>
-            <td style="padding: 32px; text-align: left;">
-              <h1 style="color: #0f172a; font-size: 22px; font-weight: 700; margin: 0 0 16px 0; line-height: 1.3;">
+            <td style="padding: 32px; text-align: right;">
+              <h1 style="color: #0f172a; font-size: 22px; font-weight: 700; margin: 0 0 20px 0; line-height: 1.4; text-align: center;">
                 ${escapeHtml(title)}
               </h1>
-              ${greeting ? `<p style="color: #0f172a; font-size: 15px; font-weight: 600; margin: 0 0 16px 0;">${escapeHtml(greeting)}</p>` : ''}
+              ${greeting ? `<p style="color: #0f172a; font-size: 15px; font-weight: 600; margin: 0 0 16px 0; text-align: inherit;">${escapeHtml(greeting)}</p>` : ''}
               ${bodyHtml}
               ${securityNote ? `
-              <div style="margin-top: 28px; padding: 14px 16px; background-color: #eff6ff; border-left: 3px solid #0075DE; border-radius: 6px;">
+              <div style="margin-top: 28px; padding: 14px 16px; background-color: #f0f7ff; border-right: 4px solid #0075DE; border-radius: 6px; text-align: right; direction: rtl;">
                 <p style="margin: 0; color: #1e3a8a; font-size: 13px; line-height: 1.5;">
-                  <strong>Security note:</strong> ${escapeHtml(securityNote)}
+                  <strong>تنبيه أمني:</strong> ${escapeHtml(securityNote)}
                 </p>
               </div>
               ` : ''}
@@ -2181,10 +2182,10 @@ function buildMasterEmailHtml(options: {
           <!-- Footer -->
           <tr>
             <td style="padding: 24px 32px; background-color: #f8fafc; border-top: 1px solid #f1f5f9; text-align: center;">
-              <p style="margin: 0 0 4px 0; font-size: 13px; font-weight: 700; color: #0f172a;">Zakir</p>
-              <p style="margin: 0 0 12px 0; font-size: 12px; color: #64748b;">Organizational Causal Memory &amp; Decision Intelligence</p>
-              <p style="margin: 0 0 8px 0; font-size: 12px; color: #94a3b8; line-height: 1.5;">This is an automated message from Zakir. Please do not reply to this email.</p>
-              <p style="margin: 0; font-size: 12px; color: #94a3b8;">&copy; 2026 Zakir. All rights reserved.</p>
+              <p style="margin: 0 0 4px 0; font-size: 14px; font-weight: 700; color: #0f172a;">ذاكِر | Zakir</p>
+              <p style="margin: 0 0 12px 0; font-size: 12px; color: #64748b; line-height: 1.5;">الذاكرة السببية للمنظمات وذكاء اتخاذ القرار<br/>Organizational Causal Memory &amp; Decision Intelligence</p>
+              <p style="margin: 0 0 8px 0; font-size: 11px; color: #94a3b8; line-height: 1.5;">هذه رسالة تلقائية من منصة Zakir. يرجى عدم الرد على هذا البريد الإلكتروني.<br/>This is an automated message. Please do not reply to this email.</p>
+              <p style="margin: 0; font-size: 11px; color: #94a3b8;">&copy; 2026 Zakir. جميع الحقوق محفوظة.</p>
             </td>
           </tr>
 
@@ -2219,82 +2220,134 @@ function buildOtpEmailHtml(options: BuildOtpEmailOptions): { subject: string; te
 
   const cleanCode = otpCode ? otpCode.trim() : "";
 
-  let subject = "Verify your Zakir email";
-  let title = "Verify your email";
-  let introText = "Use the verification code below to complete your registration and activate your account:";
-  let securityNote = "For your security, never share this code with anyone. The Zakir team will never ask for your verification code.";
+  let subject = "رمز التحقق لتفعيل حسابك في Zakir - Verify your Zakir account";
+  let title = "تفعيل حسابك في Zakir | Activate Account";
+  
+  let greetingAr = cleanName ? `مرحباً ${cleanName}،` : "مرحباً بك،";
+  let greetingEn = cleanName ? `Hello ${cleanName},` : "Hello,";
+
+  let introAr = "يرجى استخدام رمز التحقق التالي لتفعيل حسابك وتأكيد بريدك الإلكتروني في منصة Zakir:";
+  let introEn = "Please use the verification code below to complete your registration and activate your account on Zakir:";
+  
+  let securityNoteAr = "لحماية أمن حسابك، لا تقم بمشاركة هذا الرمز مع أي شخص مطلقاً. فريق Zakir لن يطلب منك هذا الرمز أبداً.";
+  let securityNoteEn = "For your security, never share this code with anyone. The Zakir team will never ask for your verification code.";
 
   if (isReset) {
-    subject = "Reset your Zakir password";
-    title = "Reset your Zakir password";
-    introText = "A password reset request was made for your Zakir account. Use the verification code below to set a new password:";
-    securityNote = "If you did not request a password reset, no action is required.";
+    subject = "إعادة تعيين كلمة المرور لحسابك في Zakir - Reset your Zakir password";
+    title = "إعادة تعيين كلمة المرور | Password Reset";
+    introAr = "لقد تلقينا طلباً لإعادة تعيين كلمة المرور لحسابك في منصة Zakir. يرجى استخدام رمز التحقق التالي للمتابعة:";
+    introEn = "We received a request to reset your password for your Zakir account. Please use the verification code below to set a new password:";
+    securityNoteAr = "إذا لم تكن قد طلبت إعادة تعيين كلمة المرور، يمكنك تجاهل هذا البريد الإلكتروني بأمان.";
+    securityNoteEn = "If you did not request a password reset, no action is required.";
   } else if (isLink) {
-    subject = "Your Zakir security code";
-    title = "Verify your email";
-    introText = "We received a request to link this email account to your Zakir profile. Use the security code below to complete the verification:";
-    securityNote = "If you did not request this verification code, no action is required.";
+    subject = "رمز الأمان لربط حسابك في Zakir - Your Zakir security code";
+    title = "تأكيد ربط البريد الإلكتروني | Verify Email Link";
+    introAr = "يرجى استخدام رمز الأمان التالي لإتمام عملية ربط هذا البريد الإلكتروني بملفك الشخصي في منصة Zakir:";
+    introEn = "We received a request to link this email address to your Zakir profile. Use the security code below to complete the verification:";
+    securityNoteAr = "إذا لم تكن قد طلبت ربط هذا البريد الإلكتروني، يمكنك تجاهل هذا البريد بأمان.";
+    securityNoteEn = "If you did not request this verification code, no action is required.";
   } else if (isRecovery) {
-    subject = "Account Restoration Verification Code - Zakir";
-    title = "Recover your Zakir account";
-    introText = "A request was initiated to recover your Zakir account and restore your workspace data. Use the verification code below to continue:";
-    securityNote = "If you did not request this recovery, you can safely ignore this email.";
+    subject = "رمز التحقق لاستعادة الحساب والبيانات - Zakir Account Restoration Code";
+    title = "استعادة حسابك وبياناتك | Restore Account";
+    introAr = "لقد تم بدء طلب لاستعادة حسابك في منصة Zakir واسترجاع بيانات مساحة العمل الخاصة بك. يرجى استخدام رمز التحقق التالي للمتابعة:";
+    introEn = "A request was initiated to recover your Zakir account and restore your workspace data. Please use the verification code below to continue:";
+    securityNoteAr = "إذا لم تكن قد طلبت استعادة الحساب، يمكنك تجاهل هذا البريد الإلكتروني بأمان وسرية.";
+    securityNoteEn = "If you did not request this recovery, you can safely ignore this email.";
   } else if (isWelcome) {
-    subject = "Welcome to Zakir";
-    title = "Welcome to Zakir";
-    introText = "Welcome to Zakir — Organizational Causal Memory & Decision Intelligence. Your workspace is ready.";
-    securityNote = "Keep your account details safe and secure.";
+    subject = "مرحباً بك في منصة Zakir - Welcome to Zakir";
+    title = "مرحباً بك في Zakir | Welcome to Zakir";
+    introAr = "مرحباً بك في Zakir — الذاكرة التنظيمية السببية وذكاء اتخاذ القرار. مساحة العمل والبيانات الخاصة بك جاهزة ومتاحة الآن للعمل.";
+    introEn = "Welcome to Zakir — Organizational Causal Memory & Decision Intelligence. Your workspace and analytics dashboard are ready.";
+    securityNoteAr = "حافظ على سرية وأمان بيانات دخول حسابك دائماً.";
+    securityNoteEn = "Keep your account details safe and secure at all times.";
   }
-
-  const greeting = cleanName ? `Hello ${cleanName},` : `Hello,`;
 
   let bodyHtml = "";
   if (isWelcome) {
     bodyHtml = `
-      <p style="color: #334155; font-size: 15px; line-height: 1.6; margin: 0 0 24px 0;">
-        ${escapeHtml(introText)}
-      </p>
+      <!-- Arabic Welcome Section -->
+      <div style="direction: rtl; text-align: right; margin-bottom: 24px; font-family: system-ui, sans-serif;">
+        <p style="color: #334155; font-size: 15px; line-height: 1.6; margin: 0 0 12px 0;">
+          ${escapeHtml(greetingAr)}
+        </p>
+        <p style="color: #334155; font-size: 15px; line-height: 1.6; margin: 0 0 24px 0;">
+          ${escapeHtml(introAr)}
+        </p>
+      </div>
+
+      <!-- Call to Action Button -->
       <table border="0" cellpadding="0" cellspacing="0" align="center" style="margin: 28px auto;">
         <tr>
-          <td align="center" bgcolor="#2563eb" style="border-radius: 10px;">
-            <a href="${appBaseUrl}" target="_blank" style="font-size: 15px; font-weight: 700; color: #ffffff; text-decoration: none; display: inline-block; padding: 14px 32px; border-radius: 10px; background-color: #2563eb; border: 1px solid #2563eb;">
-              Open Zakir
+          <td align="center" bgcolor="#0075DE" style="border-radius: 10px;">
+            <a href="${appBaseUrl}" target="_blank" style="font-size: 15px; font-weight: 700; color: #ffffff; text-decoration: none; display: inline-block; padding: 14px 36px; border-radius: 10px; background-color: #0075DE; border: 1px solid #0075DE;">
+              دخول المنصة / Open Zakir
             </a>
           </td>
         </tr>
       </table>
+
+      <!-- English Welcome Section -->
+      <div style="direction: ltr; text-align: left; margin-top: 24px; border-top: 1px solid #f1f5f9; padding-top: 24px; font-family: system-ui, sans-serif;">
+        <p style="color: #475569; font-size: 14px; line-height: 1.6; margin: 0 0 8px 0; font-weight: 600;">
+          ${escapeHtml(greetingEn)}
+        </p>
+        <p style="color: #475569; font-size: 14px; line-height: 1.6; margin: 0;">
+          ${escapeHtml(introEn)}
+        </p>
+      </div>
     `;
   } else {
     bodyHtml = `
-      <p style="color: #334155; font-size: 15px; line-height: 1.6; margin: 0 0 24px 0;">
-        ${escapeHtml(introText)}
-      </p>
+      <!-- Arabic Instruction -->
+      <div style="direction: rtl; text-align: right; margin-bottom: 20px; font-family: system-ui, sans-serif;">
+        <p style="color: #0f172a; font-size: 15px; font-weight: 600; margin: 0 0 12px 0;">
+          ${escapeHtml(greetingAr)}
+        </p>
+        <p style="color: #334155; font-size: 15px; line-height: 1.6; margin: 0;">
+          ${escapeHtml(introAr)}
+        </p>
+      </div>
+
+      <!-- Verification Code Box -->
       <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin: 24px 0;">
         <tr>
-          <td align="center" style="padding: 20px 24px; background-color: #eff6ff; border: 1px solid #dbeafe; border-radius: 12px;">
-            <div style="font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, Courier, monospace, -apple-system, sans-serif; font-size: 32px; font-weight: 800; color: #1d4ed8; letter-spacing: 6px; text-align: center; margin: 0; user-select: all; -webkit-user-select: all;">
+          <td align="center" style="padding: 24px 16px; background-color: #f0f7ff; border: 1px solid #bfdbfe; border-radius: 12px;">
+            <div style="font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, Courier, monospace, -apple-system, sans-serif; font-size: 38px; font-weight: 800; color: #0075DE; letter-spacing: 8px; text-align: center; margin: 0; user-select: all; -webkit-user-select: all;">
               ${escapeHtml(cleanCode)}
+            </div>
+            <div style="margin-top: 10px; font-size: 13px; color: #64748b; text-align: center; font-weight: 600;">
+              صالح لمدة 10 دقائق | Expires in 10 minutes
             </div>
           </td>
         </tr>
       </table>
-      <p style="color: #64748b; font-size: 13px; line-height: 1.5; margin: 0 0 16px 0;">
-        This code expires in <strong>10 minutes</strong>.
-      </p>
+
+      <!-- English Instruction -->
+      <div style="direction: ltr; text-align: left; margin-top: 24px; border-top: 1px solid #f1f5f9; padding-top: 24px; font-family: system-ui, sans-serif;">
+        <p style="color: #475569; font-size: 14px; font-weight: 600; margin: 0 0 8px 0;">
+          ${escapeHtml(greetingEn)}
+        </p>
+        <p style="color: #475569; font-size: 14px; line-height: 1.6; margin: 0 0 8px 0;">
+          ${escapeHtml(introEn)}
+        </p>
+        <p style="color: #94a3b8; font-size: 12px; margin: 0;">
+          This code will expire in 10 minutes.
+        </p>
+      </div>
     `;
   }
 
   const html = buildMasterEmailHtml({
     subject,
     title,
-    greeting,
     bodyHtml,
-    securityNote
+    securityNote: securityNoteAr + " / " + securityNoteEn,
+    baseUrl: appBaseUrl
   });
 
   const textBody = isWelcome
-    ? `${greeting}\n\n${introText}\n\nOpen Zakir: ${appBaseUrl}\n\nThe Zakir Team`
-    : `${greeting}\n\n${introText}\n\n[ ${cleanCode} ]\n\nThis code expires in 10 minutes.\n\nSecurity note: ${securityNote}\n\nThe Zakir Team`;
+    ? `${greetingAr}\n\n${introAr}\n\n${greetingEn}\n\n${introEn}\n\nOpen Zakir: ${appBaseUrl}\n\nThe Zakir Team`
+    : `${greetingAr}\n\n${introAr}\n\n[ ${cleanCode} ]\n\n${greetingEn}\n\n${introEn}\n\nSecurity note: ${securityNoteAr} | ${securityNoteEn}\n\nThe Zakir Team`;
 
   return { subject, text: textBody, html };
 }
@@ -6275,7 +6328,6 @@ export async function getAccountLifecycleRecord(email: string): Promise<any> {
           activeDoc &&
           (activeDoc.email || "").trim().toLowerCase() === normalizedEmail &&
           activeDoc.deleted !== true &&
-          activeDoc.status !== "SELF_DELETED" &&
           activeDoc.status !== "ADMIN_DELETED" &&
           activeDoc.accountLifecycleStatus !== "PURGED"
         ) {
@@ -6293,7 +6345,7 @@ export async function getAccountLifecycleRecord(email: string): Promise<any> {
     try {
       const db = readDb();
       const localActive = db.users?.find((u: any) => (u.email || "").trim().toLowerCase() === normalizedEmail);
-      if (localActive && localActive.deleted !== true && localActive.status !== "SELF_DELETED" && localActive.status !== "ADMIN_DELETED") {
+      if (localActive && localActive.deleted !== true && localActive.status !== "ADMIN_DELETED") {
         return {
           accountId: normalizedEmail,
           emailNormalized: normalizedEmail,
@@ -7152,6 +7204,9 @@ app.post("/api/auth/restore-account", async (req, res) => {
       powers: retainedProfile?.powers || record?.originalPowers,
       companyName: retainedProfile?.companyName || "Restored Account",
       ownerName: retainedProfile?.ownerName || normalizedEmail.split("@")[0],
+      status: "ACTIVE",
+      accountLifecycleStatus: "ACTIVE",
+      deleted: false,
       subscriptionStatus: retainedProfile?.subscriptionStatus || "Active Trial",
       userPreferences: retainedProfile?.userPreferences || { theme: "light", language: "ar" },
       isVerified: true,
