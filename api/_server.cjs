@@ -1242,9 +1242,7 @@ var init_auth = __esm({
     passcodeAttemptsMap = /* @__PURE__ */ new Map();
     ADMIN_USER_ID = "SYhfciebGFUj29gqGaa0pqNunrk2";
     ADMIN_EMAILS = new Set([
-      "mohamedvadel60@gmail.com",
-      "mohamedvadhil0@gmail.com",
-      (process.env.ADMIN_EMAIL || "").toLowerCase()
+      (process.env.ADMIN_EMAIL || "").toLowerCase().trim()
     ].filter(Boolean));
     requireAdmin = async (req, res, next) => {
       const uid = req.user?.uid;
@@ -1340,7 +1338,7 @@ var init_auth = __esm({
       }
       if (process.env.TEST_SUITE === "true" || process.env.NODE_ENV === "test" || process.env.NODE_ENV !== "production") {
         if (token === "mock_token_admin" || token === "usr_ceo") {
-          req.user = { uid: "usr_ceo", email: "mohamedvadel60@gmail.com", isMockUser: true };
+          req.user = { uid: "usr_ceo", email: "admin@zakir.ai", isMockUser: true };
           req.isMockAuth = true;
           return next();
         }
@@ -1643,8 +1641,8 @@ async function withRetry(operation, retries = 2) {
 // src/db/users.ts
 async function getOrCreateUser(uid, email, companyName, role) {
   try {
-    const isEmailAdmin = uid === "usr_ceo" || email.toLowerCase() === "mohamedvadel60@gmail.com";
-    const finalRole = isEmailAdmin ? role || "CEO" : "Analyst";
+    const isEmailAdmin = uid === "usr_ceo" || uid === "SYhfciebGFUj29gqGaa0pqNunrk2";
+    const finalRole = isEmailAdmin ? role || "CEO" : role || "Contributor";
     return await withRetry(async () => {
       const result = await db.insert(users).values({
         uid,
@@ -2148,9 +2146,7 @@ var RECOVERY_DOC_RETENTION_MS = 14 * 24 * 60 * 60 * 1e3;
 var DB_FILE3 = import_path3.default.join(process.cwd(), "src", "db_store.json");
 var ADMIN_USER_ID2 = "SYhfciebGFUj29gqGaa0pqNunrk2";
 var ADMIN_EMAILS2 = new Set([
-  "mohamedvadel60@gmail.com",
-  "mohamedvadhil0@gmail.com",
-  (process.env.ADMIN_EMAIL || "").toLowerCase()
+  (process.env.ADMIN_EMAIL || "").toLowerCase().trim()
 ].filter(Boolean));
 function readDb() {
   try {
@@ -5144,7 +5140,7 @@ app2.post("/api/auth/send-verification-code", otpLimiter, async (req, res) => {
       }
     }
     const docId = foundUid;
-    const isTargetAdmin = foundUid && await isUserAdminServer(foundUid, targetIdentifier) || targetIdentifier && ADMIN_EMAILS.has(targetIdentifier) || foundUid === ADMIN_USER_ID;
+    const isTargetAdmin = foundUid && await isUserAdminServer(foundUid, targetIdentifier) || foundUid === ADMIN_USER_ID;
     if (isTargetAdmin && (type === "account_registration" || type === "login")) {
       console.log(`[AUTH EXCEPTION] Admin account (${targetIdentifier}) bypassed OTP generation.`);
       return res.status(200).json({
@@ -5375,7 +5371,7 @@ app2.post("/api/auth/verify-code", otpLimiter, async (req, res) => {
     const rawPhone = (phone || "").trim();
     const cleanCode = String(code).trim();
     let foundUid = resolvedUser.userId;
-    const isTargetAdmin = foundUid && await isUserAdminServer(foundUid, targetIdentifier) || targetIdentifier && ADMIN_EMAILS.has(targetIdentifier) || foundUid === ADMIN_USER_ID;
+    const isTargetAdmin = foundUid && await isUserAdminServer(foundUid, targetIdentifier) || foundUid === ADMIN_USER_ID;
     if (isTargetAdmin) {
       console.log(`[AUTH EXCEPTION] Admin account (${targetIdentifier}) bypassed OTP verification.`);
       return res.status(200).json({
@@ -5616,7 +5612,7 @@ app2.post("/api/auth/verify-code", otpLimiter, async (req, res) => {
     }
     const resolvedFinalUser = firestoreUser || user || resolvedUser.userDoc || null;
     if (resolvedFinalUser && !resolvedFinalUser.role) {
-      resolvedFinalUser.role = resolvedFinalUser.email && ADMIN_EMAILS.has(resolvedFinalUser.email.toLowerCase()) ? "Admin" : "Contributor";
+      resolvedFinalUser.role = resolvedFinalUser.id === ADMIN_USER_ID ? "Admin" : "Contributor";
     }
     return res.status(200).json({
       success: true,
@@ -5981,7 +5977,7 @@ app2.post("/api/auth/set-password", async (req, res) => {
         email: cleanEmail,
         passwordHash: newPassword,
         hasPasswordSet: true,
-        role: ADMIN_EMAILS.has(cleanEmail.toLowerCase()) ? "Admin" : "Contributor",
+        role: uid === ADMIN_USER_ID ? "Admin" : "Contributor",
         createdAt: (/* @__PURE__ */ new Date()).toISOString()
       };
       db2.users.push(newUser);
@@ -11625,10 +11621,15 @@ app2.post("/api/auth/login", loginRegisterLimiter, async (req, res) => {
         const emailSnap = await adminDb.collection("users").where("email", "==", normalizedEmail).limit(1).get();
         if (!emailSnap.empty) {
           const docData = emailSnap.docs[0].data();
+          const foundDocId = emailSnap.docs[0].id;
           if (docData && (docData.email || "").trim().toLowerCase() === normalizedEmail) {
-            userProfile = docData;
-            if (!authUid) {
-              authUid = emailSnap.docs[0].id;
+            if (authUid && foundDocId !== authUid && docData.id !== authUid) {
+              console.error(`[MANDATORY_UID_ASSERTION_FAILURE] /api/auth/login email lookup mismatch: authUid (${authUid}) !== docId (${foundDocId})`);
+            } else {
+              userProfile = docData;
+              if (!authUid) {
+                authUid = foundDocId;
+              }
             }
           }
         }
@@ -11718,7 +11719,7 @@ app2.post("/api/auth/login", loginRegisterLimiter, async (req, res) => {
         email: normalizedEmail,
         companyName,
         ownerName: normalizedEmail.split("@")[0],
-        role: ADMIN_EMAILS.has(normalizedEmail) ? "Admin" : invitedRole,
+        role: authUid === ADMIN_USER_ID ? "Admin" : invitedRole,
         workspaceId,
         powers: invitedPowers,
         workspace: {
@@ -11745,7 +11746,7 @@ app2.post("/api/auth/login", loginRegisterLimiter, async (req, res) => {
       } catch (e) {
       }
     } else {
-      const isAdminAccount = authUid && await isUserAdminServer(authUid, normalizedEmail) || ADMIN_EMAILS.has(normalizedEmail) || authUid === ADMIN_USER_ID;
+      const isAdminAccount = authUid && await isUserAdminServer(authUid, normalizedEmail) || authUid === ADMIN_USER_ID;
       if (isAdminAccount) {
         userProfile.role = "Admin";
         userProfile.isVerified = true;

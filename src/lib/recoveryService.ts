@@ -31,9 +31,7 @@ const DB_FILE = path.join(process.cwd(), "src", "db_store.json");
 
 const ADMIN_USER_ID = "SYhfciebGFUj29gqGaa0pqNunrk2";
 const ADMIN_EMAILS = new Set([
-  "mohamedvadel60@gmail.com",
-  "mohamedvadhil0@gmail.com",
-  (process.env.ADMIN_EMAIL || "").toLowerCase()
+  (process.env.ADMIN_EMAIL || "").toLowerCase().trim()
 ].filter(Boolean));
 
 function readDb(): any {

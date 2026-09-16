@@ -2076,17 +2076,18 @@ export async function fetchWorkspaceInvitations(workspaceId: string): Promise<Wo
 
 export const ADMIN_USER_ID = "SYhfciebGFUj29gqGaa0pqNunrk2";
 export const ADMIN_EMAILS: string[] = [
-  "mohamedvadel60@gmail.com",
-  "mohamedvadhil0@gmail.com"
-];
+  (((import.meta as any).env?.VITE_ADMIN_EMAIL) || (typeof process !== "undefined" ? process.env?.ADMIN_EMAIL : "") || "").toLowerCase().trim()
+].filter(Boolean);
+
+export function getAuthenticatedFirebaseUid(): string | null {
+  return auth.currentUser?.uid || null;
+}
 
 export function isUserAdmin(user?: { id?: string | null; email?: string | null; role?: string | null } | null): boolean {
   if (!user) return false;
   if (user.id === ADMIN_USER_ID) return true;
   const role = (user.role || "").trim().toLowerCase();
   if (role === "admin" || role === "superadmin" || role === "super_admin" || role === "first admin") return true;
-  const email = (user.email || "").trim().toLowerCase();
-  if (email && ADMIN_EMAILS.includes(email)) return true;
   return false;
 }
 

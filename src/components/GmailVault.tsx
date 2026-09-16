@@ -77,7 +77,7 @@ export default function GmailVault({ theme, lang }: GmailVaultProps) {
   const [accounts, setAccounts] = useState<ConnectedAccount[]>([
     {
       id: "acc_default_1",
-      email: "mohamedvadel60@gmail.com",
+      email: "vault@zakir.ai",
       provider: "gmail",
       providerName: "Google Workspace",
       status: "connected",
@@ -93,7 +93,7 @@ export default function GmailVault({ theme, lang }: GmailVaultProps) {
       isPrimary: false
     }
   ]);
-  const [activeAccountEmail, setActiveAccountEmail] = useState<string>("mohamedvadel60@gmail.com");
+  const [activeAccountEmail, setActiveAccountEmail] = useState<string>("vault@zakir.ai");
 
   const [token, setToken] = useState<string | null>(null);
   const [activeSubTab, setActiveSubTab] = useState<"inbox" | "compose" | "logs">("inbox");

@@ -182,9 +182,7 @@ function readDbForAuth() {
 
 export const ADMIN_USER_ID = "SYhfciebGFUj29gqGaa0pqNunrk2";
 export const ADMIN_EMAILS = new Set([
-  "mohamedvadel60@gmail.com",
-  "mohamedvadhil0@gmail.com",
-  (process.env.ADMIN_EMAIL || "").toLowerCase()
+  (process.env.ADMIN_EMAIL || "").toLowerCase().trim()
 ].filter(Boolean));
 
 /**
@@ -427,7 +425,7 @@ export const requireAuth = async (
   // Dev/Test environment mock tokens to facilitate local security testing
   if (process.env.TEST_SUITE === "true" || process.env.NODE_ENV === "test" || process.env.NODE_ENV !== "production") {
     if (token === "mock_token_admin" || token === "usr_ceo") {
-      req.user = { uid: "usr_ceo", email: "mohamedvadel60@gmail.com", isMockUser: true } as any;
+      req.user = { uid: "usr_ceo", email: "admin@zakir.ai", isMockUser: true } as any;
       (req as any).isMockAuth = true;
       return next();
     }

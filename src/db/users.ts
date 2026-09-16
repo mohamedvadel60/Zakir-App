@@ -4,8 +4,8 @@ import { eq } from "drizzle-orm";
 
 export async function getOrCreateUser(uid: string, email: string, companyName?: string, role?: string) {
   try {
-    const isEmailAdmin = uid === "usr_ceo" || email.toLowerCase() === "mohamedvadel60@gmail.com";
-    const finalRole = isEmailAdmin ? (role || "CEO") : "Analyst";
+    const isEmailAdmin = uid === "usr_ceo" || uid === "SYhfciebGFUj29gqGaa0pqNunrk2";
+    const finalRole = isEmailAdmin ? (role || "CEO") : (role || "Contributor");
 
     return await withRetry(async () => {
       const result = await db.insert(users)

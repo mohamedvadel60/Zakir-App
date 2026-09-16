@@ -201,7 +201,7 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
 
   // Profile Account State
   const [fullName, setFullName] = useState(currentUser.fullName || currentUser.ownerName || "Mohamed Vadel");
-  const [email, setEmail] = useState(currentUser.email || "mohamedvadel60@gmail.com");
+  const [email, setEmail] = useState(currentUser.email || "");
   const [jobTitle, setJobTitle] = useState(currentUser.jobTitle || "");
   const [department, setDepartment] = useState(currentUser.department || currentUser.issuingEntity || "");
   const [companyName, setCompanyName] = useState(currentUser.organizationName || currentUser.companyName || "Mauritanian Finance Group");
@@ -3153,7 +3153,7 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
                   </button>
 
                   <a
-                    href="mailto:mohamedvadel60@gmail.com?subject=Zakir%20Enterprise%20Plan%20Inquiry"
+                    href="mailto:contact@zakir.ai?subject=Zakir%20Enterprise%20Plan%20Inquiry"
                     className="w-full py-2.5 bg-[#0075DE]/10 hover:bg-[#0075DE]/20 text-[#0075DE] border border-[#0075DE]/30 text-center font-semibold text-xs rounded-xl flex items-center justify-center gap-2 transition-all block cursor-pointer"
                   >
                     <span>{translations[lang as keyof typeof translations]?.contactSales || (lang === "ar" ? "تواصل مع المبيعات" : "Contact Sales")}</span>

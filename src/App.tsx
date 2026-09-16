@@ -117,6 +117,7 @@ const GmailVault = React.lazy(() => import("./components/GmailVault"));
 import {
   ADMIN_USER_ID,
   isUserAdmin,
+  getAuthenticatedFirebaseUid,
   registerFirebaseUser,
   loginFirebaseUser,
   loginWithGoogle,
@@ -3938,16 +3939,29 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
         </Suspense>
       ) : (currentUser && (currentUser.id === ADMIN_USER_ID || isUserAdmin(currentUser) || currentUser.role === "Admin")) ? (
         /* ADMIN DASHBOARD VIEW FOR ADMIN USER */
-        <Suspense fallback={<FullScreenFallback />}>
-          <AdminDashboard
-            currentUser={currentUser}
-            lang={lang}
-            theme={theme}
-            toggleLanguage={toggleLanguage}
-            toggleTheme={toggleTheme}
-            onLogout={handleLogout}
-          />
-        </Suspense>
+        (() => {
+          const authUid = getAuthenticatedFirebaseUid();
+          if (authUid && currentUser.id !== authUid) {
+            console.error("[MANDATORY_UID_ASSERTION_FAILURE] currentUser.id mismatch with authenticated Firebase UID");
+            return (
+              <div className="flex h-screen items-center justify-center bg-gray-900 text-red-500 font-bold">
+                Security Error: Identity mismatch detected. Access denied.
+              </div>
+            );
+          }
+          return (
+            <Suspense fallback={<FullScreenFallback />}>
+              <AdminDashboard
+                currentUser={currentUser}
+                lang={lang}
+                theme={theme}
+                toggleLanguage={toggleLanguage}
+                toggleTheme={toggleTheme}
+                onLogout={handleLogout}
+              />
+            </Suspense>
+          );
+        })()
       ) : (
         /* MAIN APPLICATION WORKSPACE LAYOUT */
         <div id="main-app-workspace" className="flex h-screen overflow-hidden">
