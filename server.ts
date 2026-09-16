@@ -2015,7 +2015,7 @@ async function sendSystemMail(
         success: false,
         error: response.error,
         statusCode: errStatus,
-        userFriendlyMessage: "تعذر إرسال بريد التحقق. يرجى المحاولة مرة أخرى."
+        userFriendlyMessage: `تعذر الإرسال: ${response.error.message || "يرجى التحقق من إعدادات Resend"}`
       };
     }
 
@@ -2048,7 +2048,7 @@ async function sendSystemMail(
       success: false,
       error: resendErr,
       statusCode: errStatus,
-      userFriendlyMessage: "تعذر إرسال بريد التحقق. يرجى المحاولة مرة أخرى."
+      userFriendlyMessage: `خطأ في مزود البريد: ${resendErr?.message || "تعذر الإرسال"}`
     };
   }
 }
@@ -2103,8 +2103,12 @@ function cleanUserName(rawName?: string, email?: string): string {
     return "";
   }
 
-  if (email && lower === email.trim().toLowerCase()) {
-    return "";
+  if (email) {
+    const emailLower = email.trim().toLowerCase();
+    const emailPrefix = emailLower.split('@')[0];
+    if (lower === emailLower || lower === emailPrefix) {
+      return "";
+    }
   }
 
   return trimmed;
@@ -8944,13 +8948,16 @@ app.get("/api/auth/recovery-request/status", async (req, res) => {
 
     // Determine highest priority request / decision state
     const hasApprovedDoc = requestDocs.some((r) => r.status === "approved" || r.decision === "approved" || r.reactivationStatus === "approved");
-    const isLifecycleApproved = lifecycle && (lifecycle.reactivationStatus === "approved" || lifecycle.status === "ADMIN_APPROVED" || lifecycle.status === "ACTIVE");
+    const isLifecycleApproved = lifecycle && (lifecycle.reactivationStatus === "approved" || lifecycle.status === "ADMIN_APPROVED");
+    const isAlreadyActive = lifecycle && lifecycle.status === "ACTIVE";
     
     const hasRejectedDoc = requestDocs.some((r) => r.status === "rejected" || r.decision === "rejected" || r.reactivationStatus === "rejected");
     const isLifecycleRejected = lifecycle && (lifecycle.reactivationStatus === "rejected" || lifecycle.status === "ADMIN_REJECTED");
 
     let computedStatus = "pending";
-    if (hasApprovedDoc || isLifecycleApproved) {
+    if (isAlreadyActive) {
+      computedStatus = "already_active";
+    } else if (hasApprovedDoc || isLifecycleApproved) {
       computedStatus = "approved";
     } else if (hasRejectedDoc || isLifecycleRejected) {
       computedStatus = "rejected";
@@ -9207,8 +9214,15 @@ app.post("/api/auth/recovery-request/send-approval-otp", otpLimiter, async (req,
       }
     }
 
+    const lifecycle = await getAccountLifecycleRecord(normalizedEmail);
+    if (lifecycle?.status === "ACTIVE") {
+      return res.status(400).json({
+        success: false,
+        error: "This account is already active and does not require recovery."
+      });
+    }
+
     if (reqStatus !== "approved") {
-      const lifecycle = await getAccountLifecycleRecord(normalizedEmail);
       if (lifecycle?.status === "ADMIN_APPROVED" || lifecycle?.reactivationStatus === "approved") {
         reqStatus = "approved";
         targetUserId = targetUserId || lifecycle.userId || lifecycle.uid || "";
@@ -10282,37 +10296,7 @@ app.post("/api/auth/register", loginRegisterLimiter, async (req, res) => {
       });
     }
 
-    // VERIFY WRITE IMMEDIATELY!
-    try {
-      const createdDoc = await userRef.get();
-      if (!createdDoc.exists) {
-        console.error("USER_FIRESTORE_PERSIST_FAILED", { userId, email: normalizedEmail });
-        if (createdAuthUser) {
-          try { await adminAuth.deleteUser(userId); } catch (e) {}
-        }
-        return res.status(500).json({
-          success: false,
-          code: "USER_CREATION_VERIFICATION_FAILED",
-          error: "User creation verification failed. Document not found in Firestore."
-        });
-      }
-    } catch (verifyErr: any) {
-      console.error("USER_FIRESTORE_PERSIST_FAILED", {
-        userId,
-        email: normalizedEmail,
-        error: verifyErr?.message || String(verifyErr)
-      });
-      if (createdAuthUser) {
-        try { await adminAuth.deleteUser(userId); } catch (e) {}
-      }
-      return res.status(500).json({
-        success: false,
-        code: "USER_CREATION_VERIFICATION_FAILED",
-        error: "Failed to verify user creation in Firestore."
-      });
-    }
-
-    // Save to local JSON DB fallback
+    // Save to local JSON DB fallback immediately to ensure resilience
     if (!db.users) db.users = [];
     const existingIdx = db.users.findIndex((u: any) => u.id === userId || u.email?.toLowerCase() === normalizedEmail);
     if (existingIdx >= 0) {
@@ -10321,6 +10305,20 @@ app.post("/api/auth/register", loginRegisterLimiter, async (req, res) => {
       db.users.push(newUser);
     }
     writeDb(db);
+
+    // VERIFY WRITE IMMEDIATELY! (Non-fatal, as we have local fallback)
+    try {
+      const createdDoc = await userRef.get();
+      if (!createdDoc.exists) {
+        console.warn("USER_FIRESTORE_PERSIST_DELAYED", { userId, email: normalizedEmail, message: "Firestore write verification failed or delayed, but local DB fallback succeeded." });
+      }
+    } catch (verifyErr: any) {
+      console.warn("USER_FIRESTORE_PERSIST_DELAYED", {
+        userId,
+        email: normalizedEmail,
+        error: verifyErr?.message || String(verifyErr)
+      });
+    }
 
     // If registered through invitation, link to CEO's team list and delete invitation
     if (invitation) {

@@ -4433,7 +4433,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                   {(() => {
                     const dbt = {
                       en: {
-                        welcome: `Welcome back, ${currentUser?.fullName || currentUser?.ownerName || "Leader"}`,
+                        welcome: `Welcome back, ${(currentUser?.fullName && currentUser.email && currentUser.fullName.toLowerCase() === currentUser.email.split('@')[0].toLowerCase()) ? "Leader" : (currentUser?.fullName || currentUser?.ownerName || "Leader")}`,
                         subtitle: "Zakir Corporate Causal Memory & Intelligence Desk",
                         activeContext: "Active Context",
                         causalChain: "Causal Decision Flow",
@@ -4463,7 +4463,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                         clickAI: "Click to run AI models"
                       },
                       ar: {
-                        welcome: `مرحباً بك مجدداً، ${currentUser?.fullName || currentUser?.ownerName || "القائد"}`,
+                        welcome: `مرحباً بك مجدداً، ${(currentUser?.fullName && currentUser.email && currentUser.fullName.toLowerCase() === currentUser.email.split('@')[0].toLowerCase()) ? "القائد" : (currentUser?.fullName || currentUser?.ownerName || "القائد")}`,
                         subtitle: "منصة ذاكرة زاكير المؤسسية والذكاء السببي التراكمي",
                         activeContext: "السياق المؤسسي النشط",
                         causalChain: "التدفق السببي للقرارات",
@@ -4493,7 +4493,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                         clickAI: "انقر لتشغيل نماذج التنبؤ"
                       },
                       fr: {
-                        welcome: `Bienvenue, ${currentUser?.fullName || currentUser?.ownerName || "Leader"}`,
+                        welcome: `Bienvenue, ${(currentUser?.fullName && currentUser.email && currentUser.fullName.toLowerCase() === currentUser.email.split('@')[0].toLowerCase()) ? "Leader" : (currentUser?.fullName || currentUser?.ownerName || "Leader")}`,
                         subtitle: "Mémoire Causaliste & Intelligence Décisionnelle Zakir",
                         activeContext: "Contexte Institutionnel Actif",
                         causalChain: "Flux Décisionnel Causal",

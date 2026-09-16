@@ -855,6 +855,26 @@ export const DeletedAccountRecovery: React.FC<DeletedAccountRecoveryProps> = ({
                     <ArrowForwardIcon className="w-3.5 h-3.5" />
                   </button>
                 </div>
+              ) : statusResult.status === "already_active" ? (
+                /* ALREADY ACTIVE STATE */
+                <div className="space-y-4">
+                  <div className="p-3 bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800/60 rounded-xl text-blue-800 dark:text-blue-200 flex items-start gap-3">
+                    <CheckCircle2 className="w-5 h-5 text-blue-600 dark:text-blue-400 shrink-0 mt-0.5" />
+                    <div className="space-y-1">
+                      <h4 className="text-xs font-bold">{lang === "ar" ? "حسابك نشط بالفعل" : "Account Already Active"}</h4>
+                      <p className="text-[11px] leading-relaxed text-blue-700 dark:text-blue-300">
+                        {lang === "ar" ? "هذا الحساب تم استعادته مسبقاً أو أنه لم يكن محذوفاً. يمكنك تسجيل الدخول إلى حسابك مباشرة الآن ولست بحاجة لإجراء عملية استعادة." : "This account has already been restored or was never deleted. You can log in directly."}
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={onCancel}
+                    className="w-full h-11 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs transition-all flex items-center justify-center shadow-sm cursor-pointer"
+                  >
+                    {lang === "ar" ? "الانتقال لتسجيل الدخول" : "Go to Login"}
+                  </button>
+                </div>
               ) : statusResult.status === "approved" ? (
                 /* APPROVED STATE -> OTP RESTORE FLOW */
                 <div className="space-y-4">
@@ -869,19 +889,24 @@ export const DeletedAccountRecovery: React.FC<DeletedAccountRecoveryProps> = ({
                   </div>
 
                   {!otpSent ? (
-                    <button
-                      type="button"
-                      onClick={handleSendApprovalOtp}
-                      disabled={isSendingOtp}
-                      className="w-full h-11 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs transition-all flex items-center justify-center gap-2 shadow-md shadow-emerald-600/20 disabled:opacity-50 cursor-pointer"
-                    >
-                      {isSendingOtp ? (
-                        <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                      ) : (
-                        <Send className="w-3.5 h-3.5" />
+                    <div className="space-y-3 pt-2">
+                      <button
+                        type="button"
+                        onClick={handleSendApprovalOtp}
+                        disabled={isSendingOtp}
+                        className="w-full h-11 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs transition-all flex items-center justify-center gap-2 shadow-md shadow-emerald-600/20 disabled:opacity-50 cursor-pointer"
+                      >
+                        {isSendingOtp ? (
+                          <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                        ) : (
+                          <Send className="w-3.5 h-3.5" />
+                        )}
+                        <span>{t.btnSendRestoreOtp}</span>
+                      </button>
+                      {otpError && (
+                        <p className="text-xs text-rose-600 font-semibold">{otpError}</p>
                       )}
-                      <span>{t.btnSendRestoreOtp}</span>
-                    </button>
+                    </div>
                   ) : (
                     <div className="space-y-3 pt-2">
                       <div className="p-2.5 bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800/60 rounded-xl text-blue-800 dark:text-blue-200 text-xs flex items-center gap-2">
