@@ -532,165 +532,226 @@ function wrapQuerySnapshot(snap: any, colName: string): any {
   };
 }
 
-function createSafeQuery(realQuery: any, colName: string): any {
+function withTimeout<T>(promise: Promise<T>, timeoutMs: number = 2000): Promise<T> {
+  let timer: any;
+  const timeoutPromise = new Promise<T>((_, reject) => {
+    timer = setTimeout(() => reject(new Error(`Operation timed out after ${timeoutMs}ms`)), timeoutMs);
+  });
+  return Promise.race([promise, timeoutPromise]).finally(() => clearTimeout(timer));
+}
+
+function createSafeQuery(
+  realQuery: any,
+  colName: string,
+  filters: Array<{ field: string; op: string; value: any }> = [],
+  orderField?: string,
+  orderDirection: "asc" | "desc" = "asc",
+  limitCount?: number,
+  subPath?: string
+): any {
   return {
     where(field: string, op: string, value: any): any {
+      const nextFilters = [...filters, { field, op, value }];
       try {
-        return createSafeQuery(realQuery.where(field, op, value), colName);
+        const nextRealQuery = realQuery ? realQuery.where(field, op, value) : null;
+        return createSafeQuery(nextRealQuery, colName, nextFilters, orderField, orderDirection, limitCount, subPath);
       } catch (e) {
-        return new MockQuery(colName).where(field, op, value);
+        let mq = new MockQuery(colName, subPath);
+        for (const f of nextFilters) {
+          mq = mq.where(f.field, f.op, f.value);
+        }
+        if (orderField) mq = mq.orderBy(orderField, orderDirection);
+        if (limitCount) mq = mq.limit(limitCount);
+        return mq;
       }
     },
-    orderBy(field: string, direction: any): any {
+    orderBy(field: string, direction: any = "asc"): any {
       try {
-        return createSafeQuery(realQuery.orderBy(field, direction), colName);
+        const nextRealQuery = realQuery ? realQuery.orderBy(field, direction) : null;
+        return createSafeQuery(nextRealQuery, colName, filters, field, direction, limitCount, subPath);
       } catch (e) {
-        return new MockQuery(colName).orderBy(field, direction);
+        let mq = new MockQuery(colName, subPath);
+        for (const f of filters) {
+          mq = mq.where(f.field, f.op, f.value);
+        }
+        mq = mq.orderBy(field, direction);
+        if (limitCount) mq = mq.limit(limitCount);
+        return mq;
       }
     },
     limit(count: number): any {
       try {
-        return createSafeQuery(realQuery.limit(count), colName);
+        const nextRealQuery = realQuery ? realQuery.limit(count) : null;
+        return createSafeQuery(nextRealQuery, colName, filters, orderField, orderDirection, count, subPath);
       } catch (e) {
-        return new MockQuery(colName).limit(count);
+        let mq = new MockQuery(colName, subPath);
+        for (const f of filters) {
+          mq = mq.where(f.field, f.op, f.value);
+        }
+        if (orderField) mq = mq.orderBy(orderField, orderDirection);
+        mq = mq.limit(count);
+        return mq;
       }
     },
     async get() {
-      try {
-        const snap = await realQuery.get();
-        return wrapQuerySnapshot(snap, colName);
-      } catch (err: any) {
-        if ((err?.message || "").includes("RESOURCE_EXHAUSTED") || (err?.message || "").includes("Quota limit exceeded") || err?.code === 8) {
-          console.warn(`[Firestore Quota] Daily quota reached for query on ${colName}, seamlessly using local DB fallback.`);
-        } else {
-          console.warn(`Firestore get() failed for query on ${colName}, falling back to mock:`, err.message);
+      if (realQuery) {
+        try {
+          const snap: any = await withTimeout(realQuery.get(), 2000);
+          return wrapQuerySnapshot(snap, colName);
+        } catch (err: any) {
+          if ((err?.message || "").includes("RESOURCE_EXHAUSTED") || (err?.message || "").includes("Quota limit exceeded") || err?.code === 8) {
+            console.warn(`[Firestore Quota] Daily quota reached for query on ${colName}, seamlessly using local DB fallback.`);
+          } else {
+            console.warn(`Firestore get() failed for query on ${colName}, falling back to mock:`, err.message);
+          }
         }
-        return new MockQuery(colName).get();
       }
+      let mq = new MockQuery(colName, subPath);
+      for (const f of filters) {
+        mq = mq.where(f.field, f.op, f.value);
+      }
+      if (orderField) mq = mq.orderBy(orderField, orderDirection);
+      if (limitCount) mq = mq.limit(limitCount);
+      return mq.get();
     }
   };
 }
 
-function createSafeCollection(realCol: any, colName: string): any {
+function createSafeCollection(realCol: any, colName: string, subPath?: string): any {
   return {
     doc(docId: string): any {
-      const realDoc = realCol.doc(docId);
+      const realDoc = realCol ? realCol.doc(docId) : null;
       return {
-        get id() { return realDoc.id; },
+        get id() { return docId; },
         get _realRef() { return realDoc; },
         get colName() { return colName; },
         collection(subCol: string) {
+          const nextSubPath = subPath ? `${subPath}/${docId}/${subCol}` : `${colName}/${docId}/${subCol}`;
           try {
-            return createSafeCollection(realDoc.collection(subCol), `${colName}/${docId}/${subCol}`);
+            return createSafeCollection(realDoc ? realDoc.collection(subCol) : null, subCol, nextSubPath);
           } catch (e) {
-            return new MockCollectionRef(subCol, `${colName}/${docId}/${subCol}`);
+            return new MockCollectionRef(subCol, nextSubPath);
           }
         },
         async get() {
-          try {
-            const snap = await realDoc.get();
-            return {
-              get id() { return snap.id; },
-              get exists() { return snap.exists; },
-              data() { return snap.data(); },
-              get ref() {
-                return {
-                  get id() { return realDoc.id; },
-                  get _realRef() { return realDoc; },
-                  get colName() { return colName; },
-                  collection(subCol: string) {
-                    try {
-                      return createSafeCollection(realDoc.collection(subCol), `${colName}/${docId}/${subCol}`);
-                    } catch (e) {
-                      return new MockCollectionRef(subCol, `${colName}/${docId}/${subCol}`);
-                    }
-                  },
-                  set: (d: any, o?: any) => realDoc.set(d, o),
-                  update: (d: any) => realDoc.update(d),
-                  delete: () => realDoc.delete()
-                };
+          if (realDoc) {
+            try {
+              const snap: any = await withTimeout(realDoc.get(), 2000);
+              return {
+                get id() { return snap.id; },
+                get exists() { return snap.exists; },
+                data() { return snap.data(); },
+                get ref() {
+                  return {
+                    get id() { return realDoc.id; },
+                    get _realRef() { return realDoc; },
+                    get colName() { return colName; },
+                    collection(subCol: string) {
+                      const nextSubPath = subPath ? `${subPath}/${docId}/${subCol}` : `${colName}/${docId}/${subCol}`;
+                      try {
+                        return createSafeCollection(realDoc.collection(subCol), subCol, nextSubPath);
+                      } catch (e) {
+                        return new MockCollectionRef(subCol, nextSubPath);
+                      }
+                    },
+                    set: (d: any, o?: any) => realDoc.set(d, o),
+                    update: (d: any) => realDoc.update(d),
+                    delete: () => realDoc.delete()
+                  };
+                }
+              };
+            } catch (err: any) {
+              if ((err?.message || "").includes("RESOURCE_EXHAUSTED") || (err?.message || "").includes("Quota limit exceeded") || err?.code === 8) {
+                console.warn(`[Firestore Quota] Daily quota reached for ${colName}/${docId}, seamlessly using local DB fallback.`);
+              } else {
+                console.warn(`Firestore get() failed for ${colName}/${docId}, falling back to mock:`, err.message);
               }
-            };
-          } catch (err: any) {
-            if ((err?.message || "").includes("RESOURCE_EXHAUSTED") || (err?.message || "").includes("Quota limit exceeded") || err?.code === 8) {
-              console.warn(`[Firestore Quota] Daily quota reached for ${colName}/${docId}, seamlessly using local DB fallback.`);
-            } else {
-              console.warn(`Firestore get() failed for ${colName}/${docId}, falling back to mock:`, err.message);
             }
-            return new MockDocRef(colName, docId).get();
           }
+          return new MockDocRef(colName, docId, subPath).get();
         },
         async set(data: any, options?: any) {
-          try {
-            return await realDoc.set(data, options);
-          } catch (err: any) {
-            if ((err?.message || "").includes("RESOURCE_EXHAUSTED") || (err?.message || "").includes("Quota limit exceeded") || err?.code === 8) {
-              console.warn(`[Firestore Quota] Daily quota reached for set ${colName}/${docId}, seamlessly using local DB fallback.`);
-            } else {
-              console.warn(`Firestore set() failed for ${colName}/${docId}, falling back to mock:`, err.message);
+          if (realDoc) {
+            try {
+              return await withTimeout(realDoc.set(data, options), 2000);
+            } catch (err: any) {
+              if ((err?.message || "").includes("RESOURCE_EXHAUSTED") || (err?.message || "").includes("Quota limit exceeded") || err?.code === 8) {
+                console.warn(`[Firestore Quota] Daily quota reached for set ${colName}/${docId}, seamlessly using local DB fallback.`);
+              } else {
+                console.warn(`Firestore set() failed for ${colName}/${docId}, falling back to mock:`, err.message);
+              }
             }
-            return new MockDocRef(colName, docId).set(data, options);
           }
+          return new MockDocRef(colName, docId, subPath).set(data, options);
         },
         async update(data: any) {
-          try {
-            return await realDoc.update(data);
-          } catch (err: any) {
-            if ((err?.message || "").includes("RESOURCE_EXHAUSTED") || (err?.message || "").includes("Quota limit exceeded") || err?.code === 8) {
-              console.warn(`[Firestore Quota] Daily quota reached for update ${colName}/${docId}, seamlessly using local DB fallback.`);
-            } else {
-              console.warn(`Firestore update() failed for ${colName}/${docId}, falling back to mock:`, err.message);
+          if (realDoc) {
+            try {
+              return await withTimeout(realDoc.update(data), 2000);
+            } catch (err: any) {
+              if ((err?.message || "").includes("RESOURCE_EXHAUSTED") || (err?.message || "").includes("Quota limit exceeded") || err?.code === 8) {
+                console.warn(`[Firestore Quota] Daily quota reached for update ${colName}/${docId}, seamlessly using local DB fallback.`);
+              } else {
+                console.warn(`Firestore update() failed for ${colName}/${docId}, falling back to mock:`, err.message);
+              }
             }
-            return new MockDocRef(colName, docId).update(data);
           }
+          return new MockDocRef(colName, docId, subPath).update(data);
         },
         async delete() {
-          try {
-            return await realDoc.delete();
-          } catch (err: any) {
-            if ((err?.message || "").includes("RESOURCE_EXHAUSTED") || (err?.message || "").includes("Quota limit exceeded") || err?.code === 8) {
-              console.warn(`[Firestore Quota] Daily quota reached for delete ${colName}/${docId}, seamlessly using local DB fallback.`);
-            } else {
-              console.warn(`Firestore delete() failed for ${colName}/${docId}, falling back to mock:`, err.message);
+          if (realDoc) {
+            try {
+              return await withTimeout(realDoc.delete(), 2000);
+            } catch (err: any) {
+              if ((err?.message || "").includes("RESOURCE_EXHAUSTED") || (err?.message || "").includes("Quota limit exceeded") || err?.code === 8) {
+                console.warn(`[Firestore Quota] Daily quota reached for delete ${colName}/${docId}, seamlessly using local DB fallback.`);
+              } else {
+                console.warn(`Firestore delete() failed for ${colName}/${docId}, falling back to mock:`, err.message);
+              }
             }
-            return new MockDocRef(colName, docId).delete();
           }
+          return new MockDocRef(colName, docId, subPath).delete();
         }
       };
     },
     where(field: string, op: string, value: any): any {
       try {
-        return createSafeQuery(realCol.where(field, op, value), colName);
+        const nextReal = realCol ? realCol.where(field, op, value) : null;
+        return createSafeQuery(nextReal, colName, [{ field, op, value }], undefined, "asc", undefined, subPath);
       } catch (e) {
-        return new MockQuery(colName).where(field, op, value);
+        return new MockQuery(colName, subPath).where(field, op, value);
       }
     },
-    orderBy(field: string, direction: any): any {
+    orderBy(field: string, direction: any = "asc"): any {
       try {
-        return createSafeQuery(realCol.orderBy(field, direction), colName);
+        const nextReal = realCol ? realCol.orderBy(field, direction) : null;
+        return createSafeQuery(nextReal, colName, [], field, direction, undefined, subPath);
       } catch (e) {
-        return new MockQuery(colName).orderBy(field, direction);
+        return new MockQuery(colName, subPath).orderBy(field, direction);
       }
     },
     limit(count: number): any {
       try {
-        return createSafeQuery(realCol.limit(count), colName);
+        const nextReal = realCol ? realCol.limit(count) : null;
+        return createSafeQuery(nextReal, colName, [], undefined, "asc", count, subPath);
       } catch (e) {
-        return new MockQuery(colName).limit(count);
+        return new MockQuery(colName, subPath).limit(count);
       }
     },
     async get() {
-      try {
-        const snap = await realCol.get();
-        return wrapQuerySnapshot(snap, colName);
-      } catch (err: any) {
-        if ((err?.message || "").includes("RESOURCE_EXHAUSTED") || (err?.message || "").includes("Quota limit exceeded") || err?.code === 8) {
-          console.warn(`[Firestore Quota] Daily quota reached for collection ${colName}, seamlessly using local DB fallback.`);
-        } else {
-          console.warn(`Firestore get() failed for collection ${colName}, falling back to mock:`, err.message);
+      if (realCol) {
+        try {
+          const snap = await withTimeout(realCol.get(), 2000);
+          return wrapQuerySnapshot(snap, colName);
+        } catch (err: any) {
+          if ((err?.message || "").includes("RESOURCE_EXHAUSTED") || (err?.message || "").includes("Quota limit exceeded") || err?.code === 8) {
+            console.warn(`[Firestore Quota] Daily quota reached for collection ${colName}, seamlessly using local DB fallback.`);
+          } else {
+            console.warn(`Firestore get() failed for collection ${colName}, falling back to mock:`, err.message);
+          }
         }
-        return new MockCollectionRef(colName).get();
       }
+      return new MockCollectionRef(colName, subPath).get();
     }
   };
 }
@@ -795,7 +856,7 @@ function createSafeAdminAuth(realAuth: any): any {
     async getUser(uid: string): Promise<any> {
       if (isFirebaseAdminAvailable && realAuth) {
         try {
-          return await realAuth.getUser(uid);
+          return await withTimeout(realAuth.getUser(uid), 2000);
         } catch (e: any) {
           if (!e?.message?.includes("PERMISSION_DENIED")) {
             // let auth/user-not-found pass through
@@ -821,7 +882,7 @@ function createSafeAdminAuth(realAuth: any): any {
     async getUserByEmail(email: string): Promise<any> {
       if (isFirebaseAdminAvailable && realAuth) {
         try {
-          return await realAuth.getUserByEmail(email);
+          return await withTimeout(realAuth.getUserByEmail(email), 2000);
         } catch (e: any) {
           if (!e?.message?.includes("PERMISSION_DENIED")) {
             if (e?.code === "auth/user-not-found") throw e;
