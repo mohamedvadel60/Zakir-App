@@ -507,7 +507,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       if (reactRes?.success && Array.isArray(reactRes.requests)) {
         for (const req of reactRes.requests) {
           if (!combined.some(c => c.id === req.id || c.requestId === req.requestId || (c.email === req.email && c.status === req.status))) {
-            combined.push(req);
+            combined.push({ ...req, isReactivationRequest: true });
           }
         }
       }
@@ -561,13 +561,25 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       const { auth } = await import("../firebase");
       const idToken = await auth.currentUser?.getIdToken() || "";
 
-      const res = await handleAdminRecoveryRequestDecisionApi(
-        idToken,
-        requestId,
-        email,
-        action,
-        rejectionReason
-      );
+      let res: any;
+      if (req.isReactivationRequest) {
+        const fetchRes = await authenticatedFetch("/api/admin/handle-reactivation-request", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({ email, action, notes: rejectionReason })
+        });
+        res = await safeJsonResponse(fetchRes, lang === "ar" ? "فشل تفعيل/رفض حساب العضو." : "Failed to approve/reject member account.");
+      } else {
+        res = await handleAdminRecoveryRequestDecisionApi(
+          idToken,
+          requestId,
+          email,
+          action,
+          rejectionReason
+        );
+      }
 
       if (!res.success) {
         throw new Error(res.error || res.message || "Action failed");
