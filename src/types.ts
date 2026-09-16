@@ -241,6 +241,7 @@ export interface SubscriptionInfo {
 
 export interface SmartEvolutionData {
   error?: string;
+  executiveSummary?: string;
   analyzedMemories: number;
   identifiedRisks: number;
   opportunities: number;

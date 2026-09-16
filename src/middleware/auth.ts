@@ -224,8 +224,8 @@ export async function getUserProfileServer(uid: string, email?: string): Promise
 export async function isUserAdminServer(uid: string, email?: string): Promise<boolean> {
   if (!uid) return false;
 
-  // 1. Authoritative Primary Admin User ID & test mock CEO
-  if (uid === ADMIN_USER_ID || uid === "usr_ceo") {
+  // 1. Authoritative Primary Admin User ID
+  if (uid === ADMIN_USER_ID) {
     return true;
   }
 
@@ -244,7 +244,7 @@ export async function isUserAdminServer(uid: string, email?: string): Promise<bo
         return true;
       }
       const customClaims = (authUser.customClaims || {}) as any;
-      if (customClaims.admin === true || customClaims.role === "admin" || customClaims.role === "ceo") {
+      if (customClaims.admin === true || customClaims.role === "admin" || customClaims.role === "super_admin") {
         return true;
       }
     }
@@ -257,10 +257,10 @@ export async function isUserAdminServer(uid: string, email?: string): Promise<bo
     const userDoc = await adminDb.collection("users").doc(uid).get();
     if (userDoc && userDoc.exists) {
       const userData = userDoc.data();
-      const role = (userData?.role || "").toUpperCase();
+      const role = (userData?.role || "").toLowerCase();
       const userEmail = (userData?.email || "").trim().toLowerCase();
-      if (role === "CEO" || role === "ADMIN") return true;
       if (userEmail && ADMIN_EMAILS.has(userEmail)) return true;
+      if (role === "admin" || role === "superadmin" || role === "super_admin" || role === "first admin") return true;
     }
   } catch (err) {
     // continue to local check
@@ -271,10 +271,10 @@ export async function isUserAdminServer(uid: string, email?: string): Promise<bo
     const db = readDbForAuth();
     const localUser = db.users?.find((u: any) => u.id === uid || (normalizedEmail && (u.email || "").trim().toLowerCase() === normalizedEmail));
     if (localUser) {
-      const role = (localUser.role || "").toUpperCase();
+      const role = (localUser.role || "").toLowerCase();
       const uEmail = (localUser.email || "").trim().toLowerCase();
-      if (role === "CEO" || role === "ADMIN") return true;
       if (uEmail && ADMIN_EMAILS.has(uEmail)) return true;
+      if (role === "admin" || role === "superadmin" || role === "super_admin" || role === "first admin") return true;
     }
   } catch (e) {}
 

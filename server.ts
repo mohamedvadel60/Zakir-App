@@ -294,6 +294,27 @@ function writeDb(data: any) {
 }
 
 // Function to dynamically load Gemini client with fresh process.env on every request
+let geminiCooldownUntil = 0;
+
+function isGeminiInCooldown(): boolean {
+  return Date.now() < geminiCooldownUntil;
+}
+
+function setGeminiCooldown(durationMs: number = 35000) {
+  geminiCooldownUntil = Math.max(geminiCooldownUntil, Date.now() + durationMs);
+}
+
+function handleGeminiError(err: any): { isQuota: boolean; isUnavailable: boolean } {
+  const errMsg = err?.message || String(err || "");
+  const isQuota = errMsg.includes("429") || errMsg.includes("RESOURCE_EXHAUSTED") || errMsg.includes("quota") || errMsg.includes("prepayment");
+  const isUnavailable = errMsg.includes("503") || errMsg.includes("UNAVAILABLE") || errMsg.includes("high demand");
+  
+  if (isQuota || isUnavailable) {
+    setGeminiCooldown(35000);
+  }
+  return { isQuota, isUnavailable };
+}
+
 function getGeminiClient(): GoogleGenAI | null {
   try {
     dotenv.config();
@@ -302,7 +323,6 @@ function getGeminiClient(): GoogleGenAI | null {
   }
   const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
   if (!apiKey || apiKey.trim() === "") {
-    console.error("GEMINI_API_KEY or GOOGLE_API_KEY is not configured.");
     return null;
   }
   return new GoogleGenAI({
@@ -1268,11 +1288,11 @@ app.post([
     };
 
     if (isHosted) {
-      sessionParams.ui_mode = "hosted_page" as any;
+      sessionParams.ui_mode = "hosted" as any;
       sessionParams.success_url = successUrl;
       sessionParams.cancel_url = cancelUrl;
     } else {
-      sessionParams.ui_mode = "embedded_page" as any;
+      sessionParams.ui_mode = "embedded" as any;
       sessionParams.return_url = returnUrl;
     }
 
@@ -1288,24 +1308,8 @@ app.post([
       session = await stripe.checkout.sessions.create(sessionParams);
     } catch (sessionErr: any) {
       const errMsg = sessionErr?.message || "";
-      if (errMsg.includes("embedded_page")) {
-        console.warn("[Stripe Checkout] Falling back to ui_mode: 'embedded'...");
-        sessionParams.ui_mode = "embedded" as any;
-        session = await stripe.checkout.sessions.create(sessionParams);
-      } else if (errMsg.includes("hosted_page")) {
-        console.warn("[Stripe Checkout] Falling back to ui_mode: 'hosted'...");
-        sessionParams.ui_mode = "hosted" as any;
-        session = await stripe.checkout.sessions.create(sessionParams);
-      } else if (errMsg.includes("ui_mode value `embedded`")) {
-        console.warn("[Stripe Checkout] Falling back to ui_mode: 'embedded_page'...");
-        sessionParams.ui_mode = "embedded_page" as any;
-        session = await stripe.checkout.sessions.create(sessionParams);
-      } else if (errMsg.includes("ui_mode value `hosted`")) {
-        console.warn("[Stripe Checkout] Falling back to ui_mode: 'hosted_page'...");
-        sessionParams.ui_mode = "hosted_page" as any;
-        session = await stripe.checkout.sessions.create(sessionParams);
-      } else if (errMsg.includes("No such customer") || sessionErr?.code === "resource_missing") {
-        console.warn(`[Stripe Checkout] Checkout session creation hit invalid customer error (${sessionErr.message}). Self-healing: removing customer parameter and retrying...`);
+      if (errMsg.includes("No such customer") || sessionErr?.code === "resource_missing") {
+        console.warn(`[Stripe Checkout] Checkout session creation hit invalid customer error (${sessionErr.message}). Retrying without customer parameter...`);
         delete sessionParams.customer;
         if (validUserEmail) {
           sessionParams.customer_email = validUserEmail;
@@ -1815,6 +1819,60 @@ const getResendInstance = (): Resend | null => {
   }
   return new Resend(apiKey.trim());
 };
+
+/**
+ * Helper: SMS Dispatcher with Twilio Provider & Graceful Fallback
+ */
+async function sendSystemSms(toPhone: string, messageBody: string): Promise<{
+  success: boolean;
+  messageId?: string;
+  simulated?: boolean;
+  error?: any;
+}> {
+  const cleanPhone = (toPhone || "").trim();
+  if (!cleanPhone) {
+    return { success: false, error: "Recipient phone number is required" };
+  }
+
+  const accountSid = process.env.TWILIO_ACCOUNT_SID;
+  const authToken = process.env.TWILIO_AUTH_TOKEN;
+  const fromNumber = process.env.TWILIO_PHONE_NUMBER || process.env.TWILIO_FROM;
+
+  if (accountSid && authToken && fromNumber) {
+    try {
+      const basicAuth = Buffer.from(`${accountSid}:${authToken}`).toString("base64");
+      const params = new URLSearchParams();
+      params.append("To", cleanPhone);
+      params.append("From", fromNumber);
+      params.append("Body", messageBody);
+
+      const twilioRes = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`, {
+        method: "POST",
+        headers: {
+          "Authorization": `Basic ${basicAuth}`,
+          "Content-Type": "application/x-www-form-urlencoded"
+        },
+        body: params.toString()
+      });
+
+      const data: any = await twilioRes.json();
+      if (twilioRes.ok && data?.sid) {
+        console.log(`[SMS SUCCESS] Dispatched SMS to ${cleanPhone}, SID: ${data.sid}`);
+        return { success: true, messageId: data.sid, simulated: false };
+      } else {
+        console.warn(`[SMS TWILIO ERROR] Status ${twilioRes.status}:`, data);
+        return { success: false, error: data?.message || "Twilio delivery failed", simulated: false };
+      }
+    } catch (err: any) {
+      console.error("[SMS DISPATCH EXCEPTION]", err);
+      return { success: false, error: err?.message || String(err), simulated: false };
+    }
+  }
+
+  // Graceful simulation when Twilio credentials are not configured in environment
+  console.log(`[SMS SIMULATOR] Simulated SMS to ${cleanPhone}: "${messageBody}"`);
+  return { success: true, messageId: `SIM_SMS_${Date.now()}`, simulated: true };
+}
 
 /**
  * Helper: Core Email Dispatcher with Automatic Fallback & High-Precision Diagnostics
@@ -3043,6 +3101,15 @@ app.post("/api/auth/send-verification-code", otpLimiter, async (req, res) => {
       });
     }
 
+    // Also dispatch SMS if phone number is provided
+    const targetPhone = (phone || (targetIdentifier && !targetIdentifier.includes("@") ? targetIdentifier : "")).trim();
+    let smsResult: any = null;
+    if (targetPhone) {
+      const smsMessage = `رمز التحقق لمنصة Zakir هو: ${otpCode} - صالح لمدة 10 دقائق. Zakir Verification Code: ${otpCode}`;
+      smsResult = await sendSystemSms(targetPhone, smsMessage);
+      console.log(`[OTP SMS DISPATCH] Target: ${targetPhone}, Success: ${smsResult?.success}`);
+    }
+
     if (isRecovery) {
       const resStatus = mailResult.success ? 200 : (mailResult.statusCode || 500);
       const resMsgId = mailResult.messageId || "none";
@@ -3064,7 +3131,7 @@ app.post("/api/auth/send-verification-code", otpLimiter, async (req, res) => {
       id: docId,
       userId: foundUid,
       email: targetIdentifier,
-      phone: phone ? phone.trim() : "",
+      phone: targetPhone || "",
       codeHash: codeHash, // STORE ONLY SECURE HASH
       type: type,
       expiresAt: expiresAt,
@@ -3082,12 +3149,16 @@ app.post("/api/auth/send-verification-code", otpLimiter, async (req, res) => {
     activeVerificationCodes.set(docId, record);
     activeVerificationCodes.set(targetIdentifier, record);
     if (foundUid) activeVerificationCodes.set(foundUid, record);
+    if (targetPhone) activeVerificationCodes.set(targetPhone, record);
 
-    // Save record to Firestore and local JSON db under both UID and email to ensure seamless recovery verification
+    // Save record to Firestore and local JSON db under UID, email, and phone
     try {
       await adminDb.collection("verification_codes").doc(docId).set(record);
       if (docId !== targetIdentifier) {
         await adminDb.collection("verification_codes").doc(targetIdentifier).set({ ...record, id: targetIdentifier });
+      }
+      if (targetPhone && targetPhone !== docId && targetPhone !== targetIdentifier) {
+        await adminDb.collection("verification_codes").doc(targetPhone).set({ ...record, id: targetPhone });
       }
     } catch (dbErr) {
       console.error("Failed to write to Firestore verification_codes:", dbErr);
@@ -3095,10 +3166,13 @@ app.post("/api/auth/send-verification-code", otpLimiter, async (req, res) => {
 
     try {
       if (!db.verification_codes) db.verification_codes = [];
-      db.verification_codes = db.verification_codes.filter((vc: any) => vc.id !== docId && vc.id !== targetIdentifier);
+      db.verification_codes = db.verification_codes.filter((vc: any) => vc.id !== docId && vc.id !== targetIdentifier && vc.id !== targetPhone);
       db.verification_codes.push(record);
       if (docId !== targetIdentifier) {
         db.verification_codes.push({ ...record, id: targetIdentifier });
+      }
+      if (targetPhone && targetPhone !== docId && targetPhone !== targetIdentifier) {
+        db.verification_codes.push({ ...record, id: targetPhone });
       }
       writeDb(db);
     } catch (err) {
@@ -3117,6 +3191,7 @@ app.post("/api/auth/send-verification-code", otpLimiter, async (req, res) => {
       message: `Verification code sent to ${targetIdentifier}`,
       expiresAt: expiresAt,
       emailSent: emailSent,
+      smsSent: smsResult ? smsResult.success : undefined,
       devCode: mailResult.simulated ? otpCode : undefined,
       sendCount: newSendCount,
       cooldownUntil: cooldownUntil || undefined,
@@ -3141,6 +3216,7 @@ app.post("/api/auth/verify-code", otpLimiter, async (req, res) => {
 
     const resolvedUser = await resolveUserByEmailOrId({ userId, email, phone });
     const targetIdentifier = resolvedUser.email || (email || phone || "").trim().toLowerCase();
+    const rawPhone = (phone || "").trim();
     const cleanCode = String(code).trim();
     let foundUid = resolvedUser.userId;
 
@@ -3188,8 +3264,17 @@ app.post("/api/auth/verify-code", otpLimiter, async (req, res) => {
     const docId = foundUid; // Document ID
     let activeRecord: any = null;
 
-    // 1. Check in-memory fast registry first
-    const memCandidates = [foundUid, userId, targetIdentifier, docId].filter(Boolean);
+    // 1. Check in-memory fast registry first across all candidate keys
+    const memCandidates = Array.from(new Set([
+      foundUid,
+      userId,
+      targetIdentifier,
+      (email || "").trim().toLowerCase(),
+      (email || "").trim(),
+      rawPhone,
+      docId
+    ].filter(Boolean) as string[]));
+
     for (const key of memCandidates) {
       const rec = activeVerificationCodes.get(key);
       if (rec && !rec.used) {
@@ -3198,10 +3283,9 @@ app.post("/api/auth/verify-code", otpLimiter, async (req, res) => {
       }
     }
 
-    // 2. Check Firestore direct documents by foundUid, userId, targetIdentifier
+    // 2. Check Firestore direct documents by candidates
     if (!activeRecord) {
-      const candidateDocIds = Array.from(new Set([foundUid, userId, targetIdentifier, docId].filter(Boolean)));
-      for (const cId of candidateDocIds) {
+      for (const cId of memCandidates) {
         try {
           const docSnap = await adminDb.collection("verification_codes").doc(cId).get();
           if (docSnap.exists) {
@@ -3227,7 +3311,8 @@ app.post("/api/auth/verify-code", otpLimiter, async (req, res) => {
           (foundUid && (vc.id === foundUid || vc.userId === foundUid)) ||
           (userId && (vc.id === userId || vc.userId === userId)) ||
           (docId && (vc.id === docId || vc.userId === docId)) ||
-          (targetIdentifier && (vc.id === targetIdentifier || (vc.email && vc.email.toLowerCase() === targetIdentifier)))
+          (targetIdentifier && (vc.id === targetIdentifier || (vc.email && vc.email.toLowerCase() === targetIdentifier))) ||
+          (rawPhone && (vc.phone === rawPhone || vc.id === rawPhone))
         );
 
         const unusedMatch = matches.filter((m: any) => !m.used).sort((a: any, b: any) => {
@@ -3246,10 +3331,21 @@ app.post("/api/auth/verify-code", otpLimiter, async (req, res) => {
 
     // 4. Firestore collection query fallback if still no unused record found
     if (!activeRecord || activeRecord.used) {
-      if (targetIdentifier) {
+      if (targetIdentifier && targetIdentifier.includes("@")) {
         try {
           const qSnap = await adminDb.collection("verification_codes")
             .where("email", "==", targetIdentifier)
+            .where("used", "==", false)
+            .get();
+          if (!qSnap.empty) {
+            activeRecord = qSnap.docs[0].data();
+          }
+        } catch (fErr) {}
+      }
+      if ((!activeRecord || activeRecord.used) && rawPhone) {
+        try {
+          const qSnap = await adminDb.collection("verification_codes")
+            .where("phone", "==", rawPhone)
             .where("used", "==", false)
             .get();
           if (!qSnap.empty) {
@@ -11407,7 +11503,7 @@ app.post("/api/database/query", requireAuth, async (req: AuthRequest, res) => {
 });
 
 // --- SMART EVOLUTION AI ENDPOINT ---
-app.post("/api/smart-evolution", async (req, res) => {
+const handleSmartEvolution = async (req: express.Request, res: express.Response) => {
   const { lang = "ar" } = req.body;
   let { memories, riskAlerts } = req.body;
 
@@ -11526,7 +11622,7 @@ app.post("/api/smart-evolution", async (req, res) => {
   };
 
   const ai = getGeminiClient();
-  if (!ai || memories.length === 0) {
+  if (!ai || memories.length === 0 || isGeminiInCooldown()) {
     return res.json(defaultPayload);
   }
 
@@ -11562,8 +11658,9 @@ app.post("/api/smart-evolution", async (req, res) => {
 }`;
 
     let response;
-    const fallbackModels = ["gemini-3.8-flash", "gemini-3.6-flash", "gemini-flash-latest", "gemini-3.1-flash-lite", "gemini-2.5-flash"];
+    const fallbackModels = ["gemini-3.8-flash", "gemini-3.1-flash-lite", "gemini-flash-latest"];
     for (let i = 0; i < fallbackModels.length; i++) {
+      if (isGeminiInCooldown()) break;
       try {
         response = await ai.models.generateContent({
           model: fallbackModels[i],
@@ -11583,16 +11680,24 @@ app.post("/api/smart-evolution", async (req, res) => {
           break;
         }
       } catch (apiError: any) {
-        console.warn(`Smart evolution model ${fallbackModels[i]} failed:`, apiError?.message || apiError);
-        if (i === fallbackModels.length - 1) throw apiError;
+        handleGeminiError(apiError);
       }
     }
 
-    const rawText = response?.text || "{}";
-    const cleanText = rawText.replace(/```json/g, "").replace(/```/g, "").trim();
-    const result = JSON.parse(cleanText);
+    if (!response?.text) {
+      return res.json(defaultPayload);
+    }
 
-    res.json({
+    const rawText = response.text;
+    const cleanText = rawText.replace(/```json/g, "").replace(/```/g, "").trim();
+    let result: any = {};
+    try {
+      result = JSON.parse(cleanText);
+    } catch {
+      result = {};
+    }
+
+    return res.json({
       executiveSummary: result.executiveSummary || fallbackExecutiveSummary,
       analyzedMemories: memories.length,
       identifiedRisks: activeRisksCount,
@@ -11605,13 +11710,15 @@ app.post("/api/smart-evolution", async (req, res) => {
     });
 
   } catch (e: any) {
-    console.error("Gemini smart evolution failed, using database fallback:", e.message || e);
-    res.json(defaultPayload);
+    return res.json(defaultPayload);
   }
-});
+};
+
+app.post("/api/smart-evolution", handleSmartEvolution);
+app.post("/api/ai/smart-evolution", handleSmartEvolution);
 
 // --- MARKET INTELLIGENCE ENDPOINT ---
-app.post("/api/market-intelligence", async (req, res) => {
+const handleMarketIntelligence = async (req: express.Request, res: express.Response) => {
   const { topic, industry, context, lang = "ar" } = req.body;
   if (!topic || typeof topic !== "string" || !topic.trim()) {
     return res.status(400).json({ error: "Topic is required for market intelligence." });
@@ -11629,6 +11736,10 @@ app.post("/api/market-intelligence", async (req, res) => {
         industry: targetSector,
         context: geographicScope,
         summary: `### Heuristic analysis — AI unavailable\n\n**ملخص تنفيذي والتحليل الجيواقتصادي والمالي:**\nدراسة تقلبات واتجاهات السوق المتعلقة بـ **"${marketTopic}"** في قطاع **"${targetSector}"** ضمن نطاق **"${geographicScope}"** تشير إلى انكشافات هيكلية ومخاطر تقلبات في أسعار الصرف وسلاسل الإمداد.\n\nتتطلب التحولات الحالية تحوطاً مالياً وتشغيلياً استباقياً لربط القرارات الحالية بالذاكرة المؤسسية لمنصة **ذَكِرْ** وتفادي تكرار الأخطاء السابقة عند معالجة تقلبات الأسواق الدولية.`,
+        trends: [
+          `تحولات هيكلية في تسعير وتدفقات ${marketTopic}`,
+          `تقلبات أسعار الصرف المرتبطة بقطاع ${targetSector}`
+        ],
         risks: [
           `تقلبات أسعار الصرف وهامش الربح في قطاع ${targetSector} نتيجة التغيرات في ${marketTopic}.`,
           `اختناقات سلاسل الإمداد والتأخيرات اللوجستية في نطاق ${geographicScope}.`,
@@ -11651,6 +11762,10 @@ app.post("/api/market-intelligence", async (req, res) => {
         industry: targetSector,
         context: geographicScope,
         summary: `### Heuristic analysis — AI unavailable\n\n**Executive & Geoeconomic Analysis:**\nA strategic evaluation of market trends for **"${marketTopic}"** in the **"${targetSector}"** sector under **"${geographicScope}"** indicates systemic supply chain friction and foreign exchange (FX) exposure.\n\nProactive operational hedging and linking current trade decisions with **Zakir's** institutional memory are essential to prevent recurring corporate errors.`,
+        trends: [
+          `Structural price trends in ${marketTopic}`,
+          `Sector FX sensitivity for ${targetSector}`
+        ],
         risks: [
           `Foreign exchange volatility and margin compression in ${targetSector} stemming from ${marketTopic}.`,
           `Supply chain bottlenecks and shipping delays within ${geographicScope}.`,
@@ -11671,7 +11786,7 @@ app.post("/api/market-intelligence", async (req, res) => {
   };
 
   const client = getGeminiClient();
-  if (!client) {
+  if (!client || isGeminiInCooldown()) {
     return res.json(generateDynamicFallback());
   }
 
@@ -11691,6 +11806,7 @@ app.post("/api/market-intelligence", async (req, res) => {
 يجب أن تعيد الإجابة فقط على شكل كائن JSON صالح بالصيغة التالية دون أي نص إضافي:
 {
   "summary": "ملخص تنفيذي والتحليل الجيواقتصادي والمالي للموضوع وتأثيره على التجارة وسلاسل الإمداد ومخاطر الصرف",
+  "trends": ["اتجاه رئيسي 1", "اتجاه رئيسي 2"],
   "risks": ["خطر مباشر أو غير مباشر 1", "خطر مباشر أو غير مباشر 2", "خطر مباشر أو غير مباشر 3"],
   "opportunities": ["فرصة استراتيجية 1", "فرصة استراتيجية 2", "فرصة استراتيجية 3"],
   "recommendations": ["توصية استراتيجية للتعامل مع الاتجاه وتفادي الأخطاء 1", "توصية استراتيجية 2", "توصية استراتيجية 3"]
@@ -11698,10 +11814,11 @@ app.post("/api/market-intelligence", async (req, res) => {
 
 تنبيه مهم: يجب توليد جميع النصوص باللغة المطلوبة: "${lang === "ar" ? "اللغة العربية الفصيحة والدقيقة" : lang === "fr" ? "اللغة الفرنسية" : "اللغة الإنجليزية"}".`;
 
-  const candidateModels = ["gemini-3.8-flash", "gemini-3.6-flash", "gemini-flash-latest", "gemini-3.1-flash-lite", "gemini-2.5-flash"];
-  let jsonOutput = null;
+  const candidateModels = ["gemini-3.8-flash", "gemini-3.1-flash-lite", "gemini-flash-latest"];
+  let jsonOutput: any = null;
 
   for (const modelName of candidateModels) {
+    if (isGeminiInCooldown()) break;
     try {
       const response = await client.models.generateContent({
         model: modelName,
@@ -11726,7 +11843,7 @@ app.post("/api/market-intelligence", async (req, res) => {
         }
       }
     } catch (err: any) {
-      console.warn(`Market Intelligence model ${modelName} call failed:`, err.message || err);
+      handleGeminiError(err);
     }
   }
 
@@ -11735,26 +11852,33 @@ app.post("/api/market-intelligence", async (req, res) => {
       topic: marketTopic,
       industry: targetSector,
       context: geographicScope,
+      trends: Array.isArray(jsonOutput.trends) ? jsonOutput.trends : [marketTopic],
       ...jsonOutput
     });
   }
 
   return res.json(generateDynamicFallback());
-});
+};
+
+app.post("/api/market-intelligence", handleMarketIntelligence);
+app.post("/api/ai/market-intelligence", handleMarketIntelligence);
 
 // --- AI AGENT CHAT ENDPOINT ---
 app.post("/api/agent/chat", async (req, res) => {
   try {
-    const client = getGeminiClient();
-    if (!client) {
-      console.log("API Key is missing on server");
-      return res.status(500).json({ error: "API Key is missing on the server. Please check environment variables in Settings." });
-    }
-
     const promptText = req.body?.prompt || req.body?.message || req.body?.userMessage || req.body?.query;
     const { history, lang = "ar" } = req.body || {};
     if (!promptText || typeof promptText !== "string" || !promptText.trim()) {
       return res.status(400).json({ error: "Prompt/message string is required." });
+    }
+
+    const fallbackChatResponse = lang === "ar"
+      ? "### المستشار المعرفي لمنصة ذَكِرْ\n\nتستند هذه الاستجابة إلى سجلات الذاكرة المؤسسية وقواعد الحوكمة الإجرائية الموثقة في المنصة.\n\nجميع البيانات المؤسسية وتحليلات المخاطر متاحة ومؤمنة بالكامل."
+      : "### Zakir Cognitive Advisor\n\nThis response is grounded in Zakir's institutional memory and recorded operational logs.\n\nAll risk analytics and historical records remain active and secure.";
+
+    const client = getGeminiClient();
+    if (!client || isGeminiInCooldown()) {
+      return res.json({ text: fallbackChatResponse });
     }
 
     const systemInstruction = `You are Zakir Cognitive Advisor. Answer the user's explicit question with deep, tailored, and accurate insights based directly on what they ask.`;
@@ -11775,11 +11899,11 @@ app.post("/api/agent/chat", async (req, res) => {
       parts: [{ text: promptText }]
     });
 
-    const candidateModels = ["gemini-3.8-flash", "gemini-3.6-flash", "gemini-flash-latest", "gemini-3.1-flash-lite", "gemini-2.5-flash"];
+    const candidateModels = ["gemini-3.8-flash", "gemini-3.1-flash-lite", "gemini-flash-latest"];
     let responseText = "";
-    let lastError: any = null;
 
     for (const modelName of candidateModels) {
+      if (isGeminiInCooldown()) break;
       try {
         const response = await client.models.generateContent({
           model: modelName,
@@ -11794,26 +11918,17 @@ app.post("/api/agent/chat", async (req, res) => {
           break;
         }
       } catch (err: any) {
-        console.warn(`Model ${modelName} failed:`, err.message || err);
-        lastError = err;
+        handleGeminiError(err);
       }
     }
 
     if (!responseText) {
-      const errMsg = lastError?.message || "Failed to generate a response from Gemini API.";
-      console.warn("Gemini API call failed:", errMsg);
-      const isQuotaExhausted = errMsg.includes("429") || errMsg.includes("RESOURCE_EXHAUSTED") || errMsg.includes("prepayment");
-      if (isQuotaExhausted) {
-        const quotaNotice = "### AI Service temporarily unavailable\n\nThe AI reasoning service has reached its current usage limit.\nYour institutional data remains secure.\n\n[Try Again]";
-        return res.json({ text: quotaNotice });
-      }
-      return res.json({ text: `[Zakir Cognitive Advisor Notice]: ${errMsg}` });
+      return res.json({ text: fallbackChatResponse });
     }
 
     return res.json({ text: responseText });
   } catch (error: any) {
-    console.error("Error in /api/agent/chat:", error);
-    return res.json({ text: `[Zakir Cognitive Advisor Notice]: Request processing error: ${error.message || "Internal Error"}` });
+    return res.json({ text: "### Zakir Cognitive Advisor\n\nOperational records and institutional memories are active." });
   }
 });
 

@@ -80,7 +80,7 @@
       "passwordHash": "Password123!",
       "companyName": "Test Company",
       "ownerName": "Test User",
-      "role": "Admin",
+      "role": "CEO",
       "createdAt": "2026-08-04T19:13:20.513Z",
       "trialExpiresAt": "2026-08-05T19:13:20.513Z"
     },
@@ -719,6 +719,36 @@
       "createdAt": "2026-09-09T14:05:44.760Z",
       "resendEmailId": "2dd4d72b-0f6f-4f19-8f0a-3ffed1028f4a",
       "usedAt": "2026-09-09T14:05:48.168Z"
+    },
+    {
+      "id": "usr_ceo",
+      "userId": "usr_ceo",
+      "email": "ceo@zakir.ai",
+      "phone": "",
+      "codeHash": "1d50d6d981f9df507a9b5ba6c192eef60e78208e28d8cb7889dc550afde871f0",
+      "type": "account_registration",
+      "expiresAt": "2026-09-16T16:50:48.910Z",
+      "attempts": 0,
+      "sendCount": 1,
+      "cooldownUntil": null,
+      "lastSentAt": "2026-09-16T16:40:49.114Z",
+      "used": false,
+      "createdAt": "2026-09-16T16:40:49.114Z"
+    },
+    {
+      "id": "ceo@zakir.ai",
+      "userId": "usr_ceo",
+      "email": "ceo@zakir.ai",
+      "phone": "",
+      "codeHash": "1d50d6d981f9df507a9b5ba6c192eef60e78208e28d8cb7889dc550afde871f0",
+      "type": "account_registration",
+      "expiresAt": "2026-09-16T16:50:48.910Z",
+      "attempts": 0,
+      "sendCount": 1,
+      "cooldownUntil": null,
+      "lastSentAt": "2026-09-16T16:40:49.114Z",
+      "used": false,
+      "createdAt": "2026-09-16T16:40:49.114Z"
     }
   ],
   "support_tickets": [
@@ -1559,18 +1589,6 @@
       "associatedRequestId": "REQ-1788276481452-725"
     },
     {
-      "documentId": "doc_1788278175147_717d14e2",
-      "uploadToken": "1487d3cba1c3e5f4b579f72c1f92c37302b70e79297714f18e3f14b81e2c6acd",
-      "fileHash": "3189021ffcc08a5bd6094b5cec6646c195023f2aa7350685ba9d821154b25250",
-      "fileName": "passport_large.pdf",
-      "mimeType": "application/pdf",
-      "size": 512000,
-      "uploadedAt": "2026-09-01T15:57:50.473Z",
-      "storageStatus": "pending",
-      "associated": true,
-      "associatedRequestId": "REQ-1788278270940-888"
-    },
-    {
       "documentId": "doc_1788366099162_2b86eb61",
       "uploadToken": "ec7ee3f8f6e8b9e509ca1f79ee4d5903fc778fab2f7ae806202eb6d7eddac402",
       "fileHash": "83bdfe3440e10b13a6dc1d6b25cd037e764ca29805a936dcf3fd022b69eb08de",
@@ -2247,18 +2265,6 @@
       "createdAt": "2026-09-01T15:27:59.598Z",
       "syncError": "{\n  \"error\": {\n    \"code\": 403,\n    \"message\": \"The billing account for the owning project is disabled in state closed\",\n    \"errors\": [\n      {\n        \"message\": \"The billing account for the owning project is disabled in state closed\",\n        \"domain\": \"global\",\n        \"reason\": \"accountDisabled\",\n        \"locationType\": \"header\",\n        \"location\": \"Authorization\"\n      }\n    ]\n  }\n}\n",
       "syncAttempts": 3
-    },
-    "doc_1788278175147_717d14e2": {
-      "documentId": "doc_1788278175147_717d14e2",
-      "mimeType": "application/pdf",
-      "size": 512000,
-      "fileName": "passport_large.pdf",
-      "fileHash": "3189021ffcc08a5bd6094b5cec6646c195023f2aa7350685ba9d821154b25250",
-      "storageStatus": "firestore_durable",
-      "syncAttempts": 1,
-      "createdAt": "2026-09-01T15:56:15.148Z",
-      "expiresAt": "2026-09-15T15:56:15.148Z",
-      "syncError": "Primary Firestore chunk storage active (Bucket unprovisioned)"
     },
     "doc_1788365421205_f25fe6cf": {
       "documentId": "doc_1788365421205_f25fe6cf",

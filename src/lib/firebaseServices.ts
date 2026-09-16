@@ -337,18 +337,40 @@ export async function registerFirebaseUser(
 
 export function clearUserLocalCache(userId?: string): void {
   try {
-    if (userId) {
-      localStorage.removeItem(`user_${userId}`);
-      localStorage.removeItem(`offline_db_user_${userId}`);
-      localStorage.removeItem(`offline_db_memories_${userId}`);
-      localStorage.removeItem(`offline_db_alerts_${userId}`);
-      localStorage.removeItem(`offline_db_files_${userId}`);
+    if (typeof window !== "undefined") {
+      if (typeof localStorage !== "undefined") {
+        const keysToRemove: string[] = [];
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i);
+          if (key && (
+            key.startsWith("user_") ||
+            key.startsWith("offline_db_") ||
+            key.startsWith("zakir_current_user") ||
+            key.startsWith("zakir_auth_token") ||
+            key.startsWith("zakir_user_") ||
+            key === "user" ||
+            key === "currentUser"
+          )) {
+            keysToRemove.push(key);
+          }
+        }
+        keysToRemove.forEach((k) => localStorage.removeItem(k));
+      }
+
+      if (typeof sessionStorage !== "undefined") {
+        const sessionKeysToRemove: string[] = [];
+        for (let i = 0; i < sessionStorage.length; i++) {
+          const key = sessionStorage.key(i);
+          if (key && (
+            key.startsWith("auto_sent_otp_") ||
+            key.startsWith("zakir_")
+          )) {
+            sessionKeysToRemove.push(key);
+          }
+        }
+        sessionKeysToRemove.forEach((k) => sessionStorage.removeItem(k));
+      }
     }
-    localStorage.removeItem("zakir_auth_token");
-    localStorage.removeItem("zakir_current_user");
-    localStorage.removeItem("offline_db_user");
-    localStorage.removeItem("user");
-    localStorage.removeItem("currentUser");
   } catch (e) {
     console.warn("clearUserLocalCache error:", e);
   }
@@ -531,7 +553,6 @@ export async function loginFirebaseUser(email: string, pass: string, attemptId?:
       } catch (e) {}
 
       if (isUserAdmin(userData)) {
-        userData.role = "Admin";
         userData.isVerified = true;
         userData.isEmailVerified = true;
         userData.email_verified = true;
@@ -559,7 +580,6 @@ export async function loginFirebaseUser(email: string, pass: string, attemptId?:
     if (srvRes.ok && srvData && (srvData.user || srvData.id)) {
       const authenticatedUser: User = srvData.user || srvData;
       if (isUserAdmin(authenticatedUser)) {
-        authenticatedUser.role = "Admin";
         authenticatedUser.isVerified = true;
         authenticatedUser.isEmailVerified = true;
         authenticatedUser.email_verified = true;
@@ -1117,7 +1137,6 @@ export async function updateUserPreferences(userId: string, newPrefs: Partial<Us
 export function subscribeToFirebaseAuthState(rawCallback: (user: User | null) => void) {
   const callback = (u: User | null) => {
     if (u && isUserAdmin(u)) {
-      u.role = "Admin";
       u.isVerified = true;
       u.isEmailVerified = true;
       u.email_verified = true;
@@ -2081,8 +2100,9 @@ export const ADMIN_EMAILS: string[] = [
 
 export function isUserAdmin(user?: { id?: string | null; email?: string | null; role?: string | null } | null): boolean {
   if (!user) return false;
-  if (user.id === ADMIN_USER_ID || user.id === "usr_ceo") return true;
-  if (user.role && (user.role.toUpperCase() === "ADMIN" || user.role === "Admin")) return true;
+  if (user.id === ADMIN_USER_ID) return true;
+  const role = (user.role || "").trim().toLowerCase();
+  if (role === "admin" || role === "superadmin" || role === "super_admin" || role === "first admin") return true;
   const email = (user.email || "").trim().toLowerCase();
   if (email && ADMIN_EMAILS.includes(email)) return true;
   return false;
@@ -3011,7 +3031,6 @@ export function subscribeToFirebaseUserProfile(userId: string, callback: (user: 
     if (docSnap.exists()) {
       const uData = docSnap.data() as User;
       if (isUserAdmin(uData)) {
-        uData.role = "Admin";
         uData.isVerified = true;
         uData.isEmailVerified = true;
         uData.email_verified = true;
