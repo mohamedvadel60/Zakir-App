@@ -300,9 +300,9 @@ function getGeminiClient(): GoogleGenAI | null {
   } catch (e) {
     // Ignore dotenv error if missing
   }
-  const apiKey = process.env.GEMINI_API_KEY;
+  const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
   if (!apiKey || apiKey.trim() === "") {
-    console.error("GEMINI_API_KEY is not configured.");
+    console.error("GEMINI_API_KEY or GOOGLE_API_KEY is not configured.");
     return null;
   }
   return new GoogleGenAI({
@@ -327,24 +327,26 @@ interface ResolvedStripeKeys {
 }
 
 function resolveStripeKeys(): ResolvedStripeKeys {
-  const pubCandidates: { key: string; source: string }[] = [];
+  const pubCandidates: { key: string; source: string; isTest: boolean }[] = [];
   const checkPubCandidate = (val: string | undefined, source: string) => {
     if (val && typeof val === "string") {
       const trimmed = val.trim();
       if (trimmed.startsWith("pk_live_") || trimmed.startsWith("pk_test_")) {
         if (!pubCandidates.some(p => p.key === trimmed)) {
-          pubCandidates.push({ key: trimmed, source });
+          pubCandidates.push({ key: trimmed, source, isTest: trimmed.startsWith("pk_test_") });
         }
       }
     }
   };
 
+  checkPubCandidate(process.env.VITE_STRIPE_TEST_PUBLISHABLE_KEY, "VITE_STRIPE_TEST_PUBLISHABLE_KEY");
+  checkPubCandidate(process.env.STRIPE_TEST_PUBLISHABLE_KEY, "STRIPE_TEST_PUBLISHABLE_KEY");
   checkPubCandidate(process.env.VITE_STRIPE_PUBLISHABLE_KEY, "VITE_STRIPE_PUBLISHABLE_KEY");
   checkPubCandidate(process.env.STRIPE_PUBLISHABLE_KEY, "STRIPE_PUBLISHABLE_KEY");
   checkPubCandidate(process.env.VITE_STRIPE_PUBLIC_KEY, "VITE_STRIPE_PUBLIC_KEY");
   checkPubCandidate(process.env.STRIPE_PUBLIC_KEY, "STRIPE_PUBLIC_KEY");
 
-  const secretCandidates: { key: string; source: string }[] = [];
+  const secretCandidates: { key: string; source: string; isTest: boolean }[] = [];
   const addSecretCandidate = (val: string | undefined, source: string) => {
     if (val && typeof val === "string") {
       const trimmed = val.trim();
@@ -355,98 +357,81 @@ function resolveStripeKeys(): ResolvedStripeKeys {
         trimmed.startsWith("rk_test_")
       ) {
         if (!secretCandidates.some(c => c.key === trimmed)) {
-          secretCandidates.push({ key: trimmed, source });
+          secretCandidates.push({
+            key: trimmed,
+            source,
+            isTest: trimmed.startsWith("sk_test_") || trimmed.startsWith("rk_test_")
+          });
         }
       }
     }
   };
 
-  addSecretCandidate(process.env.STRIPE_SECRET_KEY, "STRIPE_SECRET_KEY");
   addSecretCandidate(process.env.STRIPE_TEST_SECRET_KEY, "STRIPE_TEST_SECRET_KEY");
+  addSecretCandidate(process.env.STRIPE_SECRET_KEY, "STRIPE_SECRET_KEY");
   addSecretCandidate(process.env.STRIPE_LIVE_SECRET_KEY, "STRIPE_LIVE_SECRET_KEY");
-  addSecretCandidate(process.env.VITE_STRIPE_PUBLIC_KEY, "VITE_STRIPE_PUBLIC_KEY");
   addSecretCandidate(process.env.STRIPE_PUBLISHABLE_KEY, "STRIPE_PUBLISHABLE_KEY");
   addSecretCandidate(process.env.STRIPE_PUBLIC_KEY, "STRIPE_PUBLIC_KEY");
+  addSecretCandidate(process.env.VITE_STRIPE_PUBLIC_KEY, "VITE_STRIPE_PUBLIC_KEY");
   addSecretCandidate(process.env.STRIPE_MONTHLY_PRICE_ID, "STRIPE_MONTHLY_PRICE_ID");
   addSecretCandidate(process.env.STRIPE_YEARLY_PRICE_ID, "STRIPE_YEARLY_PRICE_ID");
-
-  const primaryPub = pubCandidates[0]?.key || null;
-  const pubIsLive = primaryPub ? primaryPub.startsWith("pk_live_") : false;
-  const pubIsTest = primaryPub ? primaryPub.startsWith("pk_test_") : false;
 
   const extractAcctId = (k: string) => {
     const match = k.match(/^[prs]k_(?:live|test)_(?:51)?([0-9a-zA-Z]+)/);
     return match ? match[1].substring(0, 14) : "";
   };
 
-  const pubAcct = primaryPub ? extractAcctId(primaryPub) : "";
+  // Enforce TEST MODE per mandatory requirement:
+  // "STRIPE MODE: TEST MODE ONLY. DO NOT switch anything to Live mode. DO NOT replace test keys with live keys."
+  const testSecrets = secretCandidates.filter(c => c.isTest);
+  const testPubs = pubCandidates.filter(p => p.isTest);
 
   let selectedKey: string | null = null;
   let selectedSource = "none";
+  let finalPub: string | null = null;
 
-  // Priority 1: Match secret key to publishable key account ID and mode
-  if (pubAcct) {
-    const matched = secretCandidates.find(c => {
-      const cAcct = extractAcctId(c.key);
-      const cIsLive = c.key.startsWith("sk_live_") || c.key.startsWith("rk_live_");
-      return cAcct === pubAcct && (pubIsLive ? cIsLive : !cIsLive);
-    });
-    if (matched) {
-      selectedKey = matched.key;
-      selectedSource = matched.source;
-    }
-  }
-
-  // Priority 2: Match mode of publishable key
-  if (!selectedKey && secretCandidates.length > 0) {
-    if (pubIsLive) {
-      const liveCand = secretCandidates.find(c => c.key.startsWith("sk_live_") || c.key.startsWith("rk_live_"));
-      if (liveCand) {
-        selectedKey = liveCand.key;
-        selectedSource = liveCand.source;
-      }
-    } else if (pubIsTest) {
-      const testCand = secretCandidates.find(c => c.key.startsWith("sk_test_") || c.key.startsWith("rk_test_"));
-      if (testCand) {
-        selectedKey = testCand.key;
-        selectedSource = testCand.source;
+  if (testSecrets.length > 0) {
+    // 1. Try to find a matching test secret and test publishable key pair with the same account ID
+    for (const s of testSecrets) {
+      const sAcct = extractAcctId(s.key);
+      const matchedPub = testPubs.find(p => {
+        const pAcct = extractAcctId(p.key);
+        return sAcct && pAcct && sAcct === pAcct;
+      });
+      if (matchedPub) {
+        selectedKey = s.key;
+        selectedSource = s.source;
+        finalPub = matchedPub.key;
+        break;
       }
     }
-  }
 
-  // Priority 3: Fall back to standard STRIPE_SECRET_KEY or first available candidate
-  if (!selectedKey) {
-    const primary = secretCandidates.find(c => c.source === "STRIPE_SECRET_KEY");
-    if (primary) {
-      selectedKey = primary.key;
-      selectedSource = primary.source;
-    } else if (secretCandidates.length > 0) {
+    // 2. If no exact account match, pick primary STRIPE_SECRET_KEY (or first test secret)
+    if (!selectedKey) {
+      const primaryTestSecret = testSecrets.find(c => c.source === "STRIPE_SECRET_KEY") || testSecrets[0];
+      selectedKey = primaryTestSecret.key;
+      selectedSource = primaryTestSecret.source;
+    }
+
+    // 3. For publishable key, strictly select a test publishable key (never a live key)
+    if (!finalPub) {
+      if (testPubs.length > 0) {
+        finalPub = testPubs[0].key;
+      }
+    }
+  } else {
+    // Fallback if no test keys exist
+    if (secretCandidates.length > 0) {
       selectedKey = secretCandidates[0].key;
       selectedSource = secretCandidates[0].source;
     }
-  }
-
-  // Ensure resolved publishable key matches selected secret key mode (test vs live)
-  let finalPub = primaryPub;
-  if (selectedKey) {
-    const selIsLive = selectedKey.startsWith("sk_live_") || selectedKey.startsWith("rk_live_");
-    const selAcct = extractAcctId(selectedKey);
-    const matchedPub = pubCandidates.find(p => {
-      const pIsLive = p.key.startsWith("pk_live_");
-      const pAcct = extractAcctId(p.key);
-      return (pIsLive === selIsLive) && (!selAcct || !pAcct || pAcct === selAcct);
-    }) || pubCandidates.find(p => {
-      const pIsLive = p.key.startsWith("pk_live_");
-      return pIsLive === selIsLive;
-    });
-    if (matchedPub) {
-      finalPub = matchedPub.key;
+    if (pubCandidates.length > 0) {
+      finalPub = pubCandidates[0].key;
     }
   }
 
   const isLiveMode = Boolean(
-    (selectedKey && (selectedKey.startsWith("sk_live_") || selectedKey.startsWith("rk_live_"))) ||
-    (!selectedKey && pubIsLive)
+    selectedKey && (selectedKey.startsWith("sk_live_") || selectedKey.startsWith("rk_live_"))
   );
 
   return {
@@ -1261,7 +1246,8 @@ app.post([
         ];
 
     // Determine whether caller requested hosted redirect mode or embedded in-app checkout
-    const isHosted = req.body?.uiMode === "hosted" || req.body?.uiMode === "hosted_page";
+    const { publishableKey } = resolveStripeKeys();
+    const isHosted = req.body?.uiMode === "hosted" || req.body?.uiMode === "hosted_page" || !publishableKey;
     const requestedUiMode = isHosted ? "hosted" : "embedded";
     const returnUrl = `${baseUrl}/?view=settings&tab=subscription&session_id={CHECKOUT_SESSION_ID}`;
     const successUrl = `${baseUrl}/?view=settings&tab=subscription&checkout=success&session_id={CHECKOUT_SESSION_ID}&plan=${requestedPlan}&cycle=${requestedCycle}`;
@@ -1335,8 +1321,6 @@ app.post([
     db.stripe_sessions = db.stripe_sessions || {};
     db.stripe_sessions[session.id] = finalUserId;
     writeDb(db);
-
-    const { publishableKey } = resolveStripeKeys();
 
     res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
     return res.json({
@@ -11578,7 +11562,7 @@ app.post("/api/smart-evolution", async (req, res) => {
 }`;
 
     let response;
-    const fallbackModels = ["gemini-3.7-flash", "gemini-3.5-flash", "gemini-flash-latest", "gemini-2.0-flash"];
+    const fallbackModels = ["gemini-3.8-flash", "gemini-3.6-flash", "gemini-flash-latest", "gemini-3.1-flash-lite", "gemini-2.5-flash"];
     for (let i = 0; i < fallbackModels.length; i++) {
       try {
         response = await ai.models.generateContent({
@@ -11595,8 +11579,11 @@ app.post("/api/smart-evolution", async (req, res) => {
             temperature: 0.35
           }
         });
-        break;
+        if (response?.text) {
+          break;
+        }
       } catch (apiError: any) {
+        console.warn(`Smart evolution model ${fallbackModels[i]} failed:`, apiError?.message || apiError);
         if (i === fallbackModels.length - 1) throw apiError;
       }
     }
@@ -11711,7 +11698,7 @@ app.post("/api/market-intelligence", async (req, res) => {
 
 تنبيه مهم: يجب توليد جميع النصوص باللغة المطلوبة: "${lang === "ar" ? "اللغة العربية الفصيحة والدقيقة" : lang === "fr" ? "اللغة الفرنسية" : "اللغة الإنجليزية"}".`;
 
-  const candidateModels = ["gemini-3.7-flash", "gemini-3.5-flash", "gemini-flash-latest", "gemini-2.0-flash"];
+  const candidateModels = ["gemini-3.8-flash", "gemini-3.6-flash", "gemini-flash-latest", "gemini-3.1-flash-lite", "gemini-2.5-flash"];
   let jsonOutput = null;
 
   for (const modelName of candidateModels) {
@@ -11788,7 +11775,7 @@ app.post("/api/agent/chat", async (req, res) => {
       parts: [{ text: promptText }]
     });
 
-    const candidateModels = ["gemini-3.7-flash", "gemini-3.5-flash", "gemini-flash-latest", "gemini-2.0-flash"];
+    const candidateModels = ["gemini-3.8-flash", "gemini-3.6-flash", "gemini-flash-latest", "gemini-3.1-flash-lite", "gemini-2.5-flash"];
     let responseText = "";
     let lastError: any = null;
 

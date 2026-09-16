@@ -167,20 +167,20 @@ function getCollectionArrayName(colName) {
   };
   return map[colName] || colName;
 }
-function getCollectionItems(db3, colName) {
+function getCollectionItems(db2, colName) {
   const key = getCollectionArrayName(colName);
-  if (Array.isArray(db3[key])) return db3[key];
-  if (!db3.collections_data) db3.collections_data = {};
-  if (!Array.isArray(db3.collections_data[colName])) db3.collections_data[colName] = [];
-  return db3.collections_data[colName];
+  if (Array.isArray(db2[key])) return db2[key];
+  if (!db2.collections_data) db2.collections_data = {};
+  if (!Array.isArray(db2.collections_data[colName])) db2.collections_data[colName] = [];
+  return db2.collections_data[colName];
 }
-function setCollectionItems(db3, colName, items) {
+function setCollectionItems(db2, colName, items) {
   const key = getCollectionArrayName(colName);
-  if (Array.isArray(db3[key]) || key in db3) {
-    db3[key] = items;
+  if (Array.isArray(db2[key]) || key in db2) {
+    db2[key] = items;
   } else {
-    if (!db3.collections_data) db3.collections_data = {};
-    db3.collections_data[colName] = items;
+    if (!db2.collections_data) db2.collections_data = {};
+    db2.collections_data[colName] = items;
   }
 }
 function wrapQuerySnapshot(snap, colName) {
@@ -519,8 +519,8 @@ function createSafeAdminAuth(realAuth) {
           }
         }
       }
-      const db3 = readLocalDb();
-      const user = db3.users?.find((u) => u.id === uid);
+      const db2 = readLocalDb();
+      const user = db2.users?.find((u) => u.id === uid);
       if (user) {
         return {
           uid: user.id,
@@ -543,8 +543,8 @@ function createSafeAdminAuth(realAuth) {
           }
         }
       }
-      const db3 = readLocalDb();
-      const user = db3.users?.find((u) => (u.email || "").trim().toLowerCase() === (email || "").trim().toLowerCase());
+      const db2 = readLocalDb();
+      const user = db2.users?.find((u) => (u.email || "").trim().toLowerCase() === (email || "").trim().toLowerCase());
       if (user) {
         return {
           uid: user.id,
@@ -565,7 +565,7 @@ function createSafeAdminAuth(realAuth) {
           if (!e?.message?.includes("PERMISSION_DENIED")) throw e;
         }
       }
-      const db3 = readLocalDb();
+      const db2 = readLocalDb();
       const uid = props.uid || `usr_${Date.now()}`;
       const newUser = {
         id: uid,
@@ -574,11 +574,11 @@ function createSafeAdminAuth(realAuth) {
         isEmailVerified: props.emailVerified ?? false,
         createdAt: (/* @__PURE__ */ new Date()).toISOString()
       };
-      if (!db3.users) db3.users = [];
-      const idx = db3.users.findIndex((u) => (u.email || "").toLowerCase() === (props.email || "").toLowerCase());
-      if (idx >= 0) db3.users[idx] = { ...db3.users[idx], ...newUser };
-      else db3.users.push(newUser);
-      writeLocalDb(db3);
+      if (!db2.users) db2.users = [];
+      const idx = db2.users.findIndex((u) => (u.email || "").toLowerCase() === (props.email || "").toLowerCase());
+      if (idx >= 0) db2.users[idx] = { ...db2.users[idx], ...newUser };
+      else db2.users.push(newUser);
+      writeLocalDb(db2);
       return { uid, email: props.email };
     },
     async updateUser(uid, props) {
@@ -589,12 +589,12 @@ function createSafeAdminAuth(realAuth) {
           if (!e?.message?.includes("PERMISSION_DENIED")) throw e;
         }
       }
-      const db3 = readLocalDb();
-      if (db3.users) {
-        const idx = db3.users.findIndex((u) => u.id === uid || u.email && props.email && u.email.toLowerCase() === props.email.toLowerCase());
+      const db2 = readLocalDb();
+      if (db2.users) {
+        const idx = db2.users.findIndex((u) => u.id === uid || u.email && props.email && u.email.toLowerCase() === props.email.toLowerCase());
         if (idx >= 0) {
-          db3.users[idx] = { ...db3.users[idx], ...props };
-          writeLocalDb(db3);
+          db2.users[idx] = { ...db2.users[idx], ...props };
+          writeLocalDb(db2);
         }
       }
       return { uid, ...props };
@@ -609,10 +609,10 @@ function createSafeAdminAuth(realAuth) {
           }
         }
       }
-      const db3 = readLocalDb();
-      if (db3.users) {
-        db3.users = db3.users.filter((u) => u.id !== uid);
-        writeLocalDb(db3);
+      const db2 = readLocalDb();
+      if (db2.users) {
+        db2.users = db2.users.filter((u) => u.id !== uid);
+        writeLocalDb(db2);
       }
     },
     async revokeRefreshTokens(uid) {
@@ -640,8 +640,8 @@ function createSafeAdminAuth(realAuth) {
         } catch (e) {
         }
       }
-      const db3 = readLocalDb();
-      const user = db3.users?.find((u) => u.id === token || u.email === token);
+      const db2 = readLocalDb();
+      const user = db2.users?.find((u) => u.id === token || u.email === token);
       if (user) {
         return {
           uid: user.id,
@@ -767,11 +767,11 @@ var init_firebase_admin = __esm({
         return q;
       }
       async get() {
-        const db3 = readLocalDb();
-        let items = getCollectionItems(db3, this.colName);
+        const db2 = readLocalDb();
+        let items = getCollectionItems(db2, this.colName);
         if (this.subPath) {
-          if (!db3.subcollections) db3.subcollections = {};
-          items = db3.subcollections[this.subPath] || [];
+          if (!db2.subcollections) db2.subcollections = {};
+          items = db2.subcollections[this.subPath] || [];
         }
         let filtered = items.filter((item) => {
           for (const f of this.filters) {
@@ -848,14 +848,14 @@ var init_firebase_admin = __esm({
         return new MockCollectionRef(subCol, fullSubPath);
       }
       async get() {
-        const db3 = readLocalDb();
+        const db2 = readLocalDb();
         let item = null;
         if (this.subPath) {
-          if (db3.subcollections && db3.subcollections[this.subPath]) {
-            item = db3.subcollections[this.subPath].find((i) => (i.id || i.email) === this.docId);
+          if (db2.subcollections && db2.subcollections[this.subPath]) {
+            item = db2.subcollections[this.subPath].find((i) => (i.id || i.email) === this.docId);
           }
         } else {
-          const items = getCollectionItems(db3, this.colName);
+          const items = getCollectionItems(db2, this.colName);
           item = items.find((i) => (i.id || i.email || i.emailNormalized || i.accountId) === this.docId);
           if (!item && this.docId.includes("@")) {
             item = items.find((i) => (i.email || "").trim().toLowerCase() === this.docId.trim().toLowerCase());
@@ -874,48 +874,48 @@ var init_firebase_admin = __esm({
         };
       }
       async set(data, options) {
-        const db3 = readLocalDb();
+        const db2 = readLocalDb();
         const docData = { ...data, id: this.docId };
         if (this.subPath) {
-          if (!db3.subcollections) db3.subcollections = {};
-          if (!Array.isArray(db3.subcollections[this.subPath])) db3.subcollections[this.subPath] = [];
-          const idx2 = db3.subcollections[this.subPath].findIndex((i) => (i.id || i.email) === this.docId);
+          if (!db2.subcollections) db2.subcollections = {};
+          if (!Array.isArray(db2.subcollections[this.subPath])) db2.subcollections[this.subPath] = [];
+          const idx2 = db2.subcollections[this.subPath].findIndex((i) => (i.id || i.email) === this.docId);
           if (idx2 >= 0) {
-            db3.subcollections[this.subPath][idx2] = options?.merge ? { ...db3.subcollections[this.subPath][idx2], ...docData } : docData;
+            db2.subcollections[this.subPath][idx2] = options?.merge ? { ...db2.subcollections[this.subPath][idx2], ...docData } : docData;
           } else {
-            db3.subcollections[this.subPath].push(docData);
+            db2.subcollections[this.subPath].push(docData);
           }
-          writeLocalDb(db3);
+          writeLocalDb(db2);
           return;
         }
-        const items = getCollectionItems(db3, this.colName);
+        const items = getCollectionItems(db2, this.colName);
         const idx = items.findIndex((i) => (i.id || i.email || i.emailNormalized || i.accountId) === this.docId);
         if (idx >= 0) {
           items[idx] = options?.merge ? { ...items[idx], ...docData } : docData;
         } else {
           items.push(docData);
         }
-        setCollectionItems(db3, this.colName, items);
-        writeLocalDb(db3);
+        setCollectionItems(db2, this.colName, items);
+        writeLocalDb(db2);
       }
       async update(data) {
         return this.set(data, { merge: true });
       }
       async delete() {
-        const db3 = readLocalDb();
+        const db2 = readLocalDb();
         if (this.subPath) {
-          if (db3.subcollections && db3.subcollections[this.subPath]) {
-            db3.subcollections[this.subPath] = db3.subcollections[this.subPath].filter(
+          if (db2.subcollections && db2.subcollections[this.subPath]) {
+            db2.subcollections[this.subPath] = db2.subcollections[this.subPath].filter(
               (i) => (i.id || i.email) !== this.docId
             );
-            writeLocalDb(db3);
+            writeLocalDb(db2);
           }
           return;
         }
-        const items = getCollectionItems(db3, this.colName);
+        const items = getCollectionItems(db2, this.colName);
         const nextItems = items.filter((i) => (i.id || i.email || i.emailNormalized || i.accountId) !== this.docId);
-        setCollectionItems(db3, this.colName, nextItems);
-        writeLocalDb(db3);
+        setCollectionItems(db2, this.colName, nextItems);
+        writeLocalDb(db2);
       }
     };
     MockCollectionRef = class {
@@ -1099,8 +1099,8 @@ async function getUserProfileServer(uid, email) {
     }
   }
   try {
-    const db3 = readDbForAuth();
-    const localUser = db3.users?.find((u) => uid && u.id === uid || normalizedEmail && (u.email || "").trim().toLowerCase() === normalizedEmail);
+    const db2 = readDbForAuth();
+    const localUser = db2.users?.find((u) => uid && u.id === uid || normalizedEmail && (u.email || "").trim().toLowerCase() === normalizedEmail);
     if (localUser) return localUser;
   } catch (e) {
   }
@@ -1141,8 +1141,8 @@ async function isUserAdminServer(uid, email) {
   } catch (err) {
   }
   try {
-    const db3 = readDbForAuth();
-    const localUser = db3.users?.find((u) => u.id === uid || normalizedEmail && (u.email || "").trim().toLowerCase() === normalizedEmail);
+    const db2 = readDbForAuth();
+    const localUser = db2.users?.find((u) => u.id === uid || normalizedEmail && (u.email || "").trim().toLowerCase() === normalizedEmail);
     if (localUser) {
       const role = (localUser.role || "").toUpperCase();
       const uEmail = (localUser.email || "").trim().toLowerCase();
@@ -1419,8 +1419,8 @@ var init_auth = __esm({
           }
         }
         try {
-          const db3 = readDbForAuth();
-          const foundUser = db3?.users?.find((u) => u.id === token || u.email?.toLowerCase() === token.toLowerCase());
+          const db2 = readDbForAuth();
+          const foundUser = db2?.users?.find((u) => u.id === token || u.email?.toLowerCase() === token.toLowerCase());
           if (foundUser) {
             req.user = {
               uid: foundUser.id,
@@ -1644,10 +1644,18 @@ var import_app2 = require("firebase/app");
 var import_auth2 = require("firebase/auth");
 var import_firestore2 = require("firebase/firestore");
 var import_storage2 = require("firebase/storage");
-var import_meta = {};
 (0, import_firestore2.setLogLevel)("silent");
 function getClientFirebaseConfig() {
-  const env = typeof process !== "undefined" && process.env ? process.env : import_meta.env || {};
+  let env = {};
+  if (typeof process !== "undefined" && process.env) {
+    env = process.env;
+  } else {
+    try {
+      env = new Function("return import.meta.env")() || {};
+    } catch {
+      env = {};
+    }
+  }
   return {
     apiKey: env.VITE_FIREBASE_API_KEY || env.FIREBASE_API_KEY || "AIzaSyAvjj-PBHknriQ73FYyQc2nhhBNCF_lvnE",
     authDomain: env.VITE_FIREBASE_AUTH_DOMAIN || env.FIREBASE_AUTH_DOMAIN || "potent-turbine-47c1c.firebaseapp.com",
@@ -1670,9 +1678,14 @@ var firebaseConfig = {
 var app = (0, import_app2.getApps)().length > 0 ? (0, import_app2.getApp)() : (0, import_app2.initializeApp)(firebaseConfig);
 var auth = (0, import_auth2.getAuth)(app);
 var dbId = config.firestoreDatabaseId;
-var db2 = (0, import_firestore2.initializeFirestore)(app, {
-  experimentalForceLongPolling: true
-}, dbId && dbId !== "(default)" ? dbId : void 0);
+var firestoreInstance;
+try {
+  firestoreInstance = (0, import_firestore2.initializeFirestore)(app, {
+    experimentalForceLongPolling: true
+  }, dbId && dbId !== "(default)" ? dbId : void 0);
+} catch (e) {
+  firestoreInstance = (0, import_firestore2.getFirestore)(app, dbId && dbId !== "(default)" ? dbId : void 0);
+}
 var storage = (0, import_storage2.getStorage)(app);
 
 // src/lib/apiUtils.ts
@@ -1692,7 +1705,7 @@ function sanitizeBaseUrl(rawUrl) {
 }
 
 // src/lib/worldBankFallback.ts
-var import_meta2 = {};
+var import_meta = {};
 var COUNTRY_NAMES_MAP = {
   "MR": "Mauritania / \u0645\u0648\u0631\u064A\u062A\u0627\u0646\u064A\u0627",
   "EG": "Egypt / \u0645\u0635\u0631",
@@ -1796,8 +1809,8 @@ function generateWorldBankFallbackData(country, indicator, startYear = 2015, end
 }
 function getEnvVar(key) {
   try {
-    if (typeof import_meta2 !== "undefined" && import_meta2.env) {
-      return import_meta2.env[key] || "";
+    if (typeof import_meta !== "undefined" && import_meta.env) {
+      return import_meta.env[key] || "";
     }
   } catch {
   }
@@ -2097,8 +2110,8 @@ async function getAccountLifecycleRecord(email) {
     } catch (e) {
     }
   }
-  const db3 = readDb();
-  return db3.account_lifecycle?.find((r) => (r.emailNormalized || r.email) === normalizedEmail) || null;
+  const db2 = readDb();
+  return db2.account_lifecycle?.find((r) => (r.emailNormalized || r.email) === normalizedEmail) || null;
 }
 async function setAccountLifecycleRecord(record) {
   const normalizedEmail = (record.email || record.emailNormalized || "").trim().toLowerCase();
@@ -2109,15 +2122,15 @@ async function setAccountLifecycleRecord(record) {
     } catch (e) {
     }
   }
-  const db3 = readDb();
-  if (!db3.account_lifecycle) db3.account_lifecycle = [];
-  const idx = db3.account_lifecycle.findIndex((r) => (r.emailNormalized || r.email) === normalizedEmail);
+  const db2 = readDb();
+  if (!db2.account_lifecycle) db2.account_lifecycle = [];
+  const idx = db2.account_lifecycle.findIndex((r) => (r.emailNormalized || r.email) === normalizedEmail);
   if (idx >= 0) {
-    db3.account_lifecycle[idx] = { ...db3.account_lifecycle[idx], ...record };
+    db2.account_lifecycle[idx] = { ...db2.account_lifecycle[idx], ...record };
   } else {
-    db3.account_lifecycle.push(record);
+    db2.account_lifecycle.push(record);
   }
-  writeDb(db3);
+  writeDb(db2);
 }
 async function restoreAccountFullServer(email, newPassword, fallbackProfile) {
   const normalizedEmail = (email || "").trim().toLowerCase();
@@ -2143,8 +2156,8 @@ async function restoreAccountFullServer(email, newPassword, fallbackProfile) {
   }
   if (!retainedProfile) {
     try {
-      const db3 = readDb();
-      retainedProfile = db3.retained_users?.find(
+      const db2 = readDb();
+      retainedProfile = db2.retained_users?.find(
         (u) => targetUid && u.id === targetUid || u.email?.trim().toLowerCase() === normalizedEmail
       );
     } catch (e) {
@@ -2340,14 +2353,14 @@ async function restoreAccountFullServer(email, newPassword, fallbackProfile) {
     }
   }
   try {
-    const db3 = readDb();
-    if (!db3.users) db3.users = [];
-    db3.users = db3.users.filter((u) => u.id !== finalUid && u.email?.trim().toLowerCase() !== normalizedEmail);
-    db3.users.push(restoredUserDoc);
-    if (db3.retained_users) {
-      db3.retained_users = db3.retained_users.filter((u) => u.id !== finalUid && u.email?.trim().toLowerCase() !== normalizedEmail);
+    const db2 = readDb();
+    if (!db2.users) db2.users = [];
+    db2.users = db2.users.filter((u) => u.id !== finalUid && u.email?.trim().toLowerCase() !== normalizedEmail);
+    db2.users.push(restoredUserDoc);
+    if (db2.retained_users) {
+      db2.retained_users = db2.retained_users.filter((u) => u.id !== finalUid && u.email?.trim().toLowerCase() !== normalizedEmail);
     }
-    writeDb(db3);
+    writeDb(db2);
   } catch (dbErr) {
   }
   const activeLifecycle = {
@@ -2435,8 +2448,8 @@ async function handleAdminRecoveryDecision(params) {
     }
   }
   if (!requestDoc) {
-    const db4 = readDb();
-    requestDoc = db4.account_recovery_requests?.find(
+    const db3 = readDb();
+    requestDoc = db3.account_recovery_requests?.find(
       (r) => targetReqId && (r.id === targetReqId || r.requestId === targetReqId) || normalizedEmail && r.email?.trim().toLowerCase() === normalizedEmail
     );
   }
@@ -2529,15 +2542,15 @@ async function handleAdminRecoveryDecision(params) {
     } catch (e) {
     }
   }
-  const db3 = readDb();
-  if (db3.account_recovery_requests) {
-    const idx = db3.account_recovery_requests.findIndex((r) => r.id === targetReqId || r.requestId === targetReqId || r.email === normalizedEmail);
+  const db2 = readDb();
+  if (db2.account_recovery_requests) {
+    const idx = db2.account_recovery_requests.findIndex((r) => r.id === targetReqId || r.requestId === targetReqId || r.email === normalizedEmail);
     if (idx >= 0) {
-      db3.account_recovery_requests[idx] = { ...db3.account_recovery_requests[idx], ...updateData };
+      db2.account_recovery_requests[idx] = { ...db2.account_recovery_requests[idx], ...updateData };
     } else {
-      db3.account_recovery_requests.push(updateData);
+      db2.account_recovery_requests.push(updateData);
     }
-    writeDb(db3);
+    writeDb(db2);
   }
   const lifecycle = await getAccountLifecycleRecord(normalizedEmail);
   if (lifecycle) {
@@ -2885,11 +2898,13 @@ function resolveStripeKeys() {
       const trimmed = val.trim();
       if (trimmed.startsWith("pk_live_") || trimmed.startsWith("pk_test_")) {
         if (!pubCandidates.some((p) => p.key === trimmed)) {
-          pubCandidates.push({ key: trimmed, source });
+          pubCandidates.push({ key: trimmed, source, isTest: trimmed.startsWith("pk_test_") });
         }
       }
     }
   };
+  checkPubCandidate(process.env.VITE_STRIPE_TEST_PUBLISHABLE_KEY, "VITE_STRIPE_TEST_PUBLISHABLE_KEY");
+  checkPubCandidate(process.env.STRIPE_TEST_PUBLISHABLE_KEY, "STRIPE_TEST_PUBLISHABLE_KEY");
   checkPubCandidate(process.env.VITE_STRIPE_PUBLISHABLE_KEY, "VITE_STRIPE_PUBLISHABLE_KEY");
   checkPubCandidate(process.env.STRIPE_PUBLISHABLE_KEY, "STRIPE_PUBLISHABLE_KEY");
   checkPubCandidate(process.env.VITE_STRIPE_PUBLIC_KEY, "VITE_STRIPE_PUBLIC_KEY");
@@ -2900,81 +2915,67 @@ function resolveStripeKeys() {
       const trimmed = val.trim();
       if (trimmed.startsWith("sk_live_") || trimmed.startsWith("sk_test_") || trimmed.startsWith("rk_live_") || trimmed.startsWith("rk_test_")) {
         if (!secretCandidates.some((c) => c.key === trimmed)) {
-          secretCandidates.push({ key: trimmed, source });
+          secretCandidates.push({
+            key: trimmed,
+            source,
+            isTest: trimmed.startsWith("sk_test_") || trimmed.startsWith("rk_test_")
+          });
         }
       }
     }
   };
+  addSecretCandidate(process.env.STRIPE_TEST_SECRET_KEY, "STRIPE_TEST_SECRET_KEY");
   addSecretCandidate(process.env.STRIPE_SECRET_KEY, "STRIPE_SECRET_KEY");
   addSecretCandidate(process.env.STRIPE_LIVE_SECRET_KEY, "STRIPE_LIVE_SECRET_KEY");
-  addSecretCandidate(process.env.STRIPE_TEST_SECRET_KEY, "STRIPE_TEST_SECRET_KEY");
+  addSecretCandidate(process.env.STRIPE_PUBLISHABLE_KEY, "STRIPE_PUBLISHABLE_KEY");
+  addSecretCandidate(process.env.STRIPE_PUBLIC_KEY, "STRIPE_PUBLIC_KEY");
   addSecretCandidate(process.env.VITE_STRIPE_PUBLIC_KEY, "VITE_STRIPE_PUBLIC_KEY");
   addSecretCandidate(process.env.STRIPE_MONTHLY_PRICE_ID, "STRIPE_MONTHLY_PRICE_ID");
   addSecretCandidate(process.env.STRIPE_YEARLY_PRICE_ID, "STRIPE_YEARLY_PRICE_ID");
-  const primaryPub = pubCandidates[0]?.key || null;
-  const pubIsLive = primaryPub ? primaryPub.startsWith("pk_live_") : false;
-  const pubIsTest = primaryPub ? primaryPub.startsWith("pk_test_") : false;
   const extractAcctId = (k) => {
     const match = k.match(/^[prs]k_(?:live|test)_(?:51)?([0-9a-zA-Z]+)/);
     return match ? match[1].substring(0, 14) : "";
   };
-  const pubAcct = primaryPub ? extractAcctId(primaryPub) : "";
+  const testSecrets = secretCandidates.filter((c) => c.isTest);
+  const testPubs = pubCandidates.filter((p) => p.isTest);
   let selectedKey = null;
   let selectedSource = "none";
-  if (pubAcct) {
-    const matched = secretCandidates.find((c) => {
-      const cAcct = extractAcctId(c.key);
-      const cIsLive = c.key.startsWith("sk_live_") || c.key.startsWith("rk_live_");
-      return cAcct === pubAcct && (pubIsLive ? cIsLive : !cIsLive);
-    });
-    if (matched) {
-      selectedKey = matched.key;
-      selectedSource = matched.source;
-    }
-  }
-  if (!selectedKey && secretCandidates.length > 0) {
-    if (pubIsLive) {
-      const liveCand = secretCandidates.find((c) => c.key.startsWith("sk_live_") || c.key.startsWith("rk_live_"));
-      if (liveCand) {
-        selectedKey = liveCand.key;
-        selectedSource = liveCand.source;
-      }
-    } else if (pubIsTest) {
-      const testCand = secretCandidates.find((c) => c.key.startsWith("sk_test_") || c.key.startsWith("rk_test_"));
-      if (testCand) {
-        selectedKey = testCand.key;
-        selectedSource = testCand.source;
+  let finalPub = null;
+  if (testSecrets.length > 0) {
+    for (const s of testSecrets) {
+      const sAcct = extractAcctId(s.key);
+      const matchedPub = testPubs.find((p) => {
+        const pAcct = extractAcctId(p.key);
+        return sAcct && pAcct && sAcct === pAcct;
+      });
+      if (matchedPub) {
+        selectedKey = s.key;
+        selectedSource = s.source;
+        finalPub = matchedPub.key;
+        break;
       }
     }
-  }
-  if (!selectedKey) {
-    const primary = secretCandidates.find((c) => c.source === "STRIPE_SECRET_KEY");
-    if (primary) {
-      selectedKey = primary.key;
-      selectedSource = primary.source;
-    } else if (secretCandidates.length > 0) {
+    if (!selectedKey) {
+      const primaryTestSecret = testSecrets.find((c) => c.source === "STRIPE_SECRET_KEY") || testSecrets[0];
+      selectedKey = primaryTestSecret.key;
+      selectedSource = primaryTestSecret.source;
+    }
+    if (!finalPub) {
+      if (testPubs.length > 0) {
+        finalPub = testPubs[0].key;
+      }
+    }
+  } else {
+    if (secretCandidates.length > 0) {
       selectedKey = secretCandidates[0].key;
       selectedSource = secretCandidates[0].source;
     }
-  }
-  let finalPub = primaryPub;
-  if (selectedKey) {
-    const selIsLive = selectedKey.startsWith("sk_live_") || selectedKey.startsWith("rk_live_");
-    const selAcct = extractAcctId(selectedKey);
-    const matchedPub = pubCandidates.find((p) => {
-      const pIsLive = p.key.startsWith("pk_live_");
-      const pAcct = extractAcctId(p.key);
-      return pIsLive === selIsLive && (!selAcct || !pAcct || pAcct === selAcct);
-    }) || pubCandidates.find((p) => {
-      const pIsLive = p.key.startsWith("pk_live_");
-      return pIsLive === selIsLive;
-    });
-    if (matchedPub) {
-      finalPub = matchedPub.key;
+    if (pubCandidates.length > 0) {
+      finalPub = pubCandidates[0].key;
     }
   }
   const isLiveMode = Boolean(
-    selectedKey && (selectedKey.startsWith("sk_live_") || selectedKey.startsWith("rk_live_")) || !selectedKey && pubIsLive
+    selectedKey && (selectedKey.startsWith("sk_live_") || selectedKey.startsWith("rk_live_"))
   );
   return {
     secretKey: selectedKey,
@@ -3089,9 +3090,9 @@ app2.post("/api/webhooks/resend", webhookLimiter, import_express.default.json(),
               });
             }
           }
-          const db3 = readDb2();
-          if (db3.verification_codes && Array.isArray(db3.verification_codes)) {
-            const vItem = db3.verification_codes.find(
+          const db2 = readDb2();
+          if (db2.verification_codes && Array.isArray(db2.verification_codes)) {
+            const vItem = db2.verification_codes.find(
               (vc) => emailId && vc.resendEmailId === emailId || recipient && vc.email === recipient
             );
             if (vItem) {
@@ -3099,7 +3100,7 @@ app2.post("/api/webhooks/resend", webhookLimiter, import_express.default.json(),
               vItem.lastDeliveryEvent = eventType;
               vItem.deliveryUpdatedAt = eventTimestamp;
               vItem.deliveryReason = failureReason;
-              writeDb2(db3);
+              writeDb2(db2);
             }
           }
         } catch (updateErr) {
@@ -3155,8 +3156,8 @@ app2.post(["/api/webhooks/stripe", "/api/stripe/webhook"], webhookLimiter, impor
         const nextBill = /* @__PURE__ */ new Date();
         if (cycle === "annual") nextBill.setFullYear(nextBill.getFullYear() + 1);
         else nextBill.setMonth(nextBill.getMonth() + 1);
-        const db3 = readDb2();
-        const user = db3.users.find((u) => u.id === userId || userEmail && u.email?.toLowerCase() === userEmail.toLowerCase());
+        const db2 = readDb2();
+        const user = db2.users.find((u) => u.id === userId || userEmail && u.email?.toLowerCase() === userEmail.toLowerCase());
         if (user) {
           user.subscriptionPlan = plan;
           user.subscriptionStatus = "Active";
@@ -3166,7 +3167,7 @@ app2.post(["/api/webhooks/stripe", "/api/stripe/webhook"], webhookLimiter, impor
           user.lastPaymentDate = (/* @__PURE__ */ new Date()).toISOString();
           user.lastPaymentAmount = `$${((session.amount_total || 0) / 100).toFixed(2)} USD`;
           user.nextBillingDate = nextBill.toISOString();
-          writeDb2(db3);
+          writeDb2(db2);
         }
         const targetFsUid = user?.id || userId;
         if (targetFsUid) {
@@ -3191,14 +3192,14 @@ app2.post(["/api/webhooks/stripe", "/api/stripe/webhook"], webhookLimiter, impor
       case "customer.subscription.created": {
         const sub = event.data.object;
         console.log(`[Stripe Webhook] customer.subscription.created: id=${sub.id}, customer=${sub.customer}, status=${sub.status}`);
-        const db3 = readDb2();
-        const user = db3.users.find((u) => u.stripeSubscriptionId === sub.id || u.stripeCustomerId === sub.customer);
+        const db2 = readDb2();
+        const user = db2.users.find((u) => u.stripeSubscriptionId === sub.id || u.stripeCustomerId === sub.customer);
         if (user) {
           user.stripeSubscriptionId = sub.id;
           if (sub.status === "active" || sub.status === "trialing") {
             user.subscriptionStatus = "Active";
           }
-          writeDb2(db3);
+          writeDb2(db2);
           try {
             await adminDb.collection("users").doc(user.id).set({
               stripeSubscriptionId: sub.id,
@@ -3213,15 +3214,15 @@ app2.post(["/api/webhooks/stripe", "/api/stripe/webhook"], webhookLimiter, impor
       case "customer.subscription.updated": {
         const sub = event.data.object;
         console.log(`[Stripe Webhook] customer.subscription.updated: id=${sub.id}, status=${sub.status}`);
-        const db3 = readDb2();
-        const user = db3.users.find((u) => u.stripeSubscriptionId === sub.id || u.stripeCustomerId === sub.customer);
+        const db2 = readDb2();
+        const user = db2.users.find((u) => u.stripeSubscriptionId === sub.id || u.stripeCustomerId === sub.customer);
         if (user) {
           const isActive = sub.status === "active" || sub.status === "trialing";
           user.subscriptionStatus = isActive ? "Active" : sub.status === "past_due" ? "Past Due" : "Inactive";
           if (sub.current_period_end) {
             user.nextBillingDate = new Date(sub.current_period_end * 1e3).toISOString();
           }
-          writeDb2(db3);
+          writeDb2(db2);
           try {
             await adminDb.collection("users").doc(user.id).set({
               subscriptionStatus: user.subscriptionStatus,
@@ -3236,12 +3237,12 @@ app2.post(["/api/webhooks/stripe", "/api/stripe/webhook"], webhookLimiter, impor
       case "customer.subscription.deleted": {
         const sub = event.data.object;
         console.log(`[Stripe Webhook] customer.subscription.deleted: id=${sub.id}`);
-        const db3 = readDb2();
-        const user = db3.users.find((u) => u.stripeSubscriptionId === sub.id || u.stripeCustomerId === sub.customer);
+        const db2 = readDb2();
+        const user = db2.users.find((u) => u.stripeSubscriptionId === sub.id || u.stripeCustomerId === sub.customer);
         if (user) {
           user.subscriptionPlan = void 0;
           user.subscriptionStatus = "Inactive";
-          writeDb2(db3);
+          writeDb2(db2);
         }
         if (user?.id) {
           try {
@@ -3262,15 +3263,15 @@ app2.post(["/api/webhooks/stripe", "/api/stripe/webhook"], webhookLimiter, impor
         const customerId = invoice.customer;
         const subscriptionId = invoice.subscription;
         console.log(`[Stripe Webhook] invoice payment succeeded: invoiceId=${invoice.id}, amount=${invoice.amount_paid}`);
-        const db3 = readDb2();
-        const user = db3.users.find(
+        const db2 = readDb2();
+        const user = db2.users.find(
           (u) => subscriptionId && u.stripeSubscriptionId === subscriptionId || customerId && u.stripeCustomerId === customerId
         );
         if (user) {
           user.subscriptionStatus = "Active";
           user.lastPaymentDate = (/* @__PURE__ */ new Date()).toISOString();
           user.lastPaymentAmount = `$${((invoice.amount_paid || 0) / 100).toFixed(2)} USD`;
-          writeDb2(db3);
+          writeDb2(db2);
           try {
             await adminDb.collection("users").doc(user.id).set({
               subscriptionStatus: "Active",
@@ -3286,11 +3287,11 @@ app2.post(["/api/webhooks/stripe", "/api/stripe/webhook"], webhookLimiter, impor
       case "invoice.payment_failed": {
         const invoice = event.data.object;
         console.warn(`[Stripe Webhook] invoice payment failed: invoiceId=${invoice.id}, customer=${invoice.customer}`);
-        const db3 = readDb2();
-        const user = db3.users.find((u) => u.stripeCustomerId === invoice.customer || invoice.subscription && u.stripeSubscriptionId === invoice.subscription);
+        const db2 = readDb2();
+        const user = db2.users.find((u) => u.stripeCustomerId === invoice.customer || invoice.subscription && u.stripeSubscriptionId === invoice.subscription);
         if (user) {
           user.subscriptionStatus = "Past Due";
-          writeDb2(db3);
+          writeDb2(db2);
           try {
             await adminDb.collection("users").doc(user.id).set({
               subscriptionStatus: "Past Due"
@@ -3447,8 +3448,8 @@ app2.get("/api/payments/diagnostics", async (req, res) => {
     nodeEnv: process.env.NODE_ENV || "development"
   });
 });
-var inFlightCheckoutUsers = /* @__PURE__ */ new Set();
 var stripePriceCache = /* @__PURE__ */ new Map();
+var stripePriceFailedCache = /* @__PURE__ */ new Set();
 var PRICE_CACHE_TTL_MS = 15 * 60 * 1e3;
 var stripeVerifiedCustomerCache = /* @__PURE__ */ new Set();
 app2.get(["/api/stripe/config", "/stripe/config"], (req, res) => {
@@ -3476,17 +3477,10 @@ app2.post([
       error: "\u062A\u0639\u0630\u0631 \u0627\u0644\u062A\u062D\u0642\u0642 \u0645\u0646 \u062C\u0644\u0633\u0629 \u062D\u0633\u0627\u0628\u0643. \u064A\u0631\u062C\u0649 \u062A\u062D\u062F\u064A\u062B \u0627\u0644\u062C\u0644\u0633\u0629 \u0648\u0627\u0644\u0645\u062D\u0627\u0648\u0644\u0629 \u0645\u0631\u0629 \u0623\u062E\u0631\u0649."
     });
   }
-  if (inFlightCheckoutUsers.has(authUserId)) {
-    return res.status(429).json({
-      success: false,
-      error: "\u062C\u0627\u0631\u064A \u0645\u0639\u0627\u0644\u062C\u0629 \u0637\u0644\u0628 \u0627\u0634\u062A\u0631\u0627\u0643 \u0633\u0627\u0628\u0642. \u064A\u0631\u062C\u0649 \u0627\u0644\u0627\u0646\u062A\u0638\u0627\u0631 \u0628\u0636\u0639 \u062B\u0648\u0627\u0646\u064D."
-    });
-  }
-  inFlightCheckoutUsers.add(authUserId);
   try {
     const { plan = "Professional", billingCycle = "annual", companyName } = req.body;
-    const db3 = readDb2();
-    let user = db3.users.find((u) => u.id === authUserId);
+    const db2 = readDb2();
+    let user = db2.users.find((u) => u.id === authUserId);
     if (!user) {
       try {
         const userDoc = await adminDb.collection("users").doc(authUserId).get();
@@ -3563,7 +3557,7 @@ app2.post([
       if (!stripeCustomerId) {
         if (user) {
           user.stripeCustomerId = null;
-          writeDb2(db3);
+          writeDb2(db2);
         }
         try {
           await adminDb.collection("users").doc(finalUserId).set({ stripeCustomerId: null }, { merge: true });
@@ -3572,111 +3566,122 @@ app2.post([
         }
       }
     }
-    if (!stripeCustomerId && validUserEmail) {
-      try {
-        const existingList = await stripe.customers.list({ email: validUserEmail, limit: 1 });
-        if (existingList.data && existingList.data.length > 0) {
-          stripeCustomerId = existingList.data[0].id;
-          stripeVerifiedCustomerCache.add(stripeCustomerId);
-          console.log(`[Stripe Checkout] Matched existing customer in current Stripe account: ${stripeCustomerId}`);
-        } else {
-          const newCust = await stripe.customers.create({
-            email: validUserEmail,
-            name: finalCompanyName,
-            metadata: {
-              zakirUserId: finalUserId,
-              userId: finalUserId,
-              companyId: user?.companyId || user?.organizationId || ""
-            }
-          });
-          stripeCustomerId = newCust.id;
-          stripeVerifiedCustomerCache.add(stripeCustomerId);
-          console.log(`[Stripe Checkout] Created new Stripe Customer in current mode: ${stripeCustomerId}`);
+    const resolveStrictPriceId = (candidates) => {
+      for (const val of candidates) {
+        if (!val || typeof val !== "string") continue;
+        const trimmed = val.trim();
+        if (trimmed.startsWith("sk_") || trimmed.startsWith("pk_") || trimmed.startsWith("rk_")) continue;
+        if (trimmed.startsWith("price_") || trimmed.startsWith("plan_")) {
+          return trimmed;
         }
-        if (user && stripeCustomerId) {
-          user.stripeCustomerId = stripeCustomerId;
-          writeDb2(db3);
-        }
-        if (stripeCustomerId) {
-          try {
-            await adminDb.collection("users").doc(finalUserId).set({ stripeCustomerId }, { merge: true });
-          } catch (fsCustErr) {
-            console.warn("[Stripe Checkout] Firestore customer save notice:", fsCustErr);
-          }
-        }
-      } catch (createCustErr) {
-        console.warn("[Stripe Checkout] Customer lookup/creation notice:", createCustErr?.message);
       }
-    }
+      return void 0;
+    };
     const PRICE_ID_MAP = {
       Starter: {
-        monthly: process.env.STRIPE_PRICE_STARTER_MONTHLY || process.env.STRIPE_STARTER_MONTHLY_PRICE_ID,
-        annual: process.env.STRIPE_PRICE_STARTER_YEARLY || process.env.STRIPE_STARTER_YEARLY_PRICE_ID
+        monthly: resolveStrictPriceId([
+          process.env.STRIPE_PRICE_STARTER_MONTHLY,
+          process.env.STRIPE_STARTER_MONTHLY_PRICE_ID,
+          "price_1UEC5WFFyAo18vVy5APEHNBN"
+        ]),
+        annual: resolveStrictPriceId([
+          process.env.STRIPE_PRICE_STARTER_YEARLY,
+          process.env.STRIPE_PRICE_STARTER_ANNUAL,
+          process.env.STRIPE_STARTER_YEARLY_PRICE_ID,
+          process.env.STRIPE_STARTER_ANNUAL_PRICE_ID,
+          "price_1UEC2tFFyAo18vVyTN2gl6Bm"
+        ])
       },
       Professional: {
-        monthly: process.env.STRIPE_PRICE_PROFESSIONAL_MONTHLY || process.env.STRIPE_MONTHLY_PRICE_ID,
-        annual: process.env.STRIPE_PRICE_PROFESSIONAL_YEARLY || process.env.STRIPE_YEARLY_PRICE_ID || process.env.STRIPE_ANNUAL_PRICE_ID
+        monthly: resolveStrictPriceId([
+          process.env.STRIPE_PRICE_PROFESSIONAL_MONTHLY,
+          process.env.STRIPE_PROFESSIONAL_MONTHLY_PRICE_ID,
+          process.env.STRIPE_MONTHLY_PRICE_ID,
+          "price_1UEC6NFFyAo18vVyZATNtv6Y"
+        ]),
+        annual: resolveStrictPriceId([
+          process.env.STRIPE_PRICE_PROFESSIONAL_YEARLY,
+          process.env.STRIPE_PRICE_PROFESSIONAL_ANNUAL,
+          process.env.STRIPE_PROFESSIONAL_YEARLY_PRICE_ID,
+          process.env.STRIPE_PROFESSIONAL_ANNUAL_PRICE_ID,
+          process.env.STRIPE_YEARLY_PRICE_ID,
+          process.env.STRIPE_ANNUAL_PRICE_ID,
+          "price_1UEByqFFyAo18vVydh8OZrmp"
+        ])
       },
       Enterprise: {
-        monthly: process.env.STRIPE_PRICE_ENTERPRISE_MONTHLY || process.env.STRIPE_ENTERPRISE_MONTHLY_PRICE_ID,
-        annual: process.env.STRIPE_PRICE_ENTERPRISE_YEARLY || process.env.STRIPE_ENTERPRISE_YEARLY_PRICE_ID
+        monthly: resolveStrictPriceId([
+          process.env.STRIPE_PRICE_ENTERPRISE_MONTHLY,
+          process.env.STRIPE_ENTERPRISE_MONTHLY_PRICE_ID,
+          "price_1UEC7HFFyAo18vVyHJB2zEFf"
+        ]),
+        annual: resolveStrictPriceId([
+          process.env.STRIPE_PRICE_ENTERPRISE_YEARLY,
+          process.env.STRIPE_PRICE_ENTERPRISE_ANNUAL,
+          process.env.STRIPE_ENTERPRISE_YEARLY_PRICE_ID,
+          process.env.STRIPE_ENTERPRISE_ANNUAL_PRICE_ID,
+          "price_1UEC3rFFyAo18vVy1a6DzeR3"
+        ])
       }
     };
-    const targetPriceId = PRICE_ID_MAP[requestedPlan]?.[requestedCycle]?.trim();
-    if (!targetPriceId || !targetPriceId.startsWith("price_") && !targetPriceId.startsWith("plan_")) {
-      console.error(`[Stripe Checkout] FAIL CLOSED: Missing valid Stripe Price ID for plan '${requestedPlan}' (${requestedCycle}). Provided: '${targetPriceId || "NONE"}'`);
-      return res.status(400).json({
-        success: false,
-        code: "STRIPE_PRICE_NOT_CONFIGURED",
-        error: `Stripe Price ID for plan '${requestedPlan}' (${requestedCycle}) is not configured in environment variables.`,
-        userFriendlyMessage: `\u0631\u0645\u0632 \u0627\u0644\u0633\u0639\u0631 (Stripe Price ID) \u0644\u062E\u0637\u0629 ${requestedPlan} (${requestedCycle === "annual" ? "\u0633\u0646\u0648\u064A" : "\u0634\u0647\u0631\u064A"}) \u063A\u064A\u0631 \u0645\u0647\u064A\u0623 \u0641\u064A \u0625\u0639\u062F\u0627\u062F\u0627\u062A \u0627\u0644\u0628\u064A\u0626\u0629. \u064A\u0631\u062C\u0649 \u0625\u0636\u0627\u0641\u0629 Price ID \u0627\u0644\u062E\u0627\u0635 \u0628\u0627\u0644\u062E\u0637\u0629 \u0641\u064A Stripe Dashboard \u0648\u0627\u0644\u0645\u062D\u0627\u0648\u0644\u0629 \u0645\u0631\u0629 \u0623\u062E\u0631\u0649.`
-      });
-    }
+    const targetPriceId = PRICE_ID_MAP[requestedPlan]?.[requestedCycle];
     let verifiedPriceId = null;
-    try {
-      const expectedInterval = requestedCycle === "annual" ? "year" : "month";
-      let retrievedPrice;
-      const now = Date.now();
-      const cachedEntry = stripePriceCache.get(targetPriceId);
-      if (cachedEntry && now - cachedEntry.cachedAt < PRICE_CACHE_TTL_MS) {
-        retrievedPrice = cachedEntry.price;
-        console.log(`[Stripe Price Verification] Retrieved Price ID '${targetPriceId}' from in-memory cache`);
-      } else {
-        retrievedPrice = await stripe.prices.retrieve(targetPriceId);
-        stripePriceCache.set(targetPriceId, { price: retrievedPrice, cachedAt: now });
-        console.log(`[Stripe Price Verification] Retrieved Price ID '${targetPriceId}' from Stripe API`);
+    if (targetPriceId && !stripePriceFailedCache.has(targetPriceId)) {
+      try {
+        const expectedInterval2 = requestedCycle === "annual" ? "year" : "month";
+        let retrievedPrice;
+        const now = Date.now();
+        const cachedEntry = stripePriceCache.get(targetPriceId);
+        if (cachedEntry && now - cachedEntry.cachedAt < PRICE_CACHE_TTL_MS) {
+          retrievedPrice = cachedEntry.price;
+          console.log(`[Stripe Price Verification] Retrieved Price ID '${targetPriceId}' from in-memory cache`);
+        } else {
+          retrievedPrice = await stripe.prices.retrieve(targetPriceId);
+          stripePriceCache.set(targetPriceId, { price: retrievedPrice, cachedAt: now });
+          console.log(`[Stripe Price Verification] Retrieved Price ID '${targetPriceId}' from Stripe API`);
+        }
+        const isPriceActive = retrievedPrice.active === true;
+        const isUsd = retrievedPrice.currency?.toLowerCase() === "usd";
+        const intervalMatches = retrievedPrice.recurring?.interval === expectedInterval2;
+        const intervalCountMatches = (retrievedPrice.recurring?.interval_count || 1) === 1;
+        if (isPriceActive && isUsd && intervalMatches && intervalCountMatches) {
+          verifiedPriceId = retrievedPrice.id;
+          console.log(`[Stripe Price Verification] Price ID ${verifiedPriceId} verified successfully: active=true, currency=USD, interval=${expectedInterval2}, amount=$${retrievedPrice.unit_amount ? retrievedPrice.unit_amount / 100 : 0}`);
+        } else {
+          stripePriceFailedCache.add(targetPriceId);
+          console.warn(`[Stripe Price Verification] Price ID '${targetPriceId}' not fully matching. Falling back to dynamic price_data.`);
+        }
+      } catch (priceErr) {
+        stripePriceFailedCache.add(targetPriceId);
+        console.warn(`[Stripe Price Verification] Could not retrieve Price ID '${targetPriceId}' (${priceErr?.message}). Falling back smoothly to Stripe dynamic price_data.`);
       }
-      const isPriceActive = retrievedPrice.active === true;
-      const isUsd = retrievedPrice.currency?.toLowerCase() === "usd";
-      const intervalMatches = retrievedPrice.recurring?.interval === expectedInterval;
-      const intervalCountMatches = (retrievedPrice.recurring?.interval_count || 1) === 1;
-      if (!isPriceActive || !isUsd || !intervalMatches || !intervalCountMatches) {
-        console.error(`[Stripe Price Verification] FAIL CLOSED: Invalid Price ID '${targetPriceId}': active=${isPriceActive}, currency=${retrievedPrice.currency}, interval=${retrievedPrice.recurring?.interval} (expected '${expectedInterval}')`);
-        return res.status(400).json({
-          success: false,
-          code: "STRIPE_PRICE_VERIFICATION_FAILED",
-          error: `Stripe Price ID '${targetPriceId}' failed verification: active=${isPriceActive}, currency=${retrievedPrice.currency}, interval=${retrievedPrice.recurring?.interval}`,
-          userFriendlyMessage: `\u0631\u0645\u0632 \u0627\u0644\u0633\u0639\u0631 (Stripe Price ID) \u0644\u062E\u0637\u0629 ${requestedPlan} (${requestedCycle === "annual" ? "\u0633\u0646\u0648\u064A" : "\u0634\u0647\u0631\u064A"}) \u063A\u064A\u0631 \u0635\u0627\u0644\u062D \u0623\u0648 \u063A\u064A\u0631 \u0646\u0634\u0637 \u0641\u064A Stripe Dashboard.`
-        });
-      }
-      if (retrievedPrice.unit_amount !== unitAmountCents) {
-        console.warn(`[Stripe Price Verification] Price ID '${targetPriceId}' amount ($${retrievedPrice.unit_amount ? retrievedPrice.unit_amount / 100 : 0}) differs from expected amount ($${totalAmountUSD}). Utilizing Stripe Dashboard Price ID as authoritative source of truth.`);
-      }
-      verifiedPriceId = retrievedPrice.id;
-      console.log(`[Stripe Price Verification] Price ID ${verifiedPriceId} verified successfully: active=true, currency=USD, interval=${expectedInterval}, amount=$${retrievedPrice.unit_amount ? retrievedPrice.unit_amount / 100 : 0}`);
-    } catch (priceErr) {
-      console.error(`[Stripe Price Verification] FAIL CLOSED: Failed to retrieve Price ID '${targetPriceId}' from Stripe API: ${priceErr?.message}`);
-      return res.status(400).json({
-        success: false,
-        code: "STRIPE_PRICE_RETRIEVAL_FAILED",
-        error: `Failed to retrieve Price ID '${targetPriceId}' from Stripe API: ${priceErr?.message}`,
-        userFriendlyMessage: `\u062A\u0639\u0630\u0631 \u062C\u0644\u0628 \u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u0633\u0639\u0631 (Price ID: ${targetPriceId}) \u0645\u0646 \u062D\u0633\u0627\u0628 Stripe. \u064A\u0631\u062C\u0649 \u0627\u0644\u062A\u0623\u0643\u062F \u0645\u0646 \u0648\u062C\u0648\u062F Price ID \u0641\u064A Stripe Dashboard TEST MODE.`
-      });
+    } else {
+      console.log(`[Stripe Checkout] Utilizing Stripe dynamic price_data for plan '${requestedPlan}' (${requestedCycle}).`);
     }
-    const lineItems = [
-      { price: verifiedPriceId, quantity: 1 }
+    const expectedInterval = requestedCycle === "annual" ? "year" : "month";
+    const lineItems = verifiedPriceId ? [{ price: verifiedPriceId, quantity: 1 }] : [
+      {
+        price_data: {
+          currency: "usd",
+          product_data: {
+            name: `Zakir AI - ${requestedPlan} Plan`,
+            description: `Zakir AI Subscription (${requestedPlan} Plan, ${requestedCycle === "annual" ? "Annual" : "Monthly"} billing)`
+          },
+          unit_amount: unitAmountCents,
+          recurring: {
+            interval: expectedInterval,
+            interval_count: 1
+          }
+        },
+        quantity: 1
+      }
     ];
+    const { publishableKey } = resolveStripeKeys();
+    const isHosted = req.body?.uiMode === "hosted" || req.body?.uiMode === "hosted_page" || !publishableKey;
+    const requestedUiMode = isHosted ? "hosted" : "embedded";
     const returnUrl = `${baseUrl}/?view=settings&tab=subscription&session_id={CHECKOUT_SESSION_ID}`;
+    const successUrl = `${baseUrl}/?view=settings&tab=subscription&checkout=success&session_id={CHECKOUT_SESSION_ID}&plan=${requestedPlan}&cycle=${requestedCycle}`;
+    const cancelUrl = `${baseUrl}/?view=settings&tab=subscription&checkout=cancelled`;
     const sessionParams = {
       mode: "subscription",
       payment_method_types: ["card"],
@@ -3688,21 +3693,44 @@ app2.post([
         companyName: finalCompanyName,
         plan: requestedPlan,
         billingCycle: requestedCycle
-      },
-      ui_mode: "embedded",
-      return_url: returnUrl
+      }
     };
+    if (isHosted) {
+      sessionParams.ui_mode = "hosted_page";
+      sessionParams.success_url = successUrl;
+      sessionParams.cancel_url = cancelUrl;
+    } else {
+      sessionParams.ui_mode = "embedded_page";
+      sessionParams.return_url = returnUrl;
+    }
     if (stripeCustomerId) {
       sessionParams.customer = stripeCustomerId;
     } else if (validUserEmail) {
       sessionParams.customer_email = validUserEmail;
     }
-    console.log(`[Stripe Checkout] Creating Embedded Checkout Session for user ${finalUserId} (ui_mode: embedded, verified price: ${verifiedPriceId})...`);
+    console.log(`[Stripe Checkout] Creating ${requestedUiMode.toUpperCase()} Checkout Session for user ${finalUserId} (verified price: ${verifiedPriceId})...`);
     let session;
     try {
       session = await stripe.checkout.sessions.create(sessionParams);
     } catch (sessionErr) {
-      if (sessionErr?.message?.includes("No such customer") || sessionErr?.code === "resource_missing") {
+      const errMsg = sessionErr?.message || "";
+      if (errMsg.includes("embedded_page")) {
+        console.warn("[Stripe Checkout] Falling back to ui_mode: 'embedded'...");
+        sessionParams.ui_mode = "embedded";
+        session = await stripe.checkout.sessions.create(sessionParams);
+      } else if (errMsg.includes("hosted_page")) {
+        console.warn("[Stripe Checkout] Falling back to ui_mode: 'hosted'...");
+        sessionParams.ui_mode = "hosted";
+        session = await stripe.checkout.sessions.create(sessionParams);
+      } else if (errMsg.includes("ui_mode value `embedded`")) {
+        console.warn("[Stripe Checkout] Falling back to ui_mode: 'embedded_page'...");
+        sessionParams.ui_mode = "embedded_page";
+        session = await stripe.checkout.sessions.create(sessionParams);
+      } else if (errMsg.includes("ui_mode value `hosted`")) {
+        console.warn("[Stripe Checkout] Falling back to ui_mode: 'hosted_page'...");
+        sessionParams.ui_mode = "hosted_page";
+        session = await stripe.checkout.sessions.create(sessionParams);
+      } else if (errMsg.includes("No such customer") || sessionErr?.code === "resource_missing") {
         console.warn(`[Stripe Checkout] Checkout session creation hit invalid customer error (${sessionErr.message}). Self-healing: removing customer parameter and retrying...`);
         delete sessionParams.customer;
         if (validUserEmail) {
@@ -3713,15 +3741,15 @@ app2.post([
         throw sessionErr;
       }
     }
-    console.log(`[Stripe Checkout] Checkout Session created successfully: id=${session.id}`);
-    db3.stripe_sessions = db3.stripe_sessions || {};
-    db3.stripe_sessions[session.id] = finalUserId;
-    writeDb2(db3);
-    const { publishableKey } = resolveStripeKeys();
+    console.log(`[Stripe Checkout] Checkout Session created successfully: id=${session.id}, url=${session.url || "N/A (embedded)"}`);
+    db2.stripe_sessions = db2.stripe_sessions || {};
+    db2.stripe_sessions[session.id] = finalUserId;
+    writeDb2(db2);
     res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
     return res.json({
       success: true,
       sessionId: session.id,
+      url: session.url || null,
       clientSecret: session.client_secret,
       publishableKey: publishableKey || ""
     });
@@ -3746,8 +3774,6 @@ app2.post([
       error: errorDetails.stripeErrorMessage,
       userFriendlyMessage: err?.message ? `\u062A\u0639\u0630\u0631 \u0625\u0639\u062F\u0627\u062F \u062C\u0644\u0633\u0629 \u0627\u0644\u062F\u0641\u0639: ${err.message}` : "\u062A\u0639\u0630\u0631 \u0625\u0639\u062F\u0627\u062F \u062C\u0644\u0633\u0629 \u0627\u0644\u062F\u0641\u0639 \u0627\u0644\u0622\u0645\u0646 \u062D\u0627\u0644\u064A\u0627\u064B. \u064A\u0631\u062C\u0649 \u0627\u0644\u0645\u062D\u0627\u0648\u0644\u0629 \u0644\u0627\u062D\u0642\u0627\u064B."
     });
-  } finally {
-    inFlightCheckoutUsers.delete(authUserId);
   }
 });
 app2.all([
@@ -3803,8 +3829,8 @@ app2.get(["/api/stripe/session-status/:sessionId", "/stripe/session-status/:sess
         const nextBill = /* @__PURE__ */ new Date();
         if (cycle === "annual") nextBill.setFullYear(nextBill.getFullYear() + 1);
         else nextBill.setMonth(nextBill.getMonth() + 1);
-        const db4 = readDb2();
-        const user2 = db4.users.find((u) => u.id === userId2 || session.customer_details?.email && u.email?.toLowerCase() === session.customer_details.email.toLowerCase());
+        const db3 = readDb2();
+        const user2 = db3.users.find((u) => u.id === userId2 || session.customer_details?.email && u.email?.toLowerCase() === session.customer_details.email.toLowerCase());
         if (user2) {
           user2.subscriptionPlan = plan;
           user2.subscriptionStatus = "Active";
@@ -3814,7 +3840,7 @@ app2.get(["/api/stripe/session-status/:sessionId", "/stripe/session-status/:sess
           user2.lastPaymentDate = (/* @__PURE__ */ new Date()).toISOString();
           user2.lastPaymentAmount = `$${((session.amount_total || 0) / 100).toFixed(2)} USD`;
           user2.nextBillingDate = nextBill.toISOString();
-          writeDb2(db4);
+          writeDb2(db3);
         }
         if (userId2 || user2?.id) {
           const targetUid = userId2 || user2?.id;
@@ -3848,15 +3874,15 @@ app2.get(["/api/stripe/session-status/:sessionId", "/stripe/session-status/:sess
         paymentStatus: session.payment_status
       });
     }
-    const db3 = readDb2();
-    const userId = db3.stripe_sessions?.[sessionId];
+    const db2 = readDb2();
+    const userId = db2.stripe_sessions?.[sessionId];
     if (userId && userId !== authUserId) {
       const isAdmin = await isUserAdminServer(authUserId);
       if (!isAdmin) {
         return res.status(403).json({ error: "Forbidden: Access denied to other users' sessions" });
       }
     }
-    const user = db3.users.find((u) => u.id === userId);
+    const user = db2.users.find((u) => u.id === userId);
     return res.json({
       status: "complete",
       paymentStatus: "paid",
@@ -3880,8 +3906,8 @@ app2.post(["/api/stripe/create-portal-session", "/stripe/create-portal-session"]
     const host = req.headers.host || "localhost:3000";
     const protocol = req.headers["x-forwarded-proto"] || "https";
     const baseUrl = process.env.APP_URL || `${protocol}://${host}`;
-    const db3 = readDb2();
-    let user = db3.users.find((u) => u.id === authUserId);
+    const db2 = readDb2();
+    let user = db2.users.find((u) => u.id === authUserId);
     if (!user) {
       try {
         const userDoc = await adminDb.collection("users").doc(authUserId).get();
@@ -3932,8 +3958,8 @@ app2.post(["/api/stripe/cancel-subscription", "/stripe/cancel-subscription"], re
     if (!authUserId) {
       return res.status(401).json({ error: "Unauthorized" });
     }
-    const db3 = readDb2();
-    let user = db3.users.find((u) => u.id === authUserId);
+    const db2 = readDb2();
+    let user = db2.users.find((u) => u.id === authUserId);
     if (!user) {
       try {
         const userDoc = await adminDb.collection("users").doc(authUserId).get();
@@ -3955,7 +3981,7 @@ app2.post(["/api/stripe/cancel-subscription", "/stripe/cancel-subscription"], re
     if (user) {
       user.subscriptionStatus = "Inactive";
       user.subscriptionPlan = void 0;
-      writeDb2(db3);
+      writeDb2(db2);
     }
     try {
       await adminDb.collection("users").doc(authUserId).set({
@@ -4086,15 +4112,15 @@ app2.get(["/api/stripe/receipt/:sessionId", "/stripe/receipt/:sessionId"], requi
   if (!authUserId) {
     return res.status(401).json({ error: "Unauthorized: Missing authentication token" });
   }
-  const db3 = readDb2();
-  const sessionOwnerId = db3.stripe_sessions?.[sessionId];
+  const db2 = readDb2();
+  const sessionOwnerId = db2.stripe_sessions?.[sessionId];
   const isCallerAdmin = await isUserAdminServer(authUserId);
   if (sessionOwnerId && sessionOwnerId !== authUserId && !isCallerAdmin) {
     return res.status(403).json({ error: "Forbidden: You do not own this checkout session." });
   }
-  let user = db3.users.find((u) => u.id === authUserId);
+  let user = db2.users.find((u) => u.id === authUserId);
   if (isCallerAdmin && sessionOwnerId) {
-    const targetUser = db3.users.find((u) => u.id === sessionOwnerId);
+    const targetUser = db2.users.find((u) => u.id === sessionOwnerId);
     if (targetUser) {
       user = targetUser;
     }
@@ -4704,8 +4730,8 @@ async function resolveUserByEmailOrId(params) {
     } catch (err) {
     }
     try {
-      const db3 = readDb2();
-      const localUser = db3.users?.find((u) => u.id === inputUserId);
+      const db2 = readDb2();
+      const localUser = db2.users?.find((u) => u.id === inputUserId);
       if (localUser) {
         const resEmail = (localUser.email || normalizedEmail).trim().toLowerCase();
         console.info("OTP USER RESOLUTION", {
@@ -4781,8 +4807,8 @@ async function resolveUserByEmailOrId(params) {
       console.warn("Firestore query by email failed:", err);
     }
     try {
-      const db3 = readDb2();
-      const localUser = db3.users?.find((u) => u.email?.trim().toLowerCase() === normalizedEmail);
+      const db2 = readDb2();
+      const localUser = db2.users?.find((u) => u.email?.trim().toLowerCase() === normalizedEmail);
       if (localUser && localUser.id) {
         console.info("OTP USER RESOLUTION", {
           email: normalizedEmail,
@@ -4812,8 +4838,8 @@ async function resolveUserByEmailOrId(params) {
         } catch (e) {
         }
         if (!retainedData) {
-          const db3 = readDb2();
-          retainedData = db3.retained_users?.find((u) => u.id === lifecycleRecord.originalUserId || u.email?.toLowerCase() === normalizedEmail);
+          const db2 = readDb2();
+          retainedData = db2.retained_users?.find((u) => u.id === lifecycleRecord.originalUserId || u.email?.toLowerCase() === normalizedEmail);
         }
         console.info("OTP USER RESOLUTION (RETAINED LIFECYCLE)", {
           email: normalizedEmail,
@@ -4856,8 +4882,8 @@ async function resolveUserByEmailOrId(params) {
     } catch (err) {
     }
     try {
-      const db3 = readDb2();
-      const localUser = db3.users?.find((u) => u.phone === inputPhone);
+      const db2 = readDb2();
+      const localUser = db2.users?.find((u) => u.phone === inputPhone);
       if (localUser && localUser.id) {
         console.info("OTP USER RESOLUTION", {
           email: localUser.email || normalizedEmail,
@@ -4972,8 +4998,8 @@ app2.post("/api/auth/send-verification-code", otpLimiter, async (req, res) => {
         sendCount: 0
       });
     }
-    const db3 = readDb2();
-    if (!db3.verification_codes) db3.verification_codes = [];
+    const db2 = readDb2();
+    if (!db2.verification_codes) db2.verification_codes = [];
     let existingRecord = null;
     try {
       const docSnap = await adminDb.collection("verification_codes").doc(docId).get();
@@ -4984,7 +5010,7 @@ app2.post("/api/auth/send-verification-code", otpLimiter, async (req, res) => {
       console.warn("Firestore read failed for existing verification code, checking fallback:", err);
     }
     if (!existingRecord) {
-      existingRecord = db3.verification_codes.find((vc) => vc.id === docId);
+      existingRecord = db2.verification_codes.find((vc) => vc.id === docId);
     }
     const nowMs = Date.now();
     const RESEND_COOLDOWN_MINUTES = parseInt(process.env.RESEND_COOLDOWN_MINUTES || "10", 10);
@@ -5028,9 +5054,9 @@ app2.post("/api/auth/send-verification-code", otpLimiter, async (req, res) => {
           await adminDb.collection("verification_codes").doc(docId).set(updatedCooldownRecord, { merge: true });
         } catch (e) {
         }
-        db3.verification_codes = (db3.verification_codes || []).filter((vc) => vc.id !== docId);
-        db3.verification_codes.push(updatedCooldownRecord);
-        writeDb2(db3);
+        db2.verification_codes = (db2.verification_codes || []).filter((vc) => vc.id !== docId);
+        db2.verification_codes.push(updatedCooldownRecord);
+        writeDb2(db2);
         if (isRecovery) {
           console.warn(`[RECOVERY] FAILED (id: ${recoveryRequestId}, stage: "max_sends_cooldown")`);
         }
@@ -5067,7 +5093,7 @@ app2.post("/api/auth/send-verification-code", otpLimiter, async (req, res) => {
     }
     let reqName = req.body.name || req.body.userName || req.body.ownerName || req.body.fullName || "";
     let firestoreUserData = resolvedUser.userDoc;
-    const localUser = db3.users?.find((u) => u.id === foundUid || u.email?.toLowerCase() === targetIdentifier);
+    const localUser = db2.users?.find((u) => u.id === foundUid || u.email?.toLowerCase() === targetIdentifier);
     let rawName = reqName || firestoreUserData?.ownerName || firestoreUserData?.name || firestoreUserData?.fullName || firestoreUserData?.displayName || firestoreUserData?.companyName || localUser?.ownerName || localUser?.name || localUser?.fullName || localUser?.displayName || localUser?.companyName || "";
     const resolvedUserName = cleanUserName2(rawName, targetIdentifier);
     const { subject: emailSubject, text: textBody, html: htmlBody } = buildOtpEmailHtml2({
@@ -5133,13 +5159,13 @@ app2.post("/api/auth/send-verification-code", otpLimiter, async (req, res) => {
       console.error("Failed to write to Firestore verification_codes:", dbErr);
     }
     try {
-      if (!db3.verification_codes) db3.verification_codes = [];
-      db3.verification_codes = db3.verification_codes.filter((vc) => vc.id !== docId && vc.id !== targetIdentifier);
-      db3.verification_codes.push(record);
+      if (!db2.verification_codes) db2.verification_codes = [];
+      db2.verification_codes = db2.verification_codes.filter((vc) => vc.id !== docId && vc.id !== targetIdentifier);
+      db2.verification_codes.push(record);
       if (docId !== targetIdentifier) {
-        db3.verification_codes.push({ ...record, id: targetIdentifier });
+        db2.verification_codes.push({ ...record, id: targetIdentifier });
       }
-      writeDb2(db3);
+      writeDb2(db2);
     } catch (err) {
       console.warn("Fallback JSON DB write failed:", err);
     }
@@ -5238,9 +5264,9 @@ app2.post("/api/auth/verify-code", otpLimiter, async (req, res) => {
       }
     }
     if (!activeRecord || activeRecord.used) {
-      const db4 = readDb2();
-      if (db4.verification_codes && Array.isArray(db4.verification_codes)) {
-        const matches = db4.verification_codes.filter(
+      const db3 = readDb2();
+      if (db3.verification_codes && Array.isArray(db3.verification_codes)) {
+        const matches = db3.verification_codes.filter(
           (vc) => foundUid && (vc.id === foundUid || vc.userId === foundUid) || userId && (vc.id === userId || vc.userId === userId) || docId && (vc.id === docId || vc.userId === docId) || targetIdentifier && (vc.id === targetIdentifier || vc.email && vc.email.toLowerCase() === targetIdentifier)
         );
         const unusedMatch = matches.filter((m) => !m.used).sort((a, b) => {
@@ -5308,14 +5334,14 @@ app2.post("/api/auth/verify-code", otpLimiter, async (req, res) => {
         }
       }
       try {
-        const db4 = readDb2();
-        if (db4.verification_codes) {
-          db4.verification_codes.forEach((vc) => {
+        const db3 = readDb2();
+        if (db3.verification_codes) {
+          db3.verification_codes.forEach((vc) => {
             if (targetIdentifier && vc.email?.toLowerCase() === targetIdentifier || recordDocId && vc.id === recordDocId || foundUid && (vc.userId === foundUid || vc.id === foundUid)) {
               Object.assign(vc, fields);
             }
           });
-          writeDb2(db4);
+          writeDb2(db3);
         }
       } catch (err) {
       }
@@ -5353,8 +5379,8 @@ app2.post("/api/auth/verify-code", otpLimiter, async (req, res) => {
       return res.status(400).json({ error: `Incorrect verification code. ${remaining} attempt(s) remaining.` });
     }
     await updateRecord({ used: true, verifiedAt: (/* @__PURE__ */ new Date()).toISOString() });
-    const db3 = readDb2();
-    const user = db3.users?.find((u) => u.email?.toLowerCase() === targetIdentifier || u.id === foundUid);
+    const db2 = readDb2();
+    const user = db2.users?.find((u) => u.email?.toLowerCase() === targetIdentifier || u.id === foundUid);
     let firestoreUser = null;
     try {
       const userRef = adminDb.collection("users").doc(foundUid);
@@ -5397,7 +5423,7 @@ app2.post("/api/auth/verify-code", otpLimiter, async (req, res) => {
       if (firestoreUser && firestoreUser.role) {
         user.role = firestoreUser.role;
       }
-      writeDb2(db3);
+      writeDb2(db2);
     }
     const resolvedFinalUser = firestoreUser || user || resolvedUser.userDoc || null;
     if (resolvedFinalUser && !resolvedFinalUser.role) {
@@ -5419,7 +5445,7 @@ app2.post("/api/auth/forgot-password", otpLimiter, async (req, res) => {
       return res.status(400).json({ error: "Email address or phone number is required" });
     }
     const target = emailOrPhone.trim().toLowerCase();
-    const db3 = readDb2();
+    const db2 = readDb2();
     let user = null;
     let userId = "";
     let userEmail = target;
@@ -5441,7 +5467,7 @@ app2.post("/api/auth/forgot-password", otpLimiter, async (req, res) => {
       console.warn("Firestore forgot-password user lookup failed:", err);
     }
     if (!user) {
-      const localUser = db3.users.find((u) => u.email?.toLowerCase() === target || u.phone === target);
+      const localUser = db2.users.find((u) => u.email?.toLowerCase() === target || u.phone === target);
       if (localUser) {
         userId = localUser.id;
         userEmail = localUser.email || target;
@@ -5468,8 +5494,8 @@ app2.post("/api/auth/forgot-password", otpLimiter, async (req, res) => {
       console.warn("Firestore read failed for existing forgot-password code, checking fallback:", err);
     }
     if (!existingRecord) {
-      if (!db3.verification_codes) db3.verification_codes = [];
-      existingRecord = db3.verification_codes.find((vc) => vc.id === docId);
+      if (!db2.verification_codes) db2.verification_codes = [];
+      existingRecord = db2.verification_codes.find((vc) => vc.id === docId);
     }
     const nowMs = Date.now();
     const RESEND_COOLDOWN_MINUTES = parseInt(process.env.RESEND_COOLDOWN_MINUTES || "10", 10);
@@ -5506,9 +5532,9 @@ app2.post("/api/auth/forgot-password", otpLimiter, async (req, res) => {
         await adminDb.collection("verification_codes").doc(docId).set(updatedCooldownRecord, { merge: true });
       } catch (e) {
       }
-      db3.verification_codes = (db3.verification_codes || []).filter((vc) => vc.id !== docId);
-      db3.verification_codes.push(updatedCooldownRecord);
-      writeDb2(db3);
+      db2.verification_codes = (db2.verification_codes || []).filter((vc) => vc.id !== docId);
+      db2.verification_codes.push(updatedCooldownRecord);
+      writeDb2(db2);
       return res.status(400).json({
         success: false,
         error: "You've reached the maximum number of code requests. Please wait a few minutes before requesting a new verification code.",
@@ -5578,10 +5604,10 @@ app2.post("/api/auth/forgot-password", otpLimiter, async (req, res) => {
       console.error("Failed to write to Firestore verification_codes:", dbErr);
     }
     try {
-      if (!db3.verification_codes) db3.verification_codes = [];
-      db3.verification_codes = db3.verification_codes.filter((vc) => vc.id !== docId);
-      db3.verification_codes.push(record);
-      writeDb2(db3);
+      if (!db2.verification_codes) db2.verification_codes = [];
+      db2.verification_codes = db2.verification_codes.filter((vc) => vc.id !== docId);
+      db2.verification_codes.push(record);
+      writeDb2(db2);
     } catch (err) {
       console.warn("Failed to write to fallback JSON DB:", err);
     }
@@ -5622,9 +5648,9 @@ app2.post("/api/auth/reset-password", otpLimiter, async (req, res) => {
     }
     if (activeRecords.length === 0) {
       console.log("No active password reset code in Firestore, trying JSON database fallback...");
-      const db4 = readDb2();
-      if (!db4.verification_codes) db4.verification_codes = [];
-      const localRecords = db4.verification_codes.filter(
+      const db3 = readDb2();
+      if (!db3.verification_codes) db3.verification_codes = [];
+      const localRecords = db3.verification_codes.filter(
         (vc) => (vc.email?.toLowerCase() === target || vc.phone === target) && vc.type === "password_reset" && !vc.used
       );
       activeRecords = localRecords;
@@ -5644,12 +5670,12 @@ app2.post("/api/auth/reset-password", otpLimiter, async (req, res) => {
           console.error("Failed to update Firestore verification code:", err);
         }
       }
-      const db4 = readDb2();
-      if (!db4.verification_codes) db4.verification_codes = [];
-      const localRecord = db4.verification_codes.find((vc) => vc.id === activeRecord.id);
+      const db3 = readDb2();
+      if (!db3.verification_codes) db3.verification_codes = [];
+      const localRecord = db3.verification_codes.find((vc) => vc.id === activeRecord.id);
       if (localRecord) {
         Object.assign(localRecord, fields);
-        writeDb2(db4);
+        writeDb2(db3);
       }
     };
     if (/* @__PURE__ */ new Date() > new Date(activeRecord.expiresAt)) {
@@ -5669,8 +5695,8 @@ app2.post("/api/auth/reset-password", otpLimiter, async (req, res) => {
       return res.status(400).json({ error: `Incorrect verification code. ${remaining} attempt(s) remaining.` });
     }
     await updateRecord({ used: true });
-    const db3 = readDb2();
-    const user = db3.users.find((u) => u.email?.toLowerCase() === target || u.phone === target || u.id === activeRecord.userId);
+    const db2 = readDb2();
+    const user = db2.users.find((u) => u.email?.toLowerCase() === target || u.phone === target || u.id === activeRecord.userId);
     try {
       let uid = user?.id || activeRecord.userId;
       if (!uid) {
@@ -5699,7 +5725,7 @@ app2.post("/api/auth/reset-password", otpLimiter, async (req, res) => {
       user.isEmailVerified = true;
       if (!user.verificationInfo) user.verificationInfo = {};
       user.verificationInfo.status = "verified";
-      writeDb2(db3);
+      writeDb2(db2);
     }
     return res.json({
       success: true,
@@ -5716,8 +5742,8 @@ app2.post("/api/auth/set-password", async (req, res) => {
       return res.status(400).json({ error: "Password must be at least 6 characters long." });
     }
     const cleanEmail = email ? email.trim().toLowerCase() : "";
-    const db3 = readDb2();
-    let user = db3.users.find((u) => u.id === userId || cleanEmail && u.email?.toLowerCase() === cleanEmail);
+    const db2 = readDb2();
+    let user = db2.users.find((u) => u.id === userId || cleanEmail && u.email?.toLowerCase() === cleanEmail);
     let uid = userId || user?.id;
     let firestoreUserSnap = null;
     if (uid) {
@@ -5759,7 +5785,7 @@ app2.post("/api/auth/set-password", async (req, res) => {
     if (user) {
       user.passwordHash = newPassword;
       user.hasPasswordSet = true;
-      writeDb2(db3);
+      writeDb2(db2);
     } else if (uid && cleanEmail) {
       const newUser = {
         id: uid,
@@ -5769,8 +5795,8 @@ app2.post("/api/auth/set-password", async (req, res) => {
         role: ADMIN_EMAILS.has(cleanEmail.toLowerCase()) ? "Admin" : "Contributor",
         createdAt: (/* @__PURE__ */ new Date()).toISOString()
       };
-      db3.users.push(newUser);
-      writeDb2(db3);
+      db2.users.push(newUser);
+      writeDb2(db2);
     }
     return res.json({
       success: true,
@@ -5789,8 +5815,8 @@ app2.post("/api/auth/verify-account-password", async (req, res) => {
       return res.status(400).json({ error: "Password is required." });
     }
     const cleanEmail = email ? email.trim().toLowerCase() : "";
-    const db3 = readDb2();
-    let user = db3.users.find((u) => u.id === userId || cleanEmail && u.email?.toLowerCase() === cleanEmail);
+    const db2 = readDb2();
+    let user = db2.users.find((u) => u.id === userId || cleanEmail && u.email?.toLowerCase() === cleanEmail);
     let uid = userId || user?.id;
     let firestoreUserSnap = null;
     if (uid) {
@@ -5870,13 +5896,13 @@ app2.post("/api/auth/reset-encryption-with-password", requireAuth, async (req, r
         console.warn("Firestore encryption update warning:", fsErr);
       }
     }
-    const db3 = readDb2();
-    if (db3.users) {
-      const uIdx = db3.users.findIndex((u) => u.id === authUid || u.email === authEmail);
+    const db2 = readDb2();
+    if (db2.users) {
+      const uIdx = db2.users.findIndex((u) => u.id === authUid || u.email === authEmail);
       if (uIdx >= 0) {
-        db3.users[uIdx].encryptedSecurity = newSecuritySettings;
-        delete db3.users[uIdx].secretPasscode;
-        writeDb2(db3);
+        db2.users[uIdx].encryptedSecurity = newSecuritySettings;
+        delete db2.users[uIdx].secretPasscode;
+        writeDb2(db2);
       }
     }
     return res.json({
@@ -5935,8 +5961,8 @@ app2.all([
     } catch (e) {
     }
     if (!ceoData) {
-      const db4 = readDb2();
-      ceoData = db4.users?.find((u) => u.id === callerUid);
+      const db3 = readDb2();
+      ceoData = db3.users?.find((u) => u.id === callerUid);
     }
     if (!ceoData) {
       const userEmail = req.user?.email || "admin@zakir.ai";
@@ -6096,11 +6122,11 @@ app2.all([
         userFriendlyMessage: "\u0641\u0634\u0644 \u062D\u0641\u0638 \u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u062F\u0639\u0648\u0629 \u0641\u064A \u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u0623\u0633\u0627\u0633\u064A\u0629. \u062A\u0639\u0630\u0631 \u0625\u0631\u0633\u0627\u0644 \u0627\u0644\u0628\u0631\u064A\u062F \u0627\u0644\u0625\u0644\u0643\u062A\u0631\u0648\u0646\u064A."
       });
     }
-    const db3 = readDb2();
-    if (!db3.invitations) db3.invitations = [];
-    db3.invitations = db3.invitations.filter((i) => i.email?.trim().toLowerCase() !== normalizedEmail);
-    db3.invitations.push(invitationRecord);
-    writeDb2(db3);
+    const db2 = readDb2();
+    if (!db2.invitations) db2.invitations = [];
+    db2.invitations = db2.invitations.filter((i) => i.email?.trim().toLowerCase() !== normalizedEmail);
+    db2.invitations.push(invitationRecord);
+    writeDb2(db2);
     try {
       const ceoRef = adminDb.collection("users").doc(callerUid);
       const updatedList = teamMembersList.filter((m) => m.email?.trim().toLowerCase() !== normalizedEmail);
@@ -6182,8 +6208,8 @@ app2.all([
     } catch (e) {
     }
     if (!ceoData) {
-      const db4 = readDb2();
-      ceoData = db4.users?.find((u) => u.id === callerUid);
+      const db3 = readDb2();
+      ceoData = db3.users?.find((u) => u.id === callerUid);
     }
     const isAdmin = await isUserAdminServer(callerUid, req.user?.email || ceoData?.email);
     const ceoRole = (ceoData?.role || "").toUpperCase();
@@ -6203,8 +6229,8 @@ app2.all([
     } catch (e) {
     }
     if (!invRecord) {
-      const db4 = readDb2();
-      invRecord = db4.invitations?.find((i) => i.email?.trim().toLowerCase() === normalizedEmail);
+      const db3 = readDb2();
+      invRecord = db3.invitations?.find((i) => i.email?.trim().toLowerCase() === normalizedEmail);
     }
     if (!invRecord) {
       return res.status(404).json({ success: false, code: "INVITATION_NOT_FOUND", error: "Invitation not found", userFriendlyMessage: "\u0627\u0644\u062F\u0639\u0648\u0629 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F\u0629." });
@@ -6246,12 +6272,12 @@ app2.all([
       await adminDb.collection("invitations").doc(normalizedEmail).set(invRecord);
     } catch (e) {
     }
-    const db3 = readDb2();
-    if (!db3.invitations) db3.invitations = [];
-    const idx = db3.invitations.findIndex((i) => i.email?.trim().toLowerCase() === normalizedEmail);
-    if (idx >= 0) db3.invitations[idx] = invRecord;
-    else db3.invitations.push(invRecord);
-    writeDb2(db3);
+    const db2 = readDb2();
+    if (!db2.invitations) db2.invitations = [];
+    const idx = db2.invitations.findIndex((i) => i.email?.trim().toLowerCase() === normalizedEmail);
+    if (idx >= 0) db2.invitations[idx] = invRecord;
+    else db2.invitations.push(invRecord);
+    writeDb2(db2);
     const memberName = invRecord.name || normalizedEmail.split("@")[0];
     const designatedRole = invRecord.role || "Contributor";
     const appBaseUrl = appUrl || process.env.APP_URL || process.env.PUBLIC_APP_URL || getAppBaseUrl(req);
@@ -6302,8 +6328,8 @@ app2.all([
     } catch (e) {
     }
     if (!callerUser) {
-      const db4 = readDb2();
-      callerUser = db4.users?.find((u) => u.id === callerUid);
+      const db3 = readDb2();
+      callerUser = db3.users?.find((u) => u.id === callerUid);
     }
     const isAdmin = await isUserAdminServer(callerUid, req.user?.email || callerUser?.email);
     const callerRole = (callerUser?.role || "").toUpperCase();
@@ -6325,10 +6351,10 @@ app2.all([
       await adminDb.collection("invitations").doc(normalizedEmail).delete();
     } catch (e) {
     }
-    const db3 = readDb2();
-    if (db3.invitations) {
-      db3.invitations = db3.invitations.filter((i) => i.email?.trim().toLowerCase() !== normalizedEmail);
-      writeDb2(db3);
+    const db2 = readDb2();
+    if (db2.invitations) {
+      db2.invitations = db2.invitations.filter((i) => i.email?.trim().toLowerCase() !== normalizedEmail);
+      writeDb2(db2);
     }
     try {
       const ceoRef = adminDb.collection("users").doc(callerUid);
@@ -6366,7 +6392,7 @@ app2.all([
       return res.status(400).json({ success: false, code: "MISSING_FIELDS", error: "Member Email is required." });
     }
     const cleanEmail = memberEmail.trim().toLowerCase();
-    const db3 = readDb2();
+    const db2 = readDb2();
     let ceoUser = null;
     try {
       const ceoDoc = await adminDb.collection("users").doc(callerUid).get();
@@ -6376,7 +6402,7 @@ app2.all([
     } catch (e) {
     }
     if (!ceoUser) {
-      ceoUser = db3.users?.find((u) => u.id === callerUid);
+      ceoUser = db2.users?.find((u) => u.id === callerUid);
     }
     const isAdmin = await isUserAdminServer(callerUid, req.user?.email || ceoUser?.email);
     const callerRole = (ceoUser?.role || "").toUpperCase();
@@ -6446,8 +6472,8 @@ app2.all([
     } catch (workerErr) {
       console.warn("Failed to update worker document directly in Firestore:", workerErr);
     }
-    if (db3.users) {
-      const workerUser = db3.users.find((u) => u.email?.toLowerCase() === cleanEmail || u.id === memberUid);
+    if (db2.users) {
+      const workerUser = db2.users.find((u) => u.email?.toLowerCase() === cleanEmail || u.id === memberUid);
       if (workerUser) {
         if (powers) workerUser.powers = powers;
         if (role) workerUser.role = role;
@@ -6459,7 +6485,7 @@ app2.all([
           ceoUser.teamMembersList[idx].role = role || ceoUser.teamMembersList[idx].role;
         }
       }
-      writeDb2(db3);
+      writeDb2(db2);
     }
     return res.json({
       success: true,
@@ -6576,8 +6602,8 @@ app2.all([
       }
     }
     if (!invRecord) {
-      const db3 = readDb2();
-      invRecord = db3.invitations?.find(
+      const db2 = readDb2();
+      invRecord = db2.invitations?.find(
         (i) => targetEmail && (i.email || "").trim().toLowerCase() === targetEmail || invitationToken && i.token === invitationToken
       );
       if (invRecord && !invDocRef) {
@@ -6733,22 +6759,22 @@ app2.all([
     await batch.commit();
     console.log("INVITATION_ACCEPT_COMMITTED_FIRESTORE", { callerUid, workspaceId, companyName });
     try {
-      const db3 = readDb2();
-      if (!db3.invitations) db3.invitations = [];
-      const idx = db3.invitations.findIndex((i) => (i.email || "").trim().toLowerCase() === invitationEmail);
-      if (idx >= 0) db3.invitations[idx] = updatedInv;
-      else db3.invitations.push(updatedInv);
-      if (!db3.users) db3.users = [];
-      const uIdx = db3.users.findIndex((u) => u.id === callerUid || (u.email || "").trim().toLowerCase() === invitationEmail);
-      if (uIdx >= 0) db3.users[uIdx] = { ...db3.users[uIdx], ...updatedMemberProfile };
-      else db3.users.push(updatedMemberProfile);
+      const db2 = readDb2();
+      if (!db2.invitations) db2.invitations = [];
+      const idx = db2.invitations.findIndex((i) => (i.email || "").trim().toLowerCase() === invitationEmail);
+      if (idx >= 0) db2.invitations[idx] = updatedInv;
+      else db2.invitations.push(updatedInv);
+      if (!db2.users) db2.users = [];
+      const uIdx = db2.users.findIndex((u) => u.id === callerUid || (u.email || "").trim().toLowerCase() === invitationEmail);
+      if (uIdx >= 0) db2.users[uIdx] = { ...db2.users[uIdx], ...updatedMemberProfile };
+      else db2.users.push(updatedMemberProfile);
       if (senderId) {
-        const ceoLocal = db3.users.find((u) => u.id === senderId);
+        const ceoLocal = db2.users.find((u) => u.id === senderId);
         if (ceoLocal) {
           ceoLocal.teamMembersList = currentTeamList;
         }
       }
-      writeDb2(db3);
+      writeDb2(db2);
     } catch (dbErr) {
       console.warn("Local DB sync warning during invitation accept:", dbErr);
     }
@@ -6790,8 +6816,8 @@ app2.all([
     } catch (e) {
     }
     if (!callerUser) {
-      const db3 = readDb2();
-      callerUser = db3.users?.find((u) => u.id === callerUid || (u.email || "").trim().toLowerCase() === callerEmail);
+      const db2 = readDb2();
+      callerUser = db2.users?.find((u) => u.id === callerUid || (u.email || "").trim().toLowerCase() === callerEmail);
     }
     const workspaceId = callerUser?.workspaceId || `ws_${callerUid.substring(0, 8)}`;
     const isCeo = (callerUser?.role || "").toUpperCase() === "CEO" || (callerUser?.role || "").toUpperCase() === "ADMIN";
@@ -7047,11 +7073,11 @@ app2.post("/api/support/tickets", async (req, res) => {
     if (!userEmail || !subject || !resolvedMessage) {
       return res.status(400).json({ error: "User email, subject, and detailed message are required." });
     }
-    const db3 = readDb2();
-    if (!db3.support_tickets) db3.support_tickets = [];
+    const db2 = readDb2();
+    if (!db2.support_tickets) db2.support_tickets = [];
     let userCreatedAt = "";
-    if (db3.users) {
-      const u = db3.users.find((x) => x.id === userId || x.email?.toLowerCase() === userEmail.toLowerCase());
+    if (db2.users) {
+      const u = db2.users.find((x) => x.id === userId || x.email?.toLowerCase() === userEmail.toLowerCase());
       if (u) userCreatedAt = u.createdAt || "";
     }
     const ticketNumber = Math.floor(1e5 + Math.random() * 9e5);
@@ -7091,8 +7117,8 @@ app2.post("/api/support/tickets", async (req, res) => {
       attachments: Array.isArray(attachments) ? attachments : [],
       messages: [initialMsg]
     };
-    db3.support_tickets.unshift(newTicket);
-    writeDb2(db3);
+    db2.support_tickets.unshift(newTicket);
+    writeDb2(db2);
     try {
       await adminDb.collection("support_tickets").doc(newTicket.id).set(newTicket);
       console.log("SUPPORT_TICKET_FIRESTORE_SAVED", { ticketId: newTicket.id, userId });
@@ -7134,8 +7160,8 @@ app2.get("/api/support/tickets", requireAuth, async (req, res) => {
     } catch (fsErr) {
       console.warn("Firestore support tickets fetch warning:", fsErr?.message);
     }
-    const db3 = readDb2();
-    let tickets = db3.support_tickets || [];
+    const db2 = readDb2();
+    let tickets = db2.support_tickets || [];
     if (isAdmin) {
       return res.json({ tickets });
     }
@@ -7169,8 +7195,8 @@ app2.get("/api/support/tickets/:id", requireAuth, async (req, res) => {
     } catch (e) {
     }
     if (!ticket) {
-      const db3 = readDb2();
-      ticket = (db3.support_tickets || []).find((t) => t.id === id);
+      const db2 = readDb2();
+      ticket = (db2.support_tickets || []).find((t) => t.id === id);
     }
     if (!ticket) {
       return res.status(404).json({ error: "Ticket not found" });
@@ -7211,8 +7237,8 @@ app2.post("/api/support/tickets/:id/messages", requireAuth, async (req, res) => 
       }
     } catch (e) {
     }
-    const db3 = readDb2();
-    let localTicket = (db3.support_tickets || []).find((t) => t.id === id);
+    const db2 = readDb2();
+    let localTicket = (db2.support_tickets || []).find((t) => t.id === id);
     if (!ticket && localTicket) {
       ticket = localTicket;
     }
@@ -7272,10 +7298,10 @@ app2.post("/api/support/tickets/:id/messages", requireAuth, async (req, res) => 
     if (localTicket) {
       Object.assign(localTicket, ticket);
     } else {
-      if (!db3.support_tickets) db3.support_tickets = [];
-      db3.support_tickets.push(ticket);
+      if (!db2.support_tickets) db2.support_tickets = [];
+      db2.support_tickets.push(ticket);
     }
-    writeDb2(db3);
+    writeDb2(db2);
     if (senderType === "admin" && recipientEmail) {
       try {
         const { subject: emailSubject, text: emailText, html: emailHtml } = buildSupportReplyEmailHtml({
@@ -7320,8 +7346,8 @@ app2.patch("/api/support/tickets/:id", requireAuth, async (req, res) => {
       }
     } catch (e) {
     }
-    const db3 = readDb2();
-    let localTicket = (db3.support_tickets || []).find((t) => t.id === id);
+    const db2 = readDb2();
+    let localTicket = (db2.support_tickets || []).find((t) => t.id === id);
     if (!ticket && localTicket) {
       ticket = localTicket;
     }
@@ -7342,7 +7368,7 @@ app2.patch("/api/support/tickets/:id", requireAuth, async (req, res) => {
     if (localTicket) {
       Object.assign(localTicket, ticket);
     }
-    writeDb2(db3);
+    writeDb2(db2);
     return res.json({ success: true, ticket });
   } catch (err) {
     res.status(500).json({ error: err.message || "Failed to update support ticket" });
@@ -7610,11 +7636,11 @@ app2.get("/api/admin/users", requireAuth, async (req, res) => {
       console.warn("Notice: Firestore users fetch encountered error, will merge local data:", fsErr?.message);
     }
     try {
-      const db3 = readDb2();
-      if (db3.users && Array.isArray(db3.users)) {
+      const db2 = readDb2();
+      if (db2.users && Array.isArray(db2.users)) {
         const existingIds = new Set(fsUsers.map((u) => u.id));
         const existingEmails = new Set(fsUsers.map((u) => (u.email || "").trim().toLowerCase()).filter(Boolean));
-        for (const localU of db3.users) {
+        for (const localU of db2.users) {
           const lEmail = (localU.email || "").trim().toLowerCase();
           if (!existingIds.has(localU.id) && (!lEmail || !existingEmails.has(lEmail))) {
             fsUsers.push(localU);
@@ -7658,9 +7684,9 @@ async function getAccountLifecycleRecord2(email) {
     if (docSnap.exists) {
       record = docSnap.data();
     } else {
-      const db3 = readDb2();
-      if (!db3.account_lifecycle) db3.account_lifecycle = [];
-      record = db3.account_lifecycle.find((r) => r.emailNormalized === normalizedEmail);
+      const db2 = readDb2();
+      if (!db2.account_lifecycle) db2.account_lifecycle = [];
+      record = db2.account_lifecycle.find((r) => r.emailNormalized === normalizedEmail);
     }
     if (!record) {
       try {
@@ -7685,8 +7711,8 @@ async function getAccountLifecycleRecord2(email) {
     }
     if (!record) {
       try {
-        const db3 = readDb2();
-        const retUser = db3.retained_users?.find((u) => u.email?.trim().toLowerCase() === normalizedEmail);
+        const db2 = readDb2();
+        const retUser = db2.retained_users?.find((u) => u.email?.trim().toLowerCase() === normalizedEmail);
         if (retUser) {
           const archivedAt = retUser.archivedAt || retUser.deletedAt || (/* @__PURE__ */ new Date()).toISOString();
           const restoreUntil = new Date(new Date(archivedAt).getTime() + 31 * 24 * 60 * 60 * 1e3).toISOString();
@@ -7729,12 +7755,12 @@ async function getAccountLifecycleRecord2(email) {
         } catch (e) {
         }
         record = { ...record, ...purgedFields };
-        const db3 = readDb2();
-        if (!db3.account_lifecycle) db3.account_lifecycle = [];
-        const idx = db3.account_lifecycle.findIndex((r) => r.emailNormalized === normalizedEmail);
-        if (idx >= 0) db3.account_lifecycle[idx] = record;
-        else db3.account_lifecycle.push(record);
-        writeDb2(db3);
+        const db2 = readDb2();
+        if (!db2.account_lifecycle) db2.account_lifecycle = [];
+        const idx = db2.account_lifecycle.findIndex((r) => r.emailNormalized === normalizedEmail);
+        if (idx >= 0) db2.account_lifecycle[idx] = record;
+        else db2.account_lifecycle.push(record);
+        writeDb2(db2);
       }
     }
     if (record.status === "SELF_DELETED" && record.restoreUntil) {
@@ -7770,12 +7796,12 @@ async function setAccountLifecycleRecord2(record) {
     console.error("setAccountLifecycleRecord Firestore error:", err);
   }
   try {
-    const db3 = readDb2();
-    if (!db3.account_lifecycle) db3.account_lifecycle = [];
-    const idx = db3.account_lifecycle.findIndex((r) => r.emailNormalized === normalizedEmail);
-    if (idx >= 0) db3.account_lifecycle[idx] = { ...db3.account_lifecycle[idx], ...payload };
-    else db3.account_lifecycle.push(payload);
-    writeDb2(db3);
+    const db2 = readDb2();
+    if (!db2.account_lifecycle) db2.account_lifecycle = [];
+    const idx = db2.account_lifecycle.findIndex((r) => r.emailNormalized === normalizedEmail);
+    if (idx >= 0) db2.account_lifecycle[idx] = { ...db2.account_lifecycle[idx], ...payload };
+    else db2.account_lifecycle.push(payload);
+    writeDb2(db2);
   } catch (err) {
     console.warn("setAccountLifecycleRecord local DB error:", err);
   }
@@ -7792,10 +7818,10 @@ async function purgeRetainedUserDataServer(userId) {
     const topFileSnap = await adminDb.collection("users_retained").doc(userId).collection("top_files").get();
     for (const d of topFileSnap.docs) await d.ref.delete();
     await adminDb.collection("users_retained").doc(userId).delete();
-    const db3 = readDb2();
-    if (db3.retained_users) {
-      db3.retained_users = db3.retained_users.filter((u) => u.id !== userId);
-      writeDb2(db3);
+    const db2 = readDb2();
+    if (db2.retained_users) {
+      db2.retained_users = db2.retained_users.filter((u) => u.id !== userId);
+      writeDb2(db2);
     }
     console.log(`[PURGE COMPLETE] Retained user data for ${userId} purged permanently.`);
   } catch (err) {
@@ -7823,10 +7849,10 @@ async function purgeExpiredAccountsJob() {
     }
   }
   try {
-    const db3 = readDb2();
-    if (db3.account_lifecycle && Array.isArray(db3.account_lifecycle)) {
+    const db2 = readDb2();
+    if (db2.account_lifecycle && Array.isArray(db2.account_lifecycle)) {
       const nowMs = Date.now();
-      for (const record of db3.account_lifecycle) {
+      for (const record of db2.account_lifecycle) {
         if (record.deletionType === "self" && record.status === "SELF_DELETED" && record.restoreUntil) {
           if (nowMs > new Date(record.restoreUntil).getTime()) {
             console.log(`[BACKGROUND PURGE LOCAL] Expired account lifecycle ${record.emailNormalized}`);
@@ -7854,8 +7880,8 @@ async function restoreAccountFullServer2(email, newPassword) {
   }
   if (!retainedProfile) {
     try {
-      const db3 = readDb2();
-      retainedProfile = db3.retained_users?.find(
+      const db2 = readDb2();
+      retainedProfile = db2.retained_users?.find(
         (u) => targetUid && u.id === targetUid || u.email?.trim().toLowerCase() === normalizedEmail
       );
     } catch (e) {
@@ -8024,14 +8050,14 @@ async function restoreAccountFullServer2(email, newPassword) {
     }
   }
   try {
-    const db3 = readDb2();
-    if (!db3.users) db3.users = [];
-    db3.users = db3.users.filter((u) => u.id !== finalUid && u.email?.trim().toLowerCase() !== normalizedEmail);
-    db3.users.push(restoredUserDoc);
-    if (db3.retained_users) {
-      db3.retained_users = db3.retained_users.filter((u) => u.id !== finalUid && u.email?.trim().toLowerCase() !== normalizedEmail);
+    const db2 = readDb2();
+    if (!db2.users) db2.users = [];
+    db2.users = db2.users.filter((u) => u.id !== finalUid && u.email?.trim().toLowerCase() !== normalizedEmail);
+    db2.users.push(restoredUserDoc);
+    if (db2.retained_users) {
+      db2.retained_users = db2.retained_users.filter((u) => u.id !== finalUid && u.email?.trim().toLowerCase() !== normalizedEmail);
     }
-    writeDb2(db3);
+    writeDb2(db2);
   } catch (dbErr) {
   }
   const activeLifecycle = {
@@ -8205,16 +8231,16 @@ async function requestAccountReactivationServer(email, reason) {
     });
   } catch (e) {
   }
-  const db3 = readDb2();
-  if (!db3.account_reactivation_requests) db3.account_reactivation_requests = [];
-  db3.account_reactivation_requests = db3.account_reactivation_requests.filter((r) => r.email !== normalizedEmail);
-  db3.account_reactivation_requests.push({
+  const db2 = readDb2();
+  if (!db2.account_reactivation_requests) db2.account_reactivation_requests = [];
+  db2.account_reactivation_requests = db2.account_reactivation_requests.filter((r) => r.email !== normalizedEmail);
+  db2.account_reactivation_requests.push({
     email: normalizedEmail,
     requestedAt: nowIso,
     reason: reason || "\u0637\u0644\u0628 \u0625\u0639\u0627\u062F\u0629 \u062A\u0641\u0639\u064A\u0644 \u0627\u0644\u062D\u0633\u0627\u0628 \u0627\u0644\u0645\u062D\u0630\u0648\u0641 \u0628\u0648\u0627\u0633\u0637\u0629 \u0627\u0644\u0645\u0633\u0624\u0648\u0644",
     status: "pending"
   });
-  writeDb2(db3);
+  writeDb2(db2);
   return {
     success: true,
     message: "\u062A\u0645 \u062A\u0642\u062F\u064A\u0645 \u0637\u0644\u0628 \u0625\u0639\u0627\u062F\u0629 \u062A\u0641\u0639\u064A\u0644 \u0627\u0644\u062D\u0633\u0627\u0628 \u0628\u0646\u062C\u0627\u062D \u0625\u0644\u0649 \u0645\u0633\u0624\u0648\u0644 \u0627\u0644\u0645\u0646\u0635\u0629. \u0633\u064A\u062A\u0645 \u0645\u0631\u0627\u062C\u0639\u0629 \u0637\u0644\u0628\u0643 \u0648\u0625\u062E\u0637\u0627\u0631\u0643 \u0628\u0627\u0644\u062A\u062D\u062F\u064A\u062B\u0627\u062A."
@@ -8300,8 +8326,8 @@ app2.post("/api/auth/restore-account", async (req, res) => {
       }
     }
     if (!activeOtpRecord) {
-      const db3 = readDb2();
-      activeOtpRecord = db3.verification_codes?.find(
+      const db2 = readDb2();
+      activeOtpRecord = db2.verification_codes?.find(
         (vc) => !vc.used && (vc.id === userId || vc.id === normalizedEmail || vc.userId === userId || vc.email?.toLowerCase() === normalizedEmail)
       );
       if (activeOtpRecord) {
@@ -8361,8 +8387,8 @@ app2.post("/api/auth/restore-account", async (req, res) => {
     } catch (e) {
     }
     if (!retainedProfile) {
-      const db3 = readDb2();
-      retainedProfile = db3.retained_users?.find((u) => u.id === userId || u.email?.toLowerCase() === normalizedEmail);
+      const db2 = readDb2();
+      retainedProfile = db2.retained_users?.find((u) => u.id === userId || u.email?.toLowerCase() === normalizedEmail);
     }
     const nowIso = (/* @__PURE__ */ new Date()).toISOString();
     const preservedRole = retainedProfile?.role || record?.originalRole;
@@ -8546,8 +8572,8 @@ app2.get("/api/auth/check-invitation", async (req, res) => {
       }
     }
     if (!invitation) {
-      const db3 = readDb2();
-      invitation = db3.invitations?.find(
+      const db2 = readDb2();
+      invitation = db2.invitations?.find(
         (i) => email && i.email?.trim().toLowerCase() === email || token && i.token === token
       ) || null;
     }
@@ -8571,8 +8597,8 @@ app2.get("/api/admin/reactivation-requests", requireAuth, async (req, res) => {
     if (snap && !snap.empty) {
       requests = snap.docs.map((doc) => ({ ...doc.data(), id: doc.id }));
     }
-    const db3 = readDb2();
-    const localRequests = db3.account_reactivation_requests || [];
+    const db2 = readDb2();
+    const localRequests = db2.account_reactivation_requests || [];
     for (const lr of localRequests) {
       if (!requests.some((r) => r.email === lr.email)) {
         requests.push(lr);
@@ -8610,15 +8636,15 @@ async function handleAccountReactivationRequestServer(email, action, callerUid =
       });
     } catch (e) {
     }
-    const db3 = readDb2();
-    if (db3.account_reactivation_requests) {
-      const reqItem = db3.account_reactivation_requests.find((r) => r.email === normalizedEmail);
+    const db2 = readDb2();
+    if (db2.account_reactivation_requests) {
+      const reqItem = db2.account_reactivation_requests.find((r) => r.email === normalizedEmail);
       if (reqItem) {
         reqItem.status = "approved";
         reqItem.reviewedAt = nowIso;
       }
     }
-    writeDb2(db3);
+    writeDb2(db2);
     return {
       success: true,
       message: "\u062A\u0645\u062A \u0627\u0644\u0645\u0648\u0627\u0641\u0642\u0629 \u0639\u0644\u0649 \u0637\u0644\u0628 \u0625\u0639\u0627\u062F\u0629 \u0627\u0644\u062A\u0641\u0639\u064A\u0644 \u0628\u0646\u062C\u0627\u062D. \u064A\u0645\u0643\u0646 \u0644\u0644\u0645\u0633\u062A\u062E\u062F\u0645 \u0627\u0644\u0622\u0646 \u0625\u0646\u0634\u0627\u0621 \u062D\u0633\u0627\u0628 \u062C\u062F\u064A\u062F \u0628\u0647\u0630\u0627 \u0627\u0644\u0628\u0631\u064A\u062F \u0627\u0644\u0625\u0644\u0643\u062A\u0631\u0648\u0646\u064A."
@@ -8644,15 +8670,15 @@ async function handleAccountReactivationRequestServer(email, action, callerUid =
       });
     } catch (e) {
     }
-    const db3 = readDb2();
-    if (db3.account_reactivation_requests) {
-      const reqItem = db3.account_reactivation_requests.find((r) => r.email === normalizedEmail);
+    const db2 = readDb2();
+    if (db2.account_reactivation_requests) {
+      const reqItem = db2.account_reactivation_requests.find((r) => r.email === normalizedEmail);
       if (reqItem) {
         reqItem.status = "rejected";
         reqItem.reviewedAt = nowIso;
       }
     }
-    writeDb2(db3);
+    writeDb2(db2);
     return {
       success: true,
       message: "\u062A\u0645 \u0631\u0641\u0636 \u0637\u0644\u0628 \u0625\u0639\u0627\u062F\u0629 \u0627\u0644\u062A\u0641\u0639\u064A\u0644. \u064A\u0638\u0644 \u0627\u0644\u062D\u0633\u0627\u0628 \u0645\u062D\u0638\u0648\u0631\u0627\u064B \u0645\u0646 \u0627\u0644\u062A\u0633\u062C\u064A\u0644."
@@ -8779,11 +8805,11 @@ async function saveDocumentToPersistentStorage(documentId, buffer, mimeType, met
   const expiresAtIso = new Date(nowMs + RECOVERY_DOC_RETENTION_MS2).toISOString();
   const isSmall = buffer.length <= 800 * 1024;
   const base64Content = isSmall ? buffer.toString("base64") : void 0;
-  const db3 = readDb2();
-  if (!db3.recovery_documents_store) {
-    db3.recovery_documents_store = {};
+  const db2 = readDb2();
+  if (!db2.recovery_documents_store) {
+    db2.recovery_documents_store = {};
   }
-  db3.recovery_documents_store[documentId] = {
+  db2.recovery_documents_store[documentId] = {
     documentId,
     mimeType,
     size: buffer.length,
@@ -8795,7 +8821,7 @@ async function saveDocumentToPersistentStorage(documentId, buffer, mimeType, met
     createdAt: nowIso,
     expiresAt: expiresAtIso
   };
-  writeDb2(db3);
+  writeDb2(db2);
   if (isFirebaseAdminAvailable && adminDb) {
     try {
       const CHUNK_BYTE_SIZE3 = 300 * 1024;
@@ -8877,12 +8903,12 @@ async function syncDocumentToCloudStorage(documentId, buffer, mimeType) {
     } catch (e) {
     }
     try {
-      const db3 = readDb2();
-      if (db3.recovery_documents_store?.[documentId]) {
-        db3.recovery_documents_store[documentId].storageStatus = status;
-        db3.recovery_documents_store[documentId].syncAttempts = attempts;
-        if (errorMsg) db3.recovery_documents_store[documentId].syncError = errorMsg;
-        writeDb2(db3);
+      const db2 = readDb2();
+      if (db2.recovery_documents_store?.[documentId]) {
+        db2.recovery_documents_store[documentId].storageStatus = status;
+        db2.recovery_documents_store[documentId].syncAttempts = attempts;
+        if (errorMsg) db2.recovery_documents_store[documentId].syncError = errorMsg;
+        writeDb2(db2);
       }
     } catch (e) {
     }
@@ -8967,8 +8993,8 @@ async function runDurableSyncWorker() {
   const bucket = getSafeBucket();
   if (!bucket) return;
   try {
-    const db3 = readDb2();
-    const store = db3.recovery_documents_store || {};
+    const db2 = readDb2();
+    const store = db2.recovery_documents_store || {};
     const pendingDocIds = Object.keys(store).filter(
       (id) => store[id].storageStatus === "pending" && (store[id].syncAttempts || 0) < 2
     );
@@ -9003,9 +9029,9 @@ async function getDocumentFromPersistentStorage(documentId) {
   if (cached && cached.length > 0) {
     return cached;
   }
-  const db3 = readDb2();
-  if (db3.recovery_documents_store && db3.recovery_documents_store[documentId]) {
-    const localDoc = db3.recovery_documents_store[documentId];
+  const db2 = readDb2();
+  if (db2.recovery_documents_store && db2.recovery_documents_store[documentId]) {
+    const localDoc = db2.recovery_documents_store[documentId];
     const raw = localDoc.fileBase64 || localDoc.data || localDoc.base64;
     if (raw) {
       const clean = String(raw).replace(/^data:[^;]+;base64,/, "");
@@ -9143,14 +9169,14 @@ async function deleteDocumentFromPersistentStorage(documentId) {
     }
   }
   try {
-    const db3 = readDb2();
-    if (db3.recovery_documents_store?.[documentId]) {
-      delete db3.recovery_documents_store[documentId];
+    const db2 = readDb2();
+    if (db2.recovery_documents_store?.[documentId]) {
+      delete db2.recovery_documents_store[documentId];
     }
-    if (db3.pending_recovery_uploads) {
-      db3.pending_recovery_uploads = db3.pending_recovery_uploads.filter((u) => u.documentId !== documentId);
+    if (db2.pending_recovery_uploads) {
+      db2.pending_recovery_uploads = db2.pending_recovery_uploads.filter((u) => u.documentId !== documentId);
     }
-    writeDb2(db3);
+    writeDb2(db2);
   } catch (e) {
   }
   if (isFirebaseAdminAvailable && adminDb) {
@@ -9161,11 +9187,11 @@ async function deleteDocumentFromPersistentStorage(documentId) {
   }
 }
 async function registerPendingUpload(documentId, uploadToken, meta) {
-  const db3 = readDb2();
-  if (!db3.pending_recovery_uploads) {
-    db3.pending_recovery_uploads = [];
+  const db2 = readDb2();
+  if (!db2.pending_recovery_uploads) {
+    db2.pending_recovery_uploads = [];
   }
-  db3.pending_recovery_uploads.push({
+  db2.pending_recovery_uploads.push({
     documentId,
     uploadToken,
     fileHash: meta.fileHash,
@@ -9176,7 +9202,7 @@ async function registerPendingUpload(documentId, uploadToken, meta) {
     storageStatus: meta.storageStatus || "pending",
     associated: false
   });
-  writeDb2(db3);
+  writeDb2(db2);
   if (isFirebaseAdminAvailable && adminDb) {
     try {
       await adminDb.collection("pendingRecoveryUploads").doc(documentId).set({
@@ -9214,8 +9240,8 @@ async function verifyPendingUpload(documentId, uploadToken) {
     }
   }
   if (!record) {
-    const db3 = readDb2();
-    record = db3.pending_recovery_uploads?.find((u) => u.documentId === documentId);
+    const db2 = readDb2();
+    record = db2.pending_recovery_uploads?.find((u) => u.documentId === documentId);
   }
   if (record) {
     if (record.uploadToken !== uploadToken) return false;
@@ -9228,13 +9254,13 @@ async function verifyPendingUpload(documentId, uploadToken) {
   return false;
 }
 async function markUploadAssociated(documentId, requestId) {
-  const db3 = readDb2();
-  const index = db3.pending_recovery_uploads?.findIndex((u) => u.documentId === documentId);
+  const db2 = readDb2();
+  const index = db2.pending_recovery_uploads?.findIndex((u) => u.documentId === documentId);
   if (index >= 0) {
-    db3.pending_recovery_uploads[index].associated = true;
-    db3.pending_recovery_uploads[index].associatedRequestId = requestId;
+    db2.pending_recovery_uploads[index].associated = true;
+    db2.pending_recovery_uploads[index].associatedRequestId = requestId;
   }
-  writeDb2(db3);
+  writeDb2(db2);
   if (isFirebaseAdminAvailable) {
     try {
       await adminDb.collection("pendingRecoveryUploads").doc(documentId).set({
@@ -9249,15 +9275,15 @@ async function runComprehensiveStorageCleanup() {
   try {
     const nowMs = Date.now();
     const oneHourAgo = nowMs - ORPHAN_UPLOAD_TTL_MS;
-    const db3 = readDb2();
-    const uploads = db3.pending_recovery_uploads || [];
+    const db2 = readDb2();
+    const uploads = db2.pending_recovery_uploads || [];
     const orphans = uploads.filter((u) => !u.associated && new Date(u.uploadedAt).getTime() < oneHourAgo);
     for (const orphan of orphans) {
       console.log(`[ORPHAN_CLEANUP] Deleting orphan document ${orphan.documentId} uploaded at ${orphan.uploadedAt}`);
       await deleteDocumentFromPersistentStorage(orphan.documentId);
     }
-    db3.pending_recovery_uploads = uploads.filter((u) => !(!u.associated && new Date(u.uploadedAt).getTime() < oneHourAgo));
-    const store = db3.recovery_documents_store || {};
+    db2.pending_recovery_uploads = uploads.filter((u) => !(!u.associated && new Date(u.uploadedAt).getTime() < oneHourAgo));
+    const store = db2.recovery_documents_store || {};
     for (const docId of Object.keys(store)) {
       const docItem = store[docId];
       if (docItem.expiresAt && new Date(docItem.expiresAt).getTime() < nowMs) {
@@ -9265,7 +9291,7 @@ async function runComprehensiveStorageCleanup() {
         await deleteDocumentFromPersistentStorage(docId);
       }
     }
-    writeDb2(db3);
+    writeDb2(db2);
     if (isFirebaseAdminAvailable && adminDb) {
       try {
         const expiredDocsSnap = await adminDb.collection("recoveryDocuments").where("expiresAt", "<=", (/* @__PURE__ */ new Date()).toISOString()).limit(10).get();
@@ -9452,8 +9478,8 @@ app2.all([
     const safeName = decodedName.replace(/[\/\\?%*:|"<>]/g, "_").trim() || "document";
     console.log("[RecoveryUpload] SHA-256 calculated");
     const tenMinutesAgo = Date.now() - 10 * 60 * 1e3;
-    const db3 = readDb2();
-    const existingUpload = (db3.pending_recovery_uploads || []).find(
+    const db2 = readDb2();
+    const existingUpload = (db2.pending_recovery_uploads || []).find(
       (u) => !u.associated && u.fileHash === fileHash && u.fileName === safeName && new Date(u.uploadedAt).getTime() > tenMinutesAgo
     );
     if (existingUpload) {
@@ -9538,12 +9564,12 @@ app2.all([
     }
     const safeDocId = documentId;
     let docMeta = null;
-    const db3 = readDb2();
-    if (db3.recovery_documents_store && db3.recovery_documents_store[safeDocId]) {
-      docMeta = db3.recovery_documents_store[safeDocId];
+    const db2 = readDb2();
+    if (db2.recovery_documents_store && db2.recovery_documents_store[safeDocId]) {
+      docMeta = db2.recovery_documents_store[safeDocId];
     }
     if (!docMeta) {
-      const localRequests = db3.account_recovery_requests || [];
+      const localRequests = db2.account_recovery_requests || [];
       for (const r of localRequests) {
         const found = r.documents?.find((d) => d.documentId === safeDocId || d.id === safeDocId);
         if (found) {
@@ -9553,7 +9579,7 @@ app2.all([
       }
     }
     if (!docMeta) {
-      const pendingUploads = db3.pending_recovery_uploads || [];
+      const pendingUploads = db2.pending_recovery_uploads || [];
       const foundPending = pendingUploads.find((p) => p.documentId === safeDocId || p.id === safeDocId);
       if (foundPending) {
         docMeta = foundPending.document || foundPending;
@@ -9821,11 +9847,11 @@ app2.all([
         message: "Failed to persist recovery request to database. Please try again."
       });
     }
-    const db3 = readDb2();
-    if (!db3.account_recovery_requests) db3.account_recovery_requests = [];
-    db3.account_recovery_requests = db3.account_recovery_requests.filter((r) => r.email !== normalizedEmail);
-    db3.account_recovery_requests.push(requestDoc);
-    writeDb2(db3);
+    const db2 = readDb2();
+    if (!db2.account_recovery_requests) db2.account_recovery_requests = [];
+    db2.account_recovery_requests = db2.account_recovery_requests.filter((r) => r.email !== normalizedEmail);
+    db2.account_recovery_requests.push(requestDoc);
+    writeDb2(db2);
     if (lifecycle) {
       await setAccountLifecycleRecord2({
         ...lifecycle,
@@ -9875,8 +9901,8 @@ app2.get("/api/auth/recovery-request/status", async (req, res) => {
       }
     } catch (e) {
     }
-    const db3 = readDb2();
-    const localReqs = db3.account_recovery_requests?.filter((r) => (r.email || "").trim().toLowerCase() === normalizedEmail) || [];
+    const db2 = readDb2();
+    const localReqs = db2.account_recovery_requests?.filter((r) => (r.email || "").trim().toLowerCase() === normalizedEmail) || [];
     localReqs.forEach((r) => requestDocs.push({ ...r, _source: "localDb" }));
     let lifecycle = null;
     try {
@@ -9942,8 +9968,8 @@ app2.get("/api/admin/recovery-requests", requireAuth, async (req, res) => {
       } catch (e2) {
       }
     }
-    const db3 = readDb2();
-    const localRequests = db3.account_recovery_requests || [];
+    const db2 = readDb2();
+    const localRequests = db2.account_recovery_requests || [];
     for (const lr of localRequests) {
       if (!requests.some((r) => r.id === lr.id || r.requestId === lr.requestId)) {
         requests.push(lr);
@@ -10103,8 +10129,8 @@ app2.post("/api/auth/recovery-request/send-approval-otp", otpLimiter, async (req
     } catch (e) {
     }
     if (!reqStatus) {
-      const db4 = readDb2();
-      const localReq = db4.account_recovery_requests?.find((r) => r.email === normalizedEmail);
+      const db3 = readDb2();
+      const localReq = db3.account_recovery_requests?.find((r) => r.email === normalizedEmail);
       if (localReq) {
         reqStatus = localReq.status || "";
         reqId = localReq.id || localReq.requestId || "";
@@ -10169,11 +10195,11 @@ app2.post("/api/auth/recovery-request/send-approval-otp", otpLimiter, async (req
     } catch (fsWriteErr) {
       console.warn("[RECOVERY_OTP_PIPELINE] Firestore OTP write warning:", fsWriteErr?.message);
     }
-    const db3 = readDb2();
-    if (!db3.verification_codes) db3.verification_codes = [];
-    db3.verification_codes = db3.verification_codes.filter((vc) => vc.id !== docId && vc.id !== normalizedEmail);
-    db3.verification_codes.push(record);
-    writeDb2(db3);
+    const db2 = readDb2();
+    if (!db2.verification_codes) db2.verification_codes = [];
+    db2.verification_codes = db2.verification_codes.filter((vc) => vc.id !== docId && vc.id !== normalizedEmail);
+    db2.verification_codes.push(record);
+    writeDb2(db2);
     console.log("[RECOVERY_OTP_PIPELINE] OTP persisted to storage:", {
       stage: "PERSISTENCE_COMPLETE",
       recoveryRequestId: reqId || "N/A",
@@ -10276,8 +10302,8 @@ app2.post(["/api/auth/recovery-request/verify-otp-and-restore", "/api/auth/recov
     } catch (e) {
     }
     if (!otpRecord) {
-      const db4 = readDb2();
-      otpRecord = db4.verification_codes?.find((vc) => (vc.id === docId || vc.email === normalizedEmail) && !vc.used);
+      const db3 = readDb2();
+      otpRecord = db3.verification_codes?.find((vc) => (vc.id === docId || vc.email === normalizedEmail) && !vc.used);
     }
     if (!otpRecord) {
       return res.status(400).json({
@@ -10317,20 +10343,20 @@ app2.post(["/api/auth/recovery-request/verify-otp-and-restore", "/api/auth/recov
       }
     } catch (e) {
     }
-    const db3 = readDb2();
-    if (db3.verification_codes) {
-      for (const vc of db3.verification_codes) {
+    const db2 = readDb2();
+    if (db2.verification_codes) {
+      for (const vc of db2.verification_codes) {
         if (vc.id === docId || vc.email === normalizedEmail) {
           vc.used = true;
           vc.usedAt = nowIso;
         }
       }
     }
-    if (db3.account_recovery_requests) {
-      const rItem = db3.account_recovery_requests.find((r) => r.email === normalizedEmail);
+    if (db2.account_recovery_requests) {
+      const rItem = db2.account_recovery_requests.find((r) => r.email === normalizedEmail);
       if (rItem) rItem.status = "restored";
     }
-    writeDb2(db3);
+    writeDb2(db2);
     const restoreRes = await restoreAccountFullServer2(normalizedEmail, newPassword);
     if (!restoreRes.success || !restoreRes.user) {
       return res.status(500).json({ success: false, error: restoreRes.error || "Failed to restore account profile." });
@@ -10343,8 +10369,8 @@ app2.post(["/api/auth/recovery-request/verify-otp-and-restore", "/api/auth/recov
           if (reqSnap.exists) recoveryReq = reqSnap.data();
         }
         if (!recoveryReq) {
-          const db4 = readDb2();
-          recoveryReq = db4.account_recovery_requests?.find((r) => r.email === normalizedEmail);
+          const db3 = readDb2();
+          recoveryReq = db3.account_recovery_requests?.find((r) => r.email === normalizedEmail);
         }
         if (recoveryReq?.documents && Array.isArray(recoveryReq.documents)) {
           for (const doc of recoveryReq.documents) {
@@ -10679,8 +10705,8 @@ app2.all("/api/auth/delete-account", requireAuth, async (req, res) => {
   try {
     if (!targetUid && req.body?.email) {
       try {
-        const db3 = readDb2();
-        const found = db3.users?.find((u) => u.email?.trim().toLowerCase() === (req.body.email || "").trim().toLowerCase());
+        const db2 = readDb2();
+        const found = db2.users?.find((u) => u.email?.trim().toLowerCase() === (req.body.email || "").trim().toLowerCase());
         if (found) targetUid = found.id;
       } catch (e) {
       }
@@ -10772,20 +10798,20 @@ app2.all("/api/auth/delete-account", requireAuth, async (req, res) => {
         for (const tfDoc of topFilesSnap.docs) {
           await adminDb.collection("users_retained").doc(targetUid).collection("top_files").doc(tfDoc.id).set(tfDoc.data());
         }
-        const db3 = readDb2();
-        if (!db3.retained_users) db3.retained_users = [];
-        db3.retained_users = db3.retained_users.filter((u) => u.id !== targetUid);
-        const localMems = (db3.memories || []).filter((m) => m.userId === targetUid);
-        const localAlerts = (db3.risk_alerts || []).filter((a) => a.userId === targetUid);
-        const localFiles = (db3.files || []).filter((f) => f.userId === targetUid);
-        db3.retained_users.push({
+        const db2 = readDb2();
+        if (!db2.retained_users) db2.retained_users = [];
+        db2.retained_users = db2.retained_users.filter((u) => u.id !== targetUid);
+        const localMems = (db2.memories || []).filter((m) => m.userId === targetUid);
+        const localAlerts = (db2.risk_alerts || []).filter((a) => a.userId === targetUid);
+        const localFiles = (db2.files || []).filter((f) => f.userId === targetUid);
+        db2.retained_users.push({
           ...userDocData,
           archivedAt: (/* @__PURE__ */ new Date()).toISOString(),
           archivedMemories: localMems,
           archivedRiskAlerts: localAlerts,
           archivedFiles: localFiles
         });
-        writeDb2(db3);
+        writeDb2(db2);
       } catch (archErr) {
         console.warn("Retention profile backup warning:", archErr?.message);
       }
@@ -10948,8 +10974,8 @@ app2.post("/api/auth/register", loginRegisterLimiter, async (req, res) => {
         error: "Password must be at least 8 characters long and contain at least one uppercase letter, one lowercase letter, one number, and one special character."
       });
     }
-    const db3 = readDb2();
-    if (db3.users?.find((u) => u.email?.trim().toLowerCase() === normalizedEmail)) {
+    const db2 = readDb2();
+    if (db2.users?.find((u) => u.email?.trim().toLowerCase() === normalizedEmail)) {
       return res.status(400).json({ success: false, error: "Email already exists." });
     }
     try {
@@ -11095,14 +11121,14 @@ app2.post("/api/auth/register", loginRegisterLimiter, async (req, res) => {
         error: "Failed to verify user creation in Firestore."
       });
     }
-    if (!db3.users) db3.users = [];
-    const existingIdx = db3.users.findIndex((u) => u.id === userId || u.email?.toLowerCase() === normalizedEmail);
+    if (!db2.users) db2.users = [];
+    const existingIdx = db2.users.findIndex((u) => u.id === userId || u.email?.toLowerCase() === normalizedEmail);
     if (existingIdx >= 0) {
-      db3.users[existingIdx] = newUser;
+      db2.users[existingIdx] = newUser;
     } else {
-      db3.users.push(newUser);
+      db2.users.push(newUser);
     }
-    writeDb2(db3);
+    writeDb2(db2);
     if (invitation) {
       if (invitation.senderId) {
         try {
@@ -11217,10 +11243,10 @@ app2.post("/api/auth/register", loginRegisterLimiter, async (req, res) => {
         error: "Failed to store verification code in database. Registration aborted."
       });
     }
-    if (!db3.verification_codes) db3.verification_codes = [];
-    db3.verification_codes = db3.verification_codes.filter((vc) => vc.id !== docId);
-    db3.verification_codes.push(otpRecord);
-    writeDb2(db3);
+    if (!db2.verification_codes) db2.verification_codes = [];
+    db2.verification_codes = db2.verification_codes.filter((vc) => vc.id !== docId);
+    db2.verification_codes.push(otpRecord);
+    writeDb2(db2);
     const resolvedUserName = cleanUserName2(resolvedOwnerName, normalizedEmail);
     const { subject: emailSubject, text: textBody, html: htmlBody } = buildOtpEmailHtml2({
       email: normalizedEmail,
@@ -11597,13 +11623,13 @@ app2.post("/api/security/set-code", requireAuth, async (req, res) => {
       } catch (e) {
       }
     }
-    const db3 = readDb2();
-    if (db3.users) {
-      const uIdx = db3.users.findIndex((u) => u.id === authUid || u.email === authEmail);
+    const db2 = readDb2();
+    if (db2.users) {
+      const uIdx = db2.users.findIndex((u) => u.id === authUid || u.email === authEmail);
       if (uIdx >= 0) {
-        db3.users[uIdx].encryptedSecurity = updatedSecurity;
-        delete db3.users[uIdx].secretPasscode;
-        writeDb2(db3);
+        db2.users[uIdx].encryptedSecurity = updatedSecurity;
+        delete db2.users[uIdx].secretPasscode;
+        writeDb2(db2);
       }
     }
     res.json({
@@ -11765,12 +11791,12 @@ app2.post("/api/users/profile", requireAuth, async (req, res) => {
       } catch (e) {
       }
     }
-    const db3 = readDb2();
-    if (db3.users) {
-      const uIdx = db3.users.findIndex((u) => u.id === authUid || u.email === authEmail);
+    const db2 = readDb2();
+    if (db2.users) {
+      const uIdx = db2.users.findIndex((u) => u.id === authUid || u.email === authEmail);
       if (uIdx >= 0) {
-        db3.users[uIdx] = { ...db3.users[uIdx], ...updatedProfile };
-        writeDb2(db3);
+        db2.users[uIdx] = { ...db2.users[uIdx], ...updatedProfile };
+        writeDb2(db2);
       }
     }
     res.json({
@@ -11784,12 +11810,12 @@ app2.post("/api/users/profile", requireAuth, async (req, res) => {
   }
 });
 app2.get("/api/memories", requireAuth, requireModulePermission("memoryVault"), (req, res) => {
-  const db3 = readDb2();
+  const db2 = readDb2();
   const authUserId = req.user?.uid;
   if (!authUserId) {
     return res.status(401).json({ error: "Unauthorized: Missing authentication token" });
   }
-  const filtered = (db3.memories || []).filter((m) => m.userId === authUserId);
+  const filtered = (db2.memories || []).filter((m) => m.userId === authUserId);
   res.json(filtered);
 });
 app2.post("/api/memories", requireAuth, requireModulePermission("memoryVault"), (req, res) => {
@@ -11801,7 +11827,7 @@ app2.post("/api/memories", requireAuth, requireModulePermission("memoryVault"), 
   if (!authUserId) {
     return res.status(401).json({ error: "Unauthorized: Missing authentication token" });
   }
-  const db3 = readDb2();
+  const db2 = readDb2();
   const newMemory = {
     id: req.body.id || "mem_" + Math.random().toString(36).substr(2, 9),
     title,
@@ -11820,8 +11846,8 @@ app2.post("/api/memories", requireAuth, requireModulePermission("memoryVault"), 
     authorRole: authorRole || "Analyst",
     authorName: authorName || (req.user?.email ? req.user.email.split("@")[0] : "User")
   };
-  if (!db3.memories) db3.memories = [];
-  db3.memories.unshift(newMemory);
+  if (!db2.memories) db2.memories = [];
+  db2.memories.unshift(newMemory);
   const newMetric = {
     id: "met_" + Math.random().toString(36).substr(2, 9),
     userId: authUserId,
@@ -11830,9 +11856,9 @@ app2.post("/api/memories", requireAuth, requireModulePermission("memoryVault"), 
     description: `Added strategic memory: ${title}`,
     createdAt: (/* @__PURE__ */ new Date()).toISOString()
   };
-  if (!db3.user_metrics) db3.user_metrics = [];
-  db3.user_metrics.unshift(newMetric);
-  writeDb2(db3);
+  if (!db2.user_metrics) db2.user_metrics = [];
+  db2.user_metrics.unshift(newMetric);
+  writeDb2(db2);
   res.status(201).json(newMemory);
 });
 app2.delete("/api/memories/:id", requireAuth, requireModulePermission("memoryVault"), (req, res) => {
@@ -11841,18 +11867,18 @@ app2.delete("/api/memories/:id", requireAuth, requireModulePermission("memoryVau
   if (!authUserId) {
     return res.status(401).json({ error: "Unauthorized: Missing authentication token" });
   }
-  const db3 = readDb2();
-  const memory = (db3.memories || []).find((m) => m.id === id);
+  const db2 = readDb2();
+  const memory = (db2.memories || []).find((m) => m.id === id);
   if (!memory) {
     return res.status(404).json({ error: "Memory not found." });
   }
   if (memory.userId !== authUserId) {
     return res.status(403).json({ error: "Forbidden: Cannot delete memory owned by another user." });
   }
-  const index = db3.memories.findIndex((m) => m.id === id);
+  const index = db2.memories.findIndex((m) => m.id === id);
   if (index !== -1) {
-    db3.memories.splice(index, 1);
-    writeDb2(db3);
+    db2.memories.splice(index, 1);
+    writeDb2(db2);
     return res.json({ success: true });
   }
   res.status(404).json({ error: "Memory not found." });
@@ -11863,42 +11889,42 @@ app2.put("/api/memories/:id", requireAuth, requireModulePermission("memoryVault"
   if (!authUserId) {
     return res.status(401).json({ error: "Unauthorized: Missing authentication token" });
   }
-  const db3 = readDb2();
-  const memory = (db3.memories || []).find((m) => m.id === id);
+  const db2 = readDb2();
+  const memory = (db2.memories || []).find((m) => m.id === id);
   if (!memory) {
     return res.status(404).json({ error: "Memory not found." });
   }
   if (memory.userId !== authUserId) {
     return res.status(403).json({ error: "Forbidden: Cannot edit memory owned by another user." });
   }
-  const index = db3.memories.findIndex((m) => m.id === id);
+  const index = db2.memories.findIndex((m) => m.id === id);
   if (index !== -1) {
     const { title, category, riskLevel, tags, description, decision, causalFactors, outcomes, lessonsLearned } = req.body;
-    db3.memories[index] = {
-      ...db3.memories[index],
-      title: title || db3.memories[index].title,
-      category: category || db3.memories[index].category,
-      riskLevel: riskLevel || db3.memories[index].riskLevel,
-      tags: tags ? Array.isArray(tags) ? tags : String(tags).split(",").map((t) => t.trim()) : db3.memories[index].tags,
-      description: description || db3.memories[index].description,
-      decision: decision || db3.memories[index].decision,
-      causalFactors: causalFactors !== void 0 ? causalFactors : db3.memories[index].causalFactors,
-      outcomes: outcomes !== void 0 ? outcomes : db3.memories[index].outcomes,
-      lessonsLearned: lessonsLearned !== void 0 ? lessonsLearned : db3.memories[index].lessonsLearned
+    db2.memories[index] = {
+      ...db2.memories[index],
+      title: title || db2.memories[index].title,
+      category: category || db2.memories[index].category,
+      riskLevel: riskLevel || db2.memories[index].riskLevel,
+      tags: tags ? Array.isArray(tags) ? tags : String(tags).split(",").map((t) => t.trim()) : db2.memories[index].tags,
+      description: description || db2.memories[index].description,
+      decision: decision || db2.memories[index].decision,
+      causalFactors: causalFactors !== void 0 ? causalFactors : db2.memories[index].causalFactors,
+      outcomes: outcomes !== void 0 ? outcomes : db2.memories[index].outcomes,
+      lessonsLearned: lessonsLearned !== void 0 ? lessonsLearned : db2.memories[index].lessonsLearned
     };
-    writeDb2(db3);
-    return res.json(db3.memories[index]);
+    writeDb2(db2);
+    return res.json(db2.memories[index]);
   }
   res.status(404).json({ error: "Memory not found." });
 });
 app2.get("/api/risk-alerts", requireAuth, requireModulePermission("riskRadar"), (req, res) => {
-  const db3 = readDb2();
+  const db2 = readDb2();
   const authUserId = req.user?.uid;
-  const filtered = (db3.risk_alerts || []).filter((a) => !a.userId || a.userId === authUserId);
+  const filtered = (db2.risk_alerts || []).filter((a) => !a.userId || a.userId === authUserId);
   res.json(filtered);
 });
 app2.post("/api/risk-alerts", requireAuth, requireModulePermission("riskRadar"), (req, res) => {
-  const db3 = readDb2();
+  const db2 = readDb2();
   const authUserId = req.user?.uid;
   const newAlert = {
     id: req.body.id || `al_${Date.now()}`,
@@ -11910,30 +11936,30 @@ app2.post("/api/risk-alerts", requireAuth, requireModulePermission("riskRadar"),
     userId: authUserId,
     createdAt: req.body.createdAt || (/* @__PURE__ */ new Date()).toISOString()
   };
-  if (!db3.risk_alerts) db3.risk_alerts = [];
-  db3.risk_alerts.unshift(newAlert);
-  writeDb2(db3);
+  if (!db2.risk_alerts) db2.risk_alerts = [];
+  db2.risk_alerts.unshift(newAlert);
+  writeDb2(db2);
   res.json(newAlert);
 });
 app2.post("/api/risk-alerts/resolve", requireAuth, requireModulePermission("riskRadar"), (req, res) => {
   const { id } = req.body;
-  const db3 = readDb2();
-  const alertIndex = db3.risk_alerts?.findIndex((a) => a.id === id);
+  const db2 = readDb2();
+  const alertIndex = db2.risk_alerts?.findIndex((a) => a.id === id);
   if (alertIndex !== void 0 && alertIndex !== -1) {
-    db3.risk_alerts[alertIndex].status = "Resolved";
-    writeDb2(db3);
-    return res.json(db3.risk_alerts[alertIndex]);
+    db2.risk_alerts[alertIndex].status = "Resolved";
+    writeDb2(db2);
+    return res.json(db2.risk_alerts[alertIndex]);
   }
   res.status(404).json({ error: "Alert not found." });
 });
 app2.get("/api/files", requireAuth, requireModulePermission("fileVault"), (req, res) => {
-  const db3 = readDb2();
+  const db2 = readDb2();
   const authUserId = req.user?.uid;
-  const files = (db3.files || []).filter((f) => f.userId === authUserId);
+  const files = (db2.files || []).filter((f) => f.userId === authUserId);
   res.json(files);
 });
 app2.post("/api/files", requireAuth, requireModulePermission("fileVault"), (req, res) => {
-  const db3 = readDb2();
+  const db2 = readDb2();
   const authUserId = req.user?.uid;
   const file = {
     id: req.body.id || `file_${Date.now()}`,
@@ -11947,29 +11973,29 @@ app2.post("/api/files", requireAuth, requireModulePermission("fileVault"), (req,
     userId: authUserId,
     createdAt: (/* @__PURE__ */ new Date()).toISOString()
   };
-  if (!db3.files) db3.files = [];
-  db3.files.unshift(file);
-  writeDb2(db3);
+  if (!db2.files) db2.files = [];
+  db2.files.unshift(file);
+  writeDb2(db2);
   res.status(201).json(file);
 });
 app2.delete("/api/files/:id", requireAuth, requireModulePermission("fileVault"), (req, res) => {
   const { id } = req.params;
   const authUserId = req.user?.uid;
-  const db3 = readDb2();
-  const idx = (db3.files || []).findIndex((f) => f.id === id);
+  const db2 = readDb2();
+  const idx = (db2.files || []).findIndex((f) => f.id === id);
   if (idx !== -1) {
-    if (db3.files[idx].userId !== authUserId) {
+    if (db2.files[idx].userId !== authUserId) {
       return res.status(403).json({ error: "Forbidden: Cannot delete file owned by another user." });
     }
-    db3.files.splice(idx, 1);
-    writeDb2(db3);
+    db2.files.splice(idx, 1);
+    writeDb2(db2);
     return res.json({ success: true });
   }
   res.status(404).json({ error: "File not found" });
 });
 app2.get("/api/metrics", (req, res) => {
-  const db3 = readDb2();
-  res.json(db3.user_metrics);
+  const db2 = readDb2();
+  res.json(db2.user_metrics);
 });
 app2.get("/api/world-bank", async (req, res) => {
   const country = req.query.country || "MR";
@@ -12056,8 +12082,8 @@ app2.all("/api/database/schema", requireAuth, async (req, res) => {
     if (!authUserId) {
       return res.status(401).json({ error: "Unauthorized: Missing authentication token" });
     }
-    const db3 = readDb2();
-    const usersArr = Array.isArray(db3?.users) ? db3.users : [];
+    const db2 = readDb2();
+    const usersArr = Array.isArray(db2?.users) ? db2.users : [];
     const user = usersArr.find((u) => u.id === authUserId);
     const isUserAdmin = await isUserAdminServer(authUserId);
     const userRole = user ? user.role : isUserAdmin ? "CEO" : "Analyst";
@@ -12131,8 +12157,8 @@ app2.post("/api/database/query", requireAuth, async (req, res) => {
   if (!authUserId) {
     return res.status(401).json({ error: "Unauthorized: Missing authentication token" });
   }
-  const db3 = readDb2();
-  const user = db3.users.find((u) => u.id === authUserId);
+  const db2 = readDb2();
+  const user = db2.users.find((u) => u.id === authUserId);
   const isUserAdmin = await isUserAdminServer(authUserId);
   const userRole = user ? user.role : isUserAdmin ? "CEO" : "Analyst";
   const isAuthorized = userRole === "CEO" || userRole === "Admin" || userRole === "Compliance Officer" || isUserAdmin;
@@ -12154,7 +12180,7 @@ app2.post("/api/database/query", requireAuth, async (req, res) => {
       if (!targetTable) {
         throw new Error("Table not found or queries outside scope. Supported tables: users, memories, risk_alerts, user_metrics.");
       }
-      let tableData = db3[targetTable] || [];
+      let tableData = db2[targetTable] || [];
       if (!isUserAdmin) {
         if (targetTable === "users") {
           tableData = tableData.filter((item) => item.id === authUserId);
@@ -12218,12 +12244,12 @@ app2.post("/api/database/query", requireAuth, async (req, res) => {
 app2.post("/api/smart-evolution", async (req, res) => {
   const { lang = "ar" } = req.body;
   let { memories, riskAlerts } = req.body;
-  const db3 = readDb2();
+  const db2 = readDb2();
   if (!memories) {
-    memories = db3.memories || [];
+    memories = db2.memories || [];
   }
   if (!riskAlerts) {
-    riskAlerts = db3.risk_alerts || [];
+    riskAlerts = db2.risk_alerts || [];
   }
   const fallbackRisksList = [];
   const fallbackForecastsList = [];

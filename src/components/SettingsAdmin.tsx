@@ -507,8 +507,22 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
         setStripePublishableKey(resolvedPubKey);
         setStripePromise(getCachedStripe(resolvedPubKey));
         console.log(`[Stripe TRACE] G. Embedded Checkout options initialized at +${(tStripePromise - t0).toFixed(2)}ms`);
+      } else if (data.url) {
+        console.log("[Stripe Checkout] Utilizing Stripe hosted checkout session:", data.url);
+        setCheckoutHostedUrl(data.url);
+        setIsProcessingPayment(false);
+        try {
+          if (window.top && window.top !== window) {
+            window.top.location.href = data.url;
+          } else {
+            window.location.href = data.url;
+          }
+        } catch {
+          window.location.href = data.url;
+        }
+        return;
       } else {
-        console.error("[Stripe Checkout] Missing publishable key!");
+        console.error("[Stripe Checkout] Missing publishable key and no checkout URL!");
         setPaymentError(
           lang === "ar"
             ? "تعذر الحصول على مفتاح Stripe العام (Publishable Key)."
@@ -3346,7 +3360,7 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
                         {lang === "ar" ? "جاري تهيئة بوابة Stripe للدفع الآمن داخل المنصة..." : "Initializing secure in-app Stripe Checkout..."}
                       </p>
                     </div>
-                  ) : checkoutClientSecret && (stripePublishableKey || stripePromise) ? (
+                  ) : checkoutClientSecret ? (
                     <div 
                       key={checkoutClientSecret} 
                       className={`rounded-2xl border p-2 sm:p-4 min-h-[420px] ${
@@ -3364,6 +3378,34 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
                         lang={lang}
                         theme={theme}
                       />
+                    </div>
+                  ) : checkoutHostedUrl ? (
+                    <div className={`p-8 text-center space-y-5 rounded-2xl border ${
+                      theme === "dark" ? "bg-slate-900 border-slate-800 text-white" : "bg-white border-slate-200 text-slate-900 shadow-md"
+                    }`}>
+                      <CreditCard className="w-12 h-12 mx-auto text-[#0075DE]" />
+                      <div className="space-y-1.5 max-w-md mx-auto">
+                        <h4 className="text-base font-bold">
+                          {lang === "ar" ? "جلسة الدفع الآمنة جاهزة" : "Secure Checkout Session Ready"}
+                        </h4>
+                        <p className={`text-xs ${theme === "dark" ? "text-slate-400" : "text-slate-600"}`}>
+                          {lang === "ar" 
+                            ? "انقر على الزر أدناه لإتمام عملية الدفع بأمان تام عبر بوابة Stripe الرسمية." 
+                            : "Click below to complete your payment securely on Stripe's official checkout page."}
+                        </p>
+                      </div>
+                      <div className="pt-2">
+                        <a
+                          href={checkoutHostedUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-[#0075DE] to-[#005BAB] hover:brightness-110 text-white font-bold rounded-xl text-sm shadow-lg shadow-blue-500/20 active:scale-95 transition-all cursor-pointer"
+                        >
+                          <CreditCard className="w-4 h-4" />
+                          <span>{lang === "ar" ? "الانتقال إلى الدفع عبر Stripe" : "Proceed to Stripe Checkout"}</span>
+                          <ExternalLink className="w-4 h-4" />
+                        </a>
+                      </div>
                     </div>
                   ) : !paymentError ? (
                     <div className="py-12 text-center space-y-4">

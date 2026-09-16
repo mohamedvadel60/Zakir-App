@@ -1,12 +1,21 @@
 import { initializeApp, getApps, getApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
-import { initializeFirestore, setLogLevel } from "firebase/firestore";
+import { initializeFirestore, getFirestore, setLogLevel } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
 
 setLogLevel("silent");
 
 function getClientFirebaseConfig() {
-  const env = typeof process !== "undefined" && process.env ? process.env : (import.meta as any).env || {};
+  let env: Record<string, any> = {};
+  if (typeof process !== "undefined" && process.env) {
+    env = process.env;
+  } else {
+    try {
+      env = (new Function("return import.meta.env")()) || {};
+    } catch {
+      env = {};
+    }
+  }
   
   return {
     apiKey: env.VITE_FIREBASE_API_KEY || env.FIREBASE_API_KEY || "AIzaSyAvjj-PBHknriQ73FYyQc2nhhBNCF_lvnE",
@@ -34,9 +43,15 @@ const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 
 const dbId = config.firestoreDatabaseId;
-export const db = initializeFirestore(app, {
-  experimentalForceLongPolling: true,
-}, dbId && dbId !== "(default)" ? dbId : undefined);
+let firestoreInstance;
+try {
+  firestoreInstance = initializeFirestore(app, {
+    experimentalForceLongPolling: true,
+  }, dbId && dbId !== "(default)" ? dbId : undefined);
+} catch (e) {
+  firestoreInstance = getFirestore(app, dbId && dbId !== "(default)" ? dbId : undefined);
+}
+export const db = firestoreInstance;
 
 export const storage = getStorage(app);
 export default app;

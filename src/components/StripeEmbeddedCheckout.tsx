@@ -97,7 +97,7 @@ export const StripeEmbeddedCheckout: React.FC<StripeEmbeddedCheckoutProps> = ({
           );
         }
 
-        // Initialize embedded checkout instance immediately
+        // Initialize embedded checkout instance with clientSecret directly
         checkoutInstance = await (stripe as any).initEmbeddedCheckout({
           clientSecret,
           onComplete: () => {
@@ -158,9 +158,9 @@ export const StripeEmbeddedCheckout: React.FC<StripeEmbeddedCheckoutProps> = ({
 
   return (
     <div className="w-full relative min-h-[420px]">
-      {/* Loading state indicator — only visible while Stripe iframe is being fetched and mounted */}
+      {/* Loading state indicator overlay (positioned over container so iframe has real DOM layout dimensions during mount) */}
       {status === "initializing" && (
-        <div className="py-12 text-center space-y-4 px-4 flex flex-col items-center justify-center min-h-[350px]">
+        <div className="absolute inset-0 z-10 flex flex-col items-center justify-center p-6 text-center space-y-4 rounded-xl min-h-[420px]">
           <div className="relative inline-block">
             <RefreshCw className="w-9 h-9 text-[#0075DE] animate-spin mx-auto" />
             <Lock className="w-4 h-4 text-emerald-500 absolute bottom-0 right-0 transform translate-x-1 translate-y-1" />
@@ -205,13 +205,11 @@ export const StripeEmbeddedCheckout: React.FC<StripeEmbeddedCheckoutProps> = ({
         </div>
       )}
 
-      {/* Mounted Stripe Embedded Checkout iframe container */}
+      {/* Mounted Stripe Embedded Checkout iframe container with full normal-flow layout */}
       <div
         ref={containerRef}
         id="stripe-embedded-checkout"
-        className={`w-full transition-opacity duration-200 ${
-          status === "ready" ? "opacity-100 min-h-[420px]" : "opacity-0 absolute top-0 pointer-events-none min-h-[420px] overflow-hidden"
-        }`}
+        className={`w-full min-h-[420px] ${status === "error" ? "hidden" : "block"}`}
       />
     </div>
   );

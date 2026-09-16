@@ -89,7 +89,20 @@ function resolveEndpointUrl(url: string): string {
   const formattedEndpoint = url.startsWith('/') ? url : `/${url}`;
   
   if (typeof window !== "undefined") {
-    const rawBase = (import.meta as any).env?.VITE_API_BASE_URL || (import.meta as any).env?.VITE_BACKEND_URL;
+    // When running in a standard web browser (http/https), ALWAYS use same-origin relative endpoints.
+    // This strictly prevents www.getzakir.com -> getzakir.com redirects, Render spin-down delays, and cross-origin CORS errors.
+    const isWeb = window.location.protocol === "http:" || window.location.protocol === "https:";
+    if (isWeb) {
+      return formattedEndpoint;
+    }
+
+    let rawBase = "";
+    try {
+      const metaEnv = (new Function("return import.meta.env")()) || {};
+      rawBase = metaEnv.VITE_API_BASE_URL || metaEnv.VITE_BACKEND_URL || "";
+    } catch {
+      rawBase = "";
+    }
     const cleanBase = sanitizeBaseUrl(rawBase);
     
     if (cleanBase) {
@@ -102,7 +115,6 @@ function resolveEndpointUrl(url: string): string {
         const currentDomainRoot = currentHost.replace(/^www\./, '');
         const baseDomainRoot = baseHost.replace(/^www\./, '');
 
-        // If same origin, same host, or same root domain (e.g. www.getzakir.com vs getzakir.com), always prefer clean relative path
         if (currentHost === baseHost || currentOrigin === cleanBase || currentDomainRoot === baseDomainRoot) {
           return formattedEndpoint;
         }
@@ -156,12 +168,29 @@ export async function authenticatedFetch(
   const targetUrl = resolveEndpointUrl(url);
 
   const executeFetch = async (retryCount = 0): Promise<Response> => {
+    let controller: AbortController | null = null;
+    let timeoutId: any = null;
+    let effectiveSignal = options.signal;
+
+    if (!effectiveSignal && typeof AbortController !== "undefined") {
+      controller = new AbortController();
+      effectiveSignal = controller.signal;
+      timeoutId = setTimeout(() => {
+        if (controller) {
+          controller.abort(new Error("Request timed out after 15 seconds"));
+        }
+      }, 15000);
+    }
+
     try {
       const response = await fetch(targetUrl, {
         credentials: "include",
         ...options,
-        headers
+        headers,
+        signal: effectiveSignal
       });
+
+      if (timeoutId) clearTimeout(timeoutId);
 
       // Handle 401: If token expired, refresh token once and retry request
       if (response.status === 401 && user && retryCount === 0) {
@@ -183,21 +212,31 @@ export async function authenticatedFetch(
 
       return response;
     } catch (netErr: any) {
-      // Retry once on transient network error (e.g. initial server boot/reconnect)
-      if (retryCount < 1) {
+      if (timeoutId) clearTimeout(timeoutId);
+
+      const isTimeout = netErr?.name === "AbortError" || (netErr?.message && netErr.message.includes("timed out"));
+
+      // Retry once on transient network error (e.g. initial server boot/reconnect) - do not retry if explicitly timed out
+      if (!isTimeout && retryCount < 1) {
         console.warn(`[authenticatedFetch] Transient network warning for ${targetUrl}, retrying once in 300ms...`);
         await new Promise((resolve) => setTimeout(resolve, 300));
         return executeFetch(retryCount + 1);
       }
 
       console.warn(`[authenticatedFetch] Network error for ${targetUrl}:`, netErr?.message || netErr);
+      const errorMsg = isTimeout
+        ? "استغرقت الاستجابة وقتاً أطول من المتوقع (انتهت مهلة الطلب). يرجى المحاولة مرة أخرى."
+        : (netErr?.message || "فشل الاتصال بالخادم. يرجى التحقق من اتصال الإنترنت والمحاولة مجدداً.");
+
       return new Response(
         JSON.stringify({
           success: false,
-          error: netErr?.message || "فشل الاتصال بخادم الحسابات (Failed to fetch). يرجى التحقق من الاتصال بالإنترنت."
+          code: isTimeout ? "GATEWAY_TIMEOUT" : "NETWORK_ERROR",
+          error: errorMsg,
+          userFriendlyMessage: errorMsg
         }),
         {
-          status: 503,
+          status: isTimeout ? 504 : 503,
           headers: { "Content-Type": "application/json" }
         }
       );
