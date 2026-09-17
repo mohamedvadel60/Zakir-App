@@ -180,17 +180,28 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
   setActiveSubTab: setExternalSubTab,
   onEncryptAllData,
 }) => {
+  const isCeoOrFirstAdmin = 
+    (currentUser.role || "").toUpperCase() === "CEO" ||
+    (currentUser.role || "").toUpperCase().startsWith("CEO") ||
+    (currentUser.role || "").toUpperCase() === "FIRST ADMINISTRATOR" ||
+    (currentUser.role || "").toUpperCase() === "FIRST_ADMINISTRATOR" ||
+    (currentUser.role || "").toUpperCase() === "ADMIN" ||
+    (currentUser.role || "").toUpperCase() === "SUPER_ADMIN" ||
+    (currentUser.role || "").toUpperCase() === "OWNER" ||
+    (currentUser.role || "").toUpperCase() === "FOUNDER" ||
+    (Boolean(currentUser.workspace?.ownerId) && currentUser.workspace?.ownerId === currentUser.id);
+
   const [internalSubTab, setInternalSubTab] = useState<
     "account" | "subscription" | "team" | "security" | "support"
   >("account");
 
   let currentTab = externalSubTab || internalSubTab;
-  if (currentUser.role !== "CEO" && currentTab !== "account" && currentTab !== "security" && currentTab !== "support") {
+  if (!isCeoOrFirstAdmin && currentTab !== "account" && currentTab !== "security" && currentTab !== "support") {
     currentTab = "account";
   }
 
   const handleTabChange = (tab: "account" | "subscription" | "team" | "security" | "support") => {
-    if (currentUser.role !== "CEO" && tab !== "account" && tab !== "security" && tab !== "support") {
+    if (!isCeoOrFirstAdmin && tab !== "account" && tab !== "security" && tab !== "support") {
       return;
     }
     if (setExternalSubTab) {
@@ -233,14 +244,6 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
 
   const [saveSuccess, setSaveSuccess] = useState(false);
   
-  const isCeoOrFirstAdmin = 
-    (currentUser.role || "").toUpperCase() === "CEO" ||
-    (currentUser.role || "").toUpperCase() === "FIRST ADMINISTRATOR" ||
-    (currentUser.role || "").toUpperCase() === "FIRST_ADMINISTRATOR" ||
-    (currentUser.role || "").toUpperCase() === "ADMIN" ||
-    currentUser.workspace?.ownerId === currentUser.id ||
-    currentUser.id === "usr_admin_001" ||
-    currentUser.email === "admin@zakir.ai";
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const companyLogoInputRef = useRef<HTMLInputElement | null>(null);
   const signatureInputRef = useRef<HTMLInputElement | null>(null);
@@ -2018,8 +2021,8 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
             { id: "subscription", label: lang === "ar" ? "باقات الدفع والاشتراك" : "Plans & Payment", icon: CreditCard },
             { id: "support", label: lang === "ar" ? "الدعم والتوثيق" : "Help & Documentation", icon: HelpCircle },
           ].filter((tab) => {
-            if (currentUser.role !== "CEO") {
-              return tab.id === "account" || tab.id === "security" || tab.id === "subscription" || tab.id === "support";
+            if (!isCeoOrFirstAdmin) {
+              return tab.id === "account" || tab.id === "security" || tab.id === "support";
             }
             return true;
           }).map((tab) => {
@@ -2200,10 +2203,10 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
                 <input
                   type="text"
                   value={companyName}
-                  disabled={currentUser.role !== "CEO"}
+                  disabled={!isCeoOrFirstAdmin}
                   onChange={(e) => setCompanyName(e.target.value)}
                   className={`w-full h-11 px-4 rounded-xl border text-sm font-medium focus:outline-none focus:border-[#0075DE] ${
-                    currentUser.role !== "CEO" ? "opacity-60 cursor-not-allowed" : ""
+                    !isCeoOrFirstAdmin ? "opacity-60 cursor-not-allowed" : ""
                   } ${
                     theme === "dark" ? "bg-slate-950 border-slate-800 text-white" : "bg-slate-50 border-slate-300 text-slate-900"
                   }`}
@@ -2229,7 +2232,7 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
                         className="h-16 max-w-[200px] object-contain rounded-lg border border-slate-700/60 p-2 bg-slate-900/60" 
                         referrerPolicy="no-referrer"
                       />
-                      {currentUser.role === "CEO" && (
+                      {isCeoOrFirstAdmin && (
                         <button
                           type="button"
                           onClick={handleRemoveCompanyLogo}
@@ -2247,7 +2250,7 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
                   )}
 
                   <div>
-                    {currentUser.role === "CEO" ? (
+                    {isCeoOrFirstAdmin ? (
                       <>
                         <input 
                           type="file" 
@@ -2291,7 +2294,7 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
                         className="h-16 max-w-[200px] object-contain rounded-lg border border-slate-700/60 p-2 bg-slate-900/60" 
                         referrerPolicy="no-referrer"
                       />
-                      {currentUser.role === "CEO" && (
+                      {isCeoOrFirstAdmin && (
                         <button
                           type="button"
                           onClick={handleRemoveSignature}
@@ -2309,7 +2312,7 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
                   )}
 
                   <div>
-                    {currentUser.role === "CEO" ? (
+                    {isCeoOrFirstAdmin ? (
                       <>
                         <input 
                           type="file" 
@@ -2495,7 +2498,7 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
             </div>
 
             {/* WORKER / NON-CEO ASSIGNED PERMISSIONS READ-ONLY SUMMARY */}
-            {currentUser.role !== "CEO" && (
+            {!isCeoOrFirstAdmin && (
               <div className={`p-5 rounded-2xl border ${theme === "dark" ? "bg-slate-950/60 border-slate-800" : "bg-slate-50 border-slate-200"} space-y-3`}>
                 <div className="flex items-center justify-between flex-wrap gap-2">
                   <div className="flex items-center gap-2">

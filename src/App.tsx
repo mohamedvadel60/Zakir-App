@@ -1534,6 +1534,13 @@ This hosting domain (**${currentDomain}**) has not been authorized in your Fireb
     setReactivationSuccessMsg("");
     setRestorationSuccessMsg("");
 
+    // Ensure no previous user or admin session interferes with new user registration
+    try {
+      if (auth.currentUser) {
+        await logoutFirebaseUser().catch(() => {});
+      }
+    } catch (e) {}
+
     try {
       const normalizedEmail = regEmail.trim().toLowerCase();
 
@@ -1688,6 +1695,14 @@ This hosting domain (**${currentDomain}**) has not been authorized in your Fireb
       // Prevent duplicate OTP send on verification page mount
       sessionStorage.setItem(`auto_sent_otp_${createdUser.id}`, "true");
       sessionStorage.setItem(`auto_sent_otp_${createdUser.email}`, "true");
+
+      if (regData.customToken) {
+        try {
+          await loginWithCustomToken(regData.customToken);
+        } catch (ctErr) {
+          console.warn("Client loginWithCustomToken notice:", ctErr);
+        }
+      }
 
       setCurrentUser(createdUser);
       applyUserPreferences(createdUser);
@@ -1921,11 +1936,35 @@ This hosting domain (**${currentDomain}**) has not been authorized in your Fireb
     return requiredRoles.includes(currentUser.role);
   };
 
+  // Authoritative CEO / Workspace Owner verification helper
+  const isUserCeoOrAdmin = (user: User | null | undefined): boolean => {
+    if (!user) return false;
+    const r = (user.role || "").trim().toUpperCase();
+    if (
+      r === "CEO" ||
+      r.startsWith("CEO") ||
+      r.includes("CEO") ||
+      r === "ADMIN" ||
+      r === "SUPER_ADMIN" ||
+      r === "FIRST ADMINISTRATOR" ||
+      r === "FIRST_ADMINISTRATOR" ||
+      r === "OWNER" ||
+      r === "FOUNDER"
+    ) {
+      return true;
+    }
+    if (user.workspace?.ownerId && user.id && user.workspace.ownerId === user.id) {
+      return true;
+    }
+    return false;
+  };
+
   // Granular module access check (strictly enforces First Administrator / CEO access for sensitive modules)
   const canUserAccessModule = (moduleId: string): boolean => {
     if (!currentUser) return false;
-    if (currentUser.role === "CEO" || currentUser.role === "Admin") return true;
-    if (moduleId === "dashboard" || moduleId === "support" || moduleId === "gmail" || moduleId === "smart") return true;
+    if (isUserCeoOrAdmin(currentUser)) return true;
+    // Core accessible modules and User-Specific Settings are always accessible to authenticated users
+    if (moduleId === "dashboard" || moduleId === "support" || moduleId === "gmail" || moduleId === "smart" || moduleId === "settings") return true;
     if (!currentUser.powers) return false;
     switch (moduleId) {
       case "files": return Boolean(currentUser.powers.fileVault);
@@ -1933,7 +1972,6 @@ This hosting domain (**${currentDomain}**) has not been authorized in your Fireb
       case "add": return Boolean(currentUser.powers.memoryVault);
       case "alerts": return Boolean(currentUser.powers.riskRadar);
       case "market": return Boolean(currentUser.powers.marketIntel);
-      case "settings": return Boolean(currentUser.powers.settings);
       default: return false;
     }
   };

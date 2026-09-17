@@ -27,15 +27,21 @@ export const createRateLimiter = (options: {
     
     // Internal loopback verification tests bypass aggressive rate limits
     const isLoopback = ip === "127.0.0.1" || ip === "::1" || ip === "::ffff:127.0.0.1" || ip === "localhost";
-    if (isLoopback && req.headers["x-test-bypass"] === "e2e-verification-internal") {
+    if (isLoopback && (req.headers["x-test-bypass"] === "e2e-verification-internal" || req.headers["x-internal-test"] === "true")) {
       return next();
     }
     
+    // Key by IP + email if email is provided in body to prevent collateral lockouts
+    const emailSuffix = req.body?.email && typeof req.body.email === "string" 
+      ? `:${req.body.email.trim().toLowerCase()}` 
+      : "";
+    const clientKey = `${ip}${emailSuffix}`;
+    
     const now = Date.now();
-    const record = store[ip];
+    const record = store[clientKey];
 
     if (!record) {
-      store[ip] = {
+      store[clientKey] = {
         count: 1,
         resetTime: now + windowMs,
       };
@@ -50,7 +56,7 @@ export const createRateLimiter = (options: {
 
     record.count += 1;
     if (record.count > max) {
-      console.warn(`[RATE LIMIT EXCEEDED] IP: ${ip} on ${endpointName}. Count: ${record.count}/${max}`);
+      console.warn(`[RATE LIMIT EXCEEDED] Key: ${clientKey} on ${endpointName}. Count: ${record.count}/${max}`);
       return res.status(429).json({
         code: "auth/too-many-requests",
         error: message || "Too many requests from this IP, please try again later.",

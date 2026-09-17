@@ -486,9 +486,9 @@ const loginRegisterLimiter = createRateLimiter({
 });
 
 const otpLimiter = createRateLimiter({
-  windowMs: 5 * 60 * 1000, // 5 minutes
-  max: 3,
-  message: "Too many OTP verification requests. Please try again after 5 minutes.",
+  windowMs: 3 * 60 * 1000, // 3 minutes
+  max: 15,
+  message: "Too many OTP verification requests. Please try again after a few minutes.",
   endpointName: "otp"
 });
 
@@ -2145,38 +2145,49 @@ function buildMasterEmailHtml(options: {
   <meta name="x-apple-disable-message-reformatting" />
   <title>${escapeHtml(subject)}</title>
 </head>
-<body style="margin: 0; padding: 0; background-color: #f8fafc; font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #0f172a; -webkit-font-smoothing: antialiased;">
+<body style="margin: 0; padding: 0; background-color: #f8fafc; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #0f172a; -webkit-font-smoothing: antialiased;">
   <table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #f8fafc; table-layout: fixed; padding: 40px 16px;">
     <tr>
       <td align="center">
         <!-- Master Card -->
-        <table border="0" cellpadding="0" cellspacing="0" width="100%" style="max-width: 600px; background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 14px; overflow: hidden; box-shadow: 0 4px 16px rgba(15, 23, 42, 0.04);">
+        <table border="0" cellpadding="0" cellspacing="0" width="100%" style="max-width: 580px; background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 20px rgba(15, 23, 42, 0.05);">
           
-          <!-- Header -->
+          <!-- Header with Official Logo (Clean White Background) -->
           <tr>
             <td style="padding: 36px 32px 24px 32px; text-align: center; border-bottom: 1px solid #f1f5f9; background-color: #ffffff;">
-              <div style="font-size: 28px; font-weight: 800; color: #0075DE; letter-spacing: 1px; font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
-                Zakir | ذاكِر
+              <!-- Logo Container Badge: Pure White Background -->
+              <table border="0" cellpadding="0" cellspacing="0" align="center" style="margin: 0 auto 16px auto;">
+                <tr>
+                  <td align="center" style="width: 56px; height: 56px; background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 14px; padding: 6px; box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04); vertical-align: middle;">
+                    <img src="${logoUrl}" alt="Zakir" width="44" height="44" style="display: block; width: 44px; height: 44px; border: 0; outline: none; text-decoration: none; margin: 0 auto; border-radius: 8px;" />
+                  </td>
+                </tr>
+              </table>
+
+              <!-- Brand Name (ZAKIR only - Arabic 'ذاكر' removed) -->
+              <div style="font-size: 26px; font-weight: 800; color: #0f172a; letter-spacing: 2.5px; text-transform: uppercase; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; line-height: 1.2; margin: 0 0 6px 0;">
+                ZAKIR
               </div>
-              <div style="font-size: 13px; font-weight: 600; color: #64748b; margin-top: 8px; line-height: 1.6;">
-                الذاكرة السببية للمنظمات وذكاء اتخاذ القرار<br/>
-                <span style="font-size: 11px; font-weight: 500; color: #94a3b8; letter-spacing: 0.5px;">Organizational Causal Memory &amp; Decision Intelligence</span>
+
+              <!-- Refined Bilingual Subtitle with subtle touch of Arabic -->
+              <div style="font-size: 13px; font-weight: 500; color: #64748b; line-height: 1.5; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+                الذاكرة المؤسسية السببية &bull; Causal Decision Intelligence
               </div>
             </td>
           </tr>
 
           <!-- Body -->
           <tr>
-            <td style="padding: 32px; text-align: right;">
-              <h1 style="color: #0f172a; font-size: 22px; font-weight: 700; margin: 0 0 20px 0; line-height: 1.4; text-align: center;">
+            <td style="padding: 34px 32px; text-align: right; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+              <h1 style="color: #0f172a; font-size: 21px; font-weight: 800; margin: 0 0 20px 0; line-height: 1.4; text-align: center; letter-spacing: -0.2px;">
                 ${escapeHtml(title)}
               </h1>
-              ${greeting ? `<p style="color: #0f172a; font-size: 15px; font-weight: 600; margin: 0 0 16px 0; text-align: inherit;">${escapeHtml(greeting)}</p>` : ''}
+              ${greeting ? `<p style="color: #0f172a; font-size: 15px; font-weight: 700; margin: 0 0 16px 0; text-align: inherit; line-height: 1.5;">${escapeHtml(greeting)}</p>` : ''}
               ${bodyHtml}
               ${securityNote ? `
-              <div style="margin-top: 28px; padding: 14px 16px; background-color: #f0f7ff; border-right: 4px solid #0075DE; border-radius: 6px; text-align: right; direction: rtl;">
-                <p style="margin: 0; color: #1e3a8a; font-size: 13px; line-height: 1.5;">
-                  <strong>تنبيه أمني:</strong> ${escapeHtml(securityNote)}
+              <div style="margin-top: 30px; padding: 14px 18px; background-color: #f8fafc; border: 1px solid #e2e8f0; border-right: 4px solid #0075DE; border-radius: 8px; text-align: right; direction: rtl;">
+                <p style="margin: 0; color: #334155; font-size: 13px; line-height: 1.6;">
+                  <strong style="color: #0075DE;">تنبيه أمني &bull; Security Note:</strong> ${escapeHtml(securityNote)}
                 </p>
               </div>
               ` : ''}
@@ -2185,11 +2196,26 @@ function buildMasterEmailHtml(options: {
 
           <!-- Footer -->
           <tr>
-            <td style="padding: 24px 32px; background-color: #f8fafc; border-top: 1px solid #f1f5f9; text-align: center;">
-              <p style="margin: 0 0 4px 0; font-size: 14px; font-weight: 700; color: #0f172a;">ذاكِر | Zakir</p>
-              <p style="margin: 0 0 12px 0; font-size: 12px; color: #64748b; line-height: 1.5;">الذاكرة السببية للمنظمات وذكاء اتخاذ القرار<br/>Organizational Causal Memory &amp; Decision Intelligence</p>
-              <p style="margin: 0 0 8px 0; font-size: 11px; color: #94a3b8; line-height: 1.5;">هذه رسالة تلقائية من منصة Zakir. يرجى عدم الرد على هذا البريد الإلكتروني.<br/>This is an automated message. Please do not reply to this email.</p>
-              <p style="margin: 0; font-size: 11px; color: #94a3b8;">&copy; 2026 Zakir. جميع الحقوق محفوظة.</p>
+            <td style="padding: 26px 32px; background-color: #f8fafc; border-top: 1px solid #f1f5f9; text-align: center; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+              <!-- Mini Footer Brand -->
+              <table border="0" cellpadding="0" cellspacing="0" align="center" style="margin: 0 auto 10px auto;">
+                <tr>
+                  <td align="center" style="vertical-align: middle;">
+                    <img src="${logoUrl}" alt="Zakir" width="18" height="18" style="display: inline-block; vertical-align: middle; width: 18px; height: 18px; border: 0; margin-right: 6px;" />
+                    <span style="font-size: 13px; font-weight: 800; color: #0f172a; vertical-align: middle; letter-spacing: 1px; text-transform: uppercase;">ZAKIR</span>
+                  </td>
+                </tr>
+              </table>
+              <p style="margin: 0 0 10px 0; font-size: 12px; color: #64748b; line-height: 1.6;">
+                الذاكرة المؤسسية السببية وذكاء اتخاذ القرار &bull; Enterprise Causal Intelligence
+              </p>
+              <p style="margin: 0 0 8px 0; font-size: 11px; color: #94a3b8; line-height: 1.5;">
+                هذه رسالة آلية مؤمنة من منصة Zakir. يرجى عدم الرد على هذا البريد الإلكتروني.<br/>
+                This is an automated and secure notification from Zakir. Please do not reply to this email.
+              </p>
+              <p style="margin: 0; font-size: 11px; color: #94a3b8; font-weight: 500;">
+                &copy; 2026 Zakir. All rights reserved. &bull; جميع الحقوق محفوظة
+              </p>
             </td>
           </tr>
 
@@ -2313,14 +2339,14 @@ function buildOtpEmailHtml(options: BuildOtpEmailOptions): { subject: string; te
       </div>
 
       <!-- Verification Code Box -->
-      <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin: 24px 0;">
+      <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin: 26px 0;">
         <tr>
-          <td align="center" style="padding: 24px 16px; background-color: #f0f7ff; border: 1px solid #bfdbfe; border-radius: 12px;">
-            <div style="font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, Courier, monospace, -apple-system, sans-serif; font-size: 38px; font-weight: 800; color: #0075DE; letter-spacing: 8px; text-align: center; margin: 0; user-select: all; -webkit-user-select: all;">
+          <td align="center" style="padding: 26px 20px; background-color: #f8fafc; border: 1.5px dashed #0075DE; border-radius: 12px;">
+            <div style="font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, Monaco, monospace; font-size: 38px; font-weight: 800; color: #0075DE; letter-spacing: 10px; text-indent: 10px; text-align: center; margin: 0; line-height: 1; user-select: all; -webkit-user-select: all;">
               ${escapeHtml(cleanCode)}
             </div>
-            <div style="margin-top: 10px; font-size: 13px; color: #64748b; text-align: center; font-weight: 600;">
-              صالح لمدة 10 دقائق | Expires in 10 minutes
+            <div style="margin-top: 12px; font-size: 12px; color: #64748b; text-align: center; font-weight: 600; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+              صالح لمدة 10 دقائق &bull; Valid for 10 minutes
             </div>
           </td>
         </tr>
@@ -2421,12 +2447,12 @@ function buildInvitationEmailHtml(options: {
     securityNote = "If you were not expecting this invitation, you can safely ignore this email.";
   } else {
     // Default to Arabic
-    subject = `دعوة للانضمام إلى مؤسسة "${companyName}" على منصة ذاكر (Zakir)`;
+    subject = `دعوة للانضمام إلى مؤسسة "${companyName}" على منصة Zakir`;
     title = `دعوة انضمام لمساحة عمل المؤسسة`;
     greeting = memberName ? `مرحباً ${memberName}،` : `مرحباً،`;
     introText = isReminder
-      ? `هذا تذكير بأن المسؤول "${inviterName}" قد دعاك للانضمام إلى مؤسسة "${companyName}" على منصة ذاكر بصفة "${designatedRole}".`
-      : `لقد قام المسؤول "${inviterName}" بدعوتك للانضمام إلى مؤسسة "${companyName}" على منصة ذاكر بصفة "${designatedRole}".`;
+      ? `هذا تذكير بأن المسؤول "${inviterName}" قد دعاك للانضمام إلى مؤسسة "${companyName}" على منصة Zakir بصفة "${designatedRole}".`
+      : `لقد قام المسؤول "${inviterName}" بدعوتك للانضمام إلى مؤسسة "${companyName}" على منصة Zakir بصفة "${designatedRole}".`;
     orgLabel = "المؤسسة:";
     inviterLabel = "المرسل / المسؤول:";
     roleLabel = "الدور المحدد:";
@@ -4297,7 +4323,7 @@ app.all([
     }
 
     if (!authoritativeCompanyName) {
-      authoritativeCompanyName = ceoData?.ownerName ? `${ceoData.ownerName}` : "منصة ذاكر (Zakir)";
+      authoritativeCompanyName = ceoData?.ownerName ? `${ceoData.ownerName}` : "منصة Zakir";
     }
     authoritativeCompanyName = authoritativeCompanyName.trim();
 
@@ -4605,7 +4631,7 @@ app.all([
     }
 
     if (!companyName || companyName === "ZakIr Platform" || companyName === "Zakir Workspace") {
-      companyName = ceoData?.ownerName ? `${ceoData.ownerName}` : "منصة ذاكر (Zakir)";
+      companyName = ceoData?.ownerName ? `${ceoData.ownerName}` : "منصة Zakir";
     }
     companyName = companyName.trim();
 
@@ -8947,6 +8973,7 @@ app.get("/api/auth/recovery-request/status", async (req, res) => {
     }
 
     // Determine highest priority request / decision state
+    const hasRestoredDoc = requestDocs.some((r) => r.status === "restored");
     const hasApprovedDoc = requestDocs.some((r) => r.status === "approved" || r.decision === "approved" || r.reactivationStatus === "approved");
     const isLifecycleApproved = lifecycle && (lifecycle.reactivationStatus === "approved" || lifecycle.status === "ADMIN_APPROVED");
     const isAlreadyActive = lifecycle && lifecycle.status === "ACTIVE";
@@ -8955,10 +8982,14 @@ app.get("/api/auth/recovery-request/status", async (req, res) => {
     const isLifecycleRejected = lifecycle && (lifecycle.reactivationStatus === "rejected" || lifecycle.status === "ADMIN_REJECTED");
 
     let computedStatus = "pending";
-    if (isAlreadyActive) {
+    if (hasApprovedDoc || isLifecycleApproved) {
+      if (hasRestoredDoc && isAlreadyActive) {
+        computedStatus = "already_active";
+      } else {
+        computedStatus = "approved";
+      }
+    } else if (isAlreadyActive) {
       computedStatus = "already_active";
-    } else if (hasApprovedDoc || isLifecycleApproved) {
-      computedStatus = "approved";
     } else if (hasRejectedDoc || isLifecycleRejected) {
       computedStatus = "rejected";
     } else if (requestDocs.length === 0) {
@@ -9172,7 +9203,7 @@ app.post("/api/auth/recovery-request/send-approval-otp", otpLimiter, async (req,
     }
     const normalizedEmail = email.trim().toLowerCase();
 
-    let reqStatus = "";
+    let isApproved = false;
     let reqId = "";
     let targetUserId = "";
 
@@ -9180,64 +9211,80 @@ app.post("/api/auth/recovery-request/send-approval-otp", otpLimiter, async (req,
       const snap1 = await adminDb.collection("recoveryRequests_by_email").doc(normalizedEmail).get();
       if (snap1.exists) {
         const d = snap1.data();
-        reqStatus = d?.status || "";
-        reqId = d?.id || d?.requestId || "";
-        targetUserId = d?.userId || "";
+        if (d?.status === "approved" || d?.decision === "approved" || d?.reactivationStatus === "approved") {
+          isApproved = true;
+        }
+        reqId = d?.id || d?.requestId || reqId;
+        targetUserId = d?.userId || targetUserId;
       }
-      if (!reqStatus) {
+      if (!isApproved) {
         const snap2 = await adminDb.collection("accountRecoveryRequests_by_email").doc(normalizedEmail).get();
         if (snap2.exists) {
           const d = snap2.data();
-          reqStatus = d?.status || "";
-          reqId = d?.id || d?.requestId || "";
-          targetUserId = d?.userId || "";
+          if (d?.status === "approved" || d?.decision === "approved" || d?.reactivationStatus === "approved") {
+            isApproved = true;
+          }
+          reqId = d?.id || d?.requestId || reqId;
+          targetUserId = d?.userId || targetUserId;
         }
       }
-      if (!reqStatus) {
-        const qSnap = await adminDb.collection("recoveryRequests").where("email", "==", normalizedEmail).limit(1).get().catch(() => null);
+      if (!isApproved) {
+        const qSnap = await adminDb.collection("recoveryRequests").where("email", "==", normalizedEmail).get().catch(() => null);
         if (qSnap && !qSnap.empty) {
-          const d = qSnap.docs[0].data();
-          reqStatus = d?.status || "";
-          reqId = d?.id || d?.requestId || "";
-          targetUserId = d?.userId || "";
+          for (const doc of qSnap.docs) {
+            const d = doc.data();
+            if (d?.status === "approved" || d?.decision === "approved" || d?.reactivationStatus === "approved") {
+              isApproved = true;
+              reqId = d?.id || d?.requestId || reqId;
+              targetUserId = d?.userId || targetUserId;
+              break;
+            }
+          }
+          if (!targetUserId && !qSnap.empty) {
+            const latest = qSnap.docs[0].data();
+            reqId = latest?.id || latest?.requestId || reqId;
+            targetUserId = latest?.userId || targetUserId;
+          }
         }
       }
     } catch (e) {}
 
-    if (!reqStatus) {
+    if (!isApproved) {
       const db = readDb();
-      const localReq = db.account_recovery_requests?.find((r: any) => r.email === normalizedEmail);
+      const localReq = db.account_recovery_requests?.find((r: any) => 
+        (r.email || "").trim().toLowerCase() === normalizedEmail &&
+        (r.status === "approved" || r.decision === "approved" || r.reactivationStatus === "approved")
+      );
       if (localReq) {
-        reqStatus = localReq.status || "";
-        reqId = localReq.id || localReq.requestId || "";
-        targetUserId = localReq.userId || "";
+        isApproved = true;
+        reqId = localReq.id || localReq.requestId || reqId;
+        targetUserId = localReq.userId || targetUserId;
       }
     }
 
     const lifecycle = await getAccountLifecycleRecord(normalizedEmail);
-    if (lifecycle?.status === "ACTIVE") {
-      return res.status(400).json({
-        success: false,
-        error: "This account is already active and does not require recovery."
-      });
+    if (!isApproved && (lifecycle?.status === "ADMIN_APPROVED" || lifecycle?.reactivationStatus === "approved")) {
+      isApproved = true;
+      targetUserId = targetUserId || lifecycle.userId || lifecycle.uid || "";
     }
 
-    if (reqStatus !== "approved") {
-      if (lifecycle?.status === "ADMIN_APPROVED" || lifecycle?.reactivationStatus === "approved") {
-        reqStatus = "approved";
-        targetUserId = targetUserId || lifecycle.userId || lifecycle.uid || "";
-      } else {
-        console.warn("[RECOVERY_OTP_PIPELINE] Approval check failed:", {
-          recoveryRequestId: reqId || "UNKNOWN",
-          targetUserId: targetUserId || "UNKNOWN",
-          targetEmail: normalizedEmail,
-          status: reqStatus || "NOT_APPROVED"
-        });
+    if (!isApproved) {
+      if (lifecycle?.status === "ACTIVE") {
         return res.status(400).json({
           success: false,
-          error: "Your recovery request has not yet been approved by an administrator."
+          error: "This account is already active and does not require recovery."
         });
       }
+      console.warn("[RECOVERY_OTP_PIPELINE] Approval check failed:", {
+        recoveryRequestId: reqId || "UNKNOWN",
+        targetUserId: targetUserId || "UNKNOWN",
+        targetEmail: normalizedEmail,
+        isApproved: false
+      });
+      return res.status(400).json({
+        success: false,
+        error: "Your recovery request has not yet been approved by an administrator."
+      });
     }
 
     console.log("[RECOVERY_OTP_PIPELINE] Processing recovery OTP request:", {
@@ -10377,9 +10424,16 @@ app.post("/api/auth/register", loginRegisterLimiter, async (req, res) => {
     // If user registered through an invitation, skip OTP creation & dispatch!
     if (isInvitedUser) {
       console.log("INVITED_USER_REGISTERED_NO_OTP_REQUIRED", { userId, email: normalizedEmail });
+      let customToken: string | null = null;
+      try {
+        customToken = await adminAuth.createCustomToken(userId);
+      } catch (ctErr) {
+        console.warn("createCustomToken error for invited user:", ctErr);
+      }
       const { passwordHash, ...userResponse } = newUser;
       return res.status(201).json({
         success: true,
+        customToken,
         user: {
           ...userResponse,
           isVerified: true,
@@ -10475,9 +10529,17 @@ app.post("/api/auth/register", loginRegisterLimiter, async (req, res) => {
     console.log("OTP_EMAIL_SENT", { userId, email: normalizedEmail });
     console.log("REGISTRATION_COMPLETED", { userId, email: normalizedEmail });
 
+    let customToken: string | null = null;
+    try {
+      customToken = await adminAuth.createCustomToken(userId);
+    } catch (ctErr) {
+      console.warn("createCustomToken error for registered user:", ctErr);
+    }
+
     const { passwordHash, ...userResponse } = newUser;
     return res.status(201).json({
       success: true,
+      customToken,
       user: userResponse,
       initialOtpSent: true,
       sendCount: 0,

@@ -1230,7 +1230,7 @@ export function subscribeToFirebaseAuthState(rawCallback: (user: User | null) =>
           console.warn("Notice: Invitation check in subscribeToFirebaseAuthState fallback:", invErr);
         }
 
-        const effectiveRole: UserRole = invitation?.role || (ADMIN_EMAILS.includes((fbUser.email || "").toLowerCase()) || fbUser.uid === ADMIN_USER_ID ? "Admin" : "Contributor");
+        const effectiveRole: UserRole = invitation?.role || "CEO";
         const workspaceId = invitation?.workspaceId || `ws_${fbUser.uid.substring(0, 8)}_${Date.now().toString(36)}`;
         const effectiveCompany = invitation?.companyName || "Personal Account";
         const workspaceInfo: WorkspaceInfo = invitation ? {
@@ -1307,7 +1307,7 @@ export function subscribeToFirebaseAuthState(rawCallback: (user: User | null) =>
         resolvedFallbackName = fbUser.email.split("@")[0];
       }
 
-      const fallbackRole: UserRole = (ADMIN_EMAILS.includes((fbUser?.email || "").toLowerCase()) || fbUser?.uid === ADMIN_USER_ID) ? "Admin" : "Contributor";
+      const fallbackRole: UserRole = "CEO";
       callback({
         id: fbUser.uid,
         email: fbUser.email || "",

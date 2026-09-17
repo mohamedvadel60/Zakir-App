@@ -33,7 +33,8 @@ import {
   fetchAccountRecoveryStatusApi,
   sendRecoveryApprovalOtpApi,
   verifyRecoveryApprovalOtpAndRestoreApi,
-  checkAccountLifecycleApi
+  checkAccountLifecycleApi,
+  loginWithCustomToken
 } from "../lib/firebaseServices";
 import { User } from "../types";
 
@@ -120,7 +121,7 @@ export const DeletedAccountRecovery: React.FC<DeletedAccountRecoveryProps> = ({
   const [isCheckingStatus, setIsCheckingStatus] = useState(false);
   const [statusResult, setStatusResult] = useState<{
     recoverable: boolean;
-    status: "none" | "pending" | "under_review" | "approved" | "rejected";
+    status: "none" | "pending" | "under_review" | "approved" | "rejected" | "already_active";
     remainingDays?: number;
     recoveryRequest: any | null;
   } | null>(null);
@@ -601,6 +602,13 @@ export const DeletedAccountRecovery: React.FC<DeletedAccountRecoveryProps> = ({
     try {
       const res = await verifyRecoveryApprovalOtpAndRestoreApi(statusEmail || email, otpCode);
       if (res && res.success && res.user) {
+        if (res.customToken) {
+          try {
+            await loginWithCustomToken(res.customToken);
+          } catch (tErr) {
+            console.warn("Client loginWithCustomToken notice:", tErr);
+          }
+        }
         onRestored(res.user);
       } else {
         setOtpError(res?.error || (lang === "ar" ? "رمز التحقق غير صحيح أو منتهي الصلاحية." : "Invalid or expired verification code."));
