@@ -53,7 +53,7 @@ import {
 } from "lucide-react";
 import { CustomerSupport } from "./CustomerSupport.js";
 import { User, UserRole, TeamMember, ModulePermissions, EncryptedModuleSettings, AccountVerificationDoc, VerificationInfo, VerificationStatus } from "../types.js";
-import { saveWorkspaceInvitation, deleteWorkspaceInvitation, fetchWorkspaceInvitations, fetchWorkspaceTeamApi, WorkspaceInvitation, sendWorkspaceInvitationApi, resendWorkspaceInvitationApi, saveFirebaseUserProfile, uploadFirebaseUserFile, deleteFirebaseUserFile } from "../lib/firebaseServices.js";
+import { saveWorkspaceInvitation, deleteWorkspaceInvitation, fetchWorkspaceInvitations, fetchWorkspaceTeamApi, WorkspaceInvitation, sendWorkspaceInvitationApi, resendWorkspaceInvitationApi, saveFirebaseUserProfile, uploadFirebaseUserFile, deleteFirebaseUserFile, isUserAdmin } from "../lib/firebaseServices.js";
 import { openOrDownloadUserFile, openUserFileInNewTab, downloadUserFile } from "../lib/fileViewerUtils.js";
 import { translations } from "../translations.js";
 import { PLAN_PRICES, getPlanCostUSD, formatPlanPriceUSD } from "../lib/pricingConfig.js";
@@ -185,11 +185,10 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
     (currentUser.role || "").toUpperCase().startsWith("CEO") ||
     (currentUser.role || "").toUpperCase() === "FIRST ADMINISTRATOR" ||
     (currentUser.role || "").toUpperCase() === "FIRST_ADMINISTRATOR" ||
-    (currentUser.role || "").toUpperCase() === "ADMIN" ||
-    (currentUser.role || "").toUpperCase() === "SUPER_ADMIN" ||
     (currentUser.role || "").toUpperCase() === "OWNER" ||
     (currentUser.role || "").toUpperCase() === "FOUNDER" ||
-    (Boolean(currentUser.workspace?.ownerId) && currentUser.workspace?.ownerId === currentUser.id);
+    (Boolean(currentUser.workspace?.ownerId) && currentUser.workspace?.ownerId === currentUser.id) ||
+    isUserAdmin(currentUser);
 
   const [internalSubTab, setInternalSubTab] = useState<
     "account" | "subscription" | "team" | "security" | "support"
@@ -609,41 +608,18 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
   const [walletProvider, setWalletProvider] = useState("Bankily");
   const [walletPhone, setWalletPhone] = useState("+222 46 88 99 00");
 
-  // CEO Team Powers Management State
-  const initialTeamMembersList: TeamMember[] = currentUser.teamMembersList && currentUser.teamMembersList.length > 0 
+  // CEO Team Powers Management State - strictly isolated to current authenticated user
+  const initialTeamMembersList: TeamMember[] = (currentUser.teamMembersList && currentUser.teamMembersList.length > 0)
     ? currentUser.teamMembersList 
     : [
         {
           id: "tm-owner",
-          name: fullName,
-          email: email,
+          uid: currentUser.id,
+          name: fullName || currentUser.ownerName || email.split("@")[0] || "CEO / Owner",
+          email: email || currentUser.email || "",
           role: "CEO / Owner",
           powers: { fileVault: true, memoryVault: true, riskRadar: true, marketIntel: true, settings: true },
-          addedAt: "2026-01-01"
-        },
-        {
-          id: "tm-2",
-          name: "Fatima Zahra",
-          email: "f.zahra@g-partner.com",
-          role: "Risk Auditor",
-          powers: { fileVault: true, memoryVault: true, riskRadar: true, marketIntel: false, settings: true },
-          addedAt: "2026-02-10"
-        },
-        {
-          id: "tm-3",
-          name: "Jean-Luc",
-          email: "j.luc@g-partner.com",
-          role: "Contributor",
-          powers: { fileVault: true, memoryVault: true, riskRadar: false, marketIntel: false, settings: false },
-          addedAt: "2026-03-01"
-        },
-        {
-          id: "tm-4",
-          name: "Aisha Diop",
-          email: "a.diop@g-partner.com",
-          role: "Analyst",
-          powers: { fileVault: false, memoryVault: true, riskRadar: true, marketIntel: true, settings: false },
-          addedAt: "2026-04-12"
+          addedAt: (currentUser.createdAt || new Date().toISOString()).split("T")[0]
         }
       ];
 

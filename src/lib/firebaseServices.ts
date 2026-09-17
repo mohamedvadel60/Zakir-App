@@ -1217,6 +1217,11 @@ export function subscribeToFirebaseAuthState(rawCallback: (user: User | null) =>
           throw new Error(`SECURITY_FATAL_UID_MISMATCH: fbUser.uid (${fbUser.uid}) !== userObj.id (${profileId})`);
         }
         const validatedUser = { ...userObj, id: fbUser.uid };
+        if (!isUserAdmin(validatedUser) && (validatedUser.role === "Admin" || (validatedUser.role as string) === "admin")) {
+          const isOwner = Boolean(validatedUser.workspace?.ownerId && validatedUser.workspace.ownerId === fbUser.uid) ||
+                          Boolean(validatedUser.workspaceId && validatedUser.workspaceId.startsWith(`ws_${fbUser.uid.substring(0, 8)}`));
+          validatedUser.role = isOwner ? "CEO" : "Contributor";
+        }
         setLocalItem(`user_${fbUser.uid}`, validatedUser);
         callback(validatedUser);
       } else {
@@ -2039,17 +2044,25 @@ export async function checkWorkspaceInvitation(email: string): Promise<Workspace
   const emailKey = email.trim().toLowerCase();
   if (!emailKey) return null;
   
-  // 1. Try secure backend endpoint first (works even before user is authenticated)
+  // 1. Try secure backend endpoint first (authoritative source of truth)
   try {
     const serverInv = await checkWorkspaceInvitationApi(emailKey);
     if (serverInv && serverInv.status !== "ACCEPTED" && serverInv.status !== "accepted") {
       return serverInv;
+    } else {
+      // Server authoritatively confirmed no pending invitation or already accepted
+      try {
+        const localInvs = getLocalItem("invitations", []);
+        const filtered = localInvs.filter((i: any) => (i.email || "").trim().toLowerCase() !== emailKey);
+        setLocalItem("invitations", filtered);
+      } catch (e) {}
+      return null;
     }
   } catch (e) {
-    // silently continue to fallback
+    // Only continue to local cache if network/server was unreachable
   }
 
-  // 2. Check local storage cache
+  // 2. Check local storage cache only in offline scenario
   const invitations = getLocalItem("invitations", []);
   const localMatch = invitations.find((i: WorkspaceInvitation) => (i.email || "").trim().toLowerCase() === emailKey && i.status !== "ACCEPTED" && i.status !== "accepted");
   if (localMatch) return localMatch;
@@ -2106,6 +2119,8 @@ export async function fetchWorkspaceInvitations(workspaceId: string): Promise<Wo
 
 export const ADMIN_USER_ID = "SYhfciebGFUj29gqGaa0pqNunrk2";
 export const ADMIN_EMAILS: string[] = [
+  "mohamedvadel60@mail.com",
+  "mohamedvadel60@gmail.com",
   (((import.meta as any).env?.VITE_ADMIN_EMAIL) || (typeof process !== "undefined" ? process.env?.ADMIN_EMAIL : "") || "").toLowerCase().trim()
 ].filter(Boolean);
 
@@ -2116,8 +2131,8 @@ export function getAuthenticatedFirebaseUid(): string | null {
 export function isUserAdmin(user?: { id?: string | null; email?: string | null; role?: string | null } | null): boolean {
   if (!user) return false;
   if (user.id === ADMIN_USER_ID) return true;
-  const role = (user.role || "").trim().toLowerCase();
-  if (role === "admin" || role === "superadmin" || role === "super_admin" || role === "first admin") return true;
+  const email = (user.email || "").trim().toLowerCase();
+  if (email && ADMIN_EMAILS.includes(email)) return true;
   return false;
 }
 

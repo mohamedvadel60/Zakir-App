@@ -182,6 +182,8 @@ function readDbForAuth() {
 
 export const ADMIN_USER_ID = "SYhfciebGFUj29gqGaa0pqNunrk2";
 export const ADMIN_EMAILS = new Set([
+  "mohamedvadel60@mail.com",
+  "mohamedvadel60@gmail.com",
   (process.env.ADMIN_EMAIL || "").toLowerCase().trim()
 ].filter(Boolean));
 
@@ -259,7 +261,13 @@ export async function isUserAdminServer(uid: string, email?: string): Promise<bo
     return true;
   }
 
-  // 2. Check Firebase Admin Auth record strictly by UID
+  // 2. Direct email verification
+  const directEmail = (email || "").trim().toLowerCase();
+  if (directEmail && ADMIN_EMAILS.has(directEmail)) {
+    return true;
+  }
+
+  // 3. Check Firebase Admin Auth record strictly by UID
   try {
     const authUser = await adminAuth.getUser(uid);
     if (authUser) {
@@ -267,38 +275,34 @@ export async function isUserAdminServer(uid: string, email?: string): Promise<bo
       if (authEmail && ADMIN_EMAILS.has(authEmail)) {
         return true;
       }
-      const customClaims = (authUser.customClaims || {}) as any;
-      if (customClaims.admin === true || customClaims.role === "admin" || customClaims.role === "super_admin") {
-        return true;
-      }
     }
   } catch (authErr) {
     // Continue if auth lookup fails
   }
 
-  // 3. Check Firestore 'users' collection document strictly by UID
+  // 4. Check Firestore 'users' collection document strictly by UID
   try {
     const userDoc = await adminDb.collection("users").doc(uid).get();
     if (userDoc && userDoc.exists) {
       const userData = userDoc.data();
-      const role = (userData?.role || "").toLowerCase();
       const userEmail = (userData?.email || "").trim().toLowerCase();
-      if (userEmail && ADMIN_EMAILS.has(userEmail)) return true;
-      if (role === "admin" || role === "superadmin" || role === "super_admin" || role === "first admin") return true;
+      if (userEmail && ADMIN_EMAILS.has(userEmail)) {
+        return true;
+      }
     }
   } catch (err) {
     // continue to local check
   }
 
-  // 4. Fallback to local DB store check strictly by UID
+  // 5. Fallback to local DB store check strictly by UID
   try {
     const db = readDbForAuth();
     const localUser = db.users?.find((u: any) => u.id === uid || u.uid === uid);
     if (localUser) {
-      const role = (localUser.role || "").toLowerCase();
       const uEmail = (localUser.email || "").trim().toLowerCase();
-      if (uEmail && ADMIN_EMAILS.has(uEmail)) return true;
-      if (role === "admin" || role === "superadmin" || role === "super_admin" || role === "first admin") return true;
+      if (uEmail && ADMIN_EMAILS.has(uEmail)) {
+        return true;
+      }
     }
   } catch (e) {}
 

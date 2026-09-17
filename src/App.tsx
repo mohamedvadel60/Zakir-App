@@ -1944,8 +1944,6 @@ This hosting domain (**${currentDomain}**) has not been authorized in your Fireb
       r === "CEO" ||
       r.startsWith("CEO") ||
       r.includes("CEO") ||
-      r === "ADMIN" ||
-      r === "SUPER_ADMIN" ||
       r === "FIRST ADMINISTRATOR" ||
       r === "FIRST_ADMINISTRATOR" ||
       r === "OWNER" ||
@@ -1954,6 +1952,9 @@ This hosting domain (**${currentDomain}**) has not been authorized in your Fireb
       return true;
     }
     if (user.workspace?.ownerId && user.id && user.workspace.ownerId === user.id) {
+      return true;
+    }
+    if (isUserAdmin(user)) {
       return true;
     }
     return false;
@@ -3980,7 +3981,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
             applyUserPreferences={applyUserPreferences}
           />
         </Suspense>
-      ) : (currentUser && (currentUser.id === ADMIN_USER_ID || isUserAdmin(currentUser) || currentUser.role === "Admin")) ? (
+      ) : (currentUser && isUserAdmin(currentUser)) ? (
         /* ADMIN DASHBOARD VIEW FOR ADMIN USER */
         (() => {
           const authUid = getAuthenticatedFirebaseUid();

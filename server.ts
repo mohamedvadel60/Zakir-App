@@ -5337,25 +5337,41 @@ app.all([
 
     // 4. Fetch all invitations for this workspace (excluding already ACCEPTED ones or ones whose user is active)
     const workspaceMembersEmails = new Set(workspaceMembers.map((m: any) => (m.email || "").trim().toLowerCase()));
+    const seenInvEmails = new Set<string>();
     const workspaceInvitations: any[] = [];
+
+    const processInvDoc = (inv: any, docId: string) => {
+      const invEmail = (inv.email || docId || "").trim().toLowerCase();
+      if (!invEmail || seenInvEmails.has(invEmail)) return;
+      const isAcceptedStatus = (inv.status || "").toString().toUpperCase() === "ACCEPTED";
+      const isMemberRegistered = workspaceMembersEmails.has(invEmail);
+      
+      if (!isAcceptedStatus && !isMemberRegistered) {
+        seenInvEmails.add(invEmail);
+        workspaceInvitations.push({ ...inv, id: docId });
+      }
+    };
+
     try {
       const invSnap = await adminDb.collection("invitations").where("workspaceId", "==", workspaceId).get();
       if (!invSnap.empty) {
-        invSnap.docs.forEach((d: any) => {
-          const inv = d.data();
-          const invEmail = (inv.email || d.id || "").trim().toLowerCase();
-          const isAcceptedStatus = (inv.status || "").toString().toUpperCase() === "ACCEPTED";
-          const isMemberRegistered = workspaceMembersEmails.has(invEmail);
-          
-          if (!isAcceptedStatus && !isMemberRegistered) {
-            workspaceInvitations.push({ ...inv, id: d.id });
-          }
-        });
+        invSnap.docs.forEach((d: any) => processInvDoc(d.data(), d.id));
+      }
+    } catch (e) {}
+
+    try {
+      const wsSnap = await adminDb.collection("workspace_invitations").where("workspaceId", "==", workspaceId).get();
+      if (!wsSnap.empty) {
+        wsSnap.docs.forEach((d: any) => processInvDoc(d.data(), d.id));
       }
     } catch (e) {}
 
     // 5. Build authoritative team members list
     let teamList: any[] = Array.isArray(ceoUser?.teamMembersList) ? [...ceoUser.teamMembersList] : [];
+
+    // Filter out any legacy dummy mock members
+    const dummyEmails = new Set(["f.zahra@g-partner.com", "j.luc@g-partner.com", "a.diop@g-partner.com"]);
+    teamList = teamList.filter((m: any) => !dummyEmails.has((m.email || "").trim().toLowerCase()));
 
     // Ensure CEO/Owner is in teamList
     const ceoEmail = (ceoUser?.email || callerUser?.email || "").trim().toLowerCase();
@@ -10309,6 +10325,17 @@ app.post("/api/auth/register", loginRegisterLimiter, async (req, res) => {
         createdAt: nowIso,
         memberCount: 1
       },
+      teamMembersList: isInvitedUser ? [] : [
+        {
+          id: "tm-owner",
+          uid: userId,
+          name: resolvedOwnerName,
+          email: normalizedEmail,
+          role: "CEO / Owner",
+          powers: { fileVault: true, memoryVault: true, riskRadar: true, marketIntel: true, settings: true },
+          addedAt: nowIso.split("T")[0]
+        }
+      ],
       subscriptionStatus: "Pending Selection",
       createdAt: nowIso,
       trialExpiresAt: new Date(Date.now() + 24 * 3600 * 1000).toISOString(),
@@ -10815,24 +10842,36 @@ app.post("/api/auth/login", loginRegisterLimiter, async (req, res) => {
         userProfile.emailVerified = true;
         userProfile.verification_required = false;
         userProfile.verification_status = "verified";
-      } else if (!userProfile.isVerified || userProfile.verification_required !== false) {
-        let hasInvitation = false;
-        try {
-          const invDoc = await adminDb.collection("invitations").doc(normalizedEmail).get();
-          if (invDoc.exists) hasInvitation = true;
-          else {
-            const wsSnap = await adminDb.collection("workspace_invitations").where("email", "==", normalizedEmail).get();
-            if (!wsSnap.empty) hasInvitation = true;
-          }
-        } catch (e) {}
+      } else {
+        // If an ordinary user or CEO was mistakenly stored with role "Admin", fix it back to CEO or Contributor
+        if (userProfile.role === "Admin" || userProfile.role === "admin") {
+          const isOwner = Boolean(userProfile.workspace?.ownerId && userProfile.workspace.ownerId === authUid) ||
+                          Boolean(userProfile.workspaceId && userProfile.workspaceId.startsWith(`ws_${authUid.substring(0, 8)}`));
+          userProfile.role = isOwner ? "CEO" : "Contributor";
+          try {
+            await adminDb.collection("users").doc(authUid).update({ role: userProfile.role });
+          } catch (e) {}
+        }
 
-        if (hasInvitation || (userProfile.role && userProfile.role !== "CEO") || (userProfile.workspaceId && !userProfile.workspaceId.startsWith("ws_" + authUid.substring(0, 8)))) {
-          userProfile.isVerified = true;
-          userProfile.isEmailVerified = true;
-          userProfile.email_verified = true;
-          userProfile.emailVerified = true;
-          userProfile.verification_required = false;
-          userProfile.verification_status = "verified";
+        if (!userProfile.isVerified || userProfile.verification_required !== false) {
+          let hasInvitation = false;
+          try {
+            const invDoc = await adminDb.collection("invitations").doc(normalizedEmail).get();
+            if (invDoc.exists) hasInvitation = true;
+            else {
+              const wsSnap = await adminDb.collection("workspace_invitations").where("email", "==", normalizedEmail).get();
+              if (!wsSnap.empty) hasInvitation = true;
+            }
+          } catch (e) {}
+
+          if (hasInvitation || (userProfile.role && userProfile.role !== "CEO") || (userProfile.workspaceId && !userProfile.workspaceId.startsWith("ws_" + authUid.substring(0, 8)))) {
+            userProfile.isVerified = true;
+            userProfile.isEmailVerified = true;
+            userProfile.email_verified = true;
+            userProfile.emailVerified = true;
+            userProfile.verification_required = false;
+            userProfile.verification_status = "verified";
+          }
         }
       }
 

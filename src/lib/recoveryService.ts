@@ -31,6 +31,8 @@ const DB_FILE = path.join(process.cwd(), "src", "db_store.json");
 
 const ADMIN_USER_ID = "SYhfciebGFUj29gqGaa0pqNunrk2";
 const ADMIN_EMAILS = new Set([
+  "mohamedvadel60@mail.com",
+  "mohamedvadel60@gmail.com",
   (process.env.ADMIN_EMAIL || "").toLowerCase().trim()
 ].filter(Boolean));
 
@@ -1287,12 +1289,15 @@ export async function restoreAccountFullServer(email: string, newPassword?: stri
   const rawPreviousRole = retainedProfile?.role || existingUserDoc?.role || "Analyst";
   const isPrimaryFirstAdmin = ADMIN_EMAILS.has(normalizedEmail) || finalUid === ADMIN_USER_ID;
 
-  // Sensitive roles MUST NOT be automatically regained upon restoration to prevent privilege escalation
-  const sensitiveRoles = ["CEO", "ADMIN", "ADMINISTRATOR", "RISK AUDITOR", "SYSTEM ADMINISTRATOR", "COMPLIANCE OFFICER"];
-  const isSensitiveRole = sensitiveRoles.includes(rawPreviousRole.toUpperCase());
-
-  // Default restored account to basic role 'Analyst' unless it is the First Primary Admin email
-  const assignedRole = (isSensitiveRole && !isPrimaryFirstAdmin) ? "Analyst" : rawPreviousRole;
+  // Restored role determination: Platform Admin only for authorized admin identity; CEO preserved for workspace owner
+  let assignedRole = "Analyst";
+  if (isPrimaryFirstAdmin) {
+    assignedRole = "Admin";
+  } else if (rawPreviousRole === "CEO" || authoritativeOwnerId === finalUid) {
+    assignedRole = "CEO";
+  } else {
+    assignedRole = rawPreviousRole === "Admin" ? "Contributor" : rawPreviousRole;
+  }
 
   const preservedWorkspaceId = retainedProfile?.workspaceId || existingUserDoc?.workspaceId || retainedProfile?.workspace?.id || existingUserDoc?.workspace?.id || `ws_${finalUid.substring(0, 8)}`;
   const preservedWorkspace = retainedProfile?.workspace || existingUserDoc?.workspace || {
@@ -1329,7 +1334,7 @@ export async function restoreAccountFullServer(email: string, newPassword?: stri
     email: normalizedEmail,
     role: assignedRole,
     previousRoleBeforeDeletion: rawPreviousRole,
-    needsAdminRoleReauthorization: (isSensitiveRole && !isPrimaryFirstAdmin),
+    needsAdminRoleReauthorization: (rawPreviousRole?.toUpperCase() === "ADMIN" && !isPrimaryFirstAdmin),
     workspaceId: preservedWorkspaceId,
     workspace: preservedWorkspace,
     powers: assignedPowers,

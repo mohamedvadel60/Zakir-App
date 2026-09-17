@@ -10,11 +10,14 @@ export interface ModulePermissions {
 
 export interface TeamMember {
   id: string;
+  uid?: string;
   name: string;
   email: string;
   role: string;
   powers: ModulePermissions;
   addedAt: string;
+  status?: string;
+  joinedAt?: string;
 }
 
 export interface EncryptedModuleSettings {
