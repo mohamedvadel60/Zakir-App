@@ -609,8 +609,21 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
   const [walletPhone, setWalletPhone] = useState("+222 46 88 99 00");
 
   // CEO Team Powers Management State - strictly isolated to current authenticated user
-  const initialTeamMembersList: TeamMember[] = (currentUser.teamMembersList && currentUser.teamMembersList.length > 0)
-    ? currentUser.teamMembersList 
+  const sanitizeActiveTeamMembers = (list?: TeamMember[]): TeamMember[] => {
+    if (!list || !Array.isArray(list)) return [];
+    const dummyEmails = new Set(["f.zahra@g-partner.com", "j.luc@g-partner.com", "a.diop@g-partner.com"]);
+    return list.filter((m) => {
+      const email = (m.email || "").trim().toLowerCase();
+      const isDummy = dummyEmails.has(email);
+      const isPendingStatus = (m.status || "").toUpperCase() === "PENDING";
+      const isPendingName = (m.name || "").includes("معلق") || (m.name || "").includes("Pending") || (m.name || "").includes("معلقة");
+      return !isDummy && !isPendingStatus && !isPendingName;
+    });
+  };
+
+  const initialCleanedMembers = sanitizeActiveTeamMembers(currentUser.teamMembersList);
+  const initialTeamMembersList: TeamMember[] = initialCleanedMembers.length > 0
+    ? initialCleanedMembers
     : [
         {
           id: "tm-owner",
@@ -1111,23 +1124,21 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
 
       if (res.invitation) {
         setInvitations(prev => [...prev.filter(i => i.email.toLowerCase() !== emailLower), res.invitation!]);
+      } else {
+        const fallbackInv: WorkspaceInvitation = {
+          email: emailLower,
+          name: newMemberName.trim(),
+          role: newMemberRole as any,
+          powers: { ...newMemberPowers },
+          workspaceId: currentUser.workspaceId || `ws_${currentUser.id}`,
+          companyName: orgName,
+          senderId: currentUser.id,
+          senderEmail: currentUser.email || "",
+          status: "pending",
+          createdAt: new Date().toISOString()
+        };
+        setInvitations(prev => [...prev.filter(i => i.email.toLowerCase() !== emailLower), fallbackInv]);
       }
-
-      const newMember: TeamMember = {
-        id: `tm-${Date.now()}`,
-        name: `${newMemberName.trim()} (${lang === "ar" ? "معلق" : "Pending"})`,
-        email: emailLower,
-        role: newMemberRole as any,
-        powers: { ...newMemberPowers },
-        addedAt: new Date().toISOString().split("T")[0]
-      };
-
-      const updated = [...teamMembers.filter(m => m.email.toLowerCase() !== emailLower), newMember];
-      setTeamMembers(updated);
-      onUpdateUser({
-        ...currentUser,
-        teamMembersList: updated
-      });
 
       setNewMemberName("");
       setNewMemberEmail("");

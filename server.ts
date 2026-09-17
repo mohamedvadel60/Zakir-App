@@ -4462,23 +4462,6 @@ app.all([
     db.invitations.push(invitationRecord);
     writeDb(db);
 
-    // Update CEO's teamMembersList to include pending member
-    try {
-      const ceoRef = adminDb.collection("users").doc(callerUid);
-      const updatedList = teamMembersList.filter((m: any) => m.email?.trim().toLowerCase() !== normalizedEmail);
-      updatedList.push({
-        id: `tm-inv-${Date.now()}`,
-        name: `${memberName} (معلق)`,
-        email: normalizedEmail,
-        role: designatedRole,
-        powers: defaultPowers,
-        addedAt: nowIso.split("T")[0]
-      });
-      await ceoRef.update({ teamMembersList: updatedList });
-    } catch (ceoErr) {
-      console.warn("Failed to update CEO team list in Firestore:", ceoErr);
-    }
-
     // 9. Dispatch Email via Resend / System Mailer
     const appBaseUrl = appUrl || process.env.APP_URL || process.env.PUBLIC_APP_URL || getAppBaseUrl(req);
     const inviteLink = `${appBaseUrl}/?invitationToken=${secureToken}&email=${encodeURIComponent(normalizedEmail)}`;
@@ -5366,12 +5349,18 @@ app.all([
       }
     } catch (e) {}
 
-    // 5. Build authoritative team members list
+    // 5. Build authoritative team members list - strictly active members
     let teamList: any[] = Array.isArray(ceoUser?.teamMembersList) ? [...ceoUser.teamMembersList] : [];
 
-    // Filter out any legacy dummy mock members
+    // Filter out dummy mock members and unaccepted/pending invitations
     const dummyEmails = new Set(["f.zahra@g-partner.com", "j.luc@g-partner.com", "a.diop@g-partner.com"]);
-    teamList = teamList.filter((m: any) => !dummyEmails.has((m.email || "").trim().toLowerCase()));
+    teamList = teamList.filter((m: any) => {
+      const email = (m.email || "").trim().toLowerCase();
+      const isDummy = dummyEmails.has(email);
+      const isPendingStatus = (m.status || "").toUpperCase() === "PENDING";
+      const isPendingName = (m.name || "").includes("معلق") || (m.name || "").includes("Pending") || (m.name || "").includes("معلقة");
+      return !isDummy && !isPendingStatus && !isPendingName;
+    });
 
     // Ensure CEO/Owner is in teamList
     const ceoEmail = (ceoUser?.email || callerUser?.email || "").trim().toLowerCase();

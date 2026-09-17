@@ -17,20 +17,6 @@
       "stripeCustomerId": null,
       "teamMembersList": [
         {
-          "id": "tm-inv-1788714580716",
-          "name": "Check User (معلق)",
-          "email": "finalcheck@zakir.ai",
-          "role": "Contributor",
-          "powers": {
-            "fileVault": true,
-            "memoryVault": true,
-            "riskRadar": false,
-            "marketIntel": false,
-            "settings": false
-          },
-          "addedAt": "2026-09-06"
-        },
-        {
           "id": "tm-usr_sarah",
           "uid": "usr_sarah",
           "name": "Sarah Connor",
