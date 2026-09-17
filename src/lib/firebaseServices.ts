@@ -355,6 +355,7 @@ export function clearUserLocalCache(userId?: string): void {
           }
         }
         keysToRemove.forEach((k) => localStorage.removeItem(k));
+        localStorage.removeItem("pending_owner_name");
       }
 
       if (typeof sessionStorage !== "undefined") {
@@ -1252,8 +1253,8 @@ export function subscribeToFirebaseAuthState(rawCallback: (user: User | null) =>
           memberCount: 1
         };
 
-        let resolvedName = "User";
-        if (typeof localStorage !== "undefined") {
+        let resolvedName = invitation?.name || "User";
+        if (resolvedName === "User" && typeof localStorage !== "undefined") {
           const pending = localStorage.getItem("pending_owner_name");
           if (pending && pending.trim()) {
             resolvedName = pending.trim();
@@ -1299,7 +1300,16 @@ export function subscribeToFirebaseAuthState(rawCallback: (user: User | null) =>
       }
       
       let resolvedFallbackName = "User";
-      if (typeof localStorage !== "undefined") {
+      try {
+        if (fbUser.email) {
+          const fallbackInv = getLocalItem("invitations", []).find((i: any) => (i.email || "").trim().toLowerCase() === fbUser.email?.trim().toLowerCase());
+          if (fallbackInv?.name) {
+            resolvedFallbackName = fallbackInv.name;
+          }
+        }
+      } catch (e) {}
+
+      if (resolvedFallbackName === "User" && typeof localStorage !== "undefined") {
         const pending = localStorage.getItem("pending_owner_name");
         if (pending && pending.trim()) {
           resolvedFallbackName = pending.trim();
@@ -2047,7 +2057,7 @@ export async function checkWorkspaceInvitation(email: string): Promise<Workspace
   // 1. Try secure backend endpoint first (authoritative source of truth)
   try {
     const serverInv = await checkWorkspaceInvitationApi(emailKey);
-    if (serverInv && serverInv.status !== "ACCEPTED" && serverInv.status !== "accepted") {
+    if (serverInv && (serverInv.status || "").toString().toUpperCase() !== "ACCEPTED") {
       return serverInv;
     } else {
       // Server authoritatively confirmed no pending invitation or already accepted
@@ -2064,7 +2074,7 @@ export async function checkWorkspaceInvitation(email: string): Promise<Workspace
 
   // 2. Check local storage cache only in offline scenario
   const invitations = getLocalItem("invitations", []);
-  const localMatch = invitations.find((i: WorkspaceInvitation) => (i.email || "").trim().toLowerCase() === emailKey && i.status !== "ACCEPTED" && i.status !== "accepted");
+  const localMatch = invitations.find((i: WorkspaceInvitation) => (i.email || "").trim().toLowerCase() === emailKey && (i.status || "").toString().toUpperCase() !== "ACCEPTED");
   if (localMatch) return localMatch;
 
   // 3. If user is signed in, check client Firestore safely without throwing permission error
@@ -2073,7 +2083,7 @@ export async function checkWorkspaceInvitation(email: string): Promise<Workspace
       const docSnap = await getDoc(doc(db, "invitations", emailKey));
       if (docSnap.exists()) {
         const invData = docSnap.data() as WorkspaceInvitation;
-        if (invData && invData.status !== "ACCEPTED" && invData.status !== "accepted") {
+        if (invData && (invData.status || "").toString().toUpperCase() !== "ACCEPTED") {
           return invData;
         }
       }
@@ -2149,6 +2159,8 @@ export interface AdminUserRecord {
   fileCount: number;
   files: UserFile[];
   verificationInfo?: VerificationInfo;
+  emailVerified?: boolean;
+  isVerified?: boolean;
   fullUser?: User;
 }
 
@@ -2902,7 +2914,7 @@ export async function checkWorkspaceInvitationApi(param: string | { email?: stri
     const res = await fetch(url);
     const data = await safeJsonResponse(res);
     const inv = data?.invitation || null;
-    if (inv && (inv.status === "ACCEPTED" || inv.status === "accepted")) {
+    if (inv && (inv.status || "").toString().toUpperCase() === "ACCEPTED") {
       return null;
     }
     return inv;

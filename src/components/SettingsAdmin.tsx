@@ -361,6 +361,7 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
   // Subscription Checkout Modal & Receipt State
   const [billingCycle, setBillingCycle] = useState<"annual" | "monthly">(currentUser.billingCycle || "annual");
   const [selectedPlanForCheckout, setSelectedPlanForCheckout] = useState<"Starter" | "Professional" | "Enterprise" | null>(null);
+  const [confirmingPlanModal, setConfirmingPlanModal] = useState<"Starter" | "Professional" | "Enterprise" | null>(null);
   const [paymentMethod, setPaymentMethod] = useState<"visa" | "mastercard" | "bank" | "wallet">("visa");
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
   const [checkoutClientSecret, setCheckoutClientSecret] = useState<string | null>(null);
@@ -478,7 +479,6 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
     checkoutInFlightRef.current = true;
     setIsProcessingPayment(true);
     setPaymentError(null);
-    setSelectedPlanForCheckout(plan);
 
     if (!isRetry) {
       setCheckoutClientSecret(null);
@@ -512,6 +512,7 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
         body: JSON.stringify({
           plan,
           billingCycle,
+          uiMode: "hosted",
           companyName: currentUser?.companyName || currentUser?.organizationName || "Organization",
         }),
       });
@@ -571,25 +572,39 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
         ? data.publishableKey
         : envCandidate;
 
-      if (resolvedPubKey) {
+      if (data.url) {
+        console.log("[Stripe Checkout] Opening Stripe hosted checkout session in new window:", data.url);
+        setCheckoutHostedUrl(data.url);
+        setIsProcessingPayment(false);
+
+        let newWin: Window | null = null;
+        try {
+          newWin = window.open(data.url, "_blank", "noopener,noreferrer");
+        } catch (e) {
+          console.warn("[Stripe Checkout] window.open popup blocked notice:", e);
+        }
+
+        if (!newWin || newWin.closed || typeof newWin.closed === "undefined") {
+          try {
+            if (window.top && window.top !== window) {
+              window.top.location.href = data.url;
+            } else {
+              window.location.href = data.url;
+            }
+          } catch {
+            window.location.href = data.url;
+          }
+        }
+        setConfirmingPlanModal(null);
+        setSelectedPlanForCheckout(null);
+        return;
+      } else if (resolvedPubKey) {
         const tStripePromise = performance.now();
         setStripePublishableKey(resolvedPubKey);
         setStripePromise(getCachedStripe(resolvedPubKey));
         console.log(`[Stripe TRACE] G. Embedded Checkout options initialized at +${(tStripePromise - t0).toFixed(2)}ms`);
-      } else if (data.url) {
-        console.log("[Stripe Checkout] Utilizing Stripe hosted checkout session:", data.url);
-        setCheckoutHostedUrl(data.url);
-        setIsProcessingPayment(false);
-        try {
-          if (window.top && window.top !== window) {
-            window.top.location.href = data.url;
-          } else {
-            window.location.href = data.url;
-          }
-        } catch {
-          window.location.href = data.url;
-        }
-        return;
+        setSelectedPlanForCheckout(plan);
+        setConfirmingPlanModal(null);
       } else {
         console.error("[Stripe Checkout] Missing publishable key and no checkout URL!");
         setPaymentError(
@@ -3149,7 +3164,7 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
 
                 <button
                   type="button"
-                  onClick={() => handleStripeCheckout("Starter")}
+                  onClick={() => setConfirmingPlanModal("Starter")}
                   disabled={currentUser.subscriptionPlan === "Starter" || isProcessingPayment}
                   className={`w-full py-3.5 rounded-xl font-bold text-xs transition-all cursor-pointer flex items-center justify-center gap-2 ${
                     currentUser.subscriptionPlan === "Starter"
@@ -3159,7 +3174,7 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
                 >
                   {currentUser.subscriptionPlan === "Starter"
                     ? (lang === "ar" ? "الخطة المفعلة حالياً" : "Current Plan")
-                    : (lang === "ar" ? "الاشتراك بخطة Starter - Stripe" : "Subscribe Starter - Stripe Checkout")}
+                    : (lang === "ar" ? "اختر خطة Starter 💳" : "Select Starter Plan 💳")}
                 </button>
               </div>
 
@@ -3202,11 +3217,11 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
 
                 <button
                   type="button"
-                  onClick={() => handleStripeCheckout("Professional")}
+                  onClick={() => setConfirmingPlanModal("Professional")}
                   disabled={isProcessingPayment}
                   className="w-full py-4 bg-white hover:bg-slate-100 text-[#0075DE] font-black text-xs rounded-xl shadow-xl shadow-black/10 flex items-center justify-center gap-2 transition-all transform hover:scale-[1.02] active:scale-95 cursor-pointer"
                 >
-                  <span>{translations[lang as keyof typeof translations]?.subscribePayNow || (lang === "ar" ? "الاشتراك بالخطة الاحترافية - Stripe" : "Subscribe Professional - Stripe Checkout")}</span>
+                  <span>{translations[lang as keyof typeof translations]?.subscribePayNow || (lang === "ar" ? "اختر الخطة الاحترافية 💳" : "Select Professional Plan 💳")}</span>
                   <ArrowRight className="w-4 h-4 text-[#0075DE]" />
                 </button>
               </div>
@@ -3246,11 +3261,11 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
                 <div className="space-y-2">
                   <button
                     type="button"
-                    onClick={() => handleStripeCheckout("Enterprise")}
+                    onClick={() => setConfirmingPlanModal("Enterprise")}
                     disabled={isProcessingPayment}
                     className="w-full py-3 bg-[#0075DE]/20 hover:bg-[#0075DE]/30 text-[#0075DE] border border-[#0075DE]/40 font-bold text-xs rounded-xl flex items-center justify-center gap-2 transition-all cursor-pointer"
                   >
-                    <span>{translations[lang as keyof typeof translations]?.upgradeEnterprise || (lang === "ar" ? "الاشتراك بخطة المؤسسات (Stripe Checkout)" : "Subscribe Enterprise (Stripe Checkout)")}</span>
+                    <span>{translations[lang as keyof typeof translations]?.upgradeEnterprise || (lang === "ar" ? "اختر خطة المؤسسات 💳" : "Select Enterprise Plan 💳")}</span>
                     <ArrowRight className="w-4 h-4" />
                   </button>
 
@@ -3263,6 +3278,155 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
                 </div>
               </div>
 
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* PLAN CONFIRMATION MODAL BEFORE STRIPE REDIRECT */}
+      {confirmingPlanModal && (
+        <div className="fixed inset-0 z-[100] backdrop-blur-md bg-slate-950/80 flex items-center justify-center p-3 sm:p-5 overflow-y-auto">
+          <div 
+            className={`w-full max-w-lg rounded-2xl border p-5 sm:p-6 space-y-5 shadow-2xl relative my-auto animate-in fade-in zoom-in-95 duration-200 ${
+              theme === "dark" ? "bg-slate-900 border-slate-700 text-white" : "bg-white border-slate-200 text-slate-900"
+            }`}
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between border-b pb-4 border-slate-700/40">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#0075DE] to-[#005BAB] flex items-center justify-center text-white shadow-lg shadow-blue-500/20">
+                  <CreditCard className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold">
+                    {lang === "ar" ? "تأكيد اختيار الباقة والانتقال إلى الدفع" : "Confirm Plan Selection & Proceed to Payment"}
+                  </h3>
+                  <p className="text-xs text-slate-400">
+                    {lang === "ar" ? "بوابة الدفع الرسمية المشفّرة عبر Stripe" : "Official Encrypted Payment Gateway via Stripe"}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setConfirmingPlanModal(null)}
+                className="p-1.5 rounded-lg hover:bg-slate-800/50 text-slate-400 hover:text-white transition-all cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Plan Overview Card */}
+            <div className={`p-4 rounded-xl border space-y-3 ${
+              theme === "dark" ? "bg-slate-950/70 border-slate-800" : "bg-slate-50 border-slate-200"
+            }`}>
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-slate-400 font-medium">{lang === "ar" ? "اسم الباقة المختارة:" : "Selected Plan:"}</span>
+                <span className="px-3 py-1 rounded-full bg-[#0075DE]/20 text-[#0075DE] font-bold text-xs">
+                  {confirmingPlanModal} Plan
+                </span>
+              </div>
+              
+              <div className="flex items-center justify-between border-t border-b py-2.5 border-slate-800/40">
+                <span className="text-xs text-slate-400 font-medium">{lang === "ar" ? "دورة الفوترة والتجديد:" : "Billing Interval:"}</span>
+                <span className="text-xs font-bold text-emerald-400 flex items-center gap-1">
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                  {billingCycle === "annual" ? (lang === "ar" ? "سنوي (خصم 20% مُفعّل)" : "Annual (20% Discount Active)") : (lang === "ar" ? "شهري" : "Monthly")}
+                </span>
+              </div>
+
+              <div className="flex items-center justify-between pt-1">
+                <span className="text-xs text-slate-400 font-medium">{lang === "ar" ? "إجمالي قيمة الاشتراك:" : "Total Amount Due:"}</span>
+                <div className="text-right">
+                  <span className="text-lg font-black text-[#0075DE]">
+                    ${getPlanCostUSD(confirmingPlanModal, billingCycle)} USD
+                  </span>
+                  <span className="text-[10px] block text-slate-400">
+                    / {billingCycle === "annual" ? (lang === "ar" ? "سنة كاملاً" : "full year") : (lang === "ar" ? "شهر" : "month")}
+                  </span>
+                  {formatLocalCurrencyEstimate(getPlanCostUSD(confirmingPlanModal, billingCycle), lang) && (
+                    <span className="text-[11px] font-extrabold block text-emerald-400 mt-0.5">
+                      {formatLocalCurrencyEstimate(getPlanCostUSD(confirmingPlanModal, billingCycle), lang)}
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Privileges & Permissions Included */}
+            <div className="space-y-2">
+              <p className="text-xs font-bold text-slate-300 flex items-center gap-1.5">
+                <ShieldCheck className="w-4 h-4 text-emerald-400" />
+                <span>{lang === "ar" ? "الصلاحيات والحقوق الممنوحة لحسابك عند إكمال الدفع:" : "Rights & Privileges Granted Upon Payment:"}</span>
+              </p>
+              <ul className="text-xs space-y-2 text-slate-300 bg-emerald-500/10 border border-emerald-500/20 p-3.5 rounded-xl">
+                <li className="flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                  <span>{lang === "ar" ? "الوصول الكامل إلى الذاكرة المؤسسية المشفّرة بمعيار (AES-256 Vault)" : "Full access to AES-256 Encrypted Corporate Memory Vault"}</span>
+                </li>
+                <li className="flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                  <span>{lang === "ar" ? "صلاحيات محرك البنك الدولي ورادار التحليل التكتيكي للمخاطر" : "World Bank Analytics & AI Tactical Risk Radar Engine"}</span>
+                </li>
+                <li className="flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                  <span>{lang === "ar" ? "دعم فني أولوية 24/7 مخصص لمؤسستك مع صلاحيات إدارة الفريق (RBAC)" : "Priority 24/7 Support & Multi-User Team RBAC Access"}</span>
+                </li>
+              </ul>
+            </div>
+
+            {/* Notice Box */}
+            <div className="p-3 rounded-xl bg-blue-500/10 border border-blue-500/20 text-xs text-blue-300 flex items-start gap-2.5">
+              <Info className="w-4 h-4 text-[#0075DE] shrink-0 mt-0.5" />
+              <p>
+                {lang === "ar"
+                  ? "سيتم فتح صفحة الدفع الآمنة في نافذة جديدة لإدخال بيانات بطاقتك البنكية. عند الانتهاء، ستُعاد تلقائياً إلى منصة زاكير مع تفعيل كافة الصلاحيات."
+                  : "Clicking proceed will open Stripe's secure payment checkout in a new window. You will return automatically upon completion."}
+              </p>
+            </div>
+
+            {/* Error Message Box if any */}
+            {paymentError && (
+              <div className="p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/20 text-xs text-rose-300 flex items-start gap-2.5">
+                <AlertCircle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
+                <p className="font-medium">{paymentError}</p>
+              </div>
+            )}
+
+            {/* Action Buttons */}
+            <div className="flex flex-col sm:flex-row items-center gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setConfirmingPlanModal(null);
+                  setPaymentError(null);
+                }}
+                className="w-full sm:flex-1 py-3 px-4 rounded-xl border border-slate-700 hover:bg-slate-800 text-slate-300 font-bold text-xs transition-all cursor-pointer text-center"
+              >
+                {lang === "ar" ? "إلغاء / اختيار باقة أخرى" : "Cancel / Change Plan"}
+              </button>
+              <button
+                type="button"
+                disabled={isProcessingPayment}
+                onClick={async () => {
+                  const targetPlan = confirmingPlanModal;
+                  setPaymentError(null);
+                  await handleStripeCheckout(targetPlan);
+                }}
+                className="w-full sm:flex-1 py-3 px-4 rounded-xl bg-gradient-to-r from-[#0075DE] to-[#005BAB] hover:brightness-110 text-white font-black text-xs shadow-lg shadow-blue-500/20 flex items-center justify-center gap-2 transition-all active:scale-95 cursor-pointer text-center"
+              >
+                {isProcessingPayment ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 animate-spin" />
+                    <span>{lang === "ar" ? "جاري تجهيز Stripe..." : "Preparing Stripe..."}</span>
+                  </>
+                ) : (
+                  <>
+                    <CreditCard className="w-4 h-4" />
+                    <span>{lang === "ar" ? "الانتقال إلى Stripe والدفع الآن" : "Proceed to Stripe Payment"}</span>
+                    <ExternalLink className="w-4 h-4" />
+                  </>
+                )}
+              </button>
             </div>
           </div>
         </div>
@@ -4970,31 +5134,10 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
         </div>
       )}
 
-      {/* SUB-TAB 6: HELP & SUPPORT CENTER */}
+      {/* SUB-TAB 6: HELP & SUPPORT & DOCUMENTATION CENTER */}
       {currentTab === "support" && (
-        <div className="space-y-6">
-          <div className={`p-6 rounded-2xl border ${theme === "dark" ? "bg-slate-900/40 border-slate-800" : "bg-white border-slate-200 shadow-sm"}`}>
-            <div className={`flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b ${theme === "dark" ? "border-slate-800/60" : "border-slate-200"}`}>
-              <div>
-                <span className="px-3 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 text-[10px] font-extrabold uppercase tracking-wider flex items-center gap-1.5 w-fit mb-2">
-                  <HelpCircle className="w-3.5 h-3.5" />
-                  {lang === "ar" ? "خدمة العملاء والدعم الفني" : "Customer Support Center"}
-                </span>
-                <h2 className={`text-2xl font-black ${theme === "dark" ? "text-white" : "text-slate-900"}`}>
-                  {lang === "ar" ? "الدعم والتعليمات" : "Help & Support"}
-                </h2>
-                <p className={`text-xs mt-1 ${theme === "dark" ? "text-slate-400" : "text-slate-600"}`}>
-                  {lang === "ar" 
-                    ? "نحن هنا لمساعدتك. يمكنك التواصل مع فريق الدعم الفني والإبلاغ عن المشاكل أو طلب المساعدة."
-                    : "We're here to help. You can report technical problems, account issues, bugs, or ask any questions."}
-                </p>
-              </div>
-            </div>
-
-            <div className="pt-6">
-              <CustomerSupport currentUser={currentUser} lang={lang} theme={theme} />
-            </div>
-          </div>
+        <div className="w-full">
+          <CustomerSupport currentUser={currentUser} lang={lang} theme={theme} />
         </div>
       )}
 

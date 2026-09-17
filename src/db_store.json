@@ -1,41 +1,6 @@
 {
   "users": [
     {
-      "id": "usr_ceo",
-      "email": "ceo@zakir.ai",
-      "passwordHash": "ceo123",
-      "companyName": "Al-Futtaim Group",
-      "role": "CEO",
-      "isEmailVerified": true,
-      "isPhoneVerified": true,
-      "verificationInfo": {
-        "status": "verified",
-        "verifiedAt": "2026-01-15T09:00:00Z"
-      },
-      "createdAt": "2026-01-15T09:00:00Z",
-      "trialExpiresAt": "2026-08-05T17:22:39.654Z",
-      "stripeCustomerId": null,
-      "teamMembersList": [
-        {
-          "id": "tm-usr_sarah",
-          "uid": "usr_sarah",
-          "name": "Sarah Connor",
-          "email": "sarah.lead@testorg.com",
-          "role": "Chief Risk Officer",
-          "powers": {
-            "fileVault": true,
-            "memoryVault": true,
-            "riskRadar": true,
-            "marketIntel": false,
-            "settings": false
-          },
-          "status": "Active",
-          "joinedAt": "2026-09-06T17:18:27.827Z",
-          "addedAt": "2026-09-06"
-        }
-      ]
-    },
-    {
       "id": "usr_analyst",
       "email": "analyst@zakir.ai",
       "passwordHash": "analyst123",
@@ -1021,6 +986,50 @@
       "emailVerified": false,
       "verification_required": true,
       "verification_status": "unverified"
+    },
+    {
+      "id": "dUn4y4S4KJd7NqjoLm5qLOlkYf02",
+      "email": "postfix_reg_1789664443178@gmail.com",
+      "passwordHash": "Password123!",
+      "companyName": "Post-Fix Regression Co",
+      "ownerName": "postfix_reg_1789664443178",
+      "role": "CEO",
+      "workspaceId": "ws_dUn4y4S4_mu5s04yc",
+      "workspace": {
+        "id": "ws_dUn4y4S4_mu5s04yc",
+        "name": "Post-Fix Regression Co Workspace",
+        "ownerId": "dUn4y4S4KJd7NqjoLm5qLOlkYf02",
+        "createdAt": "2026-09-17T17:00:46.740Z",
+        "memberCount": 1
+      },
+      "teamMembersList": [
+        {
+          "id": "tm-owner",
+          "uid": "dUn4y4S4KJd7NqjoLm5qLOlkYf02",
+          "name": "postfix_reg_1789664443178",
+          "email": "postfix_reg_1789664443178@gmail.com",
+          "role": "CEO / Owner",
+          "powers": {
+            "fileVault": true,
+            "memoryVault": true,
+            "riskRadar": true,
+            "marketIntel": true,
+            "settings": true
+          },
+          "addedAt": "2026-09-17"
+        }
+      ],
+      "subscriptionStatus": "Pending Selection",
+      "createdAt": "2026-09-17T17:00:46.740Z",
+      "trialExpiresAt": "2026-09-18T17:00:46.740Z",
+      "lastActiveAt": "2026-09-17T17:00:46.740Z",
+      "lastLoginAt": "2026-09-17T17:00:46.740Z",
+      "isVerified": false,
+      "isEmailVerified": false,
+      "email_verified": false,
+      "emailVerified": false,
+      "verification_required": true,
+      "verification_status": "unverified"
     }
   ],
   "verification_codes": [
@@ -1227,36 +1236,6 @@
       "lastSentAt": "2026-08-29T11:56:25.619Z",
       "used": false,
       "createdAt": "2026-08-29T11:56:25.619Z"
-    },
-    {
-      "id": "usr_ceo",
-      "userId": "usr_ceo",
-      "email": "ceo@zakir.ai",
-      "phone": "",
-      "codeHash": "761e5476add21178887c147cb0d9be2fe08a35a4c7d54832c3bc3a092434e50d",
-      "type": "account_registration",
-      "expiresAt": "2026-09-16T17:05:53.718Z",
-      "attempts": 0,
-      "sendCount": 2,
-      "cooldownUntil": null,
-      "lastSentAt": "2026-09-16T16:55:53.900Z",
-      "used": false,
-      "createdAt": "2026-09-16T16:55:53.900Z"
-    },
-    {
-      "id": "ceo@zakir.ai",
-      "userId": "usr_ceo",
-      "email": "ceo@zakir.ai",
-      "phone": "",
-      "codeHash": "761e5476add21178887c147cb0d9be2fe08a35a4c7d54832c3bc3a092434e50d",
-      "type": "account_registration",
-      "expiresAt": "2026-09-16T17:05:53.718Z",
-      "attempts": 0,
-      "sendCount": 2,
-      "cooldownUntil": null,
-      "lastSentAt": "2026-09-16T16:55:53.900Z",
-      "used": false,
-      "createdAt": "2026-09-16T16:55:53.900Z"
     },
     {
       "id": "usr_testzakiruser2026_gmail_com",
@@ -1540,43 +1519,24 @@
       "sendCount": 0,
       "initialOtpSent": true,
       "lastSentAt": "2026-09-17T15:35:12.495Z"
+    },
+    {
+      "id": "dUn4y4S4KJd7NqjoLm5qLOlkYf02",
+      "userId": "dUn4y4S4KJd7NqjoLm5qLOlkYf02",
+      "email": "postfix_reg_1789664443178@gmail.com",
+      "phone": "",
+      "codeHash": "65e5d759311a79dbd13d293d87d747b5dd864d8b3ce487c48daab050d6a1e7e4",
+      "type": "account_registration",
+      "createdAt": "2026-09-17T17:01:02.918Z",
+      "expiresAt": "2026-09-17T17:11:02.918Z",
+      "attempts": 0,
+      "used": false,
+      "sendCount": 0,
+      "initialOtpSent": true,
+      "lastSentAt": "2026-09-17T17:01:02.918Z"
     }
   ],
   "support_tickets": [
-    {
-      "id": "ticket_init_1",
-      "userId": "usr_ceo",
-      "userEmail": "ceo@zakir.ai",
-      "userName": "Mohamed Vadel",
-      "companyName": "Al-Futtaim Group",
-      "category": "Verification Issue",
-      "subject": "Verification document status confirmation",
-      "message": "Hello support, we uploaded our commercial registration and trade license. Could you confirm if our institutional verification is active?",
-      "status": "In Progress",
-      "priority": "High",
-      "createdAt": "2026-07-28T10:00:00Z",
-      "updatedAt": "2026-07-28T11:30:00Z",
-      "messages": [
-        {
-          "id": "msg_init_1",
-          "ticketId": "ticket_init_1",
-          "senderType": "user",
-          "senderName": "Mohamed Vadel",
-          "senderEmail": "ceo@zakir.ai",
-          "message": "Hello support, we uploaded our commercial registration and trade license. Could you confirm if our institutional verification is active?",
-          "createdAt": "2026-07-28T10:00:00Z"
-        },
-        {
-          "id": "msg_init_2",
-          "ticketId": "ticket_init_1",
-          "senderType": "admin",
-          "senderName": "Zakir Compliance Team",
-          "senderEmail": "admin@zakir.ai",
-          "message": "Greetings Mohamed. We reviewed your documents and confirmed your institutional verification status as Verified. Thank you for using Zakir.",
-          "createdAt": "2026-07-28T11:30:00Z"
-        }
-      ]
-    },
     {
       "id": "ticket_a",
       "userId": "usr_a",
@@ -1618,26 +1578,6 @@
       "userId": "usr_analyst",
       "authorEmail": "analyst@zakir.ai",
       "authorRole": "Analyst"
-    },
-    {
-      "id": "mem_2",
-      "title": "USD/EUR Hedge Failure during Q3 Earnings",
-      "category": "FX Risk Management",
-      "riskLevel": "Critical",
-      "tags": [
-        "hedging",
-        "currency",
-        "treasury"
-      ],
-      "description": "During Q3 2024, the multinational subsidiary faced a 12% adverse EUR/USD movement over 6 weeks. Our existing forward contracts covered only 40% of the exposure, leaving $18M unhedged.",
-      "decision": "Manually chose to restrict currency hedging based on speculative internal rate forecasts.",
-      "causalFactors": "Excessive operational trust in subjective qualitative advice over quantitative risk model suggestions.",
-      "outcomes": "Direct translation loss of $2.4M charged to earnings, triggering a covenant breach warning from our credit syndicate.",
-      "lessonsLearned": "Codify minimum mandatory hedging ranges (e.g. 70-90% for standard exposures) and automate rebalancing to eliminate human bias.",
-      "createdAt": "2026-05-18T16:00:00Z",
-      "userId": "usr_ceo",
-      "authorEmail": "ceo@zakir.ai",
-      "authorRole": "CEO"
     },
     {
       "id": "mem_3",
@@ -1825,8 +1765,7 @@
     "cs_test_a16z0m60SACMqoCSRZtgm1oXoHodYsP3WOXGJg3RW3zKYZj098ApM0NeFN": "usr_ceo",
     "cs_test_a1KM4FhTeKJlzmYK3ItEgtOKlMejDX3XksmfkNlfrIr9gzrpzWh8gWjIqQ": "usr_a",
     "cs_test_a1OcnbOKonMEZXiiByWlS45aSNf5jdb6amcmwGJpT4AxRgHoEWlsbrb6ys": "usr_a",
-    "cs_test_a1WI4WE63T4KZUwDLJW0Fcr9Kt5rRPJUdSdU0YDD0nm4149C3WyYAbQrMT": "usr_a",
-    "cs_test_a13ttQPKJ2jH5BT7Qut23A9nO1BtNwnIN1DgRjEQEUs5HCY8qtS2y96746": "usr_a"
+    "cs_test_a1WI4WE63T4KZUwDLJW0Fcr9Kt5rRPJUdSdU0YDD0nm4149C3WyYAbQrMT": "usr_a"
   },
   "account_lifecycle": [
     {
@@ -2050,16 +1989,17 @@
     {
       "accountId": "ceo@zakir.ai",
       "emailNormalized": "ceo@zakir.ai",
-      "status": "ACTIVE",
-      "deletionType": null,
-      "deletedAt": null,
-      "deletedBy": null,
+      "status": "ADMIN_DELETED",
+      "deletionType": "admin",
+      "deletedAt": "2026-09-17T17:50:31.883Z",
+      "deletedBy": "SYhfciebGFUj29gqGaa0pqNunrk2",
       "restoreUntil": null,
       "originalUserId": "usr_ceo",
-      "retainedDataDocPath": null,
-      "adminApprovalRequired": false,
-      "updatedAt": "2026-09-09T18:36:09.738Z",
-      "id": "ceo@zakir.ai"
+      "retainedDataDocPath": "users_retained/usr_ceo",
+      "adminApprovalRequired": true,
+      "updatedAt": "2026-09-17T17:50:31.883Z",
+      "id": "ceo@zakir.ai",
+      "originalRole": "CEO"
     },
     {
       "accountId": "analyst@zakir.ai",
@@ -3445,5 +3385,32 @@
   "collections_data": {
     "pendingRecoveryUploads": [],
     "recoveryDocuments": []
-  }
+  },
+  "security_events": [
+    {
+      "id": "sec_1789670035066_f93f212f",
+      "timestamp": "2026-09-17T18:33:55.066Z",
+      "eventType": "INVALID_ADMIN_ATTEMPT",
+      "details": {
+        "callerUid": "usr_ceo",
+        "callerEmail": "ceo@zakir.ai",
+        "ip": "127.0.0.1",
+        "endpoint": "/api/admin/operations-center-data"
+      }
+    }
+  ],
+  "admin_audit_logs": [
+    {
+      "id": "audit_1789670049113_e42458e6",
+      "timestamp": "2026-09-17T18:34:09.113Z",
+      "adminUid": "usr_mohamedvadel60_mail_com",
+      "adminEmail": "mohamedvadel60@mail.com",
+      "action": "ADMIN_SUSPENDED_USER",
+      "targetType": "USER",
+      "targetId": "usr_ceo",
+      "workspaceId": "",
+      "result": "SUCCESS",
+      "reason": "Test"
+    }
+  ]
 }

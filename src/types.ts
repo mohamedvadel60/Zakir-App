@@ -135,8 +135,11 @@ export interface AccountVerificationDoc {
 export interface VerificationInfo {
   status: VerificationStatus;
   requestedAt?: string;
+  submittedAt?: string;
   verifiedAt?: string;
+  verifiedBy?: string;
   adminNote?: string;
+  notes?: string;
   documents?: AccountVerificationDoc[];
 }
 

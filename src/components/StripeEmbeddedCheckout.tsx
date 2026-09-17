@@ -89,23 +89,31 @@ export const StripeEmbeddedCheckout: React.FC<StripeEmbeddedCheckoutProps> = ({
           );
         }
 
-        if (typeof (stripe as any).initEmbeddedCheckout !== "function") {
+        if (typeof (stripe as any).initEmbeddedCheckout === "function") {
+          checkoutInstance = await (stripe as any).initEmbeddedCheckout({
+            clientSecret,
+            onComplete: () => {
+              if (!isCancelled) {
+                onComplete();
+              }
+            },
+          });
+        } else if (typeof (stripe as any).createEmbeddedCheckoutPage === "function") {
+          checkoutInstance = await (stripe as any).createEmbeddedCheckoutPage({
+            clientSecret,
+            onComplete: () => {
+              if (!isCancelled) {
+                onComplete();
+              }
+            },
+          });
+        } else {
           throw new Error(
             lang === "ar"
-              ? "بوابة الدفع المضمنة (Embedded Checkout) غير مدعومة في إصدار Stripe.js الحالي."
-              : "Stripe Embedded Checkout is not supported in this environment."
+              ? "بوابة الدفع المضمنة المباشرة غير مدعومة في هذا المتصفح. سيتم توجيهك إلى صفحة Stripe الآمنة."
+              : "Embedded checkout is not available in this browser. You will be redirected to Stripe's secure checkout page."
           );
         }
-
-        // Initialize embedded checkout instance with clientSecret directly
-        checkoutInstance = await (stripe as any).initEmbeddedCheckout({
-          clientSecret,
-          onComplete: () => {
-            if (!isCancelled) {
-              onComplete();
-            }
-          },
-        });
 
         if (isCancelled) {
           if (checkoutInstance && typeof checkoutInstance.destroy === "function") {
