@@ -527,7 +527,7 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
         console.warn("[Stripe Checkout] Failed to parse JSON response:", jsonErr);
       }
 
-      if (!res.ok || !data || !data.success || !data.clientSecret) {
+      if (!res.ok || !data || !data.success || (!data.clientSecret && !data.url)) {
         console.error("[Stripe Checkout] Session creation error diagnostics:", {
           status: res.status,
           statusText: res.statusText,

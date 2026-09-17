@@ -437,6 +437,8 @@ function resolveStripeKeys(): ResolvedStripeKeys {
     if (!finalPub) {
       if (testPubs.length > 0) {
         finalPub = testPubs[0].key;
+      } else if (selectedKey && (selectedKey.startsWith("sk_test_") || selectedKey.startsWith("rk_test_"))) {
+        finalPub = selectedKey.replace(/^[sr]k_test_/, "pk_test_");
       }
     }
   } else {
