@@ -3669,60 +3669,7 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
             </div>
           )}
 
-          {/* Persistent Unsaved Changes Alert Bar */}
-          {hasUnsavedPermissions && (
-            <div className="p-4 rounded-2xl bg-amber-500/10 border-2 border-amber-500/40 text-amber-600 dark:text-amber-300 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-lg shadow-amber-500/5 animate-fade-in">
-              <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-xl bg-amber-500/20 text-amber-500 flex items-center justify-center shrink-0">
-                  <AlertTriangle className="w-5 h-5 text-amber-500" />
-                </div>
-                <div>
-                  <p className="text-xs font-bold text-amber-700 dark:text-amber-200">
-                    {lang === "ar"
-                      ? `توجد تعديلات غير محفوظة في صلاحيات الأعضاء (${modifiedMembers.length} ${modifiedMembers.length === 1 ? "عضو" : "أعضاء"})`
-                      : `Unsaved Permission Changes (${modifiedMembers.length} team ${modifiedMembers.length === 1 ? "member" : "members"})`}
-                  </p>
-                  <p className="text-[11px] text-amber-700/80 dark:text-amber-300/80">
-                    {lang === "ar"
-                      ? "التعديلات الحالية في وضع المسودة ولم يتم تطبيقها على الخادم بعد. انقر على 'حفظ التعديلات' للاعتماد."
-                      : "Changes are currently in draft mode. Click 'Save Changes' to commit to the server."}
-                  </p>
-                </div>
-              </div>
-              <div className="flex items-center gap-2 self-end sm:self-auto shrink-0">
-                <button
-                  type="button"
-                  onClick={handleDiscardAllDraftPowers}
-                  disabled={isSavingPermissions}
-                  className={`px-3.5 py-2 rounded-xl text-xs font-bold border cursor-pointer transition-all ${
-                    theme === "dark" 
-                      ? "bg-slate-900 border-slate-700 text-slate-300 hover:bg-slate-800" 
-                      : "bg-white border-slate-300 text-slate-700 hover:bg-slate-100"
-                  }`}
-                >
-                  {lang === "ar" ? "تراجع عن التعديلات" : "Discard"}
-                </button>
-                <button
-                  type="button"
-                  onClick={handleSaveAllDraftPermissions}
-                  disabled={isSavingPermissions}
-                  className="px-4 py-2 bg-gradient-to-r from-[#0075DE] to-[#005BAB] hover:brightness-110 text-white text-xs font-black rounded-xl flex items-center gap-2 cursor-pointer shadow-md shadow-[#0075DE]/20 disabled:opacity-50"
-                >
-                  {isSavingPermissions ? (
-                    <>
-                      <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                      <span>{lang === "ar" ? "جارٍ الحفظ..." : "Saving..."}</span>
-                    </>
-                  ) : (
-                    <>
-                      <Save className="w-3.5 h-3.5" />
-                      <span>{lang === "ar" ? "حفظ التعديلات" : "Save Changes"}</span>
-                    </>
-                  )}
-                </button>
-              </div>
-            </div>
-          )}
+
 
           {/* Error Message for Permission Save */}
           {permissionSaveError && (
