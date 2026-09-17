@@ -93,9 +93,9 @@ import {
   ChatMessage,
   UserFile
 } from "./types.js";
-const FileManager = React.lazy(() => import("./components/FileManager").then(m => ({ default: m.FileManager })));
-const AnimatedLandingPage = React.lazy(() => import("./components/AnimatedLandingPage").then(m => ({ default: m.AnimatedLandingPage })));
-const WorldBankPortal = React.lazy(() => import("./components/WorldBankPortal").then(m => ({ default: m.WorldBankPortal })));
+const FileManager = React.lazy<React.ComponentType<any>>(() => import("./components/FileManager").then((m: any) => ({ default: m.FileManager || m.default })));
+const AnimatedLandingPage = React.lazy<React.ComponentType<any>>(() => import("./components/AnimatedLandingPage").then((m: any) => ({ default: m.AnimatedLandingPage || m.default })));
+const WorldBankPortal = React.lazy<React.ComponentType<any>>(() => import("./components/WorldBankPortal").then((m: any) => ({ default: m.WorldBankPortal || m.default })));
 import { generateWorldBankFallbackData } from "./lib/worldBankFallback.js";
 import { ZakirLogo } from "./components/ZakirLogo";
 import { AuthSwitch } from "./components/ui/auth-switch";
@@ -104,16 +104,16 @@ import { CompactAppSwitcher } from "./components/ui/CompactAppSwitcher";
 import { CompactLanguageSwitcher } from "./components/ui/CompactLanguageSwitcher";
 import { applyGlobalTheme, ThemeMode } from "./lib/themeUtils.js";
 import { authenticatedFetch } from "./lib/apiUtils.js";
-const SettingsAdmin = React.lazy(() => import("./components/SettingsAdmin").then(m => ({ default: m.SettingsAdmin })));
+const SettingsAdmin = React.lazy<React.ComponentType<any>>(() => import("./components/SettingsAdmin").then((m: any) => ({ default: m.SettingsAdmin || m.default })));
 import { InstallPrompt } from "./components/InstallPrompt";
-const CustomerSupport = React.lazy(() => import("./components/CustomerSupport").then(m => ({ default: m.CustomerSupport })));
-const PrintSystem = React.lazy(() => import("./components/print/PrintSystem").then(m => ({ default: m.PrintSystem })));
-const EmailVerificationView = React.lazy(() => import("./components/EmailVerificationView").then(m => ({ default: m.EmailVerificationView })));
-const RiskRadarChart = React.lazy(() => import("./components/RiskRadarChart").then(m => ({ default: m.RiskRadarChart })));
-const AdminDashboard = React.lazy(() => import("./components/AdminDashboard").then(m => ({ default: m.AdminDashboard })));
+const CustomerSupport = React.lazy<React.ComponentType<any>>(() => import("./components/CustomerSupport").then((m: any) => ({ default: m.CustomerSupport || m.default })));
+const PrintSystem = React.lazy<React.ComponentType<any>>(() => import("./components/print/PrintSystem").then((m: any) => ({ default: m.PrintSystem || m.default })));
+const EmailVerificationView = React.lazy<React.ComponentType<any>>(() => import("./components/EmailVerificationView").then((m: any) => ({ default: m.EmailVerificationView || m.default })));
+const RiskRadarChart = React.lazy<React.ComponentType<any>>(() => import("./components/RiskRadarChart").then((m: any) => ({ default: m.RiskRadarChart || m.default })));
+const AdminDashboard = React.lazy<React.ComponentType<any>>(() => import("./components/AdminDashboard").then((m: any) => ({ default: m.AdminDashboard || m.default })));
 import { DesktopUpdateNotification } from "./components/DesktopUpdateNotification";
-const DeletedAccountRecovery = React.lazy(() => import("./components/DeletedAccountRecovery").then(m => ({ default: m.DeletedAccountRecovery })));
-const GmailVault = React.lazy(() => import("./components/GmailVault"));
+const DeletedAccountRecovery = React.lazy<React.ComponentType<any>>(() => import("./components/DeletedAccountRecovery").then((m: any) => ({ default: m.DeletedAccountRecovery || m.default })));
+const GmailVault = React.lazy<React.ComponentType<any>>(() => import("./components/GmailVault").then((m: any) => ({ default: m.GmailVault || m.default })));
 import {
   ADMIN_USER_ID,
   isUserAdmin,

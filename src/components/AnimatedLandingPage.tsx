@@ -24,7 +24,7 @@ import { AnimatedSection } from "./AnimatedSection";
 import { CompactLanguageSwitcher } from "./ui/CompactLanguageSwitcher";
 
 // Lazy load the heavy ProductShowcaseWindow demo component
-const ProductShowcaseWindow = lazy(() => import("./ProductShowcaseWindow"));
+const ProductShowcaseWindow = lazy(() => import("./ProductShowcaseWindow").then(m => ({ default: m.ProductShowcaseWindow || m.default })));
 
 // Reusable Spring & Easing Presets
 const transitionSmooth = { duration: 0.6, ease: "easeOut" as const };
@@ -966,3 +966,5 @@ export const AnimatedLandingPage: React.FC<AnimatedLandingPageProps> = ({
     </div>
   );
 };
+
+export default AnimatedLandingPage;

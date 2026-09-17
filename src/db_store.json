@@ -669,6 +669,358 @@
       "lastActiveAt": "2026-09-17T13:12:02.884Z",
       "lastLoginAt": "2026-09-17T13:12:02.884Z",
       "restoredAt": "2026-09-17T13:11:52.823Z"
+    },
+    {
+      "id": "kI2XQi6ZGEaHXfomhxYKrhoVOL92",
+      "email": "test_reg_1789658853122@mail.com",
+      "passwordHash": "Password123!",
+      "companyName": "Test Company",
+      "ownerName": "test_reg_1789658853122",
+      "role": "ADMIN",
+      "workspaceId": "ws_kI2XQi6Z_mu5ooamc",
+      "workspace": {
+        "id": "ws_kI2XQi6Z_mu5ooamc",
+        "name": "Test Company Workspace",
+        "ownerId": "kI2XQi6ZGEaHXfomhxYKrhoVOL92",
+        "createdAt": "2026-09-17T15:27:35.364Z",
+        "memberCount": 1
+      },
+      "teamMembersList": [
+        {
+          "id": "tm-owner",
+          "uid": "kI2XQi6ZGEaHXfomhxYKrhoVOL92",
+          "name": "test_reg_1789658853122",
+          "email": "test_reg_1789658853122@mail.com",
+          "role": "CEO / Owner",
+          "powers": {
+            "fileVault": true,
+            "memoryVault": true,
+            "riskRadar": true,
+            "marketIntel": true,
+            "settings": true
+          },
+          "addedAt": "2026-09-17"
+        }
+      ],
+      "subscriptionStatus": "Pending Selection",
+      "createdAt": "2026-09-17T15:27:35.364Z",
+      "trialExpiresAt": "2026-09-18T15:27:35.364Z",
+      "lastActiveAt": "2026-09-17T15:27:35.364Z",
+      "lastLoginAt": "2026-09-17T15:27:35.364Z",
+      "isVerified": false,
+      "isEmailVerified": false,
+      "email_verified": false,
+      "emailVerified": false,
+      "verification_required": true,
+      "verification_status": "unverified"
+    },
+    {
+      "id": "sOOY98E13BaLw44Hdb0UBBFYOuI2",
+      "email": "test_reg_1789658977656@mail.com",
+      "passwordHash": "Password123!",
+      "companyName": "Test Company",
+      "ownerName": "test_reg_1789658977656",
+      "role": "ADMIN",
+      "workspaceId": "ws_sOOY98E1_mu5oqyuy",
+      "workspace": {
+        "id": "ws_sOOY98E1_mu5oqyuy",
+        "name": "Test Company Workspace",
+        "ownerId": "sOOY98E13BaLw44Hdb0UBBFYOuI2",
+        "createdAt": "2026-09-17T15:29:40.090Z",
+        "memberCount": 1
+      },
+      "teamMembersList": [
+        {
+          "id": "tm-owner",
+          "uid": "sOOY98E13BaLw44Hdb0UBBFYOuI2",
+          "name": "test_reg_1789658977656",
+          "email": "test_reg_1789658977656@mail.com",
+          "role": "CEO / Owner",
+          "powers": {
+            "fileVault": true,
+            "memoryVault": true,
+            "riskRadar": true,
+            "marketIntel": true,
+            "settings": true
+          },
+          "addedAt": "2026-09-17"
+        }
+      ],
+      "subscriptionStatus": "Pending Selection",
+      "createdAt": "2026-09-17T15:29:40.090Z",
+      "trialExpiresAt": "2026-09-18T15:29:40.090Z",
+      "lastActiveAt": "2026-09-17T15:29:40.090Z",
+      "lastLoginAt": "2026-09-17T15:29:40.090Z",
+      "isVerified": false,
+      "isEmailVerified": false,
+      "email_verified": false,
+      "emailVerified": false,
+      "verification_required": true,
+      "verification_status": "unverified"
+    },
+    {
+      "id": "vEX8355QwUfQXea09RaY9Rf6Zf72",
+      "email": "test_reg_1789659031479@mail.com",
+      "passwordHash": "Password123!",
+      "companyName": "Test Company",
+      "ownerName": "test_reg_1789659031479",
+      "role": "ADMIN",
+      "workspaceId": "ws_vEX8355Q_mu5os43d",
+      "workspace": {
+        "id": "ws_vEX8355Q_mu5os43d",
+        "name": "Test Company Workspace",
+        "ownerId": "vEX8355QwUfQXea09RaY9Rf6Zf72",
+        "createdAt": "2026-09-17T15:30:33.529Z",
+        "memberCount": 1
+      },
+      "teamMembersList": [
+        {
+          "id": "tm-owner",
+          "uid": "vEX8355QwUfQXea09RaY9Rf6Zf72",
+          "name": "test_reg_1789659031479",
+          "email": "test_reg_1789659031479@mail.com",
+          "role": "CEO / Owner",
+          "powers": {
+            "fileVault": true,
+            "memoryVault": true,
+            "riskRadar": true,
+            "marketIntel": true,
+            "settings": true
+          },
+          "addedAt": "2026-09-17"
+        }
+      ],
+      "subscriptionStatus": "Pending Selection",
+      "createdAt": "2026-09-17T15:30:33.529Z",
+      "trialExpiresAt": "2026-09-18T15:30:33.529Z",
+      "lastActiveAt": "2026-09-17T15:30:33.529Z",
+      "lastLoginAt": "2026-09-17T15:30:33.529Z",
+      "isVerified": false,
+      "isEmailVerified": false,
+      "email_verified": false,
+      "emailVerified": false,
+      "verification_required": true,
+      "verification_status": "unverified"
+    },
+    {
+      "id": "OrEt0lXssKOkJp6x1NYl2zTXUWm2",
+      "email": "test_role_check_1789659193430@example.com",
+      "passwordHash": "Password123!",
+      "companyName": "Security Test Co",
+      "ownerName": "test_role_check_1789659193430",
+      "role": "ADMIN",
+      "workspaceId": "ws_OrEt0lXs_mu5ovl3x",
+      "workspace": {
+        "id": "ws_OrEt0lXs_mu5ovl3x",
+        "name": "Security Test Co Workspace",
+        "ownerId": "OrEt0lXssKOkJp6x1NYl2zTXUWm2",
+        "createdAt": "2026-09-17T15:33:15.549Z",
+        "memberCount": 1
+      },
+      "teamMembersList": [
+        {
+          "id": "tm-owner",
+          "uid": "OrEt0lXssKOkJp6x1NYl2zTXUWm2",
+          "name": "test_role_check_1789659193430",
+          "email": "test_role_check_1789659193430@example.com",
+          "role": "CEO / Owner",
+          "powers": {
+            "fileVault": true,
+            "memoryVault": true,
+            "riskRadar": true,
+            "marketIntel": true,
+            "settings": true
+          },
+          "addedAt": "2026-09-17"
+        }
+      ],
+      "subscriptionStatus": "Pending Selection",
+      "createdAt": "2026-09-17T15:33:15.549Z",
+      "trialExpiresAt": "2026-09-18T15:33:15.549Z",
+      "lastActiveAt": "2026-09-17T15:33:15.549Z",
+      "lastLoginAt": "2026-09-17T15:33:15.549Z",
+      "isVerified": false,
+      "isEmailVerified": false,
+      "email_verified": false,
+      "emailVerified": false,
+      "verification_required": true,
+      "verification_status": "unverified"
+    },
+    {
+      "id": "djt0iICeMVZFez4jIJatliJSayd2",
+      "email": "user_priv_check_987@gmail.com",
+      "passwordHash": "Password123!",
+      "companyName": "Security Test Co",
+      "ownerName": "user_priv_check_987",
+      "role": "ADMIN",
+      "workspaceId": "ws_djt0iICe_mu5owm0h",
+      "workspace": {
+        "id": "ws_djt0iICe_mu5owm0h",
+        "name": "Security Test Co Workspace",
+        "ownerId": "djt0iICeMVZFez4jIJatliJSayd2",
+        "createdAt": "2026-09-17T15:34:03.377Z",
+        "memberCount": 1
+      },
+      "teamMembersList": [
+        {
+          "id": "tm-owner",
+          "uid": "djt0iICeMVZFez4jIJatliJSayd2",
+          "name": "user_priv_check_987",
+          "email": "user_priv_check_987@gmail.com",
+          "role": "CEO / Owner",
+          "powers": {
+            "fileVault": true,
+            "memoryVault": true,
+            "riskRadar": true,
+            "marketIntel": true,
+            "settings": true
+          },
+          "addedAt": "2026-09-17"
+        }
+      ],
+      "subscriptionStatus": "Pending Selection",
+      "createdAt": "2026-09-17T15:34:03.377Z",
+      "trialExpiresAt": "2026-09-18T15:34:03.377Z",
+      "lastActiveAt": "2026-09-17T15:34:03.377Z",
+      "lastLoginAt": "2026-09-17T15:34:03.377Z",
+      "isVerified": false,
+      "isEmailVerified": false,
+      "email_verified": false,
+      "emailVerified": false,
+      "verification_required": true,
+      "verification_status": "unverified"
+    },
+    {
+      "id": "ACwn5FXkIMRh0T9BH0J0rzaVSuC2",
+      "email": "user_priv_check_777@gmail.com",
+      "passwordHash": "Password123!",
+      "companyName": "Security Test Co",
+      "ownerName": "user_priv_check_777",
+      "role": "CEO",
+      "workspaceId": "ws_ACwn5FXk_mu5oxt0t",
+      "workspace": {
+        "id": "ws_ACwn5FXk_mu5oxt0t",
+        "name": "Security Test Co Workspace",
+        "ownerId": "ACwn5FXkIMRh0T9BH0J0rzaVSuC2",
+        "createdAt": "2026-09-17T15:34:59.117Z",
+        "memberCount": 1
+      },
+      "teamMembersList": [
+        {
+          "id": "tm-owner",
+          "uid": "ACwn5FXkIMRh0T9BH0J0rzaVSuC2",
+          "name": "user_priv_check_777",
+          "email": "user_priv_check_777@gmail.com",
+          "role": "CEO / Owner",
+          "powers": {
+            "fileVault": true,
+            "memoryVault": true,
+            "riskRadar": true,
+            "marketIntel": true,
+            "settings": true
+          },
+          "addedAt": "2026-09-17"
+        }
+      ],
+      "subscriptionStatus": "Pending Selection",
+      "createdAt": "2026-09-17T15:34:59.117Z",
+      "trialExpiresAt": "2026-09-18T15:34:59.117Z",
+      "lastActiveAt": "2026-09-17T15:34:59.117Z",
+      "lastLoginAt": "2026-09-17T15:34:59.117Z",
+      "isVerified": false,
+      "isEmailVerified": false,
+      "email_verified": false,
+      "emailVerified": false,
+      "verification_required": true,
+      "verification_status": "unverified"
+    },
+    {
+      "id": "0EFtwszGdna0Pw8uC6riy54rded2",
+      "email": "test_reg_1789659310019@mail.com",
+      "passwordHash": "Password123!",
+      "companyName": "Test Company",
+      "ownerName": "test_reg_1789659310019",
+      "role": "CEO",
+      "workspaceId": "ws_0EFtwszG_mu5oy2yd",
+      "workspace": {
+        "id": "ws_0EFtwszG_mu5oy2yd",
+        "name": "Test Company Workspace",
+        "ownerId": "0EFtwszGdna0Pw8uC6riy54rded2",
+        "createdAt": "2026-09-17T15:35:11.989Z",
+        "memberCount": 1
+      },
+      "teamMembersList": [
+        {
+          "id": "tm-owner",
+          "uid": "0EFtwszGdna0Pw8uC6riy54rded2",
+          "name": "test_reg_1789659310019",
+          "email": "test_reg_1789659310019@mail.com",
+          "role": "CEO / Owner",
+          "powers": {
+            "fileVault": true,
+            "memoryVault": true,
+            "riskRadar": true,
+            "marketIntel": true,
+            "settings": true
+          },
+          "addedAt": "2026-09-17"
+        }
+      ],
+      "subscriptionStatus": "Pending Selection",
+      "createdAt": "2026-09-17T15:35:11.989Z",
+      "trialExpiresAt": "2026-09-18T15:35:11.989Z",
+      "lastActiveAt": "2026-09-17T15:35:11.989Z",
+      "lastLoginAt": "2026-09-17T15:35:11.989Z",
+      "isVerified": false,
+      "isEmailVerified": false,
+      "email_verified": false,
+      "emailVerified": false,
+      "verification_required": true,
+      "verification_status": "unverified"
+    },
+    {
+      "id": "dTwpSsiPUpYqrWSleijYfOXl7dk2",
+      "email": "fresh_iso_check_1789663401954@gmail.com",
+      "passwordHash": "Password123!",
+      "companyName": "Isolated Workspace Co",
+      "ownerName": "fresh_iso_check_1789663401954",
+      "role": "CEO",
+      "workspaceId": "ws_dTwpSsiP_mu5rdsda",
+      "workspace": {
+        "id": "ws_dTwpSsiP_mu5rdsda",
+        "name": "Isolated Workspace Co Workspace",
+        "ownerId": "dTwpSsiPUpYqrWSleijYfOXl7dk2",
+        "createdAt": "2026-09-17T16:43:23.998Z",
+        "memberCount": 1
+      },
+      "teamMembersList": [
+        {
+          "id": "tm-owner",
+          "uid": "dTwpSsiPUpYqrWSleijYfOXl7dk2",
+          "name": "fresh_iso_check_1789663401954",
+          "email": "fresh_iso_check_1789663401954@gmail.com",
+          "role": "CEO / Owner",
+          "powers": {
+            "fileVault": true,
+            "memoryVault": true,
+            "riskRadar": true,
+            "marketIntel": true,
+            "settings": true
+          },
+          "addedAt": "2026-09-17"
+        }
+      ],
+      "subscriptionStatus": "Pending Selection",
+      "createdAt": "2026-09-17T16:43:23.998Z",
+      "trialExpiresAt": "2026-09-18T16:43:23.998Z",
+      "lastActiveAt": "2026-09-17T16:43:23.998Z",
+      "lastLoginAt": "2026-09-17T16:43:23.998Z",
+      "isVerified": false,
+      "isEmailVerified": false,
+      "email_verified": false,
+      "emailVerified": false,
+      "verification_required": true,
+      "verification_status": "unverified"
     }
   ],
   "verification_codes": [
@@ -1098,6 +1450,96 @@
       "deliveryStatus": "sent",
       "createdAt": "2026-09-17T13:17:46.833Z",
       "resendEmailId": "01a0af84-2503-75d0-8d4b-4a5084f9148a"
+    },
+    {
+      "id": "kI2XQi6ZGEaHXfomhxYKrhoVOL92",
+      "userId": "kI2XQi6ZGEaHXfomhxYKrhoVOL92",
+      "email": "test_reg_1789658853122@mail.com",
+      "phone": "",
+      "codeHash": "5e60ba561d5440f1cd463be998aea664cca7e22aa81228f360072ff942fc3738",
+      "type": "account_registration",
+      "createdAt": "2026-09-17T15:27:36.078Z",
+      "expiresAt": "2026-09-17T15:37:36.078Z",
+      "attempts": 0,
+      "used": false,
+      "sendCount": 0,
+      "initialOtpSent": true,
+      "lastSentAt": "2026-09-17T15:27:36.078Z"
+    },
+    {
+      "id": "sOOY98E13BaLw44Hdb0UBBFYOuI2",
+      "userId": "sOOY98E13BaLw44Hdb0UBBFYOuI2",
+      "email": "test_reg_1789658977656@mail.com",
+      "phone": "",
+      "codeHash": "ad0d81ad9ee33c101dcaa849d41020c89fa6df0d4eacf825b5785632f098ceff",
+      "type": "account_registration",
+      "createdAt": "2026-09-17T15:29:56.257Z",
+      "expiresAt": "2026-09-17T15:39:56.257Z",
+      "attempts": 0,
+      "used": false,
+      "sendCount": 0,
+      "initialOtpSent": true,
+      "lastSentAt": "2026-09-17T15:29:56.257Z"
+    },
+    {
+      "id": "OrEt0lXssKOkJp6x1NYl2zTXUWm2",
+      "userId": "OrEt0lXssKOkJp6x1NYl2zTXUWm2",
+      "email": "test_role_check_1789659193430@example.com",
+      "phone": "",
+      "codeHash": "c71d05264afd1b2e08518f24a99e57191b4a8a916638a03d40196205d98dffcd",
+      "type": "account_registration",
+      "createdAt": "2026-09-17T15:33:17.126Z",
+      "expiresAt": "2026-09-17T15:43:17.126Z",
+      "attempts": 0,
+      "used": false,
+      "sendCount": 0,
+      "initialOtpSent": true,
+      "lastSentAt": "2026-09-17T15:33:17.126Z"
+    },
+    {
+      "id": "djt0iICeMVZFez4jIJatliJSayd2",
+      "userId": "djt0iICeMVZFez4jIJatliJSayd2",
+      "email": "user_priv_check_987@gmail.com",
+      "phone": "",
+      "codeHash": "409e53bb6bbf2b8a47c2d05ee8cb1df106aaf08db28ed80c5b416a20e0abf775",
+      "type": "account_registration",
+      "createdAt": "2026-09-17T15:34:03.891Z",
+      "expiresAt": "2026-09-17T15:44:03.891Z",
+      "attempts": 0,
+      "used": false,
+      "sendCount": 0,
+      "initialOtpSent": true,
+      "lastSentAt": "2026-09-17T15:34:03.891Z"
+    },
+    {
+      "id": "ACwn5FXkIMRh0T9BH0J0rzaVSuC2",
+      "userId": "ACwn5FXkIMRh0T9BH0J0rzaVSuC2",
+      "email": "user_priv_check_777@gmail.com",
+      "phone": "",
+      "codeHash": "febde8055fc68b239a0a4b80780e9f559541d6929f601d5d9010c875630ef605",
+      "type": "account_registration",
+      "createdAt": "2026-09-17T15:34:59.871Z",
+      "expiresAt": "2026-09-17T15:44:59.871Z",
+      "attempts": 0,
+      "used": false,
+      "sendCount": 0,
+      "initialOtpSent": true,
+      "lastSentAt": "2026-09-17T15:34:59.871Z"
+    },
+    {
+      "id": "0EFtwszGdna0Pw8uC6riy54rded2",
+      "userId": "0EFtwszGdna0Pw8uC6riy54rded2",
+      "email": "test_reg_1789659310019@mail.com",
+      "phone": "",
+      "codeHash": "432ceb200c7f4a33a05e48571374dfedaa6140a033e4e5720997ba10e2729adf",
+      "type": "account_registration",
+      "createdAt": "2026-09-17T15:35:12.495Z",
+      "expiresAt": "2026-09-17T15:45:12.495Z",
+      "attempts": 0,
+      "used": false,
+      "sendCount": 0,
+      "initialOtpSent": true,
+      "lastSentAt": "2026-09-17T15:35:12.495Z"
     }
   ],
   "support_tickets": [
@@ -1380,7 +1822,11 @@
     "cs_live_a1n9qQ8nbkmV0ySWOhiVm2YpWw43d6GqSIAXjEJxfmyyYSOJdGDwYQqeHi": "usr_ceo",
     "cs_test_a1jlgCNzqg2oILfapKO43EHwPzYbT6YXW9KoTw7BjRCDjIYp69SvCyBqqW": "usr_ceo",
     "cs_test_a10OHPt32HRNyZrxBr17b4DIQmQV6H1b2CsSjouwfQMv6jEyuYIZ4DNa60": "usr_ceo",
-    "cs_test_a16z0m60SACMqoCSRZtgm1oXoHodYsP3WOXGJg3RW3zKYZj098ApM0NeFN": "usr_ceo"
+    "cs_test_a16z0m60SACMqoCSRZtgm1oXoHodYsP3WOXGJg3RW3zKYZj098ApM0NeFN": "usr_ceo",
+    "cs_test_a1KM4FhTeKJlzmYK3ItEgtOKlMejDX3XksmfkNlfrIr9gzrpzWh8gWjIqQ": "usr_a",
+    "cs_test_a1OcnbOKonMEZXiiByWlS45aSNf5jdb6amcmwGJpT4AxRgHoEWlsbrb6ys": "usr_a",
+    "cs_test_a1WI4WE63T4KZUwDLJW0Fcr9Kt5rRPJUdSdU0YDD0nm4149C3WyYAbQrMT": "usr_a",
+    "cs_test_a13ttQPKJ2jH5BT7Qut23A9nO1BtNwnIN1DgRjEQEUs5HCY8qtS2y96746": "usr_a"
   },
   "account_lifecycle": [
     {
@@ -1785,6 +2231,48 @@
       "retainedDataDocPath": null,
       "adminApprovalRequired": false,
       "updatedAt": "2026-09-15T13:22:37.473Z"
+    },
+    {
+      "accountId": "test_reg_1789659031479@mail.com",
+      "emailNormalized": "test_reg_1789659031479@mail.com",
+      "status": "ACTIVE",
+      "deletionType": null,
+      "deletedAt": null,
+      "deletedBy": null,
+      "restoreUntil": null,
+      "originalUserId": "vEX8355QwUfQXea09RaY9Rf6Zf72",
+      "retainedDataDocPath": null,
+      "adminApprovalRequired": false,
+      "updatedAt": "2026-09-17T15:30:41.688Z",
+      "id": "test_reg_1789659031479@mail.com"
+    },
+    {
+      "accountId": "gate_priv_check_1789663396950@gmail.com",
+      "emailNormalized": "gate_priv_check_1789663396950@gmail.com",
+      "status": "ACTIVE",
+      "deletionType": null,
+      "deletedAt": null,
+      "deletedBy": null,
+      "restoreUntil": null,
+      "originalUserId": "M9r3g5TlBWXBulVxjh1ERLGzNtZ2",
+      "retainedDataDocPath": null,
+      "adminApprovalRequired": false,
+      "updatedAt": "2026-09-17T16:43:27.133Z",
+      "id": "gate_priv_check_1789663396950@gmail.com"
+    },
+    {
+      "accountId": "fresh_iso_check_1789663401954@gmail.com",
+      "emailNormalized": "fresh_iso_check_1789663401954@gmail.com",
+      "status": "ACTIVE",
+      "deletionType": null,
+      "deletedAt": null,
+      "deletedBy": null,
+      "restoreUntil": null,
+      "originalUserId": "dTwpSsiPUpYqrWSleijYfOXl7dk2",
+      "retainedDataDocPath": null,
+      "adminApprovalRequired": false,
+      "updatedAt": "2026-09-17T16:43:32.156Z",
+      "id": "fresh_iso_check_1789663401954@gmail.com"
     }
   ],
   "account_reactivation_requests": [

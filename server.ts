@@ -10167,13 +10167,24 @@ app.all("/api/auth/delete-account", requireAuth, async (req: AuthRequest, res) =
 app.post("/api/auth/register", loginRegisterLimiter, async (req, res) => {
   try {
     const { email, password, companyName, role, ownerName, lang } = req.body;
-    const userRole = role || "CEO";
     if (!email || !password || !companyName) {
       return res.status(400).json({ success: false, error: "All registration fields are required." });
     }
-
     const normalizedEmail = email.trim().toLowerCase();
-    console.log("REGISTRATION_STARTED", { email: normalizedEmail });
+    
+    // Prevent privilege escalation: user role cannot be ADMIN unless email is in authorized ADMIN_EMAILS
+    let userRole: string = "CEO";
+    if (role && role.toUpperCase() === "ADMIN") {
+      if (ADMIN_EMAILS.has(normalizedEmail)) {
+        userRole = "ADMIN";
+      } else {
+        userRole = "CEO";
+      }
+    } else if (role && (role.toUpperCase() === "CEO" || role.toUpperCase() === "MEMBER")) {
+      userRole = role.toUpperCase();
+    }
+
+    console.log("REGISTRATION_STARTED", { email: normalizedEmail, assignedRole: userRole });
 
     // CRITICAL ACCOUNT LIFECYCLE CHECK BEFORE ANY CREATION
     const lifecycleRecord = await getAccountLifecycleRecord(normalizedEmail);
