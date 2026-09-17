@@ -49,7 +49,8 @@ import {
   Clock,
   Info,
   ExternalLink,
-  HelpCircle
+  HelpCircle,
+  AlertTriangle
 } from "lucide-react";
 import { CustomerSupport } from "./CustomerSupport.js";
 import { User, UserRole, TeamMember, ModulePermissions, EncryptedModuleSettings, AccountVerificationDoc, VerificationInfo, VerificationStatus } from "../types.js";
@@ -194,21 +195,6 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
     "account" | "subscription" | "team" | "security" | "support"
   >("account");
 
-  let currentTab = externalSubTab || internalSubTab;
-  if (!isCeoOrFirstAdmin && currentTab !== "account" && currentTab !== "security" && currentTab !== "support") {
-    currentTab = "account";
-  }
-
-  const handleTabChange = (tab: "account" | "subscription" | "team" | "security" | "support") => {
-    if (!isCeoOrFirstAdmin && tab !== "account" && tab !== "security" && tab !== "support") {
-      return;
-    }
-    if (setExternalSubTab) {
-      setExternalSubTab(tab as any);
-    }
-    setInternalSubTab(tab);
-  };
-
   // Profile Account State
   const [fullName, setFullName] = useState(currentUser.fullName || currentUser.ownerName || "Mohamed Vadel");
   const [email, setEmail] = useState(currentUser.email || "");
@@ -218,6 +204,87 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
   const [avatarUrl, setAvatarUrl] = useState<string | undefined>(currentUser.avatarUrl);
   const [companyLogoUrl, setCompanyLogoUrl] = useState<string | undefined>(currentUser.companyLogoUrl);
   const [signatureUrl, setSignatureUrl] = useState<string | undefined>(currentUser.signatureUrl);
+
+  // CEO Team Powers Management State - strictly isolated to current authenticated user
+  const sanitizeActiveTeamMembers = (list?: TeamMember[]): TeamMember[] => {
+    if (!list || !Array.isArray(list)) return [];
+    const dummyEmails = new Set(["f.zahra@g-partner.com", "j.luc@g-partner.com", "a.diop@g-partner.com"]);
+    return list.filter((m) => {
+      const emailVal = (m.email || "").trim().toLowerCase();
+      const isDummy = dummyEmails.has(emailVal);
+      const isPendingStatus = (m.status || "").toUpperCase() === "PENDING";
+      const isPendingName = (m.name || "").includes("معلق") || (m.name || "").includes("Pending") || (m.name || "").includes("معلقة");
+      return !isDummy && !isPendingStatus && !isPendingName;
+    });
+  };
+
+  const initialCleanedMembers = sanitizeActiveTeamMembers(currentUser.teamMembersList);
+  const initialTeamMembersList: TeamMember[] = initialCleanedMembers.length > 0
+    ? initialCleanedMembers
+    : [
+        {
+          id: "tm-owner",
+          uid: currentUser.id,
+          name: fullName || currentUser.ownerName || email.split("@")[0] || "CEO / Owner",
+          email: email || currentUser.email || "",
+          role: "CEO / Owner",
+          powers: { fileVault: true, memoryVault: true, riskRadar: true, marketIntel: true, settings: true },
+          addedAt: (currentUser.createdAt || new Date().toISOString()).split("T")[0]
+        }
+      ];
+
+  // Authoritative Saved State from Backend
+  const [teamMembers, setTeamMembers] = useState<TeamMember[]>(initialTeamMembersList);
+  
+  // DRAFT PERMISSION STATE (Editing state is local and temporary until explicit Save)
+  const [draftMemberPowers, setDraftMemberPowers] = useState<Record<string, ModulePermissions>>({});
+  const [isSavingPermissions, setIsSavingPermissions] = useState(false);
+  const [permissionSaveError, setPermissionSaveError] = useState<string | null>(null);
+  const [showUnsavedConfirmModal, setShowUnsavedConfirmModal] = useState(false);
+  const [pendingTabToSwitch, setPendingTabToSwitch] = useState<"account" | "subscription" | "team" | "security" | "support" | null>(null);
+  const [editingMemberModal, setEditingMemberModal] = useState<TeamMember | null>(null);
+  const [powerSaveNotify, setPowerSaveNotify] = useState(false);
+
+  // Helper to read effective powers (draft powers override saved powers for UI rendering)
+  const getMemberEffectivePowers = (member: TeamMember): ModulePermissions => {
+    return draftMemberPowers[member.id] || member.powers;
+  };
+
+  // Helper to check if a specific member has unsaved draft changes
+  const isMemberPowersModified = (member: TeamMember): boolean => {
+    const draft = draftMemberPowers[member.id];
+    if (!draft) return false;
+    const keys: (keyof ModulePermissions)[] = ["fileVault", "memoryVault", "riskRadar", "marketIntel", "settings"];
+    return keys.some(k => !!draft[k] !== !!member.powers[k]);
+  };
+
+  // List of modified members
+  const modifiedMembers = useMemo(() => {
+    return teamMembers.filter(m => isMemberPowersModified(m));
+  }, [teamMembers, draftMemberPowers]);
+
+  const hasUnsavedPermissions = modifiedMembers.length > 0;
+
+  let currentTab = externalSubTab || internalSubTab;
+  if (!isCeoOrFirstAdmin && currentTab !== "account" && currentTab !== "security" && currentTab !== "support") {
+    currentTab = "account";
+  }
+
+  const handleTabChange = (tab: "account" | "subscription" | "team" | "security" | "support") => {
+    if (!isCeoOrFirstAdmin && tab !== "account" && tab !== "security" && tab !== "support") {
+      return;
+    }
+    // Protect against leaving with unsaved permission changes
+    if (currentTab === "team" && tab !== "team" && hasUnsavedPermissions) {
+      setPendingTabToSwitch(tab);
+      setShowUnsavedConfirmModal(true);
+      return;
+    }
+    if (setExternalSubTab) {
+      setExternalSubTab(tab as any);
+    }
+    setInternalSubTab(tab);
+  };
 
   // Dedicated Save States for Profile Account
   const [isSavingProfile, setIsSavingProfile] = useState(false);
@@ -608,37 +675,6 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
   const [walletProvider, setWalletProvider] = useState("Bankily");
   const [walletPhone, setWalletPhone] = useState("+222 46 88 99 00");
 
-  // CEO Team Powers Management State - strictly isolated to current authenticated user
-  const sanitizeActiveTeamMembers = (list?: TeamMember[]): TeamMember[] => {
-    if (!list || !Array.isArray(list)) return [];
-    const dummyEmails = new Set(["f.zahra@g-partner.com", "j.luc@g-partner.com", "a.diop@g-partner.com"]);
-    return list.filter((m) => {
-      const email = (m.email || "").trim().toLowerCase();
-      const isDummy = dummyEmails.has(email);
-      const isPendingStatus = (m.status || "").toUpperCase() === "PENDING";
-      const isPendingName = (m.name || "").includes("معلق") || (m.name || "").includes("Pending") || (m.name || "").includes("معلقة");
-      return !isDummy && !isPendingStatus && !isPendingName;
-    });
-  };
-
-  const initialCleanedMembers = sanitizeActiveTeamMembers(currentUser.teamMembersList);
-  const initialTeamMembersList: TeamMember[] = initialCleanedMembers.length > 0
-    ? initialCleanedMembers
-    : [
-        {
-          id: "tm-owner",
-          uid: currentUser.id,
-          name: fullName || currentUser.ownerName || email.split("@")[0] || "CEO / Owner",
-          email: email || currentUser.email || "",
-          role: "CEO / Owner",
-          powers: { fileVault: true, memoryVault: true, riskRadar: true, marketIntel: true, settings: true },
-          addedAt: (currentUser.createdAt || new Date().toISOString()).split("T")[0]
-        }
-      ];
-
-  const [teamMembers, setTeamMembers] = useState<TeamMember[]>(initialTeamMembersList);
-  const [editingMemberModal, setEditingMemberModal] = useState<TeamMember | null>(null);
-  const [powerSaveNotify, setPowerSaveNotify] = useState(false);
   const [invitations, setInvitations] = useState<WorkspaceInvitation[]>([]);
   const [copiedLinkEmail, setCopiedLinkEmail] = useState<string | null>(null);
 
@@ -1028,63 +1064,134 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
 
   // Synchronize Worker Permissions with Backend API
   const syncMemberPermissionsToBackend = async (member: TeamMember) => {
-    try {
-      await authenticatedFetch("/api/admin/update-member-permissions", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ceoId: currentUser.id,
-          memberId: member.id,
-          memberEmail: member.email,
-          powers: member.powers,
-          role: member.role
-        })
-      });
-    } catch (e) {
-      console.warn("Backend permission sync error:", e);
+    const res = await authenticatedFetch("/api/admin/update-member-permissions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        ceoId: currentUser.id,
+        memberId: member.id,
+        memberEmail: member.email,
+        powers: member.powers,
+        role: member.role
+      })
+    });
+    if (!res.ok) {
+      const errData = await res.json().catch(() => ({}));
+      throw new Error(errData.error || errData.userFriendlyMessage || `Failed to update permissions for ${member.name}`);
     }
+    return res;
   };
 
-  // Handlers
+  // Handlers for Member Permission Matrix (Draft-Only on Toggle)
   const handleTogglePowerInMatrix = (memberId: string, powerKey: keyof ModulePermissions) => {
-    let updatedMember: TeamMember | null = null;
-    const updated = teamMembers.map(m => {
-      if (m.id === memberId) {
-        updatedMember = {
-          ...m,
-          powers: {
-            ...m.powers,
-            [powerKey]: !m.powers[powerKey]
-          }
-        };
-        return updatedMember;
+    const member = teamMembers.find(m => m.id === memberId);
+    if (!member) return;
+
+    setDraftMemberPowers(prev => {
+      const currentDraft = prev[memberId] ? { ...prev[memberId] } : { ...member.powers };
+      const newPowers: ModulePermissions = {
+        ...currentDraft,
+        [powerKey]: !currentDraft[powerKey]
+      };
+
+      // Check if new powers are completely identical to original saved powers
+      const keys: (keyof ModulePermissions)[] = ["fileVault", "memoryVault", "riskRadar", "marketIntel", "settings"];
+      const isIdentical = keys.every(k => !!newPowers[k] === !!member.powers[k]);
+      if (isIdentical) {
+        const next = { ...prev };
+        delete next[memberId];
+        return next;
       }
-      return m;
+
+      return {
+        ...prev,
+        [memberId]: newPowers
+      };
     });
-    setTeamMembers(updated);
-    onUpdateUser({
-      ...currentUser,
-      teamMembersList: updated
-    });
-    if (updatedMember) {
-      syncMemberPermissionsToBackend(updatedMember);
-    }
-    setPowerSaveNotify(true);
-    setTimeout(() => setPowerSaveNotify(false), 2500);
+    setPermissionSaveError(null);
   };
 
-  const handleSaveMemberModalPowers = () => {
+  // Discard all pending draft edits and revert to saved state
+  const handleDiscardAllDraftPowers = () => {
+    setDraftMemberPowers({});
+    setPermissionSaveError(null);
+  };
+
+  // Commit and Save all draft changes to the backend
+  const handleSaveAllDraftPermissions = async () => {
+    if (!hasUnsavedPermissions || isSavingPermissions) return;
+    setIsSavingPermissions(true);
+    setPermissionSaveError(null);
+
+    try {
+      const savePromises = modifiedMembers.map(async (member) => {
+        const targetPowers = draftMemberPowers[member.id] || member.powers;
+        const memberToSync: TeamMember = {
+          ...member,
+          powers: targetPowers
+        };
+        await syncMemberPermissionsToBackend(memberToSync);
+        return {
+          id: member.id,
+          powers: targetPowers
+        };
+      });
+
+      const results = await Promise.all(savePromises);
+
+      const updatedList = teamMembers.map(m => {
+        const match = results.find(r => r.id === m.id);
+        if (match) {
+          return { ...m, powers: match.powers };
+        }
+        return m;
+      });
+
+      setTeamMembers(updatedList);
+      onUpdateUser({
+        ...currentUser,
+        teamMembersList: updatedList
+      });
+
+      // Clear draft state on success
+      setDraftMemberPowers({});
+      setPowerSaveNotify(true);
+      setTimeout(() => setPowerSaveNotify(false), 3000);
+    } catch (err: any) {
+      console.error("Save member permissions error:", err);
+      setPermissionSaveError(err.message || (lang === "ar" ? "فشل حفظ التعديلات في الخادم" : "Failed to save permission changes to server"));
+    } finally {
+      setIsSavingPermissions(false);
+    }
+  };
+
+  const handleSaveMemberModalPowers = async () => {
     if (!editingMemberModal) return;
-    const updated = teamMembers.map(m => m.id === editingMemberModal.id ? editingMemberModal : m);
-    setTeamMembers(updated);
-    onUpdateUser({
-      ...currentUser,
-      teamMembersList: updated
-    });
-    syncMemberPermissionsToBackend(editingMemberModal);
-    setEditingMemberModal(null);
-    setPowerSaveNotify(true);
-    setTimeout(() => setPowerSaveNotify(false), 2500);
+    setIsSavingPermissions(true);
+    setPermissionSaveError(null);
+    try {
+      await syncMemberPermissionsToBackend(editingMemberModal);
+      const updated = teamMembers.map(m => m.id === editingMemberModal.id ? editingMemberModal : m);
+      setTeamMembers(updated);
+      onUpdateUser({
+        ...currentUser,
+        teamMembersList: updated
+      });
+      // Clear draft entry for this member
+      setDraftMemberPowers(prev => {
+        const next = { ...prev };
+        delete next[editingMemberModal.id];
+        return next;
+      });
+      setEditingMemberModal(null);
+      setPowerSaveNotify(true);
+      setTimeout(() => setPowerSaveNotify(false), 3000);
+    } catch (err: any) {
+      console.error("Save member modal error:", err);
+      setPermissionSaveError(err.message || (lang === "ar" ? "فشل حفظ صلاحيات العضو في الخادم" : "Failed to save member powers to server"));
+    } finally {
+      setIsSavingPermissions(false);
+    }
   };
 
   const handleAddTeamMemberSubmit = async (e: React.FormEvent) => {
@@ -1263,6 +1370,11 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
     }
     const updated = teamMembers.filter(m => m.id !== memberId);
     setTeamMembers(updated);
+    setDraftMemberPowers(prev => {
+      const next = { ...prev };
+      delete next[memberId];
+      return next;
+    });
     onUpdateUser({
       ...currentUser,
       teamMembersList: updated
@@ -3546,14 +3658,86 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
           {powerSaveNotify && (
             <div className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-bold flex items-center justify-between animate-fade-in">
               <div className="flex items-center gap-2">
-                <CheckCircle2 className="w-5 h-5 text-emerald-400" />
+                <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
                 <span>
                   {lang === "ar" 
-                    ? "تم تحديث وحفظ صلاحيات المدير التنفيذي (CEO) للأعضاء في Firestore بنجاح!" 
-                    : "CEO custom powers & permissions updated and committed to Firestore successfully!"}
+                    ? "تم حفظ وتحديث صلاحيات الأعضاء ومزامنتها بنجاح في قاعدة البيانات!" 
+                    : "Member permissions have been securely updated and synced to the workspace database!"}
                 </span>
               </div>
-              <span className="text-[10px] opacity-80">Synced</span>
+              <span className="text-[10px] uppercase font-bold bg-emerald-500/20 text-emerald-300 px-2.5 py-1 rounded-md">Synced</span>
+            </div>
+          )}
+
+          {/* Persistent Unsaved Changes Alert Bar */}
+          {hasUnsavedPermissions && (
+            <div className="p-4 rounded-2xl bg-amber-500/10 border-2 border-amber-500/40 text-amber-600 dark:text-amber-300 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-lg shadow-amber-500/5 animate-fade-in">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-amber-500/20 text-amber-500 flex items-center justify-center shrink-0">
+                  <AlertTriangle className="w-5 h-5 text-amber-500" />
+                </div>
+                <div>
+                  <p className="text-xs font-bold text-amber-700 dark:text-amber-200">
+                    {lang === "ar"
+                      ? `توجد تعديلات غير محفوظة في صلاحيات الأعضاء (${modifiedMembers.length} ${modifiedMembers.length === 1 ? "عضو" : "أعضاء"})`
+                      : `Unsaved Permission Changes (${modifiedMembers.length} team ${modifiedMembers.length === 1 ? "member" : "members"})`}
+                  </p>
+                  <p className="text-[11px] text-amber-700/80 dark:text-amber-300/80">
+                    {lang === "ar"
+                      ? "التعديلات الحالية في وضع المسودة ولم يتم تطبيقها على الخادم بعد. انقر على 'حفظ التعديلات' للاعتماد."
+                      : "Changes are currently in draft mode. Click 'Save Changes' to commit to the server."}
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 self-end sm:self-auto shrink-0">
+                <button
+                  type="button"
+                  onClick={handleDiscardAllDraftPowers}
+                  disabled={isSavingPermissions}
+                  className={`px-3.5 py-2 rounded-xl text-xs font-bold border cursor-pointer transition-all ${
+                    theme === "dark" 
+                      ? "bg-slate-900 border-slate-700 text-slate-300 hover:bg-slate-800" 
+                      : "bg-white border-slate-300 text-slate-700 hover:bg-slate-100"
+                  }`}
+                >
+                  {lang === "ar" ? "تراجع عن التعديلات" : "Discard"}
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSaveAllDraftPermissions}
+                  disabled={isSavingPermissions}
+                  className="px-4 py-2 bg-gradient-to-r from-[#0075DE] to-[#005BAB] hover:brightness-110 text-white text-xs font-black rounded-xl flex items-center gap-2 cursor-pointer shadow-md shadow-[#0075DE]/20 disabled:opacity-50"
+                >
+                  {isSavingPermissions ? (
+                    <>
+                      <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                      <span>{lang === "ar" ? "جارٍ الحفظ..." : "Saving..."}</span>
+                    </>
+                  ) : (
+                    <>
+                      <Save className="w-3.5 h-3.5" />
+                      <span>{lang === "ar" ? "حفظ التعديلات" : "Save Changes"}</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Error Message for Permission Save */}
+          {permissionSaveError && (
+            <div className="p-4 rounded-xl bg-rose-500/15 border border-rose-500/30 text-rose-500 dark:text-rose-400 text-xs font-bold flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 shrink-0" />
+                <span>{permissionSaveError}</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setPermissionSaveError(null)}
+                className="text-xs hover:underline cursor-pointer"
+              >
+                ✕
+              </button>
             </div>
           )}
 
@@ -3576,8 +3760,8 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
                 </h2>
                 <p className="text-xs text-slate-400 mt-1">
                   {lang === "ar" 
-                    ? "بصفتك المدير التنفيذي، يمكنك منح أو سحب الوصول الفردي لكل عضو في الفريق لإدارة الملفات والذكريات والمخاطر والإعدادات" 
-                    : "As CEO/Owner, you can grant or revoke granular feature access rights for each team member across all workspace modules."}
+                    ? "بصفتك المدير التنفيذي، يمكنك تحديد الصلاحيات كمسودة وحفظها يدوياً لتأكيد الوصول الفردي لكل عضو في الفريق" 
+                    : "As CEO/Owner, you can configure granular permissions in draft mode and explicitly click Save to commit changes to the backend."}
                 </p>
               </div>
 
@@ -3595,13 +3779,22 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
 
             {/* CEO Authorization Matrix Table */}
             <div className={`pt-4 border-t ${theme === "dark" ? "border-slate-800/60" : "border-slate-200"}`}>
-              <div className="flex items-center justify-between mb-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4">
                 <h3 className={`text-sm font-bold flex items-center gap-2 ${theme === "dark" ? "text-white" : "text-slate-900"}`}>
                   <Sliders className="w-4 h-4 text-[#0075DE]" />
                   <span>{lang === "ar" ? "مصفوفة صلاحيات الأعضاء (المعينة من طرف CEO):" : "Member Power Authorization Matrix (Designated by CEO):"}</span>
                 </h3>
-                <span className={`text-[11px] ${theme === "dark" ? "text-slate-400" : "text-slate-500"}`}>
-                  {lang === "ar" ? "انقر على الخانات للتعديل المباشر" : "Click checkboxes to toggle powers directly"}
+                <span className={`text-[11px] font-medium flex items-center gap-1.5 ${
+                  hasUnsavedPermissions ? "text-amber-500 font-bold" : (theme === "dark" ? "text-slate-400" : "text-slate-500")
+                }`}>
+                  {hasUnsavedPermissions ? (
+                    <>
+                      <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span>
+                      <span>{lang === "ar" ? "تعديلات مسودة بانتظار الحفظ" : "Draft changes pending save"}</span>
+                    </>
+                  ) : (
+                    <span>{lang === "ar" ? "انقر على الخانات لتعديل المسودة ثم اضغط حفظ" : "Click checkboxes to stage draft changes, then Save"}</span>
+                  )}
                 </span>
               </div>
 
@@ -3625,16 +3818,28 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
                   }`}>
                     {teamMembers.map((member) => {
                       const displayName = cleanMemberName(member.name);
+                      const effectivePowers = getMemberEffectivePowers(member);
+                      const isModified = isMemberPowersModified(member);
+
                       return (
                       <tr key={member.id} className={`transition-colors ${
-                        theme === "dark" ? "hover:bg-slate-800/30" : "hover:bg-slate-50"
+                        isModified 
+                          ? (theme === "dark" ? "bg-amber-500/5 hover:bg-amber-500/10" : "bg-amber-50/60 hover:bg-amber-100/60") 
+                          : (theme === "dark" ? "hover:bg-slate-800/30" : "hover:bg-slate-50")
                       }`}>
                         <td className="py-3.5 px-4 font-bold flex items-center gap-2.5">
                           <div className="w-7 h-7 rounded-lg bg-[#0075DE]/20 text-[#0075DE] font-bold text-[10px] flex items-center justify-center shrink-0">
                             {displayName.slice(0, 2).toUpperCase()}
                           </div>
                           <div>
-                            <p className={`font-bold text-xs ${theme === "dark" ? "text-white" : "text-slate-900"}`}>{displayName}</p>
+                            <div className="flex items-center gap-2">
+                              <p className={`font-bold text-xs ${theme === "dark" ? "text-white" : "text-slate-900"}`}>{displayName}</p>
+                              {isModified && (
+                                <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-500/20 text-amber-500 border border-amber-500/30">
+                                  {lang === "ar" ? "مسودة" : "Draft"}
+                                </span>
+                              )}
+                            </div>
                             <p className={`text-[10px] font-mono ${theme === "dark" ? "text-slate-400" : "text-slate-500"}`}>{member.email}</p>
                           </div>
                         </td>
@@ -3649,23 +3854,100 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
                           </span>
                         </td>
 
-                        {(["fileVault", "memoryVault", "riskRadar", "marketIntel", "settings"] as (keyof ModulePermissions)[]).map((powerKey) => (
-                          <td key={powerKey} className="py-3.5 px-3 text-center">
-                            <input
-                              type="checkbox"
-                              checked={!!member.powers[powerKey]}
-                              onChange={() => handleTogglePowerInMatrix(member.id, powerKey)}
-                              className={`w-4 h-4 rounded text-[#0075DE] focus:ring-[#0075DE] cursor-pointer accent-[#0075DE] ${
-                                theme === "dark" ? "bg-slate-900 border-slate-700" : "bg-white border-slate-300"
-                              }`}
-                            />
-                          </td>
-                        ))}
+                        {(["fileVault", "memoryVault", "riskRadar", "marketIntel", "settings"] as (keyof ModulePermissions)[]).map((powerKey) => {
+                          const isPowerChanged = !!effectivePowers[powerKey] !== !!member.powers[powerKey];
+                          return (
+                            <td key={powerKey} className="py-3.5 px-3 text-center">
+                              <div className="inline-flex items-center justify-center relative">
+                                <input
+                                  type="checkbox"
+                                  checked={!!effectivePowers[powerKey]}
+                                  onChange={() => handleTogglePowerInMatrix(member.id, powerKey)}
+                                  className={`w-4 h-4 rounded text-[#0075DE] focus:ring-[#0075DE] cursor-pointer accent-[#0075DE] ${
+                                    isPowerChanged 
+                                      ? "ring-2 ring-amber-400 ring-offset-1" 
+                                      : (theme === "dark" ? "bg-slate-900 border-slate-700" : "bg-white border-slate-300")
+                                  }`}
+                                />
+                                {isPowerChanged && (
+                                  <span className="absolute -top-1 -right-1 w-1.5 h-1.5 bg-amber-500 rounded-full"></span>
+                                )}
+                              </div>
+                            </td>
+                          );
+                        })}
                       </tr>
                       );
                     })}
                   </tbody>
                 </table>
+              </div>
+
+              {/* Explicit Save and Status Footer for Matrix */}
+              <div className={`mt-4 pt-4 border-t flex flex-col sm:flex-row items-center justify-between gap-3 ${
+                theme === "dark" ? "border-slate-800/60" : "border-slate-200"
+              }`}>
+                <div className="text-xs flex items-center gap-2">
+                  {hasUnsavedPermissions ? (
+                    <span className="text-amber-500 font-bold flex items-center gap-1.5">
+                      <AlertTriangle className="w-4 h-4" />
+                      <span>
+                        {lang === "ar" 
+                          ? `توجد (${modifiedMembers.length}) تعديلات بانتظار الحفظ` 
+                          : `There are ${modifiedMembers.length} unsaved draft permission changes`}
+                      </span>
+                    </span>
+                  ) : (
+                    <span className="text-emerald-500 font-bold flex items-center gap-1.5">
+                      <CheckCircle className="w-4 h-4" />
+                      <span>
+                        {lang === "ar" 
+                          ? "جميع الصلاحيات محفوظة ومتزامنة مع الخادم" 
+                          : "All member permissions are committed and in sync with server"}
+                      </span>
+                    </span>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-2">
+                  {hasUnsavedPermissions && (
+                    <button
+                      type="button"
+                      onClick={handleDiscardAllDraftPowers}
+                      disabled={isSavingPermissions}
+                      className={`px-3.5 py-2 text-xs font-bold rounded-xl border cursor-pointer transition-all ${
+                        theme === "dark" 
+                          ? "bg-slate-900 border-slate-700 text-slate-300 hover:bg-slate-800" 
+                          : "bg-white border-slate-300 text-slate-700 hover:bg-slate-100"
+                      }`}
+                    >
+                      {lang === "ar" ? "تراجع عن التعديلات" : "Discard Changes"}
+                    </button>
+                  )}
+
+                  <button
+                    type="button"
+                    onClick={handleSaveAllDraftPermissions}
+                    disabled={!hasUnsavedPermissions || isSavingPermissions}
+                    className={`px-5 py-2.5 font-bold text-xs rounded-xl flex items-center gap-2 transition-all ${
+                      hasUnsavedPermissions 
+                        ? "bg-[#0075DE] hover:bg-[#005BAB] text-white cursor-pointer shadow-lg shadow-[#0075DE]/25 font-black" 
+                        : "bg-slate-200 dark:bg-slate-800 text-slate-400 cursor-not-allowed opacity-60"
+                    }`}
+                  >
+                    {isSavingPermissions ? (
+                      <>
+                        <RefreshCw className="w-4 h-4 animate-spin" />
+                        <span>{lang === "ar" ? "جارٍ حفظ الصلاحيات..." : "Saving Permissions..."}</span>
+                      </>
+                    ) : (
+                      <>
+                        <Save className="w-4 h-4" />
+                        <span>{lang === "ar" ? "حفظ التعديلات" : "Save Changes"}</span>
+                      </>
+                    )}
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -3679,16 +3961,21 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {teamMembers.map((member) => {
                 const displayName = cleanMemberName(member.name);
+                const effectivePowers = getMemberEffectivePowers(member);
+                const isModified = isMemberPowersModified(member);
+
                 return (
                 <div 
                   key={member.id} 
-                  className={`p-5 rounded-2xl border space-y-4 flex flex-col justify-between ${
-                    theme === "dark" ? "border-slate-800 bg-slate-950/70" : "border-slate-200 bg-white shadow-sm"
+                  className={`p-5 rounded-2xl border space-y-4 flex flex-col justify-between transition-all ${
+                    isModified 
+                      ? (theme === "dark" ? "border-amber-500/50 bg-slate-950 shadow-md shadow-amber-500/5" : "border-amber-400 bg-amber-50/20 shadow-md shadow-amber-500/5")
+                      : (theme === "dark" ? "border-slate-800 bg-slate-950/70" : "border-slate-200 bg-white shadow-sm")
                   }`}
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-xl bg-[#0075DE]/20 text-[#0075DE] font-extrabold text-sm flex items-center justify-center border border-[#0075DE]/30">
+                      <div className="w-10 h-10 rounded-xl bg-[#0075DE]/20 text-[#0075DE] font-extrabold text-sm flex items-center justify-center border border-[#0075DE]/30 shrink-0">
                         {displayName.slice(0, 2).toUpperCase()}
                       </div>
                       <div>
@@ -3696,6 +3983,11 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
                           <span>{displayName}</span>
                           {member.role.includes("CEO") && (
                             <span className="px-2 py-0.5 rounded bg-[#0075DE]/20 text-[#0075DE] text-[10px] font-bold">Owner</span>
+                          )}
+                          {isModified && (
+                            <span className="px-2 py-0.5 rounded bg-amber-500/20 text-amber-500 text-[10px] font-bold border border-amber-500/30">
+                              {lang === "ar" ? "تعديل معلق" : "Pending Draft"}
+                            </span>
                           )}
                         </h4>
                         <p className={`text-xs font-mono ${theme === "dark" ? "text-slate-400" : "text-slate-500"}`}>{member.email}</p>
@@ -3711,9 +4003,16 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
 
                   {/* Powers Badges */}
                   <div className={`space-y-2 pt-3 border-t ${theme === "dark" ? "border-slate-800/80" : "border-slate-200"}`}>
-                    <p className={`text-[10px] font-bold uppercase tracking-wider ${theme === "dark" ? "text-slate-400" : "text-slate-500"}`}>
-                      {lang === "ar" ? "الصلاحيات الممنوحة من CEO:" : "CEO Granted Module Powers:"}
-                    </p>
+                    <div className="flex items-center justify-between">
+                      <p className={`text-[10px] font-bold uppercase tracking-wider ${theme === "dark" ? "text-slate-400" : "text-slate-500"}`}>
+                        {lang === "ar" ? "الصلاحيات الممنوحة من CEO:" : "CEO Granted Module Powers:"}
+                      </p>
+                      {isModified && (
+                        <span className="text-[10px] text-amber-500 font-bold">
+                          {lang === "ar" ? "مسودة غير محفوظة" : "Unsaved Draft"}
+                        </span>
+                      )}
+                    </div>
                     <div className="flex flex-wrap gap-1.5">
                       {[
                         { key: "fileVault", label: lang === "ar" ? "إدارة الملفات" : "File Vault" },
@@ -3722,13 +4021,16 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
                         { key: "marketIntel", label: lang === "ar" ? "استخبارات السوق" : "Market Intel" },
                         { key: "settings", label: lang === "ar" ? "إعدادات النظام" : "System Settings" },
                       ].map((p) => {
-                        const isGranted = member.powers[p.key as keyof ModulePermissions];
+                        const isGranted = effectivePowers[p.key as keyof ModulePermissions];
+                        const isChanged = !!effectivePowers[p.key as keyof ModulePermissions] !== !!member.powers[p.key as keyof ModulePermissions];
                         return (
                           <span
                             key={p.key}
                             className={`px-2.5 py-1 rounded-md text-[10px] font-bold flex items-center gap-1 ${
                               isGranted 
-                                ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30" 
+                                ? (isChanged 
+                                    ? "bg-amber-500/20 text-amber-600 dark:text-amber-300 border border-amber-500/40" 
+                                    : "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30") 
                                 : theme === "dark" ? "bg-slate-900 text-slate-500 border border-slate-800 line-through opacity-60" : "bg-slate-100 text-slate-400 border border-slate-200 line-through opacity-60"
                             }`}
                           >
@@ -3744,7 +4046,10 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
                   <div className={`pt-3 border-t flex items-center justify-between ${theme === "dark" ? "border-slate-800/80" : "border-slate-200"}`}>
                     <button
                       type="button"
-                      onClick={() => setEditingMemberModal(member)}
+                      onClick={() => setEditingMemberModal({
+                        ...member,
+                        powers: { ...effectivePowers }
+                      })}
                       className="px-3 py-1.5 bg-[#0075DE]/15 hover:bg-[#0075DE]/25 text-[#0075DE] border border-[#0075DE]/30 text-xs font-bold rounded-lg flex items-center gap-1.5 cursor-pointer transition-all"
                     >
                       <Edit3 className="w-3.5 h-3.5" />
@@ -4697,11 +5002,21 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
 
               <button
                 type="button"
+                disabled={isSavingPermissions}
                 onClick={handleSaveMemberModalPowers}
-                className="flex-1 py-3 bg-[#0075DE] hover:bg-[#005BAB] text-white font-bold text-xs rounded-xl flex items-center justify-center gap-2 cursor-pointer shadow-lg shadow-[#0075DE]/20"
+                className="flex-1 py-3 bg-[#0075DE] hover:bg-[#005BAB] text-white font-bold text-xs rounded-xl flex items-center justify-center gap-2 cursor-pointer shadow-lg shadow-[#0075DE]/20 disabled:opacity-50"
               >
-                <Save className="w-4 h-4" />
-                <span>{lang === "ar" ? "حفظ الصلاحيات" : "Save Granted Powers"}</span>
+                {isSavingPermissions ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 animate-spin" />
+                    <span>{lang === "ar" ? "جارٍ الحفظ..." : "Saving..."}</span>
+                  </>
+                ) : (
+                  <>
+                    <Save className="w-4 h-4" />
+                    <span>{lang === "ar" ? "حفظ الصلاحيات" : "Save Granted Powers"}</span>
+                  </>
+                )}
               </button>
             </div>
           </div>
@@ -5040,6 +5355,86 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* UNSAVED CHANGES NAVIGATION CONFIRMATION MODAL */}
+      {showUnsavedConfirmModal && (
+        <div className="fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-md flex items-center justify-center p-4">
+          <div className={`w-full max-w-md rounded-2xl border p-6 space-y-5 shadow-2xl animate-fade-in ${
+            theme === "dark" ? "bg-slate-900 border-slate-800 text-white" : "bg-white border-slate-200 text-slate-900"
+          }`}>
+            <div className="flex items-center gap-3 pb-3 border-b border-amber-500/30 text-amber-500">
+              <div className="w-10 h-10 rounded-xl bg-amber-500/15 flex items-center justify-center shrink-0">
+                <AlertTriangle className="w-5 h-5 text-amber-500" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold">
+                  {lang === "ar" ? "توجد تغييرات غير محفوظة!" : "Unsaved Changes!"}
+                </h3>
+                <p className={`text-xs ${theme === "dark" ? "text-slate-400" : "text-slate-500"}`}>
+                  {lang === "ar" 
+                    ? `قمت بتعديل صلاحيات ${modifiedMembers.length} ${modifiedMembers.length === 1 ? "عضو" : "أعضاء"} ولم تقم بحفظها بعد.`
+                    : `You have modified permissions for ${modifiedMembers.length} team ${modifiedMembers.length === 1 ? "member" : "members"}.`}
+                </p>
+              </div>
+            </div>
+
+            <p className={`text-xs leading-relaxed ${theme === "dark" ? "text-slate-300" : "text-slate-700"}`}>
+              {lang === "ar"
+                ? "هل تريد حفظ هذه الصلاحيات الجديدة وتطبيقها على الخادم، أم التراجع عنها ومتابعة الانتقال؟"
+                : "Do you want to save and commit these permission changes to the server, or discard them and continue?"}
+            </p>
+
+            <div className="flex flex-col sm:flex-row gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowUnsavedConfirmModal(false);
+                  setPendingTabToSwitch(null);
+                }}
+                className={`px-4 py-2.5 rounded-xl font-bold text-xs cursor-pointer ${
+                  theme === "dark" ? "bg-slate-800 hover:bg-slate-700 text-slate-300" : "bg-slate-100 hover:bg-slate-200 text-slate-700"
+                }`}
+              >
+                {lang === "ar" ? "البقاء هنا" : "Stay on Team"}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  handleDiscardAllDraftPowers();
+                  setShowUnsavedConfirmModal(false);
+                  if (pendingTabToSwitch) {
+                    if (setExternalSubTab) setExternalSubTab(pendingTabToSwitch as any);
+                    setInternalSubTab(pendingTabToSwitch);
+                    setPendingTabToSwitch(null);
+                  }
+                }}
+                className="px-4 py-2.5 rounded-xl font-bold text-xs bg-rose-500/15 hover:bg-rose-500/25 text-rose-500 border border-rose-500/30 cursor-pointer"
+              >
+                {lang === "ar" ? "تجاهل ومتابعة" : "Discard & Leave"}
+              </button>
+
+              <button
+                type="button"
+                disabled={isSavingPermissions}
+                onClick={async () => {
+                  await handleSaveAllDraftPermissions();
+                  setShowUnsavedConfirmModal(false);
+                  if (pendingTabToSwitch) {
+                    if (setExternalSubTab) setExternalSubTab(pendingTabToSwitch as any);
+                    setInternalSubTab(pendingTabToSwitch);
+                    setPendingTabToSwitch(null);
+                  }
+                }}
+                className="px-4 py-2.5 bg-gradient-to-r from-[#0075DE] to-[#005BAB] text-white font-black text-xs rounded-xl flex items-center justify-center gap-1.5 cursor-pointer shadow-lg shadow-[#0075DE]/20 flex-1 disabled:opacity-50"
+              >
+                {isSavingPermissions ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+                <span>{lang === "ar" ? "حفظ ومتابعة" : "Save & Continue"}</span>
+              </button>
+            </div>
           </div>
         </div>
       )}
