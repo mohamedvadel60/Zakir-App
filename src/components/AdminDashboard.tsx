@@ -179,10 +179,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   // Administrative editing overlays
   const [editingUser, setEditingUser] = useState<any | null>(null);
+  const [editDisplayName, setEditDisplayName] = useState<string>("");
   const [editRole, setEditRole] = useState<string>("");
+  const [editStatus, setEditStatus] = useState<string>("active");
+  const [editDepartment, setEditDepartment] = useState<string>("");
   const [editCompanyName, setEditCompanyName] = useState<string>("");
   const [editPhone, setEditPhone] = useState<string>("");
   const [editVerified, setEditVerified] = useState<boolean>(false);
+  const [savingUserEdit, setSavingUserEdit] = useState<boolean>(false);
 
   const [editingWorkspace, setEditingWorkspace] = useState<any | null>(null);
   const [editWorkspaceCompanyName, setEditWorkspaceCompanyName] = useState<string>("");
@@ -591,6 +595,69 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       }
     } catch (err: any) {
       alert(err.message);
+    }
+  };
+
+  const handleSaveUserEdit = async () => {
+    if (!editingUser) return;
+    setSavingUserEdit(true);
+    try {
+      const isSuspended = editStatus === "suspended";
+      const profileFields: any = {
+        displayName: editDisplayName.trim(),
+        ownerName: editDisplayName.trim(),
+        role: editRole,
+        department: editDepartment.trim(),
+        status: editStatus,
+        suspended: isSuspended,
+        companyName: editCompanyName.trim() || editDepartment.trim(),
+        phone: editPhone.trim(),
+        isVerified: editVerified
+      };
+
+      const token = await getAdminToken();
+      const res = await fetch("/api/admin/update-user-profile", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({ targetUid: editingUser.id, profileData: profileFields })
+      });
+      const data = await res.json();
+
+      if (isSuspended && !editingUser.suspended) {
+        await fetch("/api/admin/suspend-user", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`
+          },
+          body: JSON.stringify({ targetUid: editingUser.id, reason: "Updated via Edit User Modal" })
+        });
+      } else if (!isSuspended && editingUser.suspended) {
+        await fetch("/api/admin/unsuspend-user", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`
+          },
+          body: JSON.stringify({ targetUid: editingUser.id, reason: "Updated via Edit User Modal" })
+        });
+      }
+
+      if (data.success) {
+        alert(lang === "ar" ? "تم تحديث بيانات المستخدم بنجاح." : "User profile updated successfully.");
+        setEditingUser(null);
+        loadAdminData(true);
+        fetchOperationsData();
+      } else {
+        alert(data.error || "Failed to update profile");
+      }
+    } catch (err: any) {
+      alert(err.message || "Error updating user profile");
+    } finally {
+      setSavingUserEdit(false);
     }
   };
 
@@ -3883,7 +3950,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     setEditingUser(record);
-                                    setEditRole(record.role || "Member");
+                                    setEditDisplayName((record as any).displayName || record.ownerName || (record as any).fullName || (record.email ? record.email.split('@')[0] : ""));
+                                    setEditRole(record.role || "CEO");
+                                    setEditStatus((record as any).suspended ? "suspended" : ((record as any).status || "active"));
+                                    setEditDepartment((record as any).department || record.companyName || "");
                                     setEditCompanyName(record.companyName || "");
                                     setEditPhone((record as any).phone || "");
                                     setEditVerified(record.isVerified || false);
@@ -5619,6 +5689,168 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   <>
                     <ShieldCheck className="w-4 h-4" />
                     <span>{lang === "ar" ? "بدء جلسة الدعم الموثقة" : "Activate Audited Session"}</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* EDIT USER PROFILE MODAL */}
+      {editingUser && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-fade-in">
+          <div className={`w-full max-w-lg rounded-2xl border shadow-2xl overflow-hidden ${
+            theme === "dark" ? "bg-slate-900 border-slate-700 text-white" : "bg-white border-slate-200 text-slate-900"
+          }`}>
+            <div className="p-5 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 rounded-xl bg-purple-500/10 text-purple-500 border border-purple-500/20">
+                  <UserCheck className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-base">
+                    {lang === "ar" ? "تعديل بيانات المستخدم" : "Edit User Profile"}
+                  </h3>
+                  <p className="text-xs text-slate-400 font-mono">
+                    {editingUser.email}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setEditingUser(null)}
+                className="p-1 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-5 space-y-4 text-xs">
+              {/* Display Name */}
+              <div className="space-y-1.5">
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
+                  {lang === "ar" ? "اسم العرض (Display Name)" : "Display Name"}
+                </label>
+                <input
+                  type="text"
+                  value={editDisplayName}
+                  onChange={(e) => setEditDisplayName(e.target.value)}
+                  placeholder={lang === "ar" ? "أدخل اسم العرض" : "Enter display name"}
+                  className={`w-full p-2.5 text-xs rounded-xl border outline-none transition-all ${
+                    theme === "dark"
+                      ? "bg-slate-950 border-slate-800 focus:border-amber-500 text-white"
+                      : "bg-slate-50 border-slate-200 focus:border-amber-600 text-slate-900"
+                  }`}
+                />
+              </div>
+
+              {/* Email (Read Only) */}
+              <div className="space-y-1.5">
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
+                  {lang === "ar" ? "البريد الإلكتروني (للعرض فقط)" : "Email (Read-only)"}
+                </label>
+                <input
+                  type="email"
+                  value={editingUser.email || ""}
+                  readOnly
+                  disabled
+                  className={`w-full p-2.5 text-xs rounded-xl border outline-none cursor-not-allowed opacity-75 font-mono ${
+                    theme === "dark"
+                      ? "bg-slate-950/60 border-slate-800 text-slate-400"
+                      : "bg-slate-100 border-slate-200 text-slate-500"
+                  }`}
+                />
+              </div>
+
+              {/* Role */}
+              <div className="space-y-1.5">
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
+                  {lang === "ar" ? "الدور الوظيفي (Role)" : "Role"}
+                </label>
+                <select
+                  value={editRole}
+                  onChange={(e) => setEditRole(e.target.value)}
+                  className={`w-full p-2.5 text-xs rounded-xl border outline-none transition-all ${
+                    theme === "dark"
+                      ? "bg-slate-950 border-slate-800 focus:border-amber-500 text-white"
+                      : "bg-slate-50 border-slate-200 focus:border-amber-600 text-slate-900"
+                  }`}
+                >
+                  <option value="CEO">CEO</option>
+                  <option value="Admin">Admin</option>
+                  <option value="Analyst">Analyst</option>
+                  <option value="Compliance Officer">Compliance Officer</option>
+                  <option value="Manager">Manager</option>
+                  <option value="Member">Member</option>
+                  <option value="Viewer">Viewer</option>
+                </select>
+              </div>
+
+              {/* Status */}
+              <div className="space-y-1.5">
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
+                  {lang === "ar" ? "حالة الحساب (Status)" : "Account Status"}
+                </label>
+                <select
+                  value={editStatus}
+                  onChange={(e) => setEditStatus(e.target.value)}
+                  className={`w-full p-2.5 text-xs rounded-xl border outline-none transition-all ${
+                    theme === "dark"
+                      ? "bg-slate-950 border-slate-800 focus:border-amber-500 text-white"
+                      : "bg-slate-50 border-slate-200 focus:border-amber-600 text-slate-900"
+                  }`}
+                >
+                  <option value="active">{lang === "ar" ? "نشط (Active)" : "Active"}</option>
+                  <option value="suspended">{lang === "ar" ? "معلّق (Suspended)" : "Suspended"}</option>
+                  <option value="pending">{lang === "ar" ? "قيد الانتظار (Pending)" : "Pending"}</option>
+                </select>
+              </div>
+
+              {/* Department */}
+              <div className="space-y-1.5">
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
+                  {lang === "ar" ? "القسم (Department)" : "Department"}
+                </label>
+                <input
+                  type="text"
+                  value={editDepartment}
+                  onChange={(e) => setEditDepartment(e.target.value)}
+                  placeholder={lang === "ar" ? "أدخل اسم القسم" : "Enter department"}
+                  className={`w-full p-2.5 text-xs rounded-xl border outline-none transition-all ${
+                    theme === "dark"
+                      ? "bg-slate-950 border-slate-800 focus:border-amber-500 text-white"
+                      : "bg-slate-50 border-slate-200 focus:border-amber-600 text-slate-900"
+                  }`}
+                />
+              </div>
+            </div>
+
+            <div className={`p-4 border-t flex items-center justify-end gap-3 ${
+              theme === "dark" ? "border-slate-800 bg-slate-950/40" : "border-slate-200 bg-slate-50"
+            }`}>
+              <button
+                type="button"
+                onClick={() => setEditingUser(null)}
+                disabled={savingUserEdit}
+                className="px-4 py-2 rounded-xl text-xs font-bold text-slate-500 hover:text-slate-800 dark:hover:text-white cursor-pointer disabled:opacity-50"
+              >
+                {lang === "ar" ? "إلغاء" : "Cancel"}
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveUserEdit}
+                disabled={savingUserEdit}
+                className="px-5 py-2.5 bg-amber-500 hover:bg-amber-600 disabled:opacity-50 text-slate-950 font-black text-xs rounded-xl transition-all shadow-md shadow-amber-500/20 cursor-pointer flex items-center gap-2"
+              >
+                {savingUserEdit ? (
+                  <>
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                    <span>{lang === "ar" ? "جاري الحفظ..." : "Saving..."}</span>
+                  </>
+                ) : (
+                  <>
+                    <Save className="w-4 h-4" />
+                    <span>{lang === "ar" ? "حفظ التغييرات" : "Save Changes"}</span>
                   </>
                 )}
               </button>
