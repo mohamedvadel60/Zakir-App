@@ -78,6 +78,7 @@ import {
   subscribeToAdminNotifications
 } from "../lib/firebaseServices.js";
 import { authenticatedFetch, safeJsonResponse, getFreshAuthToken } from "../lib/apiUtils.js";
+import { auth } from "../firebase.js";
 import { openOrDownloadUserFile, openUserFileInNewTab, downloadUserFile, dataUrlToBlob } from "../lib/fileViewerUtils.js";
 
 interface AdminDashboardProps {
@@ -212,11 +213,24 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [loadingOperations, setLoadingOperations] = useState<boolean>(false);
   const [operationsError, setOperationsError] = useState<string>("");
 
+  const getAdminToken = async (): Promise<string> => {
+    try {
+      const fresh = await getFreshAuthToken();
+      if (fresh) return fresh;
+      if (auth?.currentUser && typeof auth.currentUser.getIdToken === "function") {
+        return await auth.currentUser.getIdToken();
+      }
+    } catch (e) {
+      console.warn("Error getting admin token:", e);
+    }
+    return "";
+  };
+
   const fetchOperationsData = async () => {
     setLoadingOperations(true);
     setOperationsError("");
     try {
-      const token = await currentUser.getIdToken();
+      const token = await getAdminToken();
       const res = await fetch("/api/admin/operations-center-data", {
         headers: {
           Authorization: `Bearer ${token}`
@@ -272,7 +286,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     // Check active support session
     const checkSupportSession = async () => {
       try {
-        const token = await currentUser.getIdToken();
+        const token = await getAdminToken();
         const res = await fetch("/api/admin/support-session/status", {
           headers: { Authorization: `Bearer ${token}` }
         });
@@ -311,7 +325,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const handleStartSupportSession = async (targetUser: any, reason: string) => {
     setStartingSupportSession(true);
     try {
-      const token = await currentUser.getIdToken();
+      const token = await getAdminToken();
       const res = await fetch("/api/admin/support-session/start", {
         method: "POST",
         headers: {
@@ -340,7 +354,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   const handleEndSupportSession = async () => {
     try {
-      const token = await currentUser.getIdToken();
+      const token = await getAdminToken();
       await fetch("/api/admin/support-session/end", {
         method: "POST",
         headers: {
@@ -358,7 +372,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   // Notification Operations
   const handleMarkNotificationRead = async (notifId: string) => {
     try {
-      const token = await currentUser.getIdToken();
+      const token = await getAdminToken();
       await fetch(`/api/admin/notifications/${notifId}/read`, {
         method: "POST",
         headers: { Authorization: `Bearer ${token}` }
@@ -372,7 +386,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   const handleAcknowledgeNotification = async (notifId: string) => {
     try {
-      const token = await currentUser.getIdToken();
+      const token = await getAdminToken();
       await fetch(`/api/admin/notifications/${notifId}/acknowledge`, {
         method: "POST",
         headers: { Authorization: `Bearer ${token}` }
@@ -388,7 +402,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   const handleMarkAllNotificationsRead = async () => {
     try {
-      const token = await currentUser.getIdToken();
+      const token = await getAdminToken();
       await fetch("/api/admin/notifications/read-all", {
         method: "POST",
         headers: { Authorization: `Bearer ${token}` }
@@ -402,7 +416,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const handleTriggerTestEvent = async (type: "USER" | "SUPPORT" | "ERROR" | "OTP" | "SECURITY") => {
     setTestEventRunning(type);
     try {
-      const token = await currentUser.getIdToken();
+      const token = await getAdminToken();
       const res = await fetch("/api/admin/diagnostics/trigger-test-event", {
         method: "POST",
         headers: {
@@ -428,7 +442,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   // Incident Status Updater
   const handleUpdateIncidentStatus = async (incidentId: string, status: string, notes?: string) => {
     try {
-      const token = await currentUser.getIdToken();
+      const token = await getAdminToken();
       const res = await fetch(`/api/admin/incidents/${incidentId}/status`, {
         method: "POST",
         headers: {
@@ -463,7 +477,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     setIsGlobalSearching(true);
     setIsSearchDropdownOpen(true);
     try {
-      const token = await currentUser.getIdToken();
+      const token = await getAdminToken();
       const res = await fetch(
         `/api/admin/search?q=${encodeURIComponent(queryText.trim())}&category=${category}`,
         {
@@ -488,7 +502,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   // Operational Mutation Actions
   const handleSuspendUser = async (targetUid: string, reason: string) => {
     try {
-      const token = await currentUser.getIdToken();
+      const token = await getAdminToken();
       const res = await fetch("/api/admin/suspend-user", {
         method: "POST",
         headers: {
@@ -512,7 +526,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   const handleUnsuspendUser = async (targetUid: string, reason: string) => {
     try {
-      const token = await currentUser.getIdToken();
+      const token = await getAdminToken();
       const res = await fetch("/api/admin/unsuspend-user", {
         method: "POST",
         headers: {
@@ -536,7 +550,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   const handleRevokeSessions = async (targetUid: string) => {
     try {
-      const token = await currentUser.getIdToken();
+      const token = await getAdminToken();
       const res = await fetch("/api/admin/revoke-sessions", {
         method: "POST",
         headers: {
@@ -558,7 +572,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   const handleUpdateUserProfile = async (targetUid: string, profileFields: any) => {
     try {
-      const token = await currentUser.getIdToken();
+      const token = await getAdminToken();
       const res = await fetch("/api/admin/update-user-profile", {
         method: "POST",
         headers: {
@@ -582,7 +596,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   const handleUpdateWorkspace = async (workspaceId: string, companyName: string, status: string) => {
     try {
-      const token = await currentUser.getIdToken();
+      const token = await getAdminToken();
       const res = await fetch("/api/admin/workspace-operation", {
         method: "POST",
         headers: {
@@ -606,7 +620,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const handleDeleteMemory = async (memoryId: string, userId: string) => {
     if (!confirm(lang === "ar" ? "هل أنت متأكد من حذف الذاكرة؟" : "Are you sure you want to delete this memory?")) return;
     try {
-      const token = await currentUser.getIdToken();
+      const token = await getAdminToken();
       const res = await fetch("/api/admin/memory-operation", {
         method: "POST",
         headers: {
@@ -629,7 +643,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   const handleUpdateMemory = async (memoryId: string, userId: string, content: string) => {
     try {
-      const token = await currentUser.getIdToken();
+      const token = await getAdminToken();
       const res = await fetch("/api/admin/memory-operation", {
         method: "POST",
         headers: {
@@ -653,7 +667,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const handleDeleteFile = async (fileId: string, targetUserId: string) => {
     if (!confirm(lang === "ar" ? "هل أنت متأكد من حذف هذا الملف؟" : "Are you sure you want to delete this file?")) return;
     try {
-      const token = await currentUser.getIdToken();
+      const token = await getAdminToken();
       const res = await fetch("/api/admin/file-operation", {
         method: "POST",
         headers: {
@@ -677,7 +691,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   const handleUpdateFileMetadata = async (fileId: string, targetUserId: string, fileName: string, category: string) => {
     try {
-      const token = await currentUser.getIdToken();
+      const token = await getAdminToken();
       const res = await fetch("/api/admin/file-operation", {
         method: "POST",
         headers: {
@@ -701,7 +715,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   const handleUploadFileProxy = async (targetUserId: string, fileName: string, category: string) => {
     try {
-      const token = await currentUser.getIdToken();
+      const token = await getAdminToken();
       const res = await fetch("/api/admin/file-operation", {
         method: "POST",
         headers: {
@@ -735,7 +749,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   const handleRetryEmailDelivery = async (emailId: string, recipient: string, type: string) => {
     try {
-      const token = await currentUser.getIdToken();
+      const token = await getAdminToken();
       const res = await fetch("/api/admin/retry-email", {
         method: "POST",
         headers: {
