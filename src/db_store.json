@@ -2367,18 +2367,6 @@
       "associatedRequestId": "REQ-1788276481452-725"
     },
     {
-      "documentId": "doc_1788383543275_ac4c9d3e",
-      "uploadToken": "7df1104c10659d5625279f406816ad7da48650e27cc5aba16f21d6515346b89f",
-      "fileHash": "d7dd0115be8b79ae057b3f6ca0fcee578085ba6919dcb70e8643a2aff537d9b5",
-      "fileName": "sample_id.pdf",
-      "mimeType": "application/pdf",
-      "size": 48,
-      "uploadedAt": "2026-09-02T21:12:23.679Z",
-      "storageStatus": "pending",
-      "associated": true,
-      "associatedRequestId": "REQ-1788383547812-938"
-    },
-    {
       "documentId": "doc_1788899475449_37eb6457",
       "uploadToken": "76e28c9afc2d1841644c87a981c958a3fe940c2ecee62444580b4170a05f1ce4",
       "fileHash": "6b7fa434f92a8b80aab02d9bf1a12e49ffcae424e4013a1c4f68b67e3d2bbcd0",
@@ -2935,30 +2923,6 @@
       "createdAt": "2026-09-01T15:27:59.598Z",
       "syncError": "{\n  \"error\": {\n    \"code\": 403,\n    \"message\": \"The billing account for the owning project is disabled in state closed\",\n    \"errors\": [\n      {\n        \"message\": \"The billing account for the owning project is disabled in state closed\",\n        \"domain\": \"global\",\n        \"reason\": \"accountDisabled\",\n        \"locationType\": \"header\",\n        \"location\": \"Authorization\"\n      }\n    ]\n  }\n}\n",
       "syncAttempts": 3
-    },
-    "doc_1788383165908_5cda45dd": {
-      "documentId": "doc_1788383165908_5cda45dd",
-      "mimeType": "image/png",
-      "size": 33,
-      "fileName": "test_id.png",
-      "fileHash": "4ffd8bb30991e3a6f28d1d03f1aedcd02ccf8e0cc16bb9e969e7bc2bda1ddf03",
-      "storageStatus": "firestore_durable",
-      "syncAttempts": 1,
-      "createdAt": "2026-09-02T21:06:05.909Z",
-      "expiresAt": "2026-09-16T21:06:05.909Z",
-      "syncError": "Primary Firestore chunk storage active (Bucket unprovisioned)"
-    },
-    "doc_1788383543275_ac4c9d3e": {
-      "documentId": "doc_1788383543275_ac4c9d3e",
-      "mimeType": "application/pdf",
-      "size": 48,
-      "fileName": "sample_id.pdf",
-      "fileHash": "d7dd0115be8b79ae057b3f6ca0fcee578085ba6919dcb70e8643a2aff537d9b5",
-      "storageStatus": "firestore_durable",
-      "syncAttempts": 1,
-      "createdAt": "2026-09-02T21:12:23.276Z",
-      "expiresAt": "2026-09-16T21:12:23.276Z",
-      "syncError": "Primary Firestore chunk storage active (Bucket unprovisioned)"
     },
     "doc_1788385655852_96356f8b": {
       "documentId": "doc_1788385655852_96356f8b",
