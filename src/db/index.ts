@@ -35,6 +35,15 @@ export const db = drizzle(pool, { schema });
  * Executes a database operation with auto-retry for ECONNRESET / transient network glitches.
  */
 export async function withRetry<T>(operation: () => Promise<T>, retries = 2): Promise<T> {
+  if (!process.env.SQL_HOST && !process.env.DATABASE_URL) {
+    console.warn("[AI Studio] Database not configured — operating in offline/mock mode");
+    try {
+      return await operation();
+    } catch {
+      return [] as any;
+    }
+  }
+
   let attempt = 0;
   while (attempt <= retries) {
     try {

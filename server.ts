@@ -12088,7 +12088,7 @@ app.all(
   (req, res, next) => {
     const contentType = (req.headers["content-type"] || "").toLowerCase();
     if (contentType.includes("multipart/form-data")) {
-      return recoveryUpload.any()(req, res, (err: any) => {
+      return recoveryUpload.any()(req as any, res as any, (err: any) => {
         if (err) {
           console.error(
             "[RecoveryUpload] FAILED at multipart parsed:",

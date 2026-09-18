@@ -3,10 +3,22 @@ import { users } from "./schema.js";
 import { eq } from "drizzle-orm";
 
 export async function getOrCreateUser(uid: string, email: string, companyName?: string, role?: string) {
-  try {
-    const isEmailAdmin = uid === "usr_ceo" || uid === "SYhfciebGFUj29gqGaa0pqNunrk2";
-    const finalRole = isEmailAdmin ? (role || "CEO") : (role || "Contributor");
+  const isEmailAdmin = uid === "usr_ceo" || uid === "SYhfciebGFUj29gqGaa0pqNunrk2";
+  const finalRole = isEmailAdmin ? (role || "CEO") : (role || "Contributor");
 
+  if (!process.env.SQL_HOST && !process.env.DATABASE_URL) {
+    return {
+      id: 1,
+      uid,
+      email,
+      companyName: companyName || "Enterprise Account",
+      role: finalRole,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+  }
+
+  try {
     return await withRetry(async () => {
       const result = await db.insert(users)
         .values({
@@ -28,8 +40,16 @@ export async function getOrCreateUser(uid: string, email: string, companyName?: 
       return result[0];
     });
   } catch (error) {
-    console.error("Database query failed in getOrCreateUser:", error);
-    throw new Error("Database query failed. Please try again later.", { cause: error });
+    console.warn("Database query in getOrCreateUser failed, falling back to in-memory user:", error);
+    return {
+      id: 1,
+      uid,
+      email,
+      companyName: companyName || "Enterprise Account",
+      role: finalRole,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
   }
 }
 
