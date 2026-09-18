@@ -3959,22 +3959,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                         <span>{lang === "fr" ? "Créer un compte" : (lang === "ar" ? "إنشاء حساب جديد" : "Create account")}</span>
                       </button>
                     </p>
-                    <div>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setDeletedAccountRecovery({
-                            email: loginEmail.trim().toLowerCase() || "",
-                            daysRemaining: 30,
-                            isExpired: false
-                          });
-                        }}
-                        className="text-[11px] text-slate-400 hover:text-[#0075DE] hover:underline font-medium transition-colors cursor-pointer inline-flex items-center gap-1"
-                      >
-                        <RotateCcw className="w-3 h-3 text-[#0075DE]" />
-                        <span>{lang === "ar" ? "استعادة الحساب المحذوف" : (lang === "fr" ? "Restaurer un compte supprimé" : "Recover Deleted Account")}</span>
-                      </button>
-                    </div>
+
                   </div>
                 </div>
               )}
