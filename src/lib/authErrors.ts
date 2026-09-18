@@ -26,8 +26,6 @@ export class LoginError extends Error {
   public readonly email?: string;
   public readonly daysRemaining?: number;
   public readonly restoreUntil?: string;
-  public readonly status?: string;
-  public readonly hasPendingRequest?: boolean;
 
   constructor(
     loginCode: LoginErrorCode,
@@ -39,8 +37,6 @@ export class LoginError extends Error {
       email?: string;
       daysRemaining?: number;
       restoreUntil?: string;
-      status?: string;
-      hasPendingRequest?: boolean;
     }
   ) {
     super(message);
@@ -52,8 +48,6 @@ export class LoginError extends Error {
     this.email = options?.email;
     this.daysRemaining = options?.daysRemaining;
     this.restoreUntil = options?.restoreUntil;
-    this.status = options?.status;
-    this.hasPendingRequest = options?.hasPendingRequest;
   }
 }
 

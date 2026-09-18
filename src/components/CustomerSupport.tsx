@@ -861,6 +861,51 @@ export const CustomerSupport: React.FC<CustomerSupportProps> = ({ currentUser, l
             })}
           </div>
 
+          {/* VIP DIRECT CONTACT & ESSENTIAL RESOURCES FOOTER BANNER */}
+          <div className={`p-4 rounded-xl border ${theme === "dark" ? "bg-slate-900/40 border-slate-800" : "bg-white border-slate-200 shadow-sm"} grid grid-cols-1 md:grid-cols-3 gap-4`}>
+            <div className="flex items-center gap-2.5">
+              <div className="p-2 rounded-lg bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">
+                <Phone className="w-4 h-4" />
+              </div>
+              <div>
+                <p className="text-xs font-bold text-slate-900 dark:text-white">
+                  {lang === "ar" ? "خط الدعم العاجل 24/7" : "24/7 Emergency Support"}
+                </p>
+                <p className="text-[11px] text-slate-500 font-mono mt-0.5">
+                  +222 45 25 00 00 / +966 800 124 000
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2.5">
+              <div className="p-2 rounded-lg bg-[#0075DE]/10 text-[#0075DE] border border-[#0075DE]/20">
+                <Mail className="w-4 h-4" />
+              </div>
+              <div>
+                <p className="text-xs font-bold text-slate-900 dark:text-white">
+                  {lang === "ar" ? "البريد المباشر والدعم" : "Direct Compliance Email"}
+                </p>
+                <p className="text-[11px] text-slate-500 font-mono mt-0.5">
+                  support@getzakir.com
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2.5">
+              <div className="p-2 rounded-lg bg-purple-500/10 text-purple-400 border border-purple-500/20">
+                <ShieldCheck className="w-4 h-4" />
+              </div>
+              <div>
+                <p className="text-xs font-bold text-slate-900 dark:text-white">
+                  {lang === "ar" ? "ضمان الاستجابة السريعة" : "Guaranteed SLA Response"}
+                </p>
+                <p className="text-[11px] text-slate-500 mt-0.5">
+                  {lang === "ar" ? "استجابة خلال 15-30 دقيقة للحالات العاجلة" : "15-30 mins for urgent requests"}
+                </p>
+              </div>
+            </div>
+          </div>
+
         </div>
       )}
 

@@ -42,7 +42,6 @@ export interface DeletedAccountRecoveryProps {
   email: string;
   daysRemaining?: number;
   restoreUntil?: string | null;
-  initialTab?: "request" | "status";
   isExpired?: boolean;
   lang: "ar" | "fr" | "en";
   theme?: "light" | "dark";
@@ -67,8 +66,7 @@ interface UploadedDocumentItem {
 export const DeletedAccountRecovery: React.FC<DeletedAccountRecoveryProps> = ({
   email: initialEmail,
   daysRemaining: initialDays,
-  restoreUntil: initialRestoreUntil,
-  initialTab = "request",
+  restoreUntil,
   isExpired = false,
   lang = "ar",
   theme = "light",
@@ -80,13 +78,12 @@ export const DeletedAccountRecovery: React.FC<DeletedAccountRecoveryProps> = ({
   const ArrowForwardIcon = isRtl ? ArrowLeft : ArrowRight;
 
   // View state: "request" | "status" | "success" | "restore_otp"
-  const [activeTab, setActiveTab] = useState<"request" | "status">(initialTab);
+  const [activeTab, setActiveTab] = useState<"request" | "status">("request");
   const [currentStep, setCurrentStep] = useState<1 | 2 | 3>(1);
 
   // Email & Lifecycle state
   const [email, setEmail] = useState((initialEmail || "").trim().toLowerCase());
   const [dynamicDays, setDynamicDays] = useState<number>(initialDays ?? 30);
-  const [dynamicRestoreUntil, setDynamicRestoreUntil] = useState<string | null>(initialRestoreUntil || null);
   const [isLoadingLifecycle, setIsLoadingLifecycle] = useState(false);
 
   useEffect(() => {
@@ -96,24 +93,6 @@ export const DeletedAccountRecovery: React.FC<DeletedAccountRecoveryProps> = ({
       setStatusEmail(prev => prev || formatted);
     }
   }, [initialEmail]);
-
-  useEffect(() => {
-    if (initialDays !== undefined) {
-      setDynamicDays(initialDays);
-    }
-  }, [initialDays]);
-
-  useEffect(() => {
-    if (initialRestoreUntil) {
-      setDynamicRestoreUntil(initialRestoreUntil);
-    }
-  }, [initialRestoreUntil]);
-
-  useEffect(() => {
-    if (initialTab) {
-      setActiveTab(initialTab);
-    }
-  }, [initialTab]);
 
   // Form Fields
   const [fullName, setFullName] = useState("");
@@ -175,10 +154,10 @@ export const DeletedAccountRecovery: React.FC<DeletedAccountRecoveryProps> = ({
         : "Your previously deleted account was detected and is eligible for full restoration with all documents and settings.",
     statusAvailable:
       lang === "ar"
-        ? `الاستعادة متاحة • متبقي ${dynamicDays} ${dynamicDays === 1 ? "يوم" : dynamicDays === 2 ? "يومان" : dynamicDays <= 10 ? "أيام" : "يوماً"}`
+        ? `الاستعادة متاحة • متبقي ${dynamicDays} يوماً`
         : lang === "fr"
-        ? `Récupération disponible • ${dynamicDays} ${dynamicDays === 1 ? "jour restant" : "jours restants"}`
-        : `Recovery Available • ${dynamicDays} ${dynamicDays === 1 ? "day remaining" : "days remaining"}`,
+        ? `Récupération disponible • ${dynamicDays} jours restants`
+        : `Recovery Available • ${dynamicDays} days remaining`,
     tabNewRequest: lang === "ar" ? "تقديم طلب استعادة" : lang === "fr" ? "Nouvelle demande" : "Submit Request",
     tabCheckStatus: lang === "ar" ? "متابعة حالة الطلب" : lang === "fr" ? "Suivi du statut" : "Track Status",
     step1: lang === "ar" ? "1. معلومات الحساب" : lang === "fr" ? "1. Informations" : "1. Account Info",
@@ -287,20 +266,13 @@ export const DeletedAccountRecovery: React.FC<DeletedAccountRecoveryProps> = ({
   useEffect(() => {
     let isMounted = true;
     const loadLifecycle = async () => {
-      const target = (initialEmail || email || "").trim().toLowerCase();
-      if (!target) return;
+      if (!initialEmail) return;
       setIsLoadingLifecycle(true);
       try {
-        const res = await checkAccountLifecycleApi(target);
+        const res = await checkAccountLifecycleApi(initialEmail.trim().toLowerCase());
         if (isMounted && res && res.success) {
           if (res.daysRemaining !== undefined) {
             setDynamicDays(res.daysRemaining);
-          }
-          if (res.restoreUntil) {
-            setDynamicRestoreUntil(res.restoreUntil);
-          }
-          if (res.hasPendingRequest || res.status === "ADMIN_APPROVAL_PENDING") {
-            setActiveTab("status");
           }
         }
       } catch (e) {
@@ -313,7 +285,7 @@ export const DeletedAccountRecovery: React.FC<DeletedAccountRecoveryProps> = ({
     return () => {
       isMounted = false;
     };
-  }, [initialEmail, email]);
+  }, [initialEmail]);
 
   // Auto fetch recovery status on mount or tab change
   useEffect(() => {
@@ -322,19 +294,13 @@ export const DeletedAccountRecovery: React.FC<DeletedAccountRecoveryProps> = ({
       fetchAccountRecoveryStatusApi(target).then((res) => {
         if (res && res.success) {
           setStatusResult(res);
-          if (res.daysRemaining !== undefined) {
-            setDynamicDays(res.daysRemaining);
-          }
-          if (res.restoreUntil) {
-            setDynamicRestoreUntil(res.restoreUntil);
-          }
-          if (res.status === "pending" || res.status === "under_review" || res.status === "approved" || res.status === "rejected") {
+          if (res.status === "approved" || res.status === "rejected") {
             setActiveTab("status");
           }
         }
       }).catch(() => {});
     }
-  }, [initialEmail, email, statusEmail]);
+  }, [initialEmail, email]);
 
   // Handle Drag & Drop
   const handleDragOver = (e: React.DragEvent) => {

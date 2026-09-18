@@ -423,24 +423,20 @@ export async function loginFirebaseUser(email: string, pass: string, attemptId?:
       try {
         const lc = await checkAccountLifecycleApi(normalizedEmail);
         if (lc && lc.success && lc.status !== "ACTIVE") {
-          if (
-            lc.status === "SELF_DELETED" ||
-            lc.status === "SELF_RESTORE_AVAILABLE" ||
-            lc.status === "ADMIN_DELETED" ||
-            lc.status === "ADMIN_APPROVAL_REQUIRED" ||
-            lc.status === "ADMIN_APPROVAL_PENDING" ||
-            lc.status === "ADMIN_APPROVED" ||
-            lc.status === "ADMIN_REJECTED" ||
-            lc.canRestore === true ||
-            lc.hasPendingRequest === true
-          ) {
+          if (lc.status === "SELF_DELETED" || lc.status === "SELF_RESTORE_AVAILABLE" || lc.canRestore === true) {
             throw new LoginError("LOGIN_SELF_DELETED", lc.userFriendlyMessage || "Account deleted, restoration available", {
-              originalCode: lc.hasPendingRequest || lc.status === "ADMIN_APPROVAL_PENDING" ? "ADMIN_APPROVAL_PENDING" : (lc.status === "ADMIN_DELETED" ? "ADMIN_DELETED" : "SELF_RESTORE_AVAILABLE"),
-              status: lc.status,
-              hasPendingRequest: Boolean(lc.hasPendingRequest || lc.status === "ADMIN_APPROVAL_PENDING"),
+              originalCode: "SELF_RESTORE_AVAILABLE",
               email: normalizedEmail,
-              daysRemaining: lc.daysRemaining ?? 30,
+              daysRemaining: lc.daysRemaining ?? 31,
               restoreUntil: lc.restoreUntil,
+              statusCode: 403,
+              attemptId: currentAttemptId
+            });
+          }
+          if (lc.status === "ADMIN_DELETED" || lc.status === "ADMIN_APPROVAL_REQUIRED") {
+            throw new LoginError("LOGIN_USER_DISABLED", lc.userFriendlyMessage || "User account is disabled.", {
+              originalCode: "auth/user-disabled",
+              email: normalizedEmail,
               statusCode: 403,
               attemptId: currentAttemptId
             });
@@ -461,37 +457,6 @@ export async function loginFirebaseUser(email: string, pass: string, attemptId?:
       fbCode === "auth/user-not-found" ||
       fbCode === "auth/invalid-login-credentials"
     ) {
-      // Check if this account was deleted (by user or admin) before reporting invalid credentials
-      try {
-        const lc = await checkAccountLifecycleApi(normalizedEmail);
-        if (lc && lc.success && lc.status !== "ACTIVE" && lc.status !== "NEW") {
-          if (
-            lc.status === "SELF_DELETED" ||
-            lc.status === "SELF_RESTORE_AVAILABLE" ||
-            lc.status === "ADMIN_DELETED" ||
-            lc.status === "ADMIN_APPROVAL_REQUIRED" ||
-            lc.status === "ADMIN_APPROVAL_PENDING" ||
-            lc.status === "ADMIN_APPROVED" ||
-            lc.status === "ADMIN_REJECTED" ||
-            lc.canRestore === true ||
-            lc.hasPendingRequest === true
-          ) {
-            throw new LoginError("LOGIN_SELF_DELETED", lc.userFriendlyMessage || "Account deleted, restoration available", {
-              originalCode: lc.hasPendingRequest || lc.status === "ADMIN_APPROVAL_PENDING" ? "ADMIN_APPROVAL_PENDING" : (lc.status === "ADMIN_DELETED" ? "ADMIN_DELETED" : "SELF_RESTORE_AVAILABLE"),
-              status: lc.status,
-              hasPendingRequest: Boolean(lc.hasPendingRequest || lc.status === "ADMIN_APPROVAL_PENDING"),
-              email: normalizedEmail,
-              daysRemaining: lc.daysRemaining ?? 30,
-              restoreUntil: lc.restoreUntil,
-              statusCode: 403,
-              attemptId: currentAttemptId
-            });
-          }
-        }
-      } catch (lcErr) {
-        if (lcErr instanceof LoginError) throw lcErr;
-      }
-
       throw new LoginError("LOGIN_INVALID_CREDENTIALS", "بيانات الدخول غير صحيحة. يرجى التحقق من البريد الإلكتروني وكلمة المرور.", {
         originalCode: fbCode,
         email: normalizedEmail,
@@ -718,35 +683,24 @@ export async function loginFirebaseUser(email: string, pass: string, attemptId?:
       });
     }
 
-    if (
-      serverCode === "auth/user-not-found" ||
-      serverCode === "EMAIL_NOT_FOUND" ||
-      serverCode === "USER_NOT_FOUND" ||
-      serverStatus === 401 ||
-      serverCode === "auth/invalid-credential" ||
-      serverCode === "INVALID_CREDENTIALS"
-    ) {
+    if (serverCode === "auth/user-not-found" || serverCode === "EMAIL_NOT_FOUND" || serverCode === "USER_NOT_FOUND") {
       try {
         const lc = await checkAccountLifecycleApi(normalizedEmail);
-        if (lc && lc.success && lc.status !== "ACTIVE" && lc.status !== "NEW") {
-          if (
-            lc.status === "SELF_DELETED" ||
-            lc.status === "SELF_RESTORE_AVAILABLE" ||
-            lc.status === "ADMIN_DELETED" ||
-            lc.status === "ADMIN_APPROVAL_REQUIRED" ||
-            lc.status === "ADMIN_APPROVAL_PENDING" ||
-            lc.status === "ADMIN_APPROVED" ||
-            lc.status === "ADMIN_REJECTED" ||
-            lc.canRestore === true ||
-            lc.hasPendingRequest === true
-          ) {
+        if (lc && lc.success) {
+          if (lc.status === "SELF_DELETED" || lc.status === "SELF_RESTORE_AVAILABLE") {
             throw new LoginError("LOGIN_SELF_DELETED", lc.userFriendlyMessage || "Account deleted, restoration available", {
-              originalCode: lc.hasPendingRequest || lc.status === "ADMIN_APPROVAL_PENDING" ? "ADMIN_APPROVAL_PENDING" : (lc.status === "ADMIN_DELETED" ? "ADMIN_DELETED" : "SELF_RESTORE_AVAILABLE"),
-              status: lc.status,
-              hasPendingRequest: Boolean(lc.hasPendingRequest || lc.status === "ADMIN_APPROVAL_PENDING"),
+              originalCode: "SELF_RESTORE_AVAILABLE",
               email: normalizedEmail,
-              daysRemaining: lc.daysRemaining ?? 30,
+              daysRemaining: lc.daysRemaining ?? 31,
               restoreUntil: lc.restoreUntil,
+              statusCode: 403,
+              attemptId: currentAttemptId
+            });
+          }
+          if (lc.status === "ADMIN_DELETED" || lc.status === "ADMIN_APPROVAL_REQUIRED") {
+            throw new LoginError("LOGIN_USER_DISABLED", lc.userFriendlyMessage || "Account disabled by admin", {
+              originalCode: "auth/user-disabled",
+              email: normalizedEmail,
               statusCode: 403,
               attemptId: currentAttemptId
             });
@@ -755,16 +709,44 @@ export async function loginFirebaseUser(email: string, pass: string, attemptId?:
       } catch (lcErr) {
         if (lcErr instanceof LoginError) throw lcErr;
       }
+      throw new LoginError("LOGIN_USER_NOT_FOUND", srvData?.message || "User not found", {
+        originalCode: serverCode,
+        statusCode: 401,
+        attemptId: currentAttemptId
+      });
+    }
 
-      if (serverCode === "auth/user-not-found" || serverCode === "EMAIL_NOT_FOUND" || serverCode === "USER_NOT_FOUND") {
-        throw new LoginError("LOGIN_USER_NOT_FOUND", srvData?.message || "User not found", {
-          originalCode: serverCode,
-          statusCode: 401,
-          attemptId: currentAttemptId
-        });
+    if (
+      serverStatus === 401 ||
+      serverCode === "auth/invalid-credential" ||
+      serverCode === "INVALID_CREDENTIALS"
+    ) {
+      try {
+        const lc = await checkAccountLifecycleApi(normalizedEmail);
+        if (lc && lc.success) {
+          if (lc.status === "SELF_DELETED" || lc.status === "SELF_RESTORE_AVAILABLE") {
+            throw new LoginError("LOGIN_SELF_DELETED", lc.userFriendlyMessage || "Account deleted, restoration available", {
+              originalCode: "SELF_RESTORE_AVAILABLE",
+              email: normalizedEmail,
+              daysRemaining: lc.daysRemaining ?? 31,
+              restoreUntil: lc.restoreUntil,
+              statusCode: 403,
+              attemptId: currentAttemptId
+            });
+          }
+          if (lc.status === "ADMIN_DELETED" || lc.status === "ADMIN_APPROVAL_REQUIRED") {
+            throw new LoginError("LOGIN_USER_DISABLED", lc.userFriendlyMessage || "Account disabled by admin", {
+              originalCode: "auth/user-disabled",
+              email: normalizedEmail,
+              statusCode: 403,
+              attemptId: currentAttemptId
+            });
+          }
+        }
+      } catch (lcErr) {
+        if (lcErr instanceof LoginError) throw lcErr;
       }
-
-      throw new LoginError("LOGIN_INVALID_CREDENTIALS", "بيانات الدخول غير صحيحة. يرجى التحقق من البريد الإلكتروني وكلمة المرور.", {
+      throw new LoginError("LOGIN_INVALID_CREDENTIALS", "Invalid credentials", {
         originalCode: serverCode || "auth/invalid-credential",
         statusCode: 401,
         attemptId: currentAttemptId
