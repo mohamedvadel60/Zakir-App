@@ -1860,6 +1860,17 @@ This hosting domain (**${currentDomain}**) has not been authorized in your Fireb
         return;
       }
 
+      if (
+        err?.originalCode === "RESTORE_EXPIRED" ||
+        err?.code === "RESTORE_EXPIRED"
+      ) {
+        const formattedError = lang === "ar"
+          ? "انتهت فترة سماح استعادة هذا الحساب (31 يوماً). تم حذف البيانات بشكل نهائي ولم يعد قابلاً للاستعادة."
+          : "The recovery period for this account has expired (31 days). The data has been permanently deleted.";
+        setLoginError(formattedError);
+        return;
+      }
+
       // Normal login errors display generic invalid credentials.
       const formattedError = lang === "ar" 
         ? "بيانات الدخول غير صحيحة. يرجى التحقق من البريد الإلكتروني وكلمة المرور."

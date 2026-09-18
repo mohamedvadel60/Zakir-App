@@ -11196,6 +11196,18 @@ app.post("/api/auth/check-lifecycle", async (req, res) => {
       });
     }
 
+    const deletedAt =
+      record.deletedAt ||
+      record.archivedAt ||
+      record.createdAt ||
+      new Date().toISOString();
+    const delTime = new Date(deletedAt).getTime();
+    const thirtyOneDaysMs = 31 * 24 * 60 * 60 * 1000;
+    const restoreUntilMs = delTime + thirtyOneDaysMs;
+    const restoreUntilIso = new Date(restoreUntilMs).toISOString();
+    const remainingMs = restoreUntilMs - Date.now();
+    const daysRemaining = Math.max(0, Math.ceil(remainingMs / (24 * 3600 * 1000)));
+
     if (
       record.status === "ADMIN_DELETED" ||
       record.status === "ADMIN_APPROVAL_REQUIRED" ||
@@ -11206,8 +11218,11 @@ app.post("/api/auth/check-lifecycle", async (req, res) => {
         email: normalizedEmail,
         status: "ADMIN_DELETED",
         canRegister: false,
-        canRestore: false,
+        canRestore: daysRemaining > 0,
         adminApprovalRequired: true,
+        daysRemaining: daysRemaining,
+        deletedAt: deletedAt,
+        restoreUntil: restoreUntilIso,
         userFriendlyMessage:
           "تم تعطيل حسابك بواسطة مسؤول المنصة. لا يمكنك إنشاء حساب جديد باستخدام هذا البريد الإلكتروني إلا بعد موافقة المسؤول.",
       });
@@ -11221,21 +11236,20 @@ app.post("/api/auth/check-lifecycle", async (req, res) => {
         canRegister: false,
         canRestore: false,
         adminApprovalRequired: true,
+        daysRemaining: daysRemaining,
+        deletedAt: deletedAt,
+        restoreUntil: restoreUntilIso,
         userFriendlyMessage:
           "طلب إعادة تفعيل الحساب قيد المراجعة حالياً بواسطة مسؤول المنصة. يرجى الانتظار لحين البت في الطلب.",
       });
     }
 
-    if (record.status === "SELF_DELETED" && record.restoreUntil) {
-      const nowMs = Date.now();
-      const restoreUntilMs = new Date(record.restoreUntil).getTime();
-      const remainingMs = restoreUntilMs - nowMs;
-
-      if (remainingMs > 0) {
-        const daysRemaining = Math.max(
-          1,
-          Math.ceil(remainingMs / (24 * 3600 * 1000)),
-        );
+    if (
+      record.status === "SELF_DELETED" ||
+      record.status === "SELF_RESTORE_AVAILABLE" ||
+      record.deletionType === "self"
+    ) {
+      if (daysRemaining > 0) {
         return res.json({
           success: true,
           email: normalizedEmail,
@@ -11244,7 +11258,8 @@ app.post("/api/auth/check-lifecycle", async (req, res) => {
           canRestore: true,
           adminApprovalRequired: false,
           daysRemaining: daysRemaining,
-          restoreUntil: record.restoreUntil,
+          deletedAt: deletedAt,
+          restoreUntil: restoreUntilIso,
           userFriendlyMessage: `تم العثور على حساب سابق تم حذفه بواسطتك. يمكنك استعادة حسابك وجميع بياناتك السابقة (متبقي ${daysRemaining} يوماً للاستعادة).`,
         });
       } else {
@@ -11256,6 +11271,8 @@ app.post("/api/auth/check-lifecycle", async (req, res) => {
           canRestore: false,
           adminApprovalRequired: false,
           daysRemaining: 0,
+          deletedAt: deletedAt,
+          restoreUntil: restoreUntilIso,
           userFriendlyMessage:
             "انتهت فترة استعادة هذا الحساب. تم حذف البيانات بشكل نهائي ولم يعد قابلاً للاستعادة وفق سياسة النظام.",
         });
@@ -16390,47 +16407,51 @@ app.post("/api/auth/login", loginRegisterLimiter, async (req, res) => {
     }
 
     // If credentials are correct and they are in a deleted lifecycle state, return their status
-    if (lifecycleRecord) {
-      if (
-        lifecycleRecord.status === "SELF_DELETED" ||
-        lifecycleRecord.status === "SELF_RESTORE_AVAILABLE"
-      ) {
-        const restoreUntilIso = lifecycleRecord.restoreUntil;
-        const nowMs = Date.now();
-        const restoreUntilMs = restoreUntilIso
-          ? new Date(restoreUntilIso).getTime()
-          : 0;
-        const remainingMs = restoreUntilMs - nowMs;
-        const daysRemaining = Math.max(
-          1,
-          Math.ceil(remainingMs / (24 * 3600 * 1000)),
-        );
-
-        if (!restoreUntilIso || restoreUntilMs > nowMs) {
-          return res.status(403).json({
-            code: "SELF_RESTORE_AVAILABLE",
-            error: "SELF_RESTORE_AVAILABLE",
-            status: "SELF_RESTORE_AVAILABLE",
-            email: normalizedEmail,
-            daysRemaining: daysRemaining,
-            restoreUntil: restoreUntilIso,
-            message:
-              "تم العثور على حسابك المحذوف سابقاً، وهو متاح للاستعادة.",
-          });
-        }
-      } else if (
+    if (
+      lifecycleRecord &&
+      (lifecycleRecord.status === "SELF_DELETED" ||
         lifecycleRecord.status === "ADMIN_DELETED" ||
+        lifecycleRecord.status === "SELF_RESTORE_AVAILABLE" ||
         lifecycleRecord.status === "ADMIN_APPROVAL_REQUIRED" ||
-        lifecycleRecord.deletionType === "admin"
-      ) {
+        lifecycleRecord.status === "ADMIN_APPROVAL_PENDING" ||
+        lifecycleRecord.deletionType === "self" ||
+        lifecycleRecord.deletionType === "admin")
+    ) {
+      const deletedAt =
+        lifecycleRecord.deletedAt ||
+        lifecycleRecord.archivedAt ||
+        lifecycleRecord.createdAt ||
+        new Date().toISOString();
+
+      const delTime = new Date(deletedAt).getTime();
+      const thirtyOneDaysMs = 31 * 24 * 60 * 60 * 1000;
+      const restoreUntilMs = delTime + thirtyOneDaysMs;
+      const restoreUntilIso = new Date(restoreUntilMs).toISOString();
+      const remainingMs = restoreUntilMs - Date.now();
+      const daysRemaining = Math.max(0, Math.ceil(remainingMs / (24 * 3600 * 1000)));
+
+      if (daysRemaining <= 0) {
         return res.status(403).json({
-          code: "auth/user-disabled",
-          error: "ADMIN_DELETED",
-          status: "ADMIN_DELETED",
+          code: "RESTORE_EXPIRED",
+          error: "RESTORE_EXPIRED",
+          status: "RESTORE_EXPIRED",
           email: normalizedEmail,
-          message: "تم تعطيل هذا الحساب بواسطة المسؤول.",
+          daysRemaining: 0,
+          restoreUntil: restoreUntilIso,
+          message:
+            "انتهت فترة استعادة هذا الحساب. تم حذف البيانات بشكل نهائي ولم يعد قابلاً للاستعادة وفق سياسة النظام.",
         });
       }
+
+      return res.status(403).json({
+        code: "SELF_RESTORE_AVAILABLE",
+        error: "SELF_RESTORE_AVAILABLE",
+        status: "SELF_RESTORE_AVAILABLE",
+        email: normalizedEmail,
+        daysRemaining: daysRemaining,
+        restoreUntil: restoreUntilIso,
+        message: "تم العثور على حسابك المحذوف سابقاً، وهو متاح للاستعادة.",
+      });
     }
 
     // If password matched and we have a UID, ensure password in Firebase Auth is synchronized
