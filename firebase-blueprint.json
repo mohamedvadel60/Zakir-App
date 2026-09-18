@@ -135,6 +135,53 @@
         "reviewedAt": { "type": "string" },
         "reviewedBy": { "type": "string" }
       }
+    },
+    "PlatformEvent": {
+      "path": "/platform_events/{eventId}",
+      "fields": {
+        "eventType": { "type": "string" },
+        "severity": { "type": "string" },
+        "category": { "type": "string" },
+        "timestamp": { "type": "string" },
+        "userId": { "type": "string" },
+        "userEmail": { "type": "string" },
+        "workspaceId": { "type": "string" },
+        "resourceId": { "type": "string" },
+        "requestId": { "type": "string" },
+        "endpoint": { "type": "string" },
+        "sanitizedMessage": { "type": "string" },
+        "status": { "type": "string" }
+      }
+    },
+    "PlatformIncident": {
+      "path": "/platform_incidents/{incidentId}",
+      "fields": {
+        "incidentNumber": { "type": "string" },
+        "title": { "type": "string" },
+        "severity": { "type": "string" },
+        "status": { "type": "string" },
+        "category": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" },
+        "correlationId": { "type": "string" },
+        "affectedUser": { "type": "string" },
+        "affectedWorkspace": { "type": "string" }
+      }
+    },
+    "AdminNotification": {
+      "path": "/admin_notifications/{notificationId}",
+      "fields": {
+        "title": { "type": "string" },
+        "message": { "type": "string" },
+        "severity": { "type": "string" },
+        "category": { "type": "string" },
+        "eventId": { "type": "string" },
+        "read": { "type": "boolean" },
+        "acknowledged": { "type": "boolean" },
+        "timestamp": { "type": "string" },
+        "targetUser": { "type": "string" },
+        "targetWorkspace": { "type": "string" }
+      }
     }
   }
 }

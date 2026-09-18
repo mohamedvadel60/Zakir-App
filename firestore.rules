@@ -125,6 +125,19 @@ service cloud.firestore {
       }
     }
 
+    // Real-Time Platform Events, Incidents & Admin Notifications
+    match /platform_events/{eventId} {
+      allow read, write: if isAdmin();
+    }
+
+    match /platform_incidents/{incidentId} {
+      allow read, write: if isAdmin();
+    }
+
+    match /admin_notifications/{notificationId} {
+      allow read, write: if isAdmin();
+    }
+
     // Default fallback
     match /{document=**} {
       allow read, write: if isAdmin();

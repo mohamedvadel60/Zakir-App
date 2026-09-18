@@ -3503,3 +3503,88 @@ export function subscribeToSupportTickets(userId: string, isAdmin: boolean, call
   }
 }
 
+/**
+ * Real-time listener for Platform Events (Firestore Live Updates)
+ */
+export function subscribeToPlatformEvents(callback: (events: any[]) => void) {
+  try {
+    const q = query(collection(db, "platform_events"), orderBy("timestamp", "desc"), limit(100));
+    return onSnapshot(
+      q,
+      (snap) => {
+        const events = snap.docs.map((d) => ({ ...d.data(), id: d.id }));
+        callback(events);
+      },
+      async (err) => {
+        console.warn("Platform events live listener notice:", err);
+        try {
+          const res = await authenticatedFetch("/api/admin/platform-events?limit=100");
+          const data = await safeJsonResponse(res);
+          if (data.events) callback(data.events);
+        } catch (e) {}
+      }
+    );
+  } catch (err) {
+    console.warn("subscribeToPlatformEvents error:", err);
+    return () => {};
+  }
+}
+
+/**
+ * Real-time listener for Platform Incidents (Firestore Live Updates)
+ */
+export function subscribeToPlatformIncidents(callback: (incidents: any[]) => void) {
+  try {
+    const q = query(collection(db, "platform_incidents"), orderBy("createdAt", "desc"), limit(50));
+    return onSnapshot(
+      q,
+      (snap) => {
+        const incidents = snap.docs.map((d) => ({ ...d.data(), id: d.id }));
+        callback(incidents);
+      },
+      async (err) => {
+        console.warn("Platform incidents live listener notice:", err);
+        try {
+          const res = await authenticatedFetch("/api/admin/incidents?limit=50");
+          const data = await safeJsonResponse(res);
+          if (data.incidents) callback(data.incidents);
+        } catch (e) {}
+      }
+    );
+  } catch (err) {
+    console.warn("subscribeToPlatformIncidents error:", err);
+    return () => {};
+  }
+}
+
+/**
+ * Real-time listener for Admin Notifications (Firestore Live Updates)
+ */
+export function subscribeToAdminNotifications(callback: (notifications: any[], unreadCount: number) => void) {
+  try {
+    const q = query(collection(db, "admin_notifications"), orderBy("createdAt", "desc"), limit(50));
+    return onSnapshot(
+      q,
+      (snap) => {
+        const notifs = snap.docs.map((d) => ({ ...d.data(), id: d.id }));
+        const unreadCount = notifs.filter((n: any) => !n.read).length;
+        callback(notifs, unreadCount);
+      },
+      async (err) => {
+        console.warn("Admin notifications live listener notice:", err);
+        try {
+          const res = await authenticatedFetch("/api/admin/notifications?limit=50");
+          const data = await safeJsonResponse(res);
+          if (data.notifications) {
+            callback(data.notifications, data.unreadCount || 0);
+          }
+        } catch (e) {}
+      }
+    );
+  } catch (err) {
+    console.warn("subscribeToAdminNotifications error:", err);
+    return () => {};
+  }
+}
+
+

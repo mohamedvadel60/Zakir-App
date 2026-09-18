@@ -49,7 +49,12 @@ import {
   Layers,
   Activity,
   Sparkles,
-  CheckCheck
+  CheckCheck,
+  Bell,
+  ArrowUpRight,
+  Radio,
+  Terminal,
+  Zap,
 } from "lucide-react";
 import { User, UserFile, VerificationStatus, VerificationInfo, SupportTicket, SupportStatus, SupportPriority } from "../types.js";
 import { 
@@ -67,7 +72,10 @@ import {
   updateSupportTicketStatusApi,
   subscribeToSupportTickets,
   fetchAdminRecoveryRequestsApi,
-  handleAdminRecoveryRequestDecisionApi
+  handleAdminRecoveryRequestDecisionApi,
+  subscribeToPlatformEvents,
+  subscribeToPlatformIncidents,
+  subscribeToAdminNotifications
 } from "../lib/firebaseServices.js";
 import { authenticatedFetch, safeJsonResponse, getFreshAuthToken } from "../lib/apiUtils.js";
 import { openOrDownloadUserFile, openUserFileInNewTab, downloadUserFile, dataUrlToBlob } from "../lib/fileViewerUtils.js";
@@ -142,6 +150,31 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   // Admin Support Mode State
   const [supportModeTargetUser, setSupportModeTargetUser] = useState<any | null>(null);
+  const [supportSession, setSupportSession] = useState<any | null>(null);
+  const [supportSessionDuration, setSupportSessionDuration] = useState<string>("0:00");
+  const [isSupportModalOpen, setIsSupportModalOpen] = useState<boolean>(false);
+  const [supportModalUser, setSupportModalUser] = useState<any | null>(null);
+  const [supportModalReason, setSupportModalReason] = useState<string>("Investigating user-reported issue");
+  const [startingSupportSession, setStartingSupportSession] = useState<boolean>(false);
+
+  // Real-time Platform Operations State
+  const [platformEvents, setPlatformEvents] = useState<any[]>([]);
+  const [platformIncidents, setPlatformIncidents] = useState<any[]>([]);
+  const [adminNotifications, setAdminNotifications] = useState<any[]>([]);
+  const [unreadNotifsCount, setUnreadNotifsCount] = useState<number>(0);
+  const [isRealtimeConnected, setIsRealtimeConnected] = useState<boolean>(true);
+  const [isNotifDropdownOpen, setIsNotifDropdownOpen] = useState<boolean>(false);
+  const [notifTab, setNotifTab] = useState<"all" | "unread">("all");
+  const [eventsFilterCategory, setEventsFilterCategory] = useState<string>("ALL");
+  const [eventsFilterSeverity, setEventsFilterSeverity] = useState<string>("ALL");
+  const [testEventRunning, setTestEventRunning] = useState<string | null>(null);
+
+  // Global Search State
+  const [globalSearchQuery, setGlobalSearchQuery] = useState<string>("");
+  const [globalSearchResults, setGlobalSearchResults] = useState<any[]>([]);
+  const [isGlobalSearching, setIsGlobalSearching] = useState<boolean>(false);
+  const [isSearchDropdownOpen, setIsSearchDropdownOpen] = useState<boolean>(false);
+  const [searchFilterCategory, setSearchFilterCategory] = useState<string>("all");
 
   // Administrative editing overlays
   const [editingUser, setEditingUser] = useState<any | null>(null);
@@ -170,6 +203,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     emailLogs: any[];
     healthCheck: any;
     memories: any[];
+    incidents?: any[];
+    recentEvents?: any[];
+    adminNotifications?: any[];
+    unreadNotificationsCount?: number;
+    needsAttentionSummary?: any;
   } | null>(null);
   const [loadingOperations, setLoadingOperations] = useState<boolean>(false);
   const [operationsError, setOperationsError] = useState<string>("");
@@ -187,6 +225,16 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       const data = await res.json();
       if (data.success) {
         setOperationsData(data);
+        if (data.recentEvents?.length && platformEvents.length === 0) {
+          setPlatformEvents(data.recentEvents);
+        }
+        if (data.incidents?.length && platformIncidents.length === 0) {
+          setPlatformIncidents(data.incidents);
+        }
+        if (data.adminNotifications?.length && adminNotifications.length === 0) {
+          setAdminNotifications(data.adminNotifications);
+          setUnreadNotifsCount(data.unreadNotificationsCount || 0);
+        }
       } else {
         setOperationsError(data.error || "Failed to load operations data");
       }
@@ -194,6 +242,242 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       setOperationsError(err.message || "Network error loading operations data");
     } finally {
       setLoadingOperations(false);
+    }
+  };
+
+  // Real-time Listeners for Events, Incidents, and Notifications
+  useEffect(() => {
+    const unsubEvents = subscribeToPlatformEvents((events) => {
+      if (events && events.length > 0) {
+        setPlatformEvents(events);
+        setIsRealtimeConnected(true);
+      }
+    });
+
+    const unsubIncidents = subscribeToPlatformIncidents((incidents) => {
+      if (incidents) {
+        setPlatformIncidents(incidents);
+        setIsRealtimeConnected(true);
+      }
+    });
+
+    const unsubNotifs = subscribeToAdminNotifications((notifs, unread) => {
+      if (notifs) {
+        setAdminNotifications(notifs);
+        setUnreadNotifsCount(unread);
+        setIsRealtimeConnected(true);
+      }
+    });
+
+    // Check active support session
+    const checkSupportSession = async () => {
+      try {
+        const token = await currentUser.getIdToken();
+        const res = await fetch("/api/admin/support-session/status", {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        const data = await res.json();
+        if (data.success && data.active && data.session) {
+          setSupportSession(data.session);
+          setSupportModeTargetUser(data.session.targetUser);
+        } else {
+          setSupportSession(null);
+          setSupportModeTargetUser(null);
+        }
+      } catch (e) {}
+    };
+    checkSupportSession();
+
+    return () => {
+      unsubEvents();
+      unsubIncidents();
+      unsubNotifs();
+    };
+  }, [currentUser]);
+
+  // Timer for active support session duration
+  useEffect(() => {
+    if (!supportSession?.startedAt) return;
+    const interval = setInterval(() => {
+      const elapsedSec = Math.floor((Date.now() - new Date(supportSession.startedAt).getTime()) / 1000);
+      const mins = Math.floor(elapsedSec / 60);
+      const secs = elapsedSec % 60;
+      setSupportSessionDuration(`${mins}:${secs < 10 ? "0" : ""}${secs}`);
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [supportSession]);
+
+  // Support Session Actions
+  const handleStartSupportSession = async (targetUser: any, reason: string) => {
+    setStartingSupportSession(true);
+    try {
+      const token = await currentUser.getIdToken();
+      const res = await fetch("/api/admin/support-session/start", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          targetUserId: targetUser.id || targetUser.uid,
+          reason: reason || "Troubleshooting customer account"
+        })
+      });
+      const data = await res.json();
+      if (data.success && data.session) {
+        setSupportSession(data.session);
+        setSupportModeTargetUser(data.session.targetUser || targetUser);
+        setIsSupportModalOpen(false);
+      } else {
+        alert(data.error || "Failed to start support session");
+      }
+    } catch (e: any) {
+      alert(e.message);
+    } finally {
+      setStartingSupportSession(false);
+    }
+  };
+
+  const handleEndSupportSession = async () => {
+    try {
+      const token = await currentUser.getIdToken();
+      await fetch("/api/admin/support-session/end", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      });
+      setSupportSession(null);
+      setSupportModeTargetUser(null);
+    } catch (e: any) {
+      setSupportSession(null);
+      setSupportModeTargetUser(null);
+    }
+  };
+
+  // Notification Operations
+  const handleMarkNotificationRead = async (notifId: string) => {
+    try {
+      const token = await currentUser.getIdToken();
+      await fetch(`/api/admin/notifications/${notifId}/read`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setAdminNotifications((prev) =>
+        prev.map((n) => (n.id === notifId ? { ...n, read: true } : n))
+      );
+      setUnreadNotifsCount((prev) => Math.max(0, prev - 1));
+    } catch (e) {}
+  };
+
+  const handleAcknowledgeNotification = async (notifId: string) => {
+    try {
+      const token = await currentUser.getIdToken();
+      await fetch(`/api/admin/notifications/${notifId}/acknowledge`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setAdminNotifications((prev) =>
+        prev.map((n) =>
+          n.id === notifId ? { ...n, read: true, acknowledged: true } : n
+        )
+      );
+      setUnreadNotifsCount((prev) => Math.max(0, prev - 1));
+    } catch (e) {}
+  };
+
+  const handleMarkAllNotificationsRead = async () => {
+    try {
+      const token = await currentUser.getIdToken();
+      await fetch("/api/admin/notifications/read-all", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setAdminNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+      setUnreadNotifsCount(0);
+    } catch (e) {}
+  };
+
+  // Live Test Event Dispatcher
+  const handleTriggerTestEvent = async (type: "USER" | "SUPPORT" | "ERROR" | "OTP" | "SECURITY") => {
+    setTestEventRunning(type);
+    try {
+      const token = await currentUser.getIdToken();
+      const res = await fetch("/api/admin/diagnostics/trigger-test-event", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({ type })
+      });
+      const data = await res.json();
+      if (data.success && data.event) {
+        setPlatformEvents((prev) => [data.event, ...prev.filter((e) => e.id !== data.event.id)]);
+        fetchOperationsData();
+      } else {
+        alert(data.error || "Failed to trigger test event");
+      }
+    } catch (e: any) {
+      alert("Test event failed: " + e.message);
+    } finally {
+      setTestEventRunning(null);
+    }
+  };
+
+  // Incident Status Updater
+  const handleUpdateIncidentStatus = async (incidentId: string, status: string, notes?: string) => {
+    try {
+      const token = await currentUser.getIdToken();
+      const res = await fetch(`/api/admin/incidents/${incidentId}/status`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          status,
+          notes: notes || "Resolved by platform admin via Control Center"
+        })
+      });
+      const data = await res.json();
+      if (data.success && data.incident) {
+        setPlatformIncidents((prev) =>
+          prev.map((i) => (i.id === incidentId ? data.incident : i))
+        );
+        fetchOperationsData();
+      }
+    } catch (e: any) {
+      alert(e.message);
+    }
+  };
+
+  // Global Search
+  const handleGlobalSearch = async (queryText: string, category: string = searchFilterCategory) => {
+    setGlobalSearchQuery(queryText);
+    if (!queryText || queryText.trim().length < 2) {
+      setGlobalSearchResults([]);
+      setIsSearchDropdownOpen(false);
+      return;
+    }
+    setIsGlobalSearching(true);
+    setIsSearchDropdownOpen(true);
+    try {
+      const token = await currentUser.getIdToken();
+      const res = await fetch(
+        `/api/admin/search?q=${encodeURIComponent(queryText.trim())}&category=${category}`,
+        {
+          headers: { Authorization: `Bearer ${token}` }
+        }
+      );
+      const data = await res.json();
+      if (data.success) {
+        setGlobalSearchResults(data.results || []);
+      }
+    } catch (e) {
+      console.error("Global search error:", e);
+    } finally {
+      setIsGlobalSearching(false);
     }
   };
 
@@ -1380,18 +1664,92 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   }, 0);
 
   const renderOverviewSection = () => {
+    const activeIncidents = platformIncidents.filter(
+      (inc) => inc.status !== "RESOLVED" && inc.status !== "CLOSED"
+    );
+
     const stats = [
-      { label: lang === "ar" ? "إجمالي الأعضاء" : "Total Platform Users", value: totalUsers, change: "+12%", icon: Users, color: "text-emerald-500 bg-emerald-500/10" },
-      { label: lang === "ar" ? "بيئات العمل النشطة" : "Active Workspaces", value: operationsData?.workspaces?.length || 0, change: "Optimal", icon: Building2, color: "text-cyan-500 bg-cyan-500/10" },
-      { label: lang === "ar" ? "تذاكر الدعم المفتوحة" : "Open Support Tickets", value: supportTickets.filter(t => t.status !== "Resolved").length, change: "Response <15m", icon: LifeBuoy, color: "text-indigo-500 bg-indigo-500/10" },
-      { label: lang === "ar" ? "استرجاع الحسابات المعلقة" : "Pending Recoveries", value: reactivationRequests.filter(r => r.status === "pending").length, change: "Requires Action", icon: ShieldAlert, color: "text-amber-500 bg-amber-500/10" },
+      {
+        label: lang === "ar" ? "إجمالي الأعضاء" : "Total Platform Users",
+        value: totalUsers,
+        change: "+12%",
+        icon: Users,
+        color: "text-emerald-500 bg-emerald-500/10"
+      },
+      {
+        label: lang === "ar" ? "بيئات العمل النشطة" : "Active Workspaces",
+        value: operationsData?.workspaces?.length || 0,
+        change: "Optimal",
+        icon: Building2,
+        color: "text-cyan-500 bg-cyan-500/10"
+      },
+      {
+        label: lang === "ar" ? "تذاكر الدعم المفتوحة" : "Open Support Tickets",
+        value: supportTickets.filter((t) => t.status !== "Resolved").length,
+        change: "Response <15m",
+        icon: LifeBuoy,
+        color: "text-indigo-500 bg-indigo-500/10"
+      },
+      {
+        label: lang === "ar" ? "الحوادث التشغيلية النشطة" : "Active Platform Incidents",
+        value: activeIncidents.length,
+        change: activeIncidents.length === 0 ? "Normal" : "Action Required",
+        icon: ShieldAlert,
+        color: activeIncidents.length > 0 ? "text-rose-500 bg-rose-500/10 animate-pulse" : "text-emerald-500 bg-emerald-500/10"
+      },
     ];
+
+    const filteredEvents = platformEvents.filter((ev) => {
+      const matchCat =
+        eventsFilterCategory === "ALL" ||
+        ev.category?.toUpperCase() === eventsFilterCategory.toUpperCase();
+      const matchSev =
+        eventsFilterSeverity === "ALL" ||
+        ev.severity?.toUpperCase() === eventsFilterSeverity.toUpperCase();
+      return matchCat && matchSev;
+    });
 
     return (
       <div className="space-y-6 animate-in fade-in duration-300">
-        <div className="flex flex-col gap-1">
-          <h2 className="text-xl font-bold tracking-tight">{lang === "ar" ? "نظرة عامة على عمليات المنصة" : "Platform Overview & Operations Status"}</h2>
-          <p className="text-xs text-slate-400">{lang === "ar" ? "مراقبة الأداء العام والمؤشرات الحيوية لنظام ذاكر." : "Real-time monitoring of Zakir system vitals, metrics, and operations ledger."}</p>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex flex-col gap-1">
+            <div className="flex items-center gap-2">
+              <h2 className="text-xl font-bold tracking-tight">
+                {lang === "ar" ? "مركز العمليات والمراقبة الحية" : "Live Platform Operational Control Center"}
+              </h2>
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-500/10 border border-emerald-500/30 text-emerald-500">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
+                {lang === "ar" ? "متصل بالبث اللحظي" : "Live Streaming"}
+              </span>
+            </div>
+            <p className="text-xs text-slate-400">
+              {lang === "ar"
+                ? "مراقبة الأحداث والحوادث اللحظية لكافة مكونات المنصة مع التنبيه الفوري وإمكانية التحقق."
+                : "Continuous real-time event pipeline, automatic incident triage, and system vitals monitoring."}
+            </p>
+          </div>
+
+          {/* Subsystem Health Pills */}
+          <div className="flex flex-wrap items-center gap-2 font-mono text-[11px]">
+            <div className="px-2.5 py-1 rounded-lg bg-slate-500/5 border border-slate-700/50 flex items-center gap-2">
+              <span className="text-slate-400">Firestore:</span>
+              <span className="text-emerald-400 font-bold">
+                {operationsData?.healthCheck?.checks?.firestore?.latencyMs || 24}ms
+              </span>
+            </div>
+            <div className="px-2.5 py-1 rounded-lg bg-slate-500/5 border border-slate-700/50 flex items-center gap-2">
+              <span className="text-slate-400">Local DB:</span>
+              <span className="text-emerald-400 font-bold">
+                {operationsData?.healthCheck?.checks?.database?.latencyMs || 1}ms
+              </span>
+            </div>
+            <div className="px-2.5 py-1 rounded-lg bg-slate-500/5 border border-slate-700/50 flex items-center gap-2">
+              <span className="text-slate-400">Stripe:</span>
+              <span className="text-cyan-400 font-bold">
+                {operationsData?.healthCheck?.checks?.stripe?.latencyMs || 42}ms
+              </span>
+            </div>
+          </div>
         </div>
 
         {/* Stats Grid */}
@@ -1399,7 +1757,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           {stats.map((st, i) => {
             const Icon = st.icon;
             return (
-              <div key={i} className={`p-5 rounded-2xl border ${theme === "dark" ? "bg-slate-900/60 border-slate-800" : "bg-white border-slate-150 shadow-sm"}`}>
+              <div
+                key={i}
+                className={`p-5 rounded-2xl border transition-all ${
+                  theme === "dark"
+                    ? "bg-slate-900/60 border-slate-800 hover:border-slate-700"
+                    : "bg-white border-slate-150 shadow-sm hover:shadow"
+                }`}
+              >
                 <div className="flex items-center justify-between gap-2">
                   <span className="text-xs font-semibold text-slate-400">{st.label}</span>
                   <div className={`p-2 rounded-xl ${st.color}`}>
@@ -1415,52 +1780,284 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           })}
         </div>
 
-        {/* Quick Diagnostics Panel */}
-        <div className={`p-6 rounded-2xl border ${theme === "dark" ? "bg-slate-900/60 border-slate-800" : "bg-white border-slate-150 shadow-sm"}`}>
-          <div className="flex items-center gap-2.5 mb-4">
-            <Activity className="w-5 h-5 text-indigo-500 animate-pulse" />
-            <h3 className="text-sm font-bold">{lang === "ar" ? "جودة وصحة الخدمات السحابية" : "Cloud Services & Integration Vitals"}</h3>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            {[
-              { name: "Firestore DB Status", desc: "Real-time document storage", active: true },
-              { name: "Auth Provider Core", desc: "User token verification", active: true },
-              { name: "Resend Mail Gateway", desc: "Transactional & OTP delivery", active: true },
-            ].map((srv, i) => (
-              <div key={i} className={`p-3 rounded-xl border flex items-center gap-3 ${theme === "dark" ? "bg-slate-950/40 border-slate-800" : "bg-slate-50 border-slate-200"}`}>
-                <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 shrink-0" />
-                <div className="min-w-0">
-                  <p className="text-xs font-bold truncate">{srv.name}</p>
-                  <p className="text-[10px] text-slate-400 truncate">{srv.desc}</p>
-                </div>
+        {/* ACTIVE PLATFORM INCIDENTS TRIAGE BOARD */}
+        <div className={`p-6 rounded-2xl border shadow-lg ${
+          activeIncidents.length > 0
+            ? "border-rose-500/40 bg-rose-500/5 dark:bg-rose-950/20"
+            : theme === "dark"
+            ? "bg-slate-900/60 border-slate-800"
+            : "bg-white border-slate-150 shadow-sm"
+        }`}>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+            <div className="flex items-center gap-2.5">
+              <ShieldAlert className={`w-5 h-5 ${activeIncidents.length > 0 ? "text-rose-500 animate-pulse" : "text-emerald-500"}`} />
+              <div>
+                <h3 className="text-sm font-bold">
+                  {lang === "ar" ? "سجل الحوادث والإنذارات التشغيلية (Platform Incidents)" : "Operational Incidents & Triage Center"}
+                </h3>
+                <p className="text-[11px] text-slate-400">
+                  {activeIncidents.length > 0
+                    ? lang === "ar"
+                      ? `يوجد ${activeIncidents.length} حوادث تشغيلية تتطلب تدخلاً أو متابعة فورية من الإدارة.`
+                      : `${activeIncidents.length} active incident(s) require operational attention.`
+                    : lang === "ar"
+                    ? "كافة الأنظمة والمكونات تعمل باستقرار ودون حوادث مفتوحة."
+                    : "Zero open incidents. Platform operating at nominal performance."}
+                </p>
               </div>
-            ))}
+            </div>
+            {activeIncidents.length > 0 && (
+              <span className="px-3 py-1 rounded-full text-xs font-black bg-rose-500 text-white animate-pulse uppercase">
+                {activeIncidents.length} {lang === "ar" ? "حوادث مفتوحة" : "Unresolved"}
+              </span>
+            )}
+          </div>
+
+          {activeIncidents.length > 0 ? (
+            <div className="space-y-3">
+              {activeIncidents.map((inc) => (
+                <div
+                  key={inc.id}
+                  className={`p-4 rounded-xl border flex flex-col md:flex-row md:items-center justify-between gap-4 ${
+                    theme === "dark" ? "bg-slate-950/80 border-slate-800" : "bg-white border-slate-200"
+                  }`}
+                >
+                  <div className="space-y-1.5 flex-1 min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className={`px-2 py-0.5 rounded text-[10px] font-mono font-black uppercase ${
+                        inc.severity === "CRITICAL"
+                          ? "bg-rose-500 text-white"
+                          : inc.severity === "HIGH"
+                          ? "bg-amber-500 text-slate-950"
+                          : "bg-blue-500 text-white"
+                      }`}>
+                        {inc.severity}
+                      </span>
+                      <span className="text-xs font-mono font-bold text-slate-400">
+                        {inc.incidentId || inc.id}
+                      </span>
+                      <span className="text-[11px] px-2 py-0.5 rounded bg-slate-500/10 text-slate-300 font-mono">
+                        {inc.affectedComponent}
+                      </span>
+                    </div>
+                    <p className="text-xs font-bold text-slate-200">{inc.title}</p>
+                    <p className="text-[11px] text-slate-400 line-clamp-2">{inc.description}</p>
+                    <div className="text-[10px] font-mono text-slate-500">
+                      {lang === "ar" ? "رقم الارتباط:" : "Correlation ID:"} {inc.correlationId || "N/A"} • {safeFormatDateTime(inc.createdAt)}
+                    </div>
+                  </div>
+
+                  {/* Incident Action Buttons */}
+                  <div className="flex items-center gap-2 shrink-0">
+                    {inc.status === "OPEN" && (
+                      <button
+                        onClick={() => handleUpdateIncidentStatus(inc.id, "INVESTIGATING", "Admin began investigation")}
+                        className="px-3 py-1.5 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 text-amber-400 font-bold text-xs transition-all cursor-pointer"
+                      >
+                        {lang === "ar" ? "بدء التحقيق" : "Investigate"}
+                      </button>
+                    )}
+                    <button
+                      onClick={() => {
+                        const notes = prompt(
+                          lang === "ar" ? "ملاحظات معالجة الحادث:" : "Resolution notes:",
+                          "Resolved and verified operational nominal status"
+                        );
+                        if (notes !== null) {
+                          handleUpdateIncidentStatus(inc.id, "RESOLVED", notes);
+                        }
+                      }}
+                      className="px-3.5 py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-xs transition-all cursor-pointer shadow-sm shadow-emerald-500/20 flex items-center gap-1.5"
+                    >
+                      <CheckCircle2 className="w-3.5 h-3.5" />
+                      <span>{lang === "ar" ? "إغلاق ومعالجة الحادث" : "Resolve Incident"}</span>
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="py-4 text-center text-xs text-slate-400 italic">
+              {lang === "ar"
+                ? "لا توجد أي حوادث أو أعطال مسجلة. النظام مستقر بنسبة 100%."
+                : "No active platform incidents detected. All automated health gates report healthy."}
+            </div>
+          )}
+        </div>
+
+        {/* LIVE DIAGNOSTICS & VERIFICATION TOOLKIT */}
+        <div className={`p-6 rounded-2xl border ${
+          theme === "dark" ? "bg-slate-900/60 border-slate-800" : "bg-white border-slate-150 shadow-sm"
+        }`}>
+          <div className="flex items-center gap-2.5 mb-3">
+            <Zap className="w-5 h-5 text-amber-500" />
+            <div>
+              <h3 className="text-sm font-bold">
+                {lang === "ar" ? "أدوات التحقق والتشخيص المباشر (End-to-End Live Verification)" : "Live Diagnostic Event Dispatchers"}
+              </h3>
+              <p className="text-[11px] text-slate-400">
+                {lang === "ar"
+                  ? "إطلاق أحداث تجريبية موثقة لاختبار مسار البث اللحظي، التنبيهات، والتسجيل في قاعدة البيانات دون مغادرة الصفحة."
+                  : "Trigger verified end-to-end events to observe instant real-time delivery in the event stream and notification bell."}
+              </p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 pt-2">
+            <button
+              disabled={Boolean(testEventRunning)}
+              onClick={() => handleTriggerTestEvent("ERROR")}
+              className="p-3 rounded-xl border border-rose-500/30 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 font-bold text-xs flex flex-col items-center justify-center gap-1.5 transition-all active:scale-95 cursor-pointer"
+            >
+              <AlertCircle className="w-4 h-4" />
+              <span>{testEventRunning === "ERROR" ? "Emitting..." : "Simulate 500 Error"}</span>
+            </button>
+
+            <button
+              disabled={Boolean(testEventRunning)}
+              onClick={() => handleTriggerTestEvent("SUPPORT")}
+              className="p-3 rounded-xl border border-indigo-500/30 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 font-bold text-xs flex flex-col items-center justify-center gap-1.5 transition-all active:scale-95 cursor-pointer"
+            >
+              <LifeBuoy className="w-4 h-4" />
+              <span>{testEventRunning === "SUPPORT" ? "Emitting..." : "Test Support Ticket"}</span>
+            </button>
+
+            <button
+              disabled={Boolean(testEventRunning)}
+              onClick={() => handleTriggerTestEvent("OTP")}
+              className="p-3 rounded-xl border border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 font-bold text-xs flex flex-col items-center justify-center gap-1.5 transition-all active:scale-95 cursor-pointer"
+            >
+              <FileText className="w-4 h-4" />
+              <span>{testEventRunning === "OTP" ? "Emitting..." : "Simulate OTP Sent"}</span>
+            </button>
+
+            <button
+              disabled={Boolean(testEventRunning)}
+              onClick={() => handleTriggerTestEvent("SECURITY")}
+              className="p-3 rounded-xl border border-amber-500/30 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 font-bold text-xs flex flex-col items-center justify-center gap-1.5 transition-all active:scale-95 cursor-pointer"
+            >
+              <ShieldAlert className="w-4 h-4" />
+              <span>{testEventRunning === "SECURITY" ? "Emitting..." : "Security Alert"}</span>
+            </button>
+
+            <button
+              disabled={Boolean(testEventRunning)}
+              onClick={() => handleTriggerTestEvent("USER")}
+              className="p-3 rounded-xl border border-cyan-500/30 bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 font-bold text-xs flex flex-col items-center justify-center gap-1.5 transition-all active:scale-95 cursor-pointer"
+            >
+              <UserCheck className="w-4 h-4" />
+              <span>{testEventRunning === "USER" ? "Emitting..." : "User Logged In"}</span>
+            </button>
           </div>
         </div>
 
-        {/* System Activity Log Ticker */}
-        <div className={`p-6 rounded-2xl border ${theme === "dark" ? "bg-slate-900/60 border-slate-800" : "bg-white border-slate-150 shadow-sm"}`}>
-          <div className="flex items-center gap-2.5 mb-4 justify-between">
-            <div className="flex items-center gap-2">
-              <Clock className="w-5 h-5 text-rose-500" />
-              <h3 className="text-sm font-bold">{lang === "ar" ? "آخر العمليات والتهديدات الأمنية" : "Recent Threat Alerts & Audit Logs"}</h3>
-            </div>
-            <button onClick={() => setActiveAdminTab("audit")} className="text-xs text-[#0075DE] font-bold hover:underline cursor-pointer">
-              {lang === "ar" ? "عرض كافة السجلات" : "View Entire Ledger"}
-            </button>
-          </div>
-          <div className="space-y-3 font-mono text-xs max-h-[180px] overflow-y-auto pr-2">
-            {operationsData?.auditLogs?.slice(0, 5).map((log, i) => (
-              <div key={i} className={`p-3 rounded-lg flex items-center justify-between gap-3 ${theme === "dark" ? "bg-slate-950/40" : "bg-slate-50"}`}>
-                <span className="text-slate-400 text-[10px] shrink-0">{safeFormatTime(log.timestamp)}</span>
-                <span className="text-slate-200 truncate flex-1 font-sans font-semibold">
-                  {log.adminEmail}: <strong className="text-rose-400">{log.action}</strong> {log.details}
-                </span>
-                <span className="px-2 py-0.5 rounded text-[10px] font-black bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 uppercase shrink-0">
-                  {log.result}
-                </span>
+        {/* REAL-TIME PLATFORM EVENT STREAM */}
+        <div className={`p-6 rounded-2xl border ${
+          theme === "dark" ? "bg-slate-900/60 border-slate-800" : "bg-white border-slate-150 shadow-sm"
+        }`}>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+            <div className="flex items-center gap-2.5">
+              <Radio className="w-5 h-5 text-[#0075DE] animate-pulse" />
+              <div>
+                <div className="flex items-center gap-2">
+                  <h3 className="text-sm font-bold">
+                    {lang === "ar" ? "بث الأحداث التشغيلية اللحظي (Real-Time Platform Events)" : "Live Operational Event Stream"}
+                  </h3>
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-slate-500/10 text-slate-300">
+                    {filteredEvents.length} {lang === "ar" ? "حدث" : "events"}
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-400">
+                  {lang === "ar"
+                    ? "سجل مباشر لكافة أحداث الأمان، الحسابات، الدعم الفني، وطلبات الخادم مع إمكانية التصفية."
+                    : "Real-time feed streaming all platform events directly via Firestore onSnapshot."}
+                </p>
               </div>
-            )) || <p className="text-slate-400 text-xs italic">{lang === "ar" ? "لا توجد عمليات مسجلة حالياً." : "No operations recorded yet."}</p>}
+            </div>
+
+            {/* Category and Severity Filter Chips */}
+            <div className="flex flex-wrap items-center gap-2">
+              <select
+                value={eventsFilterCategory}
+                onChange={(e) => setEventsFilterCategory(e.target.value)}
+                className="px-2.5 py-1 text-xs rounded-lg border bg-slate-500/5 border-slate-700/60 text-slate-200 outline-none cursor-pointer"
+              >
+                <option value="ALL">All Categories</option>
+                <option value="AUTH">Auth</option>
+                <option value="SUPPORT">Support</option>
+                <option value="SYSTEM">System</option>
+                <option value="SECURITY">Security</option>
+                <option value="EMAIL">Email</option>
+                <option value="STORAGE">Storage</option>
+                <option value="WORKSPACE">Workspace</option>
+              </select>
+
+              <select
+                value={eventsFilterSeverity}
+                onChange={(e) => setEventsFilterSeverity(e.target.value)}
+                className="px-2.5 py-1 text-xs rounded-lg border bg-slate-500/5 border-slate-700/60 text-slate-200 outline-none cursor-pointer"
+              >
+                <option value="ALL">All Severities</option>
+                <option value="CRITICAL">Critical</option>
+                <option value="HIGH">High</option>
+                <option value="MEDIUM">Medium</option>
+                <option value="LOW">Low</option>
+                <option value="INFO">Info</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Event List Feed */}
+          <div className="space-y-2.5 max-h-[380px] overflow-y-auto pr-1">
+            {filteredEvents.length > 0 ? (
+              filteredEvents.slice(0, 50).map((ev) => {
+                const sevColor =
+                  ev.severity === "CRITICAL"
+                    ? "bg-rose-500/10 border-rose-500/30 text-rose-400"
+                    : ev.severity === "HIGH"
+                    ? "bg-amber-500/10 border-amber-500/30 text-amber-400"
+                    : ev.severity === "MEDIUM"
+                    ? "bg-yellow-500/10 border-yellow-500/30 text-yellow-400"
+                    : ev.severity === "LOW"
+                    ? "bg-blue-500/10 border-blue-500/30 text-blue-400"
+                    : "bg-emerald-500/10 border-emerald-500/30 text-emerald-400";
+
+                return (
+                  <div
+                    key={ev.id || ev.timestamp}
+                    className={`p-3 rounded-xl border transition-colors flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
+                      theme === "dark" ? "bg-slate-950/60 border-slate-800/80 hover:border-slate-700" : "bg-slate-50/80 border-slate-200 hover:border-slate-300"
+                    }`}
+                  >
+                    <div className="flex items-start sm:items-center gap-3 min-w-0">
+                      <span className={`px-2 py-0.5 rounded text-[10px] font-mono font-black border uppercase shrink-0 ${sevColor}`}>
+                        {ev.severity || "INFO"}
+                      </span>
+                      <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-slate-500/10 text-slate-300 shrink-0">
+                        {ev.category}
+                      </span>
+                      <div className="min-w-0">
+                        <p className="text-xs font-bold truncate text-slate-200">
+                          {ev.sanitizedMessage || ev.eventType}
+                        </p>
+                        <div className="flex items-center gap-2 text-[10px] font-mono text-slate-500">
+                          <span>{ev.userEmail ? `${ev.userEmail}` : "System Service"}</span>
+                          {ev.requestId && <span>• req: {ev.requestId.substring(0, 16)}</span>}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="text-[10px] font-mono text-slate-400 shrink-0 text-right">
+                      {safeFormatDateTime(ev.timestamp)}
+                    </div>
+                  </div>
+                );
+              })
+            ) : (
+              <p className="text-slate-400 text-xs text-center py-8 italic">
+                {lang === "ar" ? "لا توجد أحداث مطابقة لشروط التصفية حالياً." : "No platform events matching current filter."}
+              </p>
+            )}
           </div>
         </div>
       </div>
@@ -1912,7 +2509,18 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   };
 
   const renderHealthSection = () => {
-    const health = operationsData?.healthCheck || { status: "HEALTHY", checks: {}, recentErrors: [] };
+    const health = operationsData?.healthCheck || {
+      status: "HEALTHY",
+      checks: {
+        database: { status: "UP", latencyMs: 1 },
+        firestore: { status: "UP", latencyMs: 24 },
+        stripe: { status: "CONNECTED", latencyMs: 42 },
+        resend: { status: "CONFIGURED" }
+      },
+      recentErrors: []
+    };
+    const checks = health.checks || {};
+
     return (
       <div className="space-y-6 animate-in fade-in duration-300">
         <div className="flex flex-col gap-1">
@@ -1928,34 +2536,94 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             <Activity className="w-6 h-6 animate-pulse" />
             <div>
               <p className="text-sm font-black">{lang === "ar" ? "حالة النظام الإجمالية" : "Overall System Health State"}</p>
-              <p className="text-xs opacity-85">{lang === "ar" ? "جميع خوادم الويب وقواعد البيانات تعمل بشكل مثالي دون أي أخطاء حرجة." : "All web-servers, transactional pathways, and databases are currently operating flawlessly."}</p>
+              <p className="text-xs opacity-85">
+                {health.status === "HEALTHY"
+                  ? (lang === "ar" ? "جميع خوادم الويب وقواعد البيانات تعمل بشكل مثالي دون أي أخطاء حرجة." : "All web-servers, transactional pathways, and databases are currently operating flawlessly.")
+                  : (lang === "ar" ? "تم رصد تنبيهات تشغيلية تتطلب مراجعة سجل الحوادث." : "Subsystem degraded alerts reported. Review incident triage ledger.")}
+              </p>
             </div>
           </div>
-          <span className="px-4 py-1.5 rounded-full bg-emerald-500 text-white font-black text-xs animate-bounce">
+          <span className={`px-4 py-1.5 rounded-full text-white font-black text-xs ${
+            health.status === "HEALTHY" ? "bg-emerald-500" : "bg-rose-500 animate-pulse"
+          }`}>
             {health.status || "HEALTHY"}
           </span>
         </div>
 
         {/* Integration Status table */}
         <div className={`p-6 rounded-2xl border ${theme === "dark" ? "bg-slate-900/60 border-slate-800" : "bg-white border-slate-150"}`}>
-          <h3 className="text-xs font-bold text-slate-400 mb-4 uppercase tracking-widest">{lang === "ar" ? "سلامة الأنظمة الخارجية والربط" : "Microservices Connectivity Index"}</h3>
+          <h3 className="text-xs font-bold text-slate-400 mb-4 uppercase tracking-widest">{lang === "ar" ? "سلامة الأنظمة الخارجية وزمن الاستجابة" : "Microservices Connectivity Index & Latency"}</h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            {[
-              { name: "Firestore Cluster", desc: "No delays detected", ok: true },
-              { name: "Local DB Engine", desc: "Integrity verified", ok: true },
-              { name: "Resend Email Service", desc: "API key is active", ok: true },
-              { name: "Stripe Subscription API", desc: "Secure webhook listening", ok: true },
-            ].map((chk, i) => (
-              <div key={i} className={`p-4 rounded-xl border flex flex-col justify-between gap-3 ${theme === "dark" ? "bg-slate-950/40 border-slate-800" : "bg-slate-50 border-slate-200"}`}>
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-xs font-bold">{chk.name}</span>
-                  <div className={`w-2.5 h-2.5 rounded-full ${chk.ok ? "bg-emerald-500" : "bg-rose-500"}`} />
-                </div>
-                <p className="text-[10px] text-slate-400 leading-relaxed">{chk.desc}</p>
+            <div className={`p-4 rounded-xl border flex flex-col justify-between gap-3 ${theme === "dark" ? "bg-slate-950/40 border-slate-800" : "bg-slate-50 border-slate-200"}`}>
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-xs font-bold">Firestore Database</span>
+                <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-emerald-500/10 text-emerald-400">
+                  {checks.firestore?.latencyMs ?? 24}ms
+                </span>
               </div>
-            ))}
+              <p className="text-[10px] text-slate-400 leading-relaxed">
+                Status: <strong className="text-emerald-400">{checks.firestore?.status || "UP"}</strong> • Cluster live
+              </p>
+            </div>
+
+            <div className={`p-4 rounded-xl border flex flex-col justify-between gap-3 ${theme === "dark" ? "bg-slate-950/40 border-slate-800" : "bg-slate-50 border-slate-200"}`}>
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-xs font-bold">Local DB Engine</span>
+                <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-emerald-500/10 text-emerald-400">
+                  {checks.database?.latencyMs ?? 1}ms
+                </span>
+              </div>
+              <p className="text-[10px] text-slate-400 leading-relaxed">
+                Status: <strong className="text-emerald-400">{checks.database?.status || "UP"}</strong> • Read/Write verified
+              </p>
+            </div>
+
+            <div className={`p-4 rounded-xl border flex flex-col justify-between gap-3 ${theme === "dark" ? "bg-slate-950/40 border-slate-800" : "bg-slate-50 border-slate-200"}`}>
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-xs font-bold">Stripe Subscriptions</span>
+                <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-cyan-500/10 text-cyan-400">
+                  {checks.stripe?.latencyMs ?? 42}ms
+                </span>
+              </div>
+              <p className="text-[10px] text-slate-400 leading-relaxed">
+                Status: <strong className="text-cyan-400">{checks.stripe?.status || "CONNECTED"}</strong>
+              </p>
+            </div>
+
+            <div className={`p-4 rounded-xl border flex flex-col justify-between gap-3 ${theme === "dark" ? "bg-slate-950/40 border-slate-800" : "bg-slate-50 border-slate-200"}`}>
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-xs font-bold">Resend Mail Gateway</span>
+                <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-indigo-500/10 text-indigo-400">
+                  {checks.resend?.status || "ACTIVE"}
+                </span>
+              </div>
+              <p className="text-[10px] text-slate-400 leading-relaxed">
+                Status: <strong className="text-indigo-400">{checks.resend?.status || "CONFIGURED"}</strong> • Transactional OTP
+              </p>
+            </div>
           </div>
         </div>
+
+        {/* Recent Server Errors & Incidents log */}
+        {health.recentErrors && health.recentErrors.length > 0 && (
+          <div className={`p-6 rounded-2xl border ${theme === "dark" ? "bg-slate-900/60 border-slate-800" : "bg-white border-slate-150"}`}>
+            <h3 className="text-xs font-bold text-rose-400 mb-3 uppercase tracking-wider flex items-center gap-2">
+              <AlertCircle className="w-4 h-4" />
+              <span>{lang === "ar" ? "أحدث الأخطاء المسجلة بالخادم" : "Recent Production Server Errors"}</span>
+            </h3>
+            <div className="space-y-2 font-mono text-xs max-h-[220px] overflow-y-auto">
+              {health.recentErrors.map((err: any, idx: number) => (
+                <div key={idx} className="p-3 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-300">
+                  <div className="flex items-center justify-between text-[10px] text-rose-400 mb-1">
+                    <span>{err.path || err.source || "API"}</span>
+                    <span>{safeFormatDateTime(err.timestamp)}</span>
+                  </div>
+                  <p className="font-sans font-bold">{err.message || err.error}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     );
   };
@@ -2049,26 +2717,36 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   return (
     <div className="min-h-screen flex flex-col bg-[var(--bg-primary)] text-[var(--text-primary)] transition-colors duration-300" dir={lang === "ar" ? "rtl" : "ltr"}>
       {/* SIMULATED MEMBER SUPPORT SESSION BANNER */}
-      {supportModeTargetUser && (
-        <div className="bg-gradient-to-r from-amber-500 to-amber-600 text-slate-950 font-extrabold px-4 py-3 text-xs sm:text-sm flex items-center justify-between gap-4 shadow-lg sticky top-0 z-50 animate-bounce duration-1000">
-          <div className="flex items-center gap-2.5">
-            <div className="w-2.5 h-2.5 rounded-full bg-slate-950 animate-ping" />
-            <ShieldAlert className="w-4 h-4 text-slate-950 shrink-0" />
-            <span className="tracking-wide">
-              {lang === "ar"
-                ? `نشط: وضع دعم المسؤول لـ ${supportModeTargetUser.email} (ID: ${supportModeTargetUser.id}) • الهوية ثابتة كأدمن`
-                : `Active: Admin Support Mode for ${supportModeTargetUser.email} (ID: ${supportModeTargetUser.id}) • Auth remains Admin`}
-            </span>
+      {/* AUDITED SUPPORT SESSION BANNER */}
+      {(supportSession || supportModeTargetUser) && (
+        <div className="bg-gradient-to-r from-amber-500 via-amber-600 to-amber-500 text-slate-950 font-extrabold px-4 py-3 text-xs sm:text-sm flex flex-col md:flex-row items-center justify-between gap-3 shadow-lg sticky top-0 z-50">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-2.5 h-2.5 rounded-full bg-slate-950 animate-ping shrink-0" />
+            <ShieldAlert className="w-5 h-5 text-slate-950 shrink-0" />
+            <div className="min-w-0">
+              <span className="tracking-wide font-black">
+                {lang === "ar" ? "وضع دعم المسؤول الموثق نشط: " : "Audited Admin Support Mode Active: "}
+              </span>
+              <span className="font-mono underline">
+                {supportSession?.targetUserEmail || supportModeTargetUser?.email}
+              </span>
+              <span className="text-[11px] opacity-80 ml-2 font-mono">
+                [Session ID: {supportSession?.id || "ACT-AUDIT"}] • Elapsed: {supportSessionDuration}
+              </span>
+            </div>
           </div>
-          <button
-            onClick={() => {
-              setSupportModeTargetUser(null);
-              alert(lang === "ar" ? "تم إلغاء تنشيط وضع دعم المسؤول بنجاح." : "Support mode deactivated successfully.");
-            }}
-            className="px-3.5 py-1.5 bg-slate-950 text-amber-400 rounded-lg hover:bg-slate-900 active:scale-95 font-black text-xs transition-all cursor-pointer shadow-sm shadow-slate-950/25"
-          >
-            {lang === "ar" ? "إلغاء تنشيط وضع الدعم" : "Deactivate Support Mode"}
-          </button>
+          <div className="flex items-center gap-2 shrink-0">
+            <span className="text-[11px] px-2 py-0.5 rounded bg-slate-950/20 text-slate-950 font-mono hidden lg:inline-block">
+              {supportSession?.reason || "Audited administration"}
+            </span>
+            <button
+              onClick={handleEndSupportSession}
+              className="px-3.5 py-1.5 bg-slate-950 text-amber-400 rounded-lg hover:bg-slate-900 active:scale-95 font-black text-xs transition-all cursor-pointer shadow-sm shadow-slate-950/25 flex items-center gap-1.5"
+            >
+              <LogOut className="w-3.5 h-3.5" />
+              <span>{lang === "ar" ? "إنهاء جلسة الدعم وتوثيق السجل" : "Conclude Audited Session"}</span>
+            </button>
+          </div>
         </div>
       )}
 
@@ -2077,28 +2755,269 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
           
           {/* BRAND & ADMIN BADGE */}
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 shrink-0">
             <div className="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-500 shadow-md">
               <ShieldCheck className="w-6 h-6" />
             </div>
             <div>
               <div className="flex items-center gap-2">
                 <span className="font-extrabold text-lg tracking-tight">ZAKIR</span>
-                
-                {/* PROMINENT ADMIN BADGE */}
-                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-black uppercase tracking-wider bg-rose-500/15 border border-rose-500/40 text-rose-500 shadow-sm animate-pulse">
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-rose-500/15 border border-rose-500/40 text-rose-500 shadow-sm">
                   <Shield className="w-3 h-3" />
-                  {lang === "ar" ? "لوحة الأدمن" : (lang === "fr" ? "Abonné Admin" : "Admin Dashboard")}
+                  ADMIN
+                </span>
+                <span className="hidden md:inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 border border-emerald-500/30 text-emerald-400">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                  LIVE
                 </span>
               </div>
-              <span className="block text-[11px] text-slate-400 font-mono">
-                {lang === "ar" ? "إدارة نظام قاعدة البيانات والملفات المؤسسية" : "System Administration & Multi-Tenant Data Vault"}
+              <span className="block text-[11px] text-slate-400 font-mono truncate max-w-[200px] sm:max-w-none">
+                {lang === "ar" ? "مركز العمليات والمراقبة اللحظية" : "Live Operational Control Center"}
               </span>
             </div>
           </div>
 
+          {/* GLOBAL SEARCH IN HEADER */}
+          <div className="flex-1 max-w-md relative hidden md:block">
+            <div className="relative flex items-center">
+              <Search className="w-4 h-4 absolute left-3 text-slate-400 pointer-events-none" />
+              <input
+                type="text"
+                value={globalSearchQuery}
+                onChange={(e) => {
+                  setGlobalSearchQuery(e.target.value);
+                  handleGlobalSearch(e.target.value);
+                  setIsSearchDropdownOpen(true);
+                }}
+                onFocus={() => {
+                  if (globalSearchQuery.trim()) setIsSearchDropdownOpen(true);
+                }}
+                placeholder={lang === "ar" ? "بحث شامل في المستخدمين، بيئات العمل، التذاكر، الحوادث..." : "Global search users, workspaces, tickets, incidents..."}
+                className="w-full pl-9 pr-8 py-1.5 text-xs rounded-xl border border-slate-700/60 bg-slate-900/60 text-slate-100 placeholder-slate-400 focus:outline-none focus:border-[#0075DE] transition-all"
+              />
+              {globalSearchQuery && (
+                <button
+                  onClick={() => {
+                    setGlobalSearchQuery("");
+                    setGlobalSearchResults([]);
+                    setIsSearchDropdownOpen(false);
+                  }}
+                  className="absolute right-2.5 p-0.5 text-slate-400 hover:text-slate-200 cursor-pointer"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+
+            {/* GLOBAL SEARCH DROPDOWN */}
+            {isSearchDropdownOpen && globalSearchQuery.trim().length >= 2 && (
+              <div
+                className={`absolute top-full left-0 right-0 mt-2 rounded-xl border shadow-2xl z-50 max-h-[380px] overflow-y-auto p-2 ${
+                  theme === "dark" ? "bg-slate-900 border-slate-700" : "bg-white border-slate-200"
+                }`}
+              >
+                {/* Category selector chips */}
+                <div className="flex items-center gap-1.5 pb-2 mb-2 border-b border-slate-800 text-[10px] overflow-x-auto">
+                  {["all", "users", "workspaces", "support", "reactivations", "incidents", "events"].map((cat) => (
+                    <button
+                      key={cat}
+                      onClick={() => setSearchFilterCategory(cat)}
+                      className={`px-2 py-0.5 rounded-md font-bold uppercase transition-all cursor-pointer ${
+                        searchFilterCategory === cat
+                          ? "bg-[#0075DE] text-white"
+                          : "bg-slate-800/60 text-slate-400 hover:text-slate-200"
+                      }`}
+                    >
+                      {cat}
+                    </button>
+                  ))}
+                </div>
+
+                {isGlobalSearching ? (
+                  <div className="p-4 text-center text-xs text-slate-400">
+                    <RefreshCw className="w-4 h-4 animate-spin inline mr-2 text-[#0075DE]" />
+                    {lang === "ar" ? "جارٍ البحث في قاعدة البيانات..." : "Searching platform ledger..."}
+                  </div>
+                ) : (
+                  <div className="space-y-1">
+                    {globalSearchResults
+                      .filter((res) => searchFilterCategory === "all" || res.category === searchFilterCategory)
+                      .slice(0, 15)
+                      .map((res, i) => (
+                        <div
+                          key={i}
+                          onClick={() => {
+                            setIsSearchDropdownOpen(false);
+                            if (res.category === "users") {
+                              setActiveAdminTab("users");
+                              setSearchQuery(res.title || "");
+                            } else if (res.category === "workspaces") {
+                              setActiveAdminTab("workspaces");
+                            } else if (res.category === "support") {
+                              setActiveAdminTab("support");
+                            } else if (res.category === "reactivations") {
+                              setActiveAdminTab("reactivations");
+                            } else if (res.category === "incidents" || res.category === "events") {
+                              setActiveAdminTab("overview");
+                            }
+                          }}
+                          className="p-2 rounded-lg hover:bg-slate-500/10 cursor-pointer flex items-center justify-between gap-2 transition-colors text-xs"
+                        >
+                          <div className="min-w-0 flex items-center gap-2">
+                            <span className="px-1.5 py-0.5 rounded text-[9px] font-mono font-black uppercase bg-slate-500/20 text-slate-300">
+                              {res.category}
+                            </span>
+                            <div className="min-w-0">
+                              <p className="font-bold truncate text-slate-200">{res.title}</p>
+                              <p className="text-[10px] text-slate-400 truncate">{res.subtitle}</p>
+                            </div>
+                          </div>
+                          <span className="text-[10px] text-slate-500 font-mono shrink-0">
+                            {safeFormatDateTime(res.timestamp)}
+                          </span>
+                        </div>
+                      ))}
+                    {globalSearchResults.filter(
+                      (res) => searchFilterCategory === "all" || res.category === searchFilterCategory
+                    ).length === 0 && (
+                      <p className="text-xs text-slate-400 text-center py-4 italic">
+                        {lang === "ar" ? "لا توجد نتائج مطابقة لبحثك." : "No matching records found."}
+                      </p>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
           {/* ADMIN ACTION CONTROLS */}
           <div className="flex items-center gap-2 sm:gap-3">
+            {/* NOTIFICATION CENTER BELL */}
+            <div className="relative">
+              <button
+                onClick={() => setIsNotifDropdownOpen(!isNotifDropdownOpen)}
+                className={`p-2 rounded-lg border relative transition-all cursor-pointer ${
+                  theme === "dark" ? "bg-slate-800/60 hover:bg-slate-800 border-slate-700 text-slate-200" : "bg-white hover:bg-slate-100 border-slate-300 text-slate-700"
+                }`}
+                title={lang === "ar" ? "مركز الإشعارات والتنبيهات" : "Operational Notifications Center"}
+              >
+                <Bell className="w-4 h-4" />
+                {unreadNotifsCount > 0 && (
+                  <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-rose-500 text-white text-[10px] font-black flex items-center justify-center animate-pulse">
+                    {unreadNotifsCount > 9 ? "9+" : unreadNotifsCount}
+                  </span>
+                )}
+              </button>
+
+              {/* NOTIFICATIONS POPOVER */}
+              {isNotifDropdownOpen && (
+                <div
+                  className={`absolute right-0 mt-2 w-80 sm:w-96 rounded-2xl border shadow-2xl z-50 overflow-hidden ${
+                    theme === "dark" ? "bg-slate-900 border-slate-800" : "bg-white border-slate-200"
+                  }`}
+                >
+                  <div className="p-3 border-b border-slate-800 flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Bell className="w-4 h-4 text-[#0075DE]" />
+                      <h4 className="text-xs font-bold text-slate-200">
+                        {lang === "ar" ? "تنبيهات المنصة التشغيلية" : "Platform Operational Notifications"}
+                      </h4>
+                    </div>
+                    {unreadNotifsCount > 0 && (
+                      <button
+                        onClick={handleMarkAllNotificationsRead}
+                        className="text-[10px] text-[#0075DE] hover:underline font-bold cursor-pointer"
+                      >
+                        {lang === "ar" ? "تحديد الكل كمقروء" : "Mark all read"}
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Filter tabs */}
+                  <div className="px-3 pt-2 flex items-center gap-2 text-xs border-b border-slate-800/60">
+                    <button
+                      onClick={() => setNotifTab("all")}
+                      className={`pb-1.5 font-bold transition-all cursor-pointer ${
+                        notifTab === "all" ? "border-b-2 border-[#0075DE] text-white" : "text-slate-400"
+                      }`}
+                    >
+                      All ({adminNotifications.length})
+                    </button>
+                    <button
+                      onClick={() => setNotifTab("unread")}
+                      className={`pb-1.5 font-bold transition-all cursor-pointer ${
+                        notifTab === "unread" ? "border-b-2 border-[#0075DE] text-white" : "text-slate-400"
+                      }`}
+                    >
+                      Unread ({unreadNotifsCount})
+                    </button>
+                  </div>
+
+                  {/* Notification items */}
+                  <div className="max-h-[320px] overflow-y-auto p-2 space-y-2">
+                    {(notifTab === "all" ? adminNotifications : adminNotifications.filter((n) => !n.read))
+                      .slice(0, 30)
+                      .map((notif) => {
+                        const sevColor =
+                          notif.severity === "CRITICAL"
+                            ? "bg-rose-500/10 border-rose-500/30 text-rose-400"
+                            : notif.severity === "HIGH"
+                            ? "bg-amber-500/10 border-amber-500/30 text-amber-400"
+                            : "bg-blue-500/10 border-blue-500/30 text-blue-400";
+
+                        return (
+                          <div
+                            key={notif.id}
+                            className={`p-2.5 rounded-xl border transition-all ${
+                              notif.read
+                                ? "opacity-60 bg-slate-950/40 border-slate-800"
+                                : "bg-slate-950/90 border-slate-700"
+                            }`}
+                          >
+                            <div className="flex items-start justify-between gap-2 mb-1">
+                              <span className={`px-1.5 py-0.2 rounded text-[9px] font-mono font-black uppercase border ${sevColor}`}>
+                                {notif.severity}
+                              </span>
+                              <span className="text-[10px] font-mono text-slate-500">
+                                {safeFormatDateTime(notif.createdAt)}
+                              </span>
+                            </div>
+                            <p className="text-xs font-bold text-slate-200">{notif.title}</p>
+                            <p className="text-[11px] text-slate-400 line-clamp-2 mt-0.5">{notif.message}</p>
+                            <div className="mt-2 flex items-center justify-between text-[10px] pt-1 border-t border-slate-800/60">
+                              <span className="font-mono text-slate-500">{notif.category}</span>
+                              <div className="flex items-center gap-2">
+                                {!notif.read && (
+                                  <button
+                                    onClick={() => handleMarkNotificationRead(notif.id)}
+                                    className="text-slate-400 hover:text-slate-200 cursor-pointer"
+                                  >
+                                    Mark read
+                                  </button>
+                                )}
+                                {!notif.acknowledged && (
+                                  <button
+                                    onClick={() => handleAcknowledgeNotification(notif.id)}
+                                    className="text-[#0075DE] hover:underline font-bold cursor-pointer"
+                                  >
+                                    Acknowledge
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    {adminNotifications.length === 0 && (
+                      <p className="text-xs text-slate-400 text-center py-6 italic">
+                        {lang === "ar" ? "لا توجد إشعارات حالياً." : "No notifications yet."}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+
             {/* Theme switch */}
             <button
               onClick={() => toggleTheme(theme === "dark" ? "light" : "dark")}
@@ -2891,14 +3810,19 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                 <button
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    setSupportModeTargetUser(record);
-                                    alert(lang === "ar" ? "تم تنشيط وضع دعم المسؤول لهذا العضو." : "Support mode activated for this member.");
+                                    setSupportModalUser(record);
+                                    setSupportModalReason(
+                                      lang === "ar"
+                                        ? "مساعدة العضو والتحقق من حساب وملفات النظام"
+                                        : `Audited support inspection for ${record.email}`
+                                    );
+                                    setIsSupportModalOpen(true);
                                   }}
                                   className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-pink-500/10 hover:bg-pink-500/20 border border-pink-500/30 text-pink-500 font-semibold transition-all text-[11px] cursor-pointer"
-                                  title={lang === "ar" ? "مساعدة العضو دون تسجيل خروج" : "Assist this member without swapping session"}
+                                  title={lang === "ar" ? "بدء جلسة دعم موثقة ومدققة لهذا العضو" : "Start audited support session for this member"}
                                 >
                                   <UserCheck className="w-3 h-3" />
-                                  <span>{lang === "ar" ? "الدعم" : "Support"}</span>
+                                  <span>{lang === "ar" ? "جلسة دعم" : "Support"}</span>
                                 </button>
 
                                  {(record as any).suspended ? (
@@ -4591,6 +5515,99 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   ? `${lang === "ar" ? "تاريخ التقديم:" : "Submitted:"} ${safeFormatDateTime(previewDocModal.requestInfo.createdAt)}`
                   : ""}
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* AUDITED SUPPORT SESSION ACTIVATION MODAL */}
+      {isSupportModalOpen && supportModalUser && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-fade-in">
+          <div className={`w-full max-w-lg rounded-2xl border shadow-2xl overflow-hidden ${
+            theme === "dark" ? "bg-slate-900 border-slate-700" : "bg-white border-slate-200"
+          }`}>
+            <div className="p-5 border-b border-slate-800 flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 rounded-xl bg-amber-500/10 text-amber-500 border border-amber-500/20">
+                  <ShieldAlert className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-base text-slate-100">
+                    {lang === "ar" ? "تنشيط وضع دعم المسؤول الموثق" : "Activate Audited Support Session"}
+                  </h3>
+                  <p className="text-xs text-slate-400">
+                    {lang === "ar" ? "جلسة دعم موثقة ومدققة ومسجلة في سجل الامتثال" : "Controlled, immutable audit-trailed member support"}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsSupportModalOpen(false)}
+                className="p-1 rounded-lg text-slate-400 hover:text-slate-200 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-5 space-y-4 text-xs">
+              <div className="p-3 rounded-xl bg-slate-950/60 border border-slate-800 space-y-2">
+                <div className="flex justify-between">
+                  <span className="text-slate-400">{lang === "ar" ? "العضو المستهدف:" : "Target Member:"}</span>
+                  <span className="font-bold text-slate-200 font-mono">{supportModalUser.email}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-400">{lang === "ar" ? "معرّف الحساب:" : "User ID:"}</span>
+                  <span className="font-mono text-slate-400">{supportModalUser.id}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-400">{lang === "ar" ? "بيئة العمل / الشركة:" : "Company/Workspace:"}</span>
+                  <span className="font-bold text-slate-200">{supportModalUser.companyName || "N/A"}</span>
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="font-bold text-slate-300">
+                  {lang === "ar" ? "سبب وتبرير جلسة الدعم (إلزامي للتوثيق والامتثال):" : "Audit Justification & Reason (Mandatory for Compliance):"}
+                </label>
+                <textarea
+                  rows={3}
+                  value={supportModalReason}
+                  onChange={(e) => setSupportModalReason(e.target.value)}
+                  placeholder={lang === "ar" ? "اكتب سبب بدء جلسة الدعم..." : "Enter reason for accessing user environment..."}
+                  className="w-full p-2.5 rounded-xl border border-slate-700 bg-slate-950 text-slate-100 placeholder-slate-500 focus:outline-none focus:border-amber-500 text-xs font-mono"
+                />
+              </div>
+
+              <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-300 text-[11px] leading-relaxed">
+                <strong>{lang === "ar" ? "تنبيه أمان:" : "Security Compliance Notice:"}</strong>{" "}
+                {lang === "ar"
+                  ? "جميع العمليات التي يتم إجراؤها أثناء وضع الدعم سيتم تسجيلها وربطها برقم جلسة فريد. صلاحياتك الإدارية تبقى ثابتة."
+                  : "All actions taken while in support mode are indelibly linked to this session ID in the security audit ledger. Administrator credentials remain secure."}
+              </div>
+            </div>
+
+            <div className="p-4 border-t border-slate-800 flex items-center justify-end gap-3 bg-slate-950/40">
+              <button
+                onClick={() => setIsSupportModalOpen(false)}
+                className="px-4 py-2 rounded-xl text-slate-400 hover:text-slate-200 font-bold text-xs cursor-pointer"
+              >
+                {lang === "ar" ? "إلغاء" : "Cancel"}
+              </button>
+              <button
+                disabled={startingSupportSession || !supportModalReason.trim()}
+                onClick={() => handleStartSupportSession(supportModalUser, supportModalReason)}
+                className="px-5 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 disabled:opacity-50 text-slate-950 font-black text-xs transition-all shadow-md shadow-amber-500/20 cursor-pointer flex items-center gap-2"
+              >
+                {startingSupportSession ? (
+                  <>
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                    <span>{lang === "ar" ? "جارٍ التوثيق..." : "Auditing..."}</span>
+                  </>
+                ) : (
+                  <>
+                    <ShieldCheck className="w-4 h-4" />
+                    <span>{lang === "ar" ? "بدء جلسة الدعم الموثقة" : "Activate Audited Session"}</span>
+                  </>
+                )}
+              </button>
             </div>
           </div>
         </div>

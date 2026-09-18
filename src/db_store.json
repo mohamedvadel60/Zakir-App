@@ -3412,5 +3412,37 @@
       "result": "SUCCESS",
       "reason": "Test"
     }
+  ],
+  "platform_events": [
+    {
+      "id": "evt_1789742225610_m1itksh",
+      "eventType": "TEST_VERIFICATION_AUDIT",
+      "severity": "WARNING",
+      "category": "SYSTEM",
+      "timestamp": "2026-09-18T14:37:05.610Z",
+      "sanitizedMessage": "Verification probe for platform event bus architecture",
+      "status": "ACTIVE",
+      "metadata": {
+        "testRunner": "auditor"
+      },
+      "source": "server"
+    }
+  ],
+  "platform_incidents": [],
+  "admin_notifications": [
+    {
+      "id": "notif_1789742225611_4novn",
+      "title": "TEST VERIFICATION AUDIT",
+      "message": "Verification probe for platform event bus architecture",
+      "severity": "WARNING",
+      "category": "SYSTEM",
+      "eventId": "evt_1789742225610_m1itksh",
+      "read": false,
+      "acknowledged": false,
+      "timestamp": "2026-09-18T14:37:05.610Z",
+      "link": {
+        "tab": "overview"
+      }
+    }
   ]
 }
