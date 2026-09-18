@@ -462,10 +462,13 @@ export async function getAccountLifecycleRecord(email: string): Promise<any | nu
         }
       }
     } catch (e) {}
+  }
 
+  let record: any = null;
+  if (isFirebaseAdminAvailable && adminDb) {
     try {
       const snap = await adminDb.collection("accountLifecycle").doc(normalizedEmail).get();
-      if (snap.exists) return snap.data();
+      if (snap.exists) record = snap.data();
     } catch (e) {}
   }
 
@@ -481,7 +484,51 @@ export async function getAccountLifecycleRecord(email: string): Promise<any | nu
     };
   }
 
-  return db.account_lifecycle?.find((r: any) => (r.emailNormalized || r.email) === normalizedEmail) || null;
+  if (!record) {
+    record = db.account_lifecycle?.find((r: any) => (r.emailNormalized || r.email) === normalizedEmail) || null;
+  }
+
+  if (record) {
+    if (
+      record.status === "SELF_DELETED" ||
+      record.status === "ADMIN_DELETED" ||
+      record.status === "ADMIN_APPROVAL_REQUIRED" ||
+      record.status === "ADMIN_APPROVAL_PENDING" ||
+      record.status === "DELETED" ||
+      record.deletedAt ||
+      record.restoreUntil
+    ) {
+      let restoreUntilDate: Date;
+      if (record.restoreUntil) {
+        restoreUntilDate = new Date(record.restoreUntil);
+      } else if (record.deletedAt) {
+        restoreUntilDate = new Date(
+          new Date(record.deletedAt).getTime() + 30 * 24 * 60 * 60 * 1000,
+        );
+      } else {
+        restoreUntilDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+      }
+
+      const nowMs = Date.now();
+      const restoreUntilMs = restoreUntilDate.getTime();
+      const remainingMs = restoreUntilMs - nowMs;
+
+      record.restoreUntil = restoreUntilDate.toISOString();
+      if (remainingMs > 0) {
+        record.canRestore = true;
+        record.daysRemaining = Math.max(
+          1,
+          Math.ceil(remainingMs / (24 * 3600 * 1000)),
+        );
+      } else {
+        record.canRestore = false;
+        record.daysRemaining = 0;
+      }
+    }
+    return record;
+  }
+
+  return null;
 }
 
 export async function setAccountLifecycleRecord(record: any): Promise<void> {
@@ -513,6 +560,7 @@ export async function getRecoveryStatus(email: string): Promise<{
   recoverable: boolean;
   status: "none" | "pending" | "under_review" | "approved" | "rejected";
   remainingDays?: number;
+  restoreUntil?: string | null;
   recoveryRequest: any | null;
   error?: string;
 }> {
@@ -547,8 +595,20 @@ export async function getRecoveryStatus(email: string): Promise<{
   // 2. Check local fallback database
   if (!requestData) {
     const db = readDb();
-    requestData = db.account_recovery_requests?.find((r: any) => r.email === normalizedEmail) || null;
+    requestData = db.account_recovery_requests?.find((r: any) => (r.email || "").trim().toLowerCase() === normalizedEmail) || null;
   }
+
+  // 3. Fetch lifecycle record to get dynamic days calculation
+  const lifecycle = await getAccountLifecycleRecord(normalizedEmail);
+  const daysRemaining = lifecycle?.daysRemaining !== undefined
+    ? lifecycle.daysRemaining
+    : (lifecycle?.deletedAt
+      ? Math.max(0, Math.ceil((new Date(lifecycle.deletedAt).getTime() + 30 * 24 * 3600 * 1000 - Date.now()) / (24 * 3600 * 1000)))
+      : (requestData?.submittedAt
+        ? Math.max(0, Math.ceil((new Date(requestData.submittedAt).getTime() + 30 * 24 * 3600 * 1000 - Date.now()) / (24 * 3600 * 1000)))
+        : 30));
+
+  const restoreUntilIso = lifecycle?.restoreUntil || (requestData?.submittedAt ? new Date(new Date(requestData.submittedAt).getTime() + 30 * 24 * 3600 * 1000).toISOString() : null);
 
   if (requestData) {
     const responseStatus = requestData.status || "pending";
@@ -556,27 +616,29 @@ export async function getRecoveryStatus(email: string): Promise<{
       success: true,
       recoverable: true,
       status: responseStatus,
-      remainingDays: 30,
+      remainingDays: daysRemaining,
+      restoreUntil: restoreUntilIso,
       recoveryRequest: {
         id: requestData.id || requestData.requestId,
         requestId: requestData.requestId || requestData.id,
         status: responseStatus,
         fullName: requestData.fullName,
         submittedAt: requestData.submittedAt,
+        daysRemaining: daysRemaining,
+        restoreUntil: restoreUntilIso,
         rejectionReason: responseStatus === "rejected" ? (requestData.rejectionReason || requestData.notes || "Request was declined by an administrator.") : null
       }
     };
   }
 
-  // Check lifecycle record to see if account is deleted and recoverable
-  const lifecycle = await getAccountLifecycleRecord(normalizedEmail);
-  const isDeleted = lifecycle && (lifecycle.status === "DELETED" || lifecycle.status === "ADMIN_APPROVAL_PENDING" || lifecycle.status === "ADMIN_APPROVED" || lifecycle.status === "ADMIN_REJECTED");
+  const isDeleted = lifecycle && (lifecycle.status === "DELETED" || lifecycle.status === "SELF_DELETED" || lifecycle.status === "ADMIN_DELETED" || lifecycle.status === "ADMIN_APPROVAL_PENDING" || lifecycle.status === "ADMIN_APPROVED" || lifecycle.status === "ADMIN_REJECTED");
 
   return {
     success: true,
     recoverable: Boolean(isDeleted),
     status: "none",
-    remainingDays: 30,
+    remainingDays: daysRemaining,
+    restoreUntil: restoreUntilIso,
     recoveryRequest: null
   };
 }

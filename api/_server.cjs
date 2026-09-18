@@ -1188,14 +1188,12 @@ async function getUserProfileServer(uid, email) {
   return null;
 }
 async function isUserAdminServer(uid, email) {
-  if (!uid) return false;
-  const isCorrectUid = uid === ADMIN_USER_ID || uid === "SYhfciebGFUj29gqGaa0pqNunrk2";
-  if (!isCorrectUid) {
-    return false;
-  }
+  if (!uid && !email) return false;
   const directEmail = (email || "").trim().toLowerCase();
-  if (directEmail && ADMIN_EMAILS.size > 0) {
-    return ADMIN_EMAILS.has(directEmail);
+  const isUidAdmin = uid === ADMIN_USER_ID || uid === "SYhfciebGFUj29gqGaa0pqNunrk2";
+  const isEmailAdmin = Boolean(directEmail && ADMIN_EMAILS.size > 0 && ADMIN_EMAILS.has(directEmail));
+  if (!isUidAdmin && !isEmailAdmin) {
+    return false;
   }
   return true;
 }
@@ -2219,9 +2217,12 @@ async function getAccountLifecycleRecord(email) {
       }
     } catch (e) {
     }
+  }
+  let record = null;
+  if (isFirebaseAdminAvailable && adminDb) {
     try {
       const snap = await adminDb.collection("accountLifecycle").doc(normalizedEmail).get();
-      if (snap.exists) return snap.data();
+      if (snap.exists) record = snap.data();
     } catch (e) {
     }
   }
@@ -2236,7 +2237,39 @@ async function getAccountLifecycleRecord(email) {
       adminApprovalRequired: false
     };
   }
-  return db2.account_lifecycle?.find((r) => (r.emailNormalized || r.email) === normalizedEmail) || null;
+  if (!record) {
+    record = db2.account_lifecycle?.find((r) => (r.emailNormalized || r.email) === normalizedEmail) || null;
+  }
+  if (record) {
+    if (record.status === "SELF_DELETED" || record.status === "ADMIN_DELETED" || record.status === "ADMIN_APPROVAL_REQUIRED" || record.status === "ADMIN_APPROVAL_PENDING" || record.status === "DELETED" || record.deletedAt || record.restoreUntil) {
+      let restoreUntilDate;
+      if (record.restoreUntil) {
+        restoreUntilDate = new Date(record.restoreUntil);
+      } else if (record.deletedAt) {
+        restoreUntilDate = new Date(
+          new Date(record.deletedAt).getTime() + 30 * 24 * 60 * 60 * 1e3
+        );
+      } else {
+        restoreUntilDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1e3);
+      }
+      const nowMs = Date.now();
+      const restoreUntilMs = restoreUntilDate.getTime();
+      const remainingMs = restoreUntilMs - nowMs;
+      record.restoreUntil = restoreUntilDate.toISOString();
+      if (remainingMs > 0) {
+        record.canRestore = true;
+        record.daysRemaining = Math.max(
+          1,
+          Math.ceil(remainingMs / (24 * 3600 * 1e3))
+        );
+      } else {
+        record.canRestore = false;
+        record.daysRemaining = 0;
+      }
+    }
+    return record;
+  }
+  return null;
 }
 async function setAccountLifecycleRecord(record) {
   const normalizedEmail = (record.email || record.emailNormalized || "").trim().toLowerCase();
@@ -11149,10 +11182,21 @@ async function getAccountLifecycleRecord2(email) {
         writeDb2(db2);
       }
     }
-    if (record.status === "SELF_DELETED" && record.restoreUntil) {
+    if (record.status === "SELF_DELETED" || record.status === "ADMIN_DELETED" || record.status === "ADMIN_APPROVAL_REQUIRED" || record.status === "ADMIN_APPROVAL_PENDING" || record.status === "SELF_RESTORE_AVAILABLE" || record.deletedAt || record.restoreUntil) {
+      let restoreUntilDate;
+      if (record.restoreUntil) {
+        restoreUntilDate = new Date(record.restoreUntil);
+      } else if (record.deletedAt) {
+        restoreUntilDate = new Date(
+          new Date(record.deletedAt).getTime() + 30 * 24 * 60 * 60 * 1e3
+        );
+      } else {
+        restoreUntilDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1e3);
+      }
       const nowMs = Date.now();
-      const restoreUntilMs = new Date(record.restoreUntil).getTime();
+      const restoreUntilMs = restoreUntilDate.getTime();
       const remainingMs = restoreUntilMs - nowMs;
+      record.restoreUntil = restoreUntilDate.toISOString();
       if (remainingMs > 0) {
         record.canRestore = true;
         record.daysRemaining = Math.max(
@@ -11532,15 +11576,53 @@ app2.post("/api/auth/check-lifecycle", async (req, res) => {
         userFriendlyMessage: "\u0627\u0644\u0628\u0631\u064A\u062F \u0627\u0644\u0625\u0644\u0643\u062A\u0631\u0648\u0646\u064A \u0645\u0633\u062C\u0644 \u0628\u0627\u0644\u0641\u0639\u0644. \u064A\u0631\u062C\u0649 \u062A\u0633\u062C\u064A\u0644 \u0627\u0644\u062F\u062E\u0648\u0644 \u0625\u0644\u0649 \u062D\u0633\u0627\u0628\u0643."
       });
     }
-    if (record.status === "ADMIN_APPROVED" || record.reactivationStatus === "approved") {
+    let pendingReqDoc = null;
+    try {
+      const qSnap = await adminDb.collection("recoveryRequests").where("email", "==", normalizedEmail).get();
+      if (qSnap && !qSnap.empty) {
+        pendingReqDoc = qSnap.docs[0].data();
+      } else {
+        const snapDoc = await adminDb.collection("recoveryRequests_by_email").doc(normalizedEmail).get();
+        if (snapDoc.exists) pendingReqDoc = snapDoc.data();
+      }
+    } catch (e) {
+    }
+    if (!pendingReqDoc) {
+      const db2 = readDb2();
+      pendingReqDoc = db2.account_recovery_requests?.find(
+        (r) => (r.email || "").trim().toLowerCase() === normalizedEmail
+      );
+    }
+    const hasPendingRecovery = pendingReqDoc && (pendingReqDoc.status === "pending" || pendingReqDoc.status === "under_review");
+    const isApprovedRecovery = pendingReqDoc && (pendingReqDoc.status === "approved" || pendingReqDoc.decision === "approved");
+    const daysRemaining = record.daysRemaining !== void 0 ? record.daysRemaining : 30;
+    const restoreUntil = record.restoreUntil || null;
+    if (record.status === "ADMIN_APPROVED" || record.reactivationStatus === "approved" || isApprovedRecovery) {
       return res.json({
         success: true,
         email: normalizedEmail,
         status: "ADMIN_APPROVED",
         canRegister: false,
         canRestore: true,
+        daysRemaining,
+        restoreUntil,
+        hasPendingRequest: false,
         adminApprovalRequired: false,
         userFriendlyMessage: "\u062A\u0645\u062A \u0627\u0644\u0645\u0648\u0627\u0641\u0642\u0629 \u0639\u0644\u0649 \u0637\u0644\u0628 \u0627\u0633\u062A\u0639\u0627\u062F\u0629 \u062D\u0633\u0627\u0628\u0643 \u0645\u0646 \u0642\u0628\u0644 \u0627\u0644\u0645\u0633\u0624\u0648\u0644! \u064A\u0645\u0643\u0646\u0643 \u0627\u0644\u0622\u0646 \u062A\u0633\u062C\u064A\u0644 \u0627\u0644\u062F\u062E\u0648\u0644 \u0623\u0648 \u0625\u0643\u0645\u0627\u0644 \u0627\u0644\u062A\u062D\u0642\u0642 \u0644\u0627\u0633\u062A\u0639\u0627\u062F\u0629 \u0627\u0644\u062D\u0633\u0627\u0628."
+      });
+    }
+    if (record.status === "ADMIN_APPROVAL_PENDING" || hasPendingRecovery) {
+      return res.json({
+        success: true,
+        email: normalizedEmail,
+        status: "ADMIN_APPROVAL_PENDING",
+        canRegister: false,
+        canRestore: false,
+        hasPendingRequest: true,
+        daysRemaining,
+        restoreUntil,
+        adminApprovalRequired: true,
+        userFriendlyMessage: "\u0637\u0644\u0628 \u0627\u0633\u062A\u0639\u0627\u062F\u0629 \u0627\u0644\u062D\u0633\u0627\u0628 \u0642\u064A\u062F \u0627\u0644\u0645\u0631\u0627\u062C\u0639\u0629 \u062D\u0627\u0644\u064A\u0627\u064B \u0628\u0648\u0627\u0633\u0637\u0629 \u0625\u062F\u0627\u0631\u0629 \u0627\u0644\u0645\u0646\u0635\u0629. \u064A\u0631\u062C\u0649 \u0627\u0644\u0627\u0646\u062A\u0638\u0627\u0631 \u0644\u062D\u064A\u0646 \u0627\u0644\u0628\u062A \u0641\u064A \u0627\u0644\u0637\u0644\u0628."
       });
     }
     if (record.status === "ADMIN_DELETED" || record.status === "ADMIN_APPROVAL_REQUIRED" || record.deletionType === "admin") {
@@ -11549,31 +11631,16 @@ app2.post("/api/auth/check-lifecycle", async (req, res) => {
         email: normalizedEmail,
         status: "ADMIN_DELETED",
         canRegister: false,
-        canRestore: false,
+        canRestore: daysRemaining > 0,
+        hasPendingRequest: Boolean(hasPendingRecovery),
+        daysRemaining,
+        restoreUntil,
         adminApprovalRequired: true,
-        userFriendlyMessage: "\u062A\u0645 \u062A\u0639\u0637\u064A\u0644 \u062D\u0633\u0627\u0628\u0643 \u0628\u0648\u0627\u0633\u0637\u0629 \u0645\u0633\u0624\u0648\u0644 \u0627\u0644\u0645\u0646\u0635\u0629. \u0644\u0627 \u064A\u0645\u0643\u0646\u0643 \u0625\u0646\u0634\u0627\u0621 \u062D\u0633\u0627\u0628 \u062C\u062F\u064A\u062F \u0628\u0627\u0633\u062A\u062E\u062F\u0627\u0645 \u0647\u0630\u0627 \u0627\u0644\u0628\u0631\u064A\u062F \u0627\u0644\u0625\u0644\u0643\u062A\u0631\u0648\u0646\u064A \u0625\u0644\u0627 \u0628\u0639\u062F \u0645\u0648\u0627\u0641\u0642\u0629 \u0627\u0644\u0645\u0633\u0624\u0648\u0644."
+        userFriendlyMessage: `\u062A\u0645 \u062D\u0630\u0641 \u0647\u0630\u0627 \u0627\u0644\u062D\u0633\u0627\u0628 \u0633\u0627\u0628\u0642\u0627\u064B \u0628\u0648\u0627\u0633\u0637\u0629 \u0645\u0633\u0624\u0648\u0644 \u0627\u0644\u0645\u0646\u0635\u0629. \u062A\u062A\u0637\u0644\u0628 \u0627\u0644\u0627\u0633\u062A\u0639\u0627\u062F\u0629 \u062A\u0642\u062F\u064A\u0645 \u0637\u0644\u0628 \u0645\u0631\u0627\u062C\u0639\u0629 \u0645\u0646 \u0642\u0628\u0644 \u0627\u0644\u0625\u062F\u0627\u0631\u0629 (\u0645\u062A\u0628\u0642\u064A ${daysRemaining} \u064A\u0648\u0645\u0627\u064B).`
       });
     }
-    if (record.status === "ADMIN_APPROVAL_PENDING") {
-      return res.json({
-        success: true,
-        email: normalizedEmail,
-        status: "ADMIN_APPROVAL_PENDING",
-        canRegister: false,
-        canRestore: false,
-        adminApprovalRequired: true,
-        userFriendlyMessage: "\u0637\u0644\u0628 \u0625\u0639\u0627\u062F\u0629 \u062A\u0641\u0639\u064A\u0644 \u0627\u0644\u062D\u0633\u0627\u0628 \u0642\u064A\u062F \u0627\u0644\u0645\u0631\u0627\u062C\u0639\u0629 \u062D\u0627\u0644\u064A\u0627\u064B \u0628\u0648\u0627\u0633\u0637\u0629 \u0645\u0633\u0624\u0648\u0644 \u0627\u0644\u0645\u0646\u0635\u0629. \u064A\u0631\u062C\u0649 \u0627\u0644\u0627\u0646\u062A\u0638\u0627\u0631 \u0644\u062D\u064A\u0646 \u0627\u0644\u0628\u062A \u0641\u064A \u0627\u0644\u0637\u0644\u0628."
-      });
-    }
-    if (record.status === "SELF_DELETED" && record.restoreUntil) {
-      const nowMs = Date.now();
-      const restoreUntilMs = new Date(record.restoreUntil).getTime();
-      const remainingMs = restoreUntilMs - nowMs;
-      if (remainingMs > 0) {
-        const daysRemaining = Math.max(
-          1,
-          Math.ceil(remainingMs / (24 * 3600 * 1e3))
-        );
+    if (record.status === "SELF_DELETED" || record.status === "SELF_RESTORE_AVAILABLE") {
+      if (daysRemaining > 0) {
         return res.json({
           success: true,
           email: normalizedEmail,
@@ -11581,6 +11648,7 @@ app2.post("/api/auth/check-lifecycle", async (req, res) => {
           canRegister: false,
           canRestore: true,
           adminApprovalRequired: false,
+          hasPendingRequest: Boolean(hasPendingRecovery),
           daysRemaining,
           restoreUntil: record.restoreUntil,
           userFriendlyMessage: `\u062A\u0645 \u0627\u0644\u0639\u062B\u0648\u0631 \u0639\u0644\u0649 \u062D\u0633\u0627\u0628 \u0633\u0627\u0628\u0642 \u062A\u0645 \u062D\u0630\u0641\u0647 \u0628\u0648\u0627\u0633\u0637\u062A\u0643. \u064A\u0645\u0643\u0646\u0643 \u0627\u0633\u062A\u0639\u0627\u062F\u0629 \u062D\u0633\u0627\u0628\u0643 \u0648\u062C\u0645\u064A\u0639 \u0628\u064A\u0627\u0646\u0627\u062A\u0643 \u0627\u0644\u0633\u0627\u0628\u0642\u0629 (\u0645\u062A\u0628\u0642\u064A ${daysRemaining} \u064A\u0648\u0645\u0627\u064B \u0644\u0644\u0627\u0633\u062A\u0639\u0627\u062F\u0629).`
@@ -11593,6 +11661,7 @@ app2.post("/api/auth/check-lifecycle", async (req, res) => {
           canRegister: true,
           canRestore: false,
           adminApprovalRequired: false,
+          hasPendingRequest: false,
           daysRemaining: 0,
           userFriendlyMessage: "\u0627\u0646\u062A\u0647\u062A \u0641\u062A\u0631\u0629 \u0627\u0633\u062A\u0639\u0627\u062F\u0629 \u0647\u0630\u0627 \u0627\u0644\u062D\u0633\u0627\u0628. \u062A\u0645 \u062D\u0630\u0641 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u0628\u0634\u0643\u0644 \u0646\u0647\u0627\u0626\u064A \u0648\u0644\u0645 \u064A\u0639\u062F \u0642\u0627\u0628\u0644\u0627\u064B \u0644\u0644\u0627\u0633\u062A\u0639\u0627\u062F\u0629 \u0648\u0641\u0642 \u0633\u064A\u0627\u0633\u0629 \u0627\u0644\u0646\u0638\u0627\u0645."
         });
@@ -13604,13 +13673,19 @@ app2.get("/api/auth/recovery-request/status", async (req, res) => {
     }
     const latestDoc = requestDocs[0] || {};
     const rejectionReason = computedStatus === "rejected" ? latestDoc.rejectionReason || latestDoc.notes || lifecycle?.rejectionReason || "\u062A\u0645 \u0631\u0641\u0636 \u0637\u0644\u0628 \u0627\u0633\u062A\u0639\u0627\u062F\u0629 \u0627\u0644\u062D\u0633\u0627\u0628 \u0645\u0646 \u0642\u0628\u0644 \u0625\u062F\u0627\u0631\u0629 \u0627\u0644\u0646\u0638\u0627\u0645." : null;
+    const daysRemaining = lifecycle?.daysRemaining !== void 0 ? lifecycle.daysRemaining : lifecycle?.deletedAt ? Math.max(0, Math.ceil((new Date(lifecycle.deletedAt).getTime() + 30 * 24 * 3600 * 1e3 - Date.now()) / (24 * 3600 * 1e3))) : 30;
+    const restoreUntilIso = lifecycle?.restoreUntil || (lifecycle?.deletedAt ? new Date(new Date(lifecycle.deletedAt).getTime() + 30 * 24 * 3600 * 1e3).toISOString() : null);
     return res.json({
       success: true,
       status: computedStatus,
+      daysRemaining,
+      restoreUntil: restoreUntilIso,
       recoveryRequest: {
         ...latestDoc,
         status: computedStatus,
-        rejectionReason
+        rejectionReason,
+        daysRemaining,
+        restoreUntil: restoreUntilIso
       }
     });
   } catch (err) {
@@ -14867,15 +14942,20 @@ app2.post("/api/auth/register", loginRegisterLimiter, async (req, res) => {
       });
     }
     const normalizedEmail = email.trim().toLowerCase();
-    let userRole = "CEO";
-    if (role && role.toUpperCase() === "ADMIN") {
+    let userRole = "Contributor";
+    if (role && typeof role === "string" && role.toUpperCase() === "ADMIN") {
       if (ADMIN_EMAILS.has(normalizedEmail)) {
-        userRole = "ADMIN";
+        userRole = "Admin";
       } else {
-        userRole = "CEO";
+        userRole = "Contributor";
       }
-    } else if (role && (role.toUpperCase() === "CEO" || role.toUpperCase() === "MEMBER")) {
-      userRole = role.toUpperCase();
+    } else if (role && typeof role === "string" && role.trim()) {
+      const normRole = role.trim().toUpperCase();
+      if (normRole === "CEO") {
+        userRole = "CEO";
+      } else if (normRole === "CONTRIBUTOR" || normRole === "MEMBER" || normRole === "ANALYST") {
+        userRole = "Contributor";
+      }
     }
     console.log("REGISTRATION_STARTED", {
       email: normalizedEmail,
@@ -15319,33 +15399,55 @@ app2.post("/api/auth/login", loginRegisterLimiter, async (req, res) => {
     try {
       const lifecycleRecord = await getAccountLifecycleRecord2(normalizedEmail);
       if (lifecycleRecord) {
-        if (lifecycleRecord.status === "SELF_DELETED" || lifecycleRecord.status === "SELF_RESTORE_AVAILABLE") {
-          const restoreUntilIso = lifecycleRecord.restoreUntil;
-          const nowMs = Date.now();
-          const restoreUntilMs = restoreUntilIso ? new Date(restoreUntilIso).getTime() : 0;
-          const remainingMs = restoreUntilMs - nowMs;
-          const daysRemaining = Math.max(
-            1,
-            Math.ceil(remainingMs / (24 * 3600 * 1e3))
-          );
-          if (!restoreUntilIso || restoreUntilMs > nowMs) {
-            return res.status(403).json({
-              code: "SELF_RESTORE_AVAILABLE",
-              error: "SELF_RESTORE_AVAILABLE",
-              status: "SELF_RESTORE_AVAILABLE",
-              email: normalizedEmail,
-              daysRemaining,
-              restoreUntil: restoreUntilIso,
-              message: "\u062A\u0645 \u0627\u0644\u0639\u062B\u0648\u0631 \u0639\u0644\u0649 \u062D\u0633\u0627\u0628\u0643 \u0627\u0644\u0645\u062D\u0630\u0648\u0641 \u0633\u0627\u0628\u0642\u0627\u064B\u060C \u0648\u0647\u0648 \u0645\u062A\u0627\u062D \u0644\u0644\u0627\u0633\u062A\u0639\u0627\u062F\u0629."
-            });
+        let hasPendingReq = false;
+        try {
+          const qSnap = await adminDb.collection("recoveryRequests").where("email", "==", normalizedEmail).get();
+          if (qSnap && !qSnap.empty) {
+            const reqStatus = qSnap.docs[0].data()?.status;
+            if (reqStatus === "pending" || reqStatus === "under_review") hasPendingReq = true;
+          } else {
+            const snapDoc = await adminDb.collection("recoveryRequests_by_email").doc(normalizedEmail).get();
+            if (snapDoc.exists) {
+              const reqStatus = snapDoc.data()?.status;
+              if (reqStatus === "pending" || reqStatus === "under_review") hasPendingReq = true;
+            }
           }
-        } else if (lifecycleRecord.status === "ADMIN_DELETED" || lifecycleRecord.status === "ADMIN_APPROVAL_REQUIRED" || lifecycleRecord.deletionType === "admin") {
+        } catch (e) {
+        }
+        if (!hasPendingReq) {
+          const db2 = readDb2();
+          const localReq = db2.account_recovery_requests?.find(
+            (r) => (r.email || "").trim().toLowerCase() === normalizedEmail
+          );
+          if (localReq && (localReq.status === "pending" || localReq.status === "under_review")) {
+            hasPendingReq = true;
+          }
+        }
+        const daysRemaining = lifecycleRecord.daysRemaining !== void 0 ? lifecycleRecord.daysRemaining : 30;
+        const restoreUntilIso = lifecycleRecord.restoreUntil || null;
+        if (lifecycleRecord.status === "SELF_DELETED" || lifecycleRecord.status === "SELF_RESTORE_AVAILABLE") {
           return res.status(403).json({
-            code: "auth/user-disabled",
-            error: "ADMIN_DELETED",
-            status: "ADMIN_DELETED",
+            code: "LOGIN_SELF_DELETED",
+            error: "LOGIN_SELF_DELETED",
+            originalCode: hasPendingReq ? "ADMIN_APPROVAL_PENDING" : "SELF_RESTORE_AVAILABLE",
+            status: hasPendingReq ? "ADMIN_APPROVAL_PENDING" : "SELF_RESTORE_AVAILABLE",
             email: normalizedEmail,
-            message: "\u062A\u0645 \u062A\u0639\u0637\u064A\u0644 \u0647\u0630\u0627 \u0627\u0644\u062D\u0633\u0627\u0628 \u0628\u0648\u0627\u0633\u0637\u0629 \u0627\u0644\u0645\u0633\u0624\u0648\u0644."
+            hasPendingRequest: hasPendingReq,
+            daysRemaining,
+            restoreUntil: restoreUntilIso,
+            message: "\u062A\u0645 \u0627\u0644\u0639\u062B\u0648\u0631 \u0639\u0644\u0649 \u062D\u0633\u0627\u0628\u0643 \u0627\u0644\u0645\u062D\u0630\u0648\u0641 \u0633\u0627\u0628\u0642\u0627\u064B\u060C \u0648\u0647\u0648 \u0645\u062A\u0627\u062D \u0644\u0644\u0627\u0633\u062A\u0639\u0627\u062F\u0629."
+          });
+        } else if (lifecycleRecord.status === "ADMIN_DELETED" || lifecycleRecord.status === "ADMIN_APPROVAL_REQUIRED" || lifecycleRecord.status === "ADMIN_APPROVAL_PENDING" || lifecycleRecord.deletionType === "admin") {
+          return res.status(403).json({
+            code: "LOGIN_SELF_DELETED",
+            error: "LOGIN_SELF_DELETED",
+            originalCode: hasPendingReq || lifecycleRecord.status === "ADMIN_APPROVAL_PENDING" ? "ADMIN_APPROVAL_PENDING" : "ADMIN_DELETED",
+            status: hasPendingReq || lifecycleRecord.status === "ADMIN_APPROVAL_PENDING" ? "ADMIN_APPROVAL_PENDING" : "ADMIN_DELETED",
+            email: normalizedEmail,
+            hasPendingRequest: hasPendingReq || lifecycleRecord.status === "ADMIN_APPROVAL_PENDING",
+            daysRemaining,
+            restoreUntil: restoreUntilIso,
+            message: "\u062A\u0645 \u062D\u0630\u0641 \u0647\u0630\u0627 \u0627\u0644\u062D\u0633\u0627\u0628 \u0633\u0627\u0628\u0642\u0627\u064B \u0628\u0648\u0627\u0633\u0637\u0629 \u0645\u0633\u0624\u0648\u0644 \u0627\u0644\u0645\u0646\u0635\u0629\u060C \u0648\u064A\u0645\u0643\u0646\u0643 \u062A\u0642\u062F\u064A\u0645 \u0637\u0644\u0628 \u0627\u0633\u062A\u0639\u0627\u062F\u0629."
           });
         }
       }
@@ -17068,4 +17170,3 @@ var server_default = app2;
   restoreAccountFullServer,
   setAccountLifecycleRecord
 });
-//# sourceMappingURL=server.cjs.map

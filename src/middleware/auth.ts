@@ -256,18 +256,14 @@ export async function getUserProfileServer(uid?: string, email?: string): Promis
 }
 
 export async function isUserAdminServer(uid: string, email?: string): Promise<boolean> {
-  if (!uid) return false;
+  if (!uid && !email) return false;
 
-  // 1. Authoritative Primary Admin User ID check
-  const isCorrectUid = uid === ADMIN_USER_ID || uid === "SYhfciebGFUj29gqGaa0pqNunrk2";
-  if (!isCorrectUid) {
-    return false;
-  }
-
-  // 2. Email verification if provided
   const directEmail = (email || "").trim().toLowerCase();
-  if (directEmail && ADMIN_EMAILS.size > 0) {
-    return ADMIN_EMAILS.has(directEmail);
+  const isUidAdmin = uid === ADMIN_USER_ID || uid === "SYhfciebGFUj29gqGaa0pqNunrk2";
+  const isEmailAdmin = Boolean(directEmail && ADMIN_EMAILS.size > 0 && ADMIN_EMAILS.has(directEmail));
+
+  if (!isUidAdmin && !isEmailAdmin) {
+    return false;
   }
 
   return true;

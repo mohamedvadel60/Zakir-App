@@ -570,6 +570,7 @@ export default function App() {
     email: string;
     daysRemaining?: number;
     restoreUntil?: string | null;
+    initialTab?: "request" | "status";
     isExpired?: boolean;
   } | null>(null);
   const [reactivationReason, setReactivationReason] = useState("");
@@ -1840,25 +1841,62 @@ This hosting domain (**${currentDomain}**) has not been authorized in your Fireb
       const normalizedEmail = loginEmail.trim().toLowerCase();
 
       // Check if this error represents an eligible deleted account recovery
-      if (
+      const isDeletedAccount =
         normalizedCode === "LOGIN_SELF_DELETED" ||
         err?.originalCode === "SELF_RESTORE_AVAILABLE" ||
+        err?.originalCode === "ADMIN_DELETED" ||
+        err?.originalCode === "ADMIN_APPROVAL_PENDING" ||
         err?.code === "LOGIN_SELF_DELETED" ||
-        err?.loginCode === "LOGIN_SELF_DELETED"
-      ) {
+        err?.loginCode === "LOGIN_SELF_DELETED" ||
+        err?.status === "SELF_DELETED" ||
+        err?.status === "ADMIN_DELETED" ||
+        err?.status === "ADMIN_APPROVAL_PENDING" ||
+        err?.status === "ADMIN_APPROVAL_REQUIRED" ||
+        err?.hasPendingRequest === true;
+
+      if (isDeletedAccount) {
         const targetEmail = err?.email || normalizedEmail;
-        const daysRemaining = err?.daysRemaining ?? 31;
-        const restoreUntil = err?.restoreUntil;
+        const daysRemaining = err?.daysRemaining !== undefined ? err.daysRemaining : 30;
+        const restoreUntil = err?.restoreUntil || null;
+        const isPending = Boolean(
+          err?.hasPendingRequest ||
+          err?.status === "ADMIN_APPROVAL_PENDING" ||
+          err?.originalCode === "ADMIN_APPROVAL_PENDING"
+        );
         setDeletedAccountRecovery({
           email: targetEmail,
           daysRemaining: daysRemaining,
           restoreUntil: restoreUntil,
+          initialTab: isPending ? "status" : "request",
           isExpired: false
         });
         setLoginError("");
         setRegError("");
         return;
       }
+
+      // If generic auth error, perform quick lifecycle check to see if user was deleted
+      try {
+        const lc = await checkAccountLifecycleApi(normalizedEmail);
+        if (lc && lc.success && lc.status !== "ACTIVE" && lc.status !== "NEW") {
+          const daysRemaining = lc.daysRemaining !== undefined ? lc.daysRemaining : 30;
+          const restoreUntil = lc.restoreUntil || null;
+          const isPending = Boolean(
+            lc.hasPendingRequest ||
+            lc.status === "ADMIN_APPROVAL_PENDING"
+          );
+          setDeletedAccountRecovery({
+            email: normalizedEmail,
+            daysRemaining: daysRemaining,
+            restoreUntil: restoreUntil,
+            initialTab: isPending ? "status" : "request",
+            isExpired: false
+          });
+          setLoginError("");
+          setRegError("");
+          return;
+        }
+      } catch (lcErr) {}
 
       // Normal login errors display generic invalid credentials.
       const formattedError = lang === "ar" 
@@ -3182,6 +3220,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                   email={deletedAccountRecovery.email}
                   daysRemaining={deletedAccountRecovery.daysRemaining}
                   restoreUntil={deletedAccountRecovery.restoreUntil}
+                  initialTab={deletedAccountRecovery.initialTab}
                   isExpired={deletedAccountRecovery.isExpired}
                   lang={lang}
                   theme={theme}

@@ -10649,10 +10649,32 @@ export async function getAccountLifecycleRecord(email: string): Promise<any> {
       }
     }
 
-    if (record.status === "SELF_DELETED" && record.restoreUntil) {
+    // Calculate dynamic remaining days and restore until date for any deleted account
+    if (
+      record.status === "SELF_DELETED" ||
+      record.status === "ADMIN_DELETED" ||
+      record.status === "ADMIN_APPROVAL_REQUIRED" ||
+      record.status === "ADMIN_APPROVAL_PENDING" ||
+      record.status === "SELF_RESTORE_AVAILABLE" ||
+      record.deletedAt ||
+      record.restoreUntil
+    ) {
+      let restoreUntilDate: Date;
+      if (record.restoreUntil) {
+        restoreUntilDate = new Date(record.restoreUntil);
+      } else if (record.deletedAt) {
+        restoreUntilDate = new Date(
+          new Date(record.deletedAt).getTime() + 30 * 24 * 60 * 60 * 1000,
+        );
+      } else {
+        restoreUntilDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+      }
+
       const nowMs = Date.now();
-      const restoreUntilMs = new Date(record.restoreUntil).getTime();
+      const restoreUntilMs = restoreUntilDate.getTime();
       const remainingMs = restoreUntilMs - nowMs;
+
+      record.restoreUntil = restoreUntilDate.toISOString();
       if (remainingMs > 0) {
         record.canRestore = true;
         record.daysRemaining = Math.max(
@@ -11180,9 +11202,47 @@ app.post("/api/auth/check-lifecycle", async (req, res) => {
       });
     }
 
+    // Check for pending/reviewed recovery request
+    let pendingReqDoc: any = null;
+    try {
+      const qSnap = await adminDb
+        .collection("recoveryRequests")
+        .where("email", "==", normalizedEmail)
+        .get();
+      if (qSnap && !qSnap.empty) {
+        pendingReqDoc = qSnap.docs[0].data();
+      } else {
+        const snapDoc = await adminDb
+          .collection("recoveryRequests_by_email")
+          .doc(normalizedEmail)
+          .get();
+        if (snapDoc.exists) pendingReqDoc = snapDoc.data();
+      }
+    } catch (e) {}
+
+    if (!pendingReqDoc) {
+      const db = readDb();
+      pendingReqDoc = db.account_recovery_requests?.find(
+        (r: any) => (r.email || "").trim().toLowerCase() === normalizedEmail,
+      );
+    }
+
+    const hasPendingRecovery =
+      pendingReqDoc &&
+      (pendingReqDoc.status === "pending" ||
+        pendingReqDoc.status === "under_review");
+    const isApprovedRecovery =
+      pendingReqDoc &&
+      (pendingReqDoc.status === "approved" ||
+        pendingReqDoc.decision === "approved");
+
+    const daysRemaining = record.daysRemaining !== undefined ? record.daysRemaining : 30;
+    const restoreUntil = record.restoreUntil || null;
+
     if (
       record.status === "ADMIN_APPROVED" ||
-      record.reactivationStatus === "approved"
+      record.reactivationStatus === "approved" ||
+      isApprovedRecovery
     ) {
       return res.json({
         success: true,
@@ -11190,9 +11250,28 @@ app.post("/api/auth/check-lifecycle", async (req, res) => {
         status: "ADMIN_APPROVED",
         canRegister: false,
         canRestore: true,
+        daysRemaining: daysRemaining,
+        restoreUntil: restoreUntil,
+        hasPendingRequest: false,
         adminApprovalRequired: false,
         userFriendlyMessage:
           "تمت الموافقة على طلب استعادة حسابك من قبل المسؤول! يمكنك الآن تسجيل الدخول أو إكمال التحقق لاستعادة الحساب.",
+      });
+    }
+
+    if (record.status === "ADMIN_APPROVAL_PENDING" || hasPendingRecovery) {
+      return res.json({
+        success: true,
+        email: normalizedEmail,
+        status: "ADMIN_APPROVAL_PENDING",
+        canRegister: false,
+        canRestore: false,
+        hasPendingRequest: true,
+        daysRemaining: daysRemaining,
+        restoreUntil: restoreUntil,
+        adminApprovalRequired: true,
+        userFriendlyMessage:
+          "طلب استعادة الحساب قيد المراجعة حالياً بواسطة إدارة المنصة. يرجى الانتظار لحين البت في الطلب.",
       });
     }
 
@@ -11206,36 +11285,18 @@ app.post("/api/auth/check-lifecycle", async (req, res) => {
         email: normalizedEmail,
         status: "ADMIN_DELETED",
         canRegister: false,
-        canRestore: false,
+        canRestore: daysRemaining > 0,
+        hasPendingRequest: Boolean(hasPendingRecovery),
+        daysRemaining: daysRemaining,
+        restoreUntil: restoreUntil,
         adminApprovalRequired: true,
         userFriendlyMessage:
-          "تم تعطيل حسابك بواسطة مسؤول المنصة. لا يمكنك إنشاء حساب جديد باستخدام هذا البريد الإلكتروني إلا بعد موافقة المسؤول.",
+          `تم حذف هذا الحساب سابقاً بواسطة مسؤول المنصة. تتطلب الاستعادة تقديم طلب مراجعة من قبل الإدارة (متبقي ${daysRemaining} يوماً).`,
       });
     }
 
-    if (record.status === "ADMIN_APPROVAL_PENDING") {
-      return res.json({
-        success: true,
-        email: normalizedEmail,
-        status: "ADMIN_APPROVAL_PENDING",
-        canRegister: false,
-        canRestore: false,
-        adminApprovalRequired: true,
-        userFriendlyMessage:
-          "طلب إعادة تفعيل الحساب قيد المراجعة حالياً بواسطة مسؤول المنصة. يرجى الانتظار لحين البت في الطلب.",
-      });
-    }
-
-    if (record.status === "SELF_DELETED" && record.restoreUntil) {
-      const nowMs = Date.now();
-      const restoreUntilMs = new Date(record.restoreUntil).getTime();
-      const remainingMs = restoreUntilMs - nowMs;
-
-      if (remainingMs > 0) {
-        const daysRemaining = Math.max(
-          1,
-          Math.ceil(remainingMs / (24 * 3600 * 1000)),
-        );
+    if (record.status === "SELF_DELETED" || record.status === "SELF_RESTORE_AVAILABLE") {
+      if (daysRemaining > 0) {
         return res.json({
           success: true,
           email: normalizedEmail,
@@ -11243,6 +11304,7 @@ app.post("/api/auth/check-lifecycle", async (req, res) => {
           canRegister: false,
           canRestore: true,
           adminApprovalRequired: false,
+          hasPendingRequest: Boolean(hasPendingRecovery),
           daysRemaining: daysRemaining,
           restoreUntil: record.restoreUntil,
           userFriendlyMessage: `تم العثور على حساب سابق تم حذفه بواسطتك. يمكنك استعادة حسابك وجميع بياناتك السابقة (متبقي ${daysRemaining} يوماً للاستعادة).`,
@@ -11255,6 +11317,7 @@ app.post("/api/auth/check-lifecycle", async (req, res) => {
           canRegister: true,
           canRestore: false,
           adminApprovalRequired: false,
+          hasPendingRequest: false,
           daysRemaining: 0,
           userFriendlyMessage:
             "انتهت فترة استعادة هذا الحساب. تم حذف البيانات بشكل نهائي ولم يعد قابلاً للاستعادة وفق سياسة النظام.",
@@ -13943,13 +14006,20 @@ app.get("/api/auth/recovery-request/status", async (req, res) => {
           "تم رفض طلب استعادة الحساب من قبل إدارة النظام."
         : null;
 
+    const daysRemaining = lifecycle?.daysRemaining !== undefined ? lifecycle.daysRemaining : (lifecycle?.deletedAt ? Math.max(0, Math.ceil((new Date(lifecycle.deletedAt).getTime() + 30 * 24 * 3600 * 1000 - Date.now()) / (24 * 3600 * 1000))) : 30);
+    const restoreUntilIso = lifecycle?.restoreUntil || (lifecycle?.deletedAt ? new Date(new Date(lifecycle.deletedAt).getTime() + 30 * 24 * 3600 * 1000).toISOString() : null);
+
     return res.json({
       success: true,
       status: computedStatus,
+      daysRemaining: daysRemaining,
+      restoreUntil: restoreUntilIso,
       recoveryRequest: {
         ...latestDoc,
         status: computedStatus,
         rejectionReason: rejectionReason,
+        daysRemaining: daysRemaining,
+        restoreUntil: restoreUntilIso,
       },
     });
   } catch (err: any) {
@@ -15646,18 +15716,20 @@ app.post("/api/auth/register", loginRegisterLimiter, async (req, res) => {
     const normalizedEmail = email.trim().toLowerCase();
 
     // Prevent privilege escalation: user role cannot be ADMIN unless email is in authorized ADMIN_EMAILS
-    let userRole: string = "CEO";
-    if (role && role.toUpperCase() === "ADMIN") {
+    let userRole: string = "Contributor";
+    if (role && typeof role === "string" && role.toUpperCase() === "ADMIN") {
       if (ADMIN_EMAILS.has(normalizedEmail)) {
-        userRole = "ADMIN";
+        userRole = "Admin";
       } else {
-        userRole = "CEO";
+        userRole = "Contributor";
       }
-    } else if (
-      role &&
-      (role.toUpperCase() === "CEO" || role.toUpperCase() === "MEMBER")
-    ) {
-      userRole = role.toUpperCase();
+    } else if (role && typeof role === "string" && role.trim()) {
+      const normRole = role.trim().toUpperCase();
+      if (normRole === "CEO") {
+        userRole = "CEO";
+      } else if (normRole === "CONTRIBUTOR" || normRole === "MEMBER" || normRole === "ANALYST") {
+        userRole = "Contributor";
+      }
     }
 
     console.log("REGISTRATION_STARTED", {
@@ -16187,44 +16259,73 @@ app.post("/api/auth/login", loginRegisterLimiter, async (req, res) => {
     try {
       const lifecycleRecord = await getAccountLifecycleRecord(normalizedEmail);
       if (lifecycleRecord) {
+        // Check for pending recovery request
+        let hasPendingReq = false;
+        try {
+          const qSnap = await adminDb
+            .collection("recoveryRequests")
+            .where("email", "==", normalizedEmail)
+            .get();
+          if (qSnap && !qSnap.empty) {
+            const reqStatus = qSnap.docs[0].data()?.status;
+            if (reqStatus === "pending" || reqStatus === "under_review") hasPendingReq = true;
+          } else {
+            const snapDoc = await adminDb
+              .collection("recoveryRequests_by_email")
+              .doc(normalizedEmail)
+              .get();
+            if (snapDoc.exists) {
+              const reqStatus = snapDoc.data()?.status;
+              if (reqStatus === "pending" || reqStatus === "under_review") hasPendingReq = true;
+            }
+          }
+        } catch (e) {}
+
+        if (!hasPendingReq) {
+          const db = readDb();
+          const localReq = db.account_recovery_requests?.find(
+            (r: any) => (r.email || "").trim().toLowerCase() === normalizedEmail,
+          );
+          if (localReq && (localReq.status === "pending" || localReq.status === "under_review")) {
+            hasPendingReq = true;
+          }
+        }
+
+        const daysRemaining = lifecycleRecord.daysRemaining !== undefined ? lifecycleRecord.daysRemaining : 30;
+        const restoreUntilIso = lifecycleRecord.restoreUntil || null;
+
         if (
           lifecycleRecord.status === "SELF_DELETED" ||
           lifecycleRecord.status === "SELF_RESTORE_AVAILABLE"
         ) {
-          const restoreUntilIso = lifecycleRecord.restoreUntil;
-          const nowMs = Date.now();
-          const restoreUntilMs = restoreUntilIso
-            ? new Date(restoreUntilIso).getTime()
-            : 0;
-          const remainingMs = restoreUntilMs - nowMs;
-          const daysRemaining = Math.max(
-            1,
-            Math.ceil(remainingMs / (24 * 3600 * 1000)),
-          );
-
-          if (!restoreUntilIso || restoreUntilMs > nowMs) {
-            return res.status(403).json({
-              code: "SELF_RESTORE_AVAILABLE",
-              error: "SELF_RESTORE_AVAILABLE",
-              status: "SELF_RESTORE_AVAILABLE",
-              email: normalizedEmail,
-              daysRemaining: daysRemaining,
-              restoreUntil: restoreUntilIso,
-              message:
-                "تم العثور على حسابك المحذوف سابقاً، وهو متاح للاستعادة.",
-            });
-          }
+          return res.status(403).json({
+            code: "LOGIN_SELF_DELETED",
+            error: "LOGIN_SELF_DELETED",
+            originalCode: hasPendingReq ? "ADMIN_APPROVAL_PENDING" : "SELF_RESTORE_AVAILABLE",
+            status: hasPendingReq ? "ADMIN_APPROVAL_PENDING" : "SELF_RESTORE_AVAILABLE",
+            email: normalizedEmail,
+            hasPendingRequest: hasPendingReq,
+            daysRemaining: daysRemaining,
+            restoreUntil: restoreUntilIso,
+            message:
+              "تم العثور على حسابك المحذوف سابقاً، وهو متاح للاستعادة.",
+          });
         } else if (
           lifecycleRecord.status === "ADMIN_DELETED" ||
           lifecycleRecord.status === "ADMIN_APPROVAL_REQUIRED" ||
+          lifecycleRecord.status === "ADMIN_APPROVAL_PENDING" ||
           lifecycleRecord.deletionType === "admin"
         ) {
           return res.status(403).json({
-            code: "auth/user-disabled",
-            error: "ADMIN_DELETED",
-            status: "ADMIN_DELETED",
+            code: "LOGIN_SELF_DELETED",
+            error: "LOGIN_SELF_DELETED",
+            originalCode: hasPendingReq || lifecycleRecord.status === "ADMIN_APPROVAL_PENDING" ? "ADMIN_APPROVAL_PENDING" : "ADMIN_DELETED",
+            status: hasPendingReq || lifecycleRecord.status === "ADMIN_APPROVAL_PENDING" ? "ADMIN_APPROVAL_PENDING" : "ADMIN_DELETED",
             email: normalizedEmail,
-            message: "تم تعطيل هذا الحساب بواسطة المسؤول.",
+            hasPendingRequest: hasPendingReq || lifecycleRecord.status === "ADMIN_APPROVAL_PENDING",
+            daysRemaining: daysRemaining,
+            restoreUntil: restoreUntilIso,
+            message: "تم حذف هذا الحساب سابقاً بواسطة مسؤول المنصة، ويمكنك تقديم طلب استعادة.",
           });
         }
       }
