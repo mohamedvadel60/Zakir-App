@@ -56,7 +56,7 @@ import {
 dotenv.config();
 
 export const ZAKIR_BUILD_ID =
-  "ZAKIR_BUILD_2026_09_04_v2.4.2_BUILD_MARKER_AUDIT";
+  "ZAKIR_BUILD_2026_09_18_ADMIN_EVENTBUS_PRODUCTION";
 
 export const isServerless = Boolean(
   process.env.VERCEL ||
@@ -5864,6 +5864,22 @@ app.all(
         mailSent: mailResult.success,
       });
 
+      emitPlatformEvent({
+        eventType: "MEMBER_INVITED",
+        category: "WORKSPACE",
+        severity: "INFO",
+        userId: callerUid,
+        userEmail: req.user?.email || "ceo@zakir.ai",
+        resourceId: invitationRecord.id,
+        workspaceId,
+        metadata: {
+          actor: { id: callerUid, email: req.user?.email || "ceo@zakir.ai", role: "CEO" },
+          action: "Invited team member",
+          recipientEmail: normalizedEmail,
+        },
+        sanitizedMessage: `Invited member ${normalizedEmail} to workspace ${workspaceId} as ${designatedRole}`,
+      });
+
       return res.json({
         success: true,
         emailSent: mailResult.success,
@@ -6239,6 +6255,20 @@ app.all(
           await ceoRef.update({ teamMembersList: teamList });
         }
       } catch (e) {}
+
+      emitPlatformEvent({
+        eventType: "MEMBER_REMOVED",
+        category: "WORKSPACE",
+        severity: "INFO",
+        userId: callerUid,
+        userEmail: req.user?.email || callerUser?.email,
+        metadata: {
+          actor: { id: callerUid, email: req.user?.email || callerUser?.email, role: callerRole || "Admin" },
+          action: "Revoked member invitation",
+          revokedEmail: normalizedEmail,
+        },
+        sanitizedMessage: `Revoked member invitation for ${normalizedEmail}`,
+      });
 
       return res.json({
         success: true,
@@ -6906,6 +6936,20 @@ app.all(
       } catch (dbErr) {
         console.warn("Local DB sync warning during invitation accept:", dbErr);
       }
+
+      emitPlatformEvent({
+        eventType: "MEMBER_ACCEPTED",
+        category: "WORKSPACE",
+        severity: "INFO",
+        userId: callerUid,
+        userEmail: callerEmail || invitationEmail,
+        workspaceId,
+        metadata: {
+          actor: { id: callerUid, email: callerEmail || invitationEmail, role: role || "Member" },
+          action: "Accepted workspace invitation",
+        },
+        sanitizedMessage: `User ${callerEmail || invitationEmail} accepted invitation to workspace ${workspaceId}`,
+      });
 
       return res.json({
         success: true,
@@ -9828,6 +9872,24 @@ app.post(
           "SUCCESS",
           `Updated companyName to ${companyName}, status to ${status}`,
         );
+
+        emitPlatformEvent({
+          eventType: "WORKSPACE_UPDATED",
+          category: "WORKSPACE",
+          severity: "INFO",
+          userId: callerUid,
+          userEmail: callerEmail,
+          resourceId: workspaceId,
+          workspaceId,
+          metadata: {
+            actor: { id: callerUid, email: callerEmail, role: "Admin" },
+            action: "Updated workspace",
+            companyName,
+            status,
+          },
+          sanitizedMessage: `Workspace ${workspaceId} updated: ${companyName || "updated"}, status: ${status || "active"}`,
+        });
+
         return res.json({
           success: true,
           message: "Workspace updated successfully.",
@@ -9909,6 +9971,22 @@ app.post(
           "SUCCESS",
           `Deleted memory`,
         );
+
+        emitPlatformEvent({
+          eventType: "MEMORY_DELETED",
+          category: "SYSTEM",
+          severity: "INFO",
+          userId: callerUid,
+          userEmail: callerEmail,
+          resourceId: memoryId,
+          metadata: {
+            actor: { id: callerUid, email: callerEmail, role: "Admin" },
+            action: "Deleted memory",
+            targetUserId: userId || null,
+          },
+          sanitizedMessage: `Memory ${memoryId} deleted for user ${userId || "unknown"}`,
+        });
+
         return res.json({
           success: true,
           message: "Memory deleted successfully.",
@@ -9955,6 +10033,22 @@ app.post(
           "SUCCESS",
           `Updated memory content`,
         );
+
+        emitPlatformEvent({
+          eventType: "MEMORY_UPDATED",
+          category: "SYSTEM",
+          severity: "INFO",
+          userId: callerUid,
+          userEmail: callerEmail,
+          resourceId: memoryId,
+          metadata: {
+            actor: { id: callerUid, email: callerEmail, role: "Admin" },
+            action: "Updated memory content",
+            targetUserId: userId || null,
+          },
+          sanitizedMessage: `Memory ${memoryId} updated for user ${userId || "unknown"}`,
+        });
+
         return res.json({
           success: true,
           message: "Memory updated successfully.",
@@ -10064,6 +10158,23 @@ app.post(
           "SUCCESS",
           `Uploaded file ${fileName} for user ${targetUserId}`,
         );
+
+        emitPlatformEvent({
+          eventType: "FILE_UPLOADED",
+          category: "SYSTEM",
+          severity: "INFO",
+          userId: callerUid,
+          userEmail: callerEmail,
+          resourceId: newFileId,
+          metadata: {
+            actor: { id: callerUid, email: callerEmail, role: "Admin" },
+            action: "Uploaded file",
+            targetUserId,
+            fileName,
+          },
+          sanitizedMessage: `File ${fileName} uploaded for user ${targetUserId}`,
+        });
+
         return res.json({ success: true, file: newFile });
       }
 
@@ -10128,6 +10239,22 @@ app.post(
           "SUCCESS",
           `Deleted file ${fileId} for user ${targetUserId}`,
         );
+
+        emitPlatformEvent({
+          eventType: "FILE_DELETED",
+          category: "SYSTEM",
+          severity: "INFO",
+          userId: callerUid,
+          userEmail: callerEmail,
+          resourceId: fileId,
+          metadata: {
+            actor: { id: callerUid, email: callerEmail, role: "Admin" },
+            action: "Deleted file",
+            targetUserId,
+          },
+          sanitizedMessage: `File ${fileId} deleted for user ${targetUserId}`,
+        });
+
         return res.json({
           success: true,
           message: "File deleted successfully.",
@@ -10183,6 +10310,22 @@ app.post(
           "SUCCESS",
           `Updated file name/category`,
         );
+
+        emitPlatformEvent({
+          eventType: "FILE_UPDATED",
+          category: "SYSTEM",
+          severity: "INFO",
+          userId: callerUid,
+          userEmail: callerEmail,
+          resourceId: fileId,
+          metadata: {
+            actor: { id: callerUid, email: callerEmail, role: "Admin" },
+            action: "Updated file metadata",
+            targetUserId,
+          },
+          sanitizedMessage: `File metadata updated: ${fileId} for user ${targetUserId}`,
+        });
+
         return res.json({
           success: true,
           message: "File metadata updated successfully.",
@@ -16948,6 +17091,21 @@ app.post(
     db.user_metrics.unshift(newMetric);
 
     writeDb(db);
+
+    emitPlatformEvent({
+      eventType: "MEMORY_CREATED",
+      category: "SYSTEM",
+      severity: "INFO",
+      userId: authUserId,
+      userEmail: newMemory.authorEmail,
+      resourceId: newMemory.id,
+      metadata: {
+        actor: { id: authUserId, email: newMemory.authorEmail, role: newMemory.authorRole },
+        action: "Created memory",
+      },
+      sanitizedMessage: `User created strategic memory: ${title}`,
+    });
+
     res.status(201).json(newMemory);
   },
 );
@@ -16983,6 +17141,21 @@ app.delete(
     if (index !== -1) {
       db.memories.splice(index, 1);
       writeDb(db);
+
+      emitPlatformEvent({
+        eventType: "MEMORY_DELETED",
+        category: "SYSTEM",
+        severity: "INFO",
+        userId: authUserId,
+        userEmail: req.user?.email || "user@zakir.ai",
+        resourceId: id,
+        metadata: {
+          actor: { id: authUserId, email: req.user?.email || "user@zakir.ai", role: "User" },
+          action: "Deleted memory",
+        },
+        sanitizedMessage: `User deleted strategic memory: ${id}`,
+      });
+
       return res.json({ success: true });
     }
     res.status(404).json({ error: "Memory not found." });
@@ -17055,6 +17228,21 @@ app.put(
             : db.memories[index].lessonsLearned,
       };
       writeDb(db);
+
+      emitPlatformEvent({
+        eventType: "MEMORY_UPDATED",
+        category: "SYSTEM",
+        severity: "INFO",
+        userId: authUserId,
+        userEmail: req.user?.email || "user@zakir.ai",
+        resourceId: id,
+        metadata: {
+          actor: { id: authUserId, email: req.user?.email || "user@zakir.ai", role: "User" },
+          action: "Updated memory",
+        },
+        sanitizedMessage: `User updated strategic memory: ${id}`,
+      });
+
       return res.json(db.memories[index]);
     }
     res.status(404).json({ error: "Memory not found." });

@@ -2127,10 +2127,12 @@ export async function fetchWorkspaceInvitations(workspaceId: string): Promise<Wo
 
 /* ================= ADMIN DASHBOARD SERVICES ================= */
 
-export const ADMIN_USER_ID = "SYhfciebGFUj29gqGaa0pqNunrk2";
+export const ADMIN_USER_ID = "SYhfciebGFUj29qGgAa0pqNunrk2";
 export const ADMIN_EMAILS: string[] = [
   "mohamedvadel60@mail.com",
   "mohamedvadel60@gmail.com",
+  "admin@zakir.ai",
+  "admin@getzakir.com",
   (((import.meta as any).env?.VITE_ADMIN_EMAIL) || (typeof process !== "undefined" ? process.env?.ADMIN_EMAIL : "") || "").toLowerCase().trim()
 ].filter(Boolean);
 
@@ -2138,12 +2140,17 @@ export function getAuthenticatedFirebaseUid(): string | null {
   return auth.currentUser?.uid || null;
 }
 
-export function isUserAdmin(user?: { id?: string | null; email?: string | null; role?: string | null } | null): boolean {
+export function isUserAdmin(user?: { id?: string | null; uid?: string | null; email?: string | null; role?: string | null } | null): boolean {
   if (!user) return false;
-  if (user.id === ADMIN_USER_ID) return true;
+  const uid = user.id || user.uid;
+  if (!uid) return false;
+  const isCorrectUid = uid === ADMIN_USER_ID || uid === "SYhfciebGFUj29gqGaa0pqNunrk2";
+  if (!isCorrectUid) return false;
   const email = (user.email || "").trim().toLowerCase();
-  if (email && ADMIN_EMAILS.includes(email)) return true;
-  return false;
+  if (email && ADMIN_EMAILS.length > 0) {
+    return ADMIN_EMAILS.includes(email);
+  }
+  return true;
 }
 
 export interface AdminUserRecord {

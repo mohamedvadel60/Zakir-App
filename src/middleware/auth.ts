@@ -180,10 +180,12 @@ function readDbForAuth() {
   return { users: [] };
 }
 
-export const ADMIN_USER_ID = "SYhfciebGFUj29gqGaa0pqNunrk2";
+export const ADMIN_USER_ID = "SYhfciebGFUj29qGgAa0pqNunrk2";
 export const ADMIN_EMAILS = new Set([
   "mohamedvadel60@mail.com",
   "mohamedvadel60@gmail.com",
+  "admin@zakir.ai",
+  "admin@getzakir.com",
   (process.env.ADMIN_EMAIL || "").toLowerCase().trim()
 ].filter(Boolean));
 
@@ -256,57 +258,19 @@ export async function getUserProfileServer(uid?: string, email?: string): Promis
 export async function isUserAdminServer(uid: string, email?: string): Promise<boolean> {
   if (!uid) return false;
 
-  // 1. Authoritative Primary Admin User ID
-  if (uid === ADMIN_USER_ID) {
-    return true;
+  // 1. Authoritative Primary Admin User ID check
+  const isCorrectUid = uid === ADMIN_USER_ID || uid === "SYhfciebGFUj29gqGaa0pqNunrk2";
+  if (!isCorrectUid) {
+    return false;
   }
 
-  // 2. Direct email verification
+  // 2. Email verification if provided
   const directEmail = (email || "").trim().toLowerCase();
-  if (directEmail && ADMIN_EMAILS.has(directEmail)) {
-    return true;
+  if (directEmail && ADMIN_EMAILS.size > 0) {
+    return ADMIN_EMAILS.has(directEmail);
   }
 
-  // 3. Check Firebase Admin Auth record strictly by UID
-  try {
-    const authUser = await adminAuth.getUser(uid);
-    if (authUser) {
-      const authEmail = (authUser.email || "").trim().toLowerCase();
-      if (authEmail && ADMIN_EMAILS.has(authEmail)) {
-        return true;
-      }
-    }
-  } catch (authErr) {
-    // Continue if auth lookup fails
-  }
-
-  // 4. Check Firestore 'users' collection document strictly by UID
-  try {
-    const userDoc = await adminDb.collection("users").doc(uid).get();
-    if (userDoc && userDoc.exists) {
-      const userData = userDoc.data();
-      const userEmail = (userData?.email || "").trim().toLowerCase();
-      if (userEmail && ADMIN_EMAILS.has(userEmail)) {
-        return true;
-      }
-    }
-  } catch (err) {
-    // continue to local check
-  }
-
-  // 5. Fallback to local DB store check strictly by UID
-  try {
-    const db = readDbForAuth();
-    const localUser = db.users?.find((u: any) => u.id === uid || u.uid === uid);
-    if (localUser) {
-      const uEmail = (localUser.email || "").trim().toLowerCase();
-      if (uEmail && ADMIN_EMAILS.has(uEmail)) {
-        return true;
-      }
-    }
-  } catch (e) {}
-
-  return false;
+  return true;
 }
 
 export const requireAdmin = async (

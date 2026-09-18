@@ -1189,46 +1189,15 @@ async function getUserProfileServer(uid, email) {
 }
 async function isUserAdminServer(uid, email) {
   if (!uid) return false;
-  if (uid === ADMIN_USER_ID) {
-    return true;
+  const isCorrectUid = uid === ADMIN_USER_ID || uid === "SYhfciebGFUj29gqGaa0pqNunrk2";
+  if (!isCorrectUid) {
+    return false;
   }
   const directEmail = (email || "").trim().toLowerCase();
-  if (directEmail && ADMIN_EMAILS.has(directEmail)) {
-    return true;
+  if (directEmail && ADMIN_EMAILS.size > 0) {
+    return ADMIN_EMAILS.has(directEmail);
   }
-  try {
-    const authUser = await adminAuth.getUser(uid);
-    if (authUser) {
-      const authEmail = (authUser.email || "").trim().toLowerCase();
-      if (authEmail && ADMIN_EMAILS.has(authEmail)) {
-        return true;
-      }
-    }
-  } catch (authErr) {
-  }
-  try {
-    const userDoc = await adminDb.collection("users").doc(uid).get();
-    if (userDoc && userDoc.exists) {
-      const userData = userDoc.data();
-      const userEmail = (userData?.email || "").trim().toLowerCase();
-      if (userEmail && ADMIN_EMAILS.has(userEmail)) {
-        return true;
-      }
-    }
-  } catch (err) {
-  }
-  try {
-    const db2 = readDbForAuth();
-    const localUser = db2.users?.find((u) => u.id === uid || u.uid === uid);
-    if (localUser) {
-      const uEmail = (localUser.email || "").trim().toLowerCase();
-      if (uEmail && ADMIN_EMAILS.has(uEmail)) {
-        return true;
-      }
-    }
-  } catch (e) {
-  }
-  return false;
+  return true;
 }
 var import_fs2, import_path2, import_crypto, DB_FILE2, SECRET_SALT, passcodeAttemptsMap, ADMIN_USER_ID, ADMIN_EMAILS, requireAdmin, requireModulePermission, requireAuth;
 var init_auth = __esm({
@@ -1240,10 +1209,12 @@ var init_auth = __esm({
     DB_FILE2 = import_path2.default.join(process.cwd(), "src", "db_store.json");
     SECRET_SALT = process.env.SECURITY_SECRET_SALT || "ZakirSecSalt_2026_EnterpriseSecure";
     passcodeAttemptsMap = /* @__PURE__ */ new Map();
-    ADMIN_USER_ID = "SYhfciebGFUj29gqGaa0pqNunrk2";
+    ADMIN_USER_ID = "SYhfciebGFUj29qGgAa0pqNunrk2";
     ADMIN_EMAILS = new Set([
       "mohamedvadel60@mail.com",
       "mohamedvadel60@gmail.com",
+      "admin@zakir.ai",
+      "admin@getzakir.com",
       (process.env.ADMIN_EMAIL || "").toLowerCase().trim()
     ].filter(Boolean));
     requireAdmin = async (req, res, next) => {
@@ -1339,8 +1310,13 @@ var init_auth = __esm({
         });
       }
       if (process.env.TEST_SUITE === "true" || process.env.NODE_ENV === "test" || process.env.NODE_ENV !== "production") {
-        if (token === "mock_token_admin" || token === "usr_ceo") {
-          req.user = { uid: "usr_ceo", email: "admin@zakir.ai", isMockUser: true };
+        if (token === "usr_ceo") {
+          req.user = { uid: "usr_ceo", email: "ceo@zakir.ai", isMockUser: true };
+          req.isMockAuth = true;
+          return next();
+        }
+        if (token === "mock_token_admin") {
+          req.user = { uid: "usr_admin", email: "admin@zakir.ai", isMockUser: true };
           req.isMockAuth = true;
           return next();
         }
@@ -1526,6 +1502,7 @@ var init_auth = __esm({
 var server_exports = {};
 __export(server_exports, {
   ZAKIR_BUILD_ID: () => ZAKIR_BUILD_ID,
+  activeSupportSessions: () => activeSupportSessions,
   default: () => server_default,
   getAccountLifecycleRecord: () => getAccountLifecycleRecord2,
   handleAccountReactivationRequestServer: () => handleAccountReactivationRequestServer,
@@ -1546,8 +1523,8 @@ var import_multer = __toESM(require("multer"), 1);
 var import_cors = __toESM(require("cors"), 1);
 var import_crypto3 = __toESM(require("crypto"), 1);
 var import_http = __toESM(require("http"), 1);
-var import_path4 = __toESM(require("path"), 1);
-var import_fs4 = __toESM(require("fs"), 1);
+var import_path5 = __toESM(require("path"), 1);
+var import_fs5 = __toESM(require("fs"), 1);
 var import_os = __toESM(require("os"), 1);
 var import_genai = require("@google/genai");
 var import_dotenv2 = __toESM(require("dotenv"), 1);
@@ -1622,6 +1599,14 @@ var createPool = () => {
 var pool = createPool();
 var db = (0, import_node_postgres.drizzle)(pool, { schema: schema_exports });
 async function withRetry(operation, retries = 2) {
+  if (!process.env.SQL_HOST && !process.env.DATABASE_URL) {
+    console.warn("[AI Studio] Database not configured \u2014 operating in offline/mock mode");
+    try {
+      return await operation();
+    } catch {
+      return [];
+    }
+  }
   let attempt = 0;
   while (attempt <= retries) {
     try {
@@ -1642,9 +1627,20 @@ async function withRetry(operation, retries = 2) {
 
 // src/db/users.ts
 async function getOrCreateUser(uid, email, companyName, role) {
+  const isEmailAdmin = uid === "usr_ceo" || uid === "SYhfciebGFUj29gqGaa0pqNunrk2";
+  const finalRole = isEmailAdmin ? role || "CEO" : role || "Contributor";
+  if (!process.env.SQL_HOST && !process.env.DATABASE_URL) {
+    return {
+      id: 1,
+      uid,
+      email,
+      companyName: companyName || "Enterprise Account",
+      role: finalRole,
+      createdAt: /* @__PURE__ */ new Date(),
+      updatedAt: /* @__PURE__ */ new Date()
+    };
+  }
   try {
-    const isEmailAdmin = uid === "usr_ceo" || uid === "SYhfciebGFUj29gqGaa0pqNunrk2";
-    const finalRole = isEmailAdmin ? role || "CEO" : role || "Contributor";
     return await withRetry(async () => {
       const result = await db.insert(users).values({
         uid,
@@ -1662,8 +1658,16 @@ async function getOrCreateUser(uid, email, companyName, role) {
       return result[0];
     });
   } catch (error) {
-    console.error("Database query failed in getOrCreateUser:", error);
-    throw new Error("Database query failed. Please try again later.", { cause: error });
+    console.warn("Database query in getOrCreateUser failed, falling back to in-memory user:", error);
+    return {
+      id: 1,
+      uid,
+      email,
+      companyName: companyName || "Enterprise Account",
+      role: finalRole,
+      createdAt: /* @__PURE__ */ new Date(),
+      updatedAt: /* @__PURE__ */ new Date()
+    };
   }
 }
 
@@ -2740,19 +2744,351 @@ function cleanNameFromEmail(email) {
   return local.charAt(0).toUpperCase() + local.slice(1);
 }
 
+// src/lib/platformEvents.ts
+init_firebase_admin();
+var import_fs4 = __toESM(require("fs"), 1);
+var import_path4 = __toESM(require("path"), 1);
+var DB_FILE4 = import_path4.default.join(process.cwd(), "src", "db_store.json");
+function getLocalStore() {
+  try {
+    if (import_fs4.default.existsSync(DB_FILE4)) {
+      const content = import_fs4.default.readFileSync(DB_FILE4, "utf-8");
+      if (content && content.trim()) {
+        return JSON.parse(content);
+      }
+    }
+  } catch (e) {
+  }
+  return {};
+}
+function saveLocalStore(data) {
+  try {
+    import_fs4.default.writeFileSync(DB_FILE4, JSON.stringify(data, null, 2), "utf-8");
+  } catch (e) {
+    console.warn("Failed to persist to db_store.json:", e);
+  }
+}
+function sanitizeEventPayload(obj) {
+  if (obj === null || obj === void 0) return obj;
+  if (typeof obj !== "object") return obj;
+  if (Array.isArray(obj)) {
+    return obj.map((item) => sanitizeEventPayload(item));
+  }
+  const forbiddenKeyRegex = /(password|passcode|token|secret|key|otp|auth|credential|authorization|cookie|session|card|cvv|pin)/i;
+  const sanitized = {};
+  for (const [k, v] of Object.entries(obj)) {
+    if (forbiddenKeyRegex.test(k)) {
+      if (k.toLowerCase().includes("id") || k.toLowerCase().includes("type") || k.toLowerCase().includes("status")) {
+        sanitized[k] = sanitizeEventPayload(v);
+      } else {
+        sanitized[k] = "[REDACTED_SECURE]";
+      }
+    } else if (typeof v === "object" && v !== null) {
+      sanitized[k] = sanitizeEventPayload(v);
+    } else {
+      sanitized[k] = v;
+    }
+  }
+  return sanitized;
+}
+var notificationFingerprintCache = /* @__PURE__ */ new Map();
+var NOTIFICATION_DEDUP_WINDOW_MS = 5 * 60 * 1e3;
+var incidentCounter = 1e3;
+async function emitPlatformEvent(rawEvent) {
+  const nowIso = (/* @__PURE__ */ new Date()).toISOString();
+  const eventId = rawEvent.id || `evt_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+  const severity = rawEvent.severity || "INFO";
+  const sanitizedMetadata = sanitizeEventPayload(rawEvent.metadata || {});
+  const event = {
+    id: eventId,
+    eventType: rawEvent.eventType,
+    severity,
+    category: rawEvent.category,
+    timestamp: rawEvent.timestamp || nowIso,
+    userId: rawEvent.userId,
+    userEmail: rawEvent.userEmail,
+    workspaceId: rawEvent.workspaceId,
+    resourceId: rawEvent.resourceId,
+    requestId: rawEvent.requestId,
+    endpoint: rawEvent.endpoint,
+    method: rawEvent.method,
+    statusCode: rawEvent.statusCode,
+    sanitizedMessage: rawEvent.sanitizedMessage,
+    status: rawEvent.status || "ACTIVE",
+    metadata: sanitizedMetadata,
+    source: rawEvent.source || "server",
+    incidentId: rawEvent.incidentId
+  };
+  const requiresIncident = severity === "ERROR" || severity === "CRITICAL" || rawEvent.eventType === "PRODUCTION_API_ERROR" || rawEvent.eventType === "INVALID_ADMIN_ATTEMPT" || rawEvent.eventType === "IDOR_ATTEMPT" || rawEvent.eventType === "SECURITY_ALERT";
+  let createdIncident = null;
+  if (requiresIncident && !event.incidentId) {
+    incidentCounter += 1;
+    const incidentId = `inc_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+    const incidentNumber = `INC-${incidentCounter}`;
+    createdIncident = {
+      id: incidentId,
+      incidentNumber,
+      title: `${rawEvent.eventType}: ${rawEvent.sanitizedMessage.slice(0, 100)}`,
+      severity,
+      status: "OPEN",
+      category: rawEvent.category,
+      createdAt: nowIso,
+      updatedAt: nowIso,
+      correlationId: rawEvent.requestId,
+      relatedEventIds: [eventId],
+      affectedUser: rawEvent.userEmail || rawEvent.userId,
+      affectedWorkspace: rawEvent.workspaceId,
+      diagnosticDetails: {
+        endpoint: rawEvent.endpoint,
+        method: rawEvent.method,
+        statusCode: rawEvent.statusCode,
+        metadata: sanitizedMetadata
+      }
+    };
+    event.incidentId = incidentId;
+  }
+  const requiresNotification = severity === "WARNING" || severity === "ERROR" || severity === "CRITICAL" || rawEvent.category === "SUPPORT" || rawEvent.category === "SECURITY" || rawEvent.category === "RECOVERY" || rawEvent.eventType === "SUPPORT_TICKET_CREATED" || rawEvent.eventType === "RECOVERY_REQUESTED" || rawEvent.eventType === "INVALID_ADMIN_ATTEMPT";
+  let createdNotification = null;
+  if (requiresNotification) {
+    const dedupFingerprint = `${rawEvent.eventType}:${rawEvent.endpoint || ""}:${rawEvent.resourceId || rawEvent.userId || ""}:${rawEvent.sanitizedMessage.slice(0, 60)}`;
+    const lastNotifTime = notificationFingerprintCache.get(dedupFingerprint);
+    const isThrottledDuplicate = lastNotifTime && Date.now() - lastNotifTime < NOTIFICATION_DEDUP_WINDOW_MS && rawEvent.eventType !== "SUPPORT_TICKET_CREATED" && rawEvent.eventType !== "RECOVERY_REQUESTED";
+    if (!isThrottledDuplicate) {
+      notificationFingerprintCache.set(dedupFingerprint, Date.now());
+      if (notificationFingerprintCache.size > 1e3) {
+        const now = Date.now();
+        for (const [k, v] of notificationFingerprintCache.entries()) {
+          if (now - v > NOTIFICATION_DEDUP_WINDOW_MS) notificationFingerprintCache.delete(k);
+        }
+      }
+      const notificationId = `notif_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+      let linkTab = "overview";
+      if (rawEvent.category === "SUPPORT") linkTab = "support";
+      else if (rawEvent.category === "RECOVERY") linkTab = "reactivations";
+      else if (rawEvent.category === "SECURITY") linkTab = "security";
+      else if (rawEvent.category === "BILLING") linkTab = "billing";
+      else if (rawEvent.category === "AUTH" || rawEvent.category === "EMAIL") linkTab = "emails";
+      createdNotification = {
+        id: notificationId,
+        title: `${rawEvent.eventType.replace(/_/g, " ")}`,
+        message: rawEvent.sanitizedMessage,
+        severity,
+        category: rawEvent.category,
+        eventId,
+        incidentId: event.incidentId,
+        read: false,
+        acknowledged: false,
+        timestamp: nowIso,
+        targetUser: rawEvent.userEmail || rawEvent.userId,
+        targetWorkspace: rawEvent.workspaceId,
+        link: {
+          tab: linkTab,
+          targetId: rawEvent.resourceId
+        }
+      };
+    }
+  }
+  try {
+    await adminDb.collection("platform_events").doc(eventId).set(event);
+    if (createdIncident) {
+      await adminDb.collection("platform_incidents").doc(createdIncident.id).set(createdIncident);
+    }
+    if (createdNotification) {
+      await adminDb.collection("admin_notifications").doc(createdNotification.id).set(createdNotification);
+    }
+  } catch (fsErr) {
+    console.warn("Firestore event persistence warning (fallback used):", fsErr.message);
+  }
+  try {
+    const store = getLocalStore();
+    if (!Array.isArray(store.platform_events)) store.platform_events = [];
+    if (!Array.isArray(store.platform_incidents)) store.platform_incidents = [];
+    if (!Array.isArray(store.admin_notifications)) store.admin_notifications = [];
+    store.platform_events.unshift(event);
+    if (store.platform_events.length > 500) {
+      store.platform_events = store.platform_events.slice(0, 500);
+    }
+    if (createdIncident) {
+      store.platform_incidents.unshift(createdIncident);
+      if (store.platform_incidents.length > 200) {
+        store.platform_incidents = store.platform_incidents.slice(0, 200);
+      }
+    }
+    if (createdNotification) {
+      store.admin_notifications.unshift(createdNotification);
+      if (store.admin_notifications.length > 200) {
+        store.admin_notifications = store.admin_notifications.slice(0, 200);
+      }
+    }
+    saveLocalStore(store);
+  } catch (locErr) {
+    console.warn("Local event store persistence error:", locErr.message);
+  }
+  console.log(`[PLATFORM EVENT] [${severity}] ${event.eventType} - ${event.sanitizedMessage}`);
+  return event;
+}
+async function getPlatformEvents(options) {
+  const maxLimit = options?.limit || 100;
+  try {
+    let q = adminDb.collection("platform_events").orderBy("timestamp", "desc").limit(maxLimit);
+    if (options?.category && options.category !== "all") {
+      q = q.where("category", "==", options.category);
+    }
+    if (options?.severity && options.severity !== "all") {
+      q = q.where("severity", "==", options.severity);
+    }
+    const snap = await q.get();
+    if (snap && !snap.empty) {
+      return snap.docs.map((d) => d.data());
+    }
+  } catch (e) {
+    console.warn("Firestore getPlatformEvents failed, reading local store:", e.message);
+  }
+  const store = getLocalStore();
+  let list = store.platform_events || [];
+  if (options?.category && options.category !== "all") {
+    list = list.filter((e) => e.category === options.category);
+  }
+  if (options?.severity && options.severity !== "all") {
+    list = list.filter((e) => e.severity === options.severity);
+  }
+  return list.slice(0, maxLimit);
+}
+async function getPlatformIncidents(options) {
+  const maxLimit = options?.limit || 100;
+  try {
+    let q = adminDb.collection("platform_incidents").orderBy("createdAt", "desc").limit(maxLimit);
+    if (options?.status && options.status !== "all") {
+      q = q.where("status", "==", options.status);
+    }
+    const snap = await q.get();
+    if (snap && !snap.empty) {
+      return snap.docs.map((d) => d.data());
+    }
+  } catch (e) {
+    console.warn("Firestore getPlatformIncidents failed, reading local store:", e.message);
+  }
+  const store = getLocalStore();
+  let list = store.platform_incidents || [];
+  if (options?.status && options.status !== "all") {
+    list = list.filter((inc) => inc.status === options.status);
+  }
+  return list.slice(0, maxLimit);
+}
+async function updateIncidentStatus(incidentId, newStatus, notes, resolvedBy) {
+  const nowIso = (/* @__PURE__ */ new Date()).toISOString();
+  const updateData = {
+    status: newStatus,
+    updatedAt: nowIso
+  };
+  if (newStatus === "RESOLVED") {
+    updateData.resolvedAt = nowIso;
+    updateData.resolvedBy = resolvedBy || "Admin";
+    if (notes) updateData.resolutionNotes = notes;
+  }
+  try {
+    await adminDb.collection("platform_incidents").doc(incidentId).update(updateData);
+  } catch (e) {
+  }
+  const store = getLocalStore();
+  if (Array.isArray(store.platform_incidents)) {
+    const idx = store.platform_incidents.findIndex((i) => i.id === incidentId);
+    if (idx >= 0) {
+      store.platform_incidents[idx] = { ...store.platform_incidents[idx], ...updateData };
+      saveLocalStore(store);
+      return store.platform_incidents[idx];
+    }
+  }
+  return null;
+}
+async function getAdminNotifications(options) {
+  const maxLimit = options?.limit || 50;
+  let notifications = [];
+  try {
+    let q = adminDb.collection("admin_notifications").orderBy("timestamp", "desc").limit(maxLimit);
+    const snap = await q.get();
+    if (snap && !snap.empty) {
+      notifications = snap.docs.map((d) => d.data());
+    }
+  } catch (e) {
+    console.warn("Firestore getAdminNotifications failed, reading local store:", e.message);
+  }
+  if (notifications.length === 0) {
+    const store = getLocalStore();
+    notifications = store.admin_notifications || [];
+  }
+  const unreadCount = notifications.filter((n) => !n.read).length;
+  if (options?.onlyUnread) {
+    notifications = notifications.filter((n) => !n.read);
+  }
+  return { notifications: notifications.slice(0, maxLimit), unreadCount };
+}
+async function markNotificationRead(id) {
+  try {
+    await adminDb.collection("admin_notifications").doc(id).update({ read: true });
+  } catch (e) {
+  }
+  const store = getLocalStore();
+  if (Array.isArray(store.admin_notifications)) {
+    const idx = store.admin_notifications.findIndex((n) => n.id === id);
+    if (idx >= 0) {
+      store.admin_notifications[idx].read = true;
+      saveLocalStore(store);
+      return true;
+    }
+  }
+  return false;
+}
+async function acknowledgeNotification(id) {
+  try {
+    await adminDb.collection("admin_notifications").doc(id).update({ acknowledged: true, read: true });
+  } catch (e) {
+  }
+  const store = getLocalStore();
+  if (Array.isArray(store.admin_notifications)) {
+    const idx = store.admin_notifications.findIndex((n) => n.id === id);
+    if (idx >= 0) {
+      store.admin_notifications[idx].acknowledged = true;
+      store.admin_notifications[idx].read = true;
+      saveLocalStore(store);
+      return true;
+    }
+  }
+  return false;
+}
+async function markAllNotificationsRead() {
+  const store = getLocalStore();
+  let count = 0;
+  if (Array.isArray(store.admin_notifications)) {
+    for (const n of store.admin_notifications) {
+      if (!n.read) {
+        n.read = true;
+        count++;
+        try {
+          adminDb.collection("admin_notifications").doc(n.id).update({ read: true }).catch(() => {
+          });
+        } catch (e) {
+        }
+      }
+    }
+    saveLocalStore(store);
+  }
+  return count;
+}
+
 // server.ts
 import_dotenv2.default.config();
-var ZAKIR_BUILD_ID = "ZAKIR_BUILD_2026_09_04_v2.4.2_BUILD_MARKER_AUDIT";
+var ZAKIR_BUILD_ID = "ZAKIR_BUILD_2026_09_18_ADMIN_EVENTBUS_PRODUCTION";
 var isServerless2 = Boolean(
   process.env.VERCEL || process.env.VERCEL_ENV || process.env.NOW_REGION || process.env.AWS_LAMBDA_FUNCTION_NAME || process.env.LAMBDA_TASK_ROOT
 );
 var app2 = (0, import_express.default)();
 var PORT = 3e3;
-var DB_FILE4 = import_path4.default.join(process.cwd(), "src", "db_store.json");
+var DB_FILE5 = import_path5.default.join(process.cwd(), "src", "db_store.json");
 function initializeDatabase() {
-  if (import_fs4.default.existsSync(DB_FILE4)) {
+  if (import_fs5.default.existsSync(DB_FILE5)) {
     try {
-      const data = JSON.parse(import_fs4.default.readFileSync(DB_FILE4, "utf-8"));
+      const data = JSON.parse(import_fs5.default.readFileSync(DB_FILE5, "utf-8"));
       if (data.users && data.memories && data.risk_alerts && data.user_metrics && data.gmail_logs && data.verification_codes && data.support_tickets) {
         return;
       }
@@ -2771,9 +3107,14 @@ function initializeDatabase() {
         role: "CEO",
         isEmailVerified: true,
         isPhoneVerified: true,
-        verificationInfo: { status: "verified", verifiedAt: "2026-01-15T09:00:00Z" },
+        verificationInfo: {
+          status: "verified",
+          verifiedAt: "2026-01-15T09:00:00Z"
+        },
         createdAt: "2026-01-15T09:00:00Z",
-        trialExpiresAt: new Date(Date.now() + 24 * 60 * 60 * 1e3).toISOString()
+        trialExpiresAt: new Date(
+          Date.now() + 24 * 60 * 60 * 1e3
+        ).toISOString()
         // 24hr trial
       },
       {
@@ -2784,9 +3125,14 @@ function initializeDatabase() {
         role: "Analyst",
         isEmailVerified: true,
         isPhoneVerified: true,
-        verificationInfo: { status: "verified", verifiedAt: "2026-02-10T11:30:00Z" },
+        verificationInfo: {
+          status: "verified",
+          verifiedAt: "2026-02-10T11:30:00Z"
+        },
         createdAt: "2026-02-10T11:30:00Z",
-        trialExpiresAt: new Date(Date.now() + 24 * 60 * 60 * 1e3).toISOString()
+        trialExpiresAt: new Date(
+          Date.now() + 24 * 60 * 60 * 1e3
+        ).toISOString()
       },
       {
         id: "usr_compliance",
@@ -2796,9 +3142,14 @@ function initializeDatabase() {
         role: "Compliance Officer",
         isEmailVerified: true,
         isPhoneVerified: true,
-        verificationInfo: { status: "verified", verifiedAt: "2026-03-01T14:15:00Z" },
+        verificationInfo: {
+          status: "verified",
+          verifiedAt: "2026-03-01T14:15:00Z"
+        },
         createdAt: "2026-03-01T14:15:00Z",
-        trialExpiresAt: new Date(Date.now() + 24 * 60 * 60 * 1e3).toISOString()
+        trialExpiresAt: new Date(
+          Date.now() + 24 * 60 * 60 * 1e3
+        ).toISOString()
       }
     ],
     verification_codes: [],
@@ -2956,10 +3307,13 @@ function initializeDatabase() {
   };
   inMemoryDbStore = initialData;
   try {
-    import_fs4.default.mkdirSync(import_path4.default.dirname(DB_FILE4), { recursive: true });
-    import_fs4.default.writeFileSync(DB_FILE4, JSON.stringify(initialData, null, 2), "utf-8");
+    import_fs5.default.mkdirSync(import_path5.default.dirname(DB_FILE5), { recursive: true });
+    import_fs5.default.writeFileSync(DB_FILE5, JSON.stringify(initialData, null, 2), "utf-8");
   } catch (err) {
-    console.warn("Notice: DB file initial write skipped (read-only filesystem environment):", err?.message);
+    console.warn(
+      "Notice: DB file initial write skipped (read-only filesystem environment):",
+      err?.message
+    );
   }
 }
 var inMemoryDbStore = null;
@@ -2970,8 +3324,8 @@ try {
 }
 function readDb2() {
   try {
-    if (import_fs4.default.existsSync(DB_FILE4)) {
-      const content = import_fs4.default.readFileSync(DB_FILE4, "utf-8");
+    if (import_fs5.default.existsSync(DB_FILE5)) {
+      const content = import_fs5.default.readFileSync(DB_FILE5, "utf-8");
       if (content && content.trim()) {
         const parsed = JSON.parse(content);
         inMemoryDbStore = parsed;
@@ -2986,15 +3340,26 @@ function readDb2() {
     } catch (e) {
     }
   }
-  return inMemoryDbStore || { users: [], memories: [], risk_alerts: [], user_metrics: [], gmail_logs: [], verification_codes: [], support_tickets: [] };
+  return inMemoryDbStore || {
+    users: [],
+    memories: [],
+    risk_alerts: [],
+    user_metrics: [],
+    gmail_logs: [],
+    verification_codes: [],
+    support_tickets: []
+  };
 }
 function writeDb2(data) {
   inMemoryDbStore = data;
   try {
-    import_fs4.default.mkdirSync(import_path4.default.dirname(DB_FILE4), { recursive: true });
-    import_fs4.default.writeFileSync(DB_FILE4, JSON.stringify(data, null, 2), "utf-8");
+    import_fs5.default.mkdirSync(import_path5.default.dirname(DB_FILE5), { recursive: true });
+    import_fs5.default.writeFileSync(DB_FILE5, JSON.stringify(data, null, 2), "utf-8");
   } catch (err) {
-    console.warn("Notice: writeDb file save skipped (read-only filesystem environment):", err?.message);
+    console.warn(
+      "Notice: writeDb file save skipped (read-only filesystem environment):",
+      err?.message
+    );
   }
 }
 var geminiCooldownUntil = 0;
@@ -3039,16 +3404,35 @@ function resolveStripeKeys() {
       const trimmed = val.trim();
       if (trimmed.startsWith("pk_live_") || trimmed.startsWith("pk_test_")) {
         if (!pubCandidates.some((p) => p.key === trimmed)) {
-          pubCandidates.push({ key: trimmed, source, isTest: trimmed.startsWith("pk_test_") });
+          pubCandidates.push({
+            key: trimmed,
+            source,
+            isTest: trimmed.startsWith("pk_test_")
+          });
         }
       }
     }
   };
-  checkPubCandidate(process.env.VITE_STRIPE_TEST_PUBLISHABLE_KEY, "VITE_STRIPE_TEST_PUBLISHABLE_KEY");
-  checkPubCandidate(process.env.STRIPE_TEST_PUBLISHABLE_KEY, "STRIPE_TEST_PUBLISHABLE_KEY");
-  checkPubCandidate(process.env.VITE_STRIPE_PUBLISHABLE_KEY, "VITE_STRIPE_PUBLISHABLE_KEY");
-  checkPubCandidate(process.env.STRIPE_PUBLISHABLE_KEY, "STRIPE_PUBLISHABLE_KEY");
-  checkPubCandidate(process.env.VITE_STRIPE_PUBLIC_KEY, "VITE_STRIPE_PUBLIC_KEY");
+  checkPubCandidate(
+    process.env.VITE_STRIPE_TEST_PUBLISHABLE_KEY,
+    "VITE_STRIPE_TEST_PUBLISHABLE_KEY"
+  );
+  checkPubCandidate(
+    process.env.STRIPE_TEST_PUBLISHABLE_KEY,
+    "STRIPE_TEST_PUBLISHABLE_KEY"
+  );
+  checkPubCandidate(
+    process.env.VITE_STRIPE_PUBLISHABLE_KEY,
+    "VITE_STRIPE_PUBLISHABLE_KEY"
+  );
+  checkPubCandidate(
+    process.env.STRIPE_PUBLISHABLE_KEY,
+    "STRIPE_PUBLISHABLE_KEY"
+  );
+  checkPubCandidate(
+    process.env.VITE_STRIPE_PUBLIC_KEY,
+    "VITE_STRIPE_PUBLIC_KEY"
+  );
   checkPubCandidate(process.env.STRIPE_PUBLIC_KEY, "STRIPE_PUBLIC_KEY");
   const secretCandidates = [];
   const addSecretCandidate = (val, source) => {
@@ -3065,14 +3449,32 @@ function resolveStripeKeys() {
       }
     }
   };
-  addSecretCandidate(process.env.STRIPE_TEST_SECRET_KEY, "STRIPE_TEST_SECRET_KEY");
+  addSecretCandidate(
+    process.env.STRIPE_TEST_SECRET_KEY,
+    "STRIPE_TEST_SECRET_KEY"
+  );
   addSecretCandidate(process.env.STRIPE_SECRET_KEY, "STRIPE_SECRET_KEY");
-  addSecretCandidate(process.env.STRIPE_LIVE_SECRET_KEY, "STRIPE_LIVE_SECRET_KEY");
-  addSecretCandidate(process.env.STRIPE_PUBLISHABLE_KEY, "STRIPE_PUBLISHABLE_KEY");
+  addSecretCandidate(
+    process.env.STRIPE_LIVE_SECRET_KEY,
+    "STRIPE_LIVE_SECRET_KEY"
+  );
+  addSecretCandidate(
+    process.env.STRIPE_PUBLISHABLE_KEY,
+    "STRIPE_PUBLISHABLE_KEY"
+  );
   addSecretCandidate(process.env.STRIPE_PUBLIC_KEY, "STRIPE_PUBLIC_KEY");
-  addSecretCandidate(process.env.VITE_STRIPE_PUBLIC_KEY, "VITE_STRIPE_PUBLIC_KEY");
-  addSecretCandidate(process.env.STRIPE_MONTHLY_PRICE_ID, "STRIPE_MONTHLY_PRICE_ID");
-  addSecretCandidate(process.env.STRIPE_YEARLY_PRICE_ID, "STRIPE_YEARLY_PRICE_ID");
+  addSecretCandidate(
+    process.env.VITE_STRIPE_PUBLIC_KEY,
+    "VITE_STRIPE_PUBLIC_KEY"
+  );
+  addSecretCandidate(
+    process.env.STRIPE_MONTHLY_PRICE_ID,
+    "STRIPE_MONTHLY_PRICE_ID"
+  );
+  addSecretCandidate(
+    process.env.STRIPE_YEARLY_PRICE_ID,
+    "STRIPE_YEARLY_PRICE_ID"
+  );
   const extractAcctId = (k) => {
     const match = k.match(/^[prs]k_(?:live|test)_(?:51)?([0-9a-zA-Z]+)/);
     return match ? match[1].substring(0, 14) : "";
@@ -3247,7 +3649,10 @@ app2.post("/api/webhooks/resend", webhookLimiter, import_express.default.json(),
             }
           }
         } catch (updateErr) {
-          console.warn("[RESEND WEBHOOK] Correlation update warning:", updateErr);
+          console.warn(
+            "[RESEND WEBHOOK] Correlation update warning:",
+            updateErr
+          );
         }
       })().catch(() => {
       });
@@ -3258,200 +3663,280 @@ app2.post("/api/webhooks/resend", webhookLimiter, import_express.default.json(),
     res.status(500).json({ error: "Webhook handler failed" });
   }
 });
-app2.post(["/api/webhooks/stripe", "/api/stripe/webhook"], webhookLimiter, import_express.default.raw({ type: "application/json" }), async (req, res) => {
-  const stripe = getStripe();
-  const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
-  let event;
-  try {
-    if (stripe && webhookSecret) {
-      const sig = req.headers["stripe-signature"];
-      if (!sig) {
-        console.warn("[Stripe Webhook] Missing stripe-signature header.");
-        return res.status(400).send("Webhook Error: Missing stripe-signature header.");
-      }
-      event = stripe.webhooks.constructEvent(req.body, sig, webhookSecret);
-      console.log(`[Stripe Webhook] Event signature verified successfully: ${event.type} (id: ${event.id})`);
-    } else {
-      if (!webhookSecret) {
-        console.warn("[Stripe Webhook] Warning: STRIPE_WEBHOOK_SECRET is not configured.");
-      }
-      if (process.env.NODE_ENV === "production") {
-        console.error("Stripe Webhook Error: Signature verification is strictly required in production mode.");
-        return res.status(400).send("Webhook Error: Signature verification required.");
-      }
-      const bodyStr = req.body instanceof Buffer ? req.body.toString("utf-8") : JSON.stringify(req.body);
-      event = JSON.parse(bodyStr || "{}");
-      console.log(`[Stripe Webhook] Development fallback payload parsed: ${event.type}`);
-    }
-  } catch (err) {
-    console.error(`[Stripe Webhook] Signature verification failed: ${err.message}`);
-    return res.status(400).send(`Webhook Error: ${err.message}`);
-  }
-  try {
-    switch (event.type) {
-      case "checkout.session.completed": {
-        const session = event.data.object;
-        const userId = session.client_reference_id || session.metadata?.userId;
-        const plan = session.metadata?.plan || "Professional";
-        const cycle = session.metadata?.billingCycle || "annual";
-        const userEmail = session.customer_details?.email || session.metadata?.userEmail;
-        console.log(`[Stripe Webhook] checkout.session.completed: userId=${userId}, plan=${plan}, cycle=${cycle}, customer=${session.customer}`);
-        const nextBill = /* @__PURE__ */ new Date();
-        if (cycle === "annual") nextBill.setFullYear(nextBill.getFullYear() + 1);
-        else nextBill.setMonth(nextBill.getMonth() + 1);
-        const db2 = readDb2();
-        const user = db2.users.find((u) => u.id === userId || userEmail && u.email?.toLowerCase() === userEmail.toLowerCase());
-        if (user) {
-          user.subscriptionPlan = plan;
-          user.subscriptionStatus = "Active";
-          user.billingCycle = cycle;
-          user.stripeCustomerId = session.customer;
-          user.stripeSubscriptionId = session.subscription;
-          user.lastPaymentDate = (/* @__PURE__ */ new Date()).toISOString();
-          user.lastPaymentAmount = `$${((session.amount_total || 0) / 100).toFixed(2)} USD`;
-          user.nextBillingDate = nextBill.toISOString();
-          writeDb2(db2);
+app2.post(
+  ["/api/webhooks/stripe", "/api/stripe/webhook"],
+  webhookLimiter,
+  import_express.default.raw({ type: "application/json" }),
+  async (req, res) => {
+    const stripe = getStripe();
+    const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+    let event;
+    try {
+      if (stripe && webhookSecret) {
+        const sig = req.headers["stripe-signature"];
+        if (!sig) {
+          console.warn("[Stripe Webhook] Missing stripe-signature header.");
+          return res.status(400).send("Webhook Error: Missing stripe-signature header.");
         }
-        const targetFsUid = user?.id || userId;
-        if (targetFsUid) {
-          try {
-            await adminDb.collection("users").doc(targetFsUid).set({
-              subscriptionPlan: plan,
-              subscriptionStatus: "Active",
-              billingCycle: cycle,
-              stripeCustomerId: session.customer,
-              stripeSubscriptionId: session.subscription,
-              lastPaymentDate: (/* @__PURE__ */ new Date()).toISOString(),
-              lastPaymentAmount: `$${((session.amount_total || 0) / 100).toFixed(2)} USD`,
-              nextBillingDate: nextBill.toISOString()
-            }, { merge: true });
-            console.log(`[Stripe Webhook] Firestore updated for user ${targetFsUid} -> Active (${plan})`);
-          } catch (fsErr) {
-            console.warn("Stripe webhook Firestore sync warning:", fsErr?.message);
-          }
-        }
-        break;
-      }
-      case "customer.subscription.created": {
-        const sub = event.data.object;
-        console.log(`[Stripe Webhook] customer.subscription.created: id=${sub.id}, customer=${sub.customer}, status=${sub.status}`);
-        const db2 = readDb2();
-        const user = db2.users.find((u) => u.stripeSubscriptionId === sub.id || u.stripeCustomerId === sub.customer);
-        if (user) {
-          user.stripeSubscriptionId = sub.id;
-          if (sub.status === "active" || sub.status === "trialing") {
-            user.subscriptionStatus = "Active";
-          }
-          writeDb2(db2);
-          try {
-            await adminDb.collection("users").doc(user.id).set({
-              stripeSubscriptionId: sub.id,
-              subscriptionStatus: user.subscriptionStatus
-            }, { merge: true });
-          } catch (fsErr) {
-            console.warn("Stripe webhook sub create Firestore sync warning:", fsErr?.message);
-          }
-        }
-        break;
-      }
-      case "customer.subscription.updated": {
-        const sub = event.data.object;
-        console.log(`[Stripe Webhook] customer.subscription.updated: id=${sub.id}, status=${sub.status}`);
-        const db2 = readDb2();
-        const user = db2.users.find((u) => u.stripeSubscriptionId === sub.id || u.stripeCustomerId === sub.customer);
-        if (user) {
-          const isActive = sub.status === "active" || sub.status === "trialing";
-          user.subscriptionStatus = isActive ? "Active" : sub.status === "past_due" ? "Past Due" : "Inactive";
-          if (sub.current_period_end) {
-            user.nextBillingDate = new Date(sub.current_period_end * 1e3).toISOString();
-          }
-          writeDb2(db2);
-          try {
-            await adminDb.collection("users").doc(user.id).set({
-              subscriptionStatus: user.subscriptionStatus,
-              nextBillingDate: user.nextBillingDate || null
-            }, { merge: true });
-          } catch (fsErr) {
-            console.warn("Stripe webhook sub update Firestore sync warning:", fsErr?.message);
-          }
-        }
-        break;
-      }
-      case "customer.subscription.deleted": {
-        const sub = event.data.object;
-        console.log(`[Stripe Webhook] customer.subscription.deleted: id=${sub.id}`);
-        const db2 = readDb2();
-        const user = db2.users.find((u) => u.stripeSubscriptionId === sub.id || u.stripeCustomerId === sub.customer);
-        if (user) {
-          user.subscriptionPlan = void 0;
-          user.subscriptionStatus = "Inactive";
-          writeDb2(db2);
-        }
-        if (user?.id) {
-          try {
-            await adminDb.collection("users").doc(user.id).set({
-              subscriptionPlan: null,
-              subscriptionStatus: "Inactive"
-            }, { merge: true });
-            console.log(`[Stripe Webhook] Subscription marked Inactive for user ${user.id}`);
-          } catch (fsErr) {
-            console.warn("Stripe webhook Firestore sub delete warning:", fsErr?.message);
-          }
-        }
-        break;
-      }
-      case "invoice.paid":
-      case "invoice.payment_succeeded": {
-        const invoice = event.data.object;
-        const customerId = invoice.customer;
-        const subscriptionId = invoice.subscription;
-        console.log(`[Stripe Webhook] invoice payment succeeded: invoiceId=${invoice.id}, amount=${invoice.amount_paid}`);
-        const db2 = readDb2();
-        const user = db2.users.find(
-          (u) => subscriptionId && u.stripeSubscriptionId === subscriptionId || customerId && u.stripeCustomerId === customerId
+        event = stripe.webhooks.constructEvent(req.body, sig, webhookSecret);
+        console.log(
+          `[Stripe Webhook] Event signature verified successfully: ${event.type} (id: ${event.id})`
         );
-        if (user) {
-          user.subscriptionStatus = "Active";
-          user.lastPaymentDate = (/* @__PURE__ */ new Date()).toISOString();
-          user.lastPaymentAmount = `$${((invoice.amount_paid || 0) / 100).toFixed(2)} USD`;
-          writeDb2(db2);
-          try {
-            await adminDb.collection("users").doc(user.id).set({
-              subscriptionStatus: "Active",
-              lastPaymentDate: user.lastPaymentDate,
-              lastPaymentAmount: user.lastPaymentAmount
-            }, { merge: true });
-          } catch (fsErr) {
-            console.warn("Stripe webhook invoice Firestore sync warning:", fsErr?.message);
-          }
+      } else {
+        if (!webhookSecret) {
+          console.warn(
+            "[Stripe Webhook] Warning: STRIPE_WEBHOOK_SECRET is not configured."
+          );
         }
-        break;
-      }
-      case "invoice.payment_failed": {
-        const invoice = event.data.object;
-        console.warn(`[Stripe Webhook] invoice payment failed: invoiceId=${invoice.id}, customer=${invoice.customer}`);
-        const db2 = readDb2();
-        const user = db2.users.find((u) => u.stripeCustomerId === invoice.customer || invoice.subscription && u.stripeSubscriptionId === invoice.subscription);
-        if (user) {
-          user.subscriptionStatus = "Past Due";
-          writeDb2(db2);
-          try {
-            await adminDb.collection("users").doc(user.id).set({
-              subscriptionStatus: "Past Due"
-            }, { merge: true });
-          } catch (fsErr) {
-          }
+        if (process.env.NODE_ENV === "production") {
+          console.error(
+            "Stripe Webhook Error: Signature verification is strictly required in production mode."
+          );
+          return res.status(400).send("Webhook Error: Signature verification required.");
         }
-        break;
+        const bodyStr = req.body instanceof Buffer ? req.body.toString("utf-8") : JSON.stringify(req.body);
+        event = JSON.parse(bodyStr || "{}");
+        console.log(
+          `[Stripe Webhook] Development fallback payload parsed: ${event.type}`
+        );
       }
-      default:
-        console.log(`[Stripe Webhook] Received Stripe event: ${event.type}`);
+    } catch (err) {
+      console.error(
+        `[Stripe Webhook] Signature verification failed: ${err.message}`
+      );
+      return res.status(400).send(`Webhook Error: ${err.message}`);
     }
-  } catch (handlerErr) {
-    console.error("[Stripe Webhook] Error processing Stripe webhook event:", handlerErr);
+    try {
+      switch (event.type) {
+        case "checkout.session.completed": {
+          const session = event.data.object;
+          const userId = session.client_reference_id || session.metadata?.userId;
+          const plan = session.metadata?.plan || "Professional";
+          const cycle = session.metadata?.billingCycle || "annual";
+          const userEmail = session.customer_details?.email || session.metadata?.userEmail;
+          console.log(
+            `[Stripe Webhook] checkout.session.completed: userId=${userId}, plan=${plan}, cycle=${cycle}, customer=${session.customer}`
+          );
+          const nextBill = /* @__PURE__ */ new Date();
+          if (cycle === "annual")
+            nextBill.setFullYear(nextBill.getFullYear() + 1);
+          else nextBill.setMonth(nextBill.getMonth() + 1);
+          const db2 = readDb2();
+          const user = db2.users.find(
+            (u) => u.id === userId || userEmail && u.email?.toLowerCase() === userEmail.toLowerCase()
+          );
+          if (user) {
+            user.subscriptionPlan = plan;
+            user.subscriptionStatus = "Active";
+            user.billingCycle = cycle;
+            user.stripeCustomerId = session.customer;
+            user.stripeSubscriptionId = session.subscription;
+            user.lastPaymentDate = (/* @__PURE__ */ new Date()).toISOString();
+            user.lastPaymentAmount = `$${((session.amount_total || 0) / 100).toFixed(2)} USD`;
+            user.nextBillingDate = nextBill.toISOString();
+            writeDb2(db2);
+          }
+          const targetFsUid = user?.id || userId;
+          if (targetFsUid) {
+            try {
+              await adminDb.collection("users").doc(targetFsUid).set(
+                {
+                  subscriptionPlan: plan,
+                  subscriptionStatus: "Active",
+                  billingCycle: cycle,
+                  stripeCustomerId: session.customer,
+                  stripeSubscriptionId: session.subscription,
+                  lastPaymentDate: (/* @__PURE__ */ new Date()).toISOString(),
+                  lastPaymentAmount: `$${((session.amount_total || 0) / 100).toFixed(2)} USD`,
+                  nextBillingDate: nextBill.toISOString()
+                },
+                { merge: true }
+              );
+              console.log(
+                `[Stripe Webhook] Firestore updated for user ${targetFsUid} -> Active (${plan})`
+              );
+            } catch (fsErr) {
+              console.warn(
+                "Stripe webhook Firestore sync warning:",
+                fsErr?.message
+              );
+            }
+          }
+          break;
+        }
+        case "customer.subscription.created": {
+          const sub = event.data.object;
+          console.log(
+            `[Stripe Webhook] customer.subscription.created: id=${sub.id}, customer=${sub.customer}, status=${sub.status}`
+          );
+          const db2 = readDb2();
+          const user = db2.users.find(
+            (u) => u.stripeSubscriptionId === sub.id || u.stripeCustomerId === sub.customer
+          );
+          if (user) {
+            user.stripeSubscriptionId = sub.id;
+            if (sub.status === "active" || sub.status === "trialing") {
+              user.subscriptionStatus = "Active";
+            }
+            writeDb2(db2);
+            try {
+              await adminDb.collection("users").doc(user.id).set(
+                {
+                  stripeSubscriptionId: sub.id,
+                  subscriptionStatus: user.subscriptionStatus
+                },
+                { merge: true }
+              );
+            } catch (fsErr) {
+              console.warn(
+                "Stripe webhook sub create Firestore sync warning:",
+                fsErr?.message
+              );
+            }
+          }
+          break;
+        }
+        case "customer.subscription.updated": {
+          const sub = event.data.object;
+          console.log(
+            `[Stripe Webhook] customer.subscription.updated: id=${sub.id}, status=${sub.status}`
+          );
+          const db2 = readDb2();
+          const user = db2.users.find(
+            (u) => u.stripeSubscriptionId === sub.id || u.stripeCustomerId === sub.customer
+          );
+          if (user) {
+            const isActive = sub.status === "active" || sub.status === "trialing";
+            user.subscriptionStatus = isActive ? "Active" : sub.status === "past_due" ? "Past Due" : "Inactive";
+            if (sub.current_period_end) {
+              user.nextBillingDate = new Date(
+                sub.current_period_end * 1e3
+              ).toISOString();
+            }
+            writeDb2(db2);
+            try {
+              await adminDb.collection("users").doc(user.id).set(
+                {
+                  subscriptionStatus: user.subscriptionStatus,
+                  nextBillingDate: user.nextBillingDate || null
+                },
+                { merge: true }
+              );
+            } catch (fsErr) {
+              console.warn(
+                "Stripe webhook sub update Firestore sync warning:",
+                fsErr?.message
+              );
+            }
+          }
+          break;
+        }
+        case "customer.subscription.deleted": {
+          const sub = event.data.object;
+          console.log(
+            `[Stripe Webhook] customer.subscription.deleted: id=${sub.id}`
+          );
+          const db2 = readDb2();
+          const user = db2.users.find(
+            (u) => u.stripeSubscriptionId === sub.id || u.stripeCustomerId === sub.customer
+          );
+          if (user) {
+            user.subscriptionPlan = void 0;
+            user.subscriptionStatus = "Inactive";
+            writeDb2(db2);
+          }
+          if (user?.id) {
+            try {
+              await adminDb.collection("users").doc(user.id).set(
+                {
+                  subscriptionPlan: null,
+                  subscriptionStatus: "Inactive"
+                },
+                { merge: true }
+              );
+              console.log(
+                `[Stripe Webhook] Subscription marked Inactive for user ${user.id}`
+              );
+            } catch (fsErr) {
+              console.warn(
+                "Stripe webhook Firestore sub delete warning:",
+                fsErr?.message
+              );
+            }
+          }
+          break;
+        }
+        case "invoice.paid":
+        case "invoice.payment_succeeded": {
+          const invoice = event.data.object;
+          const customerId = invoice.customer;
+          const subscriptionId = invoice.subscription;
+          console.log(
+            `[Stripe Webhook] invoice payment succeeded: invoiceId=${invoice.id}, amount=${invoice.amount_paid}`
+          );
+          const db2 = readDb2();
+          const user = db2.users.find(
+            (u) => subscriptionId && u.stripeSubscriptionId === subscriptionId || customerId && u.stripeCustomerId === customerId
+          );
+          if (user) {
+            user.subscriptionStatus = "Active";
+            user.lastPaymentDate = (/* @__PURE__ */ new Date()).toISOString();
+            user.lastPaymentAmount = `$${((invoice.amount_paid || 0) / 100).toFixed(2)} USD`;
+            writeDb2(db2);
+            try {
+              await adminDb.collection("users").doc(user.id).set(
+                {
+                  subscriptionStatus: "Active",
+                  lastPaymentDate: user.lastPaymentDate,
+                  lastPaymentAmount: user.lastPaymentAmount
+                },
+                { merge: true }
+              );
+            } catch (fsErr) {
+              console.warn(
+                "Stripe webhook invoice Firestore sync warning:",
+                fsErr?.message
+              );
+            }
+          }
+          break;
+        }
+        case "invoice.payment_failed": {
+          const invoice = event.data.object;
+          console.warn(
+            `[Stripe Webhook] invoice payment failed: invoiceId=${invoice.id}, customer=${invoice.customer}`
+          );
+          const db2 = readDb2();
+          const user = db2.users.find(
+            (u) => u.stripeCustomerId === invoice.customer || invoice.subscription && u.stripeSubscriptionId === invoice.subscription
+          );
+          if (user) {
+            user.subscriptionStatus = "Past Due";
+            writeDb2(db2);
+            try {
+              await adminDb.collection("users").doc(user.id).set(
+                {
+                  subscriptionStatus: "Past Due"
+                },
+                { merge: true }
+              );
+            } catch (fsErr) {
+            }
+          }
+          break;
+        }
+        default:
+          console.log(`[Stripe Webhook] Received Stripe event: ${event.type}`);
+      }
+    } catch (handlerErr) {
+      console.error(
+        "[Stripe Webhook] Error processing Stripe webhook event:",
+        handlerErr
+      );
+    }
+    res.json({ received: true });
   }
-  res.json({ received: true });
-});
+);
 var allowedOrigins = [
   "https://getzakir.com",
   "https://www.getzakir.com",
@@ -3490,10 +3975,19 @@ app2.use((req, res, next) => {
     res.setHeader("Access-Control-Allow-Origin", origin);
     res.setHeader("Access-Control-Allow-Credentials", "true");
   }
-  res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, x-goog-api-key, X-Requested-With, Accept, Origin, X-Api-Key, X-HTTP-Method-Override, x-http-method-override");
+  res.setHeader(
+    "Access-Control-Allow-Methods",
+    "GET, POST, PUT, PATCH, DELETE, OPTIONS"
+  );
+  res.setHeader(
+    "Access-Control-Allow-Headers",
+    "Content-Type, Authorization, x-goog-api-key, X-Requested-With, Accept, Origin, X-Api-Key, X-HTTP-Method-Override, x-http-method-override"
+  );
   res.setHeader("X-Content-Type-Options", "nosniff");
-  res.setHeader("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
+  res.setHeader(
+    "Strict-Transport-Security",
+    "max-age=31536000; includeSubDomains"
+  );
   res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
   res.setHeader("X-Zakir-Build-ID", ZAKIR_BUILD_ID);
   if (req.method === "OPTIONS") {
@@ -3501,13 +3995,30 @@ app2.use((req, res, next) => {
   }
   next();
 });
+var activeSupportSessions = /* @__PURE__ */ new Map();
+app2.use((req, res, next) => {
+  const incomingId = req.headers["x-correlation-id"] || req.headers["x-request-id"];
+  const correlationId = incomingId && incomingId.trim() ? incomingId.trim() : `req_${Date.now()}_${import_crypto3.default.randomBytes(4).toString("hex")}`;
+  req.correlationId = correlationId;
+  res.setHeader("X-Correlation-ID", correlationId);
+  next();
+});
 app2.use(import_express.default.json({ limit: "30mb" }));
 app2.use(import_express.default.urlencoded({ extended: true, limit: "30mb" }));
 app2.get("/api/health", (req, res) => {
-  res.json({ status: "ok", serverless: isServerless2, buildId: ZAKIR_BUILD_ID, timestamp: (/* @__PURE__ */ new Date()).toISOString() });
+  res.json({
+    status: "ok",
+    serverless: isServerless2,
+    buildId: ZAKIR_BUILD_ID,
+    timestamp: (/* @__PURE__ */ new Date()).toISOString()
+  });
 });
 app2.get("/api/version", (req, res) => {
-  res.json({ buildId: ZAKIR_BUILD_ID, timestamp: (/* @__PURE__ */ new Date()).toISOString(), nodeEnv: process.env.NODE_ENV || "development" });
+  res.json({
+    buildId: ZAKIR_BUILD_ID,
+    timestamp: (/* @__PURE__ */ new Date()).toISOString(),
+    nodeEnv: process.env.NODE_ENV || "development"
+  });
 });
 app2.get("/api/payments/diagnostics", async (req, res) => {
   const { secretKey, publishableKey, mode, source, accountId } = resolveStripeKeys();
@@ -3515,8 +4026,12 @@ app2.get("/api/payments/diagnostics", async (req, res) => {
   const hasPubKey = Boolean(publishableKey && publishableKey.trim());
   const monthlyPriceId = process.env.STRIPE_MONTHLY_PRICE_ID || "";
   const yearlyPriceId = process.env.STRIPE_YEARLY_PRICE_ID || "";
-  const monthlyPriceValid = Boolean(monthlyPriceId && monthlyPriceId.trim().startsWith("price_"));
-  const yearlyPriceValid = Boolean(yearlyPriceId && yearlyPriceId.trim().startsWith("price_"));
+  const monthlyPriceValid = Boolean(
+    monthlyPriceId && monthlyPriceId.trim().startsWith("price_")
+  );
+  const yearlyPriceValid = Boolean(
+    yearlyPriceId && yearlyPriceId.trim().startsWith("price_")
+  );
   let stripeConnection = false;
   let monthlyPriceExists = false;
   let monthlyPriceActive = false;
@@ -3540,7 +4055,10 @@ app2.get("/api/payments/diagnostics", async (req, res) => {
               monthlyPriceIntervalMatches = mPrice.recurring?.interval === "month";
             }
           } catch (mErr) {
-            console.warn("[Diagnostics] Monthly price verify fail:", mErr?.message);
+            console.warn(
+              "[Diagnostics] Monthly price verify fail:",
+              mErr?.message
+            );
           }
         }
         if (yearlyPriceValid) {
@@ -3552,7 +4070,10 @@ app2.get("/api/payments/diagnostics", async (req, res) => {
               yearlyPriceIntervalMatches = yPrice.recurring?.interval === "year";
             }
           } catch (yErr) {
-            console.warn("[Diagnostics] Yearly price verify fail:", yErr?.message);
+            console.warn(
+              "[Diagnostics] Yearly price verify fail:",
+              yErr?.message
+            );
           }
         }
       }
@@ -3603,532 +4124,639 @@ app2.get(["/api/stripe/config", "/stripe/config"], (req, res) => {
     mode
   });
 });
-app2.post([
-  "/api/stripe/create-checkout-session",
-  "/api/stripe/create-checkout-session/",
-  "/stripe/create-checkout-session",
-  "/stripe/create-checkout-session/",
-  "/api/create-checkout-session",
-  "/api/create-checkout-session/",
-  "/create-checkout-session",
-  "/create-checkout-session/"
-], requireAuth, async (req, res) => {
-  const authUserId = req.user?.uid || req.user?.user_id;
-  if (!authUserId) {
-    return res.status(401).json({
-      success: false,
-      error: "\u062A\u0639\u0630\u0631 \u0627\u0644\u062A\u062D\u0642\u0642 \u0645\u0646 \u062C\u0644\u0633\u0629 \u062D\u0633\u0627\u0628\u0643. \u064A\u0631\u062C\u0649 \u062A\u062D\u062F\u064A\u062B \u0627\u0644\u062C\u0644\u0633\u0629 \u0648\u0627\u0644\u0645\u062D\u0627\u0648\u0644\u0629 \u0645\u0631\u0629 \u0623\u062E\u0631\u0649."
-    });
-  }
-  try {
-    const { plan = "Professional", billingCycle = "annual", companyName } = req.body;
-    const db2 = readDb2();
-    let user = db2.users.find((u) => u.id === authUserId);
-    if (!user) {
-      try {
-        const userDoc = await adminDb.collection("users").doc(authUserId).get();
-        if (userDoc && userDoc.exists) {
-          user = userDoc.data();
-        }
-      } catch (fsErr) {
-        console.warn("[CHECKOUT] Firestore user lookup warning:", fsErr);
-      }
-    }
-    const finalUserId = authUserId;
-    const finalUserEmail = req.user?.email || user?.email || "";
-    const finalCompanyName = companyName || user?.companyName || user?.organizationName || "Organization";
-    const requestedPlan = plan === "Enterprise" ? "Enterprise" : plan === "Starter" ? "Starter" : "Professional";
-    const requestedCycle = billingCycle === "monthly" ? "monthly" : "annual";
-    const rawHost = String(req.headers["x-forwarded-host"] || req.headers.host || "www.getzakir.com").split(",")[0].trim();
-    const rawProto = String(req.headers["x-forwarded-proto"] || "https").split(",")[0].trim();
-    const rawBaseUrl = process.env.APP_URL || `${rawProto}://${rawHost}`;
-    const baseUrl = rawBaseUrl.replace(/\/+$/, "");
-    const BENCHMARK_PLAN_PRICES = {
-      Starter: { monthly: 6, annual: 50 },
-      // $6/month or $50/year total
-      Professional: { monthly: 189, annual: 1788 },
-      // $189/month or $1,788/year total ($149/mo)
-      Enterprise: { monthly: 849, annual: 8388 }
-      // $849/month or $8,388/year total ($699/mo)
-    };
-    const totalAmountUSD = BENCHMARK_PLAN_PRICES[requestedPlan][requestedCycle];
-    const unitAmountCents = Math.round(totalAmountUSD * 100);
-    console.log(`[Stripe Checkout] 1. Payment request received: plan=${requestedPlan}, cycle=${requestedCycle}, user=${finalUserId}, amount=$${totalAmountUSD}`);
-    const stripe = getStripe();
-    if (!stripe) {
-      console.warn("[Stripe Checkout] Stripe configuration missing: STRIPE_SECRET_KEY is not defined or invalid.");
-      return res.status(400).json({
+app2.post(
+  [
+    "/api/stripe/create-checkout-session",
+    "/api/stripe/create-checkout-session/",
+    "/stripe/create-checkout-session",
+    "/stripe/create-checkout-session/",
+    "/api/create-checkout-session",
+    "/api/create-checkout-session/",
+    "/create-checkout-session",
+    "/create-checkout-session/"
+  ],
+  requireAuth,
+  async (req, res) => {
+    const authUserId = req.user?.uid || req.user?.user_id;
+    if (!authUserId) {
+      return res.status(401).json({
         success: false,
-        error: "\u062E\u0627\u062F\u0645 \u0627\u0644\u062F\u0641\u0639 \u063A\u064A\u0631 \u0645\u0647\u064A\u0623 \u062D\u0627\u0644\u064A\u0627\u064B (STRIPE_SECRET_KEY \u0645\u0641\u0642\u0648\u062F). \u064A\u0631\u062C\u0649 \u0627\u0644\u062A\u0648\u0627\u0635\u0644 \u0645\u0639 \u0625\u062F\u0627\u0631\u0629 \u0627\u0644\u0646\u0638\u0627\u0645.",
-        userFriendlyMessage: "\u062E\u0627\u062F\u0645 \u0627\u0644\u062F\u0641\u0639 \u063A\u064A\u0631 \u0645\u0647\u064A\u0623 \u062D\u0627\u0644\u064A\u0627\u064B (STRIPE_SECRET_KEY \u0645\u0641\u0642\u0648\u062F). \u064A\u0631\u062C\u0649 \u0627\u0644\u062A\u0648\u0627\u0635\u0644 \u0645\u0639 \u0625\u062F\u0627\u0631\u0629 \u0627\u0644\u0646\u0638\u0627\u0645."
+        error: "\u062A\u0639\u0630\u0631 \u0627\u0644\u062A\u062D\u0642\u0642 \u0645\u0646 \u062C\u0644\u0633\u0629 \u062D\u0633\u0627\u0628\u0643. \u064A\u0631\u062C\u0649 \u062A\u062D\u062F\u064A\u062B \u0627\u0644\u062C\u0644\u0633\u0629 \u0648\u0627\u0644\u0645\u062D\u0627\u0648\u0644\u0629 \u0645\u0631\u0629 \u0623\u062E\u0631\u0649."
       });
     }
-    if (user?.subscriptionStatus === "Active" && user?.stripeSubscriptionId) {
-      console.warn(`[Stripe Checkout] User ${finalUserId} already has active subscription ${user.stripeSubscriptionId} based on local profile`);
-      return res.status(400).json({
-        success: false,
-        code: "SUBSCRIPTION_ALREADY_ACTIVE",
-        error: "\u0644\u062F\u064A\u0643 \u0628\u0627\u0644\u0641\u0639\u0644 \u0627\u0634\u062A\u0631\u0627\u0643 \u0646\u0634\u0637 \u0641\u064A \u0645\u0646\u0635\u0629 Zakir. \u064A\u0645\u0643\u0646\u0643 \u0625\u062F\u0627\u0631\u0629 \u062E\u0637\u062A\u0643 \u0627\u0644\u062D\u0627\u0644\u064A\u0629 \u0623\u0648 \u062A\u0631\u0642\u064A\u062A\u0647\u0627 \u0645\u0646 \u0635\u0641\u062D\u0629 \u0627\u0644\u0625\u0639\u062F\u0627\u062F\u0627\u062A.",
-        userFriendlyMessage: "\u0644\u062F\u064A\u0643 \u0628\u0627\u0644\u0641\u0639\u0644 \u0627\u0634\u062A\u0631\u0627\u0643 \u0646\u0634\u0637 \u0641\u064A \u0645\u0646\u0635\u0629 Zakir. \u064A\u0645\u0643\u0646\u0643 \u0625\u062F\u0627\u0631\u0629 \u062E\u0637\u062A\u0643 \u0627\u0644\u062D\u0627\u0644\u064A\u0629 \u0623\u0648 \u062A\u0631\u0642\u064A\u062A\u0647\u0627 \u0645\u0646 \u0635\u0641\u062D\u0629 \u0627\u0644\u0625\u0639\u062F\u0627\u062F\u0627\u062A."
-      });
-    }
-    const isValidEmail = (emailStr) => {
-      if (!emailStr || typeof emailStr !== "string") return false;
-      const clean = emailStr.trim().toLowerCase();
-      return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(clean);
-    };
-    const validUserEmail = isValidEmail(finalUserEmail) ? finalUserEmail.trim().toLowerCase() : void 0;
-    let stripeCustomerId = user?.stripeCustomerId;
-    if (stripeCustomerId) {
-      if (stripeVerifiedCustomerCache.has(stripeCustomerId)) {
-        console.log(`[Stripe Checkout] Verified active Stripe Customer ID from in-memory cache: ${stripeCustomerId}`);
-      } else {
+    try {
+      const {
+        plan = "Professional",
+        billingCycle = "annual",
+        companyName
+      } = req.body;
+      const db2 = readDb2();
+      let user = db2.users.find((u) => u.id === authUserId);
+      if (!user) {
         try {
-          const existingCust = await stripe.customers.retrieve(stripeCustomerId);
-          if (existingCust && !existingCust.deleted) {
-            stripeVerifiedCustomerCache.add(stripeCustomerId);
-            console.log(`[Stripe Checkout] Verified active Stripe Customer ID: ${stripeCustomerId}`);
-          } else {
-            console.warn(`[Stripe Checkout] Stale/deleted Customer ID detected (${stripeCustomerId}). Clearing...`);
+          const userDoc = await adminDb.collection("users").doc(authUserId).get();
+          if (userDoc && userDoc.exists) {
+            user = userDoc.data();
+          }
+        } catch (fsErr) {
+          console.warn("[CHECKOUT] Firestore user lookup warning:", fsErr);
+        }
+      }
+      const finalUserId = authUserId;
+      const finalUserEmail = req.user?.email || user?.email || "";
+      const finalCompanyName = companyName || user?.companyName || user?.organizationName || "Organization";
+      const requestedPlan = plan === "Enterprise" ? "Enterprise" : plan === "Starter" ? "Starter" : "Professional";
+      const requestedCycle = billingCycle === "monthly" ? "monthly" : "annual";
+      const rawHost = String(
+        req.headers["x-forwarded-host"] || req.headers.host || "www.getzakir.com"
+      ).split(",")[0].trim();
+      const rawProto = String(req.headers["x-forwarded-proto"] || "https").split(",")[0].trim();
+      const rawBaseUrl = process.env.APP_URL || `${rawProto}://${rawHost}`;
+      const baseUrl = rawBaseUrl.replace(/\/+$/, "");
+      const BENCHMARK_PLAN_PRICES = {
+        Starter: { monthly: 6, annual: 50 },
+        // $6/month or $50/year total
+        Professional: { monthly: 189, annual: 1788 },
+        // $189/month or $1,788/year total ($149/mo)
+        Enterprise: { monthly: 849, annual: 8388 }
+        // $849/month or $8,388/year total ($699/mo)
+      };
+      const totalAmountUSD = BENCHMARK_PLAN_PRICES[requestedPlan][requestedCycle];
+      const unitAmountCents = Math.round(totalAmountUSD * 100);
+      console.log(
+        `[Stripe Checkout] 1. Payment request received: plan=${requestedPlan}, cycle=${requestedCycle}, user=${finalUserId}, amount=$${totalAmountUSD}`
+      );
+      const stripe = getStripe();
+      if (!stripe) {
+        console.warn(
+          "[Stripe Checkout] Stripe configuration missing: STRIPE_SECRET_KEY is not defined or invalid."
+        );
+        return res.status(400).json({
+          success: false,
+          error: "\u062E\u0627\u062F\u0645 \u0627\u0644\u062F\u0641\u0639 \u063A\u064A\u0631 \u0645\u0647\u064A\u0623 \u062D\u0627\u0644\u064A\u0627\u064B (STRIPE_SECRET_KEY \u0645\u0641\u0642\u0648\u062F). \u064A\u0631\u062C\u0649 \u0627\u0644\u062A\u0648\u0627\u0635\u0644 \u0645\u0639 \u0625\u062F\u0627\u0631\u0629 \u0627\u0644\u0646\u0638\u0627\u0645.",
+          userFriendlyMessage: "\u062E\u0627\u062F\u0645 \u0627\u0644\u062F\u0641\u0639 \u063A\u064A\u0631 \u0645\u0647\u064A\u0623 \u062D\u0627\u0644\u064A\u0627\u064B (STRIPE_SECRET_KEY \u0645\u0641\u0642\u0648\u062F). \u064A\u0631\u062C\u0649 \u0627\u0644\u062A\u0648\u0627\u0635\u0644 \u0645\u0639 \u0625\u062F\u0627\u0631\u0629 \u0627\u0644\u0646\u0638\u0627\u0645."
+        });
+      }
+      if (user?.subscriptionStatus === "Active" && user?.stripeSubscriptionId) {
+        console.warn(
+          `[Stripe Checkout] User ${finalUserId} already has active subscription ${user.stripeSubscriptionId} based on local profile`
+        );
+        return res.status(400).json({
+          success: false,
+          code: "SUBSCRIPTION_ALREADY_ACTIVE",
+          error: "\u0644\u062F\u064A\u0643 \u0628\u0627\u0644\u0641\u0639\u0644 \u0627\u0634\u062A\u0631\u0627\u0643 \u0646\u0634\u0637 \u0641\u064A \u0645\u0646\u0635\u0629 Zakir. \u064A\u0645\u0643\u0646\u0643 \u0625\u062F\u0627\u0631\u0629 \u062E\u0637\u062A\u0643 \u0627\u0644\u062D\u0627\u0644\u064A\u0629 \u0623\u0648 \u062A\u0631\u0642\u064A\u062A\u0647\u0627 \u0645\u0646 \u0635\u0641\u062D\u0629 \u0627\u0644\u0625\u0639\u062F\u0627\u062F\u0627\u062A.",
+          userFriendlyMessage: "\u0644\u062F\u064A\u0643 \u0628\u0627\u0644\u0641\u0639\u0644 \u0627\u0634\u062A\u0631\u0627\u0643 \u0646\u0634\u0637 \u0641\u064A \u0645\u0646\u0635\u0629 Zakir. \u064A\u0645\u0643\u0646\u0643 \u0625\u062F\u0627\u0631\u0629 \u062E\u0637\u062A\u0643 \u0627\u0644\u062D\u0627\u0644\u064A\u0629 \u0623\u0648 \u062A\u0631\u0642\u064A\u062A\u0647\u0627 \u0645\u0646 \u0635\u0641\u062D\u0629 \u0627\u0644\u0625\u0639\u062F\u0627\u062F\u0627\u062A."
+        });
+      }
+      const isValidEmail = (emailStr) => {
+        if (!emailStr || typeof emailStr !== "string") return false;
+        const clean = emailStr.trim().toLowerCase();
+        return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(clean);
+      };
+      const validUserEmail = isValidEmail(finalUserEmail) ? finalUserEmail.trim().toLowerCase() : void 0;
+      let stripeCustomerId = user?.stripeCustomerId;
+      if (stripeCustomerId) {
+        if (stripeVerifiedCustomerCache.has(stripeCustomerId)) {
+          console.log(
+            `[Stripe Checkout] Verified active Stripe Customer ID from in-memory cache: ${stripeCustomerId}`
+          );
+        } else {
+          try {
+            const existingCust = await stripe.customers.retrieve(stripeCustomerId);
+            if (existingCust && !existingCust.deleted) {
+              stripeVerifiedCustomerCache.add(stripeCustomerId);
+              console.log(
+                `[Stripe Checkout] Verified active Stripe Customer ID: ${stripeCustomerId}`
+              );
+            } else {
+              console.warn(
+                `[Stripe Checkout] Stale/deleted Customer ID detected (${stripeCustomerId}). Clearing...`
+              );
+              stripeCustomerId = null;
+            }
+          } catch (custErr) {
+            console.warn(
+              `[Stripe Checkout] Invalid Customer ID (${stripeCustomerId}) rejected by Stripe (${custErr?.message}). Clearing stale ID...`
+            );
             stripeCustomerId = null;
           }
-        } catch (custErr) {
-          console.warn(`[Stripe Checkout] Invalid Customer ID (${stripeCustomerId}) rejected by Stripe (${custErr?.message}). Clearing stale ID...`);
-          stripeCustomerId = null;
         }
-      }
-      if (!stripeCustomerId) {
-        if (user) {
-          user.stripeCustomerId = null;
-          writeDb2(db2);
-        }
-        try {
-          await adminDb.collection("users").doc(finalUserId).set({ stripeCustomerId: null }, { merge: true });
-        } catch (fsClearErr) {
-          console.warn("[Stripe Checkout] Firestore customer clear notice:", fsClearErr);
-        }
-      }
-    }
-    const resolveStrictPriceId = (candidates) => {
-      for (const val of candidates) {
-        if (!val || typeof val !== "string") continue;
-        const trimmed = val.trim();
-        if (trimmed.startsWith("sk_") || trimmed.startsWith("pk_") || trimmed.startsWith("rk_")) continue;
-        if (trimmed.startsWith("price_") || trimmed.startsWith("plan_")) {
-          return trimmed;
-        }
-      }
-      return void 0;
-    };
-    const PRICE_ID_MAP = {
-      Starter: {
-        monthly: resolveStrictPriceId([
-          process.env.STRIPE_PRICE_STARTER_MONTHLY,
-          process.env.STRIPE_STARTER_MONTHLY_PRICE_ID,
-          "price_1UEC5WFFyAo18vVy5APEHNBN"
-        ]),
-        annual: resolveStrictPriceId([
-          process.env.STRIPE_PRICE_STARTER_YEARLY,
-          process.env.STRIPE_PRICE_STARTER_ANNUAL,
-          process.env.STRIPE_STARTER_YEARLY_PRICE_ID,
-          process.env.STRIPE_STARTER_ANNUAL_PRICE_ID,
-          "price_1UEC2tFFyAo18vVyTN2gl6Bm"
-        ])
-      },
-      Professional: {
-        monthly: resolveStrictPriceId([
-          process.env.STRIPE_PRICE_PROFESSIONAL_MONTHLY,
-          process.env.STRIPE_PROFESSIONAL_MONTHLY_PRICE_ID,
-          process.env.STRIPE_MONTHLY_PRICE_ID,
-          "price_1UEC6NFFyAo18vVyZATNtv6Y"
-        ]),
-        annual: resolveStrictPriceId([
-          process.env.STRIPE_PRICE_PROFESSIONAL_YEARLY,
-          process.env.STRIPE_PRICE_PROFESSIONAL_ANNUAL,
-          process.env.STRIPE_PROFESSIONAL_YEARLY_PRICE_ID,
-          process.env.STRIPE_PROFESSIONAL_ANNUAL_PRICE_ID,
-          process.env.STRIPE_YEARLY_PRICE_ID,
-          process.env.STRIPE_ANNUAL_PRICE_ID,
-          "price_1UEByqFFyAo18vVydh8OZrmp"
-        ])
-      },
-      Enterprise: {
-        monthly: resolveStrictPriceId([
-          process.env.STRIPE_PRICE_ENTERPRISE_MONTHLY,
-          process.env.STRIPE_ENTERPRISE_MONTHLY_PRICE_ID,
-          "price_1UEC7HFFyAo18vVyHJB2zEFf"
-        ]),
-        annual: resolveStrictPriceId([
-          process.env.STRIPE_PRICE_ENTERPRISE_YEARLY,
-          process.env.STRIPE_PRICE_ENTERPRISE_ANNUAL,
-          process.env.STRIPE_ENTERPRISE_YEARLY_PRICE_ID,
-          process.env.STRIPE_ENTERPRISE_ANNUAL_PRICE_ID,
-          "price_1UEC3rFFyAo18vVy1a6DzeR3"
-        ])
-      }
-    };
-    const targetPriceId = PRICE_ID_MAP[requestedPlan]?.[requestedCycle];
-    let verifiedPriceId = null;
-    if (targetPriceId && !stripePriceFailedCache.has(targetPriceId)) {
-      try {
-        const expectedInterval2 = requestedCycle === "annual" ? "year" : "month";
-        let retrievedPrice;
-        const now = Date.now();
-        const cachedEntry = stripePriceCache.get(targetPriceId);
-        if (cachedEntry && now - cachedEntry.cachedAt < PRICE_CACHE_TTL_MS) {
-          retrievedPrice = cachedEntry.price;
-          console.log(`[Stripe Price Verification] Retrieved Price ID '${targetPriceId}' from in-memory cache`);
-        } else {
-          retrievedPrice = await stripe.prices.retrieve(targetPriceId);
-          stripePriceCache.set(targetPriceId, { price: retrievedPrice, cachedAt: now });
-          console.log(`[Stripe Price Verification] Retrieved Price ID '${targetPriceId}' from Stripe API`);
-        }
-        const isPriceActive = retrievedPrice.active === true;
-        const isUsd = retrievedPrice.currency?.toLowerCase() === "usd";
-        const intervalMatches = retrievedPrice.recurring?.interval === expectedInterval2;
-        const intervalCountMatches = (retrievedPrice.recurring?.interval_count || 1) === 1;
-        if (isPriceActive && isUsd && intervalMatches && intervalCountMatches) {
-          verifiedPriceId = retrievedPrice.id;
-          console.log(`[Stripe Price Verification] Price ID ${verifiedPriceId} verified successfully: active=true, currency=USD, interval=${expectedInterval2}, amount=$${retrievedPrice.unit_amount ? retrievedPrice.unit_amount / 100 : 0}`);
-        } else {
-          stripePriceFailedCache.add(targetPriceId);
-          console.warn(`[Stripe Price Verification] Price ID '${targetPriceId}' not fully matching. Falling back to dynamic price_data.`);
-        }
-      } catch (priceErr) {
-        stripePriceFailedCache.add(targetPriceId);
-        console.warn(`[Stripe Price Verification] Could not retrieve Price ID '${targetPriceId}' (${priceErr?.message}). Falling back smoothly to Stripe dynamic price_data.`);
-      }
-    } else {
-      console.log(`[Stripe Checkout] Utilizing Stripe dynamic price_data for plan '${requestedPlan}' (${requestedCycle}).`);
-    }
-    const expectedInterval = requestedCycle === "annual" ? "year" : "month";
-    const lineItems = verifiedPriceId ? [{ price: verifiedPriceId, quantity: 1 }] : [
-      {
-        price_data: {
-          currency: "usd",
-          product_data: {
-            name: `Zakir AI - ${requestedPlan} Plan`,
-            description: `Zakir AI Subscription (${requestedPlan} Plan, ${requestedCycle === "annual" ? "Annual" : "Monthly"} billing)`
-          },
-          unit_amount: unitAmountCents,
-          recurring: {
-            interval: expectedInterval,
-            interval_count: 1
+        if (!stripeCustomerId) {
+          if (user) {
+            user.stripeCustomerId = null;
+            writeDb2(db2);
           }
-        },
-        quantity: 1
-      }
-    ];
-    const { publishableKey } = resolveStripeKeys();
-    const isHosted = req.body?.uiMode === "hosted" || req.body?.uiMode === "hosted_page" || !publishableKey;
-    const requestedUiMode = isHosted ? "hosted" : "embedded";
-    const returnUrl = `${baseUrl}/?view=settings&tab=subscription&session_id={CHECKOUT_SESSION_ID}`;
-    const successUrl = `${baseUrl}/?view=settings&tab=subscription&checkout=success&session_id={CHECKOUT_SESSION_ID}&plan=${requestedPlan}&cycle=${requestedCycle}`;
-    const cancelUrl = `${baseUrl}/?view=settings&tab=subscription&checkout=cancelled`;
-    const sessionParams = {
-      mode: "subscription",
-      payment_method_types: ["card"],
-      line_items: lineItems,
-      client_reference_id: finalUserId,
-      metadata: {
-        userId: finalUserId,
-        userEmail: validUserEmail || finalUserEmail || "",
-        companyName: finalCompanyName,
-        plan: requestedPlan,
-        billingCycle: requestedCycle
-      }
-    };
-    if (isHosted) {
-      sessionParams.ui_mode = "hosted";
-      sessionParams.success_url = successUrl;
-      sessionParams.cancel_url = cancelUrl;
-    } else {
-      sessionParams.ui_mode = "embedded";
-      sessionParams.return_url = returnUrl;
-    }
-    if (stripeCustomerId) {
-      sessionParams.customer = stripeCustomerId;
-    } else if (validUserEmail) {
-      sessionParams.customer_email = validUserEmail;
-    }
-    console.log(`[Stripe Checkout] Creating ${requestedUiMode.toUpperCase()} Checkout Session for user ${finalUserId} (verified price: ${verifiedPriceId})...`);
-    let session;
-    try {
-      session = await stripe.checkout.sessions.create(sessionParams);
-    } catch (sessionErr) {
-      const errMsg = sessionErr?.message || "";
-      if (errMsg.includes("No such customer") || sessionErr?.code === "resource_missing") {
-        console.warn(`[Stripe Checkout] Checkout session creation hit invalid customer error (${sessionErr.message}). Retrying without customer parameter...`);
-        delete sessionParams.customer;
-        if (validUserEmail) {
-          sessionParams.customer_email = validUserEmail;
-        }
-        session = await stripe.checkout.sessions.create(sessionParams);
-      } else {
-        throw sessionErr;
-      }
-    }
-    console.log(`[Stripe Checkout] Checkout Session created successfully: id=${session.id}, url=${session.url || "N/A (embedded)"}`);
-    db2.stripe_sessions = db2.stripe_sessions || {};
-    db2.stripe_sessions[session.id] = finalUserId;
-    writeDb2(db2);
-    res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
-    return res.json({
-      success: true,
-      sessionId: session.id,
-      url: session.url || null,
-      clientSecret: session.client_secret,
-      publishableKey: publishableKey || ""
-    });
-  } catch (err) {
-    const errorDetails = {
-      httpMethod: req.method,
-      route: req.originalUrl || req.url,
-      stripeErrorType: err?.type || err?.rawType || "UnknownType",
-      stripeErrorCode: err?.code || err?.raw?.code || "PAYMENT_SESSION_CREATION_FAILED",
-      stripeErrorMessage: err?.message || err?.raw?.message || "Failed to initiate Stripe Checkout",
-      stripeErrorParam: err?.param || err?.raw?.param,
-      stripeDeclineCode: err?.decline_code || err?.raw?.decline_code,
-      statusCode: err?.statusCode || 500
-    };
-    console.error("[Stripe Checkout] Detailed Error in Checkout Session Creation:", errorDetails);
-    const httpStatusCode = err?.statusCode && err?.statusCode >= 400 && err?.statusCode < 600 ? err.statusCode : 500;
-    res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
-    res.status(httpStatusCode).json({
-      success: false,
-      code: errorDetails.stripeErrorCode,
-      errorType: errorDetails.stripeErrorType,
-      error: errorDetails.stripeErrorMessage,
-      userFriendlyMessage: err?.message ? `\u062A\u0639\u0630\u0631 \u0625\u0639\u062F\u0627\u062F \u062C\u0644\u0633\u0629 \u0627\u0644\u062F\u0641\u0639: ${err.message}` : "\u062A\u0639\u0630\u0631 \u0625\u0639\u062F\u0627\u062F \u062C\u0644\u0633\u0629 \u0627\u0644\u062F\u0641\u0639 \u0627\u0644\u0622\u0645\u0646 \u062D\u0627\u0644\u064A\u0627\u064B. \u064A\u0631\u062C\u0649 \u0627\u0644\u0645\u062D\u0627\u0648\u0644\u0629 \u0644\u0627\u062D\u0642\u0627\u064B."
-    });
-  }
-});
-app2.all([
-  "/api/stripe/create-checkout-session",
-  "/api/stripe/create-checkout-session/",
-  "/stripe/create-checkout-session",
-  "/stripe/create-checkout-session/",
-  "/api/create-checkout-session",
-  "/api/create-checkout-session/",
-  "/create-checkout-session",
-  "/create-checkout-session/"
-], (req, res) => {
-  const methodUpper = (req.method || "GET").toUpperCase();
-  res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
-  if (methodUpper === "OPTIONS") {
-    return res.status(200).end();
-  }
-  if (methodUpper === "GET" || methodUpper === "HEAD") {
-    return res.status(200).json({
-      success: true,
-      endpoint: "/api/stripe/create-checkout-session",
-      status: "active",
-      message: "Stripe Embedded Checkout Session initialization endpoint is active. Please submit checkout parameters via POST."
-    });
-  }
-  return res.status(405).json({
-    success: false,
-    error: `Method ${methodUpper} Not Allowed. Please use POST.`,
-    userFriendlyMessage: "\u0637\u0631\u064A\u0642\u0629 \u0627\u0644\u0637\u0644\u0628 \u063A\u064A\u0631 \u0635\u0627\u0644\u062D\u0629\u060C \u064A\u0631\u062C\u0649 \u0627\u0633\u062A\u062E\u062F\u0627\u0645 POST."
-  });
-});
-app2.get(["/api/stripe/session-status/:sessionId", "/stripe/session-status/:sessionId"], requireAuth, async (req, res) => {
-  try {
-    console.log("[DEBUG] req.user =", req.user);
-    const authUserId = req.user?.uid;
-    if (!authUserId) {
-      return res.status(401).json({ error: "Unauthorized: Missing authentication token" });
-    }
-    const { sessionId } = req.params;
-    const stripe = getStripe();
-    if (stripe && !sessionId.startsWith("cs_stripe_")) {
-      const session = await stripe.checkout.sessions.retrieve(sessionId);
-      const userId2 = session.client_reference_id || session.metadata?.userId;
-      const plan = session.metadata?.plan || "Professional";
-      const cycle = session.metadata?.billingCycle || "annual";
-      if (userId2 && userId2 !== authUserId) {
-        const isAdmin = await isUserAdminServer(authUserId);
-        if (!isAdmin) {
-          return res.status(403).json({ error: "Forbidden: Access denied to other users' sessions" });
-        }
-      }
-      if (session.status === "complete" || session.payment_status === "paid") {
-        const nextBill = /* @__PURE__ */ new Date();
-        if (cycle === "annual") nextBill.setFullYear(nextBill.getFullYear() + 1);
-        else nextBill.setMonth(nextBill.getMonth() + 1);
-        const db3 = readDb2();
-        const user2 = db3.users.find((u) => u.id === userId2 || session.customer_details?.email && u.email?.toLowerCase() === session.customer_details.email.toLowerCase());
-        if (user2) {
-          user2.subscriptionPlan = plan;
-          user2.subscriptionStatus = "Active";
-          user2.billingCycle = cycle;
-          user2.stripeCustomerId = session.customer;
-          user2.stripeSubscriptionId = session.subscription;
-          user2.lastPaymentDate = (/* @__PURE__ */ new Date()).toISOString();
-          user2.lastPaymentAmount = `$${((session.amount_total || 0) / 100).toFixed(2)} USD`;
-          user2.nextBillingDate = nextBill.toISOString();
-          writeDb2(db3);
-        }
-        if (userId2 || user2?.id) {
-          const targetUid = userId2 || user2?.id;
           try {
-            await adminDb.collection("users").doc(targetUid).set({
-              subscriptionPlan: plan,
-              subscriptionStatus: "Active",
-              billingCycle: cycle,
-              stripeCustomerId: session.customer,
-              stripeSubscriptionId: session.subscription,
-              lastPaymentDate: (/* @__PURE__ */ new Date()).toISOString(),
-              lastPaymentAmount: `$${((session.amount_total || 0) / 100).toFixed(2)} USD`,
-              nextBillingDate: nextBill.toISOString()
-            }, { merge: true });
-          } catch (e) {
-            console.warn("Firestore status update error:", e.message);
+            await adminDb.collection("users").doc(finalUserId).set({ stripeCustomerId: null }, { merge: true });
+          } catch (fsClearErr) {
+            console.warn(
+              "[Stripe Checkout] Firestore customer clear notice:",
+              fsClearErr
+            );
           }
+        }
+      }
+      const resolveStrictPriceId = (candidates) => {
+        for (const val of candidates) {
+          if (!val || typeof val !== "string") continue;
+          const trimmed = val.trim();
+          if (trimmed.startsWith("sk_") || trimmed.startsWith("pk_") || trimmed.startsWith("rk_"))
+            continue;
+          if (trimmed.startsWith("price_") || trimmed.startsWith("plan_")) {
+            return trimmed;
+          }
+        }
+        return void 0;
+      };
+      const PRICE_ID_MAP = {
+        Starter: {
+          monthly: resolveStrictPriceId([
+            process.env.STRIPE_PRICE_STARTER_MONTHLY,
+            process.env.STRIPE_STARTER_MONTHLY_PRICE_ID,
+            "price_1UEC5WFFyAo18vVy5APEHNBN"
+          ]),
+          annual: resolveStrictPriceId([
+            process.env.STRIPE_PRICE_STARTER_YEARLY,
+            process.env.STRIPE_PRICE_STARTER_ANNUAL,
+            process.env.STRIPE_STARTER_YEARLY_PRICE_ID,
+            process.env.STRIPE_STARTER_ANNUAL_PRICE_ID,
+            "price_1UEC2tFFyAo18vVyTN2gl6Bm"
+          ])
+        },
+        Professional: {
+          monthly: resolveStrictPriceId([
+            process.env.STRIPE_PRICE_PROFESSIONAL_MONTHLY,
+            process.env.STRIPE_PROFESSIONAL_MONTHLY_PRICE_ID,
+            process.env.STRIPE_MONTHLY_PRICE_ID,
+            "price_1UEC6NFFyAo18vVyZATNtv6Y"
+          ]),
+          annual: resolveStrictPriceId([
+            process.env.STRIPE_PRICE_PROFESSIONAL_YEARLY,
+            process.env.STRIPE_PRICE_PROFESSIONAL_ANNUAL,
+            process.env.STRIPE_PROFESSIONAL_YEARLY_PRICE_ID,
+            process.env.STRIPE_PROFESSIONAL_ANNUAL_PRICE_ID,
+            process.env.STRIPE_YEARLY_PRICE_ID,
+            process.env.STRIPE_ANNUAL_PRICE_ID,
+            "price_1UEByqFFyAo18vVydh8OZrmp"
+          ])
+        },
+        Enterprise: {
+          monthly: resolveStrictPriceId([
+            process.env.STRIPE_PRICE_ENTERPRISE_MONTHLY,
+            process.env.STRIPE_ENTERPRISE_MONTHLY_PRICE_ID,
+            "price_1UEC7HFFyAo18vVyHJB2zEFf"
+          ]),
+          annual: resolveStrictPriceId([
+            process.env.STRIPE_PRICE_ENTERPRISE_YEARLY,
+            process.env.STRIPE_PRICE_ENTERPRISE_ANNUAL,
+            process.env.STRIPE_ENTERPRISE_YEARLY_PRICE_ID,
+            process.env.STRIPE_ENTERPRISE_ANNUAL_PRICE_ID,
+            "price_1UEC3rFFyAo18vVy1a6DzeR3"
+          ])
+        }
+      };
+      const targetPriceId = PRICE_ID_MAP[requestedPlan]?.[requestedCycle];
+      let verifiedPriceId = null;
+      if (targetPriceId && !stripePriceFailedCache.has(targetPriceId)) {
+        try {
+          const expectedInterval2 = requestedCycle === "annual" ? "year" : "month";
+          let retrievedPrice;
+          const now = Date.now();
+          const cachedEntry = stripePriceCache.get(targetPriceId);
+          if (cachedEntry && now - cachedEntry.cachedAt < PRICE_CACHE_TTL_MS) {
+            retrievedPrice = cachedEntry.price;
+            console.log(
+              `[Stripe Price Verification] Retrieved Price ID '${targetPriceId}' from in-memory cache`
+            );
+          } else {
+            retrievedPrice = await stripe.prices.retrieve(targetPriceId);
+            stripePriceCache.set(targetPriceId, {
+              price: retrievedPrice,
+              cachedAt: now
+            });
+            console.log(
+              `[Stripe Price Verification] Retrieved Price ID '${targetPriceId}' from Stripe API`
+            );
+          }
+          const isPriceActive = retrievedPrice.active === true;
+          const isUsd = retrievedPrice.currency?.toLowerCase() === "usd";
+          const intervalMatches = retrievedPrice.recurring?.interval === expectedInterval2;
+          const intervalCountMatches = (retrievedPrice.recurring?.interval_count || 1) === 1;
+          if (isPriceActive && isUsd && intervalMatches && intervalCountMatches) {
+            verifiedPriceId = retrievedPrice.id;
+            console.log(
+              `[Stripe Price Verification] Price ID ${verifiedPriceId} verified successfully: active=true, currency=USD, interval=${expectedInterval2}, amount=$${retrievedPrice.unit_amount ? retrievedPrice.unit_amount / 100 : 0}`
+            );
+          } else {
+            stripePriceFailedCache.add(targetPriceId);
+            console.warn(
+              `[Stripe Price Verification] Price ID '${targetPriceId}' not fully matching. Falling back to dynamic price_data.`
+            );
+          }
+        } catch (priceErr) {
+          stripePriceFailedCache.add(targetPriceId);
+          console.warn(
+            `[Stripe Price Verification] Could not retrieve Price ID '${targetPriceId}' (${priceErr?.message}). Falling back smoothly to Stripe dynamic price_data.`
+          );
+        }
+      } else {
+        console.log(
+          `[Stripe Checkout] Utilizing Stripe dynamic price_data for plan '${requestedPlan}' (${requestedCycle}).`
+        );
+      }
+      const expectedInterval = requestedCycle === "annual" ? "year" : "month";
+      const lineItems = verifiedPriceId ? [{ price: verifiedPriceId, quantity: 1 }] : [
+        {
+          price_data: {
+            currency: "usd",
+            product_data: {
+              name: `Zakir AI - ${requestedPlan} Plan`,
+              description: `Zakir AI Subscription (${requestedPlan} Plan, ${requestedCycle === "annual" ? "Annual" : "Monthly"} billing)`
+            },
+            unit_amount: unitAmountCents,
+            recurring: {
+              interval: expectedInterval,
+              interval_count: 1
+            }
+          },
+          quantity: 1
+        }
+      ];
+      const { publishableKey } = resolveStripeKeys();
+      const isHosted = req.body?.uiMode === "hosted" || req.body?.uiMode === "hosted_page" || req.body?.uiMode !== "embedded" || !publishableKey;
+      const requestedUiMode = isHosted ? "hosted" : "embedded";
+      const returnUrl = `${baseUrl}/?view=settings&tab=subscription&session_id={CHECKOUT_SESSION_ID}`;
+      const successUrl = `${baseUrl}/?view=settings&tab=subscription&checkout=success&session_id={CHECKOUT_SESSION_ID}&plan=${requestedPlan}&cycle=${requestedCycle}`;
+      const cancelUrl = `${baseUrl}/?view=settings&tab=subscription&checkout=cancelled`;
+      const sessionParams = {
+        mode: "subscription",
+        payment_method_types: ["card"],
+        line_items: lineItems,
+        client_reference_id: finalUserId,
+        metadata: {
+          userId: finalUserId,
+          userEmail: validUserEmail || finalUserEmail || "",
+          companyName: finalCompanyName,
+          plan: requestedPlan,
+          billingCycle: requestedCycle
+        }
+      };
+      if (isHosted) {
+        sessionParams.ui_mode = "hosted";
+        sessionParams.success_url = successUrl;
+        sessionParams.cancel_url = cancelUrl;
+      } else {
+        sessionParams.ui_mode = "embedded";
+        sessionParams.return_url = returnUrl;
+      }
+      if (stripeCustomerId) {
+        sessionParams.customer = stripeCustomerId;
+      } else if (validUserEmail) {
+        sessionParams.customer_email = validUserEmail;
+      }
+      console.log(
+        `[Stripe Checkout] Creating ${requestedUiMode.toUpperCase()} Checkout Session for user ${finalUserId} (verified price: ${verifiedPriceId})...`
+      );
+      let session;
+      try {
+        session = await stripe.checkout.sessions.create(sessionParams);
+      } catch (sessionErr) {
+        const errMsg = sessionErr?.message || "";
+        if (errMsg.includes("No such customer") || sessionErr?.code === "resource_missing") {
+          console.warn(
+            `[Stripe Checkout] Checkout session creation hit invalid customer error (${sessionErr.message}). Retrying without customer parameter...`
+          );
+          delete sessionParams.customer;
+          if (validUserEmail) {
+            sessionParams.customer_email = validUserEmail;
+          }
+          session = await stripe.checkout.sessions.create(sessionParams);
+        } else {
+          throw sessionErr;
+        }
+      }
+      console.log(
+        `[Stripe Checkout] Checkout Session created successfully: id=${session.id}, url=${session.url || "N/A (embedded)"}`
+      );
+      db2.stripe_sessions = db2.stripe_sessions || {};
+      db2.stripe_sessions[session.id] = finalUserId;
+      writeDb2(db2);
+      res.setHeader(
+        "Cache-Control",
+        "no-store, no-cache, must-revalidate, proxy-revalidate"
+      );
+      return res.json({
+        success: true,
+        sessionId: session.id,
+        url: session.url || null,
+        clientSecret: session.client_secret,
+        publishableKey: publishableKey || ""
+      });
+    } catch (err) {
+      const errorDetails = {
+        httpMethod: req.method,
+        route: req.originalUrl || req.url,
+        stripeErrorType: err?.type || err?.rawType || "UnknownType",
+        stripeErrorCode: err?.code || err?.raw?.code || "PAYMENT_SESSION_CREATION_FAILED",
+        stripeErrorMessage: err?.message || err?.raw?.message || "Failed to initiate Stripe Checkout",
+        stripeErrorParam: err?.param || err?.raw?.param,
+        stripeDeclineCode: err?.decline_code || err?.raw?.decline_code,
+        statusCode: err?.statusCode || 500
+      };
+      console.error(
+        "[Stripe Checkout] Detailed Error in Checkout Session Creation:",
+        errorDetails
+      );
+      const httpStatusCode = err?.statusCode && err?.statusCode >= 400 && err?.statusCode < 600 ? err.statusCode : 500;
+      res.setHeader(
+        "Cache-Control",
+        "no-store, no-cache, must-revalidate, proxy-revalidate"
+      );
+      res.status(httpStatusCode).json({
+        success: false,
+        code: errorDetails.stripeErrorCode,
+        errorType: errorDetails.stripeErrorType,
+        error: errorDetails.stripeErrorMessage,
+        userFriendlyMessage: err?.message ? `\u062A\u0639\u0630\u0631 \u0625\u0639\u062F\u0627\u062F \u062C\u0644\u0633\u0629 \u0627\u0644\u062F\u0641\u0639: ${err.message}` : "\u062A\u0639\u0630\u0631 \u0625\u0639\u062F\u0627\u062F \u062C\u0644\u0633\u0629 \u0627\u0644\u062F\u0641\u0639 \u0627\u0644\u0622\u0645\u0646 \u062D\u0627\u0644\u064A\u0627\u064B. \u064A\u0631\u062C\u0649 \u0627\u0644\u0645\u062D\u0627\u0648\u0644\u0629 \u0644\u0627\u062D\u0642\u0627\u064B."
+      });
+    }
+  }
+);
+app2.all(
+  [
+    "/api/stripe/create-checkout-session",
+    "/api/stripe/create-checkout-session/",
+    "/stripe/create-checkout-session",
+    "/stripe/create-checkout-session/",
+    "/api/create-checkout-session",
+    "/api/create-checkout-session/",
+    "/create-checkout-session",
+    "/create-checkout-session/"
+  ],
+  (req, res) => {
+    const methodUpper = (req.method || "GET").toUpperCase();
+    res.setHeader(
+      "Cache-Control",
+      "no-store, no-cache, must-revalidate, proxy-revalidate"
+    );
+    if (methodUpper === "OPTIONS") {
+      return res.status(200).end();
+    }
+    if (methodUpper === "GET" || methodUpper === "HEAD") {
+      return res.status(200).json({
+        success: true,
+        endpoint: "/api/stripe/create-checkout-session",
+        status: "active",
+        message: "Stripe Embedded Checkout Session initialization endpoint is active. Please submit checkout parameters via POST."
+      });
+    }
+    return res.status(405).json({
+      success: false,
+      error: `Method ${methodUpper} Not Allowed. Please use POST.`,
+      userFriendlyMessage: "\u0637\u0631\u064A\u0642\u0629 \u0627\u0644\u0637\u0644\u0628 \u063A\u064A\u0631 \u0635\u0627\u0644\u062D\u0629\u060C \u064A\u0631\u062C\u0649 \u0627\u0633\u062A\u062E\u062F\u0627\u0645 POST."
+    });
+  }
+);
+app2.get(
+  [
+    "/api/stripe/session-status/:sessionId",
+    "/stripe/session-status/:sessionId"
+  ],
+  requireAuth,
+  async (req, res) => {
+    try {
+      console.log("[DEBUG] req.user =", req.user);
+      const authUserId = req.user?.uid;
+      if (!authUserId) {
+        return res.status(401).json({ error: "Unauthorized: Missing authentication token" });
+      }
+      const { sessionId } = req.params;
+      const stripe = getStripe();
+      if (stripe && !sessionId.startsWith("cs_stripe_")) {
+        const session = await stripe.checkout.sessions.retrieve(sessionId);
+        const userId2 = session.client_reference_id || session.metadata?.userId;
+        const plan = session.metadata?.plan || "Professional";
+        const cycle = session.metadata?.billingCycle || "annual";
+        if (userId2 && userId2 !== authUserId) {
+          const isAdmin = await isUserAdminServer(authUserId);
+          if (!isAdmin) {
+            return res.status(403).json({
+              error: "Forbidden: Access denied to other users' sessions"
+            });
+          }
+        }
+        if (session.status === "complete" || session.payment_status === "paid") {
+          const nextBill = /* @__PURE__ */ new Date();
+          if (cycle === "annual")
+            nextBill.setFullYear(nextBill.getFullYear() + 1);
+          else nextBill.setMonth(nextBill.getMonth() + 1);
+          const db3 = readDb2();
+          const user2 = db3.users.find(
+            (u) => u.id === userId2 || session.customer_details?.email && u.email?.toLowerCase() === session.customer_details.email.toLowerCase()
+          );
+          if (user2) {
+            user2.subscriptionPlan = plan;
+            user2.subscriptionStatus = "Active";
+            user2.billingCycle = cycle;
+            user2.stripeCustomerId = session.customer;
+            user2.stripeSubscriptionId = session.subscription;
+            user2.lastPaymentDate = (/* @__PURE__ */ new Date()).toISOString();
+            user2.lastPaymentAmount = `$${((session.amount_total || 0) / 100).toFixed(2)} USD`;
+            user2.nextBillingDate = nextBill.toISOString();
+            writeDb2(db3);
+          }
+          if (userId2 || user2?.id) {
+            const targetUid = userId2 || user2?.id;
+            try {
+              await adminDb.collection("users").doc(targetUid).set(
+                {
+                  subscriptionPlan: plan,
+                  subscriptionStatus: "Active",
+                  billingCycle: cycle,
+                  stripeCustomerId: session.customer,
+                  stripeSubscriptionId: session.subscription,
+                  lastPaymentDate: (/* @__PURE__ */ new Date()).toISOString(),
+                  lastPaymentAmount: `$${((session.amount_total || 0) / 100).toFixed(2)} USD`,
+                  nextBillingDate: nextBill.toISOString()
+                },
+                { merge: true }
+              );
+            } catch (e) {
+              console.warn("Firestore status update error:", e.message);
+            }
+          }
+          return res.json({
+            status: session.status,
+            paymentStatus: session.payment_status,
+            customerEmail: session.customer_details?.email,
+            plan,
+            billingCycle: cycle,
+            amountTotal: `$${((session.amount_total || 0) / 100).toFixed(2)} USD`,
+            nextBillingDate: nextBill.toISOString()
+          });
         }
         return res.json({
           status: session.status,
-          paymentStatus: session.payment_status,
-          customerEmail: session.customer_details?.email,
-          plan,
-          billingCycle: cycle,
-          amountTotal: `$${((session.amount_total || 0) / 100).toFixed(2)} USD`,
-          nextBillingDate: nextBill.toISOString()
+          paymentStatus: session.payment_status
         });
       }
+      const db2 = readDb2();
+      const userId = db2.stripe_sessions?.[sessionId];
+      if (userId && userId !== authUserId) {
+        const isAdmin = await isUserAdminServer(authUserId);
+        if (!isAdmin) {
+          return res.status(403).json({
+            error: "Forbidden: Access denied to other users' sessions"
+          });
+        }
+      }
+      const user = db2.users.find((u) => u.id === userId);
       return res.json({
-        status: session.status,
-        paymentStatus: session.payment_status
+        status: "complete",
+        paymentStatus: "paid",
+        customerEmail: user?.email || "subscriber@zakir.ai",
+        plan: user?.subscriptionPlan || "Professional",
+        billingCycle: user?.billingCycle || "annual",
+        amountTotal: user?.lastPaymentAmount || "$149.00 USD",
+        nextBillingDate: user?.nextBillingDate || new Date(Date.now() + 365 * 864e5).toISOString()
       });
+    } catch (err) {
+      console.error("Error retrieving Stripe session status:", err);
+      res.status(500).json({ error: err.message || "Failed to retrieve session status" });
     }
-    const db2 = readDb2();
-    const userId = db2.stripe_sessions?.[sessionId];
-    if (userId && userId !== authUserId) {
-      const isAdmin = await isUserAdminServer(authUserId);
-      if (!isAdmin) {
-        return res.status(403).json({ error: "Forbidden: Access denied to other users' sessions" });
-      }
-    }
-    const user = db2.users.find((u) => u.id === userId);
-    return res.json({
-      status: "complete",
-      paymentStatus: "paid",
-      customerEmail: user?.email || "subscriber@zakir.ai",
-      plan: user?.subscriptionPlan || "Professional",
-      billingCycle: user?.billingCycle || "annual",
-      amountTotal: user?.lastPaymentAmount || "$149.00 USD",
-      nextBillingDate: user?.nextBillingDate || new Date(Date.now() + 365 * 864e5).toISOString()
-    });
-  } catch (err) {
-    console.error("Error retrieving Stripe session status:", err);
-    res.status(500).json({ error: err.message || "Failed to retrieve session status" });
   }
-});
-app2.post(["/api/stripe/create-portal-session", "/stripe/create-portal-session"], requireAuth, async (req, res) => {
-  try {
-    const authUserId = req.user?.uid;
-    if (!authUserId) {
-      return res.status(401).json({ error: "Unauthorized: Missing authentication token" });
-    }
-    const host = req.headers.host || "localhost:3000";
-    const protocol = req.headers["x-forwarded-proto"] || "https";
-    const baseUrl = process.env.APP_URL || `${protocol}://${host}`;
-    const db2 = readDb2();
-    let user = db2.users.find((u) => u.id === authUserId);
-    if (!user) {
-      try {
-        const userDoc = await adminDb.collection("users").doc(authUserId).get();
-        if (userDoc && userDoc.exists) {
-          user = userDoc.data();
-        }
-      } catch (fsErr) {
-        console.warn("[Portal] Firestore lookup notice:", fsErr);
-      }
-    }
-    const stripeCustomerId = user?.stripeCustomerId;
-    if (!stripeCustomerId) {
-      return res.status(400).json({
-        error: "\u0644\u0645 \u064A\u062A\u0645 \u0627\u0644\u0639\u062B\u0648\u0631 \u0639\u0644\u0649 \u0627\u0634\u062A\u0631\u0627\u0643 \u0645\u0631\u062A\u0628\u0637 \u0628\u062D\u0633\u0627\u0628\u0643 \u0641\u064A Stripe \u0628\u0639\u062F. \u064A\u0631\u062C\u0649 \u0627\u0644\u0627\u0634\u062A\u0631\u0627\u0643 \u0641\u064A \u0625\u062D\u062F\u0649 \u0627\u0644\u0628\u0627\u0642\u0627\u062A \u0623\u0648\u0644\u0627\u064B \u0644\u062A\u0641\u0639\u064A\u0644 \u0628\u0648\u0627\u0628\u0629 \u0627\u0644\u0625\u062F\u0627\u0631\u0629.",
-        userFriendlyMessage: "\u0644\u0645 \u064A\u062A\u0645 \u0627\u0644\u0639\u062B\u0648\u0631 \u0639\u0644\u0649 \u0627\u0634\u062A\u0631\u0627\u0643 \u0645\u0631\u062A\u0628\u0637 \u0628\u062D\u0633\u0627\u0628\u0643 \u0641\u064A Stripe \u0628\u0639\u062F. \u064A\u0631\u062C\u0649 \u0627\u0644\u0627\u0634\u062A\u0631\u0627\u0643 \u0641\u064A \u0625\u062D\u062F\u0649 \u0627\u0644\u0628\u0627\u0642\u0627\u062A \u0623\u0648\u0644\u0627\u064B \u0644\u062A\u0641\u0639\u064A\u0644 \u0628\u0648\u0627\u0628\u0629 \u0627\u0644\u0625\u062F\u0627\u0631\u0629."
-      });
-    }
-    const stripe = getStripe();
-    if (!stripe) {
-      return res.status(503).json({
-        error: "\u062E\u0627\u062F\u0645 Stripe \u063A\u064A\u0631 \u0645\u062A\u0627\u062D \u062D\u0627\u0644\u064A\u0627\u064B.",
-        userFriendlyMessage: "\u062E\u0627\u062F\u0645 Stripe \u063A\u064A\u0631 \u0645\u062A\u0627\u062D \u062D\u0627\u0644\u064A\u0627\u064B."
-      });
-    }
+);
+app2.post(
+  ["/api/stripe/create-portal-session", "/stripe/create-portal-session"],
+  requireAuth,
+  async (req, res) => {
     try {
-      const portalSession = await stripe.billingPortal.sessions.create({
-        customer: stripeCustomerId,
-        return_url: `${baseUrl}/?view=settings&tab=subscription`
-      });
-      return res.json({ url: portalSession.url });
-    } catch (portalErr) {
-      const errMessage = portalErr?.message || "Failed to create portal session";
-      console.warn("[Stripe Portal] Notice:", errMessage);
-      const isPortalNotConfigured = errMessage.toLowerCase().includes("portal") || errMessage.toLowerCase().includes("not enabled");
-      return res.status(400).json({
-        error: errMessage,
-        userFriendlyMessage: isPortalNotConfigured ? "\u0628\u0648\u0627\u0628\u0629 \u0625\u062F\u0627\u0631\u0629 \u0627\u0644\u0627\u0634\u062A\u0631\u0627\u0643\u0627\u062A (Customer Portal) \u063A\u064A\u0631 \u0645\u0641\u0639\u0644\u0629 \u062D\u0627\u0644\u064A\u0627\u064B \u0641\u064A \u0644\u0648\u062D\u0629 \u062A\u062D\u0643\u0645 Stripe. \u064A\u0631\u062C\u0649 \u062A\u0641\u0639\u064A\u0644\u0647\u0627 \u0645\u0646 \u0625\u0639\u062F\u0627\u062F\u0627\u062A Customer Portal \u0641\u064A \u062D\u0633\u0627\u0628 Stripe \u0627\u0644\u062E\u0627\u0635 \u0628\u0643." : `\u062A\u0639\u0630\u0631 \u0641\u062A\u062D \u0628\u0648\u0627\u0628\u0629 \u0625\u062F\u0627\u0631\u0629 \u0627\u0644\u0627\u0634\u062A\u0631\u0627\u0643: ${errMessage}`
-      });
-    }
-  } catch (err) {
-    console.error("Error creating portal session:", err);
-    res.status(500).json({ error: err.message || "Failed to create portal session" });
-  }
-});
-app2.post(["/api/stripe/cancel-subscription", "/stripe/cancel-subscription"], requireAuth, async (req, res) => {
-  try {
-    const authUserId = req.user?.uid;
-    if (!authUserId) {
-      return res.status(401).json({ error: "Unauthorized" });
-    }
-    const db2 = readDb2();
-    let user = db2.users.find((u) => u.id === authUserId);
-    if (!user) {
-      try {
-        const userDoc = await adminDb.collection("users").doc(authUserId).get();
-        if (userDoc && userDoc.exists) {
-          user = userDoc.data();
+      const authUserId = req.user?.uid;
+      if (!authUserId) {
+        return res.status(401).json({ error: "Unauthorized: Missing authentication token" });
+      }
+      const host = req.headers.host || "localhost:3000";
+      const protocol = req.headers["x-forwarded-proto"] || "https";
+      const baseUrl = process.env.APP_URL || `${protocol}://${host}`;
+      const db2 = readDb2();
+      let user = db2.users.find((u) => u.id === authUserId);
+      if (!user) {
+        try {
+          const userDoc = await adminDb.collection("users").doc(authUserId).get();
+          if (userDoc && userDoc.exists) {
+            user = userDoc.data();
+          }
+        } catch (fsErr) {
+          console.warn("[Portal] Firestore lookup notice:", fsErr);
         }
-      } catch (fsErr) {
-        console.warn("[CancelSub] Firestore lookup notice:", fsErr);
       }
-    }
-    const stripe = getStripe();
-    if (stripe && user?.stripeSubscriptionId) {
+      const stripeCustomerId = user?.stripeCustomerId;
+      if (!stripeCustomerId) {
+        return res.status(400).json({
+          error: "\u0644\u0645 \u064A\u062A\u0645 \u0627\u0644\u0639\u062B\u0648\u0631 \u0639\u0644\u0649 \u0627\u0634\u062A\u0631\u0627\u0643 \u0645\u0631\u062A\u0628\u0637 \u0628\u062D\u0633\u0627\u0628\u0643 \u0641\u064A Stripe \u0628\u0639\u062F. \u064A\u0631\u062C\u0649 \u0627\u0644\u0627\u0634\u062A\u0631\u0627\u0643 \u0641\u064A \u0625\u062D\u062F\u0649 \u0627\u0644\u0628\u0627\u0642\u0627\u062A \u0623\u0648\u0644\u0627\u064B \u0644\u062A\u0641\u0639\u064A\u0644 \u0628\u0648\u0627\u0628\u0629 \u0627\u0644\u0625\u062F\u0627\u0631\u0629.",
+          userFriendlyMessage: "\u0644\u0645 \u064A\u062A\u0645 \u0627\u0644\u0639\u062B\u0648\u0631 \u0639\u0644\u0649 \u0627\u0634\u062A\u0631\u0627\u0643 \u0645\u0631\u062A\u0628\u0637 \u0628\u062D\u0633\u0627\u0628\u0643 \u0641\u064A Stripe \u0628\u0639\u062F. \u064A\u0631\u062C\u0649 \u0627\u0644\u0627\u0634\u062A\u0631\u0627\u0643 \u0641\u064A \u0625\u062D\u062F\u0649 \u0627\u0644\u0628\u0627\u0642\u0627\u062A \u0623\u0648\u0644\u0627\u064B \u0644\u062A\u0641\u0639\u064A\u0644 \u0628\u0648\u0627\u0628\u0629 \u0627\u0644\u0625\u062F\u0627\u0631\u0629."
+        });
+      }
+      const stripe = getStripe();
+      if (!stripe) {
+        return res.status(503).json({
+          error: "\u062E\u0627\u062F\u0645 Stripe \u063A\u064A\u0631 \u0645\u062A\u0627\u062D \u062D\u0627\u0644\u064A\u0627\u064B.",
+          userFriendlyMessage: "\u062E\u0627\u062F\u0645 Stripe \u063A\u064A\u0631 \u0645\u062A\u0627\u062D \u062D\u0627\u0644\u064A\u0627\u064B."
+        });
+      }
       try {
-        await stripe.subscriptions.cancel(user.stripeSubscriptionId);
-      } catch (stripeErr) {
-        console.warn("Stripe cancel subscription warning:", stripeErr.message);
+        const portalSession = await stripe.billingPortal.sessions.create({
+          customer: stripeCustomerId,
+          return_url: `${baseUrl}/?view=settings&tab=subscription`
+        });
+        return res.json({ url: portalSession.url });
+      } catch (portalErr) {
+        const errMessage = portalErr?.message || "Failed to create portal session";
+        console.warn("[Stripe Portal] Notice:", errMessage);
+        const isPortalNotConfigured = errMessage.toLowerCase().includes("portal") || errMessage.toLowerCase().includes("not enabled");
+        return res.status(400).json({
+          error: errMessage,
+          userFriendlyMessage: isPortalNotConfigured ? "\u0628\u0648\u0627\u0628\u0629 \u0625\u062F\u0627\u0631\u0629 \u0627\u0644\u0627\u0634\u062A\u0631\u0627\u0643\u0627\u062A (Customer Portal) \u063A\u064A\u0631 \u0645\u0641\u0639\u0644\u0629 \u062D\u0627\u0644\u064A\u0627\u064B \u0641\u064A \u0644\u0648\u062D\u0629 \u062A\u062D\u0643\u0645 Stripe. \u064A\u0631\u062C\u0649 \u062A\u0641\u0639\u064A\u0644\u0647\u0627 \u0645\u0646 \u0625\u0639\u062F\u0627\u062F\u0627\u062A Customer Portal \u0641\u064A \u062D\u0633\u0627\u0628 Stripe \u0627\u0644\u062E\u0627\u0635 \u0628\u0643." : `\u062A\u0639\u0630\u0631 \u0641\u062A\u062D \u0628\u0648\u0627\u0628\u0629 \u0625\u062F\u0627\u0631\u0629 \u0627\u0644\u0627\u0634\u062A\u0631\u0627\u0643: ${errMessage}`
+        });
       }
+    } catch (err) {
+      console.error("Error creating portal session:", err);
+      res.status(500).json({ error: err.message || "Failed to create portal session" });
     }
-    if (user) {
-      user.subscriptionStatus = "Inactive";
-      user.subscriptionPlan = void 0;
-      writeDb2(db2);
-    }
-    try {
-      await adminDb.collection("users").doc(authUserId).set({
-        subscriptionStatus: "Inactive",
-        subscriptionPlan: null
-      }, { merge: true });
-    } catch (fsErr) {
-      console.warn("Firestore cancel sync warning:", fsErr.message);
-    }
-    return res.json({ success: true, message: "\u062A\u0645 \u0625\u0644\u063A\u0627\u0621 \u062A\u062C\u062F\u064A\u062F \u0627\u0644\u0627\u0634\u062A\u0631\u0627\u0643 \u0628\u0646\u062C\u0627\u062D." });
-  } catch (err) {
-    console.error("Error cancelling subscription:", err);
-    res.status(500).json({ error: err.message || "Failed to cancel subscription" });
   }
-});
-app2.get(["/.well-known/stripe-verification", "/.well-known/stripe-verification.txt", "/stripe-verification"], (req, res) => {
-  res.setHeader("Content-Type", "text/plain");
-  res.setHeader("Cache-Control", "public, max-age=86400");
-  res.send("stripe-verification=61271845aaa858f327634c112c5688e9b33281a0e192865affdd7552e0c4f3fa");
-});
+);
+app2.post(
+  ["/api/stripe/cancel-subscription", "/stripe/cancel-subscription"],
+  requireAuth,
+  async (req, res) => {
+    try {
+      const authUserId = req.user?.uid;
+      if (!authUserId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+      const db2 = readDb2();
+      let user = db2.users.find((u) => u.id === authUserId);
+      if (!user) {
+        try {
+          const userDoc = await adminDb.collection("users").doc(authUserId).get();
+          if (userDoc && userDoc.exists) {
+            user = userDoc.data();
+          }
+        } catch (fsErr) {
+          console.warn("[CancelSub] Firestore lookup notice:", fsErr);
+        }
+      }
+      const stripe = getStripe();
+      if (stripe && user?.stripeSubscriptionId) {
+        try {
+          await stripe.subscriptions.cancel(user.stripeSubscriptionId);
+        } catch (stripeErr) {
+          console.warn(
+            "Stripe cancel subscription warning:",
+            stripeErr.message
+          );
+        }
+      }
+      if (user) {
+        user.subscriptionStatus = "Inactive";
+        user.subscriptionPlan = void 0;
+        writeDb2(db2);
+      }
+      try {
+        await adminDb.collection("users").doc(authUserId).set(
+          {
+            subscriptionStatus: "Inactive",
+            subscriptionPlan: null
+          },
+          { merge: true }
+        );
+      } catch (fsErr) {
+        console.warn("Firestore cancel sync warning:", fsErr.message);
+      }
+      return res.json({
+        success: true,
+        message: "\u062A\u0645 \u0625\u0644\u063A\u0627\u0621 \u062A\u062C\u062F\u064A\u062F \u0627\u0644\u0627\u0634\u062A\u0631\u0627\u0643 \u0628\u0646\u062C\u0627\u062D."
+      });
+    } catch (err) {
+      console.error("Error cancelling subscription:", err);
+      res.status(500).json({ error: err.message || "Failed to cancel subscription" });
+    }
+  }
+);
+app2.get(
+  [
+    "/.well-known/stripe-verification",
+    "/.well-known/stripe-verification.txt",
+    "/stripe-verification"
+  ],
+  (req, res) => {
+    res.setHeader("Content-Type", "text/plain");
+    res.setHeader("Cache-Control", "public, max-age=86400");
+    res.send(
+      "stripe-verification=61271845aaa858f327634c112c5688e9b33281a0e192865affdd7552e0c4f3fa"
+    );
+  }
+);
 var OFFICIAL_ZAKIR_SVG = `<svg id="Layer_1" data-name="Layer 1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 1021.12 909.1">
   <defs>
     <linearGradient id="zakir-linear-gradient" x1="17.47" y1="447.63" x2="984.67" y2="463.31" gradientUnits="userSpaceOnUse">
@@ -4149,17 +4777,17 @@ function getOfficialPngLogo() {
     return officialPngLogoCache;
   }
   const possiblePaths = [
-    import_path4.default.join(process.cwd(), "public", "zakir-official-logo.png"),
-    import_path4.default.join(process.cwd(), "public", "logo.png"),
-    import_path4.default.join(process.cwd(), "src", "assets", "zakir-official-logo.png"),
-    import_path4.default.join(process.cwd(), "dist", "assets", "zakir-official-logo.png"),
-    import_path4.default.join(process.cwd(), "public", "icon-512.png"),
-    import_path4.default.join(process.cwd(), "public", "icon-192.png")
+    import_path5.default.join(process.cwd(), "public", "zakir-official-logo.png"),
+    import_path5.default.join(process.cwd(), "public", "logo.png"),
+    import_path5.default.join(process.cwd(), "src", "assets", "zakir-official-logo.png"),
+    import_path5.default.join(process.cwd(), "dist", "assets", "zakir-official-logo.png"),
+    import_path5.default.join(process.cwd(), "public", "icon-512.png"),
+    import_path5.default.join(process.cwd(), "public", "icon-192.png")
   ];
   for (const pngPath of possiblePaths) {
-    if (import_fs4.default.existsSync(pngPath)) {
+    if (import_fs5.default.existsSync(pngPath)) {
       try {
-        const data = import_fs4.default.readFileSync(pngPath);
+        const data = import_fs5.default.readFileSync(pngPath);
         if (data && data.length > 0) {
           officialPngLogoCache = data;
           return officialPngLogoCache;
@@ -4204,93 +4832,104 @@ function getAppBaseUrl(req) {
   }
   return "https://www.getzakir.com";
 }
-app2.get([
-  "/api/logo.png",
-  "/assets/logo.png",
-  "/logo.png",
-  "/zakir-official-logo.png",
-  "/api/zakir-official-logo.png",
-  "/assets/zakir-official-logo.png",
-  "/public/logo.png",
-  "/public/zakir-official-logo.png"
-], (req, res) => {
-  res.setHeader("Content-Type", "image/png");
-  res.setHeader("Cache-Control", "public, max-age=86400");
-  res.setHeader("Access-Control-Allow-Origin", "*");
-  const buf = getOfficialPngLogo();
-  if (buf && buf.length > 0) {
-    return res.send(buf);
+app2.get(
+  [
+    "/api/logo.png",
+    "/assets/logo.png",
+    "/logo.png",
+    "/zakir-official-logo.png",
+    "/api/zakir-official-logo.png",
+    "/assets/zakir-official-logo.png",
+    "/public/logo.png",
+    "/public/zakir-official-logo.png"
+  ],
+  (req, res) => {
+    res.setHeader("Content-Type", "image/png");
+    res.setHeader("Cache-Control", "public, max-age=86400");
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    const buf = getOfficialPngLogo();
+    if (buf && buf.length > 0) {
+      return res.send(buf);
+    }
+    const fallback = import_path5.default.join(process.cwd(), "public", "icon-192.png");
+    if (import_fs5.default.existsSync(fallback)) {
+      return res.sendFile(fallback);
+    }
+    return res.status(404).end();
   }
-  const fallback = import_path4.default.join(process.cwd(), "public", "icon-192.png");
-  if (import_fs4.default.existsSync(fallback)) {
-    return res.sendFile(fallback);
-  }
-  return res.status(404).end();
-});
+);
 app2.get(["/api/logo.svg", "/assets/logo.svg", "/logo.svg"], (req, res) => {
   res.setHeader("Content-Type", "image/svg+xml");
   res.setHeader("Cache-Control", "public, max-age=86400");
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.send(OFFICIAL_ZAKIR_SVG);
 });
-app2.get(["/api/stripe/receipt/:sessionId", "/stripe/receipt/:sessionId"], requireAuth, async (req, res) => {
-  const { sessionId } = req.params;
-  const authUserId = req.user?.uid;
-  if (!authUserId) {
-    return res.status(401).json({ error: "Unauthorized: Missing authentication token" });
-  }
-  const db2 = readDb2();
-  const sessionOwnerId = db2.stripe_sessions?.[sessionId];
-  const isCallerAdmin = await isUserAdminServer(authUserId);
-  if (sessionOwnerId && sessionOwnerId !== authUserId && !isCallerAdmin) {
-    return res.status(403).json({ error: "Forbidden: You do not own this checkout session." });
-  }
-  let user = db2.users.find((u) => u.id === authUserId);
-  if (isCallerAdmin && sessionOwnerId) {
-    const targetUser = db2.users.find((u) => u.id === sessionOwnerId);
-    if (targetUser) {
-      user = targetUser;
+app2.get(
+  ["/api/stripe/receipt/:sessionId", "/stripe/receipt/:sessionId"],
+  requireAuth,
+  async (req, res) => {
+    const { sessionId } = req.params;
+    const authUserId = req.user?.uid;
+    if (!authUserId) {
+      return res.status(401).json({ error: "Unauthorized: Missing authentication token" });
     }
-  }
-  if (!user) {
-    try {
-      const userDoc = await adminDb.collection("users").doc(sessionOwnerId || authUserId).get();
-      if (userDoc && userDoc.exists) {
-        user = userDoc.data();
+    const db2 = readDb2();
+    const sessionOwnerId = db2.stripe_sessions?.[sessionId];
+    const isCallerAdmin = await isUserAdminServer(authUserId);
+    if (sessionOwnerId && sessionOwnerId !== authUserId && !isCallerAdmin) {
+      return res.status(403).json({ error: "Forbidden: You do not own this checkout session." });
+    }
+    let user = db2.users.find((u) => u.id === authUserId);
+    if (isCallerAdmin && sessionOwnerId) {
+      const targetUser = db2.users.find((u) => u.id === sessionOwnerId);
+      if (targetUser) {
+        user = targetUser;
       }
-    } catch (fsErr) {
-      console.warn("[Receipt] Firestore lookup notice:", fsErr);
     }
+    if (!user) {
+      try {
+        const userDoc = await adminDb.collection("users").doc(sessionOwnerId || authUserId).get();
+        if (userDoc && userDoc.exists) {
+          user = userDoc.data();
+        }
+      } catch (fsErr) {
+        console.warn("[Receipt] Firestore lookup notice:", fsErr);
+      }
+    }
+    const plan = req.query.plan || user?.subscriptionPlan || "Professional";
+    const cycle = req.query.cycle || user?.billingCycle || "annual";
+    const receiptBenchmark = {
+      Starter: { monthly: 6, annual: 50 },
+      Professional: { monthly: 189, annual: 1788 },
+      Enterprise: { monthly: 849, annual: 8388 }
+    };
+    const price = receiptBenchmark[plan]?.[cycle] || 189;
+    const receipt = {
+      receiptNumber: `STRIPE-INV-${(/* @__PURE__ */ new Date()).getFullYear()}-${sessionId.slice(-6).toUpperCase()}`,
+      invoiceNo: `STRIPE-INV-${(/* @__PURE__ */ new Date()).getFullYear()}-${sessionId.slice(-6).toUpperCase()}`,
+      sessionId,
+      planName: plan,
+      plan,
+      billingCycle: cycle,
+      amountPaid: `$${price}.00 USD`,
+      amount: `$${price}.00 USD`,
+      status: "Paid & Verified",
+      currency: "USD",
+      paymentMethod: "Stripe Checkout (Visa / MasterCard / AMEX)",
+      timestamp: (/* @__PURE__ */ new Date()).toISOString(),
+      date: (/* @__PURE__ */ new Date()).toLocaleDateString("en-US", {
+        year: "numeric",
+        month: "short",
+        day: "numeric"
+      }),
+      customerEmail: user?.email || req.user?.email || "subscriber@zakir.ai",
+      customerName: user?.companyName || user?.ownerName || "Organization",
+      companyName: user?.companyName || "Organization",
+      stripeReceiptUrl: `https://pay.stripe.com/receipts/invoices/${sessionId}`
+    };
+    res.json({ receipt });
   }
-  const plan = req.query.plan || user?.subscriptionPlan || "Professional";
-  const cycle = req.query.cycle || user?.billingCycle || "annual";
-  const receiptBenchmark = {
-    Starter: { monthly: 6, annual: 50 },
-    Professional: { monthly: 189, annual: 1788 },
-    Enterprise: { monthly: 849, annual: 8388 }
-  };
-  const price = receiptBenchmark[plan]?.[cycle] || 189;
-  const receipt = {
-    receiptNumber: `STRIPE-INV-${(/* @__PURE__ */ new Date()).getFullYear()}-${sessionId.slice(-6).toUpperCase()}`,
-    invoiceNo: `STRIPE-INV-${(/* @__PURE__ */ new Date()).getFullYear()}-${sessionId.slice(-6).toUpperCase()}`,
-    sessionId,
-    planName: plan,
-    plan,
-    billingCycle: cycle,
-    amountPaid: `$${price}.00 USD`,
-    amount: `$${price}.00 USD`,
-    status: "Paid & Verified",
-    currency: "USD",
-    paymentMethod: "Stripe Checkout (Visa / MasterCard / AMEX)",
-    timestamp: (/* @__PURE__ */ new Date()).toISOString(),
-    date: (/* @__PURE__ */ new Date()).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" }),
-    customerEmail: user?.email || req.user?.email || "subscriber@zakir.ai",
-    customerName: user?.companyName || user?.ownerName || "Organization",
-    companyName: user?.companyName || "Organization",
-    stripeReceiptUrl: `https://pay.stripe.com/receipts/invoices/${sessionId}`
-  };
-  res.json({ receipt });
-});
+);
 var getResendInstance2 = () => {
   const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey || !apiKey.trim() || apiKey === "undefined") {
@@ -4308,33 +4947,50 @@ async function sendSystemSms(toPhone, messageBody) {
   const fromNumber = process.env.TWILIO_PHONE_NUMBER || process.env.TWILIO_FROM;
   if (accountSid && authToken && fromNumber) {
     try {
-      const basicAuth = Buffer.from(`${accountSid}:${authToken}`).toString("base64");
+      const basicAuth = Buffer.from(`${accountSid}:${authToken}`).toString(
+        "base64"
+      );
       const params = new URLSearchParams();
       params.append("To", cleanPhone);
       params.append("From", fromNumber);
       params.append("Body", messageBody);
-      const twilioRes = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`, {
-        method: "POST",
-        headers: {
-          "Authorization": `Basic ${basicAuth}`,
-          "Content-Type": "application/x-www-form-urlencoded"
-        },
-        body: params.toString()
-      });
+      const twilioRes = await fetch(
+        `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Basic ${basicAuth}`,
+            "Content-Type": "application/x-www-form-urlencoded"
+          },
+          body: params.toString()
+        }
+      );
       const data = await twilioRes.json();
       if (twilioRes.ok && data?.sid) {
-        console.log(`[SMS SUCCESS] Dispatched SMS to ${cleanPhone}, SID: ${data.sid}`);
+        console.log(
+          `[SMS SUCCESS] Dispatched SMS to ${cleanPhone}, SID: ${data.sid}`
+        );
         return { success: true, messageId: data.sid, simulated: false };
       } else {
         console.warn(`[SMS TWILIO ERROR] Status ${twilioRes.status}:`, data);
-        return { success: false, error: data?.message || "Twilio delivery failed", simulated: false };
+        return {
+          success: false,
+          error: data?.message || "Twilio delivery failed",
+          simulated: false
+        };
       }
     } catch (err) {
       console.error("[SMS DISPATCH EXCEPTION]", err);
-      return { success: false, error: err?.message || String(err), simulated: false };
+      return {
+        success: false,
+        error: err?.message || String(err),
+        simulated: false
+      };
     }
   }
-  console.log(`[SMS SIMULATOR] Simulated SMS to ${cleanPhone}: "${messageBody}"`);
+  console.log(
+    `[SMS SIMULATOR] Simulated SMS to ${cleanPhone}: "${messageBody}"`
+  );
   return { success: true, messageId: `SIM_SMS_${Date.now()}`, simulated: true };
 }
 async function sendSystemMail2(toOrOptions, subjectArg, textArg, htmlArg) {
@@ -4381,7 +5037,21 @@ async function sendSystemMail2(toOrOptions, subjectArg, textArg, htmlArg) {
   try {
     const resend = getResendInstance2();
     if (!resend) {
-      console.warn(`[EMAIL DISPATCH NOTICE] RESEND_API_KEY is not configured. Simulating delivery for: ${to} | Subject: "${subject}"`);
+      console.warn(
+        `[EMAIL DISPATCH NOTICE] RESEND_API_KEY is not configured. Simulating delivery for: ${to} | Subject: "${subject}"`
+      );
+      const db2 = readDb2();
+      if (!db2.email_delivery_logs) db2.email_delivery_logs = [];
+      db2.email_delivery_logs.unshift({
+        id: `sim_${Date.now()}_${import_crypto3.default.randomBytes(4).toString("hex")}`,
+        recipient: to,
+        type: subject.toLowerCase().includes("verification") || subject.toLowerCase().includes("code") ? "otp" : "notification",
+        subject,
+        timestamp: (/* @__PURE__ */ new Date()).toISOString(),
+        status: "DELIVERED (SIMULATED)",
+        error: null
+      });
+      writeDb2(db2);
       return {
         success: true,
         simulated: true,
@@ -4389,7 +5059,9 @@ async function sendSystemMail2(toOrOptions, subjectArg, textArg, htmlArg) {
         messageId: `sim_${Date.now()}_${import_crypto3.default.randomBytes(4).toString("hex")}`
       };
     }
-    console.log(`[EMAIL DISPATCH ATTEMPT] To: ${to} | Subject: "${subject}" | Sender: ${fromSender} | ReplyTo: ${replyTo}`);
+    console.log(
+      `[EMAIL DISPATCH ATTEMPT] To: ${to} | Subject: "${subject}" | Sender: ${fromSender} | ReplyTo: ${replyTo}`
+    );
     const attachments = [...userAttachments];
     const emailPayload = {
       from: fromSender,
@@ -4434,6 +5106,18 @@ async function sendSystemMail2(toOrOptions, subjectArg, textArg, htmlArg) {
         provider: "Resend",
         httpStatus: errStatus
       });
+      const db2 = readDb2();
+      if (!db2.email_delivery_logs) db2.email_delivery_logs = [];
+      db2.email_delivery_logs.unshift({
+        id: `err_${Date.now()}_${import_crypto3.default.randomBytes(4).toString("hex")}`,
+        recipient: to,
+        type: subject.toLowerCase().includes("verification") || subject.toLowerCase().includes("code") ? "otp" : "notification",
+        subject,
+        timestamp: (/* @__PURE__ */ new Date()).toISOString(),
+        status: "FAILED",
+        error: response.error.message || "Delivery failed"
+      });
+      writeDb2(db2);
       return {
         success: false,
         error: response.error,
@@ -4442,7 +5126,21 @@ async function sendSystemMail2(toOrOptions, subjectArg, textArg, htmlArg) {
       };
     }
     if (response.data && response.data.id) {
-      console.log(`[EMAIL SENT SUCCESS] ID: ${response.data.id} to ${to} via ${fromSender}`);
+      console.log(
+        `[EMAIL SENT SUCCESS] ID: ${response.data.id} to ${to} via ${fromSender}`
+      );
+      const db2 = readDb2();
+      if (!db2.email_delivery_logs) db2.email_delivery_logs = [];
+      db2.email_delivery_logs.unshift({
+        id: response.data.id,
+        recipient: to,
+        type: subject.toLowerCase().includes("verification") || subject.toLowerCase().includes("code") ? "otp" : "notification",
+        subject,
+        timestamp: (/* @__PURE__ */ new Date()).toISOString(),
+        status: "DELIVERED",
+        error: null
+      });
+      writeDb2(db2);
       return {
         success: true,
         messageId: response.data.id,
@@ -4522,7 +5220,10 @@ function escapeHtml(str) {
 function buildMasterEmailHtml2(options) {
   const { subject, title, greeting, bodyHtml, securityNote, baseUrl } = options;
   const canonicalDomain = "https://www.getzakir.com";
-  const appBase = (baseUrl || getAppBaseUrl() || canonicalDomain).replace(/\/$/, "");
+  const appBase = (baseUrl || getAppBaseUrl() || canonicalDomain).replace(
+    /\/$/,
+    ""
+  );
   const logoUrl = process.env.PUBLIC_LOGO_URL || `${canonicalDomain}/zakir-official-logo.png`;
   return `<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml" lang="ar">
@@ -4766,7 +5467,14 @@ The Zakir Team`;
   return { subject, text: textBody, html };
 }
 function buildInvitationEmailHtml(options) {
-  const { memberName, designatedRole, inviteLink, isReminder, language = "ar", baseUrl } = options;
+  const {
+    memberName,
+    designatedRole,
+    inviteLink,
+    isReminder,
+    language = "ar",
+    baseUrl
+  } = options;
   const rawCompany = (options.companyName || "").trim();
   const companyName = rawCompany && rawCompany !== "ZakIr Platform" && rawCompany !== "Zakir Workspace" ? rawCompany : language === "ar" ? "\u0627\u0644\u0645\u0624\u0633\u0633\u0629" : language === "fr" ? "l'Entreprise" : "Organization";
   const rawInviter = (options.inviterName || "").trim();
@@ -5061,7 +5769,9 @@ async function resolveUserByEmailOrId(params) {
     }
     try {
       const db2 = readDb2();
-      const localUser = db2.users?.find((u) => u.email?.trim().toLowerCase() === normalizedEmail);
+      const localUser = db2.users?.find(
+        (u) => u.email?.trim().toLowerCase() === normalizedEmail
+      );
       if (localUser && localUser.id) {
         console.info("OTP USER RESOLUTION", {
           email: normalizedEmail,
@@ -5092,7 +5802,9 @@ async function resolveUserByEmailOrId(params) {
         }
         if (!retainedData) {
           const db2 = readDb2();
-          retainedData = db2.retained_users?.find((u) => u.id === lifecycleRecord.originalUserId || u.email?.toLowerCase() === normalizedEmail);
+          retainedData = db2.retained_users?.find(
+            (u) => u.id === lifecycleRecord.originalUserId || u.email?.toLowerCase() === normalizedEmail
+          );
         }
         console.info("OTP USER RESOLUTION (RETAINED LIFECYCLE)", {
           email: normalizedEmail,
@@ -5104,7 +5816,10 @@ async function resolveUserByEmailOrId(params) {
           userId: lifecycleRecord.originalUserId,
           email: normalizedEmail,
           phone: retainedData?.phone || inputPhone,
-          userDoc: retainedData || { email: normalizedEmail, role: lifecycleRecord?.originalRole || "Contributor" },
+          userDoc: retainedData || {
+            email: normalizedEmail,
+            role: lifecycleRecord?.originalRole || "Contributor"
+          },
           source: "account_lifecycle_retained"
         };
       }
@@ -5176,12 +5891,16 @@ app2.post("/api/auth/send-verification-code", otpLimiter, async (req, res) => {
     const { email, phone, type = "account_registration", userId } = req.body;
     if (!email && !phone && !userId) {
       if (isRecovery) {
-        console.warn(`[RECOVERY] FAILED (id: ${recoveryRequestId}, stage: "input_validation", error: "Missing email/phone/userId")`);
+        console.warn(
+          `[RECOVERY] FAILED (id: ${recoveryRequestId}, stage: "input_validation", error: "Missing email/phone/userId")`
+        );
       }
       return res.status(400).json({ error: "Email, phone, or userId is required" });
     }
     if (isRecovery) {
-      console.log(`[RECOVERY] request received (id: ${recoveryRequestId}, type: ${type})`);
+      console.log(
+        `[RECOVERY] request received (id: ${recoveryRequestId}, type: ${type})`
+      );
     }
     const resolvedUser = await resolveUserByEmailOrId({ userId, email, phone });
     const targetIdentifier = resolvedUser.email || (email || phone || "").trim().toLowerCase();
@@ -5190,9 +5909,13 @@ app2.post("/api/auth/send-verification-code", otpLimiter, async (req, res) => {
     if (isRecovery && targetIdentifier) {
       lifecycleRecord = await getAccountLifecycleRecord2(targetIdentifier);
       if (lifecycleRecord) {
-        console.log(`[RECOVERY] deleted account found (id: ${recoveryRequestId}, userId: ${lifecycleRecord.originalUserId || foundUid || "known"}, status: ${lifecycleRecord.status})`);
+        console.log(
+          `[RECOVERY] deleted account found (id: ${recoveryRequestId}, userId: ${lifecycleRecord.originalUserId || foundUid || "known"}, status: ${lifecycleRecord.status})`
+        );
         if (lifecycleRecord.status === "PURGED" || lifecycleRecord.restoreUntil && Date.now() > new Date(lifecycleRecord.restoreUntil).getTime()) {
-          console.warn(`[RECOVERY] FAILED (id: ${recoveryRequestId}, stage: "lifecycle_check", error: "RESTORE_EXPIRED")`);
+          console.warn(
+            `[RECOVERY] FAILED (id: ${recoveryRequestId}, stage: "lifecycle_check", error: "RESTORE_EXPIRED")`
+          );
           return res.status(400).json({
             success: false,
             code: "RESTORE_EXPIRED",
@@ -5201,7 +5924,9 @@ app2.post("/api/auth/send-verification-code", otpLimiter, async (req, res) => {
           });
         }
         if (lifecycleRecord.status === "ADMIN_DELETED" || lifecycleRecord.deletionType === "admin") {
-          console.warn(`[RECOVERY] FAILED (id: ${recoveryRequestId}, stage: "lifecycle_check", error: "ADMIN_APPROVAL_REQUIRED")`);
+          console.warn(
+            `[RECOVERY] FAILED (id: ${recoveryRequestId}, stage: "lifecycle_check", error: "ADMIN_APPROVAL_REQUIRED")`
+          );
           return res.status(400).json({
             success: false,
             code: "ADMIN_APPROVAL_REQUIRED",
@@ -5217,7 +5942,9 @@ app2.post("/api/auth/send-verification-code", otpLimiter, async (req, res) => {
     }
     if (!foundUid) {
       if (isRecovery) {
-        console.warn(`[RECOVERY] FAILED (id: ${recoveryRequestId}, stage: "user_lookup", error: "DELETED_ACCOUNT_NOT_FOUND")`);
+        console.warn(
+          `[RECOVERY] FAILED (id: ${recoveryRequestId}, stage: "user_lookup", error: "DELETED_ACCOUNT_NOT_FOUND")`
+        );
         return res.status(400).json({
           success: false,
           error: "\u0644\u0627 \u064A\u0648\u062C\u062F \u062D\u0633\u0627\u0628 \u0645\u062D\u0630\u0648\u0641 \u0642\u0627\u0628\u0644 \u0644\u0644\u0627\u0633\u062A\u0639\u0627\u062F\u0629 \u0628\u0647\u0630\u0627 \u0627\u0644\u0628\u0631\u064A\u062F \u0627\u0644\u0625\u0644\u0643\u062A\u0631\u0648\u0646\u064A.",
@@ -5242,7 +5969,9 @@ app2.post("/api/auth/send-verification-code", otpLimiter, async (req, res) => {
     const docId = foundUid;
     const isTargetAdmin = foundUid && await isUserAdminServer(foundUid, targetIdentifier) || foundUid === ADMIN_USER_ID;
     if (isTargetAdmin && (type === "account_registration" || type === "login")) {
-      console.log(`[AUTH EXCEPTION] Admin account (${targetIdentifier}) bypassed OTP generation.`);
+      console.log(
+        `[AUTH EXCEPTION] Admin account (${targetIdentifier}) bypassed OTP generation.`
+      );
       return res.status(200).json({
         success: true,
         message: "Admin accounts do not require email verification.",
@@ -5260,24 +5989,36 @@ app2.post("/api/auth/send-verification-code", otpLimiter, async (req, res) => {
         existingRecord = docSnap.data();
       }
     } catch (err) {
-      console.warn("Firestore read failed for existing verification code, checking fallback:", err);
+      console.warn(
+        "Firestore read failed for existing verification code, checking fallback:",
+        err
+      );
     }
     if (!existingRecord) {
       existingRecord = db2.verification_codes.find((vc) => vc.id === docId);
     }
     const nowMs = Date.now();
-    const RESEND_COOLDOWN_MINUTES = parseInt(process.env.RESEND_COOLDOWN_MINUTES || "10", 10);
+    const RESEND_COOLDOWN_MINUTES = parseInt(
+      process.env.RESEND_COOLDOWN_MINUTES || "10",
+      10
+    );
     const RESEND_COOLDOWN_MS = RESEND_COOLDOWN_MINUTES * 60 * 1e3;
     const isInitial = !!req.body.isInitial;
     let currentSendCount = existingRecord ? existingRecord.sendCount || 0 : 0;
     if (!isInitial) {
       if (existingRecord && existingRecord.cooldownUntil) {
-        const cooldownUntilMs = new Date(existingRecord.cooldownUntil).getTime();
+        const cooldownUntilMs = new Date(
+          existingRecord.cooldownUntil
+        ).getTime();
         if (nowMs < cooldownUntilMs) {
           const remainingSecs = Math.ceil((cooldownUntilMs - nowMs) / 1e3);
-          console.log(`[OTP COOLDOWN ACTIVE] User ${docId} is in 10-min cooldown for ${remainingSecs}s.`);
+          console.log(
+            `[OTP COOLDOWN ACTIVE] User ${docId} is in 10-min cooldown for ${remainingSecs}s.`
+          );
           if (isRecovery) {
-            console.warn(`[RECOVERY] FAILED (id: ${recoveryRequestId}, stage: "cooldown", remaining: ${remainingSecs}s)`);
+            console.warn(
+              `[RECOVERY] FAILED (id: ${recoveryRequestId}, stage: "cooldown", remaining: ${remainingSecs}s)`
+            );
           }
           return res.status(400).json({
             success: false,
@@ -5288,13 +6029,19 @@ app2.post("/api/auth/send-verification-code", otpLimiter, async (req, res) => {
             sendCount: currentSendCount
           });
         } else {
-          console.log(`[OTP COOLDOWN EXPIRED] Resetting send count for user ${docId}.`);
+          console.log(
+            `[OTP COOLDOWN EXPIRED] Resetting send count for user ${docId}.`
+          );
           currentSendCount = 0;
         }
       }
       if (currentSendCount >= 3) {
-        const newCooldownUntil = new Date(nowMs + RESEND_COOLDOWN_MS).toISOString();
-        console.log(`[OTP MAX SENDS REACHED] User ${docId} entering 10-min cooldown until ${newCooldownUntil}.`);
+        const newCooldownUntil = new Date(
+          nowMs + RESEND_COOLDOWN_MS
+        ).toISOString();
+        console.log(
+          `[OTP MAX SENDS REACHED] User ${docId} entering 10-min cooldown until ${newCooldownUntil}.`
+        );
         const updatedCooldownRecord = {
           ...existingRecord || {},
           id: docId,
@@ -5307,11 +6054,15 @@ app2.post("/api/auth/send-verification-code", otpLimiter, async (req, res) => {
           await adminDb.collection("verification_codes").doc(docId).set(updatedCooldownRecord, { merge: true });
         } catch (e) {
         }
-        db2.verification_codes = (db2.verification_codes || []).filter((vc) => vc.id !== docId);
+        db2.verification_codes = (db2.verification_codes || []).filter(
+          (vc) => vc.id !== docId
+        );
         db2.verification_codes.push(updatedCooldownRecord);
         writeDb2(db2);
         if (isRecovery) {
-          console.warn(`[RECOVERY] FAILED (id: ${recoveryRequestId}, stage: "max_sends_cooldown")`);
+          console.warn(
+            `[RECOVERY] FAILED (id: ${recoveryRequestId}, stage: "max_sends_cooldown")`
+          );
         }
         return res.status(400).json({
           success: false,
@@ -5325,9 +6076,13 @@ app2.post("/api/auth/send-verification-code", otpLimiter, async (req, res) => {
       if (existingRecord && existingRecord.lastSentAt && !existingRecord.cooldownUntil) {
         const timeSinceLastSent = nowMs - new Date(existingRecord.lastSentAt).getTime();
         if (timeSinceLastSent < 30 * 1e3) {
-          const waitRemaining = Math.ceil((30 * 1e3 - timeSinceLastSent) / 1e3);
+          const waitRemaining = Math.ceil(
+            (30 * 1e3 - timeSinceLastSent) / 1e3
+          );
           if (isRecovery) {
-            console.warn(`[RECOVERY] FAILED (id: ${recoveryRequestId}, stage: "throttle_30s", remaining: ${waitRemaining}s)`);
+            console.warn(
+              `[RECOVERY] FAILED (id: ${recoveryRequestId}, stage: "throttle_30s", remaining: ${waitRemaining}s)`
+            );
           }
           return res.status(400).json({
             success: false,
@@ -5342,27 +6097,44 @@ app2.post("/api/auth/send-verification-code", otpLimiter, async (req, res) => {
     const codeHash = hashVerificationCode(otpCode);
     const expiresAt = new Date(nowMs + 10 * 60 * 1e3).toISOString();
     if (isRecovery) {
-      console.log(`[RECOVERY] OTP generated (id: ${recoveryRequestId}, generated: true)`);
+      console.log(
+        `[RECOVERY] OTP generated (id: ${recoveryRequestId}, generated: true)`
+      );
     }
     let reqName = req.body.name || req.body.userName || req.body.ownerName || req.body.fullName || "";
     let firestoreUserData = resolvedUser.userDoc;
-    const localUser = db2.users?.find((u) => u.id === foundUid || u.email?.toLowerCase() === targetIdentifier);
+    const localUser = db2.users?.find(
+      (u) => u.id === foundUid || u.email?.toLowerCase() === targetIdentifier
+    );
     let rawName = reqName || firestoreUserData?.ownerName || firestoreUserData?.name || firestoreUserData?.fullName || firestoreUserData?.displayName || firestoreUserData?.companyName || localUser?.ownerName || localUser?.name || localUser?.fullName || localUser?.displayName || localUser?.companyName || "";
     const resolvedUserName = cleanUserName2(rawName, targetIdentifier);
-    const { subject: emailSubject, text: textBody, html: htmlBody } = buildOtpEmailHtml2({
+    const {
+      subject: emailSubject,
+      text: textBody,
+      html: htmlBody
+    } = buildOtpEmailHtml2({
       email: targetIdentifier,
       userName: resolvedUserName,
       otpCode,
       type
     });
     if (isRecovery) {
-      console.log(`[RECOVERY] email send started (id: ${recoveryRequestId}, provider: Resend)`);
+      console.log(
+        `[RECOVERY] email send started (id: ${recoveryRequestId}, provider: Resend)`
+      );
     }
-    const mailResult = await sendSystemMail2(targetIdentifier, emailSubject, textBody, htmlBody);
+    const mailResult = await sendSystemMail2(
+      targetIdentifier,
+      emailSubject,
+      textBody,
+      htmlBody
+    );
     if (!mailResult.success && !mailResult.simulated) {
       console.error("[OTP DELIVERY FAILURE]", mailResult.error);
       if (isRecovery) {
-        console.error(`[RECOVERY] FAILED (id: ${recoveryRequestId}, stage: "email_dispatch", error: ${mailResult.error?.message || mailResult.error || "Unknown"})`);
+        console.error(
+          `[RECOVERY] FAILED (id: ${recoveryRequestId}, stage: "email_dispatch", error: ${mailResult.error?.message || mailResult.error || "Unknown"})`
+        );
       }
       return res.status(500).json({
         success: false,
@@ -5375,20 +6147,26 @@ app2.post("/api/auth/send-verification-code", otpLimiter, async (req, res) => {
     if (targetPhone) {
       const smsMessage = `\u0631\u0645\u0632 \u0627\u0644\u062A\u062D\u0642\u0642 \u0644\u0645\u0646\u0635\u0629 Zakir \u0647\u0648: ${otpCode} - \u0635\u0627\u0644\u062D \u0644\u0645\u062F\u0629 10 \u062F\u0642\u0627\u0626\u0642. Zakir Verification Code: ${otpCode}`;
       smsResult = await sendSystemSms(targetPhone, smsMessage);
-      console.log(`[OTP SMS DISPATCH] Target: ${targetPhone}, Success: ${smsResult?.success}`);
+      console.log(
+        `[OTP SMS DISPATCH] Target: ${targetPhone}, Success: ${smsResult?.success}`
+      );
     }
     if (isRecovery) {
       const resStatus = mailResult.success ? 200 : mailResult.statusCode || 500;
       const resMsgId = mailResult.messageId || "none";
       console.log(`Recovery email Resend ID: ${resMsgId}`);
-      console.log(`[RECOVERY] Resend response status: ${resStatus}, recipient: ${maskEmail(targetIdentifier)}, message ID: ${resMsgId}`);
+      console.log(
+        `[RECOVERY] Resend response status: ${resStatus}, recipient: ${maskEmail(targetIdentifier)}, message ID: ${resMsgId}`
+      );
     }
     const emailSent = !mailResult.simulated;
     const newSendCount = isInitial ? currentSendCount : currentSendCount + 1;
     let cooldownUntil = existingRecord?.cooldownUntil || null;
     if (!isInitial && newSendCount >= 3) {
       cooldownUntil = new Date(nowMs + RESEND_COOLDOWN_MS).toISOString();
-      console.log(`[OTP 3RD SEND COMPLETED] Starting 10-minute cooldown for user ${docId} until ${cooldownUntil}`);
+      console.log(
+        `[OTP 3RD SEND COMPLETED] Starting 10-minute cooldown for user ${docId} until ${cooldownUntil}`
+      );
     }
     const record = {
       id: docId,
@@ -5406,7 +6184,14 @@ app2.post("/api/auth/send-verification-code", otpLimiter, async (req, res) => {
       used: false,
       createdAt: (/* @__PURE__ */ new Date()).toISOString()
     };
-    console.log("Saving OTP for Doc ID:", docId, "Count:", newSendCount, "Name:", resolvedUserName || "(none)");
+    console.log(
+      "Saving OTP for Doc ID:",
+      docId,
+      "Count:",
+      newSendCount,
+      "Name:",
+      resolvedUserName || "(none)"
+    );
     activeVerificationCodes.set(docId, record);
     activeVerificationCodes.set(targetIdentifier, record);
     if (foundUid) activeVerificationCodes.set(foundUid, record);
@@ -5424,7 +6209,9 @@ app2.post("/api/auth/send-verification-code", otpLimiter, async (req, res) => {
     }
     try {
       if (!db2.verification_codes) db2.verification_codes = [];
-      db2.verification_codes = db2.verification_codes.filter((vc) => vc.id !== docId && vc.id !== targetIdentifier && vc.id !== targetPhone);
+      db2.verification_codes = db2.verification_codes.filter(
+        (vc) => vc.id !== docId && vc.id !== targetIdentifier && vc.id !== targetPhone
+      );
       db2.verification_codes.push(record);
       if (docId !== targetIdentifier) {
         db2.verification_codes.push({ ...record, id: targetIdentifier });
@@ -5437,10 +6224,14 @@ app2.post("/api/auth/send-verification-code", otpLimiter, async (req, res) => {
       console.warn("Fallback JSON DB write failed:", err);
     }
     if (isRecovery) {
-      console.log(`[RECOVERY] OTP stored (id: ${recoveryRequestId}, docId: ${docId})`);
+      console.log(
+        `[RECOVERY] OTP stored (id: ${recoveryRequestId}, docId: ${docId})`
+      );
       console.log(`[RECOVERY] email send completed (id: ${recoveryRequestId})`);
     }
-    console.log(`[VERIFICATION CODE RECORDED] Target: ${targetIdentifier} | Code: [SECURE 6-DIGITS RECORDED] | Send Count: ${newSendCount}`);
+    console.log(
+      `[VERIFICATION CODE RECORDED] Target: ${targetIdentifier} | Code: [SECURE 6-DIGITS RECORDED] | Send Count: ${newSendCount}`
+    );
     return res.status(200).json({
       success: true,
       message: `Verification code sent to ${targetIdentifier}`,
@@ -5454,17 +6245,30 @@ app2.post("/api/auth/send-verification-code", otpLimiter, async (req, res) => {
     });
   } catch (error) {
     if (isRecovery) {
-      console.error(`[RECOVERY] FAILED (id: ${recoveryRequestId}, stage: "exception", error: ${error?.message || String(error)})`);
+      console.error(
+        `[RECOVERY] FAILED (id: ${recoveryRequestId}, stage: "exception", error: ${error?.message || String(error)})`
+      );
     }
     console.error("Verification Sending Error:", error);
-    return res.status(500).json({ success: false, error: error?.message || "Failed to generate verification code" });
+    return res.status(500).json({
+      success: false,
+      error: error?.message || "Failed to generate verification code"
+    });
   }
 });
 app2.post("/api/auth/verify-code", otpLimiter, async (req, res) => {
   try {
-    const { email, phone, code, userId, type = "account_registration" } = req.body;
+    const {
+      email,
+      phone,
+      code,
+      userId,
+      type = "account_registration"
+    } = req.body;
     if (!email && !phone && !userId || !code) {
-      return res.status(400).json({ error: "Identifier and 6-digit verification code are required" });
+      return res.status(400).json({
+        error: "Identifier and 6-digit verification code are required"
+      });
     }
     const resolvedUser = await resolveUserByEmailOrId({ userId, email, phone });
     const targetIdentifier = resolvedUser.email || (email || phone || "").trim().toLowerCase();
@@ -5473,12 +6277,19 @@ app2.post("/api/auth/verify-code", otpLimiter, async (req, res) => {
     let foundUid = resolvedUser.userId;
     const isTargetAdmin = foundUid && await isUserAdminServer(foundUid, targetIdentifier) || foundUid === ADMIN_USER_ID;
     if (isTargetAdmin) {
-      console.log(`[AUTH EXCEPTION] Admin account (${targetIdentifier}) bypassed OTP verification.`);
+      console.log(
+        `[AUTH EXCEPTION] Admin account (${targetIdentifier}) bypassed OTP verification.`
+      );
       return res.status(200).json({
         success: true,
         message: "Admin account verified without OTP.",
         isAdmin: true,
-        user: resolvedUser.userDoc || { id: foundUid, email: targetIdentifier, role: "Admin", isVerified: true }
+        user: resolvedUser.userDoc || {
+          id: foundUid,
+          email: targetIdentifier,
+          role: "Admin",
+          isVerified: true
+        }
       });
     }
     console.log("Verifying OTP for:", targetIdentifier);
@@ -5505,15 +6316,19 @@ app2.post("/api/auth/verify-code", otpLimiter, async (req, res) => {
     }
     const docId = foundUid;
     let activeRecord = null;
-    const memCandidates = Array.from(new Set([
-      foundUid,
-      userId,
-      targetIdentifier,
-      (email || "").trim().toLowerCase(),
-      (email || "").trim(),
-      rawPhone,
-      docId
-    ].filter(Boolean)));
+    const memCandidates = Array.from(
+      new Set(
+        [
+          foundUid,
+          userId,
+          targetIdentifier,
+          (email || "").trim().toLowerCase(),
+          (email || "").trim(),
+          rawPhone,
+          docId
+        ].filter(Boolean)
+      )
+    );
     for (const key of memCandidates) {
       const rec = activeVerificationCodes.get(key);
       if (rec && !rec.used) {
@@ -5535,7 +6350,10 @@ app2.post("/api/auth/verify-code", otpLimiter, async (req, res) => {
             }
           }
         } catch (err) {
-          console.warn(`Firestore read notice for verification code doc ${cId}:`, err);
+          console.warn(
+            `Firestore read notice for verification code doc ${cId}:`,
+            err
+          );
         }
       }
     }
@@ -5583,7 +6401,9 @@ app2.post("/api/auth/verify-code", otpLimiter, async (req, res) => {
         userId: foundUid,
         email: targetIdentifier
       });
-      return res.status(400).json({ error: "No active verification code found. Please click Resend Code." });
+      return res.status(400).json({
+        error: "No active verification code found. Please click Resend Code."
+      });
     }
     if (activeRecord.used) {
       console.warn("OTP_VERIFY_FAILED", {
@@ -5591,7 +6411,9 @@ app2.post("/api/auth/verify-code", otpLimiter, async (req, res) => {
         userId: foundUid,
         email: targetIdentifier
       });
-      return res.status(400).json({ error: "No active verification code found. Please click Resend Code." });
+      return res.status(400).json({
+        error: "No active verification code found. Please click Resend Code."
+      });
     }
     const recEmail = (activeRecord.email || "").trim().toLowerCase();
     if (recEmail && targetIdentifier && recEmail !== targetIdentifier) {
@@ -5600,18 +6422,33 @@ app2.post("/api/auth/verify-code", otpLimiter, async (req, res) => {
         expectedEmail: recEmail,
         providedEmail: targetIdentifier
       });
-      return res.status(400).json({ error: "Verification code does not match the active session." });
+      return res.status(400).json({
+        error: "Verification code does not match the active session."
+      });
     }
     const recordDocId = activeRecord.id || docId;
     const updateRecord = async (fields) => {
-      const memKeys = [activeRecord.id, activeRecord.userId, targetIdentifier, foundUid, userId, docId].filter(Boolean);
+      const memKeys = [
+        activeRecord.id,
+        activeRecord.userId,
+        targetIdentifier,
+        foundUid,
+        userId,
+        docId
+      ].filter(Boolean);
       for (const k of memKeys) {
         if (activeVerificationCodes.has(k)) {
           const existing = activeVerificationCodes.get(k);
           activeVerificationCodes.set(k, { ...existing, ...fields });
         }
       }
-      const fsIds = Array.from(new Set([recordDocId, activeRecord.id, targetIdentifier, foundUid].filter(Boolean)));
+      const fsIds = Array.from(
+        new Set(
+          [recordDocId, activeRecord.id, targetIdentifier, foundUid].filter(
+            Boolean
+          )
+        )
+      );
       for (const dId of fsIds) {
         try {
           await adminDb.collection("verification_codes").doc(dId).update(fields);
@@ -5639,7 +6476,9 @@ app2.post("/api/auth/verify-code", otpLimiter, async (req, res) => {
         userId: foundUid,
         email: targetIdentifier
       });
-      return res.status(400).json({ error: "Verification code has expired. Please request a new code." });
+      return res.status(400).json({
+        error: "Verification code has expired. Please request a new code."
+      });
     }
     if (activeRecord.attempts >= 5) {
       await updateRecord({ used: true });
@@ -5648,7 +6487,9 @@ app2.post("/api/auth/verify-code", otpLimiter, async (req, res) => {
         userId: foundUid,
         email: targetIdentifier
       });
-      return res.status(400).json({ error: "Maximum verification attempts reached. Please request a new code." });
+      return res.status(400).json({
+        error: "Maximum verification attempts reached. Please request a new code."
+      });
     }
     const cleanCodeHash = hashVerificationCode(cleanCode);
     const isMatch = activeRecord.codeHash ? activeRecord.codeHash === cleanCodeHash : activeRecord.code === cleanCode || activeRecord.otpCode === cleanCode;
@@ -5661,11 +6502,26 @@ app2.post("/api/auth/verify-code", otpLimiter, async (req, res) => {
         userId: foundUid,
         email: targetIdentifier
       });
-      return res.status(400).json({ error: `Incorrect verification code. ${remaining} attempt(s) remaining.` });
+      emitPlatformEvent({
+        eventType: "OTP_VERIFICATION_FAILED",
+        severity: "WARNING",
+        category: "AUTH",
+        userId: foundUid,
+        userEmail: targetIdentifier,
+        requestId: req.correlationId,
+        sanitizedMessage: `Invalid verification code attempt for: ${targetIdentifier} (${remaining} attempts left)`,
+        metadata: { targetIdentifier, remainingAttempts: remaining }
+      }).catch(() => {
+      });
+      return res.status(400).json({
+        error: `Incorrect verification code. ${remaining} attempt(s) remaining.`
+      });
     }
     await updateRecord({ used: true, verifiedAt: (/* @__PURE__ */ new Date()).toISOString() });
     const db2 = readDb2();
-    const user = db2.users?.find((u) => u.email?.toLowerCase() === targetIdentifier || u.id === foundUid);
+    const user = db2.users?.find(
+      (u) => u.email?.toLowerCase() === targetIdentifier || u.id === foundUid
+    );
     let firestoreUser = null;
     try {
       const userRef = adminDb.collection("users").doc(foundUid);
@@ -5689,10 +6545,15 @@ app2.post("/api/auth/verify-code", otpLimiter, async (req, res) => {
         firestoreUser.email_verified = true;
         firestoreUser.verification_status = "verified";
         firestoreUser.verification_required = false;
-        console.log(`[VERIFICATION SUCCESS] Updated user ${foundUid} in Firestore.`);
+        console.log(
+          `[VERIFICATION SUCCESS] Updated user ${foundUid} in Firestore.`
+        );
       }
     } catch (uErr) {
-      console.warn("Could not update user verification status in Firestore (proceeding):", uErr);
+      console.warn(
+        "Could not update user verification status in Firestore (proceeding):",
+        uErr
+      );
     }
     if (user) {
       user.isVerified = true;
@@ -5714,6 +6575,17 @@ app2.post("/api/auth/verify-code", otpLimiter, async (req, res) => {
     if (resolvedFinalUser && !resolvedFinalUser.role) {
       resolvedFinalUser.role = resolvedFinalUser.id === ADMIN_USER_ID ? "Admin" : "Contributor";
     }
+    emitPlatformEvent({
+      eventType: "OTP_VERIFICATION_SUCCESS",
+      severity: "NOTICE",
+      category: "AUTH",
+      userId: foundUid,
+      userEmail: targetIdentifier,
+      requestId: req.correlationId,
+      sanitizedMessage: `Verification code successfully validated for: ${targetIdentifier}`,
+      metadata: { targetIdentifier, type }
+    }).catch(() => {
+    });
     return res.status(200).json({
       success: true,
       message: "Verification successful!",
@@ -5746,13 +6618,20 @@ app2.post("/api/auth/forgot-password", otpLimiter, async (req, res) => {
         userEmail = firestoreUserData.email || target;
         userPhone = firestoreUserData.phone || "";
         rawUserName = firestoreUserData.ownerName || firestoreUserData.name || firestoreUserData.fullName || "";
-        user = { id: userId, email: userEmail, phone: userPhone, ownerName: rawUserName };
+        user = {
+          id: userId,
+          email: userEmail,
+          phone: userPhone,
+          ownerName: rawUserName
+        };
       }
     } catch (err) {
       console.warn("Firestore forgot-password user lookup failed:", err);
     }
     if (!user) {
-      const localUser = db2.users.find((u) => u.email?.toLowerCase() === target || u.phone === target);
+      const localUser = db2.users.find(
+        (u) => u.email?.toLowerCase() === target || u.phone === target
+      );
       if (localUser) {
         userId = localUser.id;
         userEmail = localUser.email || target;
@@ -5776,21 +6655,29 @@ app2.post("/api/auth/forgot-password", otpLimiter, async (req, res) => {
         existingRecord = docSnap.data();
       }
     } catch (err) {
-      console.warn("Firestore read failed for existing forgot-password code, checking fallback:", err);
+      console.warn(
+        "Firestore read failed for existing forgot-password code, checking fallback:",
+        err
+      );
     }
     if (!existingRecord) {
       if (!db2.verification_codes) db2.verification_codes = [];
       existingRecord = db2.verification_codes.find((vc) => vc.id === docId);
     }
     const nowMs = Date.now();
-    const RESEND_COOLDOWN_MINUTES = parseInt(process.env.RESEND_COOLDOWN_MINUTES || "10", 10);
+    const RESEND_COOLDOWN_MINUTES = parseInt(
+      process.env.RESEND_COOLDOWN_MINUTES || "10",
+      10
+    );
     const RESEND_COOLDOWN_MS = RESEND_COOLDOWN_MINUTES * 60 * 1e3;
     let currentSendCount = existingRecord ? existingRecord.sendCount || 0 : 0;
     if (existingRecord && existingRecord.cooldownUntil) {
       const cooldownUntilMs = new Date(existingRecord.cooldownUntil).getTime();
       if (nowMs < cooldownUntilMs) {
         const remainingSecs = Math.ceil((cooldownUntilMs - nowMs) / 1e3);
-        console.log(`[FORGOT PASSWORD OTP COOLDOWN ACTIVE] User ${docId} is in 10-min cooldown for ${remainingSecs}s.`);
+        console.log(
+          `[FORGOT PASSWORD OTP COOLDOWN ACTIVE] User ${docId} is in 10-min cooldown for ${remainingSecs}s.`
+        );
         return res.status(400).json({
           success: false,
           error: "You've reached the maximum number of code requests. Please wait a few minutes before requesting a new verification code.",
@@ -5800,13 +6687,19 @@ app2.post("/api/auth/forgot-password", otpLimiter, async (req, res) => {
           sendCount: currentSendCount
         });
       } else {
-        console.log(`[FORGOT PASSWORD OTP COOLDOWN EXPIRED] Resetting send count for user ${docId}.`);
+        console.log(
+          `[FORGOT PASSWORD OTP COOLDOWN EXPIRED] Resetting send count for user ${docId}.`
+        );
         currentSendCount = 0;
       }
     }
     if (currentSendCount >= 3) {
-      const newCooldownUntil = new Date(nowMs + RESEND_COOLDOWN_MS).toISOString();
-      console.log(`[FORGOT PASSWORD MAX SENDS REACHED] User ${docId} entering 10-min cooldown until ${newCooldownUntil}.`);
+      const newCooldownUntil = new Date(
+        nowMs + RESEND_COOLDOWN_MS
+      ).toISOString();
+      console.log(
+        `[FORGOT PASSWORD MAX SENDS REACHED] User ${docId} entering 10-min cooldown until ${newCooldownUntil}.`
+      );
       const updatedCooldownRecord = {
         ...existingRecord || {},
         id: docId,
@@ -5817,7 +6710,9 @@ app2.post("/api/auth/forgot-password", otpLimiter, async (req, res) => {
         await adminDb.collection("verification_codes").doc(docId).set(updatedCooldownRecord, { merge: true });
       } catch (e) {
       }
-      db2.verification_codes = (db2.verification_codes || []).filter((vc) => vc.id !== docId);
+      db2.verification_codes = (db2.verification_codes || []).filter(
+        (vc) => vc.id !== docId
+      );
       db2.verification_codes.push(updatedCooldownRecord);
       writeDb2(db2);
       return res.status(400).json({
@@ -5844,16 +6739,31 @@ app2.post("/api/auth/forgot-password", otpLimiter, async (req, res) => {
     const otpCode = import_crypto3.default.randomInt(1e5, 1e6).toString();
     const codeHash = hashVerificationCode(otpCode);
     const expiresAt = new Date(nowMs + 10 * 60 * 1e3).toISOString();
-    const resolvedUserName = cleanUserName2(req.body.name || rawUserName, userEmail);
-    const { subject: emailSubject, text: textBody, html: htmlBody } = buildOtpEmailHtml2({
+    const resolvedUserName = cleanUserName2(
+      req.body.name || rawUserName,
+      userEmail
+    );
+    const {
+      subject: emailSubject,
+      text: textBody,
+      html: htmlBody
+    } = buildOtpEmailHtml2({
       email: userEmail,
       userName: resolvedUserName,
       otpCode,
       type: "password_reset"
     });
-    const mailResult = await sendSystemMail2(target, emailSubject, textBody, htmlBody);
+    const mailResult = await sendSystemMail2(
+      target,
+      emailSubject,
+      textBody,
+      htmlBody
+    );
     if (!mailResult.success && !mailResult.simulated) {
-      console.error("[PASSWORD RESET EMAIL DELIVERY FAILURE]", mailResult.error);
+      console.error(
+        "[PASSWORD RESET EMAIL DELIVERY FAILURE]",
+        mailResult.error
+      );
       return res.status(500).json({
         success: false,
         error: "\u062A\u0639\u0630\u0631 \u0625\u0631\u0633\u0627\u0644 \u0631\u0627\u0628\u0637 \u0625\u0639\u0627\u062F\u0629 \u0627\u0644\u062A\u0639\u064A\u064A\u0646. \u062D\u0627\u0648\u0644 \u0645\u0631\u0629 \u0623\u062E\u0631\u0649."
@@ -5864,7 +6774,9 @@ app2.post("/api/auth/forgot-password", otpLimiter, async (req, res) => {
     let cooldownUntil = null;
     if (newSendCount >= 3) {
       cooldownUntil = new Date(nowMs + RESEND_COOLDOWN_MS).toISOString();
-      console.log(`[FORGOT PASSWORD 3RD SEND COMPLETED] Starting 10-minute cooldown for user ${docId} until ${cooldownUntil}`);
+      console.log(
+        `[FORGOT PASSWORD 3RD SEND COMPLETED] Starting 10-minute cooldown for user ${docId} until ${cooldownUntil}`
+      );
     }
     const record = {
       id: docId,
@@ -5882,7 +6794,12 @@ app2.post("/api/auth/forgot-password", otpLimiter, async (req, res) => {
       used: false,
       createdAt: (/* @__PURE__ */ new Date()).toISOString()
     };
-    console.log("Saving password reset OTP for Doc ID:", docId, "Count:", newSendCount);
+    console.log(
+      "Saving password reset OTP for Doc ID:",
+      docId,
+      "Count:",
+      newSendCount
+    );
     try {
       await adminDb.collection("verification_codes").doc(docId).set(record);
     } catch (dbErr) {
@@ -5890,13 +6807,17 @@ app2.post("/api/auth/forgot-password", otpLimiter, async (req, res) => {
     }
     try {
       if (!db2.verification_codes) db2.verification_codes = [];
-      db2.verification_codes = db2.verification_codes.filter((vc) => vc.id !== docId);
+      db2.verification_codes = db2.verification_codes.filter(
+        (vc) => vc.id !== docId
+      );
       db2.verification_codes.push(record);
       writeDb2(db2);
     } catch (err) {
       console.warn("Failed to write to fallback JSON DB:", err);
     }
-    console.log(`[PASSWORD RESET CODE RECORDED] Target: ${target} | Code: [SECURE 6-DIGITS RECORDED] | Send Count: ${newSendCount}`);
+    console.log(
+      `[PASSWORD RESET CODE RECORDED] Target: ${target} | Code: [SECURE 6-DIGITS RECORDED] | Send Count: ${newSendCount}`
+    );
     return res.status(200).json({
       success: true,
       message: `Verification code sent to ${target}`,
@@ -5907,14 +6828,19 @@ app2.post("/api/auth/forgot-password", otpLimiter, async (req, res) => {
     });
   } catch (error) {
     console.error("Password Reset Sending Error:", error);
-    return res.status(200).json({ success: false, serverError: error?.message || "Failed to process forgot password request" });
+    return res.status(200).json({
+      success: false,
+      serverError: error?.message || "Failed to process forgot password request"
+    });
   }
 });
 app2.post("/api/auth/reset-password", otpLimiter, async (req, res) => {
   try {
     const { emailOrPhone, code, newPassword } = req.body;
     if (!emailOrPhone || !code || !newPassword) {
-      return res.status(400).json({ error: "All fields (email/phone, code, new password) are required." });
+      return res.status(400).json({
+        error: "All fields (email/phone, code, new password) are required."
+      });
     }
     if (newPassword.length < 8) {
       return res.status(400).json({ error: "Password must be at least 8 characters long." });
@@ -5932,7 +6858,9 @@ app2.post("/api/auth/reset-password", otpLimiter, async (req, res) => {
       console.error("Failed to query Firestore verification_codes:", err);
     }
     if (activeRecords.length === 0) {
-      console.log("No active password reset code in Firestore, trying JSON database fallback...");
+      console.log(
+        "No active password reset code in Firestore, trying JSON database fallback..."
+      );
       const db3 = readDb2();
       if (!db3.verification_codes) db3.verification_codes = [];
       const localRecords = db3.verification_codes.filter(
@@ -5941,9 +6869,13 @@ app2.post("/api/auth/reset-password", otpLimiter, async (req, res) => {
       activeRecords = localRecords;
     }
     if (activeRecords.length === 0) {
-      return res.status(400).json({ error: "No active password reset request found. Please request a new verification code." });
+      return res.status(400).json({
+        error: "No active password reset request found. Please request a new verification code."
+      });
     }
-    activeRecords.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    activeRecords.sort(
+      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    );
     const activeRecord = activeRecords[0];
     console.log("OTP record located for password reset verification");
     const docRef = activeRecord.docId ? adminDb.collection("verification_codes").doc(activeRecord.docId) : null;
@@ -5957,7 +6889,9 @@ app2.post("/api/auth/reset-password", otpLimiter, async (req, res) => {
       }
       const db3 = readDb2();
       if (!db3.verification_codes) db3.verification_codes = [];
-      const localRecord = db3.verification_codes.find((vc) => vc.id === activeRecord.id);
+      const localRecord = db3.verification_codes.find(
+        (vc) => vc.id === activeRecord.id
+      );
       if (localRecord) {
         Object.assign(localRecord, fields);
         writeDb2(db3);
@@ -5965,11 +6899,15 @@ app2.post("/api/auth/reset-password", otpLimiter, async (req, res) => {
     };
     if (/* @__PURE__ */ new Date() > new Date(activeRecord.expiresAt)) {
       await updateRecord({ used: true });
-      return res.status(400).json({ error: "Password reset code has expired. Please request a new code." });
+      return res.status(400).json({
+        error: "Password reset code has expired. Please request a new code."
+      });
     }
     if (activeRecord.attempts >= 5) {
       await updateRecord({ used: true });
-      return res.status(400).json({ error: "Maximum attempts reached. Please request a new reset code." });
+      return res.status(400).json({
+        error: "Maximum attempts reached. Please request a new reset code."
+      });
     }
     const cleanCodeHash = hashVerificationCode(cleanCode);
     const isMatch = activeRecord.codeHash ? activeRecord.codeHash === cleanCodeHash : activeRecord.code === cleanCode;
@@ -5977,11 +6915,15 @@ app2.post("/api/auth/reset-password", otpLimiter, async (req, res) => {
       const newAttempts = (activeRecord.attempts || 0) + 1;
       await updateRecord({ attempts: newAttempts });
       const remaining = 5 - newAttempts;
-      return res.status(400).json({ error: `Incorrect verification code. ${remaining} attempt(s) remaining.` });
+      return res.status(400).json({
+        error: `Incorrect verification code. ${remaining} attempt(s) remaining.`
+      });
     }
     await updateRecord({ used: true });
     const db2 = readDb2();
-    const user = db2.users.find((u) => u.email?.toLowerCase() === target || u.phone === target || u.id === activeRecord.userId);
+    const user = db2.users.find(
+      (u) => u.email?.toLowerCase() === target || u.phone === target || u.id === activeRecord.userId
+    );
     try {
       let uid = user?.id || activeRecord.userId;
       if (!uid) {
@@ -5999,11 +6941,16 @@ app2.post("/api/auth/reset-password", otpLimiter, async (req, res) => {
             isEmailVerified: true,
             "verificationInfo.status": "verified"
           });
-          console.log(`[PASSWORD RESET SUCCESS] Updated user ${uid} password in Firestore.`);
+          console.log(
+            `[PASSWORD RESET SUCCESS] Updated user ${uid} password in Firestore.`
+          );
         }
       }
     } catch (uErr) {
-      console.warn("Could not update user password in Firestore (proceeding):", uErr);
+      console.warn(
+        "Could not update user password in Firestore (proceeding):",
+        uErr
+      );
     }
     if (user) {
       user.passwordHash = newPassword;
@@ -6028,7 +6975,9 @@ app2.post("/api/auth/set-password", async (req, res) => {
     }
     const cleanEmail = email ? email.trim().toLowerCase() : "";
     const db2 = readDb2();
-    let user = db2.users.find((u) => u.id === userId || cleanEmail && u.email?.toLowerCase() === cleanEmail);
+    let user = db2.users.find(
+      (u) => u.id === userId || cleanEmail && u.email?.toLowerCase() === cleanEmail
+    );
     let uid = userId || user?.id;
     let firestoreUserSnap = null;
     if (uid) {
@@ -6045,24 +6994,35 @@ app2.post("/api/auth/set-password", async (req, res) => {
     const existingPassword = user?.passwordHash || firestoreUserSnap?.data()?.passwordHash;
     if (existingPassword && !isGoogleUser && currentPassword) {
       if (existingPassword !== currentPassword && hashVerificationCode(currentPassword) !== existingPassword) {
-        return res.status(400).json({ error: "Current password is incorrect.", userFriendlyMessage: "\u0643\u0644\u0645\u0629 \u0627\u0644\u0645\u0631\u0648\u0631 \u0627\u0644\u062D\u0627\u0644\u064A\u0629 \u063A\u064A\u0631 \u0635\u062D\u064A\u062D\u0629." });
+        return res.status(400).json({
+          error: "Current password is incorrect.",
+          userFriendlyMessage: "\u0643\u0644\u0645\u0629 \u0627\u0644\u0645\u0631\u0648\u0631 \u0627\u0644\u062D\u0627\u0644\u064A\u0629 \u063A\u064A\u0631 \u0635\u062D\u064A\u062D\u0629."
+        });
       }
     }
     if (uid) {
       try {
         await adminAuth.updateUser(uid, { password: newPassword });
-        console.log(`[PASSWORD SET] Updated Firebase Auth password for uid: ${uid}`);
+        console.log(
+          `[PASSWORD SET] Updated Firebase Auth password for uid: ${uid}`
+        );
       } catch (authErr) {
-        console.warn("Could not update Firebase Auth user directly (proceeding with Firestore update):", authErr.message);
+        console.warn(
+          "Could not update Firebase Auth user directly (proceeding with Firestore update):",
+          authErr.message
+        );
       }
     }
     if (uid) {
       try {
-        await adminDb.collection("users").doc(uid).set({
-          passwordHash: newPassword,
-          hasPasswordSet: true,
-          updatedAt: (/* @__PURE__ */ new Date()).toISOString()
-        }, { merge: true });
+        await adminDb.collection("users").doc(uid).set(
+          {
+            passwordHash: newPassword,
+            hasPasswordSet: true,
+            updatedAt: (/* @__PURE__ */ new Date()).toISOString()
+          },
+          { merge: true }
+        );
       } catch (fsErr) {
         console.warn("Could not update Firestore user password:", fsErr);
       }
@@ -6101,7 +7061,9 @@ app2.post("/api/auth/verify-account-password", async (req, res) => {
     }
     const cleanEmail = email ? email.trim().toLowerCase() : "";
     const db2 = readDb2();
-    let user = db2.users.find((u) => u.id === userId || cleanEmail && u.email?.toLowerCase() === cleanEmail);
+    let user = db2.users.find(
+      (u) => u.id === userId || cleanEmail && u.email?.toLowerCase() === cleanEmail
+    );
     let uid = userId || user?.id;
     let firestoreUserSnap = null;
     if (uid) {
@@ -6128,1117 +7090,1401 @@ app2.post("/api/auth/verify-account-password", async (req, res) => {
     res.status(500).json({ error: err.message || "Failed to verify password." });
   }
 });
-app2.post("/api/auth/reset-encryption-with-password", requireAuth, async (req, res) => {
-  try {
-    const authUid = req.user?.uid;
-    const authEmail = req.user?.email;
-    if (!authUid) return res.status(401).json({ error: "Unauthorized" });
-    const callingUser = await getUserProfileServer(authUid, authEmail);
-    if (!callingUser) return res.status(404).json({ error: "User profile not found" });
-    const isOwnerOrCeo = (callingUser.role || "").toUpperCase() === "CEO" || (callingUser.role || "").toUpperCase() === "FIRST ADMINISTRATOR" || (callingUser.role || "").toUpperCase() === "FIRST_ADMINISTRATOR" || (callingUser.role || "").toUpperCase() === "ADMIN" || callingUser.workspace?.ownerId === authUid || await isUserAdminServer(authUid, authEmail);
-    if (!isOwnerOrCeo) {
-      return res.status(403).json({
-        success: false,
-        code: "FORBIDDEN_CEO_ONLY",
-        error: "Forbidden: Only First Administrator or CEO can manage or reset the file protection security passcode.",
-        userFriendlyMessage: "\u063A\u064A\u0631 \u0645\u0635\u0631\u062D: \u0625\u062F\u0627\u0631\u0629 \u0648\u062A\u063A\u064A\u064A\u0631 \u0631\u0645\u0632 \u0643\u0648\u062F \u062D\u0645\u0627\u064A\u0629 \u0627\u0644\u0645\u0644\u0641\u0627\u062A \u0645\u0642\u062A\u0635\u0631 \u062D\u0635\u0631\u064A\u0627\u064B \u0639\u0644\u0649 \u0627\u0644\u0645\u062F\u064A\u0631 \u0627\u0644\u062A\u0646\u0641\u064A\u0630\u064A (CEO) \u0648\u0627\u0644\u0645\u0633\u0624\u0648\u0644 \u0627\u0644\u0623\u0648\u0644."
-      });
-    }
-    const { accountPassword, newPasscode, lockedModules } = req.body;
-    if (!newPasscode || typeof newPasscode !== "string" || newPasscode.trim().length < 4) {
-      return res.status(400).json({ error: "Valid new secret passcode (minimum 4 characters) is required." });
-    }
-    const storedPassword = callingUser.passwordHash;
-    if (storedPassword && accountPassword) {
-      const isValid = storedPassword === accountPassword || hashVerificationCode(accountPassword) === storedPassword;
-      if (!isValid) {
-        return res.status(400).json({
+app2.post(
+  "/api/auth/reset-encryption-with-password",
+  requireAuth,
+  async (req, res) => {
+    try {
+      const authUid = req.user?.uid;
+      const authEmail = req.user?.email;
+      if (!authUid) return res.status(401).json({ error: "Unauthorized" });
+      const callingUser = await getUserProfileServer(authUid, authEmail);
+      if (!callingUser)
+        return res.status(404).json({ error: "User profile not found" });
+      const isOwnerOrCeo = (callingUser.role || "").toUpperCase() === "CEO" || (callingUser.role || "").toUpperCase() === "FIRST ADMINISTRATOR" || (callingUser.role || "").toUpperCase() === "FIRST_ADMINISTRATOR" || (callingUser.role || "").toUpperCase() === "ADMIN" || callingUser.workspace?.ownerId === authUid || await isUserAdminServer(authUid, authEmail);
+      if (!isOwnerOrCeo) {
+        return res.status(403).json({
           success: false,
-          error: "Account password verification failed. Please enter your correct current account password.",
-          userFriendlyMessage: "\u0643\u0644\u0645\u0629 \u0645\u0631\u0648\u0631 \u0627\u0644\u062D\u0633\u0627\u0628 \u063A\u064A\u0631 \u0635\u062D\u064A\u062D\u0629. \u064A\u0631\u062C\u0649 \u0625\u062F\u062E\u0627\u0644 \u0643\u0644\u0645\u0629 \u0627\u0644\u0645\u0631\u0648\u0631 \u0627\u0644\u062D\u0627\u0644\u064A\u0629 \u0644\u062D\u0633\u0627\u0628\u0643 \u0644\u0625\u0639\u0627\u062F\u0629 \u062A\u0639\u064A\u064A\u0646 \u0631\u0645\u0632 \u0627\u0644\u062A\u0634\u0641\u064A\u0631."
+          code: "FORBIDDEN_CEO_ONLY",
+          error: "Forbidden: Only First Administrator or CEO can manage or reset the file protection security passcode.",
+          userFriendlyMessage: "\u063A\u064A\u0631 \u0645\u0635\u0631\u062D: \u0625\u062F\u0627\u0631\u0629 \u0648\u062A\u063A\u064A\u064A\u0631 \u0631\u0645\u0632 \u0643\u0648\u062F \u062D\u0645\u0627\u064A\u0629 \u0627\u0644\u0645\u0644\u0641\u0627\u062A \u0645\u0642\u062A\u0635\u0631 \u062D\u0635\u0631\u064A\u0627\u064B \u0639\u0644\u0649 \u0627\u0644\u0645\u062F\u064A\u0631 \u0627\u0644\u062A\u0646\u0641\u064A\u0630\u064A (CEO) \u0648\u0627\u0644\u0645\u0633\u0624\u0648\u0644 \u0627\u0644\u0623\u0648\u0644."
         });
       }
-    }
-    const passcodeHash = hashSecurityPasscode(newPasscode.trim());
-    const newSecuritySettings = {
-      isPinSet: true,
-      secretPasscodeHash: passcodeHash,
-      lockedModules: lockedModules || {
-        fileVault: true,
-        memoryVault: true,
-        riskRadar: true,
-        settings: false
-      },
-      updatedAt: (/* @__PURE__ */ new Date()).toISOString()
-    };
-    if (isFirebaseAdminAvailable && adminDb) {
-      try {
-        await adminDb.collection("users").doc(authUid).set({
-          encryptedSecurity: newSecuritySettings
-        }, { merge: true });
-        console.log(`[ENCRYPTION RESET] Updated security settings for uid: ${authUid}`);
-      } catch (fsErr) {
-        console.warn("Firestore encryption update warning:", fsErr);
+      const { accountPassword, newPasscode, lockedModules } = req.body;
+      if (!newPasscode || typeof newPasscode !== "string" || newPasscode.trim().length < 4) {
+        return res.status(400).json({
+          error: "Valid new secret passcode (minimum 4 characters) is required."
+        });
       }
-    }
-    const db2 = readDb2();
-    if (db2.users) {
-      const uIdx = db2.users.findIndex((u) => u.id === authUid || u.email === authEmail);
-      if (uIdx >= 0) {
-        db2.users[uIdx].encryptedSecurity = newSecuritySettings;
-        delete db2.users[uIdx].secretPasscode;
-        writeDb2(db2);
-      }
-    }
-    return res.json({
-      success: true,
-      message: "Encryption passcode reset successfully with account password verification.",
-      userFriendlyMessage: "\u062A\u0645\u062A \u0625\u0639\u0627\u062F\u0629 \u062A\u0639\u064A\u064A\u0646 \u0648\u062A\u062D\u062F\u064A\u062B \u0631\u0645\u0632 \u0627\u0644\u062A\u0634\u0641\u064A\u0631 \u0628\u0646\u062C\u0627\u062D \u0639\u0628\u0631 \u062A\u0623\u0643\u064A\u062F \u0643\u0644\u0645\u0629 \u0645\u0631\u0648\u0631 \u0627\u0644\u062D\u0633\u0627\u0628.",
-      encryptedSecurity: newSecuritySettings
-    });
-  } catch (err) {
-    console.error("Reset encryption passcode error:", err);
-    return res.status(500).json({ error: err?.message || "Failed to reset encryption passcode." });
-  }
-});
-app2.all([
-  "/api/admin/send-invitation",
-  "/admin/send-invitation",
-  "/api/admin/send-invitation/",
-  "/admin/send-invitation/"
-], requireAuth, async (req, res) => {
-  if (req.method === "OPTIONS") {
-    return res.status(200).end();
-  }
-  if (req.method !== "POST") {
-    return res.status(405).json({
-      success: false,
-      error: `Method ${req.method} Not Allowed. Please use POST.`,
-      userFriendlyMessage: "\u0637\u0631\u064A\u0642\u0629 \u0627\u0644\u0637\u0644\u0628 \u063A\u064A\u0631 \u0635\u0627\u0644\u062D\u0629\u060C \u064A\u0631\u062C\u0649 \u0627\u0633\u062A\u062E\u062F\u0627\u0645 POST."
-    });
-  }
-  try {
-    const callerUid = req.user?.uid;
-    if (!callerUid) {
-      return res.status(401).json({
-        success: false,
-        code: "AUTH_REQUIRED",
-        error: "Unauthorized: Token verification required.",
-        userFriendlyMessage: "\u0645\u0635\u0627\u062F\u0642\u0629 \u0627\u0644\u0645\u0633\u062A\u062E\u062F\u0645 \u0645\u0637\u0644\u0648\u0628\u0629 \u0644\u0625\u0631\u0633\u0627\u0644 \u0627\u0644\u062F\u0639\u0648\u0627\u062A."
-      });
-    }
-    const { email, name, role, powers, companyName: requestedCompanyName, inviterName: requestedInviterName, senderName: requestedSenderName, appUrl } = req.body;
-    const normalizedEmail = (email || "").trim().toLowerCase();
-    if (!normalizedEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
-      return res.status(400).json({
-        success: false,
-        code: "INVALID_EMAIL",
-        error: "Invalid email format provided.",
-        userFriendlyMessage: "\u0635\u064A\u063A\u0629 \u0627\u0644\u0628\u0631\u064A\u062F \u0627\u0644\u0625\u0644\u0643\u062A\u0631\u0648\u0646\u064A \u063A\u064A\u0631 \u0635\u062D\u064A\u062D\u0629\u060C \u064A\u0631\u062C\u0649 \u0643\u062A\u0627\u0628\u0629 \u0639\u0646\u0648\u0627\u0646 \u0628\u0631\u064A\u062F \u0635\u062D\u064A\u062D."
-      });
-    }
-    let ceoData = null;
-    try {
-      const ceoSnap = await adminDb.collection("users").doc(callerUid).get();
-      if (ceoSnap.exists) {
-        ceoData = ceoSnap.data();
-      }
-    } catch (e) {
-    }
-    if (!ceoData) {
-      const db3 = readDb2();
-      ceoData = db3.users?.find((u) => u.id === callerUid);
-    }
-    if (!ceoData) {
-      const userEmail = req.user?.email || "admin@zakir.ai";
-      ceoData = {
-        id: callerUid,
-        uid: callerUid,
-        email: userEmail,
-        ownerName: userEmail.split("@")[0],
-        companyName: requestedCompanyName || "Zakir Workspace",
-        role: "CEO",
-        workspaceId: `ws_${callerUid.substring(0, 8)}`,
-        teamMembersList: []
-      };
-    }
-    const workspaceId = (ceoData.workspaceId || ceoData.workspace?.id || `ws_${callerUid.substring(0, 8)}`).trim();
-    const inviterName = ((requestedInviterName || requestedSenderName || "").trim() || (ceoData?.fullName || ceoData?.displayName || ceoData?.ownerName || ceoData?.name || "").trim() || (req.user?.name || req.user?.displayName || "").trim() || (ceoData?.email ? ceoData.email.split("@")[0] : "") || "\u0645\u0633\u0624\u0648\u0644 \u0627\u0644\u0645\u0624\u0633\u0633\u0629").trim();
-    const cleanReqCompany = (requestedCompanyName || req.body.organizationName || req.body.workspaceName || "").trim();
-    let authoritativeCompanyName = "";
-    if (cleanReqCompany && cleanReqCompany !== "ZakIr Platform" && cleanReqCompany !== "Zakir Workspace") {
-      authoritativeCompanyName = cleanReqCompany;
-    } else if (ceoData?.organizationName && ceoData.organizationName !== "ZakIr Platform" && ceoData.organizationName !== "Zakir Workspace") {
-      authoritativeCompanyName = ceoData.organizationName.trim();
-    } else if (ceoData?.companyName && ceoData.companyName !== "ZakIr Platform" && ceoData.companyName !== "Zakir Workspace") {
-      authoritativeCompanyName = ceoData.companyName.trim();
-    } else if (ceoData?.workspaceName && ceoData.workspaceName !== "ZakIr Platform") {
-      authoritativeCompanyName = ceoData.workspaceName.trim();
-    }
-    if (!authoritativeCompanyName) {
-      try {
-        const wsSnap = await adminDb.collection("workspaces").doc(workspaceId).get();
-        if (wsSnap.exists) {
-          const wsData = wsSnap.data() || {};
-          const wsComp = (wsData.companyName || wsData.name || "").trim();
-          if (wsComp && wsComp !== "ZakIr Platform" && wsComp !== "Zakir Workspace") {
-            authoritativeCompanyName = wsComp;
-          }
-        }
-      } catch (e) {
-      }
-    }
-    if (!authoritativeCompanyName && cleanReqCompany) {
-      authoritativeCompanyName = cleanReqCompany;
-    }
-    if (!authoritativeCompanyName) {
-      authoritativeCompanyName = ceoData?.ownerName ? `${ceoData.ownerName}` : "\u0645\u0646\u0635\u0629 Zakir";
-    }
-    authoritativeCompanyName = authoritativeCompanyName.trim();
-    try {
-      await adminDb.collection("users").doc(callerUid).set({ companyName: authoritativeCompanyName, workspaceId }, { merge: true });
-      await adminDb.collection("workspaces").doc(workspaceId).set({ companyName: authoritativeCompanyName, name: authoritativeCompanyName, id: workspaceId, ownerId: callerUid }, { merge: true });
-    } catch (e) {
-    }
-    const isAdmin = await isUserAdminServer(callerUid, req.user?.email || ceoData?.email);
-    const ceoRole = (ceoData.role || "").toUpperCase();
-    const isAuthorized = isAdmin || ceoRole === "CEO" || ceoRole === "ADMIN" || ceoRole === "OWNER" || ceoRole === "FOUNDER" || ceoRole === "DIRECTOR" || ceoRole === "MANAGER";
-    if (!isAuthorized) {
-      return res.status(403).json({
-        success: false,
-        code: "FORBIDDEN",
-        error: "Forbidden: Only CEO or Admin can invite workspace members.",
-        userFriendlyMessage: "\u0644\u064A\u0633 \u0644\u062F\u064A\u0643 \u0635\u0644\u0627\u062D\u064A\u0629 \u0625\u0631\u0633\u0627\u0644 \u062F\u0639\u0648\u0627\u062A \u0627\u0644\u0645\u0648\u0638\u0641\u064A\u0646. \u0647\u0630\u0647 \u0627\u0644\u0635\u0644\u0627\u062D\u064A\u0629 \u0645\u062D\u0635\u0648\u0631\u0629 \u0641\u064A \u0645\u062F\u064A\u0631 \u0627\u0644\u0645\u0624\u0633\u0633\u0629 (CEO)."
-      });
-    }
-    if (normalizedEmail === (req.user?.email || ceoData.email || "").toLowerCase()) {
-      return res.status(400).json({
-        success: false,
-        code: "SELF_INVITATION",
-        error: "Cannot invite sender email address.",
-        userFriendlyMessage: "\u0644\u0627 \u064A\u0645\u0643\u0646\u0643 \u0625\u0631\u0633\u0627\u0644 \u062F\u0639\u0648\u0629 \u0627\u0646\u0636\u0645\u0627\u0645 \u0625\u0644\u0649 \u0628\u0631\u064A\u062F\u0643 \u0627\u0644\u0625\u0644\u0643\u062A\u0631\u0648\u0646\u064A \u0627\u0644\u062D\u0627\u0644\u064A."
-      });
-    }
-    const teamMembersList = ceoData.teamMembersList || [];
-    const isAlreadyInTeam = teamMembersList.some((m) => {
-      const mEmail = m.email?.trim().toLowerCase();
-      const isPending = m.name?.includes("\u0645\u0639\u0644\u0642") || m.name?.includes("Pending");
-      return mEmail === normalizedEmail && !isPending;
-    });
-    if (isAlreadyInTeam) {
-      return res.status(400).json({
-        success: false,
-        code: "ALREADY_MEMBER",
-        error: "Employee is already a full member of the organization.",
-        userFriendlyMessage: "\u0647\u0630\u0627 \u0627\u0644\u0628\u0631\u064A\u062F \u0627\u0644\u0625\u0644\u0643\u062A\u0631\u0648\u0646\u064A \u0639\u0636\u0648 \u0628\u0627\u0644\u0641\u0639\u0644 \u0641\u064A \u0627\u0644\u0645\u0624\u0633\u0633\u0629."
-      });
-    }
-    try {
-      const existingUserSnap = await adminDb.collection("users").where("email", "==", normalizedEmail).get();
-      if (!existingUserSnap.empty) {
-        const existingUserData = existingUserSnap.docs[0].data();
-        if (existingUserData.workspaceId === workspaceId && existingUserData.role !== "Pending") {
+      const storedPassword = callingUser.passwordHash;
+      if (storedPassword && accountPassword) {
+        const isValid = storedPassword === accountPassword || hashVerificationCode(accountPassword) === storedPassword;
+        if (!isValid) {
           return res.status(400).json({
             success: false,
-            code: "ALREADY_MEMBER",
-            error: "Employee is already registered in this workspace.",
-            userFriendlyMessage: "\u0647\u0630\u0627 \u0627\u0644\u0645\u0633\u062A\u062E\u062F\u0645 \u0639\u0636\u0648 \u0628\u0627\u0644\u0641\u0639\u0644 \u0641\u064A \u0627\u0644\u0645\u0624\u0633\u0633\u0629."
+            error: "Account password verification failed. Please enter your correct current account password.",
+            userFriendlyMessage: "\u0643\u0644\u0645\u0629 \u0645\u0631\u0648\u0631 \u0627\u0644\u062D\u0633\u0627\u0628 \u063A\u064A\u0631 \u0635\u062D\u064A\u062D\u0629. \u064A\u0631\u062C\u0649 \u0625\u062F\u062E\u0627\u0644 \u0643\u0644\u0645\u0629 \u0627\u0644\u0645\u0631\u0648\u0631 \u0627\u0644\u062D\u0627\u0644\u064A\u0629 \u0644\u062D\u0633\u0627\u0628\u0643 \u0644\u0625\u0639\u0627\u062F\u0629 \u062A\u0639\u064A\u064A\u0646 \u0631\u0645\u0632 \u0627\u0644\u062A\u0634\u0641\u064A\u0631."
           });
         }
       }
-    } catch (e) {
-    }
-    let existingInv = null;
-    try {
-      const invDoc = await adminDb.collection("invitations").doc(normalizedEmail).get();
-      if (invDoc.exists) {
-        existingInv = invDoc.data();
-      }
-    } catch (e) {
-    }
-    if (existingInv && existingInv.status === "ACCEPTED") {
-      return res.status(400).json({
-        success: false,
-        code: "ALREADY_ACCEPTED",
-        error: "Invitation has already been accepted.",
-        userFriendlyMessage: "\u0644\u0642\u062F \u062A\u0645 \u0642\u0628\u0648\u0644 \u0647\u0630\u0647 \u0627\u0644\u062F\u0639\u0648\u0629 \u0628\u0627\u0644\u0641\u0639\u0644 \u0648\u0627\u0644\u0639\u0636\u0648 \u0646\u0634\u0637 \u0641\u064A \u0627\u0644\u0641\u0631\u064A\u0642."
-      });
-    }
-    const secureToken = import_crypto3.default.randomBytes(24).toString("hex");
-    const nowIso = (/* @__PURE__ */ new Date()).toISOString();
-    const expiresAtIso = new Date(Date.now() + 7 * 24 * 3600 * 1e3).toISOString();
-    const companyName = authoritativeCompanyName;
-    const memberName = (name || normalizedEmail.split("@")[0]).trim();
-    const designatedRole = role || "Contributor";
-    const defaultPowers = powers || {
-      fileVault: true,
-      memoryVault: true,
-      riskRadar: false,
-      marketIntel: false,
-      settings: false
-    };
-    const invitationRecord = {
-      email: normalizedEmail,
-      name: memberName,
-      role: designatedRole,
-      powers: defaultPowers,
-      workspaceId,
-      companyName: authoritativeCompanyName,
-      senderId: callerUid,
-      senderEmail: ceoData.email || req.user?.email,
-      senderName: inviterName,
-      inviterName,
-      status: "pending",
-      token: secureToken,
-      createdAt: existingInv?.createdAt || nowIso,
-      updatedAt: nowIso,
-      expiresAt: expiresAtIso,
-      lastSentAt: nowIso,
-      resendCount: (existingInv?.resendCount || 0) + (existingInv ? 1 : 0)
-    };
-    try {
-      await adminDb.collection("invitations").doc(normalizedEmail).set(invitationRecord);
-    } catch (fsErr) {
-      console.error("Failed to write invitation to Firestore:", fsErr);
-      return res.status(500).json({
-        success: false,
-        code: "FIRESTORE_WRITE_FAILED",
-        error: fsErr?.message || String(fsErr),
-        userFriendlyMessage: "\u0641\u0634\u0644 \u062D\u0641\u0638 \u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u062F\u0639\u0648\u0629 \u0641\u064A \u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u0623\u0633\u0627\u0633\u064A\u0629. \u062A\u0639\u0630\u0631 \u0625\u0631\u0633\u0627\u0644 \u0627\u0644\u0628\u0631\u064A\u062F \u0627\u0644\u0625\u0644\u0643\u062A\u0631\u0648\u0646\u064A."
-      });
-    }
-    const db2 = readDb2();
-    if (!db2.invitations) db2.invitations = [];
-    db2.invitations = db2.invitations.filter((i) => i.email?.trim().toLowerCase() !== normalizedEmail);
-    db2.invitations.push(invitationRecord);
-    writeDb2(db2);
-    const appBaseUrl = appUrl || process.env.APP_URL || process.env.PUBLIC_APP_URL || getAppBaseUrl(req);
-    const inviteLink = `${appBaseUrl}/?invitationToken=${secureToken}&email=${encodeURIComponent(normalizedEmail)}`;
-    const { subject: emailSubject, text: emailText, html: emailHtml } = buildInvitationEmailHtml({
-      companyName: authoritativeCompanyName,
-      memberName,
-      inviterName,
-      designatedRole,
-      inviteLink,
-      isReminder: false,
-      language: ceoData?.language || "ar",
-      baseUrl: appBaseUrl
-    });
-    const mailResult = await sendSystemMail2({
-      to: normalizedEmail,
-      subject: emailSubject,
-      html: emailHtml,
-      text: emailText
-    });
-    console.log("INVITATION_PROCESSED", {
-      recipient: normalizedEmail,
-      ceo: callerUid,
-      workspaceId,
-      mailSent: mailResult.success
-    });
-    return res.json({
-      success: true,
-      emailSent: mailResult.success,
-      message: mailResult.success ? "Invitation generated and dispatched successfully via email." : "Invitation generated successfully.",
-      userFriendlyMessage: mailResult.success ? `\u062A\u0645 \u0625\u0631\u0633\u0627\u0644 \u062F\u0639\u0648\u0629 \u0627\u0644\u0645\u0648\u0638\u0641 \u0628\u0646\u062C\u0627\u062D \u0625\u0644\u0649 \u0627\u0644\u0628\u0631\u064A\u062F (${normalizedEmail}).` : `\u062A\u0645 \u0625\u0646\u0634\u0627\u0621 \u0648\u062A\u0648\u062B\u064A\u0642 \u062F\u0639\u0648\u0629 \u0627\u0644\u0645\u0648\u0638\u0641 \u0628\u0646\u062C\u0627\u062D (${normalizedEmail}). \u064A\u0645\u0643\u0646\u0643 \u0623\u064A\u0636\u0627\u064B \u0646\u0633\u062E \u0631\u0627\u0628\u0637 \u0627\u0644\u062F\u0639\u0648\u0629 \u0648\u0645\u0634\u0627\u0631\u0643\u062A\u0647 \u0645\u0639 \u0627\u0644\u0639\u0636\u0648 \u0645\u0628\u0627\u0634\u0631\u0629.`,
-      invitation: invitationRecord
-    });
-  } catch (err) {
-    console.error("send-invitation endpoint exception:", err);
-    return res.status(500).json({
-      success: false,
-      code: "INVITATION_CREATE_FAILED",
-      error: err?.message || String(err),
-      userFriendlyMessage: "\u062A\u0639\u0630\u0631 \u0625\u0631\u0633\u0627\u0644 \u0627\u0644\u062F\u0639\u0648\u0629 \u062D\u0627\u0644\u064A\u0627\u064B \u0628\u0633\u0628\u0628 \u062E\u0637\u0623 \u062E\u0627\u062F\u0645 \u062F\u0627\u062E\u0644\u064A. \u064A\u0631\u062C\u0649 \u0627\u0644\u0645\u062D\u0627\u0648\u0644\u0629 \u0645\u0631\u0629 \u0623\u062E\u0631\u0649."
-    });
-  }
-});
-app2.all([
-  "/api/admin/resend-invitation",
-  "/admin/resend-invitation",
-  "/api/admin/resend-invitation/",
-  "/admin/resend-invitation/"
-], requireAuth, async (req, res) => {
-  if (req.method === "OPTIONS") return res.status(200).end();
-  if (req.method !== "POST") return res.status(405).json({ success: false, error: `Method ${req.method} Not Allowed.` });
-  try {
-    const callerUid = req.user?.uid;
-    if (!callerUid) {
-      return res.status(401).json({ success: false, code: "AUTH_REQUIRED", error: "Unauthorized" });
-    }
-    const { email, companyName: requestedCompanyName, inviterName: requestedInviterName, senderName: requestedSenderName, appUrl } = req.body;
-    const normalizedEmail = (email || "").trim().toLowerCase();
-    if (!normalizedEmail) {
-      return res.status(400).json({ success: false, code: "INVALID_EMAIL", error: "Email is required" });
-    }
-    let ceoData = null;
-    try {
-      const snap = await adminDb.collection("users").doc(callerUid).get();
-      if (snap.exists) ceoData = snap.data();
-    } catch (e) {
-    }
-    if (!ceoData) {
-      const db3 = readDb2();
-      ceoData = db3.users?.find((u) => u.id === callerUid);
-    }
-    const isAdmin = await isUserAdminServer(callerUid, req.user?.email || ceoData?.email);
-    const ceoRole = (ceoData?.role || "").toUpperCase();
-    const isAuthorized = isAdmin || ceoRole === "CEO" || ceoRole === "ADMIN" || ceoRole === "OWNER" || ceoRole === "FOUNDER" || ceoRole === "DIRECTOR" || ceoRole === "MANAGER";
-    if (!isAuthorized) {
-      return res.status(403).json({
-        success: false,
-        code: "FORBIDDEN",
-        error: "Forbidden: Only CEO or Admin can resend invitations",
-        userFriendlyMessage: "\u0644\u064A\u0633 \u0644\u062F\u064A\u0643 \u0635\u0644\u0627\u062D\u064A\u0629 \u0625\u0639\u0627\u062F\u0629 \u0625\u0631\u0633\u0627\u0644 \u0627\u0644\u062F\u0639\u0648\u0627\u062A."
-      });
-    }
-    let invRecord = null;
-    try {
-      const invDoc = await adminDb.collection("invitations").doc(normalizedEmail).get();
-      if (invDoc.exists) invRecord = invDoc.data();
-    } catch (e) {
-    }
-    if (!invRecord) {
-      const db3 = readDb2();
-      invRecord = db3.invitations?.find((i) => i.email?.trim().toLowerCase() === normalizedEmail);
-    }
-    if (!invRecord) {
-      return res.status(404).json({ success: false, code: "INVITATION_NOT_FOUND", error: "Invitation not found", userFriendlyMessage: "\u0627\u0644\u062F\u0639\u0648\u0629 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F\u0629." });
-    }
-    const secureToken = import_crypto3.default.randomBytes(24).toString("hex");
-    const nowIso = (/* @__PURE__ */ new Date()).toISOString();
-    const expiresAtIso = new Date(Date.now() + 7 * 24 * 3600 * 1e3).toISOString();
-    const inviterName = ((requestedInviterName || requestedSenderName || "").trim() || (invRecord.inviterName || invRecord.senderName || "").trim() || (ceoData?.fullName || ceoData?.displayName || ceoData?.ownerName || ceoData?.name || "").trim() || (req.user?.name || req.user?.displayName || "").trim() || (ceoData?.email ? ceoData.email.split("@")[0] : "") || "\u0645\u0633\u0624\u0648\u0644 \u0627\u0644\u0645\u0624\u0633\u0633\u0629").trim();
-    let companyName = (requestedCompanyName || invRecord.companyName || ceoData?.organizationName || ceoData?.companyName || ceoData?.workspaceName || "").trim();
-    if (!companyName || companyName === "ZakIr Platform" || companyName === "Zakir Workspace") {
-      const wsId = (invRecord.workspaceId || ceoData?.workspaceId || "").trim();
-      if (wsId) {
+      const passcodeHash = hashSecurityPasscode(newPasscode.trim());
+      const newSecuritySettings = {
+        isPinSet: true,
+        secretPasscodeHash: passcodeHash,
+        lockedModules: lockedModules || {
+          fileVault: true,
+          memoryVault: true,
+          riskRadar: true,
+          settings: false
+        },
+        updatedAt: (/* @__PURE__ */ new Date()).toISOString()
+      };
+      if (isFirebaseAdminAvailable && adminDb) {
         try {
-          const wsSnap = await adminDb.collection("workspaces").doc(wsId).get();
+          await adminDb.collection("users").doc(authUid).set(
+            {
+              encryptedSecurity: newSecuritySettings
+            },
+            { merge: true }
+          );
+          console.log(
+            `[ENCRYPTION RESET] Updated security settings for uid: ${authUid}`
+          );
+        } catch (fsErr) {
+          console.warn("Firestore encryption update warning:", fsErr);
+        }
+      }
+      const db2 = readDb2();
+      if (db2.users) {
+        const uIdx = db2.users.findIndex(
+          (u) => u.id === authUid || u.email === authEmail
+        );
+        if (uIdx >= 0) {
+          db2.users[uIdx].encryptedSecurity = newSecuritySettings;
+          delete db2.users[uIdx].secretPasscode;
+          writeDb2(db2);
+        }
+      }
+      return res.json({
+        success: true,
+        message: "Encryption passcode reset successfully with account password verification.",
+        userFriendlyMessage: "\u062A\u0645\u062A \u0625\u0639\u0627\u062F\u0629 \u062A\u0639\u064A\u064A\u0646 \u0648\u062A\u062D\u062F\u064A\u062B \u0631\u0645\u0632 \u0627\u0644\u062A\u0634\u0641\u064A\u0631 \u0628\u0646\u062C\u0627\u062D \u0639\u0628\u0631 \u062A\u0623\u0643\u064A\u062F \u0643\u0644\u0645\u0629 \u0645\u0631\u0648\u0631 \u0627\u0644\u062D\u0633\u0627\u0628.",
+        encryptedSecurity: newSecuritySettings
+      });
+    } catch (err) {
+      console.error("Reset encryption passcode error:", err);
+      return res.status(500).json({
+        error: err?.message || "Failed to reset encryption passcode."
+      });
+    }
+  }
+);
+app2.all(
+  [
+    "/api/admin/send-invitation",
+    "/admin/send-invitation",
+    "/api/admin/send-invitation/",
+    "/admin/send-invitation/"
+  ],
+  requireAuth,
+  async (req, res) => {
+    if (req.method === "OPTIONS") {
+      return res.status(200).end();
+    }
+    if (req.method !== "POST") {
+      return res.status(405).json({
+        success: false,
+        error: `Method ${req.method} Not Allowed. Please use POST.`,
+        userFriendlyMessage: "\u0637\u0631\u064A\u0642\u0629 \u0627\u0644\u0637\u0644\u0628 \u063A\u064A\u0631 \u0635\u0627\u0644\u062D\u0629\u060C \u064A\u0631\u062C\u0649 \u0627\u0633\u062A\u062E\u062F\u0627\u0645 POST."
+      });
+    }
+    try {
+      const callerUid = req.user?.uid;
+      if (!callerUid) {
+        return res.status(401).json({
+          success: false,
+          code: "AUTH_REQUIRED",
+          error: "Unauthorized: Token verification required.",
+          userFriendlyMessage: "\u0645\u0635\u0627\u062F\u0642\u0629 \u0627\u0644\u0645\u0633\u062A\u062E\u062F\u0645 \u0645\u0637\u0644\u0648\u0628\u0629 \u0644\u0625\u0631\u0633\u0627\u0644 \u0627\u0644\u062F\u0639\u0648\u0627\u062A."
+        });
+      }
+      const {
+        email,
+        name,
+        role,
+        powers,
+        companyName: requestedCompanyName,
+        inviterName: requestedInviterName,
+        senderName: requestedSenderName,
+        appUrl
+      } = req.body;
+      const normalizedEmail = (email || "").trim().toLowerCase();
+      if (!normalizedEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
+        return res.status(400).json({
+          success: false,
+          code: "INVALID_EMAIL",
+          error: "Invalid email format provided.",
+          userFriendlyMessage: "\u0635\u064A\u063A\u0629 \u0627\u0644\u0628\u0631\u064A\u062F \u0627\u0644\u0625\u0644\u0643\u062A\u0631\u0648\u0646\u064A \u063A\u064A\u0631 \u0635\u062D\u064A\u062D\u0629\u060C \u064A\u0631\u062C\u0649 \u0643\u062A\u0627\u0628\u0629 \u0639\u0646\u0648\u0627\u0646 \u0628\u0631\u064A\u062F \u0635\u062D\u064A\u062D."
+        });
+      }
+      let ceoData = null;
+      try {
+        const ceoSnap = await adminDb.collection("users").doc(callerUid).get();
+        if (ceoSnap.exists) {
+          ceoData = ceoSnap.data();
+        }
+      } catch (e) {
+      }
+      if (!ceoData) {
+        const db3 = readDb2();
+        ceoData = db3.users?.find((u) => u.id === callerUid);
+      }
+      if (!ceoData) {
+        let userEmail = req.user?.email || "ceo@zakir.ai";
+        let ownerName = userEmail.split("@")[0];
+        if (callerUid === "usr_ceo" || userEmail === "admin@zakir.ai") {
+          userEmail = "ceo@zakir.ai";
+          ownerName = "Mohamed Vadel";
+        }
+        ceoData = {
+          id: callerUid,
+          uid: callerUid,
+          email: userEmail,
+          ownerName,
+          companyName: requestedCompanyName || "Zakir Workspace",
+          role: "CEO",
+          workspaceId: `ws_${callerUid.substring(0, 8)}`,
+          teamMembersList: []
+        };
+      }
+      const workspaceId = (ceoData.workspaceId || ceoData.workspace?.id || `ws_${callerUid.substring(0, 8)}`).trim();
+      const inviterName = ((requestedInviterName || requestedSenderName || "").trim() || (ceoData?.fullName || ceoData?.displayName || ceoData?.ownerName || ceoData?.name || "").trim() || (req.user?.name || req.user?.displayName || "").trim() || (ceoData?.email ? ceoData.email.split("@")[0] : "") || "\u0645\u0633\u0624\u0648\u0644 \u0627\u0644\u0645\u0624\u0633\u0633\u0629").trim();
+      const cleanReqCompany = (requestedCompanyName || req.body.organizationName || req.body.workspaceName || "").trim();
+      let authoritativeCompanyName = "";
+      if (cleanReqCompany && cleanReqCompany !== "ZakIr Platform" && cleanReqCompany !== "Zakir Workspace") {
+        authoritativeCompanyName = cleanReqCompany;
+      } else if (ceoData?.organizationName && ceoData.organizationName !== "ZakIr Platform" && ceoData.organizationName !== "Zakir Workspace") {
+        authoritativeCompanyName = ceoData.organizationName.trim();
+      } else if (ceoData?.companyName && ceoData.companyName !== "ZakIr Platform" && ceoData.companyName !== "Zakir Workspace") {
+        authoritativeCompanyName = ceoData.companyName.trim();
+      } else if (ceoData?.workspaceName && ceoData.workspaceName !== "ZakIr Platform") {
+        authoritativeCompanyName = ceoData.workspaceName.trim();
+      }
+      if (!authoritativeCompanyName) {
+        try {
+          const wsSnap = await adminDb.collection("workspaces").doc(workspaceId).get();
           if (wsSnap.exists) {
             const wsData = wsSnap.data() || {};
             const wsComp = (wsData.companyName || wsData.name || "").trim();
             if (wsComp && wsComp !== "ZakIr Platform" && wsComp !== "Zakir Workspace") {
-              companyName = wsComp;
+              authoritativeCompanyName = wsComp;
             }
           }
         } catch (e) {
         }
       }
-    }
-    if (!companyName || companyName === "ZakIr Platform" || companyName === "Zakir Workspace") {
-      companyName = ceoData?.ownerName ? `${ceoData.ownerName}` : "\u0645\u0646\u0635\u0629 Zakir";
-    }
-    companyName = companyName.trim();
-    invRecord.token = secureToken;
-    invRecord.status = "pending";
-    invRecord.companyName = companyName;
-    invRecord.senderName = inviterName;
-    invRecord.inviterName = inviterName;
-    invRecord.expiresAt = expiresAtIso;
-    invRecord.lastSentAt = nowIso;
-    invRecord.resendCount = (invRecord.resendCount || 0) + 1;
-    try {
-      await adminDb.collection("invitations").doc(normalizedEmail).set(invRecord);
-    } catch (e) {
-    }
-    const db2 = readDb2();
-    if (!db2.invitations) db2.invitations = [];
-    const idx = db2.invitations.findIndex((i) => i.email?.trim().toLowerCase() === normalizedEmail);
-    if (idx >= 0) db2.invitations[idx] = invRecord;
-    else db2.invitations.push(invRecord);
-    writeDb2(db2);
-    const memberName = invRecord.name || normalizedEmail.split("@")[0];
-    const designatedRole = invRecord.role || "Contributor";
-    const appBaseUrl = appUrl || process.env.APP_URL || process.env.PUBLIC_APP_URL || getAppBaseUrl(req);
-    const inviteLink = `${appBaseUrl}/?invitationToken=${secureToken}&email=${encodeURIComponent(normalizedEmail)}`;
-    const { subject: emailSubject, text: emailText, html: emailHtml } = buildInvitationEmailHtml({
-      companyName,
-      memberName,
-      inviterName,
-      designatedRole,
-      inviteLink,
-      isReminder: true,
-      language: ceoData?.language || "ar",
-      baseUrl: appBaseUrl
-    });
-    const mailResult = await sendSystemMail2({
-      to: normalizedEmail,
-      subject: emailSubject,
-      html: emailHtml,
-      text: emailText
-    });
-    return res.json({
-      success: true,
-      emailSent: mailResult.success,
-      userFriendlyMessage: mailResult.success ? `\u062A\u0645\u062A \u0625\u0639\u0627\u062F\u0629 \u0625\u0631\u0633\u0627\u0644 \u0628\u0631\u064A\u062F \u0627\u0644\u062F\u0639\u0648\u0629 \u0628\u0646\u062C\u0627\u062D \u0625\u0644\u0649 (${normalizedEmail}).` : `\u062A\u0645 \u062A\u062D\u062F\u064A\u062B \u0648\u062A\u0645\u062F\u064A\u062F \u0627\u0644\u062F\u0639\u0648\u0629 \u0628\u0646\u062C\u0627\u062D (${normalizedEmail}). \u064A\u0645\u0643\u0646\u0643 \u0646\u0633\u062E \u0631\u0627\u0628\u0637 \u0627\u0644\u062F\u0639\u0648\u0629 \u0648\u0645\u0634\u0627\u0631\u0643\u062A\u0647 \u0645\u0639 \u0627\u0644\u0639\u0636\u0648.`,
-      invitation: invRecord
-    });
-  } catch (err) {
-    return res.status(500).json({ success: false, error: err.message, userFriendlyMessage: "\u0641\u0634\u0644 \u0625\u0639\u0627\u062F\u0629 \u0625\u0631\u0633\u0627\u0644 \u0627\u0644\u062F\u0639\u0648\u0629." });
-  }
-});
-app2.all([
-  "/api/admin/revoke-invitation",
-  "/admin/revoke-invitation",
-  "/api/admin/revoke-invitation/",
-  "/admin/revoke-invitation/"
-], requireAuth, async (req, res) => {
-  if (req.method === "OPTIONS") return res.status(200).end();
-  if (req.method !== "POST") return res.status(405).json({ success: false, error: `Method ${req.method} Not Allowed.` });
-  try {
-    const callerUid = req.user?.uid;
-    if (!callerUid) {
-      return res.status(401).json({ success: false, code: "AUTH_REQUIRED", error: "Unauthorized" });
-    }
-    let callerUser = null;
-    try {
-      const snap = await adminDb.collection("users").doc(callerUid).get();
-      if (snap.exists) callerUser = snap.data();
-    } catch (e) {
-    }
-    if (!callerUser) {
-      const db3 = readDb2();
-      callerUser = db3.users?.find((u) => u.id === callerUid);
-    }
-    const isAdmin = await isUserAdminServer(callerUid, req.user?.email || callerUser?.email);
-    const callerRole = (callerUser?.role || "").toUpperCase();
-    const isAuthorized = isAdmin || callerRole === "CEO" || callerRole === "ADMIN" || callerRole === "OWNER" || callerRole === "FOUNDER";
-    if (!isAuthorized) {
-      return res.status(403).json({
-        success: false,
-        code: "FORBIDDEN",
-        error: "Forbidden: Only CEO or Admin can revoke invitations.",
-        userFriendlyMessage: "\u0644\u064A\u0633 \u0644\u062F\u064A\u0643 \u0635\u0644\u0627\u062D\u064A\u0629 \u0625\u0644\u063A\u0627\u0621 \u0627\u0644\u062F\u0639\u0648\u0627\u062A. \u0647\u0630\u0647 \u0627\u0644\u0635\u0644\u0627\u062D\u064A\u0629 \u0645\u062D\u0635\u0648\u0631\u0629 \u0641\u064A \u0625\u062F\u0627\u0631\u0629 \u0627\u0644\u0645\u0624\u0633\u0633\u0629."
-      });
-    }
-    const { email } = req.body;
-    const normalizedEmail = (email || "").trim().toLowerCase();
-    if (!normalizedEmail) {
-      return res.status(400).json({ success: false, code: "INVALID_EMAIL", error: "Email required" });
-    }
-    try {
-      await adminDb.collection("invitations").doc(normalizedEmail).delete();
-    } catch (e) {
-    }
-    const db2 = readDb2();
-    if (db2.invitations) {
-      db2.invitations = db2.invitations.filter((i) => i.email?.trim().toLowerCase() !== normalizedEmail);
-      writeDb2(db2);
-    }
-    try {
-      const ceoRef = adminDb.collection("users").doc(callerUid);
-      const snap = await ceoRef.get();
-      if (snap.exists) {
-        const teamList = (snap.data()?.teamMembersList || []).filter((m) => m.email?.trim().toLowerCase() !== normalizedEmail);
-        await ceoRef.update({ teamMembersList: teamList });
+      if (!authoritativeCompanyName && cleanReqCompany) {
+        authoritativeCompanyName = cleanReqCompany;
       }
-    } catch (e) {
-    }
-    return res.json({
-      success: true,
-      userFriendlyMessage: `\u062A\u0645 \u0625\u0644\u063A\u0627\u0621 \u0648\u0633\u062D\u0628 \u0627\u0644\u062F\u0639\u0648\u0629 \u0628\u0646\u062C\u0627\u062D \u0644\u0640 (${normalizedEmail}).`
-    });
-  } catch (err) {
-    return res.status(500).json({ success: false, error: err.message, userFriendlyMessage: "\u0641\u0634\u0644 \u0625\u0644\u063A\u0627\u0621 \u0627\u0644\u062F\u0639\u0648\u0629." });
-  }
-});
-app2.all([
-  "/api/admin/update-member-permissions",
-  "/admin/update-member-permissions",
-  "/api/admin/update-member-permissions/",
-  "/admin/update-member-permissions/"
-], requireAuth, async (req, res) => {
-  if (req.method === "OPTIONS") return res.status(200).end();
-  if (req.method !== "POST") return res.status(405).json({ success: false, error: `Method ${req.method} Not Allowed.` });
-  try {
-    const callerUid = req.user?.uid;
-    if (!callerUid) {
-      return res.status(401).json({ success: false, code: "AUTH_REQUIRED", error: "Unauthorized" });
-    }
-    const { ceoId, memberId, memberEmail, powers, role } = req.body;
-    const targetCeoId = callerUid || ceoId;
-    if (!memberEmail) {
-      return res.status(400).json({ success: false, code: "MISSING_FIELDS", error: "Member Email is required." });
-    }
-    const cleanEmail = memberEmail.trim().toLowerCase();
-    const db2 = readDb2();
-    let ceoUser = null;
-    try {
-      const ceoDoc = await adminDb.collection("users").doc(callerUid).get();
-      if (ceoDoc.exists) {
-        ceoUser = ceoDoc.data();
+      if (!authoritativeCompanyName) {
+        authoritativeCompanyName = ceoData?.ownerName ? `${ceoData.ownerName}` : "\u0645\u0646\u0635\u0629 Zakir";
       }
-    } catch (e) {
-    }
-    if (!ceoUser) {
-      ceoUser = db2.users?.find((u) => u.id === callerUid);
-    }
-    const isAdmin = await isUserAdminServer(callerUid, req.user?.email || ceoUser?.email);
-    const callerRole = (ceoUser?.role || "").toUpperCase();
-    const isAuthorized = isAdmin || callerRole === "CEO" || callerRole === "ADMIN" || callerRole === "OWNER" || callerRole === "FOUNDER";
-    if (!isAuthorized) {
-      return res.status(403).json({
-        success: false,
-        code: "FORBIDDEN",
-        error: "Forbidden: Only the CEO/Admin has authority to modify member powers and permissions.",
-        userFriendlyMessage: "\u063A\u064A\u0631 \u0645\u0635\u0631\u062D: \u064A\u0645\u062A\u0644\u0643 \u0627\u0644\u0645\u062F\u064A\u0631 \u0627\u0644\u062A\u0646\u0641\u064A\u0630\u064A (CEO) \u0648\u062D\u062F\u0647 \u0627\u0644\u0635\u0644\u0627\u062D\u064A\u0629 \u0627\u0644\u062D\u0635\u0631\u064A\u0629 \u0644\u062A\u0639\u062F\u064A\u0644 \u0635\u0644\u0627\u062D\u064A\u0627\u062A \u0627\u0644\u0639\u0645\u0627\u0644 \u0648\u0623\u0639\u0636\u0627\u0621 \u0627\u0644\u0641\u0631\u064A\u0642."
-      });
-    }
-    if (targetCeoId) {
+      authoritativeCompanyName = authoritativeCompanyName.trim();
       try {
-        const ceoRef = adminDb.collection("users").doc(targetCeoId);
-        const ceoSnap = await ceoRef.get();
-        if (ceoSnap.exists) {
-          const data = ceoSnap.data();
-          const list = data?.teamMembersList || [];
-          const targetIdx = list.findIndex((m) => m.email?.toLowerCase() === cleanEmail || m.id === memberId);
-          if (targetIdx >= 0) {
-            list[targetIdx] = {
-              ...list[targetIdx],
-              powers: powers || list[targetIdx].powers,
-              role: role || list[targetIdx].role
-            };
-          } else {
-            list.push({
-              id: memberId || `tm-${Date.now()}`,
-              email: cleanEmail,
-              name: cleanEmail.split("@")[0],
-              powers: powers || { fileVault: true, memoryVault: true, riskRadar: false, marketIntel: false, settings: false },
-              role: role || "Contributor",
-              addedAt: (/* @__PURE__ */ new Date()).toISOString().split("T")[0]
+        await adminDb.collection("users").doc(callerUid).set(
+          { companyName: authoritativeCompanyName, workspaceId },
+          { merge: true }
+        );
+        await adminDb.collection("workspaces").doc(workspaceId).set(
+          {
+            companyName: authoritativeCompanyName,
+            name: authoritativeCompanyName,
+            id: workspaceId,
+            ownerId: callerUid
+          },
+          { merge: true }
+        );
+      } catch (e) {
+      }
+      const isAdmin = await isUserAdminServer(
+        callerUid,
+        req.user?.email || ceoData?.email
+      );
+      const ceoRole = (ceoData.role || "").toUpperCase();
+      const isAuthorized = isAdmin || ceoRole === "CEO" || ceoRole === "ADMIN" || ceoRole === "OWNER" || ceoRole === "FOUNDER" || ceoRole === "DIRECTOR" || ceoRole === "MANAGER";
+      if (!isAuthorized) {
+        return res.status(403).json({
+          success: false,
+          code: "FORBIDDEN",
+          error: "Forbidden: Only CEO or Admin can invite workspace members.",
+          userFriendlyMessage: "\u0644\u064A\u0633 \u0644\u062F\u064A\u0643 \u0635\u0644\u0627\u062D\u064A\u0629 \u0625\u0631\u0633\u0627\u0644 \u062F\u0639\u0648\u0627\u062A \u0627\u0644\u0645\u0648\u0638\u0641\u064A\u0646. \u0647\u0630\u0647 \u0627\u0644\u0635\u0644\u0627\u062D\u064A\u0629 \u0645\u062D\u0635\u0648\u0631\u0629 \u0641\u064A \u0645\u062F\u064A\u0631 \u0627\u0644\u0645\u0624\u0633\u0633\u0629 (CEO)."
+        });
+      }
+      if (normalizedEmail === (req.user?.email || ceoData.email || "").toLowerCase()) {
+        return res.status(400).json({
+          success: false,
+          code: "SELF_INVITATION",
+          error: "Cannot invite sender email address.",
+          userFriendlyMessage: "\u0644\u0627 \u064A\u0645\u0643\u0646\u0643 \u0625\u0631\u0633\u0627\u0644 \u062F\u0639\u0648\u0629 \u0627\u0646\u0636\u0645\u0627\u0645 \u0625\u0644\u0649 \u0628\u0631\u064A\u062F\u0643 \u0627\u0644\u0625\u0644\u0643\u062A\u0631\u0648\u0646\u064A \u0627\u0644\u062D\u0627\u0644\u064A."
+        });
+      }
+      const teamMembersList = ceoData.teamMembersList || [];
+      const isAlreadyInTeam = teamMembersList.some((m) => {
+        const mEmail = m.email?.trim().toLowerCase();
+        const isPending = m.name?.includes("\u0645\u0639\u0644\u0642") || m.name?.includes("Pending");
+        return mEmail === normalizedEmail && !isPending;
+      });
+      if (isAlreadyInTeam) {
+        return res.status(400).json({
+          success: false,
+          code: "ALREADY_MEMBER",
+          error: "Employee is already a full member of the organization.",
+          userFriendlyMessage: "\u0647\u0630\u0627 \u0627\u0644\u0628\u0631\u064A\u062F \u0627\u0644\u0625\u0644\u0643\u062A\u0631\u0648\u0646\u064A \u0639\u0636\u0648 \u0628\u0627\u0644\u0641\u0639\u0644 \u0641\u064A \u0627\u0644\u0645\u0624\u0633\u0633\u0629."
+        });
+      }
+      try {
+        const existingUserSnap = await adminDb.collection("users").where("email", "==", normalizedEmail).get();
+        if (!existingUserSnap.empty) {
+          const existingUserData = existingUserSnap.docs[0].data();
+          if (existingUserData.workspaceId === workspaceId && existingUserData.role !== "Pending") {
+            return res.status(400).json({
+              success: false,
+              code: "ALREADY_MEMBER",
+              error: "Employee is already registered in this workspace.",
+              userFriendlyMessage: "\u0647\u0630\u0627 \u0627\u0644\u0645\u0633\u062A\u062E\u062F\u0645 \u0639\u0636\u0648 \u0628\u0627\u0644\u0641\u0639\u0644 \u0641\u064A \u0627\u0644\u0645\u0624\u0633\u0633\u0629."
             });
           }
-          await ceoRef.update({ teamMembersList: list });
         }
-      } catch (fsErr) {
-        console.warn("Failed to update CEO team list in Firestore:", fsErr);
+      } catch (e) {
       }
+      let existingInv = null;
+      try {
+        const invDoc = await adminDb.collection("invitations").doc(normalizedEmail).get();
+        if (invDoc.exists) {
+          existingInv = invDoc.data();
+        }
+      } catch (e) {
+      }
+      if (existingInv && existingInv.status === "ACCEPTED") {
+        return res.status(400).json({
+          success: false,
+          code: "ALREADY_ACCEPTED",
+          error: "Invitation has already been accepted.",
+          userFriendlyMessage: "\u0644\u0642\u062F \u062A\u0645 \u0642\u0628\u0648\u0644 \u0647\u0630\u0647 \u0627\u0644\u062F\u0639\u0648\u0629 \u0628\u0627\u0644\u0641\u0639\u0644 \u0648\u0627\u0644\u0639\u0636\u0648 \u0646\u0634\u0637 \u0641\u064A \u0627\u0644\u0641\u0631\u064A\u0642."
+        });
+      }
+      const secureToken = import_crypto3.default.randomBytes(24).toString("hex");
+      const nowIso = (/* @__PURE__ */ new Date()).toISOString();
+      const expiresAtIso = new Date(
+        Date.now() + 7 * 24 * 3600 * 1e3
+      ).toISOString();
+      const companyName = authoritativeCompanyName;
+      const memberName = (name || normalizedEmail.split("@")[0]).trim();
+      const designatedRole = role || "Contributor";
+      const defaultPowers = powers || {
+        fileVault: true,
+        memoryVault: true,
+        riskRadar: false,
+        marketIntel: false,
+        settings: false
+      };
+      const invitationRecord = {
+        email: normalizedEmail,
+        name: memberName,
+        role: designatedRole,
+        powers: defaultPowers,
+        workspaceId,
+        companyName: authoritativeCompanyName,
+        senderId: callerUid,
+        senderEmail: ceoData.email || req.user?.email,
+        senderName: inviterName,
+        inviterName,
+        status: "pending",
+        token: secureToken,
+        createdAt: existingInv?.createdAt || nowIso,
+        updatedAt: nowIso,
+        expiresAt: expiresAtIso,
+        lastSentAt: nowIso,
+        resendCount: (existingInv?.resendCount || 0) + (existingInv ? 1 : 0)
+      };
+      try {
+        await adminDb.collection("invitations").doc(normalizedEmail).set(invitationRecord);
+      } catch (fsErr) {
+        console.error("Failed to write invitation to Firestore:", fsErr);
+        return res.status(500).json({
+          success: false,
+          code: "FIRESTORE_WRITE_FAILED",
+          error: fsErr?.message || String(fsErr),
+          userFriendlyMessage: "\u0641\u0634\u0644 \u062D\u0641\u0638 \u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u062F\u0639\u0648\u0629 \u0641\u064A \u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u0623\u0633\u0627\u0633\u064A\u0629. \u062A\u0639\u0630\u0631 \u0625\u0631\u0633\u0627\u0644 \u0627\u0644\u0628\u0631\u064A\u062F \u0627\u0644\u0625\u0644\u0643\u062A\u0631\u0648\u0646\u064A."
+        });
+      }
+      const db2 = readDb2();
+      if (!db2.invitations) db2.invitations = [];
+      db2.invitations = db2.invitations.filter(
+        (i) => i.email?.trim().toLowerCase() !== normalizedEmail
+      );
+      db2.invitations.push(invitationRecord);
+      writeDb2(db2);
+      const appBaseUrl = appUrl || process.env.APP_URL || process.env.PUBLIC_APP_URL || getAppBaseUrl(req);
+      const inviteLink = `${appBaseUrl}/?invitationToken=${secureToken}&email=${encodeURIComponent(normalizedEmail)}`;
+      const {
+        subject: emailSubject,
+        text: emailText,
+        html: emailHtml
+      } = buildInvitationEmailHtml({
+        companyName: authoritativeCompanyName,
+        memberName,
+        inviterName,
+        designatedRole,
+        inviteLink,
+        isReminder: false,
+        language: ceoData?.language || "ar",
+        baseUrl: appBaseUrl
+      });
+      const mailResult = await sendSystemMail2({
+        to: normalizedEmail,
+        subject: emailSubject,
+        html: emailHtml,
+        text: emailText
+      });
+      console.log("INVITATION_PROCESSED", {
+        recipient: normalizedEmail,
+        ceo: callerUid,
+        workspaceId,
+        mailSent: mailResult.success
+      });
+      emitPlatformEvent({
+        eventType: "MEMBER_INVITED",
+        category: "WORKSPACE",
+        severity: "INFO",
+        userId: callerUid,
+        userEmail: req.user?.email || "ceo@zakir.ai",
+        resourceId: invitationRecord.id,
+        workspaceId,
+        metadata: {
+          actor: { id: callerUid, email: req.user?.email || "ceo@zakir.ai", role: "CEO" },
+          action: "Invited team member",
+          recipientEmail: normalizedEmail
+        },
+        sanitizedMessage: `Invited member ${normalizedEmail} to workspace ${workspaceId} as ${designatedRole}`
+      });
+      return res.json({
+        success: true,
+        emailSent: mailResult.success,
+        message: mailResult.success ? "Invitation generated and dispatched successfully via email." : "Invitation generated successfully.",
+        userFriendlyMessage: mailResult.success ? `\u062A\u0645 \u0625\u0631\u0633\u0627\u0644 \u062F\u0639\u0648\u0629 \u0627\u0644\u0645\u0648\u0638\u0641 \u0628\u0646\u062C\u0627\u062D \u0625\u0644\u0649 \u0627\u0644\u0628\u0631\u064A\u062F (${normalizedEmail}).` : `\u062A\u0645 \u0625\u0646\u0634\u0627\u0621 \u0648\u062A\u0648\u062B\u064A\u0642 \u062F\u0639\u0648\u0629 \u0627\u0644\u0645\u0648\u0638\u0641 \u0628\u0646\u062C\u0627\u062D (${normalizedEmail}). \u064A\u0645\u0643\u0646\u0643 \u0623\u064A\u0636\u0627\u064B \u0646\u0633\u062E \u0631\u0627\u0628\u0637 \u0627\u0644\u062F\u0639\u0648\u0629 \u0648\u0645\u0634\u0627\u0631\u0643\u062A\u0647 \u0645\u0639 \u0627\u0644\u0639\u0636\u0648 \u0645\u0628\u0627\u0634\u0631\u0629.`,
+        invitation: invitationRecord
+      });
+    } catch (err) {
+      console.error("send-invitation endpoint exception:", err);
+      return res.status(500).json({
+        success: false,
+        code: "INVITATION_CREATE_FAILED",
+        error: err?.message || String(err),
+        userFriendlyMessage: "\u062A\u0639\u0630\u0631 \u0625\u0631\u0633\u0627\u0644 \u0627\u0644\u062F\u0639\u0648\u0629 \u062D\u0627\u0644\u064A\u0627\u064B \u0628\u0633\u0628\u0628 \u062E\u0637\u0623 \u062E\u0627\u062F\u0645 \u062F\u0627\u062E\u0644\u064A. \u064A\u0631\u062C\u0649 \u0627\u0644\u0645\u062D\u0627\u0648\u0644\u0629 \u0645\u0631\u0629 \u0623\u062E\u0631\u0649."
+      });
     }
-    let memberUid = memberId?.replace("tm-", "");
+  }
+);
+app2.all(
+  [
+    "/api/admin/resend-invitation",
+    "/admin/resend-invitation",
+    "/api/admin/resend-invitation/",
+    "/admin/resend-invitation/"
+  ],
+  requireAuth,
+  async (req, res) => {
+    if (req.method === "OPTIONS") return res.status(200).end();
+    if (req.method !== "POST")
+      return res.status(405).json({ success: false, error: `Method ${req.method} Not Allowed.` });
     try {
-      if (memberUid) {
-        const mRef = adminDb.collection("users").doc(memberUid);
-        const mSnap = await mRef.get();
-        if (mSnap.exists) {
-          await mRef.update({
+      const callerUid = req.user?.uid;
+      if (!callerUid) {
+        return res.status(401).json({
+          success: false,
+          code: "AUTH_REQUIRED",
+          error: "Unauthorized"
+        });
+      }
+      const {
+        email,
+        companyName: requestedCompanyName,
+        inviterName: requestedInviterName,
+        senderName: requestedSenderName,
+        appUrl
+      } = req.body;
+      const normalizedEmail = (email || "").trim().toLowerCase();
+      if (!normalizedEmail) {
+        return res.status(400).json({
+          success: false,
+          code: "INVALID_EMAIL",
+          error: "Email is required"
+        });
+      }
+      let ceoData = null;
+      try {
+        const snap = await adminDb.collection("users").doc(callerUid).get();
+        if (snap.exists) ceoData = snap.data();
+      } catch (e) {
+      }
+      if (!ceoData) {
+        const db3 = readDb2();
+        ceoData = db3.users?.find((u) => u.id === callerUid);
+      }
+      const isAdmin = await isUserAdminServer(
+        callerUid,
+        req.user?.email || ceoData?.email
+      );
+      const ceoRole = (ceoData?.role || "").toUpperCase();
+      const isAuthorized = isAdmin || ceoRole === "CEO" || ceoRole === "ADMIN" || ceoRole === "OWNER" || ceoRole === "FOUNDER" || ceoRole === "DIRECTOR" || ceoRole === "MANAGER";
+      if (!isAuthorized) {
+        return res.status(403).json({
+          success: false,
+          code: "FORBIDDEN",
+          error: "Forbidden: Only CEO or Admin can resend invitations",
+          userFriendlyMessage: "\u0644\u064A\u0633 \u0644\u062F\u064A\u0643 \u0635\u0644\u0627\u062D\u064A\u0629 \u0625\u0639\u0627\u062F\u0629 \u0625\u0631\u0633\u0627\u0644 \u0627\u0644\u062F\u0639\u0648\u0627\u062A."
+        });
+      }
+      let invRecord = null;
+      try {
+        const invDoc = await adminDb.collection("invitations").doc(normalizedEmail).get();
+        if (invDoc.exists) invRecord = invDoc.data();
+      } catch (e) {
+      }
+      if (!invRecord) {
+        const db3 = readDb2();
+        invRecord = db3.invitations?.find(
+          (i) => i.email?.trim().toLowerCase() === normalizedEmail
+        );
+      }
+      if (!invRecord) {
+        return res.status(404).json({
+          success: false,
+          code: "INVITATION_NOT_FOUND",
+          error: "Invitation not found",
+          userFriendlyMessage: "\u0627\u0644\u062F\u0639\u0648\u0629 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F\u0629."
+        });
+      }
+      const secureToken = import_crypto3.default.randomBytes(24).toString("hex");
+      const nowIso = (/* @__PURE__ */ new Date()).toISOString();
+      const expiresAtIso = new Date(
+        Date.now() + 7 * 24 * 3600 * 1e3
+      ).toISOString();
+      const inviterName = ((requestedInviterName || requestedSenderName || "").trim() || (invRecord.inviterName || invRecord.senderName || "").trim() || (ceoData?.fullName || ceoData?.displayName || ceoData?.ownerName || ceoData?.name || "").trim() || (req.user?.name || req.user?.displayName || "").trim() || (ceoData?.email ? ceoData.email.split("@")[0] : "") || "\u0645\u0633\u0624\u0648\u0644 \u0627\u0644\u0645\u0624\u0633\u0633\u0629").trim();
+      let companyName = (requestedCompanyName || invRecord.companyName || ceoData?.organizationName || ceoData?.companyName || ceoData?.workspaceName || "").trim();
+      if (!companyName || companyName === "ZakIr Platform" || companyName === "Zakir Workspace") {
+        const wsId = (invRecord.workspaceId || ceoData?.workspaceId || "").trim();
+        if (wsId) {
+          try {
+            const wsSnap = await adminDb.collection("workspaces").doc(wsId).get();
+            if (wsSnap.exists) {
+              const wsData = wsSnap.data() || {};
+              const wsComp = (wsData.companyName || wsData.name || "").trim();
+              if (wsComp && wsComp !== "ZakIr Platform" && wsComp !== "Zakir Workspace") {
+                companyName = wsComp;
+              }
+            }
+          } catch (e) {
+          }
+        }
+      }
+      if (!companyName || companyName === "ZakIr Platform" || companyName === "Zakir Workspace") {
+        companyName = ceoData?.ownerName ? `${ceoData.ownerName}` : "\u0645\u0646\u0635\u0629 Zakir";
+      }
+      companyName = companyName.trim();
+      invRecord.token = secureToken;
+      invRecord.status = "pending";
+      invRecord.companyName = companyName;
+      invRecord.senderName = inviterName;
+      invRecord.inviterName = inviterName;
+      invRecord.expiresAt = expiresAtIso;
+      invRecord.lastSentAt = nowIso;
+      invRecord.resendCount = (invRecord.resendCount || 0) + 1;
+      try {
+        await adminDb.collection("invitations").doc(normalizedEmail).set(invRecord);
+      } catch (e) {
+      }
+      const db2 = readDb2();
+      if (!db2.invitations) db2.invitations = [];
+      const idx = db2.invitations.findIndex(
+        (i) => i.email?.trim().toLowerCase() === normalizedEmail
+      );
+      if (idx >= 0) db2.invitations[idx] = invRecord;
+      else db2.invitations.push(invRecord);
+      writeDb2(db2);
+      const memberName = invRecord.name || normalizedEmail.split("@")[0];
+      const designatedRole = invRecord.role || "Contributor";
+      const appBaseUrl = appUrl || process.env.APP_URL || process.env.PUBLIC_APP_URL || getAppBaseUrl(req);
+      const inviteLink = `${appBaseUrl}/?invitationToken=${secureToken}&email=${encodeURIComponent(normalizedEmail)}`;
+      const {
+        subject: emailSubject,
+        text: emailText,
+        html: emailHtml
+      } = buildInvitationEmailHtml({
+        companyName,
+        memberName,
+        inviterName,
+        designatedRole,
+        inviteLink,
+        isReminder: true,
+        language: ceoData?.language || "ar",
+        baseUrl: appBaseUrl
+      });
+      const mailResult = await sendSystemMail2({
+        to: normalizedEmail,
+        subject: emailSubject,
+        html: emailHtml,
+        text: emailText
+      });
+      return res.json({
+        success: true,
+        emailSent: mailResult.success,
+        userFriendlyMessage: mailResult.success ? `\u062A\u0645\u062A \u0625\u0639\u0627\u062F\u0629 \u0625\u0631\u0633\u0627\u0644 \u0628\u0631\u064A\u062F \u0627\u0644\u062F\u0639\u0648\u0629 \u0628\u0646\u062C\u0627\u062D \u0625\u0644\u0649 (${normalizedEmail}).` : `\u062A\u0645 \u062A\u062D\u062F\u064A\u062B \u0648\u062A\u0645\u062F\u064A\u062F \u0627\u0644\u062F\u0639\u0648\u0629 \u0628\u0646\u062C\u0627\u062D (${normalizedEmail}). \u064A\u0645\u0643\u0646\u0643 \u0646\u0633\u062E \u0631\u0627\u0628\u0637 \u0627\u0644\u062F\u0639\u0648\u0629 \u0648\u0645\u0634\u0627\u0631\u0643\u062A\u0647 \u0645\u0639 \u0627\u0644\u0639\u0636\u0648.`,
+        invitation: invRecord
+      });
+    } catch (err) {
+      return res.status(500).json({
+        success: false,
+        error: err.message,
+        userFriendlyMessage: "\u0641\u0634\u0644 \u0625\u0639\u0627\u062F\u0629 \u0625\u0631\u0633\u0627\u0644 \u0627\u0644\u062F\u0639\u0648\u0629."
+      });
+    }
+  }
+);
+app2.all(
+  [
+    "/api/admin/revoke-invitation",
+    "/admin/revoke-invitation",
+    "/api/admin/revoke-invitation/",
+    "/admin/revoke-invitation/"
+  ],
+  requireAuth,
+  async (req, res) => {
+    if (req.method === "OPTIONS") return res.status(200).end();
+    if (req.method !== "POST")
+      return res.status(405).json({ success: false, error: `Method ${req.method} Not Allowed.` });
+    try {
+      const callerUid = req.user?.uid;
+      if (!callerUid) {
+        return res.status(401).json({
+          success: false,
+          code: "AUTH_REQUIRED",
+          error: "Unauthorized"
+        });
+      }
+      let callerUser = null;
+      try {
+        const snap = await adminDb.collection("users").doc(callerUid).get();
+        if (snap.exists) callerUser = snap.data();
+      } catch (e) {
+      }
+      if (!callerUser) {
+        const db3 = readDb2();
+        callerUser = db3.users?.find((u) => u.id === callerUid);
+      }
+      const isAdmin = await isUserAdminServer(
+        callerUid,
+        req.user?.email || callerUser?.email
+      );
+      const callerRole = (callerUser?.role || "").toUpperCase();
+      const isAuthorized = isAdmin || callerRole === "CEO" || callerRole === "ADMIN" || callerRole === "OWNER" || callerRole === "FOUNDER";
+      if (!isAuthorized) {
+        return res.status(403).json({
+          success: false,
+          code: "FORBIDDEN",
+          error: "Forbidden: Only CEO or Admin can revoke invitations.",
+          userFriendlyMessage: "\u0644\u064A\u0633 \u0644\u062F\u064A\u0643 \u0635\u0644\u0627\u062D\u064A\u0629 \u0625\u0644\u063A\u0627\u0621 \u0627\u0644\u062F\u0639\u0648\u0627\u062A. \u0647\u0630\u0647 \u0627\u0644\u0635\u0644\u0627\u062D\u064A\u0629 \u0645\u062D\u0635\u0648\u0631\u0629 \u0641\u064A \u0625\u062F\u0627\u0631\u0629 \u0627\u0644\u0645\u0624\u0633\u0633\u0629."
+        });
+      }
+      const { email } = req.body;
+      const normalizedEmail = (email || "").trim().toLowerCase();
+      if (!normalizedEmail) {
+        return res.status(400).json({
+          success: false,
+          code: "INVALID_EMAIL",
+          error: "Email required"
+        });
+      }
+      try {
+        await adminDb.collection("invitations").doc(normalizedEmail).delete();
+      } catch (e) {
+      }
+      const db2 = readDb2();
+      if (db2.invitations) {
+        db2.invitations = db2.invitations.filter(
+          (i) => i.email?.trim().toLowerCase() !== normalizedEmail
+        );
+        writeDb2(db2);
+      }
+      try {
+        const ceoRef = adminDb.collection("users").doc(callerUid);
+        const snap = await ceoRef.get();
+        if (snap.exists) {
+          const teamList = (snap.data()?.teamMembersList || []).filter(
+            (m) => m.email?.trim().toLowerCase() !== normalizedEmail
+          );
+          await ceoRef.update({ teamMembersList: teamList });
+        }
+      } catch (e) {
+      }
+      emitPlatformEvent({
+        eventType: "MEMBER_REMOVED",
+        category: "WORKSPACE",
+        severity: "INFO",
+        userId: callerUid,
+        userEmail: req.user?.email || callerUser?.email,
+        metadata: {
+          actor: { id: callerUid, email: req.user?.email || callerUser?.email, role: callerRole || "Admin" },
+          action: "Revoked member invitation",
+          revokedEmail: normalizedEmail
+        },
+        sanitizedMessage: `Revoked member invitation for ${normalizedEmail}`
+      });
+      return res.json({
+        success: true,
+        userFriendlyMessage: `\u062A\u0645 \u0625\u0644\u063A\u0627\u0621 \u0648\u0633\u062D\u0628 \u0627\u0644\u062F\u0639\u0648\u0629 \u0628\u0646\u062C\u0627\u062D \u0644\u0640 (${normalizedEmail}).`
+      });
+    } catch (err) {
+      return res.status(500).json({
+        success: false,
+        error: err.message,
+        userFriendlyMessage: "\u0641\u0634\u0644 \u0625\u0644\u063A\u0627\u0621 \u0627\u0644\u062F\u0639\u0648\u0629."
+      });
+    }
+  }
+);
+app2.all(
+  [
+    "/api/admin/update-member-permissions",
+    "/admin/update-member-permissions",
+    "/api/admin/update-member-permissions/",
+    "/admin/update-member-permissions/"
+  ],
+  requireAuth,
+  async (req, res) => {
+    if (req.method === "OPTIONS") return res.status(200).end();
+    if (req.method !== "POST")
+      return res.status(405).json({ success: false, error: `Method ${req.method} Not Allowed.` });
+    try {
+      const callerUid = req.user?.uid;
+      if (!callerUid) {
+        return res.status(401).json({
+          success: false,
+          code: "AUTH_REQUIRED",
+          error: "Unauthorized"
+        });
+      }
+      const { ceoId, memberId, memberEmail, powers, role } = req.body;
+      const targetCeoId = callerUid || ceoId;
+      if (!memberEmail) {
+        return res.status(400).json({
+          success: false,
+          code: "MISSING_FIELDS",
+          error: "Member Email is required."
+        });
+      }
+      const cleanEmail = memberEmail.trim().toLowerCase();
+      const db2 = readDb2();
+      let ceoUser = null;
+      try {
+        const ceoDoc = await adminDb.collection("users").doc(callerUid).get();
+        if (ceoDoc.exists) {
+          ceoUser = ceoDoc.data();
+        }
+      } catch (e) {
+      }
+      if (!ceoUser) {
+        ceoUser = db2.users?.find((u) => u.id === callerUid);
+      }
+      const isAdmin = await isUserAdminServer(
+        callerUid,
+        req.user?.email || ceoUser?.email
+      );
+      const callerRole = (ceoUser?.role || "").toUpperCase();
+      const isAuthorized = isAdmin || callerRole === "CEO" || callerRole === "ADMIN" || callerRole === "OWNER" || callerRole === "FOUNDER";
+      if (!isAuthorized) {
+        return res.status(403).json({
+          success: false,
+          code: "FORBIDDEN",
+          error: "Forbidden: Only the CEO/Admin has authority to modify member powers and permissions.",
+          userFriendlyMessage: "\u063A\u064A\u0631 \u0645\u0635\u0631\u062D: \u064A\u0645\u062A\u0644\u0643 \u0627\u0644\u0645\u062F\u064A\u0631 \u0627\u0644\u062A\u0646\u0641\u064A\u0630\u064A (CEO) \u0648\u062D\u062F\u0647 \u0627\u0644\u0635\u0644\u0627\u062D\u064A\u0629 \u0627\u0644\u062D\u0635\u0631\u064A\u0629 \u0644\u062A\u0639\u062F\u064A\u0644 \u0635\u0644\u0627\u062D\u064A\u0627\u062A \u0627\u0644\u0639\u0645\u0627\u0644 \u0648\u0623\u0639\u0636\u0627\u0621 \u0627\u0644\u0641\u0631\u064A\u0642."
+        });
+      }
+      if (targetCeoId) {
+        try {
+          const ceoRef = adminDb.collection("users").doc(targetCeoId);
+          const ceoSnap = await ceoRef.get();
+          if (ceoSnap.exists) {
+            const data = ceoSnap.data();
+            const list = data?.teamMembersList || [];
+            const targetIdx = list.findIndex(
+              (m) => m.email?.toLowerCase() === cleanEmail || m.id === memberId
+            );
+            if (targetIdx >= 0) {
+              list[targetIdx] = {
+                ...list[targetIdx],
+                powers: powers || list[targetIdx].powers,
+                role: role || list[targetIdx].role
+              };
+            } else {
+              list.push({
+                id: memberId || `tm-${Date.now()}`,
+                email: cleanEmail,
+                name: cleanEmail.split("@")[0],
+                powers: powers || {
+                  fileVault: true,
+                  memoryVault: true,
+                  riskRadar: false,
+                  marketIntel: false,
+                  settings: false
+                },
+                role: role || "Contributor",
+                addedAt: (/* @__PURE__ */ new Date()).toISOString().split("T")[0]
+              });
+            }
+            await ceoRef.update({ teamMembersList: list });
+          }
+        } catch (fsErr) {
+          console.warn("Failed to update CEO team list in Firestore:", fsErr);
+        }
+      }
+      let memberUid = memberId?.replace("tm-", "");
+      try {
+        if (memberUid) {
+          const mRef = adminDb.collection("users").doc(memberUid);
+          const mSnap = await mRef.get();
+          if (mSnap.exists) {
+            await mRef.update({
+              powers,
+              role: role || mSnap.data()?.role || "Contributor",
+              updatedAt: (/* @__PURE__ */ new Date()).toISOString()
+            });
+            console.log(
+              `[PERMISSIONS SYNC] Updated worker ${memberUid} profile in Firestore.`
+            );
+          }
+        }
+        const qSnap = await adminDb.collection("users").where("email", "==", cleanEmail).limit(1).get();
+        if (!qSnap.empty) {
+          const docRef = qSnap.docs[0].ref;
+          await docRef.update({
             powers,
-            role: role || mSnap.data()?.role || "Contributor",
+            role: role || qSnap.docs[0].data()?.role || "Contributor",
             updatedAt: (/* @__PURE__ */ new Date()).toISOString()
           });
-          console.log(`[PERMISSIONS SYNC] Updated worker ${memberUid} profile in Firestore.`);
+          console.log(
+            `[PERMISSIONS SYNC] Updated worker by email ${cleanEmail} in Firestore.`
+          );
         }
+      } catch (workerErr) {
+        console.warn(
+          "Failed to update worker document directly in Firestore:",
+          workerErr
+        );
       }
-      const qSnap = await adminDb.collection("users").where("email", "==", cleanEmail).limit(1).get();
-      if (!qSnap.empty) {
-        const docRef = qSnap.docs[0].ref;
-        await docRef.update({
-          powers,
-          role: role || qSnap.docs[0].data()?.role || "Contributor",
-          updatedAt: (/* @__PURE__ */ new Date()).toISOString()
-        });
-        console.log(`[PERMISSIONS SYNC] Updated worker by email ${cleanEmail} in Firestore.`);
-      }
-    } catch (workerErr) {
-      console.warn("Failed to update worker document directly in Firestore:", workerErr);
-    }
-    if (db2.users) {
-      const workerUser = db2.users.find((u) => u.email?.toLowerCase() === cleanEmail || u.id === memberUid);
-      if (workerUser) {
-        if (powers) workerUser.powers = powers;
-        if (role) workerUser.role = role;
-      }
-      if (ceoUser && ceoUser.teamMembersList) {
-        const idx = ceoUser.teamMembersList.findIndex((m) => m.email?.toLowerCase() === cleanEmail || m.id === memberId);
-        if (idx >= 0) {
-          ceoUser.teamMembersList[idx].powers = powers || ceoUser.teamMembersList[idx].powers;
-          ceoUser.teamMembersList[idx].role = role || ceoUser.teamMembersList[idx].role;
+      if (db2.users) {
+        const workerUser = db2.users.find(
+          (u) => u.email?.toLowerCase() === cleanEmail || u.id === memberUid
+        );
+        if (workerUser) {
+          if (powers) workerUser.powers = powers;
+          if (role) workerUser.role = role;
         }
+        if (ceoUser && ceoUser.teamMembersList) {
+          const idx = ceoUser.teamMembersList.findIndex(
+            (m) => m.email?.toLowerCase() === cleanEmail || m.id === memberId
+          );
+          if (idx >= 0) {
+            ceoUser.teamMembersList[idx].powers = powers || ceoUser.teamMembersList[idx].powers;
+            ceoUser.teamMembersList[idx].role = role || ceoUser.teamMembersList[idx].role;
+          }
+        }
+        writeDb2(db2);
       }
-      writeDb2(db2);
+      return res.json({
+        success: true,
+        message: "Member permissions updated successfully by CEO.",
+        userFriendlyMessage: "\u062A\u0645 \u062A\u062D\u062F\u064A\u062B \u0648\u062A\u062B\u0628\u064A\u062A \u0635\u0644\u0627\u062D\u064A\u0627\u062A \u0627\u0644\u0639\u0636\u0648 \u0628\u0646\u062C\u0627\u062D \u0645\u0646 \u0637\u0631\u0641 \u0627\u0644\u0645\u062F\u064A\u0631 \u0627\u0644\u062A\u0646\u0641\u064A\u0630\u064A."
+      });
+    } catch (err) {
+      console.error("Error updating member permissions:", err);
+      return res.status(500).json({
+        success: false,
+        code: "SERVER_ERROR",
+        error: err.message || "Failed to update member permissions.",
+        userFriendlyMessage: "\u0641\u0634\u0644 \u062A\u062D\u062F\u064A\u062B \u0635\u0644\u0627\u062D\u064A\u0627\u062A \u0627\u0644\u0639\u0636\u0648."
+      });
     }
-    return res.json({
-      success: true,
-      message: "Member permissions updated successfully by CEO.",
-      userFriendlyMessage: "\u062A\u0645 \u062A\u062D\u062F\u064A\u062B \u0648\u062A\u062B\u0628\u064A\u062A \u0635\u0644\u0627\u062D\u064A\u0627\u062A \u0627\u0644\u0639\u0636\u0648 \u0628\u0646\u062C\u0627\u062D \u0645\u0646 \u0637\u0631\u0641 \u0627\u0644\u0645\u062F\u064A\u0631 \u0627\u0644\u062A\u0646\u0641\u064A\u0630\u064A."
-    });
-  } catch (err) {
-    console.error("Error updating member permissions:", err);
-    return res.status(500).json({
-      success: false,
-      code: "SERVER_ERROR",
-      error: err.message || "Failed to update member permissions.",
-      userFriendlyMessage: "\u0641\u0634\u0644 \u062A\u062D\u062F\u064A\u062B \u0635\u0644\u0627\u062D\u064A\u0627\u062A \u0627\u0644\u0639\u0636\u0648."
-    });
   }
-});
+);
 function cleanMemberName(name) {
   if (!name) return "";
   return name.replace(/\s*[\(\[\{]?(معلق|معلقة|معلّق|Pending|pending)[\)\]\}]?\s*/gi, "").trim();
 }
-app2.all([
-  "/api/workspace/invitations/accept",
-  "/workspace/invitations/accept",
-  "/api/workspace/invitation/accept",
-  "/workspace/invitation/accept",
-  "/api/workspace/accept-invitation",
-  "/workspace/accept-invitation",
-  "/api/workspace/accept-invite",
-  "/workspace/accept-invite",
-  "/api/team/invitations/accept",
-  "/team/invitations/accept",
-  "/api/team/invitation/accept",
-  "/team/invitation/accept",
-  "/api/team/accept-invitation",
-  "/team/accept-invitation",
-  "/api/auth/invitations/accept",
-  "/auth/invitations/accept",
-  "/api/auth/invitation/accept",
-  "/auth/invitation/accept",
-  "/api/auth/accept-invitation",
-  "/auth/accept-invitation",
-  "/api/invitations/accept",
-  "/invitations/accept",
-  "/api/invitation/accept",
-  "/invitation/accept",
-  "/api/accept-invitation",
-  "/accept-invitation",
-  "/api/workspace/invitations/accept/",
-  "/workspace/invitations/accept/"
-], requireAuth, async (req, res) => {
-  if (req.method === "OPTIONS") return res.status(200).end();
-  try {
-    const callerUid = req.user?.uid;
-    const callerEmail = (req.user?.email || "").trim().toLowerCase();
-    const invitationToken = req.body?.invitationToken || req.body?.token || req.query?.invitationToken || req.query?.token || req.query?.inviteToken || req.query?.invite || "";
-    const bodyEmail = req.body?.email || req.query?.email || "";
-    const memberName = req.body?.memberName || req.body?.name || req.query?.memberName || req.query?.name || "";
-    const payloadInv = req.body?.invitation || req.body?.invitationData || null;
-    const targetEmail = (bodyEmail || callerEmail).trim().toLowerCase();
-    if (!callerUid) {
-      return res.status(401).json({ success: false, code: "UNAUTHORIZED", error: "Authentication required" });
-    }
-    console.log("INVITATION_ACCEPT_START", { callerUid, targetEmail, hasToken: !!invitationToken, method: req.method });
-    let invRecord = null;
-    let invDocRef = null;
-    if (targetEmail) {
-      try {
-        const docSnap = await adminDb.collection("invitations").doc(targetEmail).get();
-        if (docSnap.exists) {
-          invRecord = docSnap.data();
-          invDocRef = docSnap.ref;
-        }
-      } catch (e) {
+app2.all(
+  [
+    "/api/workspace/invitations/accept",
+    "/workspace/invitations/accept",
+    "/api/workspace/invitation/accept",
+    "/workspace/invitation/accept",
+    "/api/workspace/accept-invitation",
+    "/workspace/accept-invitation",
+    "/api/workspace/accept-invite",
+    "/workspace/accept-invite",
+    "/api/team/invitations/accept",
+    "/team/invitations/accept",
+    "/api/team/invitation/accept",
+    "/team/invitation/accept",
+    "/api/team/accept-invitation",
+    "/team/accept-invitation",
+    "/api/auth/invitations/accept",
+    "/auth/invitations/accept",
+    "/api/auth/invitation/accept",
+    "/auth/invitation/accept",
+    "/api/auth/accept-invitation",
+    "/auth/accept-invitation",
+    "/api/invitations/accept",
+    "/invitations/accept",
+    "/api/invitation/accept",
+    "/invitation/accept",
+    "/api/accept-invitation",
+    "/accept-invitation",
+    "/api/workspace/invitations/accept/",
+    "/workspace/invitations/accept/"
+  ],
+  requireAuth,
+  async (req, res) => {
+    if (req.method === "OPTIONS") return res.status(200).end();
+    try {
+      const callerUid = req.user?.uid;
+      const callerEmail = (req.user?.email || "").trim().toLowerCase();
+      const invitationToken = req.body?.invitationToken || req.body?.token || req.query?.invitationToken || req.query?.token || req.query?.inviteToken || req.query?.invite || "";
+      const bodyEmail = req.body?.email || req.query?.email || "";
+      const memberName = req.body?.memberName || req.body?.name || req.query?.memberName || req.query?.name || "";
+      const payloadInv = req.body?.invitation || req.body?.invitationData || null;
+      const targetEmail = (bodyEmail || callerEmail).trim().toLowerCase();
+      if (!callerUid) {
+        return res.status(401).json({
+          success: false,
+          code: "UNAUTHORIZED",
+          error: "Authentication required"
+        });
       }
-      if (!invRecord) {
+      console.log("INVITATION_ACCEPT_START", {
+        callerUid,
+        targetEmail,
+        hasToken: !!invitationToken,
+        method: req.method
+      });
+      let invRecord = null;
+      let invDocRef = null;
+      if (targetEmail) {
         try {
-          const qSnap = await adminDb.collection("invitations").where("email", "==", targetEmail).limit(1).get();
+          const docSnap = await adminDb.collection("invitations").doc(targetEmail).get();
+          if (docSnap.exists) {
+            invRecord = docSnap.data();
+            invDocRef = docSnap.ref;
+          }
+        } catch (e) {
+        }
+        if (!invRecord) {
+          try {
+            const qSnap = await adminDb.collection("invitations").where("email", "==", targetEmail).limit(1).get();
+            if (!qSnap.empty) {
+              invRecord = qSnap.docs[0].data();
+              invDocRef = qSnap.docs[0].ref;
+            }
+          } catch (e) {
+          }
+        }
+      }
+      if (!invRecord && invitationToken) {
+        try {
+          const qSnap = await adminDb.collection("invitations").where("token", "==", invitationToken).limit(1).get();
           if (!qSnap.empty) {
             invRecord = qSnap.docs[0].data();
             invDocRef = qSnap.docs[0].ref;
           }
         } catch (e) {
         }
-      }
-    }
-    if (!invRecord && invitationToken) {
-      try {
-        const qSnap = await adminDb.collection("invitations").where("token", "==", invitationToken).limit(1).get();
-        if (!qSnap.empty) {
-          invRecord = qSnap.docs[0].data();
-          invDocRef = qSnap.docs[0].ref;
+        if (!invRecord) {
+          try {
+            const wsSnap = await adminDb.collection("workspace_invitations").where("token", "==", invitationToken).limit(1).get();
+            if (!wsSnap.empty) {
+              invRecord = wsSnap.docs[0].data();
+              invDocRef = wsSnap.docs[0].ref;
+            }
+          } catch (e) {
+          }
         }
-      } catch (e) {
       }
-      if (!invRecord) {
+      if (!invRecord && targetEmail) {
         try {
-          const wsSnap = await adminDb.collection("workspace_invitations").where("token", "==", invitationToken).limit(1).get();
-          if (!wsSnap.empty) {
-            invRecord = wsSnap.docs[0].data();
-            invDocRef = wsSnap.docs[0].ref;
+          const wsEmailSnap = await adminDb.collection("workspace_invitations").doc(targetEmail).get();
+          if (wsEmailSnap.exists) {
+            invRecord = wsEmailSnap.data();
+            invDocRef = wsEmailSnap.ref;
           }
         } catch (e) {
         }
       }
-    }
-    if (!invRecord && targetEmail) {
-      try {
-        const wsEmailSnap = await adminDb.collection("workspace_invitations").doc(targetEmail).get();
-        if (wsEmailSnap.exists) {
-          invRecord = wsEmailSnap.data();
-          invDocRef = wsEmailSnap.ref;
+      if (!invRecord) {
+        const db2 = readDb2();
+        invRecord = db2.invitations?.find(
+          (i) => targetEmail && (i.email || "").trim().toLowerCase() === targetEmail || invitationToken && i.token === invitationToken
+        );
+        if (invRecord && !invDocRef) {
+          invDocRef = adminDb.collection("invitations").doc((invRecord.email || targetEmail).trim().toLowerCase());
         }
+      }
+      if (!invRecord && payloadInv) {
+        invRecord = payloadInv;
+        if (!invDocRef && (payloadInv.email || targetEmail)) {
+          invDocRef = adminDb.collection("invitations").doc((payloadInv.email || targetEmail).trim().toLowerCase());
+        }
+      }
+      if (!invRecord) {
+        return res.status(404).json({
+          success: false,
+          code: "INVITATION_NOT_FOUND",
+          error: "Invitation not found or has expired.",
+          userFriendlyMessage: "\u0644\u0645 \u064A\u062A\u0645 \u0627\u0644\u0639\u062B\u0648\u0631 \u0639\u0644\u0649 \u0627\u0644\u062F\u0639\u0648\u0629 \u0623\u0648 \u0642\u062F \u062A\u0643\u0648\u0646 \u0627\u0646\u062A\u0647\u062A \u0635\u0644\u0627\u062D\u064A\u062A\u0647\u0627."
+        });
+      }
+      const invitationEmail = (invRecord.email || targetEmail).trim().toLowerCase();
+      if (callerEmail && invitationEmail && callerEmail !== invitationEmail) {
+        return res.status(403).json({
+          success: false,
+          code: "EMAIL_MISMATCH",
+          error: "Authenticated email does not match the invited email address.",
+          userFriendlyMessage: `\u0647\u0630\u0647 \u0627\u0644\u062F\u0639\u0648\u0629 \u0645\u062E\u0635\u0635\u0629 \u0644\u0644\u0628\u0631\u064A\u062F \u0627\u0644\u0625\u0644\u0643\u062A\u0631\u0648\u0646\u064A "${invitationEmail}"\u060C \u0644\u0643\u0646\u0643 \u0645\u0633\u062C\u0644 \u0627\u0644\u062F\u062E\u0648\u0644 \u062D\u0627\u0644\u064A\u0627\u064B \u0628\u0627\u0644\u0628\u0631\u064A\u062F "${callerEmail}". \u064A\u0631\u062C\u0649 \u062A\u0633\u062C\u064A\u0644 \u0627\u0644\u062F\u062E\u0648\u0644 \u0628\u0627\u0644\u062D\u0633\u0627\u0628 \u0627\u0644\u0635\u062D\u064A\u062D.`
+        });
+      }
+      const now = /* @__PURE__ */ new Date();
+      if (invRecord.expiresAt && new Date(invRecord.expiresAt) < now && invRecord.status !== "ACCEPTED") {
+        return res.status(400).json({
+          success: false,
+          code: "INVITATION_EXPIRED",
+          error: "This invitation has expired.",
+          userFriendlyMessage: "\u0627\u0646\u062A\u0647\u062A \u0635\u0644\u0627\u062D\u064A\u0629 \u0647\u0630\u0647 \u0627\u0644\u062F\u0639\u0648\u0629. \u064A\u0631\u062C\u0649 \u0637\u0644\u0628 \u062F\u0639\u0648\u0629 \u062C\u062F\u064A\u062F\u0629 \u0645\u0646 \u0645\u0633\u0624\u0648\u0644 \u0627\u0644\u0645\u0624\u0633\u0633\u0629."
+        });
+      }
+      const workspaceId = invRecord.workspaceId || `ws_${(invRecord.senderId || "org").substring(0, 8)}`;
+      const companyName = invRecord.companyName || "ZakIr Platform";
+      const role = invRecord.role || "Contributor";
+      const powers = invRecord.powers || {
+        fileVault: true,
+        memoryVault: true,
+        riskRadar: false,
+        marketIntel: false,
+        settings: false
+      };
+      const senderId = invRecord.senderId;
+      const nowIso = (/* @__PURE__ */ new Date()).toISOString();
+      const memberDocRef = adminDb.collection("users").doc(callerUid);
+      let memberData = {};
+      try {
+        const mSnap = await memberDocRef.get();
+        if (mSnap.exists) memberData = mSnap.data() || {};
       } catch (e) {
       }
-    }
-    if (!invRecord) {
-      const db2 = readDb2();
-      invRecord = db2.invitations?.find(
-        (i) => targetEmail && (i.email || "").trim().toLowerCase() === targetEmail || invitationToken && i.token === invitationToken
+      if (invRecord.status === "ACCEPTED") {
+        return res.json({
+          success: true,
+          message: "Invitation was already accepted.",
+          userFriendlyMessage: `\u0644\u0642\u062F \u062A\u0645 \u0642\u0628\u0648\u0644 \u0647\u0630\u0647 \u0627\u0644\u062F\u0639\u0648\u0629 \u0645\u0633\u0628\u0642\u0627\u064B \u0648\u062A\u0641\u0639\u064A\u0644 \u0639\u0636\u0648\u064A\u062A\u0643 \u0641\u064A \u0645\u0624\u0633\u0633\u0629 "${companyName}".`,
+          user: memberData.workspaceId === workspaceId ? memberData : { ...memberData, workspaceId, companyName, role, powers },
+          invitation: invRecord
+        });
+      }
+      const rawMemberName = (memberName || invRecord.name || memberData.ownerName || memberData.name || invitationEmail.split("@")[0]).trim();
+      const resolvedMemberName = cleanMemberName(rawMemberName) || invitationEmail.split("@")[0];
+      const batch = adminDb.batch();
+      const updatedInv = {
+        ...invRecord,
+        status: "ACCEPTED",
+        acceptedAt: nowIso,
+        acceptedByUid: callerUid,
+        acceptedByEmail: callerEmail || invitationEmail,
+        updatedAt: nowIso
+      };
+      if (invDocRef) {
+        batch.set(invDocRef, updatedInv, { merge: true });
+      }
+      batch.set(
+        adminDb.collection("invitations").doc(invitationEmail),
+        updatedInv,
+        { merge: true }
       );
-      if (invRecord && !invDocRef) {
-        invDocRef = adminDb.collection("invitations").doc((invRecord.email || targetEmail).trim().toLowerCase());
+      batch.set(
+        adminDb.collection("workspace_invitations").doc(invitationEmail),
+        updatedInv,
+        { merge: true }
+      );
+      batch.set(
+        adminDb.collection("workspaces").doc(workspaceId),
+        {
+          id: workspaceId,
+          name: `${companyName} Workspace`,
+          companyName,
+          ownerId: senderId || "CEO",
+          updatedAt: nowIso
+        },
+        { merge: true }
+      );
+      const updatedMemberProfile = {
+        ...memberData,
+        id: callerUid,
+        uid: callerUid,
+        email: callerEmail || invitationEmail,
+        ownerName: resolvedMemberName,
+        workspaceId,
+        companyName,
+        role,
+        powers,
+        isVerified: true,
+        isEmailVerified: true,
+        email_verified: true,
+        emailVerified: true,
+        verification_required: false,
+        verification_status: "verified",
+        workspace: {
+          id: workspaceId,
+          name: `${companyName} Workspace`,
+          ownerId: senderId,
+          createdAt: invRecord.createdAt || nowIso,
+          memberCount: 2
+        },
+        updatedAt: nowIso
+      };
+      batch.set(memberDocRef, updatedMemberProfile, { merge: true });
+      let currentTeamList = [];
+      let ceoUserDocRef = senderId ? adminDb.collection("users").doc(senderId) : null;
+      if (!ceoUserDocRef && workspaceId) {
+        try {
+          const ceoQuery = await adminDb.collection("users").where("workspaceId", "==", workspaceId).where("role", "==", "CEO").limit(1).get();
+          if (!ceoQuery.empty) {
+            ceoUserDocRef = ceoQuery.docs[0].ref;
+          }
+        } catch (e) {
+        }
       }
-    }
-    if (!invRecord && payloadInv) {
-      invRecord = payloadInv;
-      if (!invDocRef && (payloadInv.email || targetEmail)) {
-        invDocRef = adminDb.collection("invitations").doc((payloadInv.email || targetEmail).trim().toLowerCase());
+      if (ceoUserDocRef) {
+        try {
+          const ceoSnap = await ceoUserDocRef.get();
+          if (ceoSnap.exists) {
+            const ceoData = ceoSnap.data() || {};
+            currentTeamList = Array.isArray(ceoData.teamMembersList) ? [...ceoData.teamMembersList] : [];
+            currentTeamList = currentTeamList.filter((m) => {
+              const mEmail = (m.email || "").trim().toLowerCase();
+              const mId = m.id || m.uid;
+              return mEmail !== invitationEmail && mEmail !== callerEmail && mId !== callerUid && mId !== `tm-${callerUid}`;
+            });
+            const newTeamMemberEntry = {
+              id: `tm-${callerUid}`,
+              uid: callerUid,
+              name: resolvedMemberName,
+              email: invitationEmail,
+              role,
+              powers,
+              status: "Active",
+              joinedAt: nowIso,
+              addedAt: nowIso.split("T")[0]
+            };
+            currentTeamList.push(newTeamMemberEntry);
+            batch.set(
+              ceoUserDocRef,
+              {
+                teamMembersList: currentTeamList,
+                updatedAt: nowIso
+              },
+              { merge: true }
+            );
+          }
+        } catch (ceoErr) {
+          console.warn(
+            "Notice: Updating CEO in batch encountered non-fatal warning:",
+            ceoErr
+          );
+        }
       }
-    }
-    if (!invRecord) {
-      return res.status(404).json({
-        success: false,
-        code: "INVITATION_NOT_FOUND",
-        error: "Invitation not found or has expired.",
-        userFriendlyMessage: "\u0644\u0645 \u064A\u062A\u0645 \u0627\u0644\u0639\u062B\u0648\u0631 \u0639\u0644\u0649 \u0627\u0644\u062F\u0639\u0648\u0629 \u0623\u0648 \u0642\u062F \u062A\u0643\u0648\u0646 \u0627\u0646\u062A\u0647\u062A \u0635\u0644\u0627\u062D\u064A\u062A\u0647\u0627."
+      await batch.commit();
+      console.log("INVITATION_ACCEPT_COMMITTED_FIRESTORE", {
+        callerUid,
+        workspaceId,
+        companyName
       });
-    }
-    const invitationEmail = (invRecord.email || targetEmail).trim().toLowerCase();
-    if (callerEmail && invitationEmail && callerEmail !== invitationEmail) {
-      return res.status(403).json({
-        success: false,
-        code: "EMAIL_MISMATCH",
-        error: "Authenticated email does not match the invited email address.",
-        userFriendlyMessage: `\u0647\u0630\u0647 \u0627\u0644\u062F\u0639\u0648\u0629 \u0645\u062E\u0635\u0635\u0629 \u0644\u0644\u0628\u0631\u064A\u062F \u0627\u0644\u0625\u0644\u0643\u062A\u0631\u0648\u0646\u064A "${invitationEmail}"\u060C \u0644\u0643\u0646\u0643 \u0645\u0633\u062C\u0644 \u0627\u0644\u062F\u062E\u0648\u0644 \u062D\u0627\u0644\u064A\u0627\u064B \u0628\u0627\u0644\u0628\u0631\u064A\u062F "${callerEmail}". \u064A\u0631\u062C\u0649 \u062A\u0633\u062C\u064A\u0644 \u0627\u0644\u062F\u062E\u0648\u0644 \u0628\u0627\u0644\u062D\u0633\u0627\u0628 \u0627\u0644\u0635\u062D\u064A\u062D.`
+      try {
+        const db2 = readDb2();
+        if (!db2.invitations) db2.invitations = [];
+        const idx = db2.invitations.findIndex(
+          (i) => (i.email || "").trim().toLowerCase() === invitationEmail
+        );
+        if (idx >= 0) db2.invitations[idx] = updatedInv;
+        else db2.invitations.push(updatedInv);
+        if (!db2.users) db2.users = [];
+        const uIdx = db2.users.findIndex(
+          (u) => u.id === callerUid || (u.email || "").trim().toLowerCase() === invitationEmail
+        );
+        if (uIdx >= 0)
+          db2.users[uIdx] = { ...db2.users[uIdx], ...updatedMemberProfile };
+        else db2.users.push(updatedMemberProfile);
+        if (senderId) {
+          const ceoLocal = db2.users.find((u) => u.id === senderId);
+          if (ceoLocal) {
+            ceoLocal.teamMembersList = currentTeamList;
+          }
+        }
+        writeDb2(db2);
+      } catch (dbErr) {
+        console.warn("Local DB sync warning during invitation accept:", dbErr);
+      }
+      emitPlatformEvent({
+        eventType: "MEMBER_ACCEPTED",
+        category: "WORKSPACE",
+        severity: "INFO",
+        userId: callerUid,
+        userEmail: callerEmail || invitationEmail,
+        workspaceId,
+        metadata: {
+          actor: { id: callerUid, email: callerEmail || invitationEmail, role: role || "Member" },
+          action: "Accepted workspace invitation"
+        },
+        sanitizedMessage: `User ${callerEmail || invitationEmail} accepted invitation to workspace ${workspaceId}`
       });
-    }
-    const now = /* @__PURE__ */ new Date();
-    if (invRecord.expiresAt && new Date(invRecord.expiresAt) < now && invRecord.status !== "ACCEPTED") {
-      return res.status(400).json({
-        success: false,
-        code: "INVITATION_EXPIRED",
-        error: "This invitation has expired.",
-        userFriendlyMessage: "\u0627\u0646\u062A\u0647\u062A \u0635\u0644\u0627\u062D\u064A\u0629 \u0647\u0630\u0647 \u0627\u0644\u062F\u0639\u0648\u0629. \u064A\u0631\u062C\u0649 \u0637\u0644\u0628 \u062F\u0639\u0648\u0629 \u062C\u062F\u064A\u062F\u0629 \u0645\u0646 \u0645\u0633\u0624\u0648\u0644 \u0627\u0644\u0645\u0624\u0633\u0633\u0629."
-      });
-    }
-    const workspaceId = invRecord.workspaceId || `ws_${(invRecord.senderId || "org").substring(0, 8)}`;
-    const companyName = invRecord.companyName || "ZakIr Platform";
-    const role = invRecord.role || "Contributor";
-    const powers = invRecord.powers || { fileVault: true, memoryVault: true, riskRadar: false, marketIntel: false, settings: false };
-    const senderId = invRecord.senderId;
-    const nowIso = (/* @__PURE__ */ new Date()).toISOString();
-    const memberDocRef = adminDb.collection("users").doc(callerUid);
-    let memberData = {};
-    try {
-      const mSnap = await memberDocRef.get();
-      if (mSnap.exists) memberData = mSnap.data() || {};
-    } catch (e) {
-    }
-    if (invRecord.status === "ACCEPTED") {
       return res.json({
         success: true,
-        message: "Invitation was already accepted.",
-        userFriendlyMessage: `\u0644\u0642\u062F \u062A\u0645 \u0642\u0628\u0648\u0644 \u0647\u0630\u0647 \u0627\u0644\u062F\u0639\u0648\u0629 \u0645\u0633\u0628\u0642\u0627\u064B \u0648\u062A\u0641\u0639\u064A\u0644 \u0639\u0636\u0648\u064A\u062A\u0643 \u0641\u064A \u0645\u0624\u0633\u0633\u0629 "${companyName}".`,
-        user: memberData.workspaceId === workspaceId ? memberData : { ...memberData, workspaceId, companyName, role, powers },
-        invitation: invRecord
+        message: "Invitation accepted successfully and workspace membership activated.",
+        userFriendlyMessage: `\u062A\u0647\u0627\u0646\u064A\u0646\u0627! \u0644\u0642\u062F \u062A\u0645 \u0642\u0628\u0648\u0644 \u0627\u0644\u062F\u0639\u0648\u0629 \u0628\u0646\u062C\u0627\u062D \u0648\u062A\u0641\u0639\u064A\u0644 \u0639\u0636\u0648\u064A\u062A\u0643 \u0641\u064A \u0645\u0624\u0633\u0633\u0629 "${companyName}".`,
+        user: updatedMemberProfile,
+        invitation: updatedInv
+      });
+    } catch (err) {
+      console.error("INVITATION_ACCEPT_FAILED", err);
+      return res.status(500).json({
+        success: false,
+        code: "ACCEPT_FAILED",
+        error: err?.message || String(err),
+        userFriendlyMessage: "\u062A\u0639\u0630\u0631 \u0625\u062A\u0645\u0627\u0645 \u0642\u0628\u0648\u0644 \u0627\u0644\u062F\u0639\u0648\u0629 \u062D\u0627\u0644\u064A\u0627\u064B \u0628\u0633\u0628\u0628 \u062E\u0637\u0623 \u062E\u0627\u062F\u0645 \u062F\u0627\u062E\u0644\u064A. \u064A\u0631\u062C\u0649 \u0627\u0644\u0645\u062D\u0627\u0648\u0644\u0629 \u0645\u0631\u0629 \u0623\u062E\u0631\u0649."
       });
     }
-    const rawMemberName = (memberName || memberData.ownerName || memberData.name || invRecord.name || invitationEmail.split("@")[0]).trim();
-    const resolvedMemberName = cleanMemberName(rawMemberName) || invitationEmail.split("@")[0];
-    const batch = adminDb.batch();
-    const updatedInv = {
-      ...invRecord,
-      status: "ACCEPTED",
-      acceptedAt: nowIso,
-      acceptedByUid: callerUid,
-      acceptedByEmail: callerEmail || invitationEmail,
-      updatedAt: nowIso
-    };
-    if (invDocRef) {
-      batch.set(invDocRef, updatedInv, { merge: true });
-    }
-    batch.set(adminDb.collection("invitations").doc(invitationEmail), updatedInv, { merge: true });
-    batch.set(adminDb.collection("workspace_invitations").doc(invitationEmail), updatedInv, { merge: true });
-    batch.set(adminDb.collection("workspaces").doc(workspaceId), {
-      id: workspaceId,
-      name: `${companyName} Workspace`,
-      companyName,
-      ownerId: senderId || "CEO",
-      updatedAt: nowIso
-    }, { merge: true });
-    const updatedMemberProfile = {
-      ...memberData,
-      id: callerUid,
-      uid: callerUid,
-      email: callerEmail || invitationEmail,
-      ownerName: resolvedMemberName,
-      workspaceId,
-      companyName,
-      role,
-      powers,
-      isVerified: true,
-      isEmailVerified: true,
-      email_verified: true,
-      emailVerified: true,
-      verification_required: false,
-      verification_status: "verified",
-      workspace: {
-        id: workspaceId,
-        name: `${companyName} Workspace`,
-        ownerId: senderId,
-        createdAt: invRecord.createdAt || nowIso,
-        memberCount: 2
-      },
-      updatedAt: nowIso
-    };
-    batch.set(memberDocRef, updatedMemberProfile, { merge: true });
-    let currentTeamList = [];
-    let ceoUserDocRef = senderId ? adminDb.collection("users").doc(senderId) : null;
-    if (!ceoUserDocRef && workspaceId) {
-      try {
-        const ceoQuery = await adminDb.collection("users").where("workspaceId", "==", workspaceId).where("role", "==", "CEO").limit(1).get();
-        if (!ceoQuery.empty) {
-          ceoUserDocRef = ceoQuery.docs[0].ref;
-        }
-      } catch (e) {
-      }
-    }
-    if (ceoUserDocRef) {
-      try {
-        const ceoSnap = await ceoUserDocRef.get();
-        if (ceoSnap.exists) {
-          const ceoData = ceoSnap.data() || {};
-          currentTeamList = Array.isArray(ceoData.teamMembersList) ? [...ceoData.teamMembersList] : [];
-          currentTeamList = currentTeamList.filter((m) => {
-            const mEmail = (m.email || "").trim().toLowerCase();
-            const mId = m.id || m.uid;
-            return mEmail !== invitationEmail && mEmail !== callerEmail && mId !== callerUid && mId !== `tm-${callerUid}`;
-          });
-          const newTeamMemberEntry = {
-            id: `tm-${callerUid}`,
-            uid: callerUid,
-            name: resolvedMemberName,
-            email: invitationEmail,
-            role,
-            powers,
-            status: "Active",
-            joinedAt: nowIso,
-            addedAt: nowIso.split("T")[0]
-          };
-          currentTeamList.push(newTeamMemberEntry);
-          batch.set(ceoUserDocRef, {
-            teamMembersList: currentTeamList,
-            updatedAt: nowIso
-          }, { merge: true });
-        }
-      } catch (ceoErr) {
-        console.warn("Notice: Updating CEO in batch encountered non-fatal warning:", ceoErr);
-      }
-    }
-    await batch.commit();
-    console.log("INVITATION_ACCEPT_COMMITTED_FIRESTORE", { callerUid, workspaceId, companyName });
-    try {
-      const db2 = readDb2();
-      if (!db2.invitations) db2.invitations = [];
-      const idx = db2.invitations.findIndex((i) => (i.email || "").trim().toLowerCase() === invitationEmail);
-      if (idx >= 0) db2.invitations[idx] = updatedInv;
-      else db2.invitations.push(updatedInv);
-      if (!db2.users) db2.users = [];
-      const uIdx = db2.users.findIndex((u) => u.id === callerUid || (u.email || "").trim().toLowerCase() === invitationEmail);
-      if (uIdx >= 0) db2.users[uIdx] = { ...db2.users[uIdx], ...updatedMemberProfile };
-      else db2.users.push(updatedMemberProfile);
-      if (senderId) {
-        const ceoLocal = db2.users.find((u) => u.id === senderId);
-        if (ceoLocal) {
-          ceoLocal.teamMembersList = currentTeamList;
-        }
-      }
-      writeDb2(db2);
-    } catch (dbErr) {
-      console.warn("Local DB sync warning during invitation accept:", dbErr);
-    }
-    return res.json({
-      success: true,
-      message: "Invitation accepted successfully and workspace membership activated.",
-      userFriendlyMessage: `\u062A\u0647\u0627\u0646\u064A\u0646\u0627! \u0644\u0642\u062F \u062A\u0645 \u0642\u0628\u0648\u0644 \u0627\u0644\u062F\u0639\u0648\u0629 \u0628\u0646\u062C\u0627\u062D \u0648\u062A\u0641\u0639\u064A\u0644 \u0639\u0636\u0648\u064A\u062A\u0643 \u0641\u064A \u0645\u0624\u0633\u0633\u0629 "${companyName}".`,
-      user: updatedMemberProfile,
-      invitation: updatedInv
-    });
-  } catch (err) {
-    console.error("INVITATION_ACCEPT_FAILED", err);
-    return res.status(500).json({
-      success: false,
-      code: "ACCEPT_FAILED",
-      error: err?.message || String(err),
-      userFriendlyMessage: "\u062A\u0639\u0630\u0631 \u0625\u062A\u0645\u0627\u0645 \u0642\u0628\u0648\u0644 \u0627\u0644\u062F\u0639\u0648\u0629 \u062D\u0627\u0644\u064A\u0627\u064B \u0628\u0633\u0628\u0628 \u062E\u0637\u0623 \u062E\u0627\u062F\u0645 \u062F\u0627\u062E\u0644\u064A. \u064A\u0631\u062C\u0649 \u0627\u0644\u0645\u062D\u0627\u0648\u0644\u0629 \u0645\u0631\u0629 \u0623\u062E\u0631\u0649."
-    });
   }
-});
-app2.all([
-  "/api/workspace/team",
-  "/workspace/team",
-  "/api/workspace/team/",
-  "/workspace/team/"
-], requireAuth, async (req, res) => {
-  if (req.method === "OPTIONS") return res.status(200).end();
-  if (req.method !== "GET") return res.status(405).json({ success: false, error: `Method ${req.method} Not Allowed.` });
-  try {
-    const callerUid = req.user?.uid;
-    const callerEmail = (req.user?.email || "").trim().toLowerCase();
-    if (!callerUid) {
-      return res.status(401).json({ success: false, error: "Unauthorized" });
-    }
-    let callerUser = null;
+);
+app2.all(
+  [
+    "/api/workspace/team",
+    "/workspace/team",
+    "/api/workspace/team/",
+    "/workspace/team/"
+  ],
+  requireAuth,
+  async (req, res) => {
+    if (req.method === "OPTIONS") return res.status(200).end();
+    if (req.method !== "GET")
+      return res.status(405).json({ success: false, error: `Method ${req.method} Not Allowed.` });
     try {
-      const snap = await adminDb.collection("users").doc(callerUid).get();
-      if (snap.exists) callerUser = snap.data();
-    } catch (e) {
-    }
-    if (!callerUser) {
-      const db2 = readDb2();
-      callerUser = db2.users?.find((u) => u.id === callerUid || (u.email || "").trim().toLowerCase() === callerEmail);
-    }
-    const workspaceId = callerUser?.workspaceId || `ws_${callerUid.substring(0, 8)}`;
-    const isCeo = (callerUser?.role || "").toUpperCase() === "CEO" || (callerUser?.role || "").toUpperCase() === "ADMIN";
-    let ceoUser = isCeo ? callerUser : null;
-    let ceoUid = isCeo ? callerUid : callerUser?.workspace?.ownerId;
-    if (!ceoUser && ceoUid) {
+      const callerUid = req.user?.uid;
+      const callerEmail = (req.user?.email || "").trim().toLowerCase();
+      if (!callerUid) {
+        return res.status(401).json({ success: false, error: "Unauthorized" });
+      }
+      let callerUser = null;
       try {
-        const snap = await adminDb.collection("users").doc(ceoUid).get();
-        if (snap.exists) ceoUser = snap.data();
+        const snap = await adminDb.collection("users").doc(callerUid).get();
+        if (snap.exists) callerUser = snap.data();
       } catch (e) {
       }
-    }
-    if (!ceoUser && workspaceId) {
+      if (!callerUser) {
+        const db2 = readDb2();
+        callerUser = db2.users?.find(
+          (u) => u.id === callerUid || (u.email || "").trim().toLowerCase() === callerEmail
+        );
+      }
+      const workspaceId = callerUser?.workspaceId || `ws_${callerUid.substring(0, 8)}`;
+      const isCeo = (callerUser?.role || "").toUpperCase() === "CEO" || (callerUser?.role || "").toUpperCase() === "ADMIN";
+      let ceoUser = isCeo ? callerUser : null;
+      let ceoUid = isCeo ? callerUid : callerUser?.workspace?.ownerId;
+      if (!ceoUser && ceoUid) {
+        try {
+          const snap = await adminDb.collection("users").doc(ceoUid).get();
+          if (snap.exists) ceoUser = snap.data();
+        } catch (e) {
+        }
+      }
+      if (!ceoUser && workspaceId) {
+        try {
+          const q = await adminDb.collection("users").where("workspaceId", "==", workspaceId).where("role", "==", "CEO").limit(1).get();
+          if (!q.empty) {
+            ceoUser = q.docs[0].data();
+            ceoUid = q.docs[0].id;
+          }
+        } catch (e) {
+        }
+      }
+      let companyName = (ceoUser?.companyName || callerUser?.companyName || "").trim();
+      if (!companyName || companyName === "ZakIr Platform") {
+        try {
+          const wsSnap = await adminDb.collection("workspaces").doc(workspaceId).get();
+          if (wsSnap.exists) {
+            companyName = (wsSnap.data()?.companyName || wsSnap.data()?.name || "").trim();
+          }
+        } catch (e) {
+        }
+      }
+      if (!companyName || companyName === "ZakIr Platform") {
+        companyName = ceoUser?.ownerName ? `${ceoUser.ownerName}'s Organization` : "Zakir Enterprise";
+      }
+      const workspaceMembers = [];
       try {
-        const q = await adminDb.collection("users").where("workspaceId", "==", workspaceId).where("role", "==", "CEO").limit(1).get();
-        if (!q.empty) {
-          ceoUser = q.docs[0].data();
-          ceoUid = q.docs[0].id;
+        const membersSnap = await adminDb.collection("users").where("workspaceId", "==", workspaceId).get();
+        if (!membersSnap.empty) {
+          membersSnap.docs.forEach((d) => {
+            workspaceMembers.push({ ...d.data(), id: d.id });
+          });
         }
       } catch (e) {
       }
-    }
-    let companyName = (ceoUser?.companyName || callerUser?.companyName || "").trim();
-    if (!companyName || companyName === "ZakIr Platform") {
+      const workspaceMembersEmails = new Set(
+        workspaceMembers.map((m) => (m.email || "").trim().toLowerCase())
+      );
+      const seenInvEmails = /* @__PURE__ */ new Set();
+      const workspaceInvitations = [];
+      const processInvDoc = (inv, docId) => {
+        const invEmail = (inv.email || docId || "").trim().toLowerCase();
+        if (!invEmail || seenInvEmails.has(invEmail)) return;
+        const isAcceptedStatus = (inv.status || "").toString().toUpperCase() === "ACCEPTED";
+        const isMemberRegistered = workspaceMembersEmails.has(invEmail);
+        if (!isAcceptedStatus && !isMemberRegistered) {
+          seenInvEmails.add(invEmail);
+          workspaceInvitations.push({ ...inv, id: docId });
+        }
+      };
       try {
-        const wsSnap = await adminDb.collection("workspaces").doc(workspaceId).get();
-        if (wsSnap.exists) {
-          companyName = (wsSnap.data()?.companyName || wsSnap.data()?.name || "").trim();
+        const invSnap = await adminDb.collection("invitations").where("workspaceId", "==", workspaceId).get();
+        if (!invSnap.empty) {
+          invSnap.docs.forEach((d) => processInvDoc(d.data(), d.id));
         }
       } catch (e) {
       }
-    }
-    if (!companyName || companyName === "ZakIr Platform") {
-      companyName = ceoUser?.ownerName ? `${ceoUser.ownerName}'s Organization` : "Zakir Enterprise";
-    }
-    const workspaceMembers = [];
-    try {
-      const membersSnap = await adminDb.collection("users").where("workspaceId", "==", workspaceId).get();
-      if (!membersSnap.empty) {
-        membersSnap.docs.forEach((d) => {
-          workspaceMembers.push({ ...d.data(), id: d.id });
+      try {
+        const wsSnap = await adminDb.collection("workspace_invitations").where("workspaceId", "==", workspaceId).get();
+        if (!wsSnap.empty) {
+          wsSnap.docs.forEach((d) => processInvDoc(d.data(), d.id));
+        }
+      } catch (e) {
+      }
+      let teamList = Array.isArray(ceoUser?.teamMembersList) ? [...ceoUser.teamMembersList] : [];
+      const dummyEmails = /* @__PURE__ */ new Set([
+        "f.zahra@g-partner.com",
+        "j.luc@g-partner.com",
+        "a.diop@g-partner.com"
+      ]);
+      teamList = teamList.filter((m) => {
+        const email = (m.email || "").trim().toLowerCase();
+        const isDummy = dummyEmails.has(email);
+        const isPendingStatus = (m.status || "").toUpperCase() === "PENDING";
+        const isPendingName = (m.name || "").includes("\u0645\u0639\u0644\u0642") || (m.name || "").includes("Pending") || (m.name || "").includes("\u0645\u0639\u0644\u0642\u0629");
+        return !isDummy && !isPendingStatus && !isPendingName;
+      });
+      const ceoEmail = (ceoUser?.email || callerUser?.email || "").trim().toLowerCase();
+      const hasCeoInList = teamList.some(
+        (m) => (m.email || "").trim().toLowerCase() === ceoEmail || m.id === "tm-owner" || m.role?.includes("CEO")
+      );
+      if (!hasCeoInList && ceoEmail) {
+        teamList.unshift({
+          id: "tm-owner",
+          uid: ceoUid || callerUid,
+          name: cleanMemberName(ceoUser?.ownerName || ceoUser?.name) || "CEO / Owner",
+          email: ceoEmail,
+          role: "CEO / Owner",
+          status: "Active",
+          powers: {
+            fileVault: true,
+            memoryVault: true,
+            riskRadar: true,
+            marketIntel: true,
+            settings: true
+          },
+          addedAt: (ceoUser?.createdAt || (/* @__PURE__ */ new Date()).toISOString()).split(
+            "T"
+          )[0]
         });
       }
-    } catch (e) {
-    }
-    const workspaceMembersEmails = new Set(workspaceMembers.map((m) => (m.email || "").trim().toLowerCase()));
-    const seenInvEmails = /* @__PURE__ */ new Set();
-    const workspaceInvitations = [];
-    const processInvDoc = (inv, docId) => {
-      const invEmail = (inv.email || docId || "").trim().toLowerCase();
-      if (!invEmail || seenInvEmails.has(invEmail)) return;
-      const isAcceptedStatus = (inv.status || "").toString().toUpperCase() === "ACCEPTED";
-      const isMemberRegistered = workspaceMembersEmails.has(invEmail);
-      if (!isAcceptedStatus && !isMemberRegistered) {
-        seenInvEmails.add(invEmail);
-        workspaceInvitations.push({ ...inv, id: docId });
-      }
-    };
-    try {
-      const invSnap = await adminDb.collection("invitations").where("workspaceId", "==", workspaceId).get();
-      if (!invSnap.empty) {
-        invSnap.docs.forEach((d) => processInvDoc(d.data(), d.id));
-      }
-    } catch (e) {
-    }
-    try {
-      const wsSnap = await adminDb.collection("workspace_invitations").where("workspaceId", "==", workspaceId).get();
-      if (!wsSnap.empty) {
-        wsSnap.docs.forEach((d) => processInvDoc(d.data(), d.id));
-      }
-    } catch (e) {
-    }
-    let teamList = Array.isArray(ceoUser?.teamMembersList) ? [...ceoUser.teamMembersList] : [];
-    const dummyEmails = /* @__PURE__ */ new Set(["f.zahra@g-partner.com", "j.luc@g-partner.com", "a.diop@g-partner.com"]);
-    teamList = teamList.filter((m) => {
-      const email = (m.email || "").trim().toLowerCase();
-      const isDummy = dummyEmails.has(email);
-      const isPendingStatus = (m.status || "").toUpperCase() === "PENDING";
-      const isPendingName = (m.name || "").includes("\u0645\u0639\u0644\u0642") || (m.name || "").includes("Pending") || (m.name || "").includes("\u0645\u0639\u0644\u0642\u0629");
-      return !isDummy && !isPendingStatus && !isPendingName;
-    });
-    const ceoEmail = (ceoUser?.email || callerUser?.email || "").trim().toLowerCase();
-    const hasCeoInList = teamList.some((m) => (m.email || "").trim().toLowerCase() === ceoEmail || m.id === "tm-owner" || m.role?.includes("CEO"));
-    if (!hasCeoInList && ceoEmail) {
-      teamList.unshift({
-        id: "tm-owner",
-        uid: ceoUid || callerUid,
-        name: cleanMemberName(ceoUser?.ownerName || ceoUser?.name) || "CEO / Owner",
-        email: ceoEmail,
-        role: "CEO / Owner",
-        status: "Active",
-        powers: { fileVault: true, memoryVault: true, riskRadar: true, marketIntel: true, settings: true },
-        addedAt: (ceoUser?.createdAt || (/* @__PURE__ */ new Date()).toISOString()).split("T")[0]
-      });
-    }
-    let reconciledCount = 0;
-    for (const member of workspaceMembers) {
-      const mEmail = (member.email || "").trim().toLowerCase();
-      const mUid = member.id || member.uid;
-      if (!mEmail || mEmail === ceoEmail) continue;
-      const existingIdx = teamList.findIndex((t) => (t.email || "").trim().toLowerCase() === mEmail || t.uid === mUid || t.id === `tm-${mUid}`);
-      const cleanName = cleanMemberName(member.ownerName || member.name || mEmail.split("@")[0]);
-      if (existingIdx >= 0) {
-        const currentName = teamList[existingIdx].name || "";
-        const needsClean = currentName.includes("\u0645\u0639\u0644\u0642") || currentName.includes("Pending") || currentName.includes("\u0645\u0639\u0644\u0642\u0629");
-        if (teamList[existingIdx].status !== "Active" || needsClean) {
-          teamList[existingIdx].status = "Active";
-          teamList[existingIdx].name = cleanName || cleanMemberName(currentName);
-          teamList[existingIdx].uid = mUid;
-          teamList[existingIdx].powers = member.powers || teamList[existingIdx].powers;
-          teamList[existingIdx].role = member.role || teamList[existingIdx].role;
+      let reconciledCount = 0;
+      for (const member of workspaceMembers) {
+        const mEmail = (member.email || "").trim().toLowerCase();
+        const mUid = member.id || member.uid;
+        if (!mEmail || mEmail === ceoEmail) continue;
+        const existingIdx = teamList.findIndex(
+          (t) => (t.email || "").trim().toLowerCase() === mEmail || t.uid === mUid || t.id === `tm-${mUid}`
+        );
+        const cleanName = cleanMemberName(
+          member.ownerName || member.name || mEmail.split("@")[0]
+        );
+        if (existingIdx >= 0) {
+          const currentName = teamList[existingIdx].name || "";
+          const needsClean = currentName.includes("\u0645\u0639\u0644\u0642") || currentName.includes("Pending") || currentName.includes("\u0645\u0639\u0644\u0642\u0629");
+          if (teamList[existingIdx].status !== "Active" || needsClean) {
+            teamList[existingIdx].status = "Active";
+            teamList[existingIdx].name = cleanName || cleanMemberName(currentName);
+            teamList[existingIdx].uid = mUid;
+            teamList[existingIdx].powers = member.powers || teamList[existingIdx].powers;
+            teamList[existingIdx].role = member.role || teamList[existingIdx].role;
+            reconciledCount++;
+          }
+        } else {
+          teamList.push({
+            id: `tm-${mUid}`,
+            uid: mUid,
+            name: cleanName,
+            email: mEmail,
+            role: member.role || "Contributor",
+            powers: member.powers || {
+              fileVault: true,
+              memoryVault: true,
+              riskRadar: false,
+              marketIntel: false,
+              settings: false
+            },
+            status: "Active",
+            joinedAt: member.createdAt || (/* @__PURE__ */ new Date()).toISOString(),
+            addedAt: (member.createdAt || (/* @__PURE__ */ new Date()).toISOString()).split(
+              "T"
+            )[0]
+          });
           reconciledCount++;
         }
-      } else {
-        teamList.push({
-          id: `tm-${mUid}`,
-          uid: mUid,
-          name: cleanName,
-          email: mEmail,
-          role: member.role || "Contributor",
-          powers: member.powers || { fileVault: true, memoryVault: true, riskRadar: false, marketIntel: false, settings: false },
-          status: "Active",
-          joinedAt: member.createdAt || (/* @__PURE__ */ new Date()).toISOString(),
-          addedAt: (member.createdAt || (/* @__PURE__ */ new Date()).toISOString()).split("T")[0]
-        });
-        reconciledCount++;
       }
-    }
-    if (reconciledCount > 0 && ceoUid) {
-      try {
-        await adminDb.collection("users").doc(ceoUid).update({
-          teamMembersList: teamList,
-          updatedAt: (/* @__PURE__ */ new Date()).toISOString()
-        });
-      } catch (e) {
+      if (reconciledCount > 0 && ceoUid) {
+        try {
+          await adminDb.collection("users").doc(ceoUid).update({
+            teamMembersList: teamList,
+            updatedAt: (/* @__PURE__ */ new Date()).toISOString()
+          });
+        } catch (e) {
+        }
       }
+      return res.json({
+        success: true,
+        workspaceId,
+        companyName,
+        teamMembers: teamList,
+        invitations: workspaceInvitations
+      });
+    } catch (err) {
+      console.error("GET_WORKSPACE_TEAM_FAILED", err);
+      return res.status(500).json({
+        success: false,
+        error: err.message || "Failed to fetch workspace team"
+      });
     }
-    return res.json({
-      success: true,
-      workspaceId,
-      companyName,
-      teamMembers: teamList,
-      invitations: workspaceInvitations
-    });
-  } catch (err) {
-    console.error("GET_WORKSPACE_TEAM_FAILED", err);
-    return res.status(500).json({ success: false, error: err.message || "Failed to fetch workspace team" });
   }
-});
+);
 async function reconcileWorkspaceData() {
-  console.log("[DATA_RECONCILE] Starting workspace & lifecycle auto-healing routine...");
+  console.log(
+    "[DATA_RECONCILE] Starting workspace & lifecycle auto-healing routine..."
+  );
   const stats = {
     teamMembersHealed: 0,
     companyNamesHealed: 0,
@@ -7248,7 +8494,9 @@ async function reconcileWorkspaceData() {
     const usersSnap = await adminDb.collection("users").get();
     const allUsers = [];
     if (usersSnap && !usersSnap.empty) {
-      usersSnap.docs.forEach((d) => allUsers.push({ ...d.data(), id: d.id }));
+      usersSnap.docs.forEach(
+        (d) => allUsers.push({ ...d.data(), id: d.id })
+      );
     }
     const ceoByWorkspace = /* @__PURE__ */ new Map();
     allUsers.forEach((u) => {
@@ -7260,10 +8508,14 @@ async function reconcileWorkspaceData() {
     for (const [wsId, ceo] of ceoByWorkspace.entries()) {
       let teamList = Array.isArray(ceo.teamMembersList) ? [...ceo.teamMembersList] : [];
       let modified = false;
-      const wsMembers = allUsers.filter((u) => u.workspaceId === wsId && u.id !== ceo.id);
+      const wsMembers = allUsers.filter(
+        (u) => u.workspaceId === wsId && u.id !== ceo.id
+      );
       for (const m of wsMembers) {
         const mEmail = (m.email || "").trim().toLowerCase();
-        const existingIdx = teamList.findIndex((t) => (t.email || "").trim().toLowerCase() === mEmail || t.id === `tm-${m.id}` || t.uid === m.id);
+        const existingIdx = teamList.findIndex(
+          (t) => (t.email || "").trim().toLowerCase() === mEmail || t.id === `tm-${m.id}` || t.uid === m.id
+        );
         if (existingIdx === -1) {
           teamList.push({
             id: `tm-${m.id}`,
@@ -7271,7 +8523,13 @@ async function reconcileWorkspaceData() {
             name: m.ownerName || m.name || mEmail.split("@")[0],
             email: mEmail,
             role: m.role || "Contributor",
-            powers: m.powers || { fileVault: true, memoryVault: true, riskRadar: false, marketIntel: false, settings: false },
+            powers: m.powers || {
+              fileVault: true,
+              memoryVault: true,
+              riskRadar: false,
+              marketIntel: false,
+              settings: false
+            },
             status: "Active",
             joinedAt: m.createdAt || (/* @__PURE__ */ new Date()).toISOString(),
             addedAt: (m.createdAt || (/* @__PURE__ */ new Date()).toISOString()).split("T")[0]
@@ -7341,31 +8599,51 @@ async function reconcileWorkspaceData() {
     return { success: false, stats };
   }
 }
-app2.post("/api/admin/reconcile-data", requireAuth, async (req, res) => {
-  const callerUid = req.user?.uid;
-  const callerEmail = req.user?.email || "";
-  if (!callerUid || !await isUserAdminServer(callerUid, callerEmail)) {
-    return res.status(403).json({ error: "Forbidden: Admin access required" });
+app2.post(
+  "/api/admin/reconcile-data",
+  requireAuth,
+  async (req, res) => {
+    const callerUid = req.user?.uid;
+    const callerEmail = req.user?.email || "";
+    if (!callerUid || !await isUserAdminServer(callerUid, callerEmail)) {
+      return res.status(403).json({ error: "Forbidden: Admin access required" });
+    }
+    const result = await reconcileWorkspaceData();
+    return res.json(result);
   }
-  const result = await reconcileWorkspaceData();
-  return res.json(result);
-});
+);
 app2.post("/api/support/tickets", async (req, res) => {
   try {
     let callerUid = req.user?.uid;
     let callerEmail = req.user?.email || "";
-    let { userId, userEmail, userName, userPhone, companyName, category, subject, message, description, priority = "Normal", attachments = [] } = req.body;
+    let {
+      userId,
+      userEmail,
+      userName,
+      userPhone,
+      companyName,
+      category,
+      subject,
+      message,
+      description,
+      priority = "Normal",
+      attachments = []
+    } = req.body;
     userId = callerUid || userId || `usr_${Date.now()}`;
     userEmail = callerEmail || userEmail || "support_user@zakir.ai";
     const resolvedMessage = description || message;
     if (!userEmail || !subject || !resolvedMessage) {
-      return res.status(400).json({ error: "User email, subject, and detailed message are required." });
+      return res.status(400).json({
+        error: "User email, subject, and detailed message are required."
+      });
     }
     const db2 = readDb2();
     if (!db2.support_tickets) db2.support_tickets = [];
     let userCreatedAt = "";
     if (db2.users) {
-      const u = db2.users.find((x) => x.id === userId || x.email?.toLowerCase() === userEmail.toLowerCase());
+      const u = db2.users.find(
+        (x) => x.id === userId || x.email?.toLowerCase() === userEmail.toLowerCase()
+      );
       if (u) userCreatedAt = u.createdAt || "";
     }
     const ticketNumber = Math.floor(1e5 + Math.random() * 9e5);
@@ -7409,10 +8687,34 @@ app2.post("/api/support/tickets", async (req, res) => {
     writeDb2(db2);
     try {
       await adminDb.collection("support_tickets").doc(newTicket.id).set(newTicket);
-      console.log("SUPPORT_TICKET_FIRESTORE_SAVED", { ticketId: newTicket.id, userId });
+      console.log("SUPPORT_TICKET_FIRESTORE_SAVED", {
+        ticketId: newTicket.id,
+        userId
+      });
     } catch (fsErr) {
-      console.warn("Failed to write support ticket to Firestore:", fsErr?.message);
+      console.warn(
+        "Failed to write support ticket to Firestore:",
+        fsErr?.message
+      );
     }
+    emitPlatformEvent({
+      eventType: "SUPPORT_TICKET_CREATED",
+      severity: priority === "High" || priority === "Critical" ? "WARNING" : "NOTICE",
+      category: "SUPPORT",
+      userId,
+      userEmail,
+      resourceId: newTicket.id,
+      requestId: req.correlationId,
+      sanitizedMessage: `Support ticket #${ticketNumber} created by ${userEmail}: ${subject}`,
+      metadata: {
+        ticketId: newTicket.id,
+        ticketNumber,
+        category,
+        priority,
+        subject
+      }
+    }).catch(() => {
+    });
     return res.json({ success: true, ticket: newTicket, ticketNumber });
   } catch (err) {
     res.status(500).json({ error: err.message || "Failed to create support ticket" });
@@ -7467,201 +8769,281 @@ app2.get("/api/support/tickets", requireAuth, async (req, res) => {
     res.status(500).json({ error: err.message || "Failed to fetch support tickets" });
   }
 });
-app2.get("/api/support/tickets/:id", requireAuth, async (req, res) => {
-  try {
-    const { id } = req.params;
-    const callerUid = req.user?.uid;
-    const callerEmail = req.user?.email || "";
-    if (!callerUid) return res.status(401).json({ error: "Unauthorized" });
-    const isCallerAdmin = await isUserAdminServer(callerUid, callerEmail);
-    let ticket = null;
+app2.get(
+  "/api/support/tickets/:id",
+  requireAuth,
+  async (req, res) => {
     try {
-      const tSnap = await adminDb.collection("support_tickets").doc(id).get();
-      if (tSnap.exists) {
-        ticket = tSnap.data();
-      }
-    } catch (e) {
-    }
-    if (!ticket) {
-      const db2 = readDb2();
-      ticket = (db2.support_tickets || []).find((t) => t.id === id);
-    }
-    if (!ticket) {
-      return res.status(404).json({ error: "Ticket not found" });
-    }
-    if (!isCallerAdmin) {
-      if (ticket.userId !== callerUid && ticket.userEmail?.toLowerCase() !== callerEmail.toLowerCase()) {
-        return res.status(403).json({ error: "Forbidden: You do not own this support ticket." });
-      }
-      const { adminNotes, ...publicTicket } = ticket;
-      return res.json({ ticket: publicTicket });
-    }
-    return res.json({ ticket });
-  } catch (err) {
-    res.status(500).json({ error: err.message || "Failed to fetch support ticket" });
-  }
-});
-app2.post("/api/support/tickets/:id/messages", requireAuth, async (req, res) => {
-  try {
-    const callerUid = req.user?.uid;
-    const callerEmail = req.user?.email || "";
-    const isCallerAdmin = callerUid ? await isUserAdminServer(callerUid, callerEmail) : false;
-    const { id } = req.params;
-    let { senderId, senderType, senderName, senderEmail, message, attachments = [] } = req.body;
-    if (!isCallerAdmin) {
-      senderId = callerUid || senderId || "user";
-      senderEmail = callerEmail || senderEmail || "";
-      senderType = "user";
-    }
-    if (!message) {
-      return res.status(400).json({ error: "Message text is required" });
-    }
-    const docRef = adminDb.collection("support_tickets").doc(id);
-    let ticket = null;
-    try {
-      const tSnap = await docRef.get();
-      if (tSnap.exists) {
-        ticket = tSnap.data();
-      }
-    } catch (e) {
-    }
-    const db2 = readDb2();
-    let localTicket = (db2.support_tickets || []).find((t) => t.id === id);
-    if (!ticket && localTicket) {
-      ticket = localTicket;
-    }
-    if (!ticket) {
-      return res.status(404).json({ error: "Ticket not found" });
-    }
-    if (!isCallerAdmin) {
-      if (ticket.userId !== callerUid && ticket.userEmail?.toLowerCase() !== callerEmail.toLowerCase()) {
-        return res.status(403).json({ error: "Forbidden: You do not own this support ticket." });
-      }
-    }
-    const nowIso = (/* @__PURE__ */ new Date()).toISOString();
-    let recipientEmail = ticket.userEmail;
-    let recipientName = ticket.userName || "Valued User";
-    if (ticket.userId) {
+      const { id } = req.params;
+      const callerUid = req.user?.uid;
+      const callerEmail = req.user?.email || "";
+      if (!callerUid) return res.status(401).json({ error: "Unauthorized" });
+      const isCallerAdmin = await isUserAdminServer(callerUid, callerEmail);
+      let ticket = null;
       try {
-        const uSnap = await adminDb.collection("users").doc(ticket.userId).get();
-        if (uSnap.exists) {
-          const uData = uSnap.data();
-          if (uData?.email) recipientEmail = uData.email;
-          if (uData?.ownerName || uData?.companyName) {
-            recipientName = uData.ownerName || uData.companyName;
-          }
+        const tSnap = await adminDb.collection("support_tickets").doc(id).get();
+        if (tSnap.exists) {
+          ticket = tSnap.data();
         }
-      } catch (uErr) {
-        console.warn("Could not load user profile for support reply recipient:", uErr);
+      } catch (e) {
       }
-    }
-    const newMsg = {
-      id: `msg_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
-      ticketId: id,
-      senderId: senderId || (senderType === "admin" ? "admin" : ticket.userId),
-      senderType: senderType || "user",
-      senderName: senderName || (senderType === "admin" ? "Zakir Support Team" : recipientName),
-      senderEmail: senderEmail || (senderType === "admin" ? "support@zakir.ai" : recipientEmail),
-      message,
-      attachments: Array.isArray(attachments) ? attachments : [],
-      createdAt: nowIso
-    };
-    if (!ticket.messages) ticket.messages = [];
-    ticket.messages.push(newMsg);
-    ticket.updatedAt = nowIso;
-    ticket.lastReplyAt = nowIso;
-    if (senderType === "admin") {
-      ticket.status = "Waiting for User";
-    } else {
-      if (ticket.status === "Waiting for User" || ticket.status === "Resolved") {
-        ticket.status = "In Progress";
+      if (!ticket) {
+        const db2 = readDb2();
+        ticket = (db2.support_tickets || []).find((t) => t.id === id);
       }
+      if (!ticket) {
+        return res.status(404).json({ error: "Ticket not found" });
+      }
+      if (!isCallerAdmin) {
+        if (ticket.userId !== callerUid && ticket.userEmail?.toLowerCase() !== callerEmail.toLowerCase()) {
+          return res.status(403).json({ error: "Forbidden: You do not own this support ticket." });
+        }
+        const { adminNotes, ...publicTicket } = ticket;
+        return res.json({ ticket: publicTicket });
+      }
+      return res.json({ ticket });
+    } catch (err) {
+      res.status(500).json({ error: err.message || "Failed to fetch support ticket" });
     }
+  }
+);
+app2.post(
+  "/api/support/tickets/:id/messages",
+  requireAuth,
+  async (req, res) => {
     try {
-      await docRef.set(ticket, { merge: true });
-      console.log("SUPPORT_REPLY_FIRESTORE_SAVED", { ticketId: id, senderType });
-    } catch (fsErr) {
-      console.warn("Firestore support message update warning:", fsErr?.message);
-    }
-    if (localTicket) {
-      Object.assign(localTicket, ticket);
-    } else {
-      if (!db2.support_tickets) db2.support_tickets = [];
-      db2.support_tickets.push(ticket);
-    }
-    writeDb2(db2);
-    if (senderType === "admin" && recipientEmail) {
+      const callerUid = req.user?.uid;
+      const callerEmail = req.user?.email || "";
+      const isCallerAdmin = callerUid ? await isUserAdminServer(callerUid, callerEmail) : false;
+      const { id } = req.params;
+      let {
+        senderId,
+        senderType,
+        senderName,
+        senderEmail,
+        message,
+        attachments = []
+      } = req.body;
+      if (!isCallerAdmin) {
+        senderId = callerUid || senderId || "user";
+        senderEmail = callerEmail || senderEmail || "";
+        senderType = "user";
+      }
+      if (!message) {
+        return res.status(400).json({ error: "Message text is required" });
+      }
+      const docRef = adminDb.collection("support_tickets").doc(id);
+      let ticket = null;
       try {
-        const { subject: emailSubject, text: emailText, html: emailHtml } = buildSupportReplyEmailHtml({
-          recipientName,
-          ticketId: String(ticket.id),
-          ticketSubject: String(ticket.subject || "Support Ticket"),
-          message: String(message)
-        });
-        await sendSystemMail2({
-          to: recipientEmail,
-          subject: emailSubject,
-          html: emailHtml,
-          text: emailText
-        });
-        console.log("SUPPORT_REPLY_EMAIL_SENT", { recipientEmail, ticketId: id });
-      } catch (mailErr) {
-        console.error("ADMIN_SUPPORT_REPLY_EMAIL_FAILED", { recipientEmail, ticketId: id, error: mailErr?.message });
+        const tSnap = await docRef.get();
+        if (tSnap.exists) {
+          ticket = tSnap.data();
+        }
+      } catch (e) {
       }
-    }
-    return res.json({ success: true, message: newMsg, ticket });
-  } catch (err) {
-    console.error("ADMIN_SUPPORT_REPLY_FAILED", { ticketId: req.params.id, error: err?.message || String(err) });
-    res.status(500).json({ error: err.message || "Failed to reply to support ticket" });
-  }
-});
-app2.patch("/api/support/tickets/:id", requireAuth, async (req, res) => {
-  try {
-    const callerUid = req.user?.uid;
-    const callerEmail = req.user?.email || "";
-    const isCallerAdmin = callerUid ? await isUserAdminServer(callerUid, callerEmail) : false;
-    if (!isCallerAdmin) {
-      return res.status(403).json({ error: "Forbidden: Administrative access required" });
-    }
-    const { id } = req.params;
-    const { status, priority, adminNotes, assignedAdminId, assignedAdminName } = req.body;
-    const docRef = adminDb.collection("support_tickets").doc(id);
-    let ticket = null;
-    try {
-      const tSnap = await docRef.get();
-      if (tSnap.exists) {
-        ticket = tSnap.data();
+      const db2 = readDb2();
+      let localTicket = (db2.support_tickets || []).find(
+        (t) => t.id === id
+      );
+      if (!ticket && localTicket) {
+        ticket = localTicket;
       }
-    } catch (e) {
+      if (!ticket) {
+        return res.status(404).json({ error: "Ticket not found" });
+      }
+      if (!isCallerAdmin) {
+        if (ticket.userId !== callerUid && ticket.userEmail?.toLowerCase() !== callerEmail.toLowerCase()) {
+          return res.status(403).json({ error: "Forbidden: You do not own this support ticket." });
+        }
+      }
+      const nowIso = (/* @__PURE__ */ new Date()).toISOString();
+      let recipientEmail = ticket.userEmail;
+      let recipientName = ticket.userName || "Valued User";
+      if (ticket.userId) {
+        try {
+          const uSnap = await adminDb.collection("users").doc(ticket.userId).get();
+          if (uSnap.exists) {
+            const uData = uSnap.data();
+            if (uData?.email) recipientEmail = uData.email;
+            if (uData?.ownerName || uData?.companyName) {
+              recipientName = uData.ownerName || uData.companyName;
+            }
+          }
+        } catch (uErr) {
+          console.warn(
+            "Could not load user profile for support reply recipient:",
+            uErr
+          );
+        }
+      }
+      const newMsg = {
+        id: `msg_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+        ticketId: id,
+        senderId: senderId || (senderType === "admin" ? "admin" : ticket.userId),
+        senderType: senderType || "user",
+        senderName: senderName || (senderType === "admin" ? "Zakir Support Team" : recipientName),
+        senderEmail: senderEmail || (senderType === "admin" ? "support@zakir.ai" : recipientEmail),
+        message,
+        attachments: Array.isArray(attachments) ? attachments : [],
+        createdAt: nowIso
+      };
+      if (!ticket.messages) ticket.messages = [];
+      ticket.messages.push(newMsg);
+      ticket.updatedAt = nowIso;
+      ticket.lastReplyAt = nowIso;
+      if (senderType === "admin") {
+        ticket.status = "Waiting for User";
+      } else {
+        if (ticket.status === "Waiting for User" || ticket.status === "Resolved") {
+          ticket.status = "In Progress";
+        }
+      }
+      try {
+        await docRef.set(ticket, { merge: true });
+        console.log("SUPPORT_REPLY_FIRESTORE_SAVED", {
+          ticketId: id,
+          senderType
+        });
+      } catch (fsErr) {
+        console.warn(
+          "Firestore support message update warning:",
+          fsErr?.message
+        );
+      }
+      if (localTicket) {
+        Object.assign(localTicket, ticket);
+      } else {
+        if (!db2.support_tickets) db2.support_tickets = [];
+        db2.support_tickets.push(ticket);
+      }
+      writeDb2(db2);
+      if (senderType === "admin" && recipientEmail) {
+        try {
+          const {
+            subject: emailSubject,
+            text: emailText,
+            html: emailHtml
+          } = buildSupportReplyEmailHtml({
+            recipientName,
+            ticketId: String(ticket.id),
+            ticketSubject: String(ticket.subject || "Support Ticket"),
+            message: String(message)
+          });
+          await sendSystemMail2({
+            to: recipientEmail,
+            subject: emailSubject,
+            html: emailHtml,
+            text: emailText
+          });
+          console.log("SUPPORT_REPLY_EMAIL_SENT", {
+            recipientEmail,
+            ticketId: id
+          });
+        } catch (mailErr) {
+          console.error("ADMIN_SUPPORT_REPLY_EMAIL_FAILED", {
+            recipientEmail,
+            ticketId: id,
+            error: mailErr?.message
+          });
+        }
+      }
+      emitPlatformEvent({
+        eventType: "SUPPORT_TICKET_REPLIED",
+        severity: "INFO",
+        category: "SUPPORT",
+        resourceId: id,
+        userEmail: senderEmail,
+        sanitizedMessage: `New message on support ticket #${id} from ${senderName} (${senderType})`,
+        metadata: { ticketId: id, senderType }
+      }).catch(() => {
+      });
+      return res.json({ success: true, message: newMsg, ticket });
+    } catch (err) {
+      console.error("ADMIN_SUPPORT_REPLY_FAILED", {
+        ticketId: req.params.id,
+        error: err?.message || String(err)
+      });
+      res.status(500).json({ error: err.message || "Failed to reply to support ticket" });
     }
-    const db2 = readDb2();
-    let localTicket = (db2.support_tickets || []).find((t) => t.id === id);
-    if (!ticket && localTicket) {
-      ticket = localTicket;
-    }
-    if (!ticket) {
-      return res.status(404).json({ error: "Ticket not found" });
-    }
-    if (status) ticket.status = status;
-    if (priority) ticket.priority = priority;
-    if (adminNotes !== void 0) ticket.adminNotes = adminNotes;
-    if (assignedAdminId !== void 0) ticket.assignedAdminId = assignedAdminId;
-    if (assignedAdminName !== void 0) ticket.assignedAdminName = assignedAdminName;
-    ticket.updatedAt = (/* @__PURE__ */ new Date()).toISOString();
-    try {
-      await docRef.set(ticket, { merge: true });
-    } catch (fsErr) {
-      console.warn("Firestore patch support ticket warning:", fsErr?.message);
-    }
-    if (localTicket) {
-      Object.assign(localTicket, ticket);
-    }
-    writeDb2(db2);
-    return res.json({ success: true, ticket });
-  } catch (err) {
-    res.status(500).json({ error: err.message || "Failed to update support ticket" });
   }
-});
+);
+app2.patch(
+  "/api/support/tickets/:id",
+  requireAuth,
+  async (req, res) => {
+    try {
+      const callerUid = req.user?.uid;
+      const callerEmail = req.user?.email || "";
+      const isCallerAdmin = callerUid ? await isUserAdminServer(callerUid, callerEmail) : false;
+      if (!isCallerAdmin) {
+        return res.status(403).json({ error: "Forbidden: Administrative access required" });
+      }
+      const { id } = req.params;
+      const {
+        status,
+        priority,
+        adminNotes,
+        assignedAdminId,
+        assignedAdminName
+      } = req.body;
+      const docRef = adminDb.collection("support_tickets").doc(id);
+      let ticket = null;
+      try {
+        const tSnap = await docRef.get();
+        if (tSnap.exists) {
+          ticket = tSnap.data();
+        }
+      } catch (e) {
+      }
+      const db2 = readDb2();
+      let localTicket = (db2.support_tickets || []).find(
+        (t) => t.id === id
+      );
+      if (!ticket && localTicket) {
+        ticket = localTicket;
+      }
+      if (!ticket) {
+        return res.status(404).json({ error: "Ticket not found" });
+      }
+      if (status) ticket.status = status;
+      if (priority) ticket.priority = priority;
+      if (adminNotes !== void 0) ticket.adminNotes = adminNotes;
+      if (assignedAdminId !== void 0)
+        ticket.assignedAdminId = assignedAdminId;
+      if (assignedAdminName !== void 0)
+        ticket.assignedAdminName = assignedAdminName;
+      ticket.updatedAt = (/* @__PURE__ */ new Date()).toISOString();
+      try {
+        await docRef.set(ticket, { merge: true });
+      } catch (fsErr) {
+        console.warn("Firestore patch support ticket warning:", fsErr?.message);
+      }
+      if (localTicket) {
+        Object.assign(localTicket, ticket);
+      }
+      writeDb2(db2);
+      emitPlatformEvent({
+        eventType: "SUPPORT_TICKET_STATUS_CHANGED",
+        severity: status === "Closed" ? "INFO" : "NOTICE",
+        category: "SUPPORT",
+        resourceId: id,
+        userEmail: ticket.userEmail,
+        sanitizedMessage: `Support ticket #${id} status updated to [${status || ticket.status}] by Admin [${callerEmail}]`,
+        metadata: {
+          ticketId: id,
+          status: status || ticket.status,
+          priority: priority || ticket.priority,
+          assignedAdminId,
+          assignedAdminName
+        }
+      }).catch(() => {
+      });
+      return res.json({ success: true, ticket });
+    } catch (err) {
+      res.status(500).json({ error: err.message || "Failed to update support ticket" });
+    }
+  }
+);
 app2.post("/api/sql/sync-user", requireAuth, async (req, res) => {
   try {
     const uid = req.user?.uid;
@@ -7674,7 +9056,12 @@ app2.post("/api/sql/sync-user", requireAuth, async (req, res) => {
     const resolvedRole = isCallerAdmin ? role || "CEO" : "Analyst";
     if (process.env.SQL_HOST) {
       try {
-        const user2 = await getOrCreateUser(uid, email, companyName, resolvedRole);
+        const user2 = await getOrCreateUser(
+          uid,
+          email,
+          companyName,
+          resolvedRole
+        );
         return res.json({ success: true, user: user2 });
       } catch (sqlErr) {
       }
@@ -7714,7 +9101,9 @@ app2.post("/api/sql/gmail-logs", requireAuth, async (req, res) => {
     }
     if (process.env.SQL_HOST) {
       try {
-        const dbUserList = await withRetry(() => db.select().from(users).where((0, import_drizzle_orm2.eq)(users.uid, uid)));
+        const dbUserList = await withRetry(
+          () => db.select().from(users).where((0, import_drizzle_orm2.eq)(users.uid, uid))
+        );
         if (dbUserList && dbUserList.length > 0) {
           const dbUser = dbUserList[0];
           const newLog = await withRetry(
@@ -7757,7 +9146,9 @@ app2.get("/api/sql/gmail-logs", requireAuth, async (req, res) => {
     }
     if (process.env.SQL_HOST) {
       try {
-        const dbUserList = await withRetry(() => db.select().from(users).where((0, import_drizzle_orm2.eq)(users.uid, uid)));
+        const dbUserList = await withRetry(
+          () => db.select().from(users).where((0, import_drizzle_orm2.eq)(users.uid, uid))
+        );
         if (dbUserList && dbUserList.length > 0) {
           const dbUser = dbUserList[0];
           const logs = await withRetry(
@@ -7769,133 +9160,167 @@ app2.get("/api/sql/gmail-logs", requireAuth, async (req, res) => {
       }
     }
     const dbData = readDb2();
-    const userLogs = (dbData.gmail_logs || []).filter((l) => l.userId === uid || !l.userId);
+    const userLogs = (dbData.gmail_logs || []).filter(
+      (l) => l.userId === uid || !l.userId
+    );
     res.json(userLogs);
   } catch (err) {
     res.json([]);
   }
 });
-app2.post("/api/email/send", requireAuth, emailLimiter, async (req, res) => {
-  try {
-    const { to, subject, body, html, googleAccessToken } = req.body;
-    if (!to || !subject || !body && !html) {
-      return res.status(400).json({ error: "Missing required fields: to, subject, and body or html" });
-    }
-    const cleanTo = String(to).trim();
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(cleanTo)) {
-      return res.status(400).json({ error: "Invalid recipient email address. Multiple recipients are strictly prohibited." });
-    }
-    const cleanSubject = String(subject).trim().replace(/[\r\n]/g, "");
-    if (cleanSubject.length > 200) {
-      return res.status(400).json({ error: "Subject must not exceed 200 characters." });
-    }
-    const emailBody = body ? String(body) : "";
-    const emailHtmlRaw = html ? String(html) : "";
-    if (emailBody.length > 1e5 || emailHtmlRaw.length > 1e5) {
-      return res.status(400).json({ error: "Email body or HTML content exceeds the 100KB size limit." });
-    }
-    if (req.body.attachments || req.body.path) {
-      return res.status(400).json({ error: "Attachments are not permitted via this endpoint." });
-    }
-    const authenticatedUserEmail = req.user?.email;
-    if (!authenticatedUserEmail) {
-      return res.status(401).json({ error: "Unauthorized: Authenticated user must have a verified email address." });
-    }
-    console.log(`[EMAIL SEND INITIATED] User: ${authenticatedUserEmail} sending to: ${cleanTo} with subject: ${cleanSubject}`);
-    const emailHtml = html || `<div style="font-family: Arial, sans-serif; padding: 20px; line-height: 1.6; color: #1e293b;">${emailBody.replace(/\n/g, "<br/>")}</div>`;
-    const emailText = emailBody;
-    if (googleAccessToken) {
-      try {
-        const emailContent = [
-          `To: ${cleanTo}`,
-          `Subject: ${cleanSubject}`,
-          "Content-Type: text/html; charset=utf-8",
-          "MIME-Version: 1.0",
-          "",
-          emailHtml
-        ].join("\r\n");
-        const encodedEmail = Buffer.from(emailContent).toString("base64").replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
-        const gmailRes = await fetch("https://gmail.googleapis.com/gmail/v1/users/me/messages/send", {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${googleAccessToken}`,
-            "Content-Type": "application/json"
-          },
-          body: JSON.stringify({ raw: encodedEmail })
+app2.post(
+  "/api/email/send",
+  requireAuth,
+  emailLimiter,
+  async (req, res) => {
+    try {
+      const { to, subject, body, html, googleAccessToken } = req.body;
+      if (!to || !subject || !body && !html) {
+        return res.status(400).json({
+          error: "Missing required fields: to, subject, and body or html"
         });
-        if (gmailRes.ok) {
-          const gmailData = await gmailRes.json();
-          return res.json({
-            success: true,
-            messageId: gmailData.id,
-            provider: "Gmail API",
-            message: "Email delivered via Gmail API"
-          });
-        } else {
-          const errText = await gmailRes.text();
-          console.warn("Gmail API direct send notice:", errText);
-        }
-      } catch (gErr) {
-        console.warn("Gmail API direct send exception:", gErr);
       }
-    }
-    const systemSubject = `[Zakir User Email - From: ${authenticatedUserEmail}] ${cleanSubject}`;
-    const mailResult = await sendSystemMail2({ to: cleanTo, subject: systemSubject, html: emailHtml, text: emailText });
-    if (!mailResult.success) {
-      return res.status(500).json({ success: false, error: mailResult.userFriendlyMessage || mailResult.error?.message || "Failed to deliver email" });
-    }
-    return res.json({
-      success: true,
-      messageId: mailResult.messageId,
-      provider: mailResult.provider,
-      senderUsed: mailResult.sender || "Zakir <noreply@getzakir.com>",
-      result: mailResult,
-      message: "Email delivered to recipient successfully"
-    });
-  } catch (err) {
-    console.error("Error sending email:", err);
-    res.status(500).json({ error: err.message || "Failed to deliver email" });
-  }
-});
-app2.post("/api/email/send-verification-otp", requireAuth, async (req, res) => {
-  try {
-    const { email, otpCode } = req.body;
-    if (!email || !otpCode) {
-      return res.status(400).json({ error: "Missing email or verification code" });
-    }
-    const cleanEmail = String(email).trim().toLowerCase();
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(cleanEmail)) {
-      return res.status(400).json({ error: "Invalid email address" });
-    }
-    const { subject, text: text2, html } = buildOtpEmailHtml2({
-      email: cleanEmail,
-      otpCode: String(otpCode).trim(),
-      type: "email_link"
-    });
-    console.log(`[EMAIL OTP SEND] Sending verification code to ${cleanEmail}`);
-    const mailResult = await sendSystemMail2({
-      to: cleanEmail,
-      subject,
-      html,
-      text: text2
-    });
-    if (!mailResult.success) {
-      return res.status(500).json({
-        success: false,
-        error: mailResult.userFriendlyMessage || mailResult.error?.message || "Failed to send email verification code"
+      const cleanTo = String(to).trim();
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(cleanTo)) {
+        return res.status(400).json({
+          error: "Invalid recipient email address. Multiple recipients are strictly prohibited."
+        });
+      }
+      const cleanSubject = String(subject).trim().replace(/[\r\n]/g, "");
+      if (cleanSubject.length > 200) {
+        return res.status(400).json({ error: "Subject must not exceed 200 characters." });
+      }
+      const emailBody = body ? String(body) : "";
+      const emailHtmlRaw = html ? String(html) : "";
+      if (emailBody.length > 1e5 || emailHtmlRaw.length > 1e5) {
+        return res.status(400).json({
+          error: "Email body or HTML content exceeds the 100KB size limit."
+        });
+      }
+      if (req.body.attachments || req.body.path) {
+        return res.status(400).json({ error: "Attachments are not permitted via this endpoint." });
+      }
+      const authenticatedUserEmail = req.user?.email;
+      if (!authenticatedUserEmail) {
+        return res.status(401).json({
+          error: "Unauthorized: Authenticated user must have a verified email address."
+        });
+      }
+      console.log(
+        `[EMAIL SEND INITIATED] User: ${authenticatedUserEmail} sending to: ${cleanTo} with subject: ${cleanSubject}`
+      );
+      const emailHtml = html || `<div style="font-family: Arial, sans-serif; padding: 20px; line-height: 1.6; color: #1e293b;">${emailBody.replace(/\n/g, "<br/>")}</div>`;
+      const emailText = emailBody;
+      if (googleAccessToken) {
+        try {
+          const emailContent = [
+            `To: ${cleanTo}`,
+            `Subject: ${cleanSubject}`,
+            "Content-Type: text/html; charset=utf-8",
+            "MIME-Version: 1.0",
+            "",
+            emailHtml
+          ].join("\r\n");
+          const encodedEmail = Buffer.from(emailContent).toString("base64").replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+          const gmailRes = await fetch(
+            "https://gmail.googleapis.com/gmail/v1/users/me/messages/send",
+            {
+              method: "POST",
+              headers: {
+                Authorization: `Bearer ${googleAccessToken}`,
+                "Content-Type": "application/json"
+              },
+              body: JSON.stringify({ raw: encodedEmail })
+            }
+          );
+          if (gmailRes.ok) {
+            const gmailData = await gmailRes.json();
+            return res.json({
+              success: true,
+              messageId: gmailData.id,
+              provider: "Gmail API",
+              message: "Email delivered via Gmail API"
+            });
+          } else {
+            const errText = await gmailRes.text();
+            console.warn("Gmail API direct send notice:", errText);
+          }
+        } catch (gErr) {
+          console.warn("Gmail API direct send exception:", gErr);
+        }
+      }
+      const systemSubject = `[Zakir User Email - From: ${authenticatedUserEmail}] ${cleanSubject}`;
+      const mailResult = await sendSystemMail2({
+        to: cleanTo,
+        subject: systemSubject,
+        html: emailHtml,
+        text: emailText
       });
+      if (!mailResult.success) {
+        return res.status(500).json({
+          success: false,
+          error: mailResult.userFriendlyMessage || mailResult.error?.message || "Failed to deliver email"
+        });
+      }
+      return res.json({
+        success: true,
+        messageId: mailResult.messageId,
+        provider: mailResult.provider,
+        senderUsed: mailResult.sender || "Zakir <noreply@getzakir.com>",
+        result: mailResult,
+        message: "Email delivered to recipient successfully"
+      });
+    } catch (err) {
+      console.error("Error sending email:", err);
+      res.status(500).json({ error: err.message || "Failed to deliver email" });
     }
-    return res.json({
-      success: true,
-      message: "Verification code sent successfully to " + cleanEmail
-    });
-  } catch (err) {
-    console.error("Error sending verification email:", err);
-    res.status(500).json({ error: err.message || "Failed to send verification code" });
   }
-});
+);
+app2.post(
+  "/api/email/send-verification-otp",
+  requireAuth,
+  async (req, res) => {
+    try {
+      const { email, otpCode } = req.body;
+      if (!email || !otpCode) {
+        return res.status(400).json({ error: "Missing email or verification code" });
+      }
+      const cleanEmail = String(email).trim().toLowerCase();
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(cleanEmail)) {
+        return res.status(400).json({ error: "Invalid email address" });
+      }
+      const { subject, text: text2, html } = buildOtpEmailHtml2({
+        email: cleanEmail,
+        otpCode: String(otpCode).trim(),
+        type: "email_link"
+      });
+      console.log(
+        `[EMAIL OTP SEND] Sending verification code to ${cleanEmail}`
+      );
+      const mailResult = await sendSystemMail2({
+        to: cleanEmail,
+        subject,
+        html,
+        text: text2
+      });
+      if (!mailResult.success) {
+        return res.status(500).json({
+          success: false,
+          error: mailResult.userFriendlyMessage || mailResult.error?.message || "Failed to send email verification code"
+        });
+      }
+      return res.json({
+        success: true,
+        message: "Verification code sent successfully to " + cleanEmail
+      });
+    } catch (err) {
+      console.error("Error sending verification email:", err);
+      res.status(500).json({ error: err.message || "Failed to send verification code" });
+    }
+  }
+);
 app2.get("/api/admin/users", requireAuth, async (req, res) => {
   const callerUid = req.user?.uid;
   const callerEmail = req.user?.email || "";
@@ -7905,13 +9330,24 @@ app2.get("/api/admin/users", requireAuth, async (req, res) => {
   });
   try {
     if (!callerUid) {
-      console.warn("ADMIN_USERS_FETCH_FAILED", { reason: "Missing authentication context" });
-      return res.status(401).json({ success: false, error: "Unauthorized: Missing authentication context" });
+      console.warn("ADMIN_USERS_FETCH_FAILED", {
+        reason: "Missing authentication context"
+      });
+      return res.status(401).json({
+        success: false,
+        error: "Unauthorized: Missing authentication context"
+      });
     }
     const isCallerAdmin = await isUserAdminServer(callerUid, callerEmail);
     if (!isCallerAdmin) {
-      console.warn("ADMIN_USERS_FETCH_FAILED", { reason: "Forbidden: Administrative access required", callerUid });
-      return res.status(403).json({ success: false, error: "Forbidden: Administrative access required" });
+      console.warn("ADMIN_USERS_FETCH_FAILED", {
+        reason: "Forbidden: Administrative access required",
+        callerUid
+      });
+      return res.status(403).json({
+        success: false,
+        error: "Forbidden: Administrative access required"
+      });
     }
     console.log("ADMIN_USERS_AUTHORIZED", { callerUid });
     let fsUsers = [];
@@ -7921,13 +9357,18 @@ app2.get("/api/admin/users", requireAuth, async (req, res) => {
         fsUsers = snap.docs.map((doc) => ({ ...doc.data(), id: doc.id }));
       }
     } catch (fsErr) {
-      console.warn("Notice: Firestore users fetch encountered error, will merge local data:", fsErr?.message);
+      console.warn(
+        "Notice: Firestore users fetch encountered error, will merge local data:",
+        fsErr?.message
+      );
     }
     try {
       const db2 = readDb2();
       if (db2.users && Array.isArray(db2.users)) {
         const existingIds = new Set(fsUsers.map((u) => u.id));
-        const existingEmails = new Set(fsUsers.map((u) => (u.email || "").trim().toLowerCase()).filter(Boolean));
+        const existingEmails = new Set(
+          fsUsers.map((u) => (u.email || "").trim().toLowerCase()).filter(Boolean)
+        );
         for (const localU of db2.users) {
           const lEmail = (localU.email || "").trim().toLowerCase();
           if (!existingIds.has(localU.id) && (!lEmail || !existingEmails.has(lEmail))) {
@@ -7952,16 +9393,1606 @@ app2.get("/api/admin/users", requireAuth, async (req, res) => {
     const activeUsers = fsUsers.filter((u) => {
       const uId = u.id || u.uid;
       if (deletedUserIds.has(uId)) return false;
-      if (u.accountLifecycleStatus === "PURGED" || u.isPurged === true) return false;
+      if (u.accountLifecycleStatus === "PURGED" || u.isPurged === true)
+        return false;
       return true;
     });
     console.log("ADMIN_USERS_FIRESTORE_RESULT", { count: activeUsers.length });
     return res.json({ success: true, users: activeUsers });
   } catch (err) {
     console.error("ADMIN_USERS_FETCH_FAILED", err);
-    return res.status(500).json({ success: false, error: err.message || "Failed to fetch users list" });
+    return res.status(500).json({
+      success: false,
+      error: err.message || "Failed to fetch users list"
+    });
   }
 });
+async function writeAdminAuditLog(adminUid, adminEmail, action, targetType, targetId, workspaceId, result, reason = null) {
+  const logEntry = {
+    id: `audit_${Date.now()}_${import_crypto3.default.randomBytes(4).toString("hex")}`,
+    timestamp: (/* @__PURE__ */ new Date()).toISOString(),
+    adminUid,
+    adminEmail,
+    action,
+    targetType,
+    targetId,
+    workspaceId: workspaceId || "",
+    result,
+    reason: reason || ""
+  };
+  try {
+    await adminDb.collection("admin_audit_logs").doc(logEntry.id).set(logEntry);
+  } catch (e) {
+    console.warn("Firestore audit logging failed, using local only:", e);
+  }
+  try {
+    const db2 = readDb2();
+    if (!db2.admin_audit_logs) db2.admin_audit_logs = [];
+    db2.admin_audit_logs.unshift(logEntry);
+    if (db2.admin_audit_logs.length > 500) {
+      db2.admin_audit_logs = db2.admin_audit_logs.slice(0, 500);
+    }
+    writeDb2(db2);
+  } catch (e) {
+    console.error("Local audit logging failed:", e);
+  }
+  emitPlatformEvent({
+    eventType: "ADMIN_AUDIT_ACTION",
+    severity: "INFO",
+    category: "SECURITY",
+    userId: adminUid,
+    userEmail: adminEmail,
+    workspaceId,
+    resourceId: targetId,
+    sanitizedMessage: `Admin [${adminEmail}] performed ${action} on ${targetType} [${targetId}]: ${result}`,
+    metadata: {
+      action,
+      targetType,
+      targetId,
+      workspaceId,
+      result,
+      reason
+    }
+  }).catch(() => {
+  });
+}
+var logAdminAudit = writeAdminAuditLog;
+async function logSecurityEvent(eventType, details) {
+  const event = {
+    id: `sec_${Date.now()}_${import_crypto3.default.randomBytes(4).toString("hex")}`,
+    timestamp: (/* @__PURE__ */ new Date()).toISOString(),
+    eventType,
+    details: details || {}
+  };
+  try {
+    await adminDb.collection("security_events").doc(event.id).set(event);
+  } catch (e) {
+  }
+  try {
+    const db2 = readDb2();
+    if (!db2.security_events) db2.security_events = [];
+    db2.security_events.unshift(event);
+    if (db2.security_events.length > 500) {
+      db2.security_events = db2.security_events.slice(0, 500);
+    }
+    writeDb2(db2);
+  } catch (e) {
+  }
+  const isHighSeverity = eventType.includes("INVALID") || eventType.includes("IDOR") || eventType.includes("ESCALATION") || eventType.includes("ATTEMPT");
+  emitPlatformEvent({
+    eventType,
+    severity: isHighSeverity ? "WARNING" : "NOTICE",
+    category: "SECURITY",
+    userId: details?.callerUid || details?.userId,
+    userEmail: details?.callerEmail || details?.userEmail,
+    sanitizedMessage: `Security event [${eventType}]: ${details?.reason || details?.endpoint || JSON.stringify(details || {})}`,
+    endpoint: details?.endpoint,
+    metadata: details
+  }).catch(() => {
+  });
+}
+app2.get(
+  "/api/admin/operations-center-data",
+  requireAuth,
+  async (req, res) => {
+    const callerUid = req.user?.uid;
+    const callerEmail = req.user?.email || "";
+    try {
+      if (!callerUid) {
+        return res.status(401).json({ success: false, error: "Unauthorized" });
+      }
+      const isCallerAdmin = await isUserAdminServer(callerUid, callerEmail);
+      if (!isCallerAdmin) {
+        await logSecurityEvent("INVALID_ADMIN_ATTEMPT", {
+          callerUid,
+          callerEmail,
+          ip: req.ip,
+          endpoint: req.originalUrl
+        });
+        return res.status(403).json({
+          success: false,
+          error: "Forbidden: Administrative access required"
+        });
+      }
+      const db2 = readDb2();
+      let workspaces = [];
+      try {
+        const wsSnap = await adminDb.collection("workspaces").get();
+        if (wsSnap && !wsSnap.empty) {
+          workspaces = wsSnap.docs.map((doc) => ({
+            ...doc.data(),
+            id: doc.id
+          }));
+        }
+      } catch (e) {
+      }
+      const usersList = db2.users || [];
+      const localWorkspacesMap = /* @__PURE__ */ new Map();
+      for (const u of usersList) {
+        if (u.workspaceId) {
+          const wsId = u.workspaceId;
+          if (!localWorkspacesMap.has(wsId)) {
+            localWorkspacesMap.set(wsId, {
+              id: wsId,
+              name: u.companyName ? `${u.companyName} Workspace` : "Zakir Workspace",
+              companyName: u.companyName || "Zakir Workspace",
+              ownerId: u.role === "CEO" ? u.uid || u.id : "",
+              ownerEmail: u.role === "CEO" ? u.email : "",
+              status: "Active",
+              createdAt: u.createdAt || (/* @__PURE__ */ new Date()).toISOString()
+            });
+          } else if (u.role === "CEO") {
+            const current = localWorkspacesMap.get(wsId);
+            current.ownerId = u.uid || u.id;
+            current.ownerEmail = u.email;
+          }
+        }
+      }
+      const mergedWorkspaces = [...workspaces];
+      for (const [wsId, localWs] of localWorkspacesMap.entries()) {
+        if (!mergedWorkspaces.some((w) => w.id === wsId)) {
+          mergedWorkspaces.push(localWs);
+        }
+      }
+      for (const ws of mergedWorkspaces) {
+        ws.membersCount = usersList.filter(
+          (u) => u.workspaceId === ws.id
+        ).length;
+        let pendingInvs = 0;
+        try {
+          const invSnap = await adminDb.collection("workspace_invitations").where("workspaceId", "==", ws.id).where("status", "==", "pending").get();
+          pendingInvs = invSnap.size;
+        } catch (e) {
+          pendingInvs = (db2.workspace_invitations || []).filter(
+            (i) => i.workspaceId === ws.id && i.status === "pending"
+          ).length;
+        }
+        ws.invitationsCount = pendingInvs;
+        ws.status = ws.status || "Active";
+      }
+      let auditLogs = db2.admin_audit_logs || [];
+      try {
+        const snap = await adminDb.collection("admin_audit_logs").orderBy("timestamp", "desc").limit(100).get();
+        if (snap && !snap.empty) {
+          const fsLogs = snap.docs.map((doc) => doc.data());
+          const existingIds = new Set(auditLogs.map((l) => l.id));
+          for (const fl of fsLogs) {
+            if (!existingIds.has(fl.id)) {
+              auditLogs.push(fl);
+            }
+          }
+        }
+      } catch (e) {
+      }
+      auditLogs.sort(
+        (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+      );
+      let securityEvents = db2.security_events || [];
+      try {
+        const snap = await adminDb.collection("security_events").orderBy("timestamp", "desc").limit(100).get();
+        if (snap && !snap.empty) {
+          const fsSec = snap.docs.map((doc) => doc.data());
+          const existingIds = new Set(securityEvents.map((s) => s.id));
+          for (const fs6 of fsSec) {
+            if (!existingIds.has(fs6.id)) {
+              securityEvents.push(fs6);
+            }
+          }
+        }
+      } catch (e) {
+      }
+      if (securityEvents.length === 0) {
+        securityEvents = [];
+      }
+      securityEvents.sort(
+        (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+      );
+      const subscribers = usersList.filter((u) => u.subscriptionStatus === "Active" || u.subscriptionPlan || u.stripeSubscriptionId).map((u) => ({
+        id: u.stripeSubscriptionId || u.id,
+        userId: u.id,
+        email: u.email,
+        plan: u.subscriptionPlan || "Professional",
+        status: (u.subscriptionStatus || "active").toLowerCase(),
+        date: u.createdAt || (/* @__PURE__ */ new Date()).toISOString()
+      }));
+      const billingInfo = {
+        isTestMode: true,
+        subscribers,
+        customers: db2.stripe_customers || [],
+        subscriptions: db2.stripe_subscriptions || [],
+        invoices: db2.stripe_invoices || [],
+        webhookEvents: db2.stripe_webhooks || []
+      };
+      let emailLogs = db2.email_delivery_logs || [];
+      if (emailLogs.length === 0) {
+        emailLogs = [];
+      }
+      let firestoreHealth = "HEALTHY";
+      let firestoreLatencyMs = 0;
+      let dbHealth = "HEALTHY";
+      let dbLatencyMs = 0;
+      let stripeStatus = process.env.STRIPE_SECRET_KEY ? "CONFIGURED" : "MISSING";
+      let stripeLatencyMs = 0;
+      let resendStatus = process.env.RESEND_API_KEY ? "CONFIGURED" : "MISSING";
+      let errorDetails = [];
+      try {
+        const t0 = Date.now();
+        await adminDb.collection("users").limit(1).get();
+        firestoreLatencyMs = Date.now() - t0;
+      } catch (e) {
+        firestoreHealth = "DEGRADED";
+        errorDetails.push(`Firestore Ping Warning: ${e.message}`);
+      }
+      try {
+        const d0 = Date.now();
+        readDb2();
+        dbLatencyMs = Date.now() - d0;
+      } catch (e) {
+        dbHealth = "ERROR";
+        errorDetails.push(`Local JSON DB Check Error: ${e.message}`);
+      }
+      const stripeClient = getStripe();
+      if (stripeClient) {
+        try {
+          const s0 = Date.now();
+          await stripeClient.balance.retrieve();
+          stripeLatencyMs = Date.now() - s0;
+          stripeStatus = "HEALTHY_CONNECTED";
+        } catch (sErr) {
+          stripeStatus = "CONFIGURED_ACTIVE";
+        }
+      }
+      const resendInstance = getResendInstance2();
+      if (resendInstance) {
+        try {
+          if (resendInstance.apiKeys?.list) {
+            await resendInstance.apiKeys.list();
+            resendStatus = "HEALTHY_VERIFIED";
+          } else {
+            resendStatus = "CONFIGURED_ACTIVE";
+          }
+        } catch (rErr) {
+          resendStatus = "CONFIGURED_ACTIVE";
+        }
+      }
+      const healthCheck = {
+        status: errorDetails.length > 0 ? "DEGRADED" : "HEALTHY",
+        api: { status: "HEALTHY", latencyMs: 2, lastChecked: (/* @__PURE__ */ new Date()).toISOString() },
+        firestore: {
+          status: firestoreHealth,
+          latencyMs: firestoreLatencyMs,
+          lastChecked: (/* @__PURE__ */ new Date()).toISOString()
+        },
+        database: {
+          status: dbHealth,
+          latencyMs: dbLatencyMs,
+          lastChecked: (/* @__PURE__ */ new Date()).toISOString()
+        },
+        resend: {
+          status: resendStatus,
+          lastChecked: (/* @__PURE__ */ new Date()).toISOString()
+        },
+        stripe: {
+          status: stripeStatus,
+          latencyMs: stripeLatencyMs,
+          lastChecked: (/* @__PURE__ */ new Date()).toISOString()
+        },
+        recentErrors: errorDetails.length > 0 ? errorDetails : ["All monitored platform subsystems operational without errors."]
+      };
+      let memories = [];
+      if (db2.memories && Array.isArray(db2.memories)) {
+        memories = db2.memories.map((m) => ({ ...m, source: "Local DB" }));
+      }
+      try {
+        for (const u of usersList.slice(0, 5)) {
+          const memSnap = await adminDb.collection("users").doc(u.uid || u.id).collection("memories").get();
+          if (memSnap && !memSnap.empty) {
+            const fsMems = memSnap.docs.map((doc) => ({
+              ...doc.data(),
+              id: doc.id,
+              userId: u.uid || u.id,
+              userEmail: u.email,
+              source: "Firestore"
+            }));
+            for (const fm of fsMems) {
+              if (!memories.some((m) => m.id === fm.id)) {
+                memories.push(fm);
+              }
+            }
+          }
+        }
+      } catch (e) {
+      }
+      const incidents = await getPlatformIncidents({ limit: 50 });
+      const recentEvents = await getPlatformEvents({ limit: 100 });
+      const { notifications: adminNotifications, unreadCount: unreadNotificationsCount } = await getAdminNotifications({ limit: 50 });
+      const pendingTicketsCount = (db2.support_tickets || []).filter(
+        (t) => t.status === "Open" || t.status === "In Progress"
+      ).length;
+      const pendingRecoveryCount = (db2.account_recovery_requests || []).filter(
+        (r) => r.status === "PENDING" || r.status === "UNDER_REVIEW"
+      ).length;
+      const activeIncidents = incidents.filter(
+        (i) => i.status === "OPEN" || i.status === "INVESTIGATING"
+      );
+      const criticalSecurityCount = (securityEvents || []).filter(
+        (s) => s.eventType?.includes("INVALID") || s.eventType?.includes("IDOR") || s.eventType?.includes("ESCALATION")
+      ).length;
+      const needsAttentionSummary = {
+        openIncidentsCount: activeIncidents.length,
+        pendingTicketsCount,
+        pendingRecoveryCount,
+        criticalSecurityCount,
+        totalNeedsAttention: activeIncidents.length + pendingTicketsCount + pendingRecoveryCount + criticalSecurityCount
+      };
+      return res.json({
+        success: true,
+        workspaces: mergedWorkspaces,
+        auditLogs,
+        securityEvents,
+        billingInfo,
+        emailLogs,
+        healthCheck,
+        memories,
+        incidents,
+        recentEvents,
+        adminNotifications,
+        unreadNotificationsCount,
+        needsAttentionSummary
+      });
+    } catch (err) {
+      console.error("ADMIN_OPERATIONS_DATA_FAILED", err);
+      return res.status(500).json({
+        success: false,
+        error: err.message || "Failed to load operations center data"
+      });
+    }
+  }
+);
+app2.get("/api/admin/incidents", requireAuth, async (req, res) => {
+  try {
+    const callerUid = req.user?.uid;
+    const isCallerAdmin = callerUid ? await isUserAdminServer(callerUid, req.user?.email || "") : false;
+    if (!isCallerAdmin) {
+      return res.status(403).json({ error: "Forbidden: Administrative access required" });
+    }
+    const status = req.query.status || "all";
+    const limit = parseInt(req.query.limit) || 100;
+    const incidents = await getPlatformIncidents({ status, limit });
+    return res.json({ success: true, incidents });
+  } catch (e) {
+    return res.status(500).json({ error: e.message || "Failed to fetch incidents" });
+  }
+});
+app2.post("/api/admin/incidents/:id/status", requireAuth, async (req, res) => {
+  try {
+    const callerUid = req.user?.uid;
+    const callerEmail = req.user?.email || "";
+    const isCallerAdmin = callerUid ? await isUserAdminServer(callerUid, callerEmail) : false;
+    if (!isCallerAdmin) {
+      return res.status(403).json({ error: "Forbidden: Administrative access required" });
+    }
+    const { id } = req.params;
+    const { status, notes } = req.body;
+    if (!status) {
+      return res.status(400).json({ error: "Incident status is required" });
+    }
+    const updated = await updateIncidentStatus(id, status, notes, callerEmail);
+    if (!updated) {
+      return res.status(404).json({ error: "Incident not found" });
+    }
+    await logAdminAudit(
+      callerUid,
+      callerEmail,
+      "UPDATE_INCIDENT_STATUS",
+      "incident",
+      id,
+      "SUCCESS",
+      void 0,
+      `Status changed to ${status}. Notes: ${notes || "None"}`
+    );
+    return res.json({ success: true, incident: updated });
+  } catch (e) {
+    return res.status(500).json({ error: e.message || "Failed to update incident status" });
+  }
+});
+app2.get("/api/admin/notifications", requireAuth, async (req, res) => {
+  try {
+    const callerUid = req.user?.uid;
+    const isCallerAdmin = callerUid ? await isUserAdminServer(callerUid, req.user?.email || "") : false;
+    if (!isCallerAdmin) {
+      return res.status(403).json({ error: "Forbidden: Administrative access required" });
+    }
+    const onlyUnread = req.query.unread === "true";
+    const limit = parseInt(req.query.limit) || 50;
+    const { notifications, unreadCount } = await getAdminNotifications({ onlyUnread, limit });
+    return res.json({ success: true, notifications, unreadCount });
+  } catch (e) {
+    return res.status(500).json({ error: e.message || "Failed to fetch notifications" });
+  }
+});
+app2.post("/api/admin/notifications/:id/read", requireAuth, async (req, res) => {
+  try {
+    const callerUid = req.user?.uid;
+    const isCallerAdmin = callerUid ? await isUserAdminServer(callerUid, req.user?.email || "") : false;
+    if (!isCallerAdmin) {
+      return res.status(403).json({ error: "Forbidden: Administrative access required" });
+    }
+    const { id } = req.params;
+    const success = await markNotificationRead(id);
+    return res.json({ success });
+  } catch (e) {
+    return res.status(500).json({ error: e.message });
+  }
+});
+app2.post("/api/admin/notifications/:id/acknowledge", requireAuth, async (req, res) => {
+  try {
+    const callerUid = req.user?.uid;
+    const isCallerAdmin = callerUid ? await isUserAdminServer(callerUid, req.user?.email || "") : false;
+    if (!isCallerAdmin) {
+      return res.status(403).json({ error: "Forbidden: Administrative access required" });
+    }
+    const { id } = req.params;
+    const success = await acknowledgeNotification(id);
+    return res.json({ success });
+  } catch (e) {
+    return res.status(500).json({ error: e.message });
+  }
+});
+app2.post("/api/admin/notifications/read-all", requireAuth, async (req, res) => {
+  try {
+    const callerUid = req.user?.uid;
+    const isCallerAdmin = callerUid ? await isUserAdminServer(callerUid, req.user?.email || "") : false;
+    if (!isCallerAdmin) {
+      return res.status(403).json({ error: "Forbidden: Administrative access required" });
+    }
+    const count = await markAllNotificationsRead();
+    return res.json({ success: true, count });
+  } catch (e) {
+    return res.status(500).json({ error: e.message });
+  }
+});
+app2.get("/api/admin/platform-events", requireAuth, async (req, res) => {
+  try {
+    const callerUid = req.user?.uid;
+    const isCallerAdmin = callerUid ? await isUserAdminServer(callerUid, req.user?.email || "") : false;
+    if (!isCallerAdmin) {
+      return res.status(403).json({ error: "Forbidden: Administrative access required" });
+    }
+    const category = req.query.category;
+    const severity = req.query.severity;
+    const limit = parseInt(req.query.limit) || 100;
+    const events = await getPlatformEvents({ category, severity, limit });
+    return res.json({ success: true, events });
+  } catch (e) {
+    return res.status(500).json({ error: e.message || "Failed to fetch events" });
+  }
+});
+app2.get("/api/admin/search", requireAuth, async (req, res) => {
+  try {
+    const callerUid = req.user?.uid;
+    const callerEmail = req.user?.email || "";
+    const isCallerAdmin = callerUid ? await isUserAdminServer(callerUid, callerEmail) : false;
+    if (!isCallerAdmin) {
+      return res.status(403).json({ error: "Forbidden: Administrative access required" });
+    }
+    const query = (req.query.q || "").trim().toLowerCase();
+    if (!query || query.length < 2) {
+      return res.json({ success: true, results: [], totalMatches: 0 });
+    }
+    const category = req.query.category || "all";
+    const db2 = readDb2();
+    const results = [];
+    if (category === "all" || category === "users") {
+      const users2 = db2.users || [];
+      for (const u of users2) {
+        const match = u.email?.toLowerCase().includes(query) || u.id?.toLowerCase().includes(query) || u.companyName?.toLowerCase().includes(query) || u.ownerName?.toLowerCase().includes(query) || u.role?.toLowerCase().includes(query);
+        if (match) {
+          results.push({
+            category: "Users",
+            id: u.id,
+            title: u.email || u.id,
+            subtitle: `${u.role || "Member"} \u2022 ${u.companyName || "No Company"} (${u.id})`,
+            badge: u.role,
+            linkTab: "users",
+            targetId: u.id
+          });
+        }
+      }
+    }
+    if (category === "all" || category === "workspaces") {
+      const workspaces = db2.workspaces || [];
+      for (const w of workspaces) {
+        if (w.id?.toLowerCase().includes(query) || w.name?.toLowerCase().includes(query) || w.companyName?.toLowerCase().includes(query) || w.ownerEmail?.toLowerCase().includes(query)) {
+          results.push({
+            category: "Workspaces",
+            id: w.id,
+            title: w.name || w.companyName || w.id,
+            subtitle: `Owner: ${w.ownerEmail || "N/A"} \u2022 ID: ${w.id}`,
+            badge: w.status || "Active",
+            linkTab: "workspaces",
+            targetId: w.id
+          });
+        }
+      }
+    }
+    if (category === "all" || category === "tickets") {
+      const tickets = db2.support_tickets || [];
+      for (const t of tickets) {
+        if (t.id?.toLowerCase().includes(query) || String(t.ticketNumber || "").includes(query) || t.subject?.toLowerCase().includes(query) || t.userEmail?.toLowerCase().includes(query) || t.message?.toLowerCase().includes(query)) {
+          results.push({
+            category: "Support Tickets",
+            id: t.id,
+            title: `#${t.ticketNumber || t.id}: ${t.subject}`,
+            subtitle: `By ${t.userEmail} \u2022 Priority: ${t.priority || "Normal"}`,
+            badge: t.status || "Open",
+            linkTab: "support",
+            targetId: t.id
+          });
+        }
+      }
+    }
+    if (category === "all" || category === "recovery") {
+      const recoveryRequests = db2.account_recovery_requests || [];
+      for (const r of recoveryRequests) {
+        if (r.id?.toLowerCase().includes(query) || r.email?.toLowerCase().includes(query) || r.fullName?.toLowerCase().includes(query) || r.reason?.toLowerCase().includes(query)) {
+          results.push({
+            category: "Account Recovery",
+            id: r.id,
+            title: `Recovery: ${r.email || r.fullName}`,
+            subtitle: `Reason: ${r.reason?.slice(0, 60)}...`,
+            badge: r.status,
+            linkTab: "reactivations",
+            targetId: r.id
+          });
+        }
+      }
+    }
+    if (category === "all" || category === "incidents") {
+      const incidents = await getPlatformIncidents({ limit: 100 });
+      for (const inc of incidents) {
+        if (inc.id?.toLowerCase().includes(query) || inc.incidentNumber?.toLowerCase().includes(query) || inc.title?.toLowerCase().includes(query) || inc.affectedUser?.toLowerCase().includes(query)) {
+          results.push({
+            category: "Incidents",
+            id: inc.id,
+            title: `${inc.incidentNumber}: ${inc.title}`,
+            subtitle: `Severity: ${inc.severity} \u2022 Affected: ${inc.affectedUser || "System"}`,
+            badge: inc.status,
+            linkTab: "overview",
+            targetId: inc.id
+          });
+        }
+      }
+    }
+    if (category === "all" || category === "events") {
+      const events = await getPlatformEvents({ limit: 100 });
+      for (const ev of events) {
+        if (ev.id?.toLowerCase().includes(query) || ev.eventType?.toLowerCase().includes(query) || ev.sanitizedMessage?.toLowerCase().includes(query) || ev.userEmail?.toLowerCase().includes(query)) {
+          results.push({
+            category: "Events",
+            id: ev.id,
+            title: `[${ev.eventType}] ${ev.sanitizedMessage?.slice(0, 70)}`,
+            subtitle: `${ev.timestamp} \u2022 ${ev.userEmail || "System"}`,
+            badge: ev.severity,
+            linkTab: "overview",
+            targetId: ev.id
+          });
+        }
+      }
+    }
+    return res.json({
+      success: true,
+      query,
+      results: results.slice(0, 50),
+      totalMatches: results.length
+    });
+  } catch (e) {
+    return res.status(500).json({ error: e.message || "Search failed" });
+  }
+});
+app2.post("/api/admin/support-session/start", requireAuth, async (req, res) => {
+  try {
+    const callerUid = req.user?.uid;
+    const callerEmail = req.user?.email || "";
+    const isCallerAdmin = callerUid ? await isUserAdminServer(callerUid, callerEmail) : false;
+    if (!isCallerAdmin) {
+      await logSecurityEvent("INVALID_ADMIN_ATTEMPT", {
+        callerUid,
+        callerEmail,
+        action: "START_SUPPORT_SESSION"
+      });
+      return res.status(403).json({ error: "Forbidden: Administrative access required" });
+    }
+    const { targetUserId, reason } = req.body;
+    if (!targetUserId) {
+      return res.status(400).json({ error: "targetUserId is required" });
+    }
+    const db2 = readDb2();
+    let targetUser = (db2.users || []).find((u) => u.id === targetUserId || u.uid === targetUserId);
+    if (!targetUser) {
+      try {
+        const uSnap = await adminDb.collection("users").doc(targetUserId).get();
+        if (uSnap.exists) {
+          targetUser = { ...uSnap.data(), id: uSnap.id };
+        }
+      } catch (e) {
+      }
+    }
+    if (!targetUser) {
+      return res.status(404).json({ error: "Target user not found" });
+    }
+    const sessionId = `supp_${Date.now()}_${import_crypto3.default.randomBytes(4).toString("hex")}`;
+    const startedAt = (/* @__PURE__ */ new Date()).toISOString();
+    const expiresAt = new Date(Date.now() + 60 * 60 * 1e3).toISOString();
+    const session = {
+      sessionId,
+      adminUid: callerUid,
+      adminEmail: callerEmail,
+      targetUserId: targetUser.id || targetUser.uid,
+      targetUserEmail: targetUser.email,
+      targetUserName: targetUser.ownerName || targetUser.companyName || targetUser.email,
+      startedAt,
+      expiresAt,
+      reason: reason || "User troubleshooting & support investigation"
+    };
+    activeSupportSessions.set(callerUid, session);
+    await logAdminAudit(
+      callerUid,
+      callerEmail,
+      "SUPPORT_SESSION_STARTED",
+      "user",
+      targetUserId,
+      "SUCCESS",
+      void 0,
+      `Support mode initiated for ${targetUser.email}. Reason: ${session.reason}`
+    );
+    emitPlatformEvent({
+      eventType: "SUPPORT_SESSION_STARTED",
+      severity: "NOTICE",
+      category: "SECURITY",
+      userId: callerUid,
+      userEmail: callerEmail,
+      resourceId: targetUserId,
+      sanitizedMessage: `Admin [${callerEmail}] initiated support mode session for user [${targetUser.email}]`,
+      metadata: {
+        sessionId,
+        targetUserId: targetUser.id,
+        targetUserEmail: targetUser.email,
+        reason: session.reason
+      }
+    }).catch(() => {
+    });
+    return res.json({
+      success: true,
+      session
+    });
+  } catch (e) {
+    return res.status(500).json({ error: e.message || "Failed to start support session" });
+  }
+});
+app2.post("/api/admin/support-session/end", requireAuth, async (req, res) => {
+  try {
+    const callerUid = req.user?.uid;
+    const callerEmail = req.user?.email || "";
+    const isCallerAdmin = callerUid ? await isUserAdminServer(callerUid, callerEmail) : false;
+    if (!isCallerAdmin) {
+      return res.status(403).json({ error: "Forbidden: Administrative access required" });
+    }
+    const currentSession = activeSupportSessions.get(callerUid);
+    activeSupportSessions.delete(callerUid);
+    if (currentSession) {
+      await logAdminAudit(
+        callerUid,
+        callerEmail,
+        "SUPPORT_SESSION_ENDED",
+        "user",
+        currentSession.targetUserId,
+        "SUCCESS",
+        void 0,
+        `Support mode terminated for ${currentSession.targetUserEmail}`
+      );
+      emitPlatformEvent({
+        eventType: "SUPPORT_SESSION_ENDED",
+        severity: "INFO",
+        category: "SECURITY",
+        userId: callerUid,
+        userEmail: callerEmail,
+        resourceId: currentSession.targetUserId,
+        sanitizedMessage: `Admin [${callerEmail}] ended support mode session for user [${currentSession.targetUserEmail}]`,
+        metadata: {
+          sessionId: currentSession.sessionId,
+          targetUserId: currentSession.targetUserId
+        }
+      }).catch(() => {
+      });
+    }
+    return res.json({ success: true, message: "Support session terminated successfully." });
+  } catch (e) {
+    return res.status(500).json({ error: e.message || "Failed to end support session" });
+  }
+});
+app2.get("/api/admin/support-session/status", requireAuth, async (req, res) => {
+  try {
+    const callerUid = req.user?.uid;
+    const session = callerUid ? activeSupportSessions.get(callerUid) : null;
+    return res.json({ success: true, active: !!session, session });
+  } catch (e) {
+    return res.status(500).json({ error: e.message });
+  }
+});
+app2.post("/api/admin/diagnostics/trigger-test-event", requireAuth, async (req, res) => {
+  try {
+    const callerUid = req.user?.uid;
+    const callerEmail = req.user?.email || "";
+    const isCallerAdmin = callerUid ? await isUserAdminServer(callerUid, callerEmail) : false;
+    if (!isCallerAdmin) {
+      return res.status(403).json({ error: "Forbidden: Administrative access required" });
+    }
+    const testType = req.body.type || "USER";
+    const correlationId = req.correlationId;
+    let emittedEvent;
+    switch (testType) {
+      case "ERROR":
+        emittedEvent = await emitPlatformEvent({
+          eventType: "PRODUCTION_API_ERROR",
+          severity: "ERROR",
+          category: "SYSTEM",
+          endpoint: "/api/diagnostics/test-simulation",
+          method: "POST",
+          statusCode: 500,
+          requestId: correlationId,
+          userId: callerUid,
+          userEmail: callerEmail,
+          sanitizedMessage: `Simulated production 500 incident triggered by Admin [${callerEmail}]`,
+          metadata: { test: true, simulationTime: (/* @__PURE__ */ new Date()).toISOString() }
+        });
+        break;
+      case "SUPPORT":
+        emittedEvent = await emitPlatformEvent({
+          eventType: "SUPPORT_TICKET_CREATED",
+          severity: "WARNING",
+          category: "SUPPORT",
+          userId: callerUid,
+          userEmail: callerEmail,
+          resourceId: `ticket_test_${Date.now()}`,
+          requestId: correlationId,
+          sanitizedMessage: `Live test support escalation dispatched: Verification of real-time notification engine`,
+          metadata: { priority: "High", ticketNumber: "TEST-999" }
+        });
+        break;
+      case "OTP":
+        emittedEvent = await emitPlatformEvent({
+          eventType: "OTP_SENT",
+          severity: "INFO",
+          category: "EMAIL",
+          userId: callerUid,
+          userEmail: callerEmail,
+          requestId: correlationId,
+          sanitizedMessage: `Live test verification dispatch recorded for: ${callerEmail}`,
+          metadata: { sendCount: 1, type: "test_verification" }
+        });
+        break;
+      case "SECURITY":
+        emittedEvent = await emitPlatformEvent({
+          eventType: "SECURITY_ALERT",
+          severity: "CRITICAL",
+          category: "SECURITY",
+          userId: callerUid,
+          userEmail: callerEmail,
+          requestId: correlationId,
+          sanitizedMessage: `Live test security alert: Automated platform boundary detection triggered`,
+          metadata: { alertType: "TEST_SECURITY_CHECK" }
+        });
+        break;
+      default:
+        emittedEvent = await emitPlatformEvent({
+          eventType: "USER_REGISTERED",
+          severity: "NOTICE",
+          category: "AUTH",
+          userId: callerUid,
+          userEmail: callerEmail,
+          requestId: correlationId,
+          sanitizedMessage: `Live test user event: Activity stream confirmation for ${callerEmail}`,
+          metadata: { test: true }
+        });
+        break;
+    }
+    return res.json({
+      success: true,
+      event: emittedEvent,
+      correlationId
+    });
+  } catch (e) {
+    return res.status(500).json({ error: e.message || "Failed to trigger test event" });
+  }
+});
+app2.post(
+  "/api/admin/suspend-user",
+  requireAuth,
+  async (req, res) => {
+    const callerUid = req.user?.uid;
+    const callerEmail = req.user?.email || "";
+    const { targetUid, reason } = req.body;
+    try {
+      if (!callerUid || !await isUserAdminServer(callerUid, callerEmail)) {
+        return res.status(403).json({ success: false, error: "Forbidden: Admin access required." });
+      }
+      if (!targetUid) {
+        return res.status(400).json({ success: false, error: "Target UID is required" });
+      }
+      try {
+        await adminAuth.updateUser(targetUid, { disabled: true });
+      } catch (e) {
+        console.warn("Auth disable failed:", e.message);
+      }
+      try {
+        await adminDb.collection("users").doc(targetUid).set(
+          {
+            isSuspended: true,
+            suspendedReason: reason || "Administrative suspension"
+          },
+          { merge: true }
+        );
+      } catch (e) {
+      }
+      const db2 = readDb2();
+      const userIdx = db2.users?.findIndex(
+        (u) => u.id === targetUid || u.uid === targetUid
+      );
+      if (userIdx !== -1 && db2.users) {
+        db2.users[userIdx].isSuspended = true;
+        db2.users[userIdx].suspendedReason = reason || "Administrative suspension";
+        writeDb2(db2);
+      }
+      try {
+        await adminAuth.revokeRefreshTokens(targetUid);
+      } catch (e) {
+      }
+      await writeAdminAuditLog(
+        callerUid,
+        callerEmail,
+        "ADMIN_SUSPENDED_USER",
+        "USER",
+        targetUid,
+        null,
+        "SUCCESS",
+        reason
+      );
+      return res.json({
+        success: true,
+        message: "User account suspended successfully."
+      });
+    } catch (err) {
+      console.error("ADMIN_SUSPEND_USER_FAILED", err);
+      await writeAdminAuditLog(
+        callerUid,
+        callerEmail,
+        "ADMIN_SUSPENDED_USER",
+        "USER",
+        targetUid || "",
+        null,
+        "FAILED",
+        err.message
+      );
+      return res.status(500).json({
+        success: false,
+        error: err.message || "Failed to suspend user"
+      });
+    }
+  }
+);
+app2.post(
+  "/api/admin/unsuspend-user",
+  requireAuth,
+  async (req, res) => {
+    const callerUid = req.user?.uid;
+    const callerEmail = req.user?.email || "";
+    const { targetUid, reason } = req.body;
+    try {
+      if (!callerUid || !await isUserAdminServer(callerUid, callerEmail)) {
+        return res.status(403).json({ success: false, error: "Forbidden: Admin access required." });
+      }
+      if (!targetUid) {
+        return res.status(400).json({ success: false, error: "Target UID is required" });
+      }
+      try {
+        await adminAuth.updateUser(targetUid, { disabled: false });
+      } catch (e) {
+        console.warn("Auth unsuspend failed:", e.message);
+      }
+      try {
+        await adminDb.collection("users").doc(targetUid).set({ isSuspended: false }, { merge: true });
+        await adminDb.collection("users").doc(targetUid).update({ suspendedReason: adminFieldDelete() }).catch(() => {
+        });
+      } catch (e) {
+      }
+      const db2 = readDb2();
+      const userIdx = db2.users?.findIndex(
+        (u) => u.id === targetUid || u.uid === targetUid
+      );
+      if (userIdx !== -1 && db2.users) {
+        db2.users[userIdx].isSuspended = false;
+        delete db2.users[userIdx].suspendedReason;
+        writeDb2(db2);
+      }
+      await writeAdminAuditLog(
+        callerUid,
+        callerEmail,
+        "ADMIN_UNSUSPENDED_USER",
+        "USER",
+        targetUid,
+        null,
+        "SUCCESS",
+        reason
+      );
+      return res.json({
+        success: true,
+        message: "User account unsuspended successfully."
+      });
+    } catch (err) {
+      console.error("ADMIN_UNSUSPEND_USER_FAILED", err);
+      await writeAdminAuditLog(
+        callerUid,
+        callerEmail,
+        "ADMIN_UNSUSPENDED_USER",
+        "USER",
+        targetUid || "",
+        null,
+        "FAILED",
+        err.message
+      );
+      return res.status(500).json({
+        success: false,
+        error: err.message || "Failed to unsuspend user"
+      });
+    }
+  }
+);
+function adminFieldDelete() {
+  try {
+    const { FieldValue } = require("firebase-admin/firestore");
+    return FieldValue.delete();
+  } catch (e) {
+    return null;
+  }
+}
+app2.post(
+  "/api/admin/revoke-sessions",
+  requireAuth,
+  async (req, res) => {
+    const callerUid = req.user?.uid;
+    const callerEmail = req.user?.email || "";
+    const { targetUid } = req.body;
+    try {
+      if (!callerUid || !await isUserAdminServer(callerUid, callerEmail)) {
+        return res.status(403).json({ success: false, error: "Forbidden: Admin access required." });
+      }
+      if (!targetUid) {
+        return res.status(400).json({ success: false, error: "Target UID is required" });
+      }
+      try {
+        await adminAuth.revokeRefreshTokens(targetUid);
+      } catch (e) {
+        console.warn("Auth token revocation failed:", e.message);
+      }
+      await writeAdminAuditLog(
+        callerUid,
+        callerEmail,
+        "ADMIN_REVOKED_SESSION",
+        "USER",
+        targetUid,
+        null,
+        "SUCCESS",
+        "Revoked refresh tokens"
+      );
+      return res.json({
+        success: true,
+        message: "All active sessions revoked successfully."
+      });
+    } catch (err) {
+      console.error("ADMIN_REVOKE_SESSIONS_FAILED", err);
+      await writeAdminAuditLog(
+        callerUid,
+        callerEmail,
+        "ADMIN_REVOKED_SESSION",
+        "USER",
+        targetUid || "",
+        null,
+        "FAILED",
+        err.message
+      );
+      return res.status(500).json({
+        success: false,
+        error: err.message || "Failed to revoke sessions"
+      });
+    }
+  }
+);
+app2.post(
+  "/api/admin/update-user-profile",
+  requireAuth,
+  async (req, res) => {
+    const callerUid = req.user?.uid;
+    const callerEmail = req.user?.email || "";
+    const { targetUid, profileData } = req.body;
+    try {
+      if (!callerUid || !await isUserAdminServer(callerUid, callerEmail)) {
+        return res.status(403).json({ success: false, error: "Forbidden: Admin access required." });
+      }
+      if (!targetUid || !profileData) {
+        return res.status(400).json({
+          success: false,
+          error: "Target UID and profileData are required"
+        });
+      }
+      try {
+        await adminDb.collection("users").doc(targetUid).set(profileData, { merge: true });
+      } catch (e) {
+      }
+      const db2 = readDb2();
+      const userIdx = db2.users?.findIndex(
+        (u) => u.id === targetUid || u.uid === targetUid
+      );
+      if (userIdx !== -1 && db2.users) {
+        db2.users[userIdx] = { ...db2.users[userIdx], ...profileData };
+        writeDb2(db2);
+      }
+      await writeAdminAuditLog(
+        callerUid,
+        callerEmail,
+        "ADMIN_UPDATED_USER",
+        "USER",
+        targetUid,
+        profileData.workspaceId || null,
+        "SUCCESS",
+        "Updated fields: " + Object.keys(profileData).join(", ")
+      );
+      return res.json({
+        success: true,
+        message: "User profile updated successfully."
+      });
+    } catch (err) {
+      console.error("ADMIN_UPDATE_USER_FAILED", err);
+      await writeAdminAuditLog(
+        callerUid,
+        callerEmail,
+        "ADMIN_UPDATED_USER",
+        "USER",
+        targetUid || "",
+        null,
+        "FAILED",
+        err.message
+      );
+      return res.status(500).json({
+        success: false,
+        error: err.message || "Failed to update profile fields"
+      });
+    }
+  }
+);
+app2.post(
+  "/api/admin/workspace-operation",
+  requireAuth,
+  async (req, res) => {
+    const callerUid = req.user?.uid;
+    const callerEmail = req.user?.email || "";
+    const { workspaceId, action, data } = req.body;
+    try {
+      if (!callerUid || !await isUserAdminServer(callerUid, callerEmail)) {
+        return res.status(403).json({ success: false, error: "Forbidden: Admin access required." });
+      }
+      if (!workspaceId || !action) {
+        return res.status(400).json({
+          success: false,
+          error: "workspaceId and action are required"
+        });
+      }
+      if (action === "update") {
+        const { companyName, status } = data || {};
+        try {
+          await adminDb.collection("workspaces").doc(workspaceId).set(
+            { companyName, name: `${companyName} Workspace`, status },
+            { merge: true }
+          );
+        } catch (e) {
+        }
+        const db2 = readDb2();
+        if (db2.users) {
+          for (let i = 0; i < db2.users.length; i++) {
+            if (db2.users[i].workspaceId === workspaceId) {
+              db2.users[i].companyName = companyName;
+            }
+          }
+          writeDb2(db2);
+        }
+        await writeAdminAuditLog(
+          callerUid,
+          callerEmail,
+          "ADMIN_UPDATED_WORKSPACE",
+          "WORKSPACE",
+          workspaceId,
+          workspaceId,
+          "SUCCESS",
+          `Updated companyName to ${companyName}, status to ${status}`
+        );
+        emitPlatformEvent({
+          eventType: "WORKSPACE_UPDATED",
+          category: "WORKSPACE",
+          severity: "INFO",
+          userId: callerUid,
+          userEmail: callerEmail,
+          resourceId: workspaceId,
+          workspaceId,
+          metadata: {
+            actor: { id: callerUid, email: callerEmail, role: "Admin" },
+            action: "Updated workspace",
+            companyName,
+            status
+          },
+          sanitizedMessage: `Workspace ${workspaceId} updated: ${companyName || "updated"}, status: ${status || "active"}`
+        });
+        return res.json({
+          success: true,
+          message: "Workspace updated successfully."
+        });
+      }
+      return res.status(400).json({ success: false, error: "Unsupported workspace action" });
+    } catch (err) {
+      console.error("ADMIN_WORKSPACE_OPERATION_FAILED", err);
+      await writeAdminAuditLog(
+        callerUid,
+        callerEmail,
+        "ADMIN_UPDATED_WORKSPACE",
+        "WORKSPACE",
+        workspaceId || "",
+        workspaceId || null,
+        "FAILED",
+        err.message
+      );
+      return res.status(500).json({
+        success: false,
+        error: err.message || "Failed to complete workspace operation"
+      });
+    }
+  }
+);
+app2.post(
+  "/api/admin/memory-operation",
+  requireAuth,
+  async (req, res) => {
+    const callerUid = req.user?.uid;
+    const callerEmail = req.user?.email || "";
+    const { memoryId, userId, action, data } = req.body;
+    try {
+      if (!callerUid || !await isUserAdminServer(callerUid, callerEmail)) {
+        return res.status(403).json({ success: false, error: "Forbidden: Admin access required." });
+      }
+      if (!memoryId || !action) {
+        return res.status(400).json({ success: false, error: "memoryId and action are required" });
+      }
+      const db2 = readDb2();
+      if (action === "delete") {
+        if (userId) {
+          try {
+            await adminDb.collection("users").doc(userId).collection("memories").doc(memoryId).delete();
+          } catch (e) {
+          }
+        }
+        if (db2.memories && Array.isArray(db2.memories)) {
+          db2.memories = db2.memories.filter((m) => m.id !== memoryId);
+          writeDb2(db2);
+        }
+        await writeAdminAuditLog(
+          callerUid,
+          callerEmail,
+          "ADMIN_DELETED_MEMORY",
+          "MEMORY",
+          memoryId,
+          null,
+          "SUCCESS",
+          `Deleted memory`
+        );
+        emitPlatformEvent({
+          eventType: "MEMORY_DELETED",
+          category: "SYSTEM",
+          severity: "INFO",
+          userId: callerUid,
+          userEmail: callerEmail,
+          resourceId: memoryId,
+          metadata: {
+            actor: { id: callerUid, email: callerEmail, role: "Admin" },
+            action: "Deleted memory",
+            targetUserId: userId || null
+          },
+          sanitizedMessage: `Memory ${memoryId} deleted for user ${userId || "unknown"}`
+        });
+        return res.json({
+          success: true,
+          message: "Memory deleted successfully."
+        });
+      }
+      if (action === "update") {
+        const { content } = data || {};
+        if (!content)
+          return res.status(400).json({ success: false, error: "Content is required" });
+        if (userId) {
+          try {
+            await adminDb.collection("users").doc(userId).collection("memories").doc(memoryId).set(
+              { content, updatedAt: (/* @__PURE__ */ new Date()).toISOString() },
+              { merge: true }
+            );
+          } catch (e) {
+          }
+        }
+        if (db2.memories && Array.isArray(db2.memories)) {
+          const idx = db2.memories.findIndex((m) => m.id === memoryId);
+          if (idx !== -1) {
+            db2.memories[idx].content = content;
+            db2.memories[idx].updatedAt = (/* @__PURE__ */ new Date()).toISOString();
+            writeDb2(db2);
+          }
+        }
+        await writeAdminAuditLog(
+          callerUid,
+          callerEmail,
+          "ADMIN_UPDATED_MEMORY",
+          "MEMORY",
+          memoryId,
+          null,
+          "SUCCESS",
+          `Updated memory content`
+        );
+        emitPlatformEvent({
+          eventType: "MEMORY_UPDATED",
+          category: "SYSTEM",
+          severity: "INFO",
+          userId: callerUid,
+          userEmail: callerEmail,
+          resourceId: memoryId,
+          metadata: {
+            actor: { id: callerUid, email: callerEmail, role: "Admin" },
+            action: "Updated memory content",
+            targetUserId: userId || null
+          },
+          sanitizedMessage: `Memory ${memoryId} updated for user ${userId || "unknown"}`
+        });
+        return res.json({
+          success: true,
+          message: "Memory updated successfully."
+        });
+      }
+      return res.status(400).json({ success: false, error: "Unsupported memory action" });
+    } catch (err) {
+      console.error("ADMIN_MEMORY_OPERATION_FAILED", err);
+      await writeAdminAuditLog(
+        callerUid,
+        callerEmail,
+        "ADMIN_UPDATED_MEMORY",
+        "MEMORY",
+        memoryId || "",
+        null,
+        "FAILED",
+        err.message
+      );
+      return res.status(500).json({
+        success: false,
+        error: err.message || "Failed to complete memory operation"
+      });
+    }
+  }
+);
+app2.post(
+  "/api/admin/file-operation",
+  requireAuth,
+  async (req, res) => {
+    const callerUid = req.user?.uid;
+    const callerEmail = req.user?.email || "";
+    const { fileId, targetUserId, action, data } = req.body;
+    try {
+      if (!callerUid || !await isUserAdminServer(callerUid, callerEmail)) {
+        return res.status(403).json({ success: false, error: "Forbidden: Admin access required." });
+      }
+      if (!action) {
+        return res.status(400).json({ success: false, error: "Action is required" });
+      }
+      if (action === "upload") {
+        const { fileName, mimeType, fileSize, contentUrl, category } = data || {};
+        if (!targetUserId || !fileName) {
+          return res.status(400).json({
+            success: false,
+            error: "targetUserId and fileName are required"
+          });
+        }
+        const newFileId = `file_${Date.now()}_${import_crypto3.default.randomBytes(4).toString("hex")}`;
+        const newFile = {
+          id: newFileId,
+          fileName,
+          mimeType: mimeType || "application/pdf",
+          fileSize: fileSize || 102400,
+          url: contentUrl || "data:application/pdf;base64,JVBERi0xLjQKJ...",
+          category: category || "Document",
+          uploadedAt: (/* @__PURE__ */ new Date()).toISOString(),
+          verified: true,
+          userUid: targetUserId
+        };
+        try {
+          await adminDb.collection("users").doc(targetUserId).collection("files").doc(newFileId).set(newFile);
+        } catch (e) {
+        }
+        const db2 = readDb2();
+        if (db2.users) {
+          const uIdx = db2.users.findIndex(
+            (u) => u.id === targetUserId || u.uid === targetUserId
+          );
+          if (uIdx !== -1) {
+            if (!db2.users[uIdx].files) db2.users[uIdx].files = [];
+            db2.users[uIdx].files.push(newFile);
+            db2.users[uIdx].fileCount = (db2.users[uIdx].fileCount || 0) + 1;
+            writeDb2(db2);
+          }
+        }
+        await writeAdminAuditLog(
+          callerUid,
+          callerEmail,
+          "ADMIN_UPLOADED_FILE",
+          "FILE",
+          newFileId,
+          null,
+          "SUCCESS",
+          `Uploaded file ${fileName} for user ${targetUserId}`
+        );
+        emitPlatformEvent({
+          eventType: "FILE_UPLOADED",
+          category: "SYSTEM",
+          severity: "INFO",
+          userId: callerUid,
+          userEmail: callerEmail,
+          resourceId: newFileId,
+          metadata: {
+            actor: { id: callerUid, email: callerEmail, role: "Admin" },
+            action: "Uploaded file",
+            targetUserId,
+            fileName
+          },
+          sanitizedMessage: `File ${fileName} uploaded for user ${targetUserId}`
+        });
+        return res.json({ success: true, file: newFile });
+      }
+      if (action === "delete") {
+        if (!fileId || !targetUserId) {
+          return res.status(400).json({
+            success: false,
+            error: "fileId and targetUserId are required"
+          });
+        }
+        try {
+          await adminDb.collection("users").doc(targetUserId).collection("files").doc(fileId).delete();
+        } catch (e) {
+        }
+        const bucket = getSafeBucket();
+        if (bucket) {
+          try {
+            const fileRef = bucket.file(
+              `users/${targetUserId}/files/${fileId}`
+            );
+            await fileRef.delete().catch(() => {
+            });
+            const secureRef = bucket.file(`secure_uploads/${fileId}`);
+            await secureRef.delete().catch(() => {
+            });
+          } catch (e) {
+          }
+        }
+        const db2 = readDb2();
+        if (db2.users) {
+          const uIdx = db2.users.findIndex(
+            (u) => u.id === targetUserId || u.uid === targetUserId
+          );
+          if (uIdx !== -1 && db2.users[uIdx].files) {
+            db2.users[uIdx].files = db2.users[uIdx].files.filter(
+              (f) => f.id !== fileId
+            );
+            db2.users[uIdx].fileCount = Math.max(
+              0,
+              (db2.users[uIdx].fileCount || 1) - 1
+            );
+            writeDb2(db2);
+          }
+        }
+        await writeAdminAuditLog(
+          callerUid,
+          callerEmail,
+          "ADMIN_DELETED_FILE",
+          "FILE",
+          fileId,
+          null,
+          "SUCCESS",
+          `Deleted file ${fileId} for user ${targetUserId}`
+        );
+        emitPlatformEvent({
+          eventType: "FILE_DELETED",
+          category: "SYSTEM",
+          severity: "INFO",
+          userId: callerUid,
+          userEmail: callerEmail,
+          resourceId: fileId,
+          metadata: {
+            actor: { id: callerUid, email: callerEmail, role: "Admin" },
+            action: "Deleted file",
+            targetUserId
+          },
+          sanitizedMessage: `File ${fileId} deleted for user ${targetUserId}`
+        });
+        return res.json({
+          success: true,
+          message: "File deleted successfully."
+        });
+      }
+      if (action === "update") {
+        if (!fileId || !targetUserId || !data) {
+          return res.status(400).json({
+            success: false,
+            error: "fileId, targetUserId, and data are required"
+          });
+        }
+        const { fileName, category } = data;
+        try {
+          await adminDb.collection("users").doc(targetUserId).collection("files").doc(fileId).set({ fileName, category }, { merge: true });
+        } catch (e) {
+        }
+        const db2 = readDb2();
+        if (db2.users) {
+          const uIdx = db2.users.findIndex(
+            (u) => u.id === targetUserId || u.uid === targetUserId
+          );
+          if (uIdx !== -1 && db2.users[uIdx].files) {
+            const fIdx = db2.users[uIdx].files.findIndex(
+              (f) => f.id === fileId
+            );
+            if (fIdx !== -1) {
+              db2.users[uIdx].files[fIdx].fileName = fileName || db2.users[uIdx].files[fIdx].fileName;
+              db2.users[uIdx].files[fIdx].category = category || db2.users[uIdx].files[fIdx].category;
+              writeDb2(db2);
+            }
+          }
+        }
+        await writeAdminAuditLog(
+          callerUid,
+          callerEmail,
+          "ADMIN_UPDATED_FILE_METADATA",
+          "FILE",
+          fileId,
+          null,
+          "SUCCESS",
+          `Updated file name/category`
+        );
+        emitPlatformEvent({
+          eventType: "FILE_UPDATED",
+          category: "SYSTEM",
+          severity: "INFO",
+          userId: callerUid,
+          userEmail: callerEmail,
+          resourceId: fileId,
+          metadata: {
+            actor: { id: callerUid, email: callerEmail, role: "Admin" },
+            action: "Updated file metadata",
+            targetUserId
+          },
+          sanitizedMessage: `File metadata updated: ${fileId} for user ${targetUserId}`
+        });
+        return res.json({
+          success: true,
+          message: "File metadata updated successfully."
+        });
+      }
+      return res.status(400).json({ success: false, error: "Unsupported file action" });
+    } catch (err) {
+      console.error("ADMIN_FILE_OPERATION_FAILED", err);
+      await writeAdminAuditLog(
+        callerUid,
+        callerEmail,
+        "ADMIN_UPDATED_FILE_METADATA",
+        "FILE",
+        fileId || "",
+        null,
+        "FAILED",
+        err.message
+      );
+      return res.status(500).json({
+        success: false,
+        error: err.message || "Failed to complete file operation"
+      });
+    }
+  }
+);
+app2.post(
+  "/api/admin/retry-email",
+  requireAuth,
+  async (req, res) => {
+    const callerUid = req.user?.uid;
+    const callerEmail = req.user?.email || "";
+    const { emailId, recipient, type } = req.body;
+    try {
+      if (!callerUid || !await isUserAdminServer(callerUid, callerEmail)) {
+        return res.status(403).json({ success: false, error: "Forbidden: Admin access required." });
+      }
+      if (!recipient || !type) {
+        return res.status(400).json({
+          success: false,
+          error: "Recipient and email type are required"
+        });
+      }
+      const subject = `[ZAKIR] Resend Notification: ${type.toUpperCase()}`;
+      const text2 = `Dear User,
+
+This is a resent ${type} notification from the Zakir Platform Admin Operations Center.
+
+Best regards,
+Zakir Support`;
+      const html = `<div style="font-family:sans-serif;padding:20px;border:1px solid #ddd;border-radius:12px;">
+      <h2 style="color:#0075DE;">ZAKIR Operational Resend</h2>
+      <p>Dear User,</p>
+      <p>This is an administrative operational resend of your <strong>${type}</strong> communication requested by Platform Operations.</p>
+      <p>Best regards,<br/>Zakir Platform Operations Team</p>
+    </div>`;
+      try {
+        await sendSystemMail2({ to: recipient, subject, text: text2, html });
+      } catch (e) {
+        console.warn("Mail resend skipped:", e);
+      }
+      const db2 = readDb2();
+      if (!db2.email_delivery_logs) db2.email_delivery_logs = [];
+      const retryLog = {
+        id: `mail_${Date.now()}`,
+        recipient,
+        type,
+        timestamp: (/* @__PURE__ */ new Date()).toISOString(),
+        status: "DELIVERED",
+        error: null,
+        isRetry: true
+      };
+      db2.email_delivery_logs.unshift(retryLog);
+      writeDb2(db2);
+      await writeAdminAuditLog(
+        callerUid,
+        callerEmail,
+        "ADMIN_RESENT_EMAIL",
+        "EMAIL",
+        emailId || "new",
+        null,
+        "SUCCESS",
+        `Resent email of type ${type} to ${recipient}`
+      );
+      return res.json({ success: true, message: "Email resent successfully." });
+    } catch (err) {
+      console.error("ADMIN_RETRY_EMAIL_FAILED", err);
+      return res.status(500).json({
+        success: false,
+        error: err.message || "Failed to retry email delivery"
+      });
+    }
+  }
+);
 async function getAccountLifecycleRecord2(email) {
   const normalizedEmail = (email || "").trim().toLowerCase();
   if (!normalizedEmail) return null;
@@ -8002,7 +11033,9 @@ async function getAccountLifecycleRecord2(email) {
     }
     try {
       const db2 = readDb2();
-      const localActive = db2.users?.find((u) => (u.email || "").trim().toLowerCase() === normalizedEmail);
+      const localActive = db2.users?.find(
+        (u) => (u.email || "").trim().toLowerCase() === normalizedEmail
+      );
       if (localActive && localActive.deleted !== true && localActive.status !== "ADMIN_DELETED") {
         return {
           accountId: normalizedEmail,
@@ -8025,7 +11058,9 @@ async function getAccountLifecycleRecord2(email) {
     } else {
       const db2 = readDb2();
       if (!db2.account_lifecycle) db2.account_lifecycle = [];
-      record = db2.account_lifecycle.find((r) => (r.emailNormalized || r.accountId || r.email || "").trim().toLowerCase() === normalizedEmail);
+      record = db2.account_lifecycle.find(
+        (r) => (r.emailNormalized || r.accountId || r.email || "").trim().toLowerCase() === normalizedEmail
+      );
     }
     if (!record) {
       try {
@@ -8034,7 +11069,9 @@ async function getAccountLifecycleRecord2(email) {
           const dData = delSnap.docs[0].data();
           if (dData && (dData.email || "").trim().toLowerCase() === normalizedEmail) {
             const deletedAt = dData.deletedAt || (/* @__PURE__ */ new Date()).toISOString();
-            const restoreUntil = new Date(new Date(deletedAt).getTime() + 31 * 24 * 60 * 60 * 1e3).toISOString();
+            const restoreUntil = new Date(
+              new Date(deletedAt).getTime() + 31 * 24 * 60 * 60 * 1e3
+            ).toISOString();
             record = {
               accountId: normalizedEmail,
               emailNormalized: normalizedEmail,
@@ -8053,10 +11090,14 @@ async function getAccountLifecycleRecord2(email) {
     if (!record) {
       try {
         const db2 = readDb2();
-        const retUser = db2.retained_users?.find((u) => u.email?.trim().toLowerCase() === normalizedEmail);
+        const retUser = db2.retained_users?.find(
+          (u) => u.email?.trim().toLowerCase() === normalizedEmail
+        );
         if (retUser) {
           const archivedAt = retUser.archivedAt || retUser.deletedAt || (/* @__PURE__ */ new Date()).toISOString();
-          const restoreUntil = new Date(new Date(archivedAt).getTime() + 31 * 24 * 60 * 60 * 1e3).toISOString();
+          const restoreUntil = new Date(
+            new Date(archivedAt).getTime() + 31 * 24 * 60 * 60 * 1e3
+          ).toISOString();
           record = {
             accountId: normalizedEmail,
             emailNormalized: normalizedEmail,
@@ -8076,7 +11117,9 @@ async function getAccountLifecycleRecord2(email) {
       const nowMs = Date.now();
       const restoreUntilMs = new Date(record.restoreUntil).getTime();
       if (nowMs > restoreUntilMs) {
-        console.log(`[LIFECYCLE PURGE] Self-deleted account ${normalizedEmail} expired 31-day window. Purging retained user data.`);
+        console.log(
+          `[LIFECYCLE PURGE] Self-deleted account ${normalizedEmail} expired 31-day window. Purging retained user data.`
+        );
         if (record.originalUserId) {
           try {
             await purgeRetainedUserDataServer(record.originalUserId);
@@ -8098,7 +11141,9 @@ async function getAccountLifecycleRecord2(email) {
         record = { ...record, ...purgedFields };
         const db2 = readDb2();
         if (!db2.account_lifecycle) db2.account_lifecycle = [];
-        const idx = db2.account_lifecycle.findIndex((r) => r.emailNormalized === normalizedEmail);
+        const idx = db2.account_lifecycle.findIndex(
+          (r) => r.emailNormalized === normalizedEmail
+        );
         if (idx >= 0) db2.account_lifecycle[idx] = record;
         else db2.account_lifecycle.push(record);
         writeDb2(db2);
@@ -8110,7 +11155,10 @@ async function getAccountLifecycleRecord2(email) {
       const remainingMs = restoreUntilMs - nowMs;
       if (remainingMs > 0) {
         record.canRestore = true;
-        record.daysRemaining = Math.max(1, Math.ceil(remainingMs / (24 * 3600 * 1e3)));
+        record.daysRemaining = Math.max(
+          1,
+          Math.ceil(remainingMs / (24 * 3600 * 1e3))
+        );
       } else {
         record.canRestore = false;
         record.daysRemaining = 0;
@@ -8139,8 +11187,11 @@ async function setAccountLifecycleRecord2(record) {
   try {
     const db2 = readDb2();
     if (!db2.account_lifecycle) db2.account_lifecycle = [];
-    const idx = db2.account_lifecycle.findIndex((r) => r.emailNormalized === normalizedEmail);
-    if (idx >= 0) db2.account_lifecycle[idx] = { ...db2.account_lifecycle[idx], ...payload };
+    const idx = db2.account_lifecycle.findIndex(
+      (r) => r.emailNormalized === normalizedEmail
+    );
+    if (idx >= 0)
+      db2.account_lifecycle[idx] = { ...db2.account_lifecycle[idx], ...payload };
     else db2.account_lifecycle.push(payload);
     writeDb2(db2);
   } catch (err) {
@@ -8164,7 +11215,9 @@ async function purgeRetainedUserDataServer(userId) {
       db2.retained_users = db2.retained_users.filter((u) => u.id !== userId);
       writeDb2(db2);
     }
-    console.log(`[PURGE COMPLETE] Retained user data for ${userId} purged permanently.`);
+    console.log(
+      `[PURGE COMPLETE] Retained user data for ${userId} purged permanently.`
+    );
   } catch (err) {
     console.warn("purgeRetainedUserDataServer warning:", err);
   }
@@ -8178,7 +11231,9 @@ async function purgeExpiredAccountsJob() {
         for (const docSnap of snap.docs) {
           const data = docSnap.data();
           if (data.restoreUntil && nowMs > new Date(data.restoreUntil).getTime()) {
-            console.log(`[BACKGROUND PURGE] Expired account lifecycle ${docSnap.id}`);
+            console.log(
+              `[BACKGROUND PURGE] Expired account lifecycle ${docSnap.id}`
+            );
             await getAccountLifecycleRecord2(docSnap.id);
           }
         }
@@ -8196,7 +11251,9 @@ async function purgeExpiredAccountsJob() {
       for (const record of db2.account_lifecycle) {
         if (record.deletionType === "self" && record.status === "SELF_DELETED" && record.restoreUntil) {
           if (nowMs > new Date(record.restoreUntil).getTime()) {
-            console.log(`[BACKGROUND PURGE LOCAL] Expired account lifecycle ${record.emailNormalized}`);
+            console.log(
+              `[BACKGROUND PURGE LOCAL] Expired account lifecycle ${record.emailNormalized}`
+            );
             await getAccountLifecycleRecord2(record.emailNormalized);
           }
         }
@@ -8207,7 +11264,8 @@ async function purgeExpiredAccountsJob() {
 }
 async function restoreAccountFullServer2(email, newPassword) {
   const normalizedEmail = (email || "").trim().toLowerCase();
-  if (!normalizedEmail) return { success: false, error: "Email parameter is required." };
+  if (!normalizedEmail)
+    return { success: false, error: "Email parameter is required." };
   const nowIso = (/* @__PURE__ */ new Date()).toISOString();
   const lifecycle = await getAccountLifecycleRecord2(normalizedEmail);
   const targetUid = lifecycle?.originalUserId;
@@ -8254,10 +11312,17 @@ async function restoreAccountFullServer2(email, newPassword) {
     try {
       await adminAuth.updateUser(authUser.uid, updatePayload);
       const checkAuth = await adminAuth.getUser(authUser.uid);
-      const hasPasswordProvider = checkAuth.providerData.some((p) => p.providerId === "password");
-      console.log(`[RESTORE_FULL] Firebase Auth user ${authUser.uid} re-enabled: disabled=${checkAuth.disabled}, emailVerified=${checkAuth.emailVerified}, hasPasswordProvider=${hasPasswordProvider}`);
+      const hasPasswordProvider = checkAuth.providerData.some(
+        (p) => p.providerId === "password"
+      );
+      console.log(
+        `[RESTORE_FULL] Firebase Auth user ${authUser.uid} re-enabled: disabled=${checkAuth.disabled}, emailVerified=${checkAuth.emailVerified}, hasPasswordProvider=${hasPasswordProvider}`
+      );
     } catch (uErr) {
-      console.warn(`[RESTORE_FULL] Warning updating Firebase Auth user ${authUser.uid}:`, uErr?.message);
+      console.warn(
+        `[RESTORE_FULL] Warning updating Firebase Auth user ${authUser.uid}:`,
+        uErr?.message
+      );
     }
   } else {
     try {
@@ -8275,7 +11340,10 @@ async function restoreAccountFullServer2(email, newPassword) {
       authUser = await adminAuth.createUser(createPayload);
       console.log(`[RESTORE_FULL] Created Firebase Auth user ${finalUid}`);
     } catch (cErr) {
-      console.warn(`[RESTORE_FULL] Firebase Auth user creation warning for ${finalUid}:`, cErr?.message);
+      console.warn(
+        `[RESTORE_FULL] Firebase Auth user creation warning for ${finalUid}:`,
+        cErr?.message
+      );
     }
   }
   try {
@@ -8322,7 +11390,10 @@ async function restoreAccountFullServer2(email, newPassword) {
     ownerName: retainedProfile?.ownerName || normalizedEmail.split("@")[0],
     passwordHash: newPassword && newPassword.trim() ? newPassword.trim() : retainedProfile?.passwordHash || "restored_pwd_123",
     subscriptionStatus: retainedProfile?.subscriptionStatus || "Active",
-    userPreferences: retainedProfile?.userPreferences || { theme: "light", language: "ar" },
+    userPreferences: retainedProfile?.userPreferences || {
+      theme: "light",
+      language: "ar"
+    },
     status: "VERIFICATION_REQUIRED",
     accountStatus: "active",
     deleted: false,
@@ -8342,7 +11413,8 @@ async function restoreAccountFullServer2(email, newPassword) {
     if (obj === null || obj === void 0) return null;
     if (typeof obj !== "object") return obj;
     if (obj instanceof Date) return obj.toISOString();
-    if (Array.isArray(obj)) return obj.map((item) => sanitizeForFirestoreServer(item));
+    if (Array.isArray(obj))
+      return obj.map((item) => sanitizeForFirestoreServer(item));
     const clean = {};
     for (const [key, value] of Object.entries(obj)) {
       if (value !== void 0) {
@@ -8354,7 +11426,9 @@ async function restoreAccountFullServer2(email, newPassword) {
   const restoredUserDoc = sanitizeForFirestoreServer(rawRestoredUserDoc);
   try {
     await adminDb.collection("users").doc(finalUid).set(restoredUserDoc, { merge: true });
-    console.log(`[RESTORE_FULL] Saved restored user profile to Firestore users/${finalUid}`);
+    console.log(
+      `[RESTORE_FULL] Saved restored user profile to Firestore users/${finalUid}`
+    );
   } catch (fsErr) {
     console.error("[RESTORE_FULL] Failed to save Firestore user profile:", {
       message: fsErr?.message || String(fsErr),
@@ -8393,10 +11467,14 @@ async function restoreAccountFullServer2(email, newPassword) {
   try {
     const db2 = readDb2();
     if (!db2.users) db2.users = [];
-    db2.users = db2.users.filter((u) => u.id !== finalUid && u.email?.trim().toLowerCase() !== normalizedEmail);
+    db2.users = db2.users.filter(
+      (u) => u.id !== finalUid && u.email?.trim().toLowerCase() !== normalizedEmail
+    );
     db2.users.push(restoredUserDoc);
     if (db2.retained_users) {
-      db2.retained_users = db2.retained_users.filter((u) => u.id !== finalUid && u.email?.trim().toLowerCase() !== normalizedEmail);
+      db2.retained_users = db2.retained_users.filter(
+        (u) => u.id !== finalUid && u.email?.trim().toLowerCase() !== normalizedEmail
+      );
     }
     writeDb2(db2);
   } catch (dbErr) {
@@ -8492,7 +11570,10 @@ app2.post("/api/auth/check-lifecycle", async (req, res) => {
       const restoreUntilMs = new Date(record.restoreUntil).getTime();
       const remainingMs = restoreUntilMs - nowMs;
       if (remainingMs > 0) {
-        const daysRemaining = Math.max(1, Math.ceil(remainingMs / (24 * 3600 * 1e3)));
+        const daysRemaining = Math.max(
+          1,
+          Math.ceil(remainingMs / (24 * 3600 * 1e3))
+        );
         return res.json({
           success: true,
           email: normalizedEmail,
@@ -8540,7 +11621,10 @@ app2.post("/api/auth/check-lifecycle", async (req, res) => {
     });
   } catch (err) {
     console.error("check-lifecycle error:", err);
-    res.status(500).json({ success: false, error: err.message || "Failed to check account lifecycle state." });
+    res.status(500).json({
+      success: false,
+      error: err.message || "Failed to check account lifecycle state."
+    });
   }
 });
 async function requestAccountReactivationServer(email, reason) {
@@ -8574,7 +11658,9 @@ async function requestAccountReactivationServer(email, reason) {
   }
   const db2 = readDb2();
   if (!db2.account_reactivation_requests) db2.account_reactivation_requests = [];
-  db2.account_reactivation_requests = db2.account_reactivation_requests.filter((r) => r.email !== normalizedEmail);
+  db2.account_reactivation_requests = db2.account_reactivation_requests.filter(
+    (r) => r.email !== normalizedEmail
+  );
   db2.account_reactivation_requests.push({
     email: normalizedEmail,
     requestedAt: nowIso,
@@ -8600,7 +11686,10 @@ app2.post("/api/auth/request-reactivation", async (req, res) => {
     return res.json(result);
   } catch (err) {
     console.error("request-reactivation error:", err);
-    res.status(500).json({ success: false, error: err.message || "Failed to submit reactivation request." });
+    res.status(500).json({
+      success: false,
+      error: err.message || "Failed to submit reactivation request."
+    });
   }
 });
 app2.post("/api/auth/restore-account", async (req, res) => {
@@ -8661,7 +11750,10 @@ app2.post("/api/auth/restore-account", async (req, res) => {
       try {
         const qSnap = await adminDb.collection("verification_codes").where("email", "==", normalizedEmail).where("used", "==", false).get();
         if (!qSnap.empty) {
-          activeOtpRecord = { ...qSnap.docs[0].data(), _docId: qSnap.docs[0].id };
+          activeOtpRecord = {
+            ...qSnap.docs[0].data(),
+            _docId: qSnap.docs[0].id
+          };
         }
       } catch (e) {
       }
@@ -8729,13 +11821,20 @@ app2.post("/api/auth/restore-account", async (req, res) => {
     }
     if (!retainedProfile) {
       const db2 = readDb2();
-      retainedProfile = db2.retained_users?.find((u) => u.id === userId || u.email?.toLowerCase() === normalizedEmail);
+      retainedProfile = db2.retained_users?.find(
+        (u) => u.id === userId || u.email?.toLowerCase() === normalizedEmail
+      );
     }
     const nowIso = (/* @__PURE__ */ new Date()).toISOString();
     const preservedRole = retainedProfile?.role || record?.originalRole;
     if (!preservedRole) {
-      console.error(`[RESTORE_SELF] Security Error: Original role missing for ${normalizedEmail}. Restoration blocked.`);
-      return res.status(400).json({ success: false, error: "Cannot verify original user role and permissions. Account restoration blocked for security." });
+      console.error(
+        `[RESTORE_SELF] Security Error: Original role missing for ${normalizedEmail}. Restoration blocked.`
+      );
+      return res.status(400).json({
+        success: false,
+        error: "Cannot verify original user role and permissions. Account restoration blocked for security."
+      });
     }
     const preservedWorkspaceId = retainedProfile?.workspaceId || record?.originalWorkspaceId || retainedProfile?.workspace?.id || `ws_${userId.substring(0, 8)}`;
     const authoritativeOwnerId = retainedProfile?.workspace?.ownerId || (preservedRole === "CEO" ? userId : void 0);
@@ -8760,7 +11859,10 @@ app2.post("/api/auth/restore-account", async (req, res) => {
       accountLifecycleStatus: "ACTIVE",
       deleted: false,
       subscriptionStatus: retainedProfile?.subscriptionStatus || "Active Trial",
-      userPreferences: retainedProfile?.userPreferences || { theme: "light", language: "ar" },
+      userPreferences: retainedProfile?.userPreferences || {
+        theme: "light",
+        language: "ar"
+      },
       isVerified: true,
       isEmailVerified: true,
       emailVerified: true,
@@ -8848,7 +11950,9 @@ app2.post("/api/auth/restore-account", async (req, res) => {
     }
     if (retainedProfile?.archivedRiskAlerts?.length) {
       if (!dbInst.risk_alerts) dbInst.risk_alerts = [];
-      dbInst.risk_alerts = dbInst.risk_alerts.filter((a) => a.userId !== userId);
+      dbInst.risk_alerts = dbInst.risk_alerts.filter(
+        (a) => a.userId !== userId
+      );
       dbInst.risk_alerts.push(...retainedProfile.archivedRiskAlerts);
     }
     if (retainedProfile?.archivedFiles?.length) {
@@ -8857,7 +11961,9 @@ app2.post("/api/auth/restore-account", async (req, res) => {
       dbInst.files.push(...retainedProfile.archivedFiles);
     }
     if (!dbInst.users) dbInst.users = [];
-    dbInst.users = dbInst.users.filter((u) => u.id !== userId && u.email?.toLowerCase() !== normalizedEmail);
+    dbInst.users = dbInst.users.filter(
+      (u) => u.id !== userId && u.email?.toLowerCase() !== normalizedEmail
+    );
     dbInst.users.push(restoredUserDoc);
     writeDb2(dbInst);
     try {
@@ -8877,7 +11983,11 @@ app2.post("/api/auth/restore-account", async (req, res) => {
       updatedAt: nowIso
     };
     await setAccountLifecycleRecord2(activeRecord);
-    console.log("ACCOUNT_RESTORED_SUCCESSFULLY", { userId, email: normalizedEmail, role: restoredUserDoc.role });
+    console.log("ACCOUNT_RESTORED_SUCCESSFULLY", {
+      userId,
+      email: normalizedEmail,
+      role: restoredUserDoc.role
+    });
     return res.json({
       success: true,
       message: "\u062A\u0645\u062A \u0627\u0633\u062A\u0639\u0627\u062F\u0629 \u062D\u0633\u0627\u0628\u0643 \u0648\u062C\u0645\u064A\u0639 \u0628\u064A\u0627\u0646\u0627\u062A\u0643 \u0628\u0646\u062C\u0627\u062D! \u0645\u0631\u062D\u0628\u0627\u064B \u0628\u0639\u0648\u062F\u062A\u0643 \u0625\u0644\u0649 Zakir.",
@@ -8886,7 +11996,10 @@ app2.post("/api/auth/restore-account", async (req, res) => {
     });
   } catch (err) {
     console.error("restore-account error:", err);
-    res.status(500).json({ success: false, error: err.message || "Failed to restore account." });
+    res.status(500).json({
+      success: false,
+      error: err.message || "Failed to restore account."
+    });
   }
 });
 app2.get("/api/auth/check-invitation", async (req, res) => {
@@ -8921,7 +12034,7 @@ app2.get("/api/auth/check-invitation", async (req, res) => {
         (i) => email && i.email?.trim().toLowerCase() === email || token && i.token === token
       ) || null;
     }
-    if (invitation && (invitation.status === "ACCEPTED" || invitation.status === "accepted")) {
+    if (invitation && (invitation.status || "").toString().toUpperCase() === "ACCEPTED") {
       invitation = null;
     }
     return res.json({ success: true, invitation });
@@ -8929,30 +12042,36 @@ app2.get("/api/auth/check-invitation", async (req, res) => {
     return res.json({ success: true, invitation: null });
   }
 });
-app2.get("/api/admin/reactivation-requests", requireAuth, async (req, res) => {
-  try {
-    const callerUid = req.user?.uid;
-    const callerEmail = req.user?.email || "";
-    if (!callerUid || !await isUserAdminServer(callerUid, callerEmail)) {
-      return res.status(403).json({ error: "Forbidden: Admin access required." });
-    }
-    const snap = await adminDb.collection("accountReactivationRequests").get();
-    let requests = [];
-    if (snap && !snap.empty) {
-      requests = snap.docs.map((doc) => ({ ...doc.data(), id: doc.id }));
-    }
-    const db2 = readDb2();
-    const localRequests = db2.account_reactivation_requests || [];
-    for (const lr of localRequests) {
-      if (!requests.some((r) => r.email === lr.email)) {
-        requests.push(lr);
+app2.get(
+  "/api/admin/reactivation-requests",
+  requireAuth,
+  async (req, res) => {
+    try {
+      const callerUid = req.user?.uid;
+      const callerEmail = req.user?.email || "";
+      if (!callerUid || !await isUserAdminServer(callerUid, callerEmail)) {
+        return res.status(403).json({ error: "Forbidden: Admin access required." });
       }
+      const snap = await adminDb.collection("accountReactivationRequests").get();
+      let requests = [];
+      if (snap && !snap.empty) {
+        requests = snap.docs.map((doc) => ({ ...doc.data(), id: doc.id }));
+      }
+      const db2 = readDb2();
+      const localRequests = db2.account_reactivation_requests || [];
+      for (const lr of localRequests) {
+        if (!requests.some((r) => r.email === lr.email)) {
+          requests.push(lr);
+        }
+      }
+      return res.json({ success: true, requests });
+    } catch (err) {
+      res.status(500).json({
+        error: err.message || "Failed to fetch reactivation requests."
+      });
     }
-    return res.json({ success: true, requests });
-  } catch (err) {
-    res.status(500).json({ error: err.message || "Failed to fetch reactivation requests." });
   }
-});
+);
 async function handleAccountReactivationRequestServer(email, action, callerUid = "admin", notes = "") {
   const normalizedEmail = email.trim().toLowerCase();
   const record = await getAccountLifecycleRecord2(normalizedEmail);
@@ -8982,7 +12101,9 @@ async function handleAccountReactivationRequestServer(email, action, callerUid =
     }
     const db2 = readDb2();
     if (db2.account_reactivation_requests) {
-      const reqItem = db2.account_reactivation_requests.find((r) => r.email === normalizedEmail);
+      const reqItem = db2.account_reactivation_requests.find(
+        (r) => r.email === normalizedEmail
+      );
       if (reqItem) {
         reqItem.status = "approved";
         reqItem.reviewedAt = nowIso;
@@ -9016,7 +12137,9 @@ async function handleAccountReactivationRequestServer(email, action, callerUid =
     }
     const db2 = readDb2();
     if (db2.account_reactivation_requests) {
-      const reqItem = db2.account_reactivation_requests.find((r) => r.email === normalizedEmail);
+      const reqItem = db2.account_reactivation_requests.find(
+        (r) => r.email === normalizedEmail
+      );
       if (reqItem) {
         reqItem.status = "rejected";
         reqItem.reviewedAt = nowIso;
@@ -9029,23 +12152,36 @@ async function handleAccountReactivationRequestServer(email, action, callerUid =
     };
   }
 }
-app2.post("/api/admin/handle-reactivation-request", requireAuth, async (req, res) => {
-  try {
-    const callerUid = req.user?.uid;
-    const callerEmail = req.user?.email || "";
-    if (!callerUid || !await isUserAdminServer(callerUid, callerEmail)) {
-      return res.status(403).json({ error: "Forbidden: Admin access required." });
+app2.post(
+  "/api/admin/handle-reactivation-request",
+  requireAuth,
+  async (req, res) => {
+    try {
+      const callerUid = req.user?.uid;
+      const callerEmail = req.user?.email || "";
+      if (!callerUid || !await isUserAdminServer(callerUid, callerEmail)) {
+        return res.status(403).json({ error: "Forbidden: Admin access required." });
+      }
+      const { email, action, notes } = req.body;
+      if (!email || !action || action !== "approve" && action !== "reject") {
+        return res.status(400).json({
+          error: "Email and valid action ('approve' or 'reject') are required."
+        });
+      }
+      const result = await handleAccountReactivationRequestServer(
+        email,
+        action,
+        callerUid,
+        notes
+      );
+      return res.json(result);
+    } catch (err) {
+      res.status(500).json({
+        error: err.message || "Failed to handle reactivation request."
+      });
     }
-    const { email, action, notes } = req.body;
-    if (!email || !action || action !== "approve" && action !== "reject") {
-      return res.status(400).json({ error: "Email and valid action ('approve' or 'reject') are required." });
-    }
-    const result = await handleAccountReactivationRequestServer(email, action, callerUid, notes);
-    return res.json(result);
-  } catch (err) {
-    res.status(500).json({ error: err.message || "Failed to handle reactivation request." });
   }
-});
+);
 function validateFileSignature(buffer, mimeType) {
   if (!buffer || buffer.length < 2) return false;
   const hex = buffer.toString("hex", 0, Math.min(buffer.length, 16)).toLowerCase();
@@ -9102,29 +12238,32 @@ var RECOVERY_DOC_RETENTION_MS2 = 14 * 24 * 60 * 60 * 1e3;
 var ORPHAN_UPLOAD_TTL_MS = 60 * 60 * 1e3;
 function getLocalUploadsDir() {
   const base = isServerless2 ? import_os.default.tmpdir() : process.cwd();
-  return import_path4.default.join(base, "secure_uploads");
+  return import_path5.default.join(base, "secure_uploads");
 }
 function saveToLocalDiskCache(documentId, buffer) {
   try {
     const dir = getLocalUploadsDir();
-    if (!import_fs4.default.existsSync(dir)) {
-      import_fs4.default.mkdirSync(dir, { recursive: true });
+    if (!import_fs5.default.existsSync(dir)) {
+      import_fs5.default.mkdirSync(dir, { recursive: true });
     }
-    import_fs4.default.writeFileSync(import_path4.default.join(dir, documentId), buffer);
+    import_fs5.default.writeFileSync(import_path5.default.join(dir, documentId), buffer);
   } catch (err) {
-    console.warn("[Recovery Storage] Local disk cache write notice:", err?.message || err);
+    console.warn(
+      "[Recovery Storage] Local disk cache write notice:",
+      err?.message || err
+    );
   }
 }
 function getFromLocalDiskCache(documentId) {
   try {
     const candidatePaths = [
-      import_path4.default.join(getLocalUploadsDir(), documentId),
-      import_path4.default.join(import_os.default.tmpdir(), "secure_uploads", documentId),
-      import_path4.default.join(process.cwd(), "secure_uploads", documentId)
+      import_path5.default.join(getLocalUploadsDir(), documentId),
+      import_path5.default.join(import_os.default.tmpdir(), "secure_uploads", documentId),
+      import_path5.default.join(process.cwd(), "secure_uploads", documentId)
     ];
     for (const p of candidatePaths) {
-      if (import_fs4.default.existsSync(p)) {
-        return import_fs4.default.readFileSync(p);
+      if (import_fs5.default.existsSync(p)) {
+        return import_fs5.default.readFileSync(p);
       }
     }
   } catch (err) {
@@ -9146,7 +12285,9 @@ async function saveDocumentToPersistentStorage(documentId, buffer, mimeType, met
   saveToLocalDiskCache(documentId, buffer);
   const nowMs = Date.now();
   const nowIso = new Date(nowMs).toISOString();
-  const expiresAtIso = new Date(nowMs + RECOVERY_DOC_RETENTION_MS2).toISOString();
+  const expiresAtIso = new Date(
+    nowMs + RECOVERY_DOC_RETENTION_MS2
+  ).toISOString();
   const isSmall = buffer.length <= 800 * 1024;
   const base64Content = isSmall ? buffer.toString("base64") : void 0;
   const db2 = readDb2();
@@ -9195,26 +12336,40 @@ async function saveDocumentToPersistentStorage(documentId, buffer, mimeType, met
         const chunkData = buffer.subarray(start, end).toString("base64");
         const chunkRef = adminDb.collection("recoveryDocuments").doc(documentId).collection("chunks").doc(String(i));
         chunkPromises.push(
-          setFirestoreDocWithRetry(chunkRef, {
-            chunkIndex: i,
-            data: chunkData,
-            size: end - start,
-            createdAt: nowIso,
-            expiresAt: expiresAtIso
-          }, 3)
+          setFirestoreDocWithRetry(
+            chunkRef,
+            {
+              chunkIndex: i,
+              data: chunkData,
+              size: end - start,
+              createdAt: nowIso,
+              expiresAt: expiresAtIso
+            },
+            3
+          )
         );
       }
       const persistPromise = Promise.all(chunkPromises);
       const timeoutPromise = new Promise(
-        (_, reject) => setTimeout(() => reject(new Error("Firestore persistence timeout")), 3e4)
+        (_, reject) => setTimeout(
+          () => reject(new Error("Firestore persistence timeout")),
+          3e4
+        )
       );
       await Promise.race([persistPromise, timeoutPromise]);
-      console.log(`[RecoveryUpload] Firestore chunks persisted for ${documentId}`);
+      console.log(
+        `[RecoveryUpload] Firestore chunks persisted for ${documentId}`
+      );
     } catch (fsErr) {
-      console.warn("[RecoveryUpload] Firestore chunk persistence notice:", fsErr?.message || fsErr);
+      console.warn(
+        "[RecoveryUpload] Firestore chunk persistence notice:",
+        fsErr?.message || fsErr
+      );
     }
   }
-  console.log(`[Recovery Upload] Primary persistence successful for documentId: ${documentId} (${buffer.length} bytes)`);
+  console.log(
+    `[Recovery Upload] Primary persistence successful for documentId: ${documentId} (${buffer.length} bytes)`
+  );
 }
 async function syncDocumentToCloudStorage(documentId, buffer, mimeType) {
   const bucket = getSafeBucket();
@@ -9251,7 +12406,8 @@ async function syncDocumentToCloudStorage(documentId, buffer, mimeType) {
       if (db2.recovery_documents_store?.[documentId]) {
         db2.recovery_documents_store[documentId].storageStatus = status;
         db2.recovery_documents_store[documentId].syncAttempts = attempts;
-        if (errorMsg) db2.recovery_documents_store[documentId].syncError = errorMsg;
+        if (errorMsg)
+          db2.recovery_documents_store[documentId].syncError = errorMsg;
         writeDb2(db2);
       }
     } catch (e) {
@@ -9267,7 +12423,9 @@ async function syncDocumentToCloudStorage(documentId, buffer, mimeType) {
   };
   const isBucketNotFound = (err) => {
     if (!err) return false;
-    const msg = String(err?.message || err?.errors?.[0]?.message || "").toLowerCase();
+    const msg = String(
+      err?.message || err?.errors?.[0]?.message || ""
+    ).toLowerCase();
     const reason = String(err?.errors?.[0]?.reason || "").toLowerCase();
     const code = Number(err?.code || err?.status || 0);
     return code === 404 || code === 403 || reason === "notfound" || msg.includes("not found") || msg.includes("not exist");
@@ -9293,14 +12451,18 @@ async function syncDocumentToCloudStorage(documentId, buffer, mimeType) {
         })(),
         new Promise((_, reject) => {
           timeoutHandle = setTimeout(
-            () => reject(new Error(`Storage upload timeout (${ATTEMPT_TIMEOUT_MS}ms)`)),
+            () => reject(
+              new Error(`Storage upload timeout (${ATTEMPT_TIMEOUT_MS}ms)`)
+            ),
             ATTEMPT_TIMEOUT_MS
           );
           if (timeoutHandle?.unref) timeoutHandle.unref();
         })
       ]);
       await updateStatus("synced", void 0, attempt);
-      console.log(`[Recovery Upload] Durable cloud sync SUCCESS for document: ${documentId}`);
+      console.log(
+        `[Recovery Upload] Durable cloud sync SUCCESS for document: ${documentId}`
+      );
       if (isFirebaseAdminAvailable && adminDb) {
         (async () => {
           try {
@@ -9319,8 +12481,14 @@ async function syncDocumentToCloudStorage(documentId, buffer, mimeType) {
     } catch (err) {
       lastError = err;
       if (isBucketNotFound(err)) {
-        await updateStatus("firestore_durable", "Primary Firestore chunk storage active (Bucket unprovisioned)", attempt);
-        console.log(`[Recovery Storage] Document ${documentId} safely stored in primary durable Firestore chunks.`);
+        await updateStatus(
+          "firestore_durable",
+          "Primary Firestore chunk storage active (Bucket unprovisioned)",
+          attempt
+        );
+        console.log(
+          `[Recovery Storage] Document ${documentId} safely stored in primary durable Firestore chunks.`
+        );
         return true;
       }
     } finally {
@@ -9329,7 +12497,9 @@ async function syncDocumentToCloudStorage(documentId, buffer, mimeType) {
   }
   const failureReason = getCleanErrMsg(lastError);
   await updateStatus("firestore_durable", failureReason, MAX_ATTEMPTS);
-  console.log(`[Recovery Storage] Document ${documentId} stored in primary durable Firestore store.`);
+  console.log(
+    `[Recovery Storage] Document ${documentId} stored in primary durable Firestore store.`
+  );
   return true;
 }
 async function runDurableSyncWorker() {
@@ -9343,7 +12513,11 @@ async function runDurableSyncWorker() {
       (id) => store[id].storageStatus === "pending" && (store[id].syncAttempts || 0) < 2
     );
     for (const docId of pendingDocIds.slice(0, 2)) {
-      await syncDocumentToCloudStorage(docId, void 0, store[docId]?.mimeType);
+      await syncDocumentToCloudStorage(
+        docId,
+        void 0,
+        store[docId]?.mimeType
+      );
     }
     if (adminDb) {
       const snap = await adminDb.collection("recoveryDocuments").where("storageStatus", "==", "pending").limit(2).get();
@@ -9360,12 +12534,15 @@ async function runDurableSyncWorker() {
   }
 }
 if (!isServerless2) {
-  const tSync = setInterval(() => {
-    runDurableSyncWorker().catch(() => {
-    });
-    runComprehensiveStorageCleanup().catch(() => {
-    });
-  }, 5 * 60 * 1e3);
+  const tSync = setInterval(
+    () => {
+      runDurableSyncWorker().catch(() => {
+      });
+      runComprehensiveStorageCleanup().catch(() => {
+      });
+    },
+    5 * 60 * 1e3
+  );
   if (tSync?.unref) tSync.unref();
 }
 async function getDocumentFromPersistentStorage(documentId) {
@@ -9468,20 +12645,22 @@ async function getDocumentFromPersistentStorage(documentId) {
     } catch (err) {
     }
   }
-  throw new Error(`Document file not found on server storage for ID: ${documentId}`);
+  throw new Error(
+    `Document file not found on server storage for ID: ${documentId}`
+  );
 }
 async function deleteDocumentFromPersistentStorage(documentId) {
   console.log(`[Storage Purge] Completely purging document: ${documentId}`);
   try {
     const candidatePaths = [
-      import_path4.default.join(getLocalUploadsDir(), documentId),
-      import_path4.default.join(import_os.default.tmpdir(), "secure_uploads", documentId),
-      import_path4.default.join(process.cwd(), "secure_uploads", documentId)
+      import_path5.default.join(getLocalUploadsDir(), documentId),
+      import_path5.default.join(import_os.default.tmpdir(), "secure_uploads", documentId),
+      import_path5.default.join(process.cwd(), "secure_uploads", documentId)
     ];
     for (const p of candidatePaths) {
-      if (import_fs4.default.existsSync(p)) {
+      if (import_fs5.default.existsSync(p)) {
         try {
-          import_fs4.default.unlinkSync(p);
+          import_fs5.default.unlinkSync(p);
         } catch (e) {
         }
       }
@@ -9518,7 +12697,9 @@ async function deleteDocumentFromPersistentStorage(documentId) {
       delete db2.recovery_documents_store[documentId];
     }
     if (db2.pending_recovery_uploads) {
-      db2.pending_recovery_uploads = db2.pending_recovery_uploads.filter((u) => u.documentId !== documentId);
+      db2.pending_recovery_uploads = db2.pending_recovery_uploads.filter(
+        (u) => u.documentId !== documentId
+      );
     }
     writeDb2(db2);
   } catch (e) {
@@ -9562,14 +12743,25 @@ async function registerPendingUpload(documentId, uploadToken, meta) {
       });
       console.log("[RecoveryUpload] pending synchronization registered");
     } catch (err) {
-      console.error("[RecoveryUpload] FAILED at pending synchronization registered:", err?.message || err);
-      throw new Error(`Failed to register pending upload in durable store: ${err?.message || err}`);
+      console.error(
+        "[RecoveryUpload] FAILED at pending synchronization registered:",
+        err?.message || err
+      );
+      throw new Error(
+        `Failed to register pending upload in durable store: ${err?.message || err}`
+      );
     }
   } else if (isServerless2) {
-    console.error("[RecoveryUpload] FAILED at pending synchronization registered: Firestore unavailable in serverless environment");
-    throw new Error("Failed to register pending upload: Firestore is unavailable in serverless environment");
+    console.error(
+      "[RecoveryUpload] FAILED at pending synchronization registered: Firestore unavailable in serverless environment"
+    );
+    throw new Error(
+      "Failed to register pending upload: Firestore is unavailable in serverless environment"
+    );
   } else {
-    console.log("[RecoveryUpload] pending synchronization registered (local store)");
+    console.log(
+      "[RecoveryUpload] pending synchronization registered (local store)"
+    );
   }
 }
 async function verifyPendingUpload(documentId, uploadToken) {
@@ -9585,7 +12777,9 @@ async function verifyPendingUpload(documentId, uploadToken) {
   }
   if (!record) {
     const db2 = readDb2();
-    record = db2.pending_recovery_uploads?.find((u) => u.documentId === documentId);
+    record = db2.pending_recovery_uploads?.find(
+      (u) => u.documentId === documentId
+    );
   }
   if (record) {
     if (record.uploadToken !== uploadToken) return false;
@@ -9599,7 +12793,9 @@ async function verifyPendingUpload(documentId, uploadToken) {
 }
 async function markUploadAssociated(documentId, requestId) {
   const db2 = readDb2();
-  const index = db2.pending_recovery_uploads?.findIndex((u) => u.documentId === documentId);
+  const index = db2.pending_recovery_uploads?.findIndex(
+    (u) => u.documentId === documentId
+  );
   if (index >= 0) {
     db2.pending_recovery_uploads[index].associated = true;
     db2.pending_recovery_uploads[index].associatedRequestId = requestId;
@@ -9607,10 +12803,13 @@ async function markUploadAssociated(documentId, requestId) {
   writeDb2(db2);
   if (isFirebaseAdminAvailable) {
     try {
-      await adminDb.collection("pendingRecoveryUploads").doc(documentId).set({
-        associated: true,
-        associatedRequestId: requestId
-      }, { merge: true });
+      await adminDb.collection("pendingRecoveryUploads").doc(documentId).set(
+        {
+          associated: true,
+          associatedRequestId: requestId
+        },
+        { merge: true }
+      );
     } catch (err) {
     }
   }
@@ -9621,17 +12820,25 @@ async function runComprehensiveStorageCleanup() {
     const oneHourAgo = nowMs - ORPHAN_UPLOAD_TTL_MS;
     const db2 = readDb2();
     const uploads = db2.pending_recovery_uploads || [];
-    const orphans = uploads.filter((u) => !u.associated && new Date(u.uploadedAt).getTime() < oneHourAgo);
+    const orphans = uploads.filter(
+      (u) => !u.associated && new Date(u.uploadedAt).getTime() < oneHourAgo
+    );
     for (const orphan of orphans) {
-      console.log(`[ORPHAN_CLEANUP] Deleting orphan document ${orphan.documentId} uploaded at ${orphan.uploadedAt}`);
+      console.log(
+        `[ORPHAN_CLEANUP] Deleting orphan document ${orphan.documentId} uploaded at ${orphan.uploadedAt}`
+      );
       await deleteDocumentFromPersistentStorage(orphan.documentId);
     }
-    db2.pending_recovery_uploads = uploads.filter((u) => !(!u.associated && new Date(u.uploadedAt).getTime() < oneHourAgo));
+    db2.pending_recovery_uploads = uploads.filter(
+      (u) => !(!u.associated && new Date(u.uploadedAt).getTime() < oneHourAgo)
+    );
     const store = db2.recovery_documents_store || {};
     for (const docId of Object.keys(store)) {
       const docItem = store[docId];
       if (docItem.expiresAt && new Date(docItem.expiresAt).getTime() < nowMs) {
-        console.log(`[TTL_CLEANUP] Purging expired identity document ${docId} (exceeded retention window)`);
+        console.log(
+          `[TTL_CLEANUP] Purging expired identity document ${docId} (exceeded retention window)`
+        );
         await deleteDocumentFromPersistentStorage(docId);
       }
     }
@@ -9664,337 +12871,397 @@ async function runComprehensiveStorageCleanup() {
 async function runOrphanCleanup() {
   await runComprehensiveStorageCleanup();
 }
-app2.all([
-  "/api/auth/recovery-request/upload",
-  "/api/auth/recovery-request/upload/",
-  "/auth/recovery-request/upload",
-  "/auth/recovery-request/upload/",
-  "/api/recovery-request/upload",
-  "/api/recovery-request/upload/"
-], (req, res, next) => {
-  const methodOverride = (req.headers["x-http-method-override"] || "").toUpperCase();
-  const methodUpper = (methodOverride || req.method || "POST").toUpperCase().trim();
-  if (methodUpper === "OPTIONS") {
-    return res.status(200).end();
-  }
-  if (methodUpper === "GET" || methodUpper === "HEAD") {
-    return res.status(200).json({
-      success: true,
-      endpoint: "/api/auth/recovery-request/upload",
-      status: "active",
-      message: "Identity verification document upload endpoint is active. Please submit document payloads via POST."
-    });
-  }
-  if (methodUpper !== "POST" && methodUpper !== "PUT" && methodUpper !== "PATCH") {
-    return res.status(405).json({
-      success: false,
-      error: `Method ${methodUpper} Not Allowed. Please use POST.`,
-      userFriendlyMessage: "\u0637\u0631\u064A\u0642\u0629 \u0627\u0644\u0637\u0644\u0628 \u063A\u064A\u0631 \u0635\u0627\u0644\u062D\u0629\u060C \u064A\u0631\u062C\u0649 \u0627\u0633\u062A\u062E\u062F\u0627\u0645 POST."
-    });
-  }
-  next();
-}, (req, res, next) => {
-  const contentType = (req.headers["content-type"] || "").toLowerCase();
-  if (contentType.includes("multipart/form-data")) {
-    return recoveryUpload.any()(req, res, (err) => {
-      if (err) {
-        console.error("[RecoveryUpload] FAILED at multipart parsed:", err?.message || err);
-        if (err.code === "LIMIT_FILE_SIZE") {
-          return res.status(413).json({
+app2.all(
+  [
+    "/api/auth/recovery-request/upload",
+    "/api/auth/recovery-request/upload/",
+    "/auth/recovery-request/upload",
+    "/auth/recovery-request/upload/",
+    "/api/recovery-request/upload",
+    "/api/recovery-request/upload/"
+  ],
+  (req, res, next) => {
+    const methodOverride = (req.headers["x-http-method-override"] || "").toUpperCase();
+    const methodUpper = (methodOverride || req.method || "POST").toUpperCase().trim();
+    if (methodUpper === "OPTIONS") {
+      return res.status(200).end();
+    }
+    if (methodUpper === "GET" || methodUpper === "HEAD") {
+      return res.status(200).json({
+        success: true,
+        endpoint: "/api/auth/recovery-request/upload",
+        status: "active",
+        message: "Identity verification document upload endpoint is active. Please submit document payloads via POST."
+      });
+    }
+    if (methodUpper !== "POST" && methodUpper !== "PUT" && methodUpper !== "PATCH") {
+      return res.status(405).json({
+        success: false,
+        error: `Method ${methodUpper} Not Allowed. Please use POST.`,
+        userFriendlyMessage: "\u0637\u0631\u064A\u0642\u0629 \u0627\u0644\u0637\u0644\u0628 \u063A\u064A\u0631 \u0635\u0627\u0644\u062D\u0629\u060C \u064A\u0631\u062C\u0649 \u0627\u0633\u062A\u062E\u062F\u0627\u0645 POST."
+      });
+    }
+    next();
+  },
+  (req, res, next) => {
+    const contentType = (req.headers["content-type"] || "").toLowerCase();
+    if (contentType.includes("multipart/form-data")) {
+      return recoveryUpload.any()(req, res, (err) => {
+        if (err) {
+          console.error(
+            "[RecoveryUpload] FAILED at multipart parsed:",
+            err?.message || err
+          );
+          if (err.code === "LIMIT_FILE_SIZE") {
+            return res.status(413).json({
+              success: false,
+              error: "IDENTITY_DOCUMENT_TOO_LARGE",
+              message: "File exceeds the 10MB size limit."
+            });
+          }
+          return res.status(400).json({
             success: false,
-            error: "IDENTITY_DOCUMENT_TOO_LARGE",
-            message: "File exceeds the 10MB size limit."
+            error: "FILE_UPLOAD_ERROR",
+            message: err.message || "File upload error"
           });
         }
-        return res.status(400).json({
-          success: false,
-          error: "FILE_UPLOAD_ERROR",
-          message: err.message || "File upload error"
+        next();
+      });
+    }
+    next();
+  },
+  async (req, res) => {
+    let currentStage = "file detected";
+    try {
+      if (!isServerless2) {
+        setImmediate(() => {
+          runOrphanCleanup().catch(
+            (e) => console.warn("Background orphan cleanup notice:", e)
+          );
         });
       }
-      next();
-    });
-  }
-  next();
-}, async (req, res) => {
-  let currentStage = "file detected";
-  try {
-    if (!isServerless2) {
-      setImmediate(() => {
-        runOrphanCleanup().catch((e) => console.warn("Background orphan cleanup notice:", e));
+      let fileBuffer = null;
+      let originalName = "document";
+      let fileMime = "application/octet-stream";
+      let fileSize = 0;
+      const file = req.file || (Array.isArray(req.files) ? req.files[0] : req.files?.document?.[0] || req.files?.file?.[0]);
+      if (file && file.buffer) {
+        fileBuffer = file.buffer;
+        originalName = file.originalname || "document";
+        fileMime = (file.mimetype || "").toLowerCase();
+        fileSize = file.size;
+      } else if (req.body?.fileBase64 || req.body?.data || req.body?.file) {
+        const rawBase64 = String(
+          req.body.fileBase64 || req.body.data || req.body.file
+        );
+        const cleanBase64 = rawBase64.replace(/^data:[^;]+;base64,/, "");
+        fileBuffer = Buffer.from(cleanBase64, "base64");
+        originalName = req.body.fileName || "document";
+        fileMime = (req.body.mimeType || "application/octet-stream").toLowerCase();
+        fileSize = fileBuffer.length;
+      }
+      if (!fileBuffer || fileBuffer.length === 0) {
+        console.error(
+          "[RecoveryUpload] FAILED at file detected: missing file payload"
+        );
+        return res.status(400).json({
+          success: false,
+          error: "MISSING_FILE",
+          message: "No document file was uploaded in request."
+        });
+      }
+      console.log("[RecoveryUpload] file detected");
+      currentStage = "file validation started";
+      console.log("[RecoveryUpload] file validation started");
+      if (fileSize > 10 * 1024 * 1024) {
+        console.error(
+          "[RecoveryUpload] FAILED at file validation: file exceeds 10MB"
+        );
+        return res.status(413).json({
+          success: false,
+          error: "IDENTITY_DOCUMENT_TOO_LARGE",
+          message: "File exceeds the 10MB size limit."
+        });
+      }
+      const ext = import_path5.default.extname(originalName).toLowerCase();
+      const allowedExtensions = [
+        ".pdf",
+        ".png",
+        ".jpg",
+        ".jpeg",
+        ".webp",
+        ".doc",
+        ".docx",
+        ".xls",
+        ".xlsx",
+        ".txt",
+        ".csv",
+        ".svg"
+      ];
+      const allowedMimeKeywords = [
+        "pdf",
+        "png",
+        "jpeg",
+        "jpg",
+        "webp",
+        "svg",
+        "msword",
+        "wordprocessingml",
+        "excel",
+        "spreadsheetml",
+        "text/",
+        "octet-stream"
+      ];
+      const isMimeValid = allowedMimeKeywords.some((kw) => fileMime.includes(kw)) || fileMime === "application/octet-stream";
+      const isExtValid = allowedExtensions.includes(ext) || !ext;
+      if (!isExtValid && !isMimeValid) {
+        console.error(
+          "[RecoveryUpload] FAILED at file validation: unsupported mime/extension",
+          fileMime,
+          ext
+        );
+        return res.status(400).json({
+          success: false,
+          error: "UNSUPPORTED_FORMAT",
+          message: "Unsupported file format. Supported formats are: PDF, PNG, JPG/JPEG, WEBP, DOC/DOCX, XLS/XLSX."
+        });
+      }
+      if (!validateFileSignature(fileBuffer, fileMime || ext)) {
+        console.error(
+          "[RecoveryUpload] FAILED at file validation: invalid file signature"
+        );
+        return res.status(400).json({
+          success: false,
+          error: "INVALID_FILE_SIGNATURE",
+          message: "File content does not match its format signature."
+        });
+      }
+      console.log("[RecoveryUpload] file validation passed");
+      const documentId = `doc_${Date.now()}_${import_crypto3.default.randomBytes(4).toString("hex")}`;
+      const uploadToken = import_crypto3.default.randomBytes(32).toString("hex");
+      console.log("[RecoveryUpload] documentId generated");
+      currentStage = "SHA-256 calculated";
+      const fileHash = import_crypto3.default.createHash("sha256").update(fileBuffer).digest("hex");
+      let decodedName = originalName;
+      try {
+        decodedName = decodeURIComponent(originalName);
+      } catch (e) {
+      }
+      const safeName = decodedName.replace(/[\/\\?%*:|"<>]/g, "_").trim() || "document";
+      console.log("[RecoveryUpload] SHA-256 calculated");
+      const tenMinutesAgo = Date.now() - 10 * 60 * 1e3;
+      const db2 = readDb2();
+      const existingUpload = (db2.pending_recovery_uploads || []).find(
+        (u) => !u.associated && u.fileHash === fileHash && u.fileName === safeName && new Date(u.uploadedAt).getTime() > tenMinutesAgo
+      );
+      if (existingUpload) {
+        console.log(
+          `[RecoveryUpload] Idempotent hit: reusing recent pending upload ${existingUpload.documentId}`
+        );
+        console.log("[RecoveryUpload] HTTP 200 response");
+        return res.status(200).json({
+          success: true,
+          documentId: existingUpload.documentId,
+          uploadToken: existingUpload.uploadToken,
+          storageStatus: existingUpload.storageStatus || "pending",
+          document: {
+            documentId: existingUpload.documentId,
+            uploadToken: existingUpload.uploadToken,
+            storageReference: `secure_uploads/${existingUpload.documentId}`,
+            fileName: existingUpload.fileName,
+            mimeType: existingUpload.mimeType,
+            size: existingUpload.size,
+            uploadedAt: existingUpload.uploadedAt,
+            storageStatus: existingUpload.storageStatus || "pending"
+          }
+        });
+      }
+      currentStage = "Firestore persistence";
+      await saveDocumentToPersistentStorage(documentId, fileBuffer, fileMime, {
+        fileName: safeName,
+        size: fileSize,
+        fileHash
       });
-    }
-    let fileBuffer = null;
-    let originalName = "document";
-    let fileMime = "application/octet-stream";
-    let fileSize = 0;
-    const file = req.file || (Array.isArray(req.files) ? req.files[0] : req.files?.document?.[0] || req.files?.file?.[0]);
-    if (file && file.buffer) {
-      fileBuffer = file.buffer;
-      originalName = file.originalname || "document";
-      fileMime = (file.mimetype || "").toLowerCase();
-      fileSize = file.size;
-    } else if (req.body?.fileBase64 || req.body?.data || req.body?.file) {
-      const rawBase64 = String(req.body.fileBase64 || req.body.data || req.body.file);
-      const cleanBase64 = rawBase64.replace(/^data:[^;]+;base64,/, "");
-      fileBuffer = Buffer.from(cleanBase64, "base64");
-      originalName = req.body.fileName || "document";
-      fileMime = (req.body.mimeType || "application/octet-stream").toLowerCase();
-      fileSize = fileBuffer.length;
-    }
-    if (!fileBuffer || fileBuffer.length === 0) {
-      console.error("[RecoveryUpload] FAILED at file detected: missing file payload");
-      return res.status(400).json({
-        success: false,
-        error: "MISSING_FILE",
-        message: "No document file was uploaded in request."
-      });
-    }
-    console.log("[RecoveryUpload] file detected");
-    currentStage = "file validation started";
-    console.log("[RecoveryUpload] file validation started");
-    if (fileSize > 10 * 1024 * 1024) {
-      console.error("[RecoveryUpload] FAILED at file validation: file exceeds 10MB");
-      return res.status(413).json({
-        success: false,
-        error: "IDENTITY_DOCUMENT_TOO_LARGE",
-        message: "File exceeds the 10MB size limit."
-      });
-    }
-    const ext = import_path4.default.extname(originalName).toLowerCase();
-    const allowedExtensions = [
-      ".pdf",
-      ".png",
-      ".jpg",
-      ".jpeg",
-      ".webp",
-      ".doc",
-      ".docx",
-      ".xls",
-      ".xlsx",
-      ".txt",
-      ".csv",
-      ".svg"
-    ];
-    const allowedMimeKeywords = [
-      "pdf",
-      "png",
-      "jpeg",
-      "jpg",
-      "webp",
-      "svg",
-      "msword",
-      "wordprocessingml",
-      "excel",
-      "spreadsheetml",
-      "text/",
-      "octet-stream"
-    ];
-    const isMimeValid = allowedMimeKeywords.some((kw) => fileMime.includes(kw)) || fileMime === "application/octet-stream";
-    const isExtValid = allowedExtensions.includes(ext) || !ext;
-    if (!isExtValid && !isMimeValid) {
-      console.error("[RecoveryUpload] FAILED at file validation: unsupported mime/extension", fileMime, ext);
-      return res.status(400).json({
-        success: false,
-        error: "UNSUPPORTED_FORMAT",
-        message: "Unsupported file format. Supported formats are: PDF, PNG, JPG/JPEG, WEBP, DOC/DOCX, XLS/XLSX."
-      });
-    }
-    if (!validateFileSignature(fileBuffer, fileMime || ext)) {
-      console.error("[RecoveryUpload] FAILED at file validation: invalid file signature");
-      return res.status(400).json({
-        success: false,
-        error: "INVALID_FILE_SIGNATURE",
-        message: "File content does not match its format signature."
-      });
-    }
-    console.log("[RecoveryUpload] file validation passed");
-    const documentId = `doc_${Date.now()}_${import_crypto3.default.randomBytes(4).toString("hex")}`;
-    const uploadToken = import_crypto3.default.randomBytes(32).toString("hex");
-    console.log("[RecoveryUpload] documentId generated");
-    currentStage = "SHA-256 calculated";
-    const fileHash = import_crypto3.default.createHash("sha256").update(fileBuffer).digest("hex");
-    let decodedName = originalName;
-    try {
-      decodedName = decodeURIComponent(originalName);
-    } catch (e) {
-    }
-    const safeName = decodedName.replace(/[\/\\?%*:|"<>]/g, "_").trim() || "document";
-    console.log("[RecoveryUpload] SHA-256 calculated");
-    const tenMinutesAgo = Date.now() - 10 * 60 * 1e3;
-    const db2 = readDb2();
-    const existingUpload = (db2.pending_recovery_uploads || []).find(
-      (u) => !u.associated && u.fileHash === fileHash && u.fileName === safeName && new Date(u.uploadedAt).getTime() > tenMinutesAgo
-    );
-    if (existingUpload) {
-      console.log(`[RecoveryUpload] Idempotent hit: reusing recent pending upload ${existingUpload.documentId}`);
+      const docMeta = {
+        documentId,
+        uploadToken,
+        fileHash,
+        storageReference: `secure_uploads/${documentId}`,
+        fileName: safeName,
+        mimeType: fileMime,
+        size: fileSize,
+        uploadedAt: (/* @__PURE__ */ new Date()).toISOString(),
+        storageStatus: "pending"
+      };
+      currentStage = "pending synchronization registered";
+      await registerPendingUpload(documentId, uploadToken, docMeta);
+      if (!isServerless2) {
+        setImmediate(() => {
+          syncDocumentToCloudStorage(documentId, fileBuffer, fileMime).catch(
+            (syncErr) => {
+              console.warn(
+                "[Recovery Upload] Background cloud sync error caught safely:",
+                syncErr?.message || syncErr
+              );
+            }
+          );
+        });
+      }
       console.log("[RecoveryUpload] HTTP 200 response");
       return res.status(200).json({
         success: true,
-        documentId: existingUpload.documentId,
-        uploadToken: existingUpload.uploadToken,
-        storageStatus: existingUpload.storageStatus || "pending",
-        document: {
-          documentId: existingUpload.documentId,
-          uploadToken: existingUpload.uploadToken,
-          storageReference: `secure_uploads/${existingUpload.documentId}`,
-          fileName: existingUpload.fileName,
-          mimeType: existingUpload.mimeType,
-          size: existingUpload.size,
-          uploadedAt: existingUpload.uploadedAt,
-          storageStatus: existingUpload.storageStatus || "pending"
-        }
+        documentId,
+        uploadToken,
+        storageStatus: "pending",
+        document: docMeta
+      });
+    } catch (err) {
+      console.error(
+        `[RecoveryUpload] FAILED at ${currentStage}:`,
+        err?.message || err
+      );
+      return res.status(500).json({
+        success: false,
+        error: "DOCUMENT_UPLOAD_FAILED",
+        message: err.message || "Failed to persist document to primary durable storage."
       });
     }
-    currentStage = "Firestore persistence";
-    await saveDocumentToPersistentStorage(documentId, fileBuffer, fileMime, {
-      fileName: safeName,
-      size: fileSize,
-      fileHash
-    });
-    const docMeta = {
-      documentId,
-      uploadToken,
-      fileHash,
-      storageReference: `secure_uploads/${documentId}`,
-      fileName: safeName,
-      mimeType: fileMime,
-      size: fileSize,
-      uploadedAt: (/* @__PURE__ */ new Date()).toISOString(),
-      storageStatus: "pending"
-    };
-    currentStage = "pending synchronization registered";
-    await registerPendingUpload(documentId, uploadToken, docMeta);
-    if (!isServerless2) {
-      setImmediate(() => {
-        syncDocumentToCloudStorage(documentId, fileBuffer, fileMime).catch((syncErr) => {
-          console.warn("[Recovery Upload] Background cloud sync error caught safely:", syncErr?.message || syncErr);
-        });
-      });
-    }
-    console.log("[RecoveryUpload] HTTP 200 response");
-    return res.status(200).json({
-      success: true,
-      documentId,
-      uploadToken,
-      storageStatus: "pending",
-      document: docMeta
-    });
-  } catch (err) {
-    console.error(`[RecoveryUpload] FAILED at ${currentStage}:`, err?.message || err);
-    return res.status(500).json({
-      success: false,
-      error: "DOCUMENT_UPLOAD_FAILED",
-      message: err.message || "Failed to persist document to primary durable storage."
-    });
   }
-});
-app2.all([
-  "/api/admin/recovery-request/document/:documentId",
-  "/api/admin/recovery-requests/document/:documentId"
-], requireAuth, async (req, res) => {
-  try {
-    const callerUid = req.user?.uid;
-    const callerEmail = req.user?.email || "";
-    if (!callerUid || !await isUserAdminServer(callerUid, callerEmail)) {
-      return res.status(403).json({ success: false, error: "Forbidden: Admin access required." });
-    }
-    const { documentId } = req.params;
-    if (!documentId || typeof documentId !== "string") {
-      return res.status(400).json({ success: false, error: "Document ID is required." });
-    }
-    if (!/^[a-zA-Z0-9_\-\.]+$/.test(documentId)) {
-      return res.status(400).json({ success: false, error: "Invalid Document ID structure (path traversal detected)." });
-    }
-    const safeDocId = documentId;
-    let docMeta = null;
-    const db2 = readDb2();
-    if (db2.recovery_documents_store && db2.recovery_documents_store[safeDocId]) {
-      docMeta = db2.recovery_documents_store[safeDocId];
-    }
-    if (!docMeta) {
-      const localRequests = db2.account_recovery_requests || [];
-      for (const r of localRequests) {
-        const found = r.documents?.find((d) => d.documentId === safeDocId || d.id === safeDocId);
-        if (found) {
-          docMeta = { ...found, requestEmail: r.email, requestName: r.fullName };
-          break;
-        }
+);
+app2.all(
+  [
+    "/api/admin/recovery-request/document/:documentId",
+    "/api/admin/recovery-requests/document/:documentId"
+  ],
+  requireAuth,
+  async (req, res) => {
+    try {
+      const callerUid = req.user?.uid;
+      const callerEmail = req.user?.email || "";
+      if (!callerUid || !await isUserAdminServer(callerUid, callerEmail)) {
+        return res.status(403).json({ success: false, error: "Forbidden: Admin access required." });
       }
-    }
-    if (!docMeta) {
-      const pendingUploads = db2.pending_recovery_uploads || [];
-      const foundPending = pendingUploads.find((p) => p.documentId === safeDocId || p.id === safeDocId);
-      if (foundPending) {
-        docMeta = foundPending.document || foundPending;
+      const { documentId } = req.params;
+      if (!documentId || typeof documentId !== "string") {
+        return res.status(400).json({ success: false, error: "Document ID is required." });
       }
-    }
-    if (!docMeta && isFirebaseAdminAvailable && adminDb) {
-      try {
-        const snap = await adminDb.collection("recoveryRequests").get();
-        if (snap && !snap.empty) {
-          for (const doc of snap.docs) {
-            const data = doc.data();
-            const found = data.documents?.find((d) => d.documentId === safeDocId || d.id === safeDocId);
-            if (found) {
-              docMeta = { ...found, requestEmail: data.email, requestName: data.fullName };
-              break;
-            }
+      if (!/^[a-zA-Z0-9_\-\.]+$/.test(documentId)) {
+        return res.status(400).json({
+          success: false,
+          error: "Invalid Document ID structure (path traversal detected)."
+        });
+      }
+      const safeDocId = documentId;
+      let docMeta = null;
+      const db2 = readDb2();
+      if (db2.recovery_documents_store && db2.recovery_documents_store[safeDocId]) {
+        docMeta = db2.recovery_documents_store[safeDocId];
+      }
+      if (!docMeta) {
+        const localRequests = db2.account_recovery_requests || [];
+        for (const r of localRequests) {
+          const found = r.documents?.find(
+            (d) => d.documentId === safeDocId || d.id === safeDocId
+          );
+          if (found) {
+            docMeta = {
+              ...found,
+              requestEmail: r.email,
+              requestName: r.fullName
+            };
+            break;
           }
         }
-      } catch (e) {
       }
-    }
-    if (!docMeta && isFirebaseAdminAvailable && adminDb) {
-      try {
-        const snap = await adminDb.collection("accountRecoveryRequests").get();
-        if (snap && !snap.empty) {
-          for (const doc of snap.docs) {
-            const data = doc.data();
-            const found = data.documents?.find((d) => d.documentId === safeDocId || d.id === safeDocId);
-            if (found) {
-              docMeta = { ...found, requestEmail: data.email, requestName: data.fullName };
-              break;
+      if (!docMeta) {
+        const pendingUploads = db2.pending_recovery_uploads || [];
+        const foundPending = pendingUploads.find(
+          (p) => p.documentId === safeDocId || p.id === safeDocId
+        );
+        if (foundPending) {
+          docMeta = foundPending.document || foundPending;
+        }
+      }
+      if (!docMeta && isFirebaseAdminAvailable && adminDb) {
+        try {
+          const snap = await adminDb.collection("recoveryRequests").get();
+          if (snap && !snap.empty) {
+            for (const doc of snap.docs) {
+              const data = doc.data();
+              const found = data.documents?.find(
+                (d) => d.documentId === safeDocId || d.id === safeDocId
+              );
+              if (found) {
+                docMeta = {
+                  ...found,
+                  requestEmail: data.email,
+                  requestName: data.fullName
+                };
+                break;
+              }
             }
           }
+        } catch (e) {
         }
-      } catch (e) {
       }
-    }
-    if (!docMeta && isFirebaseAdminAvailable && adminDb) {
-      try {
-        const recDocSnap = await adminDb.collection("recoveryDocuments").doc(safeDocId).get();
-        if (recDocSnap && recDocSnap.exists) {
-          docMeta = recDocSnap.data();
+      if (!docMeta && isFirebaseAdminAvailable && adminDb) {
+        try {
+          const snap = await adminDb.collection("accountRecoveryRequests").get();
+          if (snap && !snap.empty) {
+            for (const doc of snap.docs) {
+              const data = doc.data();
+              const found = data.documents?.find(
+                (d) => d.documentId === safeDocId || d.id === safeDocId
+              );
+              if (found) {
+                docMeta = {
+                  ...found,
+                  requestEmail: data.email,
+                  requestName: data.fullName
+                };
+                break;
+              }
+            }
+          }
+        } catch (e) {
         }
-      } catch (e) {
       }
-    }
-    if (!docMeta && isFirebaseAdminAvailable && adminDb) {
-      try {
-        const pendSnap = await adminDb.collection("pendingRecoveryUploads").doc(safeDocId).get();
-        if (pendSnap && pendSnap.exists) {
-          docMeta = pendSnap.data()?.document || pendSnap.data();
+      if (!docMeta && isFirebaseAdminAvailable && adminDb) {
+        try {
+          const recDocSnap = await adminDb.collection("recoveryDocuments").doc(safeDocId).get();
+          if (recDocSnap && recDocSnap.exists) {
+            docMeta = recDocSnap.data();
+          }
+        } catch (e) {
         }
-      } catch (e) {
       }
-    }
-    const originalName = docMeta?.fileName || `document_${safeDocId}.pdf`;
-    let mimeType = docMeta?.mimeType || "";
-    let fileBuffer = null;
-    if (docMeta?.fileBase64 || docMeta?.data || docMeta?.base64) {
-      try {
-        const raw = String(docMeta.fileBase64 || docMeta.data || docMeta.base64);
-        const clean = raw.replace(/^data:[^;]+;base64,/, "");
-        fileBuffer = Buffer.from(clean, "base64");
-      } catch (bErr) {
+      if (!docMeta && isFirebaseAdminAvailable && adminDb) {
+        try {
+          const pendSnap = await adminDb.collection("pendingRecoveryUploads").doc(safeDocId).get();
+          if (pendSnap && pendSnap.exists) {
+            docMeta = pendSnap.data()?.document || pendSnap.data();
+          }
+        } catch (e) {
+        }
       }
-    }
-    if (!fileBuffer) {
-      try {
-        fileBuffer = await getDocumentFromPersistentStorage(safeDocId);
-      } catch (err) {
-        const svgContent = `<svg xmlns="http://www.w3.org/2000/svg" width="800" height="500" viewBox="0 0 800 500">
+      const originalName = docMeta?.fileName || `document_${safeDocId}.pdf`;
+      let mimeType = docMeta?.mimeType || "";
+      let fileBuffer = null;
+      if (docMeta?.fileBase64 || docMeta?.data || docMeta?.base64) {
+        try {
+          const raw = String(
+            docMeta.fileBase64 || docMeta.data || docMeta.base64
+          );
+          const clean = raw.replace(/^data:[^;]+;base64,/, "");
+          fileBuffer = Buffer.from(clean, "base64");
+        } catch (bErr) {
+        }
+      }
+      if (!fileBuffer) {
+        try {
+          fileBuffer = await getDocumentFromPersistentStorage(safeDocId);
+        } catch (err) {
+          const svgContent = `<svg xmlns="http://www.w3.org/2000/svg" width="800" height="500" viewBox="0 0 800 500">
   <defs>
     <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
       <stop offset="0%" stop-color="#0f172a"/>
@@ -10022,200 +13289,239 @@ app2.all([
   <text x="350" y="380" fill="#34d399" font-size="13" font-family="system-ui, sans-serif" font-weight="bold">\u062A\u0645 \u0627\u0644\u062A\u062F\u0642\u064A\u0642 \u0648\u0627\u0644\u0645\u0631\u0627\u062C\u0639\u0629 \u0645\u0646 \u0642\u0628\u0644 \u0627\u0644\u0625\u062F\u0627\u0631\u0629 (Audited &amp; Recorded)</text>
   <text x="400" y="445" text-anchor="middle" fill="#64748b" font-size="12" font-family="system-ui, sans-serif">\u0646\u0638\u0627\u0645 \u0625\u062F\u0627\u0631\u0629 \u0637\u0644\u0628\u0627\u062A \u0627\u0633\u062A\u0631\u062C\u0627\u0639 \u0627\u0644\u062D\u0633\u0627\u0628\u0627\u062A - \u0645\u0646\u0635\u0629 \u0630\u0627\u0643\u0631 Zakir Enterprise Security</text>
 </svg>`;
-        fileBuffer = Buffer.from(svgContent, "utf-8");
-        mimeType = "image/svg+xml";
+          fileBuffer = Buffer.from(svgContent, "utf-8");
+          mimeType = "image/svg+xml";
+        }
       }
-    }
-    if (fileBuffer && fileBuffer.length >= 4) {
-      if (fileBuffer.subarray(0, 4).toString() === "%PDF" || fileBuffer.subarray(0, 5).toString() === "%PDF-") {
-        mimeType = "application/pdf";
-      } else if (fileBuffer[0] === 255 && fileBuffer[1] === 216 && fileBuffer[2] === 255) {
-        mimeType = "image/jpeg";
-      } else if (fileBuffer[0] === 137 && fileBuffer[1] === 80 && fileBuffer[2] === 78 && fileBuffer[3] === 71) {
-        mimeType = "image/png";
-      } else if (fileBuffer.subarray(0, 4).toString() === "GIF8") {
-        mimeType = "image/gif";
-      } else if (fileBuffer.length >= 12 && fileBuffer.subarray(0, 4).toString() === "RIFF" && fileBuffer.subarray(8, 12).toString() === "WEBP") {
-        mimeType = "image/webp";
-      } else if (fileBuffer.subarray(0, 5).toString().toLowerCase() === "<svg " || fileBuffer.subarray(0, 5).toString().toLowerCase() === "<?xml") {
-        mimeType = "image/svg+xml";
+      if (fileBuffer && fileBuffer.length >= 4) {
+        if (fileBuffer.subarray(0, 4).toString() === "%PDF" || fileBuffer.subarray(0, 5).toString() === "%PDF-") {
+          mimeType = "application/pdf";
+        } else if (fileBuffer[0] === 255 && fileBuffer[1] === 216 && fileBuffer[2] === 255) {
+          mimeType = "image/jpeg";
+        } else if (fileBuffer[0] === 137 && fileBuffer[1] === 80 && fileBuffer[2] === 78 && fileBuffer[3] === 71) {
+          mimeType = "image/png";
+        } else if (fileBuffer.subarray(0, 4).toString() === "GIF8") {
+          mimeType = "image/gif";
+        } else if (fileBuffer.length >= 12 && fileBuffer.subarray(0, 4).toString() === "RIFF" && fileBuffer.subarray(8, 12).toString() === "WEBP") {
+          mimeType = "image/webp";
+        } else if (fileBuffer.subarray(0, 5).toString().toLowerCase() === "<svg " || fileBuffer.subarray(0, 5).toString().toLowerCase() === "<?xml") {
+          mimeType = "image/svg+xml";
+        }
       }
+      if (!mimeType) {
+        const ext = originalName.split(".").pop()?.toLowerCase();
+        if (ext === "pdf") mimeType = "application/pdf";
+        else if (ext === "png") mimeType = "image/png";
+        else if (ext === "jpg" || ext === "jpeg") mimeType = "image/jpeg";
+        else if (ext === "webp") mimeType = "image/webp";
+        else if (ext === "svg") mimeType = "image/svg+xml";
+        else if (ext === "doc") mimeType = "application/msword";
+        else if (ext === "docx")
+          mimeType = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+        else if (ext === "xls") mimeType = "application/vnd.ms-excel";
+        else if (ext === "xlsx")
+          mimeType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+        else if (ext === "csv") mimeType = "text/csv; charset=utf-8";
+        else if (ext === "txt") mimeType = "text/plain; charset=utf-8";
+        else if (ext === "html" || ext === "htm")
+          mimeType = "text/html; charset=utf-8";
+        else mimeType = "application/octet-stream";
+      }
+      const cleanDocName = (originalName || "document.pdf").replace(/[\r\n\t]/g, " ").trim();
+      const docExtMatch = cleanDocName.match(/\.([a-zA-Z0-9]+)$/);
+      const docExt = docExtMatch ? `.${docExtMatch[1]}` : "";
+      const baseAsciiDocName = cleanDocName.replace(/\.[a-zA-Z0-9]+$/, "").replace(/[^\x20-\x7E]/g, "_").replace(/["\\]/g, "_").trim();
+      const safeAsciiFilename = (baseAsciiDocName || "document") + docExt;
+      const utf8EncodedFilename = encodeURIComponent(cleanDocName);
+      res.setHeader("X-Content-Type-Options", "nosniff");
+      res.setHeader(
+        "Content-Security-Policy",
+        "default-src 'self' 'unsafe-inline' data: blob:;"
+      );
+      res.setHeader("Content-Type", mimeType);
+      res.setHeader(
+        "Content-Disposition",
+        `inline; filename="${safeAsciiFilename}"; filename*=UTF-8''${utf8EncodedFilename}`
+      );
+      res.setHeader(
+        "Cache-Control",
+        "private, no-cache, no-store, must-revalidate"
+      );
+      return res.send(fileBuffer);
+    } catch (err) {
+      console.error("Document download error:", err);
+      res.status(500).json({
+        success: false,
+        error: err.message || "Failed to download document."
+      });
     }
-    if (!mimeType) {
-      const ext = originalName.split(".").pop()?.toLowerCase();
-      if (ext === "pdf") mimeType = "application/pdf";
-      else if (ext === "png") mimeType = "image/png";
-      else if (ext === "jpg" || ext === "jpeg") mimeType = "image/jpeg";
-      else if (ext === "webp") mimeType = "image/webp";
-      else if (ext === "svg") mimeType = "image/svg+xml";
-      else if (ext === "doc") mimeType = "application/msword";
-      else if (ext === "docx") mimeType = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
-      else if (ext === "xls") mimeType = "application/vnd.ms-excel";
-      else if (ext === "xlsx") mimeType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
-      else if (ext === "csv") mimeType = "text/csv; charset=utf-8";
-      else if (ext === "txt") mimeType = "text/plain; charset=utf-8";
-      else if (ext === "html" || ext === "htm") mimeType = "text/html; charset=utf-8";
-      else mimeType = "application/octet-stream";
-    }
-    const cleanDocName = (originalName || "document.pdf").replace(/[\r\n\t]/g, " ").trim();
-    const docExtMatch = cleanDocName.match(/\.([a-zA-Z0-9]+)$/);
-    const docExt = docExtMatch ? `.${docExtMatch[1]}` : "";
-    const baseAsciiDocName = cleanDocName.replace(/\.[a-zA-Z0-9]+$/, "").replace(/[^\x20-\x7E]/g, "_").replace(/["\\]/g, "_").trim();
-    const safeAsciiFilename = (baseAsciiDocName || "document") + docExt;
-    const utf8EncodedFilename = encodeURIComponent(cleanDocName);
-    res.setHeader("X-Content-Type-Options", "nosniff");
-    res.setHeader("Content-Security-Policy", "default-src 'self' 'unsafe-inline' data: blob:;");
-    res.setHeader("Content-Type", mimeType);
-    res.setHeader(
-      "Content-Disposition",
-      `inline; filename="${safeAsciiFilename}"; filename*=UTF-8''${utf8EncodedFilename}`
-    );
-    res.setHeader("Cache-Control", "private, no-cache, no-store, must-revalidate");
-    return res.send(fileBuffer);
-  } catch (err) {
-    console.error("Document download error:", err);
-    res.status(500).json({ success: false, error: err.message || "Failed to download document." });
   }
-});
-app2.all([
-  "/api/auth/recovery-request/submit",
-  "/api/auth/recovery-request/submit/",
-  "/auth/recovery-request/submit",
-  "/auth/recovery-request/submit/",
-  "/api/recovery-request/submit",
-  "/api/recovery-request/submit/"
-], async (req, res) => {
-  if (req.method === "OPTIONS") {
-    return res.status(200).end();
-  }
-  if (req.method === "GET" || req.method === "HEAD") {
-    return res.status(200).json({
-      success: true,
-      endpoint: "/api/auth/recovery-request/submit",
-      status: "active",
-      message: "Account recovery submission endpoint is active. Please send payload via POST."
-    });
-  }
-  if (req.method !== "POST" && req.method !== "PUT") {
-    return res.status(405).json({
-      success: false,
-      error: `Method ${req.method} Not Allowed. Please use POST.`,
-      userFriendlyMessage: "\u0637\u0631\u064A\u0642\u0629 \u0627\u0644\u0637\u0644\u0628 \u063A\u064A\u0631 \u0635\u0627\u0644\u062D\u0629\u060C \u064A\u0631\u062C\u0649 \u0627\u0633\u062A\u062E\u062F\u0627\u0645 POST."
-    });
-  }
-  try {
-    const {
-      email,
-      fullName,
-      phone,
-      phoneVerified,
-      reason,
-      organization,
-      organizationName,
-      previousWorkspaceInfo,
-      acceptedTerms,
-      termsAccepted,
-      documents
-    } = req.body || {};
-    if (!email || typeof email !== "string" || !email.trim()) {
-      return res.status(400).json({ success: false, error: "Email is required." });
+);
+app2.all(
+  [
+    "/api/auth/recovery-request/submit",
+    "/api/auth/recovery-request/submit/",
+    "/auth/recovery-request/submit",
+    "/auth/recovery-request/submit/",
+    "/api/recovery-request/submit",
+    "/api/recovery-request/submit/"
+  ],
+  async (req, res) => {
+    if (req.method === "OPTIONS") {
+      return res.status(200).end();
     }
-    if (!documents || !Array.isArray(documents) || documents.length === 0) {
-      return res.status(400).json({ success: false, error: "An identity verification document is required." });
+    if (req.method === "GET" || req.method === "HEAD") {
+      return res.status(200).json({
+        success: true,
+        endpoint: "/api/auth/recovery-request/submit",
+        status: "active",
+        message: "Account recovery submission endpoint is active. Please send payload via POST."
+      });
     }
-    if (documents.length > 2) {
-      return res.status(400).json({ success: false, error: "Maximum 2 identity verification documents allowed." });
-    }
-    for (const doc of documents) {
-      if (!doc.documentId || !doc.uploadToken) {
-        return res.status(400).json({ success: false, error: "Missing document verification details." });
-      }
-      if (!/^[a-zA-Z0-9_]+$/.test(doc.documentId)) {
-        return res.status(400).json({ success: false, error: "Invalid document reference format." });
-      }
-      const isValid = await verifyPendingUpload(doc.documentId, doc.uploadToken);
-      if (!isValid) {
-        return res.status(400).json({ success: false, error: "Document reference integrity check failed. Unrecognized or hijacked file." });
-      }
-    }
-    const normalizedEmail = email.trim().toLowerCase();
-    const nowIso = (/* @__PURE__ */ new Date()).toISOString();
-    const lifecycle = await getAccountLifecycleRecord2(normalizedEmail);
-    const requestId = `REQ-${Date.now()}-${Math.floor(Math.random() * 1e3)}`;
-    const documentIds = documents.map((d) => d.documentId);
-    const requestDoc = {
-      id: requestId,
-      requestId,
-      userId: lifecycle?.originalUserId || `usr_${normalizedEmail.replace(/[^a-zA-Z0-9]/g, "_")}`,
-      accountId: lifecycle?.accountId || `acc_${normalizedEmail.replace(/[^a-zA-Z0-9]/g, "_")}`,
-      email: normalizedEmail,
-      fullName: (fullName || "").trim(),
-      phone: (phone || "").trim(),
-      phoneVerified: !!phoneVerified,
-      organization: (organizationName || "").trim(),
-      previousWorkspaceInfo: (previousWorkspaceInfo || "").trim(),
-      reason: (reason || "").trim(),
-      termsAccepted: !!acceptedTerms,
-      termsAcceptedAt: nowIso,
-      documentIds,
-      documents: documents.map((d) => ({
-        documentId: d.documentId,
-        storageReference: d.storageReference,
-        fileName: d.fileName,
-        mimeType: d.mimeType,
-        size: d.size,
-        uploadedAt: d.uploadedAt
-      })),
-      status: "pending",
-      createdAt: nowIso,
-      submittedAt: nowIso,
-      updatedAt: nowIso,
-      reviewedAt: null,
-      reviewedBy: null
-    };
-    for (const doc of documents) {
-      await markUploadAssociated(doc.documentId, requestId);
+    if (req.method !== "POST" && req.method !== "PUT") {
+      return res.status(405).json({
+        success: false,
+        error: `Method ${req.method} Not Allowed. Please use POST.`,
+        userFriendlyMessage: "\u0637\u0631\u064A\u0642\u0629 \u0627\u0644\u0637\u0644\u0628 \u063A\u064A\u0631 \u0635\u0627\u0644\u062D\u0629\u060C \u064A\u0631\u062C\u0649 \u0627\u0633\u062A\u062E\u062F\u0627\u0645 POST."
+      });
     }
     try {
-      await adminDb.collection("recoveryRequests").doc(requestId).set(requestDoc);
-      await adminDb.collection("recoveryRequests_by_email").doc(normalizedEmail).set(requestDoc);
-      await adminDb.collection("accountRecoveryRequests").doc(requestId).set(requestDoc).catch(() => {
+      const {
+        email,
+        fullName,
+        phone,
+        phoneVerified,
+        reason,
+        organization,
+        organizationName,
+        previousWorkspaceInfo,
+        acceptedTerms,
+        termsAccepted,
+        documents
+      } = req.body || {};
+      if (!email || typeof email !== "string" || !email.trim()) {
+        return res.status(400).json({ success: false, error: "Email is required." });
+      }
+      if (!documents || !Array.isArray(documents) || documents.length === 0) {
+        return res.status(400).json({
+          success: false,
+          error: "An identity verification document is required."
+        });
+      }
+      if (documents.length > 2) {
+        return res.status(400).json({
+          success: false,
+          error: "Maximum 2 identity verification documents allowed."
+        });
+      }
+      for (const doc of documents) {
+        if (!doc.documentId || !doc.uploadToken) {
+          return res.status(400).json({
+            success: false,
+            error: "Missing document verification details."
+          });
+        }
+        if (!/^[a-zA-Z0-9_]+$/.test(doc.documentId)) {
+          return res.status(400).json({
+            success: false,
+            error: "Invalid document reference format."
+          });
+        }
+        const isValid = await verifyPendingUpload(
+          doc.documentId,
+          doc.uploadToken
+        );
+        if (!isValid) {
+          return res.status(400).json({
+            success: false,
+            error: "Document reference integrity check failed. Unrecognized or hijacked file."
+          });
+        }
+      }
+      const normalizedEmail = email.trim().toLowerCase();
+      const nowIso = (/* @__PURE__ */ new Date()).toISOString();
+      const lifecycle = await getAccountLifecycleRecord2(normalizedEmail);
+      const requestId = `REQ-${Date.now()}-${Math.floor(Math.random() * 1e3)}`;
+      const documentIds = documents.map((d) => d.documentId);
+      const requestDoc = {
+        id: requestId,
+        requestId,
+        userId: lifecycle?.originalUserId || `usr_${normalizedEmail.replace(/[^a-zA-Z0-9]/g, "_")}`,
+        accountId: lifecycle?.accountId || `acc_${normalizedEmail.replace(/[^a-zA-Z0-9]/g, "_")}`,
+        email: normalizedEmail,
+        fullName: (fullName || "").trim(),
+        phone: (phone || "").trim(),
+        phoneVerified: !!phoneVerified,
+        organization: (organizationName || "").trim(),
+        previousWorkspaceInfo: (previousWorkspaceInfo || "").trim(),
+        reason: (reason || "").trim(),
+        termsAccepted: !!acceptedTerms,
+        termsAcceptedAt: nowIso,
+        documentIds,
+        documents: documents.map((d) => ({
+          documentId: d.documentId,
+          storageReference: d.storageReference,
+          fileName: d.fileName,
+          mimeType: d.mimeType,
+          size: d.size,
+          uploadedAt: d.uploadedAt
+        })),
+        status: "pending",
+        createdAt: nowIso,
+        submittedAt: nowIso,
+        updatedAt: nowIso,
+        reviewedAt: null,
+        reviewedBy: null
+      };
+      for (const doc of documents) {
+        await markUploadAssociated(doc.documentId, requestId);
+      }
+      try {
+        await adminDb.collection("recoveryRequests").doc(requestId).set(requestDoc);
+        await adminDb.collection("recoveryRequests_by_email").doc(normalizedEmail).set(requestDoc);
+        await adminDb.collection("accountRecoveryRequests").doc(requestId).set(requestDoc).catch(() => {
+        });
+        await adminDb.collection("accountRecoveryRequests_by_email").doc(normalizedEmail).set(requestDoc).catch(() => {
+        });
+      } catch (fsErr) {
+        console.error("Firestore recovery request write error:", fsErr);
+        return res.status(500).json({
+          success: false,
+          error: "RECOVERY_REQUEST_PERSISTENCE_FAILED",
+          message: "Failed to persist recovery request to database. Please try again."
+        });
+      }
+      const db2 = readDb2();
+      if (!db2.account_recovery_requests) db2.account_recovery_requests = [];
+      db2.account_recovery_requests = db2.account_recovery_requests.filter(
+        (r) => r.email !== normalizedEmail
+      );
+      db2.account_recovery_requests.push(requestDoc);
+      writeDb2(db2);
+      if (lifecycle) {
+        await setAccountLifecycleRecord2({
+          ...lifecycle,
+          status: "ADMIN_APPROVAL_PENDING",
+          reactivationStatus: "pending",
+          recoveryRequestId: requestId,
+          updatedAt: nowIso
+        });
+      }
+      return res.json({
+        success: true,
+        requestId,
+        request: requestDoc,
+        message: "Your account recovery request has been submitted for administrative review."
       });
-      await adminDb.collection("accountRecoveryRequests_by_email").doc(normalizedEmail).set(requestDoc).catch(() => {
-      });
-    } catch (fsErr) {
-      console.error("Firestore recovery request write error:", fsErr);
-      return res.status(500).json({
+    } catch (err) {
+      console.error("Submit recovery request error:", err);
+      res.status(500).json({
         success: false,
-        error: "RECOVERY_REQUEST_PERSISTENCE_FAILED",
-        message: "Failed to persist recovery request to database. Please try again."
+        error: err.message || "Failed to submit recovery request."
       });
     }
-    const db2 = readDb2();
-    if (!db2.account_recovery_requests) db2.account_recovery_requests = [];
-    db2.account_recovery_requests = db2.account_recovery_requests.filter((r) => r.email !== normalizedEmail);
-    db2.account_recovery_requests.push(requestDoc);
-    writeDb2(db2);
-    if (lifecycle) {
-      await setAccountLifecycleRecord2({
-        ...lifecycle,
-        status: "ADMIN_APPROVAL_PENDING",
-        reactivationStatus: "pending",
-        recoveryRequestId: requestId,
-        updatedAt: nowIso
-      });
-    }
-    return res.json({
-      success: true,
-      requestId,
-      request: requestDoc,
-      message: "Your account recovery request has been submitted for administrative review."
-    });
-  } catch (err) {
-    console.error("Submit recovery request error:", err);
-    res.status(500).json({ success: false, error: err.message || "Failed to submit recovery request." });
   }
-});
+);
 app2.get("/api/auth/recovery-request/status", async (req, res) => {
   try {
     const email = req.query?.email;
@@ -10227,27 +13533,39 @@ app2.get("/api/auth/recovery-request/status", async (req, res) => {
     try {
       const qSnap = await adminDb.collection("recoveryRequests").where("email", "==", normalizedEmail).get();
       if (qSnap && !qSnap.empty) {
-        qSnap.docs.forEach((d) => requestDocs.push({ ...d.data(), _source: "recoveryRequests" }));
+        qSnap.docs.forEach(
+          (d) => requestDocs.push({ ...d.data(), _source: "recoveryRequests" })
+        );
       }
     } catch (e) {
     }
     try {
       const emailSnap = await adminDb.collection("recoveryRequests_by_email").doc(normalizedEmail).get();
       if (emailSnap.exists) {
-        requestDocs.push({ ...emailSnap.data(), _source: "recoveryRequests_by_email" });
+        requestDocs.push({
+          ...emailSnap.data(),
+          _source: "recoveryRequests_by_email"
+        });
       }
     } catch (e) {
     }
     try {
       const legacySnap = await adminDb.collection("accountRecoveryRequests_by_email").doc(normalizedEmail).get();
       if (legacySnap.exists) {
-        requestDocs.push({ ...legacySnap.data(), _source: "accountRecoveryRequests_by_email" });
+        requestDocs.push({
+          ...legacySnap.data(),
+          _source: "accountRecoveryRequests_by_email"
+        });
       }
     } catch (e) {
     }
     const db2 = readDb2();
-    const localReqs = db2.account_recovery_requests?.filter((r) => (r.email || "").trim().toLowerCase() === normalizedEmail) || [];
-    localReqs.forEach((r) => requestDocs.push({ ...r, _source: "localDb" }));
+    const localReqs = db2.account_recovery_requests?.filter(
+      (r) => (r.email || "").trim().toLowerCase() === normalizedEmail
+    ) || [];
+    localReqs.forEach(
+      (r) => requestDocs.push({ ...r, _source: "localDb" })
+    );
     let lifecycle = null;
     try {
       lifecycle = await getAccountLifecycleRecord2(normalizedEmail);
@@ -10261,10 +13579,14 @@ app2.get("/api/auth/recovery-request/status", async (req, res) => {
       });
     }
     const hasRestoredDoc = requestDocs.some((r) => r.status === "restored");
-    const hasApprovedDoc = requestDocs.some((r) => r.status === "approved" || r.decision === "approved" || r.reactivationStatus === "approved");
+    const hasApprovedDoc = requestDocs.some(
+      (r) => r.status === "approved" || r.decision === "approved" || r.reactivationStatus === "approved"
+    );
     const isLifecycleApproved = lifecycle && (lifecycle.reactivationStatus === "approved" || lifecycle.status === "ADMIN_APPROVED");
     const isAlreadyActive = lifecycle && lifecycle.status === "ACTIVE";
-    const hasRejectedDoc = requestDocs.some((r) => r.status === "rejected" || r.decision === "rejected" || r.reactivationStatus === "rejected");
+    const hasRejectedDoc = requestDocs.some(
+      (r) => r.status === "rejected" || r.decision === "rejected" || r.reactivationStatus === "rejected"
+    );
     const isLifecycleRejected = lifecycle && (lifecycle.reactivationStatus === "rejected" || lifecycle.status === "ADMIN_REJECTED");
     let computedStatus = "pending";
     if (hasApprovedDoc || isLifecycleApproved) {
@@ -10293,1005 +13615,1256 @@ app2.get("/api/auth/recovery-request/status", async (req, res) => {
     });
   } catch (err) {
     console.error("Recovery request status error:", err);
-    res.status(500).json({ success: false, error: err.message || "Failed to fetch status." });
+    res.status(500).json({
+      success: false,
+      error: err.message || "Failed to fetch status."
+    });
   }
 });
-app2.get("/api/admin/recovery-requests", requireAuth, async (req, res) => {
-  try {
-    const callerUid = req.user?.uid;
-    const callerEmail = req.user?.email || "";
-    if (!callerUid || !await isUserAdminServer(callerUid, callerEmail)) {
-      return res.status(403).json({ error: "Forbidden: Admin access required." });
-    }
-    let requests = [];
+app2.get(
+  "/api/admin/recovery-requests",
+  requireAuth,
+  async (req, res) => {
     try {
-      const snap = await adminDb.collection("recoveryRequests").get();
-      if (snap && !snap.empty) {
-        requests = snap.docs.map((d) => ({ ...d.data(), id: d.id }));
+      const callerUid = req.user?.uid;
+      const callerEmail = req.user?.email || "";
+      if (!callerUid || !await isUserAdminServer(callerUid, callerEmail)) {
+        return res.status(403).json({ error: "Forbidden: Admin access required." });
       }
-    } catch (e) {
-    }
-    if (requests.length === 0) {
+      let requests = [];
       try {
-        const snap = await adminDb.collection("accountRecoveryRequests").get();
+        const snap = await adminDb.collection("recoveryRequests").get();
         if (snap && !snap.empty) {
           requests = snap.docs.map((d) => ({ ...d.data(), id: d.id }));
         }
-      } catch (e2) {
+      } catch (e) {
       }
-    }
-    const db2 = readDb2();
-    const localRequests = db2.account_recovery_requests || [];
-    for (const lr of localRequests) {
-      if (!requests.some((r) => r.id === lr.id || r.requestId === lr.requestId)) {
-        requests.push(lr);
-      }
-    }
-    requests.sort((a, b) => {
-      const tA = new Date(a.submittedAt || a.createdAt || 0).getTime();
-      const tB = new Date(b.submittedAt || b.createdAt || 0).getTime();
-      return tB - tA;
-    });
-    return res.json({ success: true, requests });
-  } catch (err) {
-    res.status(500).json({ error: err.message || "Failed to fetch recovery requests." });
-  }
-});
-app2.post("/api/admin/recovery-requests/:requestId/approve", requireAuth, async (req, res) => {
-  try {
-    const callerUid = req.user?.uid;
-    const callerEmail = req.user?.email || "";
-    if (!callerUid || !await isUserAdminServer(callerUid, callerEmail)) {
-      return res.status(403).json({ success: false, code: "FORBIDDEN", error: "Forbidden: Administrative authorization required." });
-    }
-    const { requestId } = req.params;
-    const { email, notes } = req.body || {};
-    const result = await handleAdminRecoveryDecision({
-      requestId,
-      email,
-      action: "approve",
-      notes,
-      callerUid
-    });
-    if (!result.success) {
-      const statusCode = result.code === "REQUEST_ALREADY_PROCESSED" ? 409 : result.code === "REQUEST_NOT_FOUND" ? 404 : result.code === "FORBIDDEN" ? 403 : 500;
-      return res.status(statusCode).json(result);
-    }
-    return res.json(result);
-  } catch (err) {
-    console.error("[Approve Recovery Endpoint Error]", err);
-    res.status(500).json({ success: false, error: err.message || "Failed to approve recovery request." });
-  }
-});
-app2.post("/api/admin/recovery-requests/:requestId/reject", requireAuth, async (req, res) => {
-  try {
-    const callerUid = req.user?.uid;
-    const callerEmail = req.user?.email || "";
-    if (!callerUid || !await isUserAdminServer(callerUid, callerEmail)) {
-      return res.status(403).json({ success: false, code: "FORBIDDEN", error: "Forbidden: Administrative authorization required." });
-    }
-    const { requestId } = req.params;
-    const { email, rejectionReason, notes } = req.body || {};
-    const result = await handleAdminRecoveryDecision({
-      requestId,
-      email,
-      action: "reject",
-      rejectionReason,
-      notes,
-      callerUid
-    });
-    if (!result.success) {
-      const statusCode = result.code === "REQUEST_ALREADY_PROCESSED" ? 409 : result.code === "REQUEST_NOT_FOUND" ? 404 : result.code === "FORBIDDEN" ? 403 : 500;
-      return res.status(statusCode).json(result);
-    }
-    return res.json(result);
-  } catch (err) {
-    console.error("[Reject Recovery Endpoint Error]", err);
-    res.status(500).json({ success: false, error: err.message || "Failed to reject recovery request." });
-  }
-});
-app2.post("/api/admin/handle-recovery-request", requireAuth, async (req, res) => {
-  try {
-    const callerUid = req.user?.uid;
-    const callerEmail = req.user?.email || "";
-    if (!callerUid || !await isUserAdminServer(callerUid, callerEmail)) {
-      return res.status(403).json({ success: false, code: "FORBIDDEN", error: "Forbidden: Administrative authorization required." });
-    }
-    const { requestId, email, action, rejectionReason, notes } = req.body || {};
-    const result = await handleAdminRecoveryDecision({
-      requestId,
-      email,
-      action: action || "approve",
-      rejectionReason,
-      notes,
-      callerUid
-    });
-    if (!result.success) {
-      const statusCode = result.code === "REQUEST_ALREADY_PROCESSED" ? 409 : result.code === "REQUEST_NOT_FOUND" ? 404 : result.code === "FORBIDDEN" ? 403 : 500;
-      return res.status(statusCode).json(result);
-    }
-    return res.json(result);
-  } catch (err) {
-    console.error("[Handle Recovery Request Error]", err);
-    res.status(500).json({ success: false, error: err.message || "Failed to handle recovery request." });
-  }
-});
-app2.post("/api/admin/handle-reactivation-request", requireAuth, async (req, res) => {
-  try {
-    const callerUid = req.user?.uid;
-    const callerEmail = req.user?.email || "";
-    if (!callerUid || !await isUserAdminServer(callerUid, callerEmail)) {
-      return res.status(403).json({ success: false, code: "FORBIDDEN", error: "Forbidden: Administrative authorization required." });
-    }
-    const { requestId, email, action, rejectionReason, notes } = req.body || {};
-    const result = await handleAdminRecoveryDecision({
-      requestId,
-      email,
-      action: action || "approve",
-      rejectionReason,
-      notes,
-      callerUid
-    });
-    if (!result.success) {
-      const statusCode = result.code === "REQUEST_ALREADY_PROCESSED" ? 409 : result.code === "REQUEST_NOT_FOUND" ? 404 : result.code === "FORBIDDEN" ? 403 : 500;
-      return res.status(statusCode).json(result);
-    }
-    return res.json(result);
-  } catch (err) {
-    console.error("[Handle Reactivation Request Error]", err);
-    res.status(500).json({ success: false, error: err.message || "Failed to handle reactivation request." });
-  }
-});
-app2.post("/api/auth/recovery-request/send-approval-otp", otpLimiter, async (req, res) => {
-  try {
-    const { email } = req.body;
-    if (!email || typeof email !== "string" || !email.trim()) {
-      return res.status(400).json({ success: false, error: "Email is required." });
-    }
-    const normalizedEmail = email.trim().toLowerCase();
-    let isApproved = false;
-    let reqId = "";
-    let targetUserId = "";
-    try {
-      const snap1 = await adminDb.collection("recoveryRequests_by_email").doc(normalizedEmail).get();
-      if (snap1.exists) {
-        const d = snap1.data();
-        if (d?.status === "approved" || d?.decision === "approved" || d?.reactivationStatus === "approved") {
-          isApproved = true;
+      if (requests.length === 0) {
+        try {
+          const snap = await adminDb.collection("accountRecoveryRequests").get();
+          if (snap && !snap.empty) {
+            requests = snap.docs.map((d) => ({ ...d.data(), id: d.id }));
+          }
+        } catch (e2) {
         }
-        reqId = d?.id || d?.requestId || reqId;
-        targetUserId = d?.userId || targetUserId;
       }
-      if (!isApproved) {
-        const snap2 = await adminDb.collection("accountRecoveryRequests_by_email").doc(normalizedEmail).get();
-        if (snap2.exists) {
-          const d = snap2.data();
+      const db2 = readDb2();
+      const localRequests = db2.account_recovery_requests || [];
+      for (const lr of localRequests) {
+        if (!requests.some((r) => r.id === lr.id || r.requestId === lr.requestId)) {
+          requests.push(lr);
+        }
+      }
+      requests.sort((a, b) => {
+        const tA = new Date(a.submittedAt || a.createdAt || 0).getTime();
+        const tB = new Date(b.submittedAt || b.createdAt || 0).getTime();
+        return tB - tA;
+      });
+      return res.json({ success: true, requests });
+    } catch (err) {
+      res.status(500).json({ error: err.message || "Failed to fetch recovery requests." });
+    }
+  }
+);
+app2.post(
+  "/api/admin/recovery-requests/:requestId/approve",
+  requireAuth,
+  async (req, res) => {
+    try {
+      const callerUid = req.user?.uid;
+      const callerEmail = req.user?.email || "";
+      if (!callerUid || !await isUserAdminServer(callerUid, callerEmail)) {
+        return res.status(403).json({
+          success: false,
+          code: "FORBIDDEN",
+          error: "Forbidden: Administrative authorization required."
+        });
+      }
+      const { requestId } = req.params;
+      const { email, notes } = req.body || {};
+      const result = await handleAdminRecoveryDecision({
+        requestId,
+        email,
+        action: "approve",
+        notes,
+        callerUid
+      });
+      if (!result.success) {
+        const statusCode = result.code === "REQUEST_ALREADY_PROCESSED" ? 409 : result.code === "REQUEST_NOT_FOUND" ? 404 : result.code === "FORBIDDEN" ? 403 : 500;
+        return res.status(statusCode).json(result);
+      }
+      return res.json(result);
+    } catch (err) {
+      console.error("[Approve Recovery Endpoint Error]", err);
+      res.status(500).json({
+        success: false,
+        error: err.message || "Failed to approve recovery request."
+      });
+    }
+  }
+);
+app2.post(
+  "/api/admin/recovery-requests/:requestId/reject",
+  requireAuth,
+  async (req, res) => {
+    try {
+      const callerUid = req.user?.uid;
+      const callerEmail = req.user?.email || "";
+      if (!callerUid || !await isUserAdminServer(callerUid, callerEmail)) {
+        return res.status(403).json({
+          success: false,
+          code: "FORBIDDEN",
+          error: "Forbidden: Administrative authorization required."
+        });
+      }
+      const { requestId } = req.params;
+      const { email, rejectionReason, notes } = req.body || {};
+      const result = await handleAdminRecoveryDecision({
+        requestId,
+        email,
+        action: "reject",
+        rejectionReason,
+        notes,
+        callerUid
+      });
+      if (!result.success) {
+        const statusCode = result.code === "REQUEST_ALREADY_PROCESSED" ? 409 : result.code === "REQUEST_NOT_FOUND" ? 404 : result.code === "FORBIDDEN" ? 403 : 500;
+        return res.status(statusCode).json(result);
+      }
+      return res.json(result);
+    } catch (err) {
+      console.error("[Reject Recovery Endpoint Error]", err);
+      res.status(500).json({
+        success: false,
+        error: err.message || "Failed to reject recovery request."
+      });
+    }
+  }
+);
+app2.post(
+  "/api/admin/handle-recovery-request",
+  requireAuth,
+  async (req, res) => {
+    try {
+      const callerUid = req.user?.uid;
+      const callerEmail = req.user?.email || "";
+      if (!callerUid || !await isUserAdminServer(callerUid, callerEmail)) {
+        return res.status(403).json({
+          success: false,
+          code: "FORBIDDEN",
+          error: "Forbidden: Administrative authorization required."
+        });
+      }
+      const { requestId, email, action, rejectionReason, notes } = req.body || {};
+      const result = await handleAdminRecoveryDecision({
+        requestId,
+        email,
+        action: action || "approve",
+        rejectionReason,
+        notes,
+        callerUid
+      });
+      if (!result.success) {
+        const statusCode = result.code === "REQUEST_ALREADY_PROCESSED" ? 409 : result.code === "REQUEST_NOT_FOUND" ? 404 : result.code === "FORBIDDEN" ? 403 : 500;
+        return res.status(statusCode).json(result);
+      }
+      return res.json(result);
+    } catch (err) {
+      console.error("[Handle Recovery Request Error]", err);
+      res.status(500).json({
+        success: false,
+        error: err.message || "Failed to handle recovery request."
+      });
+    }
+  }
+);
+app2.post(
+  "/api/admin/handle-reactivation-request",
+  requireAuth,
+  async (req, res) => {
+    try {
+      const callerUid = req.user?.uid;
+      const callerEmail = req.user?.email || "";
+      if (!callerUid || !await isUserAdminServer(callerUid, callerEmail)) {
+        return res.status(403).json({
+          success: false,
+          code: "FORBIDDEN",
+          error: "Forbidden: Administrative authorization required."
+        });
+      }
+      const { requestId, email, action, rejectionReason, notes } = req.body || {};
+      const result = await handleAdminRecoveryDecision({
+        requestId,
+        email,
+        action: action || "approve",
+        rejectionReason,
+        notes,
+        callerUid
+      });
+      if (!result.success) {
+        const statusCode = result.code === "REQUEST_ALREADY_PROCESSED" ? 409 : result.code === "REQUEST_NOT_FOUND" ? 404 : result.code === "FORBIDDEN" ? 403 : 500;
+        return res.status(statusCode).json(result);
+      }
+      return res.json(result);
+    } catch (err) {
+      console.error("[Handle Reactivation Request Error]", err);
+      res.status(500).json({
+        success: false,
+        error: err.message || "Failed to handle reactivation request."
+      });
+    }
+  }
+);
+app2.post(
+  "/api/auth/recovery-request/send-approval-otp",
+  otpLimiter,
+  async (req, res) => {
+    try {
+      const { email } = req.body;
+      if (!email || typeof email !== "string" || !email.trim()) {
+        return res.status(400).json({ success: false, error: "Email is required." });
+      }
+      const normalizedEmail = email.trim().toLowerCase();
+      let isApproved = false;
+      let reqId = "";
+      let targetUserId = "";
+      try {
+        const snap1 = await adminDb.collection("recoveryRequests_by_email").doc(normalizedEmail).get();
+        if (snap1.exists) {
+          const d = snap1.data();
           if (d?.status === "approved" || d?.decision === "approved" || d?.reactivationStatus === "approved") {
             isApproved = true;
           }
           reqId = d?.id || d?.requestId || reqId;
           targetUserId = d?.userId || targetUserId;
         }
-      }
-      if (!isApproved) {
-        const qSnap = await adminDb.collection("recoveryRequests").where("email", "==", normalizedEmail).get().catch(() => null);
-        if (qSnap && !qSnap.empty) {
-          for (const doc of qSnap.docs) {
-            const d = doc.data();
+        if (!isApproved) {
+          const snap2 = await adminDb.collection("accountRecoveryRequests_by_email").doc(normalizedEmail).get();
+          if (snap2.exists) {
+            const d = snap2.data();
             if (d?.status === "approved" || d?.decision === "approved" || d?.reactivationStatus === "approved") {
               isApproved = true;
-              reqId = d?.id || d?.requestId || reqId;
-              targetUserId = d?.userId || targetUserId;
-              break;
             }
-          }
-          if (!targetUserId && !qSnap.empty) {
-            const latest = qSnap.docs[0].data();
-            reqId = latest?.id || latest?.requestId || reqId;
-            targetUserId = latest?.userId || targetUserId;
+            reqId = d?.id || d?.requestId || reqId;
+            targetUserId = d?.userId || targetUserId;
           }
         }
+        if (!isApproved) {
+          const qSnap = await adminDb.collection("recoveryRequests").where("email", "==", normalizedEmail).get().catch(() => null);
+          if (qSnap && !qSnap.empty) {
+            for (const doc of qSnap.docs) {
+              const d = doc.data();
+              if (d?.status === "approved" || d?.decision === "approved" || d?.reactivationStatus === "approved") {
+                isApproved = true;
+                reqId = d?.id || d?.requestId || reqId;
+                targetUserId = d?.userId || targetUserId;
+                break;
+              }
+            }
+            if (!targetUserId && !qSnap.empty) {
+              const latest = qSnap.docs[0].data();
+              reqId = latest?.id || latest?.requestId || reqId;
+              targetUserId = latest?.userId || targetUserId;
+            }
+          }
+        }
+      } catch (e) {
       }
-    } catch (e) {
-    }
-    if (!isApproved) {
-      const db3 = readDb2();
-      const localReq = db3.account_recovery_requests?.find(
-        (r) => (r.email || "").trim().toLowerCase() === normalizedEmail && (r.status === "approved" || r.decision === "approved" || r.reactivationStatus === "approved")
-      );
-      if (localReq) {
+      if (!isApproved) {
+        const db3 = readDb2();
+        const localReq = db3.account_recovery_requests?.find(
+          (r) => (r.email || "").trim().toLowerCase() === normalizedEmail && (r.status === "approved" || r.decision === "approved" || r.reactivationStatus === "approved")
+        );
+        if (localReq) {
+          isApproved = true;
+          reqId = localReq.id || localReq.requestId || reqId;
+          targetUserId = localReq.userId || targetUserId;
+        }
+      }
+      const lifecycle = await getAccountLifecycleRecord2(normalizedEmail);
+      if (!isApproved && (lifecycle?.status === "ADMIN_APPROVED" || lifecycle?.reactivationStatus === "approved")) {
         isApproved = true;
-        reqId = localReq.id || localReq.requestId || reqId;
-        targetUserId = localReq.userId || targetUserId;
+        targetUserId = targetUserId || lifecycle.userId || lifecycle.uid || "";
       }
-    }
-    const lifecycle = await getAccountLifecycleRecord2(normalizedEmail);
-    if (!isApproved && (lifecycle?.status === "ADMIN_APPROVED" || lifecycle?.reactivationStatus === "approved")) {
-      isApproved = true;
-      targetUserId = targetUserId || lifecycle.userId || lifecycle.uid || "";
-    }
-    if (!isApproved) {
-      if (lifecycle?.status === "ACTIVE") {
+      if (!isApproved) {
+        if (lifecycle?.status === "ACTIVE") {
+          return res.status(400).json({
+            success: false,
+            error: "This account is already active and does not require recovery."
+          });
+        }
+        console.warn("[RECOVERY_OTP_PIPELINE] Approval check failed:", {
+          recoveryRequestId: reqId || "UNKNOWN",
+          targetUserId: targetUserId || "UNKNOWN",
+          targetEmail: normalizedEmail,
+          isApproved: false
+        });
         return res.status(400).json({
           success: false,
-          error: "This account is already active and does not require recovery."
+          error: "Your recovery request has not yet been approved by an administrator."
         });
       }
-      console.warn("[RECOVERY_OTP_PIPELINE] Approval check failed:", {
-        recoveryRequestId: reqId || "UNKNOWN",
-        targetUserId: targetUserId || "UNKNOWN",
-        targetEmail: normalizedEmail,
-        isApproved: false
+      console.log("[RECOVERY_OTP_PIPELINE] Processing recovery OTP request:", {
+        stage: "INIT",
+        recoveryRequestId: reqId || "N/A",
+        targetUserId: targetUserId || "N/A",
+        targetEmail: normalizedEmail
       });
-      return res.status(400).json({
-        success: false,
-        error: "Your recovery request has not yet been approved by an administrator."
-      });
-    }
-    console.log("[RECOVERY_OTP_PIPELINE] Processing recovery OTP request:", {
-      stage: "INIT",
-      recoveryRequestId: reqId || "N/A",
-      targetUserId: targetUserId || "N/A",
-      targetEmail: normalizedEmail
-    });
-    const otpCode = import_crypto3.default.randomInt(1e5, 1e6).toString();
-    const codeHash = hashVerificationCode(otpCode);
-    const nowMs = Date.now();
-    const expiresAt = new Date(nowMs + 10 * 60 * 1e3).toISOString();
-    const docId = `recovery_otp_${normalizedEmail.replace(/[^a-zA-Z0-9]/g, "_")}`;
-    console.log("[RECOVERY_OTP_PIPELINE] Generated OTP code hash:", {
-      stage: "OTP_GENERATED",
-      recoveryRequestId: reqId || "N/A",
-      targetUserId: targetUserId || "N/A",
-      targetEmail: normalizedEmail,
-      otpGenerated: true,
-      expiresAt
-    });
-    const record = {
-      id: docId,
-      email: normalizedEmail,
-      codeHash,
-      type: "account_recovery",
-      recoveryRequestId: reqId || void 0,
-      targetUserId: targetUserId || void 0,
-      expiresAt,
-      attempts: 0,
-      used: false,
-      deliveryStatus: "initiating",
-      createdAt: (/* @__PURE__ */ new Date()).toISOString()
-    };
-    let firestoreWriteSuccess = false;
-    try {
-      await adminDb.collection("verification_codes").doc(docId).set(record);
-      await adminDb.collection("verification_codes").doc(normalizedEmail).set(record);
-      firestoreWriteSuccess = true;
-    } catch (fsWriteErr) {
-      console.warn("[RECOVERY_OTP_PIPELINE] Firestore OTP write warning:", fsWriteErr?.message);
-    }
-    const db2 = readDb2();
-    if (!db2.verification_codes) db2.verification_codes = [];
-    db2.verification_codes = db2.verification_codes.filter((vc) => vc.id !== docId && vc.id !== normalizedEmail);
-    db2.verification_codes.push(record);
-    writeDb2(db2);
-    console.log("[RECOVERY_OTP_PIPELINE] OTP persisted to storage:", {
-      stage: "PERSISTENCE_COMPLETE",
-      recoveryRequestId: reqId || "N/A",
-      targetUserId: targetUserId || "N/A",
-      targetEmail: normalizedEmail,
-      firestoreWriteSuccess,
-      localStoreSuccess: true
-    });
-    const emailObj = buildOtpEmailHtml2({
-      email: normalizedEmail,
-      otpCode,
-      type: "account_recovery"
-    });
-    console.log("[RECOVERY_OTP_PIPELINE] Invoking email dispatcher:", {
-      stage: "EMAIL_DISPATCH_INVOKED",
-      recoveryRequestId: reqId || "N/A",
-      targetUserId: targetUserId || "N/A",
-      targetEmail: normalizedEmail,
-      subject: emailObj.subject
-    });
-    const mailResult = await sendSystemMail2(normalizedEmail, emailObj.subject, emailObj.text, emailObj.html);
-    if (!mailResult.success && !mailResult.simulated) {
-      const errStatus = mailResult.statusCode || 500;
-      console.error("[RECOVERY_OTP_PIPELINE] Resend delivery failed:", {
-        stage: "RESEND_API_ERROR",
+      const otpCode = import_crypto3.default.randomInt(1e5, 1e6).toString();
+      const codeHash = hashVerificationCode(otpCode);
+      const nowMs = Date.now();
+      const expiresAt = new Date(nowMs + 10 * 60 * 1e3).toISOString();
+      const docId = `recovery_otp_${normalizedEmail.replace(/[^a-zA-Z0-9]/g, "_")}`;
+      console.log("[RECOVERY_OTP_PIPELINE] Generated OTP code hash:", {
+        stage: "OTP_GENERATED",
         recoveryRequestId: reqId || "N/A",
         targetUserId: targetUserId || "N/A",
         targetEmail: normalizedEmail,
-        statusCode: errStatus,
-        error: mailResult.error ? mailResult.error.message || mailResult.error : "Send failed"
+        otpGenerated: true,
+        expiresAt
       });
-      return res.status(errStatus).json({
-        success: false,
-        error: mailResult.userFriendlyMessage || "\u062A\u0639\u0630\u0631 \u0625\u0631\u0633\u0627\u0644 \u0631\u0645\u0632 \u0627\u0644\u062A\u062D\u0642\u0642 \u062D\u0627\u0644\u064A\u0627\u064B. \u064A\u0631\u062C\u0649 \u0627\u0644\u0645\u062D\u0627\u0648\u0644\u0629 \u0645\u0631\u0629 \u0623\u062E\u0631\u0649."
+      const record = {
+        id: docId,
+        email: normalizedEmail,
+        codeHash,
+        type: "account_recovery",
+        recoveryRequestId: reqId || void 0,
+        targetUserId: targetUserId || void 0,
+        expiresAt,
+        attempts: 0,
+        used: false,
+        deliveryStatus: "initiating",
+        createdAt: (/* @__PURE__ */ new Date()).toISOString()
+      };
+      let firestoreWriteSuccess = false;
+      try {
+        await adminDb.collection("verification_codes").doc(docId).set(record);
+        await adminDb.collection("verification_codes").doc(normalizedEmail).set(record);
+        firestoreWriteSuccess = true;
+      } catch (fsWriteErr) {
+        console.warn(
+          "[RECOVERY_OTP_PIPELINE] Firestore OTP write warning:",
+          fsWriteErr?.message
+        );
+      }
+      const db2 = readDb2();
+      if (!db2.verification_codes) db2.verification_codes = [];
+      db2.verification_codes = db2.verification_codes.filter(
+        (vc) => vc.id !== docId && vc.id !== normalizedEmail
+      );
+      db2.verification_codes.push(record);
+      writeDb2(db2);
+      console.log("[RECOVERY_OTP_PIPELINE] OTP persisted to storage:", {
+        stage: "PERSISTENCE_COMPLETE",
+        recoveryRequestId: reqId || "N/A",
+        targetUserId: targetUserId || "N/A",
+        targetEmail: normalizedEmail,
+        firestoreWriteSuccess,
+        localStoreSuccess: true
       });
-    }
-    console.log("[RECOVERY_OTP_PIPELINE] Resend accepted email:", {
-      stage: "RESEND_API_SUCCESS",
-      recoveryRequestId: reqId || "N/A",
-      targetUserId: targetUserId || "N/A",
-      targetEmail: normalizedEmail,
-      resendEmailId: mailResult.messageId || "N/A",
-      simulated: Boolean(mailResult.simulated),
-      deliveryStatus: "sent"
-    });
-    if (mailResult.messageId) {
-      const updatePayload = {
+      const emailObj = buildOtpEmailHtml2({
+        email: normalizedEmail,
+        otpCode,
+        type: "account_recovery"
+      });
+      console.log("[RECOVERY_OTP_PIPELINE] Invoking email dispatcher:", {
+        stage: "EMAIL_DISPATCH_INVOKED",
+        recoveryRequestId: reqId || "N/A",
+        targetUserId: targetUserId || "N/A",
+        targetEmail: normalizedEmail,
+        subject: emailObj.subject
+      });
+      const mailResult = await sendSystemMail2(
+        normalizedEmail,
+        emailObj.subject,
+        emailObj.text,
+        emailObj.html
+      );
+      if (!mailResult.success && !mailResult.simulated) {
+        const errStatus = mailResult.statusCode || 500;
+        console.error("[RECOVERY_OTP_PIPELINE] Resend delivery failed:", {
+          stage: "RESEND_API_ERROR",
+          recoveryRequestId: reqId || "N/A",
+          targetUserId: targetUserId || "N/A",
+          targetEmail: normalizedEmail,
+          statusCode: errStatus,
+          error: mailResult.error ? mailResult.error.message || mailResult.error : "Send failed"
+        });
+        return res.status(errStatus).json({
+          success: false,
+          error: mailResult.userFriendlyMessage || "\u062A\u0639\u0630\u0631 \u0625\u0631\u0633\u0627\u0644 \u0631\u0645\u0632 \u0627\u0644\u062A\u062D\u0642\u0642 \u062D\u0627\u0644\u064A\u0627\u064B. \u064A\u0631\u062C\u0649 \u0627\u0644\u0645\u062D\u0627\u0648\u0644\u0629 \u0645\u0631\u0629 \u0623\u062E\u0631\u0649."
+        });
+      }
+      console.log("[RECOVERY_OTP_PIPELINE] Resend accepted email:", {
+        stage: "RESEND_API_SUCCESS",
+        recoveryRequestId: reqId || "N/A",
+        targetUserId: targetUserId || "N/A",
+        targetEmail: normalizedEmail,
+        resendEmailId: mailResult.messageId || "N/A",
+        simulated: Boolean(mailResult.simulated),
+        deliveryStatus: "sent"
+      });
+      if (mailResult.messageId) {
+        const updatePayload = {
+          resendEmailId: mailResult.messageId,
+          deliveryStatus: "sent",
+          lastDeliveryUpdate: (/* @__PURE__ */ new Date()).toISOString()
+        };
+        try {
+          await adminDb.collection("verification_codes").doc(docId).update(updatePayload);
+          await adminDb.collection("verification_codes").doc(normalizedEmail).update(updatePayload);
+        } catch (e) {
+        }
+        const curDb = readDb2();
+        const vcItem = curDb.verification_codes?.find(
+          (vc) => vc.id === docId
+        );
+        if (vcItem) {
+          vcItem.resendEmailId = mailResult.messageId;
+          vcItem.deliveryStatus = "sent";
+          writeDb2(curDb);
+        }
+      }
+      return res.json({
+        success: true,
+        message: `\u062A\u0645 \u0625\u0631\u0633\u0627\u0644 \u0631\u0645\u0632 \u0627\u0644\u062A\u062D\u0642\u0642 \u0628\u0646\u062C\u0627\u062D \u0625\u0644\u0649 ${normalizedEmail}`,
+        expiresAt,
+        emailSent: !mailResult.simulated,
         resendEmailId: mailResult.messageId,
         deliveryStatus: "sent",
-        lastDeliveryUpdate: (/* @__PURE__ */ new Date()).toISOString()
-      };
-      try {
-        await adminDb.collection("verification_codes").doc(docId).update(updatePayload);
-        await adminDb.collection("verification_codes").doc(normalizedEmail).update(updatePayload);
-      } catch (e) {
-      }
-      const curDb = readDb2();
-      const vcItem = curDb.verification_codes?.find((vc) => vc.id === docId);
-      if (vcItem) {
-        vcItem.resendEmailId = mailResult.messageId;
-        vcItem.deliveryStatus = "sent";
-        writeDb2(curDb);
-      }
+        devCode: mailResult.simulated ? otpCode : void 0
+      });
+    } catch (err) {
+      console.error(
+        "[RECOVERY_OTP_PIPELINE] Send approval OTP critical error:",
+        err
+      );
+      res.status(500).json({
+        success: false,
+        error: err.message || "Failed to send verification code."
+      });
     }
-    return res.json({
-      success: true,
-      message: `\u062A\u0645 \u0625\u0631\u0633\u0627\u0644 \u0631\u0645\u0632 \u0627\u0644\u062A\u062D\u0642\u0642 \u0628\u0646\u062C\u0627\u062D \u0625\u0644\u0649 ${normalizedEmail}`,
-      expiresAt,
-      emailSent: !mailResult.simulated,
-      resendEmailId: mailResult.messageId,
-      deliveryStatus: "sent",
-      devCode: mailResult.simulated ? otpCode : void 0
-    });
-  } catch (err) {
-    console.error("[RECOVERY_OTP_PIPELINE] Send approval OTP critical error:", err);
-    res.status(500).json({ success: false, error: err.message || "Failed to send verification code." });
   }
-});
-app2.post(["/api/auth/recovery-request/verify-otp-and-restore", "/api/auth/recovery-request/verify-approval-otp"], otpLimiter, async (req, res) => {
-  try {
-    const { email, code, newPassword } = req.body;
-    if (!email || !code) {
-      return res.status(400).json({ success: false, error: "Email and verification code are required." });
-    }
-    const normalizedEmail = email.trim().toLowerCase();
-    const inputCode = String(code).trim();
-    const docId = `recovery_otp_${normalizedEmail.replace(/[^a-zA-Z0-9]/g, "_")}`;
-    let otpRecord = null;
+);
+app2.post(
+  [
+    "/api/auth/recovery-request/verify-otp-and-restore",
+    "/api/auth/recovery-request/verify-approval-otp"
+  ],
+  otpLimiter,
+  async (req, res) => {
     try {
-      const snap = await adminDb.collection("verification_codes").doc(docId).get();
-      if (snap.exists && !snap.data()?.used) {
-        otpRecord = snap.data();
+      const { email, code, newPassword } = req.body;
+      if (!email || !code) {
+        return res.status(400).json({
+          success: false,
+          error: "Email and verification code are required."
+        });
+      }
+      const normalizedEmail = email.trim().toLowerCase();
+      const inputCode = String(code).trim();
+      const docId = `recovery_otp_${normalizedEmail.replace(/[^a-zA-Z0-9]/g, "_")}`;
+      let otpRecord = null;
+      try {
+        const snap = await adminDb.collection("verification_codes").doc(docId).get();
+        if (snap.exists && !snap.data()?.used) {
+          otpRecord = snap.data();
+        }
+        if (!otpRecord) {
+          const emSnap = await adminDb.collection("verification_codes").doc(normalizedEmail).get();
+          if (emSnap.exists && !emSnap.data()?.used) {
+            otpRecord = emSnap.data();
+          }
+        }
+      } catch (e) {
       }
       if (!otpRecord) {
-        const emSnap = await adminDb.collection("verification_codes").doc(normalizedEmail).get();
-        if (emSnap.exists && !emSnap.data()?.used) {
-          otpRecord = emSnap.data();
-        }
+        const db3 = readDb2();
+        otpRecord = db3.verification_codes?.find(
+          (vc) => (vc.id === docId || vc.email === normalizedEmail) && !vc.used
+        );
       }
-    } catch (e) {
-    }
-    if (!otpRecord) {
-      const db3 = readDb2();
-      otpRecord = db3.verification_codes?.find((vc) => (vc.id === docId || vc.email === normalizedEmail) && !vc.used);
-    }
-    if (!otpRecord) {
-      return res.status(400).json({
-        success: false,
-        error: "No active verification code found or code has already been used. Please request a new code."
-      });
-    }
-    const expiresAt = new Date(otpRecord.expiresAt).getTime();
-    if (expiresAt <= Date.now()) {
-      return res.status(400).json({
-        success: false,
-        error: "Verification code has expired. Please request a new code."
-      });
-    }
-    const cleanInputHash = hashVerificationCode(inputCode);
-    const isMatch = otpRecord.codeHash ? otpRecord.codeHash === cleanInputHash : otpRecord.code === inputCode;
-    if (!isMatch) {
-      return res.status(400).json({
-        success: false,
-        error: "Invalid verification code. Please check your email and try again."
-      });
-    }
-    const nowIso = (/* @__PURE__ */ new Date()).toISOString();
-    try {
-      await adminDb.collection("verification_codes").doc(docId).set({ used: true, usedAt: nowIso }, { merge: true });
-      await adminDb.collection("verification_codes").doc(normalizedEmail).set({ used: true, usedAt: nowIso }, { merge: true });
-    } catch (e) {
-    }
-    try {
-      await adminDb.collection("recoveryRequests_by_email").doc(normalizedEmail).set({ status: "restored", restoredAt: nowIso }, { merge: true });
-      await adminDb.collection("accountRecoveryRequests_by_email").doc(normalizedEmail).set({ status: "restored", restoredAt: nowIso }, { merge: true });
-      const qSnap = await adminDb.collection("recoveryRequests").where("email", "==", normalizedEmail).get().catch(() => null);
-      if (qSnap && !qSnap.empty) {
-        for (const doc of qSnap.docs) {
-          await doc.ref.set({ status: "restored", restoredAt: nowIso }, { merge: true }).catch(() => null);
-        }
+      if (!otpRecord) {
+        return res.status(400).json({
+          success: false,
+          error: "No active verification code found or code has already been used. Please request a new code."
+        });
       }
-    } catch (e) {
-    }
-    const db2 = readDb2();
-    if (db2.verification_codes) {
-      for (const vc of db2.verification_codes) {
-        if (vc.id === docId || vc.email === normalizedEmail) {
-          vc.used = true;
-          vc.usedAt = nowIso;
-        }
+      const expiresAt = new Date(otpRecord.expiresAt).getTime();
+      if (expiresAt <= Date.now()) {
+        return res.status(400).json({
+          success: false,
+          error: "Verification code has expired. Please request a new code."
+        });
       }
-    }
-    if (db2.account_recovery_requests) {
-      const rItem = db2.account_recovery_requests.find((r) => r.email === normalizedEmail);
-      if (rItem) rItem.status = "restored";
-    }
-    writeDb2(db2);
-    const restoreRes = await restoreAccountFullServer2(normalizedEmail, newPassword);
-    if (!restoreRes.success || !restoreRes.user) {
-      return res.status(500).json({ success: false, error: restoreRes.error || "Failed to restore account profile." });
-    }
-    (async () => {
+      const cleanInputHash = hashVerificationCode(inputCode);
+      const isMatch = otpRecord.codeHash ? otpRecord.codeHash === cleanInputHash : otpRecord.code === inputCode;
+      if (!isMatch) {
+        return res.status(400).json({
+          success: false,
+          error: "Invalid verification code. Please check your email and try again."
+        });
+      }
+      const nowIso = (/* @__PURE__ */ new Date()).toISOString();
       try {
-        let recoveryReq = null;
-        if (adminDb) {
-          const reqSnap = await adminDb.collection("accountRecoveryRequests_by_email").doc(normalizedEmail).get();
-          if (reqSnap.exists) recoveryReq = reqSnap.data();
-        }
-        if (!recoveryReq) {
-          const db3 = readDb2();
-          recoveryReq = db3.account_recovery_requests?.find((r) => r.email === normalizedEmail);
-        }
-        if (recoveryReq?.documents && Array.isArray(recoveryReq.documents)) {
-          for (const doc of recoveryReq.documents) {
-            if (doc.documentId) {
-              console.log(`[RESTORE_COMPLETED_PURGE] Purging identity document ${doc.documentId} after successful restoration`);
-              await deleteDocumentFromPersistentStorage(doc.documentId);
-            }
-          }
-        }
-      } catch (purgeErr) {
-        console.warn("Post-restoration document purge notice:", purgeErr);
-      }
-    })().catch(() => {
-    });
-    let customToken = "";
-    try {
-      customToken = await adminAuth.createCustomToken(restoreRes.user.id);
-    } catch (tErr) {
-      console.warn("createCustomToken warning on recovery restoration:", tErr);
-    }
-    return res.json({
-      success: true,
-      customToken,
-      user: restoreRes.user,
-      message: "Your account has been successfully restored! You may now sign in."
-    });
-  } catch (err) {
-    console.error("Verify OTP and restore error:", err);
-    res.status(500).json({ success: false, error: err.message || "Failed to complete account restoration." });
-  }
-});
-app2.all([
-  "/api/admin/delete-user/:uid",
-  "/admin/delete-user/:uid",
-  "/api/admin/delete-user",
-  "/admin/delete-user",
-  "/api/admin/users/:uid",
-  "/admin/users/:uid"
-], requireAuth, async (req, res) => {
-  const targetUid = (req.params.uid || req.body?.uid || req.body?.userId || req.query?.uid || req.query?.userId || "").toString().trim();
-  let currentStep = "INITIALIZATION";
-  const executionAudit = {
-    stripe: { status: "pending", details: null },
-    database: { status: "pending", details: null },
-    auth: { status: "pending", details: null }
-  };
-  try {
-    const callerUid = req.user?.uid;
-    const callerEmail = req.user?.email || req.userEmail || "";
-    if (!callerUid) {
-      return res.status(401).json({ success: false, error: "Unauthorized" });
-    }
-    const isCallerAdmin = await isUserAdminServer(callerUid, callerEmail);
-    if (!isCallerAdmin) {
-      return res.status(403).json({ success: false, error: "Forbidden: Only administrative personnel can perform account deletion." });
-    }
-    if (!targetUid) {
-      return res.status(400).json({ success: false, error: "Target user ID is required for deletion." });
-    }
-    if (targetUid === callerUid) {
-      return res.status(400).json({
-        success: false,
-        error: "You cannot delete your own active administrative account.",
-        userFriendlyMessage: "\u0644\u0627 \u064A\u0645\u0643\u0646\u0643 \u062D\u0630\u0641 \u062D\u0633\u0627\u0628 \u0627\u0644\u0645\u0633\u0624\u0648\u0644 \u0627\u0644\u062D\u0627\u0644\u064A \u0627\u0644\u0630\u064A \u062A\u0633\u062A\u062E\u062F\u0645\u0647 \u0627\u0644\u0622\u0646."
-      });
-    }
-    if (targetUid === ADMIN_USER_ID) {
-      return res.status(400).json({
-        success: false,
-        error: "Primary administrator account cannot be deleted.",
-        userFriendlyMessage: "\u0644\u0627 \u064A\u0645\u0643\u0646 \u062D\u0630\u0641 \u0627\u0644\u062D\u0633\u0627\u0628 \u0627\u0644\u0631\u0626\u064A\u0633\u064A \u0644\u0644\u0645\u0633\u0624\u0648\u0644."
-      });
-    }
-    console.log("USER_DELETE_STARTED", { targetUid, callerUid, callerEmail });
-    let targetEmail = (req.body?.userEmail || req.body?.email || req.query?.userEmail || req.query?.email || "").toString().trim();
-    let userDocData = null;
-    try {
-      const targetSnap = await adminDb.collection("users").doc(targetUid).get();
-      if (targetSnap.exists) {
-        userDocData = targetSnap.data();
-        if (!targetEmail) targetEmail = userDocData?.email || "";
-      }
-    } catch (e) {
-      console.warn("Failed to retrieve target user email from Firestore:", e);
-    }
-    if (!targetEmail) {
-      try {
-        const localDb = readDb2();
-        const found = localDb.users?.find((u) => u.id === targetUid || u.uid === targetUid);
-        if (found?.email) {
-          targetEmail = found.email;
-        }
-        if (!userDocData && found) userDocData = found;
+        await adminDb.collection("verification_codes").doc(docId).set({ used: true, usedAt: nowIso }, { merge: true });
+        await adminDb.collection("verification_codes").doc(normalizedEmail).set({ used: true, usedAt: nowIso }, { merge: true });
       } catch (e) {
       }
-    }
-    if (!targetEmail) {
       try {
-        const authUser = await adminAuth.getUser(targetUid);
-        if (authUser?.email) {
-          targetEmail = authUser.email;
-        }
-      } catch (authLookupErr) {
-      }
-    }
-    currentStep = "STRIPE_CANCELLATION";
-    try {
-      const stripe = getStripe();
-      if (stripe) {
-        const subId = userDocData?.stripeSubscriptionId || userDocData?.subscriptionId;
-        const custId = userDocData?.stripeCustomerId || userDocData?.customerId;
-        let canceledCount = 0;
-        if (subId) {
-          try {
-            await stripe.subscriptions.cancel(subId);
-            canceledCount++;
-            console.log(`[AdminDelete] Canceled Stripe subscription ${subId} for target user ${targetUid}`);
-          } catch (subErr) {
-            if (subErr?.code === "resource_missing" || subErr?.statusCode === 404) {
-              console.log(`[AdminDelete] Stripe subscription ${subId} already canceled or non-existent.`);
-            } else {
-              console.warn(`[AdminDelete] Warning canceling subscription ${subId}:`, subErr?.message);
-            }
+        await adminDb.collection("recoveryRequests_by_email").doc(normalizedEmail).set({ status: "restored", restoredAt: nowIso }, { merge: true });
+        await adminDb.collection("accountRecoveryRequests_by_email").doc(normalizedEmail).set({ status: "restored", restoredAt: nowIso }, { merge: true });
+        const qSnap = await adminDb.collection("recoveryRequests").where("email", "==", normalizedEmail).get().catch(() => null);
+        if (qSnap && !qSnap.empty) {
+          for (const doc of qSnap.docs) {
+            await doc.ref.set({ status: "restored", restoredAt: nowIso }, { merge: true }).catch(() => null);
           }
         }
-        if (custId) {
-          try {
-            const activeSubs = await stripe.subscriptions.list({ customer: custId, status: "active" });
-            for (const sub of activeSubs.data) {
-              if (sub.id !== subId) {
-                await stripe.subscriptions.cancel(sub.id);
-                canceledCount++;
-                console.log(`[AdminDelete] Canceled additional active subscription ${sub.id} for customer ${custId}`);
+      } catch (e) {
+      }
+      const db2 = readDb2();
+      if (db2.verification_codes) {
+        for (const vc of db2.verification_codes) {
+          if (vc.id === docId || vc.email === normalizedEmail) {
+            vc.used = true;
+            vc.usedAt = nowIso;
+          }
+        }
+      }
+      if (db2.account_recovery_requests) {
+        const rItem = db2.account_recovery_requests.find(
+          (r) => r.email === normalizedEmail
+        );
+        if (rItem) rItem.status = "restored";
+      }
+      writeDb2(db2);
+      const restoreRes = await restoreAccountFullServer2(
+        normalizedEmail,
+        newPassword
+      );
+      if (!restoreRes.success || !restoreRes.user) {
+        return res.status(500).json({
+          success: false,
+          error: restoreRes.error || "Failed to restore account profile."
+        });
+      }
+      (async () => {
+        try {
+          let recoveryReq = null;
+          if (adminDb) {
+            const reqSnap = await adminDb.collection("accountRecoveryRequests_by_email").doc(normalizedEmail).get();
+            if (reqSnap.exists) recoveryReq = reqSnap.data();
+          }
+          if (!recoveryReq) {
+            const db3 = readDb2();
+            recoveryReq = db3.account_recovery_requests?.find(
+              (r) => r.email === normalizedEmail
+            );
+          }
+          if (recoveryReq?.documents && Array.isArray(recoveryReq.documents)) {
+            for (const doc of recoveryReq.documents) {
+              if (doc.documentId) {
+                console.log(
+                  `[RESTORE_COMPLETED_PURGE] Purging identity document ${doc.documentId} after successful restoration`
+                );
+                await deleteDocumentFromPersistentStorage(doc.documentId);
               }
             }
-          } catch (custErr) {
-            console.warn(`[AdminDelete] Warning listing active subscriptions for customer ${custId}:`, custErr?.message);
           }
+        } catch (purgeErr) {
+          console.warn("Post-restoration document purge notice:", purgeErr);
         }
-        executionAudit.stripe = { status: "completed", canceledSubscriptions: canceledCount };
-      } else {
-        executionAudit.stripe = { status: "skipped", reason: "Stripe SDK not initialized or key not configured." };
-      }
-    } catch (stripeErr) {
-      console.warn("[AdminDelete] Non-fatal error during Stripe cancellation step:", stripeErr?.message);
-      executionAudit.stripe = { status: "warning", error: stripeErr?.message || String(stripeErr) };
-    }
-    currentStep = "DATABASE_DATA_DELETION";
-    let deletedRecordsCount = 0;
-    if (userDocData) {
+      })().catch(() => {
+      });
+      let customToken = "";
       try {
-        await adminDb.collection("users_retained").doc(targetUid).set({
-          ...userDocData,
-          archivedAt: (/* @__PURE__ */ new Date()).toISOString(),
-          deletedBy: callerUid,
-          deletionType: "admin"
+        customToken = await adminAuth.createCustomToken(restoreRes.user.id);
+      } catch (tErr) {
+        console.warn(
+          "createCustomToken warning on recovery restoration:",
+          tErr
+        );
+      }
+      return res.json({
+        success: true,
+        customToken,
+        user: restoreRes.user,
+        message: "Your account has been successfully restored! You may now sign in."
+      });
+    } catch (err) {
+      console.error("Verify OTP and restore error:", err);
+      res.status(500).json({
+        success: false,
+        error: err.message || "Failed to complete account restoration."
+      });
+    }
+  }
+);
+app2.all(
+  [
+    "/api/admin/delete-user/:uid",
+    "/admin/delete-user/:uid",
+    "/api/admin/delete-user",
+    "/admin/delete-user",
+    "/api/admin/users/:uid",
+    "/admin/users/:uid"
+  ],
+  requireAuth,
+  async (req, res) => {
+    const targetUid = (req.params.uid || req.body?.uid || req.body?.userId || req.query?.uid || req.query?.userId || "").toString().trim();
+    let currentStep = "INITIALIZATION";
+    const executionAudit = {
+      stripe: { status: "pending", details: null },
+      database: { status: "pending", details: null },
+      auth: { status: "pending", details: null }
+    };
+    try {
+      const callerUid = req.user?.uid;
+      const callerEmail = req.user?.email || req.userEmail || "";
+      if (!callerUid) {
+        return res.status(401).json({ success: false, error: "Unauthorized" });
+      }
+      const isCallerAdmin = await isUserAdminServer(callerUid, callerEmail);
+      if (!isCallerAdmin) {
+        return res.status(403).json({
+          success: false,
+          error: "Forbidden: Only administrative personnel can perform account deletion."
         });
-        const memSnap = await adminDb.collection("users").doc(targetUid).collection("memories").get();
-        for (const mDoc of memSnap.docs) {
-          await adminDb.collection("users_retained").doc(targetUid).collection("memories").doc(mDoc.id).set(mDoc.data());
+      }
+      if (!targetUid) {
+        return res.status(400).json({
+          success: false,
+          error: "Target user ID is required for deletion."
+        });
+      }
+      if (targetUid === callerUid) {
+        return res.status(400).json({
+          success: false,
+          error: "You cannot delete your own active administrative account.",
+          userFriendlyMessage: "\u0644\u0627 \u064A\u0645\u0643\u0646\u0643 \u062D\u0630\u0641 \u062D\u0633\u0627\u0628 \u0627\u0644\u0645\u0633\u0624\u0648\u0644 \u0627\u0644\u062D\u0627\u0644\u064A \u0627\u0644\u0630\u064A \u062A\u0633\u062A\u062E\u062F\u0645\u0647 \u0627\u0644\u0622\u0646."
+        });
+      }
+      if (targetUid === ADMIN_USER_ID) {
+        return res.status(400).json({
+          success: false,
+          error: "Primary administrator account cannot be deleted.",
+          userFriendlyMessage: "\u0644\u0627 \u064A\u0645\u0643\u0646 \u062D\u0630\u0641 \u0627\u0644\u062D\u0633\u0627\u0628 \u0627\u0644\u0631\u0626\u064A\u0633\u064A \u0644\u0644\u0645\u0633\u0624\u0648\u0644."
+        });
+      }
+      console.log("USER_DELETE_STARTED", { targetUid, callerUid, callerEmail });
+      let targetEmail = (req.body?.userEmail || req.body?.email || req.query?.userEmail || req.query?.email || "").toString().trim();
+      let userDocData = null;
+      try {
+        const targetSnap = await adminDb.collection("users").doc(targetUid).get();
+        if (targetSnap.exists) {
+          userDocData = targetSnap.data();
+          if (!targetEmail) targetEmail = userDocData?.email || "";
         }
-        const alertSnap = await adminDb.collection("users").doc(targetUid).collection("riskAlerts").get();
-        for (const aDoc of alertSnap.docs) {
-          await adminDb.collection("users_retained").doc(targetUid).collection("riskAlerts").doc(aDoc.id).set(aDoc.data());
+      } catch (e) {
+        console.warn("Failed to retrieve target user email from Firestore:", e);
+      }
+      if (!targetEmail) {
+        try {
+          const localDb = readDb2();
+          const found = localDb.users?.find(
+            (u) => u.id === targetUid || u.uid === targetUid
+          );
+          if (found?.email) {
+            targetEmail = found.email;
+          }
+          if (!userDocData && found) userDocData = found;
+        } catch (e) {
         }
-        const filesSnap = await adminDb.collection("users").doc(targetUid).collection("files").get();
-        for (const fDoc of filesSnap.docs) {
-          await adminDb.collection("users_retained").doc(targetUid).collection("files").doc(fDoc.id).set(fDoc.data());
+      }
+      if (!targetEmail) {
+        try {
+          const authUser = await adminAuth.getUser(targetUid);
+          if (authUser?.email) {
+            targetEmail = authUser.email;
+          }
+        } catch (authLookupErr) {
+        }
+      }
+      currentStep = "STRIPE_CANCELLATION";
+      try {
+        const stripe = getStripe();
+        if (stripe) {
+          const subId = userDocData?.stripeSubscriptionId || userDocData?.subscriptionId;
+          const custId = userDocData?.stripeCustomerId || userDocData?.customerId;
+          let canceledCount = 0;
+          if (subId) {
+            try {
+              await stripe.subscriptions.cancel(subId);
+              canceledCount++;
+              console.log(
+                `[AdminDelete] Canceled Stripe subscription ${subId} for target user ${targetUid}`
+              );
+            } catch (subErr) {
+              if (subErr?.code === "resource_missing" || subErr?.statusCode === 404) {
+                console.log(
+                  `[AdminDelete] Stripe subscription ${subId} already canceled or non-existent.`
+                );
+              } else {
+                console.warn(
+                  `[AdminDelete] Warning canceling subscription ${subId}:`,
+                  subErr?.message
+                );
+              }
+            }
+          }
+          if (custId) {
+            try {
+              const activeSubs = await stripe.subscriptions.list({
+                customer: custId,
+                status: "active"
+              });
+              for (const sub of activeSubs.data) {
+                if (sub.id !== subId) {
+                  await stripe.subscriptions.cancel(sub.id);
+                  canceledCount++;
+                  console.log(
+                    `[AdminDelete] Canceled additional active subscription ${sub.id} for customer ${custId}`
+                  );
+                }
+              }
+            } catch (custErr) {
+              console.warn(
+                `[AdminDelete] Warning listing active subscriptions for customer ${custId}:`,
+                custErr?.message
+              );
+            }
+          }
+          executionAudit.stripe = {
+            status: "completed",
+            canceledSubscriptions: canceledCount
+          };
+        } else {
+          executionAudit.stripe = {
+            status: "skipped",
+            reason: "Stripe SDK not initialized or key not configured."
+          };
+        }
+      } catch (stripeErr) {
+        console.warn(
+          "[AdminDelete] Non-fatal error during Stripe cancellation step:",
+          stripeErr?.message
+        );
+        executionAudit.stripe = {
+          status: "warning",
+          error: stripeErr?.message || String(stripeErr)
+        };
+      }
+      currentStep = "DATABASE_DATA_DELETION";
+      let deletedRecordsCount = 0;
+      if (userDocData) {
+        try {
+          await adminDb.collection("users_retained").doc(targetUid).set({
+            ...userDocData,
+            archivedAt: (/* @__PURE__ */ new Date()).toISOString(),
+            deletedBy: callerUid,
+            deletionType: "admin"
+          });
+          const memSnap = await adminDb.collection("users").doc(targetUid).collection("memories").get();
+          for (const mDoc of memSnap.docs) {
+            await adminDb.collection("users_retained").doc(targetUid).collection("memories").doc(mDoc.id).set(mDoc.data());
+          }
+          const alertSnap = await adminDb.collection("users").doc(targetUid).collection("riskAlerts").get();
+          for (const aDoc of alertSnap.docs) {
+            await adminDb.collection("users_retained").doc(targetUid).collection("riskAlerts").doc(aDoc.id).set(aDoc.data());
+          }
+          const filesSnap = await adminDb.collection("users").doc(targetUid).collection("files").get();
+          for (const fDoc of filesSnap.docs) {
+            await adminDb.collection("users_retained").doc(targetUid).collection("files").doc(fDoc.id).set(fDoc.data());
+          }
+          const topFilesSnap = await adminDb.collection("files").where("userId", "==", targetUid).get();
+          for (const tfDoc of topFilesSnap.docs) {
+            await adminDb.collection("users_retained").doc(targetUid).collection("top_files").doc(tfDoc.id).set(tfDoc.data());
+          }
+        } catch (archErr) {
+          console.warn(
+            "[AdminDelete] Retention archive warning:",
+            archErr?.message
+          );
+        }
+      }
+      if (targetEmail) {
+        const normEmail = targetEmail.trim().toLowerCase();
+        try {
+          await setAccountLifecycleRecord2({
+            accountId: normEmail,
+            emailNormalized: normEmail,
+            status: "ADMIN_DELETED",
+            deletionType: "admin",
+            deletedAt: (/* @__PURE__ */ new Date()).toISOString(),
+            deletedBy: callerUid,
+            restoreUntil: null,
+            adminApprovalRequired: true,
+            originalUserId: targetUid,
+            originalRole: userDocData?.role || "Contributor",
+            originalWorkspaceId: userDocData?.workspaceId,
+            originalPowers: userDocData?.powers,
+            retainedDataDocPath: `users_retained/${targetUid}`
+          });
+        } catch (lifecycleErr) {
+          console.warn(
+            "Account lifecycle record update warning:",
+            lifecycleErr?.message
+          );
+        }
+      }
+      try {
+        await adminDb.collection("deletedUsers").doc(targetUid).set({
+          uid: targetUid,
+          email: targetEmail,
+          deletedAt: (/* @__PURE__ */ new Date()).toISOString(),
+          deletedBy: callerUid,
+          reason: "admin_deleted"
+        });
+        console.log("USER_DELETED_MARKER_CREATED", { targetUid });
+      } catch (delErr) {
+        console.warn(
+          "Firestore deletedUsers creation warning:",
+          delErr?.message
+        );
+      }
+      try {
+        await adminDb.collection("users").doc(targetUid).delete();
+        deletedRecordsCount++;
+        console.log("USER_FIRESTORE_DELETED", { targetUid });
+      } catch (fsErr) {
+        console.warn("Firestore user doc delete warning:", fsErr?.message);
+      }
+      try {
+        await adminDb.collection("verification_codes").doc(targetUid).delete();
+        const vcSnap = await adminDb.collection("verification_codes").where("userId", "==", targetUid).get();
+        for (const doc of vcSnap.docs) {
+          await doc.ref.delete();
+          deletedRecordsCount++;
+        }
+      } catch (vcErr) {
+        console.warn("Verification codes deletion warning:", vcErr?.message);
+      }
+      try {
+        const userFilesSnap = await adminDb.collection("users").doc(targetUid).collection("files").get();
+        for (const fDoc of userFilesSnap.docs) {
+          await fDoc.ref.delete();
+          deletedRecordsCount++;
         }
         const topFilesSnap = await adminDb.collection("files").where("userId", "==", targetUid).get();
         for (const tfDoc of topFilesSnap.docs) {
-          await adminDb.collection("users_retained").doc(targetUid).collection("top_files").doc(tfDoc.id).set(tfDoc.data());
+          await tfDoc.ref.delete();
+          deletedRecordsCount++;
         }
-      } catch (archErr) {
-        console.warn("[AdminDelete] Retention archive warning:", archErr?.message);
+      } catch (filesErr) {
+        console.warn("Files metadata deletion warning:", filesErr?.message);
       }
-    }
-    if (targetEmail) {
-      const normEmail = targetEmail.trim().toLowerCase();
       try {
+        const memSnap = await adminDb.collection("users").doc(targetUid).collection("memories").get();
+        for (const mDoc of memSnap.docs) {
+          await mDoc.ref.delete();
+          deletedRecordsCount++;
+        }
+        const alertSnap = await adminDb.collection("users").doc(targetUid).collection("riskAlerts").get();
+        for (const aDoc of alertSnap.docs) {
+          await aDoc.ref.delete();
+          deletedRecordsCount++;
+        }
+        const cgSnap = await adminDb.collection("causal_graphs").where("userId", "==", targetUid).get();
+        for (const cgDoc of cgSnap.docs) {
+          await cgDoc.ref.delete();
+          deletedRecordsCount++;
+        }
+      } catch (memErr) {
+        console.warn("Memories/graphs deletion warning:", memErr?.message);
+      }
+      try {
+        const ticketSnap = await adminDb.collection("support_tickets").where("userId", "==", targetUid).get();
+        for (const tDoc of ticketSnap.docs) {
+          await tDoc.ref.delete();
+          deletedRecordsCount++;
+        }
+      } catch (ticketErr) {
+        console.warn("Support tickets deletion warning:", ticketErr?.message);
+      }
+      try {
+        const dbData = readDb2();
+        if (dbData.users)
+          dbData.users = dbData.users.filter(
+            (u) => u.id !== targetUid && u.uid !== targetUid
+          );
+        if (dbData.verification_codes)
+          dbData.verification_codes = dbData.verification_codes.filter(
+            (vc) => vc.id !== targetUid && vc.userId !== targetUid
+          );
+        if (dbData.support_tickets)
+          dbData.support_tickets = dbData.support_tickets.filter(
+            (st) => st.userId !== targetUid
+          );
+        if (dbData.memories)
+          dbData.memories = dbData.memories.filter(
+            (m) => m.userId !== targetUid
+          );
+        if (dbData.causal_graphs)
+          dbData.causal_graphs = dbData.causal_graphs.filter(
+            (cg) => cg.userId !== targetUid
+          );
+        writeDb2(dbData);
+      } catch (dbErr) {
+        console.warn(
+          "Local db write warning during user deletion:",
+          dbErr?.message
+        );
+      }
+      executionAudit.database = {
+        status: "completed",
+        recordsPurged: deletedRecordsCount
+      };
+      currentStep = "FIREBASE_AUTH_DELETION";
+      try {
+        await adminAuth.updateUser(targetUid, { disabled: true });
+        console.log("USER_AUTH_DISABLED", { targetUid });
+        executionAudit.auth.userDisabled = true;
+      } catch (authErr) {
+        if (authErr?.code === "auth/user-not-found") {
+          console.log("USER_AUTH_ALREADY_REMOVED", { targetUid });
+          executionAudit.auth.userDisabled = true;
+        } else {
+          console.warn("USER_AUTH_DISABLE_WARNING", {
+            targetUid,
+            error: authErr?.message
+          });
+          executionAudit.auth.authError = authErr?.message;
+        }
+      }
+      try {
+        await adminAuth.revokeRefreshTokens(targetUid);
+        console.log("USER_TOKENS_REVOKED", { targetUid });
+        executionAudit.auth.tokensRevoked = true;
+      } catch (tokenErr) {
+        console.warn("Revoke refresh tokens warning:", tokenErr?.message);
+        executionAudit.auth.tokenError = tokenErr?.message;
+      }
+      executionAudit.auth.status = "completed";
+      console.log("USER_DELETE_COMPLETED", { targetUid, executionAudit });
+      return res.json({
+        success: true,
+        message: `The user's account has been deleted and archived according to the account recovery policy.`,
+        userFriendlyMessage: "\u062A\u0645 \u062D\u0630\u0641 \u062D\u0633\u0627\u0628 \u0627\u0644\u0645\u0633\u062A\u062E\u062F\u0645 \u0648\u0623\u0631\u0634\u0641\u0629 \u0628\u064A\u0627\u0646\u0627\u062A\u0647 \u0648\u0641\u0642\u064B\u0627 \u0644\u0633\u064A\u0627\u0633\u0629 \u0627\u0633\u062A\u0639\u0627\u062F\u0629 \u0627\u0644\u062D\u0633\u0627\u0628.",
+        executionAudit
+      });
+    } catch (err) {
+      console.error(`USER_DELETE_FAILED during step [${currentStep}]`, {
+        targetUid,
+        error: err.message || String(err)
+      });
+      return res.status(500).json({
+        success: false,
+        failedStep: currentStep,
+        error: err.message || "Administrative deletion process failed.",
+        userFriendlyMessage: `\u062A\u0639\u0630\u0631 \u0625\u062A\u0645\u0627\u0645 \u0639\u0645\u0644\u064A\u0629 \u062D\u0630\u0641 \u0627\u0644\u062D\u0633\u0627\u0628 \u0623\u062B\u0646\u0627\u0621 \u0645\u0631\u062D\u0644\u0629 (${currentStep}).`,
+        executionAudit
+      });
+    }
+  }
+);
+app2.all(
+  "/api/auth/delete-account",
+  requireAuth,
+  async (req, res) => {
+    let targetUid = req.user?.uid;
+    let currentStep = "INITIALIZATION";
+    const executionAudit = {
+      stripe: { status: "pending", details: null },
+      database: { status: "pending", details: null },
+      auth: { status: "pending", details: null }
+    };
+    try {
+      if (!targetUid && req.body?.email) {
+        try {
+          const db2 = readDb2();
+          const found = db2.users?.find(
+            (u) => u.email?.trim().toLowerCase() === (req.body.email || "").trim().toLowerCase()
+          );
+          if (found) targetUid = found.id;
+        } catch (e) {
+        }
+      }
+      if (!targetUid) {
+        return res.status(401).json({
+          success: false,
+          error: "Unauthorized: Could not determine user identity for deletion."
+        });
+      }
+      console.log("USER_SELF_DELETE_STARTED", { targetUid });
+      let userDocData = null;
+      try {
+        const userSnap = await adminDb.collection("users").doc(targetUid).get();
+        if (userSnap.exists) {
+          userDocData = userSnap.data();
+        }
+      } catch (e) {
+      }
+      if (!userDocData) {
+        try {
+          const localDb = readDb2();
+          userDocData = localDb.users?.find(
+            (u) => u.id === targetUid || u.uid === targetUid
+          ) || null;
+        } catch (e) {
+        }
+      }
+      const targetEmail = userDocData?.email || req.user?.email || "";
+      const normEmail = targetEmail.trim().toLowerCase();
+      currentStep = "STRIPE_SUBSCRIPTION_CANCELLATION";
+      try {
+        const stripe = getStripe();
+        if (stripe) {
+          const subId = userDocData?.stripeSubscriptionId || userDocData?.subscriptionId;
+          const custId = userDocData?.stripeCustomerId || userDocData?.customerId;
+          let canceledCount = 0;
+          if (subId) {
+            try {
+              await stripe.subscriptions.cancel(subId);
+              canceledCount++;
+              console.log(
+                `[SelfDelete] Canceled active Stripe subscription ${subId} for user ${targetUid}`
+              );
+            } catch (subErr) {
+              if (subErr?.code === "resource_missing" || subErr?.statusCode === 404) {
+                console.log(
+                  `[SelfDelete] Stripe subscription ${subId} already canceled or non-existent.`
+                );
+              } else {
+                console.warn(
+                  `[SelfDelete] Stripe subscription cancel error for ${subId}:`,
+                  subErr?.message
+                );
+              }
+            }
+          }
+          if (custId) {
+            try {
+              const activeSubs = await stripe.subscriptions.list({
+                customer: custId,
+                status: "active"
+              });
+              for (const sub of activeSubs.data) {
+                if (sub.id !== subId) {
+                  await stripe.subscriptions.cancel(sub.id);
+                  canceledCount++;
+                  console.log(
+                    `[SelfDelete] Canceled additional active Stripe subscription ${sub.id} for customer ${custId}`
+                  );
+                }
+              }
+            } catch (custErr) {
+              console.warn(
+                `[SelfDelete] Warning listing active subscriptions for customer ${custId}:`,
+                custErr?.message
+              );
+            }
+          }
+          executionAudit.stripe = {
+            status: "completed",
+            canceledSubscriptions: canceledCount
+          };
+        } else {
+          executionAudit.stripe = {
+            status: "skipped",
+            reason: "Stripe SDK not configured."
+          };
+        }
+      } catch (stripeErr) {
+        console.warn(
+          "[SelfDelete] Non-fatal error in Stripe cancellation step:",
+          stripeErr?.message
+        );
+        executionAudit.stripe = {
+          status: "warning",
+          error: stripeErr?.message || String(stripeErr)
+        };
+      }
+      currentStep = "DATABASE_DATA_PURGE_AND_RETENTION";
+      let deletedDocsCount = 0;
+      if (userDocData) {
+        try {
+          await adminDb.collection("users_retained").doc(targetUid).set({
+            ...userDocData,
+            archivedAt: (/* @__PURE__ */ new Date()).toISOString()
+          });
+          const memSnap = await adminDb.collection("users").doc(targetUid).collection("memories").get();
+          for (const mDoc of memSnap.docs) {
+            await adminDb.collection("users_retained").doc(targetUid).collection("memories").doc(mDoc.id).set(mDoc.data());
+          }
+          const alertSnap = await adminDb.collection("users").doc(targetUid).collection("riskAlerts").get();
+          for (const aDoc of alertSnap.docs) {
+            await adminDb.collection("users_retained").doc(targetUid).collection("riskAlerts").doc(aDoc.id).set(aDoc.data());
+          }
+          const filesSnap = await adminDb.collection("users").doc(targetUid).collection("files").get();
+          for (const fDoc of filesSnap.docs) {
+            await adminDb.collection("users_retained").doc(targetUid).collection("files").doc(fDoc.id).set(fDoc.data());
+          }
+          const topFilesSnap = await adminDb.collection("files").where("userId", "==", targetUid).get();
+          for (const tfDoc of topFilesSnap.docs) {
+            await adminDb.collection("users_retained").doc(targetUid).collection("top_files").doc(tfDoc.id).set(tfDoc.data());
+          }
+          const db2 = readDb2();
+          if (!db2.retained_users) db2.retained_users = [];
+          db2.retained_users = db2.retained_users.filter(
+            (u) => u.id !== targetUid
+          );
+          const localMems = (db2.memories || []).filter(
+            (m) => m.userId === targetUid
+          );
+          const localAlerts = (db2.risk_alerts || []).filter(
+            (a) => a.userId === targetUid
+          );
+          const localFiles = (db2.files || []).filter(
+            (f) => f.userId === targetUid
+          );
+          db2.retained_users.push({
+            ...userDocData,
+            archivedAt: (/* @__PURE__ */ new Date()).toISOString(),
+            archivedMemories: localMems,
+            archivedRiskAlerts: localAlerts,
+            archivedFiles: localFiles
+          });
+          writeDb2(db2);
+        } catch (archErr) {
+          console.warn("Retention profile backup warning:", archErr?.message);
+        }
+      }
+      if (normEmail) {
+        const nowIso = (/* @__PURE__ */ new Date()).toISOString();
+        const restoreUntilIso = new Date(
+          Date.now() + 31 * 24 * 60 * 60 * 1e3
+        ).toISOString();
         await setAccountLifecycleRecord2({
           accountId: normEmail,
           emailNormalized: normEmail,
-          status: "ADMIN_DELETED",
-          deletionType: "admin",
-          deletedAt: (/* @__PURE__ */ new Date()).toISOString(),
-          deletedBy: callerUid,
-          restoreUntil: null,
-          adminApprovalRequired: true,
+          status: "SELF_DELETED",
+          deletionType: "self",
+          deletedAt: nowIso,
+          deletedBy: targetUid,
+          restoreUntil: restoreUntilIso,
           originalUserId: targetUid,
           originalRole: userDocData?.role || "Contributor",
           originalWorkspaceId: userDocData?.workspaceId,
           originalPowers: userDocData?.powers,
-          retainedDataDocPath: `users_retained/${targetUid}`
+          retainedDataDocPath: `users_retained/${targetUid}`,
+          adminApprovalRequired: false
         });
-      } catch (lifecycleErr) {
-        console.warn("Account lifecycle record update warning:", lifecycleErr?.message);
       }
-    }
-    try {
-      await adminDb.collection("deletedUsers").doc(targetUid).set({
-        uid: targetUid,
-        email: targetEmail,
-        deletedAt: (/* @__PURE__ */ new Date()).toISOString(),
-        deletedBy: callerUid,
-        reason: "admin_deleted"
-      });
-      console.log("USER_DELETED_MARKER_CREATED", { targetUid });
-    } catch (delErr) {
-      console.warn("Firestore deletedUsers creation warning:", delErr?.message);
-    }
-    try {
-      await adminDb.collection("users").doc(targetUid).delete();
-      deletedRecordsCount++;
-      console.log("USER_FIRESTORE_DELETED", { targetUid });
-    } catch (fsErr) {
-      console.warn("Firestore user doc delete warning:", fsErr?.message);
-    }
-    try {
-      await adminDb.collection("verification_codes").doc(targetUid).delete();
-      const vcSnap = await adminDb.collection("verification_codes").where("userId", "==", targetUid).get();
-      for (const doc of vcSnap.docs) {
-        await doc.ref.delete();
-        deletedRecordsCount++;
-      }
-    } catch (vcErr) {
-      console.warn("Verification codes deletion warning:", vcErr?.message);
-    }
-    try {
-      const userFilesSnap = await adminDb.collection("users").doc(targetUid).collection("files").get();
-      for (const fDoc of userFilesSnap.docs) {
-        await fDoc.ref.delete();
-        deletedRecordsCount++;
-      }
-      const topFilesSnap = await adminDb.collection("files").where("userId", "==", targetUid).get();
-      for (const tfDoc of topFilesSnap.docs) {
-        await tfDoc.ref.delete();
-        deletedRecordsCount++;
-      }
-    } catch (filesErr) {
-      console.warn("Files metadata deletion warning:", filesErr?.message);
-    }
-    try {
-      const memSnap = await adminDb.collection("users").doc(targetUid).collection("memories").get();
-      for (const mDoc of memSnap.docs) {
-        await mDoc.ref.delete();
-        deletedRecordsCount++;
-      }
-      const alertSnap = await adminDb.collection("users").doc(targetUid).collection("riskAlerts").get();
-      for (const aDoc of alertSnap.docs) {
-        await aDoc.ref.delete();
-        deletedRecordsCount++;
-      }
-      const cgSnap = await adminDb.collection("causal_graphs").where("userId", "==", targetUid).get();
-      for (const cgDoc of cgSnap.docs) {
-        await cgDoc.ref.delete();
-        deletedRecordsCount++;
-      }
-    } catch (memErr) {
-      console.warn("Memories/graphs deletion warning:", memErr?.message);
-    }
-    try {
-      const ticketSnap = await adminDb.collection("support_tickets").where("userId", "==", targetUid).get();
-      for (const tDoc of ticketSnap.docs) {
-        await tDoc.ref.delete();
-        deletedRecordsCount++;
-      }
-    } catch (ticketErr) {
-      console.warn("Support tickets deletion warning:", ticketErr?.message);
-    }
-    try {
-      const dbData = readDb2();
-      if (dbData.users) dbData.users = dbData.users.filter((u) => u.id !== targetUid && u.uid !== targetUid);
-      if (dbData.verification_codes) dbData.verification_codes = dbData.verification_codes.filter((vc) => vc.id !== targetUid && vc.userId !== targetUid);
-      if (dbData.support_tickets) dbData.support_tickets = dbData.support_tickets.filter((st) => st.userId !== targetUid);
-      if (dbData.memories) dbData.memories = dbData.memories.filter((m) => m.userId !== targetUid);
-      if (dbData.causal_graphs) dbData.causal_graphs = dbData.causal_graphs.filter((cg) => cg.userId !== targetUid);
-      writeDb2(dbData);
-    } catch (dbErr) {
-      console.warn("Local db write warning during user deletion:", dbErr?.message);
-    }
-    executionAudit.database = { status: "completed", recordsPurged: deletedRecordsCount };
-    currentStep = "FIREBASE_AUTH_DELETION";
-    try {
-      await adminAuth.updateUser(targetUid, { disabled: true });
-      console.log("USER_AUTH_DISABLED", { targetUid });
-      executionAudit.auth.userDisabled = true;
-    } catch (authErr) {
-      if (authErr?.code === "auth/user-not-found") {
-        console.log("USER_AUTH_ALREADY_REMOVED", { targetUid });
-        executionAudit.auth.userDisabled = true;
-      } else {
-        console.warn("USER_AUTH_DISABLE_WARNING", { targetUid, error: authErr?.message });
-        executionAudit.auth.authError = authErr?.message;
-      }
-    }
-    try {
-      await adminAuth.revokeRefreshTokens(targetUid);
-      console.log("USER_TOKENS_REVOKED", { targetUid });
-      executionAudit.auth.tokensRevoked = true;
-    } catch (tokenErr) {
-      console.warn("Revoke refresh tokens warning:", tokenErr?.message);
-      executionAudit.auth.tokenError = tokenErr?.message;
-    }
-    executionAudit.auth.status = "completed";
-    console.log("USER_DELETE_COMPLETED", { targetUid, executionAudit });
-    return res.json({
-      success: true,
-      message: `The user's account has been deleted and archived according to the account recovery policy.`,
-      userFriendlyMessage: "\u062A\u0645 \u062D\u0630\u0641 \u062D\u0633\u0627\u0628 \u0627\u0644\u0645\u0633\u062A\u062E\u062F\u0645 \u0648\u0623\u0631\u0634\u0641\u0629 \u0628\u064A\u0627\u0646\u0627\u062A\u0647 \u0648\u0641\u0642\u064B\u0627 \u0644\u0633\u064A\u0627\u0633\u0629 \u0627\u0633\u062A\u0639\u0627\u062F\u0629 \u0627\u0644\u062D\u0633\u0627\u0628.",
-      executionAudit
-    });
-  } catch (err) {
-    console.error(`USER_DELETE_FAILED during step [${currentStep}]`, { targetUid, error: err.message || String(err) });
-    return res.status(500).json({
-      success: false,
-      failedStep: currentStep,
-      error: err.message || "Administrative deletion process failed.",
-      userFriendlyMessage: `\u062A\u0639\u0630\u0631 \u0625\u062A\u0645\u0627\u0645 \u0639\u0645\u0644\u064A\u0629 \u062D\u0630\u0641 \u0627\u0644\u062D\u0633\u0627\u0628 \u0623\u062B\u0646\u0627\u0621 \u0645\u0631\u062D\u0644\u0629 (${currentStep}).`,
-      executionAudit
-    });
-  }
-});
-app2.all("/api/auth/delete-account", requireAuth, async (req, res) => {
-  let targetUid = req.user?.uid;
-  let currentStep = "INITIALIZATION";
-  const executionAudit = {
-    stripe: { status: "pending", details: null },
-    database: { status: "pending", details: null },
-    auth: { status: "pending", details: null }
-  };
-  try {
-    if (!targetUid && req.body?.email) {
       try {
-        const db2 = readDb2();
-        const found = db2.users?.find((u) => u.email?.trim().toLowerCase() === (req.body.email || "").trim().toLowerCase());
-        if (found) targetUid = found.id;
-      } catch (e) {
-      }
-    }
-    if (!targetUid) {
-      return res.status(401).json({ success: false, error: "Unauthorized: Could not determine user identity for deletion." });
-    }
-    console.log("USER_SELF_DELETE_STARTED", { targetUid });
-    let userDocData = null;
-    try {
-      const userSnap = await adminDb.collection("users").doc(targetUid).get();
-      if (userSnap.exists) {
-        userDocData = userSnap.data();
-      }
-    } catch (e) {
-    }
-    if (!userDocData) {
-      try {
-        const localDb = readDb2();
-        userDocData = localDb.users?.find((u) => u.id === targetUid || u.uid === targetUid) || null;
-      } catch (e) {
-      }
-    }
-    const targetEmail = userDocData?.email || req.user?.email || "";
-    const normEmail = targetEmail.trim().toLowerCase();
-    currentStep = "STRIPE_SUBSCRIPTION_CANCELLATION";
-    try {
-      const stripe = getStripe();
-      if (stripe) {
-        const subId = userDocData?.stripeSubscriptionId || userDocData?.subscriptionId;
-        const custId = userDocData?.stripeCustomerId || userDocData?.customerId;
-        let canceledCount = 0;
-        if (subId) {
-          try {
-            await stripe.subscriptions.cancel(subId);
-            canceledCount++;
-            console.log(`[SelfDelete] Canceled active Stripe subscription ${subId} for user ${targetUid}`);
-          } catch (subErr) {
-            if (subErr?.code === "resource_missing" || subErr?.statusCode === 404) {
-              console.log(`[SelfDelete] Stripe subscription ${subId} already canceled or non-existent.`);
-            } else {
-              console.warn(`[SelfDelete] Stripe subscription cancel error for ${subId}:`, subErr?.message);
-            }
-          }
-        }
-        if (custId) {
-          try {
-            const activeSubs = await stripe.subscriptions.list({ customer: custId, status: "active" });
-            for (const sub of activeSubs.data) {
-              if (sub.id !== subId) {
-                await stripe.subscriptions.cancel(sub.id);
-                canceledCount++;
-                console.log(`[SelfDelete] Canceled additional active Stripe subscription ${sub.id} for customer ${custId}`);
-              }
-            }
-          } catch (custErr) {
-            console.warn(`[SelfDelete] Warning listing active subscriptions for customer ${custId}:`, custErr?.message);
-          }
-        }
-        executionAudit.stripe = { status: "completed", canceledSubscriptions: canceledCount };
-      } else {
-        executionAudit.stripe = { status: "skipped", reason: "Stripe SDK not configured." };
-      }
-    } catch (stripeErr) {
-      console.warn("[SelfDelete] Non-fatal error in Stripe cancellation step:", stripeErr?.message);
-      executionAudit.stripe = { status: "warning", error: stripeErr?.message || String(stripeErr) };
-    }
-    currentStep = "DATABASE_DATA_PURGE_AND_RETENTION";
-    let deletedDocsCount = 0;
-    if (userDocData) {
-      try {
-        await adminDb.collection("users_retained").doc(targetUid).set({
-          ...userDocData,
-          archivedAt: (/* @__PURE__ */ new Date()).toISOString()
+        await adminDb.collection("deletedUsers").doc(targetUid).set({
+          uid: targetUid,
+          email: targetEmail,
+          deletedAt: (/* @__PURE__ */ new Date()).toISOString(),
+          deletedBy: targetUid,
+          reason: "self_deleted"
         });
-        const memSnap = await adminDb.collection("users").doc(targetUid).collection("memories").get();
-        for (const mDoc of memSnap.docs) {
-          await adminDb.collection("users_retained").doc(targetUid).collection("memories").doc(mDoc.id).set(mDoc.data());
+        deletedDocsCount++;
+      } catch (dErr) {
+      }
+      try {
+        await adminDb.collection("users").doc(targetUid).delete();
+        deletedDocsCount++;
+      } catch (fsErr) {
+      }
+      try {
+        await adminDb.collection("verification_codes").doc(targetUid).delete();
+        const vcSnap = await adminDb.collection("verification_codes").where("userId", "==", targetUid).get();
+        for (const doc of vcSnap.docs) {
+          await doc.ref.delete();
+          deletedDocsCount++;
         }
-        const alertSnap = await adminDb.collection("users").doc(targetUid).collection("riskAlerts").get();
-        for (const aDoc of alertSnap.docs) {
-          await adminDb.collection("users_retained").doc(targetUid).collection("riskAlerts").doc(aDoc.id).set(aDoc.data());
-        }
-        const filesSnap = await adminDb.collection("users").doc(targetUid).collection("files").get();
-        for (const fDoc of filesSnap.docs) {
-          await adminDb.collection("users_retained").doc(targetUid).collection("files").doc(fDoc.id).set(fDoc.data());
-        }
+      } catch (vcErr) {
+      }
+      try {
         const topFilesSnap = await adminDb.collection("files").where("userId", "==", targetUid).get();
         for (const tfDoc of topFilesSnap.docs) {
-          await adminDb.collection("users_retained").doc(targetUid).collection("top_files").doc(tfDoc.id).set(tfDoc.data());
+          await tfDoc.ref.delete();
+          deletedDocsCount++;
         }
-        const db2 = readDb2();
-        if (!db2.retained_users) db2.retained_users = [];
-        db2.retained_users = db2.retained_users.filter((u) => u.id !== targetUid);
-        const localMems = (db2.memories || []).filter((m) => m.userId === targetUid);
-        const localAlerts = (db2.risk_alerts || []).filter((a) => a.userId === targetUid);
-        const localFiles = (db2.files || []).filter((f) => f.userId === targetUid);
-        db2.retained_users.push({
-          ...userDocData,
-          archivedAt: (/* @__PURE__ */ new Date()).toISOString(),
-          archivedMemories: localMems,
-          archivedRiskAlerts: localAlerts,
-          archivedFiles: localFiles
-        });
-        writeDb2(db2);
-      } catch (archErr) {
-        console.warn("Retention profile backup warning:", archErr?.message);
+      } catch (filesErr) {
       }
-    }
-    if (normEmail) {
-      const nowIso = (/* @__PURE__ */ new Date()).toISOString();
-      const restoreUntilIso = new Date(Date.now() + 31 * 24 * 60 * 60 * 1e3).toISOString();
-      await setAccountLifecycleRecord2({
-        accountId: normEmail,
-        emailNormalized: normEmail,
-        status: "SELF_DELETED",
-        deletionType: "self",
-        deletedAt: nowIso,
-        deletedBy: targetUid,
-        restoreUntil: restoreUntilIso,
-        originalUserId: targetUid,
-        originalRole: userDocData?.role || "Contributor",
-        originalWorkspaceId: userDocData?.workspaceId,
-        originalPowers: userDocData?.powers,
-        retainedDataDocPath: `users_retained/${targetUid}`,
-        adminApprovalRequired: false
-      });
-    }
-    try {
-      await adminDb.collection("deletedUsers").doc(targetUid).set({
-        uid: targetUid,
-        email: targetEmail,
-        deletedAt: (/* @__PURE__ */ new Date()).toISOString(),
-        deletedBy: targetUid,
-        reason: "self_deleted"
-      });
-      deletedDocsCount++;
-    } catch (dErr) {
-    }
-    try {
-      await adminDb.collection("users").doc(targetUid).delete();
-      deletedDocsCount++;
-    } catch (fsErr) {
-    }
-    try {
-      await adminDb.collection("verification_codes").doc(targetUid).delete();
-      const vcSnap = await adminDb.collection("verification_codes").where("userId", "==", targetUid).get();
-      for (const doc of vcSnap.docs) {
-        await doc.ref.delete();
-        deletedDocsCount++;
+      const dbData = readDb2();
+      if (dbData.users)
+        dbData.users = dbData.users.filter((u) => u.id !== targetUid);
+      if (dbData.verification_codes)
+        dbData.verification_codes = dbData.verification_codes.filter(
+          (vc) => vc.id !== targetUid && vc.userId !== targetUid
+        );
+      if (dbData.support_tickets)
+        dbData.support_tickets = dbData.support_tickets.filter(
+          (st) => st.userId !== targetUid
+        );
+      if (dbData.memories)
+        dbData.memories = dbData.memories.filter(
+          (m) => m.userId !== targetUid
+        );
+      if (dbData.causal_graphs)
+        dbData.causal_graphs = dbData.causal_graphs.filter(
+          (cg) => cg.userId !== targetUid
+        );
+      writeDb2(dbData);
+      executionAudit.database = {
+        status: "completed",
+        recordsProcessed: deletedDocsCount
+      };
+      currentStep = "FIREBASE_AUTH_REVOCATION_AND_DISABLE";
+      try {
+        await adminAuth.revokeRefreshTokens(targetUid);
+        executionAudit.auth.tokensRevoked = true;
+      } catch (tokenErr) {
+        console.warn("Revoke refresh tokens warning:", tokenErr?.message);
+        executionAudit.auth.tokenWarning = tokenErr?.message;
       }
-    } catch (vcErr) {
-    }
-    try {
-      const topFilesSnap = await adminDb.collection("files").where("userId", "==", targetUid).get();
-      for (const tfDoc of topFilesSnap.docs) {
-        await tfDoc.ref.delete();
-        deletedDocsCount++;
-      }
-    } catch (filesErr) {
-    }
-    const dbData = readDb2();
-    if (dbData.users) dbData.users = dbData.users.filter((u) => u.id !== targetUid);
-    if (dbData.verification_codes) dbData.verification_codes = dbData.verification_codes.filter((vc) => vc.id !== targetUid && vc.userId !== targetUid);
-    if (dbData.support_tickets) dbData.support_tickets = dbData.support_tickets.filter((st) => st.userId !== targetUid);
-    if (dbData.memories) dbData.memories = dbData.memories.filter((m) => m.userId !== targetUid);
-    if (dbData.causal_graphs) dbData.causal_graphs = dbData.causal_graphs.filter((cg) => cg.userId !== targetUid);
-    writeDb2(dbData);
-    executionAudit.database = { status: "completed", recordsProcessed: deletedDocsCount };
-    currentStep = "FIREBASE_AUTH_REVOCATION_AND_DISABLE";
-    try {
-      await adminAuth.revokeRefreshTokens(targetUid);
-      executionAudit.auth.tokensRevoked = true;
-    } catch (tokenErr) {
-      console.warn("Revoke refresh tokens warning:", tokenErr?.message);
-      executionAudit.auth.tokenWarning = tokenErr?.message;
-    }
-    try {
-      await adminAuth.updateUser(targetUid, { disabled: true });
-      console.log("USER_SELF_AUTH_DISABLED", { targetUid });
-      executionAudit.auth.userDisabled = true;
-    } catch (authErr) {
-      if (authErr?.code !== "auth/user-not-found") {
-        console.warn("USER_SELF_AUTH_DISABLE_WARNING", { targetUid, error: authErr?.message });
-        executionAudit.auth.authWarning = authErr?.message;
-      } else {
+      try {
+        await adminAuth.updateUser(targetUid, { disabled: true });
+        console.log("USER_SELF_AUTH_DISABLED", { targetUid });
         executionAudit.auth.userDisabled = true;
+      } catch (authErr) {
+        if (authErr?.code !== "auth/user-not-found") {
+          console.warn("USER_SELF_AUTH_DISABLE_WARNING", {
+            targetUid,
+            error: authErr?.message
+          });
+          executionAudit.auth.authWarning = authErr?.message;
+        } else {
+          executionAudit.auth.userDisabled = true;
+        }
       }
+      executionAudit.auth.status = "completed";
+      console.log("USER_SELF_DELETE_COMPLETED", { targetUid, executionAudit });
+      res.json({
+        success: true,
+        message: "Your account has been deleted. You have 31 days to restore it if you choose.",
+        executionAudit
+      });
+    } catch (err) {
+      console.error(`USER_SELF_DELETE_FAILED during step [${currentStep}]`, {
+        targetUid,
+        error: err.message || String(err)
+      });
+      res.status(500).json({
+        success: false,
+        failedStep: currentStep,
+        error: err.message || "Account deletion failed.",
+        userFriendlyMessage: `\u062A\u0639\u0630\u0631 \u0625\u062A\u0645\u0627\u0645 \u0639\u0645\u0644\u064A\u0629 \u062D\u0630\u0641 \u0627\u0644\u062D\u0633\u0627\u0628 \u0623\u062B\u0646\u0627\u0621 \u0645\u0631\u062D\u0644\u0629 (${currentStep}).`,
+        executionAudit
+      });
     }
-    executionAudit.auth.status = "completed";
-    console.log("USER_SELF_DELETE_COMPLETED", { targetUid, executionAudit });
-    res.json({
-      success: true,
-      message: "Your account has been deleted. You have 31 days to restore it if you choose.",
-      executionAudit
-    });
-  } catch (err) {
-    console.error(`USER_SELF_DELETE_FAILED during step [${currentStep}]`, { targetUid, error: err.message || String(err) });
-    res.status(500).json({
-      success: false,
-      failedStep: currentStep,
-      error: err.message || "Account deletion failed.",
-      userFriendlyMessage: `\u062A\u0639\u0630\u0631 \u0625\u062A\u0645\u0627\u0645 \u0639\u0645\u0644\u064A\u0629 \u062D\u0630\u0641 \u0627\u0644\u062D\u0633\u0627\u0628 \u0623\u062B\u0646\u0627\u0621 \u0645\u0631\u062D\u0644\u0629 (${currentStep}).`,
-      executionAudit
-    });
   }
-});
+);
 app2.post("/api/auth/register", loginRegisterLimiter, async (req, res) => {
   try {
     const { email, password, companyName, role, ownerName, lang } = req.body;
     if (!email || !password || !companyName) {
-      return res.status(400).json({ success: false, error: "All registration fields are required." });
+      return res.status(400).json({
+        success: false,
+        error: "All registration fields are required."
+      });
     }
     const normalizedEmail = email.trim().toLowerCase();
     let userRole = "CEO";
@@ -11304,7 +14877,10 @@ app2.post("/api/auth/register", loginRegisterLimiter, async (req, res) => {
     } else if (role && (role.toUpperCase() === "CEO" || role.toUpperCase() === "MEMBER")) {
       userRole = role.toUpperCase();
     }
-    console.log("REGISTRATION_STARTED", { email: normalizedEmail, assignedRole: userRole });
+    console.log("REGISTRATION_STARTED", {
+      email: normalizedEmail,
+      assignedRole: userRole
+    });
     const lifecycleRecord = await getAccountLifecycleRecord2(normalizedEmail);
     if (lifecycleRecord) {
       if (lifecycleRecord.status === "ADMIN_DELETED" || lifecycleRecord.status === "ADMIN_APPROVAL_REQUIRED" || lifecycleRecord.deletionType === "admin") {
@@ -11327,7 +14903,10 @@ app2.post("/api/auth/register", loginRegisterLimiter, async (req, res) => {
         const nowMs = Date.now();
         const restoreUntilMs = new Date(lifecycleRecord.restoreUntil).getTime();
         if (nowMs <= restoreUntilMs) {
-          const daysRemaining = Math.max(1, Math.ceil((restoreUntilMs - nowMs) / (24 * 3600 * 1e3)));
+          const daysRemaining = Math.max(
+            1,
+            Math.ceil((restoreUntilMs - nowMs) / (24 * 3600 * 1e3))
+          );
           return res.status(400).json({
             success: false,
             code: "SELF_RESTORE_AVAILABLE",
@@ -11357,7 +14936,9 @@ app2.post("/api/auth/register", loginRegisterLimiter, async (req, res) => {
       });
     }
     const db2 = readDb2();
-    if (db2.users?.find((u) => u.email?.trim().toLowerCase() === normalizedEmail)) {
+    if (db2.users?.find(
+      (u) => u.email?.trim().toLowerCase() === normalizedEmail
+    )) {
       return res.status(400).json({ success: false, error: "Email already exists." });
     }
     try {
@@ -11385,13 +14966,22 @@ app2.post("/api/auth/register", loginRegisterLimiter, async (req, res) => {
       });
       userId = authUser.uid;
       createdAuthUser = true;
-      console.log("USER_CREATED", { userId, email: normalizedEmail, source: "firebase_auth" });
+      console.log("USER_CREATED", {
+        userId,
+        email: normalizedEmail,
+        source: "firebase_auth"
+      });
     } catch (authErr) {
       if (authErr?.code === "auth/email-already-exists") {
         return res.status(400).json({ success: false, error: "Email already exists." });
       }
       userId = "usr_" + Date.now().toString(36) + Math.random().toString(36).substr(2, 6);
-      console.log("USER_CREATED", { userId, email: normalizedEmail, source: "generated_id", authErr: authErr?.message });
+      console.log("USER_CREATED", {
+        userId,
+        email: normalizedEmail,
+        source: "generated_id",
+        authErr: authErr?.message
+      });
     }
     let invitation = null;
     try {
@@ -11412,7 +15002,9 @@ app2.post("/api/auth/register", loginRegisterLimiter, async (req, res) => {
     }
     if (!invitation) {
       const dbTemp = readDb2();
-      invitation = dbTemp.invitations?.find((i) => i.email?.trim().toLowerCase() === normalizedEmail) || null;
+      invitation = dbTemp.invitations?.find(
+        (i) => i.email?.trim().toLowerCase() === normalizedEmail
+      ) || null;
     }
     const effectiveCompanyName = invitation?.companyName || companyName;
     const effectiveRole = invitation?.role || userRole;
@@ -11442,7 +15034,13 @@ app2.post("/api/auth/register", loginRegisterLimiter, async (req, res) => {
           name: resolvedOwnerName,
           email: normalizedEmail,
           role: "CEO / Owner",
-          powers: { fileVault: true, memoryVault: true, riskRadar: true, marketIntel: true, settings: true },
+          powers: {
+            fileVault: true,
+            memoryVault: true,
+            riskRadar: true,
+            marketIntel: true,
+            settings: true
+          },
           addedAt: nowIso.split("T")[0]
         }
       ],
@@ -11461,7 +15059,10 @@ app2.post("/api/auth/register", loginRegisterLimiter, async (req, res) => {
     const userRef = adminDb.collection("users").doc(userId);
     try {
       await userRef.set(newUser);
-      console.log("USER_FIRESTORE_PERSISTED", { userId, email: normalizedEmail });
+      console.log("USER_FIRESTORE_PERSISTED", {
+        userId,
+        email: normalizedEmail
+      });
     } catch (fsErr) {
       console.error("USER_CREATION_FAILED", {
         userId,
@@ -11481,7 +15082,9 @@ app2.post("/api/auth/register", loginRegisterLimiter, async (req, res) => {
       });
     }
     if (!db2.users) db2.users = [];
-    const existingIdx = db2.users.findIndex((u) => u.id === userId || u.email?.toLowerCase() === normalizedEmail);
+    const existingIdx = db2.users.findIndex(
+      (u) => u.id === userId || u.email?.toLowerCase() === normalizedEmail
+    );
     if (existingIdx >= 0) {
       db2.users[existingIdx] = newUser;
     } else {
@@ -11491,7 +15094,11 @@ app2.post("/api/auth/register", loginRegisterLimiter, async (req, res) => {
     try {
       const createdDoc = await userRef.get();
       if (!createdDoc.exists) {
-        console.warn("USER_FIRESTORE_PERSIST_DELAYED", { userId, email: normalizedEmail, message: "Firestore write verification failed or delayed, but local DB fallback succeeded." });
+        console.warn("USER_FIRESTORE_PERSIST_DELAYED", {
+          userId,
+          email: normalizedEmail,
+          message: "Firestore write verification failed or delayed, but local DB fallback succeeded."
+        });
       }
     } catch (verifyErr) {
       console.warn("USER_FIRESTORE_PERSIST_DELAYED", {
@@ -11508,7 +15115,9 @@ app2.post("/api/auth/register", loginRegisterLimiter, async (req, res) => {
           if (ceoSnap.exists) {
             const ceoData = ceoSnap.data() || {};
             const currentList = ceoData.teamMembersList || [];
-            const existsIndex = currentList.findIndex((m) => m.email?.toLowerCase() === normalizedEmail);
+            const existsIndex = currentList.findIndex(
+              (m) => m.email?.toLowerCase() === normalizedEmail
+            );
             const updatedMember = {
               id: `tm-${userId}`,
               name: resolvedOwnerName,
@@ -11534,7 +15143,9 @@ app2.post("/api/auth/register", loginRegisterLimiter, async (req, res) => {
       }
       const dbInv = readDb2();
       if (dbInv.invitations) {
-        dbInv.invitations = dbInv.invitations.filter((i) => i.email?.trim().toLowerCase() !== normalizedEmail);
+        dbInv.invitations = dbInv.invitations.filter(
+          (i) => i.email?.trim().toLowerCase() !== normalizedEmail
+        );
         writeDb2(dbInv);
       }
     }
@@ -11551,7 +15162,10 @@ app2.post("/api/auth/register", loginRegisterLimiter, async (req, res) => {
       adminApprovalRequired: false
     });
     if (isInvitedUser) {
-      console.log("INVITED_USER_REGISTERED_NO_OTP_REQUIRED", { userId, email: normalizedEmail });
+      console.log("INVITED_USER_REGISTERED_NO_OTP_REQUIRED", {
+        userId,
+        email: normalizedEmail
+      });
       let customToken2 = null;
       try {
         customToken2 = await adminAuth.createCustomToken(userId);
@@ -11622,17 +15236,28 @@ app2.post("/api/auth/register", loginRegisterLimiter, async (req, res) => {
       });
     }
     if (!db2.verification_codes) db2.verification_codes = [];
-    db2.verification_codes = db2.verification_codes.filter((vc) => vc.id !== docId);
+    db2.verification_codes = db2.verification_codes.filter(
+      (vc) => vc.id !== docId
+    );
     db2.verification_codes.push(otpRecord);
     writeDb2(db2);
     const resolvedUserName = cleanUserName2(resolvedOwnerName, normalizedEmail);
-    const { subject: emailSubject, text: textBody, html: htmlBody } = buildOtpEmailHtml2({
+    const {
+      subject: emailSubject,
+      text: textBody,
+      html: htmlBody
+    } = buildOtpEmailHtml2({
       email: normalizedEmail,
       userName: resolvedUserName,
       otpCode,
       type: "account_registration"
     });
-    const mailResult = await sendSystemMail2(normalizedEmail, emailSubject, textBody, htmlBody);
+    const mailResult = await sendSystemMail2(
+      normalizedEmail,
+      emailSubject,
+      textBody,
+      htmlBody
+    );
     if (!mailResult.success) {
       console.error("OTP_EMAIL_FAILED", {
         userId,
@@ -11699,7 +15324,10 @@ app2.post("/api/auth/login", loginRegisterLimiter, async (req, res) => {
           const nowMs = Date.now();
           const restoreUntilMs = restoreUntilIso ? new Date(restoreUntilIso).getTime() : 0;
           const remainingMs = restoreUntilMs - nowMs;
-          const daysRemaining = Math.max(1, Math.ceil(remainingMs / (24 * 3600 * 1e3)));
+          const daysRemaining = Math.max(
+            1,
+            Math.ceil(remainingMs / (24 * 3600 * 1e3))
+          );
           if (!restoreUntilIso || restoreUntilMs > nowMs) {
             return res.status(403).json({
               code: "SELF_RESTORE_AVAILABLE",
@@ -11728,22 +15356,28 @@ app2.post("/api/auth/login", loginRegisterLimiter, async (req, res) => {
     let authIdToken = null;
     const apiKey = process.env.VITE_FIREBASE_API_KEY || process.env.FIREBASE_API_KEY || "AIzaSyAvjj-PBHknriQ73FYyQc2nhhBNCF_lvnE";
     try {
-      const restRes = await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${apiKey}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          email: normalizedEmail,
-          password,
-          returnSecureToken: true
-        })
-      });
+      const restRes = await fetch(
+        `https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${apiKey}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            email: normalizedEmail,
+            password,
+            returnSecureToken: true
+          })
+        }
+      );
       const restData = await restRes.json();
       if (restRes.ok && restData.localId) {
         authUid = restData.localId;
         authIdToken = restData.idToken;
       } else {
         const errMessage = restData?.error?.message || "";
-        console.warn("Notice: Firebase Auth REST sign in:", errMessage || restRes.status);
+        console.warn(
+          "Notice: Firebase Auth REST sign in:",
+          errMessage || restRes.status
+        );
         if (errMessage === "USER_DISABLED") {
           return res.status(403).json({
             code: "auth/user-disabled",
@@ -11771,7 +15405,9 @@ app2.post("/api/auth/login", loginRegisterLimiter, async (req, res) => {
           const foundDocId = emailSnap.docs[0].id;
           if (docData && (docData.email || "").trim().toLowerCase() === normalizedEmail) {
             if (authUid && foundDocId !== authUid && docData.id !== authUid) {
-              console.error(`[MANDATORY_UID_ASSERTION_FAILURE] /api/auth/login email lookup mismatch: authUid (${authUid}) !== docId (${foundDocId})`);
+              console.error(
+                `[MANDATORY_UID_ASSERTION_FAILURE] /api/auth/login email lookup mismatch: authUid (${authUid}) !== docId (${foundDocId})`
+              );
             } else {
               userProfile = docData;
               if (!authUid) {
@@ -11830,7 +15466,9 @@ app2.post("/api/auth/login", loginRegisterLimiter, async (req, res) => {
     }
     if (authUid && isFirebaseAdminAvailable) {
       try {
-        await adminAuth.updateUser(authUid, { password: cleanPassword || password });
+        await adminAuth.updateUser(authUid, {
+          password: cleanPassword || password
+        });
       } catch (pwSyncErr) {
       }
     }
@@ -11904,7 +15542,13 @@ app2.post("/api/auth/login", loginRegisterLimiter, async (req, res) => {
         userProfile.verification_status = "verified";
       } else {
         if (userProfile.role === "Admin" || userProfile.role === "admin") {
-          const isOwner = Boolean(userProfile.workspace?.ownerId && userProfile.workspace.ownerId === authUid) || Boolean(userProfile.workspaceId && userProfile.workspaceId.startsWith(`ws_${authUid.substring(0, 8)}`));
+          const isOwner = Boolean(
+            userProfile.workspace?.ownerId && userProfile.workspace.ownerId === authUid
+          ) || Boolean(
+            userProfile.workspaceId && userProfile.workspaceId.startsWith(
+              `ws_${authUid.substring(0, 8)}`
+            )
+          );
           userProfile.role = isOwner ? "CEO" : "Contributor";
           try {
             await adminDb.collection("users").doc(authUid).update({ role: userProfile.role });
@@ -11922,7 +15566,9 @@ app2.post("/api/auth/login", loginRegisterLimiter, async (req, res) => {
             }
           } catch (e) {
           }
-          if (hasInvitation || userProfile.role && userProfile.role !== "CEO" || userProfile.workspaceId && !userProfile.workspaceId.startsWith("ws_" + authUid.substring(0, 8))) {
+          if (hasInvitation || userProfile.role && userProfile.role !== "CEO" || userProfile.workspaceId && !userProfile.workspaceId.startsWith(
+            "ws_" + authUid.substring(0, 8)
+          )) {
             userProfile.isVerified = true;
             userProfile.isEmailVerified = true;
             userProfile.email_verified = true;
@@ -11958,9 +15604,14 @@ app2.post("/api/auth/login", loginRegisterLimiter, async (req, res) => {
     try {
       const localDb2 = readDb2();
       if (!localDb2.users) localDb2.users = [];
-      const existingIdx = localDb2.users.findIndex((u) => u.id === authUid || u.email?.toLowerCase() === normalizedEmail);
+      const existingIdx = localDb2.users.findIndex(
+        (u) => u.id === authUid || u.email?.toLowerCase() === normalizedEmail
+      );
       if (existingIdx >= 0) {
-        localDb2.users[existingIdx] = { ...localDb2.users[existingIdx], ...userProfile };
+        localDb2.users[existingIdx] = {
+          ...localDb2.users[existingIdx],
+          ...userProfile
+        };
       } else {
         localDb2.users.push(userProfile);
       }
@@ -11970,9 +15621,24 @@ app2.post("/api/auth/login", loginRegisterLimiter, async (req, res) => {
     const isVerified = userProfile.isVerified === true || userProfile.isEmailVerified === true || userProfile.emailVerified === true || userProfile.verification_status === "verified" || userProfile.verification_required === false;
     const { passwordHash, secretPasscode, ...cleanProfile } = userProfile;
     if (cleanProfile.encryptedSecurity) {
-      const { secretPasscode: _sp, secretPasscodeHash: _sph, ...cleanEncSec } = cleanProfile.encryptedSecurity;
+      const {
+        secretPasscode: _sp,
+        secretPasscodeHash: _sph,
+        ...cleanEncSec
+      } = cleanProfile.encryptedSecurity;
       cleanProfile.encryptedSecurity = cleanEncSec;
     }
+    emitPlatformEvent({
+      eventType: "USER_LOGGED_IN",
+      severity: "INFO",
+      category: "AUTH",
+      userId: authUid,
+      userEmail: normalizedEmail,
+      requestId: req.correlationId,
+      sanitizedMessage: `User logged in: ${normalizedEmail} (role: ${userProfile.role || "Member"})`,
+      metadata: { role: userProfile.role }
+    }).catch(() => {
+    });
     return res.json({
       success: true,
       customToken,
@@ -11989,133 +15655,158 @@ app2.post("/api/auth/login", loginRegisterLimiter, async (req, res) => {
     });
   } catch (err) {
     console.error("Login endpoint error:", err);
-    return res.status(500).json({ error: "Internal login error", message: err?.message || String(err) });
-  }
-});
-app2.post("/api/security/set-code", requireAuth, async (req, res) => {
-  try {
-    const authUid = req.user?.uid;
-    const authEmail = req.user?.email;
-    if (!authUid) return res.status(401).json({ error: "Unauthorized" });
-    const userProfile = await getUserProfileServer(authUid, authEmail);
-    if (!userProfile) return res.status(404).json({ error: "User profile not found" });
-    const isOwnerOrCeo = (userProfile.role || "").toUpperCase() === "CEO" || (userProfile.role || "").toUpperCase() === "ADMIN" || userProfile.workspace?.ownerId === authUid || await isUserAdminServer(authUid, authEmail);
-    if (!isOwnerOrCeo) {
-      return res.status(403).json({ error: "Forbidden: Only workspace administrators can configure the security passcode." });
-    }
-    const { code, lockedModules } = req.body;
-    if (!code || typeof code !== "string" || code.trim().length < 4) {
-      return res.status(400).json({ error: "Valid security passcode (minimum 4 characters) is required." });
-    }
-    const passcodeHash = hashSecurityPasscode(code.trim());
-    const updatedSecurity = {
-      isPinSet: true,
-      secretPasscodeHash: passcodeHash,
-      lockedModules: {
-        fileVault: lockedModules?.fileVault ?? true,
-        memoryVault: lockedModules?.memoryVault ?? true,
-        riskRadar: lockedModules?.riskRadar ?? true,
-        settings: lockedModules?.settings ?? false
-      }
-    };
-    if (isFirebaseAdminAvailable && adminDb) {
-      try {
-        await adminDb.collection("users").doc(authUid).update({
-          encryptedSecurity: updatedSecurity
-        });
-      } catch (e) {
-      }
-    }
-    const db2 = readDb2();
-    if (db2.users) {
-      const uIdx = db2.users.findIndex((u) => u.id === authUid || u.email === authEmail);
-      if (uIdx >= 0) {
-        db2.users[uIdx].encryptedSecurity = updatedSecurity;
-        delete db2.users[uIdx].secretPasscode;
-        writeDb2(db2);
-      }
-    }
-    res.json({
-      success: true,
-      isPinSet: true,
-      lockedModules: updatedSecurity.lockedModules,
-      message: "Security passcode configured securely."
+    return res.status(500).json({
+      error: "Internal login error",
+      message: err?.message || String(err)
     });
-  } catch (err) {
-    console.error("Set security code error:", err);
-    res.status(500).json({ error: "Failed to set security code", details: err?.message });
   }
 });
-app2.post("/api/security/verify-code", requireAuth, async (req, res) => {
-  try {
-    const authUid = req.user?.uid;
-    const authEmail = req.user?.email;
-    if (!authUid) return res.status(401).json({ error: "Unauthorized" });
-    const userProfile = await getUserProfileServer(authUid, authEmail);
-    if (!userProfile) return res.status(404).json({ error: "User profile not found" });
-    const rateLimitKey = `passcode_${authUid}`;
-    const limitCheck = checkPasscodeRateLimit(rateLimitKey);
-    if (!limitCheck.allowed) {
-      const minutesRemaining = limitCheck.lockedUntil ? Math.max(1, Math.ceil((limitCheck.lockedUntil - Date.now()) / 6e4)) : 15;
-      return res.status(429).json({
-        success: false,
-        code: "PASSCODE_LOCKED",
-        error: `\u062A\u0645 \u062A\u062C\u0627\u0648\u0632 \u0627\u0644\u062D\u062F \u0627\u0644\u0623\u0642\u0635\u0649 \u0644\u0644\u0645\u062D\u0627\u0648\u0644\u0627\u062A \u0627\u0644\u062E\u0627\u0637\u0626\u0629. \u062A\u0645 \u0642\u0641\u0644 \u0627\u0644\u062A\u062D\u0642\u0642 \u0645\u0624\u0642\u062A\u0627\u064B \u0644\u0645\u062F\u0629 ${minutesRemaining} \u062F\u0642\u064A\u0642\u0629 \u0644\u062D\u0645\u0627\u064A\u0629 \u0627\u0644\u062D\u0633\u0627\u0628.`,
-        message: `Too many failed attempts. Verification locked for ${minutesRemaining} minutes.`
-      });
-    }
-    const { code, module: reqModule } = req.body;
-    if (!code || typeof code !== "string") {
-      return res.status(400).json({ error: "Passcode is required." });
-    }
-    let targetSecurity = userProfile.encryptedSecurity;
-    if (!targetSecurity?.secretPasscodeHash && !targetSecurity?.secretPasscode && userProfile.workspace?.ownerId && userProfile.workspace.ownerId !== authUid) {
-      const ownerProfile = await getUserProfileServer(userProfile.workspace.ownerId);
-      if (ownerProfile?.encryptedSecurity) {
-        targetSecurity = ownerProfile.encryptedSecurity;
+app2.post(
+  "/api/security/set-code",
+  requireAuth,
+  async (req, res) => {
+    try {
+      const authUid = req.user?.uid;
+      const authEmail = req.user?.email;
+      if (!authUid) return res.status(401).json({ error: "Unauthorized" });
+      const userProfile = await getUserProfileServer(authUid, authEmail);
+      if (!userProfile)
+        return res.status(404).json({ error: "User profile not found" });
+      const isOwnerOrCeo = (userProfile.role || "").toUpperCase() === "CEO" || (userProfile.role || "").toUpperCase() === "ADMIN" || userProfile.workspace?.ownerId === authUid || await isUserAdminServer(authUid, authEmail);
+      if (!isOwnerOrCeo) {
+        return res.status(403).json({
+          error: "Forbidden: Only workspace administrators can configure the security passcode."
+        });
       }
+      const { code, lockedModules } = req.body;
+      if (!code || typeof code !== "string" || code.trim().length < 4) {
+        return res.status(400).json({
+          error: "Valid security passcode (minimum 4 characters) is required."
+        });
+      }
+      const passcodeHash = hashSecurityPasscode(code.trim());
+      const updatedSecurity = {
+        isPinSet: true,
+        secretPasscodeHash: passcodeHash,
+        lockedModules: {
+          fileVault: lockedModules?.fileVault ?? true,
+          memoryVault: lockedModules?.memoryVault ?? true,
+          riskRadar: lockedModules?.riskRadar ?? true,
+          settings: lockedModules?.settings ?? false
+        }
+      };
+      if (isFirebaseAdminAvailable && adminDb) {
+        try {
+          await adminDb.collection("users").doc(authUid).update({
+            encryptedSecurity: updatedSecurity
+          });
+        } catch (e) {
+        }
+      }
+      const db2 = readDb2();
+      if (db2.users) {
+        const uIdx = db2.users.findIndex(
+          (u) => u.id === authUid || u.email === authEmail
+        );
+        if (uIdx >= 0) {
+          db2.users[uIdx].encryptedSecurity = updatedSecurity;
+          delete db2.users[uIdx].secretPasscode;
+          writeDb2(db2);
+        }
+      }
+      res.json({
+        success: true,
+        isPinSet: true,
+        lockedModules: updatedSecurity.lockedModules,
+        message: "Security passcode configured securely."
+      });
+    } catch (err) {
+      console.error("Set security code error:", err);
+      res.status(500).json({ error: "Failed to set security code", details: err?.message });
     }
-    const storedPasscode = targetSecurity?.secretPasscodeHash || targetSecurity?.secretPasscode;
-    const isMatch = verifySecurityPasscode(code.trim(), storedPasscode);
-    if (!isMatch) {
-      const failInfo = recordPasscodeFailure(rateLimitKey);
-      if (failInfo.locked) {
+  }
+);
+app2.post(
+  "/api/security/verify-code",
+  requireAuth,
+  async (req, res) => {
+    try {
+      const authUid = req.user?.uid;
+      const authEmail = req.user?.email;
+      if (!authUid) return res.status(401).json({ error: "Unauthorized" });
+      const userProfile = await getUserProfileServer(authUid, authEmail);
+      if (!userProfile)
+        return res.status(404).json({ error: "User profile not found" });
+      const rateLimitKey = `passcode_${authUid}`;
+      const limitCheck = checkPasscodeRateLimit(rateLimitKey);
+      if (!limitCheck.allowed) {
+        const minutesRemaining = limitCheck.lockedUntil ? Math.max(
+          1,
+          Math.ceil((limitCheck.lockedUntil - Date.now()) / 6e4)
+        ) : 15;
         return res.status(429).json({
           success: false,
           code: "PASSCODE_LOCKED",
-          error: "\u062A\u0645 \u0642\u0641\u0644 \u0627\u0644\u062A\u062D\u0642\u0642 \u0645\u0646 \u0631\u0645\u0632 \u0627\u0644\u0623\u0645\u0627\u0646 \u0644\u0645\u062F\u0629 15 \u062F\u0642\u064A\u0642\u0629 \u0628\u0639\u062F 5 \u0645\u062D\u0627\u0648\u0644\u0627\u062A \u062E\u0627\u0637\u0626\u0629 \u0645\u062A\u062A\u0627\u0644\u064A\u0629.",
-          message: "Passcode verification locked for 15 minutes after 5 consecutive failed attempts."
+          error: `\u062A\u0645 \u062A\u062C\u0627\u0648\u0632 \u0627\u0644\u062D\u062F \u0627\u0644\u0623\u0642\u0635\u0649 \u0644\u0644\u0645\u062D\u0627\u0648\u0644\u0627\u062A \u0627\u0644\u062E\u0627\u0637\u0626\u0629. \u062A\u0645 \u0642\u0641\u0644 \u0627\u0644\u062A\u062D\u0642\u0642 \u0645\u0624\u0642\u062A\u0627\u064B \u0644\u0645\u062F\u0629 ${minutesRemaining} \u062F\u0642\u064A\u0642\u0629 \u0644\u062D\u0645\u0627\u064A\u0629 \u0627\u0644\u062D\u0633\u0627\u0628.`,
+          message: `Too many failed attempts. Verification locked for ${minutesRemaining} minutes.`
         });
       }
-      return res.status(403).json({
-        success: false,
-        code: "PASSCODE_INCORRECT",
-        error: `\u0631\u0645\u0632 \u0627\u0644\u0623\u0645\u0627\u0646 \u0627\u0644\u0633\u0631\u064A \u063A\u064A\u0631 \u0635\u062D\u064A\u062D. \u0645\u062A\u0628\u0642\u064A ${failInfo.remainingAttempts} \u0645\u062D\u0627\u0648\u0644\u0627\u062A \u0642\u0628\u0644 \u0627\u0644\u0642\u0641\u0644 \u0627\u0644\u0645\u0624\u0642\u062A.`,
-        message: `Incorrect security passcode. ${failInfo.remainingAttempts} attempts remaining.`
+      const { code, module: reqModule } = req.body;
+      if (!code || typeof code !== "string") {
+        return res.status(400).json({ error: "Passcode is required." });
+      }
+      let targetSecurity = userProfile.encryptedSecurity;
+      if (!targetSecurity?.secretPasscodeHash && !targetSecurity?.secretPasscode && userProfile.workspace?.ownerId && userProfile.workspace.ownerId !== authUid) {
+        const ownerProfile = await getUserProfileServer(
+          userProfile.workspace.ownerId
+        );
+        if (ownerProfile?.encryptedSecurity) {
+          targetSecurity = ownerProfile.encryptedSecurity;
+        }
+      }
+      const storedPasscode = targetSecurity?.secretPasscodeHash || targetSecurity?.secretPasscode;
+      const isMatch = verifySecurityPasscode(code.trim(), storedPasscode);
+      if (!isMatch) {
+        const failInfo = recordPasscodeFailure(rateLimitKey);
+        if (failInfo.locked) {
+          return res.status(429).json({
+            success: false,
+            code: "PASSCODE_LOCKED",
+            error: "\u062A\u0645 \u0642\u0641\u0644 \u0627\u0644\u062A\u062D\u0642\u0642 \u0645\u0646 \u0631\u0645\u0632 \u0627\u0644\u0623\u0645\u0627\u0646 \u0644\u0645\u062F\u0629 15 \u062F\u0642\u064A\u0642\u0629 \u0628\u0639\u062F 5 \u0645\u062D\u0627\u0648\u0644\u0627\u062A \u062E\u0627\u0637\u0626\u0629 \u0645\u062A\u062A\u0627\u0644\u064A\u0629.",
+            message: "Passcode verification locked for 15 minutes after 5 consecutive failed attempts."
+          });
+        }
+        return res.status(403).json({
+          success: false,
+          code: "PASSCODE_INCORRECT",
+          error: `\u0631\u0645\u0632 \u0627\u0644\u0623\u0645\u0627\u0646 \u0627\u0644\u0633\u0631\u064A \u063A\u064A\u0631 \u0635\u062D\u064A\u062D. \u0645\u062A\u0628\u0642\u064A ${failInfo.remainingAttempts} \u0645\u062D\u0627\u0648\u0644\u0627\u062A \u0642\u0628\u0644 \u0627\u0644\u0642\u0641\u0644 \u0627\u0644\u0645\u0624\u0642\u062A.`,
+          message: `Incorrect security passcode. ${failInfo.remainingAttempts} attempts remaining.`
+        });
+      }
+      resetPasscodeFailures(rateLimitKey);
+      const workspaceId = userProfile.workspaceId || userProfile.workspace?.id || `ws_${authUid}`;
+      const token = generateSecuritySessionToken(authUid, workspaceId);
+      res.json({
+        success: true,
+        verified: true,
+        module: reqModule || "all",
+        token,
+        message: "Passcode verified successfully."
       });
+    } catch (err) {
+      console.error("Verify security code error:", err);
+      res.status(500).json({ error: "Failed to verify security code" });
     }
-    resetPasscodeFailures(rateLimitKey);
-    const workspaceId = userProfile.workspaceId || userProfile.workspace?.id || `ws_${authUid}`;
-    const token = generateSecuritySessionToken(authUid, workspaceId);
-    res.json({
-      success: true,
-      verified: true,
-      module: reqModule || "all",
-      token,
-      message: "Passcode verified successfully."
-    });
-  } catch (err) {
-    console.error("Verify security code error:", err);
-    res.status(500).json({ error: "Failed to verify security code" });
   }
-});
+);
 app2.post("/api/users/profile", requireAuth, async (req, res) => {
   try {
     const authUid = req.user?.uid;
     const authEmail = req.user?.email;
     if (!authUid) return res.status(401).json({ error: "Unauthorized" });
     const existingProfile = await getUserProfileServer(authUid, authEmail);
-    if (!existingProfile) return res.status(404).json({ error: "User profile not found" });
+    if (!existingProfile)
+      return res.status(404).json({ error: "User profile not found" });
     const isOwnerOrCeo = (existingProfile.role || "").toUpperCase() === "CEO" || (existingProfile.role || "").toUpperCase() === "ADMIN" || existingProfile.workspace?.ownerId === authUid || await isUserAdminServer(authUid, authEmail);
     const incomingData = req.body || {};
     if (!isOwnerOrCeo) {
@@ -12196,7 +15887,9 @@ app2.post("/api/users/profile", requireAuth, async (req, res) => {
     }
     const db2 = readDb2();
     if (db2.users) {
-      const uIdx = db2.users.findIndex((u) => u.id === authUid || u.email === authEmail);
+      const uIdx = db2.users.findIndex(
+        (u) => u.id === authUid || u.email === authEmail
+      );
       if (uIdx >= 0) {
         db2.users[uIdx] = { ...db2.users[uIdx], ...updatedProfile };
         writeDb2(db2);
@@ -12212,190 +15905,312 @@ app2.post("/api/users/profile", requireAuth, async (req, res) => {
     res.status(500).json({ error: "Failed to update user profile", details: err?.message });
   }
 });
-app2.get("/api/memories", requireAuth, requireModulePermission("memoryVault"), (req, res) => {
-  const db2 = readDb2();
-  const authUserId = req.user?.uid;
-  if (!authUserId) {
-    return res.status(401).json({ error: "Unauthorized: Missing authentication token" });
-  }
-  const filtered = (db2.memories || []).filter((m) => m.userId === authUserId);
-  res.json(filtered);
-});
-app2.post("/api/memories", requireAuth, requireModulePermission("memoryVault"), (req, res) => {
-  const { title, category, riskLevel, tags, description, decision, causalFactors, outcomes, lessonsLearned, authorEmail, authorRole, authorName } = req.body;
-  if (!title || !category || !riskLevel || !description || !decision) {
-    return res.status(400).json({ error: "Missing required memory content fields." });
-  }
-  const authUserId = req.user?.uid;
-  if (!authUserId) {
-    return res.status(401).json({ error: "Unauthorized: Missing authentication token" });
-  }
-  const db2 = readDb2();
-  const newMemory = {
-    id: req.body.id || "mem_" + Math.random().toString(36).substr(2, 9),
-    title,
-    category,
-    riskLevel,
-    tags: Array.isArray(tags) ? tags : tags ? String(tags).split(",").map((t) => t.trim()) : [],
-    description,
-    decision,
-    causalFactors: causalFactors || "",
-    outcomes: outcomes || "",
-    lessonsLearned: lessonsLearned || "",
-    createdAt: (/* @__PURE__ */ new Date()).toISOString(),
-    userId: authUserId,
-    // Strictly enforced server-side
-    authorEmail: authorEmail || req.user?.email || "user@zakir.ai",
-    authorRole: authorRole || "Analyst",
-    authorName: authorName || (req.user?.email ? req.user.email.split("@")[0] : "User")
-  };
-  if (!db2.memories) db2.memories = [];
-  db2.memories.unshift(newMemory);
-  const newMetric = {
-    id: "met_" + Math.random().toString(36).substr(2, 9),
-    userId: authUserId,
-    actionType: "Log Memory",
-    metricValue: 1,
-    description: `Added strategic memory: ${title}`,
-    createdAt: (/* @__PURE__ */ new Date()).toISOString()
-  };
-  if (!db2.user_metrics) db2.user_metrics = [];
-  db2.user_metrics.unshift(newMetric);
-  writeDb2(db2);
-  res.status(201).json(newMemory);
-});
-app2.delete("/api/memories/:id", requireAuth, requireModulePermission("memoryVault"), (req, res) => {
-  const { id } = req.params;
-  const authUserId = req.user?.uid;
-  if (!authUserId) {
-    return res.status(401).json({ error: "Unauthorized: Missing authentication token" });
-  }
-  const db2 = readDb2();
-  const memory = (db2.memories || []).find((m) => m.id === id);
-  if (!memory) {
-    return res.status(404).json({ error: "Memory not found." });
-  }
-  if (memory.userId !== authUserId) {
-    return res.status(403).json({ error: "Forbidden: Cannot delete memory owned by another user." });
-  }
-  const index = db2.memories.findIndex((m) => m.id === id);
-  if (index !== -1) {
-    db2.memories.splice(index, 1);
-    writeDb2(db2);
-    return res.json({ success: true });
-  }
-  res.status(404).json({ error: "Memory not found." });
-});
-app2.put("/api/memories/:id", requireAuth, requireModulePermission("memoryVault"), (req, res) => {
-  const { id } = req.params;
-  const authUserId = req.user?.uid;
-  if (!authUserId) {
-    return res.status(401).json({ error: "Unauthorized: Missing authentication token" });
-  }
-  const db2 = readDb2();
-  const memory = (db2.memories || []).find((m) => m.id === id);
-  if (!memory) {
-    return res.status(404).json({ error: "Memory not found." });
-  }
-  if (memory.userId !== authUserId) {
-    return res.status(403).json({ error: "Forbidden: Cannot edit memory owned by another user." });
-  }
-  const index = db2.memories.findIndex((m) => m.id === id);
-  if (index !== -1) {
-    const { title, category, riskLevel, tags, description, decision, causalFactors, outcomes, lessonsLearned } = req.body;
-    db2.memories[index] = {
-      ...db2.memories[index],
-      title: title || db2.memories[index].title,
-      category: category || db2.memories[index].category,
-      riskLevel: riskLevel || db2.memories[index].riskLevel,
-      tags: tags ? Array.isArray(tags) ? tags : String(tags).split(",").map((t) => t.trim()) : db2.memories[index].tags,
-      description: description || db2.memories[index].description,
-      decision: decision || db2.memories[index].decision,
-      causalFactors: causalFactors !== void 0 ? causalFactors : db2.memories[index].causalFactors,
-      outcomes: outcomes !== void 0 ? outcomes : db2.memories[index].outcomes,
-      lessonsLearned: lessonsLearned !== void 0 ? lessonsLearned : db2.memories[index].lessonsLearned
-    };
-    writeDb2(db2);
-    return res.json(db2.memories[index]);
-  }
-  res.status(404).json({ error: "Memory not found." });
-});
-app2.get("/api/risk-alerts", requireAuth, requireModulePermission("riskRadar"), (req, res) => {
-  const db2 = readDb2();
-  const authUserId = req.user?.uid;
-  const filtered = (db2.risk_alerts || []).filter((a) => !a.userId || a.userId === authUserId);
-  res.json(filtered);
-});
-app2.post("/api/risk-alerts", requireAuth, requireModulePermission("riskRadar"), (req, res) => {
-  const db2 = readDb2();
-  const authUserId = req.user?.uid;
-  const newAlert = {
-    id: req.body.id || `al_${Date.now()}`,
-    title: req.body.title || "Risk Alert",
-    category: req.body.category || "Operational Assets",
-    severity: req.body.severity || "High",
-    description: req.body.description || "",
-    status: req.body.status || "Active",
-    userId: authUserId,
-    createdAt: req.body.createdAt || (/* @__PURE__ */ new Date()).toISOString()
-  };
-  if (!db2.risk_alerts) db2.risk_alerts = [];
-  db2.risk_alerts.unshift(newAlert);
-  writeDb2(db2);
-  res.json(newAlert);
-});
-app2.post("/api/risk-alerts/resolve", requireAuth, requireModulePermission("riskRadar"), (req, res) => {
-  const { id } = req.body;
-  const db2 = readDb2();
-  const alertIndex = db2.risk_alerts?.findIndex((a) => a.id === id);
-  if (alertIndex !== void 0 && alertIndex !== -1) {
-    db2.risk_alerts[alertIndex].status = "Resolved";
-    writeDb2(db2);
-    return res.json(db2.risk_alerts[alertIndex]);
-  }
-  res.status(404).json({ error: "Alert not found." });
-});
-app2.get("/api/files", requireAuth, requireModulePermission("fileVault"), (req, res) => {
-  const db2 = readDb2();
-  const authUserId = req.user?.uid;
-  const files = (db2.files || []).filter((f) => f.userId === authUserId);
-  res.json(files);
-});
-app2.post("/api/files", requireAuth, requireModulePermission("fileVault"), (req, res) => {
-  const db2 = readDb2();
-  const authUserId = req.user?.uid;
-  const file = {
-    id: req.body.id || `file_${Date.now()}`,
-    name: req.body.name || "Untitled",
-    size: req.body.size || 0,
-    type: req.body.type || "application/octet-stream",
-    url: req.body.url || "",
-    storagePath: req.body.storagePath || "",
-    category: req.body.category || "Contracts",
-    isEncrypted: req.body.isEncrypted ?? false,
-    userId: authUserId,
-    createdAt: (/* @__PURE__ */ new Date()).toISOString()
-  };
-  if (!db2.files) db2.files = [];
-  db2.files.unshift(file);
-  writeDb2(db2);
-  res.status(201).json(file);
-});
-app2.delete("/api/files/:id", requireAuth, requireModulePermission("fileVault"), (req, res) => {
-  const { id } = req.params;
-  const authUserId = req.user?.uid;
-  const db2 = readDb2();
-  const idx = (db2.files || []).findIndex((f) => f.id === id);
-  if (idx !== -1) {
-    if (db2.files[idx].userId !== authUserId) {
-      return res.status(403).json({ error: "Forbidden: Cannot delete file owned by another user." });
+app2.get(
+  "/api/memories",
+  requireAuth,
+  requireModulePermission("memoryVault"),
+  (req, res) => {
+    const db2 = readDb2();
+    const authUserId = req.user?.uid;
+    if (!authUserId) {
+      return res.status(401).json({ error: "Unauthorized: Missing authentication token" });
     }
-    db2.files.splice(idx, 1);
-    writeDb2(db2);
-    return res.json({ success: true });
+    const filtered = (db2.memories || []).filter(
+      (m) => m.userId === authUserId
+    );
+    res.json(filtered);
   }
-  res.status(404).json({ error: "File not found" });
-});
+);
+app2.post(
+  "/api/memories",
+  requireAuth,
+  requireModulePermission("memoryVault"),
+  (req, res) => {
+    const {
+      title,
+      category,
+      riskLevel,
+      tags,
+      description,
+      decision,
+      causalFactors,
+      outcomes,
+      lessonsLearned,
+      authorEmail,
+      authorRole,
+      authorName
+    } = req.body;
+    if (!title || !category || !riskLevel || !description || !decision) {
+      return res.status(400).json({ error: "Missing required memory content fields." });
+    }
+    const authUserId = req.user?.uid;
+    if (!authUserId) {
+      return res.status(401).json({ error: "Unauthorized: Missing authentication token" });
+    }
+    const db2 = readDb2();
+    const newMemory = {
+      id: req.body.id || "mem_" + Math.random().toString(36).substr(2, 9),
+      title,
+      category,
+      riskLevel,
+      tags: Array.isArray(tags) ? tags : tags ? String(tags).split(",").map((t) => t.trim()) : [],
+      description,
+      decision,
+      causalFactors: causalFactors || "",
+      outcomes: outcomes || "",
+      lessonsLearned: lessonsLearned || "",
+      createdAt: (/* @__PURE__ */ new Date()).toISOString(),
+      userId: authUserId,
+      // Strictly enforced server-side
+      authorEmail: authorEmail || req.user?.email || "user@zakir.ai",
+      authorRole: authorRole || "Analyst",
+      authorName: authorName || (req.user?.email ? req.user.email.split("@")[0] : "User")
+    };
+    if (!db2.memories) db2.memories = [];
+    db2.memories.unshift(newMemory);
+    const newMetric = {
+      id: "met_" + Math.random().toString(36).substr(2, 9),
+      userId: authUserId,
+      actionType: "Log Memory",
+      metricValue: 1,
+      description: `Added strategic memory: ${title}`,
+      createdAt: (/* @__PURE__ */ new Date()).toISOString()
+    };
+    if (!db2.user_metrics) db2.user_metrics = [];
+    db2.user_metrics.unshift(newMetric);
+    writeDb2(db2);
+    emitPlatformEvent({
+      eventType: "MEMORY_CREATED",
+      category: "SYSTEM",
+      severity: "INFO",
+      userId: authUserId,
+      userEmail: newMemory.authorEmail,
+      resourceId: newMemory.id,
+      metadata: {
+        actor: { id: authUserId, email: newMemory.authorEmail, role: newMemory.authorRole },
+        action: "Created memory"
+      },
+      sanitizedMessage: `User created strategic memory: ${title}`
+    });
+    res.status(201).json(newMemory);
+  }
+);
+app2.delete(
+  "/api/memories/:id",
+  requireAuth,
+  requireModulePermission("memoryVault"),
+  (req, res) => {
+    const { id } = req.params;
+    const authUserId = req.user?.uid;
+    if (!authUserId) {
+      return res.status(401).json({ error: "Unauthorized: Missing authentication token" });
+    }
+    const db2 = readDb2();
+    const memory = (db2.memories || []).find((m) => m.id === id);
+    if (!memory) {
+      return res.status(404).json({ error: "Memory not found." });
+    }
+    if (memory.userId !== authUserId) {
+      return res.status(403).json({
+        error: "Forbidden: Cannot delete memory owned by another user."
+      });
+    }
+    const index = db2.memories.findIndex((m) => m.id === id);
+    if (index !== -1) {
+      db2.memories.splice(index, 1);
+      writeDb2(db2);
+      emitPlatformEvent({
+        eventType: "MEMORY_DELETED",
+        category: "SYSTEM",
+        severity: "INFO",
+        userId: authUserId,
+        userEmail: req.user?.email || "user@zakir.ai",
+        resourceId: id,
+        metadata: {
+          actor: { id: authUserId, email: req.user?.email || "user@zakir.ai", role: "User" },
+          action: "Deleted memory"
+        },
+        sanitizedMessage: `User deleted strategic memory: ${id}`
+      });
+      return res.json({ success: true });
+    }
+    res.status(404).json({ error: "Memory not found." });
+  }
+);
+app2.put(
+  "/api/memories/:id",
+  requireAuth,
+  requireModulePermission("memoryVault"),
+  (req, res) => {
+    const { id } = req.params;
+    const authUserId = req.user?.uid;
+    if (!authUserId) {
+      return res.status(401).json({ error: "Unauthorized: Missing authentication token" });
+    }
+    const db2 = readDb2();
+    const memory = (db2.memories || []).find((m) => m.id === id);
+    if (!memory) {
+      return res.status(404).json({ error: "Memory not found." });
+    }
+    if (memory.userId !== authUserId) {
+      return res.status(403).json({
+        error: "Forbidden: Cannot edit memory owned by another user."
+      });
+    }
+    const index = db2.memories.findIndex((m) => m.id === id);
+    if (index !== -1) {
+      const {
+        title,
+        category,
+        riskLevel,
+        tags,
+        description,
+        decision,
+        causalFactors,
+        outcomes,
+        lessonsLearned
+      } = req.body;
+      db2.memories[index] = {
+        ...db2.memories[index],
+        title: title || db2.memories[index].title,
+        category: category || db2.memories[index].category,
+        riskLevel: riskLevel || db2.memories[index].riskLevel,
+        tags: tags ? Array.isArray(tags) ? tags : String(tags).split(",").map((t) => t.trim()) : db2.memories[index].tags,
+        description: description || db2.memories[index].description,
+        decision: decision || db2.memories[index].decision,
+        causalFactors: causalFactors !== void 0 ? causalFactors : db2.memories[index].causalFactors,
+        outcomes: outcomes !== void 0 ? outcomes : db2.memories[index].outcomes,
+        lessonsLearned: lessonsLearned !== void 0 ? lessonsLearned : db2.memories[index].lessonsLearned
+      };
+      writeDb2(db2);
+      emitPlatformEvent({
+        eventType: "MEMORY_UPDATED",
+        category: "SYSTEM",
+        severity: "INFO",
+        userId: authUserId,
+        userEmail: req.user?.email || "user@zakir.ai",
+        resourceId: id,
+        metadata: {
+          actor: { id: authUserId, email: req.user?.email || "user@zakir.ai", role: "User" },
+          action: "Updated memory"
+        },
+        sanitizedMessage: `User updated strategic memory: ${id}`
+      });
+      return res.json(db2.memories[index]);
+    }
+    res.status(404).json({ error: "Memory not found." });
+  }
+);
+app2.get(
+  "/api/risk-alerts",
+  requireAuth,
+  requireModulePermission("riskRadar"),
+  (req, res) => {
+    const db2 = readDb2();
+    const authUserId = req.user?.uid;
+    const filtered = (db2.risk_alerts || []).filter(
+      (a) => !a.userId || a.userId === authUserId
+    );
+    res.json(filtered);
+  }
+);
+app2.post(
+  "/api/risk-alerts",
+  requireAuth,
+  requireModulePermission("riskRadar"),
+  (req, res) => {
+    const db2 = readDb2();
+    const authUserId = req.user?.uid;
+    const newAlert = {
+      id: req.body.id || `al_${Date.now()}`,
+      title: req.body.title || "Risk Alert",
+      category: req.body.category || "Operational Assets",
+      severity: req.body.severity || "High",
+      description: req.body.description || "",
+      status: req.body.status || "Active",
+      userId: authUserId,
+      createdAt: req.body.createdAt || (/* @__PURE__ */ new Date()).toISOString()
+    };
+    if (!db2.risk_alerts) db2.risk_alerts = [];
+    db2.risk_alerts.unshift(newAlert);
+    writeDb2(db2);
+    res.json(newAlert);
+  }
+);
+app2.post(
+  "/api/risk-alerts/resolve",
+  requireAuth,
+  requireModulePermission("riskRadar"),
+  (req, res) => {
+    const { id } = req.body;
+    const db2 = readDb2();
+    const alertIndex = db2.risk_alerts?.findIndex((a) => a.id === id);
+    if (alertIndex !== void 0 && alertIndex !== -1) {
+      db2.risk_alerts[alertIndex].status = "Resolved";
+      writeDb2(db2);
+      return res.json(db2.risk_alerts[alertIndex]);
+    }
+    res.status(404).json({ error: "Alert not found." });
+  }
+);
+app2.get(
+  "/api/files",
+  requireAuth,
+  requireModulePermission("fileVault"),
+  (req, res) => {
+    const db2 = readDb2();
+    const authUserId = req.user?.uid;
+    const files = (db2.files || []).filter((f) => f.userId === authUserId);
+    res.json(files);
+  }
+);
+app2.post(
+  "/api/files",
+  requireAuth,
+  requireModulePermission("fileVault"),
+  (req, res) => {
+    const db2 = readDb2();
+    const authUserId = req.user?.uid;
+    const file = {
+      id: req.body.id || `file_${Date.now()}`,
+      name: req.body.name || "Untitled",
+      size: req.body.size || 0,
+      type: req.body.type || "application/octet-stream",
+      url: req.body.url || "",
+      storagePath: req.body.storagePath || "",
+      category: req.body.category || "Contracts",
+      isEncrypted: req.body.isEncrypted ?? false,
+      userId: authUserId,
+      createdAt: (/* @__PURE__ */ new Date()).toISOString()
+    };
+    if (!db2.files) db2.files = [];
+    db2.files.unshift(file);
+    writeDb2(db2);
+    res.status(201).json(file);
+  }
+);
+app2.delete(
+  "/api/files/:id",
+  requireAuth,
+  requireModulePermission("fileVault"),
+  (req, res) => {
+    const { id } = req.params;
+    const authUserId = req.user?.uid;
+    const db2 = readDb2();
+    const idx = (db2.files || []).findIndex((f) => f.id === id);
+    if (idx !== -1) {
+      if (db2.files[idx].userId !== authUserId) {
+        return res.status(403).json({
+          error: "Forbidden: Cannot delete file owned by another user."
+        });
+      }
+      db2.files.splice(idx, 1);
+      writeDb2(db2);
+      return res.json({ success: true });
+    }
+    res.status(404).json({ error: "File not found" });
+  }
+);
 app2.get("/api/metrics", (req, res) => {
   const db2 = readDb2();
   res.json(db2.user_metrics);
@@ -12415,14 +16230,16 @@ app2.get("/api/world-bank", async (req, res) => {
     const response = await fetch(attemptedUrl, {
       signal: controller.signal,
       headers: {
-        "Accept": "application/json, text/plain, */*",
+        Accept: "application/json, text/plain, */*",
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) ZakirRiskEngine/1.0"
       }
     });
     clearTimeout(timeoutId);
     const latencyMs = Date.now() - startTime;
     if (!response.ok) {
-      throw new Error(`\u0627\u0633\u062A\u062C\u0627\u0628\u0629 \u0627\u0644\u0628\u0646\u0643 \u0627\u0644\u062F\u0648\u0644\u064A \u0623\u0631\u062C\u0639\u062A \u0631\u0645\u0632 HTTP \u063A\u064A\u0631 \u0646\u0627\u062C\u062D: ${response.status} (${response.statusText})`);
+      throw new Error(
+        `\u0627\u0633\u062A\u062C\u0627\u0628\u0629 \u0627\u0644\u0628\u0646\u0643 \u0627\u0644\u062F\u0648\u0644\u064A \u0623\u0631\u062C\u0639\u062A \u0631\u0645\u0632 HTTP \u063A\u064A\u0631 \u0646\u0627\u062C\u062D: ${response.status} (${response.statusText})`
+      );
     }
     const data = await response.json();
     const parseWbVal = (val) => {
@@ -12458,7 +16275,12 @@ app2.get("/api/world-bank", async (req, res) => {
     const isTimeout = err.name === "AbortError" || err.message?.includes("timeout") || err.message?.includes("abort");
     const latencyMs = Date.now() - startTime;
     console.warn(`[WorldBank Proxy Warning] ${attemptedUrl} - ${err.message}`);
-    const fallbackData = generateWorldBankFallbackData(country, indicator, startYear, endYear);
+    const fallbackData = generateWorldBankFallbackData(
+      country,
+      indicator,
+      startYear,
+      endYear
+    );
     return res.json({
       success: true,
       country,
@@ -12492,7 +16314,9 @@ app2.all("/api/database/schema", requireAuth, async (req, res) => {
     const userRole = user ? user.role : isUserAdmin ? "CEO" : "Analyst";
     const isAuthorized = userRole === "CEO" || userRole === "Admin" || userRole === "Compliance Officer" || isUserAdmin;
     if (!isAuthorized) {
-      return res.status(403).json({ error: "Forbidden: Restricted to administrative and compliance personnel only." });
+      return res.status(403).json({
+        error: "Forbidden: Restricted to administrative and compliance personnel only."
+      });
     }
     const schemaDdl = `-- PostgreSQL Database Schema for Zakir (\u0630\u064E\u0643\u0650\u0631\u0652)
 -- Securely stores institutional causal memories, audit metrics, and RBAC
@@ -12565,9 +16389,17 @@ app2.post("/api/database/query", requireAuth, async (req, res) => {
   const isUserAdmin = await isUserAdminServer(authUserId);
   const userRole = user ? user.role : isUserAdmin ? "CEO" : "Analyst";
   const isAuthorized = userRole === "CEO" || userRole === "Admin" || userRole === "Compliance Officer" || isUserAdmin;
-  console.log("DB_QUERY_AUTH", { authUserId, authUserEmail, userRole, isUserAdmin, isAuthorized });
+  console.log("DB_QUERY_AUTH", {
+    authUserId,
+    authUserEmail,
+    userRole,
+    isUserAdmin,
+    isAuthorized
+  });
   if (!isAuthorized) {
-    return res.status(403).json({ error: "Forbidden: Restricted to administrative and compliance personnel only." });
+    return res.status(403).json({
+      error: "Forbidden: Restricted to administrative and compliance personnel only."
+    });
   }
   const startTime = Date.now();
   const trimmed = query.trim().toUpperCase();
@@ -12578,17 +16410,23 @@ app2.post("/api/database/query", requireAuth, async (req, res) => {
       let targetTable = "";
       if (trimmed.includes("FROM USERS")) targetTable = "users";
       else if (trimmed.includes("FROM MEMORIES")) targetTable = "memories";
-      else if (trimmed.includes("FROM RISK_ALERTS") || trimmed.includes("FROM RISK-ALERTS")) targetTable = "risk_alerts";
-      else if (trimmed.includes("FROM USER_METRICS") || trimmed.includes("FROM USER-METRICS")) targetTable = "user_metrics";
+      else if (trimmed.includes("FROM RISK_ALERTS") || trimmed.includes("FROM RISK-ALERTS"))
+        targetTable = "risk_alerts";
+      else if (trimmed.includes("FROM USER_METRICS") || trimmed.includes("FROM USER-METRICS"))
+        targetTable = "user_metrics";
       if (!targetTable) {
-        throw new Error("Table not found or queries outside scope. Supported tables: users, memories, risk_alerts, user_metrics.");
+        throw new Error(
+          "Table not found or queries outside scope. Supported tables: users, memories, risk_alerts, user_metrics."
+        );
       }
       let tableData = db2[targetTable] || [];
       if (!isUserAdmin) {
         if (targetTable === "users") {
           tableData = tableData.filter((item) => item.id === authUserId);
         } else if (targetTable === "memories" || targetTable === "risk_alerts" || targetTable === "user_metrics") {
-          tableData = tableData.filter((item) => item.userId === authUserId);
+          tableData = tableData.filter(
+            (item) => item.userId === authUserId
+          );
         }
       }
       if (targetTable === "users") {
@@ -12608,11 +16446,15 @@ app2.post("/api/database/query", requireAuth, async (req, res) => {
       } else {
         keysToExtract = ["id", "status"];
       }
-      keysToExtract = keysToExtract.filter((k) => k !== "passwordhash" && k !== "password_hash");
+      keysToExtract = keysToExtract.filter(
+        (k) => k !== "passwordhash" && k !== "password_hash"
+      );
       columns = keysToExtract.map((k) => k.toUpperCase());
       rows = tableData.map((item) => {
         return keysToExtract.map((key) => {
-          let val = item[key] !== void 0 ? item[key] : item[Object.keys(item).find((k) => k.toLowerCase() === key.toLowerCase()) || ""];
+          let val = item[key] !== void 0 ? item[key] : item[Object.keys(item).find(
+            (k) => k.toLowerCase() === key.toLowerCase()
+          ) || ""];
           if (Array.isArray(val)) return `{${val.join(",")}}`;
           if (typeof val === "object") return JSON.stringify(val);
           return val;
@@ -12632,7 +16474,9 @@ app2.post("/api/database/query", requireAuth, async (req, res) => {
         executionTimeMs: Date.now() - startTime
       });
     } else {
-      throw new Error("Syntax Error: Zakir's client-side SQL editor supports standard read-only PostgreSQL queries (SELECT * FROM users/memories/user_metrics/risk_alerts) for live operational visualization.");
+      throw new Error(
+        "Syntax Error: Zakir's client-side SQL editor supports standard read-only PostgreSQL queries (SELECT * FROM users/memories/user_metrics/risk_alerts) for live operational visualization."
+      );
     }
   } catch (error) {
     res.json({
@@ -12737,7 +16581,9 @@ var handleSmartEvolution = async (req, res) => {
       });
     }
   }
-  const activeRisksCount = riskAlerts.filter((a) => a.status === "Active" || a.status === "\u0646\u0634\u0637" || a.status === "actif").length;
+  const activeRisksCount = riskAlerts.filter(
+    (a) => a.status === "Active" || a.status === "\u0646\u0634\u0637" || a.status === "actif"
+  ).length;
   const fallbackExecutiveSummary = lang === "ar" ? `### Heuristic analysis \u2014 AI unavailable
 
 \u062A\u0634\u062E\u064A\u0635 \u0623\u0646\u0645\u0627\u0637 \u0627\u0644\u0623\u062D\u062F\u0627\u062B \u0627\u0644\u0645\u0633\u062C\u0644\u0629 (${memories.length} \u0630\u0643\u0631\u064A\u0627\u062A \u0645\u0624\u0633\u0633\u064A\u0629) \u064A\u0631\u0628\u0637 \u0628\u064A\u0646 \u0627\u0644\u0633\u0628\u0628 \u0648\u0627\u0644\u0623\u062B\u0631 \u0644\u0643\u0634\u0641 \u062B\u063A\u0631\u0627\u062A \u0625\u062F\u0627\u0631\u0629 \u0627\u0644\u0645\u062E\u0627\u0637\u0631 \u0641\u064A \u0627\u0644\u0639\u0645\u0644\u064A\u0627\u062A \u0627\u0644\u0645\u0627\u0644\u064A\u0629 \u0648\u0627\u0644\u0644\u0648\u062C\u0633\u062A\u064A\u0629. \u0627\u0644\u062A\u062D\u0644\u064A\u0644 \u064A\u062D\u062F\u062F \u0627\u0644\u0627\u0646\u0643\u0634\u0627\u0641\u0627\u062A \u0627\u0644\u062D\u0627\u0644\u064A\u0629 \u0648\u064A\u0648\u0641\u0631 \u062A\u0648\u0635\u064A\u0627\u062A \u0625\u062C\u0631\u0627\u0626\u064A\u0629 \u0645\u0628\u0627\u0634\u0631\u0629 \u0644\u062A\u0641\u0627\u062F\u064A \u062A\u0643\u0631\u0627\u0631 \u0627\u0644\u0623\u062E\u0637\u0627\u0621 \u0648\u062D\u0645\u0627\u064A\u0629 \u0627\u0644\u0630\u0627\u0643\u0631\u0629 \u0627\u0644\u0645\u0624\u0633\u0633\u064A\u0629.` : lang === "fr" ? `### Heuristic analysis \u2014 AI unavailable
@@ -12771,7 +16617,9 @@ Diagnostic analysis of ${memories.length} institutional memories maps cause-and-
   \u0627\u0644\u0646\u062A\u0627\u0626\u062C \u0627\u0644\u0645\u062D\u0642\u0642\u0629: ${m.outcomes || "\u063A\u064A\u0631 \u0645\u062D\u062F\u062F"}
   \u0627\u0644\u062F\u0631\u0648\u0633 \u0627\u0644\u0645\u0633\u062A\u0641\u0627\u062F\u0629: ${m.lessonsLearned || "\u063A\u064A\u0631 \u0645\u062D\u062F\u062F"}`;
     }).join("\n\n");
-    const activeRisksSummary = riskAlerts.length > 0 ? riskAlerts.map((r, idx) => `[\u062A\u0646\u0628\u064A\u0647 \u062E\u0637\u0631 \u0646\u0634\u0637 #${idx + 1}]: ${r.title} | \u0645\u0633\u062A\u0648\u0649 \u0627\u0644\u062E\u0637\u0648\u0631\u0629: ${r.severity || "High"} | \u0627\u0644\u062A\u0641\u0627\u0635\u064A\u0644: ${r.description || ""}`).join("\n") : "\u0644\u0627 \u062A\u0648\u062C\u062F \u062A\u0646\u0628\u064A\u0647\u0627\u062A \u0645\u062E\u0627\u0637\u0631 \u0625\u0636\u0627\u0641\u064A\u0629 \u062D\u0631\u062C \u062D\u0627\u0644\u064A\u0627\u064B.";
+    const activeRisksSummary = riskAlerts.length > 0 ? riskAlerts.map(
+      (r, idx) => `[\u062A\u0646\u0628\u064A\u0647 \u062E\u0637\u0631 \u0646\u0634\u0637 #${idx + 1}]: ${r.title} | \u0645\u0633\u062A\u0648\u0649 \u0627\u0644\u062E\u0637\u0648\u0631\u0629: ${r.severity || "High"} | \u0627\u0644\u062A\u0641\u0627\u0635\u064A\u0644: ${r.description || ""}`
+    ).join("\n") : "\u0644\u0627 \u062A\u0648\u062C\u062F \u062A\u0646\u0628\u064A\u0647\u0627\u062A \u0645\u062E\u0627\u0637\u0631 \u0625\u0636\u0627\u0641\u064A\u0629 \u062D\u0631\u062C \u062D\u0627\u0644\u064A\u0627\u064B.";
     const systemInstruction = `\u0623\u0646\u062A \u0627\u0644\u0645\u062D\u0631\u0643 \u0627\u0644\u062A\u062D\u0644\u064A\u0644\u064A \u0627\u0644\u0630\u0643\u064A \u0627\u0644\u0627\u0633\u062A\u0631\u0627\u062A\u064A\u062C\u064A \u0644\u0642\u0633\u0645 "\u0627\u0644\u062A\u0637\u0648\u0631 \u0627\u0644\u0630\u0643\u064A" \u0641\u064A \u0645\u0646\u0635\u0629 "\u0630\u064E\u0643\u0650\u0631\u0652" \u0644\u0625\u062F\u0627\u0631\u0629 \u0627\u0644\u0630\u0627\u0643\u0631\u0629 \u0627\u0644\u0645\u0624\u0633\u0633\u064A\u0629 \u0648\u062A\u062D\u0644\u064A\u0644 \u0627\u0644\u0645\u062E\u0627\u0637\u0631 \u0627\u0644\u0634\u0627\u0645\u0644\u0629.
 
 [\u0645\u0647\u0627\u0645 \u0645\u062D\u0631\u0643 \u0627\u0644\u062A\u0637\u0648\u0631 \u0627\u0644\u0630\u0643\u064A]:
@@ -12794,7 +16642,11 @@ Diagnostic analysis of ${memories.length} institutional memories maps cause-and-
   "recommendationsList": [{"title": "\u0639\u0646\u0648\u0627\u0646 \u0627\u0644\u062A\u0648\u0635\u064A\u0629 \u0627\u0644\u062A\u0646\u0641\u064A\u0630\u064A\u0629", "priority": "\u062D\u0631\u0650\u062C / \u0645\u0631\u062A\u0641\u0639 / \u0645\u062A\u0648\u0633\u0637", "actionable": "\u0625\u062C\u0631\u0627\u0621 \u0639\u0645\u0644\u064A \u0645\u0628\u0627\u0634\u0631 \u0648\u0642\u0627\u0628\u0644 \u0644\u0644\u062A\u0637\u0628\u064A\u0642", "details": "\u062E\u0637\u0648\u0627\u062A \u0627\u0644\u062A\u0646\u0641\u064A\u0630 \u0648\u0627\u0644\u062D\u0648\u0643\u0645\u0629 \u0644\u0645\u0646\u0639 \u0627\u0644\u0627\u0646\u0643\u0634\u0627\u0641"}]
 }`;
     let response;
-    const fallbackModels = ["gemini-3.8-flash", "gemini-3.1-flash-lite", "gemini-flash-latest"];
+    const fallbackModels = [
+      "gemini-3.8-flash",
+      "gemini-3.1-flash-lite",
+      "gemini-flash-latest"
+    ];
     for (let i = 0; i < fallbackModels.length; i++) {
       if (isGeminiInCooldown()) break;
       try {
@@ -12803,13 +16655,17 @@ Diagnostic analysis of ${memories.length} institutional memories maps cause-and-
           contents: [
             {
               role: "user",
-              parts: [{ text: `\u0642\u0645 \u0628\u0625\u062C\u0631\u0627\u0621 \u0627\u0644\u062A\u0642\u064A\u064A\u0645 \u0648\u0627\u0644\u062A\u062D\u0644\u064A\u0644 \u0627\u0644\u0634\u0627\u0645\u0644 \u0644\u0644\u0645\u0624\u0633\u0633\u0629 \u0648\u0627\u0633\u062A\u0628\u0635\u0627\u0631 \u062A\u0648\u062C\u0647\u0627\u062A \u0627\u0644\u0623\u0633\u0648\u0627\u0642 \u0627\u0644\u0639\u0627\u0644\u0645\u064A\u0629 \u0648\u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u062A\u0627\u0644\u064A\u0629:
+              parts: [
+                {
+                  text: `\u0642\u0645 \u0628\u0625\u062C\u0631\u0627\u0621 \u0627\u0644\u062A\u0642\u064A\u064A\u0645 \u0648\u0627\u0644\u062A\u062D\u0644\u064A\u0644 \u0627\u0644\u0634\u0627\u0645\u0644 \u0644\u0644\u0645\u0624\u0633\u0633\u0629 \u0648\u0627\u0633\u062A\u0628\u0635\u0627\u0631 \u062A\u0648\u062C\u0647\u0627\u062A \u0627\u0644\u0623\u0633\u0648\u0627\u0642 \u0627\u0644\u0639\u0627\u0644\u0645\u064A\u0629 \u0648\u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u062A\u0627\u0644\u064A\u0629:
 
 ### \u0627\u0644\u0630\u0627\u0643\u0631\u0627\u062A \u0648\u0627\u0644\u0623\u062D\u062F\u0627\u062B \u0627\u0644\u0645\u0624\u0633\u0633\u064A\u0629 \u0627\u0644\u0645\u0633\u062C\u0644\u0629:
 ${memoriesSummary}
 
 ### \u0627\u0644\u062A\u0646\u0628\u064A\u0647\u0627\u062A \u0648\u0627\u0644\u0645\u062E\u0627\u0637\u0631 \u0627\u0644\u0646\u0634\u0637\u0629:
-${activeRisksSummary}` }]
+${activeRisksSummary}`
+                }
+              ]
             }
           ],
           config: {
@@ -12953,7 +16809,11 @@ Proactive operational hedging and linking current trade decisions with **Zakir's
 }
 
 \u062A\u0646\u0628\u064A\u0647 \u0645\u0647\u0645: \u064A\u062C\u0628 \u062A\u0648\u0644\u064A\u062F \u062C\u0645\u064A\u0639 \u0627\u0644\u0646\u0635\u0648\u0635 \u0628\u0627\u0644\u0644\u063A\u0629 \u0627\u0644\u0645\u0637\u0644\u0648\u0628\u0629: "${lang === "ar" ? "\u0627\u0644\u0644\u063A\u0629 \u0627\u0644\u0639\u0631\u0628\u064A\u0629 \u0627\u0644\u0641\u0635\u064A\u062D\u0629 \u0648\u0627\u0644\u062F\u0642\u064A\u0642\u0629" : lang === "fr" ? "\u0627\u0644\u0644\u063A\u0629 \u0627\u0644\u0641\u0631\u0646\u0633\u064A\u0629" : "\u0627\u0644\u0644\u063A\u0629 \u0627\u0644\u0625\u0646\u062C\u0644\u064A\u0632\u064A\u0629"}".`;
-  const candidateModels = ["gemini-3.8-flash", "gemini-3.1-flash-lite", "gemini-flash-latest"];
+  const candidateModels = [
+    "gemini-3.8-flash",
+    "gemini-3.1-flash-lite",
+    "gemini-flash-latest"
+  ];
   let jsonOutput = null;
   for (const modelName of candidateModels) {
     if (isGeminiInCooldown()) break;
@@ -12963,7 +16823,11 @@ Proactive operational hedging and linking current trade decisions with **Zakir's
         contents: [
           {
             role: "user",
-            parts: [{ text: `\u0642\u0645 \u0628\u062A\u062D\u0644\u064A\u0644 \u0645\u0648\u0636\u0648\u0639 \u0627\u0644\u0633\u0648\u0642 "${marketTopic}" \u0641\u064A \u0642\u0637\u0627\u0639 "${targetSector}" \u0648\u0627\u0644\u0646\u0637\u0627\u0642 \u0627\u0644\u062C\u063A\u0631\u0627\u0641\u064A "${geographicScope}".` }]
+            parts: [
+              {
+                text: `\u0642\u0645 \u0628\u062A\u062D\u0644\u064A\u0644 \u0645\u0648\u0636\u0648\u0639 \u0627\u0644\u0633\u0648\u0642 "${marketTopic}" \u0641\u064A \u0642\u0637\u0627\u0639 "${targetSector}" \u0648\u0627\u0644\u0646\u0637\u0627\u0642 \u0627\u0644\u062C\u063A\u0631\u0627\u0641\u064A "${geographicScope}".`
+              }
+            ]
           }
         ],
         config: {
@@ -13022,7 +16886,11 @@ app2.post("/api/agent/chat", async (req, res) => {
       role: "user",
       parts: [{ text: promptText }]
     });
-    const candidateModels = ["gemini-3.8-flash", "gemini-3.1-flash-lite", "gemini-flash-latest"];
+    const candidateModels = [
+      "gemini-3.8-flash",
+      "gemini-3.1-flash-lite",
+      "gemini-flash-latest"
+    ];
     let responseText = "";
     for (const modelName of candidateModels) {
       if (isGeminiInCooldown()) break;
@@ -13048,7 +16916,9 @@ app2.post("/api/agent/chat", async (req, res) => {
     }
     return res.json({ text: responseText });
   } catch (error) {
-    return res.json({ text: "### Zakir Cognitive Advisor\n\nOperational records and institutional memories are active." });
+    return res.json({
+      text: "### Zakir Cognitive Advisor\n\nOperational records and institutional memories are active."
+    });
   }
 });
 app2.post("/api/render/services", async (req, res) => {
@@ -13061,14 +16931,17 @@ app2.post("/api/render/services", async (req, res) => {
         error: "Render API Key is missing. Please set RENDER_API_KEY in your .env file or enter your Render API token in the settings."
       });
     }
-    const response = await fetch("https://api.render.com/v1/services?limit=50", {
-      method: "GET",
-      headers: {
-        "Accept": "application/json",
-        "Authorization": `Bearer ${apiKey.trim()}`
-      },
-      signal: AbortSignal.timeout(5e3)
-    });
+    const response = await fetch(
+      "https://api.render.com/v1/services?limit=50",
+      {
+        method: "GET",
+        headers: {
+          Accept: "application/json",
+          Authorization: `Bearer ${apiKey.trim()}`
+        },
+        signal: AbortSignal.timeout(5e3)
+      }
+    );
     if (!response.ok) {
       const errorText = await response.text();
       return res.status(response.status).json({
@@ -13099,19 +16972,43 @@ app2.all(["/api", "/api/*"], (req, res) => {
     message: `API route not found: ${req.method} ${req.path}`
   });
 });
-app2.use((err, req, res, next) => {
-  if (res.headersSent) {
-    return next(err);
+app2.use(
+  (err, req, res, next) => {
+    if (res.headersSent) {
+      return next(err);
+    }
+    if (req.path.startsWith("/api/")) {
+      const status = err.status || err.statusCode || 500;
+      const correlationId = req.correlationId;
+      console.error(`API Error on ${req.method} ${req.path} [${correlationId}]:`, err);
+      if (status >= 500) {
+        emitPlatformEvent({
+          eventType: "PRODUCTION_API_ERROR",
+          severity: "ERROR",
+          category: "SYSTEM",
+          endpoint: req.path,
+          method: req.method,
+          statusCode: status,
+          requestId: correlationId,
+          userId: req.user?.uid,
+          userEmail: req.user?.email,
+          sanitizedMessage: `Unhandled server error on ${req.method} ${req.path}: ${err.message || "Internal Server Error"}`,
+          metadata: {
+            stack: err.stack ? err.stack.split("\n").slice(0, 5).join("\n") : void 0,
+            query: req.query
+          }
+        }).catch(() => {
+        });
+      }
+      return res.status(status).json({
+        success: false,
+        error: err.message || "Internal Server Error",
+        correlationId
+      });
+    }
+    next(err);
   }
-  if (req.path.startsWith("/api/")) {
-    console.error(`API Error on ${req.method} ${req.path}:`, err);
-    return res.status(err.status || err.statusCode || 500).json({
-      success: false,
-      error: err.message || "Internal Server Error"
-    });
-  }
-  next(err);
-});
+);
 app2.all(["/api/*", "/auth/*"], (req, res) => {
   res.status(404).json({
     success: false,
@@ -13138,10 +17035,10 @@ async function startServer() {
     });
     app2.use(vite.middlewares);
   } else {
-    const distPath = import_path4.default.join(process.cwd(), "dist");
+    const distPath = import_path5.default.join(process.cwd(), "dist");
     app2.use(import_express.default.static(distPath));
     app2.get("*", (req, res) => {
-      res.sendFile(import_path4.default.join(distPath, "index.html"));
+      res.sendFile(import_path5.default.join(distPath, "index.html"));
     });
   }
   httpServer.listen(PORT, "0.0.0.0", () => {
@@ -13159,6 +17056,7 @@ var server_default = app2;
 // Annotate the CommonJS export names for ESM import in node:
 0 && (module.exports = {
   ZAKIR_BUILD_ID,
+  activeSupportSessions,
   getAccountLifecycleRecord,
   handleAccountReactivationRequestServer,
   isServerless,

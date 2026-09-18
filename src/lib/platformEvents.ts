@@ -204,6 +204,9 @@ export function sanitizeEventPayload(obj: any): any {
   return sanitized;
 }
 
+const notificationFingerprintCache = new Map<string, number>();
+const NOTIFICATION_DEDUP_WINDOW_MS = 5 * 60 * 1000; // 5-minute deduplication window
+
 let incidentCounter = 1000;
 
 /**
@@ -299,32 +302,50 @@ export async function emitPlatformEvent(
   let createdNotification: AdminNotification | null = null;
 
   if (requiresNotification) {
-    const notificationId = `notif_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
-    let linkTab = "overview";
-    if (rawEvent.category === "SUPPORT") linkTab = "support";
-    else if (rawEvent.category === "RECOVERY") linkTab = "reactivations";
-    else if (rawEvent.category === "SECURITY") linkTab = "security";
-    else if (rawEvent.category === "BILLING") linkTab = "billing";
-    else if (rawEvent.category === "AUTH" || rawEvent.category === "EMAIL") linkTab = "emails";
+    const dedupFingerprint = `${rawEvent.eventType}:${rawEvent.endpoint || ""}:${rawEvent.resourceId || rawEvent.userId || ""}:${rawEvent.sanitizedMessage.slice(0, 60)}`;
+    const lastNotifTime = notificationFingerprintCache.get(dedupFingerprint);
+    const isThrottledDuplicate =
+      lastNotifTime &&
+      Date.now() - lastNotifTime < NOTIFICATION_DEDUP_WINDOW_MS &&
+      rawEvent.eventType !== "SUPPORT_TICKET_CREATED" &&
+      rawEvent.eventType !== "RECOVERY_REQUESTED";
 
-    createdNotification = {
-      id: notificationId,
-      title: `${rawEvent.eventType.replace(/_/g, " ")}`,
-      message: rawEvent.sanitizedMessage,
-      severity,
-      category: rawEvent.category,
-      eventId,
-      incidentId: event.incidentId,
-      read: false,
-      acknowledged: false,
-      timestamp: nowIso,
-      targetUser: rawEvent.userEmail || rawEvent.userId,
-      targetWorkspace: rawEvent.workspaceId,
-      link: {
-        tab: linkTab,
-        targetId: rawEvent.resourceId,
-      },
-    };
+    if (!isThrottledDuplicate) {
+      notificationFingerprintCache.set(dedupFingerprint, Date.now());
+      if (notificationFingerprintCache.size > 1000) {
+        const now = Date.now();
+        for (const [k, v] of notificationFingerprintCache.entries()) {
+          if (now - v > NOTIFICATION_DEDUP_WINDOW_MS) notificationFingerprintCache.delete(k);
+        }
+      }
+
+      const notificationId = `notif_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+      let linkTab = "overview";
+      if (rawEvent.category === "SUPPORT") linkTab = "support";
+      else if (rawEvent.category === "RECOVERY") linkTab = "reactivations";
+      else if (rawEvent.category === "SECURITY") linkTab = "security";
+      else if (rawEvent.category === "BILLING") linkTab = "billing";
+      else if (rawEvent.category === "AUTH" || rawEvent.category === "EMAIL") linkTab = "emails";
+
+      createdNotification = {
+        id: notificationId,
+        title: `${rawEvent.eventType.replace(/_/g, " ")}`,
+        message: rawEvent.sanitizedMessage,
+        severity,
+        category: rawEvent.category,
+        eventId,
+        incidentId: event.incidentId,
+        read: false,
+        acknowledged: false,
+        timestamp: nowIso,
+        targetUser: rawEvent.userEmail || rawEvent.userId,
+        targetWorkspace: rawEvent.workspaceId,
+        link: {
+          tab: linkTab,
+          targetId: rawEvent.resourceId,
+        },
+      };
+    }
   }
 
   // 3. Persist to Firestore
