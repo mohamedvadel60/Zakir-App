@@ -83,7 +83,13 @@ export const DeletedAccountRecovery: React.FC<DeletedAccountRecoveryProps> = ({
 
   // Email & Lifecycle state
   const [email, setEmail] = useState((initialEmail || "").trim().toLowerCase());
-  const [dynamicDays, setDynamicDays] = useState<number>(initialDays ?? 30);
+  const [dynamicDays, setDynamicDays] = useState<number>(() => {
+    if (restoreUntil) {
+      const remainingMs = new Date(restoreUntil).getTime() - Date.now();
+      return Math.max(0, Math.ceil(remainingMs / (24 * 3600 * 1000)));
+    }
+    return initialDays ?? 30;
+  });
   const [isLoadingLifecycle, setIsLoadingLifecycle] = useState(false);
 
   useEffect(() => {
@@ -271,7 +277,14 @@ export const DeletedAccountRecovery: React.FC<DeletedAccountRecoveryProps> = ({
       try {
         const res = await checkAccountLifecycleApi(initialEmail.trim().toLowerCase());
         if (isMounted && res && res.success) {
-          if (res.daysRemaining !== undefined) {
+          if (res.restoreUntil) {
+            const remainingMs = new Date(res.restoreUntil).getTime() - Date.now();
+            setDynamicDays(Math.max(0, Math.ceil(remainingMs / (24 * 3600 * 1000))));
+          } else if (res.deletedAt) {
+            const delTime = new Date(res.deletedAt).getTime();
+            const thirtyOneDays = 31 * 24 * 60 * 60 * 1000;
+            setDynamicDays(Math.max(0, Math.ceil((delTime + thirtyOneDays - Date.now()) / (24 * 3600 * 1000))));
+          } else if (res.daysRemaining !== undefined) {
             setDynamicDays(res.daysRemaining);
           }
         }
@@ -294,7 +307,7 @@ export const DeletedAccountRecovery: React.FC<DeletedAccountRecoveryProps> = ({
       fetchAccountRecoveryStatusApi(target).then((res) => {
         if (res && res.success) {
           setStatusResult(res);
-          if (res.status === "approved" || res.status === "rejected") {
+          if (res.status && res.status !== "none" && res.status !== "already_active") {
             setActiveTab("status");
           }
         }

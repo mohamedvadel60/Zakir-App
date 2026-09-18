@@ -16185,53 +16185,12 @@ app.post("/api/auth/login", loginRegisterLimiter, async (req, res) => {
 
     const normalizedEmail = email.trim().toLowerCase();
 
-    // 1. Account lifecycle check: if account was deleted and within restoration window, return restoration details
+    // 1. Account lifecycle record query (do not return immediately to avoid credential bypass/enumeration)
+    let lifecycleRecord: any = null;
     try {
-      const lifecycleRecord = await getAccountLifecycleRecord(normalizedEmail);
-      if (lifecycleRecord) {
-        if (
-          lifecycleRecord.status === "SELF_DELETED" ||
-          lifecycleRecord.status === "SELF_RESTORE_AVAILABLE"
-        ) {
-          const restoreUntilIso = lifecycleRecord.restoreUntil;
-          const nowMs = Date.now();
-          const restoreUntilMs = restoreUntilIso
-            ? new Date(restoreUntilIso).getTime()
-            : 0;
-          const remainingMs = restoreUntilMs - nowMs;
-          const daysRemaining = Math.max(
-            1,
-            Math.ceil(remainingMs / (24 * 3600 * 1000)),
-          );
-
-          if (!restoreUntilIso || restoreUntilMs > nowMs) {
-            return res.status(403).json({
-              code: "SELF_RESTORE_AVAILABLE",
-              error: "SELF_RESTORE_AVAILABLE",
-              status: "SELF_RESTORE_AVAILABLE",
-              email: normalizedEmail,
-              daysRemaining: daysRemaining,
-              restoreUntil: restoreUntilIso,
-              message:
-                "تم العثور على حسابك المحذوف سابقاً، وهو متاح للاستعادة.",
-            });
-          }
-        } else if (
-          lifecycleRecord.status === "ADMIN_DELETED" ||
-          lifecycleRecord.status === "ADMIN_APPROVAL_REQUIRED" ||
-          lifecycleRecord.deletionType === "admin"
-        ) {
-          return res.status(403).json({
-            code: "auth/user-disabled",
-            error: "ADMIN_DELETED",
-            status: "ADMIN_DELETED",
-            email: normalizedEmail,
-            message: "تم تعطيل هذا الحساب بواسطة المسؤول.",
-          });
-        }
-      }
+      lifecycleRecord = await getAccountLifecycleRecord(normalizedEmail);
     } catch (lcErr) {
-      console.warn("Notice: Lifecycle check in /api/auth/login:", lcErr);
+      console.warn("Notice: Lifecycle record fetch in /api/auth/login:", lcErr);
     }
 
     // 2. Authoritative verification: Firebase Identity Platform REST API (if available) + Firestore / Admin Auth
@@ -16281,77 +16240,123 @@ app.post("/api/auth/login", loginRegisterLimiter, async (req, res) => {
     let userProfile: any = null;
     let userFromDb: any = null;
 
-    // Check Firestore users collection by email or UID
-    try {
-      if (authUid) {
-        const docSnap = await adminDb.collection("users").doc(authUid).get();
-        if (docSnap.exists) {
-          userProfile = docSnap.data();
-        }
+    // Check if the user is in a deleted lifecycle state; if so, load their archived profile to verify credentials
+    if (
+      lifecycleRecord &&
+      (lifecycleRecord.status === "SELF_DELETED" ||
+        lifecycleRecord.status === "SELF_RESTORE_AVAILABLE" ||
+        lifecycleRecord.status === "ADMIN_DELETED" ||
+        lifecycleRecord.status === "ADMIN_APPROVAL_REQUIRED" ||
+        lifecycleRecord.status === "ADMIN_APPROVAL_PENDING" ||
+        lifecycleRecord.deletionType === "admin" ||
+        lifecycleRecord.deletionType === "self")
+    ) {
+      // Look up archived user doc
+      let archivedProfile: any = null;
+      if (lifecycleRecord.originalUserId) {
+        try {
+          const docSnap = await adminDb
+            .collection("users_retained")
+            .doc(lifecycleRecord.originalUserId)
+            .get();
+          if (docSnap.exists) {
+            archivedProfile = docSnap.data();
+            if (!authUid) authUid = lifecycleRecord.originalUserId;
+          }
+        } catch (e) {}
       }
-      if (!userProfile) {
-        const emailSnap = await adminDb
-          .collection("users")
-          .where("email", "==", normalizedEmail)
-          .limit(1)
-          .get();
-        if (!emailSnap.empty) {
-          const docData = emailSnap.docs[0].data();
-          const foundDocId = emailSnap.docs[0].id;
-          if (
-            docData &&
-            (docData.email || "").trim().toLowerCase() === normalizedEmail
-          ) {
-            // Strict UID assertion: if authUid already resolved, doc ID MUST match authUid
-            if (authUid && foundDocId !== authUid && docData.id !== authUid) {
-              console.error(
-                `[MANDATORY_UID_ASSERTION_FAILURE] /api/auth/login email lookup mismatch: authUid (${authUid}) !== docId (${foundDocId})`,
-              );
-            } else {
-              userProfile = docData;
-              if (!authUid) {
-                authUid = foundDocId;
+      if (!archivedProfile) {
+        try {
+          const db = readDb();
+          const found = db.retained_users?.find(
+            (u: any) => (u.email || "").trim().toLowerCase() === normalizedEmail,
+          );
+          if (found) {
+            archivedProfile = found;
+            if (!authUid) authUid = found.id;
+          }
+        } catch (e) {}
+      }
+
+      if (archivedProfile) {
+        userProfile = archivedProfile;
+      }
+    }
+
+    // If active profile exists, or if fallback is needed, check normal collections
+    if (!userProfile) {
+      // Check Firestore users collection by email or UID
+      try {
+        if (authUid) {
+          const docSnap = await adminDb.collection("users").doc(authUid).get();
+          if (docSnap.exists) {
+            userProfile = docSnap.data();
+          }
+        }
+        if (!userProfile) {
+          const emailSnap = await adminDb
+            .collection("users")
+            .where("email", "==", normalizedEmail)
+            .limit(1)
+            .get();
+          if (!emailSnap.empty) {
+            const docData = emailSnap.docs[0].data();
+            const foundDocId = emailSnap.docs[0].id;
+            if (
+              docData &&
+              (docData.email || "").trim().toLowerCase() === normalizedEmail
+            ) {
+              // Strict UID assertion: if authUid already resolved, doc ID MUST match authUid
+              if (authUid && foundDocId !== authUid && docData.id !== authUid) {
+                console.error(
+                  `[MANDATORY_UID_ASSERTION_FAILURE] /api/auth/login email lookup mismatch: authUid (${authUid}) !== docId (${foundDocId})`,
+                );
+              } else {
+                userProfile = docData;
+                if (!authUid) {
+                  authUid = foundDocId;
+                }
               }
             }
           }
         }
+      } catch (fsErr) {
+        console.warn("adminDb user lookup notice in login:", fsErr);
       }
-    } catch (fsErr) {
-      console.warn("adminDb user lookup notice in login:", fsErr);
-    }
 
-    // Check Firebase Admin Auth
-    let adminAuthUser: any = null;
-    try {
-      adminAuthUser = await adminAuth.getUserByEmail(normalizedEmail);
-      if (adminAuthUser) {
-        if (!authUid) authUid = adminAuthUser.uid;
-        if (!userProfile) {
-          try {
-            const docSnap = await adminDb
-              .collection("users")
-              .doc(adminAuthUser.uid)
-              .get();
-            if (docSnap.exists) {
-              userProfile = docSnap.data();
-            }
-          } catch (e) {}
+      // Check Firebase Admin Auth
+      let adminAuthUser: any = null;
+      try {
+        adminAuthUser = await adminAuth.getUserByEmail(normalizedEmail);
+        if (adminAuthUser) {
+          if (!authUid) authUid = adminAuthUser.uid;
+          if (!userProfile) {
+            try {
+              const docSnap = await adminDb
+                .collection("users")
+                .doc(adminAuthUser.uid)
+                .get();
+              if (docSnap.exists) {
+                userProfile = docSnap.data();
+              }
+            } catch (e) {}
+          }
         }
-      }
-    } catch (e) {}
+      } catch (e) {}
 
-    // Check Local DB
-    const localDb = readDb();
-    userFromDb = localDb.users?.find(
-      (u: any) => u.email?.toLowerCase() === normalizedEmail,
-    );
-    if (!userProfile && userFromDb) {
-      userProfile = userFromDb;
-      if (!authUid) authUid = userFromDb.id;
+      // Check Local DB
+      const localDb = readDb();
+      userFromDb = localDb.users?.find(
+        (u: any) => u.email?.toLowerCase() === normalizedEmail,
+      );
+      if (!userProfile && userFromDb) {
+        userProfile = userFromDb;
+        if (!authUid) authUid = userFromDb.id;
+      }
     }
 
     // If account was not found anywhere
-    if (!userProfile && !adminAuthUser && !userFromDb && !authUid) {
+    if (!userProfile && !authUid) {
       return res.status(401).json({
         code: "auth/user-not-found",
         error: "EMAIL_NOT_FOUND",
@@ -16382,6 +16387,50 @@ app.post("/api/auth/login", loginRegisterLimiter, async (req, res) => {
         message:
           "بيانات الدخول غير صحيحة. يرجى التحقق من البريد الإلكتروني وكلمة المرور.",
       });
+    }
+
+    // If credentials are correct and they are in a deleted lifecycle state, return their status
+    if (lifecycleRecord) {
+      if (
+        lifecycleRecord.status === "SELF_DELETED" ||
+        lifecycleRecord.status === "SELF_RESTORE_AVAILABLE"
+      ) {
+        const restoreUntilIso = lifecycleRecord.restoreUntil;
+        const nowMs = Date.now();
+        const restoreUntilMs = restoreUntilIso
+          ? new Date(restoreUntilIso).getTime()
+          : 0;
+        const remainingMs = restoreUntilMs - nowMs;
+        const daysRemaining = Math.max(
+          1,
+          Math.ceil(remainingMs / (24 * 3600 * 1000)),
+        );
+
+        if (!restoreUntilIso || restoreUntilMs > nowMs) {
+          return res.status(403).json({
+            code: "SELF_RESTORE_AVAILABLE",
+            error: "SELF_RESTORE_AVAILABLE",
+            status: "SELF_RESTORE_AVAILABLE",
+            email: normalizedEmail,
+            daysRemaining: daysRemaining,
+            restoreUntil: restoreUntilIso,
+            message:
+              "تم العثور على حسابك المحذوف سابقاً، وهو متاح للاستعادة.",
+          });
+        }
+      } else if (
+        lifecycleRecord.status === "ADMIN_DELETED" ||
+        lifecycleRecord.status === "ADMIN_APPROVAL_REQUIRED" ||
+        lifecycleRecord.deletionType === "admin"
+      ) {
+        return res.status(403).json({
+          code: "auth/user-disabled",
+          error: "ADMIN_DELETED",
+          status: "ADMIN_DELETED",
+          email: normalizedEmail,
+          message: "تم تعطيل هذا الحساب بواسطة المسؤول.",
+        });
+      }
     }
 
     // If password matched and we have a UID, ensure password in Firebase Auth is synchronized
