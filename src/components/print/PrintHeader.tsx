@@ -33,7 +33,7 @@ export const PrintHeader: React.FC<PrintHeaderProps> = ({ settings, lang }) => {
 
   return (
     <header
-      className="report-header zakir-print-header w-full pb-3 mb-5 bg-white text-slate-900 break-inside-avoid"
+      className="report-header zakir-print-header w-full pb-3.5 mb-5 bg-white text-slate-900 break-inside-avoid border-b border-slate-200"
       dir={isRtl ? "rtl" : "ltr"}
       style={{
         backgroundColor: "#ffffff",
@@ -47,30 +47,26 @@ export const PrintHeader: React.FC<PrintHeaderProps> = ({ settings, lang }) => {
         <div className="header-right flex items-center gap-3.5 min-w-0 flex-1">
           <PrintLogo companyLogoImg={settings.companyLogoImg} size="md" lang={lang} />
           <div className="org-info min-w-0">
-            <h2 className="org-name text-base font-black text-slate-900 leading-tight tracking-tight truncate">
+            <h2 className="org-name text-[15px] font-bold text-slate-900 leading-tight tracking-tight truncate">
               {settings.companyName || (lang === "ar" ? "ذاكر للهندسة والمعرفة المؤسسية" : "Zakir Knowledge Engine")}
             </h2>
-            <p className="doc-subtitle text-[11px] font-semibold text-slate-500 mt-1 leading-snug">
+            <p className="doc-subtitle text-[11px] font-medium text-slate-500 mt-0.5 leading-snug">
               {getSubtitle()}
             </p>
           </div>
         </div>
 
-        {/* Left Side (RTL) / Right Side (LTR): Approved Badge & Ref Number (Strictly NO Date) */}
+        {/* Left Side (RTL) / Right Side (LTR): Approved Badge & Ref Number */}
         <div className="header-left shrink-0 text-end flex flex-col items-end gap-1.5 justify-center">
-          <div className="meta-badge inline-flex items-center px-2.5 py-0.5 bg-blue-50 border border-blue-200 text-[#0075DE] text-[10px] font-black rounded-full uppercase tracking-wider">
+          <div className="meta-badge inline-flex items-center px-2 py-0.5 bg-slate-50 border border-slate-200 text-slate-700 text-[10px] font-bold rounded-md tracking-wide">
             {getOfficialBadgeLabel()}
           </div>
-          <div className="meta-item text-[11px] font-mono text-slate-700">
-            <strong className="font-bold text-slate-900">{getRefLabel()}</strong>{" "}
-            <span>{settings.docRefNumber || `ZKR-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`}</span>
+          <div className="meta-item text-[11px] font-mono text-slate-600">
+            <span className="font-semibold text-slate-500">{getRefLabel()}</span>{" "}
+            <span className="font-bold text-slate-900">{settings.docRefNumber || `ZKR-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`}</span>
           </div>
         </div>
       </div>
-
-      {/* Elegant Separator Line */}
-      <div className="h-1 w-full bg-[#0075DE] mt-3.5 rounded-full" />
     </header>
   );
 };
-
