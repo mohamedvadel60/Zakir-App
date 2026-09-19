@@ -32,6 +32,41 @@ export const PrintPreview: React.FC<PrintPreviewProps> = ({
   const pages = providedPages || paginateMemories(memories, settings, lang);
   const totalPages = Math.max(1, pages.length);
 
+  const containerRef = React.useRef<HTMLDivElement>(null);
+
+  React.useEffect(() => {
+    if (!onPageSelect) return;
+    const container = containerRef.current;
+    if (!container) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            const idAttr = entry.target.getAttribute("data-page-index");
+            if (idAttr !== null) {
+              const pIdx = parseInt(idAttr, 10);
+              if (!isNaN(pIdx)) {
+                onPageSelect(pIdx);
+              }
+            }
+          }
+        });
+      },
+      {
+        root: container,
+        threshold: 0.4,
+      }
+    );
+
+    const pageElements = container.querySelectorAll("[data-page-index]");
+    pageElements.forEach((el) => observer.observe(el));
+
+    return () => {
+      observer.disconnect();
+    };
+  }, [pages, onPageSelect]);
+
   // Canvas background style based on settings or default neutral workspace
   const getCanvasBgClass = () => {
     switch (settings.previewTheme) {
@@ -47,6 +82,7 @@ export const PrintPreview: React.FC<PrintPreviewProps> = ({
 
   return (
     <div
+      ref={containerRef}
       className={`zakir-print-preview-workspace flex-1 h-full ${getCanvasBgClass()} overflow-auto p-4 sm:p-8 md:p-12 flex flex-col items-center custom-scrollbar relative`}
       dir={isRtl ? "rtl" : "ltr"}
     >
@@ -66,6 +102,7 @@ export const PrintPreview: React.FC<PrintPreviewProps> = ({
             <div
               key={pIdx}
               id={`zakir-print-page-target-${pIdx}`}
+              data-page-index={pIdx}
               className="relative flex flex-col items-center cursor-pointer group"
               onClick={() => onPageSelect && onPageSelect(pIdx)}
             >
