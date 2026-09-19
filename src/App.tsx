@@ -104,6 +104,7 @@ import { CompactAppSwitcher } from "./components/ui/CompactAppSwitcher";
 import { CompactLanguageSwitcher } from "./components/ui/CompactLanguageSwitcher";
 import { applyGlobalTheme, ThemeMode } from "./lib/themeUtils.js";
 import { authenticatedFetch } from "./lib/apiUtils.js";
+import { fetchFirebaseUserFiles } from "./lib/firebaseServices.js";
 const SettingsAdmin = React.lazy<React.ComponentType<any>>(() => import("./components/SettingsAdmin").then((m: any) => ({ default: m.SettingsAdmin || m.default })));
 import { InstallPrompt } from "./components/InstallPrompt";
 const CustomerSupport = React.lazy<React.ComponentType<any>>(() => import("./components/CustomerSupport").then((m: any) => ({ default: m.CustomerSupport || m.default })));
@@ -1404,6 +1405,7 @@ This hosting domain (**${currentDomain}**) has not been authorized in your Fireb
   useEffect(() => {
     async function loadData() {
       setIsLoading(true);
+      setSmartData(null); // Clear previous user's analysis on user/workspace switch
 
       try {
         if (currentUser) {
@@ -1494,13 +1496,6 @@ This hosting domain (**${currentDomain}**) has not been authorized in your Fireb
     loadData();
   }, [refreshKey, currentUser?.id, currentUser?.role, currentUser?.workspace?.ownerId, currentUser?.email]);
 
-  // Automatically trigger / update the Smart AI Evolution Analysis when entering the smart tab,
-  // or if memories or riskAlerts change while already viewing the smart tab.
-  useEffect(() => {
-    if (activeTab === "smart") {
-      runSmartAnalysis();
-    }
-  }, [activeTab, memories.length, riskAlerts.length, lang]);
 
   // Password requirements validation memo
   const pwdValidation = useMemo(() => {
@@ -2221,13 +2216,15 @@ This hosting domain (**${currentDomain}**) has not been authorized in your Fireb
   const runSmartAnalysis = async () => {
     setIsSmartAnalyzing(true);
     try {
+      const userFiles = currentUser?.id ? await fetchFirebaseUserFiles(currentUser.id).catch(() => []) : [];
       const res = await authenticatedFetch("/api/smart-evolution", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ 
           lang,
           memories: memories,
-          riskAlerts: riskAlerts
+          riskAlerts: riskAlerts,
+          files: userFiles
         })
       });
       if (!res.ok) {
@@ -2712,6 +2709,7 @@ Provide an executive, high-impact causal analysis in Arabic (and professional En
     for (let attempt = 1; attempt <= retries; attempt++) {
       try {
         console.log(`[Cognitive Advisor] Attempt ${attempt} of ${retries} to contact /api/agent/chat...`);
+        const userFiles = currentUser?.id ? await fetchFirebaseUserFiles(currentUser.id).catch(() => []) : [];
         res = await fetch("/api/agent/chat", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -2720,6 +2718,9 @@ Provide an executive, high-impact causal analysis in Arabic (and professional En
             message: query,
             userMessage: query,
             history: chatHistory,
+            memories: memories,
+            riskAlerts: riskAlerts,
+            files: userFiles,
             lang
           })
         });
@@ -6134,12 +6135,18 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                       {isSmartAnalyzing ? (
                         <>
                           <RefreshCw className="w-4 h-4 animate-spin" />
-                          <span>{t.consultingLedger}</span>
+                          <span>{lang === "ar" ? "جارٍ تحليل بيانات المؤسسة وبناء التطور الإدراكي..." : (lang === "fr" ? "Analyse des données de l'organisation et construction de l'évolution..." : "Analyzing organizational data and building cognitive evolution...")}</span>
                         </>
                       ) : (
                         <>
                           <Brain className="w-4 h-4" />
-                          <span>{t.regenerateBtn}</span>
+                          <span>{
+                            lang === "ar" 
+                              ? (smartData ? "إعادة تشغيل التطور الذكي" : "تشغيل التطور الذكي")
+                              : (lang === "fr" 
+                                ? (smartData ? "Relancer l'Évolution Intelligente" : "Lancer l'Évolution Intelligente")
+                                : (smartData ? "Re-run Smart Evolution" : "Run Smart Evolution"))
+                          }</span>
                         </>
                       )}
                     </button>

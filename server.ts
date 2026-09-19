@@ -18223,13 +18223,33 @@ app.post("/api/database/query", requireAuth, async (req: AuthRequest, res) => {
   }
 });
 
+// --- EXTRACT FILE TEXT CONTENT HELPER ---
+function extractFileTextContent(f: any): string {
+  let content = f.description || f.content || f.text || "";
+  if (f.fileUrl && typeof f.fileUrl === "string" && f.fileUrl.startsWith("data:")) {
+    try {
+      const commaIdx = f.fileUrl.indexOf(",");
+      if (commaIdx !== -1) {
+        const base64Data = f.fileUrl.substring(commaIdx + 1);
+        const decoded = Buffer.from(base64Data, "base64").toString("utf-8");
+        if (decoded && decoded.length < 50000) {
+          content += "\n[محتوى النص الفعلي المستخرج من الملف]: " + decoded;
+        }
+      }
+    } catch (e) {
+      // ignore
+    }
+  }
+  return content || "بدون محتوى مستخرج";
+}
+
 // --- SMART EVOLUTION AI ENDPOINT ---
 const handleSmartEvolution = async (
   req: express.Request,
   res: express.Response,
 ) => {
   const { lang = "ar" } = req.body;
-  let { memories, riskAlerts } = req.body;
+  let { memories, riskAlerts, files } = req.body;
 
   const db = readDb();
   if (!memories) {
@@ -18237,6 +18257,9 @@ const handleSmartEvolution = async (
   }
   if (!riskAlerts) {
     riskAlerts = db.risk_alerts || [];
+  }
+  if (!files) {
+    files = [];
   }
 
   // Generate dynamic, localized fallback lists based on ACTUAL current platform memories
@@ -18447,23 +18470,31 @@ const handleSmartEvolution = async (
             .join("\n")
         : "لا توجد تنبيهات مخاطر إضافية حرج حالياً.";
 
+    const filesSummary = Array.isArray(files) && files.length > 0
+      ? files.map((f: any, idx: number) => `[المستند الداخلي/الكتاب #${idx + 1}]: ${f.name || f.fileName || "ملف"} | الفئة: ${f.category || "عام"} | النص والمحتوى الفعلي: ${extractFileTextContent(f)}`).join("\n\n")
+      : "لا توجد مستندات أو كتب مرفوعة في إدارة الملفات حالياً.";
+
     const systemInstruction = `أنت المحرك التحليلي الذكي الاستراتيجي لقسم "التطور الذكي" في منصة "ذَكِرْ" لإدارة الذاكرة المؤسسية وتحليل المخاطر الشاملة.
+مهمتك إجراء تحليل شامل ومبني على الأدلة الحقيقية مستخدماً:
+1. الذاكرات والمخاطر والمستندات الداخلية الخاصة بالمؤسسة حصرياً.
+2. البحث العالمي عبر الإنترنت (Google Search) لاستشراف توجهات الأسواق العالمية وأسعار الصرف والتضخم وسلاسل الإمداد.
+3. التمييز الدقيق بين الحقائق والاستنتاجات والتوصيات، مع مقاومة الهلوسة.
 
 [مهام محرك التطور الذكي]:
-1. دراسة كامل بيانات المنصة: جميع الأحداث والذكريات المؤسسية المسجلة (${memories.length}) والتنبيهات والمخاطر النشطة (${activeRisksCount}).
-2. ربط الأحداث والقرارات بالظروف الاقتصادية الكلية، وتوجهات الأسواق العالمية، وأسعار الصرف، وأخبار سلاسل الإمداد والتضخم الدولي لتحديد الانكشافات.
-3. إجراء تشخيص سببي عميق (Causal Analysis) للربط بين القرارات السابقة والنتائج المحققة وتفادي تكرار الأخطاء المؤسسية.
-4. صياغة تقرير تطور ذكي موجه لقيادة المؤسسة يشمل: ملخص تشخيصي، مخاطر وتوقعات مستقبلية، فرص تطوير، وتوصيات تنفيدية دقيقة.
+1. دراسة كامل بيانات المنصة: الذكريات المؤسسية (${memories.length})، المخاطر (${activeRisksCount})، والمستندات والكتب (${files.length}).
+2. ربط الأحداث والقرارات بالظروف الاقتصادية الكلية وتوجهات الأسواق العالمية.
+3. إجراء تشخيص سببي عميق (Causal Analysis).
+4. صياغة تقرير تطور ذكي موجه لقيادة المؤسسة.
 
 [تنسيق المخرجات]:
 يجب إعادة النتيجة ككائن JSON فقط باللغة المطلوب إخراجها ("${lang === "ar" ? "اللغة العربية الفصيحة والدقيقة" : lang === "fr" ? "اللغة الفرنسية" : "اللغة الإنجليزية"}") بالهيكل الموحد التالي:
 {
-  "executiveSummary": "ملخص تشخيصي شامل يحلل الذاكرة المؤسسية والقرارات السابقة ويربطها بظروف الأسواق العالمية والتغيرات الجيواقتصادية لمنع تكرار الأخطاء",
+  "executiveSummary": "ملخص تشخيصي شامل يحلل الذاكرة المؤسسية والقرارات السابقة والمستندات ويربطها بظروف الأسواق العالمية والتغيرات لمنع تكرار الأخطاء",
   "analyzedMemories": number,
   "identifiedRisks": number,
   "opportunities": number,
   "recommendations": number,
-  "risksList": [{"title": "عنوان الخطر التشغيلي أو المالي", "severity": "حرِج / مرتفع / متوسط", "probability": "نسبة أو مستوى الاحتمالية", "details": "تفاصيل الخطر وربطه بالسوق والذاكرة المؤسسية"}],
+  "risksList": [{"title": "عنوان الخطر التشغيلي أو المالي", "severity": "حرِج / مرتفع / متوسط", "probability": "نسبة أو مستوى الاحتمالية", "details": "تفاصيل الخطر وربطه بالسوق والذاكرة المؤسسية والمستندات"}],
   "forecastsList": [{"title": "عنوان التوقع الاستراتيجي", "timeframe": "الإطار الزمني المستقبلي", "impact": "عالي / متوسط / منخفض", "details": "تحليل أثر الاتجاه المستقبلي بناءً على مؤشرات السوق والخبرة المسجلة"}],
   "opportunitiesList": [{"title": "عنوان الفرصة التطويرية", "feasibility": "مرتفع / متوسط", "benefit": "مستوى الفائدة المؤسسية", "details": "كيفية استغلال الفرصة لرفع الكفاءة وتفادي الأخطاء"}],
   "recommendationsList": [{"title": "عنوان التوصية التنفيذية", "priority": "حرِج / مرتفع / متوسط", "actionable": "إجراء عملي مباشر وقابل للتطبيق", "details": "خطوات التنفيذ والحوكمة لمنع الانكشاف"}]
@@ -18485,7 +18516,7 @@ const handleSmartEvolution = async (
               role: "user",
               parts: [
                 {
-                  text: `قم بإجراء التقييم والتحليل الشامل للمؤسسة واستبصار توجهات الأسواق العالمية والبيانات التالية:\n\n### الذاكرات والأحداث المؤسسية المسجلة:\n${memoriesSummary}\n\n### التنبيهات والمخاطر النشطة:\n${activeRisksSummary}`,
+                  text: `قم بإجراء التقييم والتحليل الشامل للمؤسسة واستبصار توجهات الأسواق العالمية والبيانات التالية:\n\n### الذاكرات والأحداث المؤسسية المسجلة:\n${memoriesSummary}\n\n### التنبيهات والمخاطر النشطة:\n${activeRisksSummary}\n\n### المستندات والكتب المؤسسية:\n${filesSummary}`,
                 },
               ],
             },
@@ -18494,6 +18525,7 @@ const handleSmartEvolution = async (
             systemInstruction: systemInstruction,
             responseMimeType: "application/json",
             temperature: 0.35,
+            tools: [{ googleSearch: {} }],
           },
         });
         if (response?.text) {
@@ -18722,7 +18754,7 @@ app.post("/api/agent/chat", async (req, res) => {
       req.body?.message ||
       req.body?.userMessage ||
       req.body?.query;
-    const { history, lang = "ar" } = req.body || {};
+    const { history, lang = "ar", memories = [], riskAlerts = [], files = [] } = req.body || {};
     if (!promptText || typeof promptText !== "string" || !promptText.trim()) {
       return res
         .status(400)
@@ -18739,7 +18771,37 @@ app.post("/api/agent/chat", async (req, res) => {
       return res.json({ text: fallbackChatResponse });
     }
 
-    const systemInstruction = `You are Zakir Cognitive Advisor. Answer the user's explicit question with deep, tailored, and accurate insights based directly on what they ask.`;
+    const memoriesSummary = Array.isArray(memories) && memories.length > 0
+      ? memories.map((m: any, idx: number) => `[الذكرى المؤسسية #${idx + 1}]: ${m.title} | الفئة: ${m.category} | الخطورة: ${m.riskLevel || "High"} | القرار: ${m.decision} | العوامل المسببة: ${m.causalFactors || "غير محدد"}`).join("\n")
+      : "لا توجد ذكريات مؤسسية مسجلة حالياً.";
+
+    const risksSummary = Array.isArray(riskAlerts) && riskAlerts.length > 0
+      ? riskAlerts.map((r: any, idx: number) => `[تنبيه خطر #${idx + 1}]: ${r.title} | المستوى: ${r.severity || "High"} | التفاصيل: ${r.description || ""}`).join("\n")
+      : "لا توجد مخاطر نشطة مسجلة حالياً.";
+
+    const filesSummary = Array.isArray(files) && files.length > 0
+      ? files.map((f: any, idx: number) => `[مستند داخلي/كتاب #${idx + 1}]: ${f.name} | الفئة: ${f.category} | الوصف: ${f.description || "بدون وصف"}`).join("\n")
+      : "لا توجد مستندات أو كتب مرفوعة في إدارة الملفات حالياً.";
+
+    const systemInstruction = `أنت "المستشار الإدراكي والإداري" المعتمد في منصة "ذَكِرْ" لتحليل الذاكرة المؤسسية والبيانات الاستراتيجية.
+مهمتك تقديم إجابات وتحليلات مبنية حصرياً على الأدلة الحقيقية وفق نموذج المعرفة متعدد المصادر:
+1. الذاكرات والمخاطر والمستندات الداخلية الخاصة بالمستخدم حصرياً (Institutional Knowledge).
+2. البحث العالمي عبر الإنترنت (Google Search) عندما يتطلب السؤال معلومات سوقية خارجية حديثة، تشريعات، منافسين، أو توجهات اقتصادية.
+3. التمييز الدقيق بين: (Fact حقيقة داخلية أو خارجية)، (Inference استنتاج تحليلي)، و(Recommendation توصية إجرائية).
+4. الالتزام بطبقة الأدلة (Evidence Layer): ربط النتائج بأدلة واضحة من الذكريات أو الملفات أو المصادر الخارجية الموثوقة.
+5. مقاومة الهلوسة بصرامة: إذا كانت الأدلة غير كافية، صرح بوضوح بأن البيانات غير كافية ولا تختلق أرقاماً أو مصادر أو أحداثاً أو كتباً غير موجودة.
+
+بيانات المؤسسة الحالية الخاصة بهذا المستخدم/Workspace:
+- الذاكرات المؤسسية (${memories.length}):
+${memoriesSummary}
+
+- تنبيهات المخاطر النشطة (${riskAlerts.length}):
+${risksSummary}
+
+- المستندات والكتب في إدارة الملفات (${files.length}):
+${filesSummary}
+
+لغة الإجابة المطلوبة: ${lang === "ar" ? "اللغة العربية الفصيحة والدقيقة" : lang === "fr" ? "اللغة الفرنسية" : "اللغة الإنجليزية"}.`;
 
     const contents: any[] = [];
 
@@ -18757,6 +18819,9 @@ app.post("/api/agent/chat", async (req, res) => {
       parts: [{ text: promptText }],
     });
 
+    // Determine if external search is potentially needed
+    const needsSearch = /سوق|أسواق|منافسين|قوانين|أخبار|اقتصاد|تضخم|أسعار|عالمي|مؤشرات|trend|market|competitor|news|economy|global|price/i.test(promptText);
+
     const candidateModels = [
       "gemini-3.8-flash",
       "gemini-3.1-flash-lite",
@@ -18772,7 +18837,8 @@ app.post("/api/agent/chat", async (req, res) => {
           contents: contents,
           config: {
             systemInstruction: systemInstruction,
-            temperature: 0.7,
+            temperature: 0.4,
+            tools: needsSearch ? [{ googleSearch: {} }] : undefined,
           },
         });
         if (response?.text) {
