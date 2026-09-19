@@ -200,11 +200,25 @@ export const PrintSystem: React.FC<PrintSystemProps> = ({
 
   // Page navigation helpers
   const handlePrevPage = useCallback(() => {
-    setActivePageIndex((prev) => Math.max(0, prev - 1));
+    setActivePageIndex((prev) => {
+      const nextIdx = Math.max(0, prev - 1);
+      const target = document.getElementById(`zakir-print-page-target-${nextIdx}`);
+      if (target) {
+        target.scrollIntoView({ behavior: "smooth", block: "center" });
+      }
+      return nextIdx;
+    });
   }, []);
 
   const handleNextPage = useCallback(() => {
-    setActivePageIndex((prev) => Math.min(totalPages - 1, prev + 1));
+    setActivePageIndex((prev) => {
+      const nextIdx = Math.min(totalPages - 1, prev + 1);
+      const target = document.getElementById(`zakir-print-page-target-${nextIdx}`);
+      if (target) {
+        target.scrollIntoView({ behavior: "smooth", block: "center" });
+      }
+      return nextIdx;
+    });
   }, [totalPages]);
 
   const scrollToPage = useCallback((pIdx: number) => {
