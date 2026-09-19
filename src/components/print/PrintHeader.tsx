@@ -14,15 +14,9 @@ export const PrintHeader: React.FC<PrintHeaderProps> = ({ settings, lang }) => {
 
   const getSubtitle = () => {
     if (settings.reportTitle) return settings.reportTitle;
-    if (lang === "ar") return "تقرير الإدارة والحوكمة الاستراتيجية ومخرجات الذاكرة المؤسسية";
-    if (lang === "fr") return "Rapport de Gouvernance Stratégique et Mémoire Institutionnelle";
+    if (lang === "ar") return "تقرير الحوكمة والذاكرة المؤسسية الاستراتيجية";
+    if (lang === "fr") return "Rapport de Gouvernance & Mémoire Institutionnelle";
     return "Strategic Governance & Institutional Memory Report";
-  };
-
-  const getOfficialBadgeLabel = () => {
-    if (lang === "ar") return "وثيقة رسمية معتمدة";
-    if (lang === "fr") return "Document Officiel Certifié";
-    return "Official Approved Document";
   };
 
   const getRefLabel = () => {
@@ -33,7 +27,7 @@ export const PrintHeader: React.FC<PrintHeaderProps> = ({ settings, lang }) => {
 
   return (
     <header
-      className="report-header zakir-print-header w-full pb-3.5 mb-5 bg-white text-slate-900 break-inside-avoid border-b border-slate-200"
+      className="report-header zakir-print-header w-full pb-3 mb-4 bg-white text-slate-900 break-inside-avoid border-b border-slate-200"
       dir={isRtl ? "rtl" : "ltr"}
       style={{
         backgroundColor: "#ffffff",
@@ -42,28 +36,28 @@ export const PrintHeader: React.FC<PrintHeaderProps> = ({ settings, lang }) => {
         breakInside: "avoid",
       }}
     >
-      <div className="flex items-center justify-between gap-6">
-        {/* Right Side (RTL) / Left Side (LTR): Logo + Organization Name + Subtitle */}
-        <div className="header-right flex items-center gap-3.5 min-w-0 flex-1">
-          <PrintLogo companyLogoImg={settings.companyLogoImg} size="md" lang={lang} />
-          <div className="org-info min-w-0">
-            <h2 className="org-name text-[15px] font-bold text-slate-900 leading-tight tracking-tight truncate">
+      <div className="flex items-center justify-between gap-4">
+        {/* Organization & Title */}
+        <div className="flex items-center gap-3 min-w-0 flex-1">
+          <PrintLogo companyLogoImg={settings.companyLogoImg} size="sm" lang={lang} />
+          <div className="min-w-0">
+            <h1 className="text-[14px] font-bold text-slate-900 leading-tight tracking-tight truncate">
               {settings.companyName || (lang === "ar" ? "ذاكر للهندسة والمعرفة المؤسسية" : "Zakir Knowledge Engine")}
-            </h2>
-            <p className="doc-subtitle text-[11px] font-medium text-slate-500 mt-0.5 leading-snug">
+            </h1>
+            <p className="text-[10px] font-medium text-slate-500 mt-0.5 leading-snug truncate">
               {getSubtitle()}
             </p>
           </div>
         </div>
 
-        {/* Left Side (RTL) / Right Side (LTR): Approved Badge & Ref Number */}
-        <div className="header-left shrink-0 text-end flex flex-col items-end gap-1.5 justify-center">
-          <div className="meta-badge inline-flex items-center px-2 py-0.5 bg-slate-50 border border-slate-200 text-slate-700 text-[10px] font-bold rounded-md tracking-wide">
-            {getOfficialBadgeLabel()}
+        {/* Ref Number & Date */}
+        <div className="shrink-0 text-end flex flex-col items-end justify-center">
+          <div className="text-[10px] font-mono text-slate-700">
+            <span className="font-semibold text-slate-400">{getRefLabel()}</span>{" "}
+            <span className="font-bold text-slate-900">{settings.docRefNumber || `ZKR-${new Date().getFullYear()}`}</span>
           </div>
-          <div className="meta-item text-[11px] font-mono text-slate-600">
-            <span className="font-semibold text-slate-500">{getRefLabel()}</span>{" "}
-            <span className="font-bold text-slate-900">{settings.docRefNumber || `ZKR-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`}</span>
+          <div className="text-[9.5px] text-slate-400 font-mono mt-0.5">
+            {new Date().toISOString().split("T")[0]}
           </div>
         </div>
       </div>

@@ -71,7 +71,6 @@ export const PrintSystem: React.FC<PrintSystemProps> = ({
   const effectiveCompanyName = 
     currentUser?.organizationName || 
     currentUser?.companyName || 
-    (typeof window !== "undefined" ? localStorage.getItem("zakir_user_organization") || localStorage.getItem("zakir_company_name") || localStorage.getItem("companyName") : null) || 
     companyName || 
     (lang === "ar" ? "ذاكر للهندسة والمعرفة المؤسسية" : "Zakir Knowledge Engine");
   const effectiveDepartment = currentUser?.department || currentUser?.issuingEntity || (lang === "ar" ? "إدارة الحوكمة والمخاطر والقرارات الاستراتيجية" : "Governance & Strategy Division");
