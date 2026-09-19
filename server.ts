@@ -11273,7 +11273,7 @@ function getLocalRecoveryRequestsList(db: any): any[] {
   return [];
 }
 
-function isRealRecoveryRequestDoc(r: any): boolean {
+function isRealRecoveryRequestDoc(r: any, targetEmail?: string): boolean {
   if (!r || typeof r !== "object") return false;
   const reqId = (r.requestId || r.id || "").toString().trim();
   if (!reqId) return false;
@@ -11283,9 +11283,20 @@ function isRealRecoveryRequestDoc(r: any): boolean {
   if (!validStatuses.includes(status)) return false;
 
   // Rule: Must be a real user-submitted recovery request with a request ID starting with REQ-
+  // AND have a valid non-empty email
   // AND contain explicit form submission evidence (submittedAt, termsAcceptedAt, documents, or fullName + reason).
   // Lifecycle records, deletion markers, or empty status shells do NOT count as recovery requests.
   const isExplicitReqId = reqId.startsWith("REQ-");
+  const docEmail = ((r.email || r.accountId || "").toString()).trim().toLowerCase();
+  const hasValidEmail = Boolean(docEmail && docEmail.includes("@"));
+
+  if (targetEmail) {
+    const normTarget = targetEmail.trim().toLowerCase();
+    if (docEmail !== normTarget) {
+      return false;
+    }
+  }
+
   const hasSubmissionEvidence = Boolean(
     r.submittedAt ||
     r.termsAcceptedAt ||
@@ -11293,7 +11304,7 @@ function isRealRecoveryRequestDoc(r: any): boolean {
     (r.fullName && r.reason)
   );
 
-  return isExplicitReqId && hasSubmissionEvidence;
+  return isExplicitReqId && hasValidEmail && hasSubmissionEvidence;
 }
 
 app.post("/api/auth/resolve-account", async (req, res) => {
@@ -11351,7 +11362,7 @@ app.post("/api/auth/resolve-account", async (req, res) => {
     } catch (e) {}
 
     // Strictly filter for valid, actual recovery requests submitted by the user
-    const validRequestDocs = requestDocs.filter(isRealRecoveryRequestDoc);
+    const validRequestDocs = requestDocs.filter((r) => isRealRecoveryRequestDoc(r, normalizedEmail));
 
     // Sort requests by newest
     validRequestDocs.sort((a, b) => {
@@ -14285,7 +14296,7 @@ app.get("/api/auth/recovery-request/status", async (req, res) => {
     );
 
     // Filter strictly for valid, actual recovery requests submitted by the user
-    const validRequests = requestDocs.filter(isRealRecoveryRequestDoc);
+    const validRequests = requestDocs.filter((r) => isRealRecoveryRequestDoc(r, normalizedEmail));
 
     // If no recovery request documents exist, return status "none" and null immediately
     if (validRequests.length === 0) {

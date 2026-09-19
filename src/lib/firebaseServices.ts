@@ -845,39 +845,82 @@ export async function loginFirebaseUser(email: string, pass: string, attemptId?:
   });
 }
 
+let isGoogleLoginRunning = false;
+
 export async function loginWithGoogle(): Promise<User> {
-  const provider = new GoogleAuthProvider();
-  provider.setCustomParameters({ prompt: 'select_account' });
-  let userCredential: any;
+  if (isGoogleLoginRunning) {
+    throw new Error("عملية تسجيل الدخول قيد المعالجة حالياً. يرجى الانتظار...");
+  }
+  isGoogleLoginRunning = true;
+
   try {
-    userCredential = await signInWithPopup(auth, provider);
-  } catch (popupErr: any) {
-    const errEmail = (popupErr?.customData?.email || popupErr?._tokenResponse?.email || "").trim().toLowerCase();
-    if (errEmail) {
-      try {
-        const resolution = await resolveAccountState(errEmail);
-        if (resolution && resolution.accountState && resolution.accountState.startsWith("DELETED_ACCOUNT")) {
-          throw new LoginError("LOGIN_SELF_DELETED", resolution.userFriendlyMessage || "تم العثور على حسابك المحذوف سابقاً، وهو متاح للاستعادة.", {
-            originalCode: "SELF_RESTORE_AVAILABLE",
-            email: errEmail,
-            daysRemaining: resolution.daysRemaining ?? 31,
-            restoreUntil: resolution.restoreUntil,
-            hasRecoveryRequest: resolution.hasRecoveryRequest,
-            recoveryStatus: resolution.recoveryStatus,
-            recoveryRequestId: resolution.recoveryRequestId,
-            accountState: resolution.accountState,
-            initialTab: resolution.hasRecoveryRequest ? "status" : "request",
-            isExpired: resolution.isExpired
-          });
+    const provider = new GoogleAuthProvider();
+    provider.setCustomParameters({ prompt: 'select_account' });
+    let userCredential: any;
+    try {
+      userCredential = await signInWithPopup(auth, provider);
+    } catch (popupErr: any) {
+      // If Firebase Auth threw assertion error or popup was cancelled
+      const errMsg = popupErr?.message || "";
+      const errCode = popupErr?.code || "";
+
+      if (
+        errCode === "auth/popup-closed-by-user" ||
+        errCode === "auth/cancelled-popup-request" ||
+        errCode === "auth/popup-blocked"
+      ) {
+        throw new Error("تم إغلاق نافذة تسجيل الدخول من قِبل المستخدم.");
+      }
+
+      // Check for internal assertion failed: Pending promise was never set
+      if (
+        errMsg.includes("Pending promise was never set") ||
+        errCode === "auth/internal-error"
+      ) {
+        console.warn("Notice: Handled Firebase Auth assertion error during popup:", popupErr);
+        if (auth.currentUser) {
+          userCredential = { user: auth.currentUser };
+        } else {
+          throw new Error("تعذر إكمال المصادقة المنبثقة. يرجى إعادة المحاولة أو تسجيل الدخول بالبريد الإلكتروني وكلمة المرور.");
         }
-      } catch (checkErr) {
-        if (checkErr instanceof LoginError || (checkErr as any).name === "LoginError") throw checkErr;
+      }
+
+      if (!userCredential) {
+        const errEmail = (popupErr?.customData?.email || popupErr?._tokenResponse?.email || "").trim().toLowerCase();
+        if (errEmail) {
+          try {
+            const resolution = await resolveAccountState(errEmail);
+            if (resolution && resolution.accountState && resolution.accountState.startsWith("DELETED_ACCOUNT")) {
+              throw new LoginError("LOGIN_SELF_DELETED", resolution.userFriendlyMessage || "تم العثور على حسابك المحذوف سابقاً، وهو متاح للاستعادة.", {
+                originalCode: "SELF_RESTORE_AVAILABLE",
+                email: errEmail,
+                daysRemaining: resolution.daysRemaining ?? 31,
+                restoreUntil: resolution.restoreUntil,
+                hasRecoveryRequest: resolution.hasRecoveryRequest,
+                recoveryStatus: resolution.recoveryStatus,
+                recoveryRequestId: resolution.recoveryRequestId,
+                accountState: resolution.accountState,
+                initialTab: resolution.hasRecoveryRequest ? "status" : "request",
+                isExpired: resolution.isExpired
+              });
+            }
+          } catch (checkErr) {
+            if (checkErr instanceof LoginError || (checkErr as any).name === "LoginError") throw checkErr;
+          }
+        }
+        throw popupErr;
       }
     }
-    throw popupErr;
-  }
 
-  const uid = userCredential.user.uid;
+    if (!userCredential || !userCredential.user) {
+      if (auth.currentUser) {
+        userCredential = { user: auth.currentUser };
+      } else {
+        throw new Error("لم يتم استلام بيانات المستخدم من Google.");
+      }
+    }
+
+    const uid = userCredential.user.uid;
   const email = userCredential.user.email || "";
   const displayName = userCredential.user.displayName || email.split("@")[0];
 
@@ -988,9 +1031,10 @@ export async function loginWithGoogle(): Promise<User> {
     
     setLocalItem(`user_${uid}`, userData);
     return userData;
-  } else {
-    // Secondary lookup by email in case doc ID differs
-    try {
+  }
+
+  // Secondary lookup by email in case doc ID differs
+  try {
       if (email) {
         const emailQuery = query(collection(db, "users"), where("email", "==", email.trim().toLowerCase()), limit(1));
         const emailSnap = await getDocs(emailQuery);
@@ -1110,6 +1154,8 @@ export async function loginWithGoogle(): Promise<User> {
     
     setLocalItem(`user_${uid}`, defaultUser);
     return defaultUser;
+  } finally {
+    isGoogleLoginRunning = false;
   }
 }
 
@@ -2683,6 +2729,7 @@ export interface AccountStateResolution {
   canRestore: boolean;
   adminApprovalRequired: boolean;
   daysRemaining: number;
+  deletedAt?: string | null;
   restoreUntil: string | null;
   hasRecoveryRequest: boolean;
   recoveryRequestId: string | null;
@@ -2813,6 +2860,7 @@ export async function resolveAccountState(email: string): Promise<AccountStateRe
       canRestore: lc?.canRestore ?? false,
       adminApprovalRequired: lc?.adminApprovalRequired ?? false,
       daysRemaining: lc?.daysRemaining ?? 31,
+      deletedAt: lc?.deletedAt ?? null,
       restoreUntil: lc?.restoreUntil ?? null,
       hasRecoveryRequest: hasReq,
       recoveryRequestId: hasReq ? (rec?.recoveryRequest?.id || rec?.recoveryRequest?.requestId || null) : null,

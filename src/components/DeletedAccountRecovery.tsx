@@ -41,6 +41,7 @@ import { User } from "../types";
 export interface DeletedAccountRecoveryProps {
   email: string;
   daysRemaining?: number;
+  deletedAt?: string | null;
   restoreUntil?: string | null;
   isExpired?: boolean;
   initialTab?: "request" | "status";
@@ -48,6 +49,52 @@ export interface DeletedAccountRecoveryProps {
   theme?: "light" | "dark";
   onCancel: () => void;
   onRestored: (user: User) => void;
+}
+
+export interface RecoveryTimeLeft {
+  remainingMs: number;
+  days: number;
+  hours: number;
+  minutes: number;
+  seconds: number;
+  isExpired: boolean;
+}
+
+function calculateRecoveryTimeLeft(targetExpirationMs: number | null): RecoveryTimeLeft {
+  if (!targetExpirationMs || isNaN(targetExpirationMs)) {
+    return {
+      remainingMs: 0,
+      days: 0,
+      hours: 0,
+      minutes: 0,
+      seconds: 0,
+      isExpired: false,
+    };
+  }
+  const now = Date.now();
+  const diff = targetExpirationMs - now;
+  if (diff <= 0) {
+    return {
+      remainingMs: 0,
+      days: 0,
+      hours: 0,
+      minutes: 0,
+      seconds: 0,
+      isExpired: true,
+    };
+  }
+  const days = Math.floor(diff / 86400000);
+  const hours = Math.floor((diff % 86400000) / 3600000);
+  const minutes = Math.floor((diff % 3600000) / 60000);
+  const seconds = Math.floor((diff % 60000) / 1000);
+  return {
+    remainingMs: diff,
+    days,
+    hours,
+    minutes,
+    seconds,
+    isExpired: false,
+  };
 }
 
 interface UploadedDocumentItem {
@@ -67,7 +114,8 @@ interface UploadedDocumentItem {
 export const DeletedAccountRecovery: React.FC<DeletedAccountRecoveryProps> = ({
   email: initialEmail,
   daysRemaining: initialDays,
-  restoreUntil,
+  deletedAt: initialDeletedAt,
+  restoreUntil: initialRestoreUntil,
   isExpired = false,
   initialTab = "request",
   lang = "ar",
@@ -79,23 +127,67 @@ export const DeletedAccountRecovery: React.FC<DeletedAccountRecoveryProps> = ({
   const ArrowBackIcon = isRtl ? ArrowRight : ArrowLeft;
   const ArrowForwardIcon = isRtl ? ArrowLeft : ArrowRight;
 
-  // Single Source of Truth for Real Recovery Request existence
-  const [hasRealRecoveryRequest, setHasRealRecoveryRequest] = useState<boolean>(false);
-  const [isInitialChecking, setIsInitialChecking] = useState<boolean>(true);
+  // Tri-state view model: loading -> strictly neutral, no_request -> Request Form Only, has_request -> Status Only
+  type RecoveryViewState = "loading" | "no_request" | "has_request";
+  const [recoveryState, setRecoveryState] = useState<RecoveryViewState>("loading");
 
   // Form step
   const [currentStep, setCurrentStep] = useState<1 | 2 | 3>(1);
 
-  // Email & Lifecycle state
+  // Email & Lifecycle timestamps state
   const [email, setEmail] = useState((initialEmail || "").trim().toLowerCase());
-  const [dynamicDays, setDynamicDays] = useState<number>(() => {
-    if (restoreUntil) {
-      const remainingMs = new Date(restoreUntil).getTime() - Date.now();
-      return Math.max(0, Math.ceil(remainingMs / (24 * 3600 * 1000)));
+  const [accountDeletedAt, setAccountDeletedAt] = useState<string | null>(initialDeletedAt || null);
+  const [accountRestoreUntil, setAccountRestoreUntil] = useState<string | null>(initialRestoreUntil || null);
+
+  // Helper to compute target expiration in ms
+  const computeTargetExpirationMs = (restoreIso?: string | null, delIso?: string | null): number | null => {
+    if (restoreIso) {
+      const ms = new Date(restoreIso).getTime();
+      if (!isNaN(ms) && ms > 0) return ms;
     }
-    return initialDays ?? 30;
+    if (delIso) {
+      const delMs = new Date(delIso).getTime();
+      if (!isNaN(delMs) && delMs > 0) {
+        return delMs + 31 * 24 * 60 * 60 * 1000;
+      }
+    }
+    return null;
+  };
+
+  // Live countdown timer state (recalculated every second)
+  const [timeLeft, setTimeLeft] = useState<RecoveryTimeLeft>(() => {
+    const targetMs = computeTargetExpirationMs(initialRestoreUntil, initialDeletedAt);
+    return calculateRecoveryTimeLeft(targetMs);
   });
   const [isLoadingLifecycle, setIsLoadingLifecycle] = useState(false);
+
+  // Synchronize initial props
+  useEffect(() => {
+    if (initialRestoreUntil) {
+      setAccountRestoreUntil(initialRestoreUntil);
+    }
+    if (initialDeletedAt) {
+      setAccountDeletedAt(initialDeletedAt);
+    }
+  }, [initialRestoreUntil, initialDeletedAt]);
+
+  // Live countdown interval (runs every 1000ms and cleans up properly on unmount)
+  useEffect(() => {
+    const targetMs = computeTargetExpirationMs(accountRestoreUntil, accountDeletedAt);
+    if (!targetMs) return;
+
+    // Immediately calculate
+    setTimeLeft(calculateRecoveryTimeLeft(targetMs));
+
+    const intervalId = setInterval(() => {
+      const updated = calculateRecoveryTimeLeft(targetMs);
+      setTimeLeft(updated);
+    }, 1000);
+
+    return () => {
+      clearInterval(intervalId);
+    };
+  }, [accountRestoreUntil, accountDeletedAt]);
 
   useEffect(() => {
     const targetEmail = (initialEmail || email || "").trim().toLowerCase();
@@ -106,13 +198,12 @@ export const DeletedAccountRecovery: React.FC<DeletedAccountRecoveryProps> = ({
     }
 
     if (!targetEmail) {
-      setIsInitialChecking(false);
-      setHasRealRecoveryRequest(false);
+      setRecoveryState("no_request");
       return;
     }
 
     let isMounted = true;
-    setIsInitialChecking(true);
+    setRecoveryState("loading");
 
     fetchAccountRecoveryStatusApi(targetEmail)
       .then(res => {
@@ -137,22 +228,17 @@ export const DeletedAccountRecovery: React.FC<DeletedAccountRecoveryProps> = ({
           isRealReqId &&
           hasSubmissionEvidence
         ) {
-          setHasRealRecoveryRequest(true);
+          setRecoveryState("has_request");
           setStatusResult(res);
         } else {
-          setHasRealRecoveryRequest(false);
+          setRecoveryState("no_request");
           setStatusResult(null);
         }
       })
       .catch(() => {
         if (!isMounted) return;
-        setHasRealRecoveryRequest(false);
+        setRecoveryState("no_request");
         setStatusResult(null);
-      })
-      .finally(() => {
-        if (isMounted) {
-          setIsInitialChecking(false);
-        }
       });
 
     return () => {
@@ -208,6 +294,25 @@ export const DeletedAccountRecovery: React.FC<DeletedAccountRecoveryProps> = ({
     return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + " " + sizes[i];
   };
 
+  // Format localized date string
+  const formatIsoDate = (isoString?: string | null) => {
+    if (!isoString) return null;
+    try {
+      const d = new Date(isoString);
+      if (isNaN(d.getTime())) return null;
+      return d.toLocaleDateString(lang === "ar" ? "ar-EG" : lang === "fr" ? "fr-FR" : "en-US", {
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit"
+      });
+    } catch {
+      return null;
+    }
+  };
+
   // Translations Map
   const t = {
     badge: lang === "ar" ? "استعادة الحساب" : lang === "fr" ? "Récupération de compte" : "Account Recovery",
@@ -219,11 +324,9 @@ export const DeletedAccountRecovery: React.FC<DeletedAccountRecoveryProps> = ({
         ? "Votre compte précédemment supprimé a été détecté et reste récupérable avec toutes vos données durant la période autorisée."
         : "Your previously deleted account was detected and is eligible for full restoration with all documents and settings.",
     statusAvailable:
-      lang === "ar"
-        ? `الاستعادة متاحة • متبقي ${dynamicDays} يوماً`
-        : lang === "fr"
-        ? `Récupération disponible • ${dynamicDays} jours restants`
-        : `Recovery Available • ${dynamicDays} days remaining`,
+      timeLeft.isExpired
+        ? (lang === "ar" ? "انتهت مهلة استعادة الحساب (31 يوماً)" : lang === "fr" ? "Période de récupération expirée (31 jours)" : "Recovery window expired (31 days)")
+        : (lang === "ar" ? "فترة السماح بالاستعادة نشطة" : lang === "fr" ? "Période de récupération active" : "Active Recovery Window"),
     tabNewRequest: lang === "ar" ? "تقديم طلب استعادة" : lang === "fr" ? "Nouvelle demande" : "Submit Request",
     tabCheckStatus: lang === "ar" ? "متابعة حالة الطلب" : lang === "fr" ? "Suivi du statut" : "Track Status",
     step1: lang === "ar" ? "1. معلومات الحساب" : lang === "fr" ? "1. Informations" : "1. Account Info",
@@ -328,24 +431,24 @@ export const DeletedAccountRecovery: React.FC<DeletedAccountRecoveryProps> = ({
     btnSubmitNewWithDocs: lang === "ar" ? "تقديم طلب جديد بوثائق محدثة" : lang === "fr" ? "Soumettre une nouvelle demande" : "Submit New Request with Updated Docs"
   };
 
-  // Fetch live lifecycle data on mount
+  // Fetch live lifecycle data on mount & when email changes
   useEffect(() => {
     let isMounted = true;
     const loadLifecycle = async () => {
-      if (!initialEmail) return;
+      const targetEmail = (initialEmail || email || "").trim().toLowerCase();
+      if (!targetEmail) return;
       setIsLoadingLifecycle(true);
       try {
-        const res = await checkAccountLifecycleApi(initialEmail.trim().toLowerCase());
+        const res = await checkAccountLifecycleApi(targetEmail);
         if (isMounted && res && res.success) {
           if (res.restoreUntil) {
-            const remainingMs = new Date(res.restoreUntil).getTime() - Date.now();
-            setDynamicDays(Math.max(0, Math.ceil(remainingMs / (24 * 3600 * 1000))));
-          } else if (res.deletedAt) {
-            const delTime = new Date(res.deletedAt).getTime();
-            const thirtyOneDays = 31 * 24 * 60 * 60 * 1000;
-            setDynamicDays(Math.max(0, Math.ceil((delTime + thirtyOneDays - Date.now()) / (24 * 3600 * 1000))));
-          } else if (res.daysRemaining !== undefined) {
-            setDynamicDays(res.daysRemaining);
+            setAccountRestoreUntil(res.restoreUntil);
+          }
+          if (res.deletedAt) {
+            setAccountDeletedAt(res.deletedAt);
+          } else if (res.restoreUntil) {
+            const calculatedDel = new Date(new Date(res.restoreUntil).getTime() - 31 * 24 * 60 * 60 * 1000).toISOString();
+            setAccountDeletedAt(calculatedDel);
           }
         }
       } catch (e) {
@@ -358,7 +461,7 @@ export const DeletedAccountRecovery: React.FC<DeletedAccountRecoveryProps> = ({
     return () => {
       isMounted = false;
     };
-  }, [initialEmail]);
+  }, [initialEmail, email]);
 
   // Handle Drag & Drop
   const handleDragOver = (e: React.DragEvent) => {
@@ -582,11 +685,11 @@ export const DeletedAccountRecovery: React.FC<DeletedAccountRecoveryProps> = ({
 
       const result = await submitAccountRecoveryRequestApi(payload);
 
-      if (result && result.success) {
-        const reqId = result.requestId || result.request?.id || result.requestNumber || `REQ-${Date.now()}`;
+      if (result && result.success && (result.requestId || result.request?.id || result.request?.requestId)) {
+        const reqId = (result.requestId || result.request?.id || result.request?.requestId).toString().trim();
         setSubmittedRequestId(reqId);
         setSubmissionSuccessData(result.request || result);
-        setHasRealRecoveryRequest(true);
+        setRecoveryState("has_request");
       } else {
         const errorMsg = result?.error || result?.message || (lang === "ar" ? "فشل تقديم طلب الاستعادة. يرجى المحاولة لاحقاً." : "Failed to submit recovery request.");
         setFormError(errorMsg);
@@ -713,22 +816,86 @@ export const DeletedAccountRecovery: React.FC<DeletedAccountRecoveryProps> = ({
       {/* HEADER SECTION */}
       <div className="text-start space-y-1.5 mb-6">
         <h1 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white tracking-tight">
-          {hasRealRecoveryRequest || submittedRequestId
+          {recoveryState === "has_request" || submittedRequestId
             ? (lang === "ar" ? "متابعة حالة طلب استعادة الحساب" : "Account Recovery Status")
             : (lang === "ar" ? "تقديم طلب استعادة الحساب المحذوف" : "Recover Deleted Account")}
         </h1>
         <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
-          {hasRealRecoveryRequest || submittedRequestId
+          {recoveryState === "loading"
+            ? (lang === "ar" ? "جاري التحقق من حالة الحساب وسجلات طلبات الاستعادة..." : "Verifying account status and recovery records...")
+            : recoveryState === "has_request" || submittedRequestId
             ? (lang === "ar"
                 ? "تم العثور على طلب استعادة قائم لهذا الحساب. تتاح لك أدناه متابعة حالة وتفاصيل الطلب والمصادقة فور الموافقة."
                 : "An active recovery request was found for this account. You can track status and complete verification once approved.")
             : t.subtitle}
         </p>
 
-        {/* Dynamic Days Remaining Banner */}
-        <div className="inline-flex items-center gap-2 mt-2 px-3 py-1.5 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200/80 dark:border-emerald-800/60 rounded-xl text-xs font-bold text-emerald-700 dark:text-emerald-300">
-          <Clock className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
-          <span>{t.statusAvailable}</span>
+        {/* Dynamic Live Countdown Banner & Metric Tiles */}
+        <div className="mt-3 p-3.5 rounded-2xl bg-slate-50 dark:bg-[#131a29] border border-slate-200 dark:border-slate-800 space-y-3">
+          <div className="flex items-center justify-between gap-2 flex-wrap">
+            <div className={`inline-flex items-center gap-2 px-2.5 py-1 rounded-lg text-xs font-bold ${
+              timeLeft.isExpired
+                ? "bg-rose-100 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 border border-rose-300 dark:border-rose-800"
+                : "bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800"
+            }`}>
+              <Clock className={`w-3.5 h-3.5 ${timeLeft.isExpired ? "text-rose-600 dark:text-rose-400" : "text-emerald-600 dark:text-emerald-400"} shrink-0`} />
+              <span>{t.statusAvailable}</span>
+            </div>
+
+            {accountRestoreUntil && !timeLeft.isExpired && (
+              <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400">
+                {lang === "ar" ? "تاريخ انتهاء المهلة:" : lang === "fr" ? "Expire le :" : "Expires on:"}{" "}
+                <span className="font-semibold text-slate-700 dark:text-slate-300">{formatIsoDate(accountRestoreUntil)}</span>
+              </span>
+            )}
+          </div>
+
+          {!timeLeft.isExpired && (
+            <div className="grid grid-cols-4 gap-2 sm:gap-2.5">
+              <div className="flex flex-col items-center justify-center p-2 rounded-xl bg-white dark:bg-[#192233] border border-slate-200/90 dark:border-slate-750 shadow-2xs">
+                <span className="text-base sm:text-lg font-mono font-black text-slate-900 dark:text-white tabular-nums">
+                  {String(timeLeft.days).padStart(2, "0")}
+                </span>
+                <span className="text-[10px] sm:text-[11px] font-semibold text-slate-500 dark:text-slate-400">
+                  {lang === "ar" ? "يوم" : lang === "fr" ? "Jours" : "Days"}
+                </span>
+              </div>
+
+              <div className="flex flex-col items-center justify-center p-2 rounded-xl bg-white dark:bg-[#192233] border border-slate-200/90 dark:border-slate-750 shadow-2xs">
+                <span className="text-base sm:text-lg font-mono font-black text-[#0075DE] dark:text-blue-400 tabular-nums">
+                  {String(timeLeft.hours).padStart(2, "0")}
+                </span>
+                <span className="text-[10px] sm:text-[11px] font-semibold text-slate-500 dark:text-slate-400">
+                  {lang === "ar" ? "ساعة" : lang === "fr" ? "Heures" : "Hours"}
+                </span>
+              </div>
+
+              <div className="flex flex-col items-center justify-center p-2 rounded-xl bg-white dark:bg-[#192233] border border-slate-200/90 dark:border-slate-750 shadow-2xs">
+                <span className="text-base sm:text-lg font-mono font-black text-[#0075DE] dark:text-blue-400 tabular-nums">
+                  {String(timeLeft.minutes).padStart(2, "0")}
+                </span>
+                <span className="text-[10px] sm:text-[11px] font-semibold text-slate-500 dark:text-slate-400">
+                  {lang === "ar" ? "دقيقة" : lang === "fr" ? "Minutes" : "Mins"}
+                </span>
+              </div>
+
+              <div className="flex flex-col items-center justify-center p-2 rounded-xl bg-white dark:bg-[#192233] border border-slate-200/90 dark:border-slate-750 shadow-2xs">
+                <span className="text-base sm:text-lg font-mono font-black text-emerald-600 dark:text-emerald-400 tabular-nums">
+                  {String(timeLeft.seconds).padStart(2, "0")}
+                </span>
+                <span className="text-[10px] sm:text-[11px] font-semibold text-slate-500 dark:text-slate-400">
+                  {lang === "ar" ? "ثانية" : lang === "fr" ? "Secondes" : "Secs"}
+                </span>
+              </div>
+            </div>
+          )}
+
+          {accountDeletedAt && (
+            <div className="pt-1 flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400 border-t border-slate-200/60 dark:border-slate-800/60">
+              <span>{lang === "ar" ? "تاريخ حذف الحساب:" : lang === "fr" ? "Date de suppression :" : "Deletion Date:"}</span>
+              <span className="font-semibold text-slate-700 dark:text-slate-300">{formatIsoDate(accountDeletedAt)}</span>
+            </div>
+          )}
         </div>
       </div>
 
@@ -755,14 +922,14 @@ export const DeletedAccountRecovery: React.FC<DeletedAccountRecoveryProps> = ({
       </AnimatePresence>
 
       {/* MAIN VIEW MODE ROUTING */}
-      {isInitialChecking ? (
+      {recoveryState === "loading" ? (
         <div className="py-12 text-center space-y-3 bg-slate-50 dark:bg-[#131926] border border-slate-200 dark:border-slate-800 rounded-2xl">
           <RefreshCw className="w-6 h-6 text-[#0075DE] animate-spin mx-auto" />
           <p className="text-xs font-semibold text-slate-600 dark:text-slate-300">
             {lang === "ar" ? "جاري التحقق من سجلات طلبات الاستعادة..." : "Checking recovery request records..."}
           </p>
         </div>
-      ) : hasRealRecoveryRequest || submittedRequestId ? (
+      ) : recoveryState === "has_request" || submittedRequestId ? (
         /* ---------------------------------------------------- */
         /* MODE 1: REAL RECOVERY REQUEST EXISTS -> STATUS ONLY  */
         /* ---------------------------------------------------- */
@@ -973,7 +1140,7 @@ export const DeletedAccountRecovery: React.FC<DeletedAccountRecoveryProps> = ({
                   <button
                     type="button"
                     onClick={() => {
-                      setHasRealRecoveryRequest(false);
+                      setRecoveryState("no_request");
                       setStatusResult(null);
                       setSubmittedRequestId(null);
                     }}

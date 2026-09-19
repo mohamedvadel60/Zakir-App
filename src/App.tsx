@@ -570,6 +570,7 @@ export default function App() {
   const [deletedAccountRecovery, setDeletedAccountRecovery] = useState<{
     email: string;
     daysRemaining?: number;
+    deletedAt?: string | null;
     restoreUntil?: string | null;
     isExpired?: boolean;
     initialTab?: "request" | "status";
@@ -586,6 +587,7 @@ export default function App() {
   const [showLoginPassword, setShowLoginPassword] = useState(false);
   const [loginError, setLoginError] = useState("");
   const [isSubmittingLogin, setIsSubmittingLogin] = useState(false);
+  const [isSubmittingGoogle, setIsSubmittingGoogle] = useState(false);
   const activeLoginAttemptIdRef = useRef<string | null>(null);
 
   // Password Reset State
@@ -3227,6 +3229,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                 <DeletedAccountRecovery
                   email={deletedAccountRecovery.email}
                   daysRemaining={deletedAccountRecovery.daysRemaining}
+                  deletedAt={deletedAccountRecovery.deletedAt}
                   restoreUntil={deletedAccountRecovery.restoreUntil}
                   isExpired={deletedAccountRecovery.isExpired}
                   initialTab={deletedAccountRecovery.initialTab}
@@ -3516,7 +3519,11 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                   {/* Google Sign In Button */}
                   <button 
                     type="button"
+                    disabled={isSubmittingGoogle || isSubmittingReg}
                     onClick={async () => {
+                      if (isSubmittingGoogle) return;
+                      setIsSubmittingGoogle(true);
+                      setRegError("");
                       try {
                         const userProfile = await loginWithGoogle();
                         setCurrentUser(userProfile);
@@ -3566,18 +3573,29 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                             }
                           } catch (e) {}
                         }
-                        setRegError(lang === "ar" ? "بيانات الدخول غير صحيحة. يرجى التحقق من البريد الإلكتروني وكلمة المرور." : formatAuthError(err));
+                        const rawMsg = err?.message || "";
+                        if (rawMsg.includes("إغلاق") || rawMsg.includes("closed") || rawMsg.includes("cancelled")) {
+                          // Clean user cancellation
+                          return;
+                        }
+                        setRegError(lang === "ar" ? (rawMsg || "حدث خطأ أثناء المصادقة عبر Google. يرجى المحاولة مرة أخرى.") : formatAuthError(err));
+                      } finally {
+                        setIsSubmittingGoogle(false);
                       }
                     }}
-                    className="w-full py-2.5 px-4 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-800 dark:text-slate-200 text-xs font-semibold rounded-lg border border-slate-200 dark:border-slate-800 transition-all cursor-pointer flex items-center justify-center gap-2.5 mb-4 shadow-xs hover:border-slate-300 dark:hover:border-slate-700"
+                    className="w-full py-2.5 px-4 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed text-slate-800 dark:text-slate-200 text-xs font-semibold rounded-lg border border-slate-200 dark:border-slate-800 transition-all cursor-pointer flex items-center justify-center gap-2.5 mb-4 shadow-xs hover:border-slate-300 dark:hover:border-slate-700"
                   >
-                    <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24">
-                      <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-                      <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-                      <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
-                      <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
-                    </svg>
-                    <span>{lang === "fr" ? "Continuer avec Google" : (lang === "ar" ? "التسجيل باستخدام Google" : "Sign up with Google")}</span>
+                    {isSubmittingGoogle ? (
+                      <div className="w-4 h-4 border-2 border-slate-400 border-t-transparent rounded-full animate-spin shrink-0" />
+                    ) : (
+                      <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24">
+                        <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                        <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                        <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
+                        <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
+                      </svg>
+                    )}
+                    <span>{isSubmittingGoogle ? (lang === "ar" ? "جارٍ الاتصال بـ Google..." : "Connecting to Google...") : (lang === "fr" ? "Continuer avec Google" : (lang === "ar" ? "التسجيل باستخدام Google" : "Sign up with Google"))}</span>
                   </button>
 
                   {/* Divider */}
@@ -3885,7 +3903,11 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                     {/* Google Sign In Button */}
                     <button 
                       type="button"
+                      disabled={isSubmittingGoogle || isSubmittingLogin}
                       onClick={async () => {
+                        if (isSubmittingGoogle) return;
+                        setIsSubmittingGoogle(true);
+                        setLoginError("");
                         try {
                           const userProfile = await loginWithGoogle();
                           setCurrentUser(userProfile);
@@ -3935,18 +3957,29 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                               }
                             } catch (e) {}
                           }
-                          setLoginError(lang === "ar" ? "بيانات الدخول غير صحيحة. يرجى التحقق من البريد الإلكتروني وكلمة المرور." : formatAuthError(err));
+                          const rawMsg = err?.message || "";
+                          if (rawMsg.includes("إغلاق") || rawMsg.includes("closed") || rawMsg.includes("cancelled")) {
+                            // Clean user cancellation
+                            return;
+                          }
+                          setLoginError(lang === "ar" ? (rawMsg || "حدث خطأ أثناء المصادقة عبر Google. يرجى المحاولة مرة أخرى.") : formatAuthError(err));
+                        } finally {
+                          setIsSubmittingGoogle(false);
                         }
                       }}
-                      className="w-full py-2.5 px-4 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-800 dark:text-slate-200 text-xs font-semibold rounded-lg border border-slate-200 dark:border-slate-800 transition-all cursor-pointer flex items-center justify-center gap-2.5 mb-4 shadow-xs hover:border-slate-300 dark:hover:border-slate-700"
+                      className="w-full py-2.5 px-4 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed text-slate-800 dark:text-slate-200 text-xs font-semibold rounded-lg border border-slate-200 dark:border-slate-800 transition-all cursor-pointer flex items-center justify-center gap-2.5 mb-4 shadow-xs hover:border-slate-300 dark:hover:border-slate-700"
                     >
-                      <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24">
-                        <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-                        <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-                        <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
-                        <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
-                      </svg>
-                      <span>{lang === "fr" ? "Continuer avec Google" : (lang === "ar" ? "تسجيل الدخول باستخدام Google" : "Continue with Google")}</span>
+                      {isSubmittingGoogle ? (
+                        <div className="w-4 h-4 border-2 border-slate-400 border-t-transparent rounded-full animate-spin shrink-0" />
+                      ) : (
+                        <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24">
+                          <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                          <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                          <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
+                          <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
+                        </svg>
+                      )}
+                      <span>{isSubmittingGoogle ? (lang === "ar" ? "جارٍ الاتصال بـ Google..." : "Connecting to Google...") : (lang === "fr" ? "Continuer avec Google" : (lang === "ar" ? "تسجيل الدخول باستخدام Google" : "Continue with Google"))}</span>
                     </button>
 
                     {/* Divider */}
@@ -5687,7 +5720,9 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                                 ? "bg-[#0075DE] text-white shadow-md shadow-[#0075DE]/20"
                                 : isDone
                                 ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/40"
-                                : "bg-slate-800 text-slate-400 border border-slate-700"
+                                : theme === "dark" 
+                                  ? "bg-slate-800 text-slate-400 border border-slate-700" 
+                                  : "bg-slate-100 text-slate-500 border border-slate-200"
                             }`}>
                               {isDone ? <Check className="w-4 h-4" /> : <StepIcon className="w-4 h-4" />}
                             </div>
@@ -5718,7 +5753,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                     {/* STEP 1: Metadata & Title */}
                     {formStep === 1 && (
                       <motion.div initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} className="space-y-4">
-                        <div className="border-b border-slate-800/80 pb-3 flex items-center justify-between">
+                        <div className={`border-b pb-3 flex items-center justify-between ${theme === "dark" ? "border-slate-800/80" : "border-slate-200"}`}>
                           <h3 className="text-xs font-bold uppercase tracking-wider text-[#0075DE] flex items-center gap-2">
                             <span className="w-6 h-6 rounded-full bg-[#0075DE]/20 text-[#0075DE] flex items-center justify-center text-[10px] font-black">1</span>
                             {lang === "ar" ? "عنوان الحدث والتصنيف الميداني" : "Event Title & Primary Category"}
@@ -5828,7 +5863,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                     {/* STEP 2: Context & Decision Taken */}
                     {formStep === 2 && (
                       <motion.div initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} className="space-y-4">
-                        <div className="border-b border-slate-800/80 pb-3 flex items-center justify-between">
+                        <div className={`border-b pb-3 flex items-center justify-between ${theme === "dark" ? "border-slate-800/80" : "border-slate-200"}`}>
                           <h3 className="text-xs font-bold uppercase tracking-wider text-[#0075DE] flex items-center gap-2">
                             <span className="w-6 h-6 rounded-full bg-[#0075DE]/20 text-[#0075DE] flex items-center justify-center text-[10px] font-black">2</span>
                             {lang === "ar" ? "سرد الحدث والقرار المتخذ" : (lang === "fr" ? "Contexte Narratif & Action Stratégique" : "Narrative Context & Strategic Action")}
@@ -5866,7 +5901,9 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                           <button
                             type="button"
                             onClick={() => setFormStep(1)}
-                            className="px-5 py-2.5 border border-slate-700 hover:bg-slate-800 text-slate-300 font-bold text-xs rounded-xl flex items-center gap-1.5 cursor-pointer"
+                            className={`px-5 py-2.5 border font-bold text-xs rounded-xl flex items-center gap-1.5 cursor-pointer ${
+                              theme === "dark" ? "border-slate-700 hover:bg-slate-800 text-slate-300" : "border-slate-200 hover:bg-slate-100 text-slate-700"
+                            }`}
                           >
                             <ArrowLeft className="w-4 h-4" />
                             <span>{lang === "ar" ? "السابق" : (lang === "fr" ? "Précédent" : "Previous")}</span>
@@ -5894,7 +5931,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                     {/* STEP 3: Causes & Outcomes */}
                     {formStep === 3 && (
                       <motion.div initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} className="space-y-4">
-                        <div className="border-b border-slate-800/80 pb-3 flex items-center justify-between">
+                        <div className={`border-b pb-3 flex items-center justify-between ${theme === "dark" ? "border-slate-800/80" : "border-slate-200"}`}>
                           <h3 className="text-xs font-bold uppercase tracking-wider text-[#0075DE] flex items-center gap-2">
                             <span className="w-6 h-6 rounded-full bg-[#0075DE]/20 text-[#0075DE] flex items-center justify-center text-[10px] font-black">3</span>
                             {lang === "ar" ? "العوامل المسببة والنتائج المترتبة" : (lang === "fr" ? "Facteurs Causaux Racine & Résultats Directs" : "Root Causal Factors & Direct Outcomes")}
@@ -5932,7 +5969,9 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                           <button
                             type="button"
                             onClick={() => setFormStep(2)}
-                            className="px-5 py-2.5 border border-slate-700 hover:bg-slate-800 text-slate-300 font-bold text-xs rounded-xl flex items-center gap-1.5 cursor-pointer"
+                            className={`px-5 py-2.5 border font-bold text-xs rounded-xl flex items-center gap-1.5 cursor-pointer ${
+                              theme === "dark" ? "border-slate-700 hover:bg-slate-800 text-slate-300" : "border-slate-200 hover:bg-slate-100 text-slate-700"
+                            }`}
                           >
                             <ArrowLeft className="w-4 h-4" />
                             <span>{lang === "ar" ? "السابق" : (lang === "fr" ? "Précédent" : "Previous")}</span>
@@ -5956,7 +5995,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                     {/* STEP 4: Lessons & CEO Passcode Encryption */}
                     {formStep === 4 && (
                       <motion.div initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} className="space-y-4">
-                        <div className="border-b border-slate-800/80 pb-3 flex items-center justify-between">
+                        <div className={`border-b pb-3 flex items-center justify-between ${theme === "dark" ? "border-slate-800/80" : "border-slate-200"}`}>
                           <h3 className="text-xs font-bold uppercase tracking-wider text-[#0075DE] flex items-center gap-2">
                             <span className="w-6 h-6 rounded-full bg-[#0075DE]/20 text-[#0075DE] flex items-center justify-center text-[10px] font-black">4</span>
                             {lang === "ar" ? "الدروس المستفادة والتأمين السري" : (lang === "fr" ? "Leçons Apprises & Paramètres de Sécurité" : "Lessons Learned & Security Settings")}
@@ -5995,7 +6034,9 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                             type="checkbox"
                             checked={newIsEncrypted}
                             onChange={(e) => setNewIsEncrypted(e.target.checked)}
-                            className="w-5 h-5 rounded bg-slate-900 border-slate-700 text-[#0075DE] focus:ring-[#0075DE] accent-[#0075DE] cursor-pointer shrink-0"
+                            className={`w-5 h-5 rounded text-[#0075DE] focus:ring-[#0075DE] accent-[#0075DE] cursor-pointer shrink-0 ${
+                              theme === "dark" ? "bg-slate-900 border-slate-700" : "bg-white border-slate-300"
+                            }`}
                           />
                         </div>
 
@@ -6003,7 +6044,9 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                           <button
                             type="button"
                             onClick={() => setFormStep(3)}
-                            className="px-5 py-2.5 border border-slate-700 hover:bg-slate-800 text-slate-300 font-bold text-xs rounded-xl flex items-center gap-1.5 cursor-pointer"
+                            className={`px-5 py-2.5 border font-bold text-xs rounded-xl flex items-center gap-1.5 cursor-pointer ${
+                              theme === "dark" ? "border-slate-700 hover:bg-slate-800 text-slate-300" : "border-slate-200 hover:bg-slate-100 text-slate-700"
+                            }`}
                           >
                             <ArrowLeft className="w-4 h-4" />
                             <span>{lang === "ar" ? "السابق" : (lang === "fr" ? "Précédent" : "Previous")}</span>
@@ -6041,7 +6084,9 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                   className="space-y-6"
                   id="files-vault-view"
                 >
-                  <div className="flex items-center justify-between flex-wrap gap-4 border-b border-slate-800/60 pb-4">
+                  <div className={`flex items-center justify-between flex-wrap gap-4 border-b pb-4 ${
+                    theme === "dark" ? "border-slate-800/60" : "border-slate-200"
+                  }`}>
                     <div>
                       <h1 className="text-2xl font-black tracking-tight flex items-center gap-3">
                         <Folder className="w-7 h-7 text-[#0075DE]" />
@@ -6147,7 +6192,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
 
                   {/* Subtabs for Diagnostic Lists */}
                   <div className="space-y-4">
-                    <div className="flex border-b border-slate-800/60 overflow-x-auto gap-2">
+                    <div className={`flex border-b overflow-x-auto gap-2 ${theme === "dark" ? "border-slate-800/60" : "border-slate-200"}`}>
                       {[
                         { id: "predictions", label: t.predictionsTab },
                         { id: "recommendations", label: t.recommendationsTab },
@@ -6160,7 +6205,9 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                           className={`h-11 px-4 text-xs font-bold transition-all border-b-2 cursor-pointer ${
                             smartActiveSubTab === subTab.id
                               ? "border-[#0075DE] text-[#0075DE]"
-                              : "border-transparent text-slate-400 hover:text-white"
+                              : theme === "dark"
+                                ? "border-transparent text-slate-400 hover:text-white"
+                                : "border-transparent text-slate-500 hover:text-slate-900"
                           }`}
                         >
                           {subTab.label}
@@ -6486,7 +6533,9 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                           </p>
                         </div>
 
-                        <div className="space-y-2 border-t border-slate-800/60 pt-4 flex-1 overflow-y-auto max-h-[220px] scrollbar-thin">
+                        <div className={`space-y-2 border-t pt-4 flex-1 overflow-y-auto max-h-[220px] scrollbar-thin ${
+                          theme === "dark" ? "border-slate-800/60" : "border-slate-200"
+                        }`}>
                           <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
                             {lang === "ar" ? "استفسارات مقترحة" : "Suggested Queries"}
                           </h4>
@@ -6590,7 +6639,9 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                         </div>
 
                         {/* Input Form at the bottom */}
-                        <form onSubmit={handleSendAgentMessage} className="p-4 border-t border-slate-800/60 bg-slate-950/40 flex gap-2">
+                        <form onSubmit={handleSendAgentMessage} className={`p-4 border-t flex gap-2 ${
+                          theme === "dark" ? "border-slate-800/60 bg-slate-950/40" : "border-slate-200 bg-slate-50/60"
+                        }`}>
                           <input
                             type="text"
                             value={agentInput}
@@ -6665,9 +6716,11 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                       </span>
                     </h3>
                     {riskAlerts.length === 0 ? (
-                      <div className="text-center py-16 border border-dashed border-slate-800 rounded-xl bg-slate-900/10">
+                      <div className={`text-center py-16 border border-dashed rounded-xl ${
+                        theme === "dark" ? "border-slate-800 bg-slate-900/10" : "border-slate-200 bg-slate-50"
+                      }`}>
                         <ShieldAlert className="w-12 h-12 text-slate-500 mx-auto mb-3" />
-                        <h4 className="text-sm font-bold text-slate-300">
+                        <h4 className={`text-sm font-bold ${theme === "dark" ? "text-slate-300" : "text-slate-700"}`}>
                           {lang === "ar" ? "لا توجد تنبيهات مخاطر مسجلة" : "No risk alerts logged"}
                         </h4>
                         <p className="text-xs text-slate-400 mt-1">
@@ -6676,10 +6729,12 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                       </div>
                     ) : (
                       riskAlerts.map((alert) => (
-                      <div key={alert.id} className="p-5 bg-slate-900/20 border border-slate-800/80 rounded-xl flex items-start justify-between gap-6 flex-wrap">
+                      <div key={alert.id} className={`p-5 rounded-xl border flex items-start justify-between gap-6 flex-wrap ${
+                        theme === "dark" ? "bg-slate-900/20 border-slate-800/80" : "bg-white border-slate-200 shadow-sm"
+                      }`}>
                         <div className="space-y-1.5 flex-1 min-w-[280px]">
                           <div className="flex items-center gap-2.5 flex-wrap">
-                            <span className="text-xs font-bold text-white">{alert.title}</span>
+                            <span className={`text-xs font-bold ${theme === "dark" ? "text-white" : "text-slate-900"}`}>{alert.title}</span>
                             <span className={`text-[9px] px-2 py-0.5 rounded-full font-black uppercase ${getSeverityBadgeClass(alert.severity)}`}>
                               {alert.severity}
                             </span>
@@ -6687,9 +6742,9 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                               {new Date(alert.createdAt).toLocaleDateString()}
                             </span>
                           </div>
-                          <p className="text-xs text-slate-300 leading-relaxed">{alert.description}</p>
+                          <p className={`text-xs leading-relaxed ${theme === "dark" ? "text-slate-300" : "text-slate-600"}`}>{alert.description}</p>
                           <div className="flex items-center gap-1 pt-1">
-                            <span className="text-[10px] text-slate-400">التصنيف التشغيلي:</span>
+                            <span className="text-[10px] text-slate-400">{lang === "ar" ? "التصنيف التشغيلي:" : "Category:"}</span>
                             <span className="text-[10px] font-bold text-[#0075DE]">{alert.category}</span>
                           </div>
                         </div>
@@ -6786,12 +6841,14 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                 <motion.div 
                   initial={{ opacity: 0, scale: 0.96 }} 
                   animate={{ opacity: 1, scale: 1 }} 
-                  className="p-8 text-center max-w-lg mx-auto my-16 bg-slate-900/40 border border-rose-500/20 rounded-2xl shadow-xl shadow-black/20"
+                  className={`p-8 text-center max-w-lg mx-auto my-16 border border-rose-500/20 rounded-2xl shadow-xl ${
+                    theme === "dark" ? "bg-slate-900/40 shadow-black/20" : "bg-white shadow-slate-200"
+                  }`}
                 >
                   <div className="w-14 h-14 bg-rose-500/10 border border-rose-500/20 rounded-2xl flex items-center justify-center mx-auto mb-4 text-rose-500">
                     <ShieldAlert className="w-7 h-7" />
                   </div>
-                  <h2 className="text-xl font-black text-slate-100 mb-2">
+                  <h2 className={`text-xl font-black mb-2 ${theme === "dark" ? "text-slate-100" : "text-slate-900"}`}>
                     {lang === "ar" ? "قسم محمي ومقيد الصلاحيات" : (lang === "fr" ? "Section Protégée et Restreinte" : "Access Restricted Module")}
                   </h2>
                   <p className="text-sm text-slate-400 mb-6 leading-relaxed">
@@ -6816,14 +6873,18 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
       {/* UNLOCK ENCRYPTED MEMORY MODAL */}
       {unlockMemoryTarget && (
         <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 animate-fade-in">
-          <div className="w-full max-w-md bg-slate-900 border border-[#0075DE]/40 rounded-2xl p-6 shadow-2xl space-y-5">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+          <div className={`w-full max-w-md border rounded-2xl p-6 shadow-2xl space-y-5 ${
+            theme === "dark" ? "bg-slate-900 border-[#0075DE]/40" : "bg-white border-[#0075DE]/30"
+          }`}>
+            <div className={`flex items-center justify-between pb-3 border-b ${
+              theme === "dark" ? "border-slate-800" : "border-slate-200"
+            }`}>
               <div className="flex items-center gap-2.5">
                 <div className="w-10 h-10 rounded-xl bg-[#0075DE]/20 text-[#0075DE] flex items-center justify-center border border-[#0075DE]/30">
                   <Lock className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="text-sm font-bold text-white">
+                  <h3 className={`text-sm font-bold ${theme === "dark" ? "text-white" : "text-slate-900"}`}>
                     {lang === "ar" ? "فك تشفير الذاكرة المؤسسية" : (lang === "fr" ? "Déchiffrer la Mémoire Institutionnelle" : "Decrypt Institutional Memory")}
                   </h3>
                   <p className="text-[11px] text-slate-400 truncate max-w-[200px]">
@@ -6837,13 +6898,15 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                   setUnlockMemoryTarget(null);
                   setUnlockMemoryError("");
                 }}
-                className="p-1 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-white cursor-pointer"
+                className={`p-1 rounded-lg transition-colors cursor-pointer ${
+                  theme === "dark" ? "hover:bg-slate-800 text-slate-400 hover:text-white" : "hover:bg-slate-100 text-slate-500 hover:text-slate-900"
+                }`}
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <p className="text-xs text-slate-300 leading-relaxed">
+            <p className={`text-xs leading-relaxed ${theme === "dark" ? "text-slate-300" : "text-slate-600"}`}>
               {lang === "ar"
                 ? "هذه الذكرى محمية ومشفّرة. أدخل الرمز السري المعتمد لفك القفل واستعراض التفاصيل والدروس المستفادة:"
                 : (lang === "fr"
@@ -6907,7 +6970,9 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                     setUnlockMemoryError("");
                   }}
                   placeholder="••••"
-                  className="w-full h-11 px-4 bg-slate-950 border border-slate-800 text-[#0075DE] font-mono text-center text-lg rounded-xl focus:border-[#0075DE] focus:outline-none tracking-widest"
+                  className={`w-full h-11 px-4 border text-[#0075DE] font-mono text-center text-lg rounded-xl focus:border-[#0075DE] focus:outline-none tracking-widest ${
+                    theme === "dark" ? "bg-slate-950 border-slate-800" : "bg-slate-50 border-slate-200"
+                  }`}
                 />
               </div>
 
@@ -6925,7 +6990,9 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                     setUnlockMemoryTarget(null);
                     setUnlockMemoryError("");
                   }}
-                  className="px-4 h-10 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs cursor-pointer"
+                  className={`px-4 h-10 rounded-xl font-bold text-xs cursor-pointer transition-colors ${
+                    theme === "dark" ? "bg-slate-800 hover:bg-slate-700 text-slate-300" : "bg-slate-100 hover:bg-slate-200 text-slate-700"
+                  }`}
                 >
                   {lang === "ar" ? "إلغاء" : (lang === "fr" ? "Annuler" : "Cancel")}
                 </button>
@@ -6948,14 +7015,18 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
           <div className={`w-full max-w-3xl max-h-[90vh] rounded-2xl border p-6 flex flex-col justify-between overflow-hidden shadow-2xl ${
             theme === "dark" ? "bg-slate-900 border-slate-800 text-white" : "bg-white border-slate-200 text-slate-900"
           }`}>
-            <div className="flex items-center justify-between pb-4 border-b border-slate-800">
+            <div className={`flex items-center justify-between pb-4 border-b ${
+              theme === "dark" ? "border-slate-800" : "border-slate-200"
+            }`}>
               <div className="flex items-center gap-2 text-[#0075DE] font-bold text-sm">
                 <Edit3 className="w-5 h-5" />
                 <span>{lang === "ar" ? "تعديل الذكرى المؤسسية" : (lang === "fr" ? "Modifier la Mémoire Institutionnelle" : "Edit Institutional Memory")}</span>
               </div>
               <button
                 onClick={() => setEditingMemory(null)}
-                className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition-colors cursor-pointer"
+                className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
+                  theme === "dark" ? "text-slate-400 hover:text-white hover:bg-slate-800" : "text-slate-500 hover:text-slate-900 hover:bg-slate-100"
+                }`}
               >
                 ✕
               </button>
@@ -6969,7 +7040,9 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                   required
                   value={editingMemory.title}
                   onChange={(e) => setEditingMemory({ ...editingMemory, title: e.target.value })}
-                  className="w-full h-10 px-3 rounded-xl bg-slate-950 border border-slate-800 text-white outline-none focus:border-[#0075DE]"
+                  className={`w-full h-10 px-3 rounded-xl border outline-none focus:border-[#0075DE] ${
+                    theme === "dark" ? "bg-slate-950 border-slate-800 text-white" : "bg-slate-50 border-slate-200 text-slate-900"
+                  }`}
                 />
               </div>
 
@@ -6984,7 +7057,9 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                         setCustomEditCategory("");
                       }
                     }}
-                    className="w-full h-10 px-3 rounded-xl bg-slate-950 border border-slate-800 text-white outline-none focus:border-[#0075DE]"
+                    className={`w-full h-10 px-3 rounded-xl border outline-none focus:border-[#0075DE] ${
+                      theme === "dark" ? "bg-slate-950 border-slate-800 text-white" : "bg-slate-50 border-slate-200 text-slate-900"
+                    }`}
                   >
                     <option value="Financial Engineering">Ingénierie Financière (Financial Engineering)</option>
                     <option value="FX Risk Management">Gestion du Risque de Change (FX Risk Management)</option>
@@ -6998,7 +7073,9 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                       type="text"
                       value={customEditCategory}
                       onChange={(e) => setCustomEditCategory(e.target.value)}
-                      className="w-full h-10 px-3 mt-2 rounded-xl bg-slate-950 border border-slate-800 text-white outline-none focus:border-[#0075DE]"
+                      className={`w-full h-10 px-3 mt-2 rounded-xl border outline-none focus:border-[#0075DE] ${
+                        theme === "dark" ? "bg-slate-950 border-slate-800 text-white" : "bg-slate-50 border-slate-200 text-slate-900"
+                      }`}
                       placeholder={lang === "ar" ? "اكتب التصنيف المخصص هنا..." : (lang === "fr" ? "Entrez la catégorie personnalisée..." : "Enter custom category...")}
                       required
                     />
@@ -7010,7 +7087,9 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                   <select
                     value={editingMemory.riskLevel}
                     onChange={(e) => setEditingMemory({ ...editingMemory, riskLevel: e.target.value as any })}
-                    className="w-full h-10 px-3 rounded-xl bg-slate-950 border border-slate-800 text-white outline-none focus:border-[#0075DE]"
+                    className={`w-full h-10 px-3 rounded-xl border outline-none focus:border-[#0075DE] ${
+                      theme === "dark" ? "bg-slate-950 border-slate-800 text-white" : "bg-slate-50 border-slate-200 text-slate-900"
+                    }`}
                   >
                     <option value="Low">Faible (Low)</option>
                     <option value="Medium">Moyen (Medium)</option>
@@ -7026,7 +7105,9 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                   rows={2}
                   value={editingMemory.description}
                   onChange={(e) => setEditingMemory({ ...editingMemory, description: e.target.value })}
-                  className="w-full p-3 rounded-xl bg-slate-950 border border-slate-800 text-white outline-none focus:border-[#0075DE]"
+                  className={`w-full p-3 rounded-xl border outline-none focus:border-[#0075DE] ${
+                    theme === "dark" ? "bg-slate-950 border-slate-800 text-white" : "bg-slate-50 border-slate-200 text-slate-900"
+                  }`}
                 />
               </div>
 
@@ -7037,7 +7118,9 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                     rows={2}
                     value={editingMemory.decision}
                     onChange={(e) => setEditingMemory({ ...editingMemory, decision: e.target.value })}
-                    className="w-full p-3 rounded-xl bg-slate-950 border border-slate-800 text-white outline-none focus:border-[#0075DE]"
+                    className={`w-full p-3 rounded-xl border outline-none focus:border-[#0075DE] ${
+                      theme === "dark" ? "bg-slate-950 border-slate-800 text-white" : "bg-slate-50 border-slate-200 text-slate-900"
+                    }`}
                   />
                 </div>
 
@@ -7047,7 +7130,9 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                     rows={2}
                     value={editingMemory.causalFactors || ""}
                     onChange={(e) => setEditingMemory({ ...editingMemory, causalFactors: e.target.value })}
-                    className="w-full p-3 rounded-xl bg-slate-950 border border-slate-800 text-white outline-none focus:border-[#0075DE]"
+                    className={`w-full p-3 rounded-xl border outline-none focus:border-[#0075DE] ${
+                      theme === "dark" ? "bg-slate-950 border-slate-800 text-white" : "bg-slate-50 border-slate-200 text-slate-900"
+                    }`}
                   />
                 </div>
               </div>
@@ -7059,7 +7144,9 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                     rows={2}
                     value={editingMemory.outcomes || ""}
                     onChange={(e) => setEditingMemory({ ...editingMemory, outcomes: e.target.value })}
-                    className="w-full p-3 rounded-xl bg-slate-950 border border-slate-800 text-white outline-none focus:border-[#0075DE]"
+                    className={`w-full p-3 rounded-xl border outline-none focus:border-[#0075DE] ${
+                      theme === "dark" ? "bg-slate-950 border-slate-800 text-white" : "bg-slate-50 border-slate-200 text-slate-900"
+                    }`}
                   />
                 </div>
 
@@ -7069,7 +7156,9 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                     rows={2}
                     value={editingMemory.lessonsLearned || ""}
                     onChange={(e) => setEditingMemory({ ...editingMemory, lessonsLearned: e.target.value })}
-                    className="w-full p-3 rounded-xl bg-slate-950 border border-slate-800 text-white outline-none focus:border-[#0075DE]"
+                    className={`w-full p-3 rounded-xl border outline-none focus:border-[#0075DE] ${
+                      theme === "dark" ? "bg-slate-950 border-slate-800 text-white" : "bg-slate-50 border-slate-200 text-slate-900"
+                    }`}
                   />
                 </div>
               </div>
@@ -7084,11 +7173,15 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                 />
               </div>
 
-              <div className="pt-3 border-t border-slate-800 flex items-center justify-end gap-3">
+              <div className={`pt-3 border-t flex items-center justify-end gap-3 ${
+                theme === "dark" ? "border-slate-800" : "border-slate-200"
+              }`}>
                 <button
                   type="button"
                   onClick={() => setEditingMemory(null)}
-                  className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold cursor-pointer"
+                  className={`px-4 py-2 rounded-xl font-bold cursor-pointer transition-colors ${
+                    theme === "dark" ? "bg-slate-800 hover:bg-slate-700 text-slate-300" : "bg-slate-100 hover:bg-slate-200 text-slate-700"
+                  }`}
                 >
                   {lang === "ar" ? "إلغاء" : (lang === "fr" ? "Annuler" : "Cancel")}
                 </button>

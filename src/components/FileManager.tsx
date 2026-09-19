@@ -437,12 +437,14 @@ export const FileManager: React.FC<FileManagerProps> = ({
                   />
                   {selectedFile ? (
                     <div className="flex items-center gap-3.5 text-left rtl:text-right">
-                      <div className="p-3 rounded-xl bg-slate-950 border border-slate-800 shrink-0">
+                      <div className={`p-3 rounded-xl border shrink-0 transition-colors ${
+                        theme === "dark" ? "bg-slate-950 border-slate-800 text-slate-200" : "bg-white border-slate-200 text-slate-700 shadow-xs"
+                      }`}>
                         {getFileIcon(selectedFile.type)}
                       </div>
                       <div className="overflow-hidden flex-1">
                         <p className={`text-xs font-black truncate ${theme === "dark" ? "text-white" : "text-slate-900"}`}>{selectedFile.name}</p>
-                        <p className="text-[10px] text-amber-400 font-mono mt-0.5">{formatBytes(selectedFile.size)}</p>
+                        <p className={`text-[10px] font-mono mt-0.5 ${theme === "dark" ? "text-amber-400" : "text-amber-600 font-semibold"}`}>{formatBytes(selectedFile.size)}</p>
                       </div>
                       <button 
                         type="button"
@@ -451,14 +453,20 @@ export const FileManager: React.FC<FileManagerProps> = ({
                           e.stopPropagation();
                           setSelectedFile(null);
                         }}
-                        className="p-1 rounded-md text-slate-500 hover:text-rose-400 transition-colors"
+                        className={`p-1 rounded-md transition-colors ${
+                          theme === "dark" ? "text-slate-400 hover:text-rose-400 hover:bg-slate-800" : "text-slate-500 hover:text-rose-600 hover:bg-slate-200"
+                        }`}
                       >
                         <X className="w-4 h-4" />
                       </button>
                     </div>
                   ) : (
                     <div className="py-4 flex flex-col items-center justify-center gap-2.5">
-                      <div className="w-10 h-10 rounded-full bg-slate-800/40 border border-slate-700/40 flex items-center justify-center text-slate-400 group-hover:scale-105 group-hover:text-[#0075DE] transition-all">
+                      <div className={`w-10 h-10 rounded-full border flex items-center justify-center group-hover:scale-105 transition-all ${
+                        theme === "dark" 
+                          ? "bg-slate-800/40 border-slate-700/40 text-slate-400 group-hover:text-[#0075DE]" 
+                          : "bg-blue-50 border-blue-100 text-slate-500 group-hover:text-[#0075DE]"
+                      }`}>
                         <UploadCloud className="w-5 h-5" />
                       </div>
                       <div>
@@ -533,19 +541,27 @@ export const FileManager: React.FC<FileManagerProps> = ({
               {/* Secure Encryption Toggle Indicator */}
               <div className={`p-4 rounded-xl border transition-all duration-300 ${
                 isEncrypted 
-                  ? "bg-amber-500/10 border-amber-500/30" 
-                  : theme === "dark" ? "bg-slate-950 border-slate-800" : "bg-slate-50 border-slate-150"
+                  ? (theme === "dark" ? "bg-amber-500/10 border-amber-500/30" : "bg-amber-50/70 border-amber-300")
+                  : (theme === "dark" ? "bg-slate-950 border-slate-800" : "bg-slate-50 border-slate-200")
               }`}>
                 <div className="flex items-center justify-between gap-3">
                   <div className="flex items-center gap-2.5">
-                    <div className={`p-2 rounded-lg ${isEncrypted ? "bg-amber-500/20 text-amber-300" : "bg-slate-800 text-slate-400"}`}>
+                    <div className={`p-2 rounded-lg ${
+                      isEncrypted 
+                        ? (theme === "dark" ? "bg-amber-500/20 text-amber-300" : "bg-amber-100 text-amber-700") 
+                        : (theme === "dark" ? "bg-slate-800 text-slate-400" : "bg-slate-200 text-slate-600")
+                    }`}>
                       <Lock className="w-4 h-4 shrink-0" />
                     </div>
                     <div>
-                      <p className={`text-xs font-black ${isEncrypted ? "text-amber-300" : "text-slate-400"}`}>
+                      <p className={`text-xs font-black ${
+                        isEncrypted 
+                          ? (theme === "dark" ? "text-amber-300" : "text-amber-800") 
+                          : (theme === "dark" ? "text-slate-300" : "text-slate-750")
+                      }`}>
                         {lang === "ar" ? "تشفير وحماية المستند" : "Local Security Encryption"}
                       </p>
-                      <p className="text-[10px] text-slate-500 mt-0.5">
+                      <p className={`text-[10px] mt-0.5 ${theme === "dark" ? "text-slate-500" : "text-slate-600"}`}>
                         {lang === "ar" ? "تقييد هذا الملف بكلمة المرور الحصرية للشركة" : "Require the master PIN code to decrypt & view file"}
                       </p>
                     </div>
@@ -554,7 +570,9 @@ export const FileManager: React.FC<FileManagerProps> = ({
                     type="checkbox"
                     checked={isEncrypted}
                     onChange={(e) => setIsEncrypted(e.target.checked)}
-                    className="w-5 h-5 rounded bg-slate-900 border-slate-700 text-amber-500 focus:ring-amber-500 accent-amber-500 cursor-pointer"
+                    className={`w-5 h-5 rounded text-amber-500 focus:ring-amber-500 accent-amber-500 cursor-pointer ${
+                      theme === "dark" ? "bg-slate-900 border-slate-700" : "bg-white border-slate-300"
+                    }`}
                   />
                 </div>
               </div>
@@ -583,13 +601,17 @@ export const FileManager: React.FC<FileManagerProps> = ({
               : "bg-white border-slate-200 shadow-md"
           }`}>
             {/* Headers & Search Box strip */}
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-slate-800/40 mb-6">
+            <div className={`flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b mb-6 ${
+              theme === "dark" ? "border-slate-800/40" : "border-slate-200"
+            }`}>
               <div className="flex items-center gap-2">
                 <Folder className="w-5 h-5 text-[#0075DE]" />
                 <h3 className={`text-sm font-black uppercase tracking-wider ${theme === "dark" ? "text-white" : "text-slate-900"}`}>
                   {lang === "ar" ? "الملفات والوثائق النشطة" : "Active Documents Repository"}
                 </h3>
-                <span className="px-2.5 py-0.5 text-xs font-black rounded-full bg-slate-900 text-[#0075DE] border border-slate-800 font-mono">
+                <span className={`px-2.5 py-0.5 text-xs font-black rounded-full font-mono ${
+                  theme === "dark" ? "bg-slate-900 text-[#0075DE] border border-slate-800" : "bg-blue-50 text-[#0075DE] border border-blue-200"
+                }`}>
                   {files.length}
                 </span>
               </div>
@@ -642,12 +664,14 @@ export const FileManager: React.FC<FileManagerProps> = ({
                 <p className="text-xs font-bold">{lang === "ar" ? "جاري مزامنة الملفات المشفرة مع السحابة..." : "Syncing encrypted documents with cloud storage..."}</p>
               </div>
             ) : filteredFiles.length === 0 ? (
-              <div className="py-16 text-center border-2 border-dashed border-slate-800/80 rounded-2xl">
-                <Folder className="w-12 h-12 text-slate-600 mx-auto mb-3 opacity-40" />
-                <p className={`text-sm font-black ${theme === "dark" ? "text-slate-400" : "text-slate-600"}`}>
+              <div className={`py-16 text-center border-2 border-dashed rounded-2xl ${
+                theme === "dark" ? "border-slate-800/80 bg-slate-950/20" : "border-slate-200 bg-slate-50/50"
+              }`}>
+                <Folder className="w-12 h-12 text-slate-400 dark:text-slate-600 mx-auto mb-3 opacity-50" />
+                <p className={`text-sm font-black ${theme === "dark" ? "text-slate-400" : "text-slate-700"}`}>
                   {lang === "ar" ? "لا توجد مستندات مطابقة حالياً" : "Vault holds no matching documents"}
                 </p>
-                <p className="text-xs text-slate-500 mt-1">
+                <p className={`text-xs mt-1 ${theme === "dark" ? "text-slate-500" : "text-slate-500"}`}>
                   {lang === "ar" ? "قم بتحميل أول وثيقة لتظهر في الفهرس الذكي." : "Upload a file using the configuration panel to expand database."}
                 </p>
               </div>
@@ -661,18 +685,20 @@ export const FileManager: React.FC<FileManagerProps> = ({
                       key={file.id} 
                       className={`p-4 rounded-xl border transition-all duration-300 relative group overflow-hidden ${
                         file.isEncrypted
-                          ? "bg-slate-950/80 border-amber-500/35 shadow-lg shadow-amber-500/2"
+                          ? theme === "dark"
+                            ? "bg-slate-950/80 border-amber-500/35 shadow-lg shadow-amber-500/5"
+                            : "bg-amber-50/60 border-amber-200 shadow-xs"
                           : theme === "dark" 
-                            ? "bg-slate-900/10 border-slate-800 hover:border-slate-700 hover:bg-slate-900/20" 
-                            : "bg-slate-50 border-slate-150 hover:border-[#0075DE]/35 hover:bg-slate-100/30 shadow-sm"
+                            ? "bg-slate-900/20 border-slate-800 hover:border-slate-700 hover:bg-slate-900/30" 
+                            : "bg-slate-50/80 border-slate-200 hover:border-[#0075DE]/40 hover:bg-white shadow-xs"
                       }`}
                     >
                       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                         <div className="flex items-center gap-3.5 overflow-hidden">
                           <div className={`p-2.5 rounded-xl border shrink-0 transition-colors ${
                             file.isEncrypted 
-                              ? "bg-amber-500/10 border-amber-500/20 text-amber-400" 
-                              : "bg-slate-800 border-slate-700 text-slate-300"
+                              ? (theme === "dark" ? "bg-amber-500/10 border-amber-500/20 text-amber-400" : "bg-amber-100 border-amber-200 text-amber-700")
+                              : (theme === "dark" ? "bg-slate-800 border-slate-700 text-slate-300" : "bg-white border-slate-200 text-slate-600 shadow-xs")
                           }`}>
                             {getFileIcon(file.mimeType)}
                           </div>
@@ -681,11 +707,11 @@ export const FileManager: React.FC<FileManagerProps> = ({
                             <h4 className={`text-xs font-black truncate leading-normal ${theme === "dark" ? "text-white" : "text-slate-900"}`} title={file.fileName}>
                               {file.fileName}
                             </h4>
-                            <div className="flex items-center gap-2 text-[10px] text-slate-400 font-mono mt-0.5">
+                            <div className="flex items-center gap-2 text-[10px] text-slate-500 dark:text-slate-400 font-mono mt-0.5">
                               <span>{formatBytes(file.fileSize)}</span>
                               <span>•</span>
                               <span className="flex items-center gap-1">
-                                <Clock className="w-3 h-3 text-slate-500" />
+                                <Clock className="w-3 h-3 text-slate-400" />
                                 {new Date(file.uploadDate).toLocaleDateString()}
                               </span>
                             </div>
@@ -695,16 +721,22 @@ export const FileManager: React.FC<FileManagerProps> = ({
                         {/* Badges and tags segment */}
                         <div className="flex items-center gap-1.5 shrink-0 self-end sm:self-auto">
                           {file.isEncrypted ? (
-                            <span className="px-2.5 py-0.5 text-[9px] font-black rounded-full bg-amber-500/20 border border-amber-500/30 text-amber-400 flex items-center gap-1">
+                            <span className={`px-2.5 py-0.5 text-[9px] font-black rounded-full border flex items-center gap-1 ${
+                              theme === "dark" ? "bg-amber-500/20 border-amber-500/30 text-amber-400" : "bg-amber-100 border-amber-200 text-amber-700"
+                            }`}>
                               <Lock className="w-2.5 h-2.5" />
                               <span>{lang === "ar" ? "مشفر" : "Encrypted"}</span>
                             </span>
                           ) : (
-                            <span className="px-2.5 py-0.5 text-[9px] font-black rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 uppercase tracking-wide">
+                            <span className={`px-2.5 py-0.5 text-[9px] font-black rounded-full border uppercase tracking-wide ${
+                              theme === "dark" ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400" : "bg-emerald-50 border-emerald-200 text-emerald-700"
+                            }`}>
                               {lang === "ar" ? "مكشوف" : "Standard"}
                             </span>
                           )}
-                          <span className="px-2 py-0.5 text-[9px] font-black rounded-full bg-[#0075DE]/15 border border-[#0075DE]/25 text-[#0075DE] uppercase tracking-wide font-mono">
+                          <span className={`px-2 py-0.5 text-[9px] font-black rounded-full border uppercase tracking-wide font-mono ${
+                            theme === "dark" ? "bg-[#0075DE]/15 border-[#0075DE]/25 text-[#0075DE]" : "bg-blue-50 border-blue-200 text-[#0075DE]"
+                          }`}>
                             {file.category}
                           </span>
                         </div>
@@ -714,20 +746,22 @@ export const FileManager: React.FC<FileManagerProps> = ({
                         <p className={`text-[11px] leading-relaxed mt-3.5 p-2.5 rounded-lg border ${
                           theme === "dark" 
                             ? "text-slate-400 bg-slate-950/40 border-slate-800/60" 
-                            : "text-slate-600 bg-white border-slate-150"
+                            : "text-slate-600 bg-white border-slate-200"
                         }`}>
                           {file.description}
                         </p>
                       )}
 
                       {/* Interactive Controls Desk */}
-                      <div className="mt-4 pt-3 border-t border-slate-800/40 flex flex-wrap items-center justify-between gap-2">
+                      <div className={`mt-4 pt-3 border-t flex flex-wrap items-center justify-between gap-2 ${
+                        theme === "dark" ? "border-slate-800/40" : "border-slate-200"
+                      }`}>
                         {isLockedFile ? (
                           <button
                             onClick={(e) => handleUnlockFile(file, e)}
-                            className="px-3.5 h-8 rounded-lg text-[11px] font-black bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 transition-all flex items-center gap-1.5 cursor-pointer"
+                            className="px-3.5 h-8 rounded-lg text-[11px] font-black bg-amber-500/10 hover:bg-amber-500/20 text-amber-600 dark:text-amber-300 border border-amber-500/30 transition-all flex items-center gap-1.5 cursor-pointer"
                           >
-                            <Lock className="w-3.5 h-3.5 text-amber-400" />
+                            <Lock className="w-3.5 h-3.5 text-amber-500 dark:text-amber-400" />
                             <span>{lang === "ar" ? "إدخال الرمز لفك التشفير" : "Decrypt Secure File"}</span>
                           </button>
                         ) : (
@@ -742,7 +776,11 @@ export const FileManager: React.FC<FileManagerProps> = ({
 
                             <button 
                               onClick={(e) => handleDownloadFile(file, e)}
-                              className="px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition-all flex items-center gap-1.5 cursor-pointer"
+                              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer border ${
+                                theme === "dark"
+                                  ? "bg-slate-800 hover:bg-slate-700 text-slate-200 border-slate-700"
+                                  : "bg-white hover:bg-slate-100 text-slate-700 border-slate-200 shadow-xs"
+                              }`}
                             >
                               <Download className="w-3.5 h-3.5 text-[#0075DE]" />
                               <span>{lang === "ar" ? "تنزيل" : "Download"}</span>
@@ -757,8 +795,8 @@ export const FileManager: React.FC<FileManagerProps> = ({
                             onClick={(e) => handleToggleEncryption(file, e)}
                             className={`p-2 rounded-lg transition-all cursor-pointer border ${
                               file.isEncrypted
-                                ? "bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border-amber-500/30"
-                                : "bg-slate-800 hover:bg-slate-750 text-slate-400 border-slate-700"
+                                ? (theme === "dark" ? "bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border-amber-500/30" : "bg-amber-50 hover:bg-amber-100 text-amber-700 border-amber-200")
+                                : (theme === "dark" ? "bg-slate-800 hover:bg-slate-750 text-slate-400 border-slate-700" : "bg-white hover:bg-slate-100 text-slate-600 border-slate-200 shadow-xs")
                             }`}
                             title={file.isEncrypted ? "Decrypt Document" : "Secure Document"}
                           >
@@ -772,7 +810,7 @@ export const FileManager: React.FC<FileManagerProps> = ({
                               e.stopPropagation();
                               setDeleteTargetId(file.id);
                             }}
-                            className="p-2 text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 rounded-lg transition-all cursor-pointer"
+                            className="p-2 text-slate-400 dark:text-slate-500 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-500/10 rounded-lg transition-all cursor-pointer"
                             title="Delete File"
                           >
                             <Trash2 className="w-4 h-4" />
@@ -784,9 +822,11 @@ export const FileManager: React.FC<FileManagerProps> = ({
                       {deleteTargetId === file.id && (
                         <div 
                           onClick={(e) => e.stopPropagation()} 
-                          className="mt-3.5 p-3.5 bg-rose-500/10 border border-rose-500/20 rounded-xl text-xs space-y-2.5 animate-in slide-in-from-top-2 duration-200"
+                          className={`mt-3.5 p-3.5 border rounded-xl text-xs space-y-2.5 animate-in slide-in-from-top-2 duration-200 ${
+                            theme === "dark" ? "bg-rose-500/10 border-rose-500/20" : "bg-rose-50 border-rose-200"
+                          }`}
                         >
-                          <p className="text-rose-300 font-bold">
+                          <p className={`font-bold ${theme === "dark" ? "text-rose-300" : "text-rose-800"}`}>
                             {lang === "ar" ? "تأكيد حذف الملف نهائياً من مخزن سحابة Firestore؟" : "Confirm permanent deletion from database?"}
                           </p>
                           <div className="flex items-center gap-2">
@@ -806,7 +846,9 @@ export const FileManager: React.FC<FileManagerProps> = ({
                                 e.stopPropagation();
                                 setDeleteTargetId(null);
                               }}
-                              className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg font-bold text-[11px] cursor-pointer"
+                              className={`px-3 py-1.5 rounded-lg font-bold text-[11px] cursor-pointer border ${
+                                theme === "dark" ? "bg-slate-800 hover:bg-slate-700 text-slate-300 border-slate-700" : "bg-white hover:bg-slate-100 text-slate-700 border-slate-200 shadow-xs"
+                              }`}
                             >
                               {lang === "ar" ? "إلغاء" : "Cancel"}
                             </button>
@@ -825,17 +867,19 @@ export const FileManager: React.FC<FileManagerProps> = ({
 
       {/* DECRYPTION / UNLOCK PASSCODE MODAL */}
       {passcodeModal.isOpen && passcodeModal.file && (
-        <div className="fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-sm flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-50 bg-slate-950/60 dark:bg-slate-950/80 backdrop-blur-xs flex items-center justify-center p-4">
           <div className={`w-full max-w-md rounded-2xl border p-6 shadow-2xl space-y-5 animate-in fade-in zoom-in-95 ${
             theme === "dark" ? "bg-slate-900 border-slate-800 text-white" : "bg-white border-slate-200 text-slate-900"
           }`}>
             {/* Header */}
-            <div className="flex items-center justify-between pb-3 border-b border-slate-800/80">
+            <div className={`flex items-center justify-between pb-3 border-b ${
+              theme === "dark" ? "border-slate-800" : "border-slate-200"
+            }`}>
               <div className="flex items-center gap-2.5">
                 <div className={`p-2.5 rounded-xl border ${
                   passcodeModal.isVerified 
-                    ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400" 
-                    : "bg-amber-500/10 border-amber-500/30 text-amber-400"
+                    ? (theme === "dark" ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400" : "bg-emerald-50 border-emerald-200 text-emerald-700")
+                    : (theme === "dark" ? "bg-amber-500/10 border-amber-500/30 text-amber-400" : "bg-amber-50 border-amber-200 text-amber-700")
                 }`}>
                   {passcodeModal.isVerified ? <CheckCircle2 className="w-5 h-5" /> : <Lock className="w-5 h-5" />}
                 </div>
@@ -845,7 +889,7 @@ export const FileManager: React.FC<FileManagerProps> = ({
                       ? (lang === "ar" ? "تم فك تشفير المستند بنجاح" : "Document Decrypted Successfully")
                       : (lang === "ar" ? "فك تشفير وإلغاء قفل الملف" : "Decrypt & Unlock File")}
                   </h3>
-                  <p className="text-[11px] text-slate-400 truncate max-w-[220px]" title={passcodeModal.file.fileName}>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate max-w-[220px]" title={passcodeModal.file.fileName}>
                     {passcodeModal.file.fileName}
                   </p>
                 </div>
@@ -857,7 +901,9 @@ export const FileManager: React.FC<FileManagerProps> = ({
                   setPasscodeModal({ isOpen: false, file: null, action: "unlock", isVerified: false, error: "" });
                   setEnteredPasscode("");
                 }}
-                className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition-colors cursor-pointer"
+                className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
+                  theme === "dark" ? "text-slate-400 hover:text-white hover:bg-slate-800" : "text-slate-500 hover:text-slate-900 hover:bg-slate-100"
+                }`}
               >
                 <X className="w-5 h-5" />
               </button>
@@ -866,7 +912,7 @@ export const FileManager: React.FC<FileManagerProps> = ({
             {passcodeModal.isVerified ? (
               /* OPTIONS CHOICE SCREEN AFTER PASSCODE VERIFICATION */
               <div className="space-y-4">
-                <p className="text-xs text-slate-300 leading-relaxed font-medium">
+                <p className={`text-xs leading-relaxed font-medium ${theme === "dark" ? "text-slate-300" : "text-slate-700"}`}>
                   {lang === "ar"
                     ? "تم فك تشفير الملف بنجاح! حدد الخيار الذي ترغب في إجرائه الآن:"
                     : "File decrypted successfully! Select what you would like to do now:"}
@@ -891,20 +937,28 @@ export const FileManager: React.FC<FileManagerProps> = ({
                       downloadUserFile(passcodeModal.file!);
                       setPasscodeModal({ isOpen: false, file: null, action: "unlock", isVerified: false, error: "" });
                     }}
-                    className="w-full h-11 px-4 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs border border-slate-700 flex items-center justify-center gap-2 transition-all cursor-pointer"
+                    className={`w-full h-11 px-4 rounded-xl font-bold text-xs border flex items-center justify-center gap-2 transition-all cursor-pointer ${
+                      theme === "dark" 
+                        ? "bg-slate-800 hover:bg-slate-700 text-white border-slate-700" 
+                        : "bg-slate-100 hover:bg-slate-200 text-slate-800 border-slate-300"
+                    }`}
                   >
-                    <Download className="w-4 h-4 text-amber-400" />
+                    <Download className="w-4 h-4 text-amber-500" />
                     <span>{lang === "ar" ? "تنزيل الملف" : "Download File"}</span>
                   </button>
                 </div>
 
-                <div className="pt-2 border-t border-slate-800/80 flex justify-end">
+                <div className={`pt-2 border-t flex justify-end ${theme === "dark" ? "border-slate-800" : "border-slate-200"}`}>
                   <button
                     type="button"
                     onClick={() => {
                       setPasscodeModal({ isOpen: false, file: null, action: "unlock", isVerified: false, error: "" });
                     }}
-                    className="px-4 h-9 rounded-xl text-xs font-bold bg-slate-800 hover:bg-slate-700 text-slate-300 transition-colors cursor-pointer"
+                    className={`px-4 h-9 rounded-xl text-xs font-bold transition-colors cursor-pointer border ${
+                      theme === "dark" 
+                        ? "bg-slate-800 hover:bg-slate-700 text-slate-300 border-slate-700" 
+                        : "bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-200"
+                    }`}
                   >
                     {lang === "ar" ? "إغلاق" : "Close"}
                   </button>
@@ -913,14 +967,14 @@ export const FileManager: React.FC<FileManagerProps> = ({
             ) : (
               /* PASSCODE INPUT FORM */
               <>
-                <p className="text-xs text-slate-400 leading-relaxed">
+                <p className={`text-xs leading-relaxed ${theme === "dark" ? "text-slate-400" : "text-slate-600"}`}>
                   {lang === "ar"
                     ? "هذا الملف مشفر ومحمي. يرجى إدخال رمز/كلمة السر لفك التشفير والمتابعة:"
                     : "This file is encrypted and protected. Please enter decryption passcode to proceed:"}
                 </p>
 
                 {passcodeModal.error && (
-                  <div className="p-3 bg-rose-500/10 border border-rose-500/30 rounded-xl text-rose-400 text-xs flex items-center gap-2">
+                  <div className="p-3 bg-rose-500/10 border border-rose-500/30 rounded-xl text-rose-500 text-xs flex items-center gap-2">
                     <AlertCircle className="w-4 h-4 shrink-0" />
                     <span>{passcodeModal.error}</span>
                   </div>
@@ -928,7 +982,7 @@ export const FileManager: React.FC<FileManagerProps> = ({
 
                 <form onSubmit={handleVerifyPasscodeSubmit} className="space-y-4">
                   <div>
-                    <label className="block text-xs font-bold text-slate-400 mb-1.5">
+                    <label className={`block text-xs font-bold mb-1.5 ${theme === "dark" ? "text-slate-400" : "text-slate-700"}`}>
                       {lang === "ar" ? "رمز/كلمة السر لفك التشفير:" : "Decryption Secret Code / PIN:"}
                     </label>
                     <input
@@ -957,7 +1011,11 @@ export const FileManager: React.FC<FileManagerProps> = ({
                         setPasscodeModal({ isOpen: false, file: null, action: "unlock", isVerified: false, error: "" });
                         setEnteredPasscode("");
                       }}
-                      className="px-4 h-10 rounded-xl text-xs font-bold bg-slate-800 hover:bg-slate-700 text-slate-300 transition-colors cursor-pointer"
+                      className={`px-4 h-10 rounded-xl text-xs font-bold transition-colors cursor-pointer border ${
+                        theme === "dark" 
+                          ? "bg-slate-800 hover:bg-slate-700 text-slate-300 border-slate-700" 
+                          : "bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-200"
+                      }`}
                     >
                       {lang === "ar" ? "إلغاء" : "Cancel"}
                     </button>

@@ -38,6 +38,9 @@ export const initWorkspaceAuth = (
 };
 
 export const googleSignIn = async (): Promise<{ user: User; accessToken: string } | null> => {
+  if (isSigningIn) {
+    return null;
+  }
   try {
     isSigningIn = true;
     const result = await signInWithPopup(auth, provider);
@@ -49,8 +52,15 @@ export const googleSignIn = async (): Promise<{ user: User; accessToken: string 
     cachedAccessToken = credential.accessToken;
     return { user: result.user, accessToken: cachedAccessToken };
   } catch (error: any) {
-    if (error?.code === "auth/popup-closed-by-user" || error?.code === "auth/cancelled-popup-request") {
-      console.log("Authentication popup closed by user.");
+    const msg = error?.message || "";
+    const code = error?.code || "";
+    if (
+      code === "auth/popup-closed-by-user" || 
+      code === "auth/cancelled-popup-request" ||
+      code === "auth/popup-blocked" ||
+      msg.includes("Pending promise was never set")
+    ) {
+      console.warn("Workspace Google Sign in notice (popup handled):", msg || code);
       return null;
     }
     console.error("Sign in error:", error);
