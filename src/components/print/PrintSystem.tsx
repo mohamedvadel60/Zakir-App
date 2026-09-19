@@ -124,22 +124,20 @@ export const PrintSystem: React.FC<PrintSystemProps> = ({
     previewTheme: "light-gray",
   });
 
-  // Sync profile details when currentUser changes or modal opens
+  // Sync profile details whenever currentUser or props change (whether modal is open or re-rendered)
   useEffect(() => {
-    if (isOpen) {
-      setSettings((prev) => ({
-        ...prev,
-        companyName: effectiveCompanyName,
-        departmentName: effectiveDepartment,
-        issuingEntityName: effectiveIssuingEntity,
-        authorName: effectiveAuthorName,
-        approverName: effectiveApproverName,
-        approverTitle: effectiveApproverTitle,
-        companyLogoImg: effectiveLogo,
-        signatureImg: effectiveSignature,
-      }));
-    }
-  }, [isOpen, currentUser, effectiveCompanyName, effectiveDepartment, effectiveIssuingEntity, effectiveAuthorName, effectiveApproverName, effectiveApproverTitle, effectiveLogo, effectiveSignature]);
+    setSettings((prev) => ({
+      ...prev,
+      companyName: effectiveCompanyName,
+      departmentName: effectiveDepartment,
+      issuingEntityName: effectiveIssuingEntity,
+      authorName: effectiveAuthorName,
+      approverName: effectiveApproverName,
+      approverTitle: effectiveApproverTitle,
+      companyLogoImg: effectiveLogo,
+      signatureImg: effectiveSignature,
+    }));
+  }, [effectiveCompanyName, effectiveDepartment, effectiveIssuingEntity, effectiveAuthorName, effectiveApproverName, effectiveApproverTitle, effectiveLogo, effectiveSignature]);
 
   // Print Preparation State
   const [isPreparingPrint, setIsPreparingPrint] = useState(false);
