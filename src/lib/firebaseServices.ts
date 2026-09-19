@@ -419,32 +419,45 @@ export async function loginFirebaseUser(email: string, pass: string, attemptId?:
     });
 
     // Deterministic early exits for non-credential client errors & lifecycle checks:
-    if (fbCode === "auth/user-disabled") {
+    if (
+      fbCode === "auth/user-disabled" ||
+      fbCode === "auth/invalid-credential" ||
+      fbCode === "auth/wrong-password" ||
+      fbCode === "auth/user-not-found" ||
+      fbCode === "auth/invalid-login-credentials"
+    ) {
       try {
-        const lc = await checkAccountLifecycleApi(normalizedEmail);
-        if (lc && lc.success && lc.status !== "ACTIVE") {
-          if (lc.status === "SELF_DELETED" || lc.status === "SELF_RESTORE_AVAILABLE" || lc.canRestore === true) {
-            throw new LoginError("LOGIN_SELF_DELETED", lc.userFriendlyMessage || "Account deleted, restoration available", {
-              originalCode: "SELF_RESTORE_AVAILABLE",
-              email: normalizedEmail,
-              daysRemaining: lc.daysRemaining ?? 31,
-              restoreUntil: lc.restoreUntil,
-              statusCode: 403,
-              attemptId: currentAttemptId
-            });
-          }
-          if (lc.status === "ADMIN_DELETED" || lc.status === "ADMIN_APPROVAL_REQUIRED") {
-            throw new LoginError("LOGIN_USER_DISABLED", lc.userFriendlyMessage || "User account is disabled.", {
-              originalCode: "auth/user-disabled",
-              email: normalizedEmail,
-              statusCode: 403,
-              attemptId: currentAttemptId
-            });
-          }
+        const resolution = await resolveAccountState(normalizedEmail);
+        if (resolution && resolution.accountState && resolution.accountState.startsWith("DELETED_ACCOUNT")) {
+          throw new LoginError("LOGIN_SELF_DELETED", resolution.userFriendlyMessage || "تم العثور على حسابك المحذوف سابقاً، وهو متاح للاستعادة.", {
+            originalCode: "SELF_RESTORE_AVAILABLE",
+            email: normalizedEmail,
+            daysRemaining: resolution.daysRemaining ?? 31,
+            restoreUntil: resolution.restoreUntil,
+            hasRecoveryRequest: resolution.hasRecoveryRequest,
+            recoveryStatus: resolution.recoveryStatus,
+            recoveryRequestId: resolution.recoveryRequestId,
+            accountState: resolution.accountState,
+            initialTab: resolution.hasRecoveryRequest ? "status" : "request",
+            isExpired: resolution.isExpired,
+            statusCode: 403,
+            attemptId: currentAttemptId
+          });
+        }
+        if (resolution && resolution.isExpired) {
+          throw new LoginError("LOGIN_INVALID_CREDENTIALS", "انتهت فترة سماح استعادة هذا الحساب (31 يوماً). تم حذف البيانات بشكل نهائي ولم يعد قابلاً للاستعادة.", {
+            originalCode: "RESTORE_EXPIRED",
+            email: normalizedEmail,
+            statusCode: 403,
+            attemptId: currentAttemptId
+          });
         }
       } catch (lcErr) {
         if (lcErr instanceof LoginError) throw lcErr;
       }
+    }
+
+    if (fbCode === "auth/user-disabled") {
       throw new LoginError("LOGIN_USER_DISABLED", "User account is disabled.", {
         originalCode: fbCode,
         email: normalizedEmail,
@@ -454,6 +467,7 @@ export async function loginFirebaseUser(email: string, pass: string, attemptId?:
 
     if (
       fbCode === "auth/invalid-credential" ||
+      fbCode === "auth/wrong-password" ||
       fbCode === "auth/user-not-found" ||
       fbCode === "auth/invalid-login-credentials"
     ) {
@@ -481,38 +495,46 @@ export async function loginFirebaseUser(email: string, pass: string, attemptId?:
   if (clientUid) {
     const uid = clientUid;
 
-    // Check if account was marked deleted in /deletedUsers/{uid}
+    // Check if account was marked deleted in account state resolution or /deletedUsers/{uid}
     try {
+      const resolution = await resolveAccountState(normalizedEmail);
+      if (resolution && resolution.accountState && resolution.accountState.startsWith("DELETED_ACCOUNT")) {
+        await signOut(auth);
+        clearUserLocalCache(uid);
+        throw new LoginError("LOGIN_SELF_DELETED", resolution.userFriendlyMessage || "تم العثور على حسابك المحذوف سابقاً، وهو متاح للاستعادة.", {
+          originalCode: "SELF_RESTORE_AVAILABLE",
+          email: normalizedEmail,
+          daysRemaining: resolution.daysRemaining ?? 31,
+          restoreUntil: resolution.restoreUntil,
+          hasRecoveryRequest: resolution.hasRecoveryRequest,
+          recoveryStatus: resolution.recoveryStatus,
+          recoveryRequestId: resolution.recoveryRequestId,
+          accountState: resolution.accountState,
+          initialTab: resolution.hasRecoveryRequest ? "status" : "request",
+          isExpired: resolution.isExpired,
+          statusCode: 403,
+          attemptId: currentAttemptId
+        });
+      }
+
       const deletedSnap = await getDocWithRetry(doc(db, "deletedUsers", uid), 2, 150);
       if (deletedSnap && deletedSnap.exists()) {
         await signOut(auth);
         clearUserLocalCache(uid);
-        try {
-          const lc = await checkAccountLifecycleApi(normalizedEmail);
-          if (lc && lc.success && (lc.status === "SELF_DELETED" || lc.status === "SELF_RESTORE_AVAILABLE")) {
-            throw new LoginError("LOGIN_SELF_DELETED", lc.userFriendlyMessage || "Account deleted, restoration available", {
-              originalCode: "SELF_RESTORE_AVAILABLE",
-              email: normalizedEmail,
-              daysRemaining: lc.daysRemaining ?? 31,
-              restoreUntil: lc.restoreUntil,
-              attemptId: currentAttemptId
-            });
-          }
-        } catch (lcErr) {
-          if (lcErr instanceof LoginError) throw lcErr;
-        }
-        throw new LoginError("LOGIN_USER_DISABLED", "This account has been deleted. Please contact the administrator.", {
-          originalCode: "auth/user-disabled",
+        throw new LoginError("LOGIN_SELF_DELETED", "تم العثور على حسابك المحذوف سابقاً، وهو متاح للاستعادة.", {
+          originalCode: "SELF_RESTORE_AVAILABLE",
           email: normalizedEmail,
+          daysRemaining: 31,
           attemptId: currentAttemptId
         });
       }
     } catch (dErr: any) {
       if (dErr instanceof LoginError) throw dErr;
       if (dErr.message?.includes("deleted") || dErr.message?.includes("حذف")) {
-        throw new LoginError("LOGIN_USER_DISABLED", dErr.message, {
-          originalCode: "auth/user-disabled",
+        throw new LoginError("LOGIN_SELF_DELETED", dErr.message, {
+          originalCode: "SELF_RESTORE_AVAILABLE",
           email: normalizedEmail,
+          daysRemaining: 31,
           attemptId: currentAttemptId
         });
       }
@@ -651,26 +673,22 @@ export async function loginFirebaseUser(email: string, pass: string, attemptId?:
       serverCode === "ADMIN_DELETED_BLOCKED"
     ) {
       try {
-        const lc = await checkAccountLifecycleApi(normalizedEmail);
-        if (lc && lc.success) {
-          if (lc.status === "SELF_DELETED" || lc.status === "SELF_RESTORE_AVAILABLE") {
-            throw new LoginError("LOGIN_SELF_DELETED", lc.userFriendlyMessage || "Account deleted, restoration available", {
-              originalCode: "SELF_RESTORE_AVAILABLE",
-              email: normalizedEmail,
-              daysRemaining: lc.daysRemaining ?? 31,
-              restoreUntil: lc.restoreUntil,
-              statusCode: 403,
-              attemptId: currentAttemptId
-            });
-          }
-          if (lc.status === "ADMIN_DELETED" || lc.status === "ADMIN_APPROVAL_REQUIRED") {
-            throw new LoginError("LOGIN_USER_DISABLED", lc.userFriendlyMessage || "Account disabled by admin", {
-              originalCode: "auth/user-disabled",
-              email: normalizedEmail,
-              statusCode: 403,
-              attemptId: currentAttemptId
-            });
-          }
+        const resolution = await resolveAccountState(normalizedEmail);
+        if (resolution && resolution.accountState && resolution.accountState.startsWith("DELETED_ACCOUNT")) {
+          throw new LoginError("LOGIN_SELF_DELETED", resolution.userFriendlyMessage || "Account deleted, restoration available", {
+            originalCode: "SELF_RESTORE_AVAILABLE",
+            email: normalizedEmail,
+            daysRemaining: resolution.daysRemaining ?? 31,
+            restoreUntil: resolution.restoreUntil,
+            hasRecoveryRequest: resolution.hasRecoveryRequest,
+            recoveryStatus: resolution.recoveryStatus,
+            recoveryRequestId: resolution.recoveryRequestId,
+            accountState: resolution.accountState,
+            initialTab: resolution.hasRecoveryRequest ? "status" : "request",
+            isExpired: resolution.isExpired,
+            statusCode: 403,
+            attemptId: currentAttemptId
+          });
         }
       } catch (lcErr) {
         if (lcErr instanceof LoginError) throw lcErr;
@@ -685,26 +703,22 @@ export async function loginFirebaseUser(email: string, pass: string, attemptId?:
 
     if (serverCode === "auth/user-not-found" || serverCode === "EMAIL_NOT_FOUND" || serverCode === "USER_NOT_FOUND") {
       try {
-        const lc = await checkAccountLifecycleApi(normalizedEmail);
-        if (lc && lc.success) {
-          if (lc.status === "SELF_DELETED" || lc.status === "SELF_RESTORE_AVAILABLE") {
-            throw new LoginError("LOGIN_SELF_DELETED", lc.userFriendlyMessage || "Account deleted, restoration available", {
-              originalCode: "SELF_RESTORE_AVAILABLE",
-              email: normalizedEmail,
-              daysRemaining: lc.daysRemaining ?? 31,
-              restoreUntil: lc.restoreUntil,
-              statusCode: 403,
-              attemptId: currentAttemptId
-            });
-          }
-          if (lc.status === "ADMIN_DELETED" || lc.status === "ADMIN_APPROVAL_REQUIRED") {
-            throw new LoginError("LOGIN_USER_DISABLED", lc.userFriendlyMessage || "Account disabled by admin", {
-              originalCode: "auth/user-disabled",
-              email: normalizedEmail,
-              statusCode: 403,
-              attemptId: currentAttemptId
-            });
-          }
+        const resolution = await resolveAccountState(normalizedEmail);
+        if (resolution && resolution.accountState && resolution.accountState.startsWith("DELETED_ACCOUNT")) {
+          throw new LoginError("LOGIN_SELF_DELETED", resolution.userFriendlyMessage || "Account deleted, restoration available", {
+            originalCode: "SELF_RESTORE_AVAILABLE",
+            email: normalizedEmail,
+            daysRemaining: resolution.daysRemaining ?? 31,
+            restoreUntil: resolution.restoreUntil,
+            hasRecoveryRequest: resolution.hasRecoveryRequest,
+            recoveryStatus: resolution.recoveryStatus,
+            recoveryRequestId: resolution.recoveryRequestId,
+            accountState: resolution.accountState,
+            initialTab: resolution.hasRecoveryRequest ? "status" : "request",
+            isExpired: resolution.isExpired,
+            statusCode: 403,
+            attemptId: currentAttemptId
+          });
         }
       } catch (lcErr) {
         if (lcErr instanceof LoginError) throw lcErr;
@@ -722,26 +736,22 @@ export async function loginFirebaseUser(email: string, pass: string, attemptId?:
       serverCode === "INVALID_CREDENTIALS"
     ) {
       try {
-        const lc = await checkAccountLifecycleApi(normalizedEmail);
-        if (lc && lc.success) {
-          if (lc.status === "SELF_DELETED" || lc.status === "SELF_RESTORE_AVAILABLE") {
-            throw new LoginError("LOGIN_SELF_DELETED", lc.userFriendlyMessage || "Account deleted, restoration available", {
-              originalCode: "SELF_RESTORE_AVAILABLE",
-              email: normalizedEmail,
-              daysRemaining: lc.daysRemaining ?? 31,
-              restoreUntil: lc.restoreUntil,
-              statusCode: 403,
-              attemptId: currentAttemptId
-            });
-          }
-          if (lc.status === "ADMIN_DELETED" || lc.status === "ADMIN_APPROVAL_REQUIRED") {
-            throw new LoginError("LOGIN_USER_DISABLED", lc.userFriendlyMessage || "Account disabled by admin", {
-              originalCode: "auth/user-disabled",
-              email: normalizedEmail,
-              statusCode: 403,
-              attemptId: currentAttemptId
-            });
-          }
+        const resolution = await resolveAccountState(normalizedEmail);
+        if (resolution && resolution.accountState && resolution.accountState.startsWith("DELETED_ACCOUNT")) {
+          throw new LoginError("LOGIN_SELF_DELETED", resolution.userFriendlyMessage || "Account deleted, restoration available", {
+            originalCode: "SELF_RESTORE_AVAILABLE",
+            email: normalizedEmail,
+            daysRemaining: resolution.daysRemaining ?? 31,
+            restoreUntil: resolution.restoreUntil,
+            hasRecoveryRequest: resolution.hasRecoveryRequest,
+            recoveryStatus: resolution.recoveryStatus,
+            recoveryRequestId: resolution.recoveryRequestId,
+            accountState: resolution.accountState,
+            initialTab: resolution.hasRecoveryRequest ? "status" : "request",
+            isExpired: resolution.isExpired,
+            statusCode: 403,
+            attemptId: currentAttemptId
+          });
         }
       } catch (lcErr) {
         if (lcErr instanceof LoginError) throw lcErr;
@@ -838,7 +848,35 @@ export async function loginFirebaseUser(email: string, pass: string, attemptId?:
 export async function loginWithGoogle(): Promise<User> {
   const provider = new GoogleAuthProvider();
   provider.setCustomParameters({ prompt: 'select_account' });
-  const userCredential = await signInWithPopup(auth, provider);
+  let userCredential: any;
+  try {
+    userCredential = await signInWithPopup(auth, provider);
+  } catch (popupErr: any) {
+    const errEmail = (popupErr?.customData?.email || popupErr?._tokenResponse?.email || "").trim().toLowerCase();
+    if (errEmail) {
+      try {
+        const resolution = await resolveAccountState(errEmail);
+        if (resolution && resolution.accountState && resolution.accountState.startsWith("DELETED_ACCOUNT")) {
+          throw new LoginError("LOGIN_SELF_DELETED", resolution.userFriendlyMessage || "تم العثور على حسابك المحذوف سابقاً، وهو متاح للاستعادة.", {
+            originalCode: "SELF_RESTORE_AVAILABLE",
+            email: errEmail,
+            daysRemaining: resolution.daysRemaining ?? 31,
+            restoreUntil: resolution.restoreUntil,
+            hasRecoveryRequest: resolution.hasRecoveryRequest,
+            recoveryStatus: resolution.recoveryStatus,
+            recoveryRequestId: resolution.recoveryRequestId,
+            accountState: resolution.accountState,
+            initialTab: resolution.hasRecoveryRequest ? "status" : "request",
+            isExpired: resolution.isExpired
+          });
+        }
+      } catch (checkErr) {
+        if (checkErr instanceof LoginError || (checkErr as any).name === "LoginError") throw checkErr;
+      }
+    }
+    throw popupErr;
+  }
+
   const uid = userCredential.user.uid;
   const email = userCredential.user.email || "";
   const displayName = userCredential.user.displayName || email.split("@")[0];
@@ -848,22 +886,21 @@ export async function loginWithGoogle(): Promise<User> {
   const normEmail = (email || "").trim().toLowerCase();
   if (normEmail) {
     try {
-      const lc = await checkAccountLifecycleApi(normEmail);
-      if (lc && lc.success && (lc.status === "SELF_DELETED" || lc.status === "SELF_RESTORE_AVAILABLE")) {
+      const resolution = await resolveAccountState(normEmail);
+      if (resolution && resolution.accountState && resolution.accountState.startsWith("DELETED_ACCOUNT")) {
         await signOut(auth);
         clearUserLocalCache(uid);
-        throw new LoginError("LOGIN_SELF_DELETED", lc.userFriendlyMessage || "Account deleted, restoration available", {
+        throw new LoginError("LOGIN_SELF_DELETED", resolution.userFriendlyMessage || "تم العثور على حسابك المحذوف سابقاً، وهو متاح للاستعادة.", {
           originalCode: "SELF_RESTORE_AVAILABLE",
           email: normEmail,
-          daysRemaining: lc.daysRemaining ?? 31,
-          restoreUntil: lc.restoreUntil
-        });
-      } else if (lc && lc.success && (lc.status === "ADMIN_DELETED" || lc.status === "ADMIN_APPROVAL_REQUIRED")) {
-        await signOut(auth);
-        clearUserLocalCache(uid);
-        throw new LoginError("LOGIN_ADMIN_DELETED", lc.userFriendlyMessage || "Account deleted by administrator", {
-          originalCode: "ADMIN_DELETED",
-          email: normEmail
+          daysRemaining: resolution.daysRemaining ?? 31,
+          restoreUntil: resolution.restoreUntil,
+          hasRecoveryRequest: resolution.hasRecoveryRequest,
+          recoveryStatus: resolution.recoveryStatus,
+          recoveryRequestId: resolution.recoveryRequestId,
+          accountState: resolution.accountState,
+          initialTab: resolution.hasRecoveryRequest ? "status" : "request",
+          isExpired: resolution.isExpired
         });
       }
     } catch (lcErr: any) {
@@ -877,10 +914,23 @@ export async function loginWithGoogle(): Promise<User> {
     if (deletedSnap && deletedSnap.exists()) {
       await signOut(auth);
       clearUserLocalCache(uid);
-      throw new Error("This account has been deleted. Please contact the administrator.");
+      throw new LoginError("LOGIN_SELF_DELETED", "تم العثور على حسابك المحذوف سابقاً، وهو متاح للاستعادة.", {
+        originalCode: "SELF_RESTORE_AVAILABLE",
+        email: normEmail,
+        daysRemaining: 31
+      });
     }
   } catch (dErr: any) {
-    if (dErr.message?.includes("deleted") || dErr.message?.includes("حذف")) throw dErr;
+    if (dErr instanceof LoginError || dErr.name === "LoginError") throw dErr;
+    if (dErr.message?.includes("deleted") || dErr.message?.includes("حذف")) {
+      await signOut(auth);
+      clearUserLocalCache(uid);
+      throw new LoginError("LOGIN_SELF_DELETED", dErr.message, {
+        originalCode: "SELF_RESTORE_AVAILABLE",
+        email: normEmail,
+        daysRemaining: 31
+      });
+    }
     console.warn("Notice: /deletedUsers/ check in loginWithGoogle encountered non-fatal error:", uid, dErr);
   }
 
@@ -905,6 +955,21 @@ export async function loginWithGoogle(): Promise<User> {
 
   if (userSnap && userSnap.exists()) {
     const userData = userSnap.data() as User;
+    if (
+      (userData as any).deleted === true ||
+      (userData as any).status === "ADMIN_DELETED" ||
+      (userData as any).status === "SELF_DELETED" ||
+      (userData as any).accountLifecycleStatus === "SELF_DELETED"
+    ) {
+      await signOut(auth);
+      clearUserLocalCache(uid);
+      throw new LoginError("LOGIN_SELF_DELETED", "تم العثور على حسابك المحذوف سابقاً، وهو متاح للاستعادة.", {
+        originalCode: "SELF_RESTORE_AVAILABLE",
+        email: normEmail,
+        daysRemaining: 31
+      });
+    }
+
     const nowIso = new Date().toISOString();
     userData.lastActiveAt = nowIso;
     userData.lastLoginAt = nowIso;
@@ -931,12 +996,52 @@ export async function loginWithGoogle(): Promise<User> {
         const emailSnap = await getDocs(emailQuery);
         if (!emailSnap.empty) {
           const foundData = emailSnap.docs[0].data() as User;
+          if (
+            (foundData as any).deleted === true ||
+            (foundData as any).status === "ADMIN_DELETED" ||
+            (foundData as any).status === "SELF_DELETED" ||
+            (foundData as any).accountLifecycleStatus === "SELF_DELETED"
+          ) {
+            await signOut(auth);
+            clearUserLocalCache(uid);
+            throw new LoginError("LOGIN_SELF_DELETED", "تم العثور على حسابك المحذوف سابقاً، وهو متاح للاستعادة.", {
+              originalCode: "SELF_RESTORE_AVAILABLE",
+              email: normEmail,
+              daysRemaining: 31
+            });
+          }
           setLocalItem(`user_${uid}`, foundData);
           return foundData;
         }
       }
     } catch (e) {
+      if (e instanceof LoginError || (e as any).name === "LoginError") throw e;
       console.warn("Notice: Secondary email lookup in loginWithGoogle failed:", e);
+    }
+
+    // Strictly verify if this Google email belongs to a deleted account before creating a new user
+    if (normEmail) {
+      try {
+        const resolution = await resolveAccountState(normEmail);
+        if (resolution && resolution.accountState && resolution.accountState.startsWith("DELETED_ACCOUNT")) {
+          await signOut(auth);
+          clearUserLocalCache(uid);
+          throw new LoginError("LOGIN_SELF_DELETED", resolution.userFriendlyMessage || "Account deleted, restoration available", {
+            originalCode: "SELF_RESTORE_AVAILABLE",
+            email: normEmail,
+            daysRemaining: resolution.daysRemaining ?? 31,
+            restoreUntil: resolution.restoreUntil,
+            hasRecoveryRequest: resolution.hasRecoveryRequest,
+            recoveryStatus: resolution.recoveryStatus,
+            recoveryRequestId: resolution.recoveryRequestId,
+            accountState: resolution.accountState,
+            initialTab: resolution.hasRecoveryRequest ? "status" : "request",
+            isExpired: resolution.isExpired
+          });
+        }
+      } catch (lcCheckErr) {
+        if (lcCheckErr instanceof LoginError || (lcCheckErr as any).name === "LoginError") throw lcCheckErr;
+      }
     }
 
     // New Google user: check if there is an active invitation for this email
@@ -1172,6 +1277,22 @@ export function subscribeToFirebaseAuthState(rawCallback: (user: User | null) =>
         console.warn("Notice: getIdToken resolution in subscribeToFirebaseAuthState:", tErr);
       }
 
+      // Check account lifecycle and deletion state before proceeding
+      if (fbUser.email) {
+        try {
+          const resolution = await resolveAccountState(fbUser.email);
+          if (resolution && resolution.accountState && resolution.accountState.startsWith("DELETED_ACCOUNT")) {
+            console.warn("subscribeToFirebaseAuthState: Detected deleted account for email:", fbUser.email);
+            await signOut(auth);
+            clearUserLocalCache(fbUser.uid);
+            callback(null);
+            return;
+          }
+        } catch (resErr) {
+          console.warn("subscribeToFirebaseAuthState: account state check warning:", resErr);
+        }
+      }
+
       // Check if user account is marked deleted in /deletedUsers/{uid}
       try {
         const deletedSnap = await getDocWithRetry(doc(db, "deletedUsers", fbUser.uid), 3, 200);
@@ -1212,6 +1333,19 @@ export function subscribeToFirebaseAuthState(rawCallback: (user: User | null) =>
 
       if (userSnap && userSnap.exists()) {
         const userObj = userSnap.data() as User;
+        if (
+          (userObj as any).deleted === true ||
+          (userObj as any).status === "ADMIN_DELETED" ||
+          (userObj as any).status === "SELF_DELETED" ||
+          (userObj as any).accountLifecycleStatus === "SELF_DELETED"
+        ) {
+          console.warn("User profile marked as deleted in /users/:", fbUser.uid);
+          await signOut(auth);
+          clearUserLocalCache(fbUser.uid);
+          callback(null);
+          return;
+        }
+
         const profileId = userObj.id || fbUser.uid;
         if (profileId !== fbUser.uid) {
           console.error(`[MANDATORY_UID_ASSERTION_FAILURE] Mismatch in subscribeToFirebaseAuthState: fbUser.uid (${fbUser.uid}) !== userObj.id (${profileId})`);
@@ -2531,6 +2665,181 @@ export async function checkAccountLifecycleApi(email: string) {
 
   console.warn("checkAccountLifecycleApi notice:", lastError?.message || lastError);
   return { success: false, error: lastError?.message || "فشل التحقق من حالة البريد الإلكتروني." };
+}
+
+export type AccountResolutionState =
+  | "ACTIVE_ACCOUNT"
+  | "DELETED_ACCOUNT_NO_RECOVERY_REQUEST"
+  | "DELETED_ACCOUNT_RECOVERY_PENDING"
+  | "DELETED_ACCOUNT_RECOVERY_REJECTED"
+  | "DELETED_ACCOUNT_RECOVERY_APPROVED"
+  | "NO_ACCOUNT";
+
+export interface AccountStateResolution {
+  success: boolean;
+  email: string;
+  accountState: AccountResolutionState;
+  lifecycleStatus: string;
+  canRestore: boolean;
+  adminApprovalRequired: boolean;
+  daysRemaining: number;
+  restoreUntil: string | null;
+  hasRecoveryRequest: boolean;
+  recoveryRequestId: string | null;
+  recoveryStatus: "none" | "pending" | "approved" | "rejected";
+  initialTab?: "request" | "status";
+  nextAction?: string;
+  isExpired: boolean;
+  originalUserId: string | null;
+  userFriendlyMessage: string;
+}
+
+export async function resolveAccountState(email: string): Promise<AccountStateResolution> {
+  const normEmail = (email || "").trim().toLowerCase();
+  if (!normEmail) {
+    return {
+      success: false,
+      email: "",
+      accountState: "NO_ACCOUNT",
+      lifecycleStatus: "NONE",
+      canRestore: false,
+      adminApprovalRequired: false,
+      daysRemaining: 0,
+      restoreUntil: null,
+      hasRecoveryRequest: false,
+      recoveryRequestId: null,
+      recoveryStatus: "none",
+      isExpired: false,
+      originalUserId: null,
+      userFriendlyMessage: "لا يوجد حساب مسجل بهذا البريد الإلكتروني."
+    };
+  }
+
+  // 1. Primary check: Server-authoritative resolve-account endpoint
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 8000);
+
+    const res = await fetch(getAuthApiUrl("/api/auth/resolve-account"), {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: normEmail }),
+      signal: controller.signal
+    });
+    clearTimeout(timeoutId);
+
+    if (res.ok) {
+      const data = await safeParseJsonResponse(res);
+      if (data && data.success && data.accountState) {
+        return data as AccountStateResolution;
+      }
+    }
+  } catch (err) {
+    console.warn("Notice: /api/auth/resolve-account endpoint call warning, falling back to compound resolution:", err);
+  }
+
+  // 2. Client fallback via checkAccountLifecycleApi and fetchAccountRecoveryStatusApi
+  try {
+    const lc = await checkAccountLifecycleApi(normEmail);
+    let rec: any = null;
+    try {
+      rec = await fetchAccountRecoveryStatusApi(normEmail);
+    } catch (rErr) {}
+
+    const reqObj = rec?.recoveryRequest;
+    const reqId = reqObj ? (reqObj.requestId || reqObj.id || "").toString().trim() : "";
+    const isRealReqId = reqId.startsWith("REQ-");
+    const hasSubmissionEvidence = Boolean(
+      reqObj?.submittedAt ||
+      reqObj?.termsAcceptedAt ||
+      (Array.isArray(reqObj?.documents) && reqObj.documents.length > 0) ||
+      (reqObj?.fullName && reqObj?.reason)
+    );
+
+    const hasReq = Boolean(
+      rec &&
+      rec.success &&
+      rec.status !== "none" &&
+      rec.status !== "already_active" &&
+      reqObj &&
+      reqId &&
+      isRealReqId &&
+      hasSubmissionEvidence
+    );
+
+    const recStatus: "none" | "pending" | "approved" | "rejected" =
+      hasReq && (rec?.status === "approved" || rec?.recoveryRequest?.status === "approved")
+        ? "approved"
+        : hasReq && (rec?.status === "rejected" || rec?.recoveryRequest?.status === "rejected")
+        ? "rejected"
+        : hasReq && (rec?.status === "pending" || rec?.recoveryRequest?.status === "pending")
+        ? "pending"
+        : "none";
+
+    const isDeleted = Boolean(
+      lc &&
+      lc.success &&
+      (lc.status === "SELF_DELETED" ||
+        lc.status === "ADMIN_DELETED" ||
+        lc.status === "SELF_RESTORE_AVAILABLE" ||
+        lc.status === "ADMIN_APPROVAL_REQUIRED" ||
+        lc.status === "ADMIN_APPROVAL_PENDING" ||
+        lc.status === "ADMIN_APPROVED" ||
+        lc.status === "PURGED" ||
+        lc.canRestore === true)
+    );
+
+    let accountState: AccountResolutionState = "NO_ACCOUNT";
+    if (isDeleted) {
+      if (hasReq && recStatus === "approved") {
+        accountState = "DELETED_ACCOUNT_RECOVERY_APPROVED";
+      } else if (hasReq && recStatus === "rejected") {
+        accountState = "DELETED_ACCOUNT_RECOVERY_REJECTED";
+      } else if (hasReq) {
+        accountState = "DELETED_ACCOUNT_RECOVERY_PENDING";
+      } else {
+        accountState = "DELETED_ACCOUNT_NO_RECOVERY_REQUEST";
+      }
+    } else if (lc && lc.success && lc.status === "ACTIVE") {
+      accountState = "ACTIVE_ACCOUNT";
+    }
+
+    return {
+      success: true,
+      email: normEmail,
+      accountState,
+      lifecycleStatus: lc?.status || "NONE",
+      canRestore: lc?.canRestore ?? false,
+      adminApprovalRequired: lc?.adminApprovalRequired ?? false,
+      daysRemaining: lc?.daysRemaining ?? 31,
+      restoreUntil: lc?.restoreUntil ?? null,
+      hasRecoveryRequest: hasReq,
+      recoveryRequestId: hasReq ? (rec?.recoveryRequest?.id || rec?.recoveryRequest?.requestId || null) : null,
+      recoveryStatus: recStatus,
+      initialTab: hasReq ? "status" : "request",
+      isExpired: lc?.status === "RESTORE_EXPIRED" || false,
+      originalUserId: null,
+      userFriendlyMessage: lc?.userFriendlyMessage || ""
+    };
+  } catch (fallbackErr) {
+    return {
+      success: false,
+      email: normEmail,
+      accountState: "NO_ACCOUNT",
+      lifecycleStatus: "NONE",
+      canRestore: false,
+      adminApprovalRequired: false,
+      daysRemaining: 0,
+      restoreUntil: null,
+      hasRecoveryRequest: false,
+      recoveryRequestId: null,
+      recoveryStatus: "none",
+      isExpired: false,
+      originalUserId: null,
+      userFriendlyMessage: "تعذر التحقق من حالة الحساب."
+    };
+  }
 }
 
 function fileToBase64DataUrl(file: File): Promise<string> {

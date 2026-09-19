@@ -12,5 +12,50 @@
       "deliveryStatus": "delivered",
       "createdAt": "2026-09-09T14:05:47.644Z"
     }
+  ],
+  "account_lifecycle": [
+    {
+      "emailNormalized": "deleted_account_trace_test@example.com",
+      "status": "SELF_DELETED",
+      "deletionType": "self",
+      "deletedAt": "2026-09-19T15:18:00.629Z",
+      "restoreUntil": "2026-10-19T15:18:00.629Z",
+      "canRestore": true,
+      "daysRemaining": 30
+    },
+    {
+      "emailNormalized": "test_deleted_user_no_req@example.com",
+      "status": "SELF_DELETED",
+      "deletionType": "self",
+      "deletedAt": "2026-09-19T15:26:23.602Z",
+      "restoreUntil": "2026-10-19T15:26:23.603Z",
+      "canRestore": true,
+      "daysRemaining": 30
+    }
+  ],
+  "deleted_users": [
+    {
+      "id": "usr_trace_123",
+      "email": "deleted_account_trace_test@example.com",
+      "reason": "self_deleted",
+      "deletionType": "self",
+      "deletedAt": "2026-09-19T15:18:15.298Z"
+    },
+    {
+      "id": "usr_del_test_123",
+      "email": "test_deleted_user_no_req@example.com",
+      "reason": "self_deleted",
+      "deletionType": "self",
+      "deletedAt": "2026-09-19T15:26:36.885Z"
+    }
+  ],
+  "users": [
+    {
+      "id": "usr_del_test_123",
+      "email": "test_deleted_user_no_req@example.com",
+      "status": "SELF_DELETED",
+      "deleted": true,
+      "deletedAt": "2026-09-19T15:26:54.989Z"
+    }
   ]
 }

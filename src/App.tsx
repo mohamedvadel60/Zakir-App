@@ -148,6 +148,7 @@ import {
   getAuthApiUrl,
   safeParseJsonResponse,
   checkAccountLifecycleApi,
+  resolveAccountState,
   requestAccountReactivationApi,
   restoreAccountApi,
   API_BASE_URL
@@ -571,6 +572,7 @@ export default function App() {
     daysRemaining?: number;
     restoreUntil?: string | null;
     isExpired?: boolean;
+    initialTab?: "request" | "status";
   } | null>(null);
   const [reactivationReason, setReactivationReason] = useState("");
   const [isSubmittingReactivation, setIsSubmittingReactivation] = useState(false);
@@ -1842,9 +1844,15 @@ This hosting domain (**${currentDomain}**) has not been authorized in your Fireb
       // Check if this error represents an eligible deleted account recovery
       if (
         normalizedCode === "LOGIN_SELF_DELETED" ||
+        normalizedCode === "LOGIN_ADMIN_DELETED" ||
         err?.originalCode === "SELF_RESTORE_AVAILABLE" ||
+        err?.originalCode === "ADMIN_DELETED" ||
+        err?.originalCode === "ADMIN_APPROVAL_REQUIRED" ||
         err?.code === "LOGIN_SELF_DELETED" ||
-        err?.loginCode === "LOGIN_SELF_DELETED"
+        err?.code === "LOGIN_ADMIN_DELETED" ||
+        err?.loginCode === "LOGIN_SELF_DELETED" ||
+        err?.loginCode === "LOGIN_ADMIN_DELETED" ||
+        /تم العثور على حساب سابق|استعادة الحساب|SELF_RESTORE_AVAILABLE|account deleted/i.test(err?.message || "")
       ) {
         const targetEmail = err?.email || normalizedEmail;
         const daysRemaining = err?.daysRemaining ?? 31;
@@ -1853,7 +1861,8 @@ This hosting domain (**${currentDomain}**) has not been authorized in your Fireb
           email: targetEmail,
           daysRemaining: daysRemaining,
           restoreUntil: restoreUntil,
-          isExpired: false
+          isExpired: false,
+          initialTab: err?.initialTab || (err?.hasRecoveryRequest ? "status" : "request")
         });
         setLoginError("");
         setRegError("");
@@ -1869,6 +1878,32 @@ This hosting domain (**${currentDomain}**) has not been authorized in your Fireb
           : "The recovery period for this account has expired (31 days). The data has been permanently deleted.";
         setLoginError(formattedError);
         return;
+      }
+
+      // Definitive safety check: Verify account state before displaying invalid credentials to prevent false negatives for deleted accounts
+      if (normalizedEmail) {
+        try {
+          const resolution = await resolveAccountState(normalizedEmail);
+          if (resolution && resolution.accountState && resolution.accountState.startsWith("DELETED_ACCOUNT")) {
+            setDeletedAccountRecovery({
+              email: normalizedEmail,
+              daysRemaining: resolution.daysRemaining ?? 31,
+              restoreUntil: resolution.restoreUntil,
+              isExpired: false,
+              initialTab: resolution.hasRecoveryRequest ? "status" : "request"
+            });
+            setLoginError("");
+            setRegError("");
+            return;
+          }
+          if (resolution && resolution.isExpired) {
+            const formattedError = lang === "ar"
+              ? "انتهت فترة سماح استعادة هذا الحساب (31 يوماً). تم حذف البيانات بشكل نهائي ولم يعد قابلاً للاستعادة."
+              : "The recovery period for this account has expired (31 days). The data has been permanently deleted.";
+            setLoginError(formattedError);
+            return;
+          }
+        } catch (lcFallbackErr) {}
       }
 
       // Normal login errors display generic invalid credentials.
@@ -3194,6 +3229,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                   daysRemaining={deletedAccountRecovery.daysRemaining}
                   restoreUntil={deletedAccountRecovery.restoreUntil}
                   isExpired={deletedAccountRecovery.isExpired}
+                  initialTab={deletedAccountRecovery.initialTab}
                   lang={lang}
                   theme={theme}
                   onCancel={() => {
@@ -3487,20 +3523,48 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                         applyUserPreferences(userProfile);
                         setAuthMode("landing");
                       } catch (err: any) {
+                        const targetEmail = (err?.email || regEmail || "").trim().toLowerCase();
                         if (
                           err?.loginCode === "LOGIN_SELF_DELETED" ||
                           err?.originalCode === "SELF_RESTORE_AVAILABLE" ||
-                          err?.code === "LOGIN_SELF_DELETED"
+                          err?.originalCode === "ADMIN_APPROVAL_REQUIRED" ||
+                          err?.code === "LOGIN_SELF_DELETED" ||
+                          err?.accountState?.startsWith?.("DELETED_ACCOUNT") ||
+                          /تم العثور على حساب سابق|استعادة الحساب|SELF_RESTORE_AVAILABLE|account deleted/i.test(err?.message || "")
                         ) {
                           setDeletedAccountRecovery({
-                            email: err?.email || regEmail.trim().toLowerCase(),
+                            email: targetEmail,
                             daysRemaining: err?.daysRemaining ?? 31,
                             restoreUntil: err?.restoreUntil,
-                            isExpired: false
+                            isExpired: false,
+                            initialTab: err?.initialTab || (err?.hasRecoveryRequest ? "status" : "request")
                           });
                           setRegError("");
                           setLoginError("");
                           return;
+                        }
+                        if (targetEmail) {
+                          try {
+                            const resolution = await resolveAccountState(targetEmail);
+                            if (resolution && resolution.accountState && resolution.accountState.startsWith("DELETED_ACCOUNT")) {
+                              setDeletedAccountRecovery({
+                                email: targetEmail,
+                                daysRemaining: resolution.daysRemaining ?? 31,
+                                restoreUntil: resolution.restoreUntil,
+                                isExpired: false,
+                                initialTab: resolution.hasRecoveryRequest ? "status" : "request"
+                              });
+                              setRegError("");
+                              setLoginError("");
+                              return;
+                            }
+                            if (resolution && resolution.isExpired) {
+                              setRegError(lang === "ar"
+                                ? "انتهت فترة سماح استعادة هذا الحساب (31 يوماً). تم حذف البيانات بشكل نهائي ولم يعد قابلاً للاستعادة."
+                                : "The recovery period for this account has expired (31 days). The data has been permanently deleted.");
+                              return;
+                            }
+                          } catch (e) {}
                         }
                         setRegError(lang === "ar" ? "بيانات الدخول غير صحيحة. يرجى التحقق من البريد الإلكتروني وكلمة المرور." : formatAuthError(err));
                       }
@@ -3828,20 +3892,48 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                           applyUserPreferences(userProfile);
                           setAuthMode("landing");
                         } catch (err: any) {
+                          const targetEmail = (err?.email || loginEmail || "").trim().toLowerCase();
                           if (
                             err?.loginCode === "LOGIN_SELF_DELETED" ||
                             err?.originalCode === "SELF_RESTORE_AVAILABLE" ||
-                            err?.code === "LOGIN_SELF_DELETED"
+                            err?.originalCode === "ADMIN_APPROVAL_REQUIRED" ||
+                            err?.code === "LOGIN_SELF_DELETED" ||
+                            err?.accountState?.startsWith?.("DELETED_ACCOUNT") ||
+                            /تم العثور على حساب سابق|استعادة الحساب|SELF_RESTORE_AVAILABLE|account deleted/i.test(err?.message || "")
                           ) {
                             setDeletedAccountRecovery({
-                              email: err?.email || loginEmail.trim().toLowerCase(),
+                              email: targetEmail,
                               daysRemaining: err?.daysRemaining ?? 31,
                               restoreUntil: err?.restoreUntil,
-                              isExpired: false
+                              isExpired: false,
+                              initialTab: err?.initialTab || (err?.hasRecoveryRequest ? "status" : "request")
                             });
                             setLoginError("");
                             setRegError("");
                             return;
+                          }
+                          if (targetEmail) {
+                            try {
+                              const resolution = await resolveAccountState(targetEmail);
+                              if (resolution && resolution.accountState && resolution.accountState.startsWith("DELETED_ACCOUNT")) {
+                                setDeletedAccountRecovery({
+                                  email: targetEmail,
+                                  daysRemaining: resolution.daysRemaining ?? 31,
+                                  restoreUntil: resolution.restoreUntil,
+                                  isExpired: false,
+                                  initialTab: resolution.hasRecoveryRequest ? "status" : "request"
+                                });
+                                setLoginError("");
+                                setRegError("");
+                                return;
+                              }
+                              if (resolution && resolution.isExpired) {
+                                setLoginError(lang === "ar"
+                                  ? "انتهت فترة سماح استعادة هذا الحساب (31 يوماً). تم حذف البيانات بشكل نهائي ولم يعد قابلاً للاستعادة."
+                                  : "The recovery period for this account has expired (31 days). The data has been permanently deleted.");
+                                return;
+                              }
+                            } catch (e) {}
                           }
                           setLoginError(lang === "ar" ? "بيانات الدخول غير صحيحة. يرجى التحقق من البريد الإلكتروني وكلمة المرور." : formatAuthError(err));
                         }

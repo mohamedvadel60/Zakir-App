@@ -26,6 +26,12 @@ export class LoginError extends Error {
   public readonly email?: string;
   public readonly daysRemaining?: number;
   public readonly restoreUntil?: string;
+  public readonly hasRecoveryRequest?: boolean;
+  public readonly recoveryStatus?: string;
+  public readonly recoveryRequestId?: string;
+  public readonly accountState?: string;
+  public readonly initialTab?: "request" | "status";
+  public readonly isExpired?: boolean;
 
   constructor(
     loginCode: LoginErrorCode,
@@ -37,6 +43,12 @@ export class LoginError extends Error {
       email?: string;
       daysRemaining?: number;
       restoreUntil?: string;
+      hasRecoveryRequest?: boolean;
+      recoveryStatus?: string;
+      recoveryRequestId?: string;
+      accountState?: string;
+      initialTab?: "request" | "status";
+      isExpired?: boolean;
     }
   ) {
     super(message);
@@ -48,6 +60,12 @@ export class LoginError extends Error {
     this.email = options?.email;
     this.daysRemaining = options?.daysRemaining;
     this.restoreUntil = options?.restoreUntil;
+    this.hasRecoveryRequest = options?.hasRecoveryRequest;
+    this.recoveryStatus = options?.recoveryStatus;
+    this.recoveryRequestId = options?.recoveryRequestId;
+    this.accountState = options?.accountState;
+    this.initialTab = options?.initialTab;
+    this.isExpired = options?.isExpired;
   }
 }
 

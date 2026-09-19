@@ -2213,6 +2213,38 @@
       "adminApprovalRequired": false,
       "updatedAt": "2026-09-17T16:43:32.156Z",
       "id": "fresh_iso_check_1789663401954@gmail.com"
+    },
+    {
+      "id": "test_self_deleted_999@example.com",
+      "accountId": "test_self_deleted_999@example.com",
+      "emailNormalized": "test_self_deleted_999@example.com",
+      "status": "SELF_DELETED",
+      "deletionType": "self",
+      "deletedAt": "2026-09-19T14:37:23.807Z",
+      "deletedBy": "user",
+      "restoreUntil": "2026-10-19T14:37:23.808Z",
+      "originalUserId": "usr_test_999",
+      "adminApprovalRequired": false,
+      "updatedAt": "2026-09-19T14:37:23.808Z"
+    },
+    {
+      "accountId": "test_fresh_deleted_1789829181612@zakir.ai",
+      "emailNormalized": "test_fresh_deleted_1789829181612@zakir.ai",
+      "status": "ADMIN_DELETED",
+      "canRestore": true,
+      "adminApprovalRequired": true,
+      "deletedAt": "2026-09-19T14:46:21.617Z",
+      "restoreUntil": "2026-10-19T14:46:21.617Z"
+    },
+    {
+      "emailNormalized": "runtime_verification_deleted_user@zakir.ai",
+      "email": "runtime_verification_deleted_user@zakir.ai",
+      "status": "SELF_DELETED",
+      "deletionType": "self",
+      "deletedAt": "2026-09-19T15:31:00.799Z",
+      "restoreUntil": "2026-10-19T15:31:00.800Z",
+      "canRestore": true,
+      "daysRemaining": 30
     }
   ],
   "account_reactivation_requests": [
@@ -3444,5 +3476,6 @@
         "tab": "overview"
       }
     }
-  ]
+  ],
+  "deleted_users": []
 }

@@ -43,6 +43,7 @@ export interface DeletedAccountRecoveryProps {
   daysRemaining?: number;
   restoreUntil?: string | null;
   isExpired?: boolean;
+  initialTab?: "request" | "status";
   lang: "ar" | "fr" | "en";
   theme?: "light" | "dark";
   onCancel: () => void;
@@ -68,6 +69,7 @@ export const DeletedAccountRecovery: React.FC<DeletedAccountRecoveryProps> = ({
   daysRemaining: initialDays,
   restoreUntil,
   isExpired = false,
+  initialTab = "request",
   lang = "ar",
   theme = "light",
   onCancel,
@@ -77,8 +79,11 @@ export const DeletedAccountRecovery: React.FC<DeletedAccountRecoveryProps> = ({
   const ArrowBackIcon = isRtl ? ArrowRight : ArrowLeft;
   const ArrowForwardIcon = isRtl ? ArrowLeft : ArrowRight;
 
-  // View state: "request" | "status" | "success" | "restore_otp"
-  const [activeTab, setActiveTab] = useState<"request" | "status">("request");
+  // Single Source of Truth for Real Recovery Request existence
+  const [hasRealRecoveryRequest, setHasRealRecoveryRequest] = useState<boolean>(false);
+  const [isInitialChecking, setIsInitialChecking] = useState<boolean>(true);
+
+  // Form step
   const [currentStep, setCurrentStep] = useState<1 | 2 | 3>(1);
 
   // Email & Lifecycle state
@@ -93,12 +98,67 @@ export const DeletedAccountRecovery: React.FC<DeletedAccountRecoveryProps> = ({
   const [isLoadingLifecycle, setIsLoadingLifecycle] = useState(false);
 
   useEffect(() => {
+    const targetEmail = (initialEmail || email || "").trim().toLowerCase();
     if (initialEmail) {
       const formatted = initialEmail.trim().toLowerCase();
       setEmail(formatted);
-      setStatusEmail(prev => prev || formatted);
+      setStatusEmail(formatted);
     }
-  }, [initialEmail]);
+
+    if (!targetEmail) {
+      setIsInitialChecking(false);
+      setHasRealRecoveryRequest(false);
+      return;
+    }
+
+    let isMounted = true;
+    setIsInitialChecking(true);
+
+    fetchAccountRecoveryStatusApi(targetEmail)
+      .then(res => {
+        if (!isMounted) return;
+        const reqObj = res?.recoveryRequest;
+        const reqId = reqObj ? (reqObj.requestId || reqObj.id || "").toString().trim() : "";
+        const isRealReqId = reqId.startsWith("REQ-");
+        const hasSubmissionEvidence = Boolean(
+          reqObj?.submittedAt ||
+          reqObj?.termsAcceptedAt ||
+          (Array.isArray(reqObj?.documents) && reqObj.documents.length > 0) ||
+          (reqObj?.fullName && reqObj?.reason)
+        );
+
+        if (
+          res &&
+          res.success &&
+          res.status !== "none" &&
+          res.status !== "already_active" &&
+          reqObj &&
+          reqId &&
+          isRealReqId &&
+          hasSubmissionEvidence
+        ) {
+          setHasRealRecoveryRequest(true);
+          setStatusResult(res);
+        } else {
+          setHasRealRecoveryRequest(false);
+          setStatusResult(null);
+        }
+      })
+      .catch(() => {
+        if (!isMounted) return;
+        setHasRealRecoveryRequest(false);
+        setStatusResult(null);
+      })
+      .finally(() => {
+        if (isMounted) {
+          setIsInitialChecking(false);
+        }
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [initialEmail, email]);
 
   // Form Fields
   const [fullName, setFullName] = useState("");
@@ -299,21 +359,6 @@ export const DeletedAccountRecovery: React.FC<DeletedAccountRecoveryProps> = ({
       isMounted = false;
     };
   }, [initialEmail]);
-
-  // Auto fetch recovery status on mount or tab change
-  useEffect(() => {
-    const target = (statusEmail || initialEmail || email || "").trim().toLowerCase();
-    if (target) {
-      fetchAccountRecoveryStatusApi(target).then((res) => {
-        if (res && res.success) {
-          setStatusResult(res);
-          if (res.status && res.status !== "none" && res.status !== "already_active") {
-            setActiveTab("status");
-          }
-        }
-      }).catch(() => {});
-    }
-  }, [initialEmail, email]);
 
   // Handle Drag & Drop
   const handleDragOver = (e: React.DragEvent) => {
@@ -538,10 +583,10 @@ export const DeletedAccountRecovery: React.FC<DeletedAccountRecoveryProps> = ({
       const result = await submitAccountRecoveryRequestApi(payload);
 
       if (result && result.success) {
-        const reqId = result.requestId || result.request?.id || `REQ-${Date.now()}`;
+        const reqId = result.requestId || result.request?.id || result.requestNumber || `REQ-${Date.now()}`;
         setSubmittedRequestId(reqId);
         setSubmissionSuccessData(result.request || result);
-        setActiveTab("request");
+        setHasRealRecoveryRequest(true);
       } else {
         const errorMsg = result?.error || result?.message || (lang === "ar" ? "فشل تقديم طلب الاستعادة. يرجى المحاولة لاحقاً." : "Failed to submit recovery request.");
         setFormError(errorMsg);
@@ -571,6 +616,7 @@ export const DeletedAccountRecovery: React.FC<DeletedAccountRecoveryProps> = ({
 
     setIsCheckingStatus(true);
     setFormError(null);
+    setStatusResult(null);
 
     try {
       const res = await fetchAccountRecoveryStatusApi(emailToQuery);
@@ -667,10 +713,16 @@ export const DeletedAccountRecovery: React.FC<DeletedAccountRecoveryProps> = ({
       {/* HEADER SECTION */}
       <div className="text-start space-y-1.5 mb-6">
         <h1 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white tracking-tight">
-          {t.title}
+          {hasRealRecoveryRequest || submittedRequestId
+            ? (lang === "ar" ? "متابعة حالة طلب استعادة الحساب" : "Account Recovery Status")
+            : (lang === "ar" ? "تقديم طلب استعادة الحساب المحذوف" : "Recover Deleted Account")}
         </h1>
         <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
-          {t.subtitle}
+          {hasRealRecoveryRequest || submittedRequestId
+            ? (lang === "ar"
+                ? "تم العثور على طلب استعادة قائم لهذا الحساب. تتاح لك أدناه متابعة حالة وتفاصيل الطلب والمصادقة فور الموافقة."
+                : "An active recovery request was found for this account. You can track status and complete verification once approved.")
+            : t.subtitle}
         </p>
 
         {/* Dynamic Days Remaining Banner */}
@@ -679,45 +731,6 @@ export const DeletedAccountRecovery: React.FC<DeletedAccountRecoveryProps> = ({
           <span>{t.statusAvailable}</span>
         </div>
       </div>
-
-      {/* TABS SWITCHER: NEW REQUEST vs TRACK STATUS */}
-      {!submittedRequestId && (
-        <div className="grid grid-cols-2 gap-1.5 p-1 bg-slate-100 dark:bg-slate-800/60 rounded-xl mb-6">
-          <button
-            id="tab-new-recovery-request"
-            type="button"
-            onClick={() => {
-              setActiveTab("request");
-              setFormError(null);
-            }}
-            className={`py-2 px-3 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer ${
-              activeTab === "request"
-                ? "bg-white dark:bg-[#151B28] text-[#0075DE] dark:text-blue-400 shadow-sm"
-                : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
-            }`}
-          >
-            <RotateCcw className="w-3.5 h-3.5" />
-            <span>{t.tabNewRequest}</span>
-          </button>
-          <button
-            id="tab-track-recovery-status"
-            type="button"
-            onClick={() => {
-              setActiveTab("status");
-              setFormError(null);
-              if (email) handleCheckStatus(email);
-            }}
-            className={`py-2 px-3 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer ${
-              activeTab === "status"
-                ? "bg-white dark:bg-[#151B28] text-[#0075DE] dark:text-blue-400 shadow-sm"
-                : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
-            }`}
-          >
-            <Clock className="w-3.5 h-3.5" />
-            <span>{t.tabCheckStatus}</span>
-          </button>
-        </div>
-      )}
 
       {/* ERROR BANNER */}
       <AnimatePresence>
@@ -741,142 +754,108 @@ export const DeletedAccountRecovery: React.FC<DeletedAccountRecoveryProps> = ({
         )}
       </AnimatePresence>
 
-      {/* ---------------------------------------------------- */}
-      {/* 1. SUCCESS CONFIRMATION SCREEN                      */}
-      {/* ---------------------------------------------------- */}
-      {submittedRequestId ? (
-        <motion.div
-          initial={{ opacity: 0, scale: 0.98 }}
-          animate={{ opacity: 1, scale: 1 }}
-          className="space-y-6 text-center py-4"
-        >
-          <div className="w-16 h-16 rounded-2xl bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-200 dark:border-emerald-800/80 text-emerald-600 dark:text-emerald-400 flex items-center justify-center mx-auto shadow-sm">
-            <CheckCircle2 className="w-8 h-8" />
-          </div>
-
-          <div className="space-y-2 max-w-lg mx-auto">
-            <h2 className="text-xl font-black text-slate-900 dark:text-white">
-              {t.successTitle}
-            </h2>
-            <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
-              {t.successMsg}
-            </p>
-          </div>
-
-          {/* REQUEST SUMMARY CARD */}
-          <div className="max-w-md mx-auto p-4 bg-slate-50 dark:bg-[#131926] border border-slate-200 dark:border-slate-800 rounded-xl text-start space-y-3">
-            <div className="flex items-center justify-between gap-2 pb-2 border-b border-slate-200/80 dark:border-slate-700/60">
-              <span className="text-xs font-bold text-slate-500 dark:text-slate-400">
-                {t.requestIdLabel}
-              </span>
-              <div className="flex items-center gap-1.5">
-                <span className="font-mono font-bold text-xs text-[#0075DE] dark:text-blue-400">
-                  {submittedRequestId}
-                </span>
-                <button
-                  type="button"
-                  onClick={handleCopyRequestId}
-                  className="p-1 rounded-md hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-500 transition-colors cursor-pointer"
-                  title={t.copyId}
-                >
-                  {copiedRequestId ? (
-                    <Check className="w-3.5 h-3.5 text-emerald-500" />
-                  ) : (
-                    <Copy className="w-3.5 h-3.5" />
-                  )}
-                </button>
-              </div>
-            </div>
-
-            <div className="flex items-center justify-between gap-2">
-              <span className="text-xs font-bold text-slate-500 dark:text-slate-400">
-                {t.statusLabel}
-              </span>
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800/50">
-                <Clock className="w-3 h-3" />
-                <span>{t.statusPendingReview}</span>
-              </span>
-            </div>
-
-            <div className="flex items-center justify-between gap-2 text-xs text-slate-600 dark:text-slate-400">
-              <span>البريد الإلكتروني:</span>
-              <span className="font-medium text-slate-800 dark:text-slate-200">{email}</span>
-            </div>
-          </div>
-
-          {/* ACTION BUTTONS */}
-          <div className="flex flex-col sm:flex-row gap-3 max-w-md mx-auto pt-2">
-            <button
-              id="btn-success-back-to-login"
-              type="button"
-              onClick={onCancel}
-              className="flex-1 h-11 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-bold text-xs transition-all flex items-center justify-center gap-2 cursor-pointer"
-            >
-              <ArrowBackIcon className="w-3.5 h-3.5" />
-              <span>{t.btnBackToLogin}</span>
-            </button>
-            <button
-              id="btn-success-view-status"
-              type="button"
-              onClick={() => {
-                setSubmittedRequestId(null);
-                setActiveTab("status");
-                handleCheckStatus(email);
-              }}
-              className="flex-1 h-11 rounded-xl bg-[#0075DE] hover:bg-[#0060B6] text-white font-bold text-xs transition-all flex items-center justify-center gap-2 shadow-md shadow-blue-500/20 cursor-pointer"
-            >
-              <Clock className="w-3.5 h-3.5" />
-              <span>{t.btnViewStatus}</span>
-            </button>
-          </div>
-        </motion.div>
-      ) : activeTab === "status" ? (
+      {/* MAIN VIEW MODE ROUTING */}
+      {isInitialChecking ? (
+        <div className="py-12 text-center space-y-3 bg-slate-50 dark:bg-[#131926] border border-slate-200 dark:border-slate-800 rounded-2xl">
+          <RefreshCw className="w-6 h-6 text-[#0075DE] animate-spin mx-auto" />
+          <p className="text-xs font-semibold text-slate-600 dark:text-slate-300">
+            {lang === "ar" ? "جاري التحقق من سجلات طلبات الاستعادة..." : "Checking recovery request records..."}
+          </p>
+        </div>
+      ) : hasRealRecoveryRequest || submittedRequestId ? (
         /* ---------------------------------------------------- */
-        /* 2. TRACK STATUS TAB                                 */
+        /* MODE 1: REAL RECOVERY REQUEST EXISTS -> STATUS ONLY  */
         /* ---------------------------------------------------- */
         <div className="space-y-5 text-start">
-          <div className="flex gap-2">
-            <input
-              type="email"
-              value={statusEmail}
-              onChange={e => setStatusEmail(e.target.value)}
-              placeholder={t.statusCheckPlaceholder}
-              className="flex-1 h-11 px-3.5 rounded-xl bg-slate-50 dark:bg-[#131926] border border-slate-200 dark:border-slate-800 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-[#0075DE]/40 dark:focus:ring-blue-500/40"
-            />
-            <button
-              id="btn-query-recovery-status"
-              type="button"
-              onClick={() => handleCheckStatus()}
-              disabled={isCheckingStatus}
-              className="h-11 px-5 rounded-xl bg-[#0075DE] hover:bg-[#0060B6] text-white font-bold text-xs transition-all flex items-center gap-2 disabled:opacity-50 cursor-pointer shrink-0"
+          {submittedRequestId ? (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.98 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="space-y-6 text-center py-4"
             >
-              {isCheckingStatus ? (
-                <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-              ) : (
-                <Clock className="w-3.5 h-3.5" />
-              )}
-              <span>{t.btnCheckStatusNow}</span>
-            </button>
-          </div>
+              <div className="w-16 h-16 rounded-2xl bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-200 dark:border-emerald-800/80 text-emerald-600 dark:text-emerald-400 flex items-center justify-center mx-auto shadow-sm">
+                <CheckCircle2 className="w-8 h-8" />
+              </div>
 
-          {statusResult && (
-            <div className="p-4 sm:p-5 bg-slate-50 dark:bg-[#131926] border border-slate-200 dark:border-slate-800 rounded-xl space-y-4">
-              {statusResult.status === "none" ? (
-                <div className="text-center py-4 space-y-2">
-                  <Info className="w-6 h-6 text-slate-400 mx-auto" />
-                  <p className="text-xs font-semibold text-slate-600 dark:text-slate-300">
-                    {t.noRequestFound}
-                  </p>
-                  <button
-                    type="button"
-                    onClick={() => setActiveTab("request")}
-                    className="inline-flex items-center gap-1.5 text-xs font-bold text-[#0075DE] hover:underline pt-2 cursor-pointer"
-                  >
-                    <span>{t.tabNewRequest}</span>
-                    <ArrowForwardIcon className="w-3.5 h-3.5" />
-                  </button>
+              <div className="space-y-2 max-w-lg mx-auto">
+                <h2 className="text-xl font-black text-slate-900 dark:text-white">
+                  {t.successTitle}
+                </h2>
+                <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
+                  {t.successMsg}
+                </p>
+              </div>
+
+              {/* REQUEST SUMMARY CARD */}
+              <div className="max-w-md mx-auto p-4 bg-slate-50 dark:bg-[#131926] border border-slate-200 dark:border-slate-800 rounded-xl text-start space-y-3">
+                <div className="flex items-center justify-between gap-2 pb-2 border-b border-slate-200/80 dark:border-slate-700/60">
+                  <span className="text-xs font-bold text-slate-500 dark:text-slate-400">
+                    {t.requestIdLabel}
+                  </span>
+                  <div className="flex items-center gap-1.5">
+                    <span className="font-mono font-bold text-xs text-[#0075DE] dark:text-blue-400">
+                      {submittedRequestId}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={handleCopyRequestId}
+                      className="p-1 rounded-md hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-500 transition-colors cursor-pointer"
+                      title={t.copyId}
+                    >
+                      {copiedRequestId ? (
+                        <Check className="w-3.5 h-3.5 text-emerald-500" />
+                      ) : (
+                        <Copy className="w-3.5 h-3.5" />
+                      )}
+                    </button>
+                  </div>
                 </div>
-              ) : statusResult.status === "already_active" ? (
+
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-xs font-bold text-slate-500 dark:text-slate-400">
+                    {t.statusLabel}
+                  </span>
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800/50">
+                    <Clock className="w-3 h-3" />
+                    <span>{t.statusPendingReview}</span>
+                  </span>
+                </div>
+
+                <div className="flex items-center justify-between gap-2 text-xs text-slate-600 dark:text-slate-400">
+                  <span>البريد الإلكتروني:</span>
+                  <span className="font-medium text-slate-800 dark:text-slate-200">{email}</span>
+                </div>
+              </div>
+
+              {/* ACTION BUTTONS */}
+              <div className="flex flex-col sm:flex-row gap-3 max-w-md mx-auto pt-2">
+                <button
+                  id="btn-success-back-to-login"
+                  type="button"
+                  onClick={onCancel}
+                  className="flex-1 h-11 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-bold text-xs transition-all flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  <ArrowBackIcon className="w-3.5 h-3.5" />
+                  <span>{t.btnBackToLogin}</span>
+                </button>
+                <button
+                  id="btn-success-view-status"
+                  type="button"
+                  onClick={() => {
+                    setSubmittedRequestId(null);
+                    handleCheckStatus(email);
+                  }}
+                  className="flex-1 h-11 rounded-xl bg-[#0075DE] hover:bg-[#0060B6] text-white font-bold text-xs transition-all flex items-center justify-center gap-2 shadow-md shadow-blue-500/20 cursor-pointer"
+                >
+                  <Clock className="w-3.5 h-3.5" />
+                  <span>{t.btnViewStatus}</span>
+                </button>
+              </div>
+            </motion.div>
+          ) : (
+            /* EXISTING REQUEST STATUS CARD */
+            <div className="p-4 sm:p-5 bg-slate-50 dark:bg-[#131926] border border-slate-200 dark:border-slate-800 rounded-xl space-y-4">
+              {statusResult?.status === "already_active" ? (
                 /* ALREADY ACTIVE STATE */
                 <div className="space-y-4">
                   <div className="p-3 bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800/60 rounded-xl text-blue-800 dark:text-blue-200 flex items-start gap-3">
@@ -896,7 +875,7 @@ export const DeletedAccountRecovery: React.FC<DeletedAccountRecoveryProps> = ({
                     {lang === "ar" ? "الانتقال لتسجيل الدخول" : "Go to Login"}
                   </button>
                 </div>
-              ) : statusResult.status === "approved" ? (
+              ) : statusResult?.status === "approved" ? (
                 /* APPROVED STATE -> OTP RESTORE FLOW */
                 <div className="space-y-4">
                   <div className="p-3 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60 rounded-xl text-emerald-800 dark:text-emerald-200 flex items-start gap-3">
@@ -976,7 +955,7 @@ export const DeletedAccountRecovery: React.FC<DeletedAccountRecoveryProps> = ({
                     </div>
                   )}
                 </div>
-              ) : statusResult.status === "rejected" ? (
+              ) : statusResult?.status === "rejected" ? (
                 /* REJECTED STATE */
                 <div className="space-y-3">
                   <div className="p-3 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800/60 rounded-xl text-rose-800 dark:text-rose-200 flex items-start gap-3">
@@ -993,7 +972,11 @@ export const DeletedAccountRecovery: React.FC<DeletedAccountRecoveryProps> = ({
                   </div>
                   <button
                     type="button"
-                    onClick={() => setActiveTab("request")}
+                    onClick={() => {
+                      setHasRealRecoveryRequest(false);
+                      setStatusResult(null);
+                      setSubmittedRequestId(null);
+                    }}
                     className="w-full h-10 rounded-xl bg-[#0075DE] hover:bg-[#0060B6] text-white font-bold text-xs transition-all flex items-center justify-center gap-2 cursor-pointer"
                   >
                     <span>{t.btnSubmitNewWithDocs}</span>
@@ -1007,7 +990,7 @@ export const DeletedAccountRecovery: React.FC<DeletedAccountRecoveryProps> = ({
                       {t.requestIdLabel}
                     </span>
                     <span className="font-mono text-xs font-bold text-[#0075DE]">
-                      {statusResult.recoveryRequest?.requestId || statusResult.recoveryRequest?.id || "—"}
+                      {statusResult?.recoveryRequest?.requestId || statusResult?.recoveryRequest?.id || "—"}
                     </span>
                   </div>
                   <div className="flex items-center justify-between gap-2">
@@ -1027,7 +1010,7 @@ export const DeletedAccountRecovery: React.FC<DeletedAccountRecoveryProps> = ({
         </div>
       ) : (
         /* ---------------------------------------------------- */
-        /* 3. NEW RECOVERY REQUEST FORM                        */
+        /* MODE 2: NO RECOVERY REQUEST -> REQUEST FORM ONLY     */
         /* ---------------------------------------------------- */
         <div className="space-y-6 text-start">
           {/* STEP INDICATORS */}
