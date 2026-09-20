@@ -20,6 +20,8 @@ import {
   requireAdmin,
   isUserAdminServer,
   requireModulePermission,
+  checkUserEntitlementServer,
+  requireEntitlement,
   hashSecurityPasscode,
   verifySecurityPasscode,
   checkPasscodeRateLimit,
@@ -61,6 +63,7 @@ import {
   handleGetLatestMarketIntelligence,
   handleGetMarketIntelligenceHistory,
   handleRunMarketIntelligence,
+  handleDiagnoseMarketItem,
 } from "./src/server/marketIntelligenceService.js";
 
 dotenv.config();
@@ -3423,6 +3426,65 @@ function buildRecoveryRejectionEmailHtml(options: {
   return { subject, text, html };
 }
 
+function buildNewAccountApprovalEmailHtml(options: {
+  userName?: string;
+  email: string;
+  trialHours?: number;
+  plan?: string;
+}): { subject: string; text: string; html: string } {
+  const { userName, email, trialHours = 24, plan = "Starter" } = options;
+  const cleanName = cleanUserName(userName, email);
+  const subject = "تم اعتماد حسابك رسمياً في منصة ذاكر | Your Zakir Account has been Approved";
+  const title = "تم اعتماد حسابك بنجاح";
+  const greeting = cleanName ? `مرحباً ${cleanName}،` : "مرحباً بك،";
+
+  const bodyHtml = `
+    <p style="color: #334155; font-size: 15px; line-height: 1.7; margin: 0 0 16px 0; text-align: right; direction: rtl;">
+      يسرنا إبلاغك بأنه قد تم التحقق من بيانات حسابك والموافقة عليه رسمياً من قبل إدارة منصة <strong>ذاكر (Zakir)</strong>، وأصبح حسابك الآن مفعلاً وجاهزاً للاستخدام بالكامل.
+    </p>
+
+    <!-- Trial Information Banner -->
+    <div style="margin: 22px 0; padding: 18px 20px; background-color: #f0fdf4; border: 1px solid #bbf7d0; border-right: 4px solid #10b981; border-radius: 12px; text-align: right; direction: rtl;">
+      <div style="color: #166534; font-size: 15px; font-weight: 800; margin-bottom: 6px;">
+        فترة التجربة المجانية (${trialHours} ساعة) بدأت الآن
+      </div>
+      <p style="margin: 0; color: #15803d; font-size: 13px; line-height: 1.6;">
+        تم اعتماد باقة <strong>${escapeHtml(plan)}</strong> لحسابك مع فترة تجربة مجانية كاملة مدتها <strong>${trialHours} ساعة</strong> تبدأ من لحظة هذا الاعتماد، لتتيح لك استكشاف وتجربة كافة قدرات التحليلات السببية والذاكرة المؤسسية.
+      </p>
+    </div>
+
+    <!-- Direct Official Login Link -->
+    <div style="margin: 32px 0 24px 0; text-align: center;">
+      <!--[if mso]>
+      <v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w="urn:schemas-microsoft-com:office:word" href="https://www.getzakir.com/login" style="height:48px;v-text-anchor:middle;width:260px;" arcsize="20%" stroke="f" fillcolor="#0075DE">
+        <w:anchorlock/>
+        <center style="color:#ffffff;font-family:sans-serif;font-size:15px;font-weight:bold;">تسجيل الدخول إلى Zakir</center>
+      </v:roundrect>
+      <![endif]-->
+      <!--[if !mso]><!-->
+      <a href="https://www.getzakir.com/login" target="_blank" rel="noopener noreferrer" style="display: inline-block; background-color: #0075DE; color: #ffffff; font-size: 15px; font-weight: 800; text-decoration: none; padding: 14px 34px; border-radius: 10px; box-shadow: 0 4px 14px rgba(0, 117, 222, 0.25); text-align: center;">
+        تسجيل الدخول إلى Zakir &bull; Log In to Zakir
+      </a>
+      <!--<![endif]-->
+      <p style="margin: 14px 0 0 0; color: #64748b; font-size: 12px; font-family: monospace;">
+        <a href="https://www.getzakir.com/login" target="_blank" rel="noopener noreferrer" style="color: #0075DE; text-decoration: underline;">https://www.getzakir.com/login</a>
+      </p>
+    </div>
+  `;
+
+  const html = buildMasterEmailHtml({
+    subject,
+    title,
+    greeting,
+    bodyHtml,
+    securityNote: "لتسجيل الدخول، يرجى استخدام بريدك الإلكتروني الموثق وكلمة المرور الخاصة بك عبر الرابط الرسمي أعلاه.",
+  });
+
+  const text = `${greeting}\n\nيسرنا إبلاغك بأنه قد تم التحقق من بيانات حسابك والموافقة عليه رسمياً من قبل إدارة منصة ذاكر (Zakir).\n\nحسابك الآن مفعل وجاهز للاستخدام، وقد بدأت فترة تجربتك المجانية الكاملة (${trialHours} ساعة) المعتمدة لباقة [${plan}] من لحظة هذا الاعتماد.\n\nلتسجيل الدخول إلى منصة ذاكر، يرجى زيارة الرابط الرسمي التالي:\nhttps://www.getzakir.com/login\n\nمع تحيات،\nفريق منصة ذاكر (Zakir Team)`;
+
+  return { subject, text, html };
+}
+
 // Helper: Robust user identity resolution across Firebase Auth, Firestore, and local DB
 export async function resolveUserByEmailOrId(params: {
   userId?: string | null;
@@ -4613,12 +4675,23 @@ app.post("/api/auth/verify-code", otpLimiter, async (req, res) => {
       const userSnap = await userRef.get();
       if (userSnap.exists) {
         firestoreUser = userSnap.data();
+        const isAdminUser = foundUid === ADMIN_USER_ID || firestoreUser.role === "Admin" || ADMIN_EMAILS.has((targetIdentifier || "").toLowerCase());
+        let nextAccountStatus = "PENDING_INSTITUTIONAL_DATA";
+        if (isAdminUser || (firestoreUser.role && firestoreUser.role !== "CEO" && firestoreUser.role !== "Owner")) {
+          nextAccountStatus = "APPROVED";
+        } else if (firestoreUser.institutionalProfile) {
+          nextAccountStatus = "PENDING_ADMIN_REVIEW";
+        } else if (firestoreUser.accountStatus && firestoreUser.accountStatus !== "PENDING_EMAIL_VERIFICATION") {
+          nextAccountStatus = firestoreUser.accountStatus;
+        }
+
         await userRef.update({
           isVerified: true,
           isEmailVerified: true,
           emailVerified: true,
           email_verified: true,
           isPhoneVerified: true,
+          accountStatus: nextAccountStatus,
           verification_status: "verified",
           verification_required: false,
           "verificationInfo.status": "verified",
@@ -4628,6 +4701,7 @@ app.post("/api/auth/verify-code", otpLimiter, async (req, res) => {
         firestoreUser.isEmailVerified = true;
         firestoreUser.emailVerified = true;
         firestoreUser.email_verified = true;
+        firestoreUser.accountStatus = nextAccountStatus;
         firestoreUser.verification_status = "verified";
         firestoreUser.verification_required = false;
         console.log(
@@ -8491,9 +8565,1069 @@ app.get("/api/admin/users", requireAuth, async (req: AuthRequest, res) => {
   }
 });
 
-// ==========================================
-// PLATFORM OPERATIONS & ADMIN AUDIT LOG SERVICES
-// ==========================================
+// --- ADMIN AUDIT LOG SERVICES ---
+async function writeEntitlementAuditLog(
+  adminUid: string,
+  adminEmail: string,
+  targetUserId: string,
+  targetUserEmail: string,
+  action: "APPROVE_ACCOUNT" | "REJECT_ACCOUNT" | "EXTEND_TRIAL" | "CHANGE_PLAN" | "OVERRIDE_ENTITLEMENT" | "SYNC_SUBSCRIPTION" | "SUBSCRIPTION_CORRECTION",
+  details: string,
+  previousState?: any,
+  newState?: any
+) {
+  const logEntry = {
+    id: `ent_audit_${Date.now()}_${crypto.randomBytes(4).toString("hex")}`,
+    timestamp: new Date().toISOString(),
+    adminId: adminUid,
+    adminEmail,
+    targetUserId,
+    targetUserEmail,
+    action,
+    details,
+    previousState: previousState || null,
+    newState: newState || null
+  };
+
+  try {
+    await adminDb.collection("admin_entitlement_audit_logs").doc(logEntry.id).set(logEntry);
+  } catch (e) {
+    console.warn("Firestore entitlement audit logging fallback:", e);
+  }
+
+  try {
+    const db = readDb();
+    if (!db.admin_entitlement_audit_logs) db.admin_entitlement_audit_logs = [];
+    db.admin_entitlement_audit_logs.unshift(logEntry);
+    if (db.admin_entitlement_audit_logs.length > 500) {
+      db.admin_entitlement_audit_logs = db.admin_entitlement_audit_logs.slice(0, 500);
+    }
+    writeDb(db);
+  } catch (e) {}
+
+  emitPlatformEvent({
+    eventType: "ADMIN_AUDIT_ACTION",
+    severity: "INFO",
+    category: "BILLING",
+    userId: adminUid,
+    userEmail: adminEmail,
+    resourceId: targetUserId,
+    sanitizedMessage: `Admin [${adminEmail}] performed ${action} on user [${targetUserEmail}]: ${details}`,
+    metadata: {
+      action,
+      targetUserId,
+      targetUserEmail,
+      details,
+      newState
+    }
+  }).catch(() => {});
+}
+
+// ----------------------------------------------------
+// ACCOUNT ONBOARDING & INSTITUTIONAL DATA SUBMISSION
+// ----------------------------------------------------
+
+// User submits their institutional/organization profile data after email verification
+app.post("/api/auth/submit-institutional-data", requireAuth, async (req: AuthRequest, res) => {
+  const uid = req.user?.uid;
+  const email = req.user?.email || "";
+
+  if (!uid) {
+    return res.status(401).json({
+      success: false,
+      code: "UNAUTHORIZED",
+      error: "Authentication required to submit institutional verification data."
+    });
+  }
+
+  try {
+    const {
+      fullName,
+      phone,
+      jobTitle,
+      companyName,
+      sector,
+      country,
+      companySize,
+      intendedUse,
+      additionalNotes
+    } = req.body;
+
+    if (!fullName || !phone || !companyName || !sector || !country) {
+      return res.status(400).json({
+        success: false,
+        code: "MISSING_REQUIRED_FIELDS",
+        error: "يرجى ملء جميع الحقول الإلزامية (الاسم الكامل، رقم الهاتف، اسم المنشأة، القطاع، والدولة)."
+      });
+    }
+
+    const nowIso = new Date().toISOString();
+    const institutionalProfile = {
+      fullName: String(fullName).trim(),
+      phone: String(phone).trim(),
+      jobTitle: String(jobTitle || "").trim() || "Executive",
+      companyName: String(companyName).trim(),
+      sector: String(sector).trim(),
+      country: String(country).trim(),
+      companySize: String(companySize || "").trim() || "1-10",
+      intendedUse: String(intendedUse || "").trim() || "Strategic Decision Intelligence",
+      additionalNotes: String(additionalNotes || "").trim(),
+      submittedAt: nowIso
+    };
+
+    const userUpdates: Record<string, any> = {
+      fullName: institutionalProfile.fullName,
+      ownerName: institutionalProfile.fullName,
+      phone: institutionalProfile.phone,
+      jobTitle: institutionalProfile.jobTitle,
+      companyName: institutionalProfile.companyName,
+      organizationName: institutionalProfile.companyName,
+      sector: institutionalProfile.sector,
+      country: institutionalProfile.country,
+      institutionalProfile,
+      accountStatus: "PENDING_ADMIN_REVIEW",
+      "verificationInfo.status": "under_review",
+      "verificationInfo.submittedAt": nowIso,
+      verification_status: "under_review",
+      verification_required: true,
+      lastActiveAt: nowIso
+    };
+
+    // 1. Update in Firestore
+    try {
+      await adminDb.collection("users").doc(uid).set(userUpdates, { merge: true });
+    } catch (fsErr) {
+      console.warn("Firestore update warning in submit-institutional-data:", fsErr);
+    }
+
+    // 2. Update in local db_store.json
+    const db = readDb();
+    if (!db.users) db.users = [];
+    const localUserIdx = db.users.findIndex((u: any) => u.id === uid || u.uid === uid || u.email?.toLowerCase() === email.toLowerCase());
+    if (localUserIdx >= 0) {
+      db.users[localUserIdx] = {
+        ...db.users[localUserIdx],
+        ...userUpdates,
+        institutionalProfile
+      };
+    } else {
+      db.users.push({
+        id: uid,
+        email,
+        ...userUpdates,
+        institutionalProfile
+      });
+    }
+    writeDb(db);
+
+    // Emit event for Admin alert
+    emitPlatformEvent({
+      eventType: "INSTITUTIONAL_VERIFICATION_SUBMITTED" as any,
+      severity: "NOTICE",
+      category: "AUTH",
+      userId: uid,
+      userEmail: email,
+      sanitizedMessage: `New account application submitted by [${email}] for company [${institutionalProfile.companyName}] - Pending admin review.`,
+      metadata: institutionalProfile
+    }).catch(() => {});
+
+    return res.status(200).json({
+      success: true,
+      code: "DATA_SUBMITTED_SUCCESSFULLY",
+      accountStatus: "PENDING_ADMIN_REVIEW",
+      message: "تم استلام بيانات التحقق بنجاح. طلب الحساب قيد المراجعة الإدارية وسوف يتم تفعيله فور الاعتماد.",
+      institutionalProfile
+    });
+  } catch (err: any) {
+    console.error("[SUBMIT_INSTITUTIONAL_DATA_ERROR]", err);
+    return res.status(500).json({
+      success: false,
+      code: "INTERNAL_ERROR",
+      error: err.message || "Failed to submit institutional verification data."
+    });
+  }
+});
+
+// Endpoint for current authenticated user to get their live entitlement and trial countdown status
+app.get("/api/user/entitlement-status", requireAuth, async (req: AuthRequest, res) => {
+  const uid = req.user?.uid;
+  const email = req.user?.email || "";
+
+  try {
+    const entitlement = await checkUserEntitlementServer(uid, email);
+    return res.json({
+      success: true,
+      entitlement
+    });
+  } catch (err: any) {
+    console.error("[ENTITLEMENT_STATUS_ERROR]", err);
+    return res.status(500).json({
+      success: false,
+      error: "Failed to retrieve entitlement status"
+    });
+  }
+});
+
+// Endpoint for frontend to fetch latest user document and status
+app.get("/api/auth/current-user-status", requireAuth, async (req: AuthRequest, res) => {
+  const uid = req.user?.uid;
+  const email = req.user?.email || "";
+
+  try {
+    let userDoc: any = null;
+    try {
+      if (uid) {
+        const snap = await adminDb.collection("users").doc(uid).get();
+        if (snap.exists) userDoc = { id: snap.id, ...snap.data() };
+      }
+      if (!userDoc && email) {
+        const snap = await adminDb.collection("users").where("email", "==", email.toLowerCase().trim()).limit(1).get();
+        if (!snap.empty) userDoc = { id: snap.docs[0].id, ...snap.docs[0].data() };
+      }
+    } catch (e) {}
+
+    if (!userDoc) {
+      const db = readDb();
+      userDoc = (db.users || []).find((u: any) => u.id === uid || (u.email && u.email.toLowerCase() === email.toLowerCase()));
+    }
+
+    const entitlement = await checkUserEntitlementServer(uid, email);
+
+    return res.json({
+      success: true,
+      user: userDoc,
+      entitlement
+    });
+  } catch (err: any) {
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// ----------------------------------------------------
+// ADMIN ACCOUNT APPROVAL & SUBSCRIPTION MANAGEMENT
+// ----------------------------------------------------
+
+// 1. Get all pending account approvals
+app.get("/api/admin/pending-approvals", requireAuth, requireAdmin, async (req: AuthRequest, res) => {
+  try {
+    let usersList: any[] = [];
+
+    try {
+      const snap = await adminDb.collection("users").get();
+      if (snap && !snap.empty) {
+        usersList = snap.docs.map(doc => ({ ...doc.data(), id: doc.id }));
+      }
+    } catch (fsErr) {}
+
+    const db = readDb();
+    if (db.users && Array.isArray(db.users)) {
+      const existingIds = new Set(usersList.map(u => u.id));
+      for (const lu of db.users) {
+        if (!existingIds.has(lu.id)) {
+          usersList.push(lu);
+        }
+      }
+    }
+
+    const pendingApprovals = usersList.filter((u: any) => {
+      // Exclude platform admins and purged accounts
+      if (u.id === ADMIN_USER_ID || u.role === "Admin" || ADMIN_EMAILS.has((u.email || "").toLowerCase())) {
+        return false;
+      }
+      if (u.accountLifecycleStatus === "PURGED" || u.isPurged === true) {
+        return false;
+      }
+      return u.accountStatus === "PENDING_ADMIN_REVIEW" || (u.institutionalProfile && u.accountStatus !== "APPROVED" && u.accountStatus !== "REJECTED" && u.accountStatus !== "ACTIVE");
+    });
+
+    return res.json({
+      success: true,
+      pendingCount: pendingApprovals.length,
+      pendingApprovals
+    });
+  } catch (err: any) {
+    console.error("[ADMIN_PENDING_APPROVALS_ERROR]", err);
+    return res.status(500).json({
+      success: false,
+      error: "Failed to fetch pending account approvals"
+    });
+  }
+});
+
+// 2. Approve User Account (Starts exact 24-hour trial from approvedAt timestamp or assigns active plan)
+app.post("/api/admin/approve-account", requireAuth, requireAdmin, async (req: AuthRequest, res) => {
+  const adminUid = req.user?.uid || "";
+  const adminEmail = req.user?.email || "admin@zakir.ai";
+
+  try {
+    const { userId, assignPlan = "Starter", customTrialHours = 24, notes = "" } = req.body;
+    if (!userId) {
+      return res.status(400).json({ success: false, error: "User ID is required for approval." });
+    }
+
+    const targetUser = await getUserProfileServer(userId);
+    if (!targetUser) {
+      return res.status(404).json({ success: false, error: "Target user not found." });
+    }
+
+    const nowIso = new Date().toISOString();
+    const trialHours = Math.max(1, Number(customTrialHours) || 24);
+    const trialEndsIso = new Date(Date.now() + trialHours * 3600 * 1000).toISOString();
+
+    const approvalUpdates: Record<string, any> = {
+      accountStatus: "APPROVED",
+      approvedAt: nowIso,
+      approvedBy: adminEmail,
+      approvalNotes: notes || "",
+      trialStartedAt: nowIso,
+      trialEndsAt: trialEndsIso,
+      trialExpiresAt: trialEndsIso,
+      trialDurationHours: trialHours,
+      subscriptionPlan: assignPlan,
+      subscriptionStatus: "Active",
+      isVerified: true,
+      isEmailVerified: true,
+      email_verified: true,
+      emailVerified: true,
+      verification_status: "verified",
+      verification_required: false,
+      "verificationInfo.status": "verified",
+      "verificationInfo.verifiedAt": nowIso,
+      "verificationInfo.verifiedBy": adminEmail,
+      lastActiveAt: nowIso
+    };
+
+    // Update Firestore
+    try {
+      await adminDb.collection("users").doc(userId).set(approvalUpdates, { merge: true });
+    } catch (fsErr) {
+      console.warn("Firestore approval write notice:", fsErr);
+    }
+
+    // Update local DB
+    const db = readDb();
+    if (db.users) {
+      const idx = db.users.findIndex((u: any) => u.id === userId || u.uid === userId);
+      if (idx >= 0) {
+        db.users[idx] = { ...db.users[idx], ...approvalUpdates };
+        writeDb(db);
+      }
+    }
+
+    await writeEntitlementAuditLog(
+      adminUid,
+      adminEmail,
+      userId,
+      targetUser.email || "",
+      "APPROVE_ACCOUNT",
+      `Approved account with ${trialHours}h trial and plan [${assignPlan}]. Notes: ${notes || "None"}`,
+      { accountStatus: targetUser.accountStatus, plan: targetUser.subscriptionPlan },
+      approvalUpdates
+    );
+
+    // 4. Send official account approval email with duplicate protection
+    let emailDispatchResult: { success: boolean; messageId?: string; simulated?: boolean; skipped?: boolean } = { success: false, skipped: false };
+    const userEmail = (targetUser.email || "").trim();
+    const alreadyNotified = Boolean(targetUser.approvalEmailSentAt || targetUser.approvalNotificationSent);
+
+    if (userEmail && !alreadyNotified) {
+      try {
+        const emailContent = buildNewAccountApprovalEmailHtml({
+          userName: targetUser.fullName || targetUser.ownerName || targetUser.name || "",
+          email: userEmail,
+          trialHours: trialHours,
+          plan: assignPlan,
+        });
+
+        const mailRes = await sendSystemMail({
+          to: userEmail,
+          subject: emailContent.subject,
+          html: emailContent.html,
+          text: emailContent.text,
+        });
+
+        emailDispatchResult = {
+          success: mailRes.success,
+          messageId: mailRes.messageId,
+          simulated: mailRes.simulated,
+        };
+
+        if (mailRes.success) {
+          approvalUpdates.approvalEmailSentAt = nowIso;
+          approvalUpdates.approvalNotificationSent = true;
+          approvalUpdates.approvalEmailMessageId = mailRes.messageId || "";
+
+          // Persist email sent flag to Firestore
+          try {
+            await adminDb.collection("users").doc(userId).set({
+              approvalEmailSentAt: nowIso,
+              approvalNotificationSent: true,
+              approvalEmailMessageId: mailRes.messageId || "",
+            }, { merge: true });
+          } catch (e) {
+            console.warn("Firestore approval email flag write notice:", e);
+          }
+
+          // Persist email sent flag to local DB
+          if (db.users) {
+            const idx = db.users.findIndex((u: any) => u.id === userId || u.uid === userId);
+            if (idx >= 0) {
+              db.users[idx].approvalEmailSentAt = nowIso;
+              db.users[idx].approvalNotificationSent = true;
+              db.users[idx].approvalEmailMessageId = mailRes.messageId || "";
+              writeDb(db);
+            }
+          }
+        }
+      } catch (mailErr) {
+        console.error("[APPROVAL_EMAIL_DISPATCH_ERROR]", mailErr);
+      }
+    } else if (alreadyNotified) {
+      console.log(`[APPROVAL_EMAIL_SKIPPED] Duplicate email prevented for ${userEmail} (already sent at ${targetUser.approvalEmailSentAt})`);
+      emailDispatchResult = { success: true, skipped: true };
+    }
+
+    return res.json({
+      success: true,
+      message: `تم اعتماد الحساب بنجاح وتفعيل الفترة التجريبية لمدة ${trialHours} ساعة.`,
+      emailSent: emailDispatchResult.success,
+      emailSkipped: emailDispatchResult.skipped || false,
+      user: {
+        ...targetUser,
+        ...approvalUpdates
+      }
+    });
+  } catch (err: any) {
+    console.error("[APPROVE_ACCOUNT_ERROR]", err);
+    return res.status(500).json({
+      success: false,
+      error: err.message || "Failed to approve account"
+    });
+  }
+});
+
+// 3. Reject User Account
+app.post("/api/admin/reject-account", requireAuth, requireAdmin, async (req: AuthRequest, res) => {
+  const adminUid = req.user?.uid || "";
+  const adminEmail = req.user?.email || "admin@zakir.ai";
+
+  try {
+    const { userId, reason = "Account details could not be validated." } = req.body;
+    if (!userId) {
+      return res.status(400).json({ success: false, error: "User ID is required." });
+    }
+
+    const targetUser = await getUserProfileServer(userId);
+    if (!targetUser) {
+      return res.status(404).json({ success: false, error: "Target user not found." });
+    }
+
+    const nowIso = new Date().toISOString();
+    const rejectionUpdates: Record<string, any> = {
+      accountStatus: "REJECTED",
+      rejectionReason: String(reason).trim(),
+      rejectionDate: nowIso,
+      rejectedBy: adminEmail,
+      subscriptionStatus: "Inactive",
+      "verificationInfo.status": "action_required",
+      "verificationInfo.adminNote": reason
+    };
+
+    try {
+      await adminDb.collection("users").doc(userId).set(rejectionUpdates, { merge: true });
+    } catch (fsErr) {}
+
+    const db = readDb();
+    if (db.users) {
+      const idx = db.users.findIndex((u: any) => u.id === userId || u.uid === userId);
+      if (idx >= 0) {
+        db.users[idx] = { ...db.users[idx], ...rejectionUpdates };
+        writeDb(db);
+      }
+    }
+
+    await writeEntitlementAuditLog(
+      adminUid,
+      adminEmail,
+      userId,
+      targetUser.email || "",
+      "REJECT_ACCOUNT",
+      `Rejected account. Reason: ${reason}`,
+      { accountStatus: targetUser.accountStatus },
+      rejectionUpdates
+    );
+
+    return res.json({
+      success: true,
+      message: "تم رفض طلب الحساب بنجاح وتحديث السجلات.",
+      accountStatus: "REJECTED"
+    });
+  } catch (err: any) {
+    console.error("[REJECT_ACCOUNT_ERROR]", err);
+    return res.status(500).json({
+      success: false,
+      error: err.message || "Failed to reject account"
+    });
+  }
+});
+
+// 4. Extend Trial Period for User
+app.post("/api/admin/extend-trial", requireAuth, requireAdmin, async (req: AuthRequest, res) => {
+  const adminUid = req.user?.uid || "";
+  const adminEmail = req.user?.email || "admin@zakir.ai";
+
+  try {
+    const { userId, extensionHours = 24, reason = "" } = req.body;
+    if (!userId) {
+      return res.status(400).json({ success: false, error: "User ID is required." });
+    }
+
+    const targetUser = await getUserProfileServer(userId);
+    if (!targetUser) {
+      return res.status(404).json({ success: false, error: "Target user not found." });
+    }
+
+    const currentEndMs = targetUser.trialEndsAt ? new Date(targetUser.trialEndsAt).getTime() : Date.now();
+    const baseMs = Math.max(Date.now(), currentEndMs);
+    const addedHours = Math.max(1, Number(extensionHours) || 24);
+    const newEndIso = new Date(baseMs + addedHours * 3600 * 1000).toISOString();
+
+    const updates: Record<string, any> = {
+      trialEndsAt: newEndIso,
+      trialExpiresAt: newEndIso,
+      accountStatus: "APPROVED",
+      subscriptionStatus: targetUser.subscriptionStatus === "Active" ? "Active" : "Trial",
+      trialExtendedAt: new Date().toISOString(),
+      trialExtendedBy: adminEmail
+    };
+
+    try {
+      await adminDb.collection("users").doc(userId).set(updates, { merge: true });
+    } catch (fsErr) {}
+
+    const db = readDb();
+    if (db.users) {
+      const idx = db.users.findIndex((u: any) => u.id === userId || u.uid === userId);
+      if (idx >= 0) {
+        db.users[idx] = { ...db.users[idx], ...updates };
+        writeDb(db);
+      }
+    }
+
+    await writeEntitlementAuditLog(
+      adminUid,
+      adminEmail,
+      userId,
+      targetUser.email || "",
+      "EXTEND_TRIAL",
+      `Extended trial by +${addedHours} hours. New end date: ${newEndIso}. Reason: ${reason || "Admin discretion"}`,
+      { trialEndsAt: targetUser.trialEndsAt },
+      updates
+    );
+
+    return res.json({
+      success: true,
+      message: `تم تمديد التجربة المجانية بنجاح بمقدار ${addedHours} ساعة إضافية.`,
+      trialEndsAt: newEndIso,
+      extensionHours: addedHours
+    });
+  } catch (err: any) {
+    console.error("[EXTEND_TRIAL_ERROR]", err);
+    return res.status(500).json({
+      success: false,
+      error: err.message || "Failed to extend trial"
+    });
+  }
+});
+
+// 5. Update User Subscription Plan / Status (Admin Correction / Override)
+app.post("/api/admin/update-user-plan", requireAuth, requireAdmin, async (req: AuthRequest, res) => {
+  const adminUid = req.user?.uid || "";
+  const adminEmail = req.user?.email || "admin@zakir.ai";
+
+  try {
+    const { userId, plan, subscriptionStatus = "Active", notes = "" } = req.body;
+    if (!userId || !plan) {
+      return res.status(400).json({ success: false, error: "User ID and Plan are required." });
+    }
+
+    const validPlans = ["Starter", "Professional", "Enterprise"];
+    if (!validPlans.includes(plan)) {
+      return res.status(400).json({ success: false, error: "Invalid subscription plan. Must be Starter, Professional, or Enterprise." });
+    }
+
+    const targetUser = await getUserProfileServer(userId);
+    if (!targetUser) {
+      return res.status(404).json({ success: false, error: "Target user not found." });
+    }
+
+    const nowIso = new Date().toISOString();
+    const updates: Record<string, any> = {
+      subscriptionPlan: plan,
+      subscriptionStatus: subscriptionStatus,
+      accountStatus: "APPROVED",
+      planModifiedAt: nowIso,
+      planModifiedBy: adminEmail,
+      lastActiveAt: nowIso
+    };
+
+    try {
+      await adminDb.collection("users").doc(userId).set(updates, { merge: true });
+    } catch (fsErr) {}
+
+    const db = readDb();
+    if (db.users) {
+      const idx = db.users.findIndex((u: any) => u.id === userId || u.uid === userId);
+      if (idx >= 0) {
+        db.users[idx] = { ...db.users[idx], ...updates };
+        writeDb(db);
+      }
+    }
+
+    await writeEntitlementAuditLog(
+      adminUid,
+      adminEmail,
+      userId,
+      targetUser.email || "",
+      "CHANGE_PLAN",
+      `Changed plan to [${plan}], subscription status to [${subscriptionStatus}]. Notes: ${notes || "None"}`,
+      { subscriptionPlan: targetUser.subscriptionPlan, subscriptionStatus: targetUser.subscriptionStatus },
+      updates
+    );
+
+    return res.json({
+      success: true,
+      message: `تم تحديث الباقة بنجاح إلى (${plan}) بحالة (${subscriptionStatus}).`,
+      user: {
+        ...targetUser,
+        ...updates
+      }
+    });
+  } catch (err: any) {
+    console.error("[UPDATE_USER_PLAN_ERROR]", err);
+    return res.status(500).json({
+      success: false,
+      error: err.message || "Failed to update user plan"
+    });
+  }
+});
+
+// 6. Comprehensive Subscription & Entitlement Overview for Admin
+app.get("/api/admin/subscription-overview", requireAuth, requireAdmin, async (req: AuthRequest, res) => {
+  try {
+    let usersList: any[] = [];
+    try {
+      const snap = await adminDb.collection("users").get();
+      if (snap && !snap.empty) {
+        usersList = snap.docs.map(doc => ({ ...doc.data(), id: doc.id }));
+      }
+    } catch (fsErr) {}
+
+    const db = readDb();
+    if (db.users && Array.isArray(db.users)) {
+      const existingIds = new Set(usersList.map(u => u.id));
+      for (const lu of db.users) {
+        if (!existingIds.has(lu.id)) {
+          usersList.push(lu);
+        }
+      }
+    }
+
+    const nowMs = Date.now();
+    const overviewList = usersList
+      .filter((u: any) => u.accountLifecycleStatus !== "PURGED" && u.isPurged !== true)
+      .map((u: any) => {
+        const isAdmin = u.id === ADMIN_USER_ID || u.role === "Admin" || ADMIN_EMAILS.has((u.email || "").toLowerCase());
+        const trialEndIso = u.trialEndsAt || u.trialExpiresAt || null;
+        const trialEndMs = trialEndIso ? new Date(trialEndIso).getTime() : 0;
+        const trialRemainingSec = Math.max(0, Math.floor((trialEndMs - nowMs) / 1000));
+        const isTrialActive = !isAdmin && trialRemainingSec > 0;
+        const hasActiveSub = isAdmin || (u.subscriptionStatus === "Active" && ["Starter", "Professional", "Enterprise"].includes(u.subscriptionPlan));
+
+        return {
+          id: u.id,
+          uid: u.id,
+          email: u.email,
+          fullName: u.fullName || u.ownerName || u.name || "",
+          companyName: u.companyName || u.organizationName || "Organization",
+          workspaceId: u.workspaceId || "",
+          role: u.role || "Member",
+          accountStatus: u.accountStatus || (u.isEmailVerified ? "APPROVED" : "PENDING_EMAIL_VERIFICATION"),
+          subscriptionPlan: isAdmin ? "Enterprise" : (u.subscriptionPlan || "Starter"),
+          subscriptionStatus: isAdmin ? "Active" : (u.subscriptionStatus || (isTrialActive ? "Trial" : "Expired")),
+          isTrialActive,
+          trialStartedAt: u.trialStartedAt || u.approvedAt || null,
+          trialEndsAt: trialEndIso,
+          trialRemainingSeconds: trialRemainingSec,
+          hasActiveSubscription: hasActiveSub,
+          stripeSubscriptionId: u.stripeSubscriptionId || null,
+          stripeCustomerId: u.stripeCustomerId || null,
+          approvedAt: u.approvedAt || null,
+          approvedBy: u.approvedBy || null,
+          createdAt: u.createdAt || null,
+          lastActiveAt: u.lastActiveAt || u.lastLoginAt || null,
+          institutionalProfile: u.institutionalProfile || null
+        };
+      });
+
+    const stats = {
+      totalUsers: overviewList.length,
+      activePaidSubscriptions: overviewList.filter(u => u.hasActiveSubscription && !u.isTrialActive).length,
+      activeTrials: overviewList.filter(u => u.isTrialActive).length,
+      expiredTrials: overviewList.filter(u => !u.hasActiveSubscription && !u.isTrialActive && u.accountStatus === "APPROVED").length,
+      pendingApprovals: overviewList.filter(u => u.accountStatus === "PENDING_ADMIN_REVIEW").length,
+      rejectedAccounts: overviewList.filter(u => u.accountStatus === "REJECTED").length
+    };
+
+    return res.json({
+      success: true,
+      stats,
+      subscriptions: overviewList
+    });
+  } catch (err: any) {
+    console.error("[SUBSCRIPTION_OVERVIEW_ERROR]", err);
+    return res.status(500).json({
+      success: false,
+      error: "Failed to load subscription overview"
+    });
+  }
+});
+
+// --- SUBSCRIPTION CORRECTION REQUEST ENDPOINTS ---
+
+// 1. Submit Subscription Correction Request (User)
+app.post("/api/subscription/correction-request", requireAuth, async (req: AuthRequest, res) => {
+  const userId = req.user?.uid;
+  const userEmail = req.user?.email || "";
+  if (!userId) {
+    return res.status(401).json({ success: false, error: "Unauthorized" });
+  }
+
+  try {
+    const { requestedPlan, issueType, userNotes = "", referenceData = "" } = req.body;
+    if (!requestedPlan) {
+      return res.status(400).json({ success: false, error: "Requested plan is required." });
+    }
+
+    const validPlans = ["Starter", "Professional", "Enterprise"];
+    if (!validPlans.includes(requestedPlan)) {
+      return res.status(400).json({ success: false, error: "Invalid plan. Must be Starter, Professional, or Enterprise." });
+    }
+
+    const userProfile = (await getUserProfileServer(userId, userEmail)) || {};
+    const requestId = `scr_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
+    const nowIso = new Date().toISOString();
+
+    const requestDoc = {
+      requestId,
+      id: requestId,
+      userId,
+      userEmail: userEmail || userProfile.email || "",
+      userName: userProfile.fullName || userProfile.ownerName || userProfile.email || "User",
+      companyName: userProfile.companyName || userProfile.organizationName || "Personal",
+      workspaceId: userProfile.workspaceId || userProfile.workspace?.id || userId,
+      currentPlan: userProfile.subscriptionPlan || "Starter",
+      currentStatus: userProfile.subscriptionStatus || "Trial",
+      requestedPlan,
+      issueType: issueType || "PLAN_MISMATCH",
+      userNotes: (userNotes || "").trim(),
+      referenceData: (referenceData || "").trim(),
+      status: "PENDING",
+      submittedAt: nowIso
+    };
+
+    // Save to Firestore
+    try {
+      await adminDb.collection("subscription_correction_requests").doc(requestId).set(requestDoc);
+    } catch (fsErr) {
+      console.warn("Could not save correction request to Firestore:", fsErr);
+    }
+
+    // Save to local DB store
+    const db = readDb();
+    if (!db.subscriptionCorrectionRequests) {
+      db.subscriptionCorrectionRequests = [];
+    }
+    db.subscriptionCorrectionRequests.unshift(requestDoc);
+    writeDb(db);
+
+    // Record system platform event and notification for Admin
+    try {
+      await adminDb.collection("platform_events").add({
+        eventType: "SUBSCRIPTION_CORRECTION_REQUESTED",
+        severity: "INFO",
+        category: "BILLING",
+        timestamp: nowIso,
+        userId,
+        userEmail,
+        resourceId: requestId,
+        sanitizedMessage: `User ${userEmail} submitted a subscription correction request for plan [${requestedPlan}].`,
+        status: "PENDING"
+      });
+
+      await adminDb.collection("admin_notifications").add({
+        title: "طلب تصحيح اشتراك جديد",
+        message: `المستخدم ${userEmail} قدم طلب تصحيح اشتراك للباقة (${requestedPlan}).`,
+        severity: "INFO",
+        category: "BILLING",
+        eventId: requestId,
+        read: false,
+        acknowledged: false,
+        timestamp: nowIso,
+        targetUser: userEmail,
+        targetWorkspace: requestDoc.workspaceId
+      });
+    } catch (e) {}
+
+    return res.json({
+      success: true,
+      message: "تم استلام طلب تصحيح الاشتراك بنجاح وسيتم مراجعته من قبل إدارة المنصة فوراً.",
+      requestId,
+      request: requestDoc
+    });
+  } catch (err: any) {
+    console.error("[SUBSCRIPTION_CORRECTION_REQUEST_ERROR]", err);
+    return res.status(500).json({
+      success: false,
+      error: err.message || "Failed to submit subscription correction request"
+    });
+  }
+});
+
+// 2. Get All Subscription Correction Requests (Admin)
+app.get("/api/admin/subscription-correction-requests", requireAuth, requireAdmin, async (req: AuthRequest, res) => {
+  try {
+    let requests: any[] = [];
+    try {
+      const snap = await adminDb.collection("subscription_correction_requests").orderBy("submittedAt", "desc").get();
+      if (snap && !snap.empty) {
+        requests = snap.docs.map(d => ({ ...d.data(), id: d.id }));
+      }
+    } catch (fsErr) {}
+
+    const db = readDb();
+    if (db.subscriptionCorrectionRequests && Array.isArray(db.subscriptionCorrectionRequests)) {
+      const existingIds = new Set(requests.map(r => r.id || r.requestId));
+      for (const reqItem of db.subscriptionCorrectionRequests) {
+        if (!existingIds.has(reqItem.id || reqItem.requestId)) {
+          requests.push(reqItem);
+        }
+      }
+    }
+
+    return res.json({
+      success: true,
+      requests
+    });
+  } catch (err: any) {
+    console.error("[GET_SUBSCRIPTION_CORRECTION_REQUESTS_ERROR]", err);
+    return res.status(500).json({
+      success: false,
+      error: "Failed to fetch subscription correction requests"
+    });
+  }
+});
+
+// 3. Resolve Subscription Correction Request (Admin)
+app.post("/api/admin/resolve-subscription-correction", requireAuth, requireAdmin, async (req: AuthRequest, res) => {
+  const adminUid = req.user?.uid || "";
+  const adminEmail = req.user?.email || "admin@zakir.ai";
+
+  try {
+    const { requestId, userId, targetPlan, action = "APPROVE", reason = "", adminNotes = "" } = req.body;
+    if (!requestId || !userId) {
+      return res.status(400).json({ success: false, error: "Request ID and User ID are required." });
+    }
+
+    const targetUser = await getUserProfileServer(userId);
+    if (!targetUser) {
+      return res.status(404).json({ success: false, error: "Target user not found." });
+    }
+
+    const nowIso = new Date().toISOString();
+    const previousPlan = targetUser.subscriptionPlan || "Starter";
+    const previousStatus = targetUser.subscriptionStatus || "Trial";
+
+    if (action === "APPROVE") {
+      const validPlans = ["Starter", "Professional", "Enterprise"];
+      const planToApply = targetPlan || "Professional";
+      if (!validPlans.includes(planToApply)) {
+        return res.status(400).json({ success: false, error: "Invalid target plan. Must be Starter, Professional, or Enterprise." });
+      }
+
+      // Update User Entitlement
+      const userUpdates: Record<string, any> = {
+        subscriptionPlan: planToApply,
+        subscriptionStatus: "Active",
+        accountStatus: "APPROVED",
+        entitlementUpdatedAt: nowIso,
+        entitlementUpdatedBy: adminEmail,
+        lastActiveAt: nowIso
+      };
+
+      try {
+        await adminDb.collection("users").doc(userId).set(userUpdates, { merge: true });
+      } catch (fsErr) {}
+
+      // Update in local DB
+      const db = readDb();
+      if (db.users) {
+        const idx = db.users.findIndex((u: any) => u.id === userId || u.uid === userId);
+        if (idx >= 0) {
+          db.users[idx] = { ...db.users[idx], ...userUpdates };
+        }
+      }
+
+      // Update correction request document
+      const requestUpdates = {
+        status: "RESOLVED",
+        resolutionAction: "CORRECTED",
+        appliedPlan: planToApply,
+        reviewedAt: nowIso,
+        reviewedBy: adminEmail,
+        adminNotes: adminNotes || reason || "Entitlement corrected by administrator"
+      };
+
+      try {
+        await adminDb.collection("subscription_correction_requests").doc(requestId).set(requestUpdates, { merge: true });
+      } catch (fsErr) {}
+
+      if (db.subscriptionCorrectionRequests) {
+        const rIdx = db.subscriptionCorrectionRequests.findIndex((r: any) => r.requestId === requestId || r.id === requestId);
+        if (rIdx >= 0) {
+          db.subscriptionCorrectionRequests[rIdx] = { ...db.subscriptionCorrectionRequests[rIdx], ...requestUpdates };
+        }
+      }
+      writeDb(db);
+
+      // Write authoritative Entitlement Audit Log
+      const auditPayload = {
+        adminId: adminUid,
+        adminEmail,
+        userId,
+        targetEmail: targetUser.email || "",
+        workspaceId: targetUser.workspaceId || targetUser.workspace?.id || userId,
+        requestId,
+        previousPlan,
+        newPlan: planToApply,
+        previousStatus,
+        newStatus: "Active",
+        reason: reason || adminNotes || "Plan correction approved by administrator",
+        actionType: "SUBSCRIPTION_CORRECTION_RESOLVED",
+        timestamp: nowIso
+      };
+
+      try {
+        await adminDb.collection("entitlement_audit_logs").add(auditPayload);
+        await adminDb.collection("admin_entitlement_audit_logs").add(auditPayload);
+        await adminDb.collection("auditLogs").add(auditPayload);
+      } catch (fsErr) {}
+
+      await writeEntitlementAuditLog(
+        adminUid,
+        adminEmail,
+        userId,
+        targetUser.email || "",
+        "SUBSCRIPTION_CORRECTION",
+        `Subscription Correction applied for user. Plan updated from [${previousPlan}] to [${planToApply}]. Reason: ${reason || "Verified"}`,
+        { subscriptionPlan: previousPlan, subscriptionStatus: previousStatus },
+        userUpdates
+      );
+
+      return res.json({
+        success: true,
+        message: `تم تصحيح وتفعيل اشتراك المستخدم بنجاح إلى باقة (${planToApply}).`,
+        newPlan: planToApply,
+        userUpdates
+      });
+    } else {
+      // REJECT action
+      const requestUpdates = {
+        status: "REJECTED",
+        resolutionAction: "REJECTED",
+        reviewedAt: nowIso,
+        reviewedBy: adminEmail,
+        adminNotes: adminNotes || reason || "Correction request rejected by administrator"
+      };
+
+      try {
+        await adminDb.collection("subscription_correction_requests").doc(requestId).set(requestUpdates, { merge: true });
+      } catch (fsErr) {}
+
+      const db = readDb();
+      if (db.subscriptionCorrectionRequests) {
+        const rIdx = db.subscriptionCorrectionRequests.findIndex((r: any) => r.requestId === requestId || r.id === requestId);
+        if (rIdx >= 0) {
+          db.subscriptionCorrectionRequests[rIdx] = { ...db.subscriptionCorrectionRequests[rIdx], ...requestUpdates };
+          writeDb(db);
+        }
+      }
+
+      // Write Audit Log
+      const auditPayload = {
+        adminId: adminUid,
+        adminEmail,
+        userId,
+        targetEmail: targetUser.email || "",
+        workspaceId: targetUser.workspaceId || targetUser.workspace?.id || userId,
+        requestId,
+        previousPlan,
+        newPlan: previousPlan,
+        previousStatus,
+        newStatus: previousStatus,
+        reason: reason || adminNotes || "Correction request rejected by administrator",
+        actionType: "SUBSCRIPTION_CORRECTION_REJECTED",
+        timestamp: nowIso
+      };
+
+      try {
+        await adminDb.collection("entitlement_audit_logs").add(auditPayload);
+        await adminDb.collection("auditLogs").add(auditPayload);
+      } catch (fsErr) {}
+
+      return res.json({
+        success: true,
+        message: "تم رفض طلب تصحيح الاشتراك وتوثيق الإجراء في سجل التدقيق.",
+        requestId
+      });
+    }
+  } catch (err: any) {
+    console.error("[RESOLVE_SUBSCRIPTION_CORRECTION_ERROR]", err);
+    return res.status(500).json({
+      success: false,
+      error: err.message || "Failed to resolve subscription correction"
+    });
+  }
+});
+
+// 7. Get Entitlement Audit Logs
+app.get("/api/admin/entitlement-audit-logs", requireAuth, requireAdmin, async (req: AuthRequest, res) => {
+  try {
+    let logs: any[] = [];
+    try {
+      const snap = await adminDb.collection("admin_entitlement_audit_logs").orderBy("timestamp", "desc").limit(200).get();
+      if (snap && !snap.empty) {
+        logs = snap.docs.map(d => ({ ...d.data(), id: d.id }));
+      }
+    } catch (fsErr) {}
+
+    if (logs.length === 0) {
+      const db = readDb();
+      logs = db.admin_entitlement_audit_logs || [];
+    }
+
+    return res.json({
+      success: true,
+      logs
+    });
+  } catch (err: any) {
+    console.error("[ENTITLEMENT_AUDIT_LOGS_ERROR]", err);
+    return res.status(500).json({
+      success: false,
+      error: "Failed to fetch entitlement audit logs"
+    });
+  }
+});
 
 async function writeAdminAuditLog(
   adminUid: string,
@@ -16303,6 +17437,7 @@ app.post("/api/auth/register", loginRegisterLimiter, async (req, res) => {
             },
           ],
       subscriptionStatus: "Pending Selection",
+      accountStatus: isInvitedUser ? "APPROVED" : "PENDING_EMAIL_VERIFICATION",
       createdAt: nowIso,
       trialExpiresAt: new Date(Date.now() + 24 * 3600 * 1000).toISOString(),
       lastActiveAt: nowIso,
@@ -16313,6 +17448,10 @@ app.post("/api/auth/register", loginRegisterLimiter, async (req, res) => {
       emailVerified: isInvitedUser,
       verification_required: !isInvitedUser,
       verification_status: isInvitedUser ? "verified" : "unverified",
+      verificationInfo: {
+        status: isInvitedUser ? "verified" : "unverified",
+        verifiedAt: isInvitedUser ? nowIso : undefined,
+      },
     };
 
     // SAVE USER TO PRODUCTION FIRESTORE users/{userId}
@@ -18068,7 +19207,7 @@ CREATE TABLE user_metrics (
   }
 });
 
-app.post("/api/database/query", requireAuth, async (req: AuthRequest, res) => {
+app.post("/api/database/query", requireAuth, requireEntitlement, async (req: AuthRequest, res) => {
   const { query } = req.body;
   if (!query) {
     return res.status(400).json({ error: "SQL query string is required" });
@@ -18441,10 +19580,10 @@ const handleSmartEvolution = async (
 
   const fallbackExecutiveSummary =
     lang === "ar"
-      ? `### Heuristic analysis — AI unavailable\n\nتشخيص أنماط الأحداث المسجلة (${memories.length} ذكريات مؤسسية) يربط بين السبب والأثر لكشف ثغرات إدارة المخاطر في العمليات المالية واللوجستية. التحليل يحدد الانكشافات الحالية ويوفر توصيات إجرائية مباشرة لتفادي تكرار الأخطاء وحماية الذاكرة المؤسسية.`
+      ? `### ملخص تشخيصي مؤسسي مبني على الأدلة والذاكرة\n\nتشخيص أنماط الأحداث المسجلة (${memories.length} ذكريات مؤسسية) يربط بين السبب والأثر لكشف ثغرات إدارة المخاطر في العمليات المالية واللوجستية. التحليل يحدد الانكشافات الحالية ويوفر توصيات إجرائية مباشرة لتفادي تكرار الأخطاء وحماية الذاكرة المؤسسية.`
       : lang === "fr"
-        ? `### Heuristic analysis — AI unavailable\n\nL'analyse diagnostique de ${memories.length} souvenirs institutionnels relie la cause à l'effet pour révéler les failles opérationnelles et financières. L'évaluation fournit des recommandations directement applicables.`
-        : `### Heuristic analysis — AI unavailable\n\nDiagnostic analysis of ${memories.length} institutional memories maps cause-and-effect patterns to identify unaddressed operational and financial vulnerabilities, offering actionable recommendations.`;
+        ? `### Synthèse diagnostique basée sur la mémoire institutionnelle\n\nL'analyse diagnostique de ${memories.length} souvenirs institutionnels relie la cause à l'effet pour révéler les failles opérationnelles et financières. L'évaluation fournit des recommandations directement applicables.`
+        : `### Institutional Diagnostic Summary Based on Evidence & Memory\n\nDiagnostic analysis of ${memories.length} institutional memories maps cause-and-effect patterns to identify unaddressed operational and financial vulnerabilities, offering actionable recommendations.`;
 
   const defaultPayload = {
     executiveSummary: fallbackExecutiveSummary,
@@ -18510,39 +19649,72 @@ const handleSmartEvolution = async (
   "recommendationsList": [{"title": "عنوان التوصية التنفيذية", "priority": "حرِج / مرتفع / متوسط", "actionable": "إجراء عملي مباشر وقابل للتطبيق", "details": "خطوات التنفيذ والحوكمة لمنع الانكشاف"}]
 }`;
 
-    let response;
+    let response: any = null;
     const fallbackModels = [
-      "gemini-3.8-flash",
       "gemini-3.1-flash-lite",
       "gemini-flash-latest",
+      "gemini-3.8-flash",
     ];
+    let searchToolFailed = false;
+
     for (let i = 0; i < fallbackModels.length; i++) {
       if (isGeminiInCooldown()) break;
-      try {
-        response = await ai.models.generateContent({
-          model: fallbackModels[i],
-          contents: [
-            {
-              role: "user",
-              parts: [
-                {
-                  text: `قم بإجراء التقييم والتحليل الشامل للمؤسسة واستبصار توجهات الأسواق العالمية والبيانات التالية:\n\n### الذاكرات والأحداث المؤسسية المسجلة:\n${memoriesSummary}\n\n### التنبيهات والمخاطر النشطة:\n${activeRisksSummary}\n\n### المستندات والكتب المؤسسية:\n${filesSummary}`,
-                },
-              ],
+
+      // Try with Google Search tool first
+      if (!searchToolFailed) {
+        try {
+          response = await ai.models.generateContent({
+            model: fallbackModels[i],
+            contents: [
+              {
+                role: "user",
+                parts: [
+                  {
+                    text: `قم بإجراء التقييم والتحليل الشامل للمؤسسة واستبصار توجهات الأسواق العالمية والبيانات التالية:\n\n### الذاكرات والأحداث المؤسسية المسجلة:\n${memoriesSummary}\n\n### التنبيهات والمخاطر النشطة:\n${activeRisksSummary}\n\n### المستندات والكتب المؤسسية:\n${filesSummary}`,
+                  },
+                ],
+              },
+            ],
+            config: {
+              systemInstruction: systemInstruction,
+              responseMimeType: "application/json",
+              temperature: 0.35,
+              tools: [{ googleSearch: {} }],
             },
-          ],
-          config: {
-            systemInstruction: systemInstruction,
-            responseMimeType: "application/json",
-            temperature: 0.35,
-            tools: [{ googleSearch: {} }],
-          },
-        });
-        if (response?.text) {
-          break;
+          });
+          if (response?.text) break;
+        } catch (searchErr: any) {
+          console.warn(`[server.ts] Search tool failed for ${fallbackModels[i]}:`, searchErr?.message || searchErr);
+          searchToolFailed = true;
         }
-      } catch (apiError: any) {
-        handleGeminiError(apiError);
+      }
+
+      // Try pure Gemini generation without search tool
+      if (!response) {
+        try {
+          response = await ai.models.generateContent({
+            model: fallbackModels[i],
+            contents: [
+              {
+                role: "user",
+                parts: [
+                  {
+                    text: `قم بإجراء التقييم والتحليل الشامل للمؤسسة واستبصار توجهات الأسواق العالمية والبيانات التالية:\n\n### الذاكرات والأحداث المؤسسية المسجلة:\n${memoriesSummary}\n\n### التنبيهات والمخاطر النشطة:\n${activeRisksSummary}\n\n### المستندات والكتب المؤسسية:\n${filesSummary}`,
+                  },
+                ],
+              },
+            ],
+            config: {
+              systemInstruction: systemInstruction,
+              responseMimeType: "application/json",
+              temperature: 0.35,
+            },
+          });
+          if (response?.text) break;
+        } catch (apiError: any) {
+          console.warn(`[server.ts] Pure call failed for ${fallbackModels[i]}:`, apiError?.message || apiError);
+          handleGeminiError(apiError);
+        }
       }
     }
 
@@ -18582,20 +19754,21 @@ const handleSmartEvolution = async (
   }
 };
 
-app.get("/api/smart-evolution/latest", handleGetLatestSmartEvolution);
-app.post("/api/smart-evolution", handleRunSmartEvolution);
-app.post("/api/smart-evolution/run", handleRunSmartEvolution);
-app.post("/api/ai/smart-evolution", handleRunSmartEvolution);
+app.get("/api/smart-evolution/latest", requireAuth, requireEntitlement, handleGetLatestSmartEvolution);
+app.post("/api/smart-evolution", requireAuth, requireEntitlement, handleRunSmartEvolution);
+app.post("/api/smart-evolution/run", requireAuth, requireEntitlement, handleRunSmartEvolution);
+app.post("/api/ai/smart-evolution", requireAuth, requireEntitlement, handleRunSmartEvolution);
 
 // --- MARKET INTELLIGENCE ENDPOINTS (DYNAMIC ANALYTICAL ENGINE) ---
-app.get("/api/market-intelligence/latest", handleGetLatestMarketIntelligence);
-app.get("/api/market-intelligence/history", handleGetMarketIntelligenceHistory);
-app.post("/api/market-intelligence/run", handleRunMarketIntelligence);
-app.post("/api/market-intelligence", handleRunMarketIntelligence);
-app.post("/api/ai/market-intelligence", handleRunMarketIntelligence);
+app.get("/api/market-intelligence/latest", requireAuth, requireEntitlement, handleGetLatestMarketIntelligence);
+app.get("/api/market-intelligence/history", requireAuth, requireEntitlement, handleGetMarketIntelligenceHistory);
+app.post("/api/market-intelligence/run", requireAuth, requireEntitlement, handleRunMarketIntelligence);
+app.post("/api/market-intelligence/diagnose-item", requireAuth, requireEntitlement, handleDiagnoseMarketItem);
+app.post("/api/market-intelligence", requireAuth, requireEntitlement, handleRunMarketIntelligence);
+app.post("/api/ai/market-intelligence", requireAuth, requireEntitlement, handleRunMarketIntelligence);
 
 // --- AI AGENT CHAT ENDPOINT ---
-app.post("/api/agent/chat", handleAgentChat);
+app.post("/api/agent/chat", requireAuth, requireEntitlement, handleAgentChat);
 
 // --- RENDER.COM SERVICES PROXY ENDPOINT ---
 app.post("/api/render/services", async (req, res) => {

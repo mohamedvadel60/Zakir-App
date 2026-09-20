@@ -14,6 +14,7 @@ import type {
   MarketCompetitorProfile,
   CountryComparisonDimension,
   MarketStrategicAction,
+  MarketDiagnosableItem,
 } from "../types.js";
 
 // --- LOCK FOR CONCURRENT RUNTIME CALLS ---
@@ -611,6 +612,183 @@ export function generateDynamicMarketSynthesis(params: {
     );
   }
 
+  // Construct dynamic diagnosable items (variable count based on sector, query & country)
+  const diagnosableItems: MarketDiagnosableItem[] = [];
+
+  if (isFinance) {
+    diagnosableItems.push(
+      {
+        id: "diag_fin_1",
+        title: isAr ? "كفاية السيولة وضوابط الاحتياطي النقدي لدى البنك المركزي" : "Central Bank Reserve Requirements & FX Liquidity Controls",
+        category: isAr ? "السياسة النقدية والأنظمة" : "Monetary Policy & Regulations",
+        type: "market_axis",
+        summary: isAr
+          ? `تقييم قدرة المؤسسة على تغطية التزامات الصرف بالعملات الأجنبية وامتثالها لمنشورات ${cData.centralBank}.`
+          : `Assessment of foreign exchange liquidity coverage and statutory compliance under ${cData.centralBank} directives.`,
+        severityOrImpact: "Critical",
+      },
+      {
+        id: "diag_fin_2",
+        title: isAr ? "مخاطر تذبذب سعر الصرف والهيكل التمويلي للعملة المحلية" : "Local Currency Volatility & FX Hedging Structures",
+        category: isAr ? "المخاطر المالية والتسعير" : "Financial Risk & Pricing",
+        type: "risk_chart",
+        summary: isAr
+          ? `تحليل انعكاس تقلبات ${cData.currency} على تكلفة التمويل وبنود الموازنة التشغيلية.`
+          : `Impact analysis of ${cData.currency} exchange rate shifts on debt servicing and operating margins.`,
+        severityOrImpact: "High",
+      },
+      {
+        id: "diag_fin_3",
+        title: isAr ? "منافسة الخدمات المصرفية الرقمية وتطبيقات المحافظ المحمولة" : "Digital Banking & Mobile Wallet Disruption",
+        category: isAr ? "التنافسية والتكنولوجيا" : "Competition & Tech",
+        type: "competitive_gap",
+        summary: isAr
+          ? "رصد التوجه نحو المحافظ الرقمية وبوابات الدفع وشروط الشمول المالي للشركات والأفراد."
+          : "Benchmarking mobile payment switch adoption and digital onboarding friction.",
+        severityOrImpact: "Strategic",
+      },
+      {
+        id: "diag_fin_4",
+        title: isAr ? "مخاطر الائتمان والتعثر في محفظة المؤسسات الصغيرة والمتوسطة (SMEs)" : "SME Portfolio Credit Risk & Default Exposure",
+        category: isAr ? "إدارة الائتمان والمخاطر" : "Credit & Risk Management",
+        type: "scenario",
+        summary: isAr
+          ? "قياس تأثير التضخم وارتفاع الفائدة على قدرة المقترضين والعملاء على السداد."
+          : "Stress-testing borrower solvency amidst inflationary pressures and interest rate shifts.",
+        severityOrImpact: "High",
+      },
+      {
+        id: "diag_fin_5",
+        title: isAr ? "الامتثال للحوكمة المالية والمعاملات عابرة الحدود (AML/CFT)" : "Cross-Border AML/CFT Governance & Wire Compliance",
+        category: isAr ? "الامتثال والحوكمة" : "Compliance & Governance",
+        type: "market_axis",
+        summary: isAr
+          ? "تدقيق إجراءات اعرف عميلك (KYC) وسجلات التحويلات البنكية العابرة للحدود لتفادي حظر المعاملات."
+          : "Audit of cross-border wire documentation and correspondent bank compliance protocols.",
+        severityOrImpact: "Critical",
+      }
+    );
+  } else if (isLogistics || isTrade) {
+    diagnosableItems.push(
+      {
+        id: "diag_log_1",
+        title: isAr ? "اختناقات الموانئ والمنافذ الجمركية ورسوم التأخير (Demurrage)" : "Port Bottlenecks, Demurrage & Customs Clearance Delays",
+        category: isAr ? "سلاسل الإمداد واللوجستيات" : "Supply Chain & Logistics",
+        type: "risk_chart",
+        summary: isAr
+          ? `تشخيص أسباب تأخر الإفراج الجمركي في ${cData.logisticsHubs[0] || "الموانئ الرئيسية"} وسبل تفادي الغرامات.`
+          : `Diagnostics of dwell times and customs clearance delays at key hubs including ${cData.logisticsHubs[0] || "main ports"}.`,
+        severityOrImpact: "Critical",
+      },
+      {
+        id: "diag_log_2",
+        title: isAr ? "تقلبات تكلفة الشحن البحري والوقود على هوامش الربح" : "Freight Rate Volatility & Fuel Cost Absorption",
+        category: isAr ? "التكاليف والهوامش" : "Cost & Margin Control",
+        type: "market_axis",
+        summary: isAr
+          ? "تحليل تأثير ارتفاع أسعار الشحن ومسارات النقل الدولي على الأسعار النهائية للسلع."
+          : "Evaluating ocean and overland freight surcharge exposure against contract pricing.",
+        severityOrImpact: "High",
+      },
+      {
+        id: "diag_log_3",
+        title: isAr ? "التوطين البنكي وشروط التخليص الجمركي للواردات" : "Import Bank Domicilation & Regulatory Clearance Mandates",
+        category: isAr ? "التجارة والأنظمة الجمركية" : "Trade & Customs Policy",
+        type: "market_axis",
+        summary: isAr
+          ? "فحص متطلبات التوطين البنكي المسبق وتراخيص الاستيراد لدى الهيئات الجمركية والتنفيذية."
+          : "Verification of mandatory import domicilation rules and regulatory import authorizations.",
+        severityOrImpact: "Critical",
+      },
+      {
+        id: "diag_log_4",
+        title: isAr ? "البنية التحتية للمستودعات ومستودعات المناطق الحرة (Bonded Depots)" : "Bonded Warehousing & Cold Chain Infrastructure",
+        category: isAr ? "التخزين والمستودعات" : "Storage & Logistics Infrastructure",
+        type: "opportunity_corridor",
+        summary: isAr
+          ? "استكشاف فرص تأجيل دفع الرسوم الجمركية والتخزين المبرد للشحنات الحساسة."
+          : "Feasibility of duty-deferred bonded depots and cold-chain capacity expansion.",
+        severityOrImpact: "Strategic",
+      },
+      {
+        id: "diag_log_5",
+        title: isAr ? "شروط القوة القاهرة وسلاسل النقل العابرة للحدود" : "Cross-Border Corridor Security & Force Majeure Risk",
+        category: isAr ? "إدارة المخاطر والعبور" : "Corridor Risk & Transit",
+        type: "scenario",
+        summary: isAr
+          ? "تقييم مخاطر النقل البري عبر المعابر الحدودية وتأمين شروط الاستمرارية في العقود."
+          : "Corridor security risk modeling and contractual continuity clauses for overland transit.",
+        severityOrImpact: "High",
+      },
+      {
+        id: "diag_log_6",
+        title: isAr ? "التكامل التقني وأنظمة التتبع اللحظي للشحنات (GPS & IoT)" : "GPS/IoT Real-Time Tracking Integration",
+        category: isAr ? "التكنولوجيا والعمليات" : "Tech & Operations",
+        type: "competitive_gap",
+        summary: isAr
+          ? "قياس الفجوة بين الشفافية الرقمية المطلوبة من العملاء والإمكانيات اللوجستية الحالية."
+          : "Benchmarking digital shipment visibility against enterprise customer SLA expectations.",
+        severityOrImpact: "Moderate",
+      }
+    );
+  } else {
+    diagnosableItems.push(
+      {
+        id: "diag_gen_1",
+        title: isAr ? "توازن العرض والطلب والتموضع السعري في القطاع" : "Sector Supply-Demand Balance & Price Positioning",
+        category: isAr ? "تحليل السوق والطلب" : "Market Analysis & Demand",
+        type: "market_axis",
+        summary: isAr
+          ? `تقييم حجم الطلب الحقيقي في قطاع ${industry} ودوافع القوة الشرائية لدى العملاء.`
+          : `Evaluating true effective demand in ${industry} and customer purchasing elasticity.`,
+        severityOrImpact: "High",
+      },
+      {
+        id: "diag_gen_2",
+        title: isAr ? "البيئة التشريعية والتراخيص الحكومية المحددة للنشاط" : "Regulatory Framework & Municipal Licensing Mandates",
+        category: isAr ? "الأنظمة والامتثال" : "Regulations & Compliance",
+        type: "market_axis",
+        summary: isAr
+          ? `تشخيص الشروط القوانين والجهات الرقابية التي تحكم مزاولة النشاط في ${countryList.join(" / ")}.`
+          : `Mapping statutory requirements and licensing constraints across ${countryList.join(" / ")}.`,
+        severityOrImpact: "Critical",
+      },
+      {
+        id: "diag_gen_3",
+        title: isAr ? "مخاطر تآكل الهوامش التشغيلية وتكاليف المدخلات" : "Operational Margin Compression & Input Inflation",
+        category: isAr ? "المخاطر التشغيلية" : "Operational Risk",
+        type: "risk_chart",
+        summary: isAr
+          ? "تحليل الضغوط الناتجة عن التضخم وارتفاع الأجور وتكلفة الخدمات اللوجستية."
+          : "Analyzing input cost pressures, wage inflation, and operational overheads.",
+        severityOrImpact: "High",
+      },
+      {
+        id: "diag_gen_4",
+        title: isAr ? "الفجوات التنافسية مع المنافسين المحليين والإقليميين" : "Addressable Competitive Voids vs Market Incumbents",
+        category: isAr ? "المنافسة والتموضع" : "Competition & Strategy",
+        type: "competitive_gap",
+        summary: isAr
+          ? "تحديد الفجوات في جودة الخدمة أو سرعة التنفيذ التي يمكن اقتناصها."
+          : "Identifying unserved market niches and service quality gaps among established players.",
+        severityOrImpact: "Strategic",
+      }
+    );
+  }
+
+  if (internalEvidence.length > 0) {
+    diagnosableItems.push({
+      id: "diag_ev_1",
+      title: isAr ? `مطابقة السجلات الداخلية: ${internalEvidence[0].title}` : `Workspace Log Correlation: ${internalEvidence[0].title}`,
+      category: isAr ? "الذاكرة المؤسسية" : "Institutional Memory",
+      type: "scenario",
+      summary: isAr
+        ? `ربط القرارات التاريخية وسجلات مساحة العمل بتشخيص مخاطر هذا الاستفسار (${internalEvidence[0].detail}).`
+        : `Correlating past organizational outcomes with present market dynamics (${internalEvidence[0].detail}).`,
+      severityOrImpact: "Critical",
+    });
+  }
+
   // Multi-country comparison dimensions if comparative
   const countryComparisons: CountryComparisonDimension[] = [];
   if (countryList.length > 1 || classification.intent === "COMPARATIVE") {
@@ -791,6 +969,7 @@ export function generateDynamicMarketSynthesis(params: {
     strategicOptions: dynamicStrategicOptions,
     recommendations: dynamicActions.map((a) => `${a.title}: ${a.description}`),
     recommendedActions: dynamicActions,
+    diagnosableItems,
     internalEvidence: internalEvidence.length > 0 ? internalEvidence : undefined,
     externalEvidence: externalEvidence.length > 0 ? externalEvidence : undefined,
     externalSources: externalSources.length > 0 ? externalSources : undefined,
@@ -871,7 +1050,8 @@ ${internalEvidenceSummary || "لا توجد سجلات داخلية مسجلة �
 3. ممنوع اختلاق منافسين وهميين. إذا لم توجد أسماء مؤكدة، اذكر ذلك صراحة.
 4. أنتج عدداً متغيراً وديناميكياً من المخاطر والفرص والاتجاهات (ليس 3 أو 4 بالضرورة؛ بل حسب كفاية الأدلة).
 5. افصل بدقة بين الأدلة الداخلية للمؤسسة والأدلة الخارجية.
-6. يجب أن تكون المخرجات كائن JSON صالح فقط بالشكل التالي دون أي كود Markdown خارجي:
+8. أنشئ عدداً متغيراً وديناميكياً من المحاور والمخططات والسيناريوهات القابلة للتشخيص التفصيلي (diagnosableItems). يجب ألا يقتصر العدد أبداً على 4 عناصر (يمكن أن يكون 2 أو 3 أو 5 أو 8 أو 12 حسب ثراء الموضوع والأدلة).
+9. يجب أن تكون المخرجات كائن JSON صالح فقط بالشكل التالي دون أي كود Markdown خارجي:
 {
   "summary": "ملخص تنفيذي عميق واستراتيجي يوضح وضع السوق والاتجاهات والدوافع والقرارات المطلوبة",
   "marketOverview": "نظرة عامة على حجم وسياق السوق في الدول المحددة",
@@ -911,33 +1091,69 @@ ${internalEvidenceSummary || "لا توجد سجلات داخلية مسجلة �
   "recommendedActions": [
     { "title": "عنوان الإجراء", "description": "تفصيل الخطوة", "priority": "Critical", "expectedImpact": "High", "timeframe": "مدة التنفيذ" }
   ],
+  "diagnosableItems": [
+    {
+      "id": "diag_1",
+      "title": "عنوان المحور أو المخطط أو السيناريو التنافسي",
+      "category": "تصنيف المحور (مثل: سلاسل الإمداد، الأنظمة، التسعير، المنافسة)",
+      "type": "market_axis",
+      "summary": "ملخص واقع هذا المحور في السوق المحدد بناءً على السؤال والبيانات",
+      "severityOrImpact": "Critical"
+    }
+  ],
   "confidenceScore": 85,
   "uncertaintyNotes": ["نقطة عدم يقين أو جانب يحتاج تحقق ميداني إضافي"]
 }
   `;
 
-  const candidateModels = ["gemini-3.8-flash", "gemini-3.1-flash-lite"];
+  const candidateModels = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-flash-latest"];
+  let searchToolFailed = false;
 
   for (const modelName of candidateModels) {
     if (isGeminiInCooldown()) break;
-    try {
-      const configObj: any = {
-        temperature: 0.3,
-        responseMimeType: "application/json",
-      };
+    let response: any = null;
 
-      // Real Search Grounding
-      if (classification.needsExternalSearch) {
-        configObj.tools = [{ googleSearch: {} }];
+    // Real Search Grounding attempt
+    if (classification.needsExternalSearch && !searchToolFailed) {
+      try {
+        const configObjWithSearch: any = {
+          temperature: 0.3,
+          responseMimeType: "application/json",
+          tools: [{ googleSearch: {} }],
+        };
+
+        response = await client.models.generateContent({
+          model: modelName,
+          contents: [{ role: "user", parts: [{ text: prompt }] }],
+          config: configObjWithSearch,
+        });
+      } catch (searchErr: any) {
+        console.warn(`[MarketIntelligence] Search tool failed for model ${modelName}:`, searchErr?.message || searchErr);
+        searchToolFailed = true;
       }
+    }
 
-      const response = await client.models.generateContent({
-        model: modelName,
-        contents: [{ role: "user", parts: [{ text: prompt }] }],
-        config: configObj,
-      });
+    // Pure Gemini attempt if search was not requested or search tool failed
+    if (!response) {
+      try {
+        const configObjPure: any = {
+          temperature: 0.3,
+          responseMimeType: "application/json",
+        };
 
-      if (response && response.text) {
+        response = await client.models.generateContent({
+          model: modelName,
+          contents: [{ role: "user", parts: [{ text: prompt }] }],
+          config: configObjPure,
+        });
+      } catch (pureErr: any) {
+        console.warn(`[MarketIntelligence] Pure Gemini call failed for model ${modelName}:`, pureErr?.message || pureErr);
+        handleGeminiError(pureErr);
+        continue;
+      }
+    }
+
+    if (response && response.text) {
         const cleanText = response.text
           .replace(/```json/g, "")
           .replace(/```/g, "")
@@ -1007,23 +1223,28 @@ ${internalEvidenceSummary || "لا توجد سجلات داخلية مسجلة �
             strategicOptions: Array.isArray(parsed.strategicOptions) ? parsed.strategicOptions : [],
             recommendations: Array.isArray(parsed.recommendations) ? parsed.recommendations : [],
             recommendedActions: Array.isArray(parsed.recommendedActions) ? parsed.recommendedActions : [],
+            diagnosableItems: Array.isArray(parsed.diagnosableItems) && parsed.diagnosableItems.length > 0
+              ? parsed.diagnosableItems.map((di: any, idx: number) => ({
+                  id: di.id ? `${analysisId}_${di.id}` : `${analysisId}_diag_ai_${idx + 1}`,
+                  title: di.title || `محور تشخيصي ${idx + 1}`,
+                  category: di.category || "تحليل استراتيجي",
+                  type: di.type || "market_axis",
+                  summary: di.summary || di.description || "",
+                  severityOrImpact: di.severityOrImpact || "High",
+                }))
+              : undefined,
             internalEvidence: internalEvidence.length > 0 ? internalEvidence : undefined,
             externalEvidence: externalEvidence.length > 0 ? externalEvidence : undefined,
             externalSources: externalSources.length > 0 ? externalSources : undefined,
-            externalSearchStatus: externalSources.length > 0 ? "COMPLETED" : "NOT_NEEDED",
+            externalSearchStatus: externalSources.length > 0 ? "COMPLETED" : searchToolFailed ? "BLOCKED_BY_QUOTA" : "NOT_NEEDED",
             confidenceScore: parsed.confidenceScore || (externalSources.length > 0 ? 88 : 80),
-            uncertaintyNotes: Array.isArray(parsed.uncertaintyNotes) ? parsed.uncertaintyNotes : [],
+            uncertaintyNotes: [
+              ...(Array.isArray(parsed.uncertaintyNotes) ? parsed.uncertaintyNotes : []),
+              ...(searchToolFailed ? ["تعذّر جلب نتائج البحث الخارجي اللحظي بسبب قيود الحصة (Search Quota)، لكن التحليل الاستراتيجي تم بناؤه بنجاح بواسطة نموذج الذكاء الاصطناعي."] : [])
+            ],
           };
         }
       }
-    } catch (err: any) {
-      handleGeminiError(err);
-      console.warn(`[MarketIntelligenceService] Model ${modelName} error:`, err?.message || err);
-      // Check if search grounding was the cause of quota exhaustion
-      if (err?.status === 429 || err?.message?.includes("429") || err?.message?.includes("quota")) {
-        break;
-      }
-    }
   }
 
   return null;
@@ -1204,4 +1425,164 @@ export const handleRunMarketIntelligence = async (req: Request, res: Response) =
   } finally {
     runningMarketIntelligenceLocks.delete(lockKey);
   }
+};
+
+// 4. POST /api/market-intelligence/diagnose-item (INDEPENDENT ITEM DEEP DIVE DIAGNOSIS)
+export const handleDiagnoseMarketItem = async (req: Request, res: Response) => {
+  const {
+    item,
+    topic = "",
+    industry = "Financial Services",
+    countries = [],
+    lang = "ar",
+    workspaceId = "default",
+    userId = "usr_anon",
+  } = req.body;
+
+  if (!item || (!item.title && !item.summary)) {
+    return res.status(400).json({
+      error: lang === "ar" ? "بيانات المحور المراد تشخيصه مفقودة." : "Market axis data to diagnose is required.",
+    });
+  }
+
+  const isAr = lang === "ar";
+  const itemTitle = String(item.title || item.summary || (isAr ? "محور سوقي غير معنون" : "Untitled Market Axis")).trim();
+  const itemCategory = String(item.category || (isAr ? "تحليل استراتيجي" : "Strategic Analysis")).trim();
+  const itemSummary = String(item.summary || "").trim();
+  const itemType = String(item.type || "market_axis").trim();
+
+  const parsedCountries = Array.isArray(countries) ? countries.map((c: any) => String(c).trim()).filter(Boolean) : [];
+  const countryStr = parsedCountries.length > 0 ? parsedCountries.join(", ") : (isAr ? "النطاق الإقليمي المحدد" : "Selected Regional Scope");
+
+  const db = readDb();
+  const memories = req.body.memories || db.memories || [];
+  const riskAlerts = req.body.riskAlerts || db.risk_alerts || [];
+  const files = req.body.files || [];
+
+  const internalEvidence = extractWorkspaceEvidence(memories, riskAlerts, files, topic, industry, parsedCountries);
+  const internalSummary = internalEvidence.map((e, idx) => `[شاهد داخلي ${idx + 1}]: ${e.title} - ${e.detail}`).join("\n");
+
+  const sanitizeText = (txt: string) => {
+    if (!txt) return "";
+    return txt
+      .replace(/[\*\#\`\_]/g, "") // Strip raw markdown symbols
+      .replace(/[\{\}\[\]]/g, "") // Strip stray json brackets
+      .replace(/^[\-\•\–\—\>]\s*/gm, "") // Strip leading bullet dashes
+      .trim();
+  };
+
+  const client = getGeminiClient();
+
+  if (client && !isGeminiInCooldown()) {
+    const prompt = `
+أنت محرك التشخيص الجيواقتصادي المتقدم لمنصة "ذاكر" (Zakir AI Diagnosis Engine).
+مهمتك إجراء تشخيص عميق ومستقل ومباشر لهذا المحور أو المخطط المحدد حصراً:
+
+[المحور المراد تشخيصه بالكامل]:
+- عنوان المحور: "${itemTitle}"
+- التصنيف: "${itemCategory}"
+- نوع العنصر: "${itemType}"
+- ملخص المحور: "${itemSummary}"
+- مستوى الأهمية: "${item.severityOrImpact || "مرتفع"}"
+
+[سياق الاستفسار والسوق الأصلي]:
+- السؤال / موضوع البحث الرئيسي: "${topic}"
+- القطاع / الصناعة: "${industry}"
+- الدول / النطاق الجغرافي: "${countryStr}"
+
+[الأدلة الداخلية والذاكرة المؤسسية المتاحة]:
+${internalSummary || "لا توجد سجلات داخلية مسجلة مسبقاً لهذا المحور."}
+
+[شروط المخرجات الحازمة - يرجى الالتزام الكامل]:
+1. يجب أن يكون التشخيص مخصصاً بالكامل وبشكل صريح لـ "${itemTitle}". لا تقدم إجابات عامة أو مكررة إطلاقاً.
+2. ممنوع منعاً باتاً استخدام رموز التنسيق التقنية مثل النجوم (* أو **) أو الماركدون الخام أو Emojis أو الأقواس الزائدة. قدم نصاً ناصعاً بأسلوب تنفيذي رفيع.
+3. المخرجات يجب أن تكون كائن JSON صالح حصراً بالشكل التالي دون أي كود خارجي:
+{
+  "diagnosedAt": "${new Date().toISOString()}",
+  "itemTitle": "${itemTitle}",
+  "detailedAnalysis": "تحليل تنفيذي عميق ومباشر يوضح حقيقة ومحركات المحور ${itemTitle} في سوق ${countryStr} لقطاع ${industry}، ويربطه بمتطلبات القرار الاستراتيجي.",
+  "causalFactors": [
+    "عامل سببي حقيقي ومحدد ترتب عليه ظهور ${itemTitle}",
+    "عامل سببي ثانٍ مرتبط بالبيئة التنظيمية أو الاقتصادية للقطاع",
+    "عامل سببي ثالث يخص التنافس وسلوك المتعاملين"
+  ],
+  "strategicImplications": [
+    "أثر استراتيجي أو مالي مباشر على المؤسسة عند التعامل مع ${itemTitle}",
+    "أثر ثانٍ على الهوامش التشغيلية والحصة السوقية"
+  ],
+  "actionableMitigations": [
+    "خطوة تنفيذية محددة وعاجلة للتحوط والمعالجة المباشرة لـ ${itemTitle}",
+    "إجراء ثاني لتعديل السياسات الداخلية أو التعاقدية"
+  ],
+  "confidenceScore": 88
+}
+`;
+
+    // Valid Gemini models
+    const candidateModels = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-flash-latest"];
+
+    for (const modelName of candidateModels) {
+      if (isGeminiInCooldown()) break;
+      try {
+        const response: any = await client.models.generateContent({
+          model: modelName,
+          contents: [{ role: "user", parts: [{ text: prompt }] }],
+          config: {
+            temperature: 0.25,
+            responseMimeType: "application/json",
+          },
+        });
+
+        if (response && response.text) {
+          const cleanText = response.text.replace(/```json/g, "").replace(/```/g, "").trim();
+          const parsed = JSON.parse(cleanText);
+          if (parsed && (parsed.detailedAnalysis || (Array.isArray(parsed.causalFactors) && parsed.causalFactors.length > 0))) {
+            return res.json({
+              success: true,
+              diagnosisResult: {
+                diagnosedAt: parsed.diagnosedAt || new Date().toISOString(),
+                itemTitle,
+                detailedAnalysis: sanitizeText(parsed.detailedAnalysis || ""),
+                causalFactors: Array.isArray(parsed.causalFactors) ? parsed.causalFactors.map((s: string) => sanitizeText(s)).filter(Boolean) : [],
+                strategicImplications: Array.isArray(parsed.strategicImplications) ? parsed.strategicImplications.map((s: string) => sanitizeText(s)).filter(Boolean) : [],
+                actionableMitigations: Array.isArray(parsed.actionableMitigations) ? parsed.actionableMitigations.map((s: string) => sanitizeText(s)).filter(Boolean) : [],
+                confidenceScore: typeof parsed.confidenceScore === "number" ? parsed.confidenceScore : 88,
+              },
+            });
+          }
+        }
+      } catch (err: any) {
+        console.warn(`[MarketIntelligenceDiagnosis] Call failed for model ${modelName}:`, err?.message || err);
+        handleGeminiError(err);
+      }
+    }
+  }
+
+  // Bespoke Fallback Generator tailored specifically to itemTitle, category, summary, industry & countryStr
+  const diagnosisResult = {
+    diagnosedAt: new Date().toISOString(),
+    itemTitle,
+    detailedAnalysis: isAr
+      ? `تشخيص تنفيذي مباشر لمحور "${itemTitle}" (${itemCategory}) في سوق ${countryStr} لقطاع ${industry}: يظهر التحليل الجيواقتصادي أن هذا المحور يشكل نقطة ارتكاز حيوية تتطلب معالجة مستهدفة. ترتبط أبعاد هذا المحور بـ ${itemSummary || "المتغيرات التشغيلية والتنافسية في السوق المحلي"}.`
+      : `Executive diagnosis for "${itemTitle}" (${itemCategory}) in ${countryStr} (${industry}): Geoeconomic evidence indicates this dimension constitutes a critical operational vector requiring targeted intervention. Key dynamics relate to ${itemSummary || "local market operational and competitive shifts"}.`,
+    causalFactors: [
+      isAr ? `المحددات التشريعية والاشتراطات التنظيمية الصادرة عن الهيئات المباشرة في ${countryStr} والمتعلقة بـ ${itemTitle}.` : `Regulatory constraints and compliance mandates enforced by authorities in ${countryStr} regarding ${itemTitle}.`,
+      isAr ? `التغيرات الهيكلية في تكلفة المدخلات وسلاسل القيمة الخاصة بقطاع ${industry}.` : `Structural input cost shifts and value-chain friction within ${industry}.`,
+      isAr ? `الفجوة التنافسية الناتجة عن تفاوت جاهزية المنافسين المحليين والإقليميين.` : `Competitive capability gaps between local incumbents and regional entrants.`,
+    ],
+    strategicImplications: [
+      isAr ? `احتمالية انكشاف الهوامش الربحية إذا لم يتم تعديل نموذج التسعير والتعاقد ليراعي ${itemTitle}.` : `Margin erosion risk unless pricing models and contract terms adapt to ${itemTitle}.`,
+      isAr ? `تأثير مباشر على زمن الدورة التشغيلية ومستويات الجودة والتسليم للعملاء النهائيين.` : `Direct throughput lead-time and service delivery impacts for enterprise clients.`,
+    ],
+    actionableMitigations: [
+      isAr ? `تأطير خطة تحوط عاجلة لـ "${itemTitle}" وإسناد تنفيذها لمسؤول المخاطر والعمليات.` : `Formulate an emergency response roadmap for "${itemTitle}" assigned to operations leadership.`,
+      isAr ? `تحديث مصفوفة الحوكمة والمواصفات المعتمدة في سجلات مساحة العمل لتفادي التكاليف غير المخططة.` : `Update governance matrices and standard operating procedures in Zakir workspace logs.`,
+    ],
+    confidenceScore: 84,
+  };
+
+  return res.json({
+    success: true,
+    diagnosisResult,
+  });
 };

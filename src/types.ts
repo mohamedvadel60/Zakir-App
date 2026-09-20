@@ -48,7 +48,42 @@ export interface WorkspaceInfo {
   memberCount: number;
 }
 
-export type SubscriptionStatus = "Free Tier" | "Inactive" | "Active" | "Paused" | "Premium" | "Pending Selection";
+export type SubscriptionStatus = "Free Tier" | "Inactive" | "Active" | "Paused" | "Premium" | "Pending Selection" | "Trial" | "Expired" | "Canceled";
+
+export type AccountStatus = 
+  | "PENDING_EMAIL_VERIFICATION" 
+  | "PENDING_INSTITUTIONAL_DATA" 
+  | "PENDING_ADMIN_REVIEW" 
+  | "APPROVED" 
+  | "ACTIVE" 
+  | "REJECTED" 
+  | "SUSPENDED";
+
+export interface InstitutionalProfile {
+  fullName: string;
+  phone: string;
+  jobTitle: string;
+  companyName: string;
+  sector: string;
+  country: string;
+  companySize: string;
+  intendedUse: string;
+  submittedAt: string;
+  additionalNotes?: string;
+}
+
+export interface AdminEntitlementAuditLog {
+  id: string;
+  timestamp: string;
+  adminId: string;
+  adminEmail: string;
+  targetUserId: string;
+  targetUserEmail: string;
+  action: "APPROVE_ACCOUNT" | "REJECT_ACCOUNT" | "EXTEND_TRIAL" | "CHANGE_PLAN" | "OVERRIDE_ENTITLEMENT" | "SYNC_SUBSCRIPTION";
+  details: string;
+  previousState?: any;
+  newState?: any;
+}
 
 export type VerificationStatus = "unverified" | "under_review" | "verified" | "action_required";
 
@@ -187,6 +222,15 @@ export interface User {
   };
   role: UserRole;
   powers?: ModulePermissions;
+  accountStatus?: AccountStatus;
+  institutionalProfile?: InstitutionalProfile;
+  approvedAt?: string;
+  approvedBy?: string;
+  trialStartedAt?: string;
+  trialEndsAt?: string;
+  trialDurationHours?: number;
+  rejectionReason?: string;
+  rejectionDate?: string;
   createdAt: string;
   trialExpiresAt: string;
   teamMembersList?: TeamMember[];
@@ -388,6 +432,25 @@ export interface MarketStrategicAction {
   governanceLink?: string;
 }
 
+export interface MarketDiagnosableItem {
+  id: string;
+  title: string;
+  category?: string;
+  type?: "market_axis" | "scenario" | "risk_chart" | "competitive_gap" | "opportunity_corridor";
+  summary: string;
+  severityOrImpact?: "Critical" | "High" | "Moderate" | "Strategic";
+  keyMetrics?: Array<{ label: string; value: string }>;
+  diagnosisResult?: {
+    diagnosedAt: string;
+    itemTitle?: string;
+    detailedAnalysis: string;
+    causalFactors?: string[];
+    strategicImplications?: string[];
+    actionableMitigations?: string[];
+    confidenceScore?: number;
+  };
+}
+
 export interface MarketIntelligenceData {
   analysisId?: string;
   workspaceId?: string;
@@ -429,6 +492,7 @@ export interface MarketIntelligenceData {
   strategicOptions?: string[];
   recommendations: string[];
   recommendedActions?: MarketStrategicAction[];
+  diagnosableItems?: MarketDiagnosableItem[];
   internalEvidence?: MarketEvidenceItem[];
   externalEvidence?: MarketEvidenceItem[];
   externalSources?: Array<{ title: string; url: string; snippet?: string }>;

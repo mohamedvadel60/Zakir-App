@@ -135,6 +135,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   // Main Admin Tab state
   const [activeAdminTab, setActiveAdminTab] = useState<
     | "overview"
+    | "approvals"
     | "users"
     | "workspaces"
     | "support"
@@ -148,6 +149,36 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     | "security"
     | "audit"
   >("overview");
+
+  // Account Approvals & Subscriptions state
+  const [pendingApprovals, setPendingApprovals] = useState<any[]>([]);
+  const [pendingApprovalsCount, setPendingApprovalsCount] = useState<number>(0);
+  const [loadingApprovals, setLoadingApprovals] = useState<boolean>(false);
+  const [subscriptionOverview, setSubscriptionOverview] = useState<any[]>([]);
+  const [subscriptionStats, setSubscriptionStats] = useState<any>(null);
+  const [entitlementAuditLogs, setEntitlementAuditLogs] = useState<any[]>([]);
+  const [subscriptionCorrections, setSubscriptionCorrections] = useState<any[]>([]);
+  const [pendingCorrectionsCount, setPendingCorrectionsCount] = useState<number>(0);
+  const [approvalsSubTab, setApprovalsSubTab] = useState<"pending" | "subscriptions" | "corrections" | "audit">("pending");
+  const [approvalsActionLoading, setApprovalsActionLoading] = useState<string | null>(null);
+  const [approvalsSearch, setApprovalsSearch] = useState<string>("");
+  const [approvalsPlanFilter, setApprovalsPlanFilter] = useState<string>("ALL");
+  const [approvalsStatusFilter, setApprovalsStatusFilter] = useState<string>("ALL");
+
+  // Approval Modals state
+  const [rejectModalUser, setRejectModalUser] = useState<any | null>(null);
+  const [rejectReasonInput, setRejectReasonInput] = useState<string>("");
+  const [planModalUser, setPlanModalUser] = useState<any | null>(null);
+  const [selectedPlanInput, setSelectedPlanInput] = useState<string>("Professional");
+  const [customTrialHoursInput, setCustomTrialHoursInput] = useState<number>(24);
+  const [subscriptionStatusInput, setSubscriptionStatusInput] = useState<string>("Active");
+
+  // Subscription Correction Modal state (Admin)
+  const [selectedCorrection, setSelectedCorrection] = useState<any | null>(null);
+  const [correctionTargetPlan, setCorrectionTargetPlan] = useState<"Starter" | "Professional" | "Enterprise">("Professional");
+  const [correctionReasonInput, setCorrectionReasonInput] = useState<string>("");
+  const [correctionAdminNotesInput, setCorrectionAdminNotesInput] = useState<string>("");
+  const [isResolvingCorrection, setIsResolvingCorrection] = useState<boolean>(false);
 
   // Admin Support Mode State
   const [supportModeTargetUser, setSupportModeTargetUser] = useState<any | null>(null);
@@ -263,6 +294,198 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     }
   };
 
+  const fetchApprovalsData = async () => {
+    setLoadingApprovals(true);
+    try {
+      const token = await getAdminToken();
+      const headers: Record<string, string> = {};
+      if (token) headers["Authorization"] = `Bearer ${token}`;
+
+      const [pendingRes, subRes, auditRes, corrRes] = await Promise.all([
+        fetch("/api/admin/pending-approvals", { headers }).then((r) => r.json()).catch(() => ({ success: false })),
+        fetch("/api/admin/subscription-overview", { headers }).then((r) => r.json()).catch(() => ({ success: false })),
+        fetch("/api/admin/entitlement-audit-logs", { headers }).then((r) => r.json()).catch(() => ({ success: false })),
+        fetch("/api/admin/subscription-correction-requests", { headers }).then((r) => r.json()).catch(() => ({ success: false })),
+      ]);
+
+      if (pendingRes.success) {
+        setPendingApprovals(pendingRes.pendingUsers || []);
+        setPendingApprovalsCount(pendingRes.count || 0);
+      }
+      if (subRes.success) {
+        setSubscriptionOverview(subRes.users || []);
+        setSubscriptionStats(subRes.stats || null);
+      }
+      if (auditRes.success) {
+        setEntitlementAuditLogs(auditRes.logs || []);
+      }
+      if (corrRes.success) {
+        setSubscriptionCorrections(corrRes.requests || []);
+        setPendingCorrectionsCount((corrRes.requests || []).filter((r: any) => r.status === "PENDING").length);
+      }
+    } catch (e) {
+      console.warn("Error fetching approvals data:", e);
+    } finally {
+      setLoadingApprovals(false);
+    }
+  };
+
+  const handleApproveAccount = async (targetUserId: string, assignPlan?: string, customTrialHours?: number, adminNotes?: string) => {
+    setApprovalsActionLoading(targetUserId);
+    try {
+      const token = await getAdminToken();
+      const res = await fetch("/api/admin/approve-account", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ targetUserId, assignPlan, customTrialHours, adminNotes }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setBulkActionFeedback({ type: "success", message: lang === "ar" ? "تم اعتماد الحساب وتفعيل الفترة التجريبية (24 ساعة) بنجاح!" : "Account approved successfully!" });
+        setPlanModalUser(null);
+        await fetchApprovalsData();
+        await loadAdminData();
+      } else {
+        setBulkActionFeedback({ type: "error", message: data.error || (lang === "ar" ? "فشل اعتماد الحساب" : "Failed to approve account") });
+      }
+    } catch (err: any) {
+      setBulkActionFeedback({ type: "error", message: err.message || "Network error" });
+    } finally {
+      setApprovalsActionLoading(null);
+    }
+  };
+
+  const handleRejectAccount = async (targetUserId: string, reason: string) => {
+    setApprovalsActionLoading(targetUserId);
+    try {
+      const token = await getAdminToken();
+      const res = await fetch("/api/admin/reject-account", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ targetUserId, reason }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setBulkActionFeedback({ type: "success", message: lang === "ar" ? "تم رفض الطلب وتحديث حالة الحساب." : "Account registration rejected." });
+        setRejectModalUser(null);
+        setRejectReasonInput("");
+        await fetchApprovalsData();
+        await loadAdminData();
+      } else {
+        setBulkActionFeedback({ type: "error", message: data.error || (lang === "ar" ? "فشل رفض الحساب" : "Failed to reject account") });
+      }
+    } catch (err: any) {
+      setBulkActionFeedback({ type: "error", message: err.message || "Network error" });
+    } finally {
+      setApprovalsActionLoading(null);
+    }
+  };
+
+  const handleExtendTrial = async (targetUserId: string, hours: number) => {
+    setApprovalsActionLoading(targetUserId);
+    try {
+      const token = await getAdminToken();
+      const res = await fetch("/api/admin/extend-trial", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ targetUserId, hours }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setBulkActionFeedback({ type: "success", message: lang === "ar" ? `تم تمديد التجربة بنجاح بمقدار ${hours} ساعة.` : `Trial extended by ${hours} hours successfully.` });
+        await fetchApprovalsData();
+        await loadAdminData();
+      } else {
+        setBulkActionFeedback({ type: "error", message: data.error || (lang === "ar" ? "فشل تمديد التجربة" : "Failed to extend trial") });
+      }
+    } catch (err: any) {
+      setBulkActionFeedback({ type: "error", message: err.message || "Network error" });
+    } finally {
+      setApprovalsActionLoading(null);
+    }
+  };
+
+  const handleUpdateUserPlan = async (targetUserId: string, plan: string, subscriptionStatus?: string) => {
+    setApprovalsActionLoading(targetUserId);
+    try {
+      const token = await getAdminToken();
+      const res = await fetch("/api/admin/update-user-plan", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ targetUserId, plan, subscriptionStatus }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setBulkActionFeedback({ type: "success", message: lang === "ar" ? `تم تحديث الباقة بنجاح إلى: ${plan}` : `Plan updated to ${plan} successfully.` });
+        setPlanModalUser(null);
+        await fetchApprovalsData();
+        await loadAdminData();
+      } else {
+        setBulkActionFeedback({ type: "error", message: data.error || (lang === "ar" ? "فشل تحديث الباقة" : "Failed to update plan") });
+      }
+    } catch (err: any) {
+      setBulkActionFeedback({ type: "error", message: err.message || "Network error" });
+    } finally {
+      setApprovalsActionLoading(null);
+    }
+  };
+
+  const handleResolveCorrectionRequest = async (action: "APPROVE" | "REJECT") => {
+    if (!selectedCorrection) return;
+    setIsResolvingCorrection(true);
+    try {
+      const token = await getAdminToken();
+      const res = await fetch("/api/admin/resolve-subscription-correction", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          requestId: selectedCorrection.requestId || selectedCorrection.id,
+          userId: selectedCorrection.userId,
+          targetPlan: correctionTargetPlan,
+          action,
+          reason: correctionReasonInput,
+          adminNotes: correctionAdminNotesInput,
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setBulkActionFeedback({
+          type: "success",
+          message: lang === "ar" ? data.message : "Subscription correction processed successfully.",
+        });
+        setSelectedCorrection(null);
+        setCorrectionReasonInput("");
+        setCorrectionAdminNotesInput("");
+        await fetchApprovalsData();
+        await loadAdminData();
+      } else {
+        setBulkActionFeedback({
+          type: "error",
+          message: data.error || (lang === "ar" ? "فشل معالجة طلب التصحيح" : "Failed to process correction request"),
+        });
+      }
+    } catch (err: any) {
+      setBulkActionFeedback({ type: "error", message: err.message || "Network error" });
+    } finally {
+      setIsResolvingCorrection(false);
+    }
+  };
+
   // Real-time Listeners for Events, Incidents, and Notifications
   useEffect(() => {
     const unsubEvents = subscribeToPlatformEvents((events) => {
@@ -312,6 +535,16 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       unsubNotifs();
     };
   }, [currentUser]);
+
+  useEffect(() => {
+    fetchApprovalsData();
+  }, []);
+
+  useEffect(() => {
+    if (activeAdminTab === "approvals") {
+      fetchApprovalsData();
+    }
+  }, [activeAdminTab]);
 
   // Timer for active support session duration
   useEffect(() => {
@@ -2519,23 +2752,626 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   </td>
                   <td className="p-4 text-right">
                     <button
-                      onClick={() => handleRetryEmailDelivery(log.id, log.recipient, log.type)}
-                      className="px-2.5 py-1 bg-indigo-500/15 text-indigo-400 border border-indigo-500/30 rounded-lg text-[11px] font-bold hover:bg-indigo-500/25 cursor-pointer whitespace-nowrap"
+                      onClick={() => {
+                        if (log.otpCode || log.recipient) {
+                          navigator.clipboard?.writeText(log.otpCode || log.recipient);
+                        }
+                      }}
+                      className="text-xs text-[#0075DE] hover:underline font-bold cursor-pointer"
                     >
-                      {lang === "ar" ? "إعادة الإرسال" : "Resend Email"}
+                      {lang === "ar" ? "نسخ" : "Copy"}
                     </button>
                   </td>
                 </tr>
-              )) || (
+              ))}
+              {(!operationsData?.emailLogs || operationsData.emailLogs.length === 0) && (
                 <tr>
-                  <td colSpan={6} className="p-8 text-center text-slate-400 italic">
-                    {lang === "ar" ? "لا توجد سجلات بريد إلكتروني نشطة." : "No transactional mail events generated yet."}
+                  <td colSpan={6} className="p-8 text-center text-slate-500 italic">
+                    {lang === "ar" ? "لا توجد سجلات بريد إلكتروني مسجلة حالياً." : "No email logs found."}
                   </td>
                 </tr>
               )}
             </tbody>
           </table>
         </div>
+      </div>
+    );
+  };
+
+  const renderApprovalsAndSubscriptionsSection = () => {
+    const isAr = lang === "ar";
+
+    const filteredSubscriptions = subscriptionOverview.filter((u) => {
+      if (approvalsPlanFilter !== "ALL" && u.plan?.toUpperCase() !== approvalsPlanFilter.toUpperCase()) {
+        return false;
+      }
+      if (approvalsStatusFilter !== "ALL") {
+        if (approvalsStatusFilter === "TRIAL" && u.subscriptionStatus !== "Trial" && !u.isTrial) return false;
+        if (approvalsStatusFilter === "ACTIVE" && u.subscriptionStatus !== "Active") return false;
+        if (approvalsStatusFilter === "EXPIRED" && u.subscriptionStatus !== "Expired" && !u.isTrialExpired) return false;
+      }
+      if (approvalsSearch.trim()) {
+        const q = approvalsSearch.toLowerCase();
+        const matchesEmail = (u.email || "").toLowerCase().includes(q);
+        const matchesName = (u.ownerName || u.fullName || "").toLowerCase().includes(q);
+        const matchesCompany = (u.companyName || "").toLowerCase().includes(q);
+        const matchesWs = (u.workspaceId || "").toLowerCase().includes(q);
+        return matchesEmail || matchesName || matchesCompany || matchesWs;
+      }
+      return true;
+    });
+
+    return (
+      <div className="space-y-6 animate-in fade-in duration-300">
+        {/* Header and Stats */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex flex-col gap-1">
+            <h2 className="text-xl font-bold tracking-tight text-white flex items-center gap-2">
+              <UserCheck className="w-5 h-5 text-amber-400" />
+              <span>{isAr ? "اعتماد الحسابات وإدارة الاشتراكات" : "Account Approvals & Subscriptions"}</span>
+            </h2>
+            <p className="text-xs text-slate-400">
+              {isAr
+                ? "مراجعة واعتماد طلبات المؤسسات الجديدة، التحكم بصلاحيات الدخول وفترة التجربة (24 ساعة)، وإدارة الباقات والاشتراكات."
+                : "Review and approve new institutional registrations, control 24h trial access, and manage user subscription tiers."}
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              onClick={fetchApprovalsData}
+              disabled={loadingApprovals}
+              className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer disabled:opacity-50"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${loadingApprovals ? "animate-spin text-amber-400" : ""}`} />
+              <span>{isAr ? "تحديث البيانات" : "Refresh"}</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Stats Row */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <div className={`p-4 rounded-xl border ${theme === "dark" ? "bg-slate-900/70 border-slate-800" : "bg-white border-slate-200 shadow-sm"}`}>
+            <div className="flex items-center justify-between text-xs text-slate-400 mb-1">
+              <span>{isAr ? "طلبات معلقة" : "Pending Approvals"}</span>
+              <Clock className="w-4 h-4 text-amber-400" />
+            </div>
+            <div className="text-2xl font-black text-amber-400 font-mono">
+              {pendingApprovalsCount}
+            </div>
+          </div>
+
+          <div className={`p-4 rounded-xl border ${theme === "dark" ? "bg-slate-900/70 border-slate-800" : "bg-white border-slate-200 shadow-sm"}`}>
+            <div className="flex items-center justify-between text-xs text-slate-400 mb-1">
+              <span>{isAr ? "تجارب نشطة" : "Active 24h Trials"}</span>
+              <Zap className="w-4 h-4 text-cyan-400" />
+            </div>
+            <div className="text-2xl font-black text-cyan-400 font-mono">
+              {subscriptionStats?.trialUsers || 0}
+            </div>
+          </div>
+
+          <div className={`p-4 rounded-xl border ${theme === "dark" ? "bg-slate-900/70 border-slate-800" : "bg-white border-slate-200 shadow-sm"}`}>
+            <div className="flex items-center justify-between text-xs text-slate-400 mb-1">
+              <span>{isAr ? "اشتراكات نشطة" : "Active Subscriptions"}</span>
+              <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+            </div>
+            <div className="text-2xl font-black text-emerald-400 font-mono">
+              {subscriptionStats?.activeSubscriptions || 0}
+            </div>
+          </div>
+
+          <div className={`p-4 rounded-xl border ${theme === "dark" ? "bg-slate-900/70 border-slate-800" : "bg-white border-slate-200 shadow-sm"}`}>
+            <div className="flex items-center justify-between text-xs text-slate-400 mb-1">
+              <span>{isAr ? "تجارب منتهية" : "Expired Trials"}</span>
+              <AlertTriangle className="w-4 h-4 text-rose-400" />
+            </div>
+            <div className="text-2xl font-black text-rose-400 font-mono">
+              {subscriptionStats?.expiredUsers || 0}
+            </div>
+          </div>
+        </div>
+
+        {/* Sub-Navigation Tabs */}
+        <div className="flex items-center gap-2 border-b border-slate-800 pb-2">
+          <button
+            onClick={() => setApprovalsSubTab("pending")}
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
+              approvalsSubTab === "pending"
+                ? "bg-amber-500 text-slate-950 shadow-md shadow-amber-500/20"
+                : "bg-slate-800/60 text-slate-400 hover:text-slate-200 hover:bg-slate-800"
+            }`}
+          >
+            <Clock className="w-3.5 h-3.5" />
+            <span>{isAr ? "طابور طلبات الاعتماد" : "Pending Approvals"}</span>
+            {pendingApprovalsCount > 0 && (
+              <span className={`px-2 py-0.5 rounded-full text-[10px] font-mono font-black ${
+                approvalsSubTab === "pending" ? "bg-slate-950 text-amber-400" : "bg-amber-500 text-slate-950 animate-pulse"
+              }`}>
+                {pendingApprovalsCount}
+              </span>
+            )}
+          </button>
+
+          <button
+            onClick={() => setApprovalsSubTab("subscriptions")}
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
+              approvalsSubTab === "subscriptions"
+                ? "bg-amber-500 text-slate-950 shadow-md shadow-amber-500/20"
+                : "bg-slate-800/60 text-slate-400 hover:text-slate-200 hover:bg-slate-800"
+            }`}
+          >
+            <ShieldCheck className="w-3.5 h-3.5" />
+            <span>{isAr ? "إدارة الاشتراكات والتجارب" : "Subscriptions & Entitlements"}</span>
+          </button>
+
+          <button
+            onClick={() => setApprovalsSubTab("corrections")}
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
+              approvalsSubTab === "corrections"
+                ? "bg-amber-500 text-slate-950 shadow-md shadow-amber-500/20"
+                : "bg-slate-800/60 text-slate-400 hover:text-slate-200 hover:bg-slate-800"
+            }`}
+          >
+            <Sparkles className="w-3.5 h-3.5" />
+            <span>{isAr ? "طلبات تصحيح الاشتراكات" : "Correction Requests"}</span>
+            {pendingCorrectionsCount > 0 && (
+              <span className={`px-2 py-0.5 rounded-full text-[10px] font-mono font-black ${
+                approvalsSubTab === "corrections" ? "bg-slate-950 text-amber-400" : "bg-amber-500 text-slate-950 animate-pulse"
+              }`}>
+                {pendingCorrectionsCount}
+              </span>
+            )}
+          </button>
+
+          <button
+            onClick={() => setApprovalsSubTab("audit")}
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
+              approvalsSubTab === "audit"
+                ? "bg-amber-500 text-slate-950 shadow-md shadow-amber-500/20"
+                : "bg-slate-800/60 text-slate-400 hover:text-slate-200 hover:bg-slate-800"
+            }`}
+          >
+            <FileText className="w-3.5 h-3.5" />
+            <span>{isAr ? "سجل تدقيق القرارات" : "Entitlement Audit Logs"}</span>
+          </button>
+        </div>
+
+        {/* SUB-VIEW 1: PENDING APPROVALS QUEUE */}
+        {approvalsSubTab === "pending" && (
+          <div className="space-y-4">
+            {pendingApprovals.length === 0 ? (
+              <div className="p-12 text-center border border-dashed border-slate-800 rounded-2xl bg-slate-900/30">
+                <CheckCircle2 className="w-10 h-10 text-emerald-400/60 mx-auto mb-3" />
+                <h3 className="text-sm font-bold text-slate-200 mb-1">
+                  {isAr ? "لا توجد طلبات اعتماد معلقة حالياً" : "No pending account applications"}
+                </h3>
+                <p className="text-xs text-slate-500 max-w-sm mx-auto">
+                  {isAr
+                    ? "تمت مراجعة وفحص كافة الحسابات والمؤسسات المسجلة بالكامل."
+                    : "All newly registered organizations have been reviewed and processed."}
+                </p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 gap-4">
+                {pendingApprovals.map((reqUser) => {
+                  const inst = reqUser.institutionalProfile || {};
+                  const isActionBusy = approvalsActionLoading === reqUser.id;
+
+                  return (
+                    <div
+                      key={reqUser.id}
+                      className="p-5 rounded-2xl border border-slate-800 bg-slate-900/80 backdrop-blur-sm hover:border-slate-700 transition-all shadow-lg"
+                    >
+                      <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-4">
+                        {/* Info Block */}
+                        <div className="space-y-3 flex-1">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="px-2.5 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-400 text-xs font-bold">
+                              {inst.sector || "General Sector"}
+                            </span>
+                            <span className="px-2.5 py-0.5 rounded-full bg-slate-800 text-slate-300 text-xs font-mono">
+                              {inst.country || "Mauritania"}
+                            </span>
+                            <span className="text-xs text-slate-500">
+                              {isAr ? "تاريخ التقديم:" : "Submitted:"} {safeFormatDateTime(inst.submittedAt || reqUser.createdAt)}
+                            </span>
+                          </div>
+
+                          <div>
+                            <h3 className="text-base font-bold text-white flex items-center gap-2">
+                              <Building2 className="w-4 h-4 text-amber-400 shrink-0" />
+                              <span>{inst.companyName || reqUser.companyName || "Organization"}</span>
+                            </h3>
+                            <div className="text-xs text-slate-300 mt-1 flex flex-wrap items-center gap-x-4 gap-y-1">
+                              <span><strong>{isAr ? "المسؤول:" : "Applicant:"}</strong> {inst.fullName || reqUser.fullName || reqUser.ownerName || "—"} ({inst.jobTitle || "Executive"})</span>
+                              <span><strong>{isAr ? "البريد:" : "Email:"}</strong> <span className="font-mono text-slate-400">{reqUser.email}</span></span>
+                              <span><strong>{isAr ? "الهاتف:" : "Phone:"}</strong> <span className="font-mono text-slate-400">{inst.phone || reqUser.phone || "—"}</span></span>
+                              <span><strong>{isAr ? "الحجم:" : "Size:"}</strong> {inst.companySize || "11-50"}</span>
+                            </div>
+                          </div>
+
+                          {inst.intendedUse && (
+                            <div className="p-3 rounded-xl bg-slate-950/60 border border-slate-800/80 text-xs space-y-1">
+                              <span className="text-slate-500 font-semibold block">{isAr ? "الغرض الرئيسي من المنظومة:" : "Primary Intended Purpose:"}</span>
+                              <p className="text-slate-300">{inst.intendedUse}</p>
+                              {inst.additionalNotes && (
+                                <p className="text-slate-400 text-[11px] pt-1 border-t border-slate-800/60 mt-1 italic">
+                                  "{inst.additionalNotes}"
+                                </p>
+                              )}
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Action Buttons */}
+                        <div className="flex flex-row lg:flex-col items-center gap-2 shrink-0 lg:w-48">
+                          <button
+                            disabled={isActionBusy}
+                            onClick={() => handleApproveAccount(reqUser.id, "Starter", 24, "Approved by Admin - 24h Full Free Trial Activated")}
+                            className="w-full px-4 py-2.5 bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-500 text-slate-950 font-bold rounded-xl text-xs transition-all shadow-md shadow-emerald-500/20 flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+                          >
+                            <CheckCircle className="w-4 h-4" />
+                            <span>{isAr ? "اعتماد (تجربة 24 ساعة)" : "Approve 24h Trial"}</span>
+                          </button>
+
+                          <button
+                            disabled={isActionBusy}
+                            onClick={() => {
+                              setPlanModalUser(reqUser);
+                              setSelectedPlanInput("Professional");
+                              setCustomTrialHoursInput(24);
+                              setSubscriptionStatusInput("Active");
+                            }}
+                            className="w-full px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-xl text-xs font-semibold transition-all flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+                          >
+                            <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+                            <span>{isAr ? "اعتماد مع باقة مخصصة" : "Approve Custom Plan"}</span>
+                          </button>
+
+                          <button
+                            disabled={isActionBusy}
+                            onClick={() => {
+                              setRejectModalUser(reqUser);
+                              setRejectReasonInput("");
+                            }}
+                            className="w-full px-4 py-2 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 rounded-xl text-xs font-semibold transition-all flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+                          >
+                            <XCircle className="w-3.5 h-3.5" />
+                            <span>{isAr ? "رفض الطلب" : "Reject"}</span>
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* SUB-VIEW 2: SUBSCRIPTIONS & ENTITLEMENTS TABLE */}
+        {approvalsSubTab === "subscriptions" && (
+          <div className="space-y-4">
+            {/* Filters */}
+            <div className="flex flex-col sm:flex-row gap-3 items-center justify-between">
+              <div className="relative w-full sm:max-w-md">
+                <Search className="absolute left-3 top-2.5 w-4 h-4 text-slate-400" />
+                <input
+                  type="text"
+                  placeholder={isAr ? "البحث بالبريد، المؤسسة، أو بيئة العمل..." : "Search email, company, or workspace ID..."}
+                  value={approvalsSearch}
+                  onChange={(e) => setApprovalsSearch(e.target.value)}
+                  className="w-full pl-9 pr-4 py-2 text-xs rounded-xl border border-slate-800 bg-slate-900 text-white placeholder:text-slate-500 focus:outline-none focus:border-amber-500"
+                />
+              </div>
+
+              <div className="flex items-center gap-2 w-full sm:w-auto">
+                <select
+                  value={approvalsPlanFilter}
+                  onChange={(e) => setApprovalsPlanFilter(e.target.value)}
+                  className="px-3 py-2 text-xs rounded-xl border border-slate-800 bg-slate-900 text-white focus:outline-none focus:border-amber-500"
+                >
+                  <option value="ALL">{isAr ? "كافة الباقات" : "All Plans"}</option>
+                  <option value="STARTER">Starter</option>
+                  <option value="PROFESSIONAL">Professional</option>
+                  <option value="ENTERPRISE">Enterprise</option>
+                  <option value="FREE">Free</option>
+                </select>
+
+                <select
+                  value={approvalsStatusFilter}
+                  onChange={(e) => setApprovalsStatusFilter(e.target.value)}
+                  className="px-3 py-2 text-xs rounded-xl border border-slate-800 bg-slate-900 text-white focus:outline-none focus:border-amber-500"
+                >
+                  <option value="ALL">{isAr ? "كافة الحالات" : "All Statuses"}</option>
+                  <option value="ACTIVE">{isAr ? "اشتراك نشط" : "Active"}</option>
+                  <option value="TRIAL">{isAr ? "فترة تجريبية" : "Trial"}</option>
+                  <option value="EXPIRED">{isAr ? "منتهية" : "Expired"}</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Table */}
+            <div className="overflow-x-auto border rounded-2xl border-slate-800 bg-slate-900/60">
+              <table className="w-full text-left text-xs border-collapse">
+                <thead>
+                  <tr className="border-b border-slate-800 bg-slate-950/40 text-[11px] font-black uppercase text-slate-400">
+                    <th className="p-4">{isAr ? "المؤسسة / الحساب" : "Organization / User"}</th>
+                    <th className="p-4">{isAr ? "بيئة العمل" : "Workspace ID"}</th>
+                    <th className="p-4">{isAr ? "حالة الحساب" : "Account Status"}</th>
+                    <th className="p-4">{isAr ? "الباقة الحالية" : "Current Plan"}</th>
+                    <th className="p-4">{isAr ? "حالة الاشتراك والتجربة" : "Subscription & Trial"}</th>
+                    <th className="p-4 text-right">{isAr ? "الإجراءات والتحكم" : "Actions"}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredSubscriptions.map((subUser) => {
+                    const isBusy = approvalsActionLoading === subUser.id;
+                    const isExpired = subUser.isTrialExpired || subUser.subscriptionStatus === "Expired";
+                    const isActive = subUser.subscriptionStatus === "Active" || subUser.hasActiveSubscription;
+
+                    return (
+                      <tr key={subUser.id} className="border-b last:border-0 border-slate-800/60 hover:bg-slate-800/30 transition-colors">
+                        <td className="p-4">
+                          <div className="font-bold text-white">{subUser.companyName || subUser.ownerName || "—"}</div>
+                          <div className="text-slate-400 font-mono text-[11px]">{subUser.email}</div>
+                          <div className="text-[10px] text-slate-500 mt-0.5">{subUser.fullName || subUser.ownerName || ""}</div>
+                        </td>
+
+                        <td className="p-4 font-mono text-[11px] text-slate-400">
+                          {subUser.workspaceId || "—"}
+                        </td>
+
+                        <td className="p-4">
+                          <span className={`px-2 py-0.5 rounded text-[10px] font-mono font-black ${
+                            subUser.accountStatus === "APPROVED" ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" :
+                            subUser.accountStatus === "PENDING_ADMIN_REVIEW" ? "bg-amber-500/10 text-amber-400 border border-amber-500/20" :
+                            subUser.accountStatus === "REJECTED" ? "bg-rose-500/10 text-rose-400 border border-rose-500/20" :
+                            "bg-slate-800 text-slate-300"
+                          }`}>
+                            {subUser.accountStatus || "APPROVED"}
+                          </span>
+                        </td>
+
+                        <td className="p-4">
+                          <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-[#0075DE]/10 text-[#0075DE] border border-[#0075DE]/20 uppercase">
+                            {subUser.plan || "Starter"}
+                          </span>
+                        </td>
+
+                        <td className="p-4">
+                          <div className="flex flex-col gap-1">
+                            <span className={`px-2 py-0.5 rounded text-[10px] font-black w-max ${
+                              isActive ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" :
+                              isExpired ? "bg-rose-500/10 text-rose-400 border border-rose-500/20" :
+                              "bg-amber-500/10 text-amber-400 border border-amber-500/20"
+                            }`}>
+                              {isActive ? "ACTIVE SUBSCRIPTION" : isExpired ? "TRIAL EXPIRED" : "ACTIVE TRIAL"}
+                            </span>
+
+                            {subUser.trialSecondsRemaining !== undefined && !isActive && (
+                              <div className="text-[10px] text-slate-400 font-mono">
+                                {subUser.trialSecondsRemaining > 0
+                                  ? `${Math.floor(subUser.trialSecondsRemaining / 3600)}h ${Math.floor((subUser.trialSecondsRemaining % 3600) / 60)}m left`
+                                  : "0h remaining"}
+                              </div>
+                            )}
+                          </div>
+                        </td>
+
+                        <td className="p-4 text-right whitespace-nowrap">
+                          <div className="inline-flex items-center gap-1.5">
+                            {/* Fast Trial Extension */}
+                            <button
+                              disabled={isBusy}
+                              onClick={() => handleExtendTrial(subUser.id, 24)}
+                              title={isAr ? "تمديد التجربة 24 ساعة" : "Extend Trial +24 Hours"}
+                              className="px-2 py-1 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/30 rounded-lg text-[10px] font-bold transition-all cursor-pointer disabled:opacity-50"
+                            >
+                              +24h
+                            </button>
+
+                            <button
+                              disabled={isBusy}
+                              onClick={() => handleExtendTrial(subUser.id, 168)}
+                              title={isAr ? "تمديد التجربة 7 أيام" : "Extend Trial +7 Days"}
+                              className="px-2 py-1 bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 rounded-lg text-[10px] font-bold transition-all cursor-pointer disabled:opacity-50"
+                            >
+                              +7d
+                            </button>
+
+                            {/* Change Plan Button */}
+                            <button
+                              disabled={isBusy}
+                              onClick={() => {
+                                setPlanModalUser(subUser);
+                                setSelectedPlanInput(subUser.plan || "Professional");
+                                setCustomTrialHoursInput(24);
+                                setSubscriptionStatusInput(subUser.subscriptionStatus || "Active");
+                              }}
+                              className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-lg text-[11px] font-bold transition-all cursor-pointer disabled:opacity-50"
+                            >
+                              {isAr ? "تعديل الباقة" : "Edit Plan"}
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+
+                  {filteredSubscriptions.length === 0 && (
+                    <tr>
+                      <td colSpan={6} className="p-8 text-center text-slate-500 italic">
+                        {isAr ? "لا توجد حسابات مطابقة لمعايير البحث والفلترة." : "No user accounts match the current filter criteria."}
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* SUB-VIEW: SUBSCRIPTION CORRECTION REQUESTS */}
+        {approvalsSubTab === "corrections" && (
+          <div className="space-y-4">
+            {subscriptionCorrections.length === 0 ? (
+              <div className="p-12 text-center border border-dashed border-slate-800 rounded-2xl bg-slate-900/30">
+                <CheckCircle2 className="w-10 h-10 text-emerald-400/60 mx-auto mb-3" />
+                <h3 className="text-sm font-bold text-slate-200 mb-1">
+                  {isAr ? "لا توجد طلبات تصحيح اشتراكات مسجلة" : "No subscription correction requests found"}
+                </h3>
+                <p className="text-xs text-slate-500">
+                  {isAr
+                    ? "عندما يواجه أي مستخدم مشكلة في ظهور خطته الصحيحة، ستظهر طلباته هنا فوراً للمراجعة والتصحيح."
+                    : "When users report plan mismatches, their correction requests will appear here for review."}
+                </p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto border rounded-2xl border-slate-800 bg-slate-900/60">
+                <table className="w-full text-left text-xs border-collapse">
+                  <thead>
+                    <tr className="border-b border-slate-800 bg-slate-950/40 text-[11px] font-black uppercase text-slate-400">
+                      <th className="p-4">{isAr ? "المستخدم / الحساب" : "User & Account"}</th>
+                      <th className="p-4">{isAr ? "الخطة الحالية" : "Current Plan"}</th>
+                      <th className="p-4">{isAr ? "الخطة المطلوبة" : "Requested Plan"}</th>
+                      <th className="p-4">{isAr ? "نوع المشكلة والملاحظات" : "Issue & Notes"}</th>
+                      <th className="p-4">{isAr ? "المرجع / الفاتورة" : "Reference / ID"}</th>
+                      <th className="p-4">{isAr ? "الحالة" : "Status"}</th>
+                      <th className="p-4 text-right">{isAr ? "الإجراء" : "Action"}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {subscriptionCorrections.map((reqItem) => {
+                      const isPending = reqItem.status === "PENDING";
+                      return (
+                        <tr key={reqItem.id || reqItem.requestId} className="border-b last:border-0 border-slate-800/60 hover:bg-slate-800/30 transition-colors">
+                          <td className="p-4">
+                            <div className="font-bold text-slate-100">{reqItem.userName || reqItem.userEmail}</div>
+                            <div className="font-mono text-[11px] text-slate-400">{reqItem.userEmail}</div>
+                            <div className="text-[10px] text-slate-500 font-mono">Workspace: {reqItem.workspaceId || "—"}</div>
+                          </td>
+
+                          <td className="p-4">
+                            <span className="px-2 py-0.5 rounded text-[10px] font-mono bg-slate-800 text-slate-300 border border-slate-700">
+                              {reqItem.currentPlan || "Starter"} ({reqItem.currentStatus || "Trial"})
+                            </span>
+                          </td>
+
+                          <td className="p-4">
+                            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-[#0075DE]/15 text-[#0075DE] border border-[#0075DE]/30 uppercase">
+                              {reqItem.requestedPlan}
+                            </span>
+                          </td>
+
+                          <td className="p-4 max-w-xs">
+                            <div className="text-[11px] font-bold text-amber-400">{reqItem.issueType}</div>
+                            <div className="text-[11px] text-slate-300 line-clamp-2 mt-0.5">{reqItem.userNotes || "—"}</div>
+                            <div className="text-[10px] text-slate-500 mt-1">{safeFormatDateTime(reqItem.submittedAt)}</div>
+                          </td>
+
+                          <td className="p-4 font-mono text-[11px] text-slate-400">
+                            {reqItem.referenceData || "—"}
+                          </td>
+
+                          <td className="p-4">
+                            <span className={`px-2 py-0.5 rounded text-[10px] font-mono font-black ${
+                              reqItem.status === "RESOLVED" ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" :
+                              reqItem.status === "REJECTED" ? "bg-rose-500/10 text-rose-400 border border-rose-500/20" :
+                              "bg-amber-500/10 text-amber-400 border border-amber-500/20 animate-pulse"
+                            }`}>
+                              {reqItem.status || "PENDING"}
+                            </span>
+                          </td>
+
+                          <td className="p-4 text-right">
+                            {isPending ? (
+                              <button
+                                onClick={() => {
+                                  setSelectedCorrection(reqItem);
+                                  setCorrectionTargetPlan(reqItem.requestedPlan || "Professional");
+                                  setCorrectionReasonInput(`Correction request approved for ${reqItem.requestedPlan}`);
+                                  setCorrectionAdminNotesInput("");
+                                }}
+                                className="px-3 py-1.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-bold rounded-lg text-xs transition-all shadow-md shadow-amber-500/20 cursor-pointer"
+                              >
+                                {isAr ? "مراجعة وتصحيح" : "Review & Correct"}
+                              </button>
+                            ) : (
+                              <span className="text-[11px] text-slate-500 font-mono">
+                                {reqItem.resolutionAction || "Completed"}
+                              </span>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* SUB-VIEW 3: ENTITLEMENT AUDIT LOGS */}
+        {approvalsSubTab === "audit" && (
+          <div className="space-y-4">
+            <div className="overflow-x-auto border rounded-2xl border-slate-800 bg-slate-900/60">
+              <table className="w-full text-left text-xs border-collapse">
+                <thead>
+                  <tr className="border-b border-slate-800 bg-slate-950/40 text-[11px] font-black uppercase text-slate-400">
+                    <th className="p-4">{isAr ? "التاريخ والوقت" : "Timestamp"}</th>
+                    <th className="p-4">{isAr ? "الإجراء" : "Action"}</th>
+                    <th className="p-4">{isAr ? "الحساب المستهدف" : "Target Account"}</th>
+                    <th className="p-4">{isAr ? "المسؤول المنفذ" : "Admin Performed"}</th>
+                    <th className="p-4">{isAr ? "التفاصيل والملاحظات" : "Details & Notes"}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {entitlementAuditLogs.map((log, idx) => (
+                    <tr key={log.id || idx} className="border-b last:border-0 border-slate-800/60 hover:bg-slate-800/30 transition-colors">
+                      <td className="p-4 font-mono text-[11px] text-slate-400">
+                        {safeFormatDateTime(log.timestamp)}
+                      </td>
+
+                      <td className="p-4">
+                        <span className={`px-2 py-0.5 rounded text-[10px] font-mono font-black ${
+                          log.action === "ACCOUNT_APPROVED" ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" :
+                          log.action === "ACCOUNT_REJECTED" ? "bg-rose-500/10 text-rose-400 border border-rose-500/20" :
+                          log.action === "TRIAL_EXTENDED" ? "bg-cyan-500/10 text-cyan-400 border border-cyan-500/20" :
+                          "bg-amber-500/10 text-amber-400 border border-amber-500/20"
+                        }`}>
+                          {log.action}
+                        </span>
+                      </td>
+
+                      <td className="p-4 font-mono font-bold text-white">
+                        {log.targetUserEmail || log.targetUserId || "—"}
+                      </td>
+
+                      <td className="p-4 font-mono text-slate-400">
+                        {log.adminEmail || log.adminUserId || "Admin"}
+                      </td>
+
+                      <td className="p-4 text-slate-300">
+                        {log.details?.reason || log.details?.adminNotes || JSON.stringify(log.details || {})}
+                      </td>
+                    </tr>
+                  ))}
+
+                  {entitlementAuditLogs.length === 0 && (
+                    <tr>
+                      <td colSpan={5} className="p-8 text-center text-slate-500 italic">
+                        {isAr ? "لا توجد سجلات تدقيق للصلاحيات مسجلة حتى الآن." : "No entitlement audit logs recorded yet."}
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
       </div>
     );
   };
@@ -3223,6 +4059,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     {lang === "ar" ? "الحسابات والصلاحيات" : "Identity & Directory"}
                   </p>
                   {[
+                    { id: "approvals", label: lang === "ar" ? "اعتماد الحسابات والاشتراكات" : "Approvals & Subscriptions", icon: UserCheck, badge: pendingApprovalsCount },
                     { id: "users", label: lang === "ar" ? "أعضاء المنصة" : "Users Directory", icon: Users, badge: totalUsers },
                     { id: "workspaces", label: lang === "ar" ? "بيئات العمل" : "Workspace Diagnostics", icon: Building2 },
                     { id: "roles", label: lang === "ar" ? "الأدوار والصلاحيات" : "Roles & Privileges", icon: Shield },
@@ -3325,6 +4162,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           {/* RIGHT VIEWPORT - OPERATIONAL DATA PANELS */}
           <div className="lg:col-span-3 space-y-6">
             {activeAdminTab === "overview" && renderOverviewSection()}
+            {activeAdminTab === "approvals" && renderApprovalsAndSubscriptionsSection()}
             {activeAdminTab === "health" && renderHealthSection()}
             {activeAdminTab === "billing" && renderBillingSection()}
             {activeAdminTab === "audit" && renderAuditSection()}
@@ -5851,6 +6689,341 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   <>
                     <Save className="w-4 h-4" />
                     <span>{lang === "ar" ? "حفظ التغييرات" : "Save Changes"}</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* REJECT APPLICATION MODAL */}
+      {rejectModalUser && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="w-full max-w-md bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl overflow-hidden text-white">
+            <div className="p-5 border-b border-slate-800 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <XCircle className="w-5 h-5 text-rose-400" />
+                <h3 className="text-sm font-bold">
+                  {lang === "ar" ? "رفض طلب الاعتماد المؤسسي" : "Reject Account Application"}
+                </h3>
+              </div>
+              <button
+                onClick={() => setRejectModalUser(null)}
+                className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-5 space-y-4 text-xs">
+              <div className="p-3 rounded-xl bg-slate-950/60 border border-slate-800 space-y-1">
+                <div><strong>{lang === "ar" ? "المؤسسة:" : "Organization:"}</strong> {rejectModalUser.institutionalProfile?.companyName || rejectModalUser.companyName || "—"}</div>
+                <div><strong>{lang === "ar" ? "مقدم الطلب:" : "Applicant:"}</strong> {rejectModalUser.institutionalProfile?.fullName || rejectModalUser.fullName || rejectModalUser.email}</div>
+                <div className="font-mono text-slate-400">{rejectModalUser.email}</div>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="block font-bold text-slate-300">
+                  {lang === "ar" ? "سبب الرفض (سيظهر للمستخدم):" : "Rejection Reason (Visible to User):"}
+                </label>
+                <textarea
+                  rows={3}
+                  value={rejectReasonInput}
+                  onChange={(e) => setRejectReasonInput(e.target.value)}
+                  placeholder={lang === "ar" ? "مثال: عدم وضوح بيانات السجل التجاري أو عدم تطابق نطاق العمل..." : "e.g., Incomplete institutional documentation or ineligible organization..."}
+                  className="w-full p-3 rounded-xl border border-slate-800 bg-slate-950 text-white placeholder:text-slate-600 focus:outline-none focus:border-rose-500"
+                />
+              </div>
+            </div>
+
+            <div className="p-4 border-t border-slate-800 bg-slate-950/40 flex items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setRejectModalUser(null)}
+                disabled={approvalsActionLoading === rejectModalUser.id}
+                className="px-4 py-2 rounded-xl text-xs font-bold text-slate-400 hover:text-white cursor-pointer"
+              >
+                {lang === "ar" ? "إلغاء" : "Cancel"}
+              </button>
+              <button
+                type="button"
+                onClick={() => handleRejectAccount(rejectModalUser.id, rejectReasonInput)}
+                disabled={approvalsActionLoading === rejectModalUser.id}
+                className="px-5 py-2.5 bg-rose-500 hover:bg-rose-600 text-white font-bold text-xs rounded-xl transition-all shadow-md shadow-rose-500/20 flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+              >
+                {approvalsActionLoading === rejectModalUser.id ? (
+                  <>
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                    <span>{lang === "ar" ? "جاري الرفض..." : "Rejecting..."}</span>
+                  </>
+                ) : (
+                  <>
+                    <XCircle className="w-4 h-4" />
+                    <span>{lang === "ar" ? "تأكيد رفض الطلب" : "Confirm Rejection"}</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* SUBSCRIPTION CORRECTION RESOLUTION MODAL */}
+      {selectedCorrection && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="w-full max-w-lg bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl overflow-hidden text-white">
+            <div className="p-5 border-b border-slate-800 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Sparkles className="w-5 h-5 text-amber-400" />
+                <h3 className="text-sm font-bold">
+                  {lang === "ar" ? "مراجعة وتصحيح استحقاق الاشتراك" : "Resolve Subscription Correction Request"}
+                </h3>
+              </div>
+              <button
+                onClick={() => setSelectedCorrection(null)}
+                className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-5 space-y-4 text-xs">
+              {/* Request Overview Box */}
+              <div className="p-3.5 rounded-xl bg-slate-950/70 border border-slate-800 space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-400">{lang === "ar" ? "المستخدم:" : "User:"}</span>
+                  <span className="font-bold text-slate-100">{selectedCorrection.userName || selectedCorrection.userEmail}</span>
+                </div>
+                <div className="flex items-center justify-between font-mono text-[11px]">
+                  <span className="text-slate-400">{lang === "ar" ? "البريد الإلكتروني:" : "Email:"}</span>
+                  <span className="text-slate-300">{selectedCorrection.userEmail}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-400">{lang === "ar" ? "الخطة الحالية / المطلوبة:" : "Current / Requested:"}</span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-slate-400 line-through">{selectedCorrection.currentPlan || "Starter"}</span>
+                    <span>→</span>
+                    <span className="text-amber-400 font-bold">{selectedCorrection.requestedPlan}</span>
+                  </div>
+                </div>
+                {selectedCorrection.referenceData && (
+                  <div className="flex items-center justify-between font-mono text-[11px]">
+                    <span className="text-slate-400">{lang === "ar" ? "مرجع المعاملة:" : "Reference Data:"}</span>
+                    <span className="text-cyan-400 font-bold">{selectedCorrection.referenceData}</span>
+                  </div>
+                )}
+                {selectedCorrection.userNotes && (
+                  <div className="pt-1 border-t border-slate-800 text-slate-300 text-[11px]">
+                    <strong>{lang === "ar" ? "شرح المستخدم:" : "User Explanation:"}</strong> {selectedCorrection.userNotes}
+                  </div>
+                )}
+              </div>
+
+              {/* Target Plan Selector */}
+              <div className="space-y-1.5">
+                <label className="block font-bold text-slate-300">
+                  {lang === "ar" ? "الخطة المراد اعتمادها وتفعيلها:" : "Target Plan to Assign & Activate:"}
+                </label>
+                <div className="grid grid-cols-3 gap-2">
+                  {(["Starter", "Professional", "Enterprise"] as const).map((p) => {
+                    const isSelected = correctionTargetPlan === p;
+                    return (
+                      <button
+                        type="button"
+                        key={p}
+                        onClick={() => setCorrectionTargetPlan(p)}
+                        className={`py-2 px-3 rounded-xl border text-xs font-bold transition-all flex flex-col items-center justify-center gap-1 cursor-pointer ${
+                          isSelected
+                            ? "bg-amber-500/20 border-amber-500 text-amber-300"
+                            : "bg-slate-950 border-slate-800 text-slate-400 hover:bg-slate-800"
+                        }`}
+                      >
+                        <Sparkles className={`w-3.5 h-3.5 ${isSelected ? "text-amber-400" : "text-slate-500"}`} />
+                        <span>{p}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Reason / Admin Notes */}
+              <div className="space-y-1.5">
+                <label className="block font-bold text-slate-300">
+                  {lang === "ar" ? "سبب القرار / ملاحظات التدقيق:" : "Audit Log Reason & Notes:"}
+                </label>
+                <input
+                  type="text"
+                  value={correctionReasonInput}
+                  onChange={(e) => setCorrectionReasonInput(e.target.value)}
+                  placeholder={lang === "ar" ? "مثال: تم التحقق من الفاتورة وتفعيل باقة Professional" : "e.g. Verified Stripe invoice and activated Professional plan"}
+                  className="w-full p-2.5 rounded-xl border border-slate-800 bg-slate-950 text-white focus:outline-none focus:border-amber-500"
+                />
+              </div>
+            </div>
+
+            <div className="p-4 border-t border-slate-800 bg-slate-950/40 flex items-center justify-between">
+              <button
+                type="button"
+                onClick={() => handleResolveCorrectionRequest("REJECT")}
+                disabled={isResolvingCorrection}
+                className="px-4 py-2 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 font-bold text-xs rounded-xl transition-all cursor-pointer disabled:opacity-50"
+              >
+                {lang === "ar" ? "رفض الطلب" : "Reject Request"}
+              </button>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setSelectedCorrection(null)}
+                  disabled={isResolvingCorrection}
+                  className="px-4 py-2 rounded-xl text-xs font-bold text-slate-400 hover:text-white cursor-pointer"
+                >
+                  {lang === "ar" ? "إلغاء" : "Cancel"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleResolveCorrectionRequest("APPROVE")}
+                  disabled={isResolvingCorrection}
+                  className="px-5 py-2.5 bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-500 text-slate-950 font-black text-xs rounded-xl transition-all shadow-md shadow-emerald-500/20 flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                >
+                  {isResolvingCorrection ? (
+                    <>
+                      <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                      <span>{lang === "ar" ? "جاري الاعتماد والتصحيح..." : "Applying..."}</span>
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle className="w-4 h-4" />
+                      <span>{lang === "ar" ? "اعتماد وتصحيح الخطة والـEntitlement" : "Approve & Correct Entitlement"}</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* CUSTOM PLAN / ENTITLEMENT MODAL */}
+      {planModalUser && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="w-full max-w-md bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl overflow-hidden text-white">
+            <div className="p-5 border-b border-slate-800 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Sparkles className="w-5 h-5 text-amber-400" />
+                <h3 className="text-sm font-bold">
+                  {lang === "ar" ? "تخصيص الباقة والتحكم بالصلاحية" : "Assign Plan & Entitlement"}
+                </h3>
+              </div>
+              <button
+                onClick={() => setPlanModalUser(null)}
+                className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-5 space-y-4 text-xs">
+              <div className="p-3 rounded-xl bg-slate-950/60 border border-slate-800 space-y-1">
+                <div><strong>{lang === "ar" ? "المؤسسة / الحساب:" : "Target Organization:"}</strong> {planModalUser.institutionalProfile?.companyName || planModalUser.companyName || planModalUser.ownerName || "—"}</div>
+                <div className="font-mono text-slate-400">{planModalUser.email}</div>
+                <div className="text-[10px] text-slate-500 font-mono">Workspace: {planModalUser.workspaceId || "—"}</div>
+              </div>
+
+              {/* Plan Choice */}
+              <div className="space-y-1.5">
+                <label className="block font-bold text-slate-300">
+                  {lang === "ar" ? "الباقة المعتمدة:" : "Assigned Tier:"}
+                </label>
+                <select
+                  value={selectedPlanInput}
+                  onChange={(e) => setSelectedPlanInput(e.target.value)}
+                  className="w-full p-2.5 rounded-xl border border-slate-800 bg-slate-950 text-white focus:outline-none focus:border-amber-500"
+                >
+                  <option value="Starter">Starter (24h Full Trial Included)</option>
+                  <option value="Professional">Professional (All AI Modules + Priority)</option>
+                  <option value="Enterprise">Enterprise (Custom Limits + Dedicated Model Access)</option>
+                  <option value="Free">Free (Restricted Read-Only)</option>
+                </select>
+              </div>
+
+              {/* Subscription Status */}
+              <div className="space-y-1.5">
+                <label className="block font-bold text-slate-300">
+                  {lang === "ar" ? "حالة الاشتراك:" : "Subscription State:"}
+                </label>
+                <select
+                  value={subscriptionStatusInput}
+                  onChange={(e) => setSubscriptionStatusInput(e.target.value)}
+                  className="w-full p-2.5 rounded-xl border border-slate-800 bg-slate-950 text-white focus:outline-none focus:border-amber-500"
+                >
+                  <option value="Active">Active (Full Continuous Access)</option>
+                  <option value="Trial">Trial (Subject to Trial Clock)</option>
+                  <option value="Expired">Expired (Access Blocked)</option>
+                </select>
+              </div>
+
+              {/* Custom Trial Duration (if pending or trial) */}
+              {planModalUser.accountStatus !== "APPROVED" && (
+                <div className="space-y-1.5">
+                  <label className="block font-bold text-slate-300">
+                    {lang === "ar" ? "مدة التجربة الأولية (ساعات):" : "Initial Trial Hours:"}
+                  </label>
+                  <input
+                    type="number"
+                    min={1}
+                    max={720}
+                    value={customTrialHoursInput}
+                    onChange={(e) => setCustomTrialHoursInput(Number(e.target.value))}
+                    className="w-full p-2.5 rounded-xl border border-slate-800 bg-slate-950 text-white focus:outline-none focus:border-amber-500"
+                  />
+                  <span className="text-[10px] text-slate-500">
+                    {lang === "ar" ? "الافتراضي المعتمد في المنظومة هو 24 ساعة تبدأ لحظة الاعتماد." : "Default standard is 24 hours starting immediately upon approval."}
+                  </span>
+                </div>
+              )}
+            </div>
+
+            <div className="p-4 border-t border-slate-800 bg-slate-950/40 flex items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setPlanModalUser(null)}
+                disabled={approvalsActionLoading === planModalUser.id}
+                className="px-4 py-2 rounded-xl text-xs font-bold text-slate-400 hover:text-white cursor-pointer"
+              >
+                {lang === "ar" ? "إلغاء" : "Cancel"}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  if (planModalUser.accountStatus !== "APPROVED") {
+                    handleApproveAccount(
+                      planModalUser.id,
+                      selectedPlanInput,
+                      customTrialHoursInput,
+                      `Approved by Admin with plan ${selectedPlanInput} (${customTrialHoursInput}h trial)`
+                    );
+                  } else {
+                    handleUpdateUserPlan(planModalUser.id, selectedPlanInput, subscriptionStatusInput);
+                  }
+                }}
+                disabled={approvalsActionLoading === planModalUser.id}
+                className="px-5 py-2.5 bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold text-xs rounded-xl transition-all shadow-md shadow-amber-500/20 flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+              >
+                {approvalsActionLoading === planModalUser.id ? (
+                  <>
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                    <span>{lang === "ar" ? "جاري الحفظ..." : "Saving..."}</span>
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle className="w-4 h-4" />
+                    <span>
+                      {planModalUser.accountStatus !== "APPROVED"
+                        ? (lang === "ar" ? "اعتماد الحساب وتطبيق الباقة" : "Approve & Apply Plan")
+                        : (lang === "ar" ? "تحديث الباقة والاشتراك" : "Update Entitlement")}
+                    </span>
                   </>
                 )}
               </button>

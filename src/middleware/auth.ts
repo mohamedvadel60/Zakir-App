@@ -352,6 +352,273 @@ export const requireModulePermission = (moduleKey: "fileVault" | "memoryVault" |
   };
 };
 
+export interface EntitlementCheckResult {
+  allowed: boolean;
+  isAdmin: boolean;
+  accountStatus: string;
+  hasActiveSubscription: boolean;
+  isTrialActive: boolean;
+  activePlan: "Starter" | "Professional" | "Enterprise" | null;
+  trialStartedAt: string | null;
+  trialEndsAt: string | null;
+  trialRemainingSeconds: number;
+  reason: "OK" | "NOT_APPROVED" | "PENDING_REVIEW" | "PENDING_INSTITUTIONAL_DATA" | "PENDING_EMAIL_VERIFICATION" | "REJECTED" | "TRIAL_EXPIRED" | "NO_PLAN" | "PROFILE_NOT_FOUND";
+  userFriendlyMessage?: string;
+  profile?: any;
+}
+
+/**
+ * Server-side authoritative evaluation of account approval, trial validity (24 hours from approval),
+ * and active subscription plan entitlements.
+ */
+export async function checkUserEntitlementServer(uid?: string, email?: string): Promise<EntitlementCheckResult> {
+  if (!uid && !email) {
+    return {
+      allowed: false,
+      isAdmin: false,
+      accountStatus: "UNAUTHENTICATED",
+      hasActiveSubscription: false,
+      isTrialActive: false,
+      activePlan: null,
+      trialStartedAt: null,
+      trialEndsAt: null,
+      trialRemainingSeconds: 0,
+      reason: "PROFILE_NOT_FOUND",
+      userFriendlyMessage: "جلسة المستخدم غير مصادقة."
+    };
+  }
+
+  const isAdmin = await isUserAdminServer(uid || "", email);
+  if (isAdmin) {
+    return {
+      allowed: true,
+      isAdmin: true,
+      accountStatus: "APPROVED",
+      hasActiveSubscription: true,
+      isTrialActive: true,
+      activePlan: "Enterprise",
+      trialStartedAt: null,
+      trialEndsAt: null,
+      trialRemainingSeconds: 86400 * 365,
+      reason: "OK",
+      userFriendlyMessage: "حساب إداري مفوض بصلاحيات كاملة."
+    };
+  }
+
+  const profile = await getUserProfileServer(uid, email);
+  if (!profile) {
+    return {
+      allowed: false,
+      isAdmin: false,
+      accountStatus: "NOT_FOUND",
+      hasActiveSubscription: false,
+      isTrialActive: false,
+      activePlan: null,
+      trialStartedAt: null,
+      trialEndsAt: null,
+      trialRemainingSeconds: 0,
+      reason: "PROFILE_NOT_FOUND",
+      userFriendlyMessage: "تعذر العثور على ملف تعريف المستخدم."
+    };
+  }
+
+  // Determine effective accountStatus for legacy or new users
+  let effectiveStatus = profile.accountStatus;
+  if (!effectiveStatus) {
+    if (profile.isEmailVerified || profile.isVerified || profile.verification_status === "verified") {
+      effectiveStatus = "APPROVED";
+    } else {
+      effectiveStatus = "PENDING_EMAIL_VERIFICATION";
+    }
+  }
+
+  // 1. Account approval status check
+  if (effectiveStatus === "REJECTED") {
+    return {
+      allowed: false,
+      isAdmin: false,
+      accountStatus: "REJECTED",
+      hasActiveSubscription: false,
+      isTrialActive: false,
+      activePlan: null,
+      trialStartedAt: profile.trialStartedAt || null,
+      trialEndsAt: profile.trialEndsAt || null,
+      trialRemainingSeconds: 0,
+      reason: "REJECTED",
+      userFriendlyMessage: profile.rejectionReason 
+        ? `تم رفض طلب الحساب: ${profile.rejectionReason}`
+        : "تم رفض طلب تسجيل الحساب من قبل إدارة المنصة.",
+      profile
+    };
+  }
+
+  if (effectiveStatus === "PENDING_ADMIN_REVIEW") {
+    return {
+      allowed: false,
+      isAdmin: false,
+      accountStatus: "PENDING_ADMIN_REVIEW",
+      hasActiveSubscription: false,
+      isTrialActive: false,
+      activePlan: null,
+      trialStartedAt: null,
+      trialEndsAt: null,
+      trialRemainingSeconds: 0,
+      reason: "PENDING_REVIEW",
+      userFriendlyMessage: "طلب الحساب قيد المراجعة والاعتماد الإداري حالياً.",
+      profile
+    };
+  }
+
+  if (effectiveStatus === "PENDING_INSTITUTIONAL_DATA") {
+    return {
+      allowed: false,
+      isAdmin: false,
+      accountStatus: "PENDING_INSTITUTIONAL_DATA",
+      hasActiveSubscription: false,
+      isTrialActive: false,
+      activePlan: null,
+      trialStartedAt: null,
+      trialEndsAt: null,
+      trialRemainingSeconds: 0,
+      reason: "PENDING_INSTITUTIONAL_DATA",
+      userFriendlyMessage: "يرجى استكمال بيانات التحقق المؤسسي أولاً.",
+      profile
+    };
+  }
+
+  if (effectiveStatus === "PENDING_EMAIL_VERIFICATION") {
+    return {
+      allowed: false,
+      isAdmin: false,
+      accountStatus: "PENDING_EMAIL_VERIFICATION",
+      hasActiveSubscription: false,
+      isTrialActive: false,
+      activePlan: null,
+      trialStartedAt: null,
+      trialEndsAt: null,
+      trialRemainingSeconds: 0,
+      reason: "PENDING_EMAIL_VERIFICATION",
+      userFriendlyMessage: "يرجى تأكيد البريد الإلكتروني برمز التحقق أولاً.",
+      profile
+    };
+  }
+
+  // 2. Active Subscription check
+  const subStatus = (profile.subscriptionStatus || "").trim();
+  const subPlan = (profile.subscriptionPlan || "") as "Starter" | "Professional" | "Enterprise";
+  const hasActivePlan = subStatus === "Active" && (subPlan === "Starter" || subPlan === "Professional" || subPlan === "Enterprise");
+
+  if (hasActivePlan) {
+    return {
+      allowed: true,
+      isAdmin: false,
+      accountStatus: effectiveStatus,
+      hasActiveSubscription: true,
+      isTrialActive: false,
+      activePlan: subPlan,
+      trialStartedAt: profile.trialStartedAt || null,
+      trialEndsAt: profile.trialEndsAt || null,
+      trialRemainingSeconds: 0,
+      reason: "OK",
+      userFriendlyMessage: "اشتراك نشط.",
+      profile
+    };
+  }
+
+  // 3. 24-Hour Trial check (calculated from approvedAt or trialStartedAt)
+  const trialStartIso = profile.trialStartedAt || profile.approvedAt || profile.createdAt || new Date().toISOString();
+  let trialEndIso = profile.trialEndsAt || profile.trialExpiresAt;
+  if (!trialEndIso) {
+    const startMs = new Date(trialStartIso).getTime();
+    trialEndIso = new Date(startMs + 24 * 60 * 60 * 1000).toISOString();
+  }
+
+  const trialEndMs = new Date(trialEndIso).getTime();
+  const nowMs = Date.now();
+  const remainingSeconds = Math.max(0, Math.floor((trialEndMs - nowMs) / 1000));
+
+  if (remainingSeconds > 0) {
+    return {
+      allowed: true,
+      isAdmin: false,
+      accountStatus: effectiveStatus,
+      hasActiveSubscription: false,
+      isTrialActive: true,
+      activePlan: subPlan || "Starter",
+      trialStartedAt: trialStartIso,
+      trialEndsAt: trialEndIso,
+      trialRemainingSeconds: remainingSeconds,
+      reason: "OK",
+      userFriendlyMessage: "الفترة التجريبية نشطة (24 ساعة).",
+      profile
+    };
+  }
+
+  // Trial expired and no active subscription
+  return {
+    allowed: false,
+    isAdmin: false,
+    accountStatus: effectiveStatus,
+    hasActiveSubscription: false,
+    isTrialActive: false,
+    activePlan: subPlan || null,
+    trialStartedAt: trialStartIso,
+    trialEndsAt: trialEndIso,
+    trialRemainingSeconds: 0,
+    reason: "TRIAL_EXPIRED",
+    userFriendlyMessage: "انتهت فترة التجربة المجانية (24 ساعة). يرجى الاشتراك في إحدى باقات ذاكر للاستمرار.",
+    profile
+  };
+}
+
+/**
+ * Server-side middleware that guarantees the requesting user has valid access entitlement
+ * (Admin, or approved account with active subscription or active 24h trial).
+ */
+export const requireEntitlement = async (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+) => {
+  const uid = req.user?.uid;
+  const email = req.user?.email;
+  if (!uid) {
+    return res.status(401).json({
+      success: false,
+      code: "UNAUTHORIZED",
+      error: "Unauthorized: Missing authentication token",
+      userFriendlyMessage: "يجب تسجيل الدخول أولاً للوصول إلى هذا المورد."
+    });
+  }
+
+  try {
+    const entitlement = await checkUserEntitlementServer(uid, email);
+    if (!entitlement.allowed) {
+      return res.status(403).json({
+        success: false,
+        code: entitlement.reason === "TRIAL_EXPIRED" ? "TRIAL_EXPIRED" : "ENTITLEMENT_REQUIRED",
+        reason: entitlement.reason,
+        accountStatus: entitlement.accountStatus,
+        trialEndsAt: entitlement.trialEndsAt,
+        trialRemainingSeconds: entitlement.trialRemainingSeconds,
+        error: entitlement.userFriendlyMessage || "Access denied: Subscription or active trial required",
+        userFriendlyMessage: entitlement.userFriendlyMessage
+      });
+    }
+
+    (req as any).userEntitlement = entitlement;
+    next();
+  } catch (err: any) {
+    console.error("[ENTITLEMENT_MIDDLEWARE_ERROR]", err);
+    return res.status(500).json({
+      success: false,
+      code: "ENTITLEMENT_CHECK_FAILED",
+      error: "Failed to verify access entitlement.",
+      userFriendlyMessage: "تعذر التحقق من صلاحيات الاشتراك. يرجى المحاولة لاحقاً."
+    });
+  }
+};
+
 export const requireAuth = async (
   req: AuthRequest,
   res: Response,

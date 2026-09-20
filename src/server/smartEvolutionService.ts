@@ -472,67 +472,101 @@ export const handleRunSmartEvolution = async (req: Request, res: Response) => {
 }`;
 
         const candidateModels = [
+          "gemini-3.1-flash-lite",
           "gemini-flash-latest",
           "gemini-3.8-flash",
-          "gemini-3.1-flash-lite",
         ];
 
         for (const mName of candidateModels) {
           if (isGeminiInCooldown()) break;
-          try {
-            const genConfig: any = {
-              systemInstruction: systemInstruction,
-              responseMimeType: "application/json",
-              temperature: 0.3,
-            };
-            if (searchDecision.needsSearch) {
-              genConfig.tools = [{ googleSearch: {} }];
+          let response: any = null;
+
+          // Attempt with Google Search if search decision requires it
+          if (searchDecision.needsSearch) {
+            try {
+              const genConfigWithSearch: any = {
+                systemInstruction: systemInstruction,
+                responseMimeType: "application/json",
+                temperature: 0.3,
+                tools: [{ googleSearch: {} }],
+              };
+
+              response = await ai.models.generateContent({
+                model: mName,
+                contents: [
+                  {
+                    role: "user",
+                    parts: [
+                      {
+                        text: `حلل بيانات المؤسسة الحالية التالية:\n\n### الذكريات المؤسسية (${memories.length}):\n${memoriesSummary}\n\n### تنبيهات المخاطر النشطة (${riskAlerts.length}):\n${risksSummary}\n\n### المستندات والملفات المرفوعة (${processedFiles.length}):\n${filesSummary}\n\n### البيانات المؤسسية:\n${orgSummary}`,
+                      },
+                    ],
+                  },
+                ],
+                config: genConfigWithSearch,
+              });
+            } catch (searchErr: any) {
+              console.warn(`[SmartEvolution] Search tool failed for model ${mName}:`, searchErr?.message || searchErr);
+              externalSearchStatus = "SEARCH_QUOTA_FALLBACK";
             }
+          }
 
-            const response = await ai.models.generateContent({
-              model: mName,
-              contents: [
-                {
-                  role: "user",
-                  parts: [
-                    {
-                      text: `حلل بيانات المؤسسة الحالية التالية:\n\n### الذكريات المؤسسية (${memories.length}):\n${memoriesSummary}\n\n### تنبيهات المخاطر النشطة (${riskAlerts.length}):\n${risksSummary}\n\n### المستندات والملفات المرفوعة (${processedFiles.length}):\n${filesSummary}\n\n### البيانات المؤسسية:\n${orgSummary}`,
-                    },
-                  ],
-                },
-              ],
-              config: genConfig,
-            });
+          // Fallback to pure Gemini generation without Google Search if response wasn't obtained
+          if (!response) {
+            try {
+              const genConfigPure: any = {
+                systemInstruction: systemInstruction,
+                responseMimeType: "application/json",
+                temperature: 0.3,
+              };
 
-            if (response?.text) {
-              const cleaned = response.text.replace(/```json/g, "").replace(/```/g, "").trim();
-              geminiResult = JSON.parse(cleaned);
+              response = await ai.models.generateContent({
+                model: mName,
+                contents: [
+                  {
+                    role: "user",
+                    parts: [
+                      {
+                        text: `حلل بيانات المؤسسة الحالية التالية:\n\n### الذكريات المؤسسية (${memories.length}):\n${memoriesSummary}\n\n### تنبيهات المخاطر النشطة (${riskAlerts.length}):\n${risksSummary}\n\n### المستندات والملفات المرفوعة (${processedFiles.length}):\n${filesSummary}\n\n### البيانات المؤسسية:\n${orgSummary}`,
+                      },
+                    ],
+                  },
+                ],
+                config: genConfigPure,
+              });
+            } catch (pureErr: any) {
+              console.warn(`[SmartEvolution] Pure Gemini call failed for model ${mName}:`, pureErr?.message || pureErr);
+              handleGeminiError(pureErr);
+              continue;
+            }
+          }
 
-              // Check for grounding metadata
-              const candidate = response.candidates?.[0] as any;
-              if (candidate?.groundingMetadata) {
-                const chunks = candidate.groundingMetadata.groundingChunks || [];
-                chunks.forEach((c: any) => {
-                  if (c.web?.uri && c.web?.title) {
-                    externalSources.push({
-                      title: c.web.title,
-                      url: c.web.uri,
-                      snippet: c.web.snippet || "",
-                      accessedAt: new Date().toISOString(),
-                    });
-                  }
-                });
-                if (externalSources.length > 0) {
-                  externalSearchUsed = true;
-                  externalSearchStatus = "RUNTIME_VERIFIED";
+          if (response?.text) {
+            const cleaned = response.text.replace(/```json/g, "").replace(/```/g, "").trim();
+            geminiResult = JSON.parse(cleaned);
+
+            // Check for grounding metadata
+            const candidate = response.candidates?.[0] as any;
+            if (candidate?.groundingMetadata) {
+              const chunks = candidate.groundingMetadata.groundingChunks || [];
+              chunks.forEach((c: any) => {
+                if (c.web?.uri && c.web?.title) {
+                  externalSources.push({
+                    title: c.web.title,
+                    url: c.web.uri,
+                    snippet: c.web.snippet || "",
+                    accessedAt: new Date().toISOString(),
+                  });
                 }
+              });
+              if (externalSources.length > 0) {
+                externalSearchUsed = true;
+                externalSearchStatus = "RUNTIME_VERIFIED";
               }
-
-              geminiSucceeded = true;
-              break;
             }
-          } catch (modelErr: any) {
-            handleGeminiError(modelErr);
+
+            geminiSucceeded = true;
+            break;
           }
         }
       } catch (err: any) {
@@ -969,51 +1003,72 @@ ${filesSummary}
     });
 
     const candidateModels = [
+      "gemini-3.1-flash-lite",
       "gemini-flash-latest",
       "gemini-3.8-flash",
-      "gemini-3.1-flash-lite",
     ];
     let responseText = "";
     let extractedSources: Array<{ title: string; url: string; snippet?: string }> = [];
 
     for (const modelName of candidateModels) {
       if (isGeminiInCooldown()) break;
-      try {
-        const configObj: any = {
-          systemInstruction,
-          temperature: 0.35,
-        };
-        if (searchDecision.needsSearch) {
-          configObj.tools = [{ googleSearch: {} }];
+      let response: any = null;
+
+      if (searchDecision.needsSearch) {
+        try {
+          const configObjWithSearch: any = {
+            systemInstruction,
+            temperature: 0.35,
+            tools: [{ googleSearch: {} }],
+          };
+
+          response = await client.models.generateContent({
+            model: modelName,
+            contents,
+            config: configObjWithSearch,
+          });
+        } catch (searchErr: any) {
+          console.warn(`[AgentChat] Search tool failed for model ${modelName}:`, searchErr?.message || searchErr);
         }
+      }
 
-        const response = await client.models.generateContent({
-          model: modelName,
-          contents,
-          config: configObj,
-        });
+      if (!response) {
+        try {
+          const configObjPure: any = {
+            systemInstruction,
+            temperature: 0.35,
+          };
 
-        if (response?.text) {
-          responseText = response.text;
-
-          // Extract grounding metadata if search was used
-          const candidate = response.candidates?.[0] as any;
-          if (candidate?.groundingMetadata) {
-            const chunks = candidate.groundingMetadata.groundingChunks || [];
-            chunks.forEach((c: any) => {
-              if (c.web?.uri && c.web?.title) {
-                extractedSources.push({
-                  title: c.web.title,
-                  url: c.web.uri,
-                  snippet: c.web.snippet || "",
-                });
-              }
-            });
-          }
-          break;
+          response = await client.models.generateContent({
+            model: modelName,
+            contents,
+            config: configObjPure,
+          });
+        } catch (pureErr: any) {
+          console.warn(`[AgentChat] Pure Gemini call failed for model ${modelName}:`, pureErr?.message || pureErr);
+          handleGeminiError(pureErr);
+          continue;
         }
-      } catch (err: any) {
-        handleGeminiError(err);
+      }
+
+      if (response?.text) {
+        responseText = response.text;
+
+        // Extract grounding metadata if search was used
+        const candidate = response.candidates?.[0] as any;
+        if (candidate?.groundingMetadata) {
+          const chunks = candidate.groundingMetadata.groundingChunks || [];
+          chunks.forEach((c: any) => {
+            if (c.web?.uri && c.web?.title) {
+              extractedSources.push({
+                title: c.web.title,
+                url: c.web.uri,
+                snippet: c.web.snippet || "",
+              });
+            }
+          });
+        }
+        break;
       }
     }
 

@@ -19,41 +19,126 @@ service cloud.firestore {
       );
     }
 
+    function getUserData(userId) {
+      return get(/databases/$(database)/documents/users/$(userId)).data;
+    }
+
     function isWorkspaceMember(userId) {
       return isSignedIn() && (
         request.auth.uid == userId ||
         (
           exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.workspace.ownerId == userId
+          getUserData(request.auth.uid).workspace.ownerId == userId
         )
       );
     }
 
-    // User profile document and user's private subcollections (memories, riskAlerts, files)
+    // Authoritative check: User is approved, email verified, and has an active subscription OR unexpired trial
+    function isUserEntitled(userId) {
+      return isAdmin() || (
+        exists(/databases/$(database)/documents/users/$(userId)) &&
+        (
+          let u = getUserData(userId);
+          (u.role == "Admin") ||
+          (
+            (u.isEmailVerified == true || u.verification_required == false) &&
+            u.accountStatus == "APPROVED" &&
+            (
+              u.subscriptionStatus == "Active" ||
+              (
+                u.subscriptionStatus != "Expired" &&
+                (
+                  (u.trialExpiresAtMillis != null && request.time.toMillis() < u.trialExpiresAtMillis) ||
+                  (u.trialExpiresAt != null && u.trialExpiresAt is timestamp && request.time < u.trialExpiresAt) ||
+                  (u.trialEndsAt != null && u.trialEndsAt is timestamp && request.time < u.trialEndsAt)
+                )
+              )
+            )
+          )
+        )
+      );
+    }
+
+    function canAccessUserData(userId) {
+      return (isOwner(userId) || isWorkspaceMember(userId) || isAdmin()) && isUserEntitled(userId);
+    }
+
+    // User profile document and subcollections
     match /users/{userId} {
       allow read: if isOwner(userId) || isWorkspaceMember(userId) || isAdmin();
       allow create: if isOwner(userId) || isAdmin();
+      // Block regular users from modifying any entitlement, subscription, trial, or lifecycle fields
       allow update: if (isOwner(userId) && (
-        !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'subscriptionPlan', 'trialExpiresAt', 'stripeSubscriptionId', 'subscriptionStatus'])
+        !request.resource.data.diff(resource.data).affectedKeys().hasAny([
+          'role', 'roles', 'isAdmin', 'accountStatus', 'subscriptionPlan', 'plan',
+          'trialExpiresAt', 'trialExpiresAtMillis', 'trialStartedAt', 'trialEndsAt',
+          'isTrial', 'stripeSubscriptionId', 'subscriptionStatus', 'entitlement',
+          'powers', 'institutionalProfile', 'verification_required', 'isEmailVerified',
+          'verificationInfo', 'verification_status', 'rejectionReason', 'approvedAt',
+          'approvedBy', 'approvalNotes'
+        ])
       )) || isAdmin();
       allow delete: if isAdmin();
 
       match /memories/{memoryId} {
-        allow read, create, update, delete: if isOwner(userId) || isWorkspaceMember(userId) || isAdmin();
+        allow read, create, update, delete: if canAccessUserData(userId);
       }
 
       match /riskAlerts/{alertId} {
-        allow read, create, update, delete: if isOwner(userId) || isWorkspaceMember(userId) || isAdmin();
+        allow read, create, update, delete: if canAccessUserData(userId);
+      }
+
+      match /files/{fileId} {
+        allow read, create, delete: if canAccessUserData(userId);
+        allow update: if canAccessUserData(userId) && (
+          !request.resource.data.diff(resource.data).affectedKeys().hasAny([
+            'role', 'subscriptionPlan', 'trialExpiresAt', 'trialExpiresAtMillis',
+            'stripeSubscriptionId', 'subscriptionStatus'
+          ])
+        );
       }
 
       match /{document=**} {
-        allow read: if isOwner(userId) || isWorkspaceMember(userId) || isAdmin();
-        allow create: if isOwner(userId) || isWorkspaceMember(userId) || isAdmin();
-        allow update: if (isOwner(userId) && (
-          !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'subscriptionPlan', 'trialExpiresAt', 'stripeSubscriptionId', 'subscriptionStatus'])
-        )) || isWorkspaceMember(userId) || isAdmin();
-        allow delete: if isOwner(userId) || isWorkspaceMember(userId) || isAdmin();
+        allow read, create, delete: if canAccessUserData(userId);
+        allow update: if canAccessUserData(userId) && (
+          !request.resource.data.diff(resource.data).affectedKeys().hasAny([
+            'role', 'subscriptionPlan', 'trialExpiresAt', 'trialExpiresAtMillis',
+            'stripeSubscriptionId', 'subscriptionStatus'
+          ])
+        );
       }
+    }
+
+    // Top-level files metadata
+    match /files/{fileId} {
+      allow read: if isSignedIn() && (
+        isAdmin() ||
+        (resource.data.userId == request.auth.uid && isUserEntitled(request.auth.uid))
+      );
+      allow create: if isSignedIn() && (
+        isAdmin() ||
+        (request.resource.data.userId == request.auth.uid && isUserEntitled(request.auth.uid))
+      );
+      allow update, delete: if isSignedIn() && (
+        isAdmin() ||
+        (resource.data.userId == request.auth.uid && isUserEntitled(request.auth.uid))
+      ) && (request.resource == null || request.resource.data.userId == resource.data.userId);
+    }
+
+    // Subscription Correction Requests
+    match /subscription_correction_requests/{requestId} {
+      allow read: if (isSignedIn() && (resource.data.userId == request.auth.uid || resource.data.userEmail == request.auth.token.email)) || isAdmin();
+      allow create: if isSignedIn() && (request.resource.data.userId == request.auth.uid || isAdmin());
+      allow update, delete: if isAdmin();
+    }
+
+    // Authoritative Audit Logs & Entitlement Audit Logs
+    match /auditLogs/{logId} {
+      allow read, write: if isAdmin();
+    }
+
+    match /entitlement_audit_logs/{logId} {
+      allow read, write: if isAdmin();
     }
 
     // Verification codes collection - secure server-only / admin-only
@@ -89,13 +174,6 @@ service cloud.firestore {
 
     match /users_retained/{userId} {
       allow read, write: if isAdmin();
-    }
-
-    // Top-level files metadata
-    match /files/{fileId} {
-      allow read: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
-      allow create: if isSignedIn() && (request.resource.data.userId == request.auth.uid || isAdmin());
-      allow update, delete: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin()) && (request.resource == null || request.resource.data.userId == resource.data.userId);
     }
 
     // Identity Verification & Recovery Documents

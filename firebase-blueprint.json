@@ -182,6 +182,45 @@
         "targetUser": { "type": "string" },
         "targetWorkspace": { "type": "string" }
       }
+    },
+    "SubscriptionCorrectionRequest": {
+      "path": "/subscription_correction_requests/{requestId}",
+      "fields": {
+        "requestId": { "type": "string" },
+        "userId": { "type": "string" },
+        "userEmail": { "type": "string" },
+        "userName": { "type": "string" },
+        "workspaceId": { "type": "string" },
+        "currentPlan": { "type": "string" },
+        "requestedPlan": { "type": "string" },
+        "issueType": { "type": "string" },
+        "userNotes": { "type": "string" },
+        "referenceData": { "type": "string" },
+        "status": { "type": "string" },
+        "submittedAt": { "type": "string" },
+        "reviewedAt": { "type": "string" },
+        "reviewedBy": { "type": "string" },
+        "adminNotes": { "type": "string" },
+        "resolutionAction": { "type": "string" }
+      }
+    },
+    "EntitlementAuditLog": {
+      "path": "/entitlement_audit_logs/{logId}",
+      "fields": {
+        "adminId": { "type": "string" },
+        "adminEmail": { "type": "string" },
+        "userId": { "type": "string" },
+        "targetEmail": { "type": "string" },
+        "workspaceId": { "type": "string" },
+        "requestId": { "type": "string" },
+        "previousPlan": { "type": "string" },
+        "newPlan": { "type": "string" },
+        "previousStatus": { "type": "string" },
+        "newStatus": { "type": "string" },
+        "reason": { "type": "string" },
+        "actionType": { "type": "string" },
+        "timestamp": { "type": "string" }
+      }
     }
   }
 }

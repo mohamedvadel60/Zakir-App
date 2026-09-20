@@ -78,6 +78,7 @@ import {
 } from "lucide-react";
 import { DashboardAnalyticsChart } from "./components/DashboardAnalyticsChart";
 import { TrialCountdown } from "./components/TrialCountdown";
+import { SubscriptionCorrectionModal } from "./components/SubscriptionCorrectionModal";
 import { SmartEvolutionView } from "./components/SmartEvolutionView";
 import { MarketIntelligenceView } from "./components/MarketIntelligenceView";
 import { motion, AnimatePresence } from "motion/react";
@@ -113,6 +114,9 @@ import { InstallPrompt } from "./components/InstallPrompt";
 const CustomerSupport = React.lazy<React.ComponentType<any>>(() => import("./components/CustomerSupport").then((m: any) => ({ default: m.CustomerSupport || m.default })));
 const PrintSystem = React.lazy<React.ComponentType<any>>(() => import("./components/print/PrintSystem").then((m: any) => ({ default: m.PrintSystem || m.default })));
 const EmailVerificationView = React.lazy<React.ComponentType<any>>(() => import("./components/EmailVerificationView").then((m: any) => ({ default: m.EmailVerificationView || m.default })));
+const InstitutionalVerificationForm = React.lazy<React.ComponentType<any>>(() => import("./components/InstitutionalVerificationForm").then((m: any) => ({ default: m.InstitutionalVerificationForm || m.default })));
+const PendingApprovalView = React.lazy<React.ComponentType<any>>(() => import("./components/PendingApprovalView").then((m: any) => ({ default: m.PendingApprovalView || m.default })));
+const AccountRejectedView = React.lazy<React.ComponentType<any>>(() => import("./components/AccountRejectedView").then((m: any) => ({ default: m.AccountRejectedView || m.default })));
 const RiskRadarChart = React.lazy<React.ComponentType<any>>(() => import("./components/RiskRadarChart").then((m: any) => ({ default: m.RiskRadarChart || m.default })));
 const AdminDashboard = React.lazy<React.ComponentType<any>>(() => import("./components/AdminDashboard").then((m: any) => ({ default: m.AdminDashboard || m.default })));
 import { DesktopUpdateNotification } from "./components/DesktopUpdateNotification";
@@ -494,6 +498,7 @@ export default function App() {
   const [resetStep, setResetStep] = useState<"forgot" | "verify_code" | "new_password" | "success">("forgot");
   const [landingBillingCycle, setLandingBillingCycle] = useState<"annual" | "monthly">("annual");
   const [stripeReceiptData, setStripeReceiptData] = useState<any | null>(null);
+  const [showSubscriptionCorrectionModal, setShowSubscriptionCorrectionModal] = useState<boolean>(false);
 
   const handleLandingStripeCheckout = async (plan: "Starter" | "Professional" | "Enterprise") => {
     if (!currentUser) {
@@ -1957,6 +1962,21 @@ This hosting domain (**${currentDomain}**) has not been authorized in your Fireb
     applyUserPreferences(null);
     setAuthMode("landing");
     setActiveTab("dashboard");
+  };
+
+  // Refresh current user data from server
+  const refreshCurrentUser = async () => {
+    try {
+      const res = await authenticatedFetch("/api/auth/current-user-status");
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success && data.user) {
+          setCurrentUser(data.user);
+        }
+      }
+    } catch (e) {
+      console.warn("Failed to refresh user profile from server:", e);
+    }
   };
 
   // Change language or theme inside App state and persist to Firestore for logged-in user
@@ -4133,6 +4153,34 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
             applyUserPreferences={applyUserPreferences}
           />
         </Suspense>
+      ) : (currentUser && !isUserAdmin(currentUser) && currentUser.accountStatus === "PENDING_INSTITUTIONAL_DATA") ? (
+        <Suspense fallback={<FullScreenFallback />}>
+          <InstitutionalVerificationForm
+            currentUser={currentUser}
+            lang={lang}
+            onLogout={handleLogout}
+            onSuccess={(updatedUser: User) => {
+              setCurrentUser(updatedUser);
+            }}
+          />
+        </Suspense>
+      ) : (currentUser && !isUserAdmin(currentUser) && currentUser.accountStatus === "PENDING_ADMIN_REVIEW") ? (
+        <Suspense fallback={<FullScreenFallback />}>
+          <PendingApprovalView
+            currentUser={currentUser}
+            lang={lang}
+            onLogout={handleLogout}
+            onRefreshUser={refreshCurrentUser}
+          />
+        </Suspense>
+      ) : (currentUser && !isUserAdmin(currentUser) && currentUser.accountStatus === "REJECTED") ? (
+        <Suspense fallback={<FullScreenFallback />}>
+          <AccountRejectedView
+            currentUser={currentUser}
+            lang={lang}
+            onLogout={handleLogout}
+          />
+        </Suspense>
       ) : (currentUser && isUserAdmin(currentUser)) ? (
         /* ADMIN DASHBOARD VIEW FOR ADMIN USER */
         (() => {
@@ -4366,6 +4414,13 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                     <span className="text-slate-500 font-bold uppercase tracking-wider">{lang === "ar" ? "التجريبي" : "TRIAL"}</span>
                     <TrialCountdown trialExpiresAt={currentUser?.trialExpiresAt} />
                   </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowSubscriptionCorrectionModal(true)}
+                    className="w-full mt-1.5 py-1 px-2 text-[10px] text-[#0075DE] hover:text-[#005BAB] hover:bg-[#0075DE]/10 rounded-lg font-bold text-center transition-all cursor-pointer flex items-center justify-center gap-1 border border-[#0075DE]/20"
+                  >
+                    <span>{lang === "ar" ? "طلب تصحيح الاشتراك" : "Correction Request"}</span>
+                  </button>
                 </div>
               )}
 
@@ -7020,6 +7075,15 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
 
       {/* Desktop Application Auto-Update Banner */}
       <DesktopUpdateNotification lang={lang} />
+
+      {/* Subscription Correction Modal */}
+      <SubscriptionCorrectionModal
+        isOpen={showSubscriptionCorrectionModal}
+        onClose={() => setShowSubscriptionCorrectionModal(false)}
+        currentUser={currentUser}
+        lang={lang}
+        theme={theme}
+      />
 
       {/* Enterprise Print & Document System */}
       {isPrintPreviewOpen && (

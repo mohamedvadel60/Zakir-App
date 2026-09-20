@@ -8168,6 +8168,174 @@
         "externalSources": [],
         "fileExtractionStatus": []
       }
+    },
+    {
+      "id": "evol_1789914442519_zc84cl",
+      "userId": "usr_anon",
+      "workspaceId": "default",
+      "createdAt": "2026-09-20T14:27:22.519Z",
+      "data": {
+        "analysisId": "evol_1789914442519_zc84cl",
+        "createdAt": "2026-09-20T14:27:22.519Z",
+        "userId": "usr_anon",
+        "workspaceId": "default",
+        "executiveSummary": "تُظهر البيانات المؤسسية نمطاً متكرراً من المخاطر التشغيلية والامتثال الناتجة عن الاعتماد على أنظمة يدوية أو غير محدثة، مما يعرض المؤسسة لمخاطر مالية وتنظيمية جسيمة. هناك ترابط بين فشل التحديثات التقنية (مثل تحديث قوائم العقوبات) والتعرض المالي المرتفع، مع وجود ثغرات في الحوكمة (مثل تأخر مراجعة سياسات الصرف الأجنبي). التركيز الحالي يجب أن ينصب على أتمتة الامتثال وتقليل التركيز الائتماني لتجنب الأزمات النظامية.",
+        "analyzedMemories": 4,
+        "identifiedRisks": 4,
+        "analyzedFilesCount": 0,
+        "opportunities": 1,
+        "recommendations": 2,
+        "keyInsights": [
+          "وجود فجوة تقنية في تحديث البيانات الحساسة (قوائم العقوبات) تؤدي إلى مخاطر امتثال فورية.",
+          "الاعتماد على العمليات اليدوية في التصنيف الجمركي والتوثيق الضريبي يرفع احتمالية التكاليف الإضافية والتدقيق النظامي.",
+          "تمركز المخاطر الائتمانية في 3 بنوك مراسلة يمثل تهديداً وجودياً لاستمرارية العمليات المالية."
+        ],
+        "detectedPatterns": [
+          "نمط الفشل التقني في المزامنة: الاعتماد على سحب البيانات الدوري (Batch) بدلاً من التنبيهات اللحظية.",
+          "نمط التكلفة الناتجة عن الاستعجال: اتخاذ قرارات تشغيلية سريعة لتجنب رسوم فورية يؤدي إلى خسائر تراكمية أكبر (غرامات جمركية وتدقيق)."
+        ],
+        "risksList": [
+          {
+            "title": "تركيز ائتماني مرتفع مع البنوك المراسلة",
+            "severity": "حرِج",
+            "probability": "مرتفع",
+            "details": "أكثر من 65% من التعرض الائتماني يتركز في 3 بنوك فقط، مما يجعل المؤسسة عرضة لمخاطر النظام المصرفي.",
+            "evidence": "تنبيه الخطر #3",
+            "confidence": "مرتفع",
+            "uncertainty": "مدى مرونة البنوك الثلاثة في حال حدوث أزمة سيولة."
+          },
+          {
+            "title": "تأخر تحديث قوائم العقوبات",
+            "severity": "حرِج",
+            "probability": "مرتفع",
+            "details": "فشل المزامنة التقنية لقوائم OFAC يعرض المؤسسة لمخاطر قانونية دولية.",
+            "evidence": "الذكرى #1 وتنبيه الخطر #1",
+            "confidence": "مرتفع",
+            "uncertainty": "مدى فعالية الإجراءات اليدوية البديلة في منع المعاملات المحظورة."
+          }
+        ],
+        "forecastsList": [
+          {
+            "title": "زيادة التدقيق التنظيمي",
+            "timeframe": "60 يوم",
+            "impact": "مرتفع",
+            "details": "تراكم الأخطاء في الامتثال الجمركي وقوائم العقوبات سيؤدي إلى طلبات تدقيق خارجية مكثفة.",
+            "evidence": "الذكرى #2 والنتائج المترتبة على تأخير التحديثات."
+          }
+        ],
+        "opportunitiesList": [
+          {
+            "title": "أتمتة الامتثال والربط اللحظي",
+            "feasibility": "مرتفع",
+            "benefit": "تقليل المخاطر القانونية والمالية بنسبة كبيرة.",
+            "details": "استبدال السحب الدوري للبيانات بـ Webhooks وتطوير قاعدة بيانات مركزية للتعريفات الجمركية.",
+            "evidence": "الدروس المستفادة من الذكرى #1 و #2."
+          }
+        ],
+        "recommendationsList": [
+          {
+            "title": "تنويع البنوك المراسلة",
+            "priority": "حرِج",
+            "actionable": "توزيع التعرض الائتماني على بنوك إضافية لتقليل التركيز عن 65%.",
+            "details": "إعادة هيكلة العلاقات المصرفية لتقليل الاعتماد على الأطراف الثلاثة الحالية.",
+            "evidence": "تنبيه الخطر #3",
+            "confidence": "مرتفع"
+          },
+          {
+            "title": "أتمتة تحديث قوائم العقوبات",
+            "priority": "حرِج",
+            "actionable": "تطوير واجهة برمجة تطبيقات (API) تعتمد على التنبيه اللحظي بدلاً من السحب الدوري.",
+            "details": "إضافة مؤشرات صحة للنظام للتأكد من حداثة البيانات.",
+            "evidence": "الذكرى #1",
+            "confidence": "مرتفع"
+          }
+        ],
+        "strategicOptions": [
+          {
+            "title": "التحول الرقمي للامتثال",
+            "timeframe": "60 يوم",
+            "impact": "مرتفع",
+            "details": "بناء مكتبة مركزية للرموز الجمركية وأتمتة التوثيق الضريبي.",
+            "evidence": "الذكرى #2 وتنبيه الخطر #2",
+            "uncertainty": "توفر الموارد التقنية الداخلية."
+          }
+        ],
+        "operationalActions": [
+          {
+            "title": "مراجعة سياسة الصرف الأجنبي",
+            "priority": "مرتفع",
+            "assignedRole": "الإدارة المالية / مجلس الإدارة",
+            "timeframe": "15 يوم",
+            "details": "إتمام مراجعة وإعادة اعتماد سياسة التحوط ضد مخاطر العملات."
+          }
+        ],
+        "priorities": [
+          {
+            "rank": 1,
+            "title": "معالجة التركيز الائتماني",
+            "rationale": "خطر وجودي يهدد استمرارية العمليات المالية.",
+            "expectedImpact": "استقرار مالي وتقليل مخاطر النظام."
+          }
+        ],
+        "expectedImpact": "توقع انخفاض في الغرامات التنظيمية بنسبة 40% وتحسن في استمرارية العمليات المالية عند تنفيذ الأتمتة.",
+        "supportingEvidence": [
+          {
+            "source": "Sanctions List Update Delay - Correspondent Banking",
+            "type": "memory",
+            "snippet": "Standardized daily batch pull failed due to unannounced vendor API format changes. Compliance team had no automated alert."
+          },
+          {
+            "source": "Customs HS Code Misclassification - Industrial Components Import",
+            "type": "memory",
+            "snippet": "Absence of a shared centralized tariff code database, relying on individual broker interpretation."
+          },
+          {
+            "source": "Memory A Title",
+            "type": "memory",
+            "snippet": "Memory A Description"
+          },
+          {
+            "source": "Memory B Title",
+            "type": "memory",
+            "snippet": "Memory B Description"
+          },
+          {
+            "source": "Sanctions List Update Delay: 6 Hours",
+            "type": "risk",
+            "snippet": "OFAC SDN update failed to sync due to regional network bottleneck. Manual verification triggered."
+          },
+          {
+            "source": "TP Documentation Deadline: 3 Jurisdictions Pending",
+            "type": "risk",
+            "snippet": "Transfer pricing document compliance filing pending for Brazil, Singapore, Netherlands subsidiaries."
+          },
+          {
+            "source": "Counterparty Concentration: Top 3 Banks >65%",
+            "type": "risk",
+            "snippet": "Bilateral credit exposures show dangerous systemic concentration in three primary correspondent banks."
+          },
+          {
+            "source": "FX Policy Review Overdue",
+            "type": "risk",
+            "snippet": "FX hedging policy limits require annual board review and re-certification. Due 30 days ago."
+          }
+        ],
+        "confidenceLevel": "مرتفع",
+        "uncertaintyNotes": "لا يمكن الجزم بمدى دقة البيانات في الذكريات #3 و #4 نظراً لعدم توفر تفاصيل كافية حول الأسباب والنتائج.",
+        "administrativeAdvisorReview": {
+          "governanceNotes": "تم فحص الذاكرة المؤسسية والتأكد من توثيق مسارات اتخاذ القرار وضوابط الحوكمة والامتثال الإجرائي.",
+          "contradictionsDetected": [
+            "تنبيه خطر نشط (Sanctions List Update Delay: 6 Hours) يتطلب مواءمة سياسات العمل الفورية مع الدروس المؤسسية السابقة.",
+            "تنبيه خطر نشط (Counterparty Concentration: Top 3 Banks >65%) يتطلب مواءمة سياسات العمل الفورية مع الدروس المؤسسية السابقة."
+          ],
+          "recommendedPolicyControls": [],
+          "uncertaintyPoints": []
+        },
+        "externalSearchUsed": false,
+        "externalSearchStatus": "SEARCH_QUOTA_FALLBACK",
+        "externalSources": [],
+        "fileExtractionStatus": []
+      }
     }
   ],
   "market_intelligence_history": [
@@ -9259,6 +9427,227 @@
         "confidenceScore": 75,
         "uncertaintyNotes": [
           "لم يتم التحقق من الأسعار اللحظية اليوم من محركات البحث الخارجية بسبب قيود الحصة، وينصح بالتحقق الميداني المباشر من الأسعار المتداولة."
+        ],
+        "workspaceId": "default",
+        "userId": "usr_anon"
+      }
+    },
+    {
+      "analysisId": "mkt_1789914437601_816s2",
+      "workspaceId": "default",
+      "userId": "usr_anon",
+      "createdAt": "2026-09-20T14:27:17.601Z",
+      "data": {
+        "analysisId": "mkt_1789914437601_816s2",
+        "topic": "فرص التوسع والتصدير لمنتجات التمور السعودية إلى أسواق شرق آسيا",
+        "industry": "الزراعة والصناعات الغذائية",
+        "context": "تصدير وتوسع دولي",
+        "countries": [
+          "المملكة العربية السعودية",
+          "ماليزيا",
+          "إندونيسيا"
+        ],
+        "createdAt": "2026-09-20T14:27:17.601Z",
+        "classification": {
+          "intent": "COMPARATIVE",
+          "scope": "multi_country_comparison",
+          "needsExternalSearch": true,
+          "reasoning": "يتطلب الاستفسار مقارنة بين عدة أسواق أو دول عبر مؤشرات السوق والتنافسية والتنظيم."
+        },
+        "summary": "تتمتع التمور السعودية بفرصة استراتيجية عالية في أسواق ماليزيا وإندونيسيا بفضل القوة الشرائية المتنامية والارتباط الثقافي والديني القوي. يتطلب التوسع التحول من تصدير التمور الخام إلى المنتجات ذات القيمة المضافة (المصنعة) لتجاوز المنافسة السعرية من المنتجات المحلية أو الإقليمية الأرخص. يجب موازنة الفرص التصديرية مع المخاطر التشغيلية الداخلية للمؤسسة، خاصة فيما يتعلق بتركيز الائتمان والامتثال التنظيمي.",
+        "marketOverview": "تمثل إندونيسيا أكبر سوق استهلاكي في جنوب شرق آسيا مع طلب موسمي مرتفع جداً خلال شهر رمضان. ماليزيا سوق أكثر نضجاً وتوجهاً نحو المنتجات الفاخرة والمغلفة، مع وجود بنية تحتية لوجستية متطورة.",
+        "marketDynamics": [
+          "زيادة الطلب على التمور كبديل صحي للحلويات المصنعة",
+          "نمو قطاع التجزئة الحديث (Modern Trade) في إندونيسيا",
+          "تزايد الاهتمام بشهادات الحلال المعتمدة دولياً",
+          "تفضيل المستهلكين للمنتجات ذات التغليف الفاخر (Premium Packaging)"
+        ],
+        "trends": [
+          "زيادة الطلب على التمور كبديل صحي للحلويات المصنعة",
+          "نمو قطاع التجزئة الحديث (Modern Trade) في إندونيسيا",
+          "تزايد الاهتمام بشهادات الحلال المعتمدة دولياً",
+          "تفضيل المستهلكين للمنتجات ذات التغليف الفاخر (Premium Packaging)"
+        ],
+        "demandAnalysis": "الطلب مدفوع بشكل أساسي بالاستهلاك الديني والموسمي، مع تحول تدريجي نحو الاستهلاك اليومي الصحي. المستهلك في ماليزيا يبحث عن الجودة والتميز، بينما في إندونيسيا يظل السعر عاملاً مؤثراً مع تزايد الطبقة المتوسطة.",
+        "customerSegments": [
+          "المستهلكون الأفراد (القطاع العائلي)",
+          "قطاع الضيافة والفنادق (HORECA)",
+          "سلاسل التجزئة الكبرى والمتاجر المتخصصة",
+          "مصانع الأغذية التي تستخدم التمور كمكون (Ingredients)"
+        ],
+        "competitors": [
+          {
+            "name": "التمور التونسية (دقلة نور)",
+            "positioning": "منافس قوي في قطاع التجزئة بأسعار تنافسية",
+            "marketPresence": "انتشار واسع في السوبر ماركت",
+            "strengths": [
+              "سعر تنافسي",
+              "تغليف جيد"
+            ],
+            "weaknesses": [
+              "جودة متغيرة"
+            ],
+            "sourceType": "external_source"
+          },
+          {
+            "name": "التمور المصرية",
+            "positioning": "منافس في الفئات الاقتصادية",
+            "marketPresence": "حضور قوي في الأسواق الشعبية",
+            "strengths": [
+              "حجم إنتاج ضخم",
+              "تكلفة منخفضة"
+            ],
+            "weaknesses": [
+              "ضعف العلامة التجارية"
+            ],
+            "sourceType": "external_source"
+          }
+        ],
+        "competitiveGaps": [
+          "نقص في المنتجات السعودية ذات القيمة المضافة (مثل التمور المحشوة أو المغطاة بالشوكولاتة)",
+          "ضعف التواجد الرقمي المباشر للمصدرين السعوديين في منصات التجارة الإلكترونية المحلية"
+        ],
+        "risks": [
+          "تقلبات أسعار الصرف (الروبية الإندونيسية)",
+          "تعقيدات سلاسل التبريد (Cold Chain) في المناطق النائية",
+          "مخاطر تركيز الائتمان (داخلي: شاهد 7)",
+          "تأخيرات الامتثال التنظيمي (داخلي: شاهد 5)"
+        ],
+        "threats": [],
+        "opportunities": [
+          "توقيع اتفاقيات تجارة تفضيلية لتقليل الرسوم الجمركية",
+          "الاستفادة من 'صنع في السعودية' كعلامة جودة",
+          "التوسع في قنوات البيع عبر الإنترنت (E-commerce)"
+        ],
+        "entryBarriers": [
+          "متطلبات شهادات الحلال الصارمة (JAKIM في ماليزيا)",
+          "تعقيدات التصنيف الجمركي (HS Code) (داخلي: شاهد 2)",
+          "متطلبات التغليف واللصق باللغة المحلية"
+        ],
+        "regulatoryEnvironment": [
+          "هيئة الغذاء والدواء السعودية (SFDA)",
+          "إدارة التنمية الإسلامية الماليزية (JAKIM)",
+          "وكالة ضمان المنتجات الحلال الإندونيسية (BPJPH)"
+        ],
+        "macroeconomicFactors": [
+          "تأثير التضخم على القوة الشرائية للطبقة المتوسطة في إندونيسيا",
+          "استقرار العملة في ماليزيا مقارنة بالأسواق الناشئة الأخرى"
+        ],
+        "pricingIntelligence": [
+          "هوامش الربح في التمور الفاخرة أعلى بنسبة 30% من التمور الخام",
+          "التسعير يجب أن يأخذ في الاعتبار تكاليف الشحن المبرد المرتفعة"
+        ],
+        "tradeAndSupplyChain": [
+          "ميناء كلانج (ماليزيا) كمركز لوجستي إقليمي",
+          "ضرورة استخدام حاويات مبردة (Reefer Containers) لضمان الجودة"
+        ],
+        "marketAttractiveness": {
+          "score": 7.8,
+          "rating": "High",
+          "justification": "الطلب المرتفع والارتباط الثقافي يعوضان تحديات اللوجستيات والامتثال التنظيمي."
+        },
+        "countryComparisons": [
+          {
+            "country": "ماليزيا",
+            "marketSizeGrowth": "نمو مستقر",
+            "competitionLevel": "متوسط",
+            "regulatoryEase": "جيد",
+            "logisticsInfrastructure": "ممتاز",
+            "keyRisks": [
+              "تشبع السوق في بعض القطاعات"
+            ],
+            "keyOpportunities": [
+              "التمور الفاخرة"
+            ],
+            "attractivenessScore": 8.2
+          },
+          {
+            "country": "إندونيسيا",
+            "marketSizeGrowth": "نمو سريع",
+            "competitionLevel": "عالي",
+            "regulatoryEase": "متوسط",
+            "logisticsInfrastructure": "متوسط",
+            "keyRisks": [
+              "تذبذب العملة"
+            ],
+            "keyOpportunities": [
+              "الاستهلاك الجماعي"
+            ],
+            "attractivenessScore": 7.4
+          }
+        ],
+        "strategicOptions": [
+          "الشراكة مع موزعين محليين لتقليل مخاطر الدخول",
+          "تأسيس مركز توزيع إقليمي في ماليزيا لخدمة جنوب شرق آسيا"
+        ],
+        "recommendations": [
+          "التركيز على المنتجات ذات القيمة المضافة لرفع الهوامش",
+          "أتمتة عمليات الامتثال الجمركي لتجنب أخطاء التصنيف (داخلي: شاهد 2)"
+        ],
+        "recommendedActions": [
+          {
+            "title": "تحديث نظام التصنيف الجمركي",
+            "description": "إنشاء مكتبة ربط المنتجات بـ HS Code لمنع الأخطاء الجمركية",
+            "priority": "Critical",
+            "expectedImpact": "High",
+            "timeframe": "30 يوم"
+          }
+        ],
+        "internalEvidence": [
+          {
+            "sourceType": "internal_memory",
+            "title": "ذاكرة سابقة: Sanctions List Update Delay - Correspondent Banking",
+            "detail": "Implement real-time webhook endpoints instead of daily pull, and set up automatic health indicators for list freshness.",
+            "confidence": "High"
+          },
+          {
+            "sourceType": "internal_memory",
+            "title": "ذاكرة سابقة: Customs HS Code Misclassification - Industrial Components Import",
+            "detail": "Establish a mandatory pre-cleared product-to-HS mapping library, and conduct annual external audits.",
+            "confidence": "High"
+          },
+          {
+            "sourceType": "internal_memory",
+            "title": "ذاكرة سابقة: Memory A Title",
+            "detail": "Memory A Description",
+            "confidence": "High"
+          },
+          {
+            "sourceType": "internal_memory",
+            "title": "ذاكرة سابقة: Memory B Title",
+            "detail": "Memory B Description",
+            "confidence": "High"
+          },
+          {
+            "sourceType": "internal_risk",
+            "title": "تنبيه مخاطر داخلي: Sanctions List Update Delay: 6 Hours",
+            "detail": "OFAC SDN update failed to sync due to regional network bottleneck. Manual verification triggered. (المستوى: High، الإجراء: متابعة مستمرة)",
+            "confidence": "High"
+          },
+          {
+            "sourceType": "internal_risk",
+            "title": "تنبيه مخاطر داخلي: TP Documentation Deadline: 3 Jurisdictions Pending",
+            "detail": "Transfer pricing document compliance filing pending for Brazil, Singapore, Netherlands subsidiaries. (المستوى: Medium، الإجراء: متابعة مستمرة)",
+            "confidence": "High"
+          },
+          {
+            "sourceType": "internal_risk",
+            "title": "تنبيه مخاطر داخلي: Counterparty Concentration: Top 3 Banks >65%",
+            "detail": "Bilateral credit exposures show dangerous systemic concentration in three primary correspondent banks. (المستوى: Critical، الإجراء: متابعة مستمرة)",
+            "confidence": "High"
+          },
+          {
+            "sourceType": "internal_risk",
+            "title": "تنبيه مخاطر داخلي: FX Policy Review Overdue",
+            "detail": "FX hedging policy limits require annual board review and re-certification. Due 30 days ago. (المستوى: Medium، الإجراء: متابعة مستمرة)",
+            "confidence": "High"
+          }
+        ],
+        "externalSearchStatus": "BLOCKED_BY_QUOTA",
+        "confidenceScore": 85,
+        "uncertaintyNotes": [
+          "تحتاج التغيرات الأخيرة في قوانين الاستيراد الإندونيسية المتعلقة بالمنتجات الغذائية إلى مراجعة ميدانية قانونية.",
+          "تعذّر جلب نتائج البحث الخارجي اللحظي بسبب قيود الحصة (Search Quota)، لكن التحليل الاستراتيجي تم بناؤه بنجاح بواسطة نموذج الذكاء الاصطناعي."
         ],
         "workspaceId": "default",
         "userId": "usr_anon"

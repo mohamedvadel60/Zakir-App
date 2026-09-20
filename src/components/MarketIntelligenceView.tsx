@@ -28,6 +28,9 @@ import {
   Maximize2,
   Printer,
   XCircle,
+  BarChart2,
+  Activity,
+  Loader2,
 } from "lucide-react";
 import {
   ExecutiveAIReportFormatter,
@@ -41,6 +44,7 @@ import type {
   MarketCompetitorProfile,
   CountryComparisonDimension,
   MarketStrategicAction,
+  MarketDiagnosableItem,
 } from "../types.js";
 
 interface MarketIntelligenceViewProps {
@@ -86,6 +90,68 @@ export const MarketIntelligenceView: React.FC<MarketIntelligenceViewProps> = ({
   const [currentResult, setCurrentResult] = useState<MarketIntelligenceData | null>(null);
   const [historyList, setHistoryList] = useState<Array<any>>([]);
   const [showHistoryModal, setShowHistoryModal] = useState(false);
+
+  // Per-Item Diagnosis Loading, Results & Error States (Decoupled per item ID)
+  const [diagnosingItemIds, setDiagnosingItemIds] = useState<Record<string, boolean>>({});
+  const [itemDiagnosesMap, setItemDiagnosesMap] = useState<Record<string, any>>({});
+  const [itemErrorMsgs, setItemErrorMsgs] = useState<Record<string, string>>({});
+
+  const handleDiagnoseItem = async (item: MarketDiagnosableItem) => {
+    if (!item || !item.id || diagnosingItemIds[item.id]) return;
+
+    setDiagnosingItemIds((prev) => ({ ...prev, [item.id]: true }));
+    setItemErrorMsgs((prev) => ({ ...prev, [item.id]: "" }));
+
+    try {
+      const payload = {
+        item: {
+          id: item.id,
+          title: item.title,
+          category: item.category,
+          type: item.type,
+          summary: item.summary,
+          severityOrImpact: item.severityOrImpact,
+        },
+        topic: currentResult?.topic || topic,
+        industry: currentResult?.industry || industry,
+        countries: currentResult?.countries || countriesInput.split(/[,،]+/).map((s) => s.trim()).filter(Boolean),
+        lang,
+        userId,
+        workspaceId,
+        memories,
+        riskAlerts,
+        files,
+      };
+
+      const res = await authenticatedFetch("/api/market-intelligence/diagnose-item", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error || `HTTP ${res.status}`);
+      }
+
+      const data = await res.json();
+      if (data.success && data.diagnosisResult) {
+        // Store diagnosis strictly in itemDiagnosesMap without altering currentResult structure
+        setItemDiagnosesMap((prev) => ({
+          ...prev,
+          [item.id]: data.diagnosisResult,
+        }));
+      }
+    } catch (err: any) {
+      console.error("Item diagnosis error:", err);
+      setItemErrorMsgs((prev) => ({
+        ...prev,
+        [item.id]: err?.message || (isAr ? "فشل التشخيص لهذا المحور." : "Diagnosis failed for this item."),
+      }));
+    } finally {
+      setDiagnosingItemIds((prev) => ({ ...prev, [item.id]: false }));
+    }
+  };
 
   // Quick prompt presets for common market queries
   const presets = [
@@ -182,6 +248,8 @@ export const MarketIntelligenceView: React.FC<MarketIntelligenceViewProps> = ({
     setIsAnalyzing(true);
     setErrorMsg(null);
     setAnalysisStage(0);
+    setItemDiagnosesMap({}); // Reset previous item diagnoses on new run
+    setItemErrorMsgs({});
 
     // Progressive stage simulation during real backend execution
     const interval = setInterval(() => {
@@ -223,6 +291,7 @@ export const MarketIntelligenceView: React.FC<MarketIntelligenceViewProps> = ({
 
       const data: MarketIntelligenceData = await res.json();
       setCurrentResult(data);
+      setItemDiagnosesMap({}); // Clear stale diagnoses for previous topic
 
       // Refresh history list
       setHistoryList((prev) => [
@@ -855,6 +924,213 @@ export const MarketIntelligenceView: React.FC<MarketIntelligenceViewProps> = ({
               </div>
             )}
           </div>
+
+          {/* Diagnosable Market Axes & Scenarios Section - NO HARDCODED 4 LIMIT */}
+          {(() => {
+            const analysisId = currentResult.analysisId || "mkt";
+            const rawItems: MarketDiagnosableItem[] = (currentResult.diagnosableItems && currentResult.diagnosableItems.length > 0)
+              ? currentResult.diagnosableItems.map((di, i) => ({
+                  ...di,
+                  id: di.id ? (di.id.includes(analysisId) ? di.id : `${analysisId}_${di.id}`) : `${analysisId}_diag_${i}`,
+                }))
+              : [
+                  ...(currentResult.risks || []).map((r, i) => ({
+                    id: `${analysisId}_fallback_risk_${i}`,
+                    title: r,
+                    category: isAr ? "تحليل المخاطر" : "Risk Analysis",
+                    type: "risk_chart" as const,
+                    summary: isAr ? `تشخيص المخاطر التشغيلية والمالية المتعلقة بـ: ${r}` : `Operational & financial risk diagnosis for: ${r}`,
+                    severityOrImpact: "High" as const,
+                  })),
+                  ...(currentResult.trends || []).map((t, i) => ({
+                    id: `${analysisId}_fallback_trend_${i}`,
+                    title: t,
+                    category: isAr ? "اتجاه السوق" : "Market Trend",
+                    type: "market_axis" as const,
+                    summary: isAr ? `تشخيص محركات وروافد اتجاه السوق: ${t}` : `Market dynamics driver diagnosis for: ${t}`,
+                    severityOrImpact: "Strategic" as const,
+                  })),
+                  ...(currentResult.opportunities || []).map((o, i) => ({
+                    id: `${analysisId}_fallback_opp_${i}`,
+                    title: o,
+                    category: isAr ? "فرص التوسع" : "Growth Corridor",
+                    type: "opportunity_corridor" as const,
+                    summary: isAr ? `تشخيص متطلبات استغلال الفرصة: ${o}` : `Growth execution diagnosis for: ${o}`,
+                    severityOrImpact: "Strategic" as const,
+                  })),
+                ];
+
+            if (rawItems.length === 0) return null;
+
+            return (
+              <div
+                className={`p-6 rounded-2xl border space-y-4 ${
+                  theme === "dark" ? "bg-slate-900/60 border-slate-800" : "bg-white border-slate-200 shadow-sm"
+                }`}
+              >
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-2 pb-3 border-b border-slate-200 dark:border-slate-800">
+                  <div>
+                    <h3 className="text-sm font-bold uppercase tracking-wider text-slate-800 dark:text-slate-100 flex items-center gap-2">
+                      <BarChart2 className="w-4 h-4 text-[#0075DE]" />
+                      <span>{isAr ? `المحاور والمخططات التنافسية القابلة للتشخيص (${rawItems.length})` : `Diagnosable Market Axes & Scenarios (${rawItems.length})`}</span>
+                    </h3>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                      {isAr
+                        ? "اختر أي محور أو مخطط للحصول على تشخيص موجه ومستقل يعتمد على الذكاء الاصطناعي وأدلة مساحة العمل."
+                        : "Select any market axis to generate an independent deep-dive AI diagnosis based on workspace evidence."}
+                    </p>
+                  </div>
+                  <span className="px-2.5 py-1 text-[11px] rounded-full bg-[#0075DE]/10 text-[#0075DE] font-semibold self-start md:self-auto">
+                    {isAr ? `إجمالي المحاور: ${rawItems.length}` : `Total Axes: ${rawItems.length}`}
+                  </span>
+                </div>
+
+                {/* Grid of Dynamic Diagnosable Items - NO HARDCODED 4 LIMIT */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {rawItems.map((item) => {
+                    const isDiagnosing = Boolean(diagnosingItemIds[item.id]);
+                    const diagResult = itemDiagnosesMap[item.id] || item.diagnosisResult;
+                    const errorMsg = itemErrorMsgs[item.id];
+
+                    return (
+                      <div
+                        key={item.id}
+                        className={`p-4 rounded-xl border flex flex-col justify-between space-y-3 transition-all ${
+                          diagResult
+                            ? theme === "dark"
+                              ? "bg-slate-950/80 border-[#0075DE]/40 shadow-md"
+                              : "bg-blue-50/20 border-[#0075DE]/30 shadow-sm"
+                            : theme === "dark"
+                            ? "bg-slate-950/40 border-slate-800 hover:border-slate-700"
+                            : "bg-slate-50/50 border-slate-200 hover:border-slate-300"
+                        }`}
+                      >
+                        <div className="space-y-2">
+                          {/* Item Category & Badges */}
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="px-2 py-0.5 text-[10px] font-bold rounded bg-slate-500/10 text-slate-600 dark:text-slate-300 border border-slate-500/20">
+                              <FormattedBidiSpan text={item.category || (isAr ? "محور سوقي" : "Market Axis")} isAr={isAr} />
+                            </span>
+                            {item.severityOrImpact && (
+                              <span
+                                className={`px-2 py-0.5 text-[10px] font-bold rounded ${
+                                  item.severityOrImpact === "Critical"
+                                    ? "bg-rose-500/10 text-rose-500 border border-rose-500/20"
+                                    : item.severityOrImpact === "High"
+                                    ? "bg-amber-500/10 text-amber-500 border border-amber-500/20"
+                                    : "bg-blue-500/10 text-[#0075DE] border border-blue-500/20"
+                                }`}
+                              >
+                                {item.severityOrImpact}
+                              </span>
+                            )}
+                          </div>
+
+                          {/* Item Title */}
+                          <h4 className="text-xs font-bold text-slate-900 dark:text-white leading-snug">
+                            <FormattedBidiSpan text={item.title} isAr={isAr} />
+                          </h4>
+
+                          {/* Item Summary */}
+                          <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
+                            <FormattedBidiSpan text={item.summary} isAr={isAr} />
+                          </p>
+                        </div>
+
+                        {/* Diagnosing Loader or Action Button */}
+                        <div className="pt-2 border-t border-slate-200/60 dark:border-slate-800/60 space-y-2">
+                          {isDiagnosing ? (
+                            <div className="p-2.5 rounded-lg bg-[#0075DE]/10 border border-[#0075DE]/20 flex items-center gap-2.5">
+                              <Loader2 className="w-4 h-4 text-[#0075DE] animate-spin flex-shrink-0" />
+                              <span className="text-xs font-medium text-[#0075DE]">
+                                {isAr ? "جارٍ تحليل هذا المحور السوقي..." : "Diagnosing this market axis..."}
+                              </span>
+                            </div>
+                          ) : (
+                            <button
+                              onClick={() => handleDiagnoseItem(item)}
+                              className={`w-full py-2 px-3 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-2 cursor-pointer ${
+                                diagResult
+                                  ? "bg-slate-200 dark:bg-slate-800 text-slate-800 dark:text-slate-200 hover:bg-[#0075DE] hover:text-white"
+                                  : "bg-[#0075DE] text-white hover:bg-[#0060B8] shadow-sm"
+                              }`}
+                            >
+                              <Activity className="w-3.5 h-3.5" />
+                              <span>
+                                {diagResult
+                                  ? isAr ? "إعادة تشخيص هذا المحور" : "Re-diagnose Axis"
+                                  : isAr ? "تشخيص هذا المحور" : "Diagnose Axis"}
+                              </span>
+                            </button>
+                          )}
+
+                          {errorMsg && (
+                            <div className="p-2 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-500 text-[11px]">
+                              {errorMsg}
+                            </div>
+                          )}
+
+                          {/* Diagnosis Result Display Block */}
+                          {diagResult && !isDiagnosing && (
+                            <div className="mt-3 p-3 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 space-y-2.5 text-xs text-slate-800 dark:text-slate-200">
+                              <div className="flex items-center justify-between pb-1.5 border-b border-slate-100 dark:border-slate-800">
+                                <span className="font-bold text-[#0075DE] text-[11px] uppercase flex items-center gap-1">
+                                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
+                                  {isAr ? "نتيجة التشخيص المستقل" : "Independent Diagnosis"}
+                                </span>
+                                {diagResult.confidenceScore && (
+                                  <span className="text-[10px] font-mono text-slate-400">
+                                    {diagResult.confidenceScore}% {isAr ? "ثقة" : "confidence"}
+                                  </span>
+                                )}
+                              </div>
+
+                              {/* Detailed Analysis */}
+                              {diagResult.detailedAnalysis && (
+                                <p className="text-[11px] text-slate-600 dark:text-slate-300 leading-relaxed">
+                                  <FormattedBidiSpan text={diagResult.detailedAnalysis} isAr={isAr} />
+                                </p>
+                              )}
+
+                              {/* Causal Factors */}
+                              {diagResult.causalFactors && diagResult.causalFactors.length > 0 && (
+                                <div className="space-y-1 pt-1">
+                                  <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase block">
+                                    {isAr ? "العوامل السببية المباشرة:" : "Direct Causal Factors:"}
+                                  </span>
+                                  {diagResult.causalFactors.map((cf, idx) => (
+                                    <div key={idx} className="text-[11px] text-slate-600 dark:text-slate-300 flex items-start gap-1">
+                                      <span className="text-amber-500 font-bold">•</span>
+                                      <FormattedBidiSpan text={cf} isAr={isAr} />
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+
+                              {/* Actionable Mitigations */}
+                              {diagResult.actionableMitigations && diagResult.actionableMitigations.length > 0 && (
+                                <div className="space-y-1 pt-1">
+                                  <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 uppercase block">
+                                    {isAr ? "إجراءات التحوط والتنفيذ:" : "Actionable Mitigations:"}
+                                  </span>
+                                  {diagResult.actionableMitigations.map((am, idx) => (
+                                    <div key={idx} className="text-[11px] text-slate-600 dark:text-slate-300 flex items-start gap-1">
+                                      <span className="text-emerald-500 font-bold">✓</span>
+                                      <FormattedBidiSpan text={am} isAr={isAr} />
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })()}
 
           {/* Competitor Landscape & Gaps (if present) */}
           {((currentResult.competitors && currentResult.competitors.length > 0) ||
