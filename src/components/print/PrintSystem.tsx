@@ -68,12 +68,13 @@ export const PrintSystem: React.FC<PrintSystemProps> = ({
     }
   }, [isOpen, initialSelectedMemoryId, validMemories]);
 
-  const effectiveCompanyName = 
-    currentUser?.organizationName || 
-    currentUser?.companyName || 
-    companyName || 
-    (lang === "ar" ? "ذاكر للهندسة والمعرفة المؤسسية" : "Zakir Knowledge Engine");
-  const effectiveDepartment = currentUser?.department || currentUser?.issuingEntity || (lang === "ar" ? "إدارة الحوكمة والمخاطر والقرارات الاستراتيجية" : "Governance & Strategy Division");
+  // STRICT RULE (Mandate 11 & 12):
+  // Print Header MUST take organization name ONLY from the CURRENT ACTIVE WORKSPACE / ORGANIZATION.
+  // Path: Current User -> Current Workspace ID -> Current Workspace/Organization -> Current Workspace Name -> Print Header
+  // NEVER from user.companyName, profile.companyName, member.company, previous company, old membership, stale cache, or hardcoded fallback.
+  const activeWorkspaceName = (currentUser?.workspace?.name || companyName || "").trim();
+  const effectiveCompanyName = activeWorkspaceName;
+  const effectiveDepartment = currentUser?.department || currentUser?.issuingEntity || "";
   const effectiveIssuingEntity = currentUser?.issuingEntity || currentUser?.department || effectiveCompanyName;
   const effectiveAuthorName = currentUser?.fullName || currentUser?.ownerName || userName || "";
   const effectiveApproverName = currentUser?.fullName || currentUser?.ownerName || (lang === "ar" ? "د. محمد الأحمد" : "Dr. M. Al-Ahmad");

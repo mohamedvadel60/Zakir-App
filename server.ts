@@ -52,6 +52,16 @@ import {
   acknowledgeNotification,
   markAllNotificationsRead,
 } from "./src/lib/platformEvents.js";
+import {
+  handleGetLatestSmartEvolution,
+  handleRunSmartEvolution,
+  handleAgentChat,
+} from "./src/server/smartEvolutionService.js";
+import {
+  handleGetLatestMarketIntelligence,
+  handleGetMarketIntelligenceHistory,
+  handleRunMarketIntelligence,
+} from "./src/server/marketIntelligenceService.js";
 
 dotenv.config();
 
@@ -348,7 +358,7 @@ try {
 }
 
 // Database Helper Functions
-function readDb() {
+export function readDb() {
   try {
     if (fs.existsSync(DB_FILE)) {
       const content = fs.readFileSync(DB_FILE, "utf-8");
@@ -379,7 +389,7 @@ function readDb() {
   );
 }
 
-function writeDb(data: any) {
+export function writeDb(data: any) {
   inMemoryDbStore = data;
   try {
     fs.mkdirSync(path.dirname(DB_FILE), { recursive: true });
@@ -395,15 +405,15 @@ function writeDb(data: any) {
 // Function to dynamically load Gemini client with fresh process.env on every request
 let geminiCooldownUntil = 0;
 
-function isGeminiInCooldown(): boolean {
+export function isGeminiInCooldown(): boolean {
   return Date.now() < geminiCooldownUntil;
 }
 
-function setGeminiCooldown(durationMs: number = 35000) {
+export function setGeminiCooldown(durationMs: number = 35000) {
   geminiCooldownUntil = Math.max(geminiCooldownUntil, Date.now() + durationMs);
 }
 
-function handleGeminiError(err: any): {
+export function handleGeminiError(err: any): {
   isQuota: boolean;
   isUnavailable: boolean;
 } {
@@ -424,7 +434,7 @@ function handleGeminiError(err: any): {
   return { isQuota, isUnavailable };
 }
 
-function getGeminiClient(): GoogleGenAI | null {
+export function getGeminiClient(): GoogleGenAI | null {
   try {
     dotenv.config();
   } catch (e) {
@@ -18572,295 +18582,20 @@ const handleSmartEvolution = async (
   }
 };
 
-app.post("/api/smart-evolution", handleSmartEvolution);
-app.post("/api/ai/smart-evolution", handleSmartEvolution);
+app.get("/api/smart-evolution/latest", handleGetLatestSmartEvolution);
+app.post("/api/smart-evolution", handleRunSmartEvolution);
+app.post("/api/smart-evolution/run", handleRunSmartEvolution);
+app.post("/api/ai/smart-evolution", handleRunSmartEvolution);
 
-// --- MARKET INTELLIGENCE ENDPOINT ---
-const handleMarketIntelligence = async (
-  req: express.Request,
-  res: express.Response,
-) => {
-  const { topic, industry, context, lang = "ar" } = req.body;
-  if (!topic || typeof topic !== "string" || !topic.trim()) {
-    return res
-      .status(400)
-      .json({ error: "Topic is required for market intelligence." });
-  }
-
-  const marketTopic = topic.trim();
-  const targetSector = (
-    industry ||
-    (lang === "ar"
-      ? "الخدمات المالية / اللوجستية"
-      : "Financial Services / Logistics")
-  ).trim();
-  const geographicScope = (
-    context || (lang === "ar" ? "عالمي / إقليمي" : "Global / Regional")
-  ).trim();
-
-  // Helper for dynamic fallback generation when Gemini quota is exhausted or client unavailable
-  const generateDynamicFallback = () => {
-    if (lang === "ar") {
-      return {
-        topic: marketTopic,
-        industry: targetSector,
-        context: geographicScope,
-        summary: `### Heuristic analysis — AI unavailable\n\n**ملخص تنفيذي والتحليل الجيواقتصادي والمالي:**\nدراسة تقلبات واتجاهات السوق المتعلقة بـ **"${marketTopic}"** في قطاع **"${targetSector}"** ضمن نطاق **"${geographicScope}"** تشير إلى انكشافات هيكلية ومخاطر تقلبات في أسعار الصرف وسلاسل الإمداد.\n\nتتطلب التحولات الحالية تحوطاً مالياً وتشغيلياً استباقياً لربط القرارات الحالية بالذاكرة المؤسسية لمنصة **ذَكِرْ** وتفادي تكرار الأخطاء السابقة عند معالجة تقلبات الأسواق الدولية.`,
-        trends: [
-          `تحولات هيكلية في تسعير وتدفقات ${marketTopic}`,
-          `تقلبات أسعار الصرف المرتبطة بقطاع ${targetSector}`,
-        ],
-        risks: [
-          `تقلبات أسعار الصرف وهامش الربح في قطاع ${targetSector} نتيجة التغيرات في ${marketTopic}.`,
-          `اختناقات سلاسل الإمداد والتأخيرات اللوجستية في نطاق ${geographicScope}.`,
-          `المخاطر التنظيمية والامتثال الناتج عن عدم التوثيق السببي اللحظي للقرارات.`,
-        ],
-        opportunities: [
-          `تطبيق أطر تحوط ديناميكية ومؤتمتة مقابل تقلبات السوق لقطاع ${targetSector}.`,
-          `استغلال المزامنة اللحظية مع منصة ذَكِرْ لتوثيق وتحليل أسباب القرارات الاستيرادية والمالية.`,
-          `تعزيز المرونة في سلاسل الإمداد والتوسع في أسواق النطاق ${geographicScope}.`,
-        ],
-        recommendations: [
-          `تأسيس خزائن معرفية وحوكمة رقمية مركزية في منصة ذَكِرْ للاحتفاظ بالذاكرة التشغيلية.`,
-          `إضفاء الطابع المؤسسي المنظم على موافقات الاستيراد والتحوط لمنع الأخطاء التنظيمية.`,
-          `نشر تنبيهات مبكرة عند رصد مؤشرات محاكاة للمخاطر السابقة في قطاع ${targetSector}.`,
-        ],
-      };
-    } else {
-      return {
-        topic: marketTopic,
-        industry: targetSector,
-        context: geographicScope,
-        summary: `### Heuristic analysis — AI unavailable\n\n**Executive & Geoeconomic Analysis:**\nA strategic evaluation of market trends for **"${marketTopic}"** in the **"${targetSector}"** sector under **"${geographicScope}"** indicates systemic supply chain friction and foreign exchange (FX) exposure.\n\nProactive operational hedging and linking current trade decisions with **Zakir's** institutional memory are essential to prevent recurring corporate errors.`,
-        trends: [
-          `Structural price trends in ${marketTopic}`,
-          `Sector FX sensitivity for ${targetSector}`,
-        ],
-        risks: [
-          `Foreign exchange volatility and margin compression in ${targetSector} stemming from ${marketTopic}.`,
-          `Supply chain bottlenecks and shipping delays within ${geographicScope}.`,
-          `Regulatory non-compliance risks caused by lack of immediate causal decision logging.`,
-        ],
-        opportunities: [
-          `Deploying dynamic, automated FX and supply chain hedging frameworks for ${targetSector}.`,
-          `Leveraging real-time integration with Zakir to document causal drivers of trade and treasury choices.`,
-          `Expanding supply chain resilience across ${geographicScope}.`,
-        ],
-        recommendations: [
-          `Establish centralized knowledge vaults and governance in Zakir to preserve operational memory.`,
-          `Institutionalize multi-tier approval workflows for high-risk trade decisions.`,
-          `Set up automated warning alerts when market indicators mirror past operational errors.`,
-        ],
-      };
-    }
-  };
-
-  const client = getGeminiClient();
-  if (!client || isGeminiInCooldown()) {
-    return res.json(generateDynamicFallback());
-  }
-
-  const systemInstruction = `أنت خبير ومحلل في ذكاء السوق العالمي وإدارة المخاطر المالية الدولية لنظام "ذاكر".
-
-[المدخلات من الواجهة]:
-- موضوع السوق / الاتجاه المراد تحليله: ${marketTopic}
-- القطاع المستهدف: ${targetSector}
-- سياق التركيز الاختياري / النطاق الجغرافي: ${geographicScope}
-
-[المهام والشروط]:
-1. قم بتحليل تقلبات واتجاهات السوق بناءً على أحدث البيانات الاقتصادية المتاحة والمعايير المالية الدولية.
-2. حدد أثر هذه التغييرات على التجارة وسلاسل الإمداد ومخاطر أسعار الصرف ذات الصلة بالقطاع المستهدف.
-3. ربط التحليل بتفادي تكرار الأخطاء المؤسسية وتحديد نقاط الخطر المحتملة.
-
-[تنسيق المخرجات]:
-يجب أن تعيد الإجابة فقط على شكل كائن JSON صالح بالصيغة التالية دون أي نص إضافي:
-{
-  "summary": "ملخص تنفيذي والتحليل الجيواقتصادي والمالي للموضوع وتأثيره على التجارة وسلاسل الإمداد ومخاطر الصرف",
-  "trends": ["اتجاه رئيسي 1", "اتجاه رئيسي 2"],
-  "risks": ["خطر مباشر أو غير مباشر 1", "خطر مباشر أو غير مباشر 2", "خطر مباشر أو غير مباشر 3"],
-  "opportunities": ["فرصة استراتيجية 1", "فرصة استراتيجية 2", "فرصة استراتيجية 3"],
-  "recommendations": ["توصية استراتيجية للتعامل مع الاتجاه وتفادي الأخطاء 1", "توصية استراتيجية 2", "توصية استراتيجية 3"]
-}
-
-تنبيه مهم: يجب توليد جميع النصوص باللغة المطلوبة: "${lang === "ar" ? "اللغة العربية الفصيحة والدقيقة" : lang === "fr" ? "اللغة الفرنسية" : "اللغة الإنجليزية"}".`;
-
-  const candidateModels = [
-    "gemini-3.8-flash",
-    "gemini-3.1-flash-lite",
-    "gemini-flash-latest",
-  ];
-  let jsonOutput: any = null;
-
-  for (const modelName of candidateModels) {
-    if (isGeminiInCooldown()) break;
-    try {
-      const response = await client.models.generateContent({
-        model: modelName,
-        contents: [
-          {
-            role: "user",
-            parts: [
-              {
-                text: `قم بتحليل موضوع السوق "${marketTopic}" في قطاع "${targetSector}" والنطاق الجغرافي "${geographicScope}".`,
-              },
-            ],
-          },
-        ],
-        config: {
-          systemInstruction: systemInstruction,
-          responseMimeType: "application/json",
-          temperature: 0.4,
-        },
-      });
-
-      if (response?.text) {
-        const cleanText = response.text
-          .replace(/```json/g, "")
-          .replace(/```/g, "")
-          .trim();
-        jsonOutput = JSON.parse(cleanText);
-        if (jsonOutput && jsonOutput.summary) {
-          break;
-        }
-      }
-    } catch (err: any) {
-      handleGeminiError(err);
-    }
-  }
-
-  if (jsonOutput && jsonOutput.summary) {
-    return res.json({
-      topic: marketTopic,
-      industry: targetSector,
-      context: geographicScope,
-      trends: Array.isArray(jsonOutput.trends)
-        ? jsonOutput.trends
-        : [marketTopic],
-      ...jsonOutput,
-    });
-  }
-
-  return res.json(generateDynamicFallback());
-};
-
-app.post("/api/market-intelligence", handleMarketIntelligence);
-app.post("/api/ai/market-intelligence", handleMarketIntelligence);
+// --- MARKET INTELLIGENCE ENDPOINTS (DYNAMIC ANALYTICAL ENGINE) ---
+app.get("/api/market-intelligence/latest", handleGetLatestMarketIntelligence);
+app.get("/api/market-intelligence/history", handleGetMarketIntelligenceHistory);
+app.post("/api/market-intelligence/run", handleRunMarketIntelligence);
+app.post("/api/market-intelligence", handleRunMarketIntelligence);
+app.post("/api/ai/market-intelligence", handleRunMarketIntelligence);
 
 // --- AI AGENT CHAT ENDPOINT ---
-app.post("/api/agent/chat", async (req, res) => {
-  try {
-    const promptText =
-      req.body?.prompt ||
-      req.body?.message ||
-      req.body?.userMessage ||
-      req.body?.query;
-    const { history, lang = "ar", memories = [], riskAlerts = [], files = [] } = req.body || {};
-    if (!promptText || typeof promptText !== "string" || !promptText.trim()) {
-      return res
-        .status(400)
-        .json({ error: "Prompt/message string is required." });
-    }
-
-    const fallbackChatResponse =
-      lang === "ar"
-        ? "### المستشار المعرفي لمنصة ذَكِرْ\n\nتستند هذه الاستجابة إلى سجلات الذاكرة المؤسسية وقواعد الحوكمة الإجرائية الموثقة في المنصة.\n\nجميع البيانات المؤسسية وتحليلات المخاطر متاحة ومؤمنة بالكامل."
-        : "### Zakir Cognitive Advisor\n\nThis response is grounded in Zakir's institutional memory and recorded operational logs.\n\nAll risk analytics and historical records remain active and secure.";
-
-    const client = getGeminiClient();
-    if (!client || isGeminiInCooldown()) {
-      return res.json({ text: fallbackChatResponse });
-    }
-
-    const memoriesSummary = Array.isArray(memories) && memories.length > 0
-      ? memories.map((m: any, idx: number) => `[الذكرى المؤسسية #${idx + 1}]: ${m.title} | الفئة: ${m.category} | الخطورة: ${m.riskLevel || "High"} | القرار: ${m.decision} | العوامل المسببة: ${m.causalFactors || "غير محدد"}`).join("\n")
-      : "لا توجد ذكريات مؤسسية مسجلة حالياً.";
-
-    const risksSummary = Array.isArray(riskAlerts) && riskAlerts.length > 0
-      ? riskAlerts.map((r: any, idx: number) => `[تنبيه خطر #${idx + 1}]: ${r.title} | المستوى: ${r.severity || "High"} | التفاصيل: ${r.description || ""}`).join("\n")
-      : "لا توجد مخاطر نشطة مسجلة حالياً.";
-
-    const filesSummary = Array.isArray(files) && files.length > 0
-      ? files.map((f: any, idx: number) => `[مستند داخلي/كتاب #${idx + 1}]: ${f.name} | الفئة: ${f.category} | الوصف: ${f.description || "بدون وصف"}`).join("\n")
-      : "لا توجد مستندات أو كتب مرفوعة في إدارة الملفات حالياً.";
-
-    const systemInstruction = `أنت "المستشار الإدراكي والإداري" المعتمد في منصة "ذَكِرْ" لتحليل الذاكرة المؤسسية والبيانات الاستراتيجية.
-مهمتك تقديم إجابات وتحليلات مبنية حصرياً على الأدلة الحقيقية وفق نموذج المعرفة متعدد المصادر:
-1. الذاكرات والمخاطر والمستندات الداخلية الخاصة بالمستخدم حصرياً (Institutional Knowledge).
-2. البحث العالمي عبر الإنترنت (Google Search) عندما يتطلب السؤال معلومات سوقية خارجية حديثة، تشريعات، منافسين، أو توجهات اقتصادية.
-3. التمييز الدقيق بين: (Fact حقيقة داخلية أو خارجية)، (Inference استنتاج تحليلي)، و(Recommendation توصية إجرائية).
-4. الالتزام بطبقة الأدلة (Evidence Layer): ربط النتائج بأدلة واضحة من الذكريات أو الملفات أو المصادر الخارجية الموثوقة.
-5. مقاومة الهلوسة بصرامة: إذا كانت الأدلة غير كافية، صرح بوضوح بأن البيانات غير كافية ولا تختلق أرقاماً أو مصادر أو أحداثاً أو كتباً غير موجودة.
-
-بيانات المؤسسة الحالية الخاصة بهذا المستخدم/Workspace:
-- الذاكرات المؤسسية (${memories.length}):
-${memoriesSummary}
-
-- تنبيهات المخاطر النشطة (${riskAlerts.length}):
-${risksSummary}
-
-- المستندات والكتب في إدارة الملفات (${files.length}):
-${filesSummary}
-
-لغة الإجابة المطلوبة: ${lang === "ar" ? "اللغة العربية الفصيحة والدقيقة" : lang === "fr" ? "اللغة الفرنسية" : "اللغة الإنجليزية"}.`;
-
-    const contents: any[] = [];
-
-    if (Array.isArray(history)) {
-      history.slice(-10).forEach((h: any) => {
-        contents.push({
-          role: h.role === "user" ? "user" : "model",
-          parts: [{ text: h.text || "" }],
-        });
-      });
-    }
-
-    contents.push({
-      role: "user",
-      parts: [{ text: promptText }],
-    });
-
-    // Determine if external search is potentially needed
-    const needsSearch = /سوق|أسواق|منافسين|قوانين|أخبار|اقتصاد|تضخم|أسعار|عالمي|مؤشرات|trend|market|competitor|news|economy|global|price/i.test(promptText);
-
-    const candidateModels = [
-      "gemini-3.8-flash",
-      "gemini-3.1-flash-lite",
-      "gemini-flash-latest",
-    ];
-    let responseText = "";
-
-    for (const modelName of candidateModels) {
-      if (isGeminiInCooldown()) break;
-      try {
-        const response = await client.models.generateContent({
-          model: modelName,
-          contents: contents,
-          config: {
-            systemInstruction: systemInstruction,
-            temperature: 0.4,
-            tools: needsSearch ? [{ googleSearch: {} }] : undefined,
-          },
-        });
-        if (response?.text) {
-          responseText = response.text;
-          break;
-        }
-      } catch (err: any) {
-        handleGeminiError(err);
-      }
-    }
-
-    if (!responseText) {
-      return res.json({ text: fallbackChatResponse });
-    }
-
-    return res.json({ text: responseText });
-  } catch (error: any) {
-    return res.json({
-      text: "### Zakir Cognitive Advisor\n\nOperational records and institutional memories are active.",
-    });
-  }
-});
+app.post("/api/agent/chat", handleAgentChat);
 
 // --- RENDER.COM SERVICES PROXY ENDPOINT ---
 app.post("/api/render/services", async (req, res) => {

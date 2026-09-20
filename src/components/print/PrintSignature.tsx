@@ -69,7 +69,7 @@ export const PrintSignature: React.FC<PrintSignatureProps> = ({
             <div>
               <span className="block text-[9px] font-bold text-slate-500 uppercase">{getIssuingEntityLabel()}</span>
               <p className="text-[11px] font-bold text-slate-900 truncate mt-0.5">
-                {settings.issuingEntityName || settings.companyName || (lang === "ar" ? "ذاكر للهندسة والمعرفة المؤسسية" : "Zakir Institutional Memory Engine")}
+                {settings.issuingEntityName || settings.companyName || ""}
               </p>
             </div>
           )}

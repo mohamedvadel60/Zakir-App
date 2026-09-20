@@ -53,7 +53,7 @@ import {
   AlertTriangle
 } from "lucide-react";
 import { CustomerSupport } from "./CustomerSupport.js";
-import { User, UserRole, TeamMember, ModulePermissions, EncryptedModuleSettings, AccountVerificationDoc, VerificationInfo, VerificationStatus } from "../types.js";
+import { User, UserRole, TeamMember, ModulePermissions, EncryptedModuleSettings, AccountVerificationDoc, VerificationInfo, VerificationStatus, WorkspaceInfo } from "../types.js";
 import { saveWorkspaceInvitation, deleteWorkspaceInvitation, fetchWorkspaceInvitations, fetchWorkspaceTeamApi, WorkspaceInvitation, sendWorkspaceInvitationApi, resendWorkspaceInvitationApi, saveFirebaseUserProfile, uploadFirebaseUserFile, deleteFirebaseUserFile, isUserAdmin } from "../lib/firebaseServices.js";
 import { openOrDownloadUserFile, openUserFileInNewTab, downloadUserFile } from "../lib/fileViewerUtils.js";
 import { translations } from "../translations.js";
@@ -200,10 +200,17 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
   const [email, setEmail] = useState(currentUser.email || "");
   const [jobTitle, setJobTitle] = useState(currentUser.jobTitle || "");
   const [department, setDepartment] = useState(currentUser.department || currentUser.issuingEntity || "");
-  const [companyName, setCompanyName] = useState(currentUser.organizationName || currentUser.companyName || "Mauritanian Finance Group");
+  const [companyName, setCompanyName] = useState(currentUser.workspace?.name || currentUser.organizationName || currentUser.companyName || "");
   const [avatarUrl, setAvatarUrl] = useState<string | undefined>(currentUser.avatarUrl);
   const [companyLogoUrl, setCompanyLogoUrl] = useState<string | undefined>(currentUser.companyLogoUrl);
   const [signatureUrl, setSignatureUrl] = useState<string | undefined>(currentUser.signatureUrl);
+
+  // Sync active workspace name if updated externally
+  useEffect(() => {
+    if (currentUser.workspace?.name) {
+      setCompanyName(currentUser.workspace.name);
+    }
+  }, [currentUser.workspace?.name]);
 
   // CEO Team Powers Management State - strictly isolated to current authenticated user
   const sanitizeActiveTeamMembers = (list?: TeamMember[]): TeamMember[] => {
@@ -1775,6 +1782,17 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
     setProfileSuccessMsg(null);
     setProfileErrorMsg(null);
     try {
+      const trimmedOrg = companyName.trim();
+      const updatedWorkspace: WorkspaceInfo = currentUser.workspace
+        ? { ...currentUser.workspace, name: trimmedOrg }
+        : {
+            id: currentUser.workspaceId || `ws_${currentUser.id}`,
+            name: trimmedOrg,
+            ownerId: currentUser.id,
+            createdAt: new Date().toISOString(),
+            memberCount: 1,
+          };
+
       await onUpdateUser({
         ...currentUser,
         ownerName: fullName,
@@ -1783,8 +1801,9 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
         jobTitle: jobTitle,
         department: department,
         issuingEntity: department,
-        companyName: companyName,
-        organizationName: companyName,
+        companyName: trimmedOrg,
+        organizationName: trimmedOrg,
+        workspace: updatedWorkspace,
         avatarUrl: avatarUrl,
         companyLogoUrl: companyLogoUrl,
         signatureUrl: signatureUrl

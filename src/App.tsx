@@ -5,6 +5,7 @@ if (typeof window !== "undefined") {
   (window as any).ZAKIR_BUILD_ID = ZAKIR_BUILD_ID;
 }
 import Markdown from "react-markdown";
+import { ExecutiveAIReportFormatter } from "./components/ExecutiveAIReportFormatter";
 import { 
   Database, 
   Brain, 
@@ -77,6 +78,8 @@ import {
 } from "lucide-react";
 import { DashboardAnalyticsChart } from "./components/DashboardAnalyticsChart";
 import { TrialCountdown } from "./components/TrialCountdown";
+import { SmartEvolutionView } from "./components/SmartEvolutionView";
+import { MarketIntelligenceView } from "./components/MarketIntelligenceView";
 import { motion, AnimatePresence } from "motion/react";
 import { translations } from "./translations.js";
 import { 
@@ -1464,6 +1467,24 @@ This hosting domain (**${currentDomain}**) has not been authorized in your Fireb
           }
 
           setMetrics([]);
+
+          // Load previous saved smart evolution analysis (pure cache read - NO AI analysis)
+          try {
+            const wsId = currentUser.workspace?.id || "default";
+            const uId = currentUser.id || "usr_anon";
+            authenticatedFetch(`/api/smart-evolution/latest?workspaceId=${encodeURIComponent(wsId)}&userId=${encodeURIComponent(uId)}`)
+              .then(res => res.json())
+              .then(savedRes => {
+                if (savedRes?.hasPreviousAnalysis && savedRes?.result) {
+                  setSmartData(savedRes.result);
+                } else {
+                  setSmartData(null);
+                }
+              })
+              .catch(() => setSmartData(null));
+          } catch {
+            setSmartData(null);
+          }
         } else {
           // Unauthenticated Guest Preview Mode (when not logged in) - load public endpoints in parallel
           setMemories(FALLBACK_MEMORIES);
@@ -1926,6 +1947,7 @@ This hosting domain (**${currentDomain}**) has not been authorized in your Fireb
       await logoutFirebaseUser();
     } catch (e) {}
     setCurrentUser(null);
+    setSmartData(null);
     setMemories([]);
     setRiskAlerts([]);
     setAgentMessages([]);
@@ -2222,11 +2244,19 @@ This hosting domain (**${currentDomain}**) has not been authorized in your Fireb
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ 
           lang,
+          userId: currentUser?.id || "usr_anon",
+          workspaceId: currentUser?.workspace?.id || "default",
+          orgData: currentUser?.organizationName || (currentUser as any)?.organization || null,
           memories: memories,
           riskAlerts: riskAlerts,
           files: userFiles
         })
       });
+      if (res.status === 409) {
+        const conflictData = await res.json().catch(() => ({}));
+        alert(conflictData.error || (lang === "ar" ? "عملية تحليل جارية بالفعل لمساحة العمل هذه." : "An analysis is already in progress."));
+        return;
+      }
       if (!res.ok) {
         throw new Error(`HTTP ${res.status}`);
       }
@@ -4725,7 +4755,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                             )}
 
                             <button 
-                              onClick={() => { setActiveTab("smart"); runSmartAnalysis(); }} 
+                              onClick={() => { setActiveTab("smart"); }} 
                               className={`h-10 px-5 border text-xs font-extrabold rounded-xl flex items-center gap-2 transition-all cursor-pointer transform hover:-translate-y-0.5 ${
                                 theme === "dark"
                                   ? "bg-slate-900/60 border-[#0075DE]/30 text-[#0075DE] hover:border-[#0075DE]/60 hover:bg-[#0075DE]/10"
@@ -4825,7 +4855,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                               )}
 
                               <button
-                                onClick={() => { setActiveTab("smart"); runSmartAnalysis(); }}
+                                onClick={() => { setActiveTab("smart"); }}
                                 className="w-full py-1.5 bg-[#0075DE]/15 hover:bg-[#0075DE]/25 text-[#0075DE] border border-[#0075DE]/30 text-[11px] font-extrabold rounded-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer"
                               >
                                 <Sparkles className="w-3.5 h-3.5 shrink-0" />
@@ -6121,354 +6151,37 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                   className="space-y-6"
                   id="smart-evolution-view"
                 >
-                  <div className="flex items-center justify-between flex-wrap gap-4">
-                    <div>
-                      <h1 className="text-3xl font-black tracking-tight">{t.smartEvolutionTitle}</h1>
-                      <p className="text-slate-400 text-sm mt-1">{t.smartEvolutionSlogan}</p>
-                    </div>
-
-                    <button
-                      onClick={runSmartAnalysis}
-                      disabled={isSmartAnalyzing}
-                      className="h-10 px-5 bg-[#0075DE] hover:bg-[#005BAB] disabled:bg-slate-800 text-white disabled:text-slate-500 font-bold text-xs rounded-lg flex items-center gap-2 shadow-sm transition-all cursor-pointer"
-                    >
-                      {isSmartAnalyzing ? (
-                        <>
-                          <RefreshCw className="w-4 h-4 animate-spin" />
-                          <span>{lang === "ar" ? "جارٍ تحليل بيانات المؤسسة وبناء التطور الإدراكي..." : (lang === "fr" ? "Analyse des données de l'organisation et construction de l'évolution..." : "Analyzing organizational data and building cognitive evolution...")}</span>
-                        </>
-                      ) : (
-                        <>
-                          <Brain className="w-4 h-4" />
-                          <span>{
-                            lang === "ar" 
-                              ? (smartData ? "إعادة تشغيل التطور الذكي" : "تشغيل التطور الذكي")
-                              : (lang === "fr" 
-                                ? (smartData ? "Relancer l'Évolution Intelligente" : "Lancer l'Évolution Intelligente")
-                                : (smartData ? "Re-run Smart Evolution" : "Run Smart Evolution"))
-                          }</span>
-                        </>
-                      )}
-                    </button>
-                  </div>
-
-                  {/* Operational AI Diagnostic KPI Banner */}
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    {[
-                      { label: t.totalMemories, value: memories.length, icon: FileText, color: "text-[#0075DE]", bg: "bg-[#0075DE]/10" },
-                      { label: t.activeRisks, value: riskAlerts.filter((a: any) => a.status === "Active" || a.status === "نشط" || a.status === "actif").length, icon: ShieldAlert, color: "text-rose-500", bg: "bg-rose-500/10" },
-                      { label: t.smartMetrics.opportunities, value: smartData?.opportunitiesList ? smartData.opportunitiesList.length : (memories.length === 0 ? 0 : memories.length), icon: Compass, color: "text-blue-500", bg: "bg-blue-500/10" },
-                      { label: t.smartMetrics.recommendations, value: smartData?.recommendationsList ? smartData.recommendationsList.length : (memories.length === 0 ? 0 : memories.length), icon: CheckCircle, color: "text-emerald-500", bg: "bg-emerald-500/10" }
-                    ].map((item, idx) => {
-                      const Icon = item.icon;
-                      return (
-                        <div key={idx} className={`p-4 rounded-xl text-center border transition-all ${
-                          theme === "dark" ? "bg-slate-900/40 border-slate-800/80" : "bg-white border-slate-200 shadow-sm"
-                        }`}>
-                          <div className={`p-2 rounded-lg inline-flex mb-2 ${item.bg} ${item.color}`}>
-                            <Icon className="w-4 h-4" />
-                          </div>
-                          <div className={`text-2xl font-black ${theme === "dark" ? "text-white" : "text-slate-900"}`}>{item.value}</div>
-                          <div className="text-[10px] text-slate-400 font-bold uppercase mt-0.5">{item.label}</div>
-                        </div>
-                      );
-                    })}
-                  </div>
-
-                  {/* Report Narrative Box */}
-                  <div className={`p-5 rounded-xl border ${
-                    theme === "dark" ? "bg-slate-900/10 border-slate-800/80" : "bg-white border-slate-200 shadow-sm"
-                  }`}>
-                    <h3 className="text-xs font-bold uppercase tracking-wider text-[#0075DE] mb-2">{t.executiveSummary}</h3>
-                    <p className={`text-xs leading-relaxed font-serif ${smartData?.error ? "text-rose-500 font-bold" : (theme === "dark" ? "text-slate-300" : "text-slate-600")}`}>
-                      {smartData?.error ? (
-                        smartData.error
-                      ) : memories.length === 0 ? (
-                        lang === "ar" ? "حساب جديد: لا توجد أحداث أو ذكريات مؤسسية مسجلة بعد لتشخيص الذكاء الاصطناعي. ابدأ بتسجيل ذاكرتك الأولى لإنشاء التحليلات التنبؤية والتوصيات والفرص." :
-                        (lang === "fr" ? "Nouveau compte: Aucun souvenir enregistré pour générer un diagnostic IA. Enregistrez votre premier souvenir pour démarrer l'analyse." :
-                        "New account: No institutional memories recorded yet for AI diagnostics. Log your first memory to initiate predictive analysis, opportunities, and risk recommendations.")
-                      ) : (
-                        (smartData as any)?.executiveSummary || (
-                          lang === "ar" ? `يكشف تحليل ${smartData?.analyzedMemories || memories.length} من أحداث الذاكرة المؤسسية عن ${smartData?.identifiedRisks || riskAlerts.length} نقاط خطر حيوية ونمط غير مغطى من مخاطر الصرف في الربع الأخير.` : 
-                          (lang === "fr" ? `L'analyse de ${smartData?.analyzedMemories || memories.length} souvenirs révèle ${smartData?.identifiedRisks || riskAlerts.length} risques critiques.` : 
-                          `Analyzing ${smartData?.analyzedMemories || memories.length} institutional memories reveals ${smartData?.identifiedRisks || riskAlerts.length} critical risks.`)
-                        )
-                      )}
-                    </p>
-                  </div>
-
-                  {/* Subtabs for Diagnostic Lists */}
-                  <div className="space-y-4">
-                    <div className={`flex border-b overflow-x-auto gap-2 ${theme === "dark" ? "border-slate-800/60" : "border-slate-200"}`}>
-                      {[
-                        { id: "predictions", label: t.predictionsTab },
-                        { id: "recommendations", label: t.recommendationsTab },
-                        { id: "opportunities", label: t.opportunitiesTab },
-                        { id: "risks", label: t.risksTab }
-                      ].map((subTab) => (
-                        <button
-                          key={subTab.id}
-                          onClick={() => setSmartActiveSubTab(subTab.id as any)}
-                          className={`h-11 px-4 text-xs font-bold transition-all border-b-2 cursor-pointer ${
-                            smartActiveSubTab === subTab.id
-                              ? "border-[#0075DE] text-[#0075DE]"
-                              : theme === "dark"
-                                ? "border-transparent text-slate-400 hover:text-white"
-                                : "border-transparent text-slate-500 hover:text-slate-900"
-                          }`}
-                        >
-                          {subTab.label}
-                        </button>
-                      ))}
-                    </div>
-
-                    {/* Rendering Active Diagnostic lists */}
-                    <div className="space-y-3">
-                      {memories.length === 0 ? (
-                        <div className={`p-8 text-center rounded-xl border border-dashed ${
-                          theme === "dark" ? "border-slate-800 bg-slate-900/20" : "border-slate-200 bg-slate-50"
-                        }`}>
-                          <Brain className="w-10 h-10 text-slate-500 mx-auto mb-2 opacity-40" />
-                          <h4 className="text-xs font-bold text-slate-300">
-                            {lang === "ar" ? "لا توجد تحليلات مسجلة لهذا الحساب" : "No diagnostics available for this account"}
-                          </h4>
-                          <p className="text-[11px] text-slate-400 mt-1">
-                            {lang === "ar" ? "قم بتسجيل ذكريات جديدة ثم شغل التحليل التلقائي لاستخراج الرؤى والتوصيات." : "Log new memories and run analysis to generate AI insights."}
-                          </p>
-                        </div>
-                      ) : (
-                        <>
-                          {smartActiveSubTab === "predictions" && (
-                            (smartData?.forecastsList || [
-                              { title: "فجوة متكررة في تغطية مخاطر الصرف الأجنبي", timeframe: "30-60 يوم", impact: "مرتفع", details: "أحداث الخسارة تشير إلى تعرض translation variance متزايد إن لم تلتزم المؤسسة بنسبة تحوط 70%." },
-                              { title: "تفتيش وتأخير تصنيفات акт جمركياً", timeframe: "90 يوم", impact: "متوسط", details: "إذا لم يتم مواءمة HS classification actuator، ستتكرر الغرامات الجمركية بنسبة 15%." }
-                            ]).map((p, idx) => (
-                              <div key={idx} className={`p-4 border rounded-xl transition-all ${
-                                theme === "dark" ? "bg-slate-900/20 border-slate-800/60" : "bg-white border-slate-200 shadow-sm"
-                              }`}>
-                                <div className="flex items-center justify-between flex-wrap gap-2 mb-1">
-                                  <h4 className="text-xs font-bold text-[#0075DE]">{p.title}</h4>
-                                  <div className="flex items-center gap-2">
-                                    <span className="text-[10px] bg-[#0075DE]/10 text-[#0075DE] px-2 py-0.5 rounded font-bold">{p.timeframe}</span>
-                                    <span className="text-[10px] bg-rose-500/10 text-rose-500 px-2 py-0.5 rounded font-bold">{p.impact}</span>
-                                  </div>
-                                </div>
-                                <p className={`text-[11px] leading-relaxed mt-1 ${theme === "dark" ? "text-slate-400" : "text-slate-650"}`}>{p.details}</p>
-                              </div>
-                            ))
-                          )}
-
-                          {smartActiveSubTab === "recommendations" && (
-                            (smartData?.recommendationsList || [
-                              { title: "تثبيت نطاقات الصرف الأجنبي الصارمة", priority: "حرِج", actionable: "إلزام التحوط بين 70-90%", details: "يقضي على قرارات الفارق Speculative تماماً ويمنع translational violations." },
-                              { title: "تفعيل Webhooks لحدث SDN العقوبات", priority: "مرتفع", actionable: "تكامل فوري للبث", details: "يستبدل السحب اليومي بالبث الفوري لحماية correspondent banking." }
-                            ]).map((r, idx) => (
-                              <div key={idx} className={`p-4 border rounded-xl transition-all ${
-                                theme === "dark" ? "bg-slate-900/20 border-slate-800/60" : "bg-white border-slate-200 shadow-sm"
-                              }`}>
-                                <div className="flex items-center justify-between flex-wrap gap-2 mb-1">
-                                  <h4 className="text-xs font-bold text-emerald-600">{r.title}</h4>
-                                  <div className="flex items-center gap-2">
-                                    <span className="text-[10px] bg-rose-500/10 text-rose-500 px-2 py-0.5 rounded font-bold">{r.priority}</span>
-                                    <span className="text-[10px] bg-emerald-500/10 text-emerald-600 px-2 py-0.5 rounded font-bold">{r.actionable}</span>
-                                  </div>
-                                </div>
-                                <p className={`text-[11px] leading-relaxed mt-1 ${theme === "dark" ? "text-slate-400" : "text-slate-650"}`}>{r.details}</p>
-                              </div>
-                            ))
-                          )}
-
-                          {smartActiveSubTab === "opportunities" && (
-                            (smartData?.opportunitiesList || [
-                              { title: "مكتبة HS مرجعية مركزية", feasibility: "مرتفعة جداً", benefit: "توفير $200k سنوياً", details: "تصنيف actuarial مركزي للActuators يقضي على الرسوم التأخيرية للموانئ." }
-                            ]).map((o, idx) => (
-                              <div key={idx} className={`p-4 border rounded-xl transition-all ${
-                                theme === "dark" ? "bg-slate-900/20 border-slate-800/60" : "bg-white border-slate-200 shadow-sm"
-                              }`}>
-                                <div className="flex items-center justify-between flex-wrap gap-2 mb-1">
-                                  <h4 className="text-xs font-bold text-blue-600">{o.title}</h4>
-                                  <div className="flex items-center gap-2">
-                                    <span className="text-[10px] bg-blue-500/10 text-blue-600 px-2 py-0.5 rounded font-bold">{o.feasibility}</span>
-                                    <span className="text-[10px] bg-emerald-500/10 text-emerald-600 px-2 py-0.5 rounded font-bold">{o.benefit}</span>
-                                  </div>
-                                </div>
-                                <p className={`text-[11px] leading-relaxed mt-1 ${theme === "dark" ? "text-slate-400" : "text-slate-650"}`}>{o.details}</p>
-                              </div>
-                            ))
-                          )}
-
-                          {smartActiveSubTab === "risks" && (
-                            (smartData?.risksList || [
-                              { title: "تعرض correspond banking لغرامة screening", severity: "حرجة", probability: "80%", details: "تأخر SDN list screening update ل72 ساعة processing transations." }
-                            ]).map((ri, idx) => (
-                              <div key={idx} className={`p-4 border rounded-xl transition-all ${
-                                theme === "dark" ? "bg-slate-900/20 border-slate-800/60" : "bg-white border-slate-200 shadow-sm"
-                              }`}>
-                                <div className="flex items-center justify-between flex-wrap gap-2 mb-1">
-                                  <h4 className="text-xs font-bold text-rose-500">{ri.title}</h4>
-                                  <div className="flex items-center gap-2">
-                                    <span className="text-[10px] bg-rose-500/10 text-rose-500 px-2 py-0.5 rounded font-bold">{ri.severity}</span>
-                                    <span className="text-[10px] bg-rose-500/20 text-rose-400 px-2 py-0.5 rounded font-bold">{ri.probability}</span>
-                                  </div>
-                                </div>
-                                <p className={`text-[11px] leading-relaxed mt-1 ${theme === "dark" ? "text-slate-400" : "text-slate-650"}`}>{ri.details}</p>
-                              </div>
-                            ))
-                          )}
-                        </>
-                      )}
-                    </div>
-                  </div>
+                  <SmartEvolutionView
+                    smartData={smartData}
+                    isSmartAnalyzing={isSmartAnalyzing}
+                    runSmartAnalysis={runSmartAnalysis}
+                    memories={memories}
+                    riskAlerts={riskAlerts}
+                    lang={lang}
+                    theme={theme}
+                    workspaceName={currentUser?.workspace?.name}
+                  />
                 </motion.div>
               )}
 
-              {/* VIEW: MARKET INTELLIGENCE */}
+              {/* VIEW: MARKET INTELLIGENCE (DYNAMIC ANALYTICAL ENGINE) */}
               {activeTab === "market" && (
                 <motion.div 
                   initial={{ opacity: 0 }} 
                   animate={{ opacity: 1 }} 
-                  className="space-y-6"
-                  id="market-intelligence-view"
+                  className="space-y-8"
+                  id="market-intelligence-tab-container"
                 >
-                  <div>
-                    <h1 className="text-3xl font-black tracking-tight">{t.marketIntelligenceTitle}</h1>
-                    <p className="text-slate-400 text-sm mt-1">{t.marketSlogan}</p>
-                  </div>
-
-                  <form onSubmit={runMarketAnalysis} className={`p-6 rounded-2xl border space-y-4 ${
-                    theme === "dark" ? "bg-slate-900/40 border-slate-800/80 shadow-black/20" : "bg-white border-slate-200 shadow-sm"
-                  }`}>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-xs font-semibold uppercase text-slate-400 mb-1.5">{t.marketTopic}</label>
-                        <input 
-                          type="text"
-                          value={marketTopic}
-                          onChange={(e) => setMarketTopic(e.target.value)}
-                          className={`w-full h-11 px-3.5 border rounded-lg text-xs focus:outline-none focus:border-[#0075DE] focus:ring-1 focus:ring-[#0075DE]/20 ${
-                            theme === "dark" ? "bg-slate-950 border-slate-800 text-white" : "bg-slate-50 border-slate-200 text-slate-850"
-                          }`}
-                          placeholder={t.marketTopicPlaceholder}
-                          required
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-xs font-semibold uppercase text-slate-400 mb-1.5">{t.industryLabel}</label>
-                        <select
-                          value={marketIndustry}
-                          onChange={(e) => {
-                            setMarketIndustry(e.target.value);
-                            if (e.target.value !== "Other") {
-                              setCustomMarketIndustry("");
-                            }
-                          }}
-                          className={`w-full h-10 px-3 border rounded-lg text-xs focus:outline-none focus:border-[#0075DE] ${
-                            theme === "dark" ? "bg-slate-950 border-slate-800 text-slate-300" : "bg-slate-50 border-slate-200 text-slate-700"
-                          }`}
-                        >
-                          <option value="Financial Services">{t.industryFinancial}</option>
-                          <option value="Supply Chain & Shipping">{t.industrySupply}</option>
-                          <option value="Global Trade">{t.industryGlobalTrade}</option>
-                          <option value="Other">{lang === "ar" ? "أخرى (كتابة قطاع مخصص)" : "Other (write custom)"}</option>
-                        </select>
-                        {marketIndustry === "Other" && (
-                          <input 
-                            type="text"
-                            value={customMarketIndustry}
-                            onChange={(e) => setCustomMarketIndustry(e.target.value)}
-                            className={`w-full h-11 px-3.5 mt-2 border rounded-lg text-xs focus:outline-none focus:border-[#0075DE] focus:ring-1 focus:ring-[#0075DE]/20 ${
-                              theme === "dark" ? "bg-slate-950 border-slate-800 text-white" : "bg-slate-50 border-slate-200 text-slate-850"
-                            }`}
-                            placeholder={lang === "ar" ? "اكتب القطاع هنا..." : "Enter custom industry..."}
-                            required
-                          />
-                        )}
-                      </div>
-                    </div>
-
-                    <div>
-                      <label className="block text-xs font-semibold uppercase text-slate-400 mb-1.5">{t.contextOptional}</label>
-                      <input 
-                        type="text"
-                        value={marketContext}
-                        onChange={(e) => setMarketContext(e.target.value)}
-                        className={`w-full h-11 px-3.5 border rounded-lg text-xs focus:outline-none focus:border-[#0075DE] focus:ring-1 focus:ring-[#0075DE]/20 ${
-                          theme === "dark" ? "bg-slate-950 border-slate-800 text-white" : "bg-slate-50 border-slate-200 text-slate-850"
-                        }`}
-                        placeholder={t.marketContextPlaceholder}
-                      />
-                    </div>
-
-                    <button
-                      type="submit"
-                      disabled={isMarketAnalyzing || !marketTopic}
-                      className="w-full h-11 bg-[#0075DE] hover:bg-[#005BAB] disabled:bg-slate-800 text-white disabled:text-slate-500 font-bold text-xs rounded-lg transition-all shadow-md flex items-center justify-center gap-1.5 cursor-pointer"
-                    >
-                      {isMarketAnalyzing ? (
-                        <>
-                          <RefreshCw className="w-4 h-4 animate-spin" />
-                          <span>{(t as any).analyzing || (lang === "ar" ? "جاري التحليل..." : "Analyzing...")}</span>
-                        </>
-                      ) : (
-                        <>
-                          <TrendingUp className="w-4 h-4" />
-                          <span>{(t as any).runMarketAnalysis || (lang === "ar" ? "تشغيل تحليل السوق" : "Run Market Analysis")}</span>
-                        </>
-                      )}
-                    </button>
-                  </form>
-
-                  {marketResult && (
-                    <motion.div 
-                      initial={{ opacity: 0, y: 15 }} 
-                      animate={{ opacity: 1, y: 0 }}
-                      className="space-y-6"
-                    >
-                      <div className={`p-5 rounded-xl border ${
-                        theme === "dark" ? "bg-slate-900/20 border-slate-800/80" : "bg-white border-slate-200 shadow-sm"
-                      }`}>
-                        <h3 className="text-sm font-bold uppercase text-[#0075DE] mb-3">{t.executiveSummary}</h3>
-                        <p className={`text-xs leading-relaxed ${marketResult.error ? "text-rose-500 font-bold" : (theme === "dark" ? "text-slate-300" : "text-slate-600")}`}>
-                          {marketResult.error ? marketResult.error : renderTextWithLinks(marketResult.summary)}
-                        </p>
-                      </div>
-
-                      {!marketResult.error && (
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                          <div className={`border p-5 rounded-xl space-y-3 ${theme === "dark" ? "bg-rose-500/5 border-rose-500/10" : "bg-rose-50/40 border-rose-100 shadow-sm"}`}>
-                            <h4 className="text-xs font-bold text-rose-500 uppercase flex items-center gap-1.5">
-                              <AlertTriangle className="w-4 h-4" />
-                              {t.risksTab}
-                            </h4>
-                            <ul className={`space-y-2 text-xs list-disc ${lang === "ar" ? "pr-4" : "pl-4"} ${theme === "dark" ? "text-slate-300" : "text-slate-700"}`}>
-                              {marketResult.risks?.map((item, idx) => <li key={idx}>{renderTextWithLinks(item)}</li>)}
-                            </ul>
-                          </div>
-
-                          <div className={`border p-5 rounded-xl space-y-3 ${theme === "dark" ? "bg-blue-500/5 border-blue-500/10" : "bg-blue-50/40 border-blue-100 shadow-sm"}`}>
-                            <h4 className="text-xs font-bold text-blue-500 uppercase flex items-center gap-1.5">
-                              <Compass className="w-4 h-4" />
-                              {t.opportunitiesTab}
-                            </h4>
-                            <ul className={`space-y-2 text-xs list-disc ${lang === "ar" ? "pr-4" : "pl-4"} ${theme === "dark" ? "text-slate-300" : "text-slate-700"}`}>
-                              {marketResult.opportunities?.map((item, idx) => <li key={idx}>{renderTextWithLinks(item)}</li>)}
-                            </ul>
-                          </div>
-
-                          <div className={`border p-5 rounded-xl space-y-3 ${theme === "dark" ? "bg-emerald-500/5 border-emerald-500/10" : "bg-emerald-50/40 border-emerald-100 shadow-sm"}`}>
-                            <h4 className="text-xs font-bold text-emerald-600 uppercase flex items-center gap-1.5">
-                              <CheckCircle className="w-4 h-4" />
-                              {t.recommendationsTab}
-                            </h4>
-                            <ul className={`space-y-2 text-xs list-disc ${lang === "ar" ? "pr-4" : "pl-4"} ${theme === "dark" ? "text-slate-300" : "text-slate-700"}`}>
-                              {marketResult.recommendations?.map((item, idx) => <li key={idx}>{renderTextWithLinks(item)}</li>)}
-                            </ul>
-                          </div>
-                        </div>
-                      )}
-                    </motion.div>
-                  )}
+                  <MarketIntelligenceView
+                    theme={theme}
+                    lang={lang}
+                    currentUser={currentUser}
+                    currentWorkspace={currentUser?.workspace}
+                    memories={memories}
+                    riskAlerts={riskAlerts}
+                    files={[]}
+                    authenticatedFetch={authenticatedFetch}
+                  />
 
                   {/* WORLD BANK OPEN DATA PORTAL SECTION */}
                   <Suspense fallback={<ViewLoadingFallback />}>
@@ -6609,9 +6322,12 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                                   {isUser ? (
                                     msg.text
                                   ) : (
-                                    <div className="prose prose-invert max-w-none text-xs space-y-2 [&>h1]:text-sm [&>h1]:font-bold [&>h1]:text-[#0075DE] [&>h1]:mt-2 [&>h1]:mb-1 [&>h2]:text-xs [&>h2]:font-bold [&>h2]:text-[#0075DE] [&>h2]:mt-2 [&>h2]:mb-1 [&>h3]:text-xs [&>h3]:font-bold [&>h3]:text-[#0075DE] [&>h3]:mt-2 [&>h3]:mb-1 [&>p]:mb-1.5 [&>ul]:list-disc [&>ul]:pl-4 [&>ol]:list-decimal [&>ol]:pl-4 [&>li]:mb-0.5 [&_a]:text-[#0075DE] [&_a]:underline [&_strong]:font-semibold [&_strong]:text-[#0075DE]">
-                                      <Markdown>{msg.text}</Markdown>
-                                    </div>
+                                    <ExecutiveAIReportFormatter
+                                      content={msg.text}
+                                      theme={theme}
+                                      lang={lang}
+                                      variant="chat"
+                                    />
                                   )}
                                 </div>
                                 {isUser && (
@@ -7314,7 +7030,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
             memories={memories}
             initialSelectedMemoryId={printPreviewMemoryId}
             lang={lang}
-            companyName={currentUser?.organizationName || currentUser?.companyName || "Zakir Institutional Memory Engine"}
+            companyName={currentUser?.workspace?.name?.trim() || ""}
             userName={currentUser?.fullName || currentUser?.ownerName || currentUser?.email?.split("@")[0] || "System Administrator"}
             workspaceLogoUrl={currentUser?.companyLogoUrl || currentUser?.avatarUrl}
             currentUser={currentUser}

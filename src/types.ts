@@ -246,28 +246,196 @@ export interface SubscriptionInfo {
 }
 
 export interface SmartEvolutionData {
+  analysisId?: string;
+  createdAt?: string;
+  userId?: string;
+  workspaceId?: string;
   error?: string;
   executiveSummary?: string;
   analyzedMemories: number;
   identifiedRisks: number;
+  analyzedFilesCount?: number;
   opportunities: number;
   recommendations: number;
-  risksList: Array<{ title: string; severity: string; probability: string; details: string }>;
-  forecastsList: Array<{ title: string; timeframe: string; impact: string; details: string }>;
-  opportunitiesList: Array<{ title: string; feasibility: string; benefit: string; details: string }>;
-  recommendationsList: Array<{ title: string; priority: string; actionable: string; details: string }>;
+  keyInsights?: string[];
+  detectedPatterns?: string[];
+  risksList: Array<{
+    title: string;
+    severity: string;
+    probability: string;
+    details: string;
+    evidence?: string;
+    confidence?: string;
+    uncertainty?: string;
+  }>;
+  forecastsList: Array<{
+    title: string;
+    timeframe: string;
+    impact: string;
+    details: string;
+    evidence?: string;
+  }>;
+  opportunitiesList: Array<{
+    title: string;
+    feasibility: string;
+    benefit: string;
+    details: string;
+    evidence?: string;
+  }>;
+  recommendationsList: Array<{
+    title: string;
+    priority: string;
+    actionable: string;
+    details: string;
+    evidence?: string;
+    confidence?: string;
+  }>;
+  strategicOptions?: Array<{
+    title: string;
+    timeframe: string;
+    impact: string;
+    details: string;
+    evidence?: string;
+    uncertainty?: string;
+  }>;
+  operationalActions?: Array<{
+    title: string;
+    priority: string;
+    assignedRole?: string;
+    timeframe: string;
+    details: string;
+  }>;
+  priorities?: Array<{
+    rank: number;
+    title: string;
+    rationale: string;
+    expectedImpact: string;
+  }>;
+  expectedImpact?: string;
+  supportingEvidence?: Array<{
+    source: string;
+    type: "memory" | "risk" | "file" | "org" | "external";
+    snippet: string;
+  }>;
+  confidenceLevel?: "High" | "Medium" | "Low" | string;
+  uncertaintyNotes?: string;
+  administrativeAdvisorReview?: {
+    governanceNotes: string;
+    contradictionsDetected: string[];
+    recommendedPolicyControls: string[];
+    uncertaintyPoints: string[];
+  };
+  externalSearchUsed?: boolean;
+  externalSearchStatus?: string;
+  externalSources?: Array<{
+    title: string;
+    url: string;
+    snippet?: string;
+    accessedAt?: string;
+  }>;
+  fileExtractionStatus?: Array<{
+    fileName: string;
+    status: "read" | "unavailable" | "empty";
+    summary?: string;
+  }>;
+}
+
+export type MarketQueryIntent =
+  | "INTERNAL"
+  | "EXTERNAL"
+  | "MIXED"
+  | "EXPLORATORY"
+  | "COMPARATIVE"
+  | "OPPORTUNITY"
+  | "RISK"
+  | "STRATEGY";
+
+export interface MarketEvidenceItem {
+  sourceType: "internal_memory" | "internal_risk" | "internal_file" | "external_search" | "official_indicator";
+  title: string;
+  detail: string;
+  url?: string;
+  confidence?: "High" | "Medium" | "Low";
+}
+
+export interface MarketCompetitorProfile {
+  name: string;
+  positioning?: string;
+  marketPresence?: string;
+  strengths?: string[];
+  weaknesses?: string[];
+  pricingSignal?: string;
+  sourceType: "internal_data" | "external_source" | "unverified";
+}
+
+export interface CountryComparisonDimension {
+  country: string;
+  marketSizeGrowth?: string;
+  competitionLevel?: string;
+  regulatoryEase?: string;
+  logisticsInfrastructure?: string;
+  keyRisks?: string[];
+  keyOpportunities?: string[];
+  attractivenessScore?: number; // 1 to 10
+}
+
+export interface MarketStrategicAction {
+  title: string;
+  description: string;
+  priority: "Critical" | "High" | "Medium";
+  expectedImpact: "High" | "Moderate" | "Transformative";
+  timeframe?: string;
+  governanceLink?: string;
 }
 
 export interface MarketIntelligenceData {
+  analysisId?: string;
+  workspaceId?: string;
+  userId?: string;
+  createdAt?: string;
   error?: string;
   topic: string;
   industry: string;
   context?: string;
+  countries?: string[];
+  classification?: {
+    intent: MarketQueryIntent;
+    scope: string;
+    needsExternalSearch: boolean;
+    reasoning?: string;
+  };
   summary: string;
+  marketOverview?: string;
+  marketDynamics?: string[];
   trends: string[];
+  demandAnalysis?: string;
+  customerSegments?: string[];
+  competitors?: MarketCompetitorProfile[];
+  competitiveGaps?: string[];
   risks: string[];
+  threats?: string[];
   opportunities: string[];
+  entryBarriers?: string[];
+  regulatoryEnvironment?: string[];
+  macroeconomicFactors?: string[];
+  pricingIntelligence?: string[];
+  tradeAndSupplyChain?: string[];
+  marketAttractiveness?: {
+    score: number; // 1 to 10
+    rating: "High" | "Moderate" | "Low" | "Challenging";
+    justification: string;
+  };
+  countryComparisons?: CountryComparisonDimension[];
+  strategicOptions?: string[];
   recommendations: string[];
+  recommendedActions?: MarketStrategicAction[];
+  internalEvidence?: MarketEvidenceItem[];
+  externalEvidence?: MarketEvidenceItem[];
+  externalSources?: Array<{ title: string; url: string; snippet?: string }>;
+  externalSearchStatus?: "COMPLETED" | "NOT_NEEDED" | "BLOCKED_BY_QUOTA" | "UNAVAILABLE";
+  externalSearchNotice?: string;
+  confidenceScore?: number; // 0 to 100
+  uncertaintyNotes?: string[];
 }
 
 export interface SQLQueryResult {
@@ -283,6 +451,17 @@ export interface ChatMessage {
   role: "user" | "model" | "system";
   text: string;
   createdAt: string;
+  sources?: Array<{
+    title: string;
+    url: string;
+    snippet?: string;
+  }>;
+  searchDecision?: {
+    type: "INTERNAL_ONLY" | "EXTERNAL_ONLY" | "MIXED";
+    needsSearch: boolean;
+    reason: string;
+  };
+  advisorType?: "cognitive" | "administrative" | "unified";
 }
 
 export interface UserFile {
