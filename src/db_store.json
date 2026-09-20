@@ -13,7 +13,12 @@
         "verifiedAt": "2026-02-10T11:30:00Z"
       },
       "createdAt": "2026-02-10T11:30:00Z",
-      "trialExpiresAt": "2026-08-05T17:22:39.654Z"
+      "trialExpiresAt": "2026-08-05T17:22:39.654Z",
+      "subscriptionStatus": "Active",
+      "subscriptionPlan": "Professional",
+      "status": "APPROVED",
+      "accountStatus": "APPROVED",
+      "isVerified": true
     },
     {
       "id": "usr_5it21aafq",

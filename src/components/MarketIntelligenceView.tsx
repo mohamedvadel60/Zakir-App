@@ -100,6 +100,11 @@ export const MarketIntelligenceView: React.FC<MarketIntelligenceViewProps> = ({
     if (!item || !item.id || diagnosingItemIds[item.id]) return;
 
     setDiagnosingItemIds((prev) => ({ ...prev, [item.id]: true }));
+    setItemDiagnosesMap((prev) => {
+      const next = { ...prev };
+      delete next[item.id];
+      return next;
+    });
     setItemErrorMsgs((prev) => ({ ...prev, [item.id]: "" }));
 
     try {
@@ -989,7 +994,7 @@ export const MarketIntelligenceView: React.FC<MarketIntelligenceViewProps> = ({
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   {rawItems.map((item) => {
                     const isDiagnosing = Boolean(diagnosingItemIds[item.id]);
-                    const diagResult = itemDiagnosesMap[item.id] || item.diagnosisResult;
+                    const diagResult = itemDiagnosesMap[item.id];
                     const errorMsg = itemErrorMsgs[item.id];
 
                     return (

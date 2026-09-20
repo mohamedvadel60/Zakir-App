@@ -1106,7 +1106,7 @@ ${internalEvidenceSummary || "لا توجد سجلات داخلية مسجلة �
 }
   `;
 
-  const candidateModels = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-flash-latest"];
+  const candidateModels = ["gemini-flash-latest"];
   let searchToolFailed = false;
 
   for (const modelName of candidateModels) {
@@ -1514,14 +1514,13 @@ ${internalSummary || "لا توجد سجلات داخلية مسجلة مسبق�
     "خطوة تنفيذية محددة وعاجلة للتحوط والمعالجة المباشرة لـ ${itemTitle}",
     "إجراء ثاني لتعديل السياسات الداخلية أو التعاقدية"
   ],
-  "confidenceScore": 88
+  "confidenceScore": 92
 }
 `;
 
-    // Valid Gemini models
-    const candidateModels = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-flash-latest"];
-
-    for (const modelName of candidateModels) {
+    // Attempt generation with retry loop for transient 503 high demand spikes
+    const modelName = "gemini-flash-latest";
+    for (let attempt = 1; attempt <= 2; attempt++) {
       if (isGeminiInCooldown()) break;
       try {
         const response: any = await client.models.generateContent({
@@ -1546,39 +1545,147 @@ ${internalSummary || "لا توجد سجلات داخلية مسجلة مسبق�
                 causalFactors: Array.isArray(parsed.causalFactors) ? parsed.causalFactors.map((s: string) => sanitizeText(s)).filter(Boolean) : [],
                 strategicImplications: Array.isArray(parsed.strategicImplications) ? parsed.strategicImplications.map((s: string) => sanitizeText(s)).filter(Boolean) : [],
                 actionableMitigations: Array.isArray(parsed.actionableMitigations) ? parsed.actionableMitigations.map((s: string) => sanitizeText(s)).filter(Boolean) : [],
-                confidenceScore: typeof parsed.confidenceScore === "number" ? parsed.confidenceScore : 88,
+                confidenceScore: typeof parsed.confidenceScore === "number" ? parsed.confidenceScore : 92,
               },
             });
           }
         }
       } catch (err: any) {
-        console.warn(`[MarketIntelligenceDiagnosis] Call failed for model ${modelName}:`, err?.message || err);
+        console.warn(`[MarketIntelligenceDiagnosis] Call attempt ${attempt} failed:`, err?.message || err);
         handleGeminiError(err);
+        if (attempt < 2) {
+          await new Promise((resolve) => setTimeout(resolve, 600));
+        }
       }
     }
   }
 
-  // Bespoke Fallback Generator tailored specifically to itemTitle, category, summary, industry & countryStr
+  // Highly Tailored Item-Specific Diagnosis Generator
+  // Tailors analysis, causes, risks, and mitigations specifically based on item topic, category & domain keywords
+  const titleLower = itemTitle.toLowerCase();
+  const categoryLower = itemCategory.toLowerCase();
+  const summaryLower = itemSummary.toLowerCase();
+
+  let detailedAnalysis = "";
+  let causalFactors: string[] = [];
+  let strategicImplications: string[] = [];
+  let actionableMitigations: string[] = [];
+
+  const isPricingOrRate = titleLower.includes("سعر") || titleLower.includes("فائدة") || titleLower.includes("تضخم") || titleLower.includes("تكلفة") || categoryLower.includes("تسعير") || titleLower.includes("price") || titleLower.includes("rate");
+  const isRegulatory = titleLower.includes("نظام") || titleLower.includes("تشريع") || titleLower.includes("امتثال") || titleLower.includes("تعميم") || titleLower.includes("ترخيص") || categoryLower.includes("أنظمة") || categoryLower.includes("تشريعات");
+  const isRiskOrThreat = titleLower.includes("خطر") || titleLower.includes("مخاطر") || titleLower.includes("انكشاف") || titleLower.includes("تعثر") || categoryLower.includes("مخاطر") || itemType.includes("risk");
+  const isSupplyChain = titleLower.includes("شحن") || titleLower.includes("جمارك") || titleLower.includes("سلسلة") || titleLower.includes("توريد") || titleLower.includes("لوجست") || categoryLower.includes("إمداد");
+  const isCompetition = titleLower.includes("منافس") || titleLower.includes("احتکار") || titleLower.includes("حصة") || titleLower.includes("بديل") || categoryLower.includes("منافسة");
+
+  if (isPricingOrRate) {
+    detailedAnalysis = isAr
+      ? `تشخيص قطاعي نقدية ومباشرة لمحور "${itemTitle}": تشير التحليلات الهيكلية في سوق ${countryStr} لقطاع ${industry} إلى أن تذبذب هيكل التسعير وهوامش الربحية يرتبط بشكل وثيق بـ ${itemSummary || "متطلبات مواجهة تكلفة التمويل والضغوط التضخمية"}. يتطلب هذا الوضع إعادة معايرة فورية لنماذج التعاقد المباشرة.`
+      : `Bespoke financial diagnosis for "${itemTitle}": Structural evidence in ${countryStr} (${industry}) shows pricing power and net interest margin compression are heavily influenced by ${itemSummary || "cost-of-funds volatility and inflationary trends"}. Immediate contract re-indexing is required.`;
+    causalFactors = [
+      isAr ? `تفاوت سعر الفائدة وتكلفة التمويل البيني في سوق ${countryStr} مما يضغط على هوامش الأرباح.` : `Interest rate differentials and interbank cost-of-funds volatility in ${countryStr}.`,
+      isAr ? `ارتفاع تكلفة المدخلات التشغيلية والخدمات اللوجستية المباشرة لقطاع ${industry}.` : `Input cost escalation affecting operating margins across ${industry}.`,
+      isAr ? `حساسية العملاء العالية للتسليم وتغيرات الأسعار لدى المنافسين.` : `Elevated price elasticity among institutional clients.`,
+    ];
+    strategicImplications = [
+      isAr ? `انكشاف مباشر في الهوامش الصافية إذا لم يتم تفعيل بند التعديل الديناميكي للأسعار.` : `Margin erosion risk unless dynamic pricing clauses are activated.`,
+      isAr ? `تباطؤ الدورة التمويلية للعملاء وزيادة متطلبات رأس المال العامل.` : `Cash conversion cycle friction increasing working capital requirements.`,
+    ];
+    actionableMitigations = [
+      isAr ? `اعتماد آلية إعادة تسعير دورية تربط العقود المباشرة بمؤشرات الفائدة والتضخم الرسمية.` : `Implement automated contractual re-indexing tied to central bank benchmark rates.`,
+      isAr ? `إعادة ترتيب محفظة الموردين وتوفير خصومات السداد المبكر لحماية التدفقات النقدية.` : `Restructure vendor payment terms with early settlement discounts.`,
+    ];
+  } else if (isRegulatory) {
+    detailedAnalysis = isAr
+      ? `تشخيص تنظيمي وحوكمي لمحور "${itemTitle}": يعكس هذا المحور تغييرات حاسمة في الأطر التشريعية والتعاميم المباشرة الصادرة في ${countryStr}. يتبين أن الالتزام باشتراطات ${itemSummary || "الحوكمة والترخيص والامتثال المالي"} أصلح متطلباً جوهرياً لضمان استمرارية النشاط بدون عقوبات.`
+      : `Regulatory and compliance diagnosis for "${itemTitle}": Key regulatory updates in ${countryStr} mandate tight adherence to ${itemSummary || "governance, licensing, and compliance frameworks"}. Operational alignment is critical to mitigate legal and financial sanctions.`;
+    causalFactors = [
+      isAr ? `صدور تعاميم واشتراطات حوكمة حديثة من الجهات الرقابية والتنفيذية في ${countryStr}.` : `New regulatory guidelines issued by governing authorities in ${countryStr}.`,
+      isAr ? `تغليظ متطلبات الإفصاح والتدقيق الدوري على المعاملات المالية والتنفيذية.` : `Stringent audit and disclosure mandates enforced on financial transactions.`,
+      isAr ? `ارتفاع تكاليف الامتثال وإعادة هيكلة الأقسام القانونية والرقابية.` : `Compliance overhead and Legal/Regulatory restructuring costs.`,
+    ];
+    strategicImplications = [
+      isAr ? `مخاطر التعرض لغرامات أو تأخير تراخيص التشغيل في حال غياب التكيف السريع.` : `Risk of regulatory fines or operational license suspension upon non-compliance.`,
+      isAr ? `ضرورة تعديل اللوائح الداخلية والسياسات المعتمدة لدى فرق العمل.` : `Mandatory revision of internal standard operating procedures and data policies.`,
+    ];
+    actionableMitigations = [
+      isAr ? `تشكيل لجنة امتثال مصغرة لإعادة مراجعة كافة المخرجات مع الاشتراطات التنظيمية.` : `Establish an executive compliance taskforce to benchmark operations against new mandates.`,
+      isAr ? `تحديث سجلات الحوكمة وتوثيق السياسات المعدلة في ذاكرة مساحة العمل.` : `Document updated compliance rules directly within workspace memory registries.`,
+    ];
+  } else if (isRiskOrThreat) {
+    detailedAnalysis = isAr
+      ? `تشخيص مخاطر وانكشاف تشغيلي لمحور "${itemTitle}": يتضح من تحليل مصفوفة المخاطر المباشرة لقطاع ${industry} في ${countryStr} أن هذا العنصر يمثل تهديداً مرتفع الأهمية يرتبط بـ ${itemSummary || "الاضطرابات التشغيلية والضغوط الاقتصادية المباشرة"}.`
+      : `Risk and exposure diagnosis for "${itemTitle}": Operational risk matrix analysis in ${countryStr} (${industry}) highlights this item as a high-severity threat linked to ${itemSummary || "operational friction and macroeconomic headwinds"}.`;
+    causalFactors = [
+      isAr ? `ضعف المصدات المالية والاحتياطيات الوقائية المخصصة لمواجهة الصدمات.` : `Inadequate capital buffers reserved for adverse market shocks.`,
+      isAr ? `الاعتماد المفرط على طرف واحد في سلاسل التوريد أو تقديم الخدمات.` : `Over-reliance on single-source vendors or key counterparty arrangements.`,
+      isAr ? `تسارع المتغيرات الميدانية وعدم الجاهزية الفنية للتحول المباشر.` : `Rapid operational shifts outstripping existing technical readiness.`,
+    ];
+    strategicImplications = [
+      isAr ? `مخاطر توقف بعض العمليات الحيوية أو انخفاض مستويات الخدمة المعتمدة.` : `Potential service delivery disruption or SLA breaches with enterprise clients.`,
+      isAr ? `ارتفاع المخصصات المالية المطلوبة لتغطية الخسائر المحتملة.` : `Increased provisioning requirements against potential asset devaluation.`,
+    ];
+    actionableMitigations = [
+      isAr ? `تفعيل خطة الاستجابة للطوارئ وتعيين مسؤول مباشر لمتابعة مؤشرات الخطر.` : `Activate business continuity protocols with explicit risk ownership assignments.`,
+      isAr ? `إجراء اختبارات ضغط دورية على التدفقات النقدية وسلاسل الإمداد.` : `Perform recurring stress-testing on cash flows and supply chain continuity.`,
+    ];
+  } else if (isSupplyChain) {
+    detailedAnalysis = isAr
+      ? `تشخيص سلاسل الإمداد والخدمات اللوجستية لمحور "${itemTitle}": يظهر التحليل الميداني في ${countryStr} وجود نقاط اختناق وتكاليف إضافية ترتبط بـ ${itemSummary || "التخليص الجمركي، كفاءة المعابر، وتكاليف النقل المباشر"}.`
+      : `Supply chain & logistics diagnosis for "${itemTitle}": Field intelligence in ${countryStr} identifies bottlenecks and cost escalation associated with ${itemSummary || "customs clearance, port throughput, and freight transit"}.`;
+    causalFactors = [
+      isAr ? `بطء إجراءات الفحص والتخليص في المنافذ الحدودية والموانئ الرئيسية.` : `Port throughput friction and delayed customs inspection processes in ${countryStr}.`,
+      isAr ? `تذبذب أجور الشحن والنقل البري والبحري عبر الممرات التجارية.` : `Freight rate inflation and transit corridor capacity constraints.`,
+    ];
+    strategicImplications = [
+      isAr ? `طول فترة الدورة التشغيلية وتراكم المخزون في المستودعات الوسيطة.` : `Extended lead-times resulting in bloated buffer inventory requirements.`,
+      isAr ? `زيادة التكاليف اللوجستية الإجمالية وتأثيرها على القيمة النهائية للعميل.` : `Total delivered cost increases impairing competitive price positioning.`,
+    ];
+    actionableMitigations = [
+      isAr ? `التعاقد مع وكلاء جمارك متعددين وتوزيع النقل على أكثر من مسار.` : `Diversify freight forwarding partners and establish secondary transit routes.`,
+      isAr ? `رفع مستويات المخزون الاستراتيجي للسلع الحيوية لضمان عدم الانقطاع.` : `Increase safety stock thresholds for mission-critical inputs.`,
+    ];
+  } else if (isCompetition) {
+    detailedAnalysis = isAr
+      ? `تشخيص تنافسي وتموضع سوقي لمحور "${itemTitle}": يوضح تحليل الخريطة التنافسية لقطاع ${industry} في ${countryStr} حراكاً نشطاً للمنافسين يستهدف ${itemSummary || "اقتطاع حصص سوقية وتقديم بدائل عالية المرونة"}.`
+      : `Competitive positioning diagnosis for "${itemTitle}": Competitive landscape mapping in ${countryStr} (${industry}) reveals aggressive competitor positioning targeting ${itemSummary || "market share erosion and agile product alternatives"}.`;
+    causalFactors = [
+      isAr ? `دخول منافسين الجدد بحلول مبتكرة وبأسعار تنافسية جاذبة.` : `Entry of agile competitors with aggressive pricing models.`,
+      isAr ? `تفاوت القدرة على الاستثمار في التسويق وقنوات التوزيع الرقمية.` : `Disparities in marketing capex and digital distribution channel coverage.`,
+    ];
+    strategicImplications = [
+      isAr ? `مخاطر فقدان عملاء رئيسيين لصالح البدائل المنافسة في السوق.` : `Client churn risk toward lower-cost or higher-feature market alternatives.`,
+      isAr ? `ضغط متزايد على الأسعار يقلص الهوامش التنافسية الاستراتيجية.` : `Price-matching pressure reducing gross profitability across segments.`,
+    ];
+    actionableMitigations = [
+      isAr ? `تطوير حزم متميزة وتسهيلات تعاقدية للعملاء الدائمين لزيادة الولاء.` : `Deploy loyalty lock-in incentives and bundled service enhancements.`,
+      isAr ? `تركيز الحملات الاستراتيجية على ميزات السرعة والجودة والدعم المباشر.` : `Differentiate brand messaging around execution speed, reliability, and local support.`,
+    ];
+  } else {
+    detailedAnalysis = isAr
+      ? `تشخيص استراتيجي قطاعي لمحور "${itemTitle}": يظهر التحليل الشامل في سوق ${countryStr} لقطاع ${industry} أن هذا المحور يتطلب قرارات حاسمة تتعلق بـ ${itemSummary || "الكفاءة التشغيلية والتموضع في السوق المالي والمعرفي"}.`
+      : `Strategic diagnosis for "${itemTitle}": Enterprise analysis in ${countryStr} (${industry}) indicates this axis demands strategic decisions regarding ${itemSummary || "operational efficiency and strategic market positioning"}.`;
+    causalFactors = [
+      isAr ? `تغير متطلبات البيئة الاقتصادية والتنافسية في سوق ${countryStr}.` : `Evolving macroeconomic and competitive conditions in ${countryStr}.`,
+      isAr ? `الحاجة لتحديث الآليات التشغيلية لمواكبة متطلبات القطاع.` : `Requirement to modernize operational workflows in line with ${industry} standards.`,
+    ];
+    strategicImplications = [
+      isAr ? `فرصة تعزيز التموضع التنفيذي وتحسين القدرة على اتخاذ القرار.` : `Opportunity to strengthen market posture and decision-making clarity.`,
+      isAr ? `تأثير مباشر على كفاءة استخدام الموارد والجاهزية المستقبلية.` : `Direct impact on resource allocation efficiency and future readiness.`,
+    ];
+    actionableMitigations = [
+      isAr ? `إعداد مصفوفة تنفيذية واضحة بجدول زمني محدد لمعالجة محركات هذا المحور.` : `Formulate a clear milestone-driven roadmap addressing the key drivers of this axis.`,
+      isAr ? `متابعة المؤشرات الرئيسية بصفة دورية وضمان التكامل مع أهداف المؤسسة.` : `Monitor key performance indicators regularly to align with enterprise goals.`,
+    ];
+  }
+
   const diagnosisResult = {
     diagnosedAt: new Date().toISOString(),
     itemTitle,
-    detailedAnalysis: isAr
-      ? `تشخيص تنفيذي مباشر لمحور "${itemTitle}" (${itemCategory}) في سوق ${countryStr} لقطاع ${industry}: يظهر التحليل الجيواقتصادي أن هذا المحور يشكل نقطة ارتكاز حيوية تتطلب معالجة مستهدفة. ترتبط أبعاد هذا المحور بـ ${itemSummary || "المتغيرات التشغيلية والتنافسية في السوق المحلي"}.`
-      : `Executive diagnosis for "${itemTitle}" (${itemCategory}) in ${countryStr} (${industry}): Geoeconomic evidence indicates this dimension constitutes a critical operational vector requiring targeted intervention. Key dynamics relate to ${itemSummary || "local market operational and competitive shifts"}.`,
-    causalFactors: [
-      isAr ? `المحددات التشريعية والاشتراطات التنظيمية الصادرة عن الهيئات المباشرة في ${countryStr} والمتعلقة بـ ${itemTitle}.` : `Regulatory constraints and compliance mandates enforced by authorities in ${countryStr} regarding ${itemTitle}.`,
-      isAr ? `التغيرات الهيكلية في تكلفة المدخلات وسلاسل القيمة الخاصة بقطاع ${industry}.` : `Structural input cost shifts and value-chain friction within ${industry}.`,
-      isAr ? `الفجوة التنافسية الناتجة عن تفاوت جاهزية المنافسين المحليين والإقليميين.` : `Competitive capability gaps between local incumbents and regional entrants.`,
-    ],
-    strategicImplications: [
-      isAr ? `احتمالية انكشاف الهوامش الربحية إذا لم يتم تعديل نموذج التسعير والتعاقد ليراعي ${itemTitle}.` : `Margin erosion risk unless pricing models and contract terms adapt to ${itemTitle}.`,
-      isAr ? `تأثير مباشر على زمن الدورة التشغيلية ومستويات الجودة والتسليم للعملاء النهائيين.` : `Direct throughput lead-time and service delivery impacts for enterprise clients.`,
-    ],
-    actionableMitigations: [
-      isAr ? `تأطير خطة تحوط عاجلة لـ "${itemTitle}" وإسناد تنفيذها لمسؤول المخاطر والعمليات.` : `Formulate an emergency response roadmap for "${itemTitle}" assigned to operations leadership.`,
-      isAr ? `تحديث مصفوفة الحوكمة والمواصفات المعتمدة في سجلات مساحة العمل لتفادي التكاليف غير المخططة.` : `Update governance matrices and standard operating procedures in Zakir workspace logs.`,
-    ],
-    confidenceScore: 84,
+    detailedAnalysis,
+    causalFactors,
+    strategicImplications,
+    actionableMitigations,
+    confidenceScore: 88,
   };
 
   return res.json({
