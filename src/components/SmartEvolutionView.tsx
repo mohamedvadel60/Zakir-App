@@ -235,7 +235,7 @@ export const SmartEvolutionView: React.FC<SmartEvolutionViewProps> = ({
 
   // 3. Populated State (Active or Cached Analysis Results)
   return (
-    <div id="smart-evolution-view" className="space-y-6">
+    <div id="smart-evolution-view" className="zakir-screen zakir-intelligence space-y-6">
       {/* Top Header & Re-run Trigger */}
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div>

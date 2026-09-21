@@ -149,7 +149,7 @@ export const InstitutionalVerificationForm: React.FC<InstitutionalVerificationFo
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-4 sm:p-6" dir={isAr ? "rtl" : "ltr"}>
+    <div className="zakir-screen zakir-auth min-h-screen bg-background flex flex-col items-center justify-center p-4 sm:p-6" dir={isAr ? "rtl" : "ltr"}>
       {/* Background Decor */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute -top-40 -left-40 w-96 h-96 bg-amber-500/10 rounded-full blur-3xl" />
@@ -177,7 +177,7 @@ export const InstitutionalVerificationForm: React.FC<InstitutionalVerificationFo
         </div>
 
         {/* Verification Card */}
-        <div className="bg-slate-900/90 backdrop-blur-md border border-slate-800 rounded-2xl p-6 sm:p-8 shadow-2xl shadow-black/50">
+        <div className="bg-card border border-border rounded-xl p-6 sm:p-8 shadow-lg">
           {errorMsg && (
             <div className="mb-6 p-4 rounded-xl bg-red-950/50 border border-red-800/60 text-red-300 text-sm flex items-start gap-3">
               <AlertCircle className="w-5 h-5 shrink-0 text-red-400 mt-0.5" />

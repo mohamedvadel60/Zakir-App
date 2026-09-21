@@ -262,7 +262,7 @@ export const EmailVerificationView: React.FC<EmailVerificationViewProps> = ({
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col justify-between p-4 sm:p-6 relative selection:bg-[#0075DE]/30 text-slate-900 dark:text-slate-100">
+    <div className="zakir-screen zakir-auth min-h-screen bg-background flex flex-col justify-between p-4 sm:p-6 relative selection:bg-primary/20 text-foreground">
       {/* Top Bar */}
       <div className="max-w-md mx-auto w-full flex items-center justify-between pt-2">
         <div className="flex items-center gap-2">
@@ -282,7 +282,7 @@ export const EmailVerificationView: React.FC<EmailVerificationViewProps> = ({
       <motion.div
         initial={{ opacity: 0, y: 15 }}
         animate={{ opacity: 1, y: 0 }}
-        className="max-w-md mx-auto w-full bg-white dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl relative overflow-hidden backdrop-blur-sm space-y-6"
+        className="max-w-md mx-auto w-full bg-card border border-border rounded-xl p-6 sm:p-8 shadow-lg relative overflow-hidden space-y-6"
       >
         {/* Header */}
         <div className="text-center space-y-2">

@@ -3141,40 +3141,43 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
   return (
     <div 
       id="zakir-app-root"
-      className={`min-h-screen transition-colors duration-150 ${
-        theme === "dark" ? "theme-dark bg-[#0B0F19] text-[#F8FAFC]" : "theme-light bg-[#F0F2F5] text-[#0F172A]"
+      className={`zakir-screen min-h-screen transition-colors duration-150 ${
+        theme === "dark" ? "theme-dark bg-[#10191F] text-[#EDF3F4]" : "theme-light bg-[#F5F7F8] text-[#14212B]"
       } ${
         isCustomThemeActive ? "custom-theme-active" : ""
       }`} 
       style={customThemeStyle}
       dir={t.dir}
     >
+      <a href="#zakir-main-content" className="sr-only focus:not-sr-only focus:fixed focus:start-4 focus:top-4 focus:z-[100] focus:rounded-md focus:bg-primary focus:px-4 focus:py-2 focus:text-sm focus:font-semibold focus:text-primary-foreground">
+        {lang === "ar" ? "الانتقال إلى المحتوى الرئيسي" : lang === "fr" ? "Aller au contenu principal" : "Skip to main content"}
+      </a>
       {/* GLOBAL DYNAMIC CSS PALETTE OVERRIDES */}
       <style dangerouslySetInnerHTML={{ __html: `
         /* 1. Global CSS Variables Definition */
         .theme-light {
-          --bg-primary: #F8FAFC;
+          --bg-primary: #F5F7F8;
           --bg-secondary: #FFFFFF;
           --bg-tertiary: #F1F5F9;
           --text-primary: #0F172A;
           --text-secondary: #64748B;
           --border-color: #E2E8F0;
-          --accent-color: #0075DE;
-          --accent-hover: #005BAB;
-          --accent-subtle: rgba(0, 117, 222, 0.08);
+          --accent-color: #12677B;
+          --accent-hover: #0C5364;
+          --accent-subtle: rgba(18, 103, 123, 0.08);
           --accent-text: #FFFFFF;
         }
 
         .theme-dark {
-          --bg-primary: #080C14;
-          --bg-secondary: #0F172A;
-          --bg-tertiary: #1E293B;
-          --text-primary: #F8FAFC;
-          --text-secondary: #94A3B8;
-          --border-color: #1E293B;
-          --accent-color: #0075DE;
-          --accent-hover: #1D4ED8;
-          --accent-subtle: rgba(0, 117, 222, 0.15);
+          --bg-primary: #10191F;
+          --bg-secondary: #17242C;
+          --bg-tertiary: #22323B;
+          --text-primary: #EDF3F4;
+          --text-secondary: #9AAEB5;
+          --border-color: #2A3B44;
+          --accent-color: #35A1B8;
+          --accent-hover: #75C7D5;
+          --accent-subtle: rgba(53, 161, 184, 0.15);
           --accent-text: #FFFFFF;
         }
 
@@ -4461,7 +4464,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
           </aside>
 
           {/* MAIN CONTENT AREA CONTAINER */}
-          <main className="flex-1 overflow-y-auto relative h-full">
+          <main id="zakir-main-content" className="flex-1 overflow-y-auto relative h-full" tabIndex={-1}>
             {/* Smooth Top Progress Bar */}
             {isLoading && (
               <div className="absolute top-0 left-0 right-0 h-1 bg-transparent overflow-hidden z-[999] pointer-events-none">
@@ -4504,7 +4507,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
             </div>
 
             {/* APP CONTENT VIEWS CONTROLLER */}
-            <div className="p-8 max-w-7xl mx-auto space-y-8">
+            <div className="zakir-screen zakir-workspace p-8 max-w-7xl mx-auto space-y-8">
 
               {/* INVITATION EMAIL MISMATCH NOTIFICATION */}
               {invitationMismatch && (
@@ -4949,7 +4952,6 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                                 </span>
                                 <div className="text-3xl font-black tracking-tight text-slate-100 mt-1 flex items-baseline gap-1">
                                   <span className={theme === "dark" ? "text-white" : "text-slate-900"}>{statsCount.totalMemories}</span>
-                                  <span className="text-xs text-emerald-400 font-bold font-mono">+12%</span>
                                 </div>
                               </div>
                               <div className={alignClass}>

@@ -791,7 +791,7 @@ export const DeletedAccountRecovery: React.FC<DeletedAccountRecoveryProps> = ({
     <div
       id="account-recovery-container"
       dir={isRtl ? "rtl" : "ltr"}
-      className="w-full max-w-2xl mx-auto bg-white dark:bg-[#0C101A] border border-slate-200/90 dark:border-slate-800/90 rounded-2xl shadow-xl dark:shadow-[0_20px_50px_rgba(0,0,0,0.4)] p-5 sm:p-7 text-slate-900 dark:text-slate-100 transition-all font-sans"
+      className="zakir-screen zakir-auth w-full max-w-2xl mx-auto bg-card border border-border rounded-xl shadow-lg p-5 sm:p-7 text-foreground transition-all font-sans"
     >
       {/* TOP BAR / NAVIGATION */}
       <div className="flex items-center justify-between gap-3 pb-4 mb-5 border-b border-slate-100 dark:border-slate-800/80">

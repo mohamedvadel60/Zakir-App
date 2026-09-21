@@ -331,7 +331,7 @@ export const MarketIntelligenceView: React.FC<MarketIntelligenceViewProps> = ({
   };
 
   return (
-    <div id="market-intelligence-view" className="space-y-8 pb-16">
+    <div id="market-intelligence-view" className="zakir-screen zakir-intelligence space-y-8 pb-16">
       {/* Header Banner */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b pb-5 border-slate-200 dark:border-slate-800">
         <div>
