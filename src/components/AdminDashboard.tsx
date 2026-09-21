@@ -3632,7 +3632,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-[var(--bg-primary)] text-[var(--text-primary)] transition-colors duration-300" dir={lang === "ar" ? "rtl" : "ltr"}>
+    <div className="zakir-screen zakir-admin min-h-screen flex flex-col bg-[var(--bg-primary)] text-[var(--text-primary)] transition-colors duration-300" dir={lang === "ar" ? "rtl" : "ltr"}>
       {/* SIMULATED MEMBER SUPPORT SESSION BANNER */}
       {/* AUDITED SUPPORT SESSION BANNER */}
       {(supportSession || supportModeTargetUser) && (

@@ -53,11 +53,11 @@
 
 :root, .theme-light, [data-theme="light"] {
   color-scheme: light;
-  --radius: 0.5rem;
-  --radius-sm: 0.375rem;
-  --radius-md: 0.5rem;
-  --radius-lg: 0.75rem;
-  --radius-xl: 1rem;
+  --radius: 0.375rem;
+  --radius-sm: 0.25rem;
+  --radius-md: 0.375rem;
+  --radius-lg: 0.625rem;
+  --radius-xl: 0.875rem;
 
   --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
   --shadow: 0 1px 3px 0 rgb(0 0 0 / 0.06), 0 1px 2px -1px rgb(0 0 0 / 0.06);
@@ -69,8 +69,8 @@
   --font-body: 'Inter', 'Cairo', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   --font-heading: 'Inter', 'Cairo', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 
-  --background: #F8FAFC;
-  --foreground: #0F172A;
+  --background: #F5F7F8;
+  --foreground: #14212B;
 
   --card: #FFFFFF;
   --card-foreground: #0F172A;
@@ -78,7 +78,7 @@
   --popover: #FFFFFF;
   --popover-foreground: #0F172A;
 
-  --primary: #0075DE;
+  --primary: #12677B;
   --primary-foreground: #FFFFFF;
 
   --secondary: #F1F5F9;
@@ -87,42 +87,42 @@
   --muted: #F1F5F9;
   --muted-foreground: #64748B;
 
-  --accent: #EBF5FF;
-  --accent-foreground: #005BAB;
+  --accent: #E8F2F3;
+  --accent-foreground: #0C5364;
 
   --border: #E2E8F0;
   --input: #E2E8F0;
 
-  --ring: #0075DE;
+  --ring: #12677B;
 
   --sidebar: #FFFFFF;
   --sidebar-foreground: #0F172A;
-  --sidebar-primary: #0075DE;
+  --sidebar-primary: #12677B;
   --sidebar-primary-foreground: #FFFFFF;
   --sidebar-accent: #F1F5F9;
   --sidebar-accent-foreground: #0F172A;
   --sidebar-border: #E2E8F0;
-  --sidebar-ring: #0075DE;
+  --sidebar-ring: #12677B;
 
   --destructive: #EF4444;
   --destructive-foreground: #FFFFFF;
 
-  --chart-1: #0075DE;
+  --chart-1: #12677B;
   --chart-2: #10B981;
   --chart-3: #F59E0B;
   --chart-4: #06B6D4;
   --chart-5: #6366F1;
 
   /* Zakir System Tokens */
-  --bg-primary: #F8FAFC;
+  --bg-primary: #F5F7F8;
   --bg-secondary: #FFFFFF;
   --bg-tertiary: #F1F5F9;
   --text-primary: #0F172A;
   --text-secondary: #64748B;
   --border-color: #E2E8F0;
-  --accent-color: #0075DE;
-  --accent-hover: #005BAB;
-  --accent-subtle: rgba(0, 117, 222, 0.08);
+  --accent-color: #12677B;
+  --accent-hover: #0C5364;
+  --accent-subtle: rgba(18, 103, 123, 0.08);
   --accent-text: #FFFFFF;
   --card-bg: #FFFFFF;
   --input-bg: #FFFFFF;
@@ -131,62 +131,62 @@
 .dark, [data-theme="dark"], .theme-dark {
   color-scheme: dark;
 
-  --background: #080C14;
-  --foreground: #F8FAFC;
+  --background: #10191F;
+  --foreground: #EDF3F4;
 
-  --card: #0F172A;
-  --card-foreground: #F8FAFC;
+  --card: #17242C;
+  --card-foreground: #EDF3F4;
 
-  --popover: #0F172A;
-  --popover-foreground: #F8FAFC;
+  --popover: #17242C;
+  --popover-foreground: #EDF3F4;
 
-  --primary: #0075DE;
+  --primary: #35A1B8;
   --primary-foreground: #FFFFFF;
 
-  --secondary: #1E293B;
-  --secondary-foreground: #F8FAFC;
+  --secondary: #22323B;
+  --secondary-foreground: #EDF3F4;
 
-  --muted: #1E293B;
-  --muted-foreground: #94A3B8;
+  --muted: #22323B;
+  --muted-foreground: #9AAEB5;
 
-  --accent: #13233A;
-  --accent-foreground: #38BDF8;
+  --accent: #1B3741;
+  --accent-foreground: #75C7D5;
 
-  --border: #1E293B;
-  --input: #1E293B;
+  --border: #2A3B44;
+  --input: #2A3B44;
 
-  --ring: #0075DE;
+  --ring: #75C7D5;
 
-  --sidebar: #080C14;
-  --sidebar-foreground: #F8FAFC;
-  --sidebar-primary: #0075DE;
+  --sidebar: #10191F;
+  --sidebar-foreground: #EDF3F4;
+  --sidebar-primary: #35A1B8;
   --sidebar-primary-foreground: #FFFFFF;
-  --sidebar-accent: #1E293B;
-  --sidebar-accent-foreground: #F8FAFC;
-  --sidebar-border: #1E293B;
-  --sidebar-ring: #0075DE;
+  --sidebar-accent: #22323B;
+  --sidebar-accent-foreground: #EDF3F4;
+  --sidebar-border: #2A3B44;
+  --sidebar-ring: #75C7D5;
 
   --destructive: #EF4444;
   --destructive-foreground: #FFFFFF;
 
-  --chart-1: #0075DE;
+  --chart-1: #35A1B8;
   --chart-2: #34D399;
   --chart-3: #FBBF24;
   --chart-4: #22D3EE;
   --chart-5: #818CF8;
 
-  --bg-primary: #080C14;
-  --bg-secondary: #0F172A;
-  --bg-tertiary: #1E293B;
-  --text-primary: #F8FAFC;
-  --text-secondary: #94A3B8;
-  --border-color: #1E293B;
-  --accent-color: #0075DE;
-  --accent-hover: #1D4ED8;
-  --accent-subtle: rgba(0, 117, 222, 0.15);
+  --bg-primary: #10191F;
+  --bg-secondary: #17242C;
+  --bg-tertiary: #22323B;
+  --text-primary: #EDF3F4;
+  --text-secondary: #9AAEB5;
+  --border-color: #2A3B44;
+  --accent-color: #35A1B8;
+  --accent-hover: #75C7D5;
+  --accent-subtle: rgba(53, 161, 184, 0.15);
   --accent-text: #FFFFFF;
-  --card-bg: #0F172A;
-  --input-bg: #0B1120;
+  --card-bg: #17242C;
+  --input-bg: #142027;
 }
 
 @layer base {
@@ -467,4 +467,158 @@ body:not(.dark) input:-webkit-autofill:active {
   border: none !important;
 }
 
+/* --------------------------------------------------------------------------
+   ZAKIR PRODUCT SYSTEM
+   A quiet, evidence-led interface foundation shared by public and workspace UI.
+   -------------------------------------------------------------------------- */
+:root {
+  --zakir-ink: #14212B;
+  --zakir-teal: #12677B;
+  --zakir-teal-strong: #0C5364;
+  --zakir-gold: #B8881B;
+  --zakir-success: #16765E;
+  --zakir-warning: #A86610;
+  --zakir-danger: #B54747;
+  --zakir-focus: 0 0 0 3px rgba(18, 103, 123, .22);
+}
 
+html { background: var(--background); }
+body { font-feature-settings: "cv02", "cv03", "cv04", "cv11"; }
+
+/* Visible keyboard navigation is deliberately consistent across the product. */
+:where(a, button, input, select, textarea, [role="button"]):focus-visible {
+  outline: 2px solid var(--ring) !important;
+  outline-offset: 2px;
+  box-shadow: var(--zakir-focus) !important;
+}
+
+button, a, input, select, textarea { -webkit-tap-highlight-color: transparent; }
+button:disabled { cursor: not-allowed; }
+
+/* Keep the dense enterprise UI flat and legible instead of card-heavy. */
+.zakir-card {
+  border-radius: var(--radius-lg);
+  box-shadow: 0 1px 2px rgba(20, 33, 43, .035);
+}
+.zakir-card:hover { transform: none; box-shadow: 0 4px 12px rgba(20, 33, 43, .06); }
+.zakir-btn-primary {
+  background: var(--primary);
+  border-color: var(--primary);
+  border-radius: var(--radius-md);
+  box-shadow: 0 1px 2px rgba(20, 33, 43, .14);
+}
+.zakir-btn-primary:hover { background: var(--accent-foreground); transform: none; box-shadow: 0 2px 5px rgba(20, 33, 43, .16); }
+.zakir-btn-secondary { border-radius: var(--radius-md); }
+
+/* A single interaction tempo, with an explicit reduced-motion escape hatch. */
+button, a, input, select, textarea, .zakir-card {
+  transition-duration: 160ms;
+  transition-timing-function: cubic-bezier(.2, .8, .2, 1);
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: .01ms !important;
+  }
+}
+
+/* Prevent RTL controls from inheriting LTR-only visual assumptions. */
+[dir="rtl"] input, [dir="rtl"] textarea, [dir="rtl"] select { text-align: right; }
+[dir="rtl"] .font-mono { letter-spacing: normal; }
+
+@media (max-width: 767px) {
+  #main-app-workspace main > div:last-child { padding: 1.25rem; }
+  #main-app-workspace [class*="max-w-7xl"] { max-width: 100%; }
+  button, input, select { min-height: 2.5rem; }
+}
+
+/* Screen-level adoption -----------------------------------------------------
+   Legacy modules use utility-heavy markup. These bounded rules bring their
+   real layouts into the product system without changing their data flows. */
+.zakir-screen {
+  color: var(--text-primary);
+}
+.zakir-screen :is(.rounded-3xl, .rounded-2xl) { border-radius: var(--radius-xl); }
+.zakir-screen :is(.shadow-2xl, .shadow-xl) { box-shadow: 0 10px 28px rgba(20, 33, 43, .10); }
+.theme-dark .zakir-screen :is(.shadow-2xl, .shadow-xl) { box-shadow: 0 10px 28px rgba(0, 0, 0, .22); }
+
+/* Page headers are compact briefs rather than decorative hero cards. */
+.zakir-files > :first-child,
+.zakir-settings > :first-child {
+  background: var(--card) !important;
+  border-color: var(--border) !important;
+  box-shadow: 0 1px 2px rgba(20, 33, 43, .04) !important;
+  border-radius: var(--radius-xl) !important;
+}
+.zakir-files > :first-child::after,
+.zakir-settings > :first-child::after { display: none; }
+.zakir-intelligence > :first-child {
+  border-color: var(--border) !important;
+}
+.zakir-screen h1 { letter-spacing: -.028em; }
+.zakir-screen h2, .zakir-screen h3 { letter-spacing: -.016em; }
+
+/* Dense data areas share a measured table, field and surface treatment. */
+.zakir-screen table {
+  border-collapse: separate;
+  border-spacing: 0;
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+.zakir-screen th {
+  background: var(--muted);
+  color: var(--muted-foreground);
+  font-size: .6875rem;
+  font-weight: 700;
+  letter-spacing: .055em;
+  text-transform: uppercase;
+}
+.zakir-screen th, .zakir-screen td { border-color: var(--border) !important; }
+.zakir-screen tbody tr { transition: background-color 160ms ease; }
+.zakir-screen tbody tr:hover { background: var(--accent) !important; }
+.zakir-screen :is(input, textarea, select) {
+  background-color: var(--input-bg) !important;
+  border-color: var(--border-color) !important;
+  color: var(--text-primary) !important;
+}
+.zakir-screen :is(input, textarea, select)::placeholder { color: var(--text-secondary) !important; opacity: .75; }
+
+/* State surfaces avoid the old glowing/gradient dashboard language. */
+.zakir-screen [class*="backdrop-blur"],
+.zakir-screen [class*="bg-gradient-to"] { backdrop-filter: none; -webkit-backdrop-filter: none; }
+.zakir-auth .absolute.pointer-events-none { opacity: .35; }
+.zakir-auth :is(h1, h2) { color: var(--text-primary) !important; }
+.zakir-auth :is(p, label) { color: var(--text-secondary); }
+.zakir-auth .bg-slate-900\/90,
+.zakir-auth .bg-slate-950 { background-color: var(--card) !important; }
+
+/* Landing: quiet the template-like effects while preserving the actual copy,
+   pricing, navigation and product showcase flows. */
+.zakir-landing header { box-shadow: none !important; }
+.zakir-landing .rounded-3xl { border-radius: 1rem; }
+.zakir-landing [class*="shadow-2xl"] { box-shadow: 0 12px 30px rgba(20, 33, 43, .10) !important; }
+.zakir-landing [class*="backdrop-blur"] { backdrop-filter: none; -webkit-backdrop-filter: none; }
+
+/* Admin gets a denser controlled workspace: subdued elevation and predictable
+   controls rather than a consumer dashboard. */
+.zakir-admin header { box-shadow: none !important; }
+.zakir-admin [class*="bg-gradient-to"] { background-image: none !important; }
+.zakir-admin :is(.rounded-3xl, .rounded-2xl) { border-radius: var(--radius-lg); }
+
+@media (max-width: 1023px) {
+  .zakir-files > :first-child, .zakir-settings > :first-child { padding: 1.25rem !important; }
+  .zakir-screen table { display: block; overflow-x: auto; white-space: nowrap; }
+  .zakir-screen [class*="grid-cols-3"],
+  .zakir-screen [class*="grid-cols-4"] { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 640px) {
+  .zakir-screen [class*="grid-cols-2"],
+  .zakir-screen [class*="grid-cols-3"],
+  .zakir-screen [class*="grid-cols-4"] { grid-template-columns: minmax(0, 1fr); }
+  .zakir-screen :is(.p-8, .p-7, .p-6) { padding: 1.25rem; }
+  .zakir-landing :is(.px-6, .px-8) { padding-inline: 1.25rem; }
+}

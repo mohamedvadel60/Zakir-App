@@ -17,9 +17,6 @@ export const ZakirLogo: React.FC<ZakirLogoProps> = ({
   size = "md",
   useSquareImage = false,
 }) => {
-  const uniqueGradId = React.useId().replace(/[^a-zA-Z0-9_-]/g, "_");
-  const gradId = `zakir-official-grad-${uniqueGradId}`;
-
   const textThemeColor = 
     theme === "light" 
       ? "text-slate-900" 
@@ -63,44 +60,15 @@ export const ZakirLogo: React.FC<ZakirLogoProps> = ({
     svgSize = size;
   }
 
-  const renderOfficialSvgIcon = (iconSize: string | number) => {
-    return (
-      <svg
-        width={iconSize}
-        height={iconSize}
-        viewBox="0 0 1021.12 909.1"
-        fill="none"
-        xmlns="http://www.w3.org/2000/svg"
-        className="transition-all duration-300 shrink-0 block"
-      >
-        <defs>
-          <linearGradient id={gradId} x1="17.47" y1="447.63" x2="984.67" y2="463.31" gradientUnits="userSpaceOnUse">
-            <stop offset="0%" stopColor="#0db4d7"/>
-            <stop offset="100%" stopColor="#f3ba1a"/>
-          </linearGradient>
-        </defs>
-        <path fill="none" stroke={`url(#${gradId})`} strokeMiterlimit="10" strokeWidth="24px" d="M29.34,52.28c31.34-15.36,81.1-34.89,144.33-39.36,52.91-3.74,92.65,4.66,131.21,13.12,103.52,22.71,126.62,52.27,223.06,78.73,21.03,5.77,84.52,22.08,157.27,23.87,54.83,1.35,156.21-4.54,278.55-64.64,2.95-1.45,5.96,1.81,4.22,4.59-30.56,48.88-72.27,112.6-124.84,184.84-57.49,79.01-119.41,164.11-210.24,258.08-96.56,99.9-182.39,188.7-321.46,255.86-156.74,75.69-235.92,95.04-255.86,78.73-1.84-1.51-7.17-5.87-7.04-11.54.44-18.52,58.67-30.96,79.81-35.47,101.41-21.66,336.99,62.08,445.49,86.37h0c87.97,17.84,220.98,23.62,400.19-45.92"/>
-        <g>
-          <circle fill="#0db4d7" cx="41" cy="50.41" r="41"/>
-          <circle fill="#f3ba1a" cx="555.16" cy="586.73" r="52.48"/>
-          <circle fill="#0db4d7" cx="975.2" cy="836.03" r="45.92"/>
-        </g>
-      </svg>
-    );
-  };
-
   const renderLogoIcon = (iconSize: string | number) => {
-    if (useSquareImage) {
-      return (
-        <img
-          src={zakirOfficialLogo}
-          alt="Zakir Logo"
-          className="object-contain shrink-0 block"
-          style={{ width: iconSize, height: iconSize }}
-        />
-      );
-    }
-    return renderOfficialSvgIcon(iconSize);
+    return (
+      <img
+        src={zakirOfficialLogo}
+        alt="Zakir"
+        className={`object-contain shrink-0 block ${useSquareImage ? "" : "scale-[.92]"}`}
+        style={{ width: iconSize, height: iconSize }}
+      />
+    );
   };
 
   return (

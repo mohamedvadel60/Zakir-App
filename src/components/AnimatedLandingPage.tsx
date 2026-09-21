@@ -228,7 +228,7 @@ export const AnimatedLandingPage: React.FC<AnimatedLandingPageProps> = ({
   ];
 
   return (
-    <div className={`min-h-screen ${theme === "light" ? "bg-[#F0F2F5] text-[#0F172A]" : "bg-[#0B0F19] text-[#F8FAFC]"} flex flex-col relative selection:bg-[#0075DE]/30 font-sans overflow-x-hidden transition-colors duration-300`}>
+    <div className={`zakir-screen zakir-landing min-h-screen ${theme === "light" ? "bg-[#F5F7F8] text-[#14212B]" : "bg-[#10191F] text-[#EDF3F4]"} flex flex-col relative selection:bg-primary/20 font-sans overflow-x-hidden transition-colors duration-300`}>
       {/* Premium Ambient Background with Zakir Gold Ambient Motion */}
       <LandingAnimatedBackground theme={theme} />
 

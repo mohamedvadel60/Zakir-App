@@ -2094,7 +2094,7 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
     .slice(0, 2);
 
   return (
-    <div className="space-y-8">
+    <div className="zakir-screen zakir-settings space-y-8">
       {/* Settings Navigation Header Bar */}
       <div className={`p-6 rounded-2xl border transition-all duration-300 relative overflow-hidden ${
         theme === "dark" 

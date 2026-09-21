@@ -343,7 +343,7 @@ export const FileManager: React.FC<FileManagerProps> = ({
   });
 
   return (
-    <div className="space-y-6">
+    <div className="zakir-screen zakir-files space-y-6">
       {/* Top Banner Context Header */}
       <div className={`p-6 rounded-2xl border flex flex-col lg:flex-row lg:items-center justify-between gap-6 transition-all duration-300 relative overflow-hidden ${
         theme === "dark" 

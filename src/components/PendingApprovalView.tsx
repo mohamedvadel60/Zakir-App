@@ -68,7 +68,7 @@ export const PendingApprovalView: React.FC<PendingApprovalViewProps> = ({
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-4 sm:p-6" dir={isAr ? "rtl" : "ltr"}>
+    <div className="zakir-screen zakir-auth min-h-screen bg-background flex flex-col items-center justify-center p-4 sm:p-6" dir={isAr ? "rtl" : "ltr"}>
       {/* Background Decor */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute -top-32 -left-32 w-80 h-80 bg-amber-500/10 rounded-full blur-3xl" />
@@ -100,7 +100,7 @@ export const PendingApprovalView: React.FC<PendingApprovalViewProps> = ({
         </div>
 
         {/* Card */}
-        <div className="bg-slate-900/90 backdrop-blur-md border border-slate-800 rounded-2xl p-6 sm:p-8 shadow-2xl shadow-black/50 space-y-6">
+        <div className="bg-card border border-border rounded-xl p-6 sm:p-8 shadow-lg space-y-6">
           {refreshMessage && (
             <div className="p-3.5 rounded-xl bg-slate-800/80 border border-slate-700 text-amber-300 text-sm flex items-center justify-between">
               <span>{refreshMessage}</span>

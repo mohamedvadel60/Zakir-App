@@ -21,7 +21,7 @@ export const AccountRejectedView: React.FC<AccountRejectedViewProps> = ({
   const reason = currentUser.rejectionReason || currentUser.verificationInfo?.adminNote;
 
   return (
-    <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-4 sm:p-6" dir={isAr ? "rtl" : "ltr"}>
+    <div className="zakir-screen zakir-auth min-h-screen bg-background flex flex-col items-center justify-center p-4 sm:p-6" dir={isAr ? "rtl" : "ltr"}>
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -45,7 +45,7 @@ export const AccountRejectedView: React.FC<AccountRejectedViewProps> = ({
           </p>
         </div>
 
-        <div className="bg-slate-900/90 backdrop-blur-md border border-slate-800 rounded-2xl p-6 sm:p-8 shadow-2xl shadow-black/50 space-y-6">
+        <div className="bg-card border border-border rounded-xl p-6 sm:p-8 shadow-lg space-y-6">
           {reason ? (
             <div className="p-4 rounded-xl bg-red-950/40 border border-red-900/60 text-red-300 text-sm space-y-1.5">
               <span className="text-xs font-semibold uppercase tracking-wider text-red-400 block">
