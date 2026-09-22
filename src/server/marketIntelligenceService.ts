@@ -1106,7 +1106,7 @@ ${internalEvidenceSummary || "لا توجد سجلات داخلية مسجلة �
 }
   `;
 
-  const candidateModels = ["gemini-flash-latest"];
+  const candidateModels = ["gemini-3.1-flash-lite", "gemini-3.8-flash", "gemini-flash-latest"];
   let searchToolFailed = false;
 
   for (const modelName of candidateModels) {
@@ -1519,8 +1519,8 @@ ${internalSummary || "لا توجد سجلات داخلية مسجلة مسبق�
 `;
 
     // Attempt generation with retry loop for transient 503 high demand spikes
-    const modelName = "gemini-flash-latest";
-    for (let attempt = 1; attempt <= 2; attempt++) {
+    const diagModels = ["gemini-3.1-flash-lite", "gemini-3.8-flash", "gemini-flash-latest"];
+    for (const modelName of diagModels) {
       if (isGeminiInCooldown()) break;
       try {
         const response: any = await client.models.generateContent({
@@ -1551,11 +1551,8 @@ ${internalSummary || "لا توجد سجلات داخلية مسجلة مسبق�
           }
         }
       } catch (err: any) {
-        console.warn(`[MarketIntelligenceDiagnosis] Call attempt ${attempt} failed:`, err?.message || err);
+        console.warn(`[MarketIntelligenceDiagnosis] Call with model ${modelName} failed:`, err?.message || err);
         handleGeminiError(err);
-        if (attempt < 2) {
-          await new Promise((resolve) => setTimeout(resolve, 600));
-        }
       }
     }
   }

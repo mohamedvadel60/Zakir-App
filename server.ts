@@ -443,7 +443,7 @@ export function getGeminiClient(): GoogleGenAI | null {
   } catch (e) {
     // Ignore dotenv error if missing
   }
-  const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
+  const apiKey = process.env.GOOGLE_AI_API_KEY || process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
   if (!apiKey || apiKey.trim() === "") {
     return null;
   }
