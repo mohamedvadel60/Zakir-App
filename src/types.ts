@@ -55,6 +55,7 @@ export type AccountStatus =
   | "PENDING_DOCUMENT_VERIFICATION"
   | "PENDING_INSTITUTIONAL_DATA" 
   | "PENDING_ADMIN_REVIEW" 
+  | "VERIFICATION_REQUIRED"
   | "APPROVED" 
   | "ACTIVE" 
   | "REJECTED" 
@@ -98,7 +99,7 @@ export interface AdminEntitlementAuditLog {
   newState?: any;
 }
 
-export type VerificationStatus = "unverified" | "under_review" | "verified" | "action_required";
+export type VerificationStatus = "unverified" | "under_review" | "pending" | "verified" | "rejected" | "action_required";
 
 export interface VerificationCode {
   id: string;

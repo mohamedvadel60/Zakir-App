@@ -1244,6 +1244,38 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         verifiedAt: newStatus === "verified" ? new Date().toISOString() : existingVer.verifiedAt
       };
 
+      const mappedAccountStatus =
+        newStatus === "verified"
+          ? "APPROVED"
+          : newStatus === "rejected"
+          ? "REJECTED"
+          : newStatus === "pending"
+          ? "PENDING_ADMIN_REVIEW"
+          : "VERIFICATION_REQUIRED";
+
+      const profilePayload = {
+        accountStatus: mappedAccountStatus,
+        isVerified: mappedAccountStatus === "APPROVED",
+        verification_required: mappedAccountStatus !== "APPROVED",
+        verification_status: newStatus,
+        verificationInfo: updatedVerInfo
+      };
+
+      // 1. Authoritative Backend Update
+      try {
+        await authenticatedFetch("/api/admin/update-user-profile", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            targetUid: selectedUserRecord.id,
+            profileData: profilePayload
+          })
+        });
+      } catch (backendErr) {
+        console.warn("Notice: Backend profile update endpoint warning, continuing with client update:", backendErr);
+      }
+
+      // 2. Client Firestore doc update
       const baseUser: User = selectedUserRecord.fullUser || {
         id: selectedUserRecord.id,
         email: selectedUserRecord.email,
@@ -1256,6 +1288,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
       const updatedUser: User = {
         ...baseUser,
+        accountStatus: mappedAccountStatus as any,
+        isVerified: mappedAccountStatus === "APPROVED",
+        verification_required: mappedAccountStatus !== "APPROVED",
+        verification_status: newStatus,
         verificationInfo: updatedVerInfo
       };
 
@@ -1271,7 +1307,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       await loadAdminData();
     } catch (err: any) {
       console.error("Error updating user verification:", err);
-      alert(lang === "ar" ? "حدث خطأ أثناء تحديث حالة الحساب" : "Error updating verification status");
+      alert(lang === "ar" ? "حدث خطأ أثناء تحديث حالة الحساب" : "Error updating verification status: " + err.message);
     } finally {
       setSavingVerification(false);
     }

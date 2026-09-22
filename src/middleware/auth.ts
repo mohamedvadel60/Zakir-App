@@ -436,20 +436,33 @@ export async function checkUserEntitlementServer(uid?: string, email?: string): 
     };
   }
 
+  // Function to check if user profile has any verification documents or explicit admin approval
+  const hasVerificationDocs = Boolean(
+    (profile.verificationInfo?.documents && profile.verificationInfo.documents.length > 0) ||
+    (profile.documents && profile.documents.length > 0) ||
+    (profile.files && Array.isArray(profile.files) && profile.files.some((f: any) => f.category === "Verification" || f.category === "Identity"))
+  );
+  const hasAdminApprovalRecord = Boolean(
+    profile.verificationInfo?.status === "verified" && profile.verificationInfo?.verifiedAt
+  );
+
   // Determine effective accountStatus for legacy or new users
   let effectiveStatus = profile.accountStatus;
-  
-  // Legacy account protection: if account does not require document verification,
-  // ensure they remain approved/active and are never forced into onboarding flows.
-  const isNewAccountRequiringDocs = profile.requiresDocumentVerification === true;
 
-  if (!effectiveStatus) {
-    if (!isNewAccountRequiringDocs && (profile.isEmailVerified || profile.isVerified || profile.verification_status === "verified" || profile.role === "CEO" || profile.role === "Contributor")) {
+  if (effectiveStatus === "APPROVED") {
+    // Non-admin account marked APPROVED must actually have verification docs or explicit admin approval timestamp
+    if (!hasVerificationDocs && !hasAdminApprovalRecord) {
+      effectiveStatus = "VERIFICATION_REQUIRED";
+    }
+  } else if (!effectiveStatus) {
+    if (profile.verification_status === "pending" || profile.verificationInfo?.status === "pending") {
+      effectiveStatus = "PENDING_ADMIN_REVIEW";
+    } else if (profile.verification_status === "rejected" || profile.verificationInfo?.status === "rejected") {
+      effectiveStatus = "REJECTED";
+    } else if (hasVerificationDocs || hasAdminApprovalRecord) {
       effectiveStatus = "APPROVED";
-    } else if (isNewAccountRequiringDocs) {
-      effectiveStatus = profile.isEmailVerified ? "PENDING_DOCUMENT_VERIFICATION" : "PENDING_EMAIL_VERIFICATION";
     } else {
-      effectiveStatus = "APPROVED";
+      effectiveStatus = "VERIFICATION_REQUIRED";
     }
   }
 

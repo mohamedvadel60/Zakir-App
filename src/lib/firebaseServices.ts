@@ -1398,10 +1398,49 @@ export function subscribeToFirebaseAuthState(rawCallback: (user: User | null) =>
           throw new Error(`SECURITY_FATAL_UID_MISMATCH: fbUser.uid (${fbUser.uid}) !== userObj.id (${profileId})`);
         }
         const validatedUser = { ...userObj, id: fbUser.uid };
-        if (!isUserAdmin(validatedUser) && (validatedUser.role === "Admin" || (validatedUser.role as string) === "admin")) {
+        const isSysAdmin = isUserAdmin(validatedUser);
+        if (!isSysAdmin && (validatedUser.role === "Admin" || (validatedUser.role as string) === "admin")) {
           const isOwner = Boolean(validatedUser.workspace?.ownerId && validatedUser.workspace.ownerId === fbUser.uid) ||
                           Boolean(validatedUser.workspaceId && validatedUser.workspaceId.startsWith(`ws_${fbUser.uid.substring(0, 8)}`));
           validatedUser.role = isOwner ? "CEO" : "Contributor";
+        }
+
+        if (isSysAdmin) {
+          validatedUser.accountStatus = "APPROVED";
+          validatedUser.isVerified = true;
+          validatedUser.verification_required = false;
+          validatedUser.verification_status = "verified";
+        } else {
+          const hasVerificationDocs = Boolean(
+            (validatedUser.verificationInfo?.documents && validatedUser.verificationInfo.documents.length > 0) ||
+            ((validatedUser as any).documents && (validatedUser as any).documents.length > 0)
+          );
+          const hasAdminApprovalRecord = Boolean(
+            validatedUser.verificationInfo?.status === "verified" && validatedUser.verificationInfo?.verifiedAt
+          );
+
+          let effStatus = validatedUser.accountStatus;
+          if (effStatus === "APPROVED") {
+            if (!hasVerificationDocs && !hasAdminApprovalRecord) {
+              effStatus = "VERIFICATION_REQUIRED";
+            }
+          } else if (!effStatus) {
+            if (validatedUser.verification_status === "pending" || validatedUser.verificationInfo?.status === "pending") {
+              effStatus = "PENDING_ADMIN_REVIEW";
+            } else if (validatedUser.verification_status === "rejected" || validatedUser.verificationInfo?.status === "rejected") {
+              effStatus = "REJECTED";
+            } else if (hasVerificationDocs || hasAdminApprovalRecord) {
+              effStatus = "APPROVED";
+            } else {
+              effStatus = "VERIFICATION_REQUIRED";
+            }
+          }
+
+          validatedUser.accountStatus = effStatus;
+          const isApproved = effStatus === "APPROVED";
+          validatedUser.isVerified = isApproved;
+          validatedUser.verification_required = !isApproved;
+          validatedUser.verification_status = isApproved ? "verified" : (effStatus === "REJECTED" ? "rejected" : (effStatus === "PENDING_ADMIN_REVIEW" ? "pending" : "unverified"));
         }
         setLocalItem(`user_${fbUser.uid}`, validatedUser);
         callback(validatedUser);
@@ -1503,6 +1542,7 @@ export function subscribeToFirebaseAuthState(rawCallback: (user: User | null) =>
       }
 
       const fallbackRole: UserRole = "CEO";
+      const isFallbackAdmin = fbUser.uid === ADMIN_USER_ID || (fbUser.email && ADMIN_EMAILS.includes(fbUser.email.toLowerCase().trim()));
       callback({
         id: fbUser.uid,
         email: fbUser.email || "",
@@ -1512,12 +1552,13 @@ export function subscribeToFirebaseAuthState(rawCallback: (user: User | null) =>
         role: fallbackRole,
         createdAt: new Date().toISOString(),
         trialExpiresAt: new Date(Date.now() + 24 * 3600 * 1000).toISOString(),
-        isVerified: true,
-        isEmailVerified: true,
-        email_verified: true,
-        emailVerified: true,
-        verification_required: false,
-        verification_status: "verified"
+        accountStatus: isFallbackAdmin ? "APPROVED" : "VERIFICATION_REQUIRED",
+        isVerified: isFallbackAdmin,
+        isEmailVerified: isFallbackAdmin,
+        email_verified: isFallbackAdmin,
+        emailVerified: isFallbackAdmin,
+        verification_required: !isFallbackAdmin,
+        verification_status: isFallbackAdmin ? "verified" : "unverified"
       });
     }
   });

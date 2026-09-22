@@ -11246,6 +11246,38 @@ app.post(
           });
       }
 
+      if (profileData.accountStatus || profileData.verification_status || profileData.verificationInfo || profileData.isVerified !== undefined) {
+        let mergedStatus = profileData.accountStatus;
+        if (!mergedStatus) {
+          if (profileData.isVerified === true || profileData.verification_status === "verified" || profileData.verificationInfo?.status === "verified") {
+            mergedStatus = "APPROVED";
+          } else if (profileData.verification_status === "rejected" || profileData.verificationInfo?.status === "rejected") {
+            mergedStatus = "REJECTED";
+          } else if (profileData.verification_status === "pending" || profileData.verificationInfo?.status === "pending") {
+            mergedStatus = "PENDING_ADMIN_REVIEW";
+          } else {
+            mergedStatus = "VERIFICATION_REQUIRED";
+          }
+        }
+
+        const isApproved = mergedStatus === "APPROVED";
+        const isRejected = mergedStatus === "REJECTED";
+        const isPending = mergedStatus === "PENDING_ADMIN_REVIEW";
+
+        profileData.accountStatus = mergedStatus;
+        profileData.isVerified = isApproved;
+        profileData.verification_required = !isApproved;
+        profileData.verification_status = isApproved ? "verified" : (isRejected ? "rejected" : (isPending ? "pending" : "unverified"));
+        profileData.verificationStatus = profileData.verification_status;
+
+        const existingInfo = profileData.verificationInfo || {};
+        profileData.verificationInfo = {
+          ...existingInfo,
+          status: profileData.verification_status,
+          verifiedAt: isApproved ? (existingInfo.verifiedAt || new Date().toISOString()) : existingInfo.verifiedAt
+        };
+      }
+
       try {
         await adminDb
           .collection("users")
@@ -18657,6 +18689,10 @@ app.post("/api/auth/login", loginRegisterLimiter, async (req, res) => {
     }
 
     const nowIso = new Date().toISOString();
+    const isAdminAccount = Boolean(
+      (authUid && (await isUserAdminServer(authUid, normalizedEmail))) ||
+      authUid === ADMIN_USER_ID,
+    );
 
     // If profile is not found, construct default profile
     if (!userProfile) {
@@ -18733,11 +18769,7 @@ app.post("/api/auth/login", loginRegisterLimiter, async (req, res) => {
           .set(userProfile, { merge: true });
       } catch (e) {}
     } else {
-      // If user profile exists, check if user is Admin or has an active/accepted invitation
-      const isAdminAccount =
-        (authUid && (await isUserAdminServer(authUid, normalizedEmail))) ||
-        authUid === ADMIN_USER_ID;
-
+      // If user profile exists, check if user is Admin
       if (isAdminAccount) {
         userProfile.role = "Admin";
         userProfile.isVerified = true;
@@ -18769,17 +18801,42 @@ app.post("/api/auth/login", loginRegisterLimiter, async (req, res) => {
           } catch (e) {}
         }
 
-        if (userProfile.accountStatus === "APPROVED") {
-          userProfile.isVerified = true;
+        const hasVerificationDocs = Boolean(
+          (userProfile.verificationInfo?.documents && userProfile.verificationInfo.documents.length > 0) ||
+          (userProfile.documents && userProfile.documents.length > 0) ||
+          (userProfile.files && Array.isArray(userProfile.files) && userProfile.files.some((f: any) => f.category === "Verification" || f.category === "Identity"))
+        );
+        const hasAdminApprovalRecord = Boolean(
+          userProfile.verificationInfo?.status === "verified" && userProfile.verificationInfo?.verifiedAt
+        );
+
+        let effectiveStatus = userProfile.accountStatus;
+        if (effectiveStatus === "APPROVED") {
+          if (!hasVerificationDocs && !hasAdminApprovalRecord) {
+            effectiveStatus = "VERIFICATION_REQUIRED";
+          }
+        } else if (!effectiveStatus) {
+          if (userProfile.verification_status === "pending" || userProfile.verificationInfo?.status === "pending") {
+            effectiveStatus = "PENDING_ADMIN_REVIEW";
+          } else if (userProfile.verification_status === "rejected" || userProfile.verificationInfo?.status === "rejected") {
+            effectiveStatus = "REJECTED";
+          } else if (hasVerificationDocs || hasAdminApprovalRecord) {
+            effectiveStatus = "APPROVED";
+          } else {
+            effectiveStatus = "VERIFICATION_REQUIRED";
+          }
+        }
+
+        userProfile.accountStatus = effectiveStatus;
+        const isApproved = effectiveStatus === "APPROVED";
+        userProfile.isVerified = isApproved;
+        userProfile.verification_required = !isApproved;
+        userProfile.verification_status = isApproved ? "verified" : (effectiveStatus === "REJECTED" ? "rejected" : (effectiveStatus === "PENDING_ADMIN_REVIEW" ? "pending" : "unverified"));
+        userProfile.verificationStatus = userProfile.verification_status;
+        if (isApproved) {
           userProfile.isEmailVerified = true;
           userProfile.email_verified = true;
           userProfile.emailVerified = true;
-          userProfile.verification_required = false;
-          userProfile.verification_status = "verified";
-        } else {
-          userProfile.isVerified = false;
-          userProfile.verification_required = true;
-          userProfile.verification_status = userProfile.accountStatus || "VERIFICATION_REQUIRED";
         }
       }
 
@@ -18827,17 +18884,8 @@ app.post("/api/auth/login", loginRegisterLimiter, async (req, res) => {
       writeDb(localDb);
     } catch (e) {}
 
-    const isExemptRole =
-      isAdminAccount ||
-      (userProfile.role &&
-        (userProfile.role === "CEO" ||
-          userProfile.role.startsWith("CEO") ||
-          userProfile.role === "Admin" ||
-          userProfile.role === "admin"));
-
-    const isVerified =
-      isExemptRole ||
-      userProfile.accountStatus === "APPROVED";
+    const isExemptRole = isAdminAccount;
+    const isVerified = isExemptRole || userProfile.accountStatus === "APPROVED";
 
     const { passwordHash, secretPasscode, ...cleanProfile } = userProfile;
     if (cleanProfile.encryptedSecurity) {
