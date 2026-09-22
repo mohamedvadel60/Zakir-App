@@ -4,5 +4,18 @@ dist/
 coverage/
 .DS_Store
 *.log
+server-log.txt
 .env*
 !.env.example
+
+# Temporary development artifacts & test scripts
+fix_*.cjs
+update_*.cjs
+test_*.cjs
+test-*.ts
+test-*.js
+
+# Secure runtime uploads (preserve directory structure via .gitkeep)
+secure_uploads/*
+!secure_uploads/.gitkeep
+
