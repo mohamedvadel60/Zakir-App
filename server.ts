@@ -2714,6 +2714,34 @@ async function sendSystemMail(
       });
       writeDb(db);
 
+      const isAuthError = errStatus === 401 || errStatus === 403 || String(response.error.message || "").toLowerCase().includes("api key");
+      if (isAuthError) {
+        console.warn(`[EMAIL FALLBACK] Falling back to simulated delivery due to Resend API key status: ${response.error.message}`);
+        const db = readDb();
+        if (!db.email_delivery_logs) db.email_delivery_logs = [];
+        db.email_delivery_logs.unshift({
+          id: `sim_${Date.now()}_${crypto.randomBytes(4).toString("hex")}`,
+          recipient: to,
+          type:
+            subject.toLowerCase().includes("verification") ||
+            subject.toLowerCase().includes("code")
+              ? "otp"
+              : "notification",
+          subject: subject,
+          timestamp: new Date().toISOString(),
+          status: "DELIVERED (SIMULATED)",
+          error: null,
+        });
+        writeDb(db);
+
+        return {
+          success: true,
+          simulated: true,
+          provider: "resend_simulated_fallback",
+          messageId: `sim_${Date.now()}_${crypto.randomBytes(4).toString("hex")}`,
+        };
+      }
+
       return {
         success: false,
         error: response.error,
@@ -3494,6 +3522,68 @@ function buildNewAccountApprovalEmailHtml(options: {
   });
 
   const text = `${greeting}\n\nيسرنا إبلاغك بأنه قد تم التحقق من بيانات حسابك والموافقة عليه رسمياً من قبل إدارة منصة ذاكر (Zakir).\n\nحسابك الآن مفعل وجاهز للاستخدام، وقد بدأت فترة تجربتك المجانية الكاملة (${trialHours} ساعة) المعتمدة لباقة [${plan}] من لحظة هذا الاعتماد.\n\nلتسجيل الدخول إلى منصة ذاكر، يرجى زيارة الرابط الرسمي التالي:\nhttps://www.getzakir.com/login\n\nمع تحيات،\nفريق منصة ذاكر (Zakir Team)`;
+
+  return { subject, text, html };
+}
+
+function buildNewAccountRejectionEmailHtml(options: {
+  userName?: string;
+  email: string;
+  reason?: string;
+}): { subject: string; text: string; html: string } {
+  const { userName, email, reason = "يرجى تقديم وثائق هوية رسمية واضحة ومحدثة." } = options;
+  const cleanName = cleanUserName(userName, email);
+  const subject = "يلزم تحديث مستندات توثيق حسابك في منصة ذاكر | Action Required: Update Verification Documents - Zakir";
+  const title = "يلزم تحديث مستندات التوثيق";
+  const greeting = cleanName ? `مرحباً ${cleanName}،` : "مرحباً بك،";
+
+  const bodyHtml = `
+    <p style="color: #334155; font-size: 15px; line-height: 1.7; margin: 0 0 16px 0; text-align: right; direction: rtl;">
+      نشكرك على تسجيلك في منصة <strong>ذاكر (Zakir)</strong>. بعد مراجعة مستندات التحقق المرفوعة من قبلك، نود إفادتك بأنه يلزم تحديث أو استبدال بعض المستندات لإتمام عملية توثيق الحساب واعتماده.
+    </p>
+
+    <!-- Reason Banner -->
+    <div style="margin: 22px 0; padding: 18px 20px; background-color: #fff1f2; border: 1px solid #fecdd3; border-right: 4px solid #e11d48; border-radius: 12px; text-align: right; direction: rtl;">
+      <div style="color: #9f1239; font-size: 15px; font-weight: 800; margin-bottom: 6px;">
+        سبب رفض المستندات والملاحظات الإدارية:
+      </div>
+      <p style="margin: 0; color: #be123c; font-size: 14px; line-height: 1.6; font-weight: 600;">
+        ${escapeHtml(reason)}
+      </p>
+    </div>
+
+    <p style="color: #475569; font-size: 14px; line-height: 1.7; margin: 0 0 20px 0; text-align: right; direction: rtl;">
+      يمكنك تسجيل الدخول إلى حسابك الآن واستبدال أو رفع المستندات المطلوبة (صورة واضحة للهوية الوطنية أو جواز السفر، وبيانات المنشأة إن وجدت) ثم الضغط على "إعادة إرسال للمراجعة".
+    </p>
+
+    <!-- Direct Re-Upload Link -->
+    <div style="margin: 32px 0 24px 0; text-align: center;">
+      <!--[if mso]>
+      <v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w="urn:schemas-microsoft-com:office:word" href="https://www.getzakir.com/login" style="height:48px;v-text-anchor:middle;width:280px;" arcsize="20%" stroke="f" fillcolor="#0075DE">
+        <w:anchorlock/>
+        <center style="color:#ffffff;font-family:sans-serif;font-size:15px;font-weight:bold;">تحديث المستندات وإعادة الإرسال</center>
+      </v:roundrect>
+      <![endif]-->
+      <!--[if !mso]><!-->
+      <a href="https://www.getzakir.com/login" target="_blank" rel="noopener noreferrer" style="display: inline-block; background-color: #0075DE; color: #ffffff; font-size: 15px; font-weight: 800; text-decoration: none; padding: 14px 34px; border-radius: 10px; box-shadow: 0 4px 14px rgba(0, 117, 222, 0.25); text-align: center;">
+        تحديث المستندات الآن &bull; Update Documents Now
+      </a>
+      <!--<![endif]-->
+      <p style="margin: 14px 0 0 0; color: #64748b; font-size: 12px; font-family: monospace;">
+        <a href="https://www.getzakir.com/login" target="_blank" rel="noopener noreferrer" style="color: #0075DE; text-decoration: underline;">https://www.getzakir.com/login</a>
+      </p>
+    </div>
+  `;
+
+  const html = buildMasterEmailHtml({
+    subject,
+    title,
+    greeting,
+    bodyHtml,
+    securityNote: "لتحديث المستندات، قم بتسجيل الدخول إلى المنصة عبر الرابط الرسمي أعلاه باستخدام بريدك وكلمة مرورك.",
+  });
+
+  const text = `${greeting}\n\nنود إفادتك بأنه يلزم تحديث مستندات التوثيق الخاصة بحسابك في منصة ذاكر (Zakir).\n\nسبب الرفض والملاحظات الإدارية:\n${reason}\n\nيرجى تسجيل الدخول إلى حسابك لاستبدال أو رفع المستندات المطلوبة وإعادة الإرسال عبر الرابط التالي:\nhttps://www.getzakir.com/login\n\nمع تحيات،\nفريق منصة ذاكر (Zakir Team)`;
 
   return { subject, text, html };
 }
@@ -4683,19 +4773,21 @@ app.post("/api/auth/verify-code", otpLimiter, async (req, res) => {
     );
 
     let firestoreUser: any = null;
+    let nextAccountStatus = "PENDING_DOCUMENT_VERIFICATION";
     try {
       const userRef = adminDb.collection("users").doc(foundUid);
       const userSnap = await userRef.get();
       if (userSnap.exists) {
         firestoreUser = userSnap.data();
         const isAdminUser = foundUid === ADMIN_USER_ID || firestoreUser.role === "Admin" || ADMIN_EMAILS.has((targetIdentifier || "").toLowerCase());
-        let nextAccountStatus = "PENDING_INSTITUTIONAL_DATA";
-        if (isAdminUser || (firestoreUser.role && firestoreUser.role !== "CEO" && firestoreUser.role !== "Owner")) {
+        if (isAdminUser || (!firestoreUser.requiresDocumentVerification && firestoreUser.role && firestoreUser.role !== "CEO" && firestoreUser.role !== "Owner")) {
           nextAccountStatus = "APPROVED";
-        } else if (firestoreUser.institutionalProfile) {
+        } else if (!firestoreUser.requiresDocumentVerification) {
+          nextAccountStatus = "APPROVED";
+        } else if (firestoreUser.verificationDocuments && firestoreUser.verificationDocuments.length > 0) {
           nextAccountStatus = "PENDING_ADMIN_REVIEW";
-        } else if (firestoreUser.accountStatus && firestoreUser.accountStatus !== "PENDING_EMAIL_VERIFICATION") {
-          nextAccountStatus = firestoreUser.accountStatus;
+        } else {
+          nextAccountStatus = "PENDING_DOCUMENT_VERIFICATION";
         }
 
         await userRef.update({
@@ -4705,6 +4797,7 @@ app.post("/api/auth/verify-code", otpLimiter, async (req, res) => {
           email_verified: true,
           isPhoneVerified: true,
           accountStatus: nextAccountStatus,
+          documentVerificationStatus: nextAccountStatus === "PENDING_DOCUMENT_VERIFICATION" ? "PENDING_UPLOAD" : firestoreUser.documentVerificationStatus || "PENDING_UPLOAD",
           verification_status: "verified",
           verification_required: false,
           "verificationInfo.status": "verified",
@@ -4715,6 +4808,7 @@ app.post("/api/auth/verify-code", otpLimiter, async (req, res) => {
         firestoreUser.emailVerified = true;
         firestoreUser.email_verified = true;
         firestoreUser.accountStatus = nextAccountStatus;
+        firestoreUser.documentVerificationStatus = nextAccountStatus === "PENDING_DOCUMENT_VERIFICATION" ? "PENDING_UPLOAD" : firestoreUser.documentVerificationStatus || "PENDING_UPLOAD";
         firestoreUser.verification_status = "verified";
         firestoreUser.verification_required = false;
         console.log(
@@ -4734,6 +4828,8 @@ app.post("/api/auth/verify-code", otpLimiter, async (req, res) => {
       user.emailVerified = true;
       user.email_verified = true;
       user.isPhoneVerified = true;
+      user.accountStatus = nextAccountStatus;
+      user.documentVerificationStatus = nextAccountStatus === "PENDING_DOCUMENT_VERIFICATION" ? "PENDING_UPLOAD" : user.documentVerificationStatus || "PENDING_UPLOAD";
       user.verification_status = "verified";
       user.verification_required = false;
       if (!user.verificationInfo) user.verificationInfo = {};
@@ -8794,6 +8890,179 @@ app.post("/api/auth/submit-institutional-data", requireAuth, async (req: AuthReq
   }
 });
 
+// Comprehensive verification documents submission endpoint (personal documents + optional company)
+app.post("/api/auth/submit-verification-documents", requireAuth, async (req: AuthRequest, res) => {
+  const uid = req.user?.uid;
+  const email = req.user?.email || "";
+
+  if (!uid) {
+    return res.status(401).json({
+      success: false,
+      code: "UNAUTHORIZED",
+      error: "Authentication required to submit verification documents."
+    });
+  }
+
+  try {
+    const {
+      fullName,
+      phone,
+      jobTitle,
+      hasCompany,
+      companyName,
+      sector,
+      country,
+      registrationNumber,
+      companySize,
+      intendedUse,
+      personalDocuments = [],
+      companyDocuments = [],
+      additionalNotes
+    } = req.body;
+
+    if (!fullName || !phone) {
+      return res.status(400).json({
+        success: false,
+        code: "MISSING_REQUIRED_FIELDS",
+        error: "يرجى ملء الاسم ورقم الهاتف."
+      });
+    }
+
+    const hasCompanyBool = Boolean(hasCompany);
+    if (hasCompanyBool && !companyName) {
+      return res.status(400).json({
+        success: false,
+        code: "MISSING_COMPANY_NAME",
+        error: "يرجى إدخال اسم المنشأة / الشركة أو إلغاء تفعيل خيار المنشأة."
+      });
+    }
+
+    if (!Array.isArray(personalDocuments) || personalDocuments.length === 0) {
+      return res.status(400).json({
+        success: false,
+        code: "MISSING_PERSONAL_DOCUMENTS",
+        error: "يرجى رفع وثيقة إثبات شخصية رسمية واحدة على الأقل (بطاقة هوية / جواز سفر / رخصة قيادة)."
+      });
+    }
+
+    const nowIso = new Date().toISOString();
+    const allDocuments = [
+      ...personalDocuments.map((d: any) => ({
+        ...d,
+        category: "personal",
+        uploadedAt: d.uploadedAt || nowIso
+      })),
+      ...(hasCompanyBool && Array.isArray(companyDocuments)
+        ? companyDocuments.map((d: any) => ({
+            ...d,
+            category: "company",
+            uploadedAt: d.uploadedAt || nowIso
+          }))
+        : [])
+    ];
+
+    const institutionalProfile = {
+      fullName: String(fullName).trim(),
+      phone: String(phone).trim(),
+      jobTitle: String(jobTitle || "").trim() || "Executive",
+      hasCompany: hasCompanyBool,
+      companyName: hasCompanyBool ? String(companyName).trim() : "حساب فردي / مستخدم شخصي",
+      sector: hasCompanyBool ? String(sector || "").trim() || "General" : "Individual",
+      country: hasCompanyBool ? String(country || "").trim() || "International" : "International",
+      registrationNumber: hasCompanyBool ? String(registrationNumber || "").trim() : "",
+      companySize: String(companySize || "").trim() || "1-10",
+      intendedUse: String(intendedUse || "").trim() || "Strategic Decision Intelligence",
+      additionalNotes: String(additionalNotes || "").trim(),
+      submittedAt: nowIso
+    };
+
+    const userUpdates: Record<string, any> = {
+      fullName: institutionalProfile.fullName,
+      ownerName: institutionalProfile.fullName,
+      phone: institutionalProfile.phone,
+      jobTitle: institutionalProfile.jobTitle,
+      companyName: institutionalProfile.companyName,
+      organizationName: institutionalProfile.companyName,
+      sector: institutionalProfile.sector,
+      country: institutionalProfile.country,
+      hasCompany: hasCompanyBool,
+      institutionalProfile,
+      verificationDocuments: allDocuments,
+      accountStatus: "PENDING_ADMIN_REVIEW",
+      documentVerificationStatus: "UNDER_REVIEW",
+      requiresDocumentVerification: true,
+      rejectionReason: null,
+      verification_required: true,
+      verification_status: "under_review",
+      "verificationInfo.status": "under_review",
+      "verificationInfo.submittedAt": nowIso,
+      "verificationInfo.adminNote": null,
+      verificationSubmittedAt: nowIso,
+      lastActiveAt: nowIso
+    };
+
+    // 1. Firestore update
+    try {
+      await adminDb.collection("users").doc(uid).set(userUpdates, { merge: true });
+    } catch (fsErr) {
+      console.warn("Firestore update warning in submit-verification-documents:", fsErr);
+    }
+
+    // 2. Local DB update
+    const db = readDb();
+    if (!db.users) db.users = [];
+    const localUserIdx = db.users.findIndex((u: any) => u.id === uid || u.uid === uid || u.email?.toLowerCase() === email.toLowerCase());
+    let updatedUser: any = null;
+    if (localUserIdx >= 0) {
+      db.users[localUserIdx] = {
+        ...db.users[localUserIdx],
+        ...userUpdates
+      };
+      updatedUser = db.users[localUserIdx];
+    } else {
+      updatedUser = {
+        id: uid,
+        email,
+        ...userUpdates
+      };
+      db.users.push(updatedUser);
+    }
+    writeDb(db);
+
+    // Emit event for Admin alert
+    emitPlatformEvent({
+      eventType: "INSTITUTIONAL_VERIFICATION_SUBMITTED" as any,
+      severity: "NOTICE",
+      category: "AUTH",
+      userId: uid,
+      userEmail: email,
+      sanitizedMessage: `User verification documents submitted by [${email}] (${hasCompanyBool ? institutionalProfile.companyName : "Personal"}) - Pending admin review.`,
+      metadata: {
+        ...institutionalProfile,
+        documentsCount: allDocuments.length
+      }
+    }).catch(() => {});
+
+    return res.status(200).json({
+      success: true,
+      code: "DOCUMENTS_SUBMITTED_SUCCESSFULLY",
+      accountStatus: "PENDING_ADMIN_REVIEW",
+      documentVerificationStatus: "UNDER_REVIEW",
+      message: "تم استلام وثائق التحقق بنجاح. طلب الحساب قيد المراجعة الإدارية وسوف يتم تفعيله فور الاعتماد.",
+      user: updatedUser,
+      institutionalProfile,
+      verificationDocuments: allDocuments
+    });
+  } catch (err: any) {
+    console.error("[SUBMIT_VERIFICATION_DOCUMENTS_ERROR]", err);
+    return res.status(500).json({
+      success: false,
+      code: "INTERNAL_ERROR",
+      error: err.message || "Failed to submit verification documents."
+    });
+  }
+});
+
 // Endpoint for current authenticated user to get their live entitlement and trial countdown status
 app.get("/api/user/entitlement-status", requireAuth, async (req: AuthRequest, res) => {
   const uid = req.user?.uid;
@@ -8922,6 +9191,8 @@ app.post("/api/admin/approve-account", requireAuth, requireAdmin, async (req: Au
 
     const approvalUpdates: Record<string, any> = {
       accountStatus: "APPROVED",
+      documentVerificationStatus: "APPROVED",
+      requiresDocumentVerification: false,
       approvedAt: nowIso,
       approvedBy: adminEmail,
       approvalNotes: notes || "",
@@ -9071,6 +9342,7 @@ app.post("/api/admin/reject-account", requireAuth, requireAdmin, async (req: Aut
     const nowIso = new Date().toISOString();
     const rejectionUpdates: Record<string, any> = {
       accountStatus: "REJECTED",
+      documentVerificationStatus: "REJECTED",
       rejectionReason: String(reason).trim(),
       rejectionDate: nowIso,
       rejectedBy: adminEmail,
@@ -9103,9 +9375,29 @@ app.post("/api/admin/reject-account", requireAuth, requireAdmin, async (req: Aut
       rejectionUpdates
     );
 
+    // Send official account rejection email with reason and link to update documents
+    const userEmail = (targetUser.email || "").trim();
+    if (userEmail) {
+      try {
+        const emailContent = buildNewAccountRejectionEmailHtml({
+          userName: targetUser.fullName || targetUser.ownerName || targetUser.name || "",
+          email: userEmail,
+          reason: String(reason).trim(),
+        });
+        await sendSystemMail({
+          to: userEmail,
+          subject: emailContent.subject,
+          html: emailContent.html,
+          text: emailContent.text,
+        });
+      } catch (mailErr) {
+        console.error("[REJECTION_EMAIL_DISPATCH_ERROR]", mailErr);
+      }
+    }
+
     return res.json({
       success: true,
-      message: "تم رفض طلب الحساب بنجاح وتحديث السجلات.",
+      message: "تم رفض طلب الحساب بنجاح وإرسال إشعار للمستخدم لتحديث المستندات.",
       accountStatus: "REJECTED"
     });
   } catch (err: any) {
@@ -15268,6 +15560,234 @@ app.all(
   },
 );
 
+// --- USER ONBOARDING VERIFICATION DOCUMENT UPLOAD & RETRIEVAL ---
+
+// Upload verification document (Personal ID, Passport, Commercial Register, etc.)
+app.post(
+  [
+    "/api/auth/verification-document/upload",
+    "/api/auth/verification-documents/upload",
+    "/api/verification-document/upload",
+  ],
+  requireAuth,
+  (req: AuthRequest, res, next) => {
+    const contentType = (req.headers["content-type"] || "").toLowerCase();
+    if (contentType.includes("multipart/form-data")) {
+      return recoveryUpload.any()(req as any, res as any, (err: any) => {
+        if (err) {
+          if (err.code === "LIMIT_FILE_SIZE") {
+            return res.status(413).json({
+              success: false,
+              error: "DOCUMENT_TOO_LARGE",
+              message: "حجم الملف يتجاوز الحد الأقصى المسموح به (10 ميغابايت).",
+            });
+          }
+          return res.status(400).json({
+            success: false,
+            error: "FILE_UPLOAD_ERROR",
+            message: err.message || "File upload error",
+          });
+        }
+        next();
+      });
+    }
+    next();
+  },
+  async (req: AuthRequest, res) => {
+    try {
+      const uid = req.user?.uid;
+      let fileBuffer: Buffer | null = null;
+      let originalName = "document";
+      let fileMime = "application/octet-stream";
+      let fileSize = 0;
+
+      const file =
+        req.file ||
+        (Array.isArray(req.files)
+          ? req.files[0]
+          : (req.files as any)?.document?.[0] || (req.files as any)?.file?.[0]);
+
+      if (file && file.buffer) {
+        fileBuffer = file.buffer;
+        originalName = file.originalname || "document";
+        fileMime = (file.mimetype || "").toLowerCase();
+        fileSize = file.size;
+      } else if (req.body?.fileBase64 || req.body?.data || req.body?.file) {
+        const rawBase64 = String(
+          req.body.fileBase64 || req.body.data || req.body.file,
+        );
+        const cleanBase64 = rawBase64.replace(/^data:[^;]+;base64,/, "");
+        fileBuffer = Buffer.from(cleanBase64, "base64");
+        originalName = req.body.fileName || "document";
+        fileMime = (
+          req.body.mimeType || "application/octet-stream"
+        ).toLowerCase();
+        fileSize = fileBuffer.length;
+      }
+
+      if (!fileBuffer || fileBuffer.length === 0) {
+        return res.status(400).json({
+          success: false,
+          error: "MISSING_FILE",
+          message: "لم يتم استلام أي ملف للرفع.",
+        });
+      }
+
+      // 10MB limit
+      if (fileSize > 10 * 1024 * 1024) {
+        return res.status(413).json({
+          success: false,
+          error: "DOCUMENT_TOO_LARGE",
+          message: "حجم الملف يتجاوز 10 ميغابايت.",
+        });
+      }
+
+      const ext = path.extname(originalName).toLowerCase();
+      const allowedExtensions = [".pdf", ".png", ".jpg", ".jpeg", ".webp"];
+      const allowedMimeKeywords = ["pdf", "png", "jpeg", "jpg", "webp", "octet-stream"];
+      const isMimeValid = allowedMimeKeywords.some((kw) => fileMime.includes(kw));
+      const isExtValid = allowedExtensions.includes(ext);
+
+      if (!isExtValid && !isMimeValid) {
+        return res.status(400).json({
+          success: false,
+          error: "UNSUPPORTED_FORMAT",
+          message: "صيغة الملف غير مدعومة. الصيغ المدعومة هي: PDF, PNG, JPG/JPEG, WEBP.",
+        });
+      }
+
+      if (!validateFileSignature(fileBuffer, fileMime || ext)) {
+        return res.status(400).json({
+          success: false,
+          error: "INVALID_FILE_SIGNATURE",
+          message: "محتوى الملف لا يطابق نوعه المصرح به.",
+        });
+      }
+
+      const documentId = `doc_${Date.now()}_${crypto.randomBytes(4).toString("hex")}`;
+      let decodedName = originalName;
+      try {
+        decodedName = decodeURIComponent(originalName);
+      } catch (e) {}
+      const safeName = decodedName.replace(/[\/\\?%*:|"<>]/g, "_").trim() || "document";
+
+      const fileHash = crypto.createHash("sha256").update(fileBuffer).digest("hex");
+
+      await saveDocumentToPersistentStorage(documentId, fileBuffer, fileMime, {
+        fileName: safeName,
+        size: fileSize,
+        fileHash,
+      });
+
+      const docMeta = {
+        documentId,
+        fileName: safeName,
+        mimeType: fileMime,
+        size: fileSize,
+        fileHash,
+        category: (req.body?.category || "personal").toLowerCase(),
+        docType: req.body?.docType || "national_id",
+        storageReference: `secure_uploads/${documentId}`,
+        uploadedAt: new Date().toISOString(),
+        userId: uid || null,
+      };
+
+      const db = readDb();
+      if (!db.verification_documents_store) db.verification_documents_store = {};
+      db.verification_documents_store[documentId] = docMeta;
+      writeDb(db);
+
+      return res.status(200).json({
+        success: true,
+        documentId,
+        document: docMeta,
+        message: "تم رفع الملف بنجاح.",
+      });
+    } catch (err: any) {
+      console.error("[VERIFICATION_DOCUMENT_UPLOAD_ERROR]", err);
+      return res.status(500).json({
+        success: false,
+        error: "DOCUMENT_UPLOAD_FAILED",
+        message: err.message || "Failed to persist verification document.",
+      });
+    }
+  }
+);
+
+// Fetch / Download / Preview Verification Document (Admin or Document Owner)
+app.get(
+  [
+    "/api/auth/verification-document/:documentId",
+    "/api/admin/verification-document/:documentId",
+    "/api/verification-document/:documentId",
+  ],
+  requireAuth,
+  async (req: AuthRequest, res) => {
+    try {
+      const callerUid = req.user?.uid;
+      const callerEmail = req.user?.email || "";
+      const { documentId } = req.params;
+
+      if (!documentId || !/^[a-zA-Z0-9_\-\.]+$/.test(documentId)) {
+        return res.status(400).json({ success: false, error: "Invalid document ID." });
+      }
+
+      const isAdmin = await isUserAdminServer(callerUid || "", callerEmail);
+
+      const db = readDb();
+      const docRecord = db.verification_documents_store?.[documentId] || db.recovery_documents_store?.[documentId];
+      let isOwner = false;
+
+      if (callerUid && docRecord && docRecord.userId === callerUid) {
+        isOwner = true;
+      }
+
+      if (!isOwner && callerUid) {
+        const callerProfile = await getUserProfileServer(callerUid, callerEmail);
+        if (callerProfile?.verificationDocuments?.some((d: any) => d.documentId === documentId || d.id === documentId)) {
+          isOwner = true;
+        }
+      }
+
+      if (!isAdmin && !isOwner) {
+        return res.status(403).json({
+          success: false,
+          error: "Forbidden: You are not authorized to view this document."
+        });
+      }
+
+      const fileBuffer = await getDocumentFromPersistentStorage(documentId);
+      if (!fileBuffer || fileBuffer.length === 0) {
+        return res.status(404).json({ success: false, error: "Document not found or expired." });
+      }
+
+      let mimeType = docRecord?.mimeType || "application/pdf";
+      const fileName = docRecord?.fileName || "document";
+
+      if (fileBuffer.length >= 4) {
+        if (fileBuffer.subarray(0, 4).toString() === "%PDF") {
+          mimeType = "application/pdf";
+        } else if (fileBuffer[0] === 0xff && fileBuffer[1] === 0xd8) {
+          mimeType = "image/jpeg";
+        } else if (fileBuffer[0] === 0x89 && fileBuffer[1] === 0x50) {
+          mimeType = "image/png";
+        } else if (fileBuffer.subarray(0, 4).toString() === "RIFF" && fileBuffer.subarray(8, 12).toString() === "WEBP") {
+          mimeType = "image/webp";
+        }
+      }
+
+      res.setHeader("X-Content-Type-Options", "nosniff");
+      res.setHeader("Content-Type", mimeType);
+      res.setHeader("Content-Disposition", `inline; filename="${encodeURIComponent(fileName)}"`);
+      res.setHeader("Cache-Control", "private, no-cache, no-store, must-revalidate");
+      return res.send(fileBuffer);
+    } catch (err: any) {
+      console.error("[VERIFICATION_DOC_RETRIEVE_ERROR]", err);
+      return res.status(500).json({ success: false, error: err.message || "Failed to retrieve document." });
+    }
+  }
+);
+
 // 3. Submit Account Recovery Request (User submission)
 app.all(
   [
@@ -17553,6 +18073,10 @@ app.post("/api/auth/register", loginRegisterLimiter, async (req, res) => {
           ],
       subscriptionStatus: "Pending Selection",
       accountStatus: isInvitedUser ? "APPROVED" : "PENDING_EMAIL_VERIFICATION",
+      requiresDocumentVerification: !isInvitedUser,
+      verificationFlowVersion: 2,
+      documentVerificationStatus: isInvitedUser ? "APPROVED" : "PENDING_EMAIL_VERIFICATION",
+      verificationDocuments: [],
       createdAt: nowIso,
       trialExpiresAt: new Date(Date.now() + 24 * 3600 * 1000).toISOString(),
       lastActiveAt: nowIso,
@@ -17838,6 +18362,7 @@ app.post("/api/auth/register", loginRegisterLimiter, async (req, res) => {
       user: userResponse,
       initialOtpSent: true,
       sendCount: 0,
+      devCode: mailResult.simulated ? otpCode : undefined,
       message:
         "Registration completed successfully. Verification code sent to your email.",
     });

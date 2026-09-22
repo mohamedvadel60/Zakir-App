@@ -116,6 +116,7 @@ const CustomerSupport = React.lazy<React.ComponentType<any>>(() => import("./com
 const PrintSystem = React.lazy<React.ComponentType<any>>(() => import("./components/print/PrintSystem").then((m: any) => ({ default: m.PrintSystem || m.default })));
 const EmailVerificationView = React.lazy<React.ComponentType<any>>(() => import("./components/EmailVerificationView").then((m: any) => ({ default: m.EmailVerificationView || m.default })));
 const InstitutionalVerificationForm = React.lazy<React.ComponentType<any>>(() => import("./components/InstitutionalVerificationForm").then((m: any) => ({ default: m.InstitutionalVerificationForm || m.default })));
+const DocumentVerificationView = React.lazy<React.ComponentType<any>>(() => import("./components/DocumentVerificationView").then((m: any) => ({ default: m.DocumentVerificationView || m.default })));
 const PendingApprovalView = React.lazy<React.ComponentType<any>>(() => import("./components/PendingApprovalView").then((m: any) => ({ default: m.PendingApprovalView || m.default })));
 const AccountRejectedView = React.lazy<React.ComponentType<any>>(() => import("./components/AccountRejectedView").then((m: any) => ({ default: m.AccountRejectedView || m.default })));
 const RiskRadarChart = React.lazy<React.ComponentType<any>>(() => import("./components/RiskRadarChart").then((m: any) => ({ default: m.RiskRadarChart || m.default })));
@@ -4216,7 +4217,20 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
             )}
           </SplitLoginCard>
         )
-      ) : (currentUser && !currentUser.isEmailVerified && currentUser.verification_required !== false && !isUserAdmin(currentUser)) ? (
+      ) : (currentUser && !isUserAdmin(currentUser) && currentUser.accountStatus === "REJECTED") ? (
+        <Suspense fallback={<FullScreenFallback />}>
+          <AccountRejectedView
+            currentUser={currentUser}
+            lang={lang}
+            theme={theme}
+            onLogout={handleLogout}
+            onResubmitSuccess={(updatedUser: User) => {
+              setCurrentUser(updatedUser);
+              refreshCurrentUser();
+            }}
+          />
+        </Suspense>
+      ) : (currentUser && !isUserAdmin(currentUser) && ((!currentUser.isEmailVerified && !currentUser.emailVerified && !currentUser.email_verified && currentUser.verification_required !== false) || currentUser.accountStatus === "PENDING_EMAIL_VERIFICATION")) ? (
         <Suspense fallback={<FullScreenFallback />}>
           <EmailVerificationView
             currentUser={currentUser}
@@ -4226,32 +4240,27 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
             applyUserPreferences={applyUserPreferences}
           />
         </Suspense>
-      ) : (currentUser && !isUserAdmin(currentUser) && currentUser.accountStatus === "PENDING_INSTITUTIONAL_DATA") ? (
+      ) : (currentUser && !isUserAdmin(currentUser) && (currentUser.accountStatus === "PENDING_DOCUMENT_VERIFICATION" || (currentUser.requiresDocumentVerification && (currentUser.accountStatus === "PENDING_INSTITUTIONAL_DATA" || currentUser.documentVerificationStatus === "PENDING_UPLOAD")))) ? (
         <Suspense fallback={<FullScreenFallback />}>
-          <InstitutionalVerificationForm
+          <DocumentVerificationView
             currentUser={currentUser}
             lang={lang}
+            theme={theme}
             onLogout={handleLogout}
             onSuccess={(updatedUser: User) => {
               setCurrentUser(updatedUser);
+              refreshCurrentUser();
             }}
           />
         </Suspense>
-      ) : (currentUser && !isUserAdmin(currentUser) && currentUser.accountStatus === "PENDING_ADMIN_REVIEW") ? (
+      ) : (currentUser && !isUserAdmin(currentUser) && ((currentUser.accountStatus as string) === "PENDING_ADMIN_REVIEW" || (currentUser.requiresDocumentVerification && (currentUser.accountStatus as string) === "PENDING_APPROVAL"))) ? (
         <Suspense fallback={<FullScreenFallback />}>
           <PendingApprovalView
             currentUser={currentUser}
             lang={lang}
+            theme={theme}
             onLogout={handleLogout}
             onRefreshUser={refreshCurrentUser}
-          />
-        </Suspense>
-      ) : (currentUser && !isUserAdmin(currentUser) && currentUser.accountStatus === "REJECTED") ? (
-        <Suspense fallback={<FullScreenFallback />}>
-          <AccountRejectedView
-            currentUser={currentUser}
-            lang={lang}
-            onLogout={handleLogout}
           />
         </Suspense>
       ) : (currentUser && isUserAdmin(currentUser)) ? (

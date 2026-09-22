@@ -164,6 +164,7 @@ export const EmailVerificationView: React.FC<EmailVerificationViewProps> = ({
         );
 
         const authoritativeRole = res?.user?.role || currentUser?.role || "CEO";
+        const authoritativeAccountStatus = res?.user?.accountStatus || (currentUser?.requiresDocumentVerification ? "PENDING_DOCUMENT_VERIFICATION" : "APPROVED");
         const updatedUser: User = {
           ...currentUser,
           role: authoritativeRole,
@@ -173,6 +174,8 @@ export const EmailVerificationView: React.FC<EmailVerificationViewProps> = ({
           emailVerified: true,
           verification_status: "verified" as const,
           verification_required: false,
+          accountStatus: authoritativeAccountStatus,
+          documentVerificationStatus: authoritativeAccountStatus === "PENDING_DOCUMENT_VERIFICATION" ? "PENDING_UPLOAD" : (res?.user?.documentVerificationStatus || "APPROVED"),
         };
 
         setCurrentUser(updatedUser);
@@ -189,6 +192,7 @@ export const EmailVerificationView: React.FC<EmailVerificationViewProps> = ({
               emailVerified: true,
               verification_status: "verified",
               verification_required: false,
+              accountStatus: authoritativeAccountStatus,
               "verificationInfo.status": "verified",
               "verificationInfo.verifiedAt": new Date().toISOString(),
             });

@@ -1035,6 +1035,799 @@
       "emailVerified": false,
       "verification_required": true,
       "verification_status": "unverified"
+    },
+    {
+      "id": "7oAjsz4oabfWnUm6LOuxpdMxr6w2",
+      "email": "test_new_user_1790111377086@zakir-test.com",
+      "passwordHash": "StrongPassword123!",
+      "companyName": "مؤسسة الأفق الذكي",
+      "ownerName": "test_new_user_1790111377086",
+      "role": "Contributor",
+      "workspaceId": "ws_7oAjsz4o_mud63gjs",
+      "workspace": {
+        "id": "ws_7oAjsz4o_mud63gjs",
+        "name": "مؤسسة الأفق الذكي Workspace",
+        "ownerId": "7oAjsz4oabfWnUm6LOuxpdMxr6w2",
+        "createdAt": "2026-09-22T21:09:39.592Z",
+        "memberCount": 1
+      },
+      "teamMembersList": [
+        {
+          "id": "tm-owner",
+          "uid": "7oAjsz4oabfWnUm6LOuxpdMxr6w2",
+          "name": "test_new_user_1790111377086",
+          "email": "test_new_user_1790111377086@zakir-test.com",
+          "role": "CEO / Owner",
+          "powers": {
+            "fileVault": true,
+            "memoryVault": true,
+            "riskRadar": true,
+            "marketIntel": true,
+            "settings": true
+          },
+          "addedAt": "2026-09-22"
+        }
+      ],
+      "subscriptionStatus": "Pending Selection",
+      "accountStatus": "PENDING_EMAIL_VERIFICATION",
+      "createdAt": "2026-09-22T21:09:39.592Z",
+      "trialExpiresAt": "2026-09-23T21:09:39.592Z",
+      "lastActiveAt": "2026-09-22T21:09:39.592Z",
+      "lastLoginAt": "2026-09-22T21:09:39.592Z",
+      "isVerified": false,
+      "isEmailVerified": false,
+      "email_verified": false,
+      "emailVerified": false,
+      "verification_required": true,
+      "verification_status": "unverified",
+      "verificationInfo": {
+        "status": "unverified"
+      }
+    },
+    {
+      "id": "nfrSLBHwWefVu2Zwbvu0LPhjBsU2",
+      "email": "test_new_user_1790111386314@zakir-test.com",
+      "passwordHash": "StrongPassword123!",
+      "companyName": "مؤسسة الأفق الذكي",
+      "ownerName": "test_new_user_1790111386314",
+      "role": "Contributor",
+      "workspaceId": "ws_nfrSLBHw_mud63nif",
+      "workspace": {
+        "id": "ws_nfrSLBHw_mud63nif",
+        "name": "مؤسسة الأفق الذكي Workspace",
+        "ownerId": "nfrSLBHwWefVu2Zwbvu0LPhjBsU2",
+        "createdAt": "2026-09-22T21:09:48.615Z",
+        "memberCount": 1
+      },
+      "teamMembersList": [
+        {
+          "id": "tm-owner",
+          "uid": "nfrSLBHwWefVu2Zwbvu0LPhjBsU2",
+          "name": "test_new_user_1790111386314",
+          "email": "test_new_user_1790111386314@zakir-test.com",
+          "role": "CEO / Owner",
+          "powers": {
+            "fileVault": true,
+            "memoryVault": true,
+            "riskRadar": true,
+            "marketIntel": true,
+            "settings": true
+          },
+          "addedAt": "2026-09-22"
+        }
+      ],
+      "subscriptionStatus": "Pending Selection",
+      "accountStatus": "PENDING_EMAIL_VERIFICATION",
+      "createdAt": "2026-09-22T21:09:48.615Z",
+      "trialExpiresAt": "2026-09-23T21:09:48.615Z",
+      "lastActiveAt": "2026-09-22T21:09:48.615Z",
+      "lastLoginAt": "2026-09-22T21:09:48.615Z",
+      "isVerified": false,
+      "isEmailVerified": false,
+      "email_verified": false,
+      "emailVerified": false,
+      "verification_required": true,
+      "verification_status": "unverified",
+      "verificationInfo": {
+        "status": "unverified"
+      }
+    },
+    {
+      "id": "7YUMUpO9cGSVi0mVuOKEEcbmg5w1",
+      "email": "test_new_user_1790111494693@zakir-test.com",
+      "passwordHash": "StrongPassword123!",
+      "companyName": "مؤسسة الأفق الذكي",
+      "ownerName": "خالد التوثيق - نسخة محدثة",
+      "role": "Contributor",
+      "workspaceId": "ws_7YUMUpO9_mud65zco",
+      "workspace": {
+        "id": "ws_7YUMUpO9_mud65zco",
+        "name": "مؤسسة الأفق الذكي Workspace",
+        "ownerId": "7YUMUpO9cGSVi0mVuOKEEcbmg5w1",
+        "createdAt": "2026-09-22T21:11:37.272Z",
+        "memberCount": 1
+      },
+      "teamMembersList": [
+        {
+          "id": "tm-owner",
+          "uid": "7YUMUpO9cGSVi0mVuOKEEcbmg5w1",
+          "name": "test_new_user_1790111494693",
+          "email": "test_new_user_1790111494693@zakir-test.com",
+          "role": "CEO / Owner",
+          "powers": {
+            "fileVault": true,
+            "memoryVault": true,
+            "riskRadar": true,
+            "marketIntel": true,
+            "settings": true
+          },
+          "addedAt": "2026-09-22"
+        }
+      ],
+      "subscriptionStatus": "Active",
+      "accountStatus": "APPROVED",
+      "requiresDocumentVerification": false,
+      "verificationFlowVersion": 2,
+      "documentVerificationStatus": "APPROVED",
+      "verificationDocuments": [
+        {
+          "documentId": "doc_1790111500655_468b7d73",
+          "fileName": "national_id_card.pdf",
+          "mimeType": "application/pdf",
+          "size": 86,
+          "fileHash": "e7218eaa48a42605db3e9fd4ac5bd32e35b930ac26c111e3322a94c52f07a5ac",
+          "category": "personal",
+          "docType": "national_id",
+          "storageReference": "secure_uploads/doc_1790111500655_468b7d73",
+          "uploadedAt": "2026-09-22T21:11:41.002Z",
+          "userId": "7YUMUpO9cGSVi0mVuOKEEcbmg5w1"
+        },
+        {
+          "documentId": "doc_1790111501186_b46df012",
+          "fileName": "commercial_register.png",
+          "mimeType": "image/png",
+          "size": 67,
+          "fileHash": "ebf4f635a17d10d6eb46ba680b70142419aa3220f228001a036d311a22ee9d2a",
+          "category": "company",
+          "docType": "commercial_register",
+          "storageReference": "secure_uploads/doc_1790111501186_b46df012",
+          "uploadedAt": "2026-09-22T21:11:41.533Z",
+          "userId": "7YUMUpO9cGSVi0mVuOKEEcbmg5w1"
+        }
+      ],
+      "createdAt": "2026-09-22T21:11:37.272Z",
+      "trialExpiresAt": "2026-09-23T21:11:45.111Z",
+      "lastActiveAt": "2026-09-22T21:11:45.111Z",
+      "lastLoginAt": "2026-09-22T21:11:37.272Z",
+      "isVerified": true,
+      "isEmailVerified": true,
+      "email_verified": true,
+      "emailVerified": true,
+      "verification_required": false,
+      "verification_status": "verified",
+      "verificationInfo": {
+        "status": "unverified"
+      },
+      "fullName": "خالد التوثيق - نسخة محدثة",
+      "phone": "+966501112233",
+      "jobTitle": "Executive",
+      "organizationName": "مؤسسة الأفق الذكي",
+      "sector": "General",
+      "country": "International",
+      "hasCompany": true,
+      "institutionalProfile": {
+        "fullName": "خالد التوثيق - نسخة محدثة",
+        "phone": "+966501112233",
+        "jobTitle": "Executive",
+        "hasCompany": true,
+        "companyName": "مؤسسة الأفق الذكي",
+        "sector": "General",
+        "country": "International",
+        "registrationNumber": "",
+        "companySize": "1-10",
+        "intendedUse": "Strategic Decision Intelligence",
+        "additionalNotes": "تم إعادة إرسال صورة واضحة ومحدثة للهوية الوطنية",
+        "submittedAt": "2026-09-22T21:11:44.611Z"
+      },
+      "rejectionReason": null,
+      "verificationInfo.status": "verified",
+      "verificationInfo.submittedAt": "2026-09-22T21:11:44.611Z",
+      "verificationInfo.adminNote": null,
+      "verificationSubmittedAt": "2026-09-22T21:11:44.611Z",
+      "rejectionDate": "2026-09-22T21:11:43.138Z",
+      "rejectedBy": "admin@zakir.ai",
+      "approvedAt": "2026-09-22T21:11:45.111Z",
+      "approvedBy": "admin@zakir.ai",
+      "approvalNotes": "Approved after verifying identity documents.",
+      "trialStartedAt": "2026-09-22T21:11:45.111Z",
+      "trialEndsAt": "2026-09-23T21:11:45.111Z",
+      "trialDurationHours": 24,
+      "subscriptionPlan": "Starter",
+      "verificationInfo.verifiedAt": "2026-09-22T21:11:45.111Z",
+      "verificationInfo.verifiedBy": "admin@zakir.ai",
+      "approvalEmailSentAt": "2026-09-22T21:11:45.111Z",
+      "approvalNotificationSent": true,
+      "approvalEmailMessageId": "sim_1790111505617_36eeef7f"
+    },
+    {
+      "id": "odFhtfLiMiNPeANX8UCyIDgFZAI3",
+      "email": "test_new_user_1790111546954@zakir-test.com",
+      "passwordHash": "StrongPassword123!",
+      "companyName": "مؤسسة الأفق الذكي",
+      "ownerName": "خالد التوثيق - نسخة محدثة",
+      "role": "Contributor",
+      "workspaceId": "ws_odFhtfLi_mud673ni",
+      "workspace": {
+        "id": "ws_odFhtfLi_mud673ni",
+        "name": "مؤسسة الأفق الذكي Workspace",
+        "ownerId": "odFhtfLiMiNPeANX8UCyIDgFZAI3",
+        "createdAt": "2026-09-22T21:12:29.502Z",
+        "memberCount": 1
+      },
+      "teamMembersList": [
+        {
+          "id": "tm-owner",
+          "uid": "odFhtfLiMiNPeANX8UCyIDgFZAI3",
+          "name": "test_new_user_1790111546954",
+          "email": "test_new_user_1790111546954@zakir-test.com",
+          "role": "CEO / Owner",
+          "powers": {
+            "fileVault": true,
+            "memoryVault": true,
+            "riskRadar": true,
+            "marketIntel": true,
+            "settings": true
+          },
+          "addedAt": "2026-09-22"
+        }
+      ],
+      "subscriptionStatus": "Active",
+      "accountStatus": "APPROVED",
+      "requiresDocumentVerification": false,
+      "verificationFlowVersion": 2,
+      "documentVerificationStatus": "APPROVED",
+      "verificationDocuments": [
+        {
+          "documentId": "doc_1790111553010_2b357ca5",
+          "fileName": "national_id_card.pdf",
+          "mimeType": "application/pdf",
+          "size": 86,
+          "fileHash": "e7218eaa48a42605db3e9fd4ac5bd32e35b930ac26c111e3322a94c52f07a5ac",
+          "category": "personal",
+          "docType": "national_id",
+          "storageReference": "secure_uploads/doc_1790111553010_2b357ca5",
+          "uploadedAt": "2026-09-22T21:12:33.356Z",
+          "userId": "odFhtfLiMiNPeANX8UCyIDgFZAI3"
+        },
+        {
+          "documentId": "doc_1790111553540_e52eb349",
+          "fileName": "commercial_register.png",
+          "mimeType": "image/png",
+          "size": 67,
+          "fileHash": "ebf4f635a17d10d6eb46ba680b70142419aa3220f228001a036d311a22ee9d2a",
+          "category": "company",
+          "docType": "commercial_register",
+          "storageReference": "secure_uploads/doc_1790111553540_e52eb349",
+          "uploadedAt": "2026-09-22T21:12:33.869Z",
+          "userId": "odFhtfLiMiNPeANX8UCyIDgFZAI3"
+        }
+      ],
+      "createdAt": "2026-09-22T21:12:29.502Z",
+      "trialExpiresAt": "2026-09-23T21:12:37.355Z",
+      "lastActiveAt": "2026-09-22T21:12:37.355Z",
+      "lastLoginAt": "2026-09-22T21:12:29.502Z",
+      "isVerified": true,
+      "isEmailVerified": true,
+      "email_verified": true,
+      "emailVerified": true,
+      "verification_required": false,
+      "verification_status": "verified",
+      "verificationInfo": {
+        "status": "unverified"
+      },
+      "fullName": "خالد التوثيق - نسخة محدثة",
+      "phone": "+966501112233",
+      "jobTitle": "Executive",
+      "organizationName": "مؤسسة الأفق الذكي",
+      "sector": "General",
+      "country": "International",
+      "hasCompany": true,
+      "institutionalProfile": {
+        "fullName": "خالد التوثيق - نسخة محدثة",
+        "phone": "+966501112233",
+        "jobTitle": "Executive",
+        "hasCompany": true,
+        "companyName": "مؤسسة الأفق الذكي",
+        "sector": "General",
+        "country": "International",
+        "registrationNumber": "",
+        "companySize": "1-10",
+        "intendedUse": "Strategic Decision Intelligence",
+        "additionalNotes": "تم إعادة إرسال صورة واضحة ومحدثة للهوية الوطنية",
+        "submittedAt": "2026-09-22T21:12:36.873Z"
+      },
+      "rejectionReason": null,
+      "verificationInfo.status": "verified",
+      "verificationInfo.submittedAt": "2026-09-22T21:12:36.873Z",
+      "verificationInfo.adminNote": null,
+      "verificationSubmittedAt": "2026-09-22T21:12:36.873Z",
+      "rejectionDate": "2026-09-22T21:12:35.512Z",
+      "rejectedBy": "admin@zakir.ai",
+      "approvedAt": "2026-09-22T21:12:37.355Z",
+      "approvedBy": "admin@zakir.ai",
+      "approvalNotes": "Approved after verifying identity documents.",
+      "trialStartedAt": "2026-09-22T21:12:37.355Z",
+      "trialEndsAt": "2026-09-23T21:12:37.355Z",
+      "trialDurationHours": 24,
+      "subscriptionPlan": "Starter",
+      "verificationInfo.verifiedAt": "2026-09-22T21:12:37.355Z",
+      "verificationInfo.verifiedBy": "admin@zakir.ai",
+      "approvalEmailSentAt": "2026-09-22T21:12:37.355Z",
+      "approvalNotificationSent": true,
+      "approvalEmailMessageId": "sim_1790111557856_ec722643"
+    },
+    {
+      "id": "38s3Z7RWQ2SCktkszxKQoCjhsLU2",
+      "email": "test_new_user_1790111582094@zakir-test.com",
+      "passwordHash": "StrongPassword123!",
+      "companyName": "مؤسسة الأفق الذكي",
+      "ownerName": "خالد التوثيق - نسخة محدثة",
+      "role": "Contributor",
+      "workspaceId": "ws_38s3Z7RW_mud67v7n",
+      "workspace": {
+        "id": "ws_38s3Z7RW_mud67v7n",
+        "name": "مؤسسة الأفق الذكي Workspace",
+        "ownerId": "38s3Z7RWQ2SCktkszxKQoCjhsLU2",
+        "createdAt": "2026-09-22T21:13:05.219Z",
+        "memberCount": 1
+      },
+      "teamMembersList": [
+        {
+          "id": "tm-owner",
+          "uid": "38s3Z7RWQ2SCktkszxKQoCjhsLU2",
+          "name": "test_new_user_1790111582094",
+          "email": "test_new_user_1790111582094@zakir-test.com",
+          "role": "CEO / Owner",
+          "powers": {
+            "fileVault": true,
+            "memoryVault": true,
+            "riskRadar": true,
+            "marketIntel": true,
+            "settings": true
+          },
+          "addedAt": "2026-09-22"
+        }
+      ],
+      "subscriptionStatus": "Active",
+      "accountStatus": "APPROVED",
+      "requiresDocumentVerification": false,
+      "verificationFlowVersion": 2,
+      "documentVerificationStatus": "APPROVED",
+      "verificationDocuments": [
+        {
+          "documentId": "doc_1790111588557_2f0c2e35",
+          "fileName": "national_id_card.pdf",
+          "mimeType": "application/pdf",
+          "size": 86,
+          "fileHash": "e7218eaa48a42605db3e9fd4ac5bd32e35b930ac26c111e3322a94c52f07a5ac",
+          "category": "personal",
+          "docType": "national_id",
+          "storageReference": "secure_uploads/doc_1790111588557_2f0c2e35",
+          "uploadedAt": "2026-09-22T21:13:08.895Z",
+          "userId": "38s3Z7RWQ2SCktkszxKQoCjhsLU2"
+        },
+        {
+          "documentId": "doc_1790111589075_1a83d7e1",
+          "fileName": "commercial_register.png",
+          "mimeType": "image/png",
+          "size": 67,
+          "fileHash": "ebf4f635a17d10d6eb46ba680b70142419aa3220f228001a036d311a22ee9d2a",
+          "category": "company",
+          "docType": "commercial_register",
+          "storageReference": "secure_uploads/doc_1790111589075_1a83d7e1",
+          "uploadedAt": "2026-09-22T21:13:09.404Z",
+          "userId": "38s3Z7RWQ2SCktkszxKQoCjhsLU2"
+        }
+      ],
+      "createdAt": "2026-09-22T21:13:05.219Z",
+      "trialExpiresAt": "2026-09-23T21:13:12.975Z",
+      "lastActiveAt": "2026-09-22T21:13:12.975Z",
+      "lastLoginAt": "2026-09-22T21:13:05.219Z",
+      "isVerified": true,
+      "isEmailVerified": true,
+      "email_verified": true,
+      "emailVerified": true,
+      "verification_required": false,
+      "verification_status": "verified",
+      "verificationInfo": {
+        "status": "verified",
+        "verifiedAt": "2026-09-22T21:13:07.708Z"
+      },
+      "isPhoneVerified": true,
+      "fullName": "خالد التوثيق - نسخة محدثة",
+      "phone": "+966501112233",
+      "jobTitle": "Executive",
+      "organizationName": "مؤسسة الأفق الذكي",
+      "sector": "General",
+      "country": "International",
+      "hasCompany": true,
+      "institutionalProfile": {
+        "fullName": "خالد التوثيق - نسخة محدثة",
+        "phone": "+966501112233",
+        "jobTitle": "Executive",
+        "hasCompany": true,
+        "companyName": "مؤسسة الأفق الذكي",
+        "sector": "General",
+        "country": "International",
+        "registrationNumber": "",
+        "companySize": "1-10",
+        "intendedUse": "Strategic Decision Intelligence",
+        "additionalNotes": "تم إعادة إرسال صورة واضحة ومحدثة للهوية الوطنية",
+        "submittedAt": "2026-09-22T21:13:12.473Z"
+      },
+      "rejectionReason": null,
+      "verificationInfo.status": "verified",
+      "verificationInfo.submittedAt": "2026-09-22T21:13:12.473Z",
+      "verificationInfo.adminNote": null,
+      "verificationSubmittedAt": "2026-09-22T21:13:12.473Z",
+      "rejectionDate": "2026-09-22T21:13:11.070Z",
+      "rejectedBy": "admin@zakir.ai",
+      "approvedAt": "2026-09-22T21:13:12.975Z",
+      "approvedBy": "admin@zakir.ai",
+      "approvalNotes": "Approved after verifying identity documents.",
+      "trialStartedAt": "2026-09-22T21:13:12.975Z",
+      "trialEndsAt": "2026-09-23T21:13:12.975Z",
+      "trialDurationHours": 24,
+      "subscriptionPlan": "Starter",
+      "verificationInfo.verifiedAt": "2026-09-22T21:13:12.975Z",
+      "verificationInfo.verifiedBy": "admin@zakir.ai",
+      "approvalEmailSentAt": "2026-09-22T21:13:12.975Z",
+      "approvalNotificationSent": true,
+      "approvalEmailMessageId": "sim_1790111593474_c283a9b3"
+    },
+    {
+      "id": "CZBYKBy6Pifw1B4D3YgAjmPNQ5O2",
+      "email": "test_new_user_1790112213380@zakir-test.com",
+      "passwordHash": "StrongPassword123!",
+      "companyName": "مؤسسة الأفق الذكي",
+      "ownerName": "خالد التوثيق - نسخة محدثة",
+      "role": "Contributor",
+      "workspaceId": "ws_CZBYKBy6_mud6lelr",
+      "workspace": {
+        "id": "ws_CZBYKBy6_mud6lelr",
+        "name": "مؤسسة الأفق الذكي Workspace",
+        "ownerId": "CZBYKBy6Pifw1B4D3YgAjmPNQ5O2",
+        "createdAt": "2026-09-22T21:23:36.879Z",
+        "memberCount": 1
+      },
+      "teamMembersList": [
+        {
+          "id": "tm-owner",
+          "uid": "CZBYKBy6Pifw1B4D3YgAjmPNQ5O2",
+          "name": "test_new_user_1790112213380",
+          "email": "test_new_user_1790112213380@zakir-test.com",
+          "role": "CEO / Owner",
+          "powers": {
+            "fileVault": true,
+            "memoryVault": true,
+            "riskRadar": true,
+            "marketIntel": true,
+            "settings": true
+          },
+          "addedAt": "2026-09-22"
+        }
+      ],
+      "subscriptionStatus": "Active",
+      "accountStatus": "APPROVED",
+      "requiresDocumentVerification": false,
+      "verificationFlowVersion": 2,
+      "documentVerificationStatus": "APPROVED",
+      "verificationDocuments": [
+        {
+          "documentId": "doc_1790112220380_5c5cc417",
+          "fileName": "national_id_card.pdf",
+          "mimeType": "application/pdf",
+          "size": 86,
+          "fileHash": "e7218eaa48a42605db3e9fd4ac5bd32e35b930ac26c111e3322a94c52f07a5ac",
+          "category": "personal",
+          "docType": "national_id",
+          "storageReference": "secure_uploads/doc_1790112220380_5c5cc417",
+          "uploadedAt": "2026-09-22T21:23:40.729Z",
+          "userId": "CZBYKBy6Pifw1B4D3YgAjmPNQ5O2"
+        },
+        {
+          "documentId": "doc_1790112220906_80085937",
+          "fileName": "commercial_register.png",
+          "mimeType": "image/png",
+          "size": 67,
+          "fileHash": "ebf4f635a17d10d6eb46ba680b70142419aa3220f228001a036d311a22ee9d2a",
+          "category": "company",
+          "docType": "commercial_register",
+          "storageReference": "secure_uploads/doc_1790112220906_80085937",
+          "uploadedAt": "2026-09-22T21:23:41.249Z",
+          "userId": "CZBYKBy6Pifw1B4D3YgAjmPNQ5O2"
+        }
+      ],
+      "createdAt": "2026-09-22T21:23:36.879Z",
+      "trialExpiresAt": "2026-09-23T21:23:44.875Z",
+      "lastActiveAt": "2026-09-22T21:23:44.875Z",
+      "lastLoginAt": "2026-09-22T21:23:36.879Z",
+      "isVerified": true,
+      "isEmailVerified": true,
+      "email_verified": true,
+      "emailVerified": true,
+      "verification_required": false,
+      "verification_status": "verified",
+      "verificationInfo": {
+        "status": "verified",
+        "verifiedAt": "2026-09-22T21:23:39.481Z"
+      },
+      "isPhoneVerified": true,
+      "fullName": "خالد التوثيق - نسخة محدثة",
+      "phone": "+966501112233",
+      "jobTitle": "Executive",
+      "organizationName": "مؤسسة الأفق الذكي",
+      "sector": "General",
+      "country": "International",
+      "hasCompany": true,
+      "institutionalProfile": {
+        "fullName": "خالد التوثيق - نسخة محدثة",
+        "phone": "+966501112233",
+        "jobTitle": "Executive",
+        "hasCompany": true,
+        "companyName": "مؤسسة الأفق الذكي",
+        "sector": "General",
+        "country": "International",
+        "registrationNumber": "",
+        "companySize": "1-10",
+        "intendedUse": "Strategic Decision Intelligence",
+        "additionalNotes": "تم إعادة إرسال صورة واضحة ومحدثة للهوية الوطنية",
+        "submittedAt": "2026-09-22T21:23:44.356Z"
+      },
+      "rejectionReason": null,
+      "verificationInfo.status": "verified",
+      "verificationInfo.submittedAt": "2026-09-22T21:23:44.356Z",
+      "verificationInfo.adminNote": null,
+      "verificationSubmittedAt": "2026-09-22T21:23:44.356Z",
+      "rejectionDate": "2026-09-22T21:23:42.955Z",
+      "rejectedBy": "admin@zakir.ai",
+      "approvedAt": "2026-09-22T21:23:44.875Z",
+      "approvedBy": "admin@zakir.ai",
+      "approvalNotes": "Approved after verifying identity documents.",
+      "trialStartedAt": "2026-09-22T21:23:44.875Z",
+      "trialEndsAt": "2026-09-23T21:23:44.875Z",
+      "trialDurationHours": 24,
+      "subscriptionPlan": "Starter",
+      "verificationInfo.verifiedAt": "2026-09-22T21:23:44.875Z",
+      "verificationInfo.verifiedBy": "admin@zakir.ai",
+      "approvalEmailSentAt": "2026-09-22T21:23:44.875Z",
+      "approvalNotificationSent": true,
+      "approvalEmailMessageId": "sim_1790112225355_01da12c1"
+    },
+    {
+      "id": "m8CUV9lRhxaIlB9Vsowe9QShVgr1",
+      "email": "auth_test_1790112289709@zakir-test.com",
+      "passwordHash": "StrongPassword123!",
+      "companyName": "شركة الاختبار المتقدمة",
+      "ownerName": "auth_test_1790112289709",
+      "role": "Contributor",
+      "workspaceId": "ws_m8CUV9lR_mud6n0mc",
+      "workspace": {
+        "id": "ws_m8CUV9lR_mud6n0mc",
+        "name": "شركة الاختبار المتقدمة Workspace",
+        "ownerId": "m8CUV9lRhxaIlB9Vsowe9QShVgr1",
+        "createdAt": "2026-09-22T21:24:52.068Z",
+        "memberCount": 1
+      },
+      "teamMembersList": [
+        {
+          "id": "tm-owner",
+          "uid": "m8CUV9lRhxaIlB9Vsowe9QShVgr1",
+          "name": "auth_test_1790112289709",
+          "email": "auth_test_1790112289709@zakir-test.com",
+          "role": "CEO / Owner",
+          "powers": {
+            "fileVault": true,
+            "memoryVault": true,
+            "riskRadar": true,
+            "marketIntel": true,
+            "settings": true
+          },
+          "addedAt": "2026-09-22"
+        }
+      ],
+      "subscriptionStatus": "Pending Selection",
+      "accountStatus": "PENDING_DOCUMENT_VERIFICATION",
+      "requiresDocumentVerification": true,
+      "verificationFlowVersion": 2,
+      "documentVerificationStatus": "PENDING_UPLOAD",
+      "verificationDocuments": [],
+      "createdAt": "2026-09-22T21:24:52.068Z",
+      "trialExpiresAt": "2026-09-23T21:24:52.068Z",
+      "lastActiveAt": "2026-09-22T21:24:52.068Z",
+      "lastLoginAt": "2026-09-22T21:24:52.068Z",
+      "isVerified": true,
+      "isEmailVerified": true,
+      "email_verified": true,
+      "emailVerified": true,
+      "verification_required": false,
+      "verification_status": "verified",
+      "verificationInfo": {
+        "status": "verified",
+        "verifiedAt": "2026-09-22T21:24:54.168Z"
+      },
+      "isPhoneVerified": true
+    },
+    {
+      "id": "AZkh8ciRHSh8eBxlOwHvmDoTpA93",
+      "email": "intruder_1790112295087@zakir-test.com",
+      "passwordHash": "StrongPassword123!",
+      "companyName": "شركة المتطفل",
+      "ownerName": "intruder_1790112295087",
+      "role": "Contributor",
+      "workspaceId": "ws_AZkh8ciR_mud6n4t2",
+      "workspace": {
+        "id": "ws_AZkh8ciR_mud6n4t2",
+        "name": "شركة المتطفل Workspace",
+        "ownerId": "AZkh8ciRHSh8eBxlOwHvmDoTpA93",
+        "createdAt": "2026-09-22T21:24:57.494Z",
+        "memberCount": 1
+      },
+      "teamMembersList": [
+        {
+          "id": "tm-owner",
+          "uid": "AZkh8ciRHSh8eBxlOwHvmDoTpA93",
+          "name": "intruder_1790112295087",
+          "email": "intruder_1790112295087@zakir-test.com",
+          "role": "CEO / Owner",
+          "powers": {
+            "fileVault": true,
+            "memoryVault": true,
+            "riskRadar": true,
+            "marketIntel": true,
+            "settings": true
+          },
+          "addedAt": "2026-09-22"
+        }
+      ],
+      "subscriptionStatus": "Pending Selection",
+      "accountStatus": "PENDING_EMAIL_VERIFICATION",
+      "requiresDocumentVerification": true,
+      "verificationFlowVersion": 2,
+      "documentVerificationStatus": "PENDING_EMAIL_VERIFICATION",
+      "verificationDocuments": [],
+      "createdAt": "2026-09-22T21:24:57.494Z",
+      "trialExpiresAt": "2026-09-23T21:24:57.494Z",
+      "lastActiveAt": "2026-09-22T21:24:57.494Z",
+      "lastLoginAt": "2026-09-22T21:24:57.494Z",
+      "isVerified": false,
+      "isEmailVerified": false,
+      "email_verified": false,
+      "emailVerified": false,
+      "verification_required": true,
+      "verification_status": "unverified",
+      "verificationInfo": {
+        "status": "unverified"
+      }
+    },
+    {
+      "id": "GCdj0VLjFoReyj5hSEPR6cXyAFl2",
+      "email": "test_new_user_1790112434381@zakir-test.com",
+      "passwordHash": "StrongPassword123!",
+      "companyName": "مؤسسة الأفق الذكي",
+      "ownerName": "خالد التوثيق - نسخة محدثة",
+      "role": "Contributor",
+      "workspaceId": "ws_GCdj0VLj_mud6q4b7",
+      "workspace": {
+        "id": "ws_GCdj0VLj_mud6q4b7",
+        "name": "مؤسسة الأفق الذكي Workspace",
+        "ownerId": "GCdj0VLjFoReyj5hSEPR6cXyAFl2",
+        "createdAt": "2026-09-22T21:27:16.819Z",
+        "memberCount": 1
+      },
+      "teamMembersList": [
+        {
+          "id": "tm-owner",
+          "uid": "GCdj0VLjFoReyj5hSEPR6cXyAFl2",
+          "name": "test_new_user_1790112434381",
+          "email": "test_new_user_1790112434381@zakir-test.com",
+          "role": "CEO / Owner",
+          "powers": {
+            "fileVault": true,
+            "memoryVault": true,
+            "riskRadar": true,
+            "marketIntel": true,
+            "settings": true
+          },
+          "addedAt": "2026-09-22"
+        }
+      ],
+      "subscriptionStatus": "Active",
+      "accountStatus": "APPROVED",
+      "requiresDocumentVerification": false,
+      "verificationFlowVersion": 2,
+      "documentVerificationStatus": "APPROVED",
+      "verificationDocuments": [
+        {
+          "documentId": "doc_1790112440175_69a70524",
+          "fileName": "national_id_card.pdf",
+          "mimeType": "application/pdf",
+          "size": 86,
+          "fileHash": "e7218eaa48a42605db3e9fd4ac5bd32e35b930ac26c111e3322a94c52f07a5ac",
+          "category": "personal",
+          "docType": "national_id",
+          "storageReference": "secure_uploads/doc_1790112440175_69a70524",
+          "uploadedAt": "2026-09-22T21:27:20.516Z",
+          "userId": "GCdj0VLjFoReyj5hSEPR6cXyAFl2"
+        },
+        {
+          "documentId": "doc_1790112440692_b2f75d35",
+          "fileName": "commercial_register.png",
+          "mimeType": "image/png",
+          "size": 67,
+          "fileHash": "ebf4f635a17d10d6eb46ba680b70142419aa3220f228001a036d311a22ee9d2a",
+          "category": "company",
+          "docType": "commercial_register",
+          "storageReference": "secure_uploads/doc_1790112440692_b2f75d35",
+          "uploadedAt": "2026-09-22T21:27:21.021Z",
+          "userId": "GCdj0VLjFoReyj5hSEPR6cXyAFl2"
+        }
+      ],
+      "createdAt": "2026-09-22T21:27:16.819Z",
+      "trialExpiresAt": "2026-09-23T21:27:24.772Z",
+      "lastActiveAt": "2026-09-22T21:27:24.772Z",
+      "lastLoginAt": "2026-09-22T21:27:16.819Z",
+      "isVerified": true,
+      "isEmailVerified": true,
+      "email_verified": true,
+      "emailVerified": true,
+      "verification_required": false,
+      "verification_status": "verified",
+      "verificationInfo": {
+        "status": "verified",
+        "verifiedAt": "2026-09-22T21:27:19.341Z"
+      },
+      "isPhoneVerified": true,
+      "fullName": "خالد التوثيق - نسخة محدثة",
+      "phone": "+966501112233",
+      "jobTitle": "Executive",
+      "organizationName": "مؤسسة الأفق الذكي",
+      "sector": "General",
+      "country": "International",
+      "hasCompany": true,
+      "institutionalProfile": {
+        "fullName": "خالد التوثيق - نسخة محدثة",
+        "phone": "+966501112233",
+        "jobTitle": "Executive",
+        "hasCompany": true,
+        "companyName": "مؤسسة الأفق الذكي",
+        "sector": "General",
+        "country": "International",
+        "registrationNumber": "",
+        "companySize": "1-10",
+        "intendedUse": "Strategic Decision Intelligence",
+        "additionalNotes": "تم إعادة إرسال صورة واضحة ومحدثة للهوية الوطنية",
+        "submittedAt": "2026-09-22T21:27:24.293Z"
+      },
+      "rejectionReason": null,
+      "verificationInfo.status": "verified",
+      "verificationInfo.submittedAt": "2026-09-22T21:27:24.293Z",
+      "verificationInfo.adminNote": null,
+      "verificationSubmittedAt": "2026-09-22T21:27:24.293Z",
+      "rejectionDate": "2026-09-22T21:27:22.816Z",
+      "rejectedBy": "admin@zakir.ai",
+      "approvedAt": "2026-09-22T21:27:24.772Z",
+      "approvedBy": "admin@zakir.ai",
+      "approvalNotes": "Approved after verifying identity documents.",
+      "trialStartedAt": "2026-09-22T21:27:24.772Z",
+      "trialEndsAt": "2026-09-23T21:27:24.772Z",
+      "trialDurationHours": 24,
+      "subscriptionPlan": "Starter",
+      "verificationInfo.verifiedAt": "2026-09-22T21:27:24.772Z",
+      "verificationInfo.verifiedBy": "admin@zakir.ai",
+      "approvalEmailSentAt": "2026-09-22T21:27:24.772Z",
+      "approvalNotificationSent": true,
+      "approvalEmailMessageId": "sim_1790112445254_78166016"
     }
   ],
   "verification_codes": [
@@ -1539,6 +2332,175 @@
       "sendCount": 0,
       "initialOtpSent": true,
       "lastSentAt": "2026-09-17T17:01:02.918Z"
+    },
+    {
+      "id": "7oAjsz4oabfWnUm6LOuxpdMxr6w2",
+      "userId": "7oAjsz4oabfWnUm6LOuxpdMxr6w2",
+      "email": "test_new_user_1790111377086@zakir-test.com",
+      "phone": "",
+      "codeHash": "e5ef067e24004f45d1dc4ef5ade962c0b90e16d1c64109a081c2c1e9ec2a80bd",
+      "type": "account_registration",
+      "createdAt": "2026-09-22T21:09:40.151Z",
+      "expiresAt": "2026-09-22T21:19:40.151Z",
+      "attempts": 0,
+      "used": false,
+      "sendCount": 0,
+      "initialOtpSent": true,
+      "lastSentAt": "2026-09-22T21:09:40.151Z"
+    },
+    {
+      "id": "nfrSLBHwWefVu2Zwbvu0LPhjBsU2",
+      "userId": "nfrSLBHwWefVu2Zwbvu0LPhjBsU2",
+      "email": "test_new_user_1790111386314@zakir-test.com",
+      "phone": "",
+      "codeHash": "16d5c94fce98f19a1686416323edc0c59975a29ebfdb09a3b735c933e29374ff",
+      "type": "account_registration",
+      "createdAt": "2026-09-22T21:09:49.120Z",
+      "expiresAt": "2026-09-22T21:19:49.120Z",
+      "attempts": 0,
+      "used": false,
+      "sendCount": 0,
+      "initialOtpSent": true,
+      "lastSentAt": "2026-09-22T21:09:49.120Z"
+    },
+    {
+      "id": "7YUMUpO9cGSVi0mVuOKEEcbmg5w1",
+      "userId": "7YUMUpO9cGSVi0mVuOKEEcbmg5w1",
+      "email": "test_new_user_1790111494693@zakir-test.com",
+      "phone": "",
+      "codeHash": "37ecd780883c5c86e0abe70dd130a75733953b16c47a27071a0138c6219cef69",
+      "type": "account_registration",
+      "createdAt": "2026-09-22T21:11:37.814Z",
+      "expiresAt": "2026-09-22T21:21:37.814Z",
+      "attempts": 1,
+      "used": false,
+      "sendCount": 0,
+      "initialOtpSent": true,
+      "lastSentAt": "2026-09-22T21:11:37.814Z"
+    },
+    {
+      "attempts": 1,
+      "id": "test_new_user_1790111494693@zakir-test.com"
+    },
+    {
+      "id": "odFhtfLiMiNPeANX8UCyIDgFZAI3",
+      "userId": "odFhtfLiMiNPeANX8UCyIDgFZAI3",
+      "email": "test_new_user_1790111546954@zakir-test.com",
+      "phone": "",
+      "codeHash": "158a6a321006814a3e3469f0cad72cb27d4ddb1ab6dcdf2756aa20c73e34f776",
+      "type": "account_registration",
+      "createdAt": "2026-09-22T21:12:30.020Z",
+      "expiresAt": "2026-09-22T21:22:30.020Z",
+      "attempts": 0,
+      "used": true,
+      "sendCount": 0,
+      "initialOtpSent": true,
+      "lastSentAt": "2026-09-22T21:12:30.020Z",
+      "verifiedAt": "2026-09-22T21:12:31.468Z"
+    },
+    {
+      "used": true,
+      "verifiedAt": "2026-09-22T21:12:31.468Z",
+      "id": "test_new_user_1790111546954@zakir-test.com"
+    },
+    {
+      "id": "38s3Z7RWQ2SCktkszxKQoCjhsLU2",
+      "userId": "38s3Z7RWQ2SCktkszxKQoCjhsLU2",
+      "email": "test_new_user_1790111582094@zakir-test.com",
+      "phone": "",
+      "codeHash": "524fc244562c7c7bce8701cf66c5bc3d614d6d933fad5c1307b60a99295299ad",
+      "type": "account_registration",
+      "createdAt": "2026-09-22T21:13:05.839Z",
+      "expiresAt": "2026-09-22T21:23:05.839Z",
+      "attempts": 0,
+      "used": true,
+      "sendCount": 0,
+      "initialOtpSent": true,
+      "lastSentAt": "2026-09-22T21:13:05.839Z",
+      "verifiedAt": "2026-09-22T21:13:07.012Z"
+    },
+    {
+      "used": true,
+      "verifiedAt": "2026-09-22T21:13:07.012Z",
+      "id": "test_new_user_1790111582094@zakir-test.com"
+    },
+    {
+      "id": "CZBYKBy6Pifw1B4D3YgAjmPNQ5O2",
+      "userId": "CZBYKBy6Pifw1B4D3YgAjmPNQ5O2",
+      "email": "test_new_user_1790112213380@zakir-test.com",
+      "phone": "",
+      "codeHash": "c969dd60d7d03c1af9722e300889fa6a7a8efe99581c5e2fe535808ab050884f",
+      "type": "account_registration",
+      "createdAt": "2026-09-22T21:23:37.423Z",
+      "expiresAt": "2026-09-22T21:33:37.423Z",
+      "attempts": 0,
+      "used": true,
+      "sendCount": 0,
+      "initialOtpSent": true,
+      "lastSentAt": "2026-09-22T21:23:37.423Z",
+      "verifiedAt": "2026-09-22T21:23:38.728Z"
+    },
+    {
+      "used": true,
+      "verifiedAt": "2026-09-22T21:23:38.728Z",
+      "id": "test_new_user_1790112213380@zakir-test.com"
+    },
+    {
+      "id": "m8CUV9lRhxaIlB9Vsowe9QShVgr1",
+      "userId": "m8CUV9lRhxaIlB9Vsowe9QShVgr1",
+      "email": "auth_test_1790112289709@zakir-test.com",
+      "phone": "",
+      "codeHash": "0e60400d1033d31bae63b9d0854148fb0d01a15b48c46311221adad4b3a1dff0",
+      "type": "account_registration",
+      "createdAt": "2026-09-22T21:24:52.754Z",
+      "expiresAt": "2026-09-22T21:34:52.754Z",
+      "attempts": 0,
+      "used": true,
+      "sendCount": 0,
+      "initialOtpSent": true,
+      "lastSentAt": "2026-09-22T21:24:52.754Z",
+      "verifiedAt": "2026-09-22T21:24:53.492Z"
+    },
+    {
+      "used": true,
+      "verifiedAt": "2026-09-22T21:24:53.492Z",
+      "id": "auth_test_1790112289709@zakir-test.com"
+    },
+    {
+      "id": "AZkh8ciRHSh8eBxlOwHvmDoTpA93",
+      "userId": "AZkh8ciRHSh8eBxlOwHvmDoTpA93",
+      "email": "intruder_1790112295087@zakir-test.com",
+      "phone": "",
+      "codeHash": "0eb03bd519a72b3031db28621cd73a74f81d6d04b291cd78ec076c08fe23120a",
+      "type": "account_registration",
+      "createdAt": "2026-09-22T21:24:57.985Z",
+      "expiresAt": "2026-09-22T21:34:57.985Z",
+      "attempts": 0,
+      "used": false,
+      "sendCount": 0,
+      "initialOtpSent": true,
+      "lastSentAt": "2026-09-22T21:24:57.985Z"
+    },
+    {
+      "id": "GCdj0VLjFoReyj5hSEPR6cXyAFl2",
+      "userId": "GCdj0VLjFoReyj5hSEPR6cXyAFl2",
+      "email": "test_new_user_1790112434381@zakir-test.com",
+      "phone": "",
+      "codeHash": "481d07a190a898988d673edc2fcf61f8f3fa504de34a9e6eb7f38a4875db843e",
+      "type": "account_registration",
+      "createdAt": "2026-09-22T21:27:17.307Z",
+      "expiresAt": "2026-09-22T21:37:17.307Z",
+      "attempts": 0,
+      "used": true,
+      "sendCount": 0,
+      "initialOtpSent": true,
+      "lastSentAt": "2026-09-22T21:27:17.307Z",
+      "verifiedAt": "2026-09-22T21:27:18.682Z"
+    },
+    {
+      "used": true,
+      "verifiedAt": "2026-09-22T21:27:18.682Z",
+      "id": "test_new_user_1790112434381@zakir-test.com"
     }
   ],
   "support_tickets": [
@@ -3343,6 +4305,138 @@
       "createdAt": "2026-09-08T20:31:15.452Z",
       "expiresAt": "2026-09-22T20:31:15.452Z",
       "syncError": "Primary Firestore chunk storage active (Bucket unprovisioned)"
+    },
+    "doc_1790111500655_468b7d73": {
+      "documentId": "doc_1790111500655_468b7d73",
+      "mimeType": "application/pdf",
+      "size": 86,
+      "fileName": "national_id_card.pdf",
+      "fileHash": "e7218eaa48a42605db3e9fd4ac5bd32e35b930ac26c111e3322a94c52f07a5ac",
+      "fileBase64": "JVBERi0xLjQKJcOiw6PDj8OTCjEgMCBvYmoKPDwgL1R5cGUgL0NhdGFsb2cgPj4KZW5kb2JqCnRyYWlsZXIKPDwgL1Jvb3QgMSAwIFIgPj4KJSVFT0Y=",
+      "storageStatus": "synced",
+      "syncAttempts": 0,
+      "createdAt": "2026-09-22T21:11:40.656Z",
+      "expiresAt": "2026-10-06T21:11:40.656Z"
+    },
+    "doc_1790111501186_b46df012": {
+      "documentId": "doc_1790111501186_b46df012",
+      "mimeType": "image/png",
+      "size": 67,
+      "fileName": "commercial_register.png",
+      "fileHash": "ebf4f635a17d10d6eb46ba680b70142419aa3220f228001a036d311a22ee9d2a",
+      "fileBase64": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAACklEQVR4nGMAAQAABQABDQottAAAAABJRU5ErkJggg==",
+      "storageStatus": "synced",
+      "syncAttempts": 0,
+      "createdAt": "2026-09-22T21:11:41.186Z",
+      "expiresAt": "2026-10-06T21:11:41.186Z"
+    },
+    "doc_1790111553010_2b357ca5": {
+      "documentId": "doc_1790111553010_2b357ca5",
+      "mimeType": "application/pdf",
+      "size": 86,
+      "fileName": "national_id_card.pdf",
+      "fileHash": "e7218eaa48a42605db3e9fd4ac5bd32e35b930ac26c111e3322a94c52f07a5ac",
+      "fileBase64": "JVBERi0xLjQKJcOiw6PDj8OTCjEgMCBvYmoKPDwgL1R5cGUgL0NhdGFsb2cgPj4KZW5kb2JqCnRyYWlsZXIKPDwgL1Jvb3QgMSAwIFIgPj4KJSVFT0Y=",
+      "storageStatus": "synced",
+      "syncAttempts": 0,
+      "createdAt": "2026-09-22T21:12:33.011Z",
+      "expiresAt": "2026-10-06T21:12:33.011Z"
+    },
+    "doc_1790111553540_e52eb349": {
+      "documentId": "doc_1790111553540_e52eb349",
+      "mimeType": "image/png",
+      "size": 67,
+      "fileName": "commercial_register.png",
+      "fileHash": "ebf4f635a17d10d6eb46ba680b70142419aa3220f228001a036d311a22ee9d2a",
+      "fileBase64": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAACklEQVR4nGMAAQAABQABDQottAAAAABJRU5ErkJggg==",
+      "storageStatus": "synced",
+      "syncAttempts": 0,
+      "createdAt": "2026-09-22T21:12:33.540Z",
+      "expiresAt": "2026-10-06T21:12:33.540Z"
+    },
+    "doc_1790111588557_2f0c2e35": {
+      "documentId": "doc_1790111588557_2f0c2e35",
+      "mimeType": "application/pdf",
+      "size": 86,
+      "fileName": "national_id_card.pdf",
+      "fileHash": "e7218eaa48a42605db3e9fd4ac5bd32e35b930ac26c111e3322a94c52f07a5ac",
+      "fileBase64": "JVBERi0xLjQKJcOiw6PDj8OTCjEgMCBvYmoKPDwgL1R5cGUgL0NhdGFsb2cgPj4KZW5kb2JqCnRyYWlsZXIKPDwgL1Jvb3QgMSAwIFIgPj4KJSVFT0Y=",
+      "storageStatus": "synced",
+      "syncAttempts": 0,
+      "createdAt": "2026-09-22T21:13:08.558Z",
+      "expiresAt": "2026-10-06T21:13:08.558Z"
+    },
+    "doc_1790111589075_1a83d7e1": {
+      "documentId": "doc_1790111589075_1a83d7e1",
+      "mimeType": "image/png",
+      "size": 67,
+      "fileName": "commercial_register.png",
+      "fileHash": "ebf4f635a17d10d6eb46ba680b70142419aa3220f228001a036d311a22ee9d2a",
+      "fileBase64": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAACklEQVR4nGMAAQAABQABDQottAAAAABJRU5ErkJggg==",
+      "storageStatus": "synced",
+      "syncAttempts": 0,
+      "createdAt": "2026-09-22T21:13:09.075Z",
+      "expiresAt": "2026-10-06T21:13:09.075Z"
+    },
+    "doc_1790112220380_5c5cc417": {
+      "documentId": "doc_1790112220380_5c5cc417",
+      "mimeType": "application/pdf",
+      "size": 86,
+      "fileName": "national_id_card.pdf",
+      "fileHash": "e7218eaa48a42605db3e9fd4ac5bd32e35b930ac26c111e3322a94c52f07a5ac",
+      "fileBase64": "JVBERi0xLjQKJcOiw6PDj8OTCjEgMCBvYmoKPDwgL1R5cGUgL0NhdGFsb2cgPj4KZW5kb2JqCnRyYWlsZXIKPDwgL1Jvb3QgMSAwIFIgPj4KJSVFT0Y=",
+      "storageStatus": "synced",
+      "syncAttempts": 0,
+      "createdAt": "2026-09-22T21:23:40.381Z",
+      "expiresAt": "2026-10-06T21:23:40.381Z"
+    },
+    "doc_1790112220906_80085937": {
+      "documentId": "doc_1790112220906_80085937",
+      "mimeType": "image/png",
+      "size": 67,
+      "fileName": "commercial_register.png",
+      "fileHash": "ebf4f635a17d10d6eb46ba680b70142419aa3220f228001a036d311a22ee9d2a",
+      "fileBase64": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAACklEQVR4nGMAAQAABQABDQottAAAAABJRU5ErkJggg==",
+      "storageStatus": "synced",
+      "syncAttempts": 0,
+      "createdAt": "2026-09-22T21:23:40.906Z",
+      "expiresAt": "2026-10-06T21:23:40.906Z"
+    },
+    "doc_1790112294479_a3a5b41b": {
+      "documentId": "doc_1790112294479_a3a5b41b",
+      "mimeType": "application/pdf",
+      "size": 86,
+      "fileName": "id_doc.pdf",
+      "fileHash": "e7218eaa48a42605db3e9fd4ac5bd32e35b930ac26c111e3322a94c52f07a5ac",
+      "fileBase64": "JVBERi0xLjQKJcOiw6PDj8OTCjEgMCBvYmoKPDwgL1R5cGUgL0NhdGFsb2cgPj4KZW5kb2JqCnRyYWlsZXIKPDwgL1Jvb3QgMSAwIFIgPj4KJSVFT0Y=",
+      "storageStatus": "synced",
+      "syncAttempts": 0,
+      "createdAt": "2026-09-22T21:24:54.480Z",
+      "expiresAt": "2026-10-06T21:24:54.480Z"
+    },
+    "doc_1790112440175_69a70524": {
+      "documentId": "doc_1790112440175_69a70524",
+      "mimeType": "application/pdf",
+      "size": 86,
+      "fileName": "national_id_card.pdf",
+      "fileHash": "e7218eaa48a42605db3e9fd4ac5bd32e35b930ac26c111e3322a94c52f07a5ac",
+      "fileBase64": "JVBERi0xLjQKJcOiw6PDj8OTCjEgMCBvYmoKPDwgL1R5cGUgL0NhdGFsb2cgPj4KZW5kb2JqCnRyYWlsZXIKPDwgL1Jvb3QgMSAwIFIgPj4KJSVFT0Y=",
+      "storageStatus": "synced",
+      "syncAttempts": 0,
+      "createdAt": "2026-09-22T21:27:20.176Z",
+      "expiresAt": "2026-10-06T21:27:20.176Z"
+    },
+    "doc_1790112440692_b2f75d35": {
+      "documentId": "doc_1790112440692_b2f75d35",
+      "mimeType": "image/png",
+      "size": 67,
+      "fileName": "commercial_register.png",
+      "fileHash": "ebf4f635a17d10d6eb46ba680b70142419aa3220f228001a036d311a22ee9d2a",
+      "fileBase64": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAACklEQVR4nGMAAQAABQABDQottAAAAABJRU5ErkJggg==",
+      "storageStatus": "synced",
+      "syncAttempts": 0,
+      "createdAt": "2026-09-22T21:27:20.692Z",
+      "expiresAt": "2026-10-06T21:27:20.692Z"
     }
   },
   "invitations": [
@@ -3452,6 +4546,506 @@
   ],
   "platform_events": [
     {
+      "id": "evt_1790112444466_ttrzumh",
+      "eventType": "INSTITUTIONAL_VERIFICATION_SUBMITTED",
+      "severity": "NOTICE",
+      "category": "AUTH",
+      "timestamp": "2026-09-22T21:27:24.466Z",
+      "userId": "GCdj0VLjFoReyj5hSEPR6cXyAFl2",
+      "userEmail": "test_new_user_1790112434381@zakir-test.com",
+      "sanitizedMessage": "User verification documents submitted by [test_new_user_1790112434381@zakir-test.com] (مؤسسة الأفق الذكي) - Pending admin review.",
+      "status": "ACTIVE",
+      "metadata": {
+        "fullName": "خالد التوثيق - نسخة محدثة",
+        "phone": "+966501112233",
+        "jobTitle": "Executive",
+        "hasCompany": true,
+        "companyName": "مؤسسة الأفق الذكي",
+        "sector": "General",
+        "country": "International",
+        "registrationNumber": "",
+        "companySize": "1-10",
+        "intendedUse": "Strategic Decision Intelligence",
+        "additionalNotes": "تم إعادة إرسال صورة واضحة ومحدثة للهوية الوطنية",
+        "submittedAt": "2026-09-22T21:27:24.293Z",
+        "documentsCount": 2
+      },
+      "source": "server"
+    },
+    {
+      "id": "evt_1790112443166_wxow02u",
+      "eventType": "ADMIN_AUDIT_ACTION",
+      "severity": "INFO",
+      "category": "BILLING",
+      "timestamp": "2026-09-22T21:27:23.166Z",
+      "userId": "SYhfciebGFUj29qGgAa0pqNunrk2",
+      "userEmail": "admin@zakir.ai",
+      "resourceId": "GCdj0VLjFoReyj5hSEPR6cXyAFl2",
+      "sanitizedMessage": "Admin [admin@zakir.ai] performed REJECT_ACCOUNT on user [test_new_user_1790112434381@zakir-test.com]: Rejected account. Reason: صورة بطاقة الهوية غير واضحة المعالم، يرجى رفع صورة أوضح ملونة للهوية الوطنية.",
+      "status": "ACTIVE",
+      "metadata": {
+        "action": "REJECT_ACCOUNT",
+        "targetUserId": "GCdj0VLjFoReyj5hSEPR6cXyAFl2",
+        "targetUserEmail": "test_new_user_1790112434381@zakir-test.com",
+        "details": "Rejected account. Reason: صورة بطاقة الهوية غير واضحة المعالم، يرجى رفع صورة أوضح ملونة للهوية الوطنية.",
+        "newState": {
+          "accountStatus": "REJECTED",
+          "documentVerificationStatus": "REJECTED",
+          "rejectionReason": "صورة بطاقة الهوية غير واضحة المعالم، يرجى رفع صورة أوضح ملونة للهوية الوطنية.",
+          "rejectionDate": "2026-09-22T21:27:22.816Z",
+          "rejectedBy": "admin@zakir.ai",
+          "subscriptionStatus": "Inactive",
+          "verificationInfo.status": "action_required",
+          "verificationInfo.adminNote": "صورة بطاقة الهوية غير واضحة المعالم، يرجى رفع صورة أوضح ملونة للهوية الوطنية."
+        }
+      },
+      "source": "server"
+    },
+    {
+      "id": "evt_1790112441582_pl3d2nz",
+      "eventType": "INSTITUTIONAL_VERIFICATION_SUBMITTED",
+      "severity": "NOTICE",
+      "category": "AUTH",
+      "timestamp": "2026-09-22T21:27:21.582Z",
+      "userId": "GCdj0VLjFoReyj5hSEPR6cXyAFl2",
+      "userEmail": "test_new_user_1790112434381@zakir-test.com",
+      "sanitizedMessage": "User verification documents submitted by [test_new_user_1790112434381@zakir-test.com] (مؤسسة الأفق الذكي) - Pending admin review.",
+      "status": "ACTIVE",
+      "metadata": {
+        "fullName": "خالد التوثيق",
+        "phone": "+966501112233",
+        "jobTitle": "الرئيس التنفيذي",
+        "hasCompany": true,
+        "companyName": "مؤسسة الأفق الذكي",
+        "sector": "التقنية المالية والذكاء الاستراتيجي",
+        "country": "المملكة العربية السعودية",
+        "registrationNumber": "1010998877",
+        "companySize": "1-10",
+        "intendedUse": "Strategic Decision Intelligence",
+        "additionalNotes": "طلب توثيق رسمي للاختبار",
+        "submittedAt": "2026-09-22T21:27:21.373Z",
+        "documentsCount": 2
+      },
+      "source": "server"
+    },
+    {
+      "id": "evt_1790112439348_9ntzfv4",
+      "eventType": "OTP_VERIFICATION_SUCCESS",
+      "severity": "NOTICE",
+      "category": "AUTH",
+      "timestamp": "2026-09-22T21:27:19.348Z",
+      "userId": "GCdj0VLjFoReyj5hSEPR6cXyAFl2",
+      "userEmail": "test_new_user_1790112434381@zakir-test.com",
+      "requestId": "req_1790112438391_5b2c7e90",
+      "sanitizedMessage": "Verification code successfully validated for: test_new_user_1790112434381@zakir-test.com",
+      "status": "ACTIVE",
+      "metadata": {
+        "targetIdentifier": "test_new_user_1790112434381@zakir-test.com",
+        "type": "account_registration"
+      },
+      "source": "server"
+    },
+    {
+      "id": "evt_1790112294176_gcuqojr",
+      "eventType": "OTP_VERIFICATION_SUCCESS",
+      "severity": "NOTICE",
+      "category": "AUTH",
+      "timestamp": "2026-09-22T21:24:54.176Z",
+      "userId": "m8CUV9lRhxaIlB9Vsowe9QShVgr1",
+      "userEmail": "auth_test_1790112289709@zakir-test.com",
+      "requestId": "req_1790112293193_2bbab80d",
+      "sanitizedMessage": "Verification code successfully validated for: auth_test_1790112289709@zakir-test.com",
+      "status": "ACTIVE",
+      "metadata": {
+        "targetIdentifier": "auth_test_1790112289709@zakir-test.com",
+        "type": "account_registration"
+      },
+      "source": "server"
+    },
+    {
+      "id": "evt_1790112224536_ve5xpot",
+      "eventType": "INSTITUTIONAL_VERIFICATION_SUBMITTED",
+      "severity": "NOTICE",
+      "category": "AUTH",
+      "timestamp": "2026-09-22T21:23:44.536Z",
+      "userId": "CZBYKBy6Pifw1B4D3YgAjmPNQ5O2",
+      "userEmail": "test_new_user_1790112213380@zakir-test.com",
+      "sanitizedMessage": "User verification documents submitted by [test_new_user_1790112213380@zakir-test.com] (مؤسسة الأفق الذكي) - Pending admin review.",
+      "status": "ACTIVE",
+      "metadata": {
+        "fullName": "خالد التوثيق - نسخة محدثة",
+        "phone": "+966501112233",
+        "jobTitle": "Executive",
+        "hasCompany": true,
+        "companyName": "مؤسسة الأفق الذكي",
+        "sector": "General",
+        "country": "International",
+        "registrationNumber": "",
+        "companySize": "1-10",
+        "intendedUse": "Strategic Decision Intelligence",
+        "additionalNotes": "تم إعادة إرسال صورة واضحة ومحدثة للهوية الوطنية",
+        "submittedAt": "2026-09-22T21:23:44.356Z",
+        "documentsCount": 2
+      },
+      "source": "server"
+    },
+    {
+      "id": "evt_1790112223319_mg3peni",
+      "eventType": "ADMIN_AUDIT_ACTION",
+      "severity": "INFO",
+      "category": "BILLING",
+      "timestamp": "2026-09-22T21:23:43.319Z",
+      "userId": "SYhfciebGFUj29qGgAa0pqNunrk2",
+      "userEmail": "admin@zakir.ai",
+      "resourceId": "CZBYKBy6Pifw1B4D3YgAjmPNQ5O2",
+      "sanitizedMessage": "Admin [admin@zakir.ai] performed REJECT_ACCOUNT on user [test_new_user_1790112213380@zakir-test.com]: Rejected account. Reason: صورة بطاقة الهوية غير واضحة المعالم، يرجى رفع صورة أوضح ملونة للهوية الوطنية.",
+      "status": "ACTIVE",
+      "metadata": {
+        "action": "REJECT_ACCOUNT",
+        "targetUserId": "CZBYKBy6Pifw1B4D3YgAjmPNQ5O2",
+        "targetUserEmail": "test_new_user_1790112213380@zakir-test.com",
+        "details": "Rejected account. Reason: صورة بطاقة الهوية غير واضحة المعالم، يرجى رفع صورة أوضح ملونة للهوية الوطنية.",
+        "newState": {
+          "accountStatus": "REJECTED",
+          "documentVerificationStatus": "REJECTED",
+          "rejectionReason": "صورة بطاقة الهوية غير واضحة المعالم، يرجى رفع صورة أوضح ملونة للهوية الوطنية.",
+          "rejectionDate": "2026-09-22T21:23:42.955Z",
+          "rejectedBy": "admin@zakir.ai",
+          "subscriptionStatus": "Inactive",
+          "verificationInfo.status": "action_required",
+          "verificationInfo.adminNote": "صورة بطاقة الهوية غير واضحة المعالم، يرجى رفع صورة أوضح ملونة للهوية الوطنية."
+        }
+      },
+      "source": "server"
+    },
+    {
+      "id": "evt_1790112221821_gao0ul6",
+      "eventType": "INSTITUTIONAL_VERIFICATION_SUBMITTED",
+      "severity": "NOTICE",
+      "category": "AUTH",
+      "timestamp": "2026-09-22T21:23:41.821Z",
+      "userId": "CZBYKBy6Pifw1B4D3YgAjmPNQ5O2",
+      "userEmail": "test_new_user_1790112213380@zakir-test.com",
+      "sanitizedMessage": "User verification documents submitted by [test_new_user_1790112213380@zakir-test.com] (مؤسسة الأفق الذكي) - Pending admin review.",
+      "status": "ACTIVE",
+      "metadata": {
+        "fullName": "خالد التوثيق",
+        "phone": "+966501112233",
+        "jobTitle": "الرئيس التنفيذي",
+        "hasCompany": true,
+        "companyName": "مؤسسة الأفق الذكي",
+        "sector": "التقنية المالية والذكاء الاستراتيجي",
+        "country": "المملكة العربية السعودية",
+        "registrationNumber": "1010998877",
+        "companySize": "1-10",
+        "intendedUse": "Strategic Decision Intelligence",
+        "additionalNotes": "طلب توثيق رسمي للاختبار",
+        "submittedAt": "2026-09-22T21:23:41.641Z",
+        "documentsCount": 2
+      },
+      "source": "server"
+    },
+    {
+      "id": "evt_1790112219488_w8m27im",
+      "eventType": "OTP_VERIFICATION_SUCCESS",
+      "severity": "NOTICE",
+      "category": "AUTH",
+      "timestamp": "2026-09-22T21:23:39.488Z",
+      "userId": "CZBYKBy6Pifw1B4D3YgAjmPNQ5O2",
+      "userEmail": "test_new_user_1790112213380@zakir-test.com",
+      "requestId": "req_1790112218429_588fcb21",
+      "sanitizedMessage": "Verification code successfully validated for: test_new_user_1790112213380@zakir-test.com",
+      "status": "ACTIVE",
+      "metadata": {
+        "targetIdentifier": "test_new_user_1790112213380@zakir-test.com",
+        "type": "account_registration"
+      },
+      "source": "server"
+    },
+    {
+      "id": "evt_1790111592646_udlrdfg",
+      "eventType": "INSTITUTIONAL_VERIFICATION_SUBMITTED",
+      "severity": "NOTICE",
+      "category": "AUTH",
+      "timestamp": "2026-09-22T21:13:12.646Z",
+      "userId": "38s3Z7RWQ2SCktkszxKQoCjhsLU2",
+      "userEmail": "test_new_user_1790111582094@zakir-test.com",
+      "sanitizedMessage": "User verification documents submitted by [test_new_user_1790111582094@zakir-test.com] (مؤسسة الأفق الذكي) - Pending admin review.",
+      "status": "ACTIVE",
+      "metadata": {
+        "fullName": "خالد التوثيق - نسخة محدثة",
+        "phone": "+966501112233",
+        "jobTitle": "Executive",
+        "hasCompany": true,
+        "companyName": "مؤسسة الأفق الذكي",
+        "sector": "General",
+        "country": "International",
+        "registrationNumber": "",
+        "companySize": "1-10",
+        "intendedUse": "Strategic Decision Intelligence",
+        "additionalNotes": "تم إعادة إرسال صورة واضحة ومحدثة للهوية الوطنية",
+        "submittedAt": "2026-09-22T21:13:12.473Z",
+        "documentsCount": 2
+      },
+      "source": "server"
+    },
+    {
+      "id": "evt_1790111591445_upel3xb",
+      "eventType": "ADMIN_AUDIT_ACTION",
+      "severity": "INFO",
+      "category": "BILLING",
+      "timestamp": "2026-09-22T21:13:11.445Z",
+      "userId": "SYhfciebGFUj29qGgAa0pqNunrk2",
+      "userEmail": "admin@zakir.ai",
+      "resourceId": "38s3Z7RWQ2SCktkszxKQoCjhsLU2",
+      "sanitizedMessage": "Admin [admin@zakir.ai] performed REJECT_ACCOUNT on user [test_new_user_1790111582094@zakir-test.com]: Rejected account. Reason: صورة بطاقة الهوية غير واضحة المعالم، يرجى رفع صورة أوضح ملونة للهوية الوطنية.",
+      "status": "ACTIVE",
+      "metadata": {
+        "action": "REJECT_ACCOUNT",
+        "targetUserId": "38s3Z7RWQ2SCktkszxKQoCjhsLU2",
+        "targetUserEmail": "test_new_user_1790111582094@zakir-test.com",
+        "details": "Rejected account. Reason: صورة بطاقة الهوية غير واضحة المعالم، يرجى رفع صورة أوضح ملونة للهوية الوطنية.",
+        "newState": {
+          "accountStatus": "REJECTED",
+          "documentVerificationStatus": "REJECTED",
+          "rejectionReason": "صورة بطاقة الهوية غير واضحة المعالم، يرجى رفع صورة أوضح ملونة للهوية الوطنية.",
+          "rejectionDate": "2026-09-22T21:13:11.070Z",
+          "rejectedBy": "admin@zakir.ai",
+          "subscriptionStatus": "Inactive",
+          "verificationInfo.status": "action_required",
+          "verificationInfo.adminNote": "صورة بطاقة الهوية غير واضحة المعالم، يرجى رفع صورة أوضح ملونة للهوية الوطنية."
+        }
+      },
+      "source": "server"
+    },
+    {
+      "id": "evt_1790111589934_8xl5koo",
+      "eventType": "INSTITUTIONAL_VERIFICATION_SUBMITTED",
+      "severity": "NOTICE",
+      "category": "AUTH",
+      "timestamp": "2026-09-22T21:13:09.934Z",
+      "userId": "38s3Z7RWQ2SCktkszxKQoCjhsLU2",
+      "userEmail": "test_new_user_1790111582094@zakir-test.com",
+      "sanitizedMessage": "User verification documents submitted by [test_new_user_1790111582094@zakir-test.com] (مؤسسة الأفق الذكي) - Pending admin review.",
+      "status": "ACTIVE",
+      "metadata": {
+        "fullName": "خالد التوثيق",
+        "phone": "+966501112233",
+        "jobTitle": "الرئيس التنفيذي",
+        "hasCompany": true,
+        "companyName": "مؤسسة الأفق الذكي",
+        "sector": "التقنية المالية والذكاء الاستراتيجي",
+        "country": "المملكة العربية السعودية",
+        "registrationNumber": "1010998877",
+        "companySize": "1-10",
+        "intendedUse": "Strategic Decision Intelligence",
+        "additionalNotes": "طلب توثيق رسمي للاختبار",
+        "submittedAt": "2026-09-22T21:13:09.759Z",
+        "documentsCount": 2
+      },
+      "source": "server"
+    },
+    {
+      "id": "evt_1790111587714_icd25se",
+      "eventType": "OTP_VERIFICATION_SUCCESS",
+      "severity": "NOTICE",
+      "category": "AUTH",
+      "timestamp": "2026-09-22T21:13:07.714Z",
+      "userId": "38s3Z7RWQ2SCktkszxKQoCjhsLU2",
+      "userEmail": "test_new_user_1790111582094@zakir-test.com",
+      "requestId": "req_1790111586714_c382afe7",
+      "sanitizedMessage": "Verification code successfully validated for: test_new_user_1790111582094@zakir-test.com",
+      "status": "ACTIVE",
+      "metadata": {
+        "targetIdentifier": "test_new_user_1790111582094@zakir-test.com",
+        "type": "account_registration"
+      },
+      "source": "server"
+    },
+    {
+      "id": "evt_1790111557044_eki7f7k",
+      "eventType": "INSTITUTIONAL_VERIFICATION_SUBMITTED",
+      "severity": "NOTICE",
+      "category": "AUTH",
+      "timestamp": "2026-09-22T21:12:37.044Z",
+      "userId": "odFhtfLiMiNPeANX8UCyIDgFZAI3",
+      "userEmail": "test_new_user_1790111546954@zakir-test.com",
+      "sanitizedMessage": "User verification documents submitted by [test_new_user_1790111546954@zakir-test.com] (مؤسسة الأفق الذكي) - Pending admin review.",
+      "status": "ACTIVE",
+      "metadata": {
+        "fullName": "خالد التوثيق - نسخة محدثة",
+        "phone": "+966501112233",
+        "jobTitle": "Executive",
+        "hasCompany": true,
+        "companyName": "مؤسسة الأفق الذكي",
+        "sector": "General",
+        "country": "International",
+        "registrationNumber": "",
+        "companySize": "1-10",
+        "intendedUse": "Strategic Decision Intelligence",
+        "additionalNotes": "تم إعادة إرسال صورة واضحة ومحدثة للهوية الوطنية",
+        "submittedAt": "2026-09-22T21:12:36.873Z",
+        "documentsCount": 2
+      },
+      "source": "server"
+    },
+    {
+      "id": "evt_1790111555854_pf8m9m6",
+      "eventType": "ADMIN_AUDIT_ACTION",
+      "severity": "INFO",
+      "category": "BILLING",
+      "timestamp": "2026-09-22T21:12:35.854Z",
+      "userId": "SYhfciebGFUj29qGgAa0pqNunrk2",
+      "userEmail": "admin@zakir.ai",
+      "resourceId": "odFhtfLiMiNPeANX8UCyIDgFZAI3",
+      "sanitizedMessage": "Admin [admin@zakir.ai] performed REJECT_ACCOUNT on user [test_new_user_1790111546954@zakir-test.com]: Rejected account. Reason: صورة بطاقة الهوية غير واضحة المعالم، يرجى رفع صورة أوضح ملونة للهوية الوطنية.",
+      "status": "ACTIVE",
+      "metadata": {
+        "action": "REJECT_ACCOUNT",
+        "targetUserId": "odFhtfLiMiNPeANX8UCyIDgFZAI3",
+        "targetUserEmail": "test_new_user_1790111546954@zakir-test.com",
+        "details": "Rejected account. Reason: صورة بطاقة الهوية غير واضحة المعالم، يرجى رفع صورة أوضح ملونة للهوية الوطنية.",
+        "newState": {
+          "accountStatus": "REJECTED",
+          "documentVerificationStatus": "REJECTED",
+          "rejectionReason": "صورة بطاقة الهوية غير واضحة المعالم، يرجى رفع صورة أوضح ملونة للهوية الوطنية.",
+          "rejectionDate": "2026-09-22T21:12:35.512Z",
+          "rejectedBy": "admin@zakir.ai",
+          "subscriptionStatus": "Inactive",
+          "verificationInfo.status": "action_required",
+          "verificationInfo.adminNote": "صورة بطاقة الهوية غير واضحة المعالم، يرجى رفع صورة أوضح ملونة للهوية الوطنية."
+        }
+      },
+      "source": "server"
+    },
+    {
+      "id": "evt_1790111554398_j9v90a5",
+      "eventType": "INSTITUTIONAL_VERIFICATION_SUBMITTED",
+      "severity": "NOTICE",
+      "category": "AUTH",
+      "timestamp": "2026-09-22T21:12:34.398Z",
+      "userId": "odFhtfLiMiNPeANX8UCyIDgFZAI3",
+      "userEmail": "test_new_user_1790111546954@zakir-test.com",
+      "sanitizedMessage": "User verification documents submitted by [test_new_user_1790111546954@zakir-test.com] (مؤسسة الأفق الذكي) - Pending admin review.",
+      "status": "ACTIVE",
+      "metadata": {
+        "fullName": "خالد التوثيق",
+        "phone": "+966501112233",
+        "jobTitle": "الرئيس التنفيذي",
+        "hasCompany": true,
+        "companyName": "مؤسسة الأفق الذكي",
+        "sector": "التقنية المالية والذكاء الاستراتيجي",
+        "country": "المملكة العربية السعودية",
+        "registrationNumber": "1010998877",
+        "companySize": "1-10",
+        "intendedUse": "Strategic Decision Intelligence",
+        "additionalNotes": "طلب توثيق رسمي للاختبار",
+        "submittedAt": "2026-09-22T21:12:34.221Z",
+        "documentsCount": 2
+      },
+      "source": "server"
+    },
+    {
+      "id": "evt_1790111504787_eq9saoi",
+      "eventType": "INSTITUTIONAL_VERIFICATION_SUBMITTED",
+      "severity": "NOTICE",
+      "category": "AUTH",
+      "timestamp": "2026-09-22T21:11:44.787Z",
+      "userId": "7YUMUpO9cGSVi0mVuOKEEcbmg5w1",
+      "userEmail": "test_new_user_1790111494693@zakir-test.com",
+      "sanitizedMessage": "User verification documents submitted by [test_new_user_1790111494693@zakir-test.com] (مؤسسة الأفق الذكي) - Pending admin review.",
+      "status": "ACTIVE",
+      "metadata": {
+        "fullName": "خالد التوثيق - نسخة محدثة",
+        "phone": "+966501112233",
+        "jobTitle": "Executive",
+        "hasCompany": true,
+        "companyName": "مؤسسة الأفق الذكي",
+        "sector": "General",
+        "country": "International",
+        "registrationNumber": "",
+        "companySize": "1-10",
+        "intendedUse": "Strategic Decision Intelligence",
+        "additionalNotes": "تم إعادة إرسال صورة واضحة ومحدثة للهوية الوطنية",
+        "submittedAt": "2026-09-22T21:11:44.611Z",
+        "documentsCount": 2
+      },
+      "source": "server"
+    },
+    {
+      "id": "evt_1790111503592_ht5ygzo",
+      "eventType": "ADMIN_AUDIT_ACTION",
+      "severity": "INFO",
+      "category": "BILLING",
+      "timestamp": "2026-09-22T21:11:43.592Z",
+      "userId": "SYhfciebGFUj29qGgAa0pqNunrk2",
+      "userEmail": "admin@zakir.ai",
+      "resourceId": "7YUMUpO9cGSVi0mVuOKEEcbmg5w1",
+      "sanitizedMessage": "Admin [admin@zakir.ai] performed REJECT_ACCOUNT on user [test_new_user_1790111494693@zakir-test.com]: Rejected account. Reason: صورة بطاقة الهوية غير واضحة المعالم، يرجى رفع صورة أوضح ملونة للهوية الوطنية.",
+      "status": "ACTIVE",
+      "metadata": {
+        "action": "REJECT_ACCOUNT",
+        "targetUserId": "7YUMUpO9cGSVi0mVuOKEEcbmg5w1",
+        "targetUserEmail": "test_new_user_1790111494693@zakir-test.com",
+        "details": "Rejected account. Reason: صورة بطاقة الهوية غير واضحة المعالم، يرجى رفع صورة أوضح ملونة للهوية الوطنية.",
+        "newState": {
+          "accountStatus": "REJECTED",
+          "documentVerificationStatus": "REJECTED",
+          "rejectionReason": "صورة بطاقة الهوية غير واضحة المعالم، يرجى رفع صورة أوضح ملونة للهوية الوطنية.",
+          "rejectionDate": "2026-09-22T21:11:43.138Z",
+          "rejectedBy": "admin@zakir.ai",
+          "subscriptionStatus": "Inactive",
+          "verificationInfo.status": "action_required",
+          "verificationInfo.adminNote": "صورة بطاقة الهوية غير واضحة المعالم، يرجى رفع صورة أوضح ملونة للهوية الوطنية."
+        }
+      },
+      "source": "server"
+    },
+    {
+      "id": "evt_1790111502101_elgptim",
+      "eventType": "INSTITUTIONAL_VERIFICATION_SUBMITTED",
+      "severity": "NOTICE",
+      "category": "AUTH",
+      "timestamp": "2026-09-22T21:11:42.101Z",
+      "userId": "7YUMUpO9cGSVi0mVuOKEEcbmg5w1",
+      "userEmail": "test_new_user_1790111494693@zakir-test.com",
+      "sanitizedMessage": "User verification documents submitted by [test_new_user_1790111494693@zakir-test.com] (مؤسسة الأفق الذكي) - Pending admin review.",
+      "status": "ACTIVE",
+      "metadata": {
+        "fullName": "خالد التوثيق",
+        "phone": "+966501112233",
+        "jobTitle": "الرئيس التنفيذي",
+        "hasCompany": true,
+        "companyName": "مؤسسة الأفق الذكي",
+        "sector": "التقنية المالية والذكاء الاستراتيجي",
+        "country": "المملكة العربية السعودية",
+        "registrationNumber": "1010998877",
+        "companySize": "1-10",
+        "intendedUse": "Strategic Decision Intelligence",
+        "additionalNotes": "طلب توثيق رسمي للاختبار",
+        "submittedAt": "2026-09-22T21:11:41.918Z",
+        "documentsCount": 2
+      },
+      "source": "server"
+    },
+    {
+      "id": "evt_1790111499756_mrxigv7",
+      "eventType": "OTP_VERIFICATION_FAILED",
+      "severity": "WARNING",
+      "category": "AUTH",
+      "timestamp": "2026-09-22T21:11:39.756Z",
+      "userId": "7YUMUpO9cGSVi0mVuOKEEcbmg5w1",
+      "userEmail": "test_new_user_1790111494693@zakir-test.com",
+      "requestId": "req_1790111499026_547aeca5",
+      "sanitizedMessage": "Invalid verification code attempt for: test_new_user_1790111494693@zakir-test.com (4 attempts left)",
+      "status": "ACTIVE",
+      "metadata": {
+        "targetIdentifier": "test_new_user_1790111494693@zakir-test.com",
+        "remainingAttempts": 4
+      },
+      "source": "server"
+    },
+    {
       "id": "evt_1789742225610_m1itksh",
       "eventType": "TEST_VERIFICATION_AUDIT",
       "severity": "WARNING",
@@ -3467,6 +5061,21 @@
   ],
   "platform_incidents": [],
   "admin_notifications": [
+    {
+      "id": "notif_1790111499756_o4c1h",
+      "title": "OTP VERIFICATION FAILED",
+      "message": "Invalid verification code attempt for: test_new_user_1790111494693@zakir-test.com (4 attempts left)",
+      "severity": "WARNING",
+      "category": "AUTH",
+      "eventId": "evt_1790111499756_mrxigv7",
+      "read": false,
+      "acknowledged": false,
+      "timestamp": "2026-09-22T21:11:39.756Z",
+      "targetUser": "test_new_user_1790111494693@zakir-test.com",
+      "link": {
+        "tab": "emails"
+      }
+    },
     {
       "id": "notif_1789742225611_4novn",
       "title": "TEST VERIFICATION AUDIT",
@@ -9656,6 +11265,493 @@
         ],
         "workspaceId": "default",
         "userId": "usr_anon"
+      }
+    }
+  ],
+  "email_delivery_logs": [
+    {
+      "id": "sim_1790112443616_470a5383",
+      "recipient": "test_new_user_1790112434381@zakir-test.com",
+      "type": "otp",
+      "subject": "يلزم تحديث مستندات توثيق حسابك في منصة ذاكر | Action Required: Update Verification Documents - Zakir",
+      "timestamp": "2026-09-22T21:27:23.616Z",
+      "status": "DELIVERED (SIMULATED)",
+      "error": null
+    },
+    {
+      "id": "err_1790112443601_12b28b34",
+      "recipient": "test_new_user_1790112434381@zakir-test.com",
+      "type": "otp",
+      "subject": "يلزم تحديث مستندات توثيق حسابك في منصة ذاكر | Action Required: Update Verification Documents - Zakir",
+      "timestamp": "2026-09-22T21:27:23.602Z",
+      "status": "FAILED",
+      "error": "API key is invalid"
+    },
+    {
+      "id": "sim_1790112437913_5eb9d08b",
+      "recipient": "test_new_user_1790112434381@zakir-test.com",
+      "type": "notification",
+      "subject": "رمز التحقق لتفعيل حسابك في Zakir - Verify your Zakir account",
+      "timestamp": "2026-09-22T21:27:17.914Z",
+      "status": "DELIVERED (SIMULATED)",
+      "error": null
+    },
+    {
+      "id": "err_1790112437898_b32c6fb5",
+      "recipient": "test_new_user_1790112434381@zakir-test.com",
+      "type": "notification",
+      "subject": "رمز التحقق لتفعيل حسابك في Zakir - Verify your Zakir account",
+      "timestamp": "2026-09-22T21:27:17.898Z",
+      "status": "FAILED",
+      "error": "API key is invalid"
+    },
+    {
+      "id": "sim_1790112298567_0e96c101",
+      "recipient": "intruder_1790112295087@zakir-test.com",
+      "type": "notification",
+      "subject": "رمز التحقق لتفعيل حسابك في Zakir - Verify your Zakir account",
+      "timestamp": "2026-09-22T21:24:58.567Z",
+      "status": "DELIVERED (SIMULATED)",
+      "error": null
+    },
+    {
+      "id": "err_1790112298546_e54793e1",
+      "recipient": "intruder_1790112295087@zakir-test.com",
+      "type": "notification",
+      "subject": "رمز التحقق لتفعيل حسابك في Zakir - Verify your Zakir account",
+      "timestamp": "2026-09-22T21:24:58.546Z",
+      "status": "FAILED",
+      "error": "API key is invalid"
+    },
+    {
+      "id": "sim_1790112293177_628eb136",
+      "recipient": "auth_test_1790112289709@zakir-test.com",
+      "type": "notification",
+      "subject": "رمز التحقق لتفعيل حسابك في Zakir - Verify your Zakir account",
+      "timestamp": "2026-09-22T21:24:53.177Z",
+      "status": "DELIVERED (SIMULATED)",
+      "error": null
+    },
+    {
+      "id": "err_1790112293161_3f3d9714",
+      "recipient": "auth_test_1790112289709@zakir-test.com",
+      "type": "notification",
+      "subject": "رمز التحقق لتفعيل حسابك في Zakir - Verify your Zakir account",
+      "timestamp": "2026-09-22T21:24:53.161Z",
+      "status": "FAILED",
+      "error": "API key is invalid"
+    },
+    {
+      "id": "sim_1790112223723_88ce0e68",
+      "recipient": "test_new_user_1790112213380@zakir-test.com",
+      "type": "otp",
+      "subject": "يلزم تحديث مستندات توثيق حسابك في منصة ذاكر | Action Required: Update Verification Documents - Zakir",
+      "timestamp": "2026-09-22T21:23:43.723Z",
+      "status": "DELIVERED (SIMULATED)",
+      "error": null
+    },
+    {
+      "id": "err_1790112223706_b12ab1c3",
+      "recipient": "test_new_user_1790112213380@zakir-test.com",
+      "type": "otp",
+      "subject": "يلزم تحديث مستندات توثيق حسابك في منصة ذاكر | Action Required: Update Verification Documents - Zakir",
+      "timestamp": "2026-09-22T21:23:43.706Z",
+      "status": "FAILED",
+      "error": "API key is invalid"
+    },
+    {
+      "id": "sim_1790112217834_54e336e9",
+      "recipient": "test_new_user_1790112213380@zakir-test.com",
+      "type": "notification",
+      "subject": "رمز التحقق لتفعيل حسابك في Zakir - Verify your Zakir account",
+      "timestamp": "2026-09-22T21:23:37.834Z",
+      "status": "DELIVERED (SIMULATED)",
+      "error": null
+    },
+    {
+      "id": "err_1790112217816_6cdeaae8",
+      "recipient": "test_new_user_1790112213380@zakir-test.com",
+      "type": "notification",
+      "subject": "رمز التحقق لتفعيل حسابك في Zakir - Verify your Zakir account",
+      "timestamp": "2026-09-22T21:23:37.816Z",
+      "status": "FAILED",
+      "error": "API key is invalid"
+    },
+    {
+      "id": "sim_1790111591837_625b04b0",
+      "recipient": "test_new_user_1790111582094@zakir-test.com",
+      "type": "otp",
+      "subject": "يلزم تحديث مستندات توثيق حسابك في منصة ذاكر | Action Required: Update Verification Documents - Zakir",
+      "timestamp": "2026-09-22T21:13:11.837Z",
+      "status": "DELIVERED (SIMULATED)",
+      "error": null
+    },
+    {
+      "id": "err_1790111591823_739f0b38",
+      "recipient": "test_new_user_1790111582094@zakir-test.com",
+      "type": "otp",
+      "subject": "يلزم تحديث مستندات توثيق حسابك في منصة ذاكر | Action Required: Update Verification Documents - Zakir",
+      "timestamp": "2026-09-22T21:13:11.823Z",
+      "status": "FAILED",
+      "error": "API key is invalid"
+    },
+    {
+      "id": "sim_1790111586213_1b676256",
+      "recipient": "test_new_user_1790111582094@zakir-test.com",
+      "type": "notification",
+      "subject": "رمز التحقق لتفعيل حسابك في Zakir - Verify your Zakir account",
+      "timestamp": "2026-09-22T21:13:06.214Z",
+      "status": "DELIVERED (SIMULATED)",
+      "error": null
+    },
+    {
+      "id": "err_1790111586199_b53d56a2",
+      "recipient": "test_new_user_1790111582094@zakir-test.com",
+      "type": "notification",
+      "subject": "رمز التحقق لتفعيل حسابك في Zakir - Verify your Zakir account",
+      "timestamp": "2026-09-22T21:13:06.199Z",
+      "status": "FAILED",
+      "error": "API key is invalid"
+    },
+    {
+      "id": "sim_1790111556246_88507e03",
+      "recipient": "test_new_user_1790111546954@zakir-test.com",
+      "type": "otp",
+      "subject": "يلزم تحديث مستندات توثيق حسابك في منصة ذاكر | Action Required: Update Verification Documents - Zakir",
+      "timestamp": "2026-09-22T21:12:36.246Z",
+      "status": "DELIVERED (SIMULATED)",
+      "error": null
+    },
+    {
+      "id": "err_1790111556230_ec472335",
+      "recipient": "test_new_user_1790111546954@zakir-test.com",
+      "type": "otp",
+      "subject": "يلزم تحديث مستندات توثيق حسابك في منصة ذاكر | Action Required: Update Verification Documents - Zakir",
+      "timestamp": "2026-09-22T21:12:36.231Z",
+      "status": "FAILED",
+      "error": "API key is invalid"
+    },
+    {
+      "id": "sim_1790111550669_4b7eeb36",
+      "recipient": "test_new_user_1790111546954@zakir-test.com",
+      "type": "notification",
+      "subject": "رمز التحقق لتفعيل حسابك في Zakir - Verify your Zakir account",
+      "timestamp": "2026-09-22T21:12:30.669Z",
+      "status": "DELIVERED (SIMULATED)",
+      "error": null
+    },
+    {
+      "id": "err_1790111550656_224b7b94",
+      "recipient": "test_new_user_1790111546954@zakir-test.com",
+      "type": "notification",
+      "subject": "رمز التحقق لتفعيل حسابك في Zakir - Verify your Zakir account",
+      "timestamp": "2026-09-22T21:12:30.656Z",
+      "status": "FAILED",
+      "error": "API key is invalid"
+    },
+    {
+      "id": "sim_1790111503986_c61b0ea0",
+      "recipient": "test_new_user_1790111494693@zakir-test.com",
+      "type": "otp",
+      "subject": "يلزم تحديث مستندات توثيق حسابك في منصة ذاكر | Action Required: Update Verification Documents - Zakir",
+      "timestamp": "2026-09-22T21:11:43.986Z",
+      "status": "DELIVERED (SIMULATED)",
+      "error": null
+    },
+    {
+      "id": "err_1790111503972_c68f3b50",
+      "recipient": "test_new_user_1790111494693@zakir-test.com",
+      "type": "otp",
+      "subject": "يلزم تحديث مستندات توثيق حسابك في منصة ذاكر | Action Required: Update Verification Documents - Zakir",
+      "timestamp": "2026-09-22T21:11:43.972Z",
+      "status": "FAILED",
+      "error": "API key is invalid"
+    },
+    {
+      "id": "sim_1790111498416_7b5a46a1",
+      "recipient": "test_new_user_1790111494693@zakir-test.com",
+      "type": "notification",
+      "subject": "رمز التحقق لتفعيل حسابك في Zakir - Verify your Zakir account",
+      "timestamp": "2026-09-22T21:11:38.416Z",
+      "status": "DELIVERED (SIMULATED)",
+      "error": null
+    },
+    {
+      "id": "err_1790111498403_5fef712f",
+      "recipient": "test_new_user_1790111494693@zakir-test.com",
+      "type": "notification",
+      "subject": "رمز التحقق لتفعيل حسابك في Zakir - Verify your Zakir account",
+      "timestamp": "2026-09-22T21:11:38.403Z",
+      "status": "FAILED",
+      "error": "API key is invalid"
+    },
+    {
+      "id": "err_1790111389684_3c1aec78",
+      "recipient": "test_new_user_1790111386314@zakir-test.com",
+      "type": "notification",
+      "subject": "رمز التحقق لتفعيل حسابك في Zakir - Verify your Zakir account",
+      "timestamp": "2026-09-22T21:09:49.684Z",
+      "status": "FAILED",
+      "error": "API key is invalid"
+    },
+    {
+      "id": "err_1790111380760_25cdc004",
+      "recipient": "test_new_user_1790111377086@zakir-test.com",
+      "type": "notification",
+      "subject": "رمز التحقق لتفعيل حسابك في Zakir - Verify your Zakir account",
+      "timestamp": "2026-09-22T21:09:40.760Z",
+      "status": "FAILED",
+      "error": "API key is invalid"
+    }
+  ],
+  "verification_documents_store": {
+    "doc_1790111500655_468b7d73": {
+      "documentId": "doc_1790111500655_468b7d73",
+      "fileName": "national_id_card.pdf",
+      "mimeType": "application/pdf",
+      "size": 86,
+      "fileHash": "e7218eaa48a42605db3e9fd4ac5bd32e35b930ac26c111e3322a94c52f07a5ac",
+      "category": "personal",
+      "docType": "national_id",
+      "storageReference": "secure_uploads/doc_1790111500655_468b7d73",
+      "uploadedAt": "2026-09-22T21:11:41.002Z",
+      "userId": "7YUMUpO9cGSVi0mVuOKEEcbmg5w1"
+    },
+    "doc_1790111501186_b46df012": {
+      "documentId": "doc_1790111501186_b46df012",
+      "fileName": "commercial_register.png",
+      "mimeType": "image/png",
+      "size": 67,
+      "fileHash": "ebf4f635a17d10d6eb46ba680b70142419aa3220f228001a036d311a22ee9d2a",
+      "category": "company",
+      "docType": "commercial_register",
+      "storageReference": "secure_uploads/doc_1790111501186_b46df012",
+      "uploadedAt": "2026-09-22T21:11:41.533Z",
+      "userId": "7YUMUpO9cGSVi0mVuOKEEcbmg5w1"
+    },
+    "doc_1790111553010_2b357ca5": {
+      "documentId": "doc_1790111553010_2b357ca5",
+      "fileName": "national_id_card.pdf",
+      "mimeType": "application/pdf",
+      "size": 86,
+      "fileHash": "e7218eaa48a42605db3e9fd4ac5bd32e35b930ac26c111e3322a94c52f07a5ac",
+      "category": "personal",
+      "docType": "national_id",
+      "storageReference": "secure_uploads/doc_1790111553010_2b357ca5",
+      "uploadedAt": "2026-09-22T21:12:33.356Z",
+      "userId": "odFhtfLiMiNPeANX8UCyIDgFZAI3"
+    },
+    "doc_1790111553540_e52eb349": {
+      "documentId": "doc_1790111553540_e52eb349",
+      "fileName": "commercial_register.png",
+      "mimeType": "image/png",
+      "size": 67,
+      "fileHash": "ebf4f635a17d10d6eb46ba680b70142419aa3220f228001a036d311a22ee9d2a",
+      "category": "company",
+      "docType": "commercial_register",
+      "storageReference": "secure_uploads/doc_1790111553540_e52eb349",
+      "uploadedAt": "2026-09-22T21:12:33.869Z",
+      "userId": "odFhtfLiMiNPeANX8UCyIDgFZAI3"
+    },
+    "doc_1790111588557_2f0c2e35": {
+      "documentId": "doc_1790111588557_2f0c2e35",
+      "fileName": "national_id_card.pdf",
+      "mimeType": "application/pdf",
+      "size": 86,
+      "fileHash": "e7218eaa48a42605db3e9fd4ac5bd32e35b930ac26c111e3322a94c52f07a5ac",
+      "category": "personal",
+      "docType": "national_id",
+      "storageReference": "secure_uploads/doc_1790111588557_2f0c2e35",
+      "uploadedAt": "2026-09-22T21:13:08.895Z",
+      "userId": "38s3Z7RWQ2SCktkszxKQoCjhsLU2"
+    },
+    "doc_1790111589075_1a83d7e1": {
+      "documentId": "doc_1790111589075_1a83d7e1",
+      "fileName": "commercial_register.png",
+      "mimeType": "image/png",
+      "size": 67,
+      "fileHash": "ebf4f635a17d10d6eb46ba680b70142419aa3220f228001a036d311a22ee9d2a",
+      "category": "company",
+      "docType": "commercial_register",
+      "storageReference": "secure_uploads/doc_1790111589075_1a83d7e1",
+      "uploadedAt": "2026-09-22T21:13:09.404Z",
+      "userId": "38s3Z7RWQ2SCktkszxKQoCjhsLU2"
+    },
+    "doc_1790112220380_5c5cc417": {
+      "documentId": "doc_1790112220380_5c5cc417",
+      "fileName": "national_id_card.pdf",
+      "mimeType": "application/pdf",
+      "size": 86,
+      "fileHash": "e7218eaa48a42605db3e9fd4ac5bd32e35b930ac26c111e3322a94c52f07a5ac",
+      "category": "personal",
+      "docType": "national_id",
+      "storageReference": "secure_uploads/doc_1790112220380_5c5cc417",
+      "uploadedAt": "2026-09-22T21:23:40.729Z",
+      "userId": "CZBYKBy6Pifw1B4D3YgAjmPNQ5O2"
+    },
+    "doc_1790112220906_80085937": {
+      "documentId": "doc_1790112220906_80085937",
+      "fileName": "commercial_register.png",
+      "mimeType": "image/png",
+      "size": 67,
+      "fileHash": "ebf4f635a17d10d6eb46ba680b70142419aa3220f228001a036d311a22ee9d2a",
+      "category": "company",
+      "docType": "commercial_register",
+      "storageReference": "secure_uploads/doc_1790112220906_80085937",
+      "uploadedAt": "2026-09-22T21:23:41.249Z",
+      "userId": "CZBYKBy6Pifw1B4D3YgAjmPNQ5O2"
+    },
+    "doc_1790112294479_a3a5b41b": {
+      "documentId": "doc_1790112294479_a3a5b41b",
+      "fileName": "id_doc.pdf",
+      "mimeType": "application/pdf",
+      "size": 86,
+      "fileHash": "e7218eaa48a42605db3e9fd4ac5bd32e35b930ac26c111e3322a94c52f07a5ac",
+      "category": "personal",
+      "docType": "national_id",
+      "storageReference": "secure_uploads/doc_1790112294479_a3a5b41b",
+      "uploadedAt": "2026-09-22T21:24:54.809Z",
+      "userId": "m8CUV9lRhxaIlB9Vsowe9QShVgr1"
+    },
+    "doc_1790112440175_69a70524": {
+      "documentId": "doc_1790112440175_69a70524",
+      "fileName": "national_id_card.pdf",
+      "mimeType": "application/pdf",
+      "size": 86,
+      "fileHash": "e7218eaa48a42605db3e9fd4ac5bd32e35b930ac26c111e3322a94c52f07a5ac",
+      "category": "personal",
+      "docType": "national_id",
+      "storageReference": "secure_uploads/doc_1790112440175_69a70524",
+      "uploadedAt": "2026-09-22T21:27:20.516Z",
+      "userId": "GCdj0VLjFoReyj5hSEPR6cXyAFl2"
+    },
+    "doc_1790112440692_b2f75d35": {
+      "documentId": "doc_1790112440692_b2f75d35",
+      "fileName": "commercial_register.png",
+      "mimeType": "image/png",
+      "size": 67,
+      "fileHash": "ebf4f635a17d10d6eb46ba680b70142419aa3220f228001a036d311a22ee9d2a",
+      "category": "company",
+      "docType": "commercial_register",
+      "storageReference": "secure_uploads/doc_1790112440692_b2f75d35",
+      "uploadedAt": "2026-09-22T21:27:21.021Z",
+      "userId": "GCdj0VLjFoReyj5hSEPR6cXyAFl2"
+    }
+  },
+  "admin_entitlement_audit_logs": [
+    {
+      "id": "ent_audit_1790112442994_3c09b60b",
+      "timestamp": "2026-09-22T21:27:22.994Z",
+      "adminId": "SYhfciebGFUj29qGgAa0pqNunrk2",
+      "adminEmail": "admin@zakir.ai",
+      "targetUserId": "GCdj0VLjFoReyj5hSEPR6cXyAFl2",
+      "targetUserEmail": "test_new_user_1790112434381@zakir-test.com",
+      "action": "REJECT_ACCOUNT",
+      "details": "Rejected account. Reason: صورة بطاقة الهوية غير واضحة المعالم، يرجى رفع صورة أوضح ملونة للهوية الوطنية.",
+      "previousState": {
+        "accountStatus": "PENDING_ADMIN_REVIEW"
+      },
+      "newState": {
+        "accountStatus": "REJECTED",
+        "documentVerificationStatus": "REJECTED",
+        "rejectionReason": "صورة بطاقة الهوية غير واضحة المعالم، يرجى رفع صورة أوضح ملونة للهوية الوطنية.",
+        "rejectionDate": "2026-09-22T21:27:22.816Z",
+        "rejectedBy": "admin@zakir.ai",
+        "subscriptionStatus": "Inactive",
+        "verificationInfo.status": "action_required",
+        "verificationInfo.adminNote": "صورة بطاقة الهوية غير واضحة المعالم، يرجى رفع صورة أوضح ملونة للهوية الوطنية."
+      }
+    },
+    {
+      "id": "ent_audit_1790112223134_e608b571",
+      "timestamp": "2026-09-22T21:23:43.134Z",
+      "adminId": "SYhfciebGFUj29qGgAa0pqNunrk2",
+      "adminEmail": "admin@zakir.ai",
+      "targetUserId": "CZBYKBy6Pifw1B4D3YgAjmPNQ5O2",
+      "targetUserEmail": "test_new_user_1790112213380@zakir-test.com",
+      "action": "REJECT_ACCOUNT",
+      "details": "Rejected account. Reason: صورة بطاقة الهوية غير واضحة المعالم، يرجى رفع صورة أوضح ملونة للهوية الوطنية.",
+      "previousState": {
+        "accountStatus": "PENDING_ADMIN_REVIEW"
+      },
+      "newState": {
+        "accountStatus": "REJECTED",
+        "documentVerificationStatus": "REJECTED",
+        "rejectionReason": "صورة بطاقة الهوية غير واضحة المعالم، يرجى رفع صورة أوضح ملونة للهوية الوطنية.",
+        "rejectionDate": "2026-09-22T21:23:42.955Z",
+        "rejectedBy": "admin@zakir.ai",
+        "subscriptionStatus": "Inactive",
+        "verificationInfo.status": "action_required",
+        "verificationInfo.adminNote": "صورة بطاقة الهوية غير واضحة المعالم، يرجى رفع صورة أوضح ملونة للهوية الوطنية."
+      }
+    },
+    {
+      "id": "ent_audit_1790111591268_ebfd6ef6",
+      "timestamp": "2026-09-22T21:13:11.268Z",
+      "adminId": "SYhfciebGFUj29qGgAa0pqNunrk2",
+      "adminEmail": "admin@zakir.ai",
+      "targetUserId": "38s3Z7RWQ2SCktkszxKQoCjhsLU2",
+      "targetUserEmail": "test_new_user_1790111582094@zakir-test.com",
+      "action": "REJECT_ACCOUNT",
+      "details": "Rejected account. Reason: صورة بطاقة الهوية غير واضحة المعالم، يرجى رفع صورة أوضح ملونة للهوية الوطنية.",
+      "previousState": {
+        "accountStatus": "PENDING_ADMIN_REVIEW"
+      },
+      "newState": {
+        "accountStatus": "REJECTED",
+        "documentVerificationStatus": "REJECTED",
+        "rejectionReason": "صورة بطاقة الهوية غير واضحة المعالم، يرجى رفع صورة أوضح ملونة للهوية الوطنية.",
+        "rejectionDate": "2026-09-22T21:13:11.070Z",
+        "rejectedBy": "admin@zakir.ai",
+        "subscriptionStatus": "Inactive",
+        "verificationInfo.status": "action_required",
+        "verificationInfo.adminNote": "صورة بطاقة الهوية غير واضحة المعالم، يرجى رفع صورة أوضح ملونة للهوية الوطنية."
+      }
+    },
+    {
+      "id": "ent_audit_1790111555681_fdf5a2a2",
+      "timestamp": "2026-09-22T21:12:35.681Z",
+      "adminId": "SYhfciebGFUj29qGgAa0pqNunrk2",
+      "adminEmail": "admin@zakir.ai",
+      "targetUserId": "odFhtfLiMiNPeANX8UCyIDgFZAI3",
+      "targetUserEmail": "test_new_user_1790111546954@zakir-test.com",
+      "action": "REJECT_ACCOUNT",
+      "details": "Rejected account. Reason: صورة بطاقة الهوية غير واضحة المعالم، يرجى رفع صورة أوضح ملونة للهوية الوطنية.",
+      "previousState": {
+        "accountStatus": "PENDING_ADMIN_REVIEW"
+      },
+      "newState": {
+        "accountStatus": "REJECTED",
+        "documentVerificationStatus": "REJECTED",
+        "rejectionReason": "صورة بطاقة الهوية غير واضحة المعالم، يرجى رفع صورة أوضح ملونة للهوية الوطنية.",
+        "rejectionDate": "2026-09-22T21:12:35.512Z",
+        "rejectedBy": "admin@zakir.ai",
+        "subscriptionStatus": "Inactive",
+        "verificationInfo.status": "action_required",
+        "verificationInfo.adminNote": "صورة بطاقة الهوية غير واضحة المعالم، يرجى رفع صورة أوضح ملونة للهوية الوطنية."
+      }
+    },
+    {
+      "id": "ent_audit_1790111503310_004b524b",
+      "timestamp": "2026-09-22T21:11:43.310Z",
+      "adminId": "SYhfciebGFUj29qGgAa0pqNunrk2",
+      "adminEmail": "admin@zakir.ai",
+      "targetUserId": "7YUMUpO9cGSVi0mVuOKEEcbmg5w1",
+      "targetUserEmail": "test_new_user_1790111494693@zakir-test.com",
+      "action": "REJECT_ACCOUNT",
+      "details": "Rejected account. Reason: صورة بطاقة الهوية غير واضحة المعالم، يرجى رفع صورة أوضح ملونة للهوية الوطنية.",
+      "previousState": {
+        "accountStatus": "PENDING_ADMIN_REVIEW"
+      },
+      "newState": {
+        "accountStatus": "REJECTED",
+        "documentVerificationStatus": "REJECTED",
+        "rejectionReason": "صورة بطاقة الهوية غير واضحة المعالم، يرجى رفع صورة أوضح ملونة للهوية الوطنية.",
+        "rejectionDate": "2026-09-22T21:11:43.138Z",
+        "rejectedBy": "admin@zakir.ai",
+        "subscriptionStatus": "Inactive",
+        "verificationInfo.status": "action_required",
+        "verificationInfo.adminNote": "صورة بطاقة الهوية غير واضحة المعالم، يرجى رفع صورة أوضح ملونة للهوية الوطنية."
       }
     }
   ]

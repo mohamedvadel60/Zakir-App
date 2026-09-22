@@ -52,12 +52,25 @@ export type SubscriptionStatus = "Free Tier" | "Inactive" | "Active" | "Paused" 
 
 export type AccountStatus = 
   | "PENDING_EMAIL_VERIFICATION" 
+  | "PENDING_DOCUMENT_VERIFICATION"
   | "PENDING_INSTITUTIONAL_DATA" 
   | "PENDING_ADMIN_REVIEW" 
   | "APPROVED" 
   | "ACTIVE" 
   | "REJECTED" 
   | "SUSPENDED";
+
+export interface UploadedVerificationDoc {
+  documentId: string;
+  fileName: string;
+  mimeType: string;
+  size: number;
+  category: "personal" | "company" | "other";
+  docType?: "national_id" | "passport" | "driving_license" | "commercial_register" | "tax_card" | "other";
+  uploadedAt: string;
+  storageReference?: string;
+  fileHash?: string;
+}
 
 export interface InstitutionalProfile {
   fullName: string;
@@ -223,6 +236,11 @@ export interface User {
   role: UserRole;
   powers?: ModulePermissions;
   accountStatus?: AccountStatus;
+  requiresDocumentVerification?: boolean;
+  verificationFlowVersion?: number;
+  documentVerificationStatus?: "PENDING_EMAIL_VERIFICATION" | "PENDING_UPLOAD" | "UNDER_REVIEW" | "APPROVED" | "REJECTED";
+  verificationDocuments?: UploadedVerificationDoc[];
+  hasCompany?: boolean;
   institutionalProfile?: InstitutionalProfile;
   approvedAt?: string;
   approvedBy?: string;

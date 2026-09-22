@@ -1,13 +1,29 @@
 import React, { useState } from "react";
-import { motion } from "motion/react";
-import { Clock, ShieldAlert, CheckCircle2, RefreshCw, LogOut, Building2, User, Globe, Mail, Phone, ExternalLink } from "lucide-react";
+import { motion } from "framer-motion";
+import {
+  Clock,
+  ShieldCheck,
+  CheckCircle2,
+  RefreshCw,
+  LogOut,
+  Building2,
+  User,
+  Mail,
+  FileCheck,
+  Eye,
+  Info,
+  Calendar
+} from "lucide-react";
 import { ZakirLogo } from "./ZakirLogo";
 import { User as UserType } from "../types";
 import { auth } from "../firebase";
+import { authenticatedFetch } from "../lib/apiUtils.js";
+import { DocumentPreviewModal } from "./DocumentPreviewModal";
 
 interface PendingApprovalViewProps {
   currentUser: UserType;
-  lang: "ar" | "en" | "fr";
+  lang?: "ar" | "en" | "fr";
+  theme?: "light" | "dark";
   onLogout: () => void;
   onRefreshUser: () => Promise<void>;
   onContactSupport?: () => void;
@@ -15,164 +31,305 @@ interface PendingApprovalViewProps {
 
 export const PendingApprovalView: React.FC<PendingApprovalViewProps> = ({
   currentUser,
-  lang,
+  lang = "ar",
+  theme = "dark",
   onLogout,
   onRefreshUser,
-  onContactSupport
 }) => {
   const isAr = lang === "ar";
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [refreshMessage, setRefreshMessage] = useState<string | null>(null);
+  const [previewDoc, setPreviewDoc] = useState<{ id: string; name: string; category?: string } | null>(null);
 
   const profile = currentUser.institutionalProfile;
+  const docs = currentUser.verificationDocuments || [];
 
   const handleRefreshClick = async () => {
     setIsRefreshing(true);
     setRefreshMessage(null);
     try {
-      let token = "";
-      try {
-        if (auth.currentUser) {
-          token = await auth.currentUser.getIdToken(true);
-        }
-      } catch (e) {}
-
-      const headers: Record<string, string> = {};
-      if (token) {
-        headers["Authorization"] = `Bearer ${token}`;
-      } else if (currentUser.id) {
-        headers["x-auth-token"] = currentUser.id;
-      }
-
-      const res = await fetch("/api/user/entitlement-status", { headers });
+      const res = await authenticatedFetch("/api/user/entitlement-status");
       const data = await res.json();
 
       if (data.success && data.entitlement) {
         if (data.entitlement.accountStatus === "APPROVED" || data.entitlement.allowed) {
-          setRefreshMessage(isAr ? "تم اعتماد حسابك بنجاح! جاري الدخول..." : "Account approved! Entering workspace...");
+          setRefreshMessage(
+            isAr
+              ? "تم اعتماد حسابك بنجاح! جاري تحويلك إلى مساحة العمل..."
+              : "Account approved! Redirecting to workspace..."
+          );
+          await onRefreshUser();
+        } else if (data.entitlement.accountStatus === "REJECTED") {
+          setRefreshMessage(
+            isAr
+              ? "يلزم تحديث مستندات التوثيق الخاصة بحسابك."
+              : "Action required: update your verification documents."
+          );
           await onRefreshUser();
         } else {
-          setRefreshMessage(isAr ? "الحساب لا يزال قيد المراجعة الإدارية." : "Account is still pending review.");
+          setRefreshMessage(
+            isAr
+              ? "الطلب لا يزال قيد المراجعة والتدقيق الإداري حالياً."
+              : "Account is still undergoing administrative review."
+          );
           await onRefreshUser();
         }
       } else {
         await onRefreshUser();
-        setRefreshMessage(isAr ? "الحساب لا يزال قيد المراجعة الإدارية." : "Account is still pending review.");
+        setRefreshMessage(
+          isAr
+            ? "الطلب لا يزال قيد المراجعة الإدارية."
+            : "Account is still pending review."
+        );
       }
     } catch (err) {
       console.warn("Refresh error:", err);
-      setRefreshMessage(isAr ? "تعذر التحقق من الحالة حالياً. يرجى المحاولة لاحقاً." : "Could not verify status now. Please try again.");
+      setRefreshMessage(
+        isAr
+          ? "تعذر التحقق من الحالة حالياً. يرجى المحاولة لاحقاً."
+          : "Could not verify status now. Please try again."
+      );
     } finally {
       setIsRefreshing(false);
     }
   };
 
-  return (
-    <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-4 sm:p-6" dir={isAr ? "rtl" : "ltr"}>
-      {/* Background Decor */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute -top-32 -left-32 w-80 h-80 bg-amber-500/10 rounded-full blur-3xl" />
-        <div className="absolute -bottom-32 -right-32 w-80 h-80 bg-indigo-500/10 rounded-full blur-3xl" />
-      </div>
+  const getDocTypeLabel = (docType?: string) => {
+    switch (docType) {
+      case "national_id":
+        return isAr ? "بطاقة الهوية الوطنية" : "National ID Card";
+      case "passport":
+        return isAr ? "جواز السفر" : "Passport";
+      case "driving_license":
+        return isAr ? "رخصة القيادة" : "Driving License";
+      case "commercial_register":
+        return isAr ? "السجل التجاري / الترخيص" : "Commercial Register";
+      case "tax_card":
+        return isAr ? "الشهادة الضريبية" : "Tax Certificate";
+      default:
+        return isAr ? "وثيقة رسمية" : "Official Document";
+    }
+  };
 
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="w-full max-w-2xl relative z-10 my-8"
-      >
-        {/* Header */}
-        <div className="text-center mb-8">
-          <div className="flex justify-center mb-4">
-            <ZakirLogo size="lg" />
+  return (
+    <div
+      dir={isAr ? "rtl" : "ltr"}
+      className="min-h-screen bg-slate-50 dark:bg-[#080C14] text-slate-900 dark:text-slate-100 flex flex-col justify-between p-4 sm:p-6 lg:p-8 transition-colors duration-200"
+    >
+      {/* Top Navbar */}
+      <header className="max-w-3xl w-full mx-auto flex items-center justify-between py-4 border-b border-slate-200 dark:border-slate-800/80 mb-6">
+        <div className="flex items-center gap-3">
+          <ZakirLogo size="md" />
+        </div>
+        <div className="flex items-center gap-4">
+          <span className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 hidden sm:inline-block">
+            {currentUser.email}
+          </span>
+          <button
+            onClick={onLogout}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs sm:text-sm font-medium text-slate-600 dark:text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+          >
+            <LogOut className="w-4 h-4" />
+            <span>{isAr ? "تسجيل الخروج" : "Log Out"}</span>
+          </button>
+        </div>
+      </header>
+
+      {/* Main Content */}
+      <main className="max-w-2xl w-full mx-auto flex-1 flex flex-col justify-center my-4">
+        {/* Stepper Progress */}
+        <div className="mb-8">
+          <div className="flex items-center justify-between max-w-md mx-auto relative">
+            <div className="absolute top-1/2 left-0 right-0 h-0.5 bg-slate-200 dark:bg-slate-800 -translate-y-1/2 z-0" />
+
+            {/* Step 1: Email Verified */}
+            <div className="relative z-10 flex flex-col items-center gap-1.5">
+              <div className="w-8 h-8 rounded-full bg-emerald-500 text-white flex items-center justify-center font-bold text-xs shadow-md shadow-emerald-500/20">
+                <CheckCircle2 className="w-4 h-4" />
+              </div>
+              <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">
+                {isAr ? "البريد الإلكتروني" : "Email"}
+              </span>
+            </div>
+
+            {/* Step 2: Documents Submitted */}
+            <div className="relative z-10 flex flex-col items-center gap-1.5">
+              <div className="w-8 h-8 rounded-full bg-emerald-500 text-white flex items-center justify-center font-bold text-xs shadow-md shadow-emerald-500/20">
+                <CheckCircle2 className="w-4 h-4" />
+              </div>
+              <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">
+                {isAr ? "المستندات" : "Documents"}
+              </span>
+            </div>
+
+            {/* Step 3: Admin Review (Active) */}
+            <div className="relative z-10 flex flex-col items-center gap-1.5">
+              <div className="w-8 h-8 rounded-full bg-amber-500 text-white flex items-center justify-center font-bold text-xs shadow-md shadow-amber-500/30 ring-4 ring-amber-500/20">
+                <Clock className="w-4 h-4 animate-spin" style={{ animationDuration: "6s" }} />
+              </div>
+              <span className="text-xs font-bold text-amber-600 dark:text-amber-400">
+                {isAr ? "المراجعة الإدارية" : "Admin Review"}
+              </span>
+            </div>
           </div>
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-400 text-xs font-medium mb-3">
-            <Clock className="w-3.5 h-3.5 animate-pulse" />
-            <span>{isAr ? "قيد المراجعة الإدارية" : "Under Administrative Review"}</span>
-          </div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">
-            {isAr ? "طلب اعتماد الحساب قيد الفحص" : "Account Application Under Review"}
-          </h1>
-          <p className="text-slate-400 text-sm sm:text-base mt-2 max-w-lg mx-auto">
-            {isAr
-              ? "تم استلام بيانات التحقق الخاصة بمؤسستك بنجاح. يتم فحص الطلبات بواسطة الإدارة لضمان سرية وأمان المنظومة المؤسسية. فور الاعتماد، ستبدأ فترتك التجريبية (24 ساعة) تلقائياً."
-              : "Your organization verification details have been received. Applications are reviewed to maintain institutional security. Upon approval, your 24-hour trial starts immediately."}
-          </p>
         </div>
 
         {/* Card */}
-        <div className="bg-slate-900/90 backdrop-blur-md border border-slate-800 rounded-2xl p-6 sm:p-8 shadow-2xl shadow-black/50 space-y-6">
+        <motion.div
+          initial={{ opacity: 0, y: 15 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="bg-white dark:bg-slate-900/90 border border-slate-200 dark:border-slate-800 shadow-xl shadow-slate-200/50 dark:shadow-black/50 rounded-2xl p-6 sm:p-8 space-y-6"
+        >
+          {/* Header Status */}
+          <div className="text-center space-y-3">
+            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-600 dark:text-amber-400 text-xs font-bold">
+              <Clock className="w-3.5 h-3.5 animate-pulse" />
+              <span>{isAr ? "تم استلام طلب التوثيق" : "Verification Request Received"}</span>
+            </div>
+
+            <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white">
+              {isAr ? "طلبك قيد المراجعة والتدقيق" : "Application Under Review"}
+            </h1>
+
+            <p className="text-sm text-slate-600 dark:text-slate-400 max-w-lg mx-auto leading-relaxed">
+              {isAr
+                ? "تم إرسال مستنداتك للمراجعة. سيتم إشعارك عبر البريد الإلكتروني بعد انتهاء المراجعة وتفعيل حسابك تلقائياً."
+                : "Your documents have been submitted for review. You will be notified by email once the review is complete and your account is approved."}
+            </p>
+          </div>
+
           {refreshMessage && (
-            <div className="p-3.5 rounded-xl bg-slate-800/80 border border-slate-700 text-amber-300 text-sm flex items-center justify-between">
+            <div className="p-3.5 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/60 text-amber-800 dark:text-amber-300 text-xs sm:text-sm font-medium flex items-center justify-between">
               <span>{refreshMessage}</span>
-              <button onClick={() => setRefreshMessage(null)} className="text-slate-400 hover:text-white text-xs">✕</button>
+              <button
+                onClick={() => setRefreshMessage(null)}
+                className="text-amber-600 dark:text-amber-400 hover:text-amber-900 dark:hover:text-white font-bold ml-2 rtl:mr-2"
+              >
+                ✕
+              </button>
             </div>
           )}
 
           {/* Application Summary Box */}
-          <div className="bg-slate-950/60 border border-slate-800/80 rounded-xl p-5 space-y-4">
-            <h2 className="text-xs font-semibold text-slate-400 uppercase tracking-wider flex items-center gap-2">
-              <Building2 className="w-4 h-4 text-amber-400" />
-              <span>{isAr ? "تفاصيل الطلب المقدم" : "Submitted Application Details"}</span>
+          <div className="bg-slate-50 dark:bg-slate-950/60 border border-slate-200 dark:border-slate-800/80 rounded-xl p-5 space-y-4">
+            <h2 className="text-xs font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider flex items-center gap-2">
+              <Building2 className="w-4 h-4 text-[#0075DE]" />
+              <span>{isAr ? "ملخص بيانات الطلب" : "Submitted Details"}</span>
             </h2>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
-              <div className="bg-slate-900/60 p-3 rounded-lg border border-slate-800/40">
-                <span className="text-xs text-slate-500 block mb-0.5">{isAr ? "اسم المؤسسة" : "Organization"}</span>
-                <span className="text-slate-200 font-medium">{profile?.companyName || currentUser.companyName || "—"}</span>
+              <div className="bg-white dark:bg-slate-900/80 p-3 rounded-lg border border-slate-200 dark:border-slate-800">
+                <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400 block mb-0.5">
+                  {isAr ? "صاحب الحساب" : "Account Owner"}
+                </span>
+                <span className="text-slate-900 dark:text-white font-semibold">
+                  {profile?.fullName || currentUser.fullName || currentUser.ownerName || "—"}
+                </span>
               </div>
 
-              <div className="bg-slate-900/60 p-3 rounded-lg border border-slate-800/40">
-                <span className="text-xs text-slate-500 block mb-0.5">{isAr ? "مسؤول الحساب" : "Account Owner"}</span>
-                <span className="text-slate-200 font-medium">{profile?.fullName || currentUser.fullName || currentUser.ownerName || "—"}</span>
+              <div className="bg-white dark:bg-slate-900/80 p-3 rounded-lg border border-slate-200 dark:border-slate-800">
+                <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400 block mb-0.5">
+                  {isAr ? "البريد الإلكتروني" : "Email Address"}
+                </span>
+                <span className="text-slate-900 dark:text-white font-mono text-xs truncate block">
+                  {currentUser.email}
+                </span>
               </div>
 
-              <div className="bg-slate-900/60 p-3 rounded-lg border border-slate-800/40">
-                <span className="text-xs text-slate-500 block mb-0.5">{isAr ? "البريد الإلكتروني" : "Email"}</span>
-                <span className="text-slate-200 font-mono text-xs">{currentUser.email}</span>
+              <div className="bg-white dark:bg-slate-900/80 p-3 rounded-lg border border-slate-200 dark:border-slate-800">
+                <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400 block mb-0.5">
+                  {isAr ? "نوع الحساب / المنشأة" : "Account Type / Organization"}
+                </span>
+                <span className="text-slate-900 dark:text-white font-medium">
+                  {currentUser.hasCompany || (profile as any)?.hasCompany
+                    ? profile?.companyName || currentUser.companyName || (isAr ? "شركة مسجلة" : "Registered Company")
+                    : (isAr ? "حساب فردي / شخصي" : "Individual Account")}
+                </span>
               </div>
 
-              <div className="bg-slate-900/60 p-3 rounded-lg border border-slate-800/40">
-                <span className="text-xs text-slate-500 block mb-0.5">{isAr ? "القطاع / الدولة" : "Sector / Country"}</span>
-                <span className="text-slate-200">{profile?.sector || "—"} • {profile?.country || "—"}</span>
+              <div className="bg-white dark:bg-slate-900/80 p-3 rounded-lg border border-slate-200 dark:border-slate-800">
+                <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400 block mb-0.5">
+                  {isAr ? "تاريخ التقديم" : "Submitted Date"}
+                </span>
+                <span className="text-slate-900 dark:text-white text-xs">
+                  {profile?.submittedAt || (currentUser as any).verificationSubmittedAt
+                    ? new Date(
+                        profile?.submittedAt || (currentUser as any).verificationSubmittedAt
+                      ).toLocaleDateString(isAr ? "ar-SA" : "en-US", {
+                        dateStyle: "medium",
+                      })
+                    : (isAr ? "اليوم" : "Today")}
+                </span>
               </div>
             </div>
 
-            <div className="pt-2 flex items-center justify-between text-xs text-slate-500 border-t border-slate-800/60">
-              <span>{isAr ? "تاريخ التقديم:" : "Submitted Date:"}</span>
-              <span className="font-mono">{profile?.submittedAt ? new Date(profile.submittedAt).toLocaleDateString(isAr ? "ar-EG" : "en-US", { dateStyle: "medium", timeStyle: "short" }) : "اليوم"}</span>
-            </div>
+            {/* Uploaded Documents List */}
+            {docs.length > 0 && (
+              <div className="pt-2 border-t border-slate-200 dark:border-slate-800">
+                <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 block mb-2">
+                  {isAr ? "المستندات المرفقة للتدقيق:" : "Attached Documents for Verification:"}
+                </span>
+                <div className="space-y-1.5">
+                  {docs.map((doc) => (
+                    <div
+                      key={doc.documentId}
+                      className="flex items-center justify-between p-2.5 rounded-lg bg-white dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 text-xs"
+                    >
+                      <div className="flex items-center gap-2 truncate">
+                        <FileCheck className="w-4 h-4 text-emerald-500 shrink-0" />
+                        <span className="font-medium text-slate-800 dark:text-slate-200 truncate">
+                          {doc.fileName}
+                        </span>
+                        <span className="text-slate-400">({getDocTypeLabel(doc.docType)})</span>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => setPreviewDoc({ id: doc.documentId, name: doc.fileName, category: doc.category })}
+                        className="flex items-center gap-1 text-[#0075DE] hover:underline text-xs shrink-0 font-medium"
+                      >
+                        <Eye className="w-3.5 h-3.5" />
+                        <span>{isAr ? "معاينة" : "Preview"}</span>
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Action Buttons */}
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-2">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2">
             <button
               type="button"
               onClick={onLogout}
-              className="w-full sm:w-auto px-4 py-2.5 text-xs text-slate-400 hover:text-slate-200 transition-colors flex items-center justify-center gap-2 cursor-pointer"
+              className="w-full sm:w-auto px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-semibold flex items-center justify-center gap-2 transition-colors"
             >
               <LogOut className="w-4 h-4" />
-              <span>{isAr ? "تسجيل الخروج" : "Log out"}</span>
+              <span>{isAr ? "تسجيل الخروج" : "Log Out"}</span>
             </button>
 
             <button
               type="button"
-              disabled={isRefreshing}
               onClick={handleRefreshClick}
-              className="w-full sm:w-auto px-6 py-2.5 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/30 rounded-xl text-sm font-medium transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+              disabled={isRefreshing}
+              className="w-full sm:w-auto px-6 py-2.5 rounded-xl bg-[#0075DE] hover:bg-[#0060B6] text-white text-xs font-bold flex items-center justify-center gap-2 shadow-md shadow-blue-500/20 transition-all disabled:opacity-50"
             >
               <RefreshCw className={`w-4 h-4 ${isRefreshing ? "animate-spin" : ""}`} />
-              <span>{isRefreshing ? (isAr ? "جاري الفحص..." : "Checking...") : (isAr ? "تحديث حالة الحساب" : "Check Status / Refresh")}</span>
+              <span>{isAr ? "تحديث حالة الطلب" : "Refresh Status"}</span>
             </button>
           </div>
-        </div>
+        </motion.div>
+      </main>
 
-        {/* Footer info note */}
-        <p className="text-center text-xs text-slate-500 mt-6">
-          {isAr
-            ? "يتم مراجعة الطلبات على مدار الساعة. لأي استفسارات عاجلة يرجى التواصل مع الدعم الفني."
-            : "Applications are reviewed around the clock. For urgent inquiries, please contact platform support."}
-        </p>
-      </motion.div>
+      <DocumentPreviewModal
+        documentId={previewDoc?.id || null}
+        fileName={previewDoc?.name}
+        category={previewDoc?.category}
+        isOpen={Boolean(previewDoc)}
+        onClose={() => setPreviewDoc(null)}
+        lang={lang === "fr" ? "en" : lang}
+      />
     </div>
   );
 };

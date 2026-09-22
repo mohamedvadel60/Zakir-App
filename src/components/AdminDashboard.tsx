@@ -28,6 +28,7 @@ import {
   AlertCircle,
   Save,
   CheckCircle,
+  FileCheck,
   XCircle,
   AlertTriangle,
   Trash2,
@@ -80,6 +81,7 @@ import {
 import { authenticatedFetch, safeJsonResponse, getFreshAuthToken } from "../lib/apiUtils.js";
 import { auth } from "../firebase.js";
 import { openOrDownloadUserFile, openUserFileInNewTab, downloadUserFile, dataUrlToBlob } from "../lib/fileViewerUtils.js";
+import { DocumentPreviewModal } from "./DocumentPreviewModal";
 
 interface AdminDashboardProps {
   currentUser: any;
@@ -247,6 +249,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   } | null>(null);
   const [loadingOperations, setLoadingOperations] = useState<boolean>(false);
   const [operationsError, setOperationsError] = useState<string>("");
+  const [previewVerificationDoc, setPreviewVerificationDoc] = useState<{ id: string; name: string; category?: string } | null>(null);
 
   const getAdminToken = async (): Promise<string> => {
     try {
@@ -3000,6 +3003,42 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                   "{inst.additionalNotes}"
                                 </p>
                               )}
+                            </div>
+                          )}
+
+                          {/* Uploaded Verification Documents */}
+                          {reqUser.verificationDocuments && reqUser.verificationDocuments.length > 0 && (
+                            <div className="p-3 rounded-xl bg-slate-950/70 border border-slate-800 text-xs space-y-2">
+                              <div className="flex items-center justify-between text-slate-400 font-bold">
+                                <span className="flex items-center gap-1.5 text-amber-400">
+                                  <FileCheck className="w-3.5 h-3.5" />
+                                  <span>{isAr ? `وثائق التوثيق المرفوعة (${reqUser.verificationDocuments.length}):` : `Uploaded Documents (${reqUser.verificationDocuments.length}):`}</span>
+                                </span>
+                                {reqUser.hasCompany === false && (
+                                  <span className="text-[10px] px-2 py-0.5 rounded bg-blue-500/10 text-blue-400 border border-blue-500/20">
+                                    {isAr ? "حساب فردي" : "Individual Account"}
+                                  </span>
+                                )}
+                              </div>
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+                                {reqUser.verificationDocuments.map((doc: any, dIdx: number) => (
+                                  <div key={doc.documentId || dIdx} className="flex items-center justify-between p-2 rounded-lg bg-slate-900 border border-slate-800 text-[11px]">
+                                    <div className="flex items-center gap-2 truncate">
+                                      <FileText className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                                      <span className="text-slate-200 font-medium truncate">{doc.fileName || "وثيقة"}</span>
+                                      <span className="text-slate-500">({doc.category === "company" ? (isAr ? "منشأة" : "Company") : (isAr ? "شخصي" : "Personal")})</span>
+                                    </div>
+                                    <button
+                                      type="button"
+                                      onClick={() => setPreviewVerificationDoc({ id: doc.documentId, name: doc.fileName, category: doc.category })}
+                                      className="flex items-center gap-1 text-amber-400 hover:text-amber-300 font-semibold shrink-0 ml-2 rtl:mr-2 cursor-pointer"
+                                    >
+                                      <Eye className="w-3 h-3" />
+                                      <span>{isAr ? "معاينة" : "View"}</span>
+                                    </button>
+                                  </div>
+                                ))}
+                              </div>
                             </div>
                           )}
                         </div>
@@ -7031,6 +7070,15 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           </div>
         </div>
       )}
+
+      <DocumentPreviewModal
+        documentId={previewVerificationDoc?.id || null}
+        fileName={previewVerificationDoc?.name}
+        category={previewVerificationDoc?.category}
+        isOpen={Boolean(previewVerificationDoc)}
+        onClose={() => setPreviewVerificationDoc(null)}
+        lang={lang === "fr" ? "en" : lang}
+      />
     </div>
   );
 };
