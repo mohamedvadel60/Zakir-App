@@ -38,10 +38,12 @@ import {
   Download,
   BookMarked,
   Layers,
-  Share2
+  Share2,
+  CreditCard
 } from "lucide-react";
 import { User, SupportTicket, SupportCategory, SupportPriority, SupportStatus, SupportMessage } from "../types.js";
 import { createSupportTicketApi, fetchSupportTicketsApi, addSupportTicketMessageApi, subscribeToSupportTickets } from "../lib/firebaseServices.js";
+import { SubscriptionCorrectionModal } from "./SubscriptionCorrectionModal";
 
 interface CustomerSupportProps {
   currentUser: User | null;
@@ -322,6 +324,7 @@ const DOCUMENTATION_GUIDES = [
 
 export const CustomerSupport: React.FC<CustomerSupportProps> = ({ currentUser, lang, theme = "dark" }) => {
   const [activeTab, setActiveTab] = useState<"docs" | "tickets" | "new" | "verification_help" | "faqs">("docs");
+  const [showCorrectionModal, setShowCorrectionModal] = useState<boolean>(false);
   const [tickets, setTickets] = useState<SupportTicket[]>([]);
   const [selectedTicket, setSelectedTicket] = useState<SupportTicket | null>(null);
   const [isLoadingTickets, setIsLoadingTickets] = useState(false);
@@ -731,6 +734,33 @@ export const CustomerSupport: React.FC<CustomerSupportProps> = ({ currentUser, l
             <span>{lang === "ar" ? "الأسئلة الشائعة" : "FAQs"}</span>
           </button>
         </div>
+      </div>
+
+      {/* Subscription or Plan Issue Card */}
+      <div className={`p-4 rounded-xl border ${theme === "dark" ? "bg-slate-900/80 border-slate-800" : "bg-white border-slate-200 shadow-sm"} flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4`}>
+        <div className="flex items-center gap-3">
+          <div className="p-2.5 rounded-xl bg-[#0075DE]/10 text-[#0075DE] border border-[#0075DE]/20 shrink-0">
+            <CreditCard className="w-5 h-5" />
+          </div>
+          <div>
+            <h3 className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white">
+              {lang === "ar" ? "مشكلة في الاشتراك أو الباقة" : "Subscription or Plan Issue"}
+            </h3>
+            <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+              {lang === "ar"
+                ? "الاشتراك الظاهر خاطئ، الباقة لا تظهر صحيحاً، الدفع تم ولم يتم التحديث، أو مشكلة في الفاتورة والتصحيح اليدوي."
+                : "Report incorrect plan, missing entitlements, billing discrepancy, or payment sync issue."}
+            </p>
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={() => setShowCorrectionModal(true)}
+          className="px-4 py-2 bg-[#0075DE] hover:bg-[#005BAB] text-white font-bold rounded-xl text-xs transition-all shadow-md shadow-[#0075DE]/20 whitespace-nowrap cursor-pointer flex items-center gap-1.5 shrink-0"
+        >
+          <Sparkles className="w-3.5 h-3.5" />
+          <span>{lang === "ar" ? "طلب تصحيح الاشتراك" : "Request Correction"}</span>
+        </button>
       </div>
 
       {fetchError && (
@@ -1449,6 +1479,15 @@ export const CustomerSupport: React.FC<CustomerSupportProps> = ({ currentUser, l
           </div>
         </div>
       )}
+
+      {/* Subscription Correction Modal */}
+      <SubscriptionCorrectionModal
+        isOpen={showCorrectionModal}
+        onClose={() => setShowCorrectionModal(false)}
+        currentUser={currentUser}
+        lang={lang as any}
+        theme={theme as any}
+      />
 
     </div>
   );

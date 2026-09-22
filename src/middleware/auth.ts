@@ -226,7 +226,21 @@ export async function getUserProfileServer(uid?: string, email?: string): Promis
         console.error(`[MANDATORY_UID_ASSERTION_FAILURE] Mismatch in getUserProfileServer: firebaseUser.uid (${uid}) !== profileDocument.id (${fetchedId})`);
         throw new Error(`SECURITY_FATAL_UID_MISMATCH: firebaseUser.uid (${uid}) !== profileDocument.id (${fetchedId})`);
       }
-      return { ...profileData, id: uid, uid: uid };
+
+      let effectivePlan = profileData.subscriptionPlan;
+      if (profileData.workspaceId && profileData.workspaceId !== uid && (profileData.role || "").toUpperCase() !== "CEO" && (profileData.role || "").toUpperCase() !== "ADMIN" && (profileData.role || "").toUpperCase() !== "OWNER") {
+        try {
+          const ceoSnap = await adminDb.collection("users").where("workspaceId", "==", profileData.workspaceId).where("role", "in", ["CEO", "Admin", "Owner", "FOUNDER"]).limit(1).get();
+          if (!ceoSnap.empty) {
+            const ceoData = ceoSnap.docs[0].data();
+            if (ceoData.subscriptionPlan) {
+              effectivePlan = ceoData.subscriptionPlan;
+            }
+          }
+        } catch (e) {}
+      }
+
+      return { ...profileData, id: uid, uid: uid, subscriptionPlan: effectivePlan || profileData.subscriptionPlan || "Starter" };
     }
 
     // When UID is provided, DO NOT fall back to arbitrary email matches that could return a mismatched profile ID.

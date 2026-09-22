@@ -2782,8 +2782,8 @@ export async function resolveAccountState(email: string): Promise<AccountStateRe
         return data as AccountStateResolution;
       }
     }
-  } catch (err) {
-    console.warn("Notice: /api/auth/resolve-account endpoint call warning, falling back to compound resolution:", err);
+  } catch (_err) {
+    // Seamless fallback to client-side compound resolution
   }
 
   // 2. Client fallback via checkAccountLifecycleApi and fetchAccountRecoveryStatusApi

@@ -74,11 +74,12 @@ import {
   Building2,
   GitCommit,
   RotateCcw,
-  Send
+  Send,
+  Tag,
+  Tags
 } from "lucide-react";
 import { DashboardAnalyticsChart } from "./components/DashboardAnalyticsChart";
 import { TrialCountdown } from "./components/TrialCountdown";
-import { SubscriptionCorrectionModal } from "./components/SubscriptionCorrectionModal";
 import { SmartEvolutionView } from "./components/SmartEvolutionView";
 import { MarketIntelligenceView } from "./components/MarketIntelligenceView";
 import { motion, AnimatePresence } from "motion/react";
@@ -498,7 +499,6 @@ export default function App() {
   const [resetStep, setResetStep] = useState<"forgot" | "verify_code" | "new_password" | "success">("forgot");
   const [landingBillingCycle, setLandingBillingCycle] = useState<"annual" | "monthly">("annual");
   const [stripeReceiptData, setStripeReceiptData] = useState<any | null>(null);
-  const [showSubscriptionCorrectionModal, setShowSubscriptionCorrectionModal] = useState<boolean>(false);
 
   const handleLandingStripeCheckout = async (plan: "Starter" | "Professional" | "Enterprise") => {
     if (!currentUser) {
@@ -1210,6 +1210,10 @@ This hosting domain (**${currentDomain}**) has not been authorized in your Fireb
 
   // Search, Sort & Filters (Memory Library)
   const [searchQuery, setSearchQuery] = useState("");
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [tagSearchInput, setTagSearchInput] = useState("");
+  const [isTagDropdownOpen, setIsTagDropdownOpen] = useState(false);
+  const [highlightedTagIndex, setHighlightedTagIndex] = useState<number>(-1);
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [isCategoryDropdownOpen, setIsCategoryDropdownOpen] = useState(false);
   const [selectedRisk, setSelectedRisk] = useState("all");
@@ -2941,11 +2945,63 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
     }, 1500);
   };
 
+  // Computed unique tags with frequencies from all memories
+  const availableTagsWithCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    memories.forEach((m) => {
+      (m.tags || []).forEach((t) => {
+        const clean = t?.trim();
+        if (clean) {
+          counts[clean] = (counts[clean] || 0) + 1;
+        }
+      });
+    });
+    return Object.entries(counts)
+      .map(([tag, count]) => ({ tag, count }))
+      .sort((a, b) => b.count - a.count || a.tag.localeCompare(b.tag));
+  }, [memories]);
+
+  // Autocomplete suggestions based on tagSearchInput
+  const tagSuggestions = useMemo(() => {
+    const query = tagSearchInput.trim().toLowerCase();
+    if (!query) {
+      return availableTagsWithCounts.filter((item) => !selectedTags.includes(item.tag));
+    }
+    return availableTagsWithCounts.filter(
+      (item) => !selectedTags.includes(item.tag) && item.tag.toLowerCase().includes(query)
+    );
+  }, [availableTagsWithCounts, tagSearchInput, selectedTags]);
+
+  const handleSelectTag = (tag: string) => {
+    const cleanTag = tag.trim();
+    if (!cleanTag) return;
+    if (!selectedTags.includes(cleanTag)) {
+      setSelectedTags(prev => [...prev, cleanTag]);
+    }
+    setTagSearchInput("");
+    setHighlightedTagIndex(-1);
+    setIsTagDropdownOpen(false);
+  };
+
+  const handleRemoveTag = (tagToRemove: string) => {
+    setSelectedTags(prev => prev.filter(t => t !== tagToRemove));
+  };
+
+  const handleToggleTag = (tag: string) => {
+    const cleanTag = tag.trim();
+    if (!cleanTag) return;
+    if (selectedTags.includes(cleanTag)) {
+      handleRemoveTag(cleanTag);
+    } else {
+      setSelectedTags(prev => [...prev, cleanTag]);
+    }
+  };
+
   // Memoized filtered and sorted memories for the Memory Library
   const filteredMemories = useMemo(() => {
     let result = [...memories];
 
-    // Filter by search query
+    // Filter by free-text search query
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
       result = result.filter(
@@ -2955,7 +3011,24 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
           m.decision.toLowerCase().includes(q) ||
           m.lessonsLearned.toLowerCase().includes(q) ||
           m.category.toLowerCase().includes(q) ||
-          m.tags.some(t => t.toLowerCase().includes(q))
+          (m.tags || []).some(t => t.toLowerCase().includes(q))
+      );
+    }
+
+    // Filter by Selected Tags (must match all selected tags)
+    if (selectedTags.length > 0) {
+      result = result.filter(m =>
+        selectedTags.every(st =>
+          (m.tags || []).some(t => t.trim().toLowerCase() === st.toLowerCase())
+        )
+      );
+    }
+
+    // Complementary active typed tag search when dropdown is closed or direct typing
+    if (tagSearchInput.trim() && !isTagDropdownOpen) {
+      const activeQuery = tagSearchInput.trim().toLowerCase();
+      result = result.filter(m =>
+        (m.tags || []).some(t => t.trim().toLowerCase().includes(activeQuery))
       );
     }
 
@@ -2988,7 +3061,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
     });
 
     return result;
-  }, [memories, searchQuery, selectedCategories, selectedRisk, sortBy]);
+  }, [memories, searchQuery, selectedTags, tagSearchInput, isTagDropdownOpen, selectedCategories, selectedRisk, sortBy]);
 
   // Aggregate stats for Charts
   const chartDataCategory = useMemo(() => {
@@ -4414,13 +4487,6 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                     <span className="text-slate-500 font-bold uppercase tracking-wider">{lang === "ar" ? "التجريبي" : "TRIAL"}</span>
                     <TrialCountdown trialExpiresAt={currentUser?.trialExpiresAt} />
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => setShowSubscriptionCorrectionModal(true)}
-                    className="w-full mt-1.5 py-1 px-2 text-[10px] text-[#0075DE] hover:text-[#005BAB] hover:bg-[#0075DE]/10 rounded-lg font-bold text-center transition-all cursor-pointer flex items-center justify-center gap-1 border border-[#0075DE]/20"
-                  >
-                    <span>{lang === "ar" ? "طلب تصحيح الاشتراك" : "Correction Request"}</span>
-                  </button>
                 </div>
               )}
 
@@ -5338,120 +5404,291 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                   </div>
 
                   {/* Search and Filters Strip */}
-                  <div className={`grid grid-cols-1 md:grid-cols-4 gap-4 p-4 rounded-xl border ${
+                  <div className={`p-4 rounded-xl border space-y-3 ${
                     theme === "dark" ? "bg-slate-900/20 border-slate-800/60" : "bg-white border-slate-200 shadow-sm"
                   }`}>
-                    <div className="md:col-span-2 relative">
-                      <Search className="absolute right-3.5 top-3 w-4 h-4 text-slate-400" />
-                      <input 
-                        type="text"
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        placeholder={t.searchPlaceholder}
-                        className={`w-full h-10 pr-10 pl-3 border rounded-lg text-xs focus:outline-none focus:border-[#0075DE] focus:ring-1 focus:ring-[#0075DE]/20 ${
-                          theme === "dark" ? "bg-slate-950 border-slate-800 text-white" : "bg-slate-50 border-slate-200 text-slate-800"
-                        }`}
-                      />
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-3">
+                      {/* Free-text search input */}
+                      <div className="lg:col-span-4 relative">
+                        <Search className={`absolute ${lang === "ar" ? "right-3.5" : "left-3.5"} top-3 w-4 h-4 text-slate-400`} />
+                        <input 
+                          type="text"
+                          value={searchQuery}
+                          onChange={(e) => setSearchQuery(e.target.value)}
+                          placeholder={t.searchPlaceholder}
+                          className={`w-full h-10 ${lang === "ar" ? "pr-10 pl-8" : "pl-10 pr-8"} border rounded-lg text-xs focus:outline-none focus:border-[#0075DE] focus:ring-1 focus:ring-[#0075DE]/20 ${
+                            theme === "dark" ? "bg-slate-950 border-slate-800 text-white placeholder:text-slate-500" : "bg-slate-50 border-slate-200 text-slate-800 placeholder:text-slate-400"
+                          }`}
+                        />
+                        {searchQuery && (
+                          <button
+                            type="button"
+                            onClick={() => setSearchQuery("")}
+                            className={`absolute ${lang === "ar" ? "left-2.5" : "right-2.5"} top-2.5 p-1 text-slate-400 hover:text-slate-200 rounded-md cursor-pointer`}
+                            title={lang === "ar" ? "مسح البحث" : "Clear search"}
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </div>
+
+                      {/* Filter by tag autocomplete input */}
+                      <div className="lg:col-span-3 relative" id="tag-filter-autocomplete-container">
+                        <Tag className={`absolute ${lang === "ar" ? "right-3.5" : "left-3.5"} top-3 w-4 h-4 text-slate-400`} />
+                        <input 
+                          type="text"
+                          value={tagSearchInput}
+                          onChange={(e) => {
+                            setTagSearchInput(e.target.value);
+                            setIsTagDropdownOpen(true);
+                            setHighlightedTagIndex(-1);
+                          }}
+                          onFocus={() => setIsTagDropdownOpen(true)}
+                          onKeyDown={(e) => {
+                            if (e.key === "ArrowDown") {
+                              e.preventDefault();
+                              setIsTagDropdownOpen(true);
+                              setHighlightedTagIndex((prev) => 
+                                prev < tagSuggestions.length - 1 ? prev + 1 : 0
+                              );
+                            } else if (e.key === "ArrowUp") {
+                              e.preventDefault();
+                              setHighlightedTagIndex((prev) => 
+                                prev > 0 ? prev - 1 : tagSuggestions.length - 1
+                              );
+                            } else if (e.key === "Enter") {
+                              e.preventDefault();
+                              if (highlightedTagIndex >= 0 && tagSuggestions[highlightedTagIndex]) {
+                                handleSelectTag(tagSuggestions[highlightedTagIndex].tag);
+                              } else if (tagSearchInput.trim()) {
+                                handleSelectTag(tagSearchInput.trim());
+                              }
+                            } else if (e.key === "Escape") {
+                              setIsTagDropdownOpen(false);
+                            }
+                          }}
+                          placeholder={(t as any).filterByTagPlaceholder || (lang === "ar" ? "تصفية بالوسوم..." : "Filter by tag...")}
+                          className={`w-full h-10 ${lang === "ar" ? "pr-10 pl-8" : "pl-10 pr-8"} border rounded-lg text-xs focus:outline-none focus:border-[#0075DE] focus:ring-1 focus:ring-[#0075DE]/20 ${
+                            theme === "dark" ? "bg-slate-950 border-slate-800 text-white placeholder:text-slate-500" : "bg-slate-50 border-slate-200 text-slate-800 placeholder:text-slate-400"
+                          }`}
+                        />
+                        {tagSearchInput && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setTagSearchInput("");
+                              setHighlightedTagIndex(-1);
+                            }}
+                            className={`absolute ${lang === "ar" ? "left-2.5" : "right-2.5"} top-2.5 p-1 text-slate-400 hover:text-slate-200 rounded-md cursor-pointer`}
+                            title={lang === "ar" ? "مسح" : "Clear"}
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+
+                        {/* Autocomplete suggestions dropdown */}
+                        {isTagDropdownOpen && (
+                          <>
+                            <div 
+                              className="fixed inset-0 z-30" 
+                              onClick={() => setIsTagDropdownOpen(false)} 
+                            />
+                            <div className={`absolute z-40 mt-1.5 w-full min-w-[260px] max-h-72 overflow-y-auto border rounded-xl shadow-2xl p-2 space-y-1 ${
+                              lang === "ar" ? "right-0" : "left-0"
+                            } ${
+                              theme === "dark" ? "bg-slate-950 border-slate-800 text-slate-200" : "bg-white border-slate-200 text-slate-700"
+                            }`}>
+                              <div className="flex items-center justify-between px-2 py-1.5 border-b border-slate-200 dark:border-slate-800 text-[11px] font-semibold text-slate-400">
+                                <span className="flex items-center gap-1.5">
+                                  <Tags className="w-3.5 h-3.5 text-[#0075DE]" />
+                                  <span>{lang === "ar" ? "الوسوم المتاحة" : "Available Tags"}</span>
+                                </span>
+                                <span className="text-[10px] bg-slate-100 dark:bg-slate-900 px-1.5 py-0.5 rounded text-slate-500 font-mono">
+                                  {availableTagsWithCounts.length}
+                                </span>
+                              </div>
+
+                              <div className="py-1 max-h-56 overflow-y-auto space-y-0.5">
+                                {tagSuggestions.length === 0 ? (
+                                  <div className="px-3 py-3 text-center text-xs text-slate-400 space-y-2">
+                                    <p>{lang === "ar" ? "لا توجد وسوم مطابقة" : "No matching tags found"}</p>
+                                    {tagSearchInput.trim() && (
+                                      <button
+                                        type="button"
+                                        onClick={() => handleSelectTag(tagSearchInput.trim())}
+                                        className="inline-flex items-center gap-1 px-3 py-1 bg-[#0075DE]/10 hover:bg-[#0075DE]/20 text-[#0075DE] text-xs font-semibold rounded-lg border border-[#0075DE]/30 transition-all cursor-pointer"
+                                      >
+                                        <PlusCircle className="w-3.5 h-3.5" />
+                                        <span>{lang === "ar" ? `تصفية بالوسم "${tagSearchInput.trim()}"` : `Filter by "${tagSearchInput.trim()}"`}</span>
+                                      </button>
+                                    )}
+                                  </div>
+                                ) : (
+                                  tagSuggestions.map((item, idx) => {
+                                    const isHighlighted = idx === highlightedTagIndex;
+                                    return (
+                                      <button
+                                        key={item.tag}
+                                        type="button"
+                                        onClick={() => handleSelectTag(item.tag)}
+                                        onMouseEnter={() => setHighlightedTagIndex(idx)}
+                                        className={`w-full flex items-center justify-between px-2.5 py-2 rounded-lg text-xs text-left cursor-pointer transition-colors ${
+                                          isHighlighted 
+                                            ? "bg-[#0075DE]/15 text-[#0075DE] font-bold" 
+                                            : "hover:bg-slate-100 dark:hover:bg-slate-900/80 text-slate-700 dark:text-slate-300"
+                                        }`}
+                                      >
+                                        <span className="flex items-center gap-2 truncate">
+                                          <span className="text-[#0075DE] font-bold">#</span>
+                                          <span className="truncate">{item.tag}</span>
+                                        </span>
+                                        <span className="text-[10px] px-2 py-0.5 rounded-full font-bold bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 shrink-0">
+                                          {item.count} {lang === "ar" ? (item.count === 1 ? "ذكرى" : "ذكريات") : (item.count === 1 ? "memory" : "memories")}
+                                        </span>
+                                      </button>
+                                    );
+                                  })
+                                )}
+                              </div>
+                            </div>
+                          </>
+                        )}
+                      </div>
+
+                      {/* Category multiselect dropdown */}
+                      <div className="lg:col-span-3 relative">
+                        <button
+                          type="button"
+                          id="category-multiselect-toggle"
+                          onClick={() => setIsCategoryDropdownOpen(!isCategoryDropdownOpen)}
+                          className={`w-full h-10 px-3 border rounded-lg text-xs flex items-center justify-between cursor-pointer focus:outline-none focus:border-[#0075DE] ${
+                            theme === "dark" ? "bg-slate-950 border-slate-800 text-slate-300" : "bg-slate-50 border-slate-200 text-slate-700"
+                          }`}
+                        >
+                          <span className="truncate pr-2">
+                            {selectedCategories.length === 0 
+                              ? (lang === "ar" ? "كل التصنيفات / الأقسام" : lang === "fr" ? "Toutes les catégories" : "All Categories") 
+                              : selectedCategories.length === 1 
+                              ? selectedCategories[0]
+                              : lang === "ar" 
+                              ? `${selectedCategories.length} تصنيفات محددة` 
+                              : lang === "fr"
+                              ? `${selectedCategories.length} Catégories sélectionnées`
+                              : `${selectedCategories.length} Categories Selected`}
+                          </span>
+                          <Filter className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                        </button>
+
+                        {isCategoryDropdownOpen && (
+                          <>
+                            <div 
+                              className="fixed inset-0 z-30" 
+                              onClick={() => setIsCategoryDropdownOpen(false)} 
+                            />
+                            <div className={`absolute z-40 mt-1.5 w-64 max-h-72 overflow-y-auto border rounded-lg shadow-xl p-3 space-y-2.5 ${
+                              lang === "ar" ? "right-0 left-auto" : "left-0 right-auto"
+                            } ${
+                              theme === "dark" ? "bg-slate-950 border-slate-800 text-slate-200" : "bg-white border-slate-200 text-slate-700"
+                            }`}>
+                              <div className="flex items-center justify-between border-b pb-2 mb-2 border-slate-200 dark:border-slate-800 text-[11px] font-semibold">
+                                <button
+                                  type="button"
+                                  onClick={() => setSelectedCategories([])}
+                                  className="text-[#0075DE] hover:underline cursor-pointer"
+                                >
+                                  {lang === "ar" ? "كل الأقسام" : lang === "fr" ? "Afficher tout" : "Show All"}
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const unique = Array.from(new Set(memories.map(m => m.category))).filter(Boolean);
+                                    setSelectedCategories(unique);
+                                  }}
+                                  className="text-slate-400 hover:text-slate-200 dark:hover:text-white cursor-pointer"
+                                >
+                                  {lang === "ar" ? "تحديد الكل" : lang === "fr" ? "Tout sélectionner" : "Select All"}
+                                </button>
+                              </div>
+
+                              <div className="space-y-1.5 max-h-48 overflow-y-auto">
+                                {Array.from(new Set(memories.map(m => m.category))).filter(Boolean).map(cat => {
+                                  const isChecked = selectedCategories.includes(cat);
+                                  return (
+                                    <label 
+                                      key={cat} 
+                                      className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-slate-100 dark:hover:bg-slate-900 cursor-pointer text-xs transition-colors"
+                                    >
+                                      <input
+                                        type="checkbox"
+                                        checked={isChecked}
+                                        onChange={() => {
+                                          if (isChecked) {
+                                            setSelectedCategories(selectedCategories.filter(c => c !== cat));
+                                          } else {
+                                            setSelectedCategories([...selectedCategories, cat]);
+                                          }
+                                        }}
+                                        className="rounded border-slate-300 dark:border-slate-700 text-[#0075DE] focus:ring-[#0075DE] cursor-pointer"
+                                      />
+                                      <span className="truncate select-none">{cat}</span>
+                                    </label>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          </>
+                        )}
+                      </div>
+
+                      {/* Sort dropdown */}
+                      <div className="lg:col-span-2">
+                        <select
+                          value={sortBy}
+                          onChange={(e) => setSortBy(e.target.value as any)}
+                          className={`w-full h-10 px-3 border rounded-lg text-xs focus:outline-none focus:border-[#0075DE] ${
+                            theme === "dark" ? "bg-slate-950 border-slate-800 text-slate-300" : "bg-slate-50 border-slate-200 text-slate-700"
+                          }`}
+                        >
+                          <option value="newest">{lang === "ar" ? "الأحدث أولاً" : "Newest First"}</option>
+                          <option value="oldest">{lang === "ar" ? "الأقدم أولاً" : "Oldest First"}</option>
+                          <option value="highest">{lang === "ar" ? "أعلى خطورة" : "Highest Risk"}</option>
+                          <option value="alpha">{lang === "ar" ? "أبجدياً" : "Alphabetical"}</option>
+                        </select>
+                      </div>
                     </div>
 
-                    <div className="relative">
-                      <button
-                        type="button"
-                        id="category-multiselect-toggle"
-                        onClick={() => setIsCategoryDropdownOpen(!isCategoryDropdownOpen)}
-                        className={`w-full h-10 px-3 border rounded-lg text-xs flex items-center justify-between cursor-pointer focus:outline-none focus:border-[#0075DE] ${
-                          theme === "dark" ? "bg-slate-950 border-slate-800 text-slate-300" : "bg-slate-50 border-slate-200 text-slate-700"
-                        }`}
-                      >
-                        <span className="truncate pr-2">
-                          {selectedCategories.length === 0 
-                            ? (lang === "ar" ? "كل التصنيفات / الأقسام" : lang === "fr" ? "Toutes les catégories" : "All Categories") 
-                            : selectedCategories.length === 1 
-                            ? selectedCategories[0]
-                            : lang === "ar" 
-                            ? `${selectedCategories.length} تصنيفات محددة` 
-                            : lang === "fr"
-                            ? `${selectedCategories.length} Catégories sélectionnées`
-                            : `${selectedCategories.length} Categories Selected`}
+                    {/* Active Tag Filter Chips Row */}
+                    {selectedTags.length > 0 && (
+                      <div className="flex items-center gap-2 flex-wrap pt-2.5 border-t border-slate-200/80 dark:border-slate-800/80 text-xs">
+                        <span className="text-slate-400 font-bold flex items-center gap-1.5 text-[11px]">
+                          <Tags className="w-3.5 h-3.5 text-[#0075DE]" />
+                          <span>{lang === "ar" ? "الوسوم النشطة للتصفية:" : "Active Tag Filters:"}</span>
                         </span>
-                        <Filter className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                      </button>
-
-                      {isCategoryDropdownOpen && (
-                        <>
-                          <div 
-                            className="fixed inset-0 z-30" 
-                            onClick={() => setIsCategoryDropdownOpen(false)} 
-                          />
-                          <div className={`absolute z-40 mt-1.5 w-64 max-h-72 overflow-y-auto border rounded-lg shadow-xl p-3 space-y-2.5 ${
-                            lang === "ar" ? "right-0 left-auto" : "left-0 right-auto"
-                          } ${
-                            theme === "dark" ? "bg-slate-950 border-slate-800 text-slate-200" : "bg-white border-slate-200 text-slate-700"
-                          }`}>
-                            <div className="flex items-center justify-between border-b pb-2 mb-2 border-slate-200 dark:border-slate-800 text-[11px] font-semibold">
-                              <button
-                                type="button"
-                                onClick={() => setSelectedCategories([])}
-                                className="text-[#0075DE] hover:underline cursor-pointer"
-                              >
-                                {lang === "ar" ? "كل الأقسام" : lang === "fr" ? "Afficher tout" : "Show All"}
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  const unique = Array.from(new Set(memories.map(m => m.category))).filter(Boolean);
-                                  setSelectedCategories(unique);
-                                }}
-                                className="text-slate-400 hover:text-slate-200 dark:hover:text-white cursor-pointer"
-                              >
-                                {lang === "ar" ? "تحديد الكل" : lang === "fr" ? "Tout sélectionner" : "Select All"}
-                              </button>
-                            </div>
-
-                            <div className="space-y-1.5 max-h-48 overflow-y-auto">
-                              {Array.from(new Set(memories.map(m => m.category))).filter(Boolean).map(cat => {
-                                const isChecked = selectedCategories.includes(cat);
-                                return (
-                                  <label 
-                                    key={cat} 
-                                    className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-slate-100 dark:hover:bg-slate-900 cursor-pointer text-xs transition-colors"
-                                  >
-                                    <input
-                                      type="checkbox"
-                                      checked={isChecked}
-                                      onChange={() => {
-                                        if (isChecked) {
-                                          setSelectedCategories(selectedCategories.filter(c => c !== cat));
-                                        } else {
-                                          setSelectedCategories([...selectedCategories, cat]);
-                                        }
-                                      }}
-                                      className="rounded border-slate-300 dark:border-slate-700 text-[#0075DE] focus:ring-[#0075DE] cursor-pointer"
-                                    />
-                                    <span className="truncate select-none">{cat}</span>
-                                  </label>
-                                );
-                              })}
-                            </div>
-                          </div>
-                        </>
-                      )}
-                    </div>
-
-                    <div>
-                      <select
-                        value={sortBy}
-                        onChange={(e) => setSortBy(e.target.value as any)}
-                        className={`w-full h-10 px-3 border rounded-lg text-xs focus:outline-none focus:border-[#0075DE] ${
-                          theme === "dark" ? "bg-slate-950 border-slate-800 text-slate-300" : "bg-slate-50 border-slate-200 text-slate-700"
-                        }`}
-                      >
-                        <option value="newest">الأحدث أولاً</option>
-                        <option value="oldest">الأقدم أولاً</option>
-                        <option value="highest">أعلى خطورة</option>
-                        <option value="alpha">أبجدياً</option>
-                      </select>
-                    </div>
+                        {selectedTags.map(tag => (
+                          <span
+                            key={tag}
+                            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold bg-[#0075DE]/10 text-[#0075DE] border border-[#0075DE]/30 group transition-all"
+                          >
+                            <span>#{tag}</span>
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveTag(tag)}
+                              className="hover:bg-[#0075DE]/20 rounded p-0.5 transition-colors cursor-pointer text-[#0075DE]"
+                              title={lang === "ar" ? "إزالة هذا الوسم" : "Remove this tag"}
+                            >
+                              <X className="w-3 h-3" />
+                            </button>
+                          </span>
+                        ))}
+                        <button
+                          type="button"
+                          onClick={() => setSelectedTags([])}
+                          className="text-[11px] text-slate-400 hover:text-rose-500 hover:underline cursor-pointer font-semibold ml-1"
+                        >
+                          {lang === "ar" ? "مسح جميع الوسوم" : "Clear all tags"}
+                        </button>
+                      </div>
+                    )}
                   </div>
 
                   {/* Memories Interactive Cards List */}
@@ -7075,15 +7312,6 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
 
       {/* Desktop Application Auto-Update Banner */}
       <DesktopUpdateNotification lang={lang} />
-
-      {/* Subscription Correction Modal */}
-      <SubscriptionCorrectionModal
-        isOpen={showSubscriptionCorrectionModal}
-        onClose={() => setShowSubscriptionCorrectionModal(false)}
-        currentUser={currentUser}
-        lang={lang}
-        theme={theme}
-      />
 
       {/* Enterprise Print & Document System */}
       {isPrintPreviewOpen && (

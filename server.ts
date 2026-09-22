@@ -1452,6 +1452,19 @@ app.post(
         billingCycle === "monthly" ? "monthly" : "annual"
       ) as "monthly" | "annual";
 
+      // Server-side Enterprise Billing Owner / CEO Validation (Test D & E)
+      const userRole = (user?.role || "").toUpperCase();
+      const isOwnerOrCeo = userRole === "CEO" || userRole === "ADMIN" || userRole === "OWNER" || userRole === "FOUNDER" || userRole === "DIRECTOR" || userRole === "MANAGER" || !user?.workspaceId || user?.workspaceId === user?.id;
+
+      if (requestedPlan === "Enterprise" && !isOwnerOrCeo) {
+        return res.status(403).json({
+          success: false,
+          code: "ENTERPRISE_MEMBER_FORBIDDEN",
+          error: "Only the CEO or Workspace Owner can purchase or manage Enterprise billing.",
+          userFriendlyMessage: "فقط المدير التنفيذي (CEO) أو مالك مساحة العمل يمكنه شراء أو إدارة اشتراك Enterprise. الأعضاء يستفيدون من اشتراك المؤسسة المشترك تلقائياً."
+        });
+      }
+
       const rawHost = String(
         req.headers["x-forwarded-host"] ||
           req.headers.host ||
@@ -5771,6 +5784,39 @@ app.all(
           userFriendlyMessage:
             "ليس لديك صلاحية إرسال دعوات الموظفين. هذه الصلاحية محصورة في مدير المؤسسة (CEO).",
         });
+      }
+
+      // 3.b Server-side Plan & Invitation Validation Rules (Test A, B, C, G)
+      const ceoPlan = (ceoData.subscriptionPlan || "Starter").toUpperCase();
+
+      if (ceoPlan === "STARTER") {
+        return res.status(403).json({
+          success: false,
+          code: "STARTER_PLAN_RESTRICTION",
+          error: "Starter plan does not support member invitations.",
+          userFriendlyMessage: "خطة Starter الفردية لا تدعم دعوة أعضاء جدد. يرجى الترقية إلى خطة Professional أو Enterprise."
+        });
+      }
+
+      if (ceoPlan === "PROFESSIONAL") {
+        let currentMembersCount = 1;
+        try {
+          const teamList = ceoData.teamMembersList || [];
+          currentMembersCount = Math.max(1, teamList.length + 1);
+          const membersSnap = await adminDb.collection("users").where("workspaceId", "==", workspaceId).get();
+          if (!membersSnap.empty) {
+            currentMembersCount = Math.max(currentMembersCount, membersSnap.size);
+          }
+        } catch (e) {}
+
+        if (currentMembersCount >= 50) {
+          return res.status(400).json({
+            success: false,
+            code: "PROFESSIONAL_LIMIT_EXCEEDED",
+            error: "Professional plan maximum limit of 50 members reached.",
+            userFriendlyMessage: "لقد بلغ عدد أعضاء فريقك في خطة Professional الحد الأقصى (50 عضوًا). لا يمكنك إرسال دعوات إضافية."
+          });
+        }
       }
 
       // 4. Prevent Self-Invitation
@@ -12451,17 +12497,86 @@ function isRealRecoveryRequestDoc(r: any, targetEmail?: string): boolean {
   return isExplicitReqId && hasValidEmail && hasSubmissionEvidence;
 }
 
-app.post("/api/auth/resolve-account", async (req, res) => {
-  try {
-    const { email } = req.body;
-    if (!email || typeof email !== "string") {
-      return res
-        .status(400)
-        .json({ success: false, error: "Email parameter is required." });
+app.all(
+  [
+    "/api/auth/resolve-account",
+    "/api/auth/resolve-account/",
+    "/auth/resolve-account",
+    "/auth/resolve-account/",
+  ],
+  async (req, res) => {
+    if (req.method === "OPTIONS") {
+      return res.status(200).end();
     }
+    if (req.method === "GET" || req.method === "HEAD") {
+      const queryEmail = (req.query.email as string || "").trim();
+      if (!queryEmail) {
+        return res.status(200).json({
+          success: true,
+          endpoint: "/api/auth/resolve-account",
+          status: "active",
+          message: "Account resolution endpoint is active.",
+        });
+      }
+    }
+    try {
+      const email = (req.body?.email || req.query?.email || "").toString().trim();
+      if (!email) {
+        return res
+          .status(400)
+          .json({ success: false, error: "Email parameter is required." });
+      }
 
-    const normalizedEmail = email.trim().toLowerCase();
-    const record = await getAccountLifecycleRecord(normalizedEmail);
+      const normalizedEmail = email.toLowerCase();
+      let record = await getAccountLifecycleRecord(normalizedEmail);
+
+      // If no lifecycle record yet, check if active user exists in Firestore or local DB
+      if (!record) {
+        let existsActive = false;
+        let activeUserId: string | null = null;
+        if (isFirebaseAdminAvailable && adminDb) {
+          try {
+            const userSnap = await adminDb
+              .collection("users")
+              .where("email", "==", normalizedEmail)
+              .limit(1)
+              .get();
+            if (!userSnap.empty) {
+              existsActive = true;
+              activeUserId = userSnap.docs[0].id;
+            }
+          } catch (e) {}
+        }
+        if (!existsActive) {
+          const db = readDb();
+          const localUser = db.users?.find(
+            (u: any) => (u.email || "").trim().toLowerCase() === normalizedEmail,
+          );
+          if (localUser) {
+            existsActive = true;
+            activeUserId = localUser.id;
+          }
+        }
+        if (existsActive) {
+          return res.json({
+            success: true,
+            email: normalizedEmail,
+            accountState: "ACTIVE_ACCOUNT",
+            lifecycleStatus: "ACTIVE",
+            canRestore: false,
+            adminApprovalRequired: false,
+            daysRemaining: 0,
+            restoreUntil: null,
+            hasRecoveryRequest: false,
+            recoveryRequestId: null,
+            recoveryStatus: "none",
+            isExpired: false,
+            originalUserId: activeUserId,
+            userFriendlyMessage:
+              "البريد الإلكتروني مسجل بالفعل. يرجى تسجيل الدخول إلى حسابك.",
+          });
+        }
+      }
 
     // Collect all recovery requests for this email
     const requestDocs: any[] = [];
