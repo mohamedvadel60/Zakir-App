@@ -18769,41 +18769,17 @@ app.post("/api/auth/login", loginRegisterLimiter, async (req, res) => {
           } catch (e) {}
         }
 
-        if (
-          !userProfile.isVerified ||
-          userProfile.verification_required !== false
-        ) {
-          let hasInvitation = false;
-          try {
-            const invDoc = await adminDb
-              .collection("invitations")
-              .doc(normalizedEmail)
-              .get();
-            if (invDoc.exists) hasInvitation = true;
-            else {
-              const wsSnap = await adminDb
-                .collection("workspace_invitations")
-                .where("email", "==", normalizedEmail)
-                .get();
-              if (!wsSnap.empty) hasInvitation = true;
-            }
-          } catch (e) {}
-
-          if (
-            hasInvitation ||
-            (userProfile.role && userProfile.role !== "CEO") ||
-            (userProfile.workspaceId &&
-              !userProfile.workspaceId.startsWith(
-                "ws_" + authUid.substring(0, 8),
-              ))
-          ) {
-            userProfile.isVerified = true;
-            userProfile.isEmailVerified = true;
-            userProfile.email_verified = true;
-            userProfile.emailVerified = true;
-            userProfile.verification_required = false;
-            userProfile.verification_status = "verified";
-          }
+        if (userProfile.accountStatus === "APPROVED") {
+          userProfile.isVerified = true;
+          userProfile.isEmailVerified = true;
+          userProfile.email_verified = true;
+          userProfile.emailVerified = true;
+          userProfile.verification_required = false;
+          userProfile.verification_status = "verified";
+        } else {
+          userProfile.isVerified = false;
+          userProfile.verification_required = true;
+          userProfile.verification_status = userProfile.accountStatus || "VERIFICATION_REQUIRED";
         }
       }
 
@@ -18851,12 +18827,17 @@ app.post("/api/auth/login", loginRegisterLimiter, async (req, res) => {
       writeDb(localDb);
     } catch (e) {}
 
+    const isExemptRole =
+      isAdminAccount ||
+      (userProfile.role &&
+        (userProfile.role === "CEO" ||
+          userProfile.role.startsWith("CEO") ||
+          userProfile.role === "Admin" ||
+          userProfile.role === "admin"));
+
     const isVerified =
-      userProfile.isVerified === true ||
-      userProfile.isEmailVerified === true ||
-      userProfile.emailVerified === true ||
-      userProfile.verification_status === "verified" ||
-      userProfile.verification_required === false;
+      isExemptRole ||
+      userProfile.accountStatus === "APPROVED";
 
     const { passwordHash, secretPasscode, ...cleanProfile } = userProfile;
     if (cleanProfile.encryptedSecurity) {
