@@ -1411,26 +1411,60 @@ export function subscribeToFirebaseAuthState(rawCallback: (user: User | null) =>
           validatedUser.verification_required = false;
           validatedUser.verification_status = "verified";
         } else {
-          const hasVerificationDocs = Boolean(
-            (validatedUser.verificationInfo?.documents && validatedUser.verificationInfo.documents.length > 0) ||
-            ((validatedUser as any).documents && (validatedUser as any).documents.length > 0)
-          );
-          const hasAdminApprovalRecord = Boolean(
-            validatedUser.verificationInfo?.status === "verified" && validatedUser.verificationInfo?.verifiedAt
-          );
-
-          let effStatus = validatedUser.accountStatus;
-          if (effStatus === "APPROVED") {
-            if (!hasVerificationDocs && !hasAdminApprovalRecord) {
-              effStatus = "VERIFICATION_REQUIRED";
+          const rawDocs = [
+            ...(Array.isArray(validatedUser.verificationDocuments) ? validatedUser.verificationDocuments : []),
+            ...(Array.isArray(validatedUser.verificationInfo?.documents) ? validatedUser.verificationInfo.documents : []),
+            ...(Array.isArray((validatedUser as any).documents) ? (validatedUser as any).documents : []),
+            ...(Array.isArray((validatedUser as any).files) ? (validatedUser as any).files.filter((f: any) => f && (f.category === "Verification" || f.category === "Identity" || f.isVerificationDoc)) : [])
+          ];
+          const uniqueDocs: any[] = [];
+          const seenIds = new Set<string>();
+          for (const doc of rawDocs) {
+            if (!doc) continue;
+            const docId = String(doc.documentId || doc.id || doc.storageReference || doc.fileName || JSON.stringify(doc));
+            if (!seenIds.has(docId)) {
+              seenIds.add(docId);
+              uniqueDocs.push(doc);
             }
-          } else if (!effStatus) {
-            if (validatedUser.verification_status === "pending" || validatedUser.verificationInfo?.status === "pending") {
-              effStatus = "PENDING_ADMIN_REVIEW";
-            } else if (validatedUser.verification_status === "rejected" || validatedUser.verificationInfo?.status === "rejected") {
-              effStatus = "REJECTED";
-            } else if (hasVerificationDocs || hasAdminApprovalRecord) {
+          }
+
+          const documentCount = uniqueDocs.length;
+          const adminOverride = Boolean((validatedUser as any).adminVerificationOverride);
+          let hasRejectedDoc = false;
+          let hasPendingDoc = false;
+
+          for (const d of uniqueDocs) {
+            const s = String(d.status || d.verificationStatus || "").toUpperCase();
+            if (s === "REJECTED") {
+              hasRejectedDoc = true;
+            } else if (s === "PENDING" || s === "PENDING_REVIEW" || s === "PENDING_ADMIN_REVIEW" || s === "UNDER_REVIEW" || !s) {
+              hasPendingDoc = true;
+            }
+          }
+
+          const overallDocStatus = String(validatedUser.documentVerificationStatus || validatedUser.verificationInfo?.status || "").toUpperCase();
+          const rawAccountStatus = String(validatedUser.accountStatus || "").toUpperCase();
+
+          let effStatus: any = "VERIFICATION_REQUIRED";
+
+          if (rawAccountStatus === "PENDING_EMAIL_VERIFICATION" || (!validatedUser.isEmailVerified && !validatedUser.emailVerified && !(validatedUser as any).email_verified && validatedUser.verification_required !== false && !adminOverride)) {
+            effStatus = "PENDING_EMAIL_VERIFICATION";
+          } else if (rawAccountStatus === "REJECTED" || overallDocStatus === "REJECTED" || (hasRejectedDoc && !adminOverride)) {
+            effStatus = "REJECTED";
+          } else if (documentCount === 0 && !adminOverride) {
+            effStatus = "VERIFICATION_REQUIRED";
+          } else if (hasPendingDoc || rawAccountStatus === "PENDING_ADMIN_REVIEW" || rawAccountStatus === "PENDING_DOCUMENT_VERIFICATION" || overallDocStatus === "UNDER_REVIEW" || overallDocStatus === "PENDING") {
+            if (rawAccountStatus !== "APPROVED" || hasPendingDoc) {
+              effStatus = adminOverride ? "APPROVED" : "PENDING_ADMIN_REVIEW";
+            } else {
+              effStatus = adminOverride ? "APPROVED" : "PENDING_ADMIN_REVIEW";
+            }
+          } else {
+            const isMarkedApproved = rawAccountStatus === "APPROVED" || overallDocStatus === "APPROVED" || validatedUser.verificationInfo?.status === "verified";
+            if (isMarkedApproved && ((documentCount > 0 && !hasRejectedDoc && !hasPendingDoc) || adminOverride)) {
               effStatus = "APPROVED";
+            } else if (documentCount > 0 && !hasRejectedDoc) {
+              effStatus = "PENDING_ADMIN_REVIEW";
             } else {
               effStatus = "VERIFICATION_REQUIRED";
             }
@@ -1440,7 +1474,7 @@ export function subscribeToFirebaseAuthState(rawCallback: (user: User | null) =>
           const isApproved = effStatus === "APPROVED";
           validatedUser.isVerified = isApproved;
           validatedUser.verification_required = !isApproved;
-          validatedUser.verification_status = isApproved ? "verified" : (effStatus === "REJECTED" ? "rejected" : (effStatus === "PENDING_ADMIN_REVIEW" ? "pending" : "unverified"));
+          validatedUser.verification_status = isApproved ? "verified" : (effStatus === "REJECTED" ? "rejected" : (effStatus === "PENDING_ADMIN_REVIEW" ? "pending" : "action_required"));
         }
         setLocalItem(`user_${fbUser.uid}`, validatedUser);
         callback(validatedUser);

@@ -3195,17 +3195,14 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
           {/* Subtle Ambient Institutional Glow */}
           <div className="absolute -inset-6 rounded-full bg-gradient-to-tr from-[#0db4d7]/15 via-[#0075DE]/10 to-[#f3ba1a]/15 blur-xl pointer-events-none opacity-60 animate-pulse" />
 
-          {/* Minimalist Logo Container */}
+          {/* Subtle Cinematic Light Sweep Motion Graphic around Logo (No Box per rule 6) */}
           <motion.div 
-            animate={{ opacity: [0.88, 1, 0.88] }}
-            transition={{ duration: 2.2, repeat: Infinity, ease: "easeInOut" }}
-            className={`relative z-10 p-5 rounded-2xl flex items-center justify-center backdrop-blur-md transition-colors ${
-              theme === "light" 
-                ? "bg-white/85 border border-slate-200/90 shadow-lg shadow-slate-200/50" 
-                : "bg-[#0C101A]/85 border border-slate-800/90 shadow-2xl shadow-black/60"
-            }`}
+            animate={{ opacity: [0.8, 1, 0.8], scale: [0.98, 1.02, 0.98] }}
+            transition={{ duration: 2.8, repeat: Infinity, ease: "easeInOut" }}
+            className="relative z-10 flex items-center justify-center p-4"
           >
-            <ZakirLogo size={64} iconOnly theme={isCustomThemeActive ? "custom" : theme} />
+            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-[#0db4d7]/15 to-transparent blur-xl pointer-events-none animate-pulse" />
+            <ZakirLogo size={64} withBox={false} theme={isCustomThemeActive ? "custom" : theme} />
           </motion.div>
         </motion.div>
       </div>
@@ -4217,7 +4214,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
             )}
           </SplitLoginCard>
         )
-      ) : (currentUser && !isUserCeoOrAdmin(currentUser) && currentUser.accountStatus === "REJECTED") ? (
+      ) : (currentUser && !isUserAdmin(currentUser) && currentUser.accountStatus === "REJECTED") ? (
         <Suspense fallback={<FullScreenFallback />}>
           <AccountRejectedView
             currentUser={currentUser}
@@ -4230,7 +4227,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
             }}
           />
         </Suspense>
-      ) : (currentUser && !isUserCeoOrAdmin(currentUser) && ((!currentUser.isEmailVerified && !currentUser.emailVerified && !currentUser.email_verified && currentUser.verification_required !== false) || currentUser.accountStatus === "PENDING_EMAIL_VERIFICATION")) ? (
+      ) : (currentUser && !isUserAdmin(currentUser) && ((!currentUser.isEmailVerified && !currentUser.emailVerified && !currentUser.email_verified && currentUser.verification_required !== false) || currentUser.accountStatus === "PENDING_EMAIL_VERIFICATION")) ? (
         <Suspense fallback={<FullScreenFallback />}>
           <EmailVerificationView
             currentUser={currentUser}
@@ -4240,7 +4237,17 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
             applyUserPreferences={applyUserPreferences}
           />
         </Suspense>
-      ) : (currentUser && !isUserCeoOrAdmin(currentUser) && (currentUser.accountStatus === "PENDING_DOCUMENT_VERIFICATION" || (currentUser.requiresDocumentVerification && (currentUser.accountStatus === "PENDING_INSTITUTIONAL_DATA" || currentUser.documentVerificationStatus === "PENDING_UPLOAD")))) ? (
+      ) : (currentUser && !isUserAdmin(currentUser) && ((currentUser.accountStatus as string) === "PENDING_ADMIN_REVIEW" || (currentUser.accountStatus as string) === "PENDING_APPROVAL" || (currentUser.documentVerificationStatus as string) === "UNDER_REVIEW")) ? (
+        <Suspense fallback={<FullScreenFallback />}>
+          <PendingApprovalView
+            currentUser={currentUser}
+            lang={lang}
+            theme={theme}
+            onLogout={handleLogout}
+            onRefreshUser={refreshCurrentUser}
+          />
+        </Suspense>
+      ) : (currentUser && !isUserAdmin(currentUser) && ((currentUser.accountStatus as string) === "PENDING_DOCUMENT_VERIFICATION" || (currentUser.accountStatus as string) === "VERIFICATION_REQUIRED" || (currentUser.accountStatus as string) === "PENDING_INSTITUTIONAL_DATA" || (currentUser.documentVerificationStatus as string) === "PENDING_UPLOAD" || (currentUser.documentVerificationStatus as string) === "UNVERIFIED" || currentUser.requiresDocumentVerification || currentUser.accountStatus !== "APPROVED")) ? (
         <Suspense fallback={<FullScreenFallback />}>
           <DocumentVerificationView
             currentUser={currentUser}
@@ -4252,47 +4259,6 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
               refreshCurrentUser();
             }}
           />
-        </Suspense>
-      ) : (currentUser && !isUserCeoOrAdmin(currentUser) && ((currentUser.accountStatus as string) === "PENDING_ADMIN_REVIEW" || (currentUser.requiresDocumentVerification && (currentUser.accountStatus as string) === "PENDING_APPROVAL"))) ? (
-        <Suspense fallback={<FullScreenFallback />}>
-          <PendingApprovalView
-            currentUser={currentUser}
-            lang={lang}
-            theme={theme}
-            onLogout={handleLogout}
-            onRefreshUser={refreshCurrentUser}
-          />
-        </Suspense>
-      ) : (currentUser && !isUserCeoOrAdmin(currentUser) && currentUser.accountStatus !== "APPROVED") ? (
-        <Suspense fallback={<FullScreenFallback />}>
-          {(!currentUser.isEmailVerified && !currentUser.emailVerified && !currentUser.email_verified && currentUser.verification_required !== false) ? (
-            <EmailVerificationView
-              currentUser={currentUser}
-              lang={lang}
-              onLogout={handleLogout}
-              setCurrentUser={setCurrentUser}
-              applyUserPreferences={applyUserPreferences}
-            />
-          ) : ((currentUser.accountStatus as string) === "PENDING_ADMIN_REVIEW" || (currentUser.accountStatus as string) === "PENDING_APPROVAL") ? (
-            <PendingApprovalView
-              currentUser={currentUser}
-              lang={lang}
-              theme={theme}
-              onLogout={handleLogout}
-              onRefreshUser={refreshCurrentUser}
-            />
-          ) : (
-            <DocumentVerificationView
-              currentUser={currentUser}
-              lang={lang}
-              theme={theme}
-              onLogout={handleLogout}
-              onSuccess={(updatedUser: User) => {
-                setCurrentUser(updatedUser);
-                refreshCurrentUser();
-              }}
-            />
-          )}
         </Suspense>
       ) : (currentUser && isUserAdmin(currentUser)) ? (
         /* ADMIN DASHBOARD VIEW FOR ADMIN USER */

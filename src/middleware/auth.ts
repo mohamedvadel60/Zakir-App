@@ -376,16 +376,197 @@ export interface EntitlementCheckResult {
   trialStartedAt: string | null;
   trialEndsAt: string | null;
   trialRemainingSeconds: number;
-  reason: "OK" | "NOT_APPROVED" | "PENDING_REVIEW" | "PENDING_INSTITUTIONAL_DATA" | "PENDING_EMAIL_VERIFICATION" | "PENDING_DOCUMENT_VERIFICATION" | "REJECTED" | "TRIAL_EXPIRED" | "NO_PLAN" | "PROFILE_NOT_FOUND";
+  reason: "OK" | "NOT_APPROVED" | "PENDING_REVIEW" | "PENDING_INSTITUTIONAL_DATA" | "PENDING_EMAIL_VERIFICATION" | "PENDING_DOCUMENT_VERIFICATION" | "VERIFICATION_REQUIRED" | "REJECTED" | "TRIAL_EXPIRED" | "NO_PLAN" | "PROFILE_NOT_FOUND";
   userFriendlyMessage?: string;
   profile?: any;
 }
 
-/**
- * Server-side authoritative evaluation of account approval, trial validity (24 hours from approval),
- * and active subscription plan entitlements.
- */
-export async function checkUserEntitlementServer(uid?: string, email?: string): Promise<EntitlementCheckResult> {
+export type UserEntitlementResult = EntitlementCheckResult;
+
+export interface StrictVerificationResult {
+  effectiveStatus: "APPROVED" | "REJECTED" | "PENDING_ADMIN_REVIEW" | "VERIFICATION_REQUIRED" | "PENDING_DOCUMENT_VERIFICATION" | "PENDING_EMAIL_VERIFICATION";
+  isVerified: boolean;
+  verificationRequired: boolean;
+  verificationStatus: "verified" | "rejected" | "pending" | "unverified" | "action_required";
+  documentCount: number;
+  hasRejectedDocument: boolean;
+  hasPendingDocument: boolean;
+  allDocumentsApproved: boolean;
+  adminVerificationOverride: boolean;
+  reason?: string;
+}
+
+export function computeStrictVerificationState(profile: any, isAdmin: boolean = false): StrictVerificationResult {
+  if (isAdmin || profile?.role === "ADMIN" || profile?.isAdmin === true) {
+    return {
+      effectiveStatus: "APPROVED",
+      isVerified: true,
+      verificationRequired: false,
+      verificationStatus: "verified",
+      documentCount: 0,
+      hasRejectedDocument: false,
+      hasPendingDocument: false,
+      allDocumentsApproved: true,
+      adminVerificationOverride: true,
+    };
+  }
+
+  // 1. Gather all documents
+  const rawDocs = [
+    ...(Array.isArray(profile?.verificationDocuments) ? profile.verificationDocuments : []),
+    ...(Array.isArray(profile?.verificationInfo?.documents) ? profile.verificationInfo.documents : []),
+    ...(Array.isArray(profile?.documents) ? profile.documents : []),
+    ...(Array.isArray(profile?.files) ? profile.files.filter((f: any) => f && (f.category === "Verification" || f.category === "Identity" || f.isVerificationDoc)) : [])
+  ];
+
+  const uniqueDocs: any[] = [];
+  const seenIds = new Set<string>();
+  for (const doc of rawDocs) {
+    if (!doc) continue;
+    const docId = String(doc.documentId || doc.id || doc.storageReference || doc.fileName || JSON.stringify(doc));
+    if (!seenIds.has(docId)) {
+      seenIds.add(docId);
+      uniqueDocs.push(doc);
+    }
+  }
+
+  const documentCount = uniqueDocs.length;
+  const adminOverride = profile?.adminVerificationOverride === true;
+
+  let hasRejectedDoc = false;
+  let hasPendingDoc = false;
+  let hasApprovedDoc = false;
+
+  for (const d of uniqueDocs) {
+    const s = String(d.status || d.verificationStatus || "").toUpperCase();
+    if (s === "REJECTED") {
+      hasRejectedDoc = true;
+    } else if (s === "APPROVED" || s === "VERIFIED") {
+      hasApprovedDoc = true;
+    } else if (s === "PENDING" || s === "PENDING_REVIEW" || s === "PENDING_ADMIN_REVIEW" || s === "UNDER_REVIEW" || !s) {
+      hasPendingDoc = true;
+    }
+  }
+
+  const overallDocStatus = String(profile?.documentVerificationStatus || profile?.verificationInfo?.status || "").toUpperCase();
+  const rawAccountStatus = String(profile?.accountStatus || "").toUpperCase();
+
+  // RULE: Email verification pending
+  if (rawAccountStatus === "PENDING_EMAIL_VERIFICATION" || (!profile?.isEmailVerified && !profile?.emailVerified && !profile?.email_verified && profile?.verification_required !== false && !adminOverride)) {
+    return {
+      effectiveStatus: "PENDING_EMAIL_VERIFICATION",
+      isVerified: false,
+      verificationRequired: true,
+      verificationStatus: "action_required",
+      documentCount,
+      hasRejectedDocument: hasRejectedDoc,
+      hasPendingDocument: hasPendingDoc,
+      allDocumentsApproved: false,
+      adminVerificationOverride: adminOverride,
+      reason: "PENDING_EMAIL_VERIFICATION"
+    };
+  }
+
+  // RULE: Rejected documents or explicitly rejected account
+  if (rawAccountStatus === "REJECTED" || overallDocStatus === "REJECTED" || (hasRejectedDoc && !adminOverride)) {
+    return {
+      effectiveStatus: "REJECTED",
+      isVerified: false,
+      verificationRequired: true,
+      verificationStatus: "rejected",
+      documentCount,
+      hasRejectedDocument: true,
+      hasPendingDocument: hasPendingDoc,
+      allDocumentsApproved: false,
+      adminVerificationOverride: adminOverride,
+      reason: profile?.rejectionReason || profile?.verificationInfo?.adminNote || "وثائق التوثيق مرفوضة أو تتطلب تعديلاً.",
+    };
+  }
+
+  // RULE: No documents and no admin override -> VERIFICATION_REQUIRED
+  if (documentCount === 0 && !adminOverride) {
+    return {
+      effectiveStatus: "VERIFICATION_REQUIRED",
+      isVerified: false,
+      verificationRequired: true,
+      verificationStatus: "unverified",
+      documentCount: 0,
+      hasRejectedDocument: false,
+      hasPendingDocument: false,
+      allDocumentsApproved: false,
+      adminVerificationOverride: false,
+      reason: "VERIFICATION_REQUIRED"
+    };
+  }
+
+  // RULE: Documents pending review
+  if (hasPendingDoc || rawAccountStatus === "PENDING_ADMIN_REVIEW" || rawAccountStatus === "PENDING_DOCUMENT_VERIFICATION" || overallDocStatus === "UNDER_REVIEW" || overallDocStatus === "PENDING") {
+    if (rawAccountStatus !== "APPROVED" || hasPendingDoc) {
+      if (!adminOverride) {
+        return {
+          effectiveStatus: "PENDING_ADMIN_REVIEW",
+          isVerified: false,
+          verificationRequired: true,
+          verificationStatus: "pending",
+          documentCount,
+          hasRejectedDocument: false,
+          hasPendingDocument: true,
+          allDocumentsApproved: false,
+          adminVerificationOverride: false,
+          reason: "PENDING_REVIEW"
+        };
+      }
+    }
+  }
+
+  // RULE: Valid Documents + Explicit Admin Approval -> APPROVED
+  const isMarkedApproved = rawAccountStatus === "APPROVED" || overallDocStatus === "APPROVED" || profile?.verificationInfo?.status === "verified";
+  if (isMarkedApproved && ((documentCount > 0 && !hasRejectedDoc && !hasPendingDoc) || adminOverride)) {
+    return {
+      effectiveStatus: "APPROVED",
+      isVerified: true,
+      verificationRequired: false,
+      verificationStatus: "verified",
+      documentCount,
+      hasRejectedDocument: false,
+      hasPendingDocument: false,
+      allDocumentsApproved: true,
+      adminVerificationOverride: adminOverride,
+    };
+  }
+
+  // If docs exist but not approved yet by admin -> PENDING_ADMIN_REVIEW
+  if (documentCount > 0 && !hasRejectedDoc) {
+    return {
+      effectiveStatus: "PENDING_ADMIN_REVIEW",
+      isVerified: false,
+      verificationRequired: true,
+      verificationStatus: "pending",
+      documentCount,
+      hasRejectedDocument: false,
+      hasPendingDocument: hasPendingDoc,
+      allDocumentsApproved: false,
+      adminVerificationOverride: false,
+      reason: "PENDING_REVIEW"
+    };
+  }
+
+  // Default fallback -> VERIFICATION_REQUIRED
+  return {
+    effectiveStatus: "VERIFICATION_REQUIRED",
+    isVerified: false,
+    verificationRequired: true,
+    verificationStatus: "unverified",
+    documentCount,
+    hasRejectedDocument: hasRejectedDoc,
+    hasPendingDocument: hasPendingDoc,
+    allDocumentsApproved: false,
+    adminVerificationOverride: false,
+    reason: "VERIFICATION_REQUIRED"
+  };
+}
+
+export async function verifyUserAccess(uid: string, email?: string): Promise<UserEntitlementResult> {
   if (!uid && !email) {
     return {
       allowed: false,
@@ -436,37 +617,11 @@ export async function checkUserEntitlementServer(uid?: string, email?: string): 
     };
   }
 
-  // Function to check if user profile has any verification documents or explicit admin approval
-  const hasVerificationDocs = Boolean(
-    (profile.verificationInfo?.documents && profile.verificationInfo.documents.length > 0) ||
-    (profile.documents && profile.documents.length > 0) ||
-    (profile.files && Array.isArray(profile.files) && profile.files.some((f: any) => f.category === "Verification" || f.category === "Identity"))
-  );
-  const hasAdminApprovalRecord = Boolean(
-    profile.verificationInfo?.status === "verified" && profile.verificationInfo?.verifiedAt
-  );
+  // Compute Strict Verification State (Backend is Single Source of Truth)
+  const verState = computeStrictVerificationState(profile, false);
+  const effectiveStatus = verState.effectiveStatus;
 
-  // Determine effective accountStatus for legacy or new users
-  let effectiveStatus = profile.accountStatus;
-
-  if (effectiveStatus === "APPROVED") {
-    // Non-admin account marked APPROVED must actually have verification docs or explicit admin approval timestamp
-    if (!hasVerificationDocs && !hasAdminApprovalRecord) {
-      effectiveStatus = "VERIFICATION_REQUIRED";
-    }
-  } else if (!effectiveStatus) {
-    if (profile.verification_status === "pending" || profile.verificationInfo?.status === "pending") {
-      effectiveStatus = "PENDING_ADMIN_REVIEW";
-    } else if (profile.verification_status === "rejected" || profile.verificationInfo?.status === "rejected") {
-      effectiveStatus = "REJECTED";
-    } else if (hasVerificationDocs || hasAdminApprovalRecord) {
-      effectiveStatus = "APPROVED";
-    } else {
-      effectiveStatus = "VERIFICATION_REQUIRED";
-    }
-  }
-
-  // 1. Account approval status check
+  // 1. NON-APPROVED ACCOUNT GATES: strictly deny access
   if (effectiveStatus === "REJECTED") {
     return {
       allowed: false,
@@ -503,7 +658,7 @@ export async function checkUserEntitlementServer(uid?: string, email?: string): 
     };
   }
 
-  if (effectiveStatus === "PENDING_DOCUMENT_VERIFICATION" || effectiveStatus === "PENDING_INSTITUTIONAL_DATA") {
+  if (effectiveStatus === "PENDING_DOCUMENT_VERIFICATION" || (effectiveStatus as string) === "PENDING_INSTITUTIONAL_DATA") {
     return {
       allowed: false,
       isAdmin: false,
@@ -537,7 +692,41 @@ export async function checkUserEntitlementServer(uid?: string, email?: string): 
     };
   }
 
-  // 2. Active Subscription check
+  if (effectiveStatus === "VERIFICATION_REQUIRED") {
+    return {
+      allowed: false,
+      isAdmin: false,
+      accountStatus: "VERIFICATION_REQUIRED",
+      hasActiveSubscription: false,
+      isTrialActive: false,
+      activePlan: null,
+      trialStartedAt: null,
+      trialEndsAt: null,
+      trialRemainingSeconds: 0,
+      reason: "VERIFICATION_REQUIRED",
+      userFriendlyMessage: "يرجى إرفاق وثائق إثبات الهوية والبيانات المؤسسية لتوثيق الحساب والدخول.",
+      profile
+    };
+  }
+
+  if (effectiveStatus !== "APPROVED") {
+    return {
+      allowed: false,
+      isAdmin: false,
+      accountStatus: effectiveStatus,
+      hasActiveSubscription: false,
+      isTrialActive: false,
+      activePlan: null,
+      trialStartedAt: null,
+      trialEndsAt: null,
+      trialRemainingSeconds: 0,
+      reason: "VERIFICATION_REQUIRED",
+      userFriendlyMessage: "الحساب غير معتمد بعد. يرجى استكمال إجراءات التوثيق.",
+      profile
+    };
+  }
+
+  // 2. ONLY APPROVED ACCOUNTS PROCEED TO SUBSCRIPTION & TRIAL CHECK
   const subStatus = (profile.subscriptionStatus || "").trim();
   const subPlan = (profile.subscriptionPlan || "") as "Starter" | "Professional" | "Enterprise";
   const hasActivePlan = subStatus === "Active" && (subPlan === "Starter" || subPlan === "Professional" || subPlan === "Enterprise");
@@ -546,7 +735,7 @@ export async function checkUserEntitlementServer(uid?: string, email?: string): 
     return {
       allowed: true,
       isAdmin: false,
-      accountStatus: effectiveStatus,
+      accountStatus: "APPROVED",
       hasActiveSubscription: true,
       isTrialActive: false,
       activePlan: subPlan,
@@ -575,7 +764,7 @@ export async function checkUserEntitlementServer(uid?: string, email?: string): 
     return {
       allowed: true,
       isAdmin: false,
-      accountStatus: effectiveStatus,
+      accountStatus: "APPROVED",
       hasActiveSubscription: false,
       isTrialActive: true,
       activePlan: subPlan || "Starter",
@@ -592,7 +781,7 @@ export async function checkUserEntitlementServer(uid?: string, email?: string): 
   return {
     allowed: false,
     isAdmin: false,
-    accountStatus: effectiveStatus,
+    accountStatus: "APPROVED",
     hasActiveSubscription: false,
     isTrialActive: false,
     activePlan: subPlan || null,
@@ -604,6 +793,8 @@ export async function checkUserEntitlementServer(uid?: string, email?: string): 
     profile
   };
 }
+
+export const checkUserEntitlementServer = verifyUserAccess;
 
 /**
  * Server-side middleware that guarantees the requesting user has valid access entitlement

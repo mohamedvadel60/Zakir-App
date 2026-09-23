@@ -1,109 +1,234 @@
 import React from "react";
-import zakirLightLogo from "../assets/zakir-light-mode.svg";
-import zakirDarkLogo from "../assets/zakir-dark-mode.svg";
-import appIconSvg from "../assets/app-icon.svg";
 
 interface ZakirLogoProps {
   className?: string;
   iconOnly?: boolean;
   showText?: boolean;
+  withBox?: boolean;
   theme?: "light" | "dark" | "custom" | "auto";
   size?: "sm" | "md" | "lg" | "xl" | number | string;
   lang?: "ar" | "en" | "fr";
-  useSquareImage?: boolean;
 }
+
+/**
+ * Pure authentic SVG Symbol of ZAKIR.
+ * Uses exact vector path coordinates from brand identity assets,
+ * with exact tight bounding box viewBox to eliminate asymmetrical whitespace offsets.
+ */
+export const ZakirSymbol: React.FC<{
+  color?: string;
+  className?: string;
+  style?: React.CSSProperties;
+}> = ({ color = "currentColor", className = "", style = {} }) => (
+  <svg
+    viewBox="474.23 0 728.85 810"
+    xmlns="http://www.w3.org/2000/svg"
+    preserveAspectRatio="xMidYMid meet"
+    className={`shrink-0 block ${className}`}
+    style={{ ...style }}
+  >
+    <path
+      fill={color}
+      d="M778.26,359.34c-23.74-3.27-49.55-5.85-77.22-7.24-32.16-1.61-62.06-1.36-89.28,0,34.59-18.5,69.17-37,103.76-55.5,20.28,4.11,42.89,7.58,67.57,9.65,37.04,3.12,70.4,2.4,98.93,0-34.59,17.7-69.17,35.39-103.76,53.09Z"
+    />
+    <path
+      fill={color}
+      d="M980.96,516.19c-21.56-3.6-44.1-6.86-67.57-9.65-27.67-3.29-54.26-5.64-79.63-7.24,24.93-14.48,49.87-28.96,74.8-43.43,15.7,5.87,35.19,11.48,57.91,14.48,48.33,6.37,88.49-2.07,113.41-9.65-32.98,18.5-65.96,37-98.93,55.5Z"
+    />
+    <path
+      fill={color}
+      d="M475.42,511.37c-.4-63.57-.79-127.14-1.19-190.71,0-1.56.04-3.1.17-4.65,1.41-16.02,5.74-38.29,19.12-60.42,15.26-25.24,36.05-39.96,52.07-49.52,46.87-27.98,204.17-102.07,420.89-194.19,2.96-1.1,22.36-7.98,38.61,2.41,13.06,8.36,16.89,21.72,19.3,33.78.99,4.94,2.1,13.1,2.12,24.53,0,0-.21,16.42-4.53,33.38-3.15,12.35-9.18,25.16-15.95,36.88-15.63,27.06-38.86,48.92-66.57,63.37-2.2,1.15-4.45,2.32-6.75,3.51-28.29,14.65-50.15,25.27-62.74,31.37-57.83,28.01-105.24,50.16-105.24,50.16-109.27,51.04-121.53,55.26-155.36,75.32-51.75,30.67-69.27,48.18-82.04,65.15-22.18,29.47-31.7,59.55-36.2,79.63-.91,5.07-5.6,8.13-9.65,7.24-3.09-.68-5.58-3.59-6.03-7.24Z"
+    />
+    <path
+      fill={color}
+      d="M587.63,674.25c-2.01-24.5-3.65-49.86-4.83-76.01-1.24-27.45-1.89-54.07-2.06-79.79-.1-14.52,5.57-37.36,18.95-60.16,18.94-32.28,45.31-46.85,62.74-55.5,137.7-68.32,257.41-123.89,260.27-125.27,75.14-36.4,123.4-60.53,145.12-72.6,27.5-15.28,46.89-32.03,62.74-41.02,2.06-1.17,4.68-2.2,6.95-3.08,3.88-1.5,8.11-2.04,12.19-1.23,3.17.63,6.65,1.89,9.82,4.3,8.72,6.63,9.55,16.59,9.65,18.1,1.46,13.4,2.42,28.36,2.41,44.64,0,16.22-.96,31.12-2.41,44.49-1.5,12.31-5.42,31.71-16.89,52.03-18.54,32.86-45.69,49.14-57.91,55.5-88.79,45.49-177.58,90.98-266.37,136.48-51.58,25.47-85.43,42.05-105.24,51.74-34.68,16.96-62.99,28.56-86.87,55.5-9.82,11.07-16.26,18.95-21.72,28.96-3.96,7.25-5.57,13.62-7.24,21.72-.3,1.46-.76,3.36-1.71,5.25-3.58,7.17-13.97,7.19-16.83-.3-.44-1.16-.71-2.42-.76-3.74Z"
+    />
+    <path
+      fill={color}
+      d="M730.61,710.92l-.61,63.32c-.18,1.66-1.51,16.39,9.65,26.69,8.53,7.87,21.12,10.17,32.51,6.07,1.53-.55,2.98-1.29,4.41-2.05,119.91-63.73,238.88-125.06,359.77-191.26,9.25-5.07,29.79-21.27,44.89-54.06,11.49-24.94,14.48-48.26,15.27-61.09.4-6.48-.79-72.83-.79-72.83.52-9.04-4.44-17.31-12.07-20.51-6.75-2.84-14.8-1.38-20.72,3.5-7.47,6.16-15.25,11.96-23.88,16.35-108.82,55.31-218.13,109.42-326.98,164.68-6.15,3.12-12.18,6.5-17.97,10.25-12.15,7.87-28.07,20.18-42.39,41.7-.13.2-.26.39-.39.59-13.44,20.36-20.48,44.27-20.72,68.66Z"
+    />
+  </svg>
+);
 
 export const ZakirLogo: React.FC<ZakirLogoProps> = ({
   className = "",
   iconOnly = false,
-  showText = false,
+  showText = true,
+  withBox = true,
   theme = "auto",
   size = "md",
 }) => {
-  let dimensions = { width: 140, height: 40 };
+  // Dimensions calibrated for clean, balanced UI layout
+  let containerPx = 38;
+  let symbolPx = 23;
+  let borderRadiusPx = 10;
+  let textSizeClass = "text-lg";
+  let gapClass = "gap-3";
 
-  if (size === "sm") {
-    dimensions = iconOnly ? { width: 32, height: 32 } : { width: 100, height: 28 };
+  if (size === "xs") {
+    containerPx = 28;
+    symbolPx = 17;
+    borderRadiusPx = 7;
+    textSizeClass = "text-sm";
+    gapClass = "gap-2";
+  } else if (size === "sm") {
+    containerPx = 32;
+    symbolPx = 19;
+    borderRadiusPx = 8;
+    textSizeClass = "text-base";
+    gapClass = "gap-2.5";
   } else if (size === "md") {
-    dimensions = iconOnly ? { width: 40, height: 40 } : { width: 130, height: 36 };
+    containerPx = 38;
+    symbolPx = 23;
+    borderRadiusPx = 10;
+    textSizeClass = "text-lg";
+    gapClass = "gap-3";
   } else if (size === "lg") {
-    dimensions = iconOnly ? { width: 48, height: 48 } : { width: 160, height: 44 };
+    containerPx = 48;
+    symbolPx = 29;
+    borderRadiusPx = 12;
+    textSizeClass = "text-xl";
+    gapClass = "gap-3.5";
   } else if (size === "xl") {
-    dimensions = iconOnly ? { width: 64, height: 64 } : { width: 200, height: 56 };
+    containerPx = 64;
+    symbolPx = 38;
+    borderRadiusPx = 16;
+    textSizeClass = "text-2xl";
+    gapClass = "gap-4";
+  } else if (size === "2xl") {
+    containerPx = 80;
+    symbolPx = 48;
+    borderRadiusPx = 20;
+    textSizeClass = "text-3xl";
+    gapClass = "gap-4";
   } else if (typeof size === "number") {
-    dimensions = iconOnly 
-      ? { width: size, height: size } 
-      : { width: Math.round(size * 3.2), height: size };
+    containerPx = size;
+    symbolPx = Math.round(size * 0.6);
+    borderRadiusPx = Math.max(4, Math.round(size * 0.25));
+    textSizeClass = size < 32 ? "text-sm" : size < 44 ? "text-base" : size < 60 ? "text-lg" : "text-2xl";
+    gapClass = size < 36 ? "gap-2" : "gap-3";
   }
 
-  if (iconOnly) {
+  // Determine Effective Colors based on Theme:
+  // Light Mode: Container #1C2C58 (Navy), Symbol #FFFFFF (White), Wordmark #1C2C58 (Navy)
+  // Dark Mode: Container #FFFFFF (White), Symbol #1C2C58 (Navy), Wordmark #FFFFFF (White)
+  const isLight = theme === "light";
+  const isDark = theme === "dark";
+
+  // Loading Screen / Refresh / Pure Symbol mode without container (Rule 10)
+  if (!withBox) {
     return (
       <div className={`inline-flex items-center justify-center select-none ${className}`}>
-        <img
-          src={appIconSvg}
-          alt="Zakir App Icon"
-          style={{ width: `${dimensions.width}px`, height: `${dimensions.height}px` }}
-          className="object-contain shrink-0 block"
-        />
+        {isLight ? (
+          <ZakirSymbol
+            color="#1C2C58"
+            style={{ width: `${symbolPx}px`, height: `${symbolPx}px` }}
+          />
+        ) : isDark ? (
+          <ZakirSymbol
+            color="#FFFFFF"
+            style={{ width: `${symbolPx}px`, height: `${symbolPx}px` }}
+          />
+        ) : (
+          <>
+            <ZakirSymbol
+              color="#1C2C58"
+              className="block dark:hidden"
+              style={{ width: `${symbolPx}px`, height: `${symbolPx}px` }}
+            />
+            <ZakirSymbol
+              color="#FFFFFF"
+              className="hidden dark:block"
+              style={{ width: `${symbolPx}px`, height: `${symbolPx}px` }}
+            />
+          </>
+        )}
       </div>
     );
   }
 
-  const textColorClass = theme === "light"
-    ? "text-[#1c2c58]"
-    : theme === "dark"
-      ? "text-white"
-      : "text-[#1c2c58] dark:text-white";
-
-  const renderLogoImage = () => {
-    if (theme === "light") {
-      return (
-        <img
-          src={zakirLightLogo}
-          alt="Zakir Logo"
-          style={{ height: `${dimensions.height}px`, width: "auto" }}
-          className="object-contain shrink-0 block dark:hidden"
-        />
-      );
-    }
-    if (theme === "dark") {
-      return (
-        <img
-          src={zakirDarkLogo}
-          alt="Zakir Logo"
-          style={{ height: `${dimensions.height}px`, width: "auto" }}
-          className="object-contain shrink-0 block light:hidden"
-        />
-      );
-    }
-    return (
-      <>
-        <img
-          src={zakirLightLogo}
-          alt="Zakir Logo"
-          style={{ height: `${dimensions.height}px`, width: "auto" }}
-          className="object-contain shrink-0 block dark:hidden"
-        />
-        <img
-          src={zakirDarkLogo}
-          alt="Zakir Logo"
-          style={{ height: `${dimensions.height}px`, width: "auto" }}
-          className="object-contain shrink-0 hidden dark:block"
-        />
-      </>
-    );
-  };
-
-  // Full Logo Theme Resolution
+  // Full Brand Lockup with Container & Optional Wordmark
   return (
-    <div className={`inline-flex items-center gap-2.5 select-none ${className}`}>
-      {renderLogoImage()}
-      {showText && (
-        <span className={`font-extrabold tracking-widest text-xl font-display uppercase ${textColorClass}`}>
+    <div className={`inline-flex items-center ${gapClass} select-none ${className}`}>
+      {/* Container: flex centered, balanced padding */}
+      <div
+        className="flex items-center justify-center shrink-0 overflow-hidden shadow-sm transition-colors"
+        style={{
+          width: `${containerPx}px`,
+          height: `${containerPx}px`,
+          borderRadius: `${borderRadiusPx}px`,
+          aspectRatio: "1 / 1",
+          backgroundColor: isLight
+            ? "#1C2C58"
+            : isDark
+            ? "#FFFFFF"
+            : undefined,
+        }}
+      >
+        {isLight ? (
+          <ZakirSymbol
+            color="#FFFFFF"
+            style={{
+              width: `${symbolPx}px`,
+              height: `${symbolPx}px`,
+              maxWidth: `${symbolPx}px`,
+              maxHeight: `${symbolPx}px`,
+            }}
+          />
+        ) : isDark ? (
+          <ZakirSymbol
+            color="#1C2C58"
+            style={{
+              width: `${symbolPx}px`,
+              height: `${symbolPx}px`,
+              maxWidth: `${symbolPx}px`,
+              maxHeight: `${symbolPx}px`,
+            }}
+          />
+        ) : (
+          /* Auto theme resolving via CSS classes */
+          <div
+            className="w-full h-full flex items-center justify-center bg-[#1C2C58] dark:bg-[#FFFFFF] transition-colors"
+            style={{ borderRadius: `${borderRadiusPx}px` }}
+          >
+            <ZakirSymbol
+              color="#FFFFFF"
+              className="block dark:hidden"
+              style={{
+                width: `${symbolPx}px`,
+                height: `${symbolPx}px`,
+                maxWidth: `${symbolPx}px`,
+                maxHeight: `${symbolPx}px`,
+              }}
+            />
+            <ZakirSymbol
+              color="#1C2C58"
+              className="hidden dark:block"
+              style={{
+                width: `${symbolPx}px`,
+                height: `${symbolPx}px`,
+                maxWidth: `${symbolPx}px`,
+                maxHeight: `${symbolPx}px`,
+              }}
+            />
+          </div>
+        )}
+      </div>
+
+      {/* Wordmark: ZAKIR outside container, vertically centered, gap: 16px */}
+      {showText && !iconOnly && (
+        <span
+          className={`font-extrabold tracking-widest uppercase font-display select-none transition-colors ${textSizeClass} ${
+            isLight
+              ? "text-[#1C2C58]"
+              : isDark
+              ? "text-white"
+              : "text-[#1C2C58] dark:text-white"
+          }`}
+        >
           ZAKIR
         </span>
       )}
     </div>
   );
 };
-

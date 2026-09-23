@@ -29,6 +29,7 @@ import {
   resetPasscodeFailures,
   generateSecuritySessionToken,
   getUserProfileServer,
+  computeStrictVerificationState,
   AuthRequest,
   ADMIN_EMAILS,
   ADMIN_USER_ID,
@@ -2896,11 +2897,11 @@ function buildMasterEmailHtml(options: {
           <!-- Header with Official Logo (Clean White Background) -->
           <tr>
             <td style="padding: 36px 32px 24px 32px; text-align: center; border-bottom: 1px solid #f1f5f9; background-color: #ffffff;">
-              <!-- Logo Container Badge: Pure White Background -->
+              <!-- Logo Container Badge: 80px x 80px Navy Container with 48px Centered Symbol -->
               <table border="0" cellpadding="0" cellspacing="0" align="center" style="margin: 0 auto 16px auto;">
                 <tr>
-                  <td align="center" style="width: 56px; height: 56px; background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 14px; padding: 6px; box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04); vertical-align: middle;">
-                    <img src="${logoUrl}" alt="Zakir" width="44" height="44" style="display: block; width: 44px; height: 44px; border: 0; outline: none; text-decoration: none; margin: 0 auto; border-radius: 8px;" />
+                  <td align="center" style="width: 80px; height: 80px; background-color: #1C2C58; border-radius: 20px; text-align: center; vertical-align: middle; padding: 0; box-shadow: 0 4px 14px rgba(28, 44, 88, 0.18);">
+                    <img src="${logoUrl}" alt="Zakir" width="48" height="48" style="display: block; width: 48px; height: 48px; border: 0; outline: none; text-decoration: none; margin: 16px auto;" />
                   </td>
                 </tr>
               </table>
@@ -9156,13 +9157,14 @@ app.get("/api/admin/pending-approvals", requireAuth, requireAdmin, async (req: A
   }
 });
 
-// 2. Approve User Account (Starts exact 24-hour trial from approvedAt timestamp or assigns active plan)
+// 2. Approve User Account
 app.post("/api/admin/approve-account", requireAuth, requireAdmin, async (req: AuthRequest, res) => {
   const adminUid = req.user?.uid || "";
   const adminEmail = req.user?.email || "admin@zakir.ai";
 
   try {
-    const { userId, assignPlan = "Starter", customTrialHours = 24, notes = "" } = req.body;
+    const { assignPlan = "Starter", customTrialHours = 24, notes = "", adminNotes = "", adminOverride = false } = req.body;
+    const userId = req.body?.userId || req.body?.targetUserId || req.body?.id;
     if (!userId) {
       return res.status(400).json({ success: false, error: "User ID is required for approval." });
     }
@@ -9170,6 +9172,34 @@ app.post("/api/admin/approve-account", requireAuth, requireAdmin, async (req: Au
     const targetUser = await getUserProfileServer(userId);
     if (!targetUser) {
       return res.status(404).json({ success: false, error: "Target user not found." });
+    }
+
+    // Verify document eligibility
+    const rawDocs = [
+      ...(Array.isArray(targetUser.verificationDocuments) ? targetUser.verificationDocuments : []),
+      ...(Array.isArray(targetUser.verificationInfo?.documents) ? targetUser.verificationInfo.documents : []),
+      ...(Array.isArray(targetUser.documents) ? targetUser.documents : []),
+      ...(Array.isArray(targetUser.files) ? targetUser.files.filter((f: any) => f && (f.category === "Verification" || f.category === "Identity")) : [])
+    ];
+    const docCount = rawDocs.length;
+    const hasRejectedDoc = rawDocs.some((d: any) => String(d.status || d.verificationStatus || "").toUpperCase() === "REJECTED");
+    const isExplicitOverride = Boolean(adminOverride || req.body?.adminVerificationOverride || targetUser.adminVerificationOverride);
+
+    // Rule: Non-override approval requires at least 1 document and no rejected documents
+    if (docCount === 0 && !isExplicitOverride) {
+      return res.status(400).json({
+        success: false,
+        error: "Cannot approve account with 0 documents without an explicit admin verification override.",
+        userFriendlyMessage: "لا يمكن اعتماد الحساب لعدم وجود مستندات مرفوعة، ما لم يتم تفعيل الاستثناء الإداري الصريح (adminOverride)."
+      });
+    }
+
+    if (hasRejectedDoc && !isExplicitOverride) {
+      return res.status(400).json({
+        success: false,
+        error: "Cannot approve account while documents are in REJECTED state. Request replacement documents first or specify override.",
+        userFriendlyMessage: "لا يمكن اعتماد الحساب لوجود مستندات مرفوضة. يرجى طلب إعادة رفع الوثائق."
+      });
     }
 
     const nowIso = new Date().toISOString();
@@ -9180,9 +9210,10 @@ app.post("/api/admin/approve-account", requireAuth, requireAdmin, async (req: Au
       accountStatus: "APPROVED",
       documentVerificationStatus: "APPROVED",
       requiresDocumentVerification: false,
+      adminVerificationOverride: isExplicitOverride,
       approvedAt: nowIso,
       approvedBy: adminEmail,
-      approvalNotes: notes || "",
+      approvalNotes: notes || adminNotes || "",
       trialStartedAt: nowIso,
       trialEndsAt: trialEndsIso,
       trialExpiresAt: trialEndsIso,
@@ -9195,9 +9226,11 @@ app.post("/api/admin/approve-account", requireAuth, requireAdmin, async (req: Au
       emailVerified: true,
       verification_status: "verified",
       verification_required: false,
+      rejectionReason: null,
       "verificationInfo.status": "verified",
       "verificationInfo.verifiedAt": nowIso,
       "verificationInfo.verifiedBy": adminEmail,
+      "verificationInfo.adminNote": notes || adminNotes || "",
       lastActiveAt: nowIso
     };
 
@@ -9224,12 +9257,12 @@ app.post("/api/admin/approve-account", requireAuth, requireAdmin, async (req: Au
       userId,
       targetUser.email || "",
       "APPROVE_ACCOUNT",
-      `Approved account with ${trialHours}h trial and plan [${assignPlan}]. Notes: ${notes || "None"}`,
+      `Approved account with ${trialHours}h trial and plan [${assignPlan}]. Notes: ${notes || adminNotes || "None"}`,
       { accountStatus: targetUser.accountStatus, plan: targetUser.subscriptionPlan },
       approvalUpdates
     );
 
-    // 4. Send official account approval email with duplicate protection
+    // Send official account approval email with duplicate protection
     let emailDispatchResult: { success: boolean; messageId?: string; simulated?: boolean; skipped?: boolean } = { success: false, skipped: false };
     const userEmail = (targetUser.email || "").trim();
     const alreadyNotified = Boolean(targetUser.approvalEmailSentAt || targetUser.approvalNotificationSent);
@@ -9261,7 +9294,6 @@ app.post("/api/admin/approve-account", requireAuth, requireAdmin, async (req: Au
           approvalUpdates.approvalNotificationSent = true;
           approvalUpdates.approvalEmailMessageId = mailRes.messageId || "";
 
-          // Persist email sent flag to Firestore
           try {
             await adminDb.collection("users").doc(userId).set({
               approvalEmailSentAt: nowIso,
@@ -9272,7 +9304,6 @@ app.post("/api/admin/approve-account", requireAuth, requireAdmin, async (req: Au
             console.warn("Firestore approval email flag write notice:", e);
           }
 
-          // Persist email sent flag to local DB
           if (db.users) {
             const idx = db.users.findIndex((u: any) => u.id === userId || u.uid === userId);
             if (idx >= 0) {
@@ -9287,7 +9318,6 @@ app.post("/api/admin/approve-account", requireAuth, requireAdmin, async (req: Au
         console.error("[APPROVAL_EMAIL_DISPATCH_ERROR]", mailErr);
       }
     } else if (alreadyNotified) {
-      console.log(`[APPROVAL_EMAIL_SKIPPED] Duplicate email prevented for ${userEmail} (already sent at ${targetUser.approvalEmailSentAt})`);
       emailDispatchResult = { success: true, skipped: true };
     }
 
@@ -9316,7 +9346,8 @@ app.post("/api/admin/reject-account", requireAuth, requireAdmin, async (req: Aut
   const adminEmail = req.user?.email || "admin@zakir.ai";
 
   try {
-    const { userId, reason = "Account details could not be validated." } = req.body;
+    const { reason = "Account details could not be validated." } = req.body;
+    const userId = req.body?.userId || req.body?.targetUserId || req.body?.id;
     if (!userId) {
       return res.status(400).json({ success: false, error: "User ID is required." });
     }
@@ -9334,8 +9365,14 @@ app.post("/api/admin/reject-account", requireAuth, requireAdmin, async (req: Aut
       rejectionDate: nowIso,
       rejectedBy: adminEmail,
       subscriptionStatus: "Inactive",
-      "verificationInfo.status": "action_required",
-      "verificationInfo.adminNote": reason
+      isVerified: false,
+      verification_required: true,
+      verification_status: "rejected",
+      adminVerificationOverride: false,
+      verifiedAt: null,
+      "verificationInfo.status": "rejected",
+      "verificationInfo.adminNote": String(reason).trim(),
+      "verificationInfo.verifiedAt": null
     };
 
     try {
@@ -9362,7 +9399,7 @@ app.post("/api/admin/reject-account", requireAuth, requireAdmin, async (req: Aut
       rejectionUpdates
     );
 
-    // Send official account rejection email with reason and link to update documents
+    // Send official account rejection email
     const userEmail = (targetUser.email || "").trim();
     if (userEmail) {
       try {
@@ -9392,6 +9429,77 @@ app.post("/api/admin/reject-account", requireAuth, requireAdmin, async (req: Aut
     return res.status(500).json({
       success: false,
       error: err.message || "Failed to reject account"
+    });
+  }
+});
+
+// 3.1 Require Documents / Revoke Approval
+app.all(["/api/admin/require-documents", "/api/admin/revoke-approval"], requireAuth, requireAdmin, async (req: AuthRequest, res) => {
+  const adminUid = req.user?.uid || "";
+  const adminEmail = req.user?.email || "admin@zakir.ai";
+
+  try {
+    const { reason = "Verification documents are required." } = req.body || {};
+    const userId = req.body?.userId || req.body?.targetUserId || req.body?.id || req.query?.userId || req.query?.targetUserId;
+    if (!userId) {
+      return res.status(400).json({ success: false, error: "User ID is required." });
+    }
+
+    const targetUser = await getUserProfileServer(userId);
+    if (!targetUser) {
+      return res.status(404).json({ success: false, error: "Target user not found." });
+    }
+
+    const nowIso = new Date().toISOString();
+    const requireDocsUpdates: Record<string, any> = {
+      accountStatus: "VERIFICATION_REQUIRED",
+      documentVerificationStatus: "UNVERIFIED",
+      requiresDocumentVerification: true,
+      isVerified: false,
+      verification_required: true,
+      verification_status: "action_required",
+      adminVerificationOverride: false,
+      rejectionReason: null,
+      verifiedAt: null,
+      "verificationInfo.status": "action_required",
+      "verificationInfo.adminNote": String(reason).trim(),
+      "verificationInfo.verifiedAt": null
+    };
+
+    try {
+      await adminDb.collection("users").doc(userId).set(requireDocsUpdates, { merge: true });
+    } catch (fsErr) {}
+
+    const db = readDb();
+    if (db.users) {
+      const idx = db.users.findIndex((u: any) => u.id === userId || u.uid === userId);
+      if (idx >= 0) {
+        db.users[idx] = { ...db.users[idx], ...requireDocsUpdates };
+        writeDb(db);
+      }
+    }
+
+    await writeEntitlementAuditLog(
+      adminUid,
+      adminEmail,
+      userId,
+      targetUser.email || "",
+      "OVERRIDE_ENTITLEMENT",
+      `Required verification documents / revoked approval. Reason: ${reason}`,
+      { accountStatus: targetUser.accountStatus },
+      requireDocsUpdates
+    );
+
+    return res.json({
+      success: true,
+      message: "تم تعيين حالة الحساب إلى طلب الوثائق (VERIFICATION_REQUIRED) وإلغاء أي اعتماد سابق بنجاح.",
+      accountStatus: "VERIFICATION_REQUIRED"
+    });
+  } catch (err: any) {
+    console.error("[REQUIRE_DOCS_ERROR]", err);
+    return res.status(500).json({
+      success: false,
+      error: err.message || "Failed to set verification required state"
     });
   }
 });
@@ -11250,18 +11358,32 @@ app.post(
         const isApproved = mergedStatus === "APPROVED";
         const isRejected = mergedStatus === "REJECTED";
         const isPending = mergedStatus === "PENDING_ADMIN_REVIEW";
+        const nowIso = new Date().toISOString();
 
         profileData.accountStatus = mergedStatus;
         profileData.isVerified = isApproved;
         profileData.verification_required = !isApproved;
-        profileData.verification_status = isApproved ? "verified" : (isRejected ? "rejected" : (isPending ? "pending" : "unverified"));
+        profileData.verification_status = isApproved ? "verified" : (isRejected ? "rejected" : (isPending ? "pending" : "action_required"));
         profileData.verificationStatus = profileData.verification_status;
+        profileData.documentVerificationStatus = isApproved ? "APPROVED" : (isRejected ? "REJECTED" : (isPending ? "UNDER_REVIEW" : "UNVERIFIED"));
+
+        if (isApproved) {
+          profileData.adminVerificationOverride = true;
+          profileData.approvedAt = profileData.approvedAt || nowIso;
+          profileData.approvedBy = callerEmail;
+          profileData.verifiedAt = profileData.verifiedAt || nowIso;
+        } else {
+          profileData.adminVerificationOverride = false;
+          profileData.verifiedAt = null;
+          profileData.approvedAt = null;
+        }
 
         const existingInfo = profileData.verificationInfo || {};
         profileData.verificationInfo = {
           ...existingInfo,
           status: profileData.verification_status,
-          verifiedAt: isApproved ? (existingInfo.verifiedAt || new Date().toISOString()) : existingInfo.verifiedAt
+          verifiedAt: isApproved ? (existingInfo.verifiedAt || nowIso) : null,
+          verifiedBy: isApproved ? (existingInfo.verifiedBy || callerEmail) : null,
         };
       }
 
@@ -11270,16 +11392,19 @@ app.post(
           .collection("users")
           .doc(targetUid)
           .set(profileData, { merge: true });
-      } catch (e) {}
+      } catch (fsErr) {}
 
-      const db = readDb();
-      const userIdx = db.users?.findIndex(
-        (u: any) => u.id === targetUid || u.uid === targetUid,
-      );
-      if (userIdx !== -1 && db.users) {
-        db.users[userIdx] = { ...db.users[userIdx], ...profileData };
-        writeDb(db);
-      }
+      // Update local db
+      try {
+        const db = readDb();
+        if (db.users) {
+          const idx = db.users.findIndex((u: any) => u.id === targetUid || u.uid === targetUid);
+          if (idx >= 0) {
+            db.users[idx] = { ...db.users[idx], ...profileData };
+            writeDb(db);
+          }
+        }
+      } catch (dbErr) {}
 
       await writeAdminAuditLog(
         callerUid,
@@ -18742,12 +18867,16 @@ app.post("/api/auth/login", loginRegisterLimiter, async (req, res) => {
         trialExpiresAt: new Date(Date.now() + 24 * 3600 * 1000).toISOString(),
         lastActiveAt: nowIso,
         lastLoginAt: nowIso,
-        isVerified: true,
-        isEmailVerified: true,
-        email_verified: true,
-        emailVerified: true,
-        verification_required: false,
-        verification_status: "verified",
+        accountStatus: isAdminAccount ? "APPROVED" : "PENDING_EMAIL_VERIFICATION",
+        documentVerificationStatus: isAdminAccount ? "APPROVED" : "UNVERIFIED",
+        requiresDocumentVerification: !isAdminAccount,
+        isVerified: isAdminAccount,
+        isEmailVerified: isAdminAccount,
+        email_verified: isAdminAccount,
+        emailVerified: isAdminAccount,
+        verification_required: !isAdminAccount,
+        verification_status: isAdminAccount ? "verified" : "action_required",
+        verificationStatus: isAdminAccount ? "verified" : "action_required",
       };
       try {
         await adminDb
@@ -18765,8 +18894,10 @@ app.post("/api/auth/login", loginRegisterLimiter, async (req, res) => {
         userProfile.emailVerified = true;
         userProfile.verification_required = false;
         userProfile.verification_status = "verified";
+        userProfile.verificationStatus = "verified";
+        userProfile.accountStatus = "APPROVED";
       } else {
-        // If an ordinary user or CEO was mistakenly stored with role "Admin", fix it back to CEO or Contributor
+        // If an ordinary user was mistakenly stored with role "Admin", fix it back to CEO or Contributor
         if (userProfile.role === "Admin" || userProfile.role === "admin") {
           const isOwner =
             Boolean(
@@ -18788,39 +18919,15 @@ app.post("/api/auth/login", loginRegisterLimiter, async (req, res) => {
           } catch (e) {}
         }
 
-        const hasVerificationDocs = Boolean(
-          (userProfile.verificationInfo?.documents && userProfile.verificationInfo.documents.length > 0) ||
-          (userProfile.documents && userProfile.documents.length > 0) ||
-          (userProfile.files && Array.isArray(userProfile.files) && userProfile.files.some((f: any) => f.category === "Verification" || f.category === "Identity"))
-        );
-        const hasAdminApprovalRecord = Boolean(
-          userProfile.verificationInfo?.status === "verified" && userProfile.verificationInfo?.verifiedAt
-        );
+        // Compute Strict Verification State (Backend Source of Truth)
+        const strictState = computeStrictVerificationState(userProfile, false);
+        userProfile.accountStatus = strictState.effectiveStatus;
+        userProfile.isVerified = strictState.isVerified;
+        userProfile.verification_required = strictState.verificationRequired;
+        userProfile.verification_status = strictState.verificationStatus;
+        userProfile.verificationStatus = strictState.verificationStatus;
 
-        let effectiveStatus = userProfile.accountStatus;
-        if (effectiveStatus === "APPROVED") {
-          if (!hasVerificationDocs && !hasAdminApprovalRecord) {
-            effectiveStatus = "VERIFICATION_REQUIRED";
-          }
-        } else if (!effectiveStatus) {
-          if (userProfile.verification_status === "pending" || userProfile.verificationInfo?.status === "pending") {
-            effectiveStatus = "PENDING_ADMIN_REVIEW";
-          } else if (userProfile.verification_status === "rejected" || userProfile.verificationInfo?.status === "rejected") {
-            effectiveStatus = "REJECTED";
-          } else if (hasVerificationDocs || hasAdminApprovalRecord) {
-            effectiveStatus = "APPROVED";
-          } else {
-            effectiveStatus = "VERIFICATION_REQUIRED";
-          }
-        }
-
-        userProfile.accountStatus = effectiveStatus;
-        const isApproved = effectiveStatus === "APPROVED";
-        userProfile.isVerified = isApproved;
-        userProfile.verification_required = !isApproved;
-        userProfile.verification_status = isApproved ? "verified" : (effectiveStatus === "REJECTED" ? "rejected" : (effectiveStatus === "PENDING_ADMIN_REVIEW" ? "pending" : "unverified"));
-        userProfile.verificationStatus = userProfile.verification_status;
-        if (isApproved) {
+        if (strictState.effectiveStatus === "APPROVED") {
           userProfile.isEmailVerified = true;
           userProfile.email_verified = true;
           userProfile.emailVerified = true;
@@ -18831,17 +18938,19 @@ app.post("/api/auth/login", loginRegisterLimiter, async (req, res) => {
       userProfile.lastLoginAt = nowIso;
       try {
         await adminDb.collection("users").doc(authUid).update({
-          lastActiveAt: nowIso,
-          lastLoginAt: nowIso,
-          role: userProfile.role,
+          accountStatus: userProfile.accountStatus,
           isVerified: userProfile.isVerified,
           isEmailVerified: userProfile.isEmailVerified,
           email_verified: userProfile.email_verified,
           emailVerified: userProfile.emailVerified,
           verification_required: userProfile.verification_required,
           verification_status: userProfile.verification_status,
+          verificationStatus: userProfile.verificationStatus,
+          lastActiveAt: nowIso,
+          lastLoginAt: nowIso,
+          role: userProfile.role,
         });
-      } catch (e) {}
+      } catch (upErr) {}
     }
 
     // 5. Generate a Firebase custom token for instant client session setup
