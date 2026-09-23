@@ -2223,12 +2223,135 @@ app.get(
 const OFFICIAL_ZAKIR_SVG = `<?xml version="1.0" encoding="UTF-8"?><svg id="Layer_1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1203.08 814"><defs><style>.cls-1{fill:none;}.cls-1,.cls-2{stroke-width:0px;}.cls-2{fill:#1c2c58;}</style></defs><rect class="cls-1" y="371" width="56" height="56"/><path class="cls-2" d="M778.26,359.34c-23.74-3.27-49.55-5.85-77.22-7.24-32.16-1.61-62.06-1.36-89.28,0,34.59-18.5,69.17-37,103.76-55.5,20.28,4.11,42.89,7.58,67.57,9.65,37.04,3.12,70.4,2.4,98.93,0-34.59,17.7-69.17,35.39-103.76,53.09Z"/><path class="cls-2" d="M980.96,516.19c-21.56-3.6-44.1-6.86-67.57-9.65-27.67-3.29-54.26-5.64-79.63-7.24,24.93-14.48,49.87-28.96,74.8-43.43,15.7,5.87,35.19,11.48,57.91,14.48,48.33,6.37,88.49-2.07,113.41-9.65-32.98,18.5-65.96,37-98.93,55.5Z"/><path class="cls-2" d="M475.42,511.37c-.4-63.57-.79-127.14-1.19-190.71,0-1.56.04-3.1.17-4.65,1.41-16.02,5.74-38.29,19.12-60.42,15.26-25.24,36.05-39.96,52.07-49.52,46.87-27.98,204.17-102.07,420.89-194.19,2.96-1.1,22.36-7.98,38.61,2.41,13.06,8.36,16.89,21.72,19.3,33.78.99,4.94,2.1,13.1,2.12,24.53,0,0-.21,16.42-4.53,33.38-3.15,12.35-9.18,25.16-15.95,36.88-15.63,27.06-38.86,48.92-66.57,63.37-2.2,1.15-4.45,2.32-6.75,3.51-28.29,14.65-50.15,25.27-62.74,31.37-57.83,28.01-105.24,50.16-105.24,50.16-109.27,51.04-121.53,55.26-155.36,75.32-51.75,30.67-69.27,48.18-82.04,65.15-22.18,29.47-31.7,59.55-36.2,79.63-.91,5.07-5.6,8.13-9.65,7.24-3.09-.68-5.58-3.59-6.03-7.24Z"/><path class="cls-2" d="M587.63,674.25c-2.01-24.5-3.65-49.86-4.83-76.01-1.24-27.45-1.89-54.07-2.06-79.79-.1-14.52,5.57-37.36,18.95-60.16,18.94-32.28,45.31-46.85,62.74-55.5,137.7-68.32,257.41-123.89,260.27-125.27,75.14-36.4,123.4-60.53,145.12-72.6,27.5-15.28,46.89-32.03,62.74-41.02,2.06-1.17,4.68-2.2,6.95-3.08,3.88-1.5,8.11-2.04,12.19-1.23,3.17.63,6.65,1.89,9.82,4.3,8.72,6.63,9.55,16.59,9.65,18.1,1.46,13.4,2.42,28.36,2.41,44.64,0,16.22-.96,31.12-2.41,44.49-1.5,12.31-5.42,31.71-16.89,52.03-18.54,32.86-45.69,49.14-57.91,55.5-88.79,45.49-177.58,90.98-266.37,136.48-51.58,25.47-85.43,42.05-105.24,51.74-34.68,16.96-62.99,28.56-86.87,55.5-9.82,11.07-16.26,18.95-21.72,28.96-3.96,7.25-5.57,13.62-7.24,21.72-.3,1.46-.76,3.36-1.71,5.25-3.58,7.17-13.97,7.19-16.83-.3-.44-1.16-.71-2.42-.76-3.74Z"/><path class="cls-2" d="M730.61,710.92l-.61,63.32c-.18,1.66-1.51,16.39,9.65,26.69,8.53,7.87,21.12,10.17,32.51,6.07,1.53-.55,2.98-1.29,4.41-2.05,119.91-63.73,238.88-125.06,359.77-191.26,9.25-5.07,29.79-21.27,44.89-54.06,11.49-24.94,14.48-48.26,15.27-61.09.4-6.48-.79-72.83-.79-72.83.52-9.04-4.44-17.31-12.07-20.51-6.75-2.84-14.8-1.38-20.72,3.5-7.47,6.16-15.25,11.96-23.88,16.35-108.82,55.31-218.13,109.42-326.98,164.68-6.15,3.12-12.18,6.5-17.97,10.25-12.15,7.87-28.07,20.18-42.39,41.7-.13.2-.26.39-.39.59-13.44,20.36-20.48,44.27-20.72,68.66Z"/></svg>`;
 
 let officialPngLogoCache: Buffer | null = null;
+let officialEmailLogoBufferCache: Buffer | null = null;
+let officialLogoLightCache: Buffer | null = null;
+let officialLogoDarkCache: Buffer | null = null;
+let officialLogoWhiteCache: Buffer | null = null;
+let officialLogoNavyCache: Buffer | null = null;
+let officialAvatarCache: Buffer | null = null;
+
+function getOfficialLogoWhiteBuffer(): Buffer {
+  if (officialLogoWhiteCache && officialLogoWhiteCache.length > 0) {
+    return officialLogoWhiteCache;
+  }
+  const possiblePaths = [
+    path.join(process.cwd(), "public", "zakir-logo-white.png"),
+    path.join(process.cwd(), "src", "assets", "zakir-logo-white.png"),
+  ];
+  for (const p of possiblePaths) {
+    if (fs.existsSync(p)) {
+      try {
+        const data = fs.readFileSync(p);
+        if (data && data.length > 0) {
+          officialLogoWhiteCache = data;
+          return officialLogoWhiteCache;
+        }
+      } catch (e) {}
+    }
+  }
+  return Buffer.alloc(0);
+}
+
+function getOfficialLogoNavyBuffer(): Buffer {
+  if (officialLogoNavyCache && officialLogoNavyCache.length > 0) {
+    return officialLogoNavyCache;
+  }
+  const possiblePaths = [
+    path.join(process.cwd(), "public", "zakir-logo-navy.png"),
+    path.join(process.cwd(), "src", "assets", "zakir-logo-navy.png"),
+  ];
+  for (const p of possiblePaths) {
+    if (fs.existsSync(p)) {
+      try {
+        const data = fs.readFileSync(p);
+        if (data && data.length > 0) {
+          officialLogoNavyCache = data;
+          return officialLogoNavyCache;
+        }
+      } catch (e) {}
+    }
+  }
+  return Buffer.alloc(0);
+}
+
+function getOfficialEmailLogoLightBuffer(): Buffer {
+  if (officialLogoLightCache && officialLogoLightCache.length > 0) {
+    return officialLogoLightCache;
+  }
+  const possiblePaths = [
+    path.join(process.cwd(), "public", "zakir-badge-light.png"),
+    path.join(process.cwd(), "src", "assets", "zakir-badge-light.png"),
+  ];
+  for (const p of possiblePaths) {
+    if (fs.existsSync(p)) {
+      try {
+        const data = fs.readFileSync(p);
+        if (data && data.length > 0) {
+          officialLogoLightCache = data;
+          return officialLogoLightCache;
+        }
+      } catch (e) {}
+    }
+  }
+  return Buffer.alloc(0);
+}
+
+function getOfficialEmailLogoDarkBuffer(): Buffer {
+  if (officialLogoDarkCache && officialLogoDarkCache.length > 0) {
+    return officialLogoDarkCache;
+  }
+  const possiblePaths = [
+    path.join(process.cwd(), "public", "zakir-badge-dark.png"),
+    path.join(process.cwd(), "src", "assets", "zakir-badge-dark.png"),
+  ];
+  for (const p of possiblePaths) {
+    if (fs.existsSync(p)) {
+      try {
+        const data = fs.readFileSync(p);
+        if (data && data.length > 0) {
+          officialLogoDarkCache = data;
+          return officialLogoDarkCache;
+        }
+      } catch (e) {}
+    }
+  }
+  return Buffer.alloc(0);
+}
+
+function getOfficialSenderAvatarBuffer(): Buffer {
+  if (officialAvatarCache && officialAvatarCache.length > 0) {
+    return officialAvatarCache;
+  }
+  const possiblePaths = [
+    path.join(process.cwd(), "public", "zakir-sender-avatar.png"),
+    path.join(process.cwd(), "src", "assets", "zakir-sender-avatar.png"),
+  ];
+  for (const p of possiblePaths) {
+    if (fs.existsSync(p)) {
+      try {
+        const data = fs.readFileSync(p);
+        if (data && data.length > 0) {
+          officialAvatarCache = data;
+          return officialAvatarCache;
+        }
+      } catch (e) {}
+    }
+  }
+  return Buffer.alloc(0);
+}
+
+function getOfficialEmailLogoBuffer(): Buffer {
+  return getOfficialEmailLogoLightBuffer();
+}
 
 function getOfficialPngLogo(): Buffer {
   if (officialPngLogoCache && officialPngLogoCache.length > 0) {
     return officialPngLogoCache;
   }
   const possiblePaths = [
+    path.join(process.cwd(), "public", "zakir-symbol-navy.png"),
+    path.join(process.cwd(), "public", "zakir-email-logo.png"),
+    path.join(process.cwd(), "public", "zakir-badge-white.png"),
     path.join(process.cwd(), "public", "zakir-official-logo.png"),
     path.join(process.cwd(), "public", "logo.png"),
     path.join(process.cwd(), "src", "assets", "zakir-official-logo.png"),
@@ -2329,13 +2452,14 @@ app.get(["/api/logo.svg", "/assets/logo.svg", "/logo.svg"], (req, res) => {
 });
 
 function getEmailLogoSvg(mode: "light" | "dark"): string {
-  const bg = mode === "light" ? "#1C2C58" : "#FFFFFF";
-  const fill = mode === "light" ? "#FFFFFF" : "#1C2C58";
+  const bg = "#FFFFFF";
+  const fill = mode === "light" ? "#1C2C58" : "#000000";
+  const stroke = ' stroke="#E2E8F0" stroke-width="1.5"';
   
   return `<?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120">
-  <rect width="120" height="120" rx="26" fill="${bg}" />
-  <svg x="12" y="27.54" width="96" height="64.93" viewBox="0 0 1203.08 814" preserveAspectRatio="xMidYMid meet">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96" width="96" height="96">
+  <rect width="96" height="96" rx="18" fill="${bg}"${stroke} />
+  <svg x="12" y="23.64" width="72" height="48.72" viewBox="0 0 1203.08 814" preserveAspectRatio="xMidYMid meet">
     <path fill="${fill}" d="M778.26,359.34c-23.74-3.27-49.55-5.85-77.22-7.24-32.16-1.61-62.06-1.36-89.28,0,34.59-18.5,69.17-37,103.76-55.5,20.28,4.11,42.89,7.58,67.57,9.65,37.04,3.12,70.4,2.4,98.93,0-34.59,17.7-69.17,35.39-103.76,53.09Z"/>
     <path fill="${fill}" d="M980.96,516.19c-21.56-3.6-44.1-6.86-67.57-9.65-27.67-3.29-54.26-5.64-79.63-7.24,24.93-14.48,49.87-28.96,74.8-43.43,15.7,5.87,35.19,11.48,57.91,14.48,48.33,6.37,88.49-2.07,113.41-9.65-32.98,18.5-65.96,37-98.93,55.5Z"/>
     <path fill="${fill}" d="M475.42,511.37c-.4-63.57-.79-127.14-1.19-190.71,0-1.56.04-3.1.17-4.65,1.41-16.02,5.74-38.29,19.12-60.42,15.26-25.24,36.05-39.96,52.07-49.52,46.87-27.98,204.17-102.07,420.89-194.19,2.96-1.1,22.36-7.98,38.61,2.41,13.06,8.36,16.89,21.72,19.3,33.78.99,4.94,2.1,13.1,2.12,24.53,0,0-.21,16.42-4.53,33.38-3.15,12.35-9.18,25.16-15.95,36.88-15.63,27.06-38.86,48.92-66.57,63.37-2.2,1.15-4.45,2.32-6.75,3.51-28.29,14.65-50.15,25.27-62.74,31.37-57.83,28.01-105.24,50.16-105.24,50.16-109.27,51.04-121.53,55.26-155.36,75.32-51.75,30.67-69.27,48.18-82.04,65.15-22.18,29.47-31.7,59.55-36.2,79.63-.91,5.07-5.6,8.13-9.65,7.24-3.09-.68-5.58-3.59-6.03-7.24Z"/>
@@ -2349,15 +2473,156 @@ app.get("/api/email-logo/light.svg", (req, res) => {
   res.setHeader("Content-Type", "image/svg+xml");
   res.setHeader("Cache-Control", "public, max-age=86400");
   res.setHeader("Access-Control-Allow-Origin", "*");
-  res.send(getEmailLogoSvg("light"));
+  const svgPath = path.join(process.cwd(), "public", "zakir-badge-light.svg");
+  if (fs.existsSync(svgPath)) {
+    res.send(fs.readFileSync(svgPath, "utf-8"));
+  } else {
+    res.send(getEmailLogoSvg("light"));
+  }
 });
 
 app.get("/api/email-logo/dark.svg", (req, res) => {
   res.setHeader("Content-Type", "image/svg+xml");
   res.setHeader("Cache-Control", "public, max-age=86400");
   res.setHeader("Access-Control-Allow-Origin", "*");
-  res.send(getEmailLogoSvg("dark"));
+  const svgPath = path.join(process.cwd(), "public", "zakir-badge-dark.svg");
+  if (fs.existsSync(svgPath)) {
+    res.send(fs.readFileSync(svgPath, "utf-8"));
+  } else {
+    res.send(getEmailLogoSvg("dark"));
+  }
 });
+
+app.get(
+  ["/api/brand/avatar.svg", "/bimi-logo.svg", "/api/email-logo/avatar.svg"],
+  (req, res) => {
+    res.setHeader("Content-Type", "image/svg+xml");
+    res.setHeader("Cache-Control", "public, max-age=86400");
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    const svgPath = path.join(process.cwd(), "public", "zakir-sender-avatar.svg");
+    if (fs.existsSync(svgPath)) {
+      res.send(fs.readFileSync(svgPath, "utf-8"));
+    } else {
+      res.status(404).send("Avatar SVG not found");
+    }
+  }
+);
+
+app.get(
+  ["/api/brand/avatar.png", "/avatar.png", "/api/email-logo/avatar.png", "/public/zakir-sender-avatar.png"],
+  (req, res) => {
+    const buf = getOfficialSenderAvatarBuffer();
+    if (!buf || buf.length === 0) {
+      return res.status(404).send("Avatar not found");
+    }
+    res.setHeader("Content-Type", "image/png");
+    res.setHeader("Cache-Control", "public, max-age=86400");
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.send(buf);
+  }
+);
+
+app.get(
+  [
+    "/zakir-logo-white.png",
+    "/api/brand/zakir-logo-white.png",
+    "/api/email-logo/white.png",
+    "/public/zakir-logo-white.png",
+  ],
+  (req, res) => {
+    const buf = getOfficialLogoWhiteBuffer();
+    if (!buf || buf.length === 0) {
+      return res.status(404).send("White logo not found");
+    }
+    res.setHeader("Content-Type", "image/png");
+    res.setHeader("Cache-Control", "public, max-age=86400");
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.send(buf);
+  }
+);
+
+app.get(
+  [
+    "/zakir-logo-navy.png",
+    "/api/brand/zakir-logo-navy.png",
+    "/api/email-logo/navy.png",
+    "/public/zakir-logo-navy.png",
+  ],
+  (req, res) => {
+    const buf = getOfficialLogoNavyBuffer();
+    if (!buf || buf.length === 0) {
+      return res.status(404).send("Navy logo not found");
+    }
+    res.setHeader("Content-Type", "image/png");
+    res.setHeader("Cache-Control", "public, max-age=86400");
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.send(buf);
+  }
+);
+
+app.get(
+  [
+    "/zakir-sender-avatar.png",
+    "/api/brand/zakir-sender-avatar.png",
+    "/public/zakir-sender-avatar.png",
+  ],
+  (req, res) => {
+    const buf = getOfficialSenderAvatarBuffer();
+    if (!buf || buf.length === 0) {
+      return res.status(404).send("Sender avatar not found");
+    }
+    res.setHeader("Content-Type", "image/png");
+    res.setHeader("Cache-Control", "public, max-age=86400");
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.send(buf);
+  }
+);
+
+app.get(
+  ["/api/email-logo/light.png", "/api/brand/badge-light.png", "/public/zakir-badge-light.png"],
+  (req, res) => {
+    const buf = getOfficialEmailLogoLightBuffer();
+    if (!buf || buf.length === 0) {
+      return res.status(404).send("Light badge not found");
+    }
+    res.setHeader("Content-Type", "image/png");
+    res.setHeader("Cache-Control", "public, max-age=86400");
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.send(buf);
+  }
+);
+
+app.get(
+  ["/api/email-logo/dark.png", "/api/brand/badge-dark.png", "/public/zakir-badge-dark.png"],
+  (req, res) => {
+    const buf = getOfficialEmailLogoDarkBuffer();
+    if (!buf || buf.length === 0) {
+      return res.status(404).send("Dark badge not found");
+    }
+    res.setHeader("Content-Type", "image/png");
+    res.setHeader("Cache-Control", "public, max-age=86400");
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.send(buf);
+  }
+);
+
+app.get(
+  [
+    "/api/email-logo/logo.png",
+    "/api/logo.png",
+    "/api/brand/logo.png",
+  ],
+  (req, res) => {
+    const buf = getOfficialEmailLogoLightBuffer() || getOfficialPngLogo();
+    if (!buf || buf.length === 0) {
+      return res.status(404).send("Logo not found");
+    }
+    res.setHeader("Content-Type", "image/png");
+    res.setHeader("Cache-Control", "public, max-age=86400");
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.send(buf);
+  }
+);
 
 app.get(
   ["/api/stripe/receipt/:sessionId", "/stripe/receipt/:sessionId"],
@@ -2665,6 +2930,101 @@ async function sendSystemMail(
     );
 
     const attachments: any[] = [...userAttachments];
+    
+    // Official ZAKIR Light Mode Badge (Navy Square #1C2C58 + White Symbol #FFFFFF)
+    if (
+      html.includes("cid:zakir-logo-light") ||
+      html.includes("cid:zakir-badge-light") ||
+      html.includes("cid:zakir-logo")
+    ) {
+      const hasLightBadge = attachments.some(
+        (a: any) =>
+          a.contentId === "zakir-logo-light" ||
+          a.cid === "zakir-logo-light" ||
+          a.filename === "zakir-badge-light.png"
+      );
+      if (!hasLightBadge) {
+        const lightBadgeBuf = getOfficialEmailLogoLightBuffer();
+        if (lightBadgeBuf && lightBadgeBuf.length > 0) {
+          attachments.push({
+            filename: "zakir-badge-light.png",
+            content: lightBadgeBuf,
+            contentType: "image/png",
+            contentId: "zakir-logo-light",
+            cid: "zakir-logo-light",
+          });
+        }
+      }
+    }
+
+    // Official ZAKIR Dark Mode Badge (White Square #FFFFFF + Navy Symbol #1C2C58)
+    if (
+      html.includes("cid:zakir-logo-dark") ||
+      html.includes("cid:zakir-badge-dark")
+    ) {
+      const hasDarkBadge = attachments.some(
+        (a: any) =>
+          a.contentId === "zakir-logo-dark" ||
+          a.cid === "zakir-logo-dark" ||
+          a.filename === "zakir-badge-dark.png"
+      );
+      if (!hasDarkBadge) {
+        const darkBadgeBuf = getOfficialEmailLogoDarkBuffer();
+        if (darkBadgeBuf && darkBadgeBuf.length > 0) {
+          attachments.push({
+            filename: "zakir-badge-dark.png",
+            content: darkBadgeBuf,
+            contentType: "image/png",
+            contentId: "zakir-logo-dark",
+            cid: "zakir-logo-dark",
+          });
+        }
+      }
+    }
+
+    // Transparent Navy Symbol fallback if explicitly requested
+    if (html.includes("cid:zakir-logo-navy")) {
+      const hasNavyLogo = attachments.some(
+        (a: any) =>
+          a.contentId === "zakir-logo-navy" ||
+          a.cid === "zakir-logo-navy" ||
+          a.filename === "zakir-logo-navy.png"
+      );
+      if (!hasNavyLogo) {
+        const navyBuf = getOfficialLogoNavyBuffer();
+        if (navyBuf && navyBuf.length > 0) {
+          attachments.push({
+            filename: "zakir-logo-navy.png",
+            content: navyBuf,
+            contentType: "image/png",
+            contentId: "zakir-logo-navy",
+            cid: "zakir-logo-navy",
+          });
+        }
+      }
+    }
+
+    // Transparent White Symbol fallback if explicitly requested
+    if (html.includes("cid:zakir-logo-white")) {
+      const hasWhiteLogo = attachments.some(
+        (a: any) =>
+          a.contentId === "zakir-logo-white" ||
+          a.cid === "zakir-logo-white" ||
+          a.filename === "zakir-logo-white.png"
+      );
+      if (!hasWhiteLogo) {
+        const whiteBuf = getOfficialLogoWhiteBuffer();
+        if (whiteBuf && whiteBuf.length > 0) {
+          attachments.push({
+            filename: "zakir-logo-white.png",
+            content: whiteBuf,
+            contentType: "image/png",
+            contentId: "zakir-logo-white",
+            cid: "zakir-logo-white",
+          });
+        }
+      }
+    }
 
     const emailPayload: any = {
       from: fromSender,
@@ -2907,30 +3267,112 @@ function buildMasterEmailHtml(options: {
     /\/$/,
     "",
   );
-  const lightLogoUrl = `${appBase}/api/email-logo/light.svg`;
-  const darkLogoUrl = `${appBase}/api/email-logo/dark.svg`;
-  const logoUrl = lightLogoUrl;
 
   return `<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml" lang="ar">
 <head>
   <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta name="color-scheme" content="light dark">
+  <meta name="supported-color-schemes" content="light dark">
   <meta name="x-apple-disable-message-reformatting" />
-  <title>${escapeHtml(subject)}</title>
+  <title>${escapeHtml(title || subject)}</title>
   <style type="text/css">
+    :root {
+      color-scheme: light dark;
+      supported-color-schemes: light dark;
+    }
     @media (prefers-color-scheme: dark) {
-      .email-logo-box {
-        background-color: #ffffff !important;
-        border: 1px solid #e2e8f0 !important;
-      }
-      .email-logo-light {
+      .zakir-logo-light {
         display: none !important;
         mso-hide: all !important;
+        font-size: 0px !important;
+        line-height: 0px !important;
+        max-height: 0px !important;
+        max-width: 0px !important;
+        overflow: hidden !important;
       }
-      .email-logo-dark {
+      .zakir-logo-dark-wrap {
         display: block !important;
+        mso-hide: none !important;
+        max-height: none !important;
+        max-width: none !important;
+        overflow: visible !important;
+        font-size: 0 !important;
+        line-height: 0 !important;
       }
+      .zakir-logo-dark {
+        display: block !important;
+        max-height: none !important;
+        max-width: none !important;
+        overflow: visible !important;
+      }
+      .zakir-footer-logo-light {
+        display: none !important;
+        max-height: 0px !important;
+        overflow: hidden !important;
+      }
+      .zakir-footer-logo-dark {
+        display: inline-block !important;
+        max-height: none !important;
+        overflow: visible !important;
+      }
+      .zakir-card {
+        background-color: #0b1329 !important;
+        border-color: #1e293b !important;
+      }
+      .zakir-header-cell {
+        background-color: #0b1329 !important;
+        border-bottom-color: #1e293b !important;
+      }
+      .zakir-wordmark {
+        color: #f8fafc !important;
+      }
+      .zakir-body-cell {
+        background-color: #0b1329 !important;
+      }
+      .zakir-title {
+        color: #f8fafc !important;
+      }
+      .zakir-footer-cell {
+        background-color: #070d1d !important;
+        border-top-color: #1e293b !important;
+      }
+      .zakir-footer-text {
+        color: #94a3b8 !important;
+      }
+    }
+    /* Outlook / Webmail Dark Mode Overrides */
+    [data-ogsc] .zakir-logo-light,
+    [data-ogsb] .zakir-logo-light {
+      display: none !important;
+    }
+    [data-ogsc] .zakir-logo-dark-wrap,
+    [data-ogsb] .zakir-logo-dark-wrap,
+    [data-ogsc] .zakir-logo-dark,
+    [data-ogsb] .zakir-logo-dark {
+      display: block !important;
+      max-height: none !important;
+      overflow: visible !important;
+    }
+    [data-ogsc] .zakir-footer-logo-light,
+    [data-ogsb] .zakir-footer-logo-light {
+      display: none !important;
+    }
+    [data-ogsc] .zakir-footer-logo-dark,
+    [data-ogsb] .zakir-footer-logo-dark {
+      display: inline-block !important;
+      max-height: none !important;
+      overflow: visible !important;
+    }
+    [data-ogsc] .zakir-card,
+    [data-ogsb] .zakir-card {
+      background-color: #0b1329 !important;
+      border-color: #1e293b !important;
+    }
+    [data-ogsc] .zakir-wordmark,
+    [data-ogsb] .zakir-wordmark {
+      color: #f8fafc !important;
     }
   </style>
 </head>
@@ -2939,84 +3381,78 @@ function buildMasterEmailHtml(options: {
     <tr>
       <td align="center">
         <!-- Master Card -->
-        <table border="0" cellpadding="0" cellspacing="0" width="100%" style="max-width: 580px; background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 20px rgba(15, 23, 42, 0.05);">
-          
-          <!-- Header with Official Logo (Clean White Background) -->
+        <table border="0" cellpadding="0" cellspacing="0" width="100%" class="zakir-card" style="max-width: 580px; background-color: #ffffff; border-radius: 16px; border: 1px solid #e2e8f0; overflow: hidden; box-shadow: 0 4px 20px rgba(15, 23, 42, 0.05);">
+          <!-- Header with Official ZAKIR Square Badge System -->
           <tr>
-            <td style="padding: 36px 32px 24px 32px; text-align: center; border-bottom: 1px solid #f1f5f9; background-color: #ffffff;">
-              <!-- Logo Container Badge: 80px x 80px Container with Centered Logo -->
-              <table border="0" cellpadding="0" cellspacing="0" align="center" style="margin: 0 auto 16px auto;">
+            <td class="zakir-header-cell" style="padding: 36px 32px 24px 32px; text-align: center; border-bottom: 1px solid #f1f5f9; background-color: #ffffff;">
+              <!-- Perfect 1:1 Square Logo Container (72px x 72px) -->
+              <table border="0" cellpadding="0" cellspacing="0" align="center" role="presentation" style="margin: 0 auto 16px auto; border-collapse: collapse; border-spacing: 0;">
                 <tr>
-                  <td align="center" class="email-logo-box" style="width: 80px; height: 80px; background-color: #1C2C58; border-radius: 20px; text-align: center; vertical-align: middle; padding: 0; box-shadow: 0 4px 14px rgba(28, 44, 88, 0.18);">
-                    <a href="${appBase}" target="_blank" style="text-decoration: none; display: block; width: 80px; height: 80px;">
-                      <img src="${lightLogoUrl}" alt="Zakir" width="48" height="48" class="email-logo-light" style="display: block; width: 48px; height: 48px; border: 0; outline: none; text-decoration: none; margin: 16px auto;" />
+                  <td align="center" valign="middle" style="padding: 0; margin: 0; line-height: 0; font-size: 0; text-align: center;">
+                    <a href="${appBase}" target="_blank" style="text-decoration: none; display: inline-block; line-height: 0; font-size: 0; outline: none; border: 0;">
+                      <!-- LIGHT MODE: Solid Navy Square (#1C2C58) + Crisp White ZAKIR Logo (#FFFFFF) -->
+                      <img src="cid:zakir-logo-light" alt="ZAKIR" width="72" height="72" class="zakir-logo-light" style="display: block; width: 72px !important; height: 72px !important; max-width: 72px !important; max-height: 72px !important; aspect-ratio: 1 / 1; border: 0; outline: none; text-decoration: none; margin: 0 auto; -ms-interpolation-mode: bicubic; border-radius: 16px;" />
+                      
+                      <!-- DARK MODE: Solid Pure White Square (#FFFFFF) + Crisp Navy ZAKIR Logo (#1C2C58) -->
                       <!--[if !mso]><!-->
-                      <img src="${darkLogoUrl}" alt="Zakir" width="48" height="48" class="email-logo-dark" style="display: none; width: 48px; height: 48px; border: 0; outline: none; text-decoration: none; margin: 16px auto;" />
+                      <div class="zakir-logo-dark-wrap" style="display: none; mso-hide: all; max-height: 0px; max-width: 0px; overflow: hidden; width: 0; height: 0; margin: 0 auto; line-height: 0; font-size: 0;">
+                        <img src="cid:zakir-logo-dark" alt="ZAKIR" width="72" height="72" class="zakir-logo-dark" style="display: none; width: 72px !important; height: 72px !important; max-width: 72px !important; max-height: 72px !important; aspect-ratio: 1 / 1; border: 0; outline: none; text-decoration: none; margin: 0 auto; -ms-interpolation-mode: bicubic; border-radius: 16px;" />
+                      </div>
                       <!--<![endif]-->
                     </a>
                   </td>
                 </tr>
               </table>
 
-              <!-- Brand Name (ZAKIR only - Arabic 'ذاكر' removed) -->
-              <div style="font-size: 26px; font-weight: 800; color: #0f172a; letter-spacing: 2.5px; text-transform: uppercase; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; line-height: 1.2; margin: 0 0 6px 0;">
+              <!-- ZAKIR Wordmark: Bold, uppercase, clean spacing -->
+              <div class="zakir-wordmark" style="color: #0f172a; font-size: 24px; font-weight: 800; letter-spacing: 2.5px; text-transform: uppercase; line-height: 1.2; margin: 0 0 6px 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
                 ZAKIR
               </div>
 
-              <!-- Refined Bilingual Subtitle with subtle touch of Arabic -->
-              <div style="font-size: 13px; font-weight: 500; color: #64748b; line-height: 1.5; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+              <!-- Official Supporting Tagline -->
+              <div style="color: #64748b; font-size: 13px; font-weight: 500; line-height: 1.5; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
                 الذاكرة المؤسسية السببية &bull; Causal Decision Intelligence
               </div>
             </td>
           </tr>
-
-          <!-- Body -->
           <tr>
-            <td style="padding: 34px 32px; text-align: right; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
-              <h1 style="color: #0f172a; font-size: 21px; font-weight: 800; margin: 0 0 20px 0; line-height: 1.4; text-align: center; letter-spacing: -0.2px;">
-                ${escapeHtml(title)}
-              </h1>
-              ${greeting ? `<p style="color: #0f172a; font-size: 15px; font-weight: 700; margin: 0 0 16px 0; text-align: inherit; line-height: 1.5;">${escapeHtml(greeting)}</p>` : ""}
+            <td class="zakir-body-cell" style="padding: 34px 32px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+              <h1 class="zakir-title" style="color: #0f172a; font-size: 20px; font-weight: 800; margin: 0 0 16px 0; line-height: 1.4; letter-spacing: -0.2px;">${escapeHtml(title)}</h1>
+              ${greeting ? `<p style="color: #334155; font-size: 15px; font-weight: 600; margin: 0 0 20px 0; line-height: 1.5;">${escapeHtml(greeting)}</p>` : ""}
               ${bodyHtml}
-              ${
-                securityNote
-                  ? `
-              <div style="margin-top: 30px; padding: 14px 18px; background-color: #f8fafc; border: 1px solid #e2e8f0; border-right: 4px solid #0075DE; border-radius: 8px; text-align: right; direction: rtl;">
-                <p style="margin: 0; color: #334155; font-size: 13px; line-height: 1.6;">
-                  <strong style="color: #0075DE;">تنبيه أمني &bull; Security Note:</strong> ${escapeHtml(securityNote)}
-                </p>
-              </div>
-              `
-                  : ""
-              }
+              ${securityNote ? `
+              <div style="margin-top: 26px; padding: 14px 18px; background-color: #f8fafc; border-left: 4px solid #2563eb; border-radius: 8px; border: 1px solid #e2e8f0;">
+                <p style="margin: 0; color: #475569; font-size: 12px; line-height: 1.6;"><strong>Security Notice / تنبيه أمني:</strong> ${escapeHtml(securityNote)}</p>
+              </div>` : ""}
             </td>
           </tr>
-
-          <!-- Footer -->
           <tr>
-            <td style="padding: 26px 32px; background-color: #f8fafc; border-top: 1px solid #f1f5f9; text-align: center; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
-              <!-- Mini Footer Brand -->
-              <table border="0" cellpadding="0" cellspacing="0" align="center" style="margin: 0 auto 10px auto;">
+            <td class="zakir-footer-cell" style="background-color: #f8fafc; padding: 24px 32px; border-top: 1px solid #e2e8f0; text-align: center; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+              <!-- Mini Footer Brand with Light/Dark Inversion -->
+              <table border="0" cellpadding="0" cellspacing="0" align="center" role="presentation" style="margin: 0 auto 10px auto;">
                 <tr>
                   <td align="center" style="vertical-align: middle;">
-                    <img src="${logoUrl}" alt="Zakir" width="18" height="18" style="display: inline-block; vertical-align: middle; width: 18px; height: 18px; border: 0; margin-right: 6px;" />
-                    <span style="font-size: 13px; font-weight: 800; color: #0f172a; vertical-align: middle; letter-spacing: 1px; text-transform: uppercase;">ZAKIR</span>
+                    <span class="zakir-footer-logo-light" style="display: inline-block; vertical-align: middle; margin-right: 8px;">
+                      <img src="cid:zakir-logo-light" alt="ZAKIR" width="22" height="22" style="display: block; width: 22px; height: 22px; border-radius: 5px; border: 0;" />
+                    </span>
+                    <!--[if !mso]><!-->
+                    <span class="zakir-footer-logo-dark" style="display: none; mso-hide: all; max-height: 0; max-width: 0; overflow: hidden; vertical-align: middle; margin-right: 8px;">
+                      <img src="cid:zakir-logo-dark" alt="ZAKIR" width="22" height="22" style="display: block; width: 22px; height: 22px; border-radius: 5px; border: 0;" />
+                    </span>
+                    <!--<![endif]-->
+                    <span class="zakir-wordmark" style="font-size: 13px; font-weight: 800; color: #0f172a; vertical-align: middle; letter-spacing: 1.5px; text-transform: uppercase;">ZAKIR</span>
                   </td>
                 </tr>
               </table>
-              <p style="margin: 0 0 10px 0; font-size: 12px; color: #64748b; line-height: 1.6;">
-                الذاكرة المؤسسية السببية وذكاء اتخاذ القرار &bull; Enterprise Causal Intelligence
+              <p style="margin: 0 0 6px 0; font-size: 12px; color: #64748b; line-height: 1.5;">
+                الذاكرة المؤسسية السببية &bull; Causal Decision Intelligence
               </p>
-              <p style="margin: 0 0 8px 0; font-size: 11px; color: #94a3b8; line-height: 1.5;">
-                هذه رسالة آلية مؤمنة من منصة Zakir. يرجى عدم الرد على هذا البريد الإلكتروني.<br/>
-                This is an automated and secure notification from Zakir. Please do not reply to this email.
-              </p>
-              <p style="margin: 0; font-size: 11px; color: #94a3b8; font-weight: 500;">
-                &copy; 2026 Zakir. All rights reserved. &bull; جميع الحقوق محفوظة
+              <p class="zakir-footer-text" style="margin: 0; color: #94a3b8; font-size: 11px; line-height: 1.5;">
+                &copy; ${new Date().getFullYear()} Zakir Intelligence Platform. All rights reserved.<br>
+                Enterprise security &amp; institutional data protection.
               </p>
             </td>
           </tr>
-
         </table>
       </td>
     </tr>
@@ -8635,6 +9071,98 @@ app.post(
     }
   },
 );
+
+// Endpoint to preview and test the official ZAKIR email branding system
+app.post(
+  "/api/email/test-branding",
+  requireAuth,
+  async (req: AuthRequest, res: express.Response) => {
+    try {
+      const callerEmail = req.user?.email || "";
+      const targetEmail = req.body?.email ? String(req.body.email).trim().toLowerCase() : callerEmail;
+      
+      if (!targetEmail || !targetEmail.includes("@")) {
+        return res.status(400).json({ error: "Valid email address required" });
+      }
+
+      const testHtml = buildMasterEmailHtml({
+        subject: "ZAKIR Brand Verification & Official Email System",
+        title: "منظومة الهوية البصرية للبريد الإلكتروني • Brand System Test",
+        greeting: "مرحباً بك في نظام التحقق من هوية ذاكر",
+        bodyHtml: `
+          <p style="font-size: 15px; line-height: 1.8; color: #334155; margin: 0 0 16px 0;">
+            تم إرسال هذا البريد للتحقق من العرض الفعلي لهوية ZAKIR الرسمية داخل مختلف برامج وتطبيقات البريد الإلكتروني:
+          </p>
+          <div style="background-color: #f1f5f9; border-radius: 10px; padding: 18px 20px; margin: 0 0 20px 0; text-align: right;">
+            <ul style="margin: 0; padding-right: 20px; font-size: 14px; color: #1e293b; line-height: 2;">
+              <li><strong>الوضع الفاتح (Light Mode):</strong> مربع كحلي متناسق الأبعاد (#1C2C58) + شعار ذاكر باللون الأبيض الناصع (#FFFFFF).</li>
+              <li><strong>الوضع الداكن (Dark Mode):</strong> مربع أبيض متناسق الأبعاد (#FFFFFF) + شعار ذاكر باللون الكحلي (#1C2C58).</li>
+              <li><strong>أبعاد المربع:</strong> نسبة مثالية 1:1 بارتفاع وعرض 120px متماثلين، بدون أي تشوه أو استطالة.</li>
+              <li><strong>أبعاد الشعار:</strong> الحفاظ على النسبة الأصلية 1203.08 &times; 814 والتمركز الدقيق أفقياً وعمودياً داخل الحاوية.</li>
+            </ul>
+          </div>
+          <p style="font-size: 14px; line-height: 1.6; color: #64748b; margin: 0;">
+            Zakir Platform • Causal Decision Intelligence &bull; المؤسسية السببية
+          </p>
+        `,
+        securityNote: "هذا بريد اختباري آمن وموثق من نظام ZAKIR الداخلي للتحقق من تجربة العرض الحقيقية.",
+      });
+
+      const mailResult = await sendSystemMail({
+        to: targetEmail,
+        subject: "ZAKIR Brand System Live Verification • تجربة العرض الفعلي للشعار",
+        html: testHtml,
+        text: "ZAKIR Brand System Live Verification - Perfect 1:1 square container with responsive light/dark color inversion.",
+      });
+
+      return res.json({
+        success: mailResult.success,
+        recipient: targetEmail,
+        messageId: mailResult.messageId,
+        provider: mailResult.provider,
+        simulated: mailResult.simulated || false,
+        previewUrl: `/api/email/preview-branding`,
+      });
+    } catch (err: any) {
+      console.error("Error sending test branding email:", err);
+      res.status(500).json({ error: err.message || "Failed to send branding test email" });
+    }
+  }
+);
+
+// Preview endpoint to render the master email in browser for immediate inspection
+app.get("/api/email/preview-branding", (req, res) => {
+  const previewHtml = buildMasterEmailHtml({
+    subject: "ZAKIR Brand Verification & Official Email System",
+    title: "منظومة الهوية البصرية للبريد الإلكتروني • Brand System Preview",
+    greeting: "مرحباً بك في نظام التحقق من هوية ذاكر",
+    bodyHtml: `
+      <p style="font-size: 15px; line-height: 1.8; color: #334155; margin: 0 0 16px 0;">
+        معاينة حية للمربع 1:1 والشعار المتمركز والانعكاس في الوضع الفاتح والداكن:
+      </p>
+      <div style="background-color: #f1f5f9; border-radius: 10px; padding: 18px 20px; margin: 0 0 20px 0; text-align: right;">
+        <ul style="margin: 0; padding-right: 20px; font-size: 14px; color: #1e293b; line-height: 2;">
+          <li><strong>الوضع الفاتح (Light Mode):</strong> مربع كحلي متناسق الأبعاد (#1C2C58) + شعار ذاكر باللون الأبيض الناصع (#FFFFFF).</li>
+          <li><strong>الوضع الداكن (Dark Mode):</strong> مربع أبيض متناسق الأبعاد (#FFFFFF) + شعار ذاكر باللون الكحلي (#1C2C58).</li>
+          <li><strong>أبعاد المربع:</strong> نسبة مثالية 1:1 بارتفاع وعرض 120px متماثلين، بدون أي تشوه أو استطالة.</li>
+          <li><strong>أبعاد الشعار:</strong> الحفاظ على النسبة الأصلية 1203.08 &times; 814 والتمركز الدقيق أفقياً وعمودياً داخل الحاوية.</li>
+        </ul>
+      </div>
+    `,
+    securityNote: "هذا بريد اختباري آمن وموثق من نظام ZAKIR الداخلي للتحقق من تجربة العرض الحقيقية.",
+  });
+
+  // For browser preview, replace cid: with direct absolute URLs so it renders in browser
+  const browserRenderHtml = previewHtml
+    .replace(/cid:zakir-logo-light/g, "/zakir-badge-light.png")
+    .replace(/cid:zakir-logo-dark/g, "/zakir-badge-dark.png")
+    .replace(/cid:zakir-logo-white/g, "/zakir-logo-white.png")
+    .replace(/cid:zakir-logo-navy/g, "/zakir-logo-navy.png")
+    .replace(/cid:zakir-logo/g, "/zakir-badge-light.png");
+
+  res.setHeader("Content-Type", "text/html; charset=utf-8");
+  res.send(browserRenderHtml);
+});
 
 // --- ADMIN USERS ENDPOINT (FIRESTORE AUTHORITATIVE) ---
 app.get("/api/admin/users", requireAuth, async (req: AuthRequest, res) => {
@@ -15820,6 +16348,18 @@ app.post(
   ],
   requireAuth,
   (req: AuthRequest, res, next) => {
+    console.log("[VERIFICATION_DOCUMENT_UPLOAD_REQUEST]", {
+      method: req.method,
+      path: req.path,
+      url: req.url,
+      originalUrl: req.originalUrl,
+      host: req.headers.host,
+      origin: req.headers.origin,
+      buildId: ZAKIR_BUILD_ID,
+      contentType: req.headers["content-type"],
+      uid: req.user?.uid,
+      email: req.user?.email,
+    });
     const contentType = (req.headers["content-type"] || "").toLowerCase();
     if (contentType.includes("multipart/form-data")) {
       return recoveryUpload.any()(req as any, res as any, (err: any) => {

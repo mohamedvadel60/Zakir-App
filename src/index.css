@@ -467,4 +467,137 @@ body:not(.dark) input:-webkit-autofill:active {
   border: none !important;
 }
 
+/* ==========================================
+   ZAKIR CINEMATIC LOADING MOTION GRAPHIC
+   ========================================== */
+
+/* 1. Ambient Aura Gradients */
+.zakir-aura-dark {
+  background: radial-gradient(circle, rgba(13, 180, 215, 0.22) 0%, rgba(0, 117, 222, 0.12) 40%, rgba(11, 15, 25, 0) 70%);
+}
+
+.zakir-aura-light {
+  background: radial-gradient(circle, rgba(0, 117, 222, 0.14) 0%, rgba(13, 180, 215, 0.06) 45%, rgba(248, 250, 252, 0) 70%);
+}
+
+/* 2. Conic Light Ray Gradients */
+.zakir-ray-conic-dark {
+  background: conic-gradient(
+    from 0deg,
+    transparent 0deg,
+    rgba(13, 180, 215, 0.38) 45deg,
+    rgba(0, 117, 222, 0.22) 90deg,
+    transparent 160deg,
+    transparent 360deg
+  );
+}
+
+.zakir-ray-conic-light {
+  background: conic-gradient(
+    from 0deg,
+    transparent 0deg,
+    rgba(0, 117, 222, 0.26) 45deg,
+    rgba(13, 180, 215, 0.14) 90deg,
+    transparent 160deg,
+    transparent 360deg
+  );
+}
+
+/* 3. GPU Keyframe Animations */
+@keyframes zakirRaySpin {
+  0% {
+    transform: rotate(0deg) translateZ(0);
+  }
+  100% {
+    transform: rotate(360deg) translateZ(0);
+  }
+}
+
+@keyframes zakirAuraPulse {
+  0%, 100% {
+    opacity: 0.55;
+    transform: scale(0.96) translateZ(0);
+  }
+  50% {
+    opacity: 0.88;
+    transform: scale(1.05) translateZ(0);
+  }
+}
+
+@keyframes zakirRaySweep {
+  0% {
+    opacity: 0.35;
+    transform: rotate(0deg) scale(0.96) translateZ(0);
+  }
+  50% {
+    opacity: 0.85;
+    transform: rotate(180deg) scale(1.04) translateZ(0);
+  }
+  100% {
+    opacity: 0.35;
+    transform: rotate(360deg) scale(0.96) translateZ(0);
+  }
+}
+
+@keyframes zakirGlintOrbit {
+  0% {
+    transform: rotate(0deg) translateY(-56px) rotate(0deg) scale(0.7);
+    opacity: 0;
+  }
+  12% {
+    opacity: 0.95;
+    transform: rotate(45deg) translateY(-56px) rotate(-45deg) scale(1.1);
+  }
+  45% {
+    opacity: 0.4;
+    transform: rotate(160deg) translateY(-56px) rotate(-160deg) scale(0.85);
+  }
+  65% {
+    opacity: 0.95;
+    transform: rotate(240deg) translateY(-56px) rotate(-240deg) scale(1.15);
+  }
+  85% {
+    opacity: 0.3;
+    transform: rotate(310deg) translateY(-56px) rotate(-310deg) scale(0.8);
+  }
+  100% {
+    transform: rotate(360deg) translateY(-56px) rotate(-360deg) scale(0.7);
+    opacity: 0;
+  }
+}
+
+/* 4. Animation Class Bindings */
+.zakir-motion-ray {
+  animation: zakirRaySpin 3.8s linear infinite;
+  transform-origin: center center;
+}
+
+.zakir-motion-aura {
+  animation: zakirAuraPulse 3.2s ease-in-out infinite;
+  transform-origin: center center;
+}
+
+.zakir-motion-sweep {
+  animation: zakirRaySweep 4.5s ease-in-out infinite;
+  transform-origin: center center;
+}
+
+.zakir-motion-glint {
+  animation: zakirGlintOrbit 3.8s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+  transform-origin: center center;
+}
+
+/* 5. Prefers-Reduced-Motion Compliance */
+@media (prefers-reduced-motion: reduce) {
+  .zakir-motion-ray,
+  .zakir-motion-aura,
+  .zakir-motion-sweep,
+  .zakir-motion-glint {
+    animation: none !important;
+    transform: none !important;
+    opacity: 0.5 !important;
+  }
+}
+
+
 

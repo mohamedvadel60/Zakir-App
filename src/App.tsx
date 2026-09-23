@@ -103,6 +103,7 @@ const AnimatedLandingPage = React.lazy<React.ComponentType<any>>(() => import(".
 const WorldBankPortal = React.lazy<React.ComponentType<any>>(() => import("./components/WorldBankPortal").then((m: any) => ({ default: m.WorldBankPortal || m.default })));
 import { generateWorldBankFallbackData } from "./lib/worldBankFallback.js";
 import { ZakirLogo } from "./components/ZakirLogo";
+import { ZakirLoadingScreen } from "./components/ZakirLoadingScreen";
 import { AuthSwitch } from "./components/ui/auth-switch";
 import { SplitLoginCard } from "./components/ui/split-login-card";
 import { CompactAppSwitcher } from "./components/ui/CompactAppSwitcher";
@@ -461,11 +462,10 @@ const ViewLoadingFallback = () => (
   </div>
 );
 
-const FullScreenFallback = () => (
-  <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex items-center justify-center">
-    <div className="w-8 h-8 border-2 border-[#0075DE] border-t-transparent rounded-full animate-spin"></div>
-  </div>
-);
+const FullScreenFallback = () => {
+  const savedTheme = typeof window !== "undefined" && localStorage.getItem("zakir_theme") === "light" ? "light" : "dark";
+  return <ZakirLoadingScreen theme={savedTheme} />;
+};
 
 export default function App() {
   // Locale & Theme State
@@ -3178,48 +3178,26 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
 
   const isCustomThemeActive = !!currentUser?.customTheme?.approvedAt;
 
-  if (isAuthChecking || (currentUser && !isInitialDataLoaded)) {
-    return (
-      <div 
-        id="zakir-auth-loading"
-        className={`min-h-screen flex items-center justify-center transition-colors duration-300 select-none ${
-          theme === "dark" ? "theme-dark bg-[#0B0F19]" : "theme-light bg-[#F0F2F5]"
-        }`}
-      >
-        <motion.div 
-          initial={{ opacity: 0, scale: 0.94 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
-          className="relative flex items-center justify-center"
-        >
-          {/* Subtle Ambient Institutional Glow */}
-          <div className="absolute -inset-6 rounded-full bg-gradient-to-tr from-[#0db4d7]/15 via-[#0075DE]/10 to-[#f3ba1a]/15 blur-xl pointer-events-none opacity-60 animate-pulse" />
-
-          {/* Subtle Cinematic Light Sweep Motion Graphic around Logo (No Box per rule 6) */}
-          <motion.div 
-            animate={{ opacity: [0.8, 1, 0.8], scale: [0.98, 1.02, 0.98] }}
-            transition={{ duration: 2.8, repeat: Infinity, ease: "easeInOut" }}
-            className="relative z-10 flex items-center justify-center p-4"
-          >
-            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-[#0db4d7]/15 to-transparent blur-xl pointer-events-none animate-pulse" />
-            <ZakirLogo size={64} withBox={false} theme={isCustomThemeActive ? "custom" : theme} />
-          </motion.div>
-        </motion.div>
-      </div>
-    );
-  }
+  const isAppLoading = isAuthChecking || (currentUser && !isInitialDataLoaded);
 
   return (
-    <div 
-      id="zakir-app-root"
-      className={`min-h-screen transition-colors duration-150 ${
-        theme === "dark" ? "theme-dark bg-[#0B0F19] text-[#F8FAFC]" : "theme-light bg-[#F0F2F5] text-[#0F172A]"
-      } ${
-        isCustomThemeActive ? "custom-theme-active" : ""
-      }`} 
-      style={customThemeStyle}
-      dir={t.dir}
-    >
+    <>
+      <AnimatePresence>
+        {isAppLoading && (
+          <ZakirLoadingScreen key="zakir-global-loading-screen" theme={theme} />
+        )}
+      </AnimatePresence>
+
+      <div 
+        id="zakir-app-root"
+        className={`min-h-screen transition-colors duration-150 ${
+          theme === "dark" ? "theme-dark bg-[#0B0F19] text-[#F8FAFC]" : "theme-light bg-[#F0F2F5] text-[#0F172A]"
+        } ${
+          isCustomThemeActive ? "custom-theme-active" : ""
+        }`} 
+        style={customThemeStyle}
+        dir={t.dir}
+      >
       {/* GLOBAL DYNAMIC CSS PALETTE OVERRIDES */}
       <style dangerouslySetInnerHTML={{ __html: `
         /* 1. Global CSS Variables Definition */
@@ -7342,5 +7320,6 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
       )}
 
     </div>
+    </>
   );
 }

@@ -144,11 +144,62 @@
     {
       "id": "usr_a",
       "email": "user_a@zakir.ai",
-      "companyName": "User A Corp",
+      "companyName": "حساب فردي / مستخدم شخصي",
       "role": "Analyst",
       "subscriptionPlan": "Starter",
       "subscriptionStatus": "Active",
-      "createdAt": "2026-08-08T18:06:07.777Z"
+      "createdAt": "2026-08-08T18:06:07.777Z",
+      "fullName": "User A Test",
+      "ownerName": "User A Test",
+      "phone": "+966500000000",
+      "jobTitle": "Operations Director",
+      "organizationName": "حساب فردي / مستخدم شخصي",
+      "sector": "Individual",
+      "country": "International",
+      "hasCompany": false,
+      "institutionalProfile": {
+        "fullName": "User A Test",
+        "phone": "+966500000000",
+        "jobTitle": "Operations Director",
+        "hasCompany": false,
+        "companyName": "حساب فردي / مستخدم شخصي",
+        "sector": "Individual",
+        "country": "International",
+        "registrationNumber": "",
+        "companySize": "1-10",
+        "intendedUse": "Strategic Decision Intelligence",
+        "additionalNotes": "E2E verification upload automated test run",
+        "submittedAt": "2026-09-23T18:46:54.120Z"
+      },
+      "verificationDocuments": [
+        {
+          "documentId": "doc_1790189212892_03d90aeb",
+          "fileName": "national_id_sample.png",
+          "mimeType": "image/png",
+          "size": 70,
+          "fileHash": "c414cd0e204de974f73753c7e28d7638e7b3691bb8b1a2bab6b25bb7fed7ce77",
+          "category": "personal",
+          "docType": "national_id",
+          "storageReference": "secure_uploads/doc_1790189212892_03d90aeb",
+          "uploadedAt": "2026-09-23T18:46:53.778Z",
+          "userId": "usr_a"
+        }
+      ],
+      "accountStatus": "PENDING_ADMIN_REVIEW",
+      "documentVerificationStatus": "UNDER_REVIEW",
+      "requiresDocumentVerification": true,
+      "rejectionReason": null,
+      "isVerified": false,
+      "verifiedAt": null,
+      "adminVerificationOverride": false,
+      "verification_required": true,
+      "verification_status": "under_review",
+      "verificationInfo.status": "under_review",
+      "verificationInfo.submittedAt": "2026-09-23T18:46:54.120Z",
+      "verificationInfo.adminNote": null,
+      "verificationInfo.verifiedAt": null,
+      "verificationSubmittedAt": "2026-09-23T18:46:54.120Z",
+      "lastActiveAt": "2026-09-23T18:46:54.120Z"
     },
     {
       "id": "usr_b",
@@ -2873,6 +2924,36 @@
       "used": true,
       "verifiedAt": "2026-09-22T21:27:18.682Z",
       "id": "test_new_user_1790112434381@zakir-test.com"
+    },
+    {
+      "id": "mohamedvadhil0@gmail.com",
+      "userId": "MwlaEvpmSUYQl5oopJOj7Gc3dd52",
+      "email": "mohamedvadhil0@gmail.com",
+      "phone": "",
+      "codeHash": "21191c5038110caf3667ac5956db9b19efb39e5de2a8a3f2e6ad95aaad9dd067",
+      "type": "account_recovery",
+      "expiresAt": "2026-09-23T17:12:18.774Z",
+      "attempts": 0,
+      "sendCount": 2,
+      "cooldownUntil": null,
+      "lastSentAt": "2026-09-23T17:02:19.286Z",
+      "used": false,
+      "createdAt": "2026-09-23T17:02:19.286Z"
+    },
+    {
+      "id": "MwlaEvpmSUYQl5oopJOj7Gc3dd52",
+      "userId": "MwlaEvpmSUYQl5oopJOj7Gc3dd52",
+      "email": "mohamedvadhil0@gmail.com",
+      "phone": "",
+      "codeHash": "990df00f57b76ecad6fdca0c0139789d162a28353be9642d17098d68bb23b859",
+      "type": "password_reset",
+      "expiresAt": "2026-09-23T17:26:11.763Z",
+      "attempts": 0,
+      "sendCount": 3,
+      "cooldownUntil": "2026-09-23T17:26:11.763Z",
+      "lastSentAt": "2026-09-23T17:16:12.350Z",
+      "used": false,
+      "createdAt": "2026-09-23T17:16:12.350Z"
     }
   ],
   "support_tickets": [
@@ -4853,6 +4934,18 @@
       "syncAttempts": 0,
       "createdAt": "2026-09-22T21:27:20.692Z",
       "expiresAt": "2026-10-06T21:27:20.692Z"
+    },
+    "doc_1790189212892_03d90aeb": {
+      "documentId": "doc_1790189212892_03d90aeb",
+      "mimeType": "image/png",
+      "size": 70,
+      "fileName": "national_id_sample.png",
+      "fileHash": "c414cd0e204de974f73753c7e28d7638e7b3691bb8b1a2bab6b25bb7fed7ce77",
+      "fileBase64": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
+      "storageStatus": "synced",
+      "syncAttempts": 0,
+      "createdAt": "2026-09-23T18:46:52.893Z",
+      "expiresAt": "2026-10-07T18:46:52.893Z"
     }
   },
   "invitations": [
@@ -5069,6 +5162,51 @@
     }
   ],
   "platform_events": [
+    {
+      "id": "evt_1790189214339_2q0jyuf",
+      "eventType": "INSTITUTIONAL_VERIFICATION_SUBMITTED",
+      "severity": "NOTICE",
+      "category": "AUTH",
+      "timestamp": "2026-09-23T18:46:54.339Z",
+      "userId": "usr_a",
+      "userEmail": "user_a@zakir.ai",
+      "sanitizedMessage": "User verification documents submitted by [user_a@zakir.ai] (Personal) - Pending admin review.",
+      "status": "ACTIVE",
+      "metadata": {
+        "fullName": "User A Test",
+        "phone": "+966500000000",
+        "jobTitle": "Operations Director",
+        "hasCompany": false,
+        "companyName": "حساب فردي / مستخدم شخصي",
+        "sector": "Individual",
+        "country": "International",
+        "registrationNumber": "",
+        "companySize": "1-10",
+        "intendedUse": "Strategic Decision Intelligence",
+        "additionalNotes": "E2E verification upload automated test run",
+        "submittedAt": "2026-09-23T18:46:54.120Z",
+        "documentsCount": 1
+      },
+      "source": "server"
+    },
+    {
+      "id": "evt_1790189120994_i2r5wq3",
+      "eventType": "PRODUCTION_API_ERROR",
+      "severity": "ERROR",
+      "category": "SYSTEM",
+      "timestamp": "2026-09-23T18:45:20.994Z",
+      "endpoint": "/api/auth/verification-document/upload",
+      "method": "POST",
+      "statusCode": 500,
+      "sanitizedMessage": "Unhandled server error on POST /api/auth/verification-document/upload: Cannot read properties of undefined (reading 'vary')",
+      "status": "ACTIVE",
+      "metadata": {
+        "stack": "TypeError: Cannot read properties of undefined (reading 'vary')\n    at ServerResponse.getHeader (node:_http_outgoing:794:24)\n    at vary (/app/applet/node_modules/vary/index.js:140:17)\n    at applyHeaders (/app/applet/node_modules/cors/lib/index.js:151:11)\n    at applyHeaders (/app/applet/node_modules/cors/lib/index.js:149:11)",
+        "query": {}
+      },
+      "source": "server",
+      "incidentId": "inc_1790189120995_kvinn"
+    },
     {
       "id": "evt_1790168687039_x8r87h0",
       "eventType": "ADMIN_AUDIT_ACTION",
@@ -6234,8 +6372,46 @@
       "source": "server"
     }
   ],
-  "platform_incidents": [],
+  "platform_incidents": [
+    {
+      "id": "inc_1790189120995_kvinn",
+      "incidentNumber": "INC-1001",
+      "title": "PRODUCTION_API_ERROR: Unhandled server error on POST /api/auth/verification-document/upload: Cannot read properties of und",
+      "severity": "ERROR",
+      "status": "OPEN",
+      "category": "SYSTEM",
+      "createdAt": "2026-09-23T18:45:20.994Z",
+      "updatedAt": "2026-09-23T18:45:20.994Z",
+      "relatedEventIds": [
+        "evt_1790189120994_i2r5wq3"
+      ],
+      "diagnosticDetails": {
+        "endpoint": "/api/auth/verification-document/upload",
+        "method": "POST",
+        "statusCode": 500,
+        "metadata": {
+          "stack": "TypeError: Cannot read properties of undefined (reading 'vary')\n    at ServerResponse.getHeader (node:_http_outgoing:794:24)\n    at vary (/app/applet/node_modules/vary/index.js:140:17)\n    at applyHeaders (/app/applet/node_modules/cors/lib/index.js:151:11)\n    at applyHeaders (/app/applet/node_modules/cors/lib/index.js:149:11)",
+          "query": {}
+        }
+      }
+    }
+  ],
   "admin_notifications": [
+    {
+      "id": "notif_1790189120995_upk06",
+      "title": "PRODUCTION API ERROR",
+      "message": "Unhandled server error on POST /api/auth/verification-document/upload: Cannot read properties of undefined (reading 'vary')",
+      "severity": "ERROR",
+      "category": "SYSTEM",
+      "eventId": "evt_1790189120994_i2r5wq3",
+      "incidentId": "inc_1790189120995_kvinn",
+      "read": false,
+      "acknowledged": false,
+      "timestamp": "2026-09-23T18:45:20.994Z",
+      "link": {
+        "tab": "overview"
+      }
+    },
     {
       "id": "notif_1790168687039_3i1u5",
       "title": "ADMIN AUDIT ACTION",
@@ -23411,6 +23587,18 @@
       "storageReference": "secure_uploads/doc_1790112440692_b2f75d35",
       "uploadedAt": "2026-09-22T21:27:21.021Z",
       "userId": "GCdj0VLjFoReyj5hSEPR6cXyAFl2"
+    },
+    "doc_1790189212892_03d90aeb": {
+      "documentId": "doc_1790189212892_03d90aeb",
+      "fileName": "national_id_sample.png",
+      "mimeType": "image/png",
+      "size": 70,
+      "fileHash": "c414cd0e204de974f73753c7e28d7638e7b3691bb8b1a2bab6b25bb7fed7ce77",
+      "category": "personal",
+      "docType": "national_id",
+      "storageReference": "secure_uploads/doc_1790189212892_03d90aeb",
+      "uploadedAt": "2026-09-23T18:46:53.778Z",
+      "userId": "usr_a"
     }
   },
   "admin_entitlement_audit_logs": [
