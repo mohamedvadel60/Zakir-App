@@ -29,26 +29,17 @@ export const ZakirLoadingScreen: React.FC<ZakirLoadingScreenProps> = ({
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0, scale: 0.99 }}
-      transition={{ duration: 0.32, ease: [0.16, 1, 0.3, 1] }}
+      transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
       className={`fixed inset-0 z-[99999] flex items-center justify-center select-none overflow-hidden ${
-        isDark ? "bg-[#0B0F19]" : "bg-[#F8FAFC]"
+        isDark ? "bg-[#0B0F19]" : "bg-[#FFFFFF]"
       }`}
       role="status"
       aria-label="Loading ZAKIR"
     >
-      {/* Subtle depth gradient field */}
-      <div
-        className={`absolute inset-0 pointer-events-none ${
-          isDark
-            ? "bg-[radial-gradient(ellipse_at_center,rgba(28,44,88,0.25)_0%,rgba(11,15,25,0)_70%)]"
-            : "bg-[radial-gradient(ellipse_at_center,rgba(0,117,222,0.06)_0%,rgba(248,250,252,0)_70%)]"
-        }`}
-      />
-
       {/* Signature Motion Logo */}
       <div className="relative z-10 flex items-center justify-center p-6">
         <ZakirMotionLogo
-          size={84}
+          size={88}
           theme={theme}
           withBox={true}
           showText={showText}
