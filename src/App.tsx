@@ -1836,16 +1836,17 @@ This hosting domain (**${currentDomain}**) has not been authorized in your Fireb
       const userProfile = await loginFirebaseUser(loginEmail.trim(), loginPassword, attemptId);
       if (activeLoginAttemptIdRef.current !== attemptId) return;
       
-      const isUserVerified = userProfile.isVerified === true || userProfile.isEmailVerified === true || userProfile.emailVerified === true || userProfile.verification_status === "verified" || userProfile.verification_required === false;
+      const isAdminApproved = userProfile.accountStatus === "APPROVED" && userProfile.isVerified === true;
+      const isEmailVerified = !!(userProfile.isEmailVerified || userProfile.emailVerified || userProfile.email_verified);
 
       const loggedInUser: User = {
         ...userProfile,
-        isVerified: isUserVerified,
-        isEmailVerified: isUserVerified,
-        email_verified: isUserVerified,
-        emailVerified: isUserVerified,
-        verification_required: !isUserVerified,
-        verification_status: isUserVerified ? "verified" : "unverified"
+        isVerified: isAdminApproved,
+        isEmailVerified: isEmailVerified,
+        email_verified: isEmailVerified,
+        emailVerified: isEmailVerified,
+        verification_required: !isAdminApproved,
+        verification_status: isAdminApproved ? "verified" : (userProfile.accountStatus === "PENDING_ADMIN_REVIEW" ? "pending" : (userProfile.accountStatus === "REJECTED" ? "rejected" : "unverified"))
       };
 
       setCurrentUser(loggedInUser);

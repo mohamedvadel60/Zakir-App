@@ -3221,6 +3221,698 @@
       "verificationInfo.verifiedAt": null,
       "verificationSubmittedAt": "2026-09-23T19:52:39.787Z",
       "lastActiveAt": "2026-09-23T19:52:39.787Z"
+    },
+    {
+      "id": "TqxabrjkX7SSoFHNdiMabBRKLRn1",
+      "email": "audit_user_1790196500554@test.com",
+      "passwordHash": "Password123!",
+      "companyName": "Zakir Test Corp",
+      "ownerName": "audit_user_1790196500554",
+      "role": "Contributor",
+      "workspaceId": "ws_Tqxabrjk_muekryaz",
+      "workspace": {
+        "id": "ws_Tqxabrjk_muekryaz",
+        "name": "Zakir Test Corp Workspace",
+        "ownerId": "TqxabrjkX7SSoFHNdiMabBRKLRn1",
+        "createdAt": "2026-09-23T20:48:23.147Z",
+        "memberCount": 1
+      },
+      "teamMembersList": [
+        {
+          "id": "tm-owner",
+          "uid": "TqxabrjkX7SSoFHNdiMabBRKLRn1",
+          "name": "audit_user_1790196500554",
+          "email": "audit_user_1790196500554@test.com",
+          "role": "CEO / Owner",
+          "powers": {
+            "fileVault": true,
+            "memoryVault": true,
+            "riskRadar": true,
+            "marketIntel": true,
+            "settings": true
+          },
+          "addedAt": "2026-09-23"
+        }
+      ],
+      "subscriptionStatus": "Pending Selection",
+      "accountStatus": "PENDING_EMAIL_VERIFICATION",
+      "requiresDocumentVerification": true,
+      "verificationFlowVersion": 2,
+      "documentVerificationStatus": "PENDING_EMAIL_VERIFICATION",
+      "verificationDocuments": [],
+      "createdAt": "2026-09-23T20:48:23.147Z",
+      "trialExpiresAt": "2026-09-24T20:48:23.147Z",
+      "lastActiveAt": "2026-09-23T20:48:23.147Z",
+      "lastLoginAt": "2026-09-23T20:48:23.147Z",
+      "isVerified": false,
+      "isEmailVerified": false,
+      "email_verified": false,
+      "emailVerified": false,
+      "verification_required": true,
+      "verification_status": "unverified",
+      "verificationInfo": {
+        "status": "unverified"
+      }
+    },
+    {
+      "id": "xnceAdsLw1dUkwtWZEiQHQ6ZORk1",
+      "email": "audit_user_a_1790196524901@test.com",
+      "passwordHash": "Password123!",
+      "companyName": "Corp A",
+      "ownerName": "audit_user_a_1790196524901",
+      "role": "Contributor",
+      "workspaceId": "ws_xnceAdsL_mueksgy0",
+      "workspace": {
+        "id": "ws_xnceAdsL_mueksgy0",
+        "name": "Corp A Workspace",
+        "ownerId": "xnceAdsLw1dUkwtWZEiQHQ6ZORk1",
+        "createdAt": "2026-09-23T20:48:47.304Z",
+        "memberCount": 1
+      },
+      "teamMembersList": [
+        {
+          "id": "tm-owner",
+          "uid": "xnceAdsLw1dUkwtWZEiQHQ6ZORk1",
+          "name": "audit_user_a_1790196524901",
+          "email": "audit_user_a_1790196524901@test.com",
+          "role": "CEO / Owner",
+          "powers": {
+            "fileVault": true,
+            "memoryVault": true,
+            "riskRadar": true,
+            "marketIntel": true,
+            "settings": true
+          },
+          "addedAt": "2026-09-23"
+        }
+      ],
+      "subscriptionStatus": "Pending Selection",
+      "accountStatus": "PENDING_EMAIL_VERIFICATION",
+      "requiresDocumentVerification": true,
+      "verificationFlowVersion": 2,
+      "documentVerificationStatus": "PENDING_EMAIL_VERIFICATION",
+      "verificationDocuments": [],
+      "createdAt": "2026-09-23T20:48:47.304Z",
+      "trialExpiresAt": "2026-09-24T20:48:47.304Z",
+      "lastActiveAt": "2026-09-23T20:48:47.304Z",
+      "lastLoginAt": "2026-09-23T20:48:47.304Z",
+      "isVerified": false,
+      "isEmailVerified": false,
+      "email_verified": false,
+      "emailVerified": false,
+      "verification_required": true,
+      "verification_status": "unverified",
+      "verificationInfo": {
+        "status": "unverified"
+      }
+    },
+    {
+      "id": "AY5chmEuowTqPaP888ZTZDuadMy2",
+      "email": "audit_user_b_1790196524901@test.com",
+      "passwordHash": "Password123!",
+      "companyName": "Corp B",
+      "ownerName": "audit_user_b_1790196524901",
+      "role": "Contributor",
+      "workspaceId": "ws_AY5chmEu_mueksky9",
+      "workspace": {
+        "id": "ws_AY5chmEu_mueksky9",
+        "name": "Corp B Workspace",
+        "ownerId": "AY5chmEuowTqPaP888ZTZDuadMy2",
+        "createdAt": "2026-09-23T20:48:52.497Z",
+        "memberCount": 1
+      },
+      "teamMembersList": [
+        {
+          "id": "tm-owner",
+          "uid": "AY5chmEuowTqPaP888ZTZDuadMy2",
+          "name": "audit_user_b_1790196524901",
+          "email": "audit_user_b_1790196524901@test.com",
+          "role": "CEO / Owner",
+          "powers": {
+            "fileVault": true,
+            "memoryVault": true,
+            "riskRadar": true,
+            "marketIntel": true,
+            "settings": true
+          },
+          "addedAt": "2026-09-23"
+        }
+      ],
+      "subscriptionStatus": "Pending Selection",
+      "accountStatus": "PENDING_EMAIL_VERIFICATION",
+      "requiresDocumentVerification": true,
+      "verificationFlowVersion": 2,
+      "documentVerificationStatus": "PENDING_EMAIL_VERIFICATION",
+      "verificationDocuments": [],
+      "createdAt": "2026-09-23T20:48:52.497Z",
+      "trialExpiresAt": "2026-09-24T20:48:52.497Z",
+      "lastActiveAt": "2026-09-23T20:48:52.497Z",
+      "lastLoginAt": "2026-09-23T20:48:52.497Z",
+      "isVerified": false,
+      "isEmailVerified": false,
+      "email_verified": false,
+      "emailVerified": false,
+      "verification_required": true,
+      "verification_status": "unverified",
+      "verificationInfo": {
+        "status": "unverified"
+      }
+    },
+    {
+      "id": "zlXx5fI7BRNdDiowXrax2g9rgW73",
+      "email": "audit_a_1790196574709@test.com",
+      "passwordHash": "Password123!",
+      "companyName": "Zakir Test Corp A",
+      "ownerName": "audit_a_1790196574709",
+      "role": "Contributor",
+      "workspaceId": "ws_zlXx5fI7_muektjgl",
+      "workspace": {
+        "id": "ws_zlXx5fI7_muektjgl",
+        "name": "Zakir Test Corp A Workspace",
+        "ownerId": "zlXx5fI7BRNdDiowXrax2g9rgW73",
+        "createdAt": "2026-09-23T20:49:37.221Z",
+        "memberCount": 1
+      },
+      "teamMembersList": [
+        {
+          "id": "tm-owner",
+          "uid": "zlXx5fI7BRNdDiowXrax2g9rgW73",
+          "name": "audit_a_1790196574709",
+          "email": "audit_a_1790196574709@test.com",
+          "role": "CEO / Owner",
+          "powers": {
+            "fileVault": true,
+            "memoryVault": true,
+            "riskRadar": true,
+            "marketIntel": true,
+            "settings": true
+          },
+          "addedAt": "2026-09-23"
+        }
+      ],
+      "subscriptionStatus": "Pending Selection",
+      "accountStatus": "PENDING_EMAIL_VERIFICATION",
+      "requiresDocumentVerification": true,
+      "verificationFlowVersion": 2,
+      "documentVerificationStatus": "PENDING_EMAIL_VERIFICATION",
+      "verificationDocuments": [],
+      "createdAt": "2026-09-23T20:49:37.221Z",
+      "trialExpiresAt": "2026-09-24T20:49:37.221Z",
+      "lastActiveAt": "2026-09-23T20:49:37.221Z",
+      "lastLoginAt": "2026-09-23T20:49:37.221Z",
+      "isVerified": false,
+      "isEmailVerified": false,
+      "email_verified": false,
+      "emailVerified": false,
+      "verification_required": true,
+      "verification_status": "unverified",
+      "verificationInfo": {
+        "status": "unverified"
+      }
+    },
+    {
+      "id": "UQH3lvksVod1tBhGqe3q7zODvgU2",
+      "email": "audit_b_1790196574709@test.com",
+      "passwordHash": "Password123!",
+      "companyName": "Zakir Test Corp B",
+      "ownerName": "audit_b_1790196574709",
+      "role": "Contributor",
+      "workspaceId": "ws_UQH3lvks_muektp88",
+      "workspace": {
+        "id": "ws_UQH3lvks_muektp88",
+        "name": "Zakir Test Corp B Workspace",
+        "ownerId": "UQH3lvksVod1tBhGqe3q7zODvgU2",
+        "createdAt": "2026-09-23T20:49:44.696Z",
+        "memberCount": 1
+      },
+      "teamMembersList": [
+        {
+          "id": "tm-owner",
+          "uid": "UQH3lvksVod1tBhGqe3q7zODvgU2",
+          "name": "audit_b_1790196574709",
+          "email": "audit_b_1790196574709@test.com",
+          "role": "CEO / Owner",
+          "powers": {
+            "fileVault": true,
+            "memoryVault": true,
+            "riskRadar": true,
+            "marketIntel": true,
+            "settings": true
+          },
+          "addedAt": "2026-09-23"
+        }
+      ],
+      "subscriptionStatus": "Inactive",
+      "accountStatus": "REJECTED",
+      "requiresDocumentVerification": true,
+      "verificationFlowVersion": 2,
+      "documentVerificationStatus": "REJECTED",
+      "verificationDocuments": [],
+      "createdAt": "2026-09-23T20:49:44.696Z",
+      "trialExpiresAt": "2026-09-24T20:49:44.696Z",
+      "lastActiveAt": "2026-09-23T20:49:44.696Z",
+      "lastLoginAt": "2026-09-23T20:49:44.696Z",
+      "isVerified": false,
+      "isEmailVerified": false,
+      "email_verified": false,
+      "emailVerified": false,
+      "verification_required": true,
+      "verification_status": "rejected",
+      "verificationInfo": {
+        "status": "unverified"
+      },
+      "rejectionReason": "Commercial registry document is expired since 2024.",
+      "rejectionDate": "2026-09-23T20:49:47.865Z",
+      "rejectedBy": "admin@zakir.ai",
+      "adminVerificationOverride": false,
+      "verifiedAt": null,
+      "verificationInfo.status": "rejected",
+      "verificationInfo.adminNote": "Commercial registry document is expired since 2024.",
+      "verificationInfo.verifiedAt": null
+    },
+    {
+      "id": "yKIXw1oaXzPEKC5kw451a80dHNs2",
+      "email": "audit_c_1790196600954@test.com",
+      "passwordHash": "Password123!",
+      "companyName": "Zakir Document Corp",
+      "ownerName": "audit_c_1790196600954",
+      "role": "Contributor",
+      "workspaceId": "ws_yKIXw1oa_mueku3oy",
+      "workspace": {
+        "id": "ws_yKIXw1oa_mueku3oy",
+        "name": "Zakir Document Corp Workspace",
+        "ownerId": "yKIXw1oaXzPEKC5kw451a80dHNs2",
+        "createdAt": "2026-09-23T20:50:03.442Z",
+        "memberCount": 1
+      },
+      "teamMembersList": [
+        {
+          "id": "tm-owner",
+          "uid": "yKIXw1oaXzPEKC5kw451a80dHNs2",
+          "name": "audit_c_1790196600954",
+          "email": "audit_c_1790196600954@test.com",
+          "role": "CEO / Owner",
+          "powers": {
+            "fileVault": true,
+            "memoryVault": true,
+            "riskRadar": true,
+            "marketIntel": true,
+            "settings": true
+          },
+          "addedAt": "2026-09-23"
+        }
+      ],
+      "subscriptionStatus": "Pending Selection",
+      "accountStatus": "PENDING_EMAIL_VERIFICATION",
+      "requiresDocumentVerification": true,
+      "verificationFlowVersion": 2,
+      "documentVerificationStatus": "PENDING_EMAIL_VERIFICATION",
+      "verificationDocuments": [],
+      "createdAt": "2026-09-23T20:50:03.442Z",
+      "trialExpiresAt": "2026-09-24T20:50:03.442Z",
+      "lastActiveAt": "2026-09-23T20:50:03.442Z",
+      "lastLoginAt": "2026-09-23T20:50:03.442Z",
+      "isVerified": false,
+      "isEmailVerified": false,
+      "email_verified": false,
+      "emailVerified": false,
+      "verification_required": true,
+      "verification_status": "unverified",
+      "verificationInfo": {
+        "status": "unverified"
+      }
+    },
+    {
+      "id": "Ya8c1neUyCYFLJoMGRBNDwdiWT12",
+      "email": "audit_d_1790196618960@test.com",
+      "passwordHash": "Password123!",
+      "companyName": "Zakir Valid Corp",
+      "ownerName": "audit_d_1790196618960",
+      "role": "Contributor",
+      "workspaceId": "ws_Ya8c1neU_muekuhie",
+      "workspace": {
+        "id": "ws_Ya8c1neU_muekuhie",
+        "name": "Zakir Valid Corp Workspace",
+        "ownerId": "Ya8c1neUyCYFLJoMGRBNDwdiWT12",
+        "createdAt": "2026-09-23T20:50:21.350Z",
+        "memberCount": 1
+      },
+      "teamMembersList": [
+        {
+          "id": "tm-owner",
+          "uid": "Ya8c1neUyCYFLJoMGRBNDwdiWT12",
+          "name": "audit_d_1790196618960",
+          "email": "audit_d_1790196618960@test.com",
+          "role": "CEO / Owner",
+          "powers": {
+            "fileVault": true,
+            "memoryVault": true,
+            "riskRadar": true,
+            "marketIntel": true,
+            "settings": true
+          },
+          "addedAt": "2026-09-23"
+        }
+      ],
+      "subscriptionStatus": "Pending Selection",
+      "accountStatus": "PENDING_EMAIL_VERIFICATION",
+      "requiresDocumentVerification": true,
+      "verificationFlowVersion": 2,
+      "documentVerificationStatus": "PENDING_EMAIL_VERIFICATION",
+      "verificationDocuments": [],
+      "createdAt": "2026-09-23T20:50:21.350Z",
+      "trialExpiresAt": "2026-09-24T20:50:21.350Z",
+      "lastActiveAt": "2026-09-23T20:50:21.350Z",
+      "lastLoginAt": "2026-09-23T20:50:21.350Z",
+      "isVerified": false,
+      "isEmailVerified": false,
+      "email_verified": false,
+      "emailVerified": false,
+      "verification_required": true,
+      "verification_status": "unverified",
+      "verificationInfo": {
+        "status": "unverified"
+      }
+    },
+    {
+      "id": "UW5eGpJnmZOapM37QcCSFNXltJg1",
+      "email": "audit_e_1790196636220@test.com",
+      "passwordHash": "Password123!",
+      "companyName": "Zakir Complete Corp",
+      "ownerName": "Test User E",
+      "role": "Contributor",
+      "workspaceId": "ws_UW5eGpJn_muekuuzn",
+      "workspace": {
+        "id": "ws_UW5eGpJn_muekuuzn",
+        "name": "Zakir Complete Corp Workspace",
+        "ownerId": "UW5eGpJnmZOapM37QcCSFNXltJg1",
+        "createdAt": "2026-09-23T20:50:38.819Z",
+        "memberCount": 1
+      },
+      "teamMembersList": [
+        {
+          "id": "tm-owner",
+          "uid": "UW5eGpJnmZOapM37QcCSFNXltJg1",
+          "name": "audit_e_1790196636220",
+          "email": "audit_e_1790196636220@test.com",
+          "role": "CEO / Owner",
+          "powers": {
+            "fileVault": true,
+            "memoryVault": true,
+            "riskRadar": true,
+            "marketIntel": true,
+            "settings": true
+          },
+          "addedAt": "2026-09-23"
+        }
+      ],
+      "subscriptionStatus": "Active",
+      "accountStatus": "APPROVED",
+      "requiresDocumentVerification": false,
+      "verificationFlowVersion": 2,
+      "documentVerificationStatus": "APPROVED",
+      "verificationDocuments": [
+        {
+          "id": "doc_id_1790196636220",
+          "fileName": "national_id_card.png",
+          "fileUrl": "https://storage.googleapis.com/zakir-docs/national_id_card.png",
+          "mimeType": "image/png",
+          "docType": "National ID",
+          "category": "personal",
+          "uploadDate": "2026-09-23T20:50:39.852Z",
+          "uploadedAt": "2026-09-23T20:50:40.024Z"
+        },
+        {
+          "id": "doc_cr_1790196636220",
+          "fileName": "commercial_registry.pdf",
+          "fileUrl": "https://storage.googleapis.com/zakir-docs/commercial_registry.pdf",
+          "mimeType": "application/pdf",
+          "docType": "Commercial Registry",
+          "category": "company",
+          "uploadDate": "2026-09-23T20:50:39.852Z",
+          "uploadedAt": "2026-09-23T20:50:40.024Z"
+        }
+      ],
+      "createdAt": "2026-09-23T20:50:38.819Z",
+      "trialExpiresAt": "2026-09-24T20:50:42.049Z",
+      "lastActiveAt": "2026-09-23T20:50:42.049Z",
+      "lastLoginAt": "2026-09-23T20:50:38.819Z",
+      "isVerified": true,
+      "isEmailVerified": true,
+      "email_verified": true,
+      "emailVerified": true,
+      "verification_required": false,
+      "verification_status": "verified",
+      "verificationInfo": {
+        "status": "unverified"
+      },
+      "fullName": "Test User E",
+      "phone": "+966555555555",
+      "jobTitle": "Executive",
+      "organizationName": "Zakir Complete Corp",
+      "sector": "General",
+      "country": "International",
+      "hasCompany": true,
+      "institutionalProfile": {
+        "fullName": "Test User E",
+        "phone": "+966555555555",
+        "jobTitle": "Executive",
+        "hasCompany": true,
+        "companyName": "Zakir Complete Corp",
+        "sector": "General",
+        "country": "International",
+        "registrationNumber": "",
+        "companySize": "1-10",
+        "intendedUse": "Strategic Decision Intelligence",
+        "additionalNotes": "",
+        "submittedAt": "2026-09-23T20:50:40.024Z"
+      },
+      "rejectionReason": null,
+      "verifiedAt": "2026-09-23T20:50:42.049Z",
+      "adminVerificationOverride": false,
+      "verificationInfo.status": "verified",
+      "verificationInfo.submittedAt": "2026-09-23T20:50:40.024Z",
+      "verificationInfo.adminNote": "",
+      "verificationInfo.verifiedAt": "2026-09-23T20:50:42.049Z",
+      "verificationSubmittedAt": "2026-09-23T20:50:40.024Z",
+      "approvedAt": "2026-09-23T20:50:42.049Z",
+      "approvedBy": "admin@zakir.ai",
+      "approvalNotes": "",
+      "trialStartedAt": "2026-09-23T20:50:42.049Z",
+      "trialEndsAt": "2026-09-24T20:50:42.049Z",
+      "trialDurationHours": 24,
+      "subscriptionPlan": "Starter",
+      "verificationInfo.verifiedBy": "admin@zakir.ai",
+      "approvalEmailSentAt": "2026-09-23T20:50:42.049Z",
+      "approvalNotificationSent": true,
+      "approvalEmailMessageId": "01a0d008-f2ce-714e-9598-5097fb166396"
+    },
+    {
+      "id": "cPyUvgXvY6UyNGkTWCmU4Sxlx782",
+      "email": "prod_audit_a_1790196817858@zakir.ai",
+      "passwordHash": "Password123!",
+      "companyName": "Production Audit Corp A",
+      "ownerName": "Production User A",
+      "role": "Contributor",
+      "workspaceId": "ws_cPyUvgXv_muekyr8d",
+      "workspace": {
+        "id": "ws_cPyUvgXv_muekyr8d",
+        "name": "Production Audit Corp A Workspace",
+        "ownerId": "cPyUvgXvY6UyNGkTWCmU4Sxlx782",
+        "createdAt": "2026-09-23T20:53:40.573Z",
+        "memberCount": 1
+      },
+      "teamMembersList": [
+        {
+          "id": "tm-owner",
+          "uid": "cPyUvgXvY6UyNGkTWCmU4Sxlx782",
+          "name": "prod_audit_a_1790196817858",
+          "email": "prod_audit_a_1790196817858@zakir.ai",
+          "role": "CEO / Owner",
+          "powers": {
+            "fileVault": true,
+            "memoryVault": true,
+            "riskRadar": true,
+            "marketIntel": true,
+            "settings": true
+          },
+          "addedAt": "2026-09-23"
+        }
+      ],
+      "subscriptionStatus": "Active",
+      "accountStatus": "APPROVED",
+      "requiresDocumentVerification": false,
+      "verificationFlowVersion": 2,
+      "documentVerificationStatus": "APPROVED",
+      "verificationDocuments": [
+        {
+          "id": "doc_id_a_1790196817858",
+          "fileName": "national_id_card_user_a.png",
+          "fileUrl": "https://storage.googleapis.com/zakir-docs/national_id_card_user_a.png",
+          "mimeType": "image/png",
+          "docType": "National ID",
+          "uploadDate": "2026-09-23T20:53:42.814Z",
+          "category": "personal",
+          "uploadedAt": "2026-09-23T20:53:42.997Z"
+        },
+        {
+          "id": "doc_cr_a_1790196817858",
+          "fileName": "commercial_registry_2026_user_a.pdf",
+          "fileUrl": "https://storage.googleapis.com/zakir-docs/commercial_registry_2026_user_a.pdf",
+          "mimeType": "application/pdf",
+          "docType": "Commercial Registry",
+          "uploadDate": "2026-09-23T20:53:42.814Z",
+          "category": "company",
+          "uploadedAt": "2026-09-23T20:53:42.997Z"
+        }
+      ],
+      "createdAt": "2026-09-23T20:53:40.573Z",
+      "trialExpiresAt": "2026-09-24T20:53:45.141Z",
+      "lastActiveAt": "2026-09-23T20:53:45.141Z",
+      "lastLoginAt": "2026-09-23T20:53:40.573Z",
+      "isVerified": true,
+      "isEmailVerified": true,
+      "email_verified": true,
+      "emailVerified": true,
+      "verification_required": false,
+      "verification_status": "verified",
+      "verificationInfo": {
+        "status": "unverified"
+      },
+      "fullName": "Production User A",
+      "phone": "+966512345678",
+      "jobTitle": "Executive",
+      "organizationName": "Production Audit Corp A",
+      "sector": "General",
+      "country": "International",
+      "hasCompany": true,
+      "institutionalProfile": {
+        "fullName": "Production User A",
+        "phone": "+966512345678",
+        "jobTitle": "Executive",
+        "hasCompany": true,
+        "companyName": "Production Audit Corp A",
+        "sector": "General",
+        "country": "International",
+        "registrationNumber": "",
+        "companySize": "1-10",
+        "intendedUse": "Strategic Decision Intelligence",
+        "additionalNotes": "",
+        "submittedAt": "2026-09-23T20:53:42.997Z"
+      },
+      "rejectionReason": null,
+      "verifiedAt": "2026-09-23T20:53:45.141Z",
+      "adminVerificationOverride": false,
+      "verificationInfo.status": "verified",
+      "verificationInfo.submittedAt": "2026-09-23T20:53:42.997Z",
+      "verificationInfo.adminNote": "",
+      "verificationInfo.verifiedAt": "2026-09-23T20:53:45.141Z",
+      "verificationSubmittedAt": "2026-09-23T20:53:42.997Z",
+      "approvedAt": "2026-09-23T20:53:45.141Z",
+      "approvedBy": "admin@zakir.ai",
+      "approvalNotes": "",
+      "trialStartedAt": "2026-09-23T20:53:45.141Z",
+      "trialEndsAt": "2026-09-24T20:53:45.141Z",
+      "trialDurationHours": 24,
+      "subscriptionPlan": "Starter",
+      "verificationInfo.verifiedBy": "admin@zakir.ai",
+      "approvalEmailSentAt": "2026-09-23T20:53:45.141Z",
+      "approvalNotificationSent": true,
+      "approvalEmailMessageId": "01a0d00b-bdea-70c8-b033-a1195623087e"
+    },
+    {
+      "id": "NshQZWewuRPlzYYqkXVCL8iW0L13",
+      "email": "prod_audit_b_1790196817858@zakir.ai",
+      "passwordHash": "Password123!",
+      "companyName": "Production Audit Corp B",
+      "ownerName": "Production User B",
+      "role": "Contributor",
+      "workspaceId": "ws_NshQZWew_muekyyec",
+      "workspace": {
+        "id": "ws_NshQZWew_muekyyec",
+        "name": "Production Audit Corp B Workspace",
+        "ownerId": "NshQZWewuRPlzYYqkXVCL8iW0L13",
+        "createdAt": "2026-09-23T20:53:49.860Z",
+        "memberCount": 1
+      },
+      "teamMembersList": [
+        {
+          "id": "tm-owner",
+          "uid": "NshQZWewuRPlzYYqkXVCL8iW0L13",
+          "name": "prod_audit_b_1790196817858",
+          "email": "prod_audit_b_1790196817858@zakir.ai",
+          "role": "CEO / Owner",
+          "powers": {
+            "fileVault": true,
+            "memoryVault": true,
+            "riskRadar": true,
+            "marketIntel": true,
+            "settings": true
+          },
+          "addedAt": "2026-09-23"
+        }
+      ],
+      "subscriptionStatus": "Inactive",
+      "accountStatus": "PENDING_ADMIN_REVIEW",
+      "requiresDocumentVerification": true,
+      "verificationFlowVersion": 2,
+      "documentVerificationStatus": "UNDER_REVIEW",
+      "verificationDocuments": [
+        {
+          "id": "doc_id_b_new_1790196817858",
+          "fileName": "valid_new_national_id.png",
+          "fileUrl": "https://storage.googleapis.com/zakir-docs/valid_new_national_id.png",
+          "mimeType": "image/png",
+          "docType": "National ID",
+          "uploadDate": "2026-09-23T20:53:55.757Z",
+          "category": "personal",
+          "uploadedAt": "2026-09-23T20:53:55.924Z"
+        }
+      ],
+      "createdAt": "2026-09-23T20:53:49.860Z",
+      "trialExpiresAt": "2026-09-24T20:53:49.860Z",
+      "lastActiveAt": "2026-09-23T20:53:55.924Z",
+      "lastLoginAt": "2026-09-23T20:53:49.860Z",
+      "isVerified": false,
+      "isEmailVerified": false,
+      "email_verified": false,
+      "emailVerified": false,
+      "verification_required": true,
+      "verification_status": "under_review",
+      "verificationInfo": {
+        "status": "unverified"
+      },
+      "fullName": "Production User B",
+      "phone": "+966587654321",
+      "jobTitle": "Executive",
+      "organizationName": "Production Audit Corp B",
+      "sector": "General",
+      "country": "International",
+      "hasCompany": true,
+      "institutionalProfile": {
+        "fullName": "Production User B",
+        "phone": "+966587654321",
+        "jobTitle": "Executive",
+        "hasCompany": true,
+        "companyName": "Production Audit Corp B",
+        "sector": "General",
+        "country": "International",
+        "registrationNumber": "",
+        "companySize": "1-10",
+        "intendedUse": "Strategic Decision Intelligence",
+        "additionalNotes": "",
+        "submittedAt": "2026-09-23T20:53:55.924Z"
+      },
+      "rejectionReason": null,
+      "verifiedAt": null,
+      "adminVerificationOverride": false,
+      "verificationInfo.status": "under_review",
+      "verificationInfo.submittedAt": "2026-09-23T20:53:55.924Z",
+      "verificationInfo.adminNote": null,
+      "verificationInfo.verifiedAt": null,
+      "verificationSubmittedAt": "2026-09-23T20:53:55.924Z",
+      "rejectionDate": "2026-09-23T20:53:54.089Z",
+      "rejectedBy": "admin@zakir.ai"
     }
   ],
   "verification_codes": [
@@ -4079,6 +4771,168 @@
       "sendCount": 0,
       "initialOtpSent": true,
       "lastSentAt": "2026-09-23T19:47:36.296Z"
+    },
+    {
+      "id": "TqxabrjkX7SSoFHNdiMabBRKLRn1",
+      "userId": "TqxabrjkX7SSoFHNdiMabBRKLRn1",
+      "email": "audit_user_1790196500554@test.com",
+      "phone": "",
+      "codeHash": "e8a9b6eabca15eb6936f6f22a94f6e114a283c77aa0c082a2140c7ba1c5ea735",
+      "type": "account_registration",
+      "createdAt": "2026-09-23T20:48:23.725Z",
+      "expiresAt": "2026-09-23T20:58:23.725Z",
+      "attempts": 0,
+      "used": false,
+      "sendCount": 0,
+      "initialOtpSent": true,
+      "lastSentAt": "2026-09-23T20:48:23.725Z"
+    },
+    {
+      "id": "xnceAdsLw1dUkwtWZEiQHQ6ZORk1",
+      "userId": "xnceAdsLw1dUkwtWZEiQHQ6ZORk1",
+      "email": "audit_user_a_1790196524901@test.com",
+      "phone": "",
+      "codeHash": "4e8f21f47ad937dcd540acaa3c549c2585116d8a12ded610d9756ddab3e21cc7",
+      "type": "account_registration",
+      "createdAt": "2026-09-23T20:48:47.918Z",
+      "expiresAt": "2026-09-23T20:58:47.918Z",
+      "attempts": 0,
+      "used": false,
+      "sendCount": 0,
+      "initialOtpSent": true,
+      "lastSentAt": "2026-09-23T20:48:47.918Z"
+    },
+    {
+      "id": "AY5chmEuowTqPaP888ZTZDuadMy2",
+      "userId": "AY5chmEuowTqPaP888ZTZDuadMy2",
+      "email": "audit_user_b_1790196524901@test.com",
+      "phone": "",
+      "codeHash": "cc7b4360d851b2b085e6a964dcd1098778dc3fea7facadb77d59aa59a8ce490f",
+      "type": "account_registration",
+      "createdAt": "2026-09-23T20:48:53.035Z",
+      "expiresAt": "2026-09-23T20:58:53.035Z",
+      "attempts": 0,
+      "used": false,
+      "sendCount": 0,
+      "initialOtpSent": true,
+      "lastSentAt": "2026-09-23T20:48:53.035Z"
+    },
+    {
+      "id": "zlXx5fI7BRNdDiowXrax2g9rgW73",
+      "userId": "zlXx5fI7BRNdDiowXrax2g9rgW73",
+      "email": "audit_a_1790196574709@test.com",
+      "phone": "",
+      "codeHash": "3c470bbe17bdd1be97db6e03d41a9a14f5446e4aff07f5e7f11e4eaeaf5048c5",
+      "type": "account_registration",
+      "createdAt": "2026-09-23T20:49:37.746Z",
+      "expiresAt": "2026-09-23T20:59:37.746Z",
+      "attempts": 0,
+      "used": false,
+      "sendCount": 0,
+      "initialOtpSent": true,
+      "lastSentAt": "2026-09-23T20:49:37.746Z"
+    },
+    {
+      "id": "UQH3lvksVod1tBhGqe3q7zODvgU2",
+      "userId": "UQH3lvksVod1tBhGqe3q7zODvgU2",
+      "email": "audit_b_1790196574709@test.com",
+      "phone": "",
+      "codeHash": "eba6c1dfa6fd5f35ef32b67ff168f1c9ec00570194226b68ce12e636980cedff",
+      "type": "account_registration",
+      "createdAt": "2026-09-23T20:49:45.203Z",
+      "expiresAt": "2026-09-23T20:59:45.203Z",
+      "attempts": 0,
+      "used": false,
+      "sendCount": 0,
+      "initialOtpSent": true,
+      "lastSentAt": "2026-09-23T20:49:45.203Z"
+    },
+    {
+      "id": "yKIXw1oaXzPEKC5kw451a80dHNs2",
+      "userId": "yKIXw1oaXzPEKC5kw451a80dHNs2",
+      "email": "audit_c_1790196600954@test.com",
+      "phone": "",
+      "codeHash": "77b85f97a99522062be6808457d75e8a9001de55ab3fa545cb4e73b3e21d4d9c",
+      "type": "account_registration",
+      "createdAt": "2026-09-23T20:50:03.960Z",
+      "expiresAt": "2026-09-23T21:00:03.960Z",
+      "attempts": 1,
+      "used": false,
+      "sendCount": 0,
+      "initialOtpSent": true,
+      "lastSentAt": "2026-09-23T20:50:03.960Z"
+    },
+    {
+      "attempts": 1,
+      "id": "audit_c_1790196600954@test.com"
+    },
+    {
+      "id": "Ya8c1neUyCYFLJoMGRBNDwdiWT12",
+      "userId": "Ya8c1neUyCYFLJoMGRBNDwdiWT12",
+      "email": "audit_d_1790196618960@test.com",
+      "phone": "",
+      "codeHash": "1d1cce9b74fcf8c4f6f3300583a86025f4ee9cf4a0d8fe5a509f6ebc7c955a66",
+      "type": "account_registration",
+      "createdAt": "2026-09-23T20:50:21.857Z",
+      "expiresAt": "2026-09-23T21:00:21.857Z",
+      "attempts": 0,
+      "used": false,
+      "sendCount": 0,
+      "initialOtpSent": true,
+      "lastSentAt": "2026-09-23T20:50:21.857Z"
+    },
+    {
+      "id": "UW5eGpJnmZOapM37QcCSFNXltJg1",
+      "userId": "UW5eGpJnmZOapM37QcCSFNXltJg1",
+      "email": "audit_e_1790196636220@test.com",
+      "phone": "",
+      "codeHash": "7303913702e5b1b875b03717805662f88f2d46202410c002dd5909153264f5c9",
+      "type": "account_registration",
+      "createdAt": "2026-09-23T20:50:39.333Z",
+      "expiresAt": "2026-09-23T21:00:39.333Z",
+      "attempts": 0,
+      "used": false,
+      "sendCount": 0,
+      "initialOtpSent": true,
+      "lastSentAt": "2026-09-23T20:50:39.333Z"
+    },
+    {
+      "id": "cPyUvgXvY6UyNGkTWCmU4Sxlx782",
+      "userId": "cPyUvgXvY6UyNGkTWCmU4Sxlx782",
+      "email": "prod_audit_a_1790196817858@zakir.ai",
+      "phone": "",
+      "codeHash": "6054a5e7be53225ebc80110ca19e3197d27d4b26e083de2bab97ab8bff826dff",
+      "type": "account_registration",
+      "createdAt": "2026-09-23T20:53:41.155Z",
+      "expiresAt": "2026-09-23T21:03:41.155Z",
+      "attempts": 1,
+      "used": false,
+      "sendCount": 0,
+      "initialOtpSent": true,
+      "lastSentAt": "2026-09-23T20:53:41.155Z"
+    },
+    {
+      "attempts": 1,
+      "id": "prod_audit_a_1790196817858@zakir.ai"
+    },
+    {
+      "id": "NshQZWewuRPlzYYqkXVCL8iW0L13",
+      "userId": "NshQZWewuRPlzYYqkXVCL8iW0L13",
+      "email": "prod_audit_b_1790196817858@zakir.ai",
+      "phone": "",
+      "codeHash": "af9b7479eb6c8011e65cb2d0994ac57152cc7f5577944add89fc5800bf0e21cd",
+      "type": "account_registration",
+      "createdAt": "2026-09-23T20:53:50.394Z",
+      "expiresAt": "2026-09-23T21:03:50.394Z",
+      "attempts": 1,
+      "used": false,
+      "sendCount": 0,
+      "initialOtpSent": true,
+      "lastSentAt": "2026-09-23T20:53:50.394Z"
+    },
+    {
+      "attempts": 1,
+      "id": "prod_audit_b_1790196817858@zakir.ai"
     }
   ],
   "support_tickets": [
@@ -6241,6 +7095,305 @@
   ],
   "platform_events": [
     {
+      "id": "evt_1790196836112_u01bb77",
+      "eventType": "INSTITUTIONAL_VERIFICATION_SUBMITTED",
+      "severity": "NOTICE",
+      "category": "AUTH",
+      "timestamp": "2026-09-23T20:53:56.112Z",
+      "userId": "NshQZWewuRPlzYYqkXVCL8iW0L13",
+      "userEmail": "prod_audit_b_1790196817858@zakir.ai",
+      "sanitizedMessage": "User verification documents submitted by [prod_audit_b_1790196817858@zakir.ai] (Production Audit Corp B) - Pending admin review.",
+      "status": "ACTIVE",
+      "metadata": {
+        "fullName": "Production User B",
+        "phone": "+966587654321",
+        "jobTitle": "Executive",
+        "hasCompany": true,
+        "companyName": "Production Audit Corp B",
+        "sector": "General",
+        "country": "International",
+        "registrationNumber": "",
+        "companySize": "1-10",
+        "intendedUse": "Strategic Decision Intelligence",
+        "additionalNotes": "",
+        "submittedAt": "2026-09-23T20:53:55.924Z",
+        "documentsCount": 1
+      },
+      "source": "server"
+    },
+    {
+      "id": "evt_1790196834460_nh8rm8k",
+      "eventType": "ADMIN_AUDIT_ACTION",
+      "severity": "INFO",
+      "category": "BILLING",
+      "timestamp": "2026-09-23T20:53:54.460Z",
+      "userId": "SYhfciebGFUj29gqGaa0pqNunrk2",
+      "userEmail": "admin@zakir.ai",
+      "resourceId": "NshQZWewuRPlzYYqkXVCL8iW0L13",
+      "sanitizedMessage": "Admin [admin@zakir.ai] performed REJECT_ACCOUNT on user [prod_audit_b_1790196817858@zakir.ai]: Rejected account. Reason: National ID card photo is illegible and expired.",
+      "status": "ACTIVE",
+      "metadata": {
+        "action": "REJECT_ACCOUNT",
+        "targetUserId": "NshQZWewuRPlzYYqkXVCL8iW0L13",
+        "targetUserEmail": "prod_audit_b_1790196817858@zakir.ai",
+        "details": "Rejected account. Reason: National ID card photo is illegible and expired.",
+        "newState": {
+          "accountStatus": "REJECTED",
+          "documentVerificationStatus": "REJECTED",
+          "rejectionReason": "National ID card photo is illegible and expired.",
+          "rejectionDate": "2026-09-23T20:53:54.089Z",
+          "rejectedBy": "admin@zakir.ai",
+          "subscriptionStatus": "Inactive",
+          "isVerified": false,
+          "verification_required": true,
+          "verification_status": "rejected",
+          "adminVerificationOverride": false,
+          "verifiedAt": null,
+          "verificationInfo.status": "rejected",
+          "verificationInfo.adminNote": "National ID card photo is illegible and expired.",
+          "verificationInfo.verifiedAt": null
+        }
+      },
+      "source": "server"
+    },
+    {
+      "id": "evt_1790196833288_bx1qwsp",
+      "eventType": "ADMIN_AUDIT_ACTION",
+      "severity": "INFO",
+      "category": "BILLING",
+      "timestamp": "2026-09-23T20:53:53.288Z",
+      "userId": "SYhfciebGFUj29gqGaa0pqNunrk2",
+      "userEmail": "admin@zakir.ai",
+      "resourceId": "NshQZWewuRPlzYYqkXVCL8iW0L13",
+      "sanitizedMessage": "Admin [admin@zakir.ai] performed REJECT_ACCOUNT on user [prod_audit_b_1790196817858@zakir.ai]: Rejected account. Reason: ",
+      "status": "ACTIVE",
+      "metadata": {
+        "action": "REJECT_ACCOUNT",
+        "targetUserId": "NshQZWewuRPlzYYqkXVCL8iW0L13",
+        "targetUserEmail": "prod_audit_b_1790196817858@zakir.ai",
+        "details": "Rejected account. Reason: ",
+        "newState": {
+          "accountStatus": "REJECTED",
+          "documentVerificationStatus": "REJECTED",
+          "rejectionReason": "",
+          "rejectionDate": "2026-09-23T20:53:52.926Z",
+          "rejectedBy": "admin@zakir.ai",
+          "subscriptionStatus": "Inactive",
+          "isVerified": false,
+          "verification_required": true,
+          "verification_status": "rejected",
+          "adminVerificationOverride": false,
+          "verifiedAt": null,
+          "verificationInfo.status": "rejected",
+          "verificationInfo.adminNote": "",
+          "verificationInfo.verifiedAt": null
+        }
+      },
+      "source": "server"
+    },
+    {
+      "id": "evt_1790196832457_jb72pfe",
+      "eventType": "INSTITUTIONAL_VERIFICATION_SUBMITTED",
+      "severity": "NOTICE",
+      "category": "AUTH",
+      "timestamp": "2026-09-23T20:53:52.457Z",
+      "userId": "NshQZWewuRPlzYYqkXVCL8iW0L13",
+      "userEmail": "prod_audit_b_1790196817858@zakir.ai",
+      "sanitizedMessage": "User verification documents submitted by [prod_audit_b_1790196817858@zakir.ai] (Production Audit Corp B) - Pending admin review.",
+      "status": "ACTIVE",
+      "metadata": {
+        "fullName": "Production User B",
+        "phone": "+966587654321",
+        "jobTitle": "Executive",
+        "hasCompany": true,
+        "companyName": "Production Audit Corp B",
+        "sector": "General",
+        "country": "International",
+        "registrationNumber": "",
+        "companySize": "1-10",
+        "intendedUse": "Strategic Decision Intelligence",
+        "additionalNotes": "",
+        "submittedAt": "2026-09-23T20:53:52.264Z",
+        "documentsCount": 1
+      },
+      "source": "server"
+    },
+    {
+      "id": "evt_1790196832093_zdbkest",
+      "eventType": "OTP_VERIFICATION_FAILED",
+      "severity": "WARNING",
+      "category": "AUTH",
+      "timestamp": "2026-09-23T20:53:52.093Z",
+      "userId": "NshQZWewuRPlzYYqkXVCL8iW0L13",
+      "userEmail": "prod_audit_b_1790196817858@zakir.ai",
+      "requestId": "req_1790196830913_bf54a67c",
+      "sanitizedMessage": "Invalid verification code attempt for: prod_audit_b_1790196817858@zakir.ai (4 attempts left)",
+      "status": "ACTIVE",
+      "metadata": {
+        "targetIdentifier": "prod_audit_b_1790196817858@zakir.ai",
+        "remainingAttempts": 4
+      },
+      "source": "server"
+    },
+    {
+      "id": "evt_1790196823190_lht1149",
+      "eventType": "INSTITUTIONAL_VERIFICATION_SUBMITTED",
+      "severity": "NOTICE",
+      "category": "AUTH",
+      "timestamp": "2026-09-23T20:53:43.190Z",
+      "userId": "cPyUvgXvY6UyNGkTWCmU4Sxlx782",
+      "userEmail": "prod_audit_a_1790196817858@zakir.ai",
+      "sanitizedMessage": "User verification documents submitted by [prod_audit_a_1790196817858@zakir.ai] (Production Audit Corp A) - Pending admin review.",
+      "status": "ACTIVE",
+      "metadata": {
+        "fullName": "Production User A",
+        "phone": "+966512345678",
+        "jobTitle": "Executive",
+        "hasCompany": true,
+        "companyName": "Production Audit Corp A",
+        "sector": "General",
+        "country": "International",
+        "registrationNumber": "",
+        "companySize": "1-10",
+        "intendedUse": "Strategic Decision Intelligence",
+        "additionalNotes": "",
+        "submittedAt": "2026-09-23T20:53:42.997Z",
+        "documentsCount": 2
+      },
+      "source": "server"
+    },
+    {
+      "id": "evt_1790196822810_lghlobg",
+      "eventType": "OTP_VERIFICATION_FAILED",
+      "severity": "WARNING",
+      "category": "AUTH",
+      "timestamp": "2026-09-23T20:53:42.810Z",
+      "userId": "cPyUvgXvY6UyNGkTWCmU4Sxlx782",
+      "userEmail": "prod_audit_a_1790196817858@zakir.ai",
+      "requestId": "req_1790196821705_457a3161",
+      "sanitizedMessage": "Invalid verification code attempt for: prod_audit_a_1790196817858@zakir.ai (4 attempts left)",
+      "status": "ACTIVE",
+      "metadata": {
+        "targetIdentifier": "prod_audit_a_1790196817858@zakir.ai",
+        "remainingAttempts": 4
+      },
+      "source": "server"
+    },
+    {
+      "id": "evt_1790196640217_tucrlt1",
+      "eventType": "INSTITUTIONAL_VERIFICATION_SUBMITTED",
+      "severity": "NOTICE",
+      "category": "AUTH",
+      "timestamp": "2026-09-23T20:50:40.217Z",
+      "userId": "UW5eGpJnmZOapM37QcCSFNXltJg1",
+      "userEmail": "audit_e_1790196636220@test.com",
+      "sanitizedMessage": "User verification documents submitted by [audit_e_1790196636220@test.com] (Zakir Complete Corp) - Pending admin review.",
+      "status": "ACTIVE",
+      "metadata": {
+        "fullName": "Test User E",
+        "phone": "+966555555555",
+        "jobTitle": "Executive",
+        "hasCompany": true,
+        "companyName": "Zakir Complete Corp",
+        "sector": "General",
+        "country": "International",
+        "registrationNumber": "",
+        "companySize": "1-10",
+        "intendedUse": "Strategic Decision Intelligence",
+        "additionalNotes": "",
+        "submittedAt": "2026-09-23T20:50:40.024Z",
+        "documentsCount": 2
+      },
+      "source": "server"
+    },
+    {
+      "id": "evt_1790196605943_kf4q1fc",
+      "eventType": "OTP_VERIFICATION_FAILED",
+      "severity": "WARNING",
+      "category": "AUTH",
+      "timestamp": "2026-09-23T20:50:05.943Z",
+      "userId": "yKIXw1oaXzPEKC5kw451a80dHNs2",
+      "userEmail": "audit_c_1790196600954@test.com",
+      "requestId": "req_1790196604778_1d95aa9d",
+      "sanitizedMessage": "Invalid verification code attempt for: audit_c_1790196600954@test.com (4 attempts left)",
+      "status": "ACTIVE",
+      "metadata": {
+        "targetIdentifier": "audit_c_1790196600954@test.com",
+        "remainingAttempts": 4
+      },
+      "source": "server"
+    },
+    {
+      "id": "evt_1790196588238_jemukbr",
+      "eventType": "ADMIN_AUDIT_ACTION",
+      "severity": "INFO",
+      "category": "BILLING",
+      "timestamp": "2026-09-23T20:49:48.238Z",
+      "userId": "SYhfciebGFUj29gqGaa0pqNunrk2",
+      "userEmail": "admin@zakir.ai",
+      "resourceId": "UQH3lvksVod1tBhGqe3q7zODvgU2",
+      "sanitizedMessage": "Admin [admin@zakir.ai] performed REJECT_ACCOUNT on user [audit_b_1790196574709@test.com]: Rejected account. Reason: Commercial registry document is expired since 2024.",
+      "status": "ACTIVE",
+      "metadata": {
+        "action": "REJECT_ACCOUNT",
+        "targetUserId": "UQH3lvksVod1tBhGqe3q7zODvgU2",
+        "targetUserEmail": "audit_b_1790196574709@test.com",
+        "details": "Rejected account. Reason: Commercial registry document is expired since 2024.",
+        "newState": {
+          "accountStatus": "REJECTED",
+          "documentVerificationStatus": "REJECTED",
+          "rejectionReason": "Commercial registry document is expired since 2024.",
+          "rejectionDate": "2026-09-23T20:49:47.865Z",
+          "rejectedBy": "admin@zakir.ai",
+          "subscriptionStatus": "Inactive",
+          "isVerified": false,
+          "verification_required": true,
+          "verification_status": "rejected",
+          "adminVerificationOverride": false,
+          "verifiedAt": null,
+          "verificationInfo.status": "rejected",
+          "verificationInfo.adminNote": "Commercial registry document is expired since 2024.",
+          "verificationInfo.verifiedAt": null
+        }
+      },
+      "source": "server"
+    },
+    {
+      "id": "evt_1790196587035_500bh6e",
+      "eventType": "ADMIN_AUDIT_ACTION",
+      "severity": "INFO",
+      "category": "BILLING",
+      "timestamp": "2026-09-23T20:49:47.035Z",
+      "userId": "SYhfciebGFUj29gqGaa0pqNunrk2",
+      "userEmail": "admin@zakir.ai",
+      "resourceId": "UQH3lvksVod1tBhGqe3q7zODvgU2",
+      "sanitizedMessage": "Admin [admin@zakir.ai] performed REJECT_ACCOUNT on user [audit_b_1790196574709@test.com]: Rejected account. Reason: ",
+      "status": "ACTIVE",
+      "metadata": {
+        "action": "REJECT_ACCOUNT",
+        "targetUserId": "UQH3lvksVod1tBhGqe3q7zODvgU2",
+        "targetUserEmail": "audit_b_1790196574709@test.com",
+        "details": "Rejected account. Reason: ",
+        "newState": {
+          "accountStatus": "REJECTED",
+          "documentVerificationStatus": "REJECTED",
+          "rejectionReason": "",
+          "rejectionDate": "2026-09-23T20:49:46.633Z",
+          "rejectedBy": "admin@zakir.ai",
+          "subscriptionStatus": "Inactive",
+          "isVerified": false,
+          "verification_required": true,
+          "verification_status": "rejected",
+          "adminVerificationOverride": false,
+          "verifiedAt": null,
+          "verificationInfo.status": "rejected",
+          "verificationInfo.adminNote": "",
+          "verificationInfo.verifiedAt": null
+        }
+      },
+      "source": "server"
+    },
+    {
       "id": "evt_1790193159993_o2bz3nj",
       "eventType": "INSTITUTIONAL_VERIFICATION_SUBMITTED",
       "severity": "NOTICE",
@@ -7996,6 +9149,51 @@
     }
   ],
   "admin_notifications": [
+    {
+      "id": "notif_1790196832093_37h68",
+      "title": "OTP VERIFICATION FAILED",
+      "message": "Invalid verification code attempt for: prod_audit_b_1790196817858@zakir.ai (4 attempts left)",
+      "severity": "WARNING",
+      "category": "AUTH",
+      "eventId": "evt_1790196832093_zdbkest",
+      "read": false,
+      "acknowledged": false,
+      "timestamp": "2026-09-23T20:53:52.093Z",
+      "targetUser": "prod_audit_b_1790196817858@zakir.ai",
+      "link": {
+        "tab": "emails"
+      }
+    },
+    {
+      "id": "notif_1790196822811_f4de9",
+      "title": "OTP VERIFICATION FAILED",
+      "message": "Invalid verification code attempt for: prod_audit_a_1790196817858@zakir.ai (4 attempts left)",
+      "severity": "WARNING",
+      "category": "AUTH",
+      "eventId": "evt_1790196822810_lghlobg",
+      "read": false,
+      "acknowledged": false,
+      "timestamp": "2026-09-23T20:53:42.810Z",
+      "targetUser": "prod_audit_a_1790196817858@zakir.ai",
+      "link": {
+        "tab": "emails"
+      }
+    },
+    {
+      "id": "notif_1790196605943_jmciv",
+      "title": "OTP VERIFICATION FAILED",
+      "message": "Invalid verification code attempt for: audit_c_1790196600954@test.com (4 attempts left)",
+      "severity": "WARNING",
+      "category": "AUTH",
+      "eventId": "evt_1790196605943_kf4q1fc",
+      "read": false,
+      "acknowledged": false,
+      "timestamp": "2026-09-23T20:50:05.943Z",
+      "targetUser": "audit_c_1790196600954@test.com",
+      "link": {
+        "tab": "emails"
+      }
+    },
     {
       "id": "notif_1790192841871_gjc1q",
       "title": "OTP VERIFICATION FAILED",
@@ -24847,6 +26045,132 @@
   ],
   "email_delivery_logs": [
     {
+      "id": "01a0d00b-e0dd-737d-af3d-447886db50d7",
+      "recipient": "prod_audit_b_1790196817858@zakir.ai",
+      "type": "otp",
+      "subject": "يلزم تحديث مستندات توثيق حسابك في منصة ذاكر | Action Required: Update Verification Documents - Zakir",
+      "timestamp": "2026-09-23T20:53:54.803Z",
+      "status": "DELIVERED",
+      "error": null
+    },
+    {
+      "id": "01a0d00b-dc45-7441-9f4d-8453f1a309b4",
+      "recipient": "prod_audit_b_1790196817858@zakir.ai",
+      "type": "otp",
+      "subject": "يلزم تحديث مستندات توثيق حسابك في منصة ذاكر | Action Required: Update Verification Documents - Zakir",
+      "timestamp": "2026-09-23T20:53:53.623Z",
+      "status": "DELIVERED",
+      "error": null
+    },
+    {
+      "id": "01a0d00b-d1c0-7211-ae67-bd18e0ced204",
+      "recipient": "prod_audit_b_1790196817858@zakir.ai",
+      "type": "notification",
+      "subject": "رمز التحقق لتفعيل حسابك في Zakir - Verify your Zakir account",
+      "timestamp": "2026-09-23T20:53:50.897Z",
+      "status": "DELIVERED",
+      "error": null
+    },
+    {
+      "id": "01a0d00b-add4-7788-9123-dbaf0fbadf90",
+      "recipient": "prod_audit_a_1790196817858@zakir.ai",
+      "type": "notification",
+      "subject": "رمز التحقق لتفعيل حسابك في Zakir - Verify your Zakir account",
+      "timestamp": "2026-09-23T20:53:41.682Z",
+      "status": "DELIVERED",
+      "error": null
+    },
+    {
+      "id": "01a0d008-e772-747b-ace5-c69d08c8e37d",
+      "recipient": "audit_e_1790196636220@test.com",
+      "type": "notification",
+      "subject": "رمز التحقق لتفعيل حسابك في Zakir - Verify your Zakir account",
+      "timestamp": "2026-09-23T20:50:39.832Z",
+      "status": "DELIVERED",
+      "error": null
+    },
+    {
+      "id": "01a0d008-a4dc-71bc-98c9-bb829479fea2",
+      "recipient": "audit_d_1790196618960@test.com",
+      "type": "notification",
+      "subject": "رمز التحقق لتفعيل حسابك في Zakir - Verify your Zakir account",
+      "timestamp": "2026-09-23T20:50:23.077Z",
+      "status": "DELIVERED",
+      "error": null
+    },
+    {
+      "id": "01a0d008-5e46-73f7-aad2-2ba0b99306bb",
+      "recipient": "audit_c_1790196600954@test.com",
+      "type": "notification",
+      "subject": "رمز التحقق لتفعيل حسابك في Zakir - Verify your Zakir account",
+      "timestamp": "2026-09-23T20:50:04.730Z",
+      "status": "DELIVERED",
+      "error": null
+    },
+    {
+      "id": "01a0d008-1f15-70ad-a4c5-18dec734c790",
+      "recipient": "audit_b_1790196574709@test.com",
+      "type": "otp",
+      "subject": "يلزم تحديث مستندات توثيق حسابك في منصة ذاكر | Action Required: Update Verification Documents - Zakir",
+      "timestamp": "2026-09-23T20:49:48.593Z",
+      "status": "DELIVERED",
+      "error": null
+    },
+    {
+      "id": "01a0d008-1a5f-7009-baaf-f58a95d9508d",
+      "recipient": "audit_b_1790196574709@test.com",
+      "type": "otp",
+      "subject": "يلزم تحديث مستندات توثيق حسابك في منصة ذاكر | Action Required: Update Verification Documents - Zakir",
+      "timestamp": "2026-09-23T20:49:47.370Z",
+      "status": "DELIVERED",
+      "error": null
+    },
+    {
+      "id": "01a0d008-1512-753c-8bf3-201612c2ebd2",
+      "recipient": "audit_b_1790196574709@test.com",
+      "type": "notification",
+      "subject": "رمز التحقق لتفعيل حسابك في Zakir - Verify your Zakir account",
+      "timestamp": "2026-09-23T20:49:45.980Z",
+      "status": "DELIVERED",
+      "error": null
+    },
+    {
+      "id": "01a0d007-f7dc-74fb-b08c-d8b0de0af277",
+      "recipient": "audit_a_1790196574709@test.com",
+      "type": "notification",
+      "subject": "رمز التحقق لتفعيل حسابك في Zakir - Verify your Zakir account",
+      "timestamp": "2026-09-23T20:49:38.540Z",
+      "status": "DELIVERED",
+      "error": null
+    },
+    {
+      "id": "01a0d007-483d-744d-a53c-3bb2d54085f5",
+      "recipient": "audit_user_b_1790196524901@test.com",
+      "type": "notification",
+      "subject": "رمز التحقق لتفعيل حسابك في Zakir - Verify your Zakir account",
+      "timestamp": "2026-09-23T20:48:53.903Z",
+      "status": "DELIVERED",
+      "error": null
+    },
+    {
+      "id": "01a0d007-3445-72ea-9f76-7e5d6229714f",
+      "recipient": "audit_user_a_1790196524901@test.com",
+      "type": "notification",
+      "subject": "رمز التحقق لتفعيل حسابك في Zakir - Verify your Zakir account",
+      "timestamp": "2026-09-23T20:48:48.467Z",
+      "status": "DELIVERED",
+      "error": null
+    },
+    {
+      "id": "01a0d006-d5d4-7149-a495-3744e5185270",
+      "recipient": "audit_user_1790196500554@test.com",
+      "type": "notification",
+      "subject": "رمز التحقق لتفعيل حسابك في Zakir - Verify your Zakir account",
+      "timestamp": "2026-09-23T20:48:24.499Z",
+      "status": "DELIVERED",
+      "error": null
+    },
+    {
       "id": "01a0cfcf-2e03-75ce-9b64-d5c940238da6",
       "recipient": "audit_executive_1790192853111@zakir.ai",
       "type": "notification",
@@ -25363,6 +26687,122 @@
     }
   },
   "admin_entitlement_audit_logs": [
+    {
+      "id": "ent_audit_1790196834274_86af8a27",
+      "timestamp": "2026-09-23T20:53:54.275Z",
+      "adminId": "SYhfciebGFUj29gqGaa0pqNunrk2",
+      "adminEmail": "admin@zakir.ai",
+      "targetUserId": "NshQZWewuRPlzYYqkXVCL8iW0L13",
+      "targetUserEmail": "prod_audit_b_1790196817858@zakir.ai",
+      "action": "REJECT_ACCOUNT",
+      "details": "Rejected account. Reason: National ID card photo is illegible and expired.",
+      "previousState": {
+        "accountStatus": "REJECTED"
+      },
+      "newState": {
+        "accountStatus": "REJECTED",
+        "documentVerificationStatus": "REJECTED",
+        "rejectionReason": "National ID card photo is illegible and expired.",
+        "rejectionDate": "2026-09-23T20:53:54.089Z",
+        "rejectedBy": "admin@zakir.ai",
+        "subscriptionStatus": "Inactive",
+        "isVerified": false,
+        "verification_required": true,
+        "verification_status": "rejected",
+        "adminVerificationOverride": false,
+        "verifiedAt": null,
+        "verificationInfo.status": "rejected",
+        "verificationInfo.adminNote": "National ID card photo is illegible and expired.",
+        "verificationInfo.verifiedAt": null
+      }
+    },
+    {
+      "id": "ent_audit_1790196833111_d3a8f459",
+      "timestamp": "2026-09-23T20:53:53.111Z",
+      "adminId": "SYhfciebGFUj29gqGaa0pqNunrk2",
+      "adminEmail": "admin@zakir.ai",
+      "targetUserId": "NshQZWewuRPlzYYqkXVCL8iW0L13",
+      "targetUserEmail": "prod_audit_b_1790196817858@zakir.ai",
+      "action": "REJECT_ACCOUNT",
+      "details": "Rejected account. Reason: ",
+      "previousState": {
+        "accountStatus": "PENDING_ADMIN_REVIEW"
+      },
+      "newState": {
+        "accountStatus": "REJECTED",
+        "documentVerificationStatus": "REJECTED",
+        "rejectionReason": "",
+        "rejectionDate": "2026-09-23T20:53:52.926Z",
+        "rejectedBy": "admin@zakir.ai",
+        "subscriptionStatus": "Inactive",
+        "isVerified": false,
+        "verification_required": true,
+        "verification_status": "rejected",
+        "adminVerificationOverride": false,
+        "verifiedAt": null,
+        "verificationInfo.status": "rejected",
+        "verificationInfo.adminNote": "",
+        "verificationInfo.verifiedAt": null
+      }
+    },
+    {
+      "id": "ent_audit_1790196588048_2ca8b1a1",
+      "timestamp": "2026-09-23T20:49:48.048Z",
+      "adminId": "SYhfciebGFUj29gqGaa0pqNunrk2",
+      "adminEmail": "admin@zakir.ai",
+      "targetUserId": "UQH3lvksVod1tBhGqe3q7zODvgU2",
+      "targetUserEmail": "audit_b_1790196574709@test.com",
+      "action": "REJECT_ACCOUNT",
+      "details": "Rejected account. Reason: Commercial registry document is expired since 2024.",
+      "previousState": {
+        "accountStatus": "REJECTED"
+      },
+      "newState": {
+        "accountStatus": "REJECTED",
+        "documentVerificationStatus": "REJECTED",
+        "rejectionReason": "Commercial registry document is expired since 2024.",
+        "rejectionDate": "2026-09-23T20:49:47.865Z",
+        "rejectedBy": "admin@zakir.ai",
+        "subscriptionStatus": "Inactive",
+        "isVerified": false,
+        "verification_required": true,
+        "verification_status": "rejected",
+        "adminVerificationOverride": false,
+        "verifiedAt": null,
+        "verificationInfo.status": "rejected",
+        "verificationInfo.adminNote": "Commercial registry document is expired since 2024.",
+        "verificationInfo.verifiedAt": null
+      }
+    },
+    {
+      "id": "ent_audit_1790196586821_ddd64892",
+      "timestamp": "2026-09-23T20:49:46.821Z",
+      "adminId": "SYhfciebGFUj29gqGaa0pqNunrk2",
+      "adminEmail": "admin@zakir.ai",
+      "targetUserId": "UQH3lvksVod1tBhGqe3q7zODvgU2",
+      "targetUserEmail": "audit_b_1790196574709@test.com",
+      "action": "REJECT_ACCOUNT",
+      "details": "Rejected account. Reason: ",
+      "previousState": {
+        "accountStatus": "PENDING_EMAIL_VERIFICATION"
+      },
+      "newState": {
+        "accountStatus": "REJECTED",
+        "documentVerificationStatus": "REJECTED",
+        "rejectionReason": "",
+        "rejectionDate": "2026-09-23T20:49:46.633Z",
+        "rejectedBy": "admin@zakir.ai",
+        "subscriptionStatus": "Inactive",
+        "isVerified": false,
+        "verification_required": true,
+        "verification_status": "rejected",
+        "adminVerificationOverride": false,
+        "verifiedAt": null,
+        "verificationInfo.status": "rejected",
+        "verificationInfo.adminNote": "",
+        "verificationInfo.verifiedAt": null
+      }
+    },
     {
       "id": "ent_audit_1790192617696_9f6f0893",
       "timestamp": "2026-09-23T19:43:37.696Z",

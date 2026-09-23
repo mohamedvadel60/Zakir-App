@@ -374,6 +374,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   };
 
   const handleRejectAccount = async (targetUserId: string, reason: string) => {
+    if (!reason || !reason.trim()) {
+      alert(lang === "ar" ? "سبب الرفض إجباري، يرجى كتابة سبب الرفض قبل التأكيد." : "Rejection reason is required.");
+      return;
+    }
     setApprovalsActionLoading(targetUserId);
     try {
       const token = await getAdminToken();
@@ -1818,8 +1822,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     const isEmailVer = !!((u as any).fullUser?.emailVerified || u.emailVerified || (u as any).isEmailVerified || (u as any).email_verified);
     const accSt = (u as any).fullUser?.accountStatus || (u as any).accountStatus;
     const docSt = u.verificationInfo?.status;
-    const isFullyApproved = accSt === "APPROVED" || (isEmailVer && docSt === "verified");
-    const isUnderReview = accSt === "PENDING_ADMIN_REVIEW" || accSt === "PENDING_APPROVAL" || docSt === "under_review" || docSt === "pending" || docSt === "action_required" || ((u.files && u.files.length > 0 || ((u as any).fullUser?.verificationDocuments?.length || 0) > 0) && !isFullyApproved && accSt !== "REJECTED");
+    const isFullyApproved = accSt === "APPROVED" && (u.isVerified === true || (u as any).fullUser?.isVerified === true);
+    const isUnderReview = !isFullyApproved && accSt !== "REJECTED" && (accSt === "PENDING_ADMIN_REVIEW" || accSt === "PENDING_APPROVAL" || docSt === "under_review" || docSt === "pending" || docSt === "action_required" || ((u.files && u.files.length > 0 || ((u as any).fullUser?.verificationDocuments?.length || 0) > 0)));
 
     if (userCategoryFilter === "online") {
       const act = getUserActivityStatus(u.lastActiveAt, u.createdAt);
@@ -4427,10 +4431,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   }`}
                 >
                   {lang === "ar" ? "موثق بالكامل" : "Verified"} ({users.filter(u => {
-                    const isEmailVer = !!((u as any).fullUser?.emailVerified || u.emailVerified || (u as any).isEmailVerified || (u as any).email_verified);
                     const accSt = (u as any).fullUser?.accountStatus || (u as any).accountStatus;
-                    const docSt = u.verificationInfo?.status;
-                    return accSt === "APPROVED" || (isEmailVer && docSt === "verified");
+                    return accSt === "APPROVED" && (u.isVerified === true || (u as any).fullUser?.isVerified === true);
                   }).length})
                 </button>
 
@@ -4443,10 +4445,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   }`}
                 >
                   {lang === "ar" ? "قيد المراجعة" : "Pending Review"} ({users.filter(u => {
-                    const isEmailVer = !!((u as any).fullUser?.emailVerified || u.emailVerified || (u as any).isEmailVerified || (u as any).email_verified);
                     const accSt = (u as any).fullUser?.accountStatus || (u as any).accountStatus;
                     const docSt = u.verificationInfo?.status;
-                    const isFullyApproved = accSt === "APPROVED" || (isEmailVer && docSt === "verified");
+                    const isFullyApproved = accSt === "APPROVED" && (u.isVerified === true || (u as any).fullUser?.isVerified === true);
                     return !isFullyApproved && accSt !== "REJECTED" && (accSt === "PENDING_ADMIN_REVIEW" || accSt === "PENDING_APPROVAL" || docSt === "under_review" || docSt === "pending" || docSt === "action_required" || ((u.files && u.files.length > 0 || ((u as any).fullUser?.verificationDocuments?.length || 0) > 0)));
                   }).length})
                 </button>
@@ -4460,10 +4461,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   }`}
                 >
                   {lang === "ar" ? "غير موثق" : "Unverified"} ({users.filter(u => {
-                    const isEmailVer = !!((u as any).fullUser?.emailVerified || u.emailVerified || (u as any).isEmailVerified || (u as any).email_verified);
                     const accSt = (u as any).fullUser?.accountStatus || (u as any).accountStatus;
-                    const docSt = u.verificationInfo?.status;
-                    return !(accSt === "APPROVED" || (isEmailVer && docSt === "verified"));
+                    return !(accSt === "APPROVED" && (u.isVerified === true || (u as any).fullUser?.isVerified === true));
                   }).length})
                 </button>
 
@@ -4764,7 +4763,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                 const isEmailVer = !!((record as any).fullUser?.emailVerified || (record as any).emailVerified || (record as any).isEmailVerified || (record as any).email_verified);
                                 const accSt = (record as any).fullUser?.accountStatus || (record as any).accountStatus;
                                 const docSt = record.verificationInfo?.status || (accSt === "APPROVED" ? "verified" : (accSt === "PENDING_ADMIN_REVIEW" ? "under_review" : (accSt === "REJECTED" ? "rejected" : "unverified")));
-                                const isFullyApproved = accSt === "APPROVED" || (isEmailVer && docSt === "verified");
+                                const isFullyApproved = accSt === "APPROVED" && (record.isVerified === true || (record as any).fullUser?.isVerified === true);
                                 const isUnderReview = !isFullyApproved && accSt !== "REJECTED" && (accSt === "PENDING_ADMIN_REVIEW" || accSt === "PENDING_APPROVAL" || docSt === "under_review" || docSt === "pending" || docSt === "action_required" || ((record.files && record.files.length > 0) || ((record as any).fullUser?.verificationDocuments?.length || 0) > 0));
                                 const isRejected = accSt === "REJECTED" || docSt === "rejected";
 
@@ -5767,160 +5766,290 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               </div>
 
               {/* ACCOUNT VERIFICATION CONTROL PANEL FOR ADMIN */}
+              {/* VERIFICATION REVIEW PANEL FOR ADMIN */}
               <div className={`p-5 rounded-2xl border space-y-4 shadow-xl ${
                 theme === "dark" ? "bg-slate-900/90 border-[#0075DE]/30" : "bg-white border-blue-200"
               }`}>
+                {/* Header Title & Status Badge */}
                 <div className={`flex items-center justify-between flex-wrap gap-2 pb-3 border-b ${
                   theme === "dark" ? "border-slate-800" : "border-slate-200"
                 }`}>
                   <div className="flex items-center gap-2">
                     <ShieldCheck className="w-5 h-5 text-[#0075DE] shrink-0" />
                     <h4 className={`font-bold text-sm ${theme === "dark" ? "text-slate-100" : "text-slate-900"}`}>
-                      {lang === "ar" ? "لوحة تدقيق وفصل حالات التحقق (البريد والوثائق)" : "Verification Audit Panel (Email vs Documents)"}
+                      {lang === "ar" ? "مراجعة وثائق التحقق (Verification Review)" : "Verification Review Panel"}
                     </h4>
                   </div>
                   <div>
                     {(() => {
-                      const isEmailVer = !!((selectedUserRecord as any).fullUser?.emailVerified || (selectedUserRecord as any).emailVerified || (selectedUserRecord as any).isEmailVerified || (selectedUserRecord as any).email_verified || (selectedUserRecord as any).isVerified);
-                      const docSt = selectedUserRecord.verificationInfo?.status || "unverified";
-                      const isFullyVer = isEmailVer && docSt === "verified";
-                      if (isFullyVer) {
+                      const accSt = (selectedUserRecord as any).fullUser?.accountStatus || (selectedUserRecord as any).accountStatus;
+                      const isUserVerifiedFlag = (selectedUserRecord as any).isVerified === true || (selectedUserRecord as any).fullUser?.isVerified === true;
+                      const isApproved = accSt === "APPROVED" && isUserVerifiedFlag;
+                      const isRejected = accSt === "REJECTED";
+
+                      if (isApproved) {
                         return (
                           <span className="px-3 py-1 rounded-full text-xs font-bold bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/40 flex items-center gap-1.5">
                             <CheckCircle2 className="w-4 h-4" />
-                            {lang === "ar" ? "الحساب مكتمل التحقق Fully Verified" : "Account Fully Verified"}
+                            {lang === "ar" ? "حساب موثق ومعتمد APPROVED" : "Approved & Verified"}
+                          </span>
+                        );
+                      }
+                      if (isRejected) {
+                        return (
+                          <span className="px-3 py-1 rounded-full text-xs font-bold bg-rose-500/20 text-rose-600 dark:text-rose-400 border border-rose-500/40 flex items-center gap-1.5">
+                            <AlertCircle className="w-4 h-4" />
+                            {lang === "ar" ? "طلب التوثيق مرفوض REJECTED" : "Verification Rejected"}
                           </span>
                         );
                       }
                       return (
-                        <span className="px-3 py-1 rounded-full text-xs font-bold bg-[#0075DE]/20 text-[#0075DE] border border-[#0075DE]/40 flex items-center gap-1.5">
-                          <AlertCircle className="w-4 h-4" />
-                          {lang === "ar" ? "الحساب غير مكتمل التحقق" : "Account Not Fully Verified"}
+                        <span className="px-3 py-1 rounded-full text-xs font-bold bg-amber-500/20 text-amber-600 dark:text-amber-400 border border-amber-500/40 flex items-center gap-1.5">
+                          <Clock className="w-4 h-4" />
+                          {lang === "ar" ? "قيد مراجعة الإدارة PENDING REVIEW" : "Pending Admin Review"}
                         </span>
                       );
                     })()}
                   </div>
                 </div>
 
-                {/* Independent status rows */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
-                  {/* Email Verification Status */}
-                  <div className={`p-3 rounded-xl border flex items-center justify-between ${
+                {/* 3-Part Status Audit Grid (Email vs Documents vs Account) */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
+                  {/* 1. Email Verification Status */}
+                  <div className={`p-3 rounded-xl border space-y-1 ${
                     theme === "dark" ? "bg-slate-950 border-slate-800" : "bg-slate-50 border-slate-200"
                   }`}>
-                    <div>
-                      <span className="text-[11px] text-slate-400 block font-bold">{lang === "ar" ? "التحقق من البريد الإلكتروني" : "Email Verification"}</span>
-                      <span className={`text-xs font-bold ${theme === "dark" ? "text-slate-200" : "text-slate-900"}`}>{selectedUserRecord.email}</span>
+                    <span className="text-[11px] text-slate-400 block font-bold">{lang === "ar" ? "البريد الإلكتروني Email:" : "Email Status:"}</span>
+                    <div className="flex items-center justify-between">
+                      <span className={`text-xs font-mono font-bold truncate max-w-[120px] ${theme === "dark" ? "text-slate-200" : "text-slate-900"}`}>{selectedUserRecord.email}</span>
+                      {(() => {
+                        const isEmailVer = !!((selectedUserRecord as any).fullUser?.emailVerified || (selectedUserRecord as any).emailVerified || (selectedUserRecord as any).isEmailVerified || (selectedUserRecord as any).email_verified);
+                        return isEmailVer ? (
+                          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/40">
+                            ✓ Verified
+                          </span>
+                        ) : (
+                          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-rose-500/20 text-rose-600 dark:text-rose-400 border border-rose-500/40">
+                            ✕ Not Verified
+                          </span>
+                        );
+                      })()}
                     </div>
-                    {(() => {
-                      const isEmailVer = !!((selectedUserRecord as any).fullUser?.emailVerified || (selectedUserRecord as any).emailVerified || (selectedUserRecord as any).isEmailVerified || (selectedUserRecord as any).email_verified || (selectedUserRecord as any).isVerified);
-                      return isEmailVer ? (
-                        <span className="px-2.5 py-1 rounded-lg text-xs font-bold bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/40 flex items-center gap-1">
-                          <CheckCircle2 className="w-3.5 h-3.5" />
-                          {lang === "ar" ? "Verified" : "Verified"}
-                        </span>
-                      ) : (
-                        <span className="px-2.5 py-1 rounded-lg text-xs font-bold bg-rose-500/20 text-rose-600 dark:text-rose-400 border border-rose-500/40 flex items-center gap-1">
-                          <AlertCircle className="w-3.5 h-3.5" />
-                          {lang === "ar" ? "Not Verified" : "Not Verified"}
-                        </span>
-                      );
-                    })()}
                   </div>
 
-                  {/* Document Verification Status */}
-                  <div className={`p-3 rounded-xl border flex items-center justify-between ${
+                  {/* 2. Document Status */}
+                  <div className={`p-3 rounded-xl border space-y-1 ${
                     theme === "dark" ? "bg-slate-950 border-slate-800" : "bg-slate-50 border-slate-200"
                   }`}>
-                    <div>
-                      <span className="text-[11px] text-slate-400 block font-bold">{lang === "ar" ? "التحقق من الوثائق والمستندات" : "Document Verification"}</span>
-                      <span className={`text-xs font-bold ${theme === "dark" ? "text-slate-200" : "text-slate-900"}`}>{selectedUserRecord.verificationInfo?.documents?.length || 0} {lang === "ar" ? "مستندات مرفقة" : "docs attached"}</span>
+                    <span className="text-[11px] text-slate-400 block font-bold">{lang === "ar" ? "حالة الوثائق Documents:" : "Document Status:"}</span>
+                    <div className="flex items-center justify-between">
+                      <span className={`text-xs font-bold ${theme === "dark" ? "text-slate-200" : "text-slate-900"}`}>
+                        {(() => {
+                          const userDocs = [
+                            ...(selectedUserRecord.verificationInfo?.documents || []),
+                            ...((selectedUserRecord as any).fullUser?.verificationDocuments || []),
+                            ...(selectedUserRecord.verificationDocuments || []),
+                            ...(selectedUserRecord.files?.filter((f: any) => f.category === "Verification") || [])
+                          ];
+                          return `${userDocs.length} ${lang === "ar" ? "وثيقة" : "docs"}`;
+                        })()}
+                      </span>
+                      {(() => {
+                        const accSt = (selectedUserRecord as any).fullUser?.accountStatus || (selectedUserRecord as any).accountStatus;
+                        const docSt = selectedUserRecord.verificationInfo?.status || (selectedUserRecord as any).documentVerificationStatus || "under_review";
+                        
+                        if (accSt === "APPROVED") {
+                          return (
+                            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/40">
+                              ✓ Approved
+                            </span>
+                          );
+                        }
+                        if (accSt === "REJECTED" || docSt === "rejected") {
+                          return (
+                            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-rose-500/20 text-rose-600 dark:text-rose-400 border border-rose-500/40">
+                              ✕ Rejected
+                            </span>
+                          );
+                        }
+                        return (
+                          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/20 text-amber-600 dark:text-amber-400 border border-amber-500/40">
+                            ⏳ Under Review
+                          </span>
+                        );
+                      })()}
                     </div>
-                    {(() => {
-                      const docSt = selectedUserRecord.verificationInfo?.status || "unverified";
-                      if (docSt === "verified") {
+                  </div>
+
+                  {/* 3. Overall Account Status */}
+                  <div className={`p-3 rounded-xl border space-y-1 ${
+                    theme === "dark" ? "bg-slate-950 border-slate-800" : "bg-slate-50 border-slate-200"
+                  }`}>
+                    <span className="text-[11px] text-slate-400 block font-bold">{lang === "ar" ? "حالة الحساب الإجمالية Account:" : "Overall Account:"}</span>
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-[#0075DE]">ZAKIR Profile</span>
+                      {(() => {
+                        const accSt = (selectedUserRecord as any).fullUser?.accountStatus || (selectedUserRecord as any).accountStatus;
+                        const isVerifiedFlag = (selectedUserRecord as any).isVerified === true || (selectedUserRecord as any).fullUser?.isVerified === true;
+                        
+                        if (accSt === "APPROVED" && isVerifiedFlag) {
+                          return (
+                            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/40">
+                              ✓ APPROVED
+                            </span>
+                          );
+                        }
+                        if (accSt === "REJECTED") {
+                          return (
+                            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-rose-500/20 text-rose-600 dark:text-rose-400 border border-rose-500/40">
+                              ✕ REJECTED
+                            </span>
+                          );
+                        }
                         return (
-                          <span className="px-2.5 py-1 rounded-lg text-xs font-bold bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/40 flex items-center gap-1">
-                            <CheckCircle2 className="w-3.5 h-3.5" />
-                            {lang === "ar" ? "Verified" : "Verified"}
+                          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/20 text-amber-600 dark:text-amber-400 border border-amber-500/40">
+                            ⏳ PENDING
                           </span>
                         );
-                      }
-                      if (docSt === "under_review") {
-                        return (
-                          <span className="px-2.5 py-1 rounded-lg text-xs font-bold bg-amber-500/20 text-amber-600 dark:text-amber-400 border border-amber-500/40 flex items-center gap-1">
-                            <Clock className="w-3.5 h-3.5" />
-                            {lang === "ar" ? "Under Review" : "Under Review"}
-                          </span>
-                        );
-                      }
-                      if (docSt === "action_required") {
-                        return (
-                          <span className="px-2.5 py-1 rounded-lg text-xs font-bold bg-rose-500/20 text-rose-600 dark:text-rose-400 border border-rose-500/40 flex items-center gap-1">
-                            <AlertCircle className="w-3.5 h-3.5" />
-                            {lang === "ar" ? "Missing" : "Missing"}
-                          </span>
-                        );
-                      }
+                      })()}
+                    </div>
+                  </div>
+                </div>
+
+                {/* DISPLAY REAL ATTACHED VERIFICATION DOCUMENTS */}
+                <div className={`space-y-2 pt-3 border-t ${theme === "dark" ? "border-slate-800" : "border-slate-200"}`}>
+                  <span className="text-xs font-bold text-[#0075DE] flex items-center gap-1.5">
+                    <FileText className="w-4 h-4 text-[#0075DE]" />
+                    <span>{lang === "ar" ? "الوثائق المرفوعة فعلياً للتحقق:" : "Uploaded Verification Documents:"}</span>
+                  </span>
+
+                  {(() => {
+                    const allDocs: Array<{ id: string; fileName: string; fileUrl: string; mimeType?: string; uploadDate?: string; docType?: string }> = [];
+                    const addedUrls = new Set<string>();
+
+                    const pushDoc = (d: any) => {
+                      if (!d) return;
+                      const url = d.fileUrl || d.url || d.downloadUrl || "";
+                      const name = d.fileName || d.name || d.title || "Document";
+                      if (url && addedUrls.has(url)) return;
+                      if (url) addedUrls.add(url);
+                      allDocs.push({
+                        id: d.id || d.documentId || String(Math.random()),
+                        fileName: name,
+                        fileUrl: url,
+                        mimeType: d.mimeType || d.type || (name.endsWith(".pdf") ? "application/pdf" : "image/png"),
+                        uploadDate: d.uploadDate || d.uploadedAt || d.createdAt || new Date().toISOString(),
+                        docType: d.docType || d.category || d.type || (lang === "ar" ? "وثيقة تحقق" : "Verification Document")
+                      });
+                    };
+
+                    if (Array.isArray(selectedUserRecord.verificationInfo?.documents)) selectedUserRecord.verificationInfo.documents.forEach(pushDoc);
+                    if (Array.isArray((selectedUserRecord as any).fullUser?.verificationDocuments)) (selectedUserRecord as any).fullUser.verificationDocuments.forEach(pushDoc);
+                    if (Array.isArray(selectedUserRecord.verificationDocuments)) selectedUserRecord.verificationDocuments.forEach(pushDoc);
+                    if (Array.isArray(selectedUserRecord.files)) selectedUserRecord.files.filter((f: any) => f && (f.category === "Verification" || f.type === "Verification")).forEach(pushDoc);
+
+                    if (allDocs.length === 0) {
                       return (
-                        <span className={`px-2.5 py-1 rounded-lg text-xs font-bold border flex items-center gap-1 ${
-                          theme === "dark" ? "bg-slate-800 text-slate-400 border-slate-700" : "bg-slate-100 text-slate-600 border-slate-200"
+                        <div className={`p-4 rounded-xl border text-center text-xs ${
+                          theme === "dark" ? "bg-slate-950/50 border-slate-800 text-slate-400" : "bg-slate-50 border-slate-200 text-slate-500"
                         }`}>
-                          <Info className="w-3.5 h-3.5" />
-                          {lang === "ar" ? "Unverified" : "Unverified"}
-                        </span>
+                          <Info className="w-5 h-5 mx-auto mb-1 text-slate-500" />
+                          <span>{lang === "ar" ? "لا توجد وثائق مرفوعة بهذا الحساب حالياً." : "No verification documents uploaded for this account yet."}</span>
+                        </div>
                       );
-                    })()}
+                    }
+
+                    return (
+                      <div className="space-y-2">
+                        {allDocs.map((doc) => (
+                          <div key={doc.id} className={`p-3 rounded-xl border flex items-center justify-between text-xs gap-3 ${
+                            theme === "dark" ? "bg-slate-950/80 border-slate-800" : "bg-slate-50 border-slate-200"
+                          }`}>
+                            <div className="flex items-center gap-2.5 min-w-0">
+                              <FileCheck className="w-4 h-4 text-emerald-500 shrink-0" />
+                              <div className="min-w-0">
+                                <span className={`font-bold block truncate ${theme === "dark" ? "text-slate-200" : "text-slate-900"}`}>{doc.fileName}</span>
+                                <span className="text-[10px] text-slate-400 font-mono">
+                                  {doc.docType} • {formatDate(doc.uploadDate)}
+                                </span>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2 shrink-0">
+                              <button
+                                type="button"
+                                onClick={() => openUserFileInNewTab({ fileName: doc.fileName, fileUrl: doc.fileUrl, mimeType: doc.mimeType, uploadDate: doc.uploadDate, category: "Verification" })}
+                                className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 dark:bg-emerald-500/20 dark:hover:bg-emerald-500/30 dark:text-emerald-300 dark:border-emerald-500/30 font-bold text-[11px] transition-all cursor-pointer"
+                                title={lang === "ar" ? "معاينة الوثيقة" : "Preview document"}
+                              >
+                                <Eye className="w-3.5 h-3.5" />
+                                <span>{lang === "ar" ? "معاينة" : "Preview"}</span>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => downloadUserFile({ fileName: doc.fileName, fileUrl: doc.fileUrl, mimeType: doc.mimeType, uploadDate: doc.uploadDate, category: "Verification" })}
+                                className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-sky-50 hover:bg-sky-100 text-sky-700 border border-sky-200 dark:bg-sky-500/20 dark:hover:bg-sky-500/30 dark:text-sky-300 dark:border-sky-500/30 font-bold text-[11px] transition-all cursor-pointer"
+                                title={lang === "ar" ? "فتح / تنزيل" : "Open / Download"}
+                              >
+                                <Download className="w-3.5 h-3.5" />
+                                <span>{lang === "ar" ? "فتح" : "Open"}</span>
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    );
+                  })()}
+                </div>
+
+                {/* REVIEW DECISION SECTION (قرار المراجعة) */}
+                <div className={`pt-3 border-t space-y-3 ${theme === "dark" ? "border-slate-800" : "border-slate-200"}`}>
+                  <span className="text-xs font-bold text-slate-300 block">
+                    {lang === "ar" ? "قرار المراجعة (Review Decision):" : "Review Decision:"}
+                  </span>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <button
+                      type="button"
+                      disabled={savingVerification || approvalsActionLoading === selectedUserRecord.id}
+                      onClick={() => handleApproveAccount(selectedUserRecord.id, "Starter", 24, "Approved via Verification Review Panel")}
+                      className="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center justify-center gap-2 transition-all disabled:opacity-50 cursor-pointer shadow-lg shadow-emerald-950/40"
+                    >
+                      <CheckCircle2 className="w-4 h-4" />
+                      <span>{lang === "ar" ? "✓ الموافقة على التوثيق (Approve)" : "✓ Approve Verification"}</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      disabled={savingVerification || approvalsActionLoading === selectedUserRecord.id}
+                      onClick={() => {
+                        setRejectModalUser(selectedUserRecord);
+                        setRejectReasonInput("");
+                      }}
+                      className="px-4 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs flex items-center justify-center gap-2 transition-all disabled:opacity-50 cursor-pointer shadow-lg shadow-rose-950/40"
+                    >
+                      <XCircle className="w-4 h-4" />
+                      <span>{lang === "ar" ? "✕ رفض الوثائق (Reject)" : "✕ Reject Verification"}</span>
+                    </button>
                   </div>
                 </div>
 
-                {/* ACTION BUTTONS FOR ADMIN */}
-                <div className="flex items-center gap-2 flex-wrap">
-                  <button
-                    disabled={savingVerification}
-                    onClick={() => handleUpdateUserVerification("verified")}
-                    className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center gap-1.5 transition-all disabled:opacity-50 cursor-pointer shadow-lg shadow-emerald-950/30"
-                  >
-                    <CheckCircle2 className="w-4 h-4" />
-                    <span>{lang === "ar" ? "اعتماد وتوثيق الحساب (تم التحقق)" : "Approve & Verify Account"}</span>
-                  </button>
-
-                  <button
-                    disabled={savingVerification}
-                    onClick={() => handleUpdateUserVerification("action_required")}
-                    className="px-4 py-2 rounded-xl bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-700 dark:bg-rose-600/30 dark:hover:bg-rose-600/50 dark:border-rose-500/50 dark:text-rose-300 font-bold text-xs flex items-center gap-1.5 transition-all disabled:opacity-50 cursor-pointer"
-                  >
-                    <AlertCircle className="w-4 h-4" />
-                    <span>{lang === "ar" ? "إخطار بوجود ملفات ناقصة" : "Mark as Missing Files"}</span>
-                  </button>
-
-                  <button
-                    disabled={savingVerification}
-                    onClick={() => handleUpdateUserVerification("under_review")}
-                    className="px-4 py-2 rounded-xl bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-800 dark:bg-amber-600/30 dark:hover:bg-amber-600/50 dark:border-amber-500/50 dark:text-amber-300 font-bold text-xs flex items-center gap-1.5 transition-all disabled:opacity-50 cursor-pointer"
-                  >
-                    <Clock className="w-4 h-4" />
-                    <span>{lang === "ar" ? "تحويل إلى قيد الدراسة والتحقق" : "Set Under Review"}</span>
-                  </button>
-                </div>
-
-                {/* ADMIN MISSING FILES NOTE TEXTAREA */}
-                <div className="space-y-2 pt-2">
+                {/* ADMIN NOTES / FEEDBACK AREA */}
+                <div className="space-y-2 pt-2 border-t border-slate-800/60">
                   <label className={`block text-xs font-bold ${theme === "dark" ? "text-slate-300" : "text-slate-800"}`}>
                     {lang === "ar" 
-                      ? "ملاحظات الإدارة للطلب / وصف الملفات الناقصة المطلوبة لتفعيل الحساب:" 
-                      : "Admin Note / Description of Missing Files Required for Activation:"}
+                      ? "ملاحظات الإدارة للحساب / إرشادات إضافية للمستخدم:" 
+                      : "Admin Note / Direct User Instructions:"}
                   </label>
                   <textarea
-                    rows={3}
+                    rows={2}
                     value={adminNoteInput}
                     onChange={(e) => setAdminNoteInput(e.target.value)}
                     placeholder={
                       lang === "ar"
-                        ? "اكتب هنا تفاصيل الملفات الناقصة والمستندات الرسمية المطلوبة من المستخدم لتفعيل حسابه..."
-                        : "Specify missing documents or guidelines for the user to upload..."
+                        ? "اكتب هنا تفاصيل الملاحظات أو الإرشادات الموجهة للمستخدم..."
+                        : "Type admin notes or missing document details for the user..."
                     }
-                    className={`w-full p-3 rounded-xl text-xs focus:border-[#0075DE] focus:outline-none transition-all border ${
+                    className={`w-full p-2.5 rounded-xl text-xs focus:border-[#0075DE] focus:outline-none transition-all border ${
                       theme === "dark"
                         ? "bg-slate-950 border-slate-800 text-slate-100 placeholder:text-slate-600"
                         : "bg-white border-slate-300 text-slate-900 placeholder:text-slate-400"
@@ -5928,67 +6057,28 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   />
                   <div className="flex items-center justify-between pt-1">
                     <span className="text-[11px] text-slate-400">
-                      {lang === "ar" ? "سيظهر هذا الوصف مباشرة للمستخدم في واجهة حسابه." : "This note will be displayed directly on user's verification panel."}
+                      {lang === "ar" ? "تظهر هذه الملاحظات للمستخدم في ملخص حسابه." : "This note will be displayed directly on user's verification panel."}
                     </span>
                     <button
+                      type="button"
                       disabled={savingVerification}
                       onClick={() => {
                         const currentStatus = selectedUserRecord.verificationInfo?.status || "action_required";
                         handleUpdateUserVerification(currentStatus, adminNoteInput);
                       }}
-                      className="px-4 py-2 rounded-xl bg-[#0075DE] hover:bg-blue-600 text-white font-black text-xs flex items-center gap-1.5 transition-all disabled:opacity-50 cursor-pointer shadow-md"
+                      className="px-3.5 py-1.5 rounded-xl bg-[#0075DE] hover:bg-blue-600 text-white font-bold text-xs flex items-center gap-1.5 transition-all disabled:opacity-50 cursor-pointer shadow-md"
                     >
                       <Save className="w-3.5 h-3.5" />
-                      <span>{lang === "ar" ? "حفظ وإرسال الملاحظات" : "Save & Send Note"}</span>
+                      <span>{lang === "ar" ? "حفظ الملاحظات" : "Save Notes"}</span>
                     </button>
                   </div>
                 </div>
 
-                {/* DISPLAY VERIFICATION DOCUMENTS IN ADMIN PANEL IF AVAILABLE */}
-                {selectedUserRecord.verificationInfo?.documents && selectedUserRecord.verificationInfo.documents.length > 0 && (
-                  <div className={`space-y-2 pt-3 border-t ${theme === "dark" ? "border-slate-800" : "border-slate-200"}`}>
-                    <span className="text-xs font-bold text-[#0075DE] block">
-                      {lang === "ar" ? "وثائق ومستندات التحقق المرفوعة من المستخدم:" : "Verification Documents Uploaded by User:"}
-                    </span>
-                    <div className="space-y-2">
-                      {selectedUserRecord.verificationInfo.documents.map((doc) => (
-                        <div key={doc.id} className={`p-3 rounded-xl border flex items-center justify-between text-xs gap-3 ${
-                          theme === "dark" ? "bg-slate-950/80 border-slate-800" : "bg-slate-50 border-slate-200"
-                        }`}>
-                          <div className="flex items-center gap-2.5 min-w-0">
-                            <FileText className="w-4 h-4 text-[#0075DE] shrink-0" />
-                            <span className={`font-bold truncate ${theme === "dark" ? "text-slate-200" : "text-slate-900"}`}>{doc.fileName}</span>
-                            <span className="text-[10px] text-slate-400 font-mono">({doc.docType || "ID Document"})</span>
-                          </div>
-                          <div className="flex items-center gap-2 shrink-0">
-                            <button
-                              onClick={() => openUserFileInNewTab({ fileName: doc.fileName, fileUrl: doc.fileUrl, mimeType: doc.mimeType, uploadDate: doc.uploadDate, category: "Verification" })}
-                              className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 dark:bg-emerald-500/20 dark:hover:bg-emerald-500/30 dark:text-emerald-300 dark:border-emerald-500/30 font-bold text-[11px] transition-all cursor-pointer"
-                              title={lang === "ar" ? "عرض في نافذة جديدة" : "View in new tab"}
-                            >
-                              <Eye className="w-3.5 h-3.5" />
-                              <span>{lang === "ar" ? "عرض" : "View"}</span>
-                            </button>
-                            <button
-                              onClick={() => downloadUserFile({ fileName: doc.fileName, fileUrl: doc.fileUrl, mimeType: doc.mimeType, uploadDate: doc.uploadDate, category: "Verification" })}
-                              className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-sky-50 hover:bg-sky-100 text-sky-700 border border-sky-200 dark:bg-sky-500/20 dark:hover:bg-sky-500/30 dark:text-sky-300 dark:border-sky-500/30 font-bold text-[11px] transition-all cursor-pointer"
-                              title={lang === "ar" ? "تنزيل الملف" : "Download file"}
-                            >
-                              <Download className="w-3.5 h-3.5" />
-                              <span>{lang === "ar" ? "تنزيل" : "Download"}</span>
-                            </button>
-                            <button
-                              onClick={() => handleDeleteUserVerDoc(doc.id, doc.fileName)}
-                              className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 dark:bg-rose-500/20 dark:hover:bg-rose-500/30 dark:text-rose-300 dark:border-rose-500/30 font-bold text-[11px] transition-all cursor-pointer"
-                              title={lang === "ar" ? "حذف المستند" : "Delete document"}
-                            >
-                              <Trash2 className="w-3.5 h-3.5 text-rose-500" />
-                              <span>{lang === "ar" ? "حذف" : "Delete"}</span>
-                            </button>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
+                {/* Rejection Reason Display if REJECTED */}
+                {selectedUserRecord.rejectionReason && (
+                  <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs font-bold space-y-1">
+                    <span className="block text-rose-400">{lang === "ar" ? "سبب الرفض المسجل:" : "Recorded Rejection Reason:"}</span>
+                    <p className="text-slate-200 font-normal">{selectedUserRecord.rejectionReason}</p>
                   </div>
                 )}
 
