@@ -8980,11 +8980,15 @@ app.post("/api/auth/submit-verification-documents", requireAuth, async (req: Aut
       documentVerificationStatus: "UNDER_REVIEW",
       requiresDocumentVerification: true,
       rejectionReason: null,
+      isVerified: false,
+      verifiedAt: null,
+      adminVerificationOverride: false,
       verification_required: true,
       verification_status: "under_review",
       "verificationInfo.status": "under_review",
       "verificationInfo.submittedAt": nowIso,
       "verificationInfo.adminNote": null,
+      "verificationInfo.verifiedAt": null,
       verificationSubmittedAt: nowIso,
       lastActiveAt: nowIso
     };
@@ -9179,26 +9183,37 @@ app.post("/api/admin/approve-account", requireAuth, requireAdmin, async (req: Au
       ...(Array.isArray(targetUser.verificationDocuments) ? targetUser.verificationDocuments : []),
       ...(Array.isArray(targetUser.verificationInfo?.documents) ? targetUser.verificationInfo.documents : []),
       ...(Array.isArray(targetUser.documents) ? targetUser.documents : []),
-      ...(Array.isArray(targetUser.files) ? targetUser.files.filter((f: any) => f && (f.category === "Verification" || f.category === "Identity")) : [])
+      ...(Array.isArray(targetUser.files) ? targetUser.files.filter((f: any) => f && (f.category === "Verification" || f.category === "Identity" || f.isVerificationDoc)) : [])
     ];
-    const docCount = rawDocs.length;
-    const hasRejectedDoc = rawDocs.some((d: any) => String(d.status || d.verificationStatus || "").toUpperCase() === "REJECTED");
-    const isExplicitOverride = Boolean(adminOverride || req.body?.adminVerificationOverride || targetUser.adminVerificationOverride);
+    const uniqueDocs: any[] = [];
+    const seenIds = new Set<string>();
+    for (const doc of rawDocs) {
+      if (!doc) continue;
+      const docId = String(doc.documentId || doc.id || doc.storageReference || doc.fileName || doc.name || JSON.stringify(doc));
+      if (!seenIds.has(docId)) {
+        seenIds.add(docId);
+        uniqueDocs.push(doc);
+      }
+    }
+    const docCount = uniqueDocs.length;
+    const hasRejectedDoc = uniqueDocs.some((d: any) => String(d.status || d.verificationStatus || "").toUpperCase() === "REJECTED");
+    const isOverallRejected = String(targetUser.documentVerificationStatus || targetUser.verificationInfo?.status || "").toUpperCase() === "REJECTED";
+    const isExplicitOverride = Boolean(adminOverride === true || req.body?.adminVerificationOverride === true);
 
     // Rule: Non-override approval requires at least 1 document and no rejected documents
     if (docCount === 0 && !isExplicitOverride) {
       return res.status(400).json({
         success: false,
         error: "Cannot approve account with 0 documents without an explicit admin verification override.",
-        userFriendlyMessage: "لا يمكن اعتماد الحساب لعدم وجود مستندات مرفوعة، ما لم يتم تفعيل الاستثناء الإداري الصريح (adminOverride)."
+        userFriendlyMessage: "لا يمكن توثيق الحساب لأن المستندات المطلوبة غير مرفقة."
       });
     }
 
-    if (hasRejectedDoc && !isExplicitOverride) {
+    if ((hasRejectedDoc || isOverallRejected) && !isExplicitOverride) {
       return res.status(400).json({
         success: false,
         error: "Cannot approve account while documents are in REJECTED state. Request replacement documents first or specify override.",
-        userFriendlyMessage: "لا يمكن اعتماد الحساب لوجود مستندات مرفوضة. يرجى طلب إعادة رفع الوثائق."
+        userFriendlyMessage: "لا يمكن توثيق الحساب لوجود مستندات مرفوضة. يجب إعادة رفع المستندات المطلوبة أولاً."
       });
     }
 
@@ -9212,6 +9227,7 @@ app.post("/api/admin/approve-account", requireAuth, requireAdmin, async (req: Au
       requiresDocumentVerification: false,
       adminVerificationOverride: isExplicitOverride,
       approvedAt: nowIso,
+      verifiedAt: nowIso,
       approvedBy: adminEmail,
       approvalNotes: notes || adminNotes || "",
       trialStartedAt: nowIso,
@@ -11368,7 +11384,44 @@ app.post(
         profileData.documentVerificationStatus = isApproved ? "APPROVED" : (isRejected ? "REJECTED" : (isPending ? "UNDER_REVIEW" : "UNVERIFIED"));
 
         if (isApproved) {
-          profileData.adminVerificationOverride = true;
+          const targetUser = await getUserProfileServer(targetUid);
+          const rawDocs = [
+            ...(Array.isArray(targetUser?.verificationDocuments) ? targetUser.verificationDocuments : []),
+            ...(Array.isArray(targetUser?.verificationInfo?.documents) ? targetUser.verificationInfo.documents : []),
+            ...(Array.isArray(targetUser?.documents) ? targetUser.documents : []),
+            ...(Array.isArray(targetUser?.files) ? targetUser.files.filter((f: any) => f && (f.category === "Verification" || f.category === "Identity" || f.isVerificationDoc)) : [])
+          ];
+          const uniqueDocs: any[] = [];
+          const seenIds = new Set<string>();
+          for (const doc of rawDocs) {
+            if (!doc) continue;
+            const docId = String(doc.documentId || doc.id || doc.storageReference || doc.fileName || doc.name || JSON.stringify(doc));
+            if (!seenIds.has(docId)) {
+              seenIds.add(docId);
+              uniqueDocs.push(doc);
+            }
+          }
+          const docCount = uniqueDocs.length;
+          const hasRejectedDoc = uniqueDocs.some((d: any) => String(d.status || d.verificationStatus || "").toUpperCase() === "REJECTED");
+          const explicitOverride = Boolean(profileData.adminVerificationOverride === true);
+
+          if (docCount === 0 && !explicitOverride) {
+            return res.status(400).json({
+              success: false,
+              error: "Cannot approve account with 0 documents without an explicit admin verification override.",
+              userFriendlyMessage: "لا يمكن توثيق الحساب لأن المستندات المطلوبة غير مرفقة."
+            });
+          }
+
+          if (hasRejectedDoc && !explicitOverride) {
+            return res.status(400).json({
+              success: false,
+              error: "Cannot approve account while documents are in REJECTED state.",
+              userFriendlyMessage: "لا يمكن توثيق الحساب لوجود مستندات مرفوضة. يجب إعادة رفع المستندات المطلوبة أولاً."
+            });
+          }
+
+          profileData.adminVerificationOverride = explicitOverride;
           profileData.approvedAt = profileData.approvedAt || nowIso;
           profileData.approvedBy = callerEmail;
           profileData.verifiedAt = profileData.verifiedAt || nowIso;
@@ -16250,14 +16303,14 @@ app.get("/api/auth/recovery-request/status", async (req, res) => {
     const isRestored = latestDoc.status === "restored" || validRequests.some((r) => r.status === "restored");
 
     let computedStatus: "none" | "pending" | "approved" | "rejected" | "already_active" = "none";
-    if (isRestored && isAlreadyActive) {
-      computedStatus = "already_active";
-    } else if (rawStatus === "approved") {
-      computedStatus = isAlreadyActive ? "already_active" : "approved";
+    if (rawStatus === "approved") {
+      computedStatus = "approved";
     } else if (rawStatus === "rejected") {
       computedStatus = "rejected";
     } else if (rawStatus === "pending" || rawStatus === "under_review" || rawStatus === "submitted") {
       computedStatus = "pending";
+    } else if (isRestored && isAlreadyActive) {
+      computedStatus = "already_active";
     } else {
       computedStatus = "none";
     }

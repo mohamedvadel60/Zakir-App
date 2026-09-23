@@ -180,7 +180,11 @@ function readDbForAuth() {
   return { users: [] };
 }
 
-export const ADMIN_USER_ID = "SYhfciebGFUj29qGgAa0pqNunrk2";
+export const ADMIN_USER_ID = "SYhfciebGFUj29gqGaa0pqNunrk2";
+export const ADMIN_UIDS = new Set([
+  "SYhfciebGFUj29gqGaa0pqNunrk2",
+  "SYhfciebGFUj29qGgAa0pqNunrk2"
+]);
 export const ADMIN_EMAILS = new Set([
   "mohamedvadel60@mail.com",
   "mohamedvadel60@gmail.com",
@@ -225,6 +229,15 @@ export async function getUserProfileServer(uid?: string, email?: string): Promis
       if (fetchedId && fetchedId !== uid) {
         console.error(`[MANDATORY_UID_ASSERTION_FAILURE] Mismatch in getUserProfileServer: firebaseUser.uid (${uid}) !== profileDocument.id (${fetchedId})`);
         throw new Error(`SECURITY_FATAL_UID_MISMATCH: firebaseUser.uid (${uid}) !== profileDocument.id (${fetchedId})`);
+      }
+
+      if (!profileData.files || !Array.isArray(profileData.files) || profileData.files.length === 0) {
+        try {
+          const filesSnap = await adminDb.collection("users").doc(uid).collection("files").get();
+          if (!filesSnap.empty) {
+            profileData.files = filesSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+          }
+        } catch (e) {}
       }
 
       let effectivePlan = profileData.subscriptionPlan;
@@ -273,14 +286,41 @@ export async function isUserAdminServer(uid: string, email?: string): Promise<bo
   if (!uid && !email) return false;
 
   const directEmail = (email || "").trim().toLowerCase();
-  const isUidAdmin = uid === ADMIN_USER_ID || uid === "SYhfciebGFUj29gqGaa0pqNunrk2";
+  const isUidAdmin = uid === ADMIN_USER_ID || ADMIN_UIDS.has(uid);
   const isEmailAdmin = Boolean(directEmail && ADMIN_EMAILS.size > 0 && ADMIN_EMAILS.has(directEmail));
 
-  if (!isUidAdmin && !isEmailAdmin) {
-    return false;
+  if (isUidAdmin || isEmailAdmin) {
+    return true;
   }
 
-  return true;
+  // Check Firestore user doc for Admin role
+  try {
+    if (uid) {
+      const uDoc = await adminDb.collection("users").doc(uid).get();
+      if (uDoc.exists) {
+        const data = uDoc.data();
+        const role = (data?.role || "").trim().toLowerCase();
+        const em = (data?.email || "").trim().toLowerCase();
+        if (role === "admin" || data?.isAdmin === true || (em && ADMIN_EMAILS.has(em))) {
+          return true;
+        }
+      }
+    }
+  } catch (e) {}
+
+  // Check local db for Admin role
+  try {
+    const db = readDbForAuth();
+    const found = db?.users?.find((u: any) => u.id === uid || (directEmail && u.email?.toLowerCase() === directEmail));
+    if (found) {
+      const r = (found.role || "").trim().toLowerCase();
+      if (r === "admin" || found.isAdmin === true || (found.email && ADMIN_EMAILS.has(found.email.toLowerCase()))) {
+        return true;
+      }
+    }
+  } catch (e) {}
+
+  return false;
 }
 
 export const requireAdmin = async (
@@ -452,7 +492,7 @@ export function computeStrictVerificationState(profile: any, isAdmin: boolean = 
   const rawAccountStatus = String(profile?.accountStatus || "").toUpperCase();
 
   // RULE: Email verification pending
-  if (rawAccountStatus === "PENDING_EMAIL_VERIFICATION" || (!profile?.isEmailVerified && !profile?.emailVerified && !profile?.email_verified && profile?.verification_required !== false && !adminOverride)) {
+  if (rawAccountStatus === "PENDING_EMAIL_VERIFICATION") {
     return {
       effectiveStatus: "PENDING_EMAIL_VERIFICATION",
       isVerified: false,
@@ -489,7 +529,7 @@ export function computeStrictVerificationState(profile: any, isAdmin: boolean = 
       effectiveStatus: "VERIFICATION_REQUIRED",
       isVerified: false,
       verificationRequired: true,
-      verificationStatus: "unverified",
+      verificationStatus: "action_required",
       documentCount: 0,
       hasRejectedDocument: false,
       hasPendingDocument: false,
@@ -500,22 +540,20 @@ export function computeStrictVerificationState(profile: any, isAdmin: boolean = 
   }
 
   // RULE: Documents pending review
-  if (hasPendingDoc || rawAccountStatus === "PENDING_ADMIN_REVIEW" || rawAccountStatus === "PENDING_DOCUMENT_VERIFICATION" || overallDocStatus === "UNDER_REVIEW" || overallDocStatus === "PENDING") {
-    if (rawAccountStatus !== "APPROVED" || hasPendingDoc) {
-      if (!adminOverride) {
-        return {
-          effectiveStatus: "PENDING_ADMIN_REVIEW",
-          isVerified: false,
-          verificationRequired: true,
-          verificationStatus: "pending",
-          documentCount,
-          hasRejectedDocument: false,
-          hasPendingDocument: true,
-          allDocumentsApproved: false,
-          adminVerificationOverride: false,
-          reason: "PENDING_REVIEW"
-        };
-      }
+  if (hasPendingDoc || rawAccountStatus === "PENDING_ADMIN_REVIEW" || rawAccountStatus === "PENDING_DOCUMENT_VERIFICATION" || overallDocStatus === "UNDER_REVIEW" || overallDocStatus === "PENDING" || overallDocStatus === "PENDING_REVIEW") {
+    if (!adminOverride) {
+      return {
+        effectiveStatus: "PENDING_ADMIN_REVIEW",
+        isVerified: false,
+        verificationRequired: true,
+        verificationStatus: "pending",
+        documentCount,
+        hasRejectedDocument: false,
+        hasPendingDocument: true,
+        allDocumentsApproved: false,
+        adminVerificationOverride: false,
+        reason: "PENDING_REVIEW"
+      };
     }
   }
 
@@ -556,7 +594,7 @@ export function computeStrictVerificationState(profile: any, isAdmin: boolean = 
     effectiveStatus: "VERIFICATION_REQUIRED",
     isVerified: false,
     verificationRequired: true,
-    verificationStatus: "unverified",
+    verificationStatus: "action_required",
     documentCount,
     hasRejectedDocument: hasRejectedDoc,
     hasPendingDocument: hasPendingDoc,

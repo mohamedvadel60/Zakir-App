@@ -75,7 +75,7 @@ service cloud.firestore {
           'isTrial', 'stripeSubscriptionId', 'subscriptionStatus', 'entitlement',
           'powers', 'institutionalProfile', 'verification_required', 'isEmailVerified',
           'verificationInfo', 'verification_status', 'rejectionReason', 'approvedAt',
-          'approvedBy', 'approvalNotes'
+          'approvedBy', 'approvalNotes', 'adminVerificationOverride', 'isVerified', 'verifiedAt'
         ])
       )) || isAdmin();
       allow delete: if isAdmin();

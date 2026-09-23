@@ -1189,8 +1189,9 @@ export async function saveFirebaseUserProfile(user: User): Promise<void> {
   // Store in local storage first
   setLocalItem(`user_${user.id}`, user);
 
-  if (!auth.currentUser || auth.currentUser.uid !== user.id) {
-    console.warn("Skipping client Firestore profile update: User not authenticated as owner.");
+  const isCurrentCallerAdmin = isUserAdmin(auth.currentUser);
+  if (!auth.currentUser || (!isCurrentCallerAdmin && auth.currentUser.uid !== user.id)) {
+    console.warn("Skipping client Firestore profile update: User not authenticated as owner or admin.");
     return;
   }
 
@@ -1292,15 +1293,99 @@ export async function updateUserPreferences(userId: string, newPrefs: Partial<Us
   return updatedPrefs;
 }
 
+export function normalizeStrictUserVerification(user: User): User {
+  if (!user) return user;
+  if (isUserAdmin(user)) {
+    user.isVerified = true;
+    user.isEmailVerified = true;
+    user.email_verified = true;
+    user.emailVerified = true;
+    user.verification_required = false;
+    user.verification_status = "verified";
+    user.accountStatus = "APPROVED";
+    return user;
+  }
+
+  // 1. Gather all documents
+  const rawDocs = [
+    ...(Array.isArray(user.verificationDocuments) ? user.verificationDocuments : []),
+    ...(Array.isArray(user.verificationInfo?.documents) ? user.verificationInfo.documents : []),
+    ...(Array.isArray((user as any).documents) ? (user as any).documents : []),
+    ...(Array.isArray((user as any).files) ? (user as any).files.filter((f: any) => f && (f.category === "Verification" || f.category === "Identity" || f.isVerificationDoc)) : [])
+  ];
+
+  const uniqueDocs: any[] = [];
+  const seenIds = new Set<string>();
+  for (const doc of rawDocs) {
+    if (!doc) continue;
+    const docId = String(doc.documentId || doc.id || doc.storageReference || doc.fileName || doc.name || JSON.stringify(doc));
+    if (!seenIds.has(docId)) {
+      seenIds.add(docId);
+      uniqueDocs.push(doc);
+    }
+  }
+
+  const documentCount = uniqueDocs.length;
+  // STRICT: only explicit boolean true
+  const adminOverride = (user as any).adminVerificationOverride === true;
+  let hasRejectedDoc = false;
+  let hasPendingDoc = false;
+
+  for (const d of uniqueDocs) {
+    const s = String(d.status || d.verificationStatus || "").toUpperCase();
+    if (s === "REJECTED") {
+      hasRejectedDoc = true;
+    } else if (s === "PENDING" || s === "PENDING_REVIEW" || s === "PENDING_ADMIN_REVIEW" || s === "UNDER_REVIEW" || !s) {
+      hasPendingDoc = true;
+    }
+  }
+
+  const overallDocStatus = String(user.documentVerificationStatus || user.verificationInfo?.status || "").toUpperCase();
+  const rawAccountStatus = String(user.accountStatus || "").toUpperCase();
+
+  let effStatus: any = "VERIFICATION_REQUIRED";
+
+  if (rawAccountStatus === "PENDING_EMAIL_VERIFICATION") {
+    effStatus = "PENDING_EMAIL_VERIFICATION";
+  } else if (rawAccountStatus === "REJECTED" || overallDocStatus === "REJECTED" || (hasRejectedDoc && !adminOverride)) {
+    effStatus = "REJECTED";
+  } else if (documentCount === 0 && !adminOverride) {
+    effStatus = "VERIFICATION_REQUIRED";
+  } else if (hasPendingDoc || rawAccountStatus === "PENDING_ADMIN_REVIEW" || rawAccountStatus === "PENDING_DOCUMENT_VERIFICATION" || overallDocStatus === "UNDER_REVIEW" || overallDocStatus === "PENDING" || overallDocStatus === "PENDING_REVIEW") {
+    effStatus = adminOverride ? "APPROVED" : "PENDING_ADMIN_REVIEW";
+  } else {
+    const isMarkedApproved = rawAccountStatus === "APPROVED" || overallDocStatus === "APPROVED" || user.verificationInfo?.status === "verified";
+    if (isMarkedApproved && ((documentCount > 0 && !hasRejectedDoc && !hasPendingDoc) || adminOverride)) {
+      effStatus = "APPROVED";
+    } else if (documentCount > 0 && !hasRejectedDoc) {
+      effStatus = "PENDING_ADMIN_REVIEW";
+    } else {
+      effStatus = "VERIFICATION_REQUIRED";
+    }
+  }
+
+  user.accountStatus = effStatus;
+  const isApproved = effStatus === "APPROVED";
+  user.isVerified = isApproved;
+  user.verification_required = !isApproved;
+  user.verification_status = isApproved 
+    ? "verified" 
+    : (effStatus === "REJECTED" ? "rejected" : (effStatus === "PENDING_ADMIN_REVIEW" ? "pending" : "action_required"));
+
+  if (!isApproved && !adminOverride) {
+    user.verifiedAt = null;
+    if (user.verificationInfo) {
+      user.verificationInfo.verifiedAt = null;
+      user.verificationInfo.status = user.verification_status as any;
+    }
+  }
+  return user;
+}
+
 export function subscribeToFirebaseAuthState(rawCallback: (user: User | null) => void) {
   const callback = (u: User | null) => {
-    if (u && isUserAdmin(u)) {
-      u.isVerified = true;
-      u.isEmailVerified = true;
-      u.email_verified = true;
-      u.emailVerified = true;
-      u.verification_required = false;
-      u.verification_status = "verified";
+    if (u) {
+      normalizeStrictUserVerification(u);
     }
     rawCallback(u);
   };
@@ -1318,7 +1403,10 @@ export function subscribeToFirebaseAuthState(rawCallback: (user: User | null) =>
     try {
       // Ensure auth token is synchronized
       try {
-        await fbUser.getIdToken();
+        const idToken = await fbUser.getIdToken();
+        if (idToken && typeof window !== "undefined") {
+          localStorage.setItem("zakir_auth_token", idToken);
+        }
       } catch (tErr) {
         console.warn("Notice: getIdToken resolution in subscribeToFirebaseAuthState:", tErr);
       }
@@ -1405,77 +1493,7 @@ export function subscribeToFirebaseAuthState(rawCallback: (user: User | null) =>
           validatedUser.role = isOwner ? "CEO" : "Contributor";
         }
 
-        if (isSysAdmin) {
-          validatedUser.accountStatus = "APPROVED";
-          validatedUser.isVerified = true;
-          validatedUser.verification_required = false;
-          validatedUser.verification_status = "verified";
-        } else {
-          const rawDocs = [
-            ...(Array.isArray(validatedUser.verificationDocuments) ? validatedUser.verificationDocuments : []),
-            ...(Array.isArray(validatedUser.verificationInfo?.documents) ? validatedUser.verificationInfo.documents : []),
-            ...(Array.isArray((validatedUser as any).documents) ? (validatedUser as any).documents : []),
-            ...(Array.isArray((validatedUser as any).files) ? (validatedUser as any).files.filter((f: any) => f && (f.category === "Verification" || f.category === "Identity" || f.isVerificationDoc)) : [])
-          ];
-          const uniqueDocs: any[] = [];
-          const seenIds = new Set<string>();
-          for (const doc of rawDocs) {
-            if (!doc) continue;
-            const docId = String(doc.documentId || doc.id || doc.storageReference || doc.fileName || JSON.stringify(doc));
-            if (!seenIds.has(docId)) {
-              seenIds.add(docId);
-              uniqueDocs.push(doc);
-            }
-          }
-
-          const documentCount = uniqueDocs.length;
-          const adminOverride = Boolean((validatedUser as any).adminVerificationOverride);
-          let hasRejectedDoc = false;
-          let hasPendingDoc = false;
-
-          for (const d of uniqueDocs) {
-            const s = String(d.status || d.verificationStatus || "").toUpperCase();
-            if (s === "REJECTED") {
-              hasRejectedDoc = true;
-            } else if (s === "PENDING" || s === "PENDING_REVIEW" || s === "PENDING_ADMIN_REVIEW" || s === "UNDER_REVIEW" || !s) {
-              hasPendingDoc = true;
-            }
-          }
-
-          const overallDocStatus = String(validatedUser.documentVerificationStatus || validatedUser.verificationInfo?.status || "").toUpperCase();
-          const rawAccountStatus = String(validatedUser.accountStatus || "").toUpperCase();
-
-          let effStatus: any = "VERIFICATION_REQUIRED";
-
-          if (rawAccountStatus === "PENDING_EMAIL_VERIFICATION" || (!validatedUser.isEmailVerified && !validatedUser.emailVerified && !(validatedUser as any).email_verified && validatedUser.verification_required !== false && !adminOverride)) {
-            effStatus = "PENDING_EMAIL_VERIFICATION";
-          } else if (rawAccountStatus === "REJECTED" || overallDocStatus === "REJECTED" || (hasRejectedDoc && !adminOverride)) {
-            effStatus = "REJECTED";
-          } else if (documentCount === 0 && !adminOverride) {
-            effStatus = "VERIFICATION_REQUIRED";
-          } else if (hasPendingDoc || rawAccountStatus === "PENDING_ADMIN_REVIEW" || rawAccountStatus === "PENDING_DOCUMENT_VERIFICATION" || overallDocStatus === "UNDER_REVIEW" || overallDocStatus === "PENDING") {
-            if (rawAccountStatus !== "APPROVED" || hasPendingDoc) {
-              effStatus = adminOverride ? "APPROVED" : "PENDING_ADMIN_REVIEW";
-            } else {
-              effStatus = adminOverride ? "APPROVED" : "PENDING_ADMIN_REVIEW";
-            }
-          } else {
-            const isMarkedApproved = rawAccountStatus === "APPROVED" || overallDocStatus === "APPROVED" || validatedUser.verificationInfo?.status === "verified";
-            if (isMarkedApproved && ((documentCount > 0 && !hasRejectedDoc && !hasPendingDoc) || adminOverride)) {
-              effStatus = "APPROVED";
-            } else if (documentCount > 0 && !hasRejectedDoc) {
-              effStatus = "PENDING_ADMIN_REVIEW";
-            } else {
-              effStatus = "VERIFICATION_REQUIRED";
-            }
-          }
-
-          validatedUser.accountStatus = effStatus;
-          const isApproved = effStatus === "APPROVED";
-          validatedUser.isVerified = isApproved;
-          validatedUser.verification_required = !isApproved;
-          validatedUser.verification_status = isApproved ? "verified" : (effStatus === "REJECTED" ? "rejected" : (effStatus === "PENDING_ADMIN_REVIEW" ? "pending" : "action_required"));
-        }
+        normalizeStrictUserVerification(validatedUser);
         setLocalItem(`user_${fbUser.uid}`, validatedUser);
         callback(validatedUser);
       } else {
@@ -2382,7 +2400,11 @@ export async function fetchWorkspaceInvitations(workspaceId: string): Promise<Wo
 
 /* ================= ADMIN DASHBOARD SERVICES ================= */
 
-export const ADMIN_USER_ID = "SYhfciebGFUj29qGgAa0pqNunrk2";
+export const ADMIN_USER_ID = "SYhfciebGFUj29gqGaa0pqNunrk2";
+export const ADMIN_UIDS = new Set([
+  "SYhfciebGFUj29gqGaa0pqNunrk2",
+  "SYhfciebGFUj29qGgAa0pqNunrk2"
+]);
 export const ADMIN_EMAILS: string[] = [
   "mohamedvadel60@mail.com",
   "mohamedvadel60@gmail.com",
@@ -2399,15 +2421,13 @@ export function isUserAdmin(user?: { id?: string | null; uid?: string | null; em
   if (!user) return false;
   const uid = user.id || user.uid || "";
   const email = (user.email || "").trim().toLowerCase();
+  const role = (user.role || "").trim().toLowerCase();
 
-  const isUidAdmin = uid === ADMIN_USER_ID || uid === "SYhfciebGFUj29gqGaa0pqNunrk2";
+  const isUidAdmin = uid === ADMIN_USER_ID || ADMIN_UIDS.has(uid);
   const isEmailAdmin = Boolean(email && ADMIN_EMAILS.length > 0 && ADMIN_EMAILS.includes(email));
+  const isRoleAdmin = role === "admin" || (user as any).isAdmin === true;
 
-  if (!isUidAdmin && !isEmailAdmin) {
-    return false;
-  }
-
-  return true;
+  return isUidAdmin || isEmailAdmin || isRoleAdmin;
 }
 
 export interface AdminUserRecord {
@@ -2879,23 +2899,24 @@ export async function resolveAccountState(email: string): Promise<AccountStateRe
       (reqObj?.fullName && reqObj?.reason)
     );
 
+    const isApprovedStatus = rec?.status === "approved" || rec?.status === "already_active" || reqObj?.status === "approved";
+    const isRejectedStatus = rec?.status === "rejected" || reqObj?.status === "rejected";
+    const isPendingStatus = rec?.status === "pending" || reqObj?.status === "pending";
+
     const hasReq = Boolean(
       rec &&
       rec.success &&
       rec.status !== "none" &&
-      rec.status !== "already_active" &&
       reqObj &&
-      reqId &&
-      isRealReqId &&
-      hasSubmissionEvidence
+      (isApprovedStatus || isRejectedStatus || isPendingStatus || (reqId && isRealReqId && hasSubmissionEvidence))
     );
 
     const recStatus: "none" | "pending" | "approved" | "rejected" =
-      hasReq && (rec?.status === "approved" || rec?.recoveryRequest?.status === "approved")
+      hasReq && isApprovedStatus
         ? "approved"
-        : hasReq && (rec?.status === "rejected" || rec?.recoveryRequest?.status === "rejected")
+        : hasReq && isRejectedStatus
         ? "rejected"
-        : hasReq && (rec?.status === "pending" || rec?.recoveryRequest?.status === "pending")
+        : hasReq && isPendingStatus
         ? "pending"
         : "none";
 
@@ -3510,15 +3531,8 @@ export function subscribeToFirebaseUserProfile(userId: string, callback: (user: 
   const userDocRef = doc(db, "users", userId);
   return onSnapshot(userDocRef, (docSnap) => {
     if (docSnap.exists()) {
-      const uData = docSnap.data() as User;
-      if (isUserAdmin(uData)) {
-        uData.isVerified = true;
-        uData.isEmailVerified = true;
-        uData.email_verified = true;
-        uData.emailVerified = true;
-        uData.verification_required = false;
-        uData.verification_status = "verified";
-      }
+      let uData = docSnap.data() as User;
+      uData = normalizeStrictUserVerification(uData);
       setLocalItem(`user_${userId}`, uData);
       callback(uData);
     } else {
@@ -3527,8 +3541,9 @@ export function subscribeToFirebaseUserProfile(userId: string, callback: (user: 
   }, (err) => {
     console.warn("User profile live snapshot listener error:", err);
     // Use local storage values
-    const localUser = getLocalItem(`user_${userId}`, null);
+    let localUser = getLocalItem(`user_${userId}`, null);
     if (localUser) {
+      localUser = normalizeStrictUserVerification(localUser);
       callback(localUser);
     }
   });

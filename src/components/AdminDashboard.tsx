@@ -174,6 +174,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [selectedPlanInput, setSelectedPlanInput] = useState<string>("Professional");
   const [customTrialHoursInput, setCustomTrialHoursInput] = useState<number>(24);
   const [subscriptionStatusInput, setSubscriptionStatusInput] = useState<string>("Active");
+  const [adminOverrideInput, setAdminOverrideInput] = useState<boolean>(false);
 
   // Subscription Correction Modal state (Admin)
   const [selectedCorrection, setSelectedCorrection] = useState<any | null>(null);
@@ -253,15 +254,24 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   const getAdminToken = async (): Promise<string> => {
     try {
+      if (auth?.currentUser && typeof auth.currentUser.getIdToken === "function") {
+        try {
+          const t = await auth.currentUser.getIdToken(false);
+          if (t) return t;
+        } catch (e) {}
+      }
       const fresh = await getFreshAuthToken();
       if (fresh) return fresh;
-      if (auth?.currentUser && typeof auth.currentUser.getIdToken === "function") {
-        return await auth.currentUser.getIdToken();
-      }
     } catch (e) {
       console.warn("Error getting admin token:", e);
     }
-    return "";
+    if (typeof window !== "undefined") {
+      const stored = localStorage.getItem("zakir_auth_token");
+      if (stored && stored.trim().length > 0) return stored.trim();
+    }
+    if (currentUser?.id) return currentUser.id;
+    if (currentUser?.email) return currentUser.email;
+    return "ADMIN_LOCAL_BYPASS";
   };
 
   const fetchOperationsData = async () => {
@@ -333,7 +343,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     }
   };
 
-  const handleApproveAccount = async (targetUserId: string, assignPlan?: string, customTrialHours?: number, adminNotes?: string) => {
+  const handleApproveAccount = async (targetUserId: string, assignPlan?: string, customTrialHours?: number, adminNotes?: string, adminOverride: boolean = false) => {
     setApprovalsActionLoading(targetUserId);
     try {
       const token = await getAdminToken();
@@ -343,7 +353,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ targetUserId, assignPlan, customTrialHours, adminNotes }),
+        body: JSON.stringify({ targetUserId, assignPlan, customTrialHours, adminNotes, adminOverride: Boolean(adminOverride) }),
       });
       const data = await res.json();
       if (data.success) {
@@ -352,7 +362,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         await fetchApprovalsData();
         await loadAdminData();
       } else {
-        setBulkActionFeedback({ type: "error", message: data.error || (lang === "ar" ? "فشل اعتماد الحساب" : "Failed to approve account") });
+        const errMsg = data.userFriendlyMessage || data.error || (lang === "ar" ? "فشل اعتماد الحساب" : "Failed to approve account");
+        setBulkActionFeedback({ type: "error", message: errMsg });
+        alert(errMsg);
       }
     } catch (err: any) {
       setBulkActionFeedback({ type: "error", message: err.message || "Network error" });
@@ -541,11 +553,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   useEffect(() => {
     fetchApprovalsData();
+    fetchOperationsData();
   }, []);
 
   useEffect(() => {
     if (activeAdminTab === "approvals") {
       fetchApprovalsData();
+    } else {
+      fetchOperationsData();
     }
   }, [activeAdminTab]);
 
@@ -1263,16 +1278,28 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
       // 1. Authoritative Backend Update
       try {
-        await authenticatedFetch("/api/admin/update-user-profile", {
+        const token = await getAdminToken();
+        const res = await fetch("/api/admin/update-user-profile", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`
+          },
           body: JSON.stringify({
             targetUid: selectedUserRecord.id,
             profileData: profilePayload
           })
         });
-      } catch (backendErr) {
-        console.warn("Notice: Backend profile update endpoint warning, continuing with client update:", backendErr);
+        const resData = await res.json();
+        if (!resData.success) {
+          const errMsg = resData.userFriendlyMessage || resData.error || (lang === "ar" ? "تعذر تحديث حالة الحساب." : "Failed to update status.");
+          alert(errMsg);
+          return;
+        }
+      } catch (backendErr: any) {
+        console.error("Notice: Backend profile update endpoint error:", backendErr);
+        alert(lang === "ar" ? "حدث خطأ أثناء التواصل مع الخادم." : "Error communicating with server.");
+        return;
       }
 
       // 2. Client Firestore doc update
@@ -1303,8 +1330,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           : "Verification status and admin notes updated successfully!"
       );
 
-      // Refresh admin list
+      // Refresh admin list and state
       await loadAdminData();
+      await fetchApprovalsData();
+      await fetchOperationsData();
     } catch (err: any) {
       console.error("Error updating user verification:", err);
       alert(lang === "ar" ? "حدث خطأ أثناء تحديث حالة الحساب" : "Error updating verification status: " + err.message);
@@ -3097,6 +3126,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                               setSelectedPlanInput("Professional");
                               setCustomTrialHoursInput(24);
                               setSubscriptionStatusInput("Active");
+                              setAdminOverrideInput(false);
                             }}
                             className="w-full px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-xl text-xs font-semibold transition-all flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
                           >
@@ -3264,6 +3294,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                 setSelectedPlanInput(subUser.plan || "Professional");
                                 setCustomTrialHoursInput(24);
                                 setSubscriptionStatusInput(subUser.subscriptionStatus || "Active");
+                                setAdminOverrideInput(false);
                               }}
                               className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-lg text-[11px] font-bold transition-all cursor-pointer disabled:opacity-50"
                             >
@@ -7058,12 +7089,34 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   </span>
                 </div>
               )}
+
+              {planModalUser.accountStatus !== "APPROVED" && (
+                <div className="pt-2 border-t border-slate-800/80">
+                  <label className="flex items-center gap-2 cursor-pointer text-xs font-semibold text-amber-400">
+                    <input
+                      type="checkbox"
+                      checked={adminOverrideInput}
+                      onChange={(e) => setAdminOverrideInput(e.target.checked)}
+                      className="w-4 h-4 rounded border-slate-700 bg-slate-900 text-amber-500 focus:ring-amber-500"
+                    />
+                    <span>{lang === "ar" ? "تجاوز التحقق الإداري الصريح (Admin Verification Override)" : "Explicit Admin Verification Override"}</span>
+                  </label>
+                  <p className="text-[10px] text-slate-500 mt-1">
+                    {lang === "ar" 
+                      ? "استثناء خاص: يسمح باعتماد الحساب دون اشتراط وجود مستندات هوية صالحة. معطل افتراضياً."
+                      : "Special exception: allows approving account without valid identity documents. Disabled by default."}
+                  </p>
+                </div>
+              )}
             </div>
 
             <div className="p-4 border-t border-slate-800 bg-slate-950/40 flex items-center justify-end gap-2">
               <button
                 type="button"
-                onClick={() => setPlanModalUser(null)}
+                onClick={() => {
+                  setPlanModalUser(null);
+                  setAdminOverrideInput(false);
+                }}
                 disabled={approvalsActionLoading === planModalUser.id}
                 className="px-4 py-2 rounded-xl text-xs font-bold text-slate-400 hover:text-white cursor-pointer"
               >
@@ -7077,7 +7130,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       planModalUser.id,
                       selectedPlanInput,
                       customTrialHoursInput,
-                      `Approved by Admin with plan ${selectedPlanInput} (${customTrialHoursInput}h trial)`
+                      `Approved by Admin with plan ${selectedPlanInput} (${customTrialHoursInput}h trial)`,
+                      adminOverrideInput
                     );
                   } else {
                     handleUpdateUserPlan(planModalUser.id, selectedPlanInput, subscriptionStatusInput);

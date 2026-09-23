@@ -209,6 +209,8 @@ export interface User {
   emailVerified?: boolean;
   verification_status?: string;
   verified_at?: string;
+  verifiedAt?: string | null;
+  adminVerificationOverride?: boolean;
   verification_required?: boolean;
   companyName: string;
   companyLogoUrl?: string;

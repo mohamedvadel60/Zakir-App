@@ -218,18 +218,22 @@ export const DeletedAccountRecovery: React.FC<DeletedAccountRecoveryProps> = ({
           (reqObj?.fullName && reqObj?.reason)
         );
 
+        const isApprovedOrActive = res?.status === "approved" || res?.status === "already_active" || reqObj?.status === "approved";
+        const isRejectedStatus = res?.status === "rejected" || reqObj?.status === "rejected";
+        const isPendingStatus = res?.status === "pending" || reqObj?.status === "pending";
+
         if (
           res &&
           res.success &&
           res.status !== "none" &&
-          res.status !== "already_active" &&
           reqObj &&
-          reqId &&
-          isRealReqId &&
-          hasSubmissionEvidence
+          (isApprovedOrActive || isRejectedStatus || isPendingStatus || (reqId && isRealReqId && hasSubmissionEvidence))
         ) {
           setRecoveryState("has_request");
-          setStatusResult(res);
+          setStatusResult({
+            ...res,
+            status: isApprovedOrActive ? "approved" : res.status
+          });
         } else {
           setRecoveryState("no_request");
           setStatusResult(null);

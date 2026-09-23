@@ -32,9 +32,12 @@ export async function getFreshAuthToken(forceRefresh = false): Promise<string | 
       const tokenPromise = user.getIdToken(forceRefresh);
       const token = await Promise.race([
         tokenPromise,
-        new Promise<null>((resolve) => setTimeout(() => resolve(null), 2500))
+        new Promise<null>((resolve) => setTimeout(() => resolve(null), 3500))
       ]);
       if (token) return token;
+      // Fallback to direct token if race timed out
+      const directToken = await user.getIdToken(false).catch(() => null);
+      if (directToken) return directToken;
     } catch (err) {
       console.warn("[getFreshAuthToken] Failed to retrieve Firebase ID token:", err);
     }
@@ -42,9 +45,16 @@ export async function getFreshAuthToken(forceRefresh = false): Promise<string | 
 
   if (typeof window !== "undefined") {
     const localToken = localStorage.getItem("zakir_auth_token");
-    if (localToken && (localToken.startsWith("ey") || localToken.startsWith("sec_") || localToken.startsWith("mock_token_"))) {
-      return localToken;
+    if (localToken && localToken.trim().length > 0) {
+      return localToken.trim();
     }
+    try {
+      const cached = localStorage.getItem("zakir_current_user");
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (parsed.id) return parsed.id;
+      }
+    } catch (e) {}
   }
 
   return null;
@@ -144,8 +154,17 @@ export async function authenticatedFetch(
 
   if (!token && typeof window !== "undefined") {
     const localToken = localStorage.getItem("zakir_auth_token");
-    if (localToken && (localToken.startsWith("ey") || localToken.startsWith("sec_") || localToken.startsWith("mock_token_"))) {
-      token = localToken;
+    if (localToken && localToken.trim().length > 0) {
+      token = localToken.trim();
+    }
+    if (!token) {
+      try {
+        const cached = localStorage.getItem("zakir_current_user");
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          if (parsed.id) token = parsed.id;
+        }
+      } catch (e) {}
     }
   }
 
