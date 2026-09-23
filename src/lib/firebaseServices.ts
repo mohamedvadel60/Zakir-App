@@ -2997,7 +2997,16 @@ function fileToBase64DataUrl(file: File): Promise<string> {
   });
 }
 
-export async function uploadRecoveryDocumentApi(file: File) {
+export async function uploadRecoveryDocumentApi(
+  file: File,
+  onProgress?: (percent: number) => void
+): Promise<{
+  success: boolean;
+  documentId?: string;
+  uploadToken?: string;
+  document?: any;
+  error?: string;
+}> {
   let lastError: any = null;
 
   // File client-side validation
@@ -3007,13 +3016,6 @@ export async function uploadRecoveryDocumentApi(file: File) {
 
   if (file.size > 10 * 1024 * 1024) {
     return { success: false, error: "حجم الملف يتجاوز الحد المسموح 10 ميغابايت." };
-  }
-
-  let base64Data = "";
-  try {
-    base64Data = await fileToBase64DataUrl(file);
-  } catch (e: any) {
-    console.warn("Failed to convert file to base64:", e);
   }
 
   const candidateEndpoints = Array.from(new Set([
@@ -3026,98 +3028,65 @@ export async function uploadRecoveryDocumentApi(file: File) {
   ].filter(Boolean)));
 
   for (const endpoint of candidateEndpoints) {
-    // 1. Try JSON POST payload
-    if (base64Data) {
-      try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 20000);
-
-        const res = await fetch(endpoint, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Accept": "application/json",
-            "X-HTTP-Method-Override": "POST"
-          },
-          credentials: "include",
-          body: JSON.stringify({
-            fileBase64: base64Data,
-            fileName: file.name,
-            mimeType: file.type || "application/octet-stream",
-            size: file.size
-          }),
-          signal: controller.signal
-        });
-
-        clearTimeout(timeoutId);
-
-        if (res.ok) {
-          const parsed = await safeParseJsonResponse(res);
-          if (parsed && (parsed.success || parsed.documentId || parsed.document)) {
-            return {
-              success: true,
-              ...parsed,
-              documentId: parsed.documentId || parsed.document?.documentId,
-              uploadToken: parsed.uploadToken || parsed.document?.uploadToken
-            };
-          }
-        } else {
-          let errText = "";
-          try {
-            const errData = await res.json();
-            if (errData?.userFriendlyMessage || errData?.error) {
-              lastError = new Error(errData.userFriendlyMessage || errData.error);
-            }
-          } catch (e) {
-            errText = await res.text().catch(() => "");
-          }
-          if (res.status === 405) {
-            console.warn(`Endpoint ${endpoint} returned 405 Method Not Allowed, trying next fallback...`);
-          }
-        }
-      } catch (err: any) {
-        lastError = err;
-        console.warn(`Upload attempt via JSON to ${endpoint} notice:`, err?.message || err);
-      }
-    }
-
-    // 2. Try FormData (multipart) fallback
     try {
-      const formData = new FormData();
-      formData.append("file", file);
-      formData.append("fileName", file.name);
-      formData.append("mimeType", file.type || "application/octet-stream");
-      formData.append("size", String(file.size));
-      if (base64Data) {
-        formData.append("fileBase64", base64Data);
-      }
+      const result = await new Promise<any>((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.open("POST", endpoint, true);
+        xhr.withCredentials = true;
 
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 20000);
+        xhr.setRequestHeader("Accept", "application/json");
+        xhr.setRequestHeader("X-HTTP-Method-Override", "POST");
 
-      const res = await fetch(endpoint, {
-        method: "POST",
-        headers: {
-          "Accept": "application/json",
-          "X-HTTP-Method-Override": "POST"
-        },
-        credentials: "include",
-        body: formData,
-        signal: controller.signal
-      });
-
-      clearTimeout(timeoutId);
-
-      if (res.ok) {
-        const parsed = await safeParseJsonResponse(res);
-        if (parsed && (parsed.success || parsed.documentId || parsed.document)) {
-          return {
-            success: true,
-            ...parsed,
-            documentId: parsed.documentId || parsed.document?.documentId,
-            uploadToken: parsed.uploadToken || parsed.document?.uploadToken
+        if (xhr.upload && onProgress) {
+          xhr.upload.onprogress = (e) => {
+            if (e.lengthComputable && e.total > 0) {
+              const percent = Math.round((e.loaded / e.total) * 100);
+              onProgress(percent);
+            }
           };
         }
+
+        xhr.onload = () => {
+          if (xhr.status >= 200 && xhr.status < 300) {
+            try {
+              const data = JSON.parse(xhr.responseText);
+              resolve(data);
+            } catch (pErr) {
+              reject(new Error("Invalid JSON response from server"));
+            }
+          } else {
+            let errMsg = `HTTP ${xhr.status}`;
+            try {
+              const errData = JSON.parse(xhr.responseText);
+              if (errData?.userFriendlyMessage || errData?.error || errData?.message) {
+                errMsg = errData.userFriendlyMessage || errData.error || errData.message;
+              }
+            } catch (e) {}
+            reject(new Error(errMsg));
+          }
+        };
+
+        xhr.onerror = () => reject(new Error("Network connection error during upload"));
+        xhr.ontimeout = () => reject(new Error("Upload timed out"));
+        xhr.timeout = 30000;
+
+        const formData = new FormData();
+        formData.append("file", file);
+        formData.append("fileName", file.name);
+        formData.append("mimeType", file.type || "application/octet-stream");
+        formData.append("size", String(file.size));
+
+        xhr.send(formData);
+      });
+
+      if (result && (result.success || result.documentId || result.document)) {
+        if (onProgress) onProgress(100);
+        return {
+          success: true,
+          ...result,
+          documentId: result.documentId || result.document?.documentId,
+          uploadToken: result.uploadToken || result.document?.uploadToken
+        };
       }
     } catch (err: any) {
       lastError = err;
@@ -3126,9 +3095,7 @@ export async function uploadRecoveryDocumentApi(file: File) {
   }
 
   let errMsg = "تعذر إكمال رفع الوثيقة إلى الخادم. يرجى إعادة المحاولة.";
-  if (lastError?.name === "AbortError") {
-    errMsg = "انتهت مهلة الاتصال بالخادم أثناء رفع المستند. يرجى المحاولة مرة أخرى.";
-  } else if (lastError?.message && !lastError.message.includes("405")) {
+  if (lastError?.message) {
     errMsg = lastError.message;
   }
 

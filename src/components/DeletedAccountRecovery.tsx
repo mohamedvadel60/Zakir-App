@@ -562,11 +562,15 @@ export const DeletedAccountRecovery: React.FC<DeletedAccountRecoveryProps> = ({
   // Upload single document helper
   const uploadSingleDocument = async (item: UploadedDocumentItem) => {
     setDocuments(prev =>
-      prev.map(d => (d.id === item.id ? { ...d, status: "uploading", progress: 50, error: undefined } : d))
+      prev.map(d => (d.id === item.id ? { ...d, status: "uploading", progress: 0, error: undefined } : d))
     );
 
     try {
-      const result = await uploadRecoveryDocumentApi(item.file);
+      const result = await uploadRecoveryDocumentApi(item.file, (percent) => {
+        setDocuments(prev =>
+          prev.map(d => (d.id === item.id ? { ...d, progress: percent } : d))
+        );
+      });
       if (result && result.success && (result.documentId || result.document?.documentId)) {
         const docId = result.documentId || result.document?.documentId;
         const uploadToken = result.uploadToken || result.document?.uploadToken;
@@ -587,7 +591,7 @@ export const DeletedAccountRecovery: React.FC<DeletedAccountRecoveryProps> = ({
           )
         );
       } else {
-        const rawErr = result?.message || result?.error;
+        const rawErr = (result as any)?.message || result?.error;
         let errorMsg = lang === "ar" ? "فشل رفع الملف." : "Upload failed.";
         if (rawErr) {
           if (rawErr === "FILE_UPLOAD_ERROR" || rawErr === "UNSUPPORTED_FORMAT") {
@@ -1447,7 +1451,7 @@ export const DeletedAccountRecovery: React.FC<DeletedAccountRecoveryProps> = ({
                                 ) : item.status === "uploading" ? (
                                   <span className="text-[#0075DE] dark:text-blue-400 font-bold flex items-center gap-1">
                                     <RefreshCw className="w-3 h-3 animate-spin" />
-                                    {t.statusUploading}
+                                    {t.statusUploading} ({item.progress || 0}%)
                                   </span>
                                 ) : (
                                   <span className="text-rose-600 font-bold flex items-center gap-1">
@@ -1456,6 +1460,14 @@ export const DeletedAccountRecovery: React.FC<DeletedAccountRecoveryProps> = ({
                                   </span>
                                 )}
                               </div>
+                              {item.status === "uploading" && (
+                                <div className="w-full mt-1.5 h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                                  <div
+                                    className="h-full bg-[#0075DE] transition-all duration-200 rounded-full"
+                                    style={{ width: `${Math.min(Math.max(item.progress || 0, 5), 100)}%` }}
+                                  />
+                                </div>
+                              )}
                             </div>
                           </div>
 
