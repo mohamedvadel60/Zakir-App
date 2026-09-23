@@ -246,7 +246,7 @@ export const AnimatedLandingPage: React.FC<AnimatedLandingPageProps> = ({
             onClick={() => onNavigateAuth("login")}
             className="flex items-center gap-3 cursor-pointer"
           >
-            <ZakirLogo theme={theme} lang={lang} />
+            <ZakirLogo theme={theme} lang={lang} showText />
           </motion.div>
 
           {/* Navigation Links with Micro-Interactions */}
@@ -940,7 +940,7 @@ export const AnimatedLandingPage: React.FC<AnimatedLandingPageProps> = ({
       <footer className={`border-t ${theme === 'light' ? 'border-slate-200 bg-white text-slate-600 shadow-inner' : 'border-slate-800/80 bg-slate-950 text-slate-400'} px-6 py-10 relative z-10 text-xs transition-colors duration-300`}>
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-6">
           <div className="flex items-center gap-3">
-            <ZakirLogo theme={theme} lang={lang} />
+            <ZakirLogo theme={theme} lang={lang} showText />
             <span className={theme === 'light' ? 'text-slate-300' : 'text-slate-600'}>|</span>
             <span className="text-[11px] font-mono">
               © {new Date().getFullYear()} ZAKIR Causal Memory Core. All rights reserved.

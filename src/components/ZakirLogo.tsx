@@ -1,9 +1,12 @@
 import React from "react";
-import zakirOfficialLogo from "../assets/zakir-official-logo.png";
+import zakirLightLogo from "../assets/zakir-light-mode.svg";
+import zakirDarkLogo from "../assets/zakir-dark-mode.svg";
+import appIconSvg from "../assets/app-icon.svg";
 
 interface ZakirLogoProps {
   className?: string;
   iconOnly?: boolean;
+  showText?: boolean;
   theme?: "light" | "dark" | "custom" | "auto";
   size?: "sm" | "md" | "lg" | "xl" | number | string;
   lang?: "ar" | "en" | "fr";
@@ -13,124 +16,94 @@ interface ZakirLogoProps {
 export const ZakirLogo: React.FC<ZakirLogoProps> = ({
   className = "",
   iconOnly = false,
+  showText = false,
   theme = "auto",
   size = "md",
-  useSquareImage = false,
 }) => {
-  const uniqueGradId = React.useId().replace(/[^a-zA-Z0-9_-]/g, "_");
-  const gradId = `zakir-official-grad-${uniqueGradId}`;
-
-  const textThemeColor = 
-    theme === "light" 
-      ? "text-slate-900" 
-      : theme === "dark"
-        ? "text-white"
-        : "text-slate-900 dark:text-white";
-
-  // Sizing definitions for a clean mathematical layout
-  let iconWrapperClass = "w-10 h-10 rounded-xl";
-  let svgSize: string | number = 28;
-  let textClass = "text-xl";
-  let gapClass = "gap-3";
-  let customStyle: React.CSSProperties = {};
+  let dimensions = { width: 140, height: 40 };
 
   if (size === "sm") {
-    iconWrapperClass = "w-8 h-8 rounded-lg";
-    svgSize = 22;
-    textClass = "text-base";
-    gapClass = "gap-2";
+    dimensions = iconOnly ? { width: 32, height: 32 } : { width: 100, height: 28 };
   } else if (size === "md") {
-    iconWrapperClass = "w-10 h-10 rounded-xl";
-    svgSize = 28;
-    textClass = "text-xl";
-    gapClass = "gap-3";
+    dimensions = iconOnly ? { width: 40, height: 40 } : { width: 130, height: 36 };
   } else if (size === "lg") {
-    iconWrapperClass = "w-12 h-12 rounded-2xl";
-    svgSize = 34;
-    textClass = "text-2xl";
-    gapClass = "gap-4";
+    dimensions = iconOnly ? { width: 48, height: 48 } : { width: 160, height: 44 };
   } else if (size === "xl") {
-    iconWrapperClass = "w-16 h-16 rounded-3xl";
-    svgSize = 46;
-    textClass = "text-4xl";
-    gapClass = "gap-5";
+    dimensions = iconOnly ? { width: 64, height: 64 } : { width: 200, height: 56 };
   } else if (typeof size === "number") {
-    svgSize = Math.round(size * 0.75);
-    customStyle = { width: `${size}px`, height: `${size}px` };
-    iconWrapperClass = "rounded-xl";
-    textClass = size > 48 ? "text-2xl" : size > 36 ? "text-xl" : "text-base";
-  } else {
-    svgSize = size;
+    dimensions = iconOnly 
+      ? { width: size, height: size } 
+      : { width: Math.round(size * 3.2), height: size };
   }
 
-  const renderOfficialSvgIcon = (iconSize: string | number) => {
+  if (iconOnly) {
     return (
-      <svg
-        width={iconSize}
-        height={iconSize}
-        viewBox="0 0 1021.12 909.1"
-        fill="none"
-        xmlns="http://www.w3.org/2000/svg"
-        className="transition-all duration-300 shrink-0 block"
-      >
-        <defs>
-          <linearGradient id={gradId} x1="17.47" y1="447.63" x2="984.67" y2="463.31" gradientUnits="userSpaceOnUse">
-            <stop offset="0%" stopColor="#0db4d7"/>
-            <stop offset="100%" stopColor="#f3ba1a"/>
-          </linearGradient>
-        </defs>
-        <path fill="none" stroke={`url(#${gradId})`} strokeMiterlimit="10" strokeWidth="24px" d="M29.34,52.28c31.34-15.36,81.1-34.89,144.33-39.36,52.91-3.74,92.65,4.66,131.21,13.12,103.52,22.71,126.62,52.27,223.06,78.73,21.03,5.77,84.52,22.08,157.27,23.87,54.83,1.35,156.21-4.54,278.55-64.64,2.95-1.45,5.96,1.81,4.22,4.59-30.56,48.88-72.27,112.6-124.84,184.84-57.49,79.01-119.41,164.11-210.24,258.08-96.56,99.9-182.39,188.7-321.46,255.86-156.74,75.69-235.92,95.04-255.86,78.73-1.84-1.51-7.17-5.87-7.04-11.54.44-18.52,58.67-30.96,79.81-35.47,101.41-21.66,336.99,62.08,445.49,86.37h0c87.97,17.84,220.98,23.62,400.19-45.92"/>
-        <g>
-          <circle fill="#0db4d7" cx="41" cy="50.41" r="41"/>
-          <circle fill="#f3ba1a" cx="555.16" cy="586.73" r="52.48"/>
-          <circle fill="#0db4d7" cx="975.2" cy="836.03" r="45.92"/>
-        </g>
-      </svg>
+      <div className={`inline-flex items-center justify-center select-none ${className}`}>
+        <img
+          src={appIconSvg}
+          alt="Zakir App Icon"
+          style={{ width: `${dimensions.width}px`, height: `${dimensions.height}px` }}
+          className="object-contain shrink-0 block"
+        />
+      </div>
     );
-  };
+  }
 
-  const renderLogoIcon = (iconSize: string | number) => {
-    if (useSquareImage) {
+  const textColorClass = theme === "light"
+    ? "text-[#1c2c58]"
+    : theme === "dark"
+      ? "text-white"
+      : "text-[#1c2c58] dark:text-white";
+
+  const renderLogoImage = () => {
+    if (theme === "light") {
       return (
         <img
-          src={zakirOfficialLogo}
+          src={zakirLightLogo}
           alt="Zakir Logo"
-          className="object-contain shrink-0 block"
-          style={{ width: iconSize, height: iconSize }}
+          style={{ height: `${dimensions.height}px`, width: "auto" }}
+          className="object-contain shrink-0 block dark:hidden"
         />
       );
     }
-    return renderOfficialSvgIcon(iconSize);
+    if (theme === "dark") {
+      return (
+        <img
+          src={zakirDarkLogo}
+          alt="Zakir Logo"
+          style={{ height: `${dimensions.height}px`, width: "auto" }}
+          className="object-contain shrink-0 block light:hidden"
+        />
+      );
+    }
+    return (
+      <>
+        <img
+          src={zakirLightLogo}
+          alt="Zakir Logo"
+          style={{ height: `${dimensions.height}px`, width: "auto" }}
+          className="object-contain shrink-0 block dark:hidden"
+        />
+        <img
+          src={zakirDarkLogo}
+          alt="Zakir Logo"
+          style={{ height: `${dimensions.height}px`, width: "auto" }}
+          className="object-contain shrink-0 hidden dark:block"
+        />
+      </>
+    );
   };
 
+  // Full Logo Theme Resolution
   return (
-    <div className={`inline-flex items-center select-none ${className}`}>
-      {iconOnly ? (
-        <div 
-          style={typeof size === "number" ? customStyle : { width: svgSize, height: svgSize }} 
-          className={`flex items-center justify-center`}
-        >
-          {renderLogoIcon(svgSize)}
-        </div>
-      ) : (
-        <div className={`flex items-center ${gapClass}`}>
-          <div 
-            style={typeof size === "number" ? customStyle : {}}
-            className={`${iconWrapperClass} ${
-              theme === "light"
-                ? "bg-white border border-slate-200"
-                : "bg-slate-900/60 border border-[var(--border-color,#334155)]"
-            } p-1.5 flex items-center justify-center shrink-0 shadow-sm`}
-          >
-            {renderLogoIcon(svgSize)}
-          </div>
-          <div className="flex items-center">
-            <span className={`${textClass} font-extrabold tracking-tight ${textThemeColor} uppercase`}>
-              ZAKIR
-            </span>
-          </div>
-        </div>
+    <div className={`inline-flex items-center gap-2.5 select-none ${className}`}>
+      {renderLogoImage()}
+      {showText && (
+        <span className={`font-extrabold tracking-widest text-xl font-display uppercase ${textColorClass}`}>
+          ZAKIR
+        </span>
       )}
     </div>
   );
 };
+
