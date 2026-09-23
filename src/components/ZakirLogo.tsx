@@ -1,4 +1,5 @@
 import React from "react";
+export { ZakirMotionLogo } from "./ZakirMotionLogo";
 
 interface ZakirLogoProps {
   className?: string;

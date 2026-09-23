@@ -467,135 +467,222 @@ body:not(.dark) input:-webkit-autofill:active {
   border: none !important;
 }
 
-/* ==========================================
-   ZAKIR CINEMATIC LOADING MOTION GRAPHIC
-   ========================================== */
+/* ==========================================================
+   ZAKIR OFFICIAL BRAND MOTION SYSTEM
+   "Organizational Memory Becoming Connected Intelligence"
+   ========================================================== */
 
-/* 1. Ambient Aura Gradients */
-.zakir-aura-dark {
-  background: radial-gradient(circle, rgba(13, 180, 215, 0.22) 0%, rgba(0, 117, 222, 0.12) 40%, rgba(11, 15, 25, 0) 70%);
+.zakir-motion-root {
+  transform-origin: center center;
 }
 
-.zakir-aura-light {
-  background: radial-gradient(circle, rgba(0, 117, 222, 0.14) 0%, rgba(13, 180, 215, 0.06) 45%, rgba(248, 250, 252, 0) 70%);
+.zakir-motion-rect {
+  animation: zakirRectMotion 6s cubic-bezier(0.16, 1, 0.3, 1) infinite;
+  transform-origin: 835px 599px;
 }
 
-/* 2. Conic Light Ray Gradients */
-.zakir-ray-conic-dark {
-  background: conic-gradient(
-    from 0deg,
-    transparent 0deg,
-    rgba(13, 180, 215, 0.38) 45deg,
-    rgba(0, 117, 222, 0.22) 90deg,
-    transparent 160deg,
-    transparent 360deg
-  );
+.zakir-path-1 {
+  animation: zakirPath1Motion 6s cubic-bezier(0.16, 1, 0.3, 1) infinite;
+  transform-origin: 778px 549px;
 }
 
-.zakir-ray-conic-light {
-  background: conic-gradient(
-    from 0deg,
-    transparent 0deg,
-    rgba(0, 117, 222, 0.26) 45deg,
-    rgba(13, 180, 215, 0.14) 90deg,
-    transparent 160deg,
-    transparent 360deg
-  );
+.zakir-path-2 {
+  animation: zakirPath2Motion 6s cubic-bezier(0.16, 1, 0.3, 1) infinite;
+  transform-origin: 981px 706px;
 }
 
-/* 3. GPU Keyframe Animations */
-@keyframes zakirRaySpin {
+.zakir-path-3 {
+  animation: zakirPath3Motion 6s cubic-bezier(0.16, 1, 0.3, 1) infinite;
+  transform-origin: 475px 701px;
+}
+
+.zakir-path-4 {
+  animation: zakirPath4Motion 6s cubic-bezier(0.16, 1, 0.3, 1) infinite;
+  transform-origin: 588px 864px;
+}
+
+.zakir-path-5 {
+  animation: zakirPath5Motion 6s cubic-bezier(0.16, 1, 0.3, 1) infinite;
+  transform-origin: 731px 901px;
+}
+
+.zakir-motion-text {
+  animation: zakirTextMotion 6s cubic-bezier(0.16, 1, 0.3, 1) infinite;
+}
+
+@keyframes zakirRectMotion {
   0% {
-    transform: rotate(0deg) translateZ(0);
+    opacity: 0.15;
+    transform: scale(0.95) translateZ(0);
+  }
+  18% {
+    opacity: 1;
+    transform: scale(1.0) translateZ(0);
+  }
+  78% {
+    opacity: 1;
+    transform: scale(1.0) translateZ(0);
+  }
+  88% {
+    opacity: 1;
+    transform: scale(1.008) translateZ(0);
   }
   100% {
-    transform: rotate(360deg) translateZ(0);
+    opacity: 0.15;
+    transform: scale(0.95) translateZ(0);
   }
 }
 
-@keyframes zakirAuraPulse {
-  0%, 100% {
-    opacity: 0.55;
-    transform: scale(0.96) translateZ(0);
+@keyframes zakirPath1Motion {
+  0% {
+    opacity: 0;
+    transform: translate(-14px, -14px) scale(0.88);
+  }
+  14% {
+    opacity: 0;
+    transform: translate(-14px, -14px) scale(0.88);
+  }
+  28% {
+    opacity: 1;
+    transform: translate(0, 0) scale(1.0);
+  }
+  84% {
+    opacity: 1;
+    transform: translate(0, 0) scale(1.0);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-14px, -14px) scale(0.88);
+  }
+}
+
+@keyframes zakirPath2Motion {
+  0% {
+    opacity: 0;
+    transform: translate(16px, 0) scale(0.88);
+  }
+  18% {
+    opacity: 0;
+    transform: translate(16px, 0) scale(0.88);
+  }
+  32% {
+    opacity: 1;
+    transform: translate(0, 0) scale(1.0);
+  }
+  84% {
+    opacity: 1;
+    transform: translate(0, 0) scale(1.0);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(16px, 0) scale(0.88);
+  }
+}
+
+@keyframes zakirPath3Motion {
+  0% {
+    opacity: 0;
+    transform: translate(-20px, -10px) scale(0.94);
+  }
+  22% {
+    opacity: 0;
+    transform: translate(-20px, -10px) scale(0.94);
+  }
+  38% {
+    opacity: 1;
+    transform: translate(0, 0) scale(1.0);
+  }
+  84% {
+    opacity: 1;
+    transform: translate(0, 0) scale(1.0);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-20px, -10px) scale(0.94);
+  }
+}
+
+@keyframes zakirPath4Motion {
+  0% {
+    opacity: 0;
+    transform: translate(-16px, 6px) scale(0.95);
+  }
+  26% {
+    opacity: 0;
+    transform: translate(-16px, 6px) scale(0.95);
+  }
+  42% {
+    opacity: 1;
+    transform: translate(0, 0) scale(1.0);
+  }
+  84% {
+    opacity: 1;
+    transform: translate(0, 0) scale(1.0);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-16px, 6px) scale(0.95);
+  }
+}
+
+@keyframes zakirPath5Motion {
+  0% {
+    opacity: 0;
+    transform: translate(0, 18px) scale(0.95);
+  }
+  30% {
+    opacity: 0;
+    transform: translate(0, 18px) scale(0.95);
+  }
+  46% {
+    opacity: 1;
+    transform: translate(0, 0) scale(1.0);
+  }
+  84% {
+    opacity: 1;
+    transform: translate(0, 0) scale(1.0);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(0, 18px) scale(0.95);
+  }
+}
+
+@keyframes zakirTextMotion {
+  0% {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  38% {
+    opacity: 0;
+    transform: translateY(8px);
   }
   50% {
-    opacity: 0.88;
-    transform: scale(1.05) translateZ(0);
+    opacity: 1;
+    transform: translateY(0);
   }
-}
-
-@keyframes zakirRaySweep {
-  0% {
-    opacity: 0.35;
-    transform: rotate(0deg) scale(0.96) translateZ(0);
-  }
-  50% {
-    opacity: 0.85;
-    transform: rotate(180deg) scale(1.04) translateZ(0);
+  84% {
+    opacity: 1;
+    transform: translateY(0);
   }
   100% {
-    opacity: 0.35;
-    transform: rotate(360deg) scale(0.96) translateZ(0);
-  }
-}
-
-@keyframes zakirGlintOrbit {
-  0% {
-    transform: rotate(0deg) translateY(-56px) rotate(0deg) scale(0.7);
     opacity: 0;
-  }
-  12% {
-    opacity: 0.95;
-    transform: rotate(45deg) translateY(-56px) rotate(-45deg) scale(1.1);
-  }
-  45% {
-    opacity: 0.4;
-    transform: rotate(160deg) translateY(-56px) rotate(-160deg) scale(0.85);
-  }
-  65% {
-    opacity: 0.95;
-    transform: rotate(240deg) translateY(-56px) rotate(-240deg) scale(1.15);
-  }
-  85% {
-    opacity: 0.3;
-    transform: rotate(310deg) translateY(-56px) rotate(-310deg) scale(0.8);
-  }
-  100% {
-    transform: rotate(360deg) translateY(-56px) rotate(-360deg) scale(0.7);
-    opacity: 0;
+    transform: translateY(8px);
   }
 }
 
-/* 4. Animation Class Bindings */
-.zakir-motion-ray {
-  animation: zakirRaySpin 3.8s linear infinite;
-  transform-origin: center center;
-}
-
-.zakir-motion-aura {
-  animation: zakirAuraPulse 3.2s ease-in-out infinite;
-  transform-origin: center center;
-}
-
-.zakir-motion-sweep {
-  animation: zakirRaySweep 4.5s ease-in-out infinite;
-  transform-origin: center center;
-}
-
-.zakir-motion-glint {
-  animation: zakirGlintOrbit 3.8s cubic-bezier(0.4, 0, 0.2, 1) infinite;
-  transform-origin: center center;
-}
-
-/* 5. Prefers-Reduced-Motion Compliance */
+/* Accessibility: Full prefers-reduced-motion Support */
 @media (prefers-reduced-motion: reduce) {
-  .zakir-motion-ray,
-  .zakir-motion-aura,
-  .zakir-motion-sweep,
-  .zakir-motion-glint {
+  .zakir-motion-rect,
+  .zakir-path-1,
+  .zakir-path-2,
+  .zakir-path-3,
+  .zakir-path-4,
+  .zakir-path-5,
+  .zakir-motion-text {
     animation: none !important;
     transform: none !important;
-    opacity: 0.5 !important;
+    opacity: 1 !important;
   }
 }
 
