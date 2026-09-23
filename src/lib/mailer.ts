@@ -29,44 +29,72 @@ export function buildMasterEmailHtml(options: {
   securityNote?: string;
 }): string {
   const { title, greeting, bodyHtml, securityNote } = options;
-  return `<!DOCTYPE html>
-<html lang="en">
+  const appBase = process.env.VITE_APP_URL || "https://getzakir.com";
+  const lightLogoUrl = `${appBase}/api/email-logo/light.svg`;
+  const darkLogoUrl = `${appBase}/api/email-logo/dark.svg`;
+
+  return `<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="x-apple-disable-message-reformatting" />
   <title>${title}</title>
+  <style type="text/css">
+    @media (prefers-color-scheme: dark) {
+      .email-logo-box {
+        background-color: #ffffff !important;
+        border: 1px solid #e2e8f0 !important;
+      }
+      .email-logo-light {
+        display: none !important;
+        mso-hide: all !important;
+      }
+      .email-logo-dark {
+        display: block !important;
+      }
+    }
+  </style>
 </head>
-<body style="margin:0;padding:0;background-color:#f8fafc;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#0f172a;">
-  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background-color:#f8fafc;padding:30px 10px;">
+<body style="margin: 0; padding: 0; background-color: #f8fafc; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #0f172a; -webkit-font-smoothing: antialiased;">
+  <table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #f8fafc; table-layout: fixed; padding: 40px 16px;">
     <tr>
       <td align="center">
-        <table role="presentation" width="100%" style="max-width:560px;background-color:#ffffff;border-radius:16px;border:1px solid #e2e8f0;overflow:hidden;box-shadow:0 4px 6px -1px rgba(0,0,0,0.05);" cellspacing="0" cellpadding="0">
+        <table border="0" cellpadding="0" cellspacing="0" width="100%" style="max-width: 560px; background-color: #ffffff; border-radius: 16px; border: 1px solid #e2e8f0; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);">
+          <!-- Header with Official Logo (Clean Background) -->
           <tr>
-            <td style="background-color:#0f172a;padding:28px 32px;text-align:left;border-bottom:3px solid #2563eb;">
-              <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
+            <td style="padding: 36px 32px 24px 32px; text-align: center; border-bottom: 1px solid #f1f5f9; background-color: #ffffff;">
+              <!-- Logo Container Badge: 80px x 80px Container with Centered Logo -->
+              <table border="0" cellpadding="0" cellspacing="0" align="center" style="margin: 0 auto 16px auto;">
                 <tr>
-                  <td>
-                    <span style="color:#ffffff;font-size:22px;font-weight:800;letter-spacing:-0.5px;">ZAKIR</span>
-                    <span style="color:#60a5fa;font-size:12px;font-weight:600;margin-left:8px;text-transform:uppercase;letter-spacing:1px;">Decision Intelligence</span>
+                  <td align="center" class="email-logo-box" style="width: 80px; height: 80px; background-color: #1C2C58; border-radius: 20px; text-align: center; vertical-align: middle; padding: 0; box-shadow: 0 4px 14px rgba(28, 44, 88, 0.18);">
+                    <a href="${appBase}" target="_blank" style="text-decoration: none; display: block; width: 80px; height: 80px;">
+                      <img src="${lightLogoUrl}" alt="Zakir" width="48" height="48" class="email-logo-light" style="display: block; width: 48px; height: 48px; border: 0; outline: none; text-decoration: none; margin: 16px auto;" />
+                      <!--[if !mso]><!-->
+                      <img src="${darkLogoUrl}" alt="Zakir" width="48" height="48" class="email-logo-dark" style="display: none; width: 48px; height: 48px; border: 0; outline: none; text-decoration: none; margin: 16px auto;" />
+                      <!--<![endif]-->
+                    </a>
                   </td>
                 </tr>
               </table>
+              <span style="color: #0f172a; font-size: 20px; font-weight: 800; letter-spacing: -0.5px; display: block;">ZAKIR</span>
+              <span style="color: #2563eb; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.5px; display: block; margin-top: 4px;">Decision Intelligence</span>
             </td>
           </tr>
           <tr>
-            <td style="padding:32px;">
-              <h1 style="color:#0f172a;font-size:20px;font-weight:700;margin:0 0 16px 0;">${title}</h1>
-              ${greeting ? `<p style="color:#475569;font-size:15px;margin:0 0 20px 0;">${greeting}</p>` : ""}
+            <td style="padding: 32px;">
+              <h1 style="color: #0f172a; font-size: 18px; font-weight: 700; margin: 0 0 16px 0;">${title}</h1>
+              ${greeting ? `<p style="color: #475569; font-size: 14px; margin: 0 0 20px 0;">${greeting}</p>` : ""}
               ${bodyHtml}
               ${securityNote ? `
-              <div style="margin-top:24px;padding:14px;background-color:#f8fafc;border-left:4px solid #2563eb;border-radius:6px;">
-                <p style="margin:0;color:#64748b;font-size:12px;line-height:1.5;"><strong>Security Notice:</strong> ${securityNote}</p>
+              <div style="margin-top: 24px; padding: 14px; background-color: #f8fafc; border-left: 4px solid #2563eb; border-radius: 6px; border: 1px solid #e2e8f0;">
+                <p style="margin: 0; color: #64748b; font-size: 12px; line-height: 1.5;"><strong>Security Notice:</strong> ${securityNote}</p>
               </div>` : ""}
             </td>
           </tr>
           <tr>
-            <td style="background-color:#f8fafc;padding:20px 32px;border-top:1px solid #e2e8f0;text-align:center;">
-              <p style="margin:0;color:#94a3b8;font-size:12px;line-height:1.5;">
+            <td style="background-color: #f8fafc; padding: 20px 32px; border-top: 1px solid #e2e8f0; text-align: center;">
+              <p style="margin: 0; color: #94a3b8; font-size: 11px; line-height: 1.5;">
                 &copy; ${new Date().getFullYear()} Zakir Intelligence Platform. All rights reserved.<br>
                 Enterprise security &amp; institutional data protection.
               </p>

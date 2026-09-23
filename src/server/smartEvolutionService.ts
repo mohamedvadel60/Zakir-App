@@ -17,6 +17,35 @@ function getLocalGeminiClient(): GoogleGenAI | null {
   return new GoogleGenAI({ apiKey: apiKey.trim() });
 }
 
+function safeJsonParse(text: string, fallback: any): any {
+  if (!text) return fallback;
+  try {
+    let clean = text.trim();
+    // Remove markdown code blocks if present
+    const jsonMatch = clean.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      clean = jsonMatch[0];
+    }
+    // Attempt standard parse first
+    return JSON.parse(clean);
+  } catch (e1) {
+    try {
+      // Attempt repair for common trailing commas or unquoted properties
+      let repaired = text.trim()
+        .replace(/,\s*([\]}])/g, "$1") // remove trailing commas
+        .replace(/([{,]\s*)([a-zA-Z0-9_]+)\s*:/g, '$1"$2":'); // quote unquoted keys
+      const jsonMatch = repaired.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        repaired = jsonMatch[0];
+      }
+      return JSON.parse(repaired);
+    } catch (e2) {
+      console.warn("[SmartEvolution] JSON parse repair failed, returning fallback structure.");
+      return fallback;
+    }
+  }
+}
+
 // --- ANALYSIS LOCK & RUNTIME DEDUPLICATION (PART 20) ---
 export const runningSmartEvolutionLocks = new Set<string>();
 
@@ -528,17 +557,13 @@ export const handleRunSmartEvolution = async (req: Request, res: Response) => {
           }
 
           if (response?.text) {
-            try {
-              let cleaned = response.text.trim();
-              const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
-              if (jsonMatch) {
-                cleaned = jsonMatch[0];
-              }
-              geminiResult = JSON.parse(cleaned);
-              geminiSucceeded = true;
-            } catch (jsonErr: any) {
-              console.warn(`[SmartEvolution] JSON parse error for ${mName}:`, jsonErr?.message);
-            }
+            geminiResult = safeJsonParse(response.text, {
+              executiveSummary: response.text,
+              risksList: [],
+              opportunitiesList: [],
+              recommendationsList: [],
+              priorities: [],
+            });
 
             // Check for grounding metadata
             const candidate = response.candidates?.[0] as any;
