@@ -5256,9 +5256,10 @@ app.post("/api/auth/verify-code", otpLimiter, async (req, res) => {
       if (userSnap.exists) {
         firestoreUser = userSnap.data();
         const isAdminUser = foundUid === ADMIN_USER_ID || firestoreUser.role === "Admin" || ADMIN_EMAILS.has((targetIdentifier || "").toLowerCase());
-        if (isAdminUser || (!firestoreUser.requiresDocumentVerification && firestoreUser.role && firestoreUser.role !== "CEO" && firestoreUser.role !== "Owner")) {
+        const isApprovedAlready = firestoreUser.accountStatus === "APPROVED" || isAdminUser;
+        if (isAdminUser) {
           nextAccountStatus = "APPROVED";
-        } else if (!firestoreUser.requiresDocumentVerification) {
+        } else if (firestoreUser.accountStatus === "APPROVED") {
           nextAccountStatus = "APPROVED";
         } else if (firestoreUser.verificationDocuments && firestoreUser.verificationDocuments.length > 0) {
           nextAccountStatus = "PENDING_ADMIN_REVIEW";
@@ -5266,29 +5267,44 @@ app.post("/api/auth/verify-code", otpLimiter, async (req, res) => {
           nextAccountStatus = "PENDING_DOCUMENT_VERIFICATION";
         }
 
-        await userRef.update({
-          isVerified: true,
+        const isUserFullyApproved = nextAccountStatus === "APPROVED";
+        const docVerificationStatus = isUserFullyApproved 
+          ? "APPROVED" 
+          : (nextAccountStatus === "PENDING_ADMIN_REVIEW" ? "UNDER_REVIEW" : (firestoreUser.documentVerificationStatus || "PENDING_UPLOAD"));
+        const verInfoStatus = isUserFullyApproved
+          ? "verified"
+          : (nextAccountStatus === "PENDING_ADMIN_REVIEW" ? "under_review" : "action_required");
+
+        const updateFields: Record<string, any> = {
           isEmailVerified: true,
           emailVerified: true,
           email_verified: true,
           isPhoneVerified: true,
           accountStatus: nextAccountStatus,
-          documentVerificationStatus: nextAccountStatus === "PENDING_DOCUMENT_VERIFICATION" ? "PENDING_UPLOAD" : firestoreUser.documentVerificationStatus || "PENDING_UPLOAD",
-          verification_status: "verified",
-          verification_required: false,
-          "verificationInfo.status": "verified",
-          "verificationInfo.verifiedAt": new Date().toISOString(),
-        });
-        firestoreUser.isVerified = true;
+          documentVerificationStatus: docVerificationStatus,
+          isVerified: isUserFullyApproved,
+          verification_status: isUserFullyApproved ? "verified" : (nextAccountStatus === "PENDING_ADMIN_REVIEW" ? "pending" : "unverified"),
+          verification_required: !isUserFullyApproved,
+          "verificationInfo.status": verInfoStatus,
+        };
+        if (isUserFullyApproved) {
+          updateFields["verificationInfo.verifiedAt"] = new Date().toISOString();
+        }
+
+        await userRef.update(updateFields);
         firestoreUser.isEmailVerified = true;
         firestoreUser.emailVerified = true;
         firestoreUser.email_verified = true;
+        firestoreUser.isPhoneVerified = true;
         firestoreUser.accountStatus = nextAccountStatus;
-        firestoreUser.documentVerificationStatus = nextAccountStatus === "PENDING_DOCUMENT_VERIFICATION" ? "PENDING_UPLOAD" : firestoreUser.documentVerificationStatus || "PENDING_UPLOAD";
-        firestoreUser.verification_status = "verified";
-        firestoreUser.verification_required = false;
+        firestoreUser.documentVerificationStatus = docVerificationStatus;
+        firestoreUser.isVerified = isUserFullyApproved;
+        firestoreUser.verification_status = isUserFullyApproved ? "verified" : (nextAccountStatus === "PENDING_ADMIN_REVIEW" ? "pending" : "unverified");
+        firestoreUser.verification_required = !isUserFullyApproved;
+        if (!firestoreUser.verificationInfo) firestoreUser.verificationInfo = {};
+        firestoreUser.verificationInfo.status = verInfoStatus;
         console.log(
-          `[VERIFICATION SUCCESS] Updated user ${foundUid} in Firestore.`,
+          `[VERIFICATION SUCCESS] Updated user ${foundUid} in Firestore. accountStatus=${nextAccountStatus}, isVerified=${isUserFullyApproved}`,
         );
       }
     } catch (uErr) {
@@ -5299,18 +5315,28 @@ app.post("/api/auth/verify-code", otpLimiter, async (req, res) => {
     }
 
     if (user) {
-      user.isVerified = true;
+      const isUserFullyApproved = nextAccountStatus === "APPROVED";
+      const docVerificationStatus = isUserFullyApproved 
+        ? "APPROVED" 
+        : (nextAccountStatus === "PENDING_ADMIN_REVIEW" ? "UNDER_REVIEW" : (user.documentVerificationStatus || "PENDING_UPLOAD"));
+      const verInfoStatus = isUserFullyApproved
+        ? "verified"
+        : (nextAccountStatus === "PENDING_ADMIN_REVIEW" ? "under_review" : "action_required");
+
       user.isEmailVerified = true;
       user.emailVerified = true;
       user.email_verified = true;
       user.isPhoneVerified = true;
       user.accountStatus = nextAccountStatus;
-      user.documentVerificationStatus = nextAccountStatus === "PENDING_DOCUMENT_VERIFICATION" ? "PENDING_UPLOAD" : user.documentVerificationStatus || "PENDING_UPLOAD";
-      user.verification_status = "verified";
-      user.verification_required = false;
+      user.documentVerificationStatus = docVerificationStatus;
+      user.isVerified = isUserFullyApproved;
+      user.verification_status = isUserFullyApproved ? "verified" : (nextAccountStatus === "PENDING_ADMIN_REVIEW" ? "pending" : "unverified");
+      user.verification_required = !isUserFullyApproved;
       if (!user.verificationInfo) user.verificationInfo = {};
-      user.verificationInfo.status = "verified";
-      user.verificationInfo.verifiedAt = new Date().toISOString();
+      user.verificationInfo.status = verInfoStatus;
+      if (isUserFullyApproved) {
+        user.verificationInfo.verifiedAt = new Date().toISOString();
+      }
       if (firestoreUser && firestoreUser.role) {
         user.role = firestoreUser.role;
       }
@@ -9718,19 +9744,36 @@ app.get("/api/admin/pending-approvals", requireAuth, requireAdmin, async (req: A
 
     const pendingApprovals = usersList.filter((u: any) => {
       // Exclude platform admins and purged accounts
-      if (u.id === ADMIN_USER_ID || u.role === "Admin" || ADMIN_EMAILS.has((u.email || "").toLowerCase())) {
+      if (u.id === ADMIN_USER_ID || u.role === "Admin" || (u.role && u.role.toLowerCase() === "admin") || ADMIN_EMAILS.has((u.email || "").toLowerCase())) {
         return false;
       }
       if (u.accountLifecycleStatus === "PURGED" || u.isPurged === true) {
         return false;
       }
-      return u.accountStatus === "PENDING_ADMIN_REVIEW" || (u.institutionalProfile && u.accountStatus !== "APPROVED" && u.accountStatus !== "REJECTED" && u.accountStatus !== "ACTIVE");
+      if (u.accountStatus === "APPROVED" || u.accountStatus === "REJECTED") {
+        return false;
+      }
+      const hasDocs = Array.isArray(u.verificationDocuments) && u.verificationDocuments.length > 0;
+      const isPending =
+        u.accountStatus === "PENDING_ADMIN_REVIEW" ||
+        u.accountStatus === "PENDING_APPROVAL" ||
+        u.documentVerificationStatus === "UNDER_REVIEW" ||
+        u.verification_status === "under_review" ||
+        u.verification_status === "pending" ||
+        u.verificationInfo?.status === "under_review" ||
+        u.verificationInfo?.status === "pending" ||
+        (hasDocs && u.accountStatus !== "APPROVED" && u.accountStatus !== "REJECTED") ||
+        (u.institutionalProfile && u.accountStatus !== "APPROVED" && u.accountStatus !== "REJECTED");
+
+      return isPending;
     });
 
     return res.json({
       success: true,
       pendingCount: pendingApprovals.length,
-      pendingApprovals
+      count: pendingApprovals.length,
+      pendingApprovals,
+      pendingUsers: pendingApprovals
     });
   } catch (err: any) {
     console.error("[ADMIN_PENDING_APPROVALS_ERROR]", err);

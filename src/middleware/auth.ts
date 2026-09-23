@@ -523,6 +523,22 @@ export function computeStrictVerificationState(profile: any, isAdmin: boolean = 
     };
   }
 
+  // RULE: Explicit Admin Approval -> APPROVED
+  const isMarkedApproved = (rawAccountStatus === "APPROVED" || profile?.accountStatus === "APPROVED" || Boolean(profile?.approvedAt && !hasRejectedDoc));
+  if (isMarkedApproved && (documentCount > 0 || adminOverride || profile?.approvedAt)) {
+    return {
+      effectiveStatus: "APPROVED",
+      isVerified: true,
+      verificationRequired: false,
+      verificationStatus: "verified",
+      documentCount,
+      hasRejectedDocument: false,
+      hasPendingDocument: false,
+      allDocumentsApproved: true,
+      adminVerificationOverride: adminOverride,
+    };
+  }
+
   // RULE: No documents and no admin override -> VERIFICATION_REQUIRED
   if (documentCount === 0 && !adminOverride) {
     return {
@@ -539,42 +555,8 @@ export function computeStrictVerificationState(profile: any, isAdmin: boolean = 
     };
   }
 
-  // RULE: Documents pending review
-  if (hasPendingDoc || rawAccountStatus === "PENDING_ADMIN_REVIEW" || rawAccountStatus === "PENDING_DOCUMENT_VERIFICATION" || overallDocStatus === "UNDER_REVIEW" || overallDocStatus === "PENDING" || overallDocStatus === "PENDING_REVIEW") {
-    if (!adminOverride) {
-      return {
-        effectiveStatus: "PENDING_ADMIN_REVIEW",
-        isVerified: false,
-        verificationRequired: true,
-        verificationStatus: "pending",
-        documentCount,
-        hasRejectedDocument: false,
-        hasPendingDocument: true,
-        allDocumentsApproved: false,
-        adminVerificationOverride: false,
-        reason: "PENDING_REVIEW"
-      };
-    }
-  }
-
-  // RULE: Valid Documents + Explicit Admin Approval -> APPROVED
-  const isMarkedApproved = rawAccountStatus === "APPROVED" || overallDocStatus === "APPROVED" || profile?.verificationInfo?.status === "verified";
-  if (isMarkedApproved && ((documentCount > 0 && !hasRejectedDoc && !hasPendingDoc) || adminOverride)) {
-    return {
-      effectiveStatus: "APPROVED",
-      isVerified: true,
-      verificationRequired: false,
-      verificationStatus: "verified",
-      documentCount,
-      hasRejectedDocument: false,
-      hasPendingDocument: false,
-      allDocumentsApproved: true,
-      adminVerificationOverride: adminOverride,
-    };
-  }
-
-  // If docs exist but not approved yet by admin -> PENDING_ADMIN_REVIEW
-  if (documentCount > 0 && !hasRejectedDoc) {
+  // RULE: Documents pending review -> PENDING_ADMIN_REVIEW
+  if (documentCount > 0 || rawAccountStatus === "PENDING_ADMIN_REVIEW" || overallDocStatus === "UNDER_REVIEW" || overallDocStatus === "PENDING") {
     return {
       effectiveStatus: "PENDING_ADMIN_REVIEW",
       isVerified: false,
@@ -582,7 +564,7 @@ export function computeStrictVerificationState(profile: any, isAdmin: boolean = 
       verificationStatus: "pending",
       documentCount,
       hasRejectedDocument: false,
-      hasPendingDocument: hasPendingDoc,
+      hasPendingDocument: true,
       allDocumentsApproved: false,
       adminVerificationOverride: false,
       reason: "PENDING_REVIEW"

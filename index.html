@@ -94,11 +94,11 @@
       })();
     </script>
     <div id="root">
-      <div id="zakir-init-splash" style="position:fixed;inset:0;display:flex;align-items:center;justify-content:center;z-index:99999;user-select:none;overflow:hidden;">
-        <div style="position:relative;display:flex;align-items:center;justify-content:center;width:88px;height:88px;pointer-events:none;">
-          <!-- Official Logo Container -->
-          <div class="init-container" style="position:relative;z-index:20;display:flex;align-items:center;justify-content:center;width:88px;height:88px;border-radius:20px;">
-            <svg id="zakir-init-logo-svg" viewBox="0 0 1435 1199.38" width="88" height="88" xmlns="http://www.w3.org/2000/svg" style="border-radius:20px;display:block;">
+      <div id="zakir-init-splash" style="position:fixed;inset:0;display:flex;align-items:center;justify-content:center;z-index:99999;user-select:none;overflow:hidden;background-color:#0B0F19;">
+        <div style="position:relative;display:flex;align-items:center;justify-content:center;background:transparent;border:none;box-shadow:none;">
+          <div class="init-container" style="position:relative;display:flex;align-items:center;justify-content:center;background:transparent;border:none;box-shadow:none;">
+            <svg id="zakir-init-logo-svg" viewBox="0 0 1435 1199.38" xmlns="http://www.w3.org/2000/svg" style="width: clamp(96px, 22vw, 140px); height: auto; display: block; background: transparent; border: none; box-shadow: none;">
+              <rect y="561.27" width="56" height="56" fill="none"/>
               <rect id="zakir-init-bg-rect" x="235.62" width="1199.38" height="1199.38" rx="262.36" ry="262.36" fill="#ffffff"/>
               <g id="zakir-init-paths" fill="#1c2c58">
                 <path d="M778.63,549.83c-23.73-3.27-49.53-5.85-77.18-7.24-32.15-1.61-62.03-1.36-89.24,0,34.57-18.49,69.14-36.98,103.71-55.47,20.27,4.1,42.87,7.57,67.53,9.65,37.02,3.12,70.37,2.39,98.89,0-34.57,17.69-69.14,35.37-103.71,53.06Z"/>
@@ -115,11 +115,17 @@
         (function() {
           try {
             var saved = localStorage.getItem('zakir_theme');
+            var splash = document.getElementById('zakir-init-splash');
+            var bgRect = document.getElementById('zakir-init-bg-rect');
+            var paths = document.getElementById('zakir-init-paths');
             if (saved === 'light') {
-              var bgRect = document.getElementById('zakir-init-bg-rect');
-              var paths = document.getElementById('zakir-init-paths');
+              if (splash) splash.style.backgroundColor = '#F8FAFC';
               if (bgRect) bgRect.setAttribute('fill', '#1c2c58');
               if (paths) paths.setAttribute('fill', '#ffffff');
+            } else {
+              if (splash) splash.style.backgroundColor = '#0B0F19';
+              if (bgRect) bgRect.setAttribute('fill', '#ffffff');
+              if (paths) paths.setAttribute('fill', '#1c2c58');
             }
           } catch(e) {}
         })();

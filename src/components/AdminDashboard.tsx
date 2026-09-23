@@ -1264,12 +1264,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           ? "APPROVED"
           : newStatus === "rejected"
           ? "REJECTED"
-          : newStatus === "pending"
+          : (newStatus === "pending" || newStatus === "under_review")
           ? "PENDING_ADMIN_REVIEW"
-          : "VERIFICATION_REQUIRED";
+          : "PENDING_DOCUMENT_VERIFICATION";
 
       const profilePayload = {
         accountStatus: mappedAccountStatus,
+        documentVerificationStatus: mappedAccountStatus === "APPROVED" ? "APPROVED" : mappedAccountStatus === "REJECTED" ? "REJECTED" : mappedAccountStatus === "PENDING_ADMIN_REVIEW" ? "UNDER_REVIEW" : "PENDING_UPLOAD",
         isVerified: mappedAccountStatus === "APPROVED",
         verification_required: mappedAccountStatus !== "APPROVED",
         verification_status: newStatus,
@@ -1814,19 +1815,21 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   // Filtered users list with category filters
   const filteredUsers = users.filter(u => {
     // Category filter
+    const isEmailVer = !!((u as any).fullUser?.emailVerified || u.emailVerified || (u as any).isEmailVerified || (u as any).email_verified);
+    const accSt = (u as any).fullUser?.accountStatus || (u as any).accountStatus;
+    const docSt = u.verificationInfo?.status;
+    const isFullyApproved = accSt === "APPROVED" || (isEmailVer && docSt === "verified");
+    const isUnderReview = accSt === "PENDING_ADMIN_REVIEW" || accSt === "PENDING_APPROVAL" || docSt === "under_review" || docSt === "pending" || docSt === "action_required" || ((u.files && u.files.length > 0 || ((u as any).fullUser?.verificationDocuments?.length || 0) > 0) && !isFullyApproved && accSt !== "REJECTED");
+
     if (userCategoryFilter === "online") {
       const act = getUserActivityStatus(u.lastActiveAt, u.createdAt);
       if (act.key !== "online") return false;
     } else if (userCategoryFilter === "verified") {
-      const isEmailVer = !!((u as any).fullUser?.emailVerified || u.emailVerified || (u as any).isEmailVerified || (u as any).email_verified || u.isVerified);
-      const docSt = u.verificationInfo?.status || "unverified";
-      if (!isEmailVer || docSt !== "verified") return false;
+      if (!isFullyApproved) return false;
     } else if (userCategoryFilter === "pending_ver") {
-      const docSt = u.verificationInfo?.status;
-      if (docSt !== "under_review" && docSt !== "action_required") return false;
+      if (!isUnderReview) return false;
     } else if (userCategoryFilter === "unverified") {
-      const docSt = u.verificationInfo?.status || "unverified";
-      if (docSt === "verified") return false;
+      if (isFullyApproved) return false;
     } else if (userCategoryFilter === "admin") {
       if (u.id !== currentUser.id && u.id !== ADMIN_USER_ID && u.role !== "Admin") return false;
     }
@@ -4423,7 +4426,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       : theme === "dark" ? "bg-slate-800/80 text-slate-400 hover:text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"
                   }`}
                 >
-                  {lang === "ar" ? "موثق بالكامل" : "Verified"} ({users.filter(u => u.verificationInfo?.status === "verified").length})
+                  {lang === "ar" ? "موثق بالكامل" : "Verified"} ({users.filter(u => {
+                    const isEmailVer = !!((u as any).fullUser?.emailVerified || u.emailVerified || (u as any).isEmailVerified || (u as any).email_verified);
+                    const accSt = (u as any).fullUser?.accountStatus || (u as any).accountStatus;
+                    const docSt = u.verificationInfo?.status;
+                    return accSt === "APPROVED" || (isEmailVer && docSt === "verified");
+                  }).length})
                 </button>
 
                 <button
@@ -4434,7 +4442,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       : theme === "dark" ? "bg-slate-800/80 text-slate-400 hover:text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"
                   }`}
                 >
-                  {lang === "ar" ? "قيد الدراسة" : "Pending Review"} ({users.filter(u => u.verificationInfo?.status === "under_review" || u.verificationInfo?.status === "action_required").length})
+                  {lang === "ar" ? "قيد المراجعة" : "Pending Review"} ({users.filter(u => {
+                    const isEmailVer = !!((u as any).fullUser?.emailVerified || u.emailVerified || (u as any).isEmailVerified || (u as any).email_verified);
+                    const accSt = (u as any).fullUser?.accountStatus || (u as any).accountStatus;
+                    const docSt = u.verificationInfo?.status;
+                    const isFullyApproved = accSt === "APPROVED" || (isEmailVer && docSt === "verified");
+                    return !isFullyApproved && accSt !== "REJECTED" && (accSt === "PENDING_ADMIN_REVIEW" || accSt === "PENDING_APPROVAL" || docSt === "under_review" || docSt === "pending" || docSt === "action_required" || ((u.files && u.files.length > 0 || ((u as any).fullUser?.verificationDocuments?.length || 0) > 0)));
+                  }).length})
                 </button>
 
                 <button
@@ -4445,7 +4459,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       : theme === "dark" ? "bg-slate-800/80 text-slate-400 hover:text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"
                   }`}
                 >
-                  {lang === "ar" ? "غير موثق" : "Unverified"} ({users.filter(u => (u.verificationInfo?.status || "unverified") !== "verified").length})
+                  {lang === "ar" ? "غير موثق" : "Unverified"} ({users.filter(u => {
+                    const isEmailVer = !!((u as any).fullUser?.emailVerified || u.emailVerified || (u as any).isEmailVerified || (u as any).email_verified);
+                    const accSt = (u as any).fullUser?.accountStatus || (u as any).accountStatus;
+                    const docSt = u.verificationInfo?.status;
+                    return !(accSt === "APPROVED" || (isEmailVer && docSt === "verified"));
+                  }).length})
                 </button>
 
                 <button
@@ -4742,9 +4761,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                             {/* VERIFICATION BADGE */}
                             <td className="py-4 px-4">
                               {(() => {
-                                const isEmailVer = !!((record as any).fullUser?.emailVerified || (record as any).emailVerified || (record as any).isEmailVerified || (record as any).email_verified || (record as any).isVerified);
-                                const docSt = record.verificationInfo?.status || "unverified";
-                                const isFullyVer = isEmailVer && docSt === "verified";
+                                const isEmailVer = !!((record as any).fullUser?.emailVerified || (record as any).emailVerified || (record as any).isEmailVerified || (record as any).email_verified);
+                                const accSt = (record as any).fullUser?.accountStatus || (record as any).accountStatus;
+                                const docSt = record.verificationInfo?.status || (accSt === "APPROVED" ? "verified" : (accSt === "PENDING_ADMIN_REVIEW" ? "under_review" : (accSt === "REJECTED" ? "rejected" : "unverified")));
+                                const isFullyApproved = accSt === "APPROVED" || (isEmailVer && docSt === "verified");
+                                const isUnderReview = !isFullyApproved && accSt !== "REJECTED" && (accSt === "PENDING_ADMIN_REVIEW" || accSt === "PENDING_APPROVAL" || docSt === "under_review" || docSt === "pending" || docSt === "action_required" || ((record.files && record.files.length > 0) || ((record as any).fullUser?.verificationDocuments?.length || 0) > 0));
+                                const isRejected = accSt === "REJECTED" || docSt === "rejected";
+
                                 return (
                                   <div className="flex flex-col gap-1 text-[11px]">
                                     <div className="flex items-center gap-1.5 font-medium">
@@ -4757,10 +4780,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                     </div>
                                     <div className="flex items-center gap-1.5 font-medium">
                                       <span className="text-slate-400">Docs:</span>
-                                      {docSt === "verified" ? (
+                                      {docSt === "verified" || isFullyApproved ? (
                                         <span className="text-emerald-600 dark:text-emerald-400 font-bold flex items-center gap-0.5"><CheckCircle2 className="w-3 h-3"/> {lang === "ar" ? "معتمدة" : "Verified"}</span>
-                                      ) : docSt === "under_review" ? (
-                                        <span className="text-amber-600 dark:text-amber-400 font-bold flex items-center gap-0.5"><Clock className="w-3 h-3"/> {lang === "ar" ? "قيد الدراسة" : "Review"}</span>
+                                      ) : docSt === "under_review" || isUnderReview ? (
+                                        <span className="text-amber-600 dark:text-amber-400 font-bold flex items-center gap-0.5"><Clock className="w-3 h-3"/> {lang === "ar" ? "قيد المراجعة" : "Review"}</span>
+                                      ) : docSt === "rejected" || isRejected ? (
+                                        <span className="text-rose-500 dark:text-rose-400 font-bold flex items-center gap-0.5"><AlertCircle className="w-3 h-3"/> {lang === "ar" ? "مرفوضة" : "Rejected"}</span>
                                       ) : docSt === "action_required" ? (
                                         <span className="text-rose-500 dark:text-rose-400 font-bold flex items-center gap-0.5"><AlertCircle className="w-3 h-3"/> {lang === "ar" ? "ناقصة" : "Missing"}</span>
                                       ) : (
@@ -4768,15 +4793,25 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                       )}
                                     </div>
                                     <div className="pt-0.5">
-                                      {isFullyVer ? (
+                                      {isFullyApproved ? (
                                         <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/40">
                                           <CheckCircle2 className="w-3 h-3" />
-                                          {lang === "ar" ? "مكتمل التحقق" : "Fully Verified"}
+                                          {lang === "ar" ? "موثق ومعتمد" : "Approved & Verified"}
+                                        </span>
+                                      ) : isUnderReview ? (
+                                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30">
+                                          <Clock className="w-3 h-3" />
+                                          {lang === "ar" ? "قيد مراجعة الإدارة" : "Pending Review"}
+                                        </span>
+                                      ) : isRejected ? (
+                                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-500/15 text-rose-700 dark:text-rose-300 border border-rose-500/30">
+                                          <AlertCircle className="w-3 h-3" />
+                                          {lang === "ar" ? "طلب مرفوض" : "Rejected"}
                                         </span>
                                       ) : (
-                                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30">
-                                          <AlertCircle className="w-3 h-3" />
-                                          {lang === "ar" ? "غير مكتمل" : "Not Verified"}
+                                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-500/15 text-slate-700 dark:text-slate-300 border border-slate-500/30">
+                                          <Info className="w-3 h-3" />
+                                          {lang === "ar" ? "بانتظار الوثائق" : "Awaiting Docs"}
                                         </span>
                                       )}
                                     </div>
