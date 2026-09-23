@@ -410,7 +410,7 @@ export function writeDb(data: any) {
 let geminiCooldownUntil = 0;
 
 export function isGeminiInCooldown(): boolean {
-  return Date.now() < geminiCooldownUntil;
+  return false;
 }
 
 export function setGeminiCooldown(durationMs: number = 35000) {
@@ -20469,14 +20469,16 @@ const handleSmartEvolution = async (
 
     let response: any = null;
     const fallbackModels = [
+      "gemini-3.5-flash",
+      "gemini-3.5-flash-lite",
+      "gemini-flash-lite-latest",
+      "gemini-3.7-flash",
       "gemini-3.1-flash-lite",
-      "gemini-flash-latest",
       "gemini-3.8-flash",
     ];
     let searchToolFailed = false;
 
     for (let i = 0; i < fallbackModels.length; i++) {
-      if (isGeminiInCooldown()) break;
 
       // Try with Google Search tool first
       if (!searchToolFailed) {

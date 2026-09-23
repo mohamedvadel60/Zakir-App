@@ -1,24 +1,49 @@
 import React, { useMemo } from "react";
-import Markdown from "react-markdown";
 import {
-  ExternalLink,
+  FileText,
   ShieldAlert,
   Compass,
   CheckCircle,
   TrendingUp,
-  FileText,
-  Sparkles,
+  ExternalLink,
+  Layers,
   Info,
-  Scale,
+  AlertCircle,
   Building2,
+  Sparkles,
   ChevronRight,
   Globe,
-  Layers,
   Award,
+  Scale,
+  Database,
+  ArrowUpRight,
 } from "lucide-react";
+import { AIResponse, AIResponseData } from "./AIResponse";
 
-interface ExecutiveReportFormatterProps {
-  content: string | undefined | null;
+export { AIResponse };
+export type { AIResponseData };
+
+export interface StructuredAIReport {
+  title?: string;
+  advisorType?: "cognitive" | "administrative" | "unified" | "market" | "evolution";
+  executiveSummary?: string;
+  facts?: Array<{ title?: string; detail: string; category?: string }>;
+  inferences?: Array<{ title?: string; detail: string }>;
+  recommendations?: Array<{
+    title?: string;
+    detail: string;
+    priority?: "Critical" | "High" | "Medium" | "Low";
+    timeframe?: string;
+  }>;
+  risks?: Array<{ title: string; severity?: string; detail?: string }>;
+  patterns?: string[];
+  evidence?: Array<{ title: string; source?: string; detail?: string }>;
+  sources?: Array<{ title: string; url: string; snippet?: string }>;
+  rawSections?: Array<{ title: string; items: string[]; iconType?: string }>;
+}
+
+export interface ExecutiveReportFormatterProps {
+  content: string | AIResponseData | StructuredAIReport | undefined | null;
   theme?: "dark" | "light";
   lang?: "ar" | "en" | "fr";
   variant?: "report" | "chat" | "card" | "inline";
@@ -30,6 +55,7 @@ interface ExecutiveReportFormatterProps {
 /**
  * Pre-processes and sanitizes raw AI outputs, removing prompt residues,
  * stray Markdown asterisks, unrendered brackets, raw JSON traces, and normalizing URLs/bidi text.
+ * Strictly enforces ZERO emojis and zero raw Markdown leftovers.
  */
 export function sanitizeAndCleanAIContent(text: string | null | undefined): string {
   if (!text) return "";
@@ -40,26 +66,25 @@ export function sanitizeAndCleanAIContent(text: string | null | undefined): stri
   cleaned = cleaned.replace(/<thought>[\s\S]*?<\/thought>/gi, "");
   cleaned = cleaned.replace(/\[SYSTEM_PROMPT[\s\S]*?\]/gi, "");
   cleaned = cleaned.replace(/```json\s*\{[\s\S]*?"tool_call"[\s\S]*?\}\s*```/gi, "");
+  cleaned = cleaned.replace(/```json[\s\S]*?```/gi, "");
+  cleaned = cleaned.replace(/```[\s\S]*?```/gi, "");
 
-  // 2. Remove broken or stray markdown asterisks that fail to form proper pairs
-  // Normalize triple asterisks to standard bold
+  // 2. Remove all emojis (Strict Zero Emojis / Stars / Icons policy)
+  cleaned = cleaned.replace(
+    /[\u{1F300}-\u{1F9FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]|[\u{1F600}-\u{1F64F}]|[\u{1F680}-\u{1F6FF}]|[\u{1F1E6}-\u{1F1FF}]|⭐|🚀|💡|⚠️|🔥|✅|❌|📊|🤖|🎯|📌|🔹|🔸|⚡|✨|🛡️|🔍|📈|📉|📋/gu,
+    ""
+  );
+
+  // 3. Remove stray or unbalanced Markdown formatting tokens
   cleaned = cleaned.replace(/\*{3,}/g, "**");
-
-  // Fix unbalanced single/double asterisks at line boundaries
   cleaned = cleaned.replace(/^(\s*)\*\s*([^\*\n]+)\s*\*(\s*)$/gm, "$1$2$3");
-
-  // Clean raw brackets around headers
-  cleaned = cleaned.replace(/^#+\s*\[(.*?)\]\s*$/gm, "### $1");
-
-  // Remove trailing internal metadata or JSON fragments at the very end of messages
   cleaned = cleaned.replace(/\{"analysisId":[\s\S]*?\}$/gi, "");
 
   return cleaned.trim();
 }
 
 /**
- * Clean a single line of text (e.g. for badges, titles, table cells, or lists)
- * completely removing raw markdown symbols (**bold**, *item*, brackets).
+ * Clean a single line of text, stripping raw markdown symbols (**bold**, *item*, brackets, ticks).
  */
 export function cleanRawTextLine(text: string | null | undefined): string {
   if (!text) return "";
@@ -68,7 +93,7 @@ export function cleanRawTextLine(text: string | null | undefined): string {
     .replace(/\*(.*?)\*/g, "$1")
     .replace(/\[(.*?)\]\(.*?\)/g, "$1")
     .replace(/`([^`]+)`/g, "$1")
-    .replace(/^[#\*\-\s•]+/, "")
+    .replace(/^[#\*\-\s•\d\.\)]+/, "")
     .trim();
 }
 
@@ -76,10 +101,13 @@ export function cleanRawTextLine(text: string | null | undefined): string {
  * Highlights and wraps numbers, Latin terms, currencies, and technical acronyms
  * with unicode-bidi isolation to prevent RTL/LTR punctuation flipping in Arabic.
  */
-export const FormattedBidiSpan: React.FC<{ text: string; isAr?: boolean }> = ({ text, isAr = true }) => {
+export const FormattedBidiSpan: React.FC<{ text: string; isAr?: boolean }> = ({
+  text,
+  isAr = true,
+}) => {
   if (!isAr || !text) return <span>{text}</span>;
 
-  // Regex matches Latin acronyms/words, numbers with decimals/percentages/slashes, currencies (e.g. BCM, MRU, 4.5%, 7.8/10, GTA, API)
+  // Regex matches Latin acronyms/words, numbers with decimals/percentages/slashes
   const parts = text.split(/([A-Za-z0-9\-_./%]+(?:\s*[A-Za-z0-9\-_./%]+)*)/);
 
   return (
@@ -105,7 +133,200 @@ export const FormattedBidiSpan: React.FC<{ text: string; isAr?: boolean }> = ({ 
 };
 
 /**
- * Main Executive AI Report Formatter Component
+ * Structured JSON-based parser to transform raw model text / JSON into a clean,
+ * institutional domain schema.
+ */
+export function parseAIOutputToStructured(
+  rawInput: string | AIResponseData | StructuredAIReport | null | undefined
+): StructuredAIReport {
+  if (!rawInput) return {};
+
+  // Case 1: Already an object
+  if (typeof rawInput === "object" && rawInput !== null) {
+    const obj = rawInput as any;
+    if (obj.facts || obj.inferences || obj.rawSections) {
+      return obj as StructuredAIReport;
+    }
+    return {
+      executiveSummary: obj.executiveSummary || obj.summary || "",
+      facts: obj.findings?.map((f: any) => ({
+        title: f.title,
+        detail: f.description || f.evidence || "",
+      })) || [],
+      recommendations: obj.recommendations?.map((r: any) => ({
+        title: typeof r === "string" ? cleanRawTextLine(r) : r.title,
+        detail: typeof r === "string" ? r : r.description || r.actionable || "",
+        priority: r.priority,
+        timeframe: r.timeframe,
+      })) || (obj.recommendationsList || []).map((r: any) => ({
+        title: typeof r === "string" ? cleanRawTextLine(r) : r.title,
+        detail: typeof r === "string" ? r : r.description || r.action || "",
+      })),
+      patterns: obj.detectedPatterns || [],
+      sources: obj.sources || [],
+    };
+  }
+
+  const text = typeof rawInput === "string" ? sanitizeAndCleanAIContent(rawInput) : "";
+  if (!text) return {};
+
+  // Case 2: Attempt parsing JSON string
+  try {
+    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      const parsed = JSON.parse(jsonMatch[0]);
+      if (typeof parsed === "object" && parsed !== null) {
+        return parseAIOutputToStructured(parsed);
+      }
+    }
+  } catch {}
+
+  // Case 3: Parse structured text sections (Facts, Inferences, Recommendations, etc.)
+  const report: StructuredAIReport = {
+    facts: [],
+    inferences: [],
+    recommendations: [],
+    patterns: [],
+    sources: [],
+    rawSections: [],
+  };
+
+  const lines = text.split("\n");
+  let currentSection = "summary";
+  let currentTitle = "";
+  let summaryParagraphs: string[] = [];
+  let currentSectionItems: string[] = [];
+
+  for (let i = 0; i < lines.length; i++) {
+    const rawLine = lines[i].trim();
+    if (!rawLine || rawLine === "---") continue;
+
+    // Detect Section Headers
+    const isHeading =
+      rawLine.startsWith("#") ||
+      rawLine.startsWith("###") ||
+      rawLine.includes("الحقيقة") ||
+      rawLine.includes("الحقائق") ||
+      rawLine.includes("Fact") ||
+      rawLine.includes("الاستنتاج") ||
+      rawLine.includes("Inference") ||
+      rawLine.includes("التوصيات") ||
+      rawLine.includes("Recommendation") ||
+      rawLine.includes("المخاطر") ||
+      rawLine.includes("الأنماط") ||
+      rawLine.includes("الدروس");
+
+    if (isHeading && (rawLine.startsWith("#") || rawLine.length < 80)) {
+      const cleanH = cleanRawTextLine(rawLine);
+      const lower = cleanH.toLowerCase();
+
+      // Save previous section if it was a custom raw section
+      if (currentSection === "custom" && currentSectionItems.length > 0) {
+        report.rawSections?.push({
+          title: currentTitle || "قسم تحليلي",
+          items: [...currentSectionItems],
+        });
+        currentSectionItems = [];
+      }
+
+      if (lower.includes("حقيقة") || lower.includes("حقائق") || lower.includes("fact")) {
+        currentSection = "facts";
+      } else if (
+        lower.includes("استنتاج") ||
+        lower.includes("تحليل") ||
+        lower.includes("inference")
+      ) {
+        currentSection = "inferences";
+      } else if (
+        lower.includes("توصي") ||
+        lower.includes("ضوابط") ||
+        lower.includes("إجراء") ||
+        lower.includes("recommend")
+      ) {
+        currentSection = "recommendations";
+      } else if (lower.includes("نمط") || lower.includes("أنماط") || lower.includes("pattern")) {
+        currentSection = "patterns";
+      } else if (
+        lower.includes("مستشار") ||
+        lower.includes("ملخص") ||
+        lower.includes("تقرير") ||
+        lower.includes("summary")
+      ) {
+        currentSection = "summary";
+        if (cleanH.includes("المستشار الإداري")) report.advisorType = "administrative";
+        else if (cleanH.includes("الموحد")) report.advisorType = "unified";
+        else if (cleanH.includes("الإدراكي")) report.advisorType = "cognitive";
+      } else {
+        currentSection = "custom";
+        currentTitle = cleanH;
+      }
+      continue;
+    }
+
+    // Process Content by Current Section
+    if (currentSection === "summary") {
+      summaryParagraphs.push(rawLine);
+    } else if (currentSection === "facts") {
+      const cleanItem = rawLine.replace(/^[\*\-\d\.\)]+\s*/, "").trim();
+      if (cleanItem) {
+        // Extract Title: Detail if present
+        const matchColon = cleanItem.match(/^\*\*?([^\*:]+)\*\*?:\s*(.*)$/);
+        if (matchColon) {
+          report.facts?.push({
+            title: cleanRawTextLine(matchColon[1]),
+            detail: matchColon[2] || matchColon[1],
+          });
+        } else {
+          report.facts?.push({
+            detail: cleanItem,
+          });
+        }
+      }
+    } else if (currentSection === "inferences") {
+      const cleanItem = rawLine.replace(/^[\*\-\d\.\)]+\s*/, "").trim();
+      if (cleanItem) {
+        report.inferences?.push({
+          detail: cleanItem,
+        });
+      }
+    } else if (currentSection === "recommendations") {
+      const cleanItem = rawLine.replace(/^[\*\-\d\.\)]+\s*/, "").trim();
+      if (cleanItem) {
+        const matchColon = cleanItem.match(/^\*\*?([^\*:]+)\*\*?:\s*(.*)$/);
+        if (matchColon) {
+          report.recommendations?.push({
+            title: cleanRawTextLine(matchColon[1]),
+            detail: matchColon[2] || matchColon[1],
+          });
+        } else {
+          report.recommendations?.push({
+            detail: cleanItem,
+          });
+        }
+      }
+    } else if (currentSection === "patterns") {
+      const cleanItem = rawLine.replace(/^[\*\-\d\.\)]+\s*/, "").trim();
+      if (cleanItem) report.patterns?.push(cleanItem);
+    } else if (currentSection === "custom") {
+      const cleanItem = rawLine.replace(/^[\*\-\d\.\)]+\s*/, "").trim();
+      if (cleanItem) currentSectionItems.push(cleanItem);
+    }
+  }
+
+  if (currentSection === "custom" && currentSectionItems.length > 0) {
+    report.rawSections?.push({
+      title: currentTitle || "قسم تحليلي",
+      items: currentSectionItems,
+    });
+  }
+
+  report.executiveSummary = summaryParagraphs.join("\n\n");
+  return report;
+}
+
+/**
+ * Main Executive AI Report Formatter Component.
+ * Transforms raw model output into an institutional, card-structured presentation.
  */
 export const ExecutiveAIReportFormatter: React.FC<ExecutiveReportFormatterProps> = ({
   content,
@@ -119,237 +340,262 @@ export const ExecutiveAIReportFormatter: React.FC<ExecutiveReportFormatterProps>
   const isDark = theme === "dark";
   const isAr = lang === "ar";
 
-  const sanitizedContent = useMemo(() => sanitizeAndCleanAIContent(content), [content]);
+  const structured = useMemo(() => parseAIOutputToStructured(content), [content]);
 
-  if (!sanitizedContent) {
+  const hasFacts = structured.facts && structured.facts.length > 0;
+  const hasInferences = structured.inferences && structured.inferences.length > 0;
+  const hasRecs = structured.recommendations && structured.recommendations.length > 0;
+  const hasPatterns = structured.patterns && structured.patterns.length > 0;
+  const hasCustomSections = structured.rawSections && structured.rawSections.length > 0;
+  const hasSummary = Boolean(structured.executiveSummary && structured.executiveSummary.trim().length > 0);
+
+  if (!hasSummary && !hasFacts && !hasInferences && !hasRecs && !hasCustomSections) {
     return null;
   }
 
-  // Section icon resolver
-  const getSectionIcon = (headingText: string) => {
-    const lower = headingText.toLowerCase();
-    if (lower.includes("نطاق") || lower.includes("بيئة") || lower.includes("scope") || lower.includes("macro")) {
-      return <Globe className="w-4 h-4 text-[#0075DE]" />;
-    }
-    if (lower.includes("ديناميك") || lower.includes("طلب") || lower.includes("dynamic") || lower.includes("trend")) {
-      return <TrendingUp className="w-4 h-4 text-blue-500" />;
-    }
-    if (lower.includes("أدلة") || lower.includes("ذاكرة") || lower.includes("evidence") || lower.includes("memory")) {
-      return <Layers className="w-4 h-4 text-emerald-500" />;
-    }
-    if (lower.includes("بحث") || lower.includes("search") || lower.includes("حصة") || lower.includes("quota")) {
-      return <Info className="w-4 h-4 text-amber-500" />;
-    }
-    if (lower.includes("خطر") || lower.includes("مخاطر") || lower.includes("risk") || lower.includes("threat")) {
-      return <ShieldAlert className="w-4 h-4 text-rose-500" />;
-    }
-    if (lower.includes("فرص") || lower.includes("opportunity") || lower.includes("growth")) {
-      return <Compass className="w-4 h-4 text-emerald-500" />;
-    }
-    if (lower.includes("توصي") || lower.includes("إجراء") || lower.includes("recommend") || lower.includes("action")) {
-      return <CheckCircle className="w-4 h-4 text-[#0075DE]" />;
-    }
-    return <FileText className="w-4 h-4 text-[#0075DE]" />;
-  };
+  // Inline variant for compact card rendering
+  if (variant === "inline") {
+    const rawText =
+      typeof content === "string"
+        ? cleanRawTextLine(content)
+        : structured.executiveSummary || "";
+    return (
+      <span className={className}>
+        <FormattedBidiSpan text={rawText} isAr={isAr} />
+      </span>
+    );
+  }
 
   return (
     <div
       dir={isAr ? "rtl" : "ltr"}
-      className={`executive-ai-report-container ${isAr ? "text-right" : "text-left"} ${className}`}
+      className={`executive-report-root space-y-4 ${isAr ? "text-right" : "text-left"} ${className}`}
     >
+      {/* Optional Top Executive Header */}
       {showExecutiveHeader && (
-        <div className="flex items-center gap-2 mb-3 pb-2 border-b border-slate-200 dark:border-slate-800">
-          <Sparkles className="w-4 h-4 text-[#0075DE]" />
-          <h3 className="text-xs font-bold uppercase tracking-wider text-[#0075DE]">
-            {title || (isAr ? "التقرير التنفيذي الاستراتيجي" : "Executive Intelligence Report")}
-          </h3>
+        <div className="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-slate-800">
+          <div className="flex items-center gap-2">
+            <div className="p-1.5 rounded-lg bg-[#0075DE]/10 text-[#0075DE]">
+              <Building2 className="w-4 h-4" />
+            </div>
+            <div>
+              <h3 className="text-xs font-bold uppercase tracking-wider text-[#0075DE]">
+                {title || (isAr ? "التقرير الاستراتيجي المؤسسي" : "Strategic Intelligence Report")}
+              </h3>
+              <p className="text-[10px] text-slate-400">
+                {isAr ? "مستند إلى سجلات الذاكرة المؤسسية والبيانات المؤكدة" : "Grounded in verified institutional memory"}
+              </p>
+            </div>
+          </div>
+          {structured.advisorType && (
+            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-[#0075DE]/10 text-[#0075DE] border border-[#0075DE]/20">
+              {structured.advisorType === "administrative"
+                ? isAr
+                  ? "مستشار إداري"
+                  : "Administrative Advisor"
+                : structured.advisorType === "unified"
+                ? isAr
+                  ? "مستشار موحد"
+                  : "Unified Advisor"
+                : isAr
+                ? "مستشار إدراكي"
+                : "Cognitive Advisor"}
+            </span>
+          )}
         </div>
       )}
 
-      <div className={`prose-container max-w-none text-xs leading-relaxed ${
-        isDark ? "text-slate-200" : "text-slate-800"
-      }`}>
-        <Markdown
-          components={{
-            // Headers
-            h1: ({ children }) => (
-              <div className="my-4 pt-2 pb-1.5 border-b border-[#0075DE]/20 flex items-center gap-2">
-                <FileText className="w-5 h-5 text-[#0075DE] flex-shrink-0" />
-                <h1 className="text-sm md:text-base font-black text-[#0075DE] tracking-tight m-0">
-                  {children}
-                </h1>
-              </div>
-            ),
-            h2: ({ children }) => (
-              <div className="my-3 pt-2 pb-1 flex items-center gap-2 border-b border-slate-200/40 dark:border-slate-800/40">
-                <Sparkles className="w-4 h-4 text-[#0075DE] flex-shrink-0" />
-                <h2 className="text-xs md:text-sm font-bold text-[#0075DE] m-0">
-                  {children}
-                </h2>
-              </div>
-            ),
-            h3: ({ children }) => {
-              const textContent = String(children || "");
-              const icon = getSectionIcon(textContent);
-              return (
-                <div className={`my-3.5 p-2.5 rounded-xl border flex items-center gap-2.5 ${
-                  isDark ? "bg-slate-900/60 border-slate-800/80" : "bg-slate-50 border-slate-200 shadow-xs"
-                }`}>
-                  <div className="p-1 rounded-lg bg-[#0075DE]/10 text-[#0075DE]">
-                    {icon}
-                  </div>
-                  <h3 className="text-xs font-bold text-slate-900 dark:text-white m-0">
-                    {children}
-                  </h3>
-                </div>
-              );
-            },
-            h4: ({ children }) => (
-              <h4 className="text-xs font-bold text-[#0075DE] mt-3 mb-1 flex items-center gap-1.5">
-                <ChevronRight className={`w-3.5 h-3.5 text-[#0075DE] ${isAr ? "rotate-180" : ""}`} />
-                <span>{children}</span>
-              </h4>
-            ),
-
-            // Paragraphs
-            p: ({ children }) => (
-              <p className={`mb-3 last:mb-0 text-xs leading-relaxed ${
-                isDark ? "text-slate-300" : "text-slate-700"
-              }`}>
-                {children}
-              </p>
-            ),
-
-            // Strong / Bold Text
-            strong: ({ children }) => (
-              <strong className={`font-bold ${
-                isDark ? "text-slate-100" : "text-slate-900"
-              }`}>
-                {children}
-              </strong>
-            ),
-
-            // Unordered Lists
-            ul: ({ children }) => (
-              <ul className={`my-2.5 space-y-2 ${isAr ? "pr-1" : "pl-1"} list-none`}>
-                {children}
-              </ul>
-            ),
-
-            // Ordered Lists
-            ol: ({ children }) => (
-              <ol className={`my-2.5 space-y-2 ${isAr ? "pr-1" : "pl-1"} list-none counter-reset-item`}>
-                {children}
-              </ol>
-            ),
-
-            // List Items
-            li: ({ children, node }) => {
-              return (
-                <li className="flex items-start gap-2.5 text-xs text-slate-300 dark:text-slate-200 leading-relaxed group">
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#0075DE] mt-2 flex-shrink-0 group-hover:scale-125 transition-transform" />
-                  <div className="flex-1 min-w-0">
-                    {children}
-                  </div>
-                </li>
-              );
-            },
-
-            // Blockquotes
-            blockquote: ({ children }) => (
-              <div className={`my-3 p-3.5 rounded-xl border ${
-                isAr ? "border-r-4 border-r-[#0075DE]" : "border-l-4 border-l-[#0075DE]"
-              } ${
-                isDark ? "bg-[#0075DE]/5 border-slate-800" : "bg-blue-50/50 border-blue-100"
-              }`}>
-                <div className="text-xs italic text-slate-700 dark:text-slate-300">
-                  {children}
-                </div>
-              </div>
-            ),
-
-            // Links (Clean Badges instead of raw long URLs)
-            a: ({ href, children }) => {
-              let domain = "";
-              try {
-                if (href) {
-                  const u = new URL(href);
-                  domain = u.hostname.replace(/^www\./, "");
-                }
-              } catch {
-                domain = String(children || "link");
-              }
-
-              const label = typeof children === "string" && children !== href ? children : domain || "المصدر";
-
-              return (
-                <a
-                  href={href}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1 px-2 py-0.5 mx-1 rounded-md bg-[#0075DE]/10 hover:bg-[#0075DE]/20 text-[#0075DE] text-[11px] font-bold border border-[#0075DE]/20 transition-colors no-underline"
-                >
-                  <span>{label}</span>
-                  <ExternalLink className="w-3 h-3 flex-shrink-0" />
-                </a>
-              );
-            },
-
-            // Tables
-            table: ({ children }) => (
-              <div className="my-3 overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-800">
-                <table className="w-full text-xs text-right border-collapse">
-                  {children}
-                </table>
-              </div>
-            ),
-            thead: ({ children }) => (
-              <thead className={`${isDark ? "bg-slate-900/80 text-slate-300" : "bg-slate-100 text-slate-700"}`}>
-                {children}
-              </thead>
-            ),
-            tbody: ({ children }) => (
-              <tbody className={`divide-y ${isDark ? "divide-slate-800" : "divide-slate-200"}`}>
-                {children}
-              </tbody>
-            ),
-            tr: ({ children }) => (
-              <tr className={`transition-colors ${isDark ? "hover:bg-slate-900/40" : "hover:bg-slate-50"}`}>
-                {children}
-              </tr>
-            ),
-            th: ({ children }) => (
-              <th className="px-3.5 py-2.5 font-bold uppercase tracking-wider text-[10px] text-slate-400">
-                {children}
-              </th>
-            ),
-            td: ({ children }) => (
-              <td className="px-3.5 py-2.5 text-xs text-slate-700 dark:text-slate-300">
-                {children}
-              </td>
-            ),
-
-            // Inline Code & Code Blocks
-            code: ({ children, className }) => {
-              const isBlock = className?.includes("language-");
-              if (isBlock) {
-                return (
-                  <div className="my-2.5 p-3 rounded-xl bg-slate-950 border border-slate-800 font-mono text-[11px] text-emerald-400 overflow-x-auto" dir="ltr">
-                    <code>{children}</code>
-                  </div>
-                );
-              }
-              return (
-                <code className="px-1.5 py-0.5 rounded bg-slate-500/10 text-[#0075DE] font-mono text-[11px] border border-slate-500/20" dir="ltr">
-                  {children}
-                </code>
-              );
-            },
-          }}
+      {/* 1. Executive Summary Block */}
+      {hasSummary && (
+        <div
+          className={`p-4 rounded-xl border transition-all ${
+            isDark
+              ? "bg-slate-900/50 border-slate-800/90 text-slate-200"
+              : "bg-white border-slate-200 text-slate-800 shadow-xs"
+          } ${isAr ? "border-r-4 border-r-[#0075DE]" : "border-l-4 border-l-[#0075DE]"}`}
         >
-          {sanitizedContent}
-        </Markdown>
-      </div>
+          <div className="flex items-center gap-2 mb-2">
+            <FileText className="w-4 h-4 text-[#0075DE]" />
+            <h4 className="text-xs font-bold uppercase tracking-wider text-slate-900 dark:text-white">
+              {isAr ? "الملخص التنفيذي" : "Executive Summary"}
+            </h4>
+          </div>
+          <div className="text-xs leading-relaxed space-y-2 text-slate-700 dark:text-slate-300">
+            {structured.executiveSummary?.split("\n\n").map((para, pIdx) => (
+              <p key={pIdx} className="m-0">
+                <FormattedBidiSpan text={cleanRawTextLine(para)} isAr={isAr} />
+              </p>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* 2. Structured Facts Section (الحقائق المثبتة) */}
+      {hasFacts && (
+        <div className="space-y-2">
+          <div className="flex items-center gap-2">
+            <div className="p-1 rounded-md bg-emerald-500/10 text-emerald-500">
+              <Database className="w-3.5 h-3.5" />
+            </div>
+            <h4 className="text-xs font-bold uppercase tracking-wider text-emerald-500">
+              {isAr ? "1. الحقائق والوقائع المسجلة" : "1. Verified Facts"}
+            </h4>
+          </div>
+          <div className="grid grid-cols-1 gap-2">
+            {structured.facts?.map((f, fIdx) => (
+              <div
+                key={fIdx}
+                className={`p-3 rounded-xl border transition-all flex items-start gap-3 ${
+                  isDark
+                    ? "bg-slate-900/40 border-slate-800/80 hover:border-emerald-500/30"
+                    : "bg-emerald-50/30 border-emerald-100/80 text-slate-800 shadow-xs"
+                }`}
+              >
+                <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 mt-2 flex-shrink-0" />
+                <div className="flex-1 min-w-0 space-y-0.5">
+                  {f.title && (
+                    <div className="text-xs font-bold text-slate-900 dark:text-slate-100">
+                      <FormattedBidiSpan text={cleanRawTextLine(f.title)} isAr={isAr} />
+                    </div>
+                  )}
+                  <div className="text-xs leading-relaxed text-slate-700 dark:text-slate-300">
+                    <FormattedBidiSpan text={cleanRawTextLine(f.detail)} isAr={isAr} />
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* 3. Cognitive Inferences Section (الاستنتاجات الإدراكية) */}
+      {hasInferences && (
+        <div className="space-y-2">
+          <div className="flex items-center gap-2">
+            <div className="p-1 rounded-md bg-blue-500/10 text-blue-500">
+              <TrendingUp className="w-3.5 h-3.5" />
+            </div>
+            <h4 className="text-xs font-bold uppercase tracking-wider text-blue-500">
+              {isAr ? "2. الاستنتاجات الإدراكية والأثر" : "2. Cognitive Inferences"}
+            </h4>
+          </div>
+          <div className="grid grid-cols-1 gap-2">
+            {structured.inferences?.map((inf, iIdx) => (
+              <div
+                key={iIdx}
+                className={`p-3 rounded-xl border transition-all flex items-start gap-3 ${
+                  isDark
+                    ? "bg-slate-900/40 border-slate-800/80 hover:border-blue-500/30"
+                    : "bg-blue-50/30 border-blue-100/80 text-slate-800 shadow-xs"
+                }`}
+              >
+                <div className="w-1.5 h-1.5 rounded-full bg-blue-500 mt-2 flex-shrink-0" />
+                <div className="flex-1 min-w-0 text-xs leading-relaxed text-slate-700 dark:text-slate-300">
+                  <FormattedBidiSpan text={cleanRawTextLine(inf.detail)} isAr={isAr} />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* 4. Actionable Recommendations Section (التوصيات الاستباقية) */}
+      {hasRecs && (
+        <div className="space-y-2">
+          <div className="flex items-center gap-2">
+            <div className="p-1 rounded-md bg-[#0075DE]/10 text-[#0075DE]">
+              <CheckCircle className="w-3.5 h-3.5" />
+            </div>
+            <h4 className="text-xs font-bold uppercase tracking-wider text-[#0075DE]">
+              {isAr ? "3. التوصيات والضوابط الاستباقية" : "3. Actionable Recommendations"}
+            </h4>
+          </div>
+          <div className="grid grid-cols-1 gap-2">
+            {structured.recommendations?.map((r, rIdx) => (
+              <div
+                key={rIdx}
+                className={`p-3.5 rounded-xl border transition-all flex items-start gap-3 ${
+                  isDark
+                    ? "bg-slate-900/40 border-slate-800/80 hover:border-[#0075DE]/40"
+                    : "bg-white border-slate-200 text-slate-800 shadow-xs hover:border-[#0075DE]/30"
+                }`}
+              >
+                <div className="p-1 rounded-lg bg-[#0075DE]/10 text-[#0075DE] flex-shrink-0 mt-0.5">
+                  <span className="text-[10px] font-bold px-1">{rIdx + 1}</span>
+                </div>
+                <div className="flex-1 min-w-0 space-y-0.5">
+                  {r.title && (
+                    <div className="text-xs font-bold text-slate-900 dark:text-white">
+                      <FormattedBidiSpan text={cleanRawTextLine(r.title)} isAr={isAr} />
+                    </div>
+                  )}
+                  <div className="text-xs leading-relaxed text-slate-700 dark:text-slate-300">
+                    <FormattedBidiSpan text={cleanRawTextLine(r.detail)} isAr={isAr} />
+                  </div>
+                  {r.timeframe && (
+                    <div className="text-[10px] text-slate-400 mt-1">
+                      {isAr ? `الإطار الزمني: ${r.timeframe}` : `Timeframe: ${r.timeframe}`}
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* 5. Detected Patterns */}
+      {hasPatterns && (
+        <div className="space-y-2">
+          <div className="flex items-center gap-2">
+            <div className="p-1 rounded-md bg-purple-500/10 text-purple-500">
+              <Layers className="w-3.5 h-3.5" />
+            </div>
+            <h4 className="text-xs font-bold uppercase tracking-wider text-purple-500">
+              {isAr ? "الأنماط المؤسسية المكتشفة" : "Detected Patterns"}
+            </h4>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+            {structured.patterns?.map((pat, pIdx) => (
+              <div
+                key={pIdx}
+                className={`p-3 rounded-xl border text-xs leading-relaxed ${
+                  isDark
+                    ? "bg-slate-900/30 border-slate-800 text-slate-300"
+                    : "bg-slate-50 border-slate-200 text-slate-700"
+                }`}
+              >
+                <FormattedBidiSpan text={cleanRawTextLine(pat)} isAr={isAr} />
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* 6. Custom Analytic Sections */}
+      {hasCustomSections &&
+        structured.rawSections?.map((sec, sIdx) => (
+          <div key={sIdx} className="space-y-2">
+            <h4 className="text-xs font-bold text-[#0075DE] uppercase tracking-wider flex items-center gap-1.5">
+              <ChevronRight className={`w-3.5 h-3.5 text-[#0075DE] ${isAr ? "rotate-180" : ""}`} />
+              <span>{sec.title}</span>
+            </h4>
+            <div className="space-y-1.5">
+              {sec.items.map((item, itIdx) => (
+                <div
+                  key={itIdx}
+                  className={`p-3 rounded-xl border text-xs leading-relaxed ${
+                    isDark
+                      ? "bg-slate-900/30 border-slate-800 text-slate-300"
+                      : "bg-slate-50 border-slate-200 text-slate-700"
+                  }`}
+                >
+                  <FormattedBidiSpan text={cleanRawTextLine(item)} isAr={isAr} />
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
     </div>
   );
 };
@@ -382,26 +628,34 @@ export const ExecutiveListItemCard: React.FC<{
   // Parse if string has "**Title:** Details" format
   const colonMatch = text.match(/^\s*\*\*?([^\*:]+)\*\*?:\s*(.*)$/);
   const title = colonMatch ? cleanRawTextLine(colonMatch[1]) : null;
-  const detail = colonMatch ? colonMatch[2] : text;
+  const detail = colonMatch ? cleanRawTextLine(colonMatch[2]) : cleanRawTextLine(text);
 
   const colorStyles = {
     blue: {
-      bg: isDark ? "bg-slate-900/40 border-slate-800/80 hover:border-[#0075DE]/40" : "bg-white border-slate-200 shadow-xs hover:border-[#0075DE]/40",
+      bg: isDark
+        ? "bg-slate-900/40 border-slate-800/80 hover:border-[#0075DE]/40"
+        : "bg-white border-slate-200 shadow-xs hover:border-[#0075DE]/40",
       iconBg: "bg-[#0075DE]/10 text-[#0075DE]",
       dot: "bg-[#0075DE]",
     },
     emerald: {
-      bg: isDark ? "bg-emerald-500/5 border-emerald-500/10 hover:border-emerald-500/30" : "bg-emerald-50/40 border-emerald-100 shadow-xs hover:border-emerald-300",
+      bg: isDark
+        ? "bg-emerald-500/5 border-emerald-500/10 hover:border-emerald-500/30"
+        : "bg-emerald-50/40 border-emerald-100 shadow-xs hover:border-emerald-300",
       iconBg: "bg-emerald-500/10 text-emerald-500",
       dot: "bg-emerald-500",
     },
     rose: {
-      bg: isDark ? "bg-rose-500/5 border-rose-500/10 hover:border-rose-500/30" : "bg-rose-50/40 border-rose-100 shadow-xs hover:border-rose-300",
+      bg: isDark
+        ? "bg-rose-500/5 border-rose-500/10 hover:border-rose-500/30"
+        : "bg-rose-50/40 border-rose-100 shadow-xs hover:border-rose-300",
       iconBg: "bg-rose-500/10 text-rose-500",
       dot: "bg-rose-500",
     },
     amber: {
-      bg: isDark ? "bg-amber-500/5 border-amber-500/10 hover:border-amber-500/30" : "bg-amber-50/40 border-amber-100 shadow-xs hover:border-amber-300",
+      bg: isDark
+        ? "bg-amber-500/5 border-amber-500/10 hover:border-amber-500/30"
+        : "bg-amber-50/40 border-amber-100 shadow-xs hover:border-amber-300",
       iconBg: "bg-amber-500/10 text-amber-500",
       dot: "bg-amber-500",
     },
@@ -430,21 +684,20 @@ export const ExecutiveListItemCard: React.FC<{
             </span>
           )}
           {priority && (
-            <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-              priority === "Critical" ? "bg-rose-500/15 text-rose-500 border border-rose-500/20" : "bg-amber-500/15 text-amber-500"
-            }`}>
+            <span
+              className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                priority === "Critical"
+                  ? "bg-rose-500/15 text-rose-500 border border-rose-500/20"
+                  : "bg-amber-500/15 text-amber-500"
+              }`}
+            >
               {priority}
             </span>
           )}
         </div>
 
         <div className="text-xs leading-relaxed text-slate-700 dark:text-slate-300">
-          <ExecutiveAIReportFormatter
-            content={detail}
-            theme={theme}
-            lang={lang}
-            variant="inline"
-          />
+          <FormattedBidiSpan text={detail} isAr={isAr} />
         </div>
 
         {impact && (

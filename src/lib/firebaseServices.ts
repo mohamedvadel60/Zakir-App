@@ -3584,13 +3584,13 @@ export const getAuthApiUrl = (endpoint: string) => {
     return formattedEndpoint;
   }
 
-  const rawBase = (import.meta as any).env?.VITE_API_BASE_URL || (import.meta as any).env?.VITE_BACKEND_URL;
+  const rawBase = (import.meta as any).env?.VITE_API_BASE_URL || (import.meta as any).env?.VITE_BACKEND_URL || (typeof process !== "undefined" ? process.env?.VITE_API_BASE_URL || process.env?.VITE_BACKEND_URL : "");
   const customBase = sanitizeBaseUrl(rawBase);
   if (customBase) {
     return `${customBase}${formattedEndpoint}`;
   }
 
-  return API_BASE_URL ? `${API_BASE_URL}${formattedEndpoint}` : formattedEndpoint;
+  return API_BASE_URL ? `${API_BASE_URL}${formattedEndpoint}` : `http://localhost:3000${formattedEndpoint}`;
 };
 
 /**

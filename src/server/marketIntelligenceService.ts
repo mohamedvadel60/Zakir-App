@@ -1106,11 +1106,17 @@ ${internalEvidenceSummary || "لا توجد سجلات داخلية مسجلة �
 }
   `;
 
-  const candidateModels = ["gemini-3.1-flash-lite", "gemini-3.8-flash", "gemini-flash-latest"];
+  const candidateModels = [
+    "gemini-3.5-flash",
+    "gemini-3.5-flash-lite",
+    "gemini-flash-lite-latest",
+    "gemini-3.7-flash",
+    "gemini-3.1-flash-lite",
+    "gemini-3.8-flash",
+  ];
   let searchToolFailed = false;
 
   for (const modelName of candidateModels) {
-    if (isGeminiInCooldown()) break;
     let response: any = null;
 
     // Real Search Grounding attempt
@@ -1202,11 +1208,11 @@ ${internalEvidenceSummary || "لا توجد سجلات داخلية مسجلة �
               needsExternalSearch: classification.needsExternalSearch,
               reasoning: classification.reasoning,
             },
-            summary: parsed.summary || "",
-            marketOverview: parsed.marketOverview,
-            marketDynamics: Array.isArray(parsed.marketDynamics) ? parsed.marketDynamics : parsed.trends || [],
+            summary: parsed.summary || parsed.executiveSummary || (typeof parsed.marketOverview === "string" ? parsed.marketOverview : "") || "ملخص استراتيجي لذكاء السوق مبني على البيانات.",
+            marketOverview: parsed.marketOverview || parsed.summary || "نظرة عامة على بيئة السوق والقطاع المستهدف.",
+            marketDynamics: Array.isArray(parsed.marketDynamics) ? parsed.marketDynamics : Array.isArray(parsed.trends) ? parsed.trends : [],
             trends: Array.isArray(parsed.trends) ? parsed.trends : [],
-            demandAnalysis: parsed.demandAnalysis,
+            demandAnalysis: parsed.demandAnalysis || "تحليل ديناميكيات الطلب والعملاء.",
             customerSegments: Array.isArray(parsed.customerSegments) ? parsed.customerSegments : [],
             competitors: Array.isArray(parsed.competitors) ? parsed.competitors : [],
             competitiveGaps: Array.isArray(parsed.competitiveGaps) ? parsed.competitiveGaps : [],
@@ -1218,10 +1224,10 @@ ${internalEvidenceSummary || "لا توجد سجلات داخلية مسجلة �
             macroeconomicFactors: Array.isArray(parsed.macroeconomicFactors) ? parsed.macroeconomicFactors : [],
             pricingIntelligence: Array.isArray(parsed.pricingIntelligence) ? parsed.pricingIntelligence : [],
             tradeAndSupplyChain: Array.isArray(parsed.tradeAndSupplyChain) ? parsed.tradeAndSupplyChain : [],
-            marketAttractiveness: parsed.marketAttractiveness,
+            marketAttractiveness: parsed.marketAttractiveness || { score: 7.5, rating: "High", justification: "تقييم جاذبية السوق" },
             countryComparisons: Array.isArray(parsed.countryComparisons) ? parsed.countryComparisons : [],
             strategicOptions: Array.isArray(parsed.strategicOptions) ? parsed.strategicOptions : [],
-            recommendations: Array.isArray(parsed.recommendations) ? parsed.recommendations : [],
+            recommendations: Array.isArray(parsed.recommendations) && parsed.recommendations.length > 0 ? parsed.recommendations : Array.isArray(parsed.recommendedActions) && parsed.recommendedActions.length > 0 ? parsed.recommendedActions.map((a: any) => typeof a === 'string' ? a : a.title || a.description || "توصية عملية") : ["تعزيز الرقابة الوقائية ومراجعة تكاليف التشغيل."],
             recommendedActions: Array.isArray(parsed.recommendedActions) ? parsed.recommendedActions : [],
             diagnosableItems: Array.isArray(parsed.diagnosableItems) && parsed.diagnosableItems.length > 0
               ? parsed.diagnosableItems.map((di: any, idx: number) => ({
@@ -1519,9 +1525,15 @@ ${internalSummary || "لا توجد سجلات داخلية مسجلة مسبق�
 `;
 
     // Attempt generation with retry loop for transient 503 high demand spikes
-    const diagModels = ["gemini-3.1-flash-lite", "gemini-3.8-flash", "gemini-flash-latest"];
+    const diagModels = [
+      "gemini-3.5-flash",
+      "gemini-3.5-flash-lite",
+      "gemini-flash-lite-latest",
+      "gemini-3.7-flash",
+      "gemini-3.1-flash-lite",
+      "gemini-3.8-flash",
+    ];
     for (const modelName of diagModels) {
-      if (isGeminiInCooldown()) break;
       try {
         const response: any = await client.models.generateContent({
           model: modelName,

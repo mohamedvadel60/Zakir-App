@@ -1,3 +1,4 @@
+import { GoogleGenAI } from "@google/genai";
 import type { Request, Response } from "express";
 import fs from "fs";
 import path from "path";
@@ -5,11 +6,16 @@ import os from "os";
 import {
   readDb,
   writeDb,
-  getGeminiClient,
   isGeminiInCooldown,
   handleGeminiError,
 } from "../../server.js";
 import type { SmartEvolutionData } from "../types.js";
+
+function getLocalGeminiClient(): GoogleGenAI | null {
+  const apiKey = process.env.GOOGLE_AI_API_KEY || process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
+  if (!apiKey || !apiKey.trim()) return null;
+  return new GoogleGenAI({ apiKey: apiKey.trim() });
+}
 
 // --- ANALYSIS LOCK & RUNTIME DEDUPLICATION (PART 20) ---
 export const runningSmartEvolutionLocks = new Set<string>();
@@ -227,11 +233,11 @@ export function classifySearchNeed(query: string, context?: any): {
   const hasComparison = comparisonKeywords.some((kw) => q.includes(kw));
 
   // If question is specifically directed to internal logged data and has no explicit comparison request
-  if (hasInternal && !hasComparison && !q.includes("أحدث") && !q.includes("أسعار اليوم") && !q.includes("معايير")) {
+  if (!hasExternal) {
     return {
       type: "INTERNAL_ONLY",
       needsSearch: false,
-      reason: "السؤال داخلي بحت يتعلق بالذاكرة المؤسسية وسجلات المخاطر والوثائق المحفوظة في مساحة العمل.",
+      reason: "السؤال يركز حصرياً على البيانات والذاكرة والمخاطر والمستندات الداخلية لمساحة العمل.",
     };
   }
 
@@ -410,7 +416,7 @@ export const handleRunSmartEvolution = async (req: Request, res: Response) => {
     let externalSearchStatus = "NOT_REQUIRED";
 
     // 4. Attempt Gemini analysis if available and not in cooldown
-    const ai = getGeminiClient();
+    const ai = getLocalGeminiClient();
     let geminiSucceeded = false;
     let geminiResult: any = null;
 
@@ -472,47 +478,18 @@ export const handleRunSmartEvolution = async (req: Request, res: Response) => {
 }`;
 
         const candidateModels = [
+          "gemini-3.5-flash",
+          "gemini-3.5-flash-lite",
+          "gemini-flash-lite-latest",
+          "gemini-3.7-flash",
           "gemini-3.1-flash-lite",
-          "gemini-flash-latest",
           "gemini-3.8-flash",
         ];
 
         for (const mName of candidateModels) {
-          if (isGeminiInCooldown()) break;
           let response: any = null;
 
-          // Attempt with Google Search if search decision requires it
-          if (searchDecision.needsSearch) {
-            try {
-              const genConfigWithSearch: any = {
-                systemInstruction: systemInstruction,
-                responseMimeType: "application/json",
-                temperature: 0.3,
-                tools: [{ googleSearch: {} }],
-              };
-
-              response = await ai.models.generateContent({
-                model: mName,
-                contents: [
-                  {
-                    role: "user",
-                    parts: [
-                      {
-                        text: `حلل بيانات المؤسسة الحالية التالية:\n\n### الذكريات المؤسسية (${memories.length}):\n${memoriesSummary}\n\n### تنبيهات المخاطر النشطة (${riskAlerts.length}):\n${risksSummary}\n\n### المستندات والملفات المرفوعة (${processedFiles.length}):\n${filesSummary}\n\n### البيانات المؤسسية:\n${orgSummary}`,
-                      },
-                    ],
-                  },
-                ],
-                config: genConfigWithSearch,
-              });
-            } catch (searchErr: any) {
-              console.warn(`[SmartEvolution] Search tool failed for model ${mName}:`, searchErr?.message || searchErr);
-              externalSearchStatus = "SEARCH_QUOTA_FALLBACK";
-            }
-          }
-
-          // Fallback to pure Gemini generation without Google Search if response wasn't obtained
-          if (!response) {
+          for (let attempt = 0; attempt < 3; attempt++) {
             try {
               const genConfigPure: any = {
                 systemInstruction: systemInstruction,
@@ -527,7 +504,7 @@ export const handleRunSmartEvolution = async (req: Request, res: Response) => {
                     role: "user",
                     parts: [
                       {
-                        text: `حلل بيانات المؤسسة الحالية التالية:\n\n### الذكريات المؤسسية (${memories.length}):\n${memoriesSummary}\n\n### تنبيهات المخاطر النشطة (${riskAlerts.length}):\n${risksSummary}\n\n### المستندات والملفات المرفوعة (${processedFiles.length}):\n${filesSummary}\n\n### البيانات المؤسسية:\n${orgSummary}`,
+                        text: `حلل بيانات المؤسسة الحالية التالية وأخرج التقرير بصيغة JSON حصرياً:\n\n### الذكريات المؤسسية (${memories.length}):\n${memoriesSummary}\n\n### تنبيهات المخاطر النشطة (${riskAlerts.length}):\n${risksSummary}\n\n### المستندات والملفات المرفوعة (${processedFiles.length}):\n${filesSummary}\n\n### البيانات المؤسسية:\n${orgSummary}`,
                       },
                     ],
                   },
@@ -535,15 +512,33 @@ export const handleRunSmartEvolution = async (req: Request, res: Response) => {
                 config: genConfigPure,
               });
             } catch (pureErr: any) {
-              console.warn(`[SmartEvolution] Pure Gemini call failed for model ${mName}:`, pureErr?.message || pureErr);
+              console.warn(`[SmartEvolution] Model ${mName} unavailable/exhausted:`, pureErr?.message || pureErr);
               handleGeminiError(pureErr);
-              continue;
+              const is429 = pureErr?.status === "RESOURCE_EXHAUSTED" || String(pureErr?.message || "").includes("429");
+              if (is429) {
+                break;
+              }
+              if (attempt < 2) {
+                await new Promise((r) => setTimeout(r, 600 * (attempt + 1)));
+                continue;
+              }
             }
+
+            if (response?.text) break;
           }
 
           if (response?.text) {
-            const cleaned = response.text.replace(/```json/g, "").replace(/```/g, "").trim();
-            geminiResult = JSON.parse(cleaned);
+            try {
+              let cleaned = response.text.trim();
+              const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
+              if (jsonMatch) {
+                cleaned = jsonMatch[0];
+              }
+              geminiResult = JSON.parse(cleaned);
+              geminiSucceeded = true;
+            } catch (jsonErr: any) {
+              console.warn(`[SmartEvolution] JSON parse error for ${mName}:`, jsonErr?.message);
+            }
 
             // Check for grounding metadata
             const candidate = response.candidates?.[0] as any;
@@ -753,6 +748,10 @@ export const handleRunSmartEvolution = async (req: Request, res: Response) => {
         evidence: `النتائج السابقة: ${m.outcomes || m.decision}`,
       }));
 
+      const memTitles = memories.map((m: any) => m.title).join("، ");
+      const riskTitles = riskAlerts.map((r: any) => r.title).join("، ");
+      const categories = Array.from(new Set(memories.map((m: any) => m.category))).join("، ");
+
       finalPayload = {
         analysisId,
         createdAt,
@@ -760,8 +759,8 @@ export const handleRunSmartEvolution = async (req: Request, res: Response) => {
         workspaceId,
         executiveSummary:
           lang === "ar"
-            ? `### ملخص تشخيصي مؤسسي مبني على الأدلة\n\nيكشف فحص الذاكرة المؤسسية (${memories.length} أحداث مسجلة) وتنبيهات المخاطر النشطة (${riskAlerts.length} تنبيهات) والمستندات المرفوعة (${processedFiles.length} ملفات) عن ارتباط سببي مباشر بين القرارات السابقة ومستوى الأمان الإداري والمالي الحالي. تم بناء هذا التقرير حصرياً على البيانات الداخلية المؤكدة لضمان أقصى درجات الموثوقية والمقاومة التامة للهلوَسَة.`
-            : `### Evidence-Based Institutional Diagnostic Summary\n\nAudit of ${memories.length} recorded institutional memories, ${riskAlerts.length} active risk alerts, and ${processedFiles.length} files demonstrates direct causal linkage between historical decision records and current risk exposure. This report is grounded strictly in verified organizational records to eliminate hallucination.`,
+            ? `### ملخص تشخيصي مؤسسي مبني على الأدلة\n\nيكشف فحص الذاكرة المؤسسية (${memories.length} أحداث مسجلة تشمل: ${memTitles || "لا توجد سجلات"}) وتنبيهات المخاطر النشطة (${riskAlerts.length} تنبيهات تشمل: ${riskTitles || "لا توجد مخاطر نشطة"}) والمستندات المرفوعة (${processedFiles.length} ملفات) عن ارتباط سببي مباشر بين القرارات السابقة في قطاعات (${categories || "العمليات"}) ومستوى الأمان الإداري والمالي الحالي. تم بناء هذا التقرير حصرياً على البيانات الداخلية المؤكدة لضمان أقصى درجات الموثوقية والمقاومة التامة للهلوَسَة.`
+            : `### Evidence-Based Institutional Diagnostic Summary\n\nAudit of ${memories.length} recorded institutional memories (${memTitles || "None"}), ${riskAlerts.length} active risk alerts (${riskTitles || "None"}), and ${processedFiles.length} files demonstrates direct causal linkage between historical decision records across (${categories || "Operations"}) and current risk exposure. This report is grounded strictly in verified organizational records to eliminate hallucination.`,
         analyzedMemories: memories.length,
         identifiedRisks: riskAlerts.length,
         analyzedFilesCount: processedFiles.length,
@@ -769,16 +768,16 @@ export const handleRunSmartEvolution = async (req: Request, res: Response) => {
         recommendations: realRecsList.length,
         keyInsights: [
           lang === "ar"
-            ? `توثيق العوامل المسببة في ${memories.length} أحداث مؤسسية يوفر خط دفاع أولي لمنع تكرار الأخطاء السابقة.`
-            : `Documentation of causal factors across ${memories.length} events provides frontline defense against recurring failures.`,
+            ? `توثيق العوامل المسببة في ${memories.length} أحداث مؤسسية (${memTitles}) يوفر خط دفاع أولي لمنع تكرار الأخطاء السابقة.`
+            : `Documentation of causal factors across ${memories.length} events (${memTitles}) provides frontline defense against recurring failures.`,
           lang === "ar"
-            ? `تنبيهات المخاطر (${riskAlerts.length}) تتطلب تفعيلاً إجرائياً مباشراً للدروس المستفادة في إدارة العمليات.`
-            : `Risk alerts (${riskAlerts.length}) require direct operational implementation of documented lessons learned.`,
+            ? `تنبيهات المخاطر (${riskAlerts.length} تنبيهات: ${riskTitles}) تتطلب تفعيلاً إجرائياً مباشراً للدروس المستفادة في إدارة العمليات.`
+            : `Risk alerts (${riskAlerts.length} alerts: ${riskTitles}) require direct operational implementation of documented lessons learned.`,
         ],
         detectedPatterns: [
           lang === "ar"
-            ? "غياب المتابعة الدورية للدروس المستفادة يزيد من احتمالية تجدد الانكشاف في نفس الفئات التشغيلية."
-            : "Absence of periodic post-decision auditing correlates with renewed exposure across identical functional categories.",
+            ? `تكرار الفجوات الإجرائية في فئات (${categories || "العمليات"}) عند غياب بروتوكولات التحقق المزدوج الموثقة.`
+            : `Recurrent procedural gaps observed across (${categories || "Operations"}) when dual-check validation protocols are unrecorded.`,
         ],
         risksList: realRisksList.slice(0, 8),
         forecastsList: realForecastsList.slice(0, 8),
@@ -922,12 +921,107 @@ export const handleAgentChat = async (req: Request, res: Response) => {
 - كشف الأنماط الخفية لمنع تكرار الانكشافات وتزويد الإدارة برؤى استباقية مبنية على الأدلة.`;
     }
 
-    const fallbackChatResponse =
-      lang === "ar"
-        ? `### ${advisorType === "administrative" ? "المستشار الإداري" : advisorType === "unified" ? "المستشار الإدراكي والإداري" : "المستشار الإدراكي"}\n\nتستند هذه الاستجابة حصرياً إلى سجلات الذاكرة المؤسسية المعتمدة وقواعد الحوكمة الإجرائية الموثقة في منصة ذَكِرْ.\n\nجميع البيانات المؤسسية وتحليلات المخاطر (${riskAlerts.length} تنبيهات) وسجلات الذاكرة (${memories.length} أحداث) مؤمنة ومحدثة.`
-        : `### ${advisorType === "administrative" ? "Administrative Advisor" : advisorType === "unified" ? "Cognitive & Administrative Advisor" : "Cognitive Advisor"}\n\nThis response is grounded strictly in Zakir's verified institutional memory and procedural governance rules.\n\nAll organizational records (${memories.length} memories, ${riskAlerts.length} risk alerts) remain active and protected.`;
+    const lowerPrompt = promptText.toLowerCase();
+    const matchingMemories = memories.filter((m: any) => {
+      const combined = `${m.title} ${m.category} ${m.decision} ${m.causalFactors} ${m.lessonsLearned} ${m.description}`.toLowerCase();
+      const words = lowerPrompt.split(/\s+/).filter((w) => w.length > 2);
+      return words.some((w) => combined.includes(w));
+    });
 
-    const client = getGeminiClient();
+    const relevantMems = matchingMemories.length > 0 ? matchingMemories : memories.slice(0, 3);
+    const relevantRisks = riskAlerts.slice(0, 2);
+
+    let fallbackChatResponse = "";
+    if (lang === "ar") {
+      if (relevantMems.length > 0) {
+        const facts = relevantMems
+          .map(
+            (m: any) =>
+              `* **سجل الذاكرة:** ${m.title} (${m.category}) | **القرار المتخذ:** ${m.decision || "غير مسجل"} | **السبب الجذري:** ${m.causalFactors || "غير مسجل"} | **الدرس المستفاد:** ${m.lessonsLearned || "غير مسجل"}`,
+          )
+          .join("\n");
+        const inferences = relevantMems
+          .map(
+            (m: any) =>
+              `* يُظهر فحص سجل (${m.title}) أن العوامل المسببة (${m.causalFactors || "التشغيلية"}) أدت إلى الحاجة لاتخاذ قرار (${m.decision}) للحد من مخاطر فئة ${m.category}.`,
+          )
+          .join("\n");
+        const recs = relevantMems
+          .map(
+            (m: any) =>
+              `1. **تفعيل الرقابة الوقائية:** اعتماد توصية "${m.lessonsLearned || "المراجعة المبكرة"}" في كافة المعاملات المشابهة لـ ${m.category}.\n2. **متابعة المؤشرات الاستباقية:** مراجعة تنبيهات المخاطر المرتبطة وتوثيق مسار الإجراءات في سجلات الحوكمة.`,
+          )
+          .join("\n");
+
+        fallbackChatResponse = `### المستشار الإدراكي والحوكمي (تحليل مستند إلى الأدلة)
+
+تستند هذه الاستجابة حصرياً إلى سجلات الذاكرة المؤسسية المعتمدة وقواعد الحوكمة الإجرائية في منصة ذَكِرْ (${memories.length} أحداث مسجلة، ${riskAlerts.length} تنبيهات مخاطر).
+
+---
+
+### 1. الحقيقة (Fact):
+${facts}
+
+---
+
+### 2. الاستنتاج الإدراكي (Inference):
+${inferences}
+
+---
+
+### 3. التوصيات الاستباقية (Recommendations):
+${recs}`;
+      } else {
+        fallbackChatResponse = `### المستشار الإدراكي
+بمراجعة سجلات الذاكرة المؤسسية المتاحة في مساحة العمل الحالية، لا توجد وقائع أو قرارات سابقة مسجلة ترتبط بهذا الاستفسار بشكل مباشر. لحماية المؤسسة ومقاومة الهلوسة، يوصى بتوثيق هذا الحدث في سجل الذكريات المؤسسية قبل اتخاذ القرار.`;
+      }
+    } else {
+      if (relevantMems.length > 0) {
+        const facts = relevantMems
+          .map(
+            (m: any) =>
+              `* **Memory Record:** ${m.title} (${m.category}) | **Decision:** ${m.decision || "N/A"} | **Root Cause:** ${m.causalFactors || "N/A"} | **Lesson:** ${m.lessonsLearned || "N/A"}`,
+          )
+          .join("\n");
+        const inferences = relevantMems
+          .map(
+            (m: any) =>
+              `* Audit of (${m.title}) indicates that logged causes (${m.causalFactors || "Operational"}) required decision (${m.decision}) to mitigate exposure in ${m.category}.`,
+          )
+          .join("\n");
+        const recs = relevantMems
+          .map(
+            (m: any) =>
+              `1. **Enforce Governance:** Embed lesson "${m.lessonsLearned || "Early audit"}" across ${m.category}.\n2. **Monitor Indicators:** Review related risk alerts and document compliance in workspace logs.`,
+          )
+          .join("\n");
+
+        fallbackChatResponse = `### Cognitive & Governance Advisor (Evidence-Based Synthesis)
+
+This response is grounded strictly in verified institutional memory (${memories.length} records, ${riskAlerts.length} risk alerts).
+
+---
+
+### 1. Fact:
+${facts}
+
+---
+
+### 2. Inference:
+${inferences}
+
+---
+
+### 3. Recommendations:
+${recs}`;
+      } else {
+        fallbackChatResponse = `### Cognitive Advisor
+Audit of active workspace records confirms no historical decision or risk event matches this inquiry. To prevent hallucination, please log this event into institutional memory.`;
+      }
+    }
+
+    const client = getLocalGeminiClient();
+    console.log("HANDLE_AGENT_CHAT_DEBUG:", { hasClient: Boolean(client), inCooldown: isGeminiInCooldown() });
     if (!client || isGeminiInCooldown()) {
       return res.json({
         text: fallbackChatResponse,
@@ -1003,52 +1097,65 @@ ${filesSummary}
     });
 
     const candidateModels = [
+      "gemini-3.5-flash",
+      "gemini-3.5-flash-lite",
+      "gemini-flash-lite-latest",
+      "gemini-3.7-flash",
       "gemini-3.1-flash-lite",
-      "gemini-flash-latest",
       "gemini-3.8-flash",
     ];
     let responseText = "";
     let extractedSources: Array<{ title: string; url: string; snippet?: string }> = [];
 
     for (const modelName of candidateModels) {
-      if (isGeminiInCooldown()) break;
       let response: any = null;
 
-      if (searchDecision.needsSearch) {
-        try {
-          const configObjWithSearch: any = {
-            systemInstruction,
-            temperature: 0.35,
-            tools: [{ googleSearch: {} }],
-          };
+      for (let attempt = 0; attempt < 3; attempt++) {
+        if (searchDecision.needsSearch) {
+          try {
+            const configObjWithSearch: any = {
+              systemInstruction,
+              temperature: 0.35,
+              tools: [{ googleSearch: {} }],
+            };
 
-          response = await client.models.generateContent({
-            model: modelName,
-            contents,
-            config: configObjWithSearch,
-          });
-        } catch (searchErr: any) {
-          console.warn(`[AgentChat] Search tool failed for model ${modelName}:`, searchErr?.message || searchErr);
+            response = await client.models.generateContent({
+              model: modelName,
+              contents,
+              config: configObjWithSearch,
+            });
+          } catch (searchErr: any) {
+            console.log("AGENT_CHAT_SEARCH_ERR:", modelName, searchErr?.message || searchErr);
+          }
         }
-      }
 
-      if (!response) {
-        try {
-          const configObjPure: any = {
-            systemInstruction,
-            temperature: 0.35,
-          };
+        if (!response) {
+          try {
+            const configObjPure: any = {
+              systemInstruction,
+              temperature: 0.35,
+            };
 
-          response = await client.models.generateContent({
-            model: modelName,
-            contents,
-            config: configObjPure,
-          });
-        } catch (pureErr: any) {
-          console.warn(`[AgentChat] Pure Gemini call failed for model ${modelName}:`, pureErr?.message || pureErr);
-          handleGeminiError(pureErr);
-          continue;
+            response = await client.models.generateContent({
+              model: modelName,
+              contents,
+              config: configObjPure,
+            });
+          } catch (pureErr: any) {
+            console.warn(`[AgentChat] Model ${modelName} unavailable/exhausted:`, pureErr?.message || pureErr);
+            const is429 = pureErr?.status === "RESOURCE_EXHAUSTED" || String(pureErr?.message || "").includes("429");
+            if (is429) {
+              // Immediately break and advance to next candidate model without wasting retry quota
+              break;
+            }
+            if (attempt < 2) {
+              await new Promise((r) => setTimeout(r, 600));
+              continue;
+            }
+          }
         }
+
+        if (response?.text) break;
       }
 
       if (response?.text) {
