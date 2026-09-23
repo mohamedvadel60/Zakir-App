@@ -1232,6 +1232,37 @@ app.use((req, res, next) => {
 app.use(express.json({ limit: "30mb" }));
 app.use(express.urlencoded({ extended: true, limit: "30mb" }));
 
+// Public static assets (badges, logos, icons) served publicly for email clients & CDN
+app.use(express.static(path.join(process.cwd(), "public")));
+
+app.get(
+  ["/zakir-badge-light.png", "/api/email-logo/light.png", "/api/brand/badge-light.png"],
+  (req, res) => {
+    const buf = getOfficialEmailLogoLightBuffer();
+    if (!buf || buf.length === 0) {
+      return res.status(404).send("Light badge not found");
+    }
+    res.setHeader("Content-Type", "image/png");
+    res.setHeader("Cache-Control", "public, max-age=86400");
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.send(buf);
+  }
+);
+
+app.get(
+  ["/zakir-badge-dark.png", "/api/email-logo/dark.png", "/api/brand/badge-dark.png"],
+  (req, res) => {
+    const buf = getOfficialEmailLogoDarkBuffer();
+    if (!buf || buf.length === 0) {
+      return res.status(404).send("Dark badge not found");
+    }
+    res.setHeader("Content-Type", "image/png");
+    res.setHeader("Cache-Control", "public, max-age=86400");
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.send(buf);
+  }
+);
+
 app.get("/api/health", (req, res) => {
   res.json({
     status: "ok",
@@ -3263,10 +3294,30 @@ function buildMasterEmailHtml(options: {
 }): string {
   const { subject, title, greeting, bodyHtml, securityNote, baseUrl } = options;
   const canonicalDomain = "https://www.getzakir.com";
-  const appBase = (baseUrl || getAppBaseUrl() || canonicalDomain).replace(
+  let publicBaseUrl = (baseUrl || getAppBaseUrl() || process.env.APP_URL || canonicalDomain).replace(
     /\/$/,
     "",
   );
+
+  if (
+    publicBaseUrl.includes("localhost") ||
+    publicBaseUrl.includes("127.0.0.1") ||
+    !publicBaseUrl.startsWith("http")
+  ) {
+    if (
+      process.env.APP_URL &&
+      !process.env.APP_URL.includes("localhost") &&
+      process.env.APP_URL.startsWith("http")
+    ) {
+      publicBaseUrl = process.env.APP_URL.trim().replace(/\/$/, "");
+    } else {
+      publicBaseUrl = canonicalDomain;
+    }
+  }
+
+  const appBase = publicBaseUrl;
+  const logoLightUrl = `${publicBaseUrl}/zakir-badge-light.png`;
+  const logoDarkUrl = `${publicBaseUrl}/zakir-badge-dark.png`;
 
   return `<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml" lang="ar">
@@ -3391,12 +3442,12 @@ function buildMasterEmailHtml(options: {
                   <td align="center" valign="middle" style="padding: 0; margin: 0; line-height: 0; font-size: 0; text-align: center;">
                     <a href="${appBase}" target="_blank" style="text-decoration: none; display: inline-block; line-height: 0; font-size: 0; outline: none; border: 0;">
                       <!-- LIGHT MODE: Solid Navy Square (#1C2C58) + Crisp White ZAKIR Logo (#FFFFFF) -->
-                      <img src="cid:zakir-logo-light" alt="ZAKIR" width="72" height="72" class="zakir-logo-light" style="display: block; width: 72px !important; height: 72px !important; max-width: 72px !important; max-height: 72px !important; aspect-ratio: 1 / 1; border: 0; outline: none; text-decoration: none; margin: 0 auto; -ms-interpolation-mode: bicubic; border-radius: 16px;" />
+                      <img src="${logoLightUrl}" alt="ZAKIR" width="72" height="72" class="zakir-logo-light" style="display: block; width: 72px !important; height: 72px !important; max-width: 72px !important; max-height: 72px !important; aspect-ratio: 1 / 1; border: 0; outline: none; text-decoration: none; margin: 0 auto; -ms-interpolation-mode: bicubic; border-radius: 16px;" />
                       
                       <!-- DARK MODE: Solid Pure White Square (#FFFFFF) + Crisp Navy ZAKIR Logo (#1C2C58) -->
                       <!--[if !mso]><!-->
                       <div class="zakir-logo-dark-wrap" style="display: none; mso-hide: all; max-height: 0px; max-width: 0px; overflow: hidden; width: 0; height: 0; margin: 0 auto; line-height: 0; font-size: 0;">
-                        <img src="cid:zakir-logo-dark" alt="ZAKIR" width="72" height="72" class="zakir-logo-dark" style="display: none; width: 72px !important; height: 72px !important; max-width: 72px !important; max-height: 72px !important; aspect-ratio: 1 / 1; border: 0; outline: none; text-decoration: none; margin: 0 auto; -ms-interpolation-mode: bicubic; border-radius: 16px;" />
+                        <img src="${logoDarkUrl}" alt="ZAKIR" width="72" height="72" class="zakir-logo-dark" style="display: none; width: 72px !important; height: 72px !important; max-width: 72px !important; max-height: 72px !important; aspect-ratio: 1 / 1; border: 0; outline: none; text-decoration: none; margin: 0 auto; -ms-interpolation-mode: bicubic; border-radius: 16px;" />
                       </div>
                       <!--<![endif]-->
                     </a>
@@ -3433,11 +3484,11 @@ function buildMasterEmailHtml(options: {
                 <tr>
                   <td align="center" style="vertical-align: middle;">
                     <span class="zakir-footer-logo-light" style="display: inline-block; vertical-align: middle; margin-right: 8px;">
-                      <img src="cid:zakir-logo-light" alt="ZAKIR" width="22" height="22" style="display: block; width: 22px; height: 22px; border-radius: 5px; border: 0;" />
+                      <img src="${logoLightUrl}" alt="ZAKIR" width="22" height="22" style="display: block; width: 22px; height: 22px; border-radius: 5px; border: 0;" />
                     </span>
                     <!--[if !mso]><!-->
                     <span class="zakir-footer-logo-dark" style="display: none; mso-hide: all; max-height: 0; max-width: 0; overflow: hidden; vertical-align: middle; margin-right: 8px;">
-                      <img src="cid:zakir-logo-dark" alt="ZAKIR" width="22" height="22" style="display: block; width: 22px; height: 22px; border-radius: 5px; border: 0;" />
+                      <img src="${logoDarkUrl}" alt="ZAKIR" width="22" height="22" style="display: block; width: 22px; height: 22px; border-radius: 5px; border: 0;" />
                     </span>
                     <!--<![endif]-->
                     <span class="zakir-wordmark" style="font-size: 13px; font-weight: 800; color: #0f172a; vertical-align: middle; letter-spacing: 1.5px; text-transform: uppercase;">ZAKIR</span>

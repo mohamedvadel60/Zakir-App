@@ -2443,6 +2443,8 @@ export interface AdminUserRecord {
   fileCount: number;
   files: UserFile[];
   verificationInfo?: VerificationInfo;
+  verificationDocuments?: any[];
+  rejectionReason?: string;
   emailVerified?: boolean;
   isVerified?: boolean;
   fullUser?: User;
