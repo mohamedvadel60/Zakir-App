@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect, useMemo } from "react";
+import { safeFormatDateTime } from "../lib/dateUtils";
 import { loadStripe, Stripe as StripeType } from "@stripe/stripe-js";
 import { StripeEmbeddedCheckout } from "./StripeEmbeddedCheckout.js";
 import { auth } from "../firebase.js";
@@ -1870,10 +1871,7 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
     setThemeSuccessMsg(null);
     setThemeErrorMsg(null);
     try {
-      const now = new Date().toLocaleString(lang === "ar" ? "ar-EG" : "en-US", {
-        dateStyle: "medium",
-        timeStyle: "short"
-      });
+      const now = safeFormatDateTime(new Date(), lang);
 
       if (selectedThemeMode === "custom") {
         setThemeApproved(true);
@@ -2000,10 +1998,7 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
   };
 
   const handleSelectCustomTheme = () => {
-    const now = new Date().toLocaleString(lang === "ar" ? "ar-EG" : "en-US", {
-      dateStyle: "medium",
-      timeStyle: "short"
-    });
+    const now = safeFormatDateTime(new Date(), lang);
     setSelectedThemeMode("custom");
     setThemeApproved(true);
     setApprovedTimestamp(now);

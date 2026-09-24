@@ -81,6 +81,7 @@ import {
 import { DashboardAnalyticsChart } from "./components/DashboardAnalyticsChart";
 import { TrialCountdown } from "./components/TrialCountdown";
 import { SmartEvolutionView } from "./components/SmartEvolutionView";
+import { SmartEvolutionErrorBoundary } from "./components/SmartEvolutionErrorBoundary";
 import { MarketIntelligenceView } from "./components/MarketIntelligenceView";
 import { motion, AnimatePresence } from "motion/react";
 import { translations } from "./translations.js";
@@ -520,11 +521,11 @@ function parseRouteFromLocation(): {
     settingsSubTab = tabParam;
   }
 
+  if (pathname === "" || pathname === "/" || pathname === "/dashboard" || pathname === "/overview") {
+    return { tab: "dashboard", settingsSubTab, authMode: "landing" };
+  }
   if (pathname === "/cognitive-advisor" || pathname === "/agent" || pathname === "/advisor") {
     return { tab: "agent", settingsSubTab, authMode: "landing" };
-  }
-  if (pathname === "/dashboard" || pathname === "/overview") {
-    return { tab: "dashboard", settingsSubTab, authMode: "landing" };
   }
   if (pathname === "/memories" || pathname === "/registered-memories" || pathname === "/library") {
     return { tab: "library", settingsSubTab, authMode: "landing" };
@@ -570,23 +571,8 @@ function parseRouteFromLocation(): {
     return { tab: "dashboard", settingsSubTab, authMode: "login", showForgotPassword: true };
   }
 
-  // Fallback for "/" or unrecognized: check localStorage
-  const savedTab = localStorage.getItem("zakir_active_tab") as TabType;
-  const validTabs: TabType[] = [
-    "dashboard",
-    "library",
-    "add",
-    "smart",
-    "market",
-    "files",
-    "agent",
-    "alerts",
-    "settings",
-    "gmail",
-    "support"
-  ];
-  const fallbackTab = savedTab && validTabs.includes(savedTab) ? savedTab : "dashboard";
-  return { tab: fallbackTab, settingsSubTab, authMode: "landing" };
+  // Fallback for unrecognized paths: default to "dashboard"
+  return { tab: "dashboard", settingsSubTab, authMode: "landing" };
 }
 
 function getCanonicalPath(
@@ -6664,16 +6650,18 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                   className="space-y-6"
                   id="smart-evolution-view"
                 >
-                  <SmartEvolutionView
-                    smartData={smartData}
-                    isSmartAnalyzing={isSmartAnalyzing}
-                    runSmartAnalysis={runSmartAnalysis}
-                    memories={memories}
-                    riskAlerts={riskAlerts}
-                    lang={lang}
-                    theme={theme}
-                    workspaceName={currentUser?.workspace?.name}
-                  />
+                  <SmartEvolutionErrorBoundary lang={lang} theme={theme} onRetry={runSmartAnalysis}>
+                    <SmartEvolutionView
+                      smartData={smartData}
+                      isSmartAnalyzing={isSmartAnalyzing}
+                      runSmartAnalysis={runSmartAnalysis}
+                      memories={memories}
+                      riskAlerts={riskAlerts}
+                      lang={lang}
+                      theme={theme}
+                      workspaceName={currentUser?.workspace?.name}
+                    />
+                  </SmartEvolutionErrorBoundary>
                 </motion.div>
               )}
 

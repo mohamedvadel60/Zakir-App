@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { safeFormatDateTime } from "../lib/dateUtils";
 import { motion, AnimatePresence } from "motion/react";
 import {
   TrendingUp,
@@ -669,10 +670,7 @@ export const MarketIntelligenceView: React.FC<MarketIntelligenceViewProps> = ({
                 )}
                 {currentResult.createdAt && (
                   <span className="text-[11px] text-slate-400 font-mono">
-                    {new Date(currentResult.createdAt).toLocaleString(isAr ? "ar-EG" : "en-US", {
-                      dateStyle: "medium",
-                      timeStyle: "short",
-                    })}
+                    {safeFormatDateTime(currentResult.createdAt, isAr ? "ar" : "en")}
                   </span>
                 )}
               </div>

@@ -1,26 +1,86 @@
-export const safeFormatDate = (dateVal: any, fallback = "N/A"): string => {
+/**
+ * Safe, Runtime-Robust Date & Time Formatters for ZAKIR
+ * Replaces unsafe Intl/toLocale options (e.g. timeStyle) that cause TypeError runtime crashes.
+ */
+
+export const safeFormatDate = (dateVal: any, localeOrLang: string = "ar", fallback = "N/A"): string => {
   if (!dateVal) return fallback;
-  if (typeof dateVal.toDate === 'function') {
-    return dateVal.toDate().toLocaleDateString();
+  try {
+    let d: Date;
+    if (typeof dateVal?.toDate === "function") {
+      d = dateVal.toDate();
+    } else {
+      d = new Date(dateVal);
+    }
+    if (isNaN(d.getTime())) return fallback;
+
+    const loc = localeOrLang === "ar" || localeOrLang === "ar-SA" || localeOrLang === "ar-EG"
+      ? "ar-EG"
+      : localeOrLang === "fr" || localeOrLang === "fr-FR"
+      ? "fr-FR"
+      : "en-US";
+
+    return d.toLocaleDateString(loc, {
+      year: "numeric",
+      month: "short",
+      day: "numeric"
+    });
+  } catch {
+    return fallback;
   }
-  const d = new Date(dateVal);
-  return isNaN(d.getTime()) ? fallback : d.toLocaleDateString();
 };
 
-export const safeFormatDateTime = (dateVal: any, fallback = "N/A"): string => {
+export const safeFormatDateTime = (dateVal: any, localeOrLang: string = "ar", fallback = "N/A"): string => {
   if (!dateVal) return fallback;
-  if (typeof dateVal.toDate === 'function') {
-    return dateVal.toDate().toLocaleString();
+  try {
+    let d: Date;
+    if (typeof dateVal?.toDate === "function") {
+      d = dateVal.toDate();
+    } else {
+      d = new Date(dateVal);
+    }
+    if (isNaN(d.getTime())) return fallback;
+
+    const loc = localeOrLang === "ar" || localeOrLang === "ar-SA" || localeOrLang === "ar-EG"
+      ? "ar-EG"
+      : localeOrLang === "fr" || localeOrLang === "fr-FR"
+      ? "fr-FR"
+      : "en-US";
+
+    return d.toLocaleString(loc, {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit"
+    });
+  } catch {
+    return fallback;
   }
-  const d = new Date(dateVal);
-  return isNaN(d.getTime()) ? fallback : d.toLocaleString();
 };
 
-export const safeFormatTime = (dateVal: any, fallback = "N/A"): string => {
+export const safeFormatTime = (dateVal: any, localeOrLang: string = "ar", fallback = "N/A"): string => {
   if (!dateVal) return fallback;
-  if (typeof dateVal.toDate === 'function') {
-    return dateVal.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  try {
+    let d: Date;
+    if (typeof dateVal?.toDate === "function") {
+      d = dateVal.toDate();
+    } else {
+      d = new Date(dateVal);
+    }
+    if (isNaN(d.getTime())) return fallback;
+
+    const loc = localeOrLang === "ar" || localeOrLang === "ar-SA" || localeOrLang === "ar-EG"
+      ? "ar-EG"
+      : localeOrLang === "fr" || localeOrLang === "fr-FR"
+      ? "fr-FR"
+      : "en-US";
+
+    return d.toLocaleTimeString(loc, {
+      hour: "2-digit",
+      minute: "2-digit"
+    });
+  } catch {
+    return fallback;
   }
-  const d = new Date(dateVal);
-  return isNaN(d.getTime()) ? fallback : d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 };

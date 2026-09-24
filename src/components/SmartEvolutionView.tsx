@@ -25,6 +25,7 @@ import {
   TrendingUp,
 } from "lucide-react";
 import type { SmartEvolutionData } from "../types";
+import { safeFormatDateTime } from "../lib/dateUtils";
 
 interface SmartEvolutionViewProps {
   smartData: SmartEvolutionData | null;
@@ -258,13 +259,7 @@ export const SmartEvolutionView: React.FC<SmartEvolutionViewProps> = ({
               <span className="flex items-center gap-1">
                 <Clock className="w-3.5 h-3.5" />
                 <span>
-                  {new Date(smartData.createdAt).toLocaleDateString(
-                    lang === "ar" ? "ar-SA" : "en-US",
-                    {
-                      dateStyle: "medium",
-                      timeStyle: "short",
-                    },
-                  )}
+                  {safeFormatDateTime(smartData.createdAt, lang)}
                 </span>
               </span>
             )}
