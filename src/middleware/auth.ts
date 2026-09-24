@@ -491,8 +491,14 @@ export function computeStrictVerificationState(profile: any, isAdmin: boolean = 
   const overallDocStatus = String(profile?.documentVerificationStatus || profile?.verificationInfo?.status || "").toUpperCase();
   const rawAccountStatus = String(profile?.accountStatus || "").toUpperCase();
 
+  const isEmailVer = Boolean(
+    profile?.isEmailVerified === true ||
+    profile?.emailVerified === true ||
+    profile?.email_verified === true
+  );
+
   // RULE: Email verification pending
-  if (rawAccountStatus === "PENDING_EMAIL_VERIFICATION") {
+  if (!isEmailVer || rawAccountStatus === "PENDING_EMAIL_VERIFICATION") {
     return {
       effectiveStatus: "PENDING_EMAIL_VERIFICATION",
       isVerified: false,

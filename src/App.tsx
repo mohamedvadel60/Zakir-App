@@ -467,7 +467,164 @@ const FullScreenFallback = () => {
   return <ZakirLoadingScreen theme={savedTheme} />;
 };
 
+type TabType =
+  | "dashboard"
+  | "library"
+  | "add"
+  | "smart"
+  | "market"
+  | "files"
+  | "agent"
+  | "alerts"
+  | "settings"
+  | "gmail"
+  | "support";
+
+type SettingsSubTabType =
+  | "company"
+  | "team"
+  | "subscription"
+  | "verification"
+  | "language"
+  | "appearance"
+  | "database"
+  | "account";
+
+function parseRouteFromLocation(): {
+  tab: TabType;
+  settingsSubTab: SettingsSubTabType;
+  authMode: "landing" | "register" | "login";
+  showForgotPassword?: boolean;
+} {
+  if (typeof window === "undefined") {
+    return { tab: "dashboard", settingsSubTab: "company", authMode: "landing" };
+  }
+
+  const pathname = window.location.pathname.toLowerCase().replace(/\/$/, "");
+  const searchParams = new URLSearchParams(window.location.search);
+  const tabParam = searchParams.get("tab") as SettingsSubTabType | null;
+
+  const validSettingsSubTabs: SettingsSubTabType[] = [
+    "company",
+    "team",
+    "subscription",
+    "verification",
+    "language",
+    "appearance",
+    "database",
+    "account"
+  ];
+
+  let settingsSubTab: SettingsSubTabType = "company";
+  if (tabParam && validSettingsSubTabs.includes(tabParam)) {
+    settingsSubTab = tabParam;
+  }
+
+  if (pathname === "/cognitive-advisor" || pathname === "/agent" || pathname === "/advisor") {
+    return { tab: "agent", settingsSubTab, authMode: "landing" };
+  }
+  if (pathname === "/dashboard" || pathname === "/overview") {
+    return { tab: "dashboard", settingsSubTab, authMode: "landing" };
+  }
+  if (pathname === "/memories" || pathname === "/registered-memories" || pathname === "/library") {
+    return { tab: "library", settingsSubTab, authMode: "landing" };
+  }
+  if (pathname === "/add-memory" || pathname === "/add") {
+    return { tab: "add", settingsSubTab, authMode: "landing" };
+  }
+  if (pathname === "/smart-evolution" || pathname === "/smart") {
+    return { tab: "smart", settingsSubTab, authMode: "landing" };
+  }
+  if (pathname === "/market-intelligence" || pathname === "/market") {
+    return { tab: "market", settingsSubTab, authMode: "landing" };
+  }
+  if (pathname === "/file-management" || pathname === "/files" || pathname === "/file-vault") {
+    return { tab: "files", settingsSubTab, authMode: "landing" };
+  }
+  if (pathname === "/risk-alerts" || pathname === "/alerts" || pathname === "/risk-radar") {
+    return { tab: "alerts", settingsSubTab, authMode: "landing" };
+  }
+  if (pathname === "/email-vault" || pathname === "/gmail" || pathname === "/email") {
+    return { tab: "gmail", settingsSubTab, authMode: "landing" };
+  }
+  if (pathname === "/customer-support" || pathname === "/support") {
+    return { tab: "support", settingsSubTab, authMode: "landing" };
+  }
+  if (pathname.startsWith("/settings")) {
+    const parts = pathname.split("/").filter(Boolean);
+    if (parts.length > 1 && validSettingsSubTabs.includes(parts[1] as SettingsSubTabType)) {
+      settingsSubTab = parts[1] as SettingsSubTabType;
+    }
+    return { tab: "settings", settingsSubTab, authMode: "landing" };
+  }
+  if (pathname === "/admin" || pathname === "/admin-dashboard") {
+    return { tab: "dashboard", settingsSubTab, authMode: "landing" };
+  }
+  if (pathname === "/login") {
+    return { tab: "dashboard", settingsSubTab, authMode: "login" };
+  }
+  if (pathname === "/register" || pathname === "/signup") {
+    return { tab: "dashboard", settingsSubTab, authMode: "register" };
+  }
+  if (pathname === "/forgot-password") {
+    return { tab: "dashboard", settingsSubTab, authMode: "login", showForgotPassword: true };
+  }
+
+  // Fallback for "/" or unrecognized: check localStorage
+  const savedTab = localStorage.getItem("zakir_active_tab") as TabType;
+  const validTabs: TabType[] = [
+    "dashboard",
+    "library",
+    "add",
+    "smart",
+    "market",
+    "files",
+    "agent",
+    "alerts",
+    "settings",
+    "gmail",
+    "support"
+  ];
+  const fallbackTab = savedTab && validTabs.includes(savedTab) ? savedTab : "dashboard";
+  return { tab: fallbackTab, settingsSubTab, authMode: "landing" };
+}
+
+function getCanonicalPath(
+  tab: TabType,
+  settingsSubTab?: SettingsSubTabType
+): string {
+  switch (tab) {
+    case "dashboard":
+      return "/dashboard";
+    case "library":
+      return "/memories";
+    case "add":
+      return "/add-memory";
+    case "smart":
+      return "/smart-evolution";
+    case "market":
+      return "/market-intelligence";
+    case "files":
+      return "/file-management";
+    case "agent":
+      return "/cognitive-advisor";
+    case "alerts":
+      return "/risk-alerts";
+    case "gmail":
+      return "/email-vault";
+    case "support":
+      return "/customer-support";
+    case "settings":
+      return `/settings${settingsSubTab ? `?tab=${settingsSubTab}` : ""}`;
+    default:
+      return "/dashboard";
+  }
+}
+
 export default function App() {
+  // Initial Route parsed directly from URL pathname & search parameters
+  const initialRoute = useMemo(() => parseRouteFromLocation(), []);
+
   // Locale & Theme State
   const [lang, setLang] = useState<"en" | "ar" | "fr">(() => {
     const saved = localStorage.getItem("zakir_lang");
@@ -482,7 +639,9 @@ export default function App() {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [isAuthChecking, setIsAuthChecking] = useState(true);
   const [isInitialDataLoaded, setIsInitialDataLoaded] = useState(false);
-  const [authMode, setAuthMode] = useState<"landing" | "register" | "login">("landing");
+  const [authMode, setAuthMode] = useState<"landing" | "register" | "login">(
+    () => initialRoute.authMode
+  );
   
   // Utility & Timers
   const formatCountdown = (totalSeconds: number) => {
@@ -1020,17 +1179,69 @@ This hosting domain (**${currentDomain}**) has not been authorized in your Fireb
   };
 
   // UI Navigation State
-  const [activeTab, setActiveTab] = useState<
-    "dashboard" | "library" | "add" | "smart" | "market" | "files" | "agent" | "alerts" | "settings" | "gmail" | "support"
-  >(() => {
-    const saved = localStorage.getItem("zakir_active_tab");
-    const validTabs = ["dashboard", "library", "add", "smart", "market", "files", "agent", "alerts", "settings", "gmail", "support"];
-    return (saved && validTabs.includes(saved)) ? (saved as any) : "dashboard";
-  });
+  const [activeTab, setActiveTab] = useState<TabType>(() => initialRoute.tab);
+  const [settingsActiveSubTab, setSettingsActiveSubTab] = useState<SettingsSubTabType>(
+    () => initialRoute.settingsSubTab
+  );
 
   useEffect(() => {
     localStorage.setItem("zakir_active_tab", activeTab);
   }, [activeTab]);
+
+  // Synchronize browser URL bar with current route for authenticated users
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    if (currentUser && !isAuthChecking) {
+      const currentPath = window.location.pathname.toLowerCase().replace(/\/$/, "");
+      const searchParams = new URLSearchParams(window.location.search);
+
+      const hasSpecialParams =
+        searchParams.has("invitationToken") ||
+        searchParams.has("session_id") ||
+        searchParams.has("checkout") ||
+        searchParams.has("token");
+
+      if (isUserAdmin(currentUser) && (currentPath === "/admin" || currentPath === "/admin-dashboard")) {
+        return;
+      }
+
+      if (!hasSpecialParams) {
+        const canonicalUrl = getCanonicalPath(activeTab, settingsActiveSubTab);
+        const [canonicalPath] = canonicalUrl.split("?");
+
+        if (
+          currentPath !== canonicalPath ||
+          (activeTab === "settings" && searchParams.get("tab") !== settingsActiveSubTab)
+        ) {
+          const fullUrl = canonicalUrl + window.location.hash;
+          if (window.history && window.history.pushState) {
+            window.history.pushState({ tab: activeTab, settingsSubTab: settingsActiveSubTab }, "", fullUrl);
+          }
+        }
+      }
+    }
+  }, [activeTab, settingsActiveSubTab, currentUser, isAuthChecking]);
+
+  // Sync route state on browser popstate (back/forward navigation)
+  useEffect(() => {
+    const handlePopState = () => {
+      const route = parseRouteFromLocation();
+      setActiveTab(route.tab);
+      if (route.settingsSubTab) {
+        setSettingsActiveSubTab(route.settingsSubTab);
+      }
+      if (route.authMode) {
+        setAuthMode(route.authMode);
+      }
+      if (route.showForgotPassword) {
+        setShowForgotPassword(true);
+      }
+    };
+
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, []);
 
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(() => {
     return localStorage.getItem("zakir_sidebar_collapsed") === "true";
@@ -1295,7 +1506,6 @@ This hosting domain (**${currentDomain}**) has not been authorized in your Fireb
   } | null>(null);
 
   // Settings State
-  const [settingsActiveSubTab, setSettingsActiveSubTab] = useState<"company" | "team" | "subscription" | "verification" | "language" | "appearance" | "database" | "account">("company");
   const [verificationDocs, setVerificationDocs] = useState<string[]>([]);
   const [uploadProgress, setUploadProgress] = useState(false);
 
@@ -1385,6 +1595,20 @@ This hosting domain (**${currentDomain}**) has not been authorized in your Fireb
   useEffect(() => {
     let unsubsProfile: (() => void) | null = null;
     const unsubscribeAuth = subscribeToFirebaseAuthState((fbUser) => {
+      if (fbUser) {
+        const route = parseRouteFromLocation();
+        setActiveTab(route.tab);
+        setSettingsActiveSubTab(route.settingsSubTab);
+
+        const currentPath = window.location.pathname.toLowerCase().replace(/\/$/, "");
+        if (currentPath === "" || currentPath === "/") {
+          const canonical = getCanonicalPath(route.tab, route.settingsSubTab);
+          if (window.history && window.history.replaceState) {
+            window.history.replaceState({ tab: route.tab }, "", canonical + window.location.hash);
+          }
+        }
+      }
+
       setCurrentUser(prevUser => {
         if (!prevUser || prevUser.id !== fbUser?.id) {
           setIsInitialDataLoaded(false);
@@ -3182,23 +3406,16 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
   const isAppLoading = isAuthChecking || (currentUser && !isInitialDataLoaded);
 
   return (
-    <>
-      <AnimatePresence>
-        {isAppLoading && (
-          <ZakirLoadingScreen key="zakir-global-loading-screen" theme={theme} />
-        )}
-      </AnimatePresence>
-
-      <div 
-        id="zakir-app-root"
-        className={`min-h-screen transition-colors duration-150 ${
-          theme === "dark" ? "theme-dark bg-[#0B0F19] text-[#F8FAFC]" : "theme-light bg-[#F0F2F5] text-[#0F172A]"
-        } ${
-          isCustomThemeActive ? "custom-theme-active" : ""
-        }`} 
-        style={customThemeStyle}
-        dir={t.dir}
-      >
+    <div 
+      id="zakir-app-root"
+      className={`min-h-screen transition-colors duration-150 ${
+        theme === "dark" ? "theme-dark bg-[#0B0F19] text-[#F8FAFC]" : "theme-light bg-[#F0F2F5] text-[#0F172A]"
+      } ${
+        isCustomThemeActive ? "custom-theme-active" : ""
+      }`} 
+      style={customThemeStyle}
+      dir={t.dir}
+    >
       {/* GLOBAL DYNAMIC CSS PALETTE OVERRIDES */}
       <style dangerouslySetInnerHTML={{ __html: `
         /* 1. Global CSS Variables Definition */
@@ -3303,7 +3520,9 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
       ` }} />
       
       {/* AUTHENTICATION & LANDING GATEWAY */}
-      {!currentUser ? (
+      {isAppLoading ? (
+        <ZakirLoadingScreen key="zakir-global-loading-screen" theme={theme} />
+      ) : !currentUser ? (
         authMode === "landing" ? (
           <Suspense fallback={<FullScreenFallback />}>
             <AnimatedLandingPage
@@ -4206,7 +4425,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
             }}
           />
         </Suspense>
-      ) : (currentUser && !isUserAdmin(currentUser) && ((!currentUser.isEmailVerified && !currentUser.emailVerified && !currentUser.email_verified && currentUser.verification_required !== false) || currentUser.accountStatus === "PENDING_EMAIL_VERIFICATION")) ? (
+      ) : (currentUser && !isUserAdmin(currentUser) && ((!currentUser.isEmailVerified && !currentUser.emailVerified && !currentUser.email_verified) || currentUser.accountStatus === "PENDING_EMAIL_VERIFICATION")) ? (
         <Suspense fallback={<FullScreenFallback />}>
           <EmailVerificationView
             currentUser={currentUser}
@@ -7321,6 +7540,5 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
       )}
 
     </div>
-    </>
   );
 }

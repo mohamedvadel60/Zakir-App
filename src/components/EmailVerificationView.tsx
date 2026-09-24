@@ -3,6 +3,7 @@ import { motion } from "motion/react";
 import { ShieldCheck, AlertTriangle, CheckCircle, RefreshCw, LogOut } from "lucide-react";
 import { ZakirLogo } from "./ZakirLogo";
 import { sendVerificationCodeApi, verifyCodeApi, isUserAdmin } from "../lib/firebaseServices";
+import { auth } from "../firebase";
 import { User } from "../types";
 
 interface EmailVerificationViewProps {
@@ -30,45 +31,36 @@ export const EmailVerificationView: React.FC<EmailVerificationViewProps> = ({
   const [cooldownTimeLeft, setCooldownTimeLeft] = useState(0);
   const [cooldownUntil, setCooldownUntil] = useState<string | null>(null);
 
-  // Auto bypass if already verified, Admin account, or invited workspace member
+  // Auto bypass ONLY if Admin account or email is ACTUALLY verified
   useEffect(() => {
     const isAlreadyVerified =
-      currentUser.isVerified === true ||
-      currentUser.isEmailVerified === true ||
-      currentUser.email_verified === true ||
-      currentUser.emailVerified === true ||
-      currentUser.verification_required === false ||
-      currentUser.verification_status === "verified" ||
       isUserAdmin(currentUser) ||
-      (currentUser.role && currentUser.role !== "CEO");
+      currentUser.isEmailVerified === true ||
+      currentUser.emailVerified === true ||
+      currentUser.email_verified === true;
 
     if (isAlreadyVerified) {
       const verifiedUser: User = {
         ...currentUser,
         role: isUserAdmin(currentUser) ? "Admin" : currentUser.role,
-        isVerified: true,
         isEmailVerified: true,
         email_verified: true,
         emailVerified: true,
-        verification_required: false,
-        verification_status: "verified",
       };
       setCurrentUser(verifiedUser);
       applyUserPreferences(verifiedUser);
       return;
     }
-  }, [currentUser?.id, currentUser?.isVerified, currentUser?.verification_required, currentUser?.role]);
+  }, [currentUser?.id, currentUser?.isEmailVerified, currentUser?.emailVerified, currentUser?.email_verified]);
 
   // 1. Automatically request initial OTP on mount without consuming resend attempts
   useEffect(() => {
     let isMounted = true;
     const isAlreadyVerified =
-      currentUser.isVerified === true ||
-      currentUser.isEmailVerified === true ||
-      currentUser.verification_required === false ||
-      currentUser.verification_status === "verified" ||
       isUserAdmin(currentUser) ||
-      (currentUser.role && currentUser.role !== "CEO");
+      currentUser.isEmailVerified === true ||
+      currentUser.emailVerified === true ||
+      currentUser.email_verified === true;
 
     if (isAlreadyVerified) return;
 
@@ -160,22 +152,36 @@ export const EmailVerificationView: React.FC<EmailVerificationViewProps> = ({
 
       if (res && res.success) {
         setVerificationSuccess(
-          lang === "ar" ? "تم التحقق بنجاح! جاري التوجيه..." : "Verification successful! Redirecting..."
+          lang === "ar" ? "تم التحقق من البريد الإلكتروني بنجاح! جاري التوجيه..." : "Email verification successful! Redirecting..."
         );
 
+        if (auth.currentUser) {
+          try {
+            await auth.currentUser.reload();
+          } catch (rErr) {
+            console.warn("Notice: Auth user reload after OTP verification:", rErr);
+          }
+        }
+
         const authoritativeRole = res?.user?.role || currentUser?.role || "CEO";
-        const authoritativeAccountStatus = res?.user?.accountStatus || (currentUser?.requiresDocumentVerification ? "PENDING_DOCUMENT_VERIFICATION" : "APPROVED");
+        const authoritativeAccountStatus =
+          res?.user?.accountStatus && res.user.accountStatus !== "PENDING_EMAIL_VERIFICATION"
+            ? res.user.accountStatus
+            : (currentUser?.requiresDocumentVerification || currentUser?.accountStatus === "PENDING_DOCUMENT_VERIFICATION" || currentUser?.accountStatus === "PENDING_EMAIL_VERIFICATION" ? "PENDING_DOCUMENT_VERIFICATION" : "APPROVED");
+
+        const isFullyApproved = authoritativeAccountStatus === "APPROVED";
+
         const updatedUser: User = {
           ...currentUser,
           role: authoritativeRole,
-          isVerified: true,
+          isVerified: isFullyApproved,
           isEmailVerified: true,
           email_verified: true,
           emailVerified: true,
-          verification_status: "verified" as const,
-          verification_required: false,
+          verification_status: isFullyApproved ? ("verified" as const) : ("action_required" as const),
+          verification_required: !isFullyApproved,
           accountStatus: authoritativeAccountStatus,
-          documentVerificationStatus: authoritativeAccountStatus === "PENDING_DOCUMENT_VERIFICATION" ? "PENDING_UPLOAD" : (res?.user?.documentVerificationStatus || "APPROVED"),
+          documentVerificationStatus: authoritativeAccountStatus === "PENDING_DOCUMENT_VERIFICATION" ? "PENDING_UPLOAD" : (res?.user?.documentVerificationStatus || (isFullyApproved ? "APPROVED" : "PENDING_UPLOAD")),
         };
 
         setCurrentUser(updatedUser);
@@ -186,15 +192,13 @@ export const EmailVerificationView: React.FC<EmailVerificationViewProps> = ({
             const { updateDoc, doc } = await import("firebase/firestore");
             const { db } = await import("../firebase");
             await updateDoc(doc(db, "users", currentUser.id), {
-              isVerified: true,
               isEmailVerified: true,
               email_verified: true,
               emailVerified: true,
-              verification_status: "verified",
-              verification_required: false,
               accountStatus: authoritativeAccountStatus,
-              "verificationInfo.status": "verified",
-              "verificationInfo.verifiedAt": new Date().toISOString(),
+              isVerified: isFullyApproved,
+              verification_required: !isFullyApproved,
+              "verificationInfo.emailVerifiedAt": new Date().toISOString(),
             });
           } catch (fsErr) {
             console.warn("Failed to persist Firestore verification status:", fsErr);

@@ -303,6 +303,9 @@ export async function registerFirebaseUser(
     isEmailVerified: false,
     email_verified: false,
     emailVerified: false,
+    accountStatus: "PENDING_EMAIL_VERIFICATION",
+    requiresDocumentVerification: true,
+    documentVerificationStatus: "PENDING_EMAIL_VERIFICATION",
     verification_required: true,
     verification_status: "unverified"
   };
@@ -1303,6 +1306,27 @@ export function normalizeStrictUserVerification(user: User): User {
     user.verification_required = false;
     user.verification_status = "verified";
     user.accountStatus = "APPROVED";
+    return user;
+  }
+
+  // 0. Enforce mandatory Email Verification check for non-admin users
+  const isEmailVer = Boolean(
+    user.isEmailVerified === true ||
+    user.emailVerified === true ||
+    user.email_verified === true ||
+    (auth.currentUser && auth.currentUser.uid === user.id && auth.currentUser.emailVerified === true)
+  );
+
+  if (!isEmailVer) {
+    user.isEmailVerified = false;
+    user.emailVerified = false;
+    user.email_verified = false;
+    user.accountStatus = "PENDING_EMAIL_VERIFICATION";
+    user.documentVerificationStatus = "PENDING_EMAIL_VERIFICATION";
+    user.requiresDocumentVerification = true;
+    user.verification_required = true;
+    user.isVerified = false;
+    user.verification_status = "unverified";
     return user;
   }
 
