@@ -26,7 +26,7 @@ async function main() {
         </tr>
         <tr>
           <td style="padding: 6px 0; font-weight: 700; color: #1c2c58;">أبعاد الحاوية:</td>
-          <td style="padding: 6px 0;">نسبة مربعة دقيقة 1:1 (72px &times; 72px) مع زوايا ناعمة (16px radius).</td>
+          <td style="padding: 6px 0;">نسبة مربعة دقيقة 1:1 (96px &times; 96px) مع زوايا ناعمة (18px radius).</td>
         </tr>
         <tr>
           <td style="padding: 6px 0; font-weight: 700; color: #1c2c58;">التوافقية:</td>

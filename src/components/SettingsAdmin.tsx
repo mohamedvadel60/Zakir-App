@@ -2163,7 +2163,6 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
             }
             return true;
           }).map((tab) => {
-            const Icon = tab.icon;
             const isActive = currentTab === tab.id || (currentTab === "company" && tab.id === "account");
             return (
               <button
@@ -2177,7 +2176,7 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
                     : "text-slate-600 hover:text-slate-900 hover:bg-slate-100 border-transparent"
                 }`}
               >
-                <Icon className={`w-4 h-4 ${isActive ? "text-[#0075DE]" : "text-slate-400"}`} />
+                {tab.icon && React.createElement(tab.icon, { className: `w-4 h-4 ${isActive ? "text-[#0075DE]" : "text-slate-400"}` })}
                 <span>{tab.label}</span>
               </button>
             );

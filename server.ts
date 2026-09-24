@@ -2494,20 +2494,20 @@ app.get(["/api/logo.svg", "/assets/logo.svg", "/logo.svg"], (req, res) => {
 });
 
 function getEmailLogoSvg(mode: "light" | "dark"): string {
-  const bg = "#FFFFFF";
-  const fill = mode === "light" ? "#1C2C58" : "#000000";
-  const stroke = ' stroke="#E2E8F0" stroke-width="1.5"';
+  const bg = mode === "light" ? "#1C2C58" : "#FFFFFF";
+  const fill = mode === "light" ? "#FDFEFE" : "#1C2C58";
+  const stroke = mode === "light" ? "" : ' stroke="#E2E8F0" stroke-width="1"';
   
   return `<?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96" width="96" height="96">
-  <rect width="96" height="96" rx="18" fill="${bg}"${stroke} />
-  <svg x="12" y="23.64" width="72" height="48.72" viewBox="0 0 1203.08 814" preserveAspectRatio="xMidYMid meet">
-    <path fill="${fill}" d="M778.26,359.34c-23.74-3.27-49.55-5.85-77.22-7.24-32.16-1.61-62.06-1.36-89.28,0,34.59-18.5,69.17-37,103.76-55.5,20.28,4.11,42.89,7.58,67.57,9.65,37.04,3.12,70.4,2.4,98.93,0-34.59,17.7-69.17,35.39-103.76,53.09Z"/>
-    <path fill="${fill}" d="M980.96,516.19c-21.56-3.6-44.1-6.86-67.57-9.65-27.67-3.29-54.26-5.64-79.63-7.24,24.93-14.48,49.87-28.96,74.8-43.43,15.7,5.87,35.19,11.48,57.91,14.48,48.33,6.37,88.49-2.07,113.41-9.65-32.98,18.5-65.96,37-98.93,55.5Z"/>
-    <path fill="${fill}" d="M475.42,511.37c-.4-63.57-.79-127.14-1.19-190.71,0-1.56.04-3.1.17-4.65,1.41-16.02,5.74-38.29,19.12-60.42,15.26-25.24,36.05-39.96,52.07-49.52,46.87-27.98,204.17-102.07,420.89-194.19,2.96-1.1,22.36-7.98,38.61,2.41,13.06,8.36,16.89,21.72,19.3,33.78.99,4.94,2.1,13.1,2.12,24.53,0,0-.21,16.42-4.53,33.38-3.15,12.35-9.18,25.16-15.95,36.88-15.63,27.06-38.86,48.92-66.57,63.37-2.2,1.15-4.45,2.32-6.75,3.51-28.29,14.65-50.15,25.27-62.74,31.37-57.83,28.01-105.24,50.16-105.24,50.16-109.27,51.04-121.53,55.26-155.36,75.32-51.75,30.67-69.27,48.18-82.04,65.15-22.18,29.47-31.7,59.55-36.2,79.63-.91,5.07-5.6,8.13-9.65,7.24-3.09-.68-5.58-3.59-6.03-7.24Z"/>
-    <path fill="${fill}" d="M587.63,674.25c-2.01-24.5-3.65-49.86-4.83-76.01-1.24-27.45-1.89-54.07-2.06-79.79-.1-14.52,5.57-37.36,18.95-60.16,18.94-32.28,45.31-46.85,62.74-55.5,137.7-68.32,257.41-123.89,260.27-125.27,75.14-36.4,123.4-60.53,145.12-72.6,27.5-15.28,46.89-32.03,62.74-41.02,2.06-1.17,4.68-2.2,6.95-3.08,3.88-1.5,8.11-2.04,12.19-1.23,3.17.63,6.65,1.89,9.82,4.3,8.72,6.63,9.55,16.59,9.65,18.1,1.46,13.4,2.42,28.36,2.41,44.64,0,16.22-.96,31.12-2.41,44.49-1.5,12.31-5.42,31.71-16.89,52.03-18.54,32.86-45.69,49.14-57.91,55.5-88.79,45.49-177.58,90.98-266.37,136.48-51.58,25.47-85.43,42.05-105.24,51.74-34.68,16.96-62.99,28.56-86.87,55.5-9.82,11.07-16.26,18.95-21.72,28.96-3.96,7.25-5.57,13.62-7.24,21.72-.3,1.46-.76,3.36-1.71,5.25-3.58,7.17-13.97,7.19-16.83-.3-.44-1.16-.71-2.42-.76-3.74Z"/>
-    <path fill="${fill}" d="M730.61,710.92l-.61,63.32c-.18,1.66-1.51,16.39,9.65,26.69,8.53,7.87,21.12,10.17,32.51,6.07,1.53-.55,2.98-1.29,4.41-2.05,119.91-63.73,238.88-125.06,359.77-191.26,9.25-5.07,29.79-21.27,44.89-54.06,11.49-24.94,14.48-48.26,15.27-61.09.4-6.48-.79-72.83-.79-72.83.52-9.04-4.44-17.31-12.07-20.51-6.75-2.84-14.8-1.38-20.72,3.5-7.47,6.16-15.25,11.96-23.88,16.35-108.82,55.31-218.13,109.42-326.98,164.68-6.15,3.12-12.18,6.5-17.97,10.25-12.15,7.87-28.07,20.18-42.39,41.7-.13.2-.26.39-.39.59-13.44,20.36-20.48,44.27-20.72,68.66Z"/>
-  </svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 1200" width="96" height="96">
+  <rect width="1200" height="1200" rx="264" ry="264" fill="${bg}"${stroke} />
+  <g transform="translate(-235.5, 191)">
+    <path fill="${fill}" d="M778.63,359.56c-23.73-3.27-49.53-5.85-77.18-7.24-32.15-1.61-62.03-1.36-89.24,0,34.57-18.49,69.14-36.98,103.71-55.47,20.27,4.1,42.87,7.57,67.53,9.65,37.02,3.12,70.37,2.39,98.89,0-34.57,17.69-69.14,35.37-103.71,53.06Z"/>
+    <path fill="${fill}" d="M981.22,516.33c-21.55-3.6-44.07-6.86-67.53-9.65-27.66-3.29-54.23-5.64-79.59-7.24,24.92-14.47,49.85-28.94,74.77-43.41,15.69,5.87,35.17,11.48,57.89,14.47,48.31,6.37,88.45-2.07,113.36-9.65-32.96,18.49-65.92,36.98-98.89,55.47Z"/>
+    <path fill="${fill}" d="M475.93,511.51c-.4-63.54-.79-127.08-1.19-190.62,0-1.55.04-3.1.17-4.65,1.41-16.02,5.73-38.28,19.11-60.39,15.25-25.22,36.03-39.94,52.05-49.5,46.85-27.96,204.08-102.02,420.68-194.1,2.95-1.1,22.35-7.98,38.59,2.41,13.05,8.35,16.88,21.71,19.3,33.77.99,4.94,2.1,13.09,2.12,24.52,0,0-.21,16.41-4.53,33.36-3.15,12.35-9.18,25.15-15.95,36.87-15.62,27.05-38.84,48.89-66.54,63.34-2.2,1.15-4.45,2.31-6.75,3.51-28.28,14.64-50.12,25.26-62.71,31.35-57.8,28-105.19,50.13-105.19,50.14-109.22,51.02-121.47,55.24-155.29,75.28-51.72,30.66-69.24,48.16-82,65.12-22.17,29.46-31.69,59.52-36.18,79.59-.91,5.07-5.6,8.12-9.65,7.24-3.09-.68-5.58-3.59-6.03-7.24Z"/>
+    <path fill="${fill}" d="M588.09,674.31c-2.01-24.49-3.65-49.83-4.82-75.97-1.24-27.44-1.89-54.04-2.06-79.75-.1-14.52,5.57-37.35,18.94-60.14,18.93-32.26,45.29-46.83,62.71-55.47,137.63-68.29,257.29-123.83,260.14-125.21,75.11-36.38,123.35-60.5,145.05-72.56,27.49-15.27,46.87-32.02,62.71-41,2.06-1.17,4.68-2.2,6.94-3.07,3.88-1.5,8.1-2.04,12.18-1.23,3.17.63,6.65,1.89,9.82,4.3,8.71,6.63,9.55,16.58,9.65,18.09,1.46,13.4,2.41,28.35,2.41,44.62,0,16.21-.96,31.11-2.41,44.47-1.5,12.31-5.42,31.69-16.88,52.01-18.53,32.84-45.67,49.12-57.89,55.47-88.75,45.47-177.49,90.94-266.24,136.41-51.56,25.46-85.39,42.03-105.19,51.72-34.66,16.95-62.96,28.55-86.83,55.47-9.81,11.07-16.25,18.95-21.71,28.94-3.96,7.25-5.57,13.62-7.24,21.71-.3,1.46-.76,3.36-1.71,5.25-3.58,7.17-13.97,7.18-16.83-.3-.44-1.16-.71-2.42-.76-3.74Z"/>
+    <path fill="${fill}" d="M731,710.96l-.61,63.29c-.18,1.66-1.51,16.38,9.65,26.68,8.53,7.87,21.11,10.17,32.5,6.06,1.53-.55,2.98-1.29,4.41-2.05,119.85-63.7,238.77-125,359.6-191.17,9.25-5.06,29.78-21.26,44.87-54.03,11.48-24.93,14.47-48.24,15.26-61.06.4-6.47-.79-72.8-.79-72.8.52-9.04-4.44-17.3-12.06-20.5-6.75-2.84-14.79-1.38-20.71,3.5-7.47,6.16-15.24,11.95-23.87,16.34-108.77,55.28-218.03,109.37-326.82,164.6-6.15,3.12-12.17,6.5-17.96,10.25-12.15,7.86-28.06,20.17-42.37,41.68-.13.2-.26.39-.39.59-13.44,20.35-20.47,44.24-20.71,68.63Z"/>
+  </g>
 </svg>`;
 }
 
@@ -3295,6 +3295,60 @@ function escapeHtml(str: string): string {
     .replace(/'/g, "&#039;");
 }
 
+function renderEmailLogoHeaderHtml(options?: {
+  appBase?: string;
+  wordmark?: string;
+  tagline?: string;
+  size?: number;
+}): string {
+  const size = options?.size || 96;
+  const appBase = options?.appBase || "https://www.getzakir.com";
+  const wordmark = options?.wordmark !== undefined ? options.wordmark : "ZAKIR";
+  const tagline =
+    options?.tagline !== undefined
+      ? options.tagline
+      : "الذاكرة المؤسسية السببية &bull; Causal Decision Intelligence";
+
+  return `
+    <!-- Strict 1:1 Square Logo Container (${size}px x ${size}px) -->
+    <table border="0" cellpadding="0" cellspacing="0" align="center" role="presentation" width="${size}" height="${size}" class="zakir-logo-table" style="width: ${size}px !important; height: ${size}px !important; max-width: ${size}px !important; max-height: ${size}px !important; margin: 0 auto 16px auto; border-collapse: collapse; border-spacing: 0; mso-table-lspace: 0pt; mso-table-rspace: 0pt;">
+      <tr>
+        <td align="center" valign="middle" width="${size}" height="${size}" class="zakir-logo-container-cell" style="width: ${size}px !important; height: ${size}px !important; max-width: ${size}px !important; max-height: ${size}px !important; padding: 0; margin: 0; line-height: 0; font-size: 0; text-align: center; vertical-align: middle;">
+          <a href="${appBase}" target="_blank" style="text-decoration: none; display: block; width: ${size}px; height: ${size}px; margin: 0 auto; line-height: 0; font-size: 0; outline: none; border: 0;">
+            <!-- LIGHT MODE BADGE: Solid Royal Navy Square (#1C2C58) + Crisp White ZAKIR Logo (#FDFEFE) [Exact ${size}x${size} px] -->
+            <img src="cid:zakir-logo-light" alt="ZAKIR" width="${size}" height="${size}" class="zakir-logo-light light-img" style="display: block; width: ${size}px !important; height: ${size}px !important; max-width: ${size}px !important; max-height: ${size}px !important; aspect-ratio: 1 / 1; border: 0; outline: none; text-decoration: none; margin: 0 auto; -ms-interpolation-mode: bicubic;" />
+            
+            <!-- DARK MODE BADGE: Solid Pure White Square (#FFFFFF) + Crisp Navy ZAKIR Logo (#1C2C58) [Exact ${size}x${size} px] -->
+            <!--[if !mso]><!-->
+            <div class="zakir-logo-dark-wrap dark-img" style="display: none; mso-hide: all; max-height: 0px; max-width: 0px; overflow: hidden; width: 0; height: 0; margin: 0 auto; line-height: 0; font-size: 0;">
+              <img src="cid:zakir-logo-dark" alt="ZAKIR" width="${size}" height="${size}" class="zakir-logo-dark" style="display: none; width: ${size}px !important; height: ${size}px !important; max-width: ${size}px !important; max-height: ${size}px !important; aspect-ratio: 1 / 1; border: 0; outline: none; text-decoration: none; margin: 0 auto; -ms-interpolation-mode: bicubic;" />
+            </div>
+            <!--<![endif]-->
+          </a>
+        </td>
+      </tr>
+    </table>
+
+    ${
+      wordmark
+        ? `<!-- ZAKIR Wordmark: Bold, uppercase, clean spacing -->
+    <div class="zakir-wordmark" style="color: #0f172a; font-size: 24px; font-weight: 800; letter-spacing: 2.5px; text-transform: uppercase; line-height: 1.2; margin: 0 0 6px 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+      ${wordmark}
+    </div>`
+        : ""
+    }
+
+    ${
+      tagline
+        ? `<!-- Official Supporting Tagline -->
+    <div style="color: #64748b; font-size: 13px; font-weight: 500; line-height: 1.5; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+      ${tagline}
+    </div>`
+        : ""
+    }
+  `;
+}
+
 function buildMasterEmailHtml(options: {
   subject: string;
   title: string;
@@ -3327,8 +3381,7 @@ function buildMasterEmailHtml(options: {
   }
 
   const appBase = publicBaseUrl;
-  const logoLightUrl = `${publicBaseUrl}/zakir-badge-light.png`;
-  const logoDarkUrl = `${publicBaseUrl}/zakir-badge-dark.png`;
+  const logoHeaderHtml = renderEmailLogoHeaderHtml({ appBase, size: 96 });
 
   return `<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml" lang="ar">
@@ -3345,28 +3398,36 @@ function buildMasterEmailHtml(options: {
       supported-color-schemes: light dark;
     }
     @media (prefers-color-scheme: dark) {
+      .light-img,
       .zakir-logo-light {
         display: none !important;
         mso-hide: all !important;
+        width: 0px !important;
+        height: 0px !important;
+        max-width: 0px !important;
+        max-height: 0px !important;
+        overflow: hidden !important;
         font-size: 0px !important;
         line-height: 0px !important;
-        max-height: 0px !important;
-        max-width: 0px !important;
-        overflow: hidden !important;
       }
+      .dark-img,
       .zakir-logo-dark-wrap {
         display: block !important;
         mso-hide: none !important;
-        max-height: none !important;
-        max-width: none !important;
+        width: 96px !important;
+        height: 96px !important;
+        max-width: 96px !important;
+        max-height: 96px !important;
         overflow: visible !important;
         font-size: 0 !important;
         line-height: 0 !important;
       }
       .zakir-logo-dark {
         display: block !important;
-        max-height: none !important;
-        max-width: none !important;
+        width: 96px !important;
+        height: 96px !important;
+        max-width: 96px !important;
+        max-height: 96px !important;
         overflow: visible !important;
       }
       .zakir-footer-logo-light {
@@ -3405,16 +3466,28 @@ function buildMasterEmailHtml(options: {
       }
     }
     /* Outlook / Webmail Dark Mode Overrides */
+    [data-ogsc] .light-img,
+    [data-ogsb] .light-img,
     [data-ogsc] .zakir-logo-light,
     [data-ogsb] .zakir-logo-light {
       display: none !important;
+      width: 0px !important;
+      height: 0px !important;
+      max-width: 0px !important;
+      max-height: 0px !important;
+      overflow: hidden !important;
     }
+    [data-ogsc] .dark-img,
+    [data-ogsb] .dark-img,
     [data-ogsc] .zakir-logo-dark-wrap,
     [data-ogsb] .zakir-logo-dark-wrap,
     [data-ogsc] .zakir-logo-dark,
     [data-ogsb] .zakir-logo-dark {
       display: block !important;
-      max-height: none !important;
+      width: 96px !important;
+      height: 96px !important;
+      max-width: 96px !important;
+      max-height: 96px !important;
       overflow: visible !important;
     }
     [data-ogsc] .zakir-footer-logo-light,
@@ -3444,37 +3517,10 @@ function buildMasterEmailHtml(options: {
       <td align="center">
         <!-- Master Card -->
         <table border="0" cellpadding="0" cellspacing="0" width="100%" class="zakir-card" style="max-width: 580px; background-color: #ffffff; border-radius: 16px; border: 1px solid #e2e8f0; overflow: hidden; box-shadow: 0 4px 20px rgba(15, 23, 42, 0.05);">
-          <!-- Header with Official ZAKIR Square Badge System -->
+          <!-- Header with Official ZAKIR 96x96 Square Badge System -->
           <tr>
             <td class="zakir-header-cell" style="padding: 36px 32px 24px 32px; text-align: center; border-bottom: 1px solid #f1f5f9; background-color: #ffffff;">
-              <!-- Perfect 1:1 Square Logo Container (72px x 72px) -->
-              <table border="0" cellpadding="0" cellspacing="0" align="center" role="presentation" style="margin: 0 auto 16px auto; border-collapse: collapse; border-spacing: 0;">
-                <tr>
-                  <td align="center" valign="middle" style="padding: 0; margin: 0; line-height: 0; font-size: 0; text-align: center;">
-                    <a href="${appBase}" target="_blank" style="text-decoration: none; display: inline-block; line-height: 0; font-size: 0; outline: none; border: 0;">
-                      <!-- LIGHT MODE: Solid Navy Square (#1C2C58) + Crisp White ZAKIR Logo (#FFFFFF) -->
-                      <img src="${logoLightUrl}" alt="ZAKIR" width="72" height="72" class="zakir-logo-light" style="display: block; width: 72px !important; height: 72px !important; max-width: 72px !important; max-height: 72px !important; aspect-ratio: 1 / 1; border: 0; outline: none; text-decoration: none; margin: 0 auto; -ms-interpolation-mode: bicubic; border-radius: 16px;" />
-                      
-                      <!-- DARK MODE: Solid Pure White Square (#FFFFFF) + Crisp Navy ZAKIR Logo (#1C2C58) -->
-                      <!--[if !mso]><!-->
-                      <div class="zakir-logo-dark-wrap" style="display: none; mso-hide: all; max-height: 0px; max-width: 0px; overflow: hidden; width: 0; height: 0; margin: 0 auto; line-height: 0; font-size: 0;">
-                        <img src="${logoDarkUrl}" alt="ZAKIR" width="72" height="72" class="zakir-logo-dark" style="display: none; width: 72px !important; height: 72px !important; max-width: 72px !important; max-height: 72px !important; aspect-ratio: 1 / 1; border: 0; outline: none; text-decoration: none; margin: 0 auto; -ms-interpolation-mode: bicubic; border-radius: 16px;" />
-                      </div>
-                      <!--<![endif]-->
-                    </a>
-                  </td>
-                </tr>
-              </table>
-
-              <!-- ZAKIR Wordmark: Bold, uppercase, clean spacing -->
-              <div class="zakir-wordmark" style="color: #0f172a; font-size: 24px; font-weight: 800; letter-spacing: 2.5px; text-transform: uppercase; line-height: 1.2; margin: 0 0 6px 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
-                ZAKIR
-              </div>
-
-              <!-- Official Supporting Tagline -->
-              <div style="color: #64748b; font-size: 13px; font-weight: 500; line-height: 1.5; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
-                الذاكرة المؤسسية السببية &bull; Causal Decision Intelligence
-              </div>
+              ${logoHeaderHtml}
             </td>
           </tr>
           <tr>
@@ -3495,11 +3541,11 @@ function buildMasterEmailHtml(options: {
                 <tr>
                   <td align="center" style="vertical-align: middle;">
                     <span class="zakir-footer-logo-light" style="display: inline-block; vertical-align: middle; margin-right: 8px;">
-                      <img src="${logoLightUrl}" alt="ZAKIR" width="22" height="22" style="display: block; width: 22px; height: 22px; border-radius: 5px; border: 0;" />
+                      <img src="cid:zakir-logo-light" alt="ZAKIR" width="24" height="24" style="display: block; width: 24px; height: 24px; border-radius: 6px; border: 0;" />
                     </span>
                     <!--[if !mso]><!-->
                     <span class="zakir-footer-logo-dark" style="display: none; mso-hide: all; max-height: 0; max-width: 0; overflow: hidden; vertical-align: middle; margin-right: 8px;">
-                      <img src="${logoDarkUrl}" alt="ZAKIR" width="22" height="22" style="display: block; width: 22px; height: 22px; border-radius: 5px; border: 0;" />
+                      <img src="cid:zakir-logo-dark" alt="ZAKIR" width="24" height="24" style="display: block; width: 24px; height: 24px; border-radius: 6px; border: 0;" />
                     </span>
                     <!--<![endif]-->
                     <span class="zakir-wordmark" style="font-size: 13px; font-weight: 800; color: #0f172a; vertical-align: middle; letter-spacing: 1.5px; text-transform: uppercase;">ZAKIR</span>
@@ -9185,12 +9231,12 @@ app.post(
             <ul style="margin: 0; padding-right: 20px; font-size: 14px; color: #1e293b; line-height: 2;">
               <li><strong>الوضع الفاتح (Light Mode):</strong> مربع كحلي متناسق الأبعاد (#1C2C58) + شعار ذاكر باللون الأبيض الناصع (#FFFFFF).</li>
               <li><strong>الوضع الداكن (Dark Mode):</strong> مربع أبيض متناسق الأبعاد (#FFFFFF) + شعار ذاكر باللون الكحلي (#1C2C58).</li>
-              <li><strong>أبعاد المربع:</strong> نسبة مثالية 1:1 بارتفاع وعرض 120px متماثلين، بدون أي تشوه أو استطالة.</li>
-              <li><strong>أبعاد الشعار:</strong> الحفاظ على النسبة الأصلية 1203.08 &times; 814 والتمركز الدقيق أفقياً وعمودياً داخل الحاوية.</li>
+              <li><strong>أبعاد المربع:</strong> نسبة مثالية 1:1 بارتفاع وعرض 96px متماثلين، بدون أي تشوه أو استطالة.</li>
+              <li><strong>أبعاد الشعار:</strong> الحفاظ على النسبة الأصلية والتمركز الدقيق أفقياً وعمودياً داخل الحاوية 96&times;96 px.</li>
             </ul>
           </div>
           <p style="font-size: 14px; line-height: 1.6; color: #64748b; margin: 0;">
-            Zakir Platform • Causal Decision Intelligence &bull; المؤسسية السببية
+            Zakir Platform • Causal Decision Intelligence &bull; الذاكرة المؤسسية السببية
           </p>
         `,
         securityNote: "هذا بريد اختباري آمن وموثق من نظام ZAKIR الداخلي للتحقق من تجربة العرض الحقيقية.",
@@ -9200,7 +9246,7 @@ app.post(
         to: targetEmail,
         subject: "ZAKIR Brand System Live Verification • تجربة العرض الفعلي للشعار",
         html: testHtml,
-        text: "ZAKIR Brand System Live Verification - Perfect 1:1 square container with responsive light/dark color inversion.",
+        text: "ZAKIR Brand System Live Verification - Fixed 96x96 square container with responsive light/dark color inversion.",
       });
 
       return res.json({
@@ -9226,14 +9272,14 @@ app.get("/api/email/preview-branding", (req, res) => {
     greeting: "مرحباً بك في نظام التحقق من هوية ذاكر",
     bodyHtml: `
       <p style="font-size: 15px; line-height: 1.8; color: #334155; margin: 0 0 16px 0;">
-        معاينة حية للمربع 1:1 والشعار المتمركز والانعكاس في الوضع الفاتح والداكن:
+        معاينة حية للمربع 96×96 والشعار المتمركز والانعكاس في الوضع الفاتح والداكن:
       </p>
       <div style="background-color: #f1f5f9; border-radius: 10px; padding: 18px 20px; margin: 0 0 20px 0; text-align: right;">
         <ul style="margin: 0; padding-right: 20px; font-size: 14px; color: #1e293b; line-height: 2;">
           <li><strong>الوضع الفاتح (Light Mode):</strong> مربع كحلي متناسق الأبعاد (#1C2C58) + شعار ذاكر باللون الأبيض الناصع (#FFFFFF).</li>
           <li><strong>الوضع الداكن (Dark Mode):</strong> مربع أبيض متناسق الأبعاد (#FFFFFF) + شعار ذاكر باللون الكحلي (#1C2C58).</li>
-          <li><strong>أبعاد المربع:</strong> نسبة مثالية 1:1 بارتفاع وعرض 120px متماثلين، بدون أي تشوه أو استطالة.</li>
-          <li><strong>أبعاد الشعار:</strong> الحفاظ على النسبة الأصلية 1203.08 &times; 814 والتمركز الدقيق أفقياً وعمودياً داخل الحاوية.</li>
+          <li><strong>أبعاد المربع:</strong> نسبة مثالية 1:1 بارتفاع وعرض 96px متماثلين، بدون أي تشوه أو استطالة.</li>
+          <li><strong>أبعاد الشعار:</strong> الحفاظ على النسبة الأصلية والتمركز الدقيق أفقياً وعمودياً داخل الحاوية 96&times;96 px.</li>
         </ul>
       </div>
     `,
@@ -9328,7 +9374,56 @@ app.get("/api/admin/users", requireAuth, async (req: AuthRequest, res) => {
       }
     } catch (dbErr) {}
 
-    // 3. Filter out accounts that have been truly purged or are active deletions
+    // 3. RECONCILIATION WITH FIREBASE AUTH: Ensure ALL Auth users appear in Admin
+    try {
+      const authList = await adminAuth.listUsers(1000);
+      if (authList && Array.isArray(authList.users)) {
+        const existingIds = new Set(fsUsers.map((u: any) => u.id || u.uid));
+        const existingEmails = new Set(
+          fsUsers.map((u: any) => (u.email || "").trim().toLowerCase()).filter(Boolean)
+        );
+
+        for (const authU of authList.users) {
+          const aEmail = (authU.email || "").trim().toLowerCase();
+          if (!existingIds.has(authU.uid) && (!aEmail || !existingEmails.has(aEmail))) {
+            // Synthesize canonical profile from Auth metadata
+            const synthesized: any = {
+              id: authU.uid,
+              uid: authU.uid,
+              email: authU.email || "No Email",
+              ownerName: authU.displayName || authU.email?.split("@")[0] || "User",
+              companyName: "Default Organization",
+              role: "Contributor",
+              isEmailVerified: Boolean(authU.emailVerified),
+              emailVerified: Boolean(authU.emailVerified),
+              accountStatus: authU.emailVerified ? "VERIFICATION_REQUIRED" : "PENDING_EMAIL_VERIFICATION",
+              documentVerificationStatus: "NOT_SUBMITTED",
+              isVerified: false,
+              verification_required: true,
+              verification_status: "unverified",
+              subscriptionPlan: "Starter",
+              subscriptionStatus: "Trial",
+              createdAt: authU.metadata?.creationTime || new Date().toISOString(),
+              disabled: Boolean(authU.disabled),
+              fileCount: 0,
+              files: [],
+              verificationDocuments: []
+            };
+
+            fsUsers.push(synthesized);
+
+            // Asynchronously sync synthesized profile to database
+            try {
+              adminDb.collection("users").doc(authU.uid).set(synthesized, { merge: true }).catch(() => {});
+            } catch (e) {}
+          }
+        }
+      }
+    } catch (authErr: any) {
+      console.warn("Notice: Auth users reconciliation warning:", authErr?.message);
+    }
+
+    // 4. Filter out accounts that have been truly purged or are active deletions
     let deletedUserIds = new Set<string>();
     try {
       const deletedSnap = await adminDb.collection("deletedUsers").get();
@@ -9341,14 +9436,45 @@ app.get("/api/admin/users", requireAuth, async (req: AuthRequest, res) => {
       }
     } catch (e) {}
 
-    // Keep all regular active users!
-    const activeUsers = fsUsers.filter((u: any) => {
-      const uId = u.id || u.uid;
-      if (deletedUserIds.has(uId)) return false;
-      if (u.accountLifecycleStatus === "PURGED" || u.isPurged === true)
-        return false;
-      return true;
-    });
+    // 5. NORMALIZE VERIFICATION STATE (CRITICAL INTEGRITY AUDIT)
+    // Never allow an account with 0 submitted documents to appear as Verified without explicit admin approval
+    const activeUsers = fsUsers
+      .filter((u: any) => {
+        const uId = u.id || u.uid;
+        if (deletedUserIds.has(uId)) return false;
+        if (u.accountLifecycleStatus === "PURGED" || u.isPurged === true) return false;
+        return true;
+      })
+      .map((u: any) => {
+        const docs = [
+          ...(Array.isArray(u.verificationDocuments) ? u.verificationDocuments : []),
+          ...(Array.isArray(u.verificationInfo?.documents) ? u.verificationInfo.documents : []),
+          ...(Array.isArray(u.documents) ? u.documents : []),
+          ...(Array.isArray(u.files) ? u.files.filter((f: any) => f && (f.category === "Verification" || f.isVerificationDoc)) : [])
+        ];
+        const docCount = docs.length;
+        const isExplicitAdminApproved = Boolean(
+          u.adminVerificationOverride === true || (u.approvedBy && u.approvedAt)
+        );
+        const isSystemAdmin = u.role === "Admin" || (u.email && ADMIN_EMAILS.has(u.email.toLowerCase().trim()));
+
+        // If user has 0 documents and no explicit admin override, they MUST NOT be document verified!
+        if (docCount === 0 && !isExplicitAdminApproved && !isSystemAdmin) {
+          if (u.accountStatus === "APPROVED" || u.isVerified === true || u.documentVerificationStatus === "APPROVED") {
+            u.documentVerificationStatus = "NOT_SUBMITTED";
+            u.accountStatus = u.isEmailVerified ? "VERIFICATION_REQUIRED" : "PENDING_EMAIL_VERIFICATION";
+            u.isVerified = false;
+            u.verification_status = "unverified";
+            u.verification_required = true;
+          }
+        }
+
+        if (docCount === 0 && !u.documentVerificationStatus) {
+          u.documentVerificationStatus = "NOT_SUBMITTED";
+        }
+
+        return u;
+      });
 
     console.log("ADMIN_USERS_FIRESTORE_RESULT", { count: activeUsers.length });
     return res.json({ success: true, users: activeUsers });
@@ -9360,6 +9486,366 @@ app.get("/api/admin/users", requireAuth, async (req: AuthRequest, res) => {
         success: false,
         error: err.message || "Failed to fetch users list",
       });
+  }
+});
+
+// --- ADMIN BULK USER ACTIONS ENDPOINT ---
+app.post("/api/admin/bulk-user-action", requireAuth, requireAdmin, async (req: AuthRequest, res) => {
+  const callerUid = req.user?.uid || "";
+  const callerEmail = req.user?.email || "admin@zakir.ai";
+  const { userIds, action, payload = {} } = req.body;
+
+  if (!Array.isArray(userIds) || userIds.length === 0 || !action) {
+    return res.status(400).json({ success: false, error: "userIds array and action are required." });
+  }
+
+  try {
+    const results: Array<{ id: string; success: boolean; error?: string }> = [];
+    const nowIso = new Date().toISOString();
+
+    for (const userId of userIds) {
+      try {
+        if (action === "APPROVE") {
+          const assignPlan = payload.plan || "Starter";
+          let targetUser = await getUserProfileServer(userId);
+          const rawDocs = [
+            ...(Array.isArray(targetUser?.verificationDocuments) ? targetUser.verificationDocuments : []),
+            ...(Array.isArray(targetUser?.verificationInfo?.documents) ? targetUser.verificationInfo.documents : []),
+            ...(Array.isArray(targetUser?.documents) ? targetUser.documents : []),
+            ...(Array.isArray(targetUser?.files) ? targetUser.files.filter((f: any) => f && (f.category === "Verification" || f.isVerificationDoc)) : [])
+          ];
+          const hasDocs = rawDocs.length > 0;
+          const updates: Record<string, any> = {
+            accountStatus: "APPROVED",
+            documentVerificationStatus: hasDocs ? "APPROVED" : "NOT_SUBMITTED",
+            isVerified: true,
+            verification_required: false,
+            approvedAt: nowIso,
+            approvedBy: callerEmail,
+            subscriptionPlan: assignPlan,
+            subscriptionStatus: "Active",
+            lastActiveAt: nowIso
+          };
+
+          await adminDb.collection("users").doc(userId).set(updates, { merge: true });
+          try {
+            await adminAuth.updateUser(userId, { disabled: false });
+          } catch (e) {}
+
+          try {
+            const ldb = readDb();
+            if (ldb.users) {
+              ldb.users = ldb.users.map((u: any) =>
+                u.id === userId || u.uid === userId
+                  ? { ...u, ...updates }
+                  : u
+              );
+              writeDb(ldb);
+            }
+          } catch (e) {}
+
+          results.push({ id: userId, success: true });
+        } else if (action === "SUSPEND") {
+          const updates: Record<string, any> = {
+            accountStatus: "SUSPENDED",
+            documentVerificationStatus: "REJECTED",
+            isVerified: false,
+            verification_required: true,
+            verification_status: "rejected",
+            rejectionReason: payload.reason || "Suspended by admin bulk operation",
+            subscriptionStatus: "Inactive",
+            lastActiveAt: nowIso
+          };
+
+          await adminDb.collection("users").doc(userId).set(updates, { merge: true });
+          try {
+            await adminAuth.updateUser(userId, { disabled: true });
+            await adminAuth.revokeRefreshTokens(userId);
+          } catch (e) {}
+
+          try {
+            const ldb = readDb();
+            if (ldb.users) {
+              ldb.users = ldb.users.map((u: any) =>
+                u.id === userId || u.uid === userId
+                  ? { ...u, ...updates }
+                  : u
+              );
+              writeDb(ldb);
+            }
+          } catch (e) {}
+
+          results.push({ id: userId, success: true });
+        } else if (action === "CHANGE_ROLE") {
+          const newRole = payload.role || "Contributor";
+          await adminDb.collection("users").doc(userId).set({ role: newRole, lastActiveAt: nowIso }, { merge: true });
+          
+          try {
+            const ldb = readDb();
+            if (ldb.users) {
+              ldb.users = ldb.users.map((u: any) =>
+                u.id === userId || u.uid === userId
+                  ? { ...u, role: newRole, lastActiveAt: nowIso }
+                  : u
+              );
+              writeDb(ldb);
+            }
+          } catch (e) {}
+
+          results.push({ id: userId, success: true });
+        } else if (action === "UPDATE" || action === "BULK_EDIT") {
+          const updates: Record<string, any> = { lastActiveAt: nowIso };
+          
+          if (payload.role !== undefined && payload.role !== "") {
+            updates.role = payload.role;
+          }
+          if (payload.accountStatus !== undefined && payload.accountStatus !== "") {
+            updates.accountStatus = payload.accountStatus;
+            if (payload.accountStatus === "APPROVED") {
+              updates.isVerified = true;
+              let targetUser = await getUserProfileServer(userId);
+              const rawDocs = [
+                ...(Array.isArray(targetUser?.verificationDocuments) ? targetUser.verificationDocuments : []),
+                ...(Array.isArray(targetUser?.verificationInfo?.documents) ? targetUser.verificationInfo.documents : []),
+                ...(Array.isArray(targetUser?.documents) ? targetUser.documents : []),
+                ...(Array.isArray(targetUser?.files) ? targetUser.files.filter((f: any) => f && (f.category === "Verification" || f.isVerificationDoc)) : [])
+              ];
+              updates.documentVerificationStatus = rawDocs.length > 0 ? "APPROVED" : "NOT_SUBMITTED";
+              updates.verification_required = false;
+              try {
+                await adminAuth.updateUser(userId, { disabled: false });
+              } catch (e) {}
+            } else if (payload.accountStatus === "SUSPENDED" || payload.accountStatus === "REJECTED") {
+              updates.isVerified = false;
+              updates.documentVerificationStatus = "REJECTED";
+              try {
+                await adminAuth.updateUser(userId, { disabled: true });
+                await adminAuth.revokeRefreshTokens(userId);
+              } catch (e) {}
+            }
+          }
+          if (payload.companyName !== undefined && payload.companyName !== "") {
+            updates.companyName = payload.companyName;
+            updates.institutionName = payload.companyName;
+          }
+          if (payload.subscriptionPlan !== undefined && payload.subscriptionPlan !== "") {
+            updates.subscriptionPlan = payload.subscriptionPlan;
+          }
+          if (payload.subscriptionStatus !== undefined && payload.subscriptionStatus !== "") {
+            updates.subscriptionStatus = payload.subscriptionStatus;
+          }
+
+          await adminDb.collection("users").doc(userId).set(updates, { merge: true });
+
+          try {
+            const ldb = readDb();
+            if (ldb.users) {
+              const existingIdx = ldb.users.findIndex((u: any) => u.id === userId || u.uid === userId);
+              if (existingIdx >= 0) {
+                ldb.users[existingIdx] = { ...ldb.users[existingIdx], ...updates };
+              } else {
+                ldb.users.push({ id: userId, uid: userId, ...updates });
+              }
+              writeDb(ldb);
+            }
+          } catch (e) {}
+
+          results.push({ id: userId, success: true });
+        } else if (action === "DELETE") {
+          // 1. Get user data for archive before deletion
+          let userRecordData: any = null;
+          try {
+            const uSnap = await adminDb.collection("users").doc(userId).get();
+            if (uSnap.exists) {
+              userRecordData = uSnap.data();
+            }
+          } catch (e) {}
+
+          // 2. Archive to deletedUsers
+          await adminDb.collection("deletedUsers").doc(userId).set({
+            uid: userId,
+            email: userRecordData?.email || payload.email || "",
+            name: userRecordData?.name || "",
+            companyName: userRecordData?.companyName || "",
+            role: userRecordData?.role || "",
+            deletedAt: nowIso,
+            deletedBy: callerEmail,
+            reason: payload.reason || "Bulk deletion by admin"
+          });
+
+          // 3. Purge subcollections
+          try {
+            const memSnap = await adminDb.collection("users").doc(userId).collection("memories").get();
+            for (const mDoc of memSnap.docs) await mDoc.ref.delete();
+            const alertSnap = await adminDb.collection("users").doc(userId).collection("riskAlerts").get();
+            for (const aDoc of alertSnap.docs) await aDoc.ref.delete();
+          } catch (e) {}
+
+          // 4. Delete root user doc from Firestore
+          await adminDb.collection("users").doc(userId).delete().catch(() => {});
+
+          // 5. Delete / Disable in Firebase Auth
+          try {
+            await adminAuth.updateUser(userId, { disabled: true });
+            await adminAuth.revokeRefreshTokens(userId);
+          } catch (e) {}
+          try {
+            await adminAuth.deleteUser(userId);
+          } catch (e) {}
+
+          // 6. Purge from local JSON DB store
+          try {
+            const ldb = readDb();
+            if (ldb.users) ldb.users = ldb.users.filter((u: any) => u.id !== userId && u.uid !== userId);
+            if (ldb.verification_codes) ldb.verification_codes = ldb.verification_codes.filter((vc: any) => vc.id !== userId && vc.userId !== userId);
+            if (ldb.support_tickets) ldb.support_tickets = ldb.support_tickets.filter((st: any) => st.userId !== userId);
+            if (ldb.memories) ldb.memories = ldb.memories.filter((m: any) => m.userId !== userId);
+            if (ldb.causal_graphs) ldb.causal_graphs = ldb.causal_graphs.filter((cg: any) => cg.userId !== userId);
+            writeDb(ldb);
+          } catch (e) {}
+
+          results.push({ id: userId, success: true });
+        } else {
+          results.push({ id: userId, success: false, error: `Unsupported bulk action '${action}'` });
+        }
+      } catch (err: any) {
+        results.push({ id: userId, success: false, error: err.message });
+      }
+    }
+
+    const succeededCount = results.filter(r => r.success).length;
+    await writeAdminAuditLog(
+      callerUid,
+      callerEmail,
+      "BULK_ACTION_" + action,
+      "USER_COLLECTION",
+      userIds.join(","),
+      null,
+      "SUCCESS",
+      `Bulk action ${action} executed on ${userIds.length} users (${succeededCount} succeeded)`
+    );
+
+    return res.json({
+      success: true,
+      message: `تم تنفيذ العملية بنجاح على (${succeededCount}) من أصل (${userIds.length}) مستخدم.`,
+      results
+    });
+  } catch (err: any) {
+    console.error("ADMIN_BULK_ACTION_FAILED", err);
+    return res.status(500).json({ success: false, error: err.message || "Failed to execute bulk action" });
+  }
+});
+
+// --- ADMIN SINGLE USER PROFILE PATCH ENDPOINT ---
+app.patch(["/api/admin/users/:uid", "/admin/users/:uid"], requireAuth, requireAdmin, async (req: AuthRequest, res) => {
+  const callerUid = req.user?.uid || "";
+  const callerEmail = req.user?.email || "admin@zakir.ai";
+  const targetUid = (req.params.uid || "").trim();
+
+  if (!targetUid) {
+    return res.status(400).json({ success: false, error: "Target UID is required." });
+  }
+
+  try {
+    const {
+      ownerName,
+      companyName,
+      role,
+      department,
+      phoneNumber,
+      accountStatus,
+      adminNotes
+    } = req.body;
+
+    const nowIso = new Date().toISOString();
+    const updates: Record<string, any> = {
+      lastActiveAt: nowIso,
+      updatedAt: nowIso
+    };
+
+    if (ownerName !== undefined) {
+      updates.ownerName = String(ownerName).trim();
+      updates.name = updates.ownerName;
+      updates.fullName = updates.ownerName;
+    }
+    if (companyName !== undefined) {
+      updates.companyName = String(companyName).trim();
+    }
+    if (role !== undefined) {
+      updates.role = String(role).trim();
+    }
+    if (department !== undefined) {
+      updates.department = String(department).trim();
+    }
+    if (phoneNumber !== undefined) {
+      updates.phoneNumber = String(phoneNumber).trim();
+      updates.phone = updates.phoneNumber;
+    }
+    if (accountStatus !== undefined) {
+      updates.accountStatus = String(accountStatus).trim();
+      if (updates.accountStatus === "APPROVED") {
+        updates.isVerified = true;
+        updates.verification_status = "verified";
+      } else if (updates.accountStatus === "SUSPENDED" || updates.accountStatus === "REJECTED") {
+        updates.isVerified = false;
+        updates.verification_status = "rejected";
+      }
+    }
+    if (adminNotes !== undefined) {
+      updates.adminNotes = String(adminNotes).trim();
+    }
+
+    // 1. Update Firestore
+    await adminDb.collection("users").doc(targetUid).set(updates, { merge: true });
+
+    // 2. Update Firebase Auth metadata
+    try {
+      const authUpdates: Record<string, any> = {};
+      if (updates.ownerName) authUpdates.displayName = updates.ownerName;
+      if (updates.accountStatus === "SUSPENDED") {
+        authUpdates.disabled = true;
+        await adminAuth.revokeRefreshTokens(targetUid);
+      } else if (updates.accountStatus === "APPROVED") {
+        authUpdates.disabled = false;
+      }
+      if (Object.keys(authUpdates).length > 0) {
+        await adminAuth.updateUser(targetUid, authUpdates);
+      }
+    } catch (authErr: any) {
+      console.warn("Notice: Auth user update warning during admin profile patch:", authErr?.message);
+    }
+
+    // 3. Update local DB if present
+    try {
+      const db = readDb();
+      if (db.users) {
+        const idx = db.users.findIndex((u: any) => u.id === targetUid || u.uid === targetUid);
+        if (idx >= 0) {
+          db.users[idx] = { ...db.users[idx], ...updates };
+          writeDb(db);
+        }
+      }
+    } catch (e) {}
+
+    await writeAdminAuditLog(
+      callerUid,
+      callerEmail,
+      "ADMIN_UPDATE_USER_PROFILE",
+      "USER_PROFILE",
+      targetUid,
+      null,
+      "SUCCESS",
+      `Admin updated profile for user ${targetUid}: ${JSON.stringify(updates)}`
+    );
+
+    return res.json({
+      success: true,
+      message: "تم حفظ وتحديث بيانات المستخدم بنجاح.",
+      updates
+    });
+  } catch (err: any) {
+    console.error("ADMIN_PATCH_USER_FAILED", err);
+    return res.status(500).json({ success: false, error: err.message || "Failed to update user profile" });
   }
 });
 
@@ -17997,33 +18483,23 @@ app.post(
   },
 );
 
-app.all(
-  [
-    "/api/admin/delete-user/:uid",
-    "/admin/delete-user/:uid",
-    "/api/admin/delete-user",
-    "/admin/delete-user",
-    "/api/admin/users/:uid",
-    "/admin/users/:uid",
-  ],
-  requireAuth,
-  async (req: AuthRequest, res) => {
-    const targetUid = (
-      req.params.uid ||
-      req.body?.uid ||
-      req.body?.userId ||
-      req.query?.uid ||
-      req.query?.userId ||
-      ""
-    )
-      .toString()
-      .trim();
-    let currentStep = "INITIALIZATION";
-    const executionAudit: Record<string, any> = {
-      stripe: { status: "pending", details: null },
-      database: { status: "pending", details: null },
-      auth: { status: "pending", details: null },
-    };
+const handleDeleteUserRequest = async (req: AuthRequest, res: any) => {
+  const targetUid = (
+    req.params.uid ||
+    req.body?.uid ||
+    req.body?.userId ||
+    req.query?.uid ||
+    req.query?.userId ||
+    ""
+  )
+    .toString()
+    .trim();
+  let currentStep = "INITIALIZATION";
+  const executionAudit: Record<string, any> = {
+    stripe: { status: "pending", details: null },
+    database: { status: "pending", details: null },
+    auth: { status: "pending", details: null },
+  };
 
     try {
       const callerUid = req.user?.uid;
@@ -18500,7 +18976,30 @@ app.all(
         executionAudit,
       });
     }
-  },
+};
+
+app.delete(
+  [
+    "/api/admin/delete-user/:uid",
+    "/admin/delete-user/:uid",
+    "/api/admin/delete-user",
+    "/admin/delete-user",
+    "/api/admin/users/:uid",
+    "/admin/users/:uid",
+  ],
+  requireAuth,
+  handleDeleteUserRequest
+);
+
+app.post(
+  [
+    "/api/admin/delete-user/:uid",
+    "/admin/delete-user/:uid",
+    "/api/admin/delete-user",
+    "/admin/delete-user",
+  ],
+  requireAuth,
+  handleDeleteUserRequest
 );
 
 app.all(

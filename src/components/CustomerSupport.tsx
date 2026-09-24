@@ -840,7 +840,6 @@ export const CustomerSupport: React.FC<CustomerSupportProps> = ({ currentUser, l
           {/* GUIDES GRID */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {filteredDocs.map((doc) => {
-              const IconComp = doc.icon;
               return (
                 <div
                   key={doc.id}
@@ -863,7 +862,7 @@ export const CustomerSupport: React.FC<CustomerSupportProps> = ({ currentUser, l
 
                     <div className="flex items-start gap-2.5 pt-1">
                       <div className="p-2 rounded-lg bg-[#0075DE]/10 text-[#0075DE] border border-[#0075DE]/20 group-hover:scale-105 transition-transform shrink-0">
-                        <IconComp className="w-4 h-4" />
+                        {React.createElement(doc.icon || BookOpen, { className: "w-4 h-4" })}
                       </div>
                       <div>
                         <h3 className="text-xs font-bold text-slate-900 dark:text-white group-hover:text-[#0075DE] transition-colors leading-snug">

@@ -785,7 +785,6 @@ export const WorldBankPortal: React.FC<WorldBankPortalProps> = ({
               { id: "line", icon: LineIcon, labelAr: "رسم خطي", labelEn: "Line Chart" },
               { id: "bar", icon: BarIcon, labelAr: "رسم أعمدة", labelEn: "Bar Chart" }
             ].map((ct) => {
-              const Icon = ct.icon;
               return (
                 <button
                   key={ct.id}
@@ -800,7 +799,7 @@ export const WorldBankPortal: React.FC<WorldBankPortalProps> = ({
                   }`}
                   title={lang === "ar" ? ct.labelAr : ct.labelEn}
                 >
-                  <Icon className="w-4 h-4" />
+                  {ct.icon && React.createElement(ct.icon, { className: "w-4 h-4" })}
                   <span>{lang === "ar" ? ct.labelAr : ct.labelEn}</span>
                 </button>
               );

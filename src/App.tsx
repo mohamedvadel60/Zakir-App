@@ -1247,6 +1247,7 @@ This hosting domain (**${currentDomain}**) has not been authorized in your Fireb
     return localStorage.getItem("zakir_sidebar_collapsed") === "true";
   });
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState<boolean>(false);
+  const [adminWorkspaceMode, setAdminWorkspaceMode] = useState<boolean>(false);
 
   const toggleSidebarCollapse = () => {
     setIsSidebarCollapsed(prev => {
@@ -4458,7 +4459,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
             }}
           />
         </Suspense>
-      ) : (currentUser && isUserAdmin(currentUser)) ? (
+      ) : (currentUser && isUserAdmin(currentUser) && !adminWorkspaceMode) ? (
         /* ADMIN DASHBOARD VIEW FOR ADMIN USER */
         (() => {
           const authUid = getAuthenticatedFirebaseUid();
@@ -4479,13 +4480,30 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                 toggleLanguage={toggleLanguage}
                 toggleTheme={toggleTheme}
                 onLogout={handleLogout}
+                onSwitchToWorkspace={() => setAdminWorkspaceMode(true)}
               />
             </Suspense>
           );
         })()
       ) : (
         /* MAIN APPLICATION WORKSPACE LAYOUT */
-        <div id="main-app-workspace" className="flex h-screen overflow-hidden">
+        <div id="main-app-workspace" className="flex h-screen overflow-hidden relative">
+          
+          {/* FLOATING RETURN TO ADMIN CONTROL CENTER BANNER FOR ADMIN USERS */}
+          {adminWorkspaceMode && currentUser && isUserAdmin(currentUser) && (
+            <div className="fixed top-3 start-1/2 -translate-x-1/2 z-50 bg-slate-900/95 text-white border border-blue-500/40 backdrop-blur-md px-4 py-2 rounded-full shadow-2xl flex items-center gap-3 text-xs animate-in fade-in duration-200">
+              <span className="flex items-center gap-1.5 font-bold text-blue-400">
+                <ShieldCheck className="w-4 h-4" />
+                <span>{lang === "ar" ? "وضع معاينة بيئة العمل للمشرف" : "Admin Workspace Preview"}</span>
+              </span>
+              <button
+                onClick={() => setAdminWorkspaceMode(false)}
+                className="px-3 py-1 rounded-full bg-blue-600 hover:bg-blue-500 text-white font-bold transition-colors cursor-pointer text-[11px]"
+              >
+                {lang === "ar" ? "العودة لمركز تحكم الإدارة" : "Back to Admin Control Center"}
+              </button>
+            </div>
+          )}
           
           {/* MOBILE OVERLAY BACKDROP */}
           <AnimatePresence>
@@ -5340,7 +5358,6 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                                   { id: "area", icon: Layers, label: "Area" },
                                   { id: "donut", icon: PieChartIcon, label: "Donut" }
                                 ].map((type) => {
-                                  const Icon = type.icon;
                                   const isSelected = categoryChartType === type.id;
                                   return (
                                     <button
@@ -5353,7 +5370,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                                           : "text-slate-400 hover:text-white hover:bg-slate-800/50"
                                       }`}
                                     >
-                                      <Icon className="w-4 h-4" />
+                                      {type.icon && React.createElement(type.icon, { className: "w-4 h-4" })}
                                     </button>
                                   );
                                 })}

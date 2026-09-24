@@ -2566,17 +2566,161 @@ export async function fetchAllUsersForAdmin(): Promise<AdminUserRecord[]> {
     console.warn("Notice: Client-side Firestore fallback encountered error:", fsErr);
   }
 
-  // Local storage cached users fallback
-  try {
-    const cached = getLocalItem<AdminUserRecord[]>("zakir_admin_cached_users", []);
-    if (cached && cached.length > 0) return cached;
-  } catch (e) {}
-
   if (apiError && !fetchedUsers.length) {
     console.warn("fetchAllUsersForAdmin finished with notice:", apiError);
   }
 
   return [];
+}
+
+/**
+ * Strict Verification Breakdown Evaluator (Single Source of Truth)
+ * Separates Email Verification from Document / Identity Verification
+ */
+export interface UserVerificationBreakdown {
+  emailVerified: boolean;
+  documentStatus: "NOT_SUBMITTED" | "PENDING_REVIEW" | "UNDER_REVIEW" | "APPROVED" | "REJECTED";
+  documentCount: number;
+  isFullyApproved: boolean;
+  hasExplicitOverride: boolean;
+  approvedAt?: string;
+  approvedBy?: string;
+}
+
+export function computeUserVerificationBreakdown(userData: any): UserVerificationBreakdown {
+  if (!userData) {
+    return {
+      emailVerified: false,
+      documentStatus: "NOT_SUBMITTED",
+      documentCount: 0,
+      isFullyApproved: false,
+      hasExplicitOverride: false
+    };
+  }
+
+  const full = userData.fullUser || userData;
+  const isEmailVer = Boolean(
+    full.emailVerified === true ||
+    full.isEmailVerified === true ||
+    userData.emailVerified === true ||
+    userData.isEmailVerified === true
+  );
+
+  const rawDocs = [
+    ...(Array.isArray(full.verificationDocuments) ? full.verificationDocuments : []),
+    ...(Array.isArray(full.verificationInfo?.documents) ? full.verificationInfo.documents : []),
+    ...(Array.isArray(full.documents) ? full.documents : []),
+    ...(Array.isArray(full.files) ? full.files.filter((f: any) => f && (f.category === "Verification" || f.isVerificationDoc)) : []),
+    ...(Array.isArray(userData.files) ? userData.files.filter((f: any) => f && (f.category === "Verification" || f.isVerificationDoc)) : [])
+  ];
+
+  const uniqueDocs: any[] = [];
+  const seenIds = new Set<string>();
+  for (const doc of rawDocs) {
+    if (!doc) continue;
+    const docId = String(doc.documentId || doc.id || doc.storageReference || doc.fileName || doc.name || JSON.stringify(doc));
+    if (!seenIds.has(docId)) {
+      seenIds.add(docId);
+      uniqueDocs.push(doc);
+    }
+  }
+
+  const documentCount = uniqueDocs.length;
+  const hasExplicitOverride = Boolean(
+    full.adminVerificationOverride === true ||
+    userData.adminVerificationOverride === true ||
+    (full.approvedBy && full.approvedAt)
+  );
+
+  const isSysAdmin = full.role === "Admin" || userData.role === "Admin" || ADMIN_EMAILS.includes((userData.email || "").toLowerCase().trim());
+  const rawAccStatus = String(full.accountStatus || userData.accountStatus || "").toUpperCase();
+  const rawDocStatus = String(full.documentVerificationStatus || userData.documentVerificationStatus || full.verificationInfo?.status || "").toUpperCase();
+
+  let documentStatus: "NOT_SUBMITTED" | "PENDING_REVIEW" | "UNDER_REVIEW" | "APPROVED" | "REJECTED" = "NOT_SUBMITTED";
+
+  // STRICT RULE: If documentCount === 0, Document Verification is ALWAYS NOT_SUBMITTED
+  if (documentCount === 0) {
+    documentStatus = "NOT_SUBMITTED";
+  } else if (rawAccStatus === "REJECTED" || rawDocStatus === "REJECTED") {
+    documentStatus = "REJECTED";
+  } else if (rawAccStatus === "APPROVED" || rawDocStatus === "APPROVED") {
+    documentStatus = "APPROVED";
+  } else if (rawDocStatus === "UNDER_REVIEW" || rawAccStatus === "PENDING_ADMIN_REVIEW") {
+    documentStatus = "UNDER_REVIEW";
+  } else {
+    documentStatus = "PENDING_REVIEW";
+  }
+
+  const isFullyApproved = (rawAccStatus === "APPROVED" || isSysAdmin);
+
+  return {
+    emailVerified: isEmailVer,
+    documentStatus,
+    documentCount,
+    isFullyApproved,
+    hasExplicitOverride,
+    approvedAt: full.approvedAt || userData.approvedAt,
+    approvedBy: full.approvedBy || userData.approvedBy
+  };
+}
+
+/**
+ * Bulk User Action API (Admin)
+ */
+export async function bulkAdminUserActionApi(
+  userIds: string[],
+  action: "APPROVE" | "SUSPEND" | "CHANGE_ROLE" | "DELETE" | "UPDATE" | "BULK_EDIT",
+  payload: Record<string, any> = {}
+): Promise<{ success: boolean; message?: string; error?: string; results?: any[] }> {
+  try {
+    const res = await authenticatedFetch("/api/admin/bulk-user-action", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userIds, action, payload })
+    });
+    return await safeJsonResponse(res, "فشل تنفيذ العملية الجماعية.");
+  } catch (err: any) {
+    console.error("bulkAdminUserActionApi error:", err);
+    return { success: false, error: err.message || "Failed to execute bulk action" };
+  }
+}
+
+/**
+ * Update User Profile API (Admin)
+ */
+export async function updateAdminUserProfileApi(
+  targetUid: string,
+  profileData: Record<string, any>
+): Promise<{ success: boolean; message?: string; error?: string }> {
+  try {
+    const res = await authenticatedFetch("/api/admin/update-user-profile", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ targetUid, profileData })
+    });
+    return await safeJsonResponse(res, "فشل تحديث بيانات المستخدم.");
+  } catch (err: any) {
+    console.error("updateAdminUserProfileApi error:", err);
+    return { success: false, error: err.message || "Failed to update profile" };
+  }
+}
+
+/**
+ * Fetch Subscription Overview API (Admin)
+ */
+export async function fetchAdminSubscriptionOverviewApi(): Promise<{
+  success: boolean;
+  users?: any[];
+  stats?: any;
+  error?: string;
+}> {
+  try {
+    const res = await authenticatedFetch("/api/admin/subscription-overview");
+    return await safeJsonResponse(res, "فشل جلب تفاصيل الاشتراكات.");
+  } catch (err: any) {
+    console.error("fetchAdminSubscriptionOverviewApi error:", err);
+    return { success: false, error: err.message || "Failed to load subscription overview" };
+  }
 }
 
 /**

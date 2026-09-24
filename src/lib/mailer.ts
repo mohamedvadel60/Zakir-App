@@ -176,6 +176,66 @@ export function escapeHtml(str: string): string {
     .replace(/'/g, "&#039;");
 }
 
+/**
+ * Generates the unified, strict 96x96 px ZAKIR Logo Container for all HTML emails.
+ * - Light Mode: 96x96 Solid Navy Square (#1C2C58) + Crisp White ZAKIR Logo (#FFFFFF) centered X & Y.
+ * - Dark Mode: 96x96 Solid Pure White Square (#FFFFFF) + Crisp Navy ZAKIR Logo (#1C2C58) centered X & Y.
+ * Strictly 96x96 px, NO purple in dark mode, aspect-ratio preserved.
+ */
+export function renderEmailLogoHeaderHtml(options?: {
+  appBase?: string;
+  wordmark?: string;
+  tagline?: string;
+  size?: number;
+}): string {
+  const size = options?.size || 96;
+  const appBase = options?.appBase || "https://www.getzakir.com";
+  const wordmark = options?.wordmark !== undefined ? options.wordmark : "ZAKIR";
+  const tagline =
+    options?.tagline !== undefined
+      ? options.tagline
+      : "الذاكرة المؤسسية السببية &bull; Causal Decision Intelligence";
+
+  return `
+    <!-- Strict 1:1 Square Logo Container (${size}px x ${size}px) -->
+    <table border="0" cellpadding="0" cellspacing="0" align="center" role="presentation" width="${size}" height="${size}" class="zakir-logo-table" style="width: ${size}px !important; height: ${size}px !important; max-width: ${size}px !important; max-height: ${size}px !important; margin: 0 auto 16px auto; border-collapse: collapse; border-spacing: 0; mso-table-lspace: 0pt; mso-table-rspace: 0pt;">
+      <tr>
+        <td align="center" valign="middle" width="${size}" height="${size}" class="zakir-logo-container-cell" style="width: ${size}px !important; height: ${size}px !important; max-width: ${size}px !important; max-height: ${size}px !important; padding: 0; margin: 0; line-height: 0; font-size: 0; text-align: center; vertical-align: middle;">
+          <a href="${appBase}" target="_blank" style="text-decoration: none; display: block; width: ${size}px; height: ${size}px; margin: 0 auto; line-height: 0; font-size: 0; outline: none; border: 0;">
+            <!-- LIGHT MODE BADGE: Solid Royal Navy Square (#1C2C58) + Crisp White ZAKIR Logo (#FDFEFE) [Exact ${size}x${size} px] -->
+            <img src="cid:zakir-logo-light" alt="ZAKIR" width="${size}" height="${size}" class="zakir-logo-light light-img" style="display: block; width: ${size}px !important; height: ${size}px !important; max-width: ${size}px !important; max-height: ${size}px !important; aspect-ratio: 1 / 1; border: 0; outline: none; text-decoration: none; margin: 0 auto; -ms-interpolation-mode: bicubic;" />
+            
+            <!-- DARK MODE BADGE: Solid Pure White Square (#FFFFFF) + Crisp Navy ZAKIR Logo (#1C2C58) [Exact ${size}x${size} px] -->
+            <!--[if !mso]><!-->
+            <div class="zakir-logo-dark-wrap dark-img" style="display: none; mso-hide: all; max-height: 0px; max-width: 0px; overflow: hidden; width: 0; height: 0; margin: 0 auto; line-height: 0; font-size: 0;">
+              <img src="cid:zakir-logo-dark" alt="ZAKIR" width="${size}" height="${size}" class="zakir-logo-dark" style="display: none; width: ${size}px !important; height: ${size}px !important; max-width: ${size}px !important; max-height: ${size}px !important; aspect-ratio: 1 / 1; border: 0; outline: none; text-decoration: none; margin: 0 auto; -ms-interpolation-mode: bicubic;" />
+            </div>
+            <!--<![endif]-->
+          </a>
+        </td>
+      </tr>
+    </table>
+
+    ${
+      wordmark
+        ? `<!-- ZAKIR Wordmark: Bold, uppercase, clean spacing -->
+    <div class="zakir-wordmark" style="color: #0f172a; font-size: 24px; font-weight: 800; letter-spacing: 2.5px; text-transform: uppercase; line-height: 1.2; margin: 0 0 6px 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+      ${wordmark}
+    </div>`
+        : ""
+    }
+
+    ${
+      tagline
+        ? `<!-- Official Supporting Tagline -->
+    <div style="color: #64748b; font-size: 13px; font-weight: 500; line-height: 1.5; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+      ${tagline}
+    </div>`
+        : ""
+    }
+  `;
+}
+
 export function buildMasterEmailHtml(options: {
   subject: string;
   title: string;
@@ -186,10 +246,15 @@ export function buildMasterEmailHtml(options: {
 }): string {
   const { subject, title, greeting, bodyHtml, securityNote, baseUrl } = options;
   const canonicalDomain = "https://www.getzakir.com";
-  const appBase = (baseUrl || process.env.VITE_APP_URL || process.env.VITE_BACKEND_URL || canonicalDomain).replace(
-    /\/$/,
-    ""
-  );
+  const appBase = (
+    baseUrl ||
+    process.env.VITE_APP_URL ||
+    process.env.VITE_BACKEND_URL ||
+    process.env.APP_URL ||
+    canonicalDomain
+  ).replace(/\/$/, "");
+
+  const logoHeaderHtml = renderEmailLogoHeaderHtml({ appBase, size: 96 });
 
   return `<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml" lang="ar">
@@ -206,28 +271,36 @@ export function buildMasterEmailHtml(options: {
       supported-color-schemes: light dark;
     }
     @media (prefers-color-scheme: dark) {
+      .light-img,
       .zakir-logo-light {
         display: none !important;
         mso-hide: all !important;
+        width: 0px !important;
+        height: 0px !important;
+        max-width: 0px !important;
+        max-height: 0px !important;
+        overflow: hidden !important;
         font-size: 0px !important;
         line-height: 0px !important;
-        max-height: 0px !important;
-        max-width: 0px !important;
-        overflow: hidden !important;
       }
+      .dark-img,
       .zakir-logo-dark-wrap {
         display: block !important;
         mso-hide: none !important;
-        max-height: none !important;
-        max-width: none !important;
+        width: 96px !important;
+        height: 96px !important;
+        max-width: 96px !important;
+        max-height: 96px !important;
         overflow: visible !important;
         font-size: 0 !important;
         line-height: 0 !important;
       }
       .zakir-logo-dark {
         display: block !important;
-        max-height: none !important;
-        max-width: none !important;
+        width: 96px !important;
+        height: 96px !important;
+        max-width: 96px !important;
+        max-height: 96px !important;
         overflow: visible !important;
       }
       .zakir-footer-logo-light {
@@ -265,17 +338,31 @@ export function buildMasterEmailHtml(options: {
         color: #94a3b8 !important;
       }
     }
+  </style>
+  <style type="text/css">
     /* Outlook / Webmail Dark Mode Overrides */
+    [data-ogsc] .light-img,
+    [data-ogsb] .light-img,
     [data-ogsc] .zakir-logo-light,
     [data-ogsb] .zakir-logo-light {
       display: none !important;
+      width: 0px !important;
+      height: 0px !important;
+      max-width: 0px !important;
+      max-height: 0px !important;
+      overflow: hidden !important;
     }
+    [data-ogsc] .dark-img,
+    [data-ogsb] .dark-img,
     [data-ogsc] .zakir-logo-dark-wrap,
     [data-ogsb] .zakir-logo-dark-wrap,
     [data-ogsc] .zakir-logo-dark,
     [data-ogsb] .zakir-logo-dark {
       display: block !important;
-      max-height: none !important;
+      width: 96px !important;
+      height: 96px !important;
+      max-width: 96px !important;
+      max-height: 96px !important;
       overflow: visible !important;
     }
     [data-ogsc] .zakir-footer-logo-light,
@@ -305,37 +392,10 @@ export function buildMasterEmailHtml(options: {
       <td align="center">
         <!-- Master Card -->
         <table border="0" cellpadding="0" cellspacing="0" width="100%" class="zakir-card" style="max-width: 580px; background-color: #ffffff; border-radius: 16px; border: 1px solid #e2e8f0; overflow: hidden; box-shadow: 0 4px 20px rgba(15, 23, 42, 0.05);">
-          <!-- Header with Official ZAKIR Square Badge System -->
+          <!-- Header with Official ZAKIR 96x96 Square Badge System -->
           <tr>
             <td class="zakir-header-cell" style="padding: 36px 32px 24px 32px; text-align: center; border-bottom: 1px solid #f1f5f9; background-color: #ffffff;">
-              <!-- Perfect 1:1 Square Logo Container (72px x 72px) -->
-              <table border="0" cellpadding="0" cellspacing="0" align="center" role="presentation" style="margin: 0 auto 16px auto; border-collapse: collapse; border-spacing: 0;">
-                <tr>
-                  <td align="center" valign="middle" style="padding: 0; margin: 0; line-height: 0; font-size: 0; text-align: center;">
-                    <a href="${appBase}" target="_blank" style="text-decoration: none; display: inline-block; line-height: 0; font-size: 0; outline: none; border: 0;">
-                      <!-- LIGHT MODE: Solid Navy Square (#1C2C58) + Crisp White ZAKIR Logo (#FFFFFF) -->
-                      <img src="cid:zakir-logo-light" alt="ZAKIR" width="72" height="72" class="zakir-logo-light" style="display: block; width: 72px !important; height: 72px !important; max-width: 72px !important; max-height: 72px !important; aspect-ratio: 1 / 1; border: 0; outline: none; text-decoration: none; margin: 0 auto; -ms-interpolation-mode: bicubic; border-radius: 16px;" />
-                      
-                      <!-- DARK MODE: Solid Pure White Square (#FFFFFF) + Crisp Navy ZAKIR Logo (#1C2C58) -->
-                      <!--[if !mso]><!-->
-                      <div class="zakir-logo-dark-wrap" style="display: none; mso-hide: all; max-height: 0px; max-width: 0px; overflow: hidden; width: 0; height: 0; margin: 0 auto; line-height: 0; font-size: 0;">
-                        <img src="cid:zakir-logo-dark" alt="ZAKIR" width="72" height="72" class="zakir-logo-dark" style="display: none; width: 72px !important; height: 72px !important; max-width: 72px !important; max-height: 72px !important; aspect-ratio: 1 / 1; border: 0; outline: none; text-decoration: none; margin: 0 auto; -ms-interpolation-mode: bicubic; border-radius: 16px;" />
-                      </div>
-                      <!--<![endif]-->
-                    </a>
-                  </td>
-                </tr>
-              </table>
-
-              <!-- ZAKIR Wordmark: Bold, uppercase, clean spacing -->
-              <div class="zakir-wordmark" style="color: #0f172a; font-size: 24px; font-weight: 800; letter-spacing: 2.5px; text-transform: uppercase; line-height: 1.2; margin: 0 0 6px 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
-                ZAKIR
-              </div>
-
-              <!-- Official Supporting Tagline -->
-              <div style="color: #64748b; font-size: 13px; font-weight: 500; line-height: 1.5; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
-                الذاكرة المؤسسية السببية &bull; Causal Decision Intelligence
-              </div>
+              ${logoHeaderHtml}
             </td>
           </tr>
           <tr>
@@ -356,11 +416,11 @@ export function buildMasterEmailHtml(options: {
                 <tr>
                   <td align="center" style="vertical-align: middle;">
                     <span class="zakir-footer-logo-light" style="display: inline-block; vertical-align: middle; margin-right: 8px;">
-                      <img src="cid:zakir-logo-light" alt="ZAKIR" width="22" height="22" style="display: block; width: 22px; height: 22px; border-radius: 5px; border: 0;" />
+                      <img src="cid:zakir-logo-light" alt="ZAKIR" width="24" height="24" style="display: block; width: 24px; height: 24px; border-radius: 6px; border: 0;" />
                     </span>
                     <!--[if !mso]><!-->
                     <span class="zakir-footer-logo-dark" style="display: none; mso-hide: all; max-height: 0; max-width: 0; overflow: hidden; vertical-align: middle; margin-right: 8px;">
-                      <img src="cid:zakir-logo-dark" alt="ZAKIR" width="22" height="22" style="display: block; width: 22px; height: 22px; border-radius: 5px; border: 0;" />
+                      <img src="cid:zakir-logo-dark" alt="ZAKIR" width="24" height="24" style="display: block; width: 24px; height: 24px; border-radius: 6px; border: 0;" />
                     </span>
                     <!--<![endif]-->
                     <span class="zakir-wordmark" style="font-size: 13px; font-weight: 800; color: #0f172a; vertical-align: middle; letter-spacing: 1.5px; text-transform: uppercase;">ZAKIR</span>
@@ -389,37 +449,43 @@ export function buildOtpEmailHtml(options: {
   otpCode: string;
   type?: string;
   userName?: string;
+  baseUrl?: string;
 }): { subject: string; text: string; html: string } {
-  const { email, otpCode, type = "account_recovery", userName } = options;
+  const { email, otpCode, type = "account_recovery", userName, baseUrl } = options;
   const cleanName = cleanUserName(userName, email);
   
-  let subject = "Zakir Verification Code";
-  let title = "Verification Code";
+  let subject = "رمز التحقق لتفعيل حسابك في Zakir - Verify your Zakir account";
+  let title = "تفعيل حسابك في Zakir | Activate Account";
   
   if (type === "account_recovery") {
-    subject = "Account Restoration Verification Code - Zakir";
-    title = "Verify Your Account Restoration";
+    subject = "رمز التحقق لاستعادة الحساب - Account Restoration Code | Zakir";
+    title = "التحقق من استعادة الحساب | Verify Account Restoration";
   } else if (type === "password_reset") {
-    subject = "Password Reset Code - Zakir";
-    title = "Reset Your Password";
+    subject = "إعادة تعيين كلمة المرور - Password Reset Code | Zakir";
+    title = "إعادة تعيين كلمة المرور | Reset Password";
+  } else if (type === "email_verification" || type === "account_registration") {
+    subject = "رمز التحقق لتفعيل حسابك في Zakir - Verify your Zakir account";
+    title = "تفعيل حسابك في Zakir | Activate Account";
   }
 
   const bodyHtml = `
     <p style="color:#334155;font-size:15px;line-height:1.6;margin:0 0 20px 0;">
-      Use the following single-use verification code to complete your request for <strong style="color:#2563eb;">${email}</strong>.
+      يرجى استخدام رمز التحقق التالي لطلبك الخاص بالبريد: <strong style="color:#2563eb;">${escapeHtml(email)}</strong>.<br/>
+      Please use the following single-use verification code for your request:
     </p>
     <div style="margin:24px 0;padding:20px;background-color:#eff6ff;border:1px dashed #2563eb;border-radius:12px;text-align:center;">
-      <span style="font-family:monospace;font-size:32px;font-weight:800;letter-spacing:8px;color:#1d4ed8;">${otpCode}</span>
-      <p style="margin:8px 0 0 0;color:#64748b;font-size:12px;">Valid for 10 minutes</p>
+      <span style="font-family:monospace;font-size:32px;font-weight:800;letter-spacing:8px;color:#1d4ed8;">${escapeHtml(otpCode)}</span>
+      <p style="margin:8px 0 0 0;color:#64748b;font-size:12px;">صالح لمدة 10 دقائق &bull; Valid for 10 minutes</p>
     </div>
   `;
 
   const html = buildMasterEmailHtml({
     subject,
     title,
-    greeting: `Hello ${cleanName},`,
+    greeting: `مرحباً ${cleanName} / Hello ${cleanName},`,
     bodyHtml,
-    securityNote: "Do not share this code with anyone. Zakir staff will never ask for your code."
+    securityNote: "لحماية أمن حسابك، لا تشارك هذا الرمز مع أي شخص مطلقا. فريق ذاكر لن يطلب منك هذا الرمز. Never share this code with anyone.",
+    baseUrl
   });
 
   const text = `Hello ${cleanName},\n\nYour Zakir verification code is: ${otpCode}\n\nThis code will expire in 10 minutes.\n\nThe Zakir Team`;
@@ -429,23 +495,25 @@ export function buildOtpEmailHtml(options: {
 export function buildRecoveryApprovalEmailHtml(options: {
   userName: string;
   email: string;
+  baseUrl?: string;
 }): { subject: string; text: string; html: string } {
-  const { userName, email } = options;
+  const { userName, email, baseUrl } = options;
   const cleanName = cleanUserName(userName, email);
-  const subject = "Account Recovery Request Approved - Zakir";
-  const title = "Your Account Recovery Has Been Approved";
-  const greeting = `Hello ${cleanName},`;
+  const subject = "تمت الموافقة على طلب استعادة الحساب - Account Recovery Request Approved | Zakir";
+  const title = "تمت الموافقة على استعادة الحساب";
+  const greeting = `مرحباً ${cleanName} / Hello ${cleanName},`;
 
   const bodyHtml = `
     <p style="color: #334155; font-size: 15px; line-height: 1.6; margin: 0 0 20px 0;">
-      We are pleased to inform you that your account recovery request for <strong>${email}</strong> has been reviewed and <strong style="color:#16a34a;">approved</strong> by our administration team.
+      يسرنا إبلاغك بأنه قد تمت مراجعة طلب استعادة الحساب الخاص بالبريد <strong>${escapeHtml(email)}</strong> و<strong style="color:#16a34a;">الموافقة عليه</strong> من قبل فريق الإدارة.<br/>
+      We are pleased to inform you that your account recovery request has been reviewed and approved by our administration team.
     </p>
     <div style="margin: 20px 0; padding: 20px; background-color: #eff6ff; border: 1px solid #dbeafe; border-radius: 10px;">
       <p style="margin: 0; color: #1e40af; font-size: 14px; font-weight: 700;">
-        Next Step: Complete Verification
+        الخطوة التالية: إتمام التحقق واستعادة مساحة العمل &bull; Next Step: Complete Verification
       </p>
       <p style="margin: 8px 0 0 0; color: #1d4ed8; font-size: 13px; line-height: 1.5;">
-        Please return to the Zakir application and proceed with verification to receive your final code and restore your active workspace.
+        يرجى العودة إلى تطبيق Zakir والضغط على "التحقق واستعادة الحساب" للحصول على الرمز النهائي وتفعيل مساحة العمل الخاصة بك.
       </p>
     </div>
   `;
@@ -455,7 +523,8 @@ export function buildRecoveryApprovalEmailHtml(options: {
     title,
     greeting,
     bodyHtml,
-    securityNote: "For security, complete your restoration within 72 hours."
+    securityNote: "لدواعي الأمان، يرجى إتمام عملية الاستعادة خلال 72 ساعة. For security, complete your restoration within 72 hours.",
+    baseUrl
   });
 
   const text = `${greeting}\n\nYour account recovery request has been approved by our administration team.\n\nPlease return to Zakir to complete verification and restore your workspace.\n\nThe Zakir Team`;
@@ -466,24 +535,30 @@ export function buildRecoveryRejectionEmailHtml(options: {
   userName: string;
   email: string;
   rejectionReason?: string;
+  baseUrl?: string;
 }): { subject: string; text: string; html: string } {
-  const { userName, email, rejectionReason } = options;
+  const { userName, email, rejectionReason, baseUrl } = options;
   const cleanName = cleanUserName(userName, email);
-  const subject = "Account Recovery Request Update - Zakir";
-  const title = "Account Recovery Request Decision";
-  const greeting = `Hello ${cleanName},`;
+  const subject = "تحديث بخصوص طلب استعادة الحساب - Account Recovery Request Decision | Zakir";
+  const title = "قرار مراجعة طلب استعادة الحساب";
+  const greeting = `مرحباً ${cleanName} / Hello ${cleanName},`;
 
   const bodyHtml = `
     <p style="color: #334155; font-size: 15px; line-height: 1.6; margin: 0 0 20px 0;">
-      After reviewing the identity documentation submitted for <strong>${email}</strong>, our administration team was unable to approve the account recovery request.
+      بعد مراجعة وثائق إثبات الهوية المقدمة للبريد <strong>${escapeHtml(email)}</strong>، يؤسفنا إبلاغك بتعذر الموافقة على طلب الاستعادة في الوقت الحالي.<br/>
+      After reviewing the identity documentation submitted, our administration team was unable to approve the account recovery request at this time.
     </p>
-    ${rejectionReason ? `
+    ${
+      rejectionReason
+        ? `
     <div style="margin: 20px 0; padding: 18px; background-color: #fef2f2; border: 1px solid #fecaca; border-radius: 10px;">
-      <p style="margin: 0; color: #991b1b; font-size: 13px; font-weight: 700;">Reason Provided:</p>
-      <p style="margin: 6px 0 0 0; color: #b91c1c; font-size: 13px; line-height: 1.5;">${rejectionReason}</p>
-    </div>` : ""}
+      <p style="margin: 0; color: #991b1b; font-size: 13px; font-weight: 700;">السبب الإداري / Reason Provided:</p>
+      <p style="margin: 6px 0 0 0; color: #b91c1c; font-size: 13px; line-height: 1.5;">${escapeHtml(rejectionReason)}</p>
+    </div>`
+        : ""
+    }
     <p style="color: #64748b; font-size: 13px; line-height: 1.5;">
-      If you believe this decision was made in error or you have updated official documentation, you may submit a new recovery request with clearer identification proofs.
+      إذا كنت تعتقد أن هذا القرار تم عن طريق الخطأ، يمكنك تقديم طلب استعادة جديد بوثائق هوية رسمية أكثر وضوحاً.
     </p>
   `;
 
@@ -492,18 +567,371 @@ export function buildRecoveryRejectionEmailHtml(options: {
     title,
     greeting,
     bodyHtml,
-    securityNote: "Uploaded identity documents have been purged from our storage system in accordance with our data protection policies."
+    securityNote: "لحماية الخصوصية، يتم حذف المستندات المرفوعة وفقاً لسياسات حماية البيانات. Uploaded identity documents are securely purged.",
+    baseUrl
   });
 
   const text = `${greeting}\n\nYour account recovery request could not be approved at this time.\n${rejectionReason ? `Reason: ${rejectionReason}\n` : ""}\nYou may submit a new request with updated documentation if appropriate.\n\nThe Zakir Team`;
   return { subject, text, html };
 }
 
+export function buildInvitationEmailHtml(options: {
+  companyName: string;
+  memberName: string;
+  inviterName: string;
+  designatedRole: string;
+  inviteLink: string;
+  isReminder?: boolean;
+  language?: "ar" | "en" | "fr";
+  baseUrl?: string;
+}): { subject: string; text: string; html: string } {
+  const {
+    memberName,
+    designatedRole,
+    inviteLink,
+    isReminder,
+    language = "ar",
+    baseUrl,
+  } = options;
+
+  const rawCompany = (options.companyName || "").trim();
+  const companyName =
+    rawCompany &&
+    rawCompany !== "ZakIr Platform" &&
+    rawCompany !== "Zakir Workspace"
+      ? rawCompany
+      : language === "ar"
+        ? "المؤسسة"
+        : language === "fr"
+          ? "l'Entreprise"
+          : "Organization";
+
+  const rawInviter = (options.inviterName || "").trim();
+  const inviterName =
+    rawInviter ||
+    (language === "ar"
+      ? "مسؤول النظام"
+      : language === "fr"
+        ? "L'administrateur"
+        : "Workspace Admin");
+
+  let subject = "";
+  let title = "";
+  let greeting = "";
+  let introText = "";
+  let orgLabel = "";
+  let inviterLabel = "";
+  let roleLabel = "";
+  let expiresLabel = "";
+  let expiresVal = "";
+  let ctaText = "";
+  let fallbackText = "";
+  let securityNote = "";
+
+  if (language === "fr") {
+    subject = `Invitation à rejoindre l'entreprise "${companyName}" sur Zakir`;
+    title = `Invitation de l'entreprise`;
+    greeting = memberName ? `Bonjour ${memberName},` : `Bonjour,`;
+    introText = isReminder
+      ? `Ceci est un rappel que ${inviterName} vous a invité à rejoindre l'entreprise "${companyName}" sur Zakir en tant que ${designatedRole}.`
+      : `${inviterName} vous a invité à rejoindre l'entreprise "${companyName}" sur Zakir en tant que ${designatedRole}.`;
+    orgLabel = "Entreprise :";
+    inviterLabel = "Invité par :";
+    roleLabel = "Rôle assigné :";
+    expiresLabel = "Expire dans :";
+    expiresVal = "7 jours";
+    ctaText = "Accepter l'invitation";
+    fallbackText =
+      "Si le bouton ci-dessus ne fonctionne pas, copiez et collez cette URL dans votre navigateur :";
+    securityNote =
+      "Si vous n'attendiez pas cette invitation, vous pouvez ignorer cet e-mail en toute sécurité.";
+  } else if (language === "en") {
+    subject = `Invitation to join "${companyName}" on Zakir`;
+    title = `Workspace Invitation`;
+    greeting = memberName ? `Hello ${memberName},` : `Hello,`;
+    introText = isReminder
+      ? `This is a reminder that ${inviterName} has invited you to join "${companyName}" on Zakir as a ${designatedRole}.`
+      : `${inviterName} has invited you to join "${companyName}" on Zakir as a ${designatedRole}.`;
+    orgLabel = "Organization:";
+    inviterLabel = "Invited by:";
+    roleLabel = "Assigned Role:";
+    expiresLabel = "Expires in:";
+    expiresVal = "7 days";
+    ctaText = "Accept invitation";
+    fallbackText =
+      "If the button above does not work, copy and paste this URL into your browser:";
+    securityNote =
+      "If you were not expecting this invitation, you can safely ignore this email.";
+  } else {
+    subject = `دعوة للانضمام إلى مؤسسة "${companyName}" على منصة Zakir`;
+    title = `دعوة انضمام لمساحة عمل المؤسسة`;
+    greeting = memberName ? `مرحباً ${memberName}،` : `مرحباً،`;
+    introText = isReminder
+      ? `هذا تذكير بأن المسؤول "${inviterName}" قد دعاك للانضمام إلى مؤسسة "${companyName}" على منصة Zakir بصفة "${designatedRole}".`
+      : `لقد قام المسؤول "${inviterName}" بدعوتك للانضمام إلى مؤسسة "${companyName}" على منصة Zakir بصفة "${designatedRole}".`;
+    orgLabel = "المؤسسة:";
+    inviterLabel = "المرسل / المسؤول:";
+    roleLabel = "الدور المحدد:";
+    expiresLabel = "الصلاحية:";
+    expiresVal = "7 أيام";
+    ctaText = "قبول الدعوة والانضمام";
+    fallbackText =
+      "إذا لم يعمل الزر أعلاه، يرجى نسخ الرابط التالي ولصقه في متصفحك:";
+    securityNote =
+      "إذا لم تكن تتوقع هذه الدعوة، يمكنك تجاهل هذا البريد الإلكتروني بأمان.";
+  }
+
+  const direction = language === "ar" ? "rtl" : "ltr";
+  const textAlign = language === "ar" ? "right" : "left";
+
+  const detailsHtml = `
+    <div style="margin: 24px 0; padding: 20px; background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; direction: ${direction}; text-align: ${textAlign};">
+      <table border="0" cellpadding="0" cellspacing="0" width="100%" style="font-size: 14px; color: #334155;">
+        <tr>
+          <td style="padding: 6px 0; color: #64748b; width: 140px; font-weight: 500; text-align: ${textAlign};">${escapeHtml(orgLabel)}</td>
+          <td style="padding: 6px 0; font-weight: 700; color: #0f172a; text-align: ${textAlign};">${escapeHtml(companyName)}</td>
+        </tr>
+        <tr>
+          <td style="padding: 6px 0; color: #64748b; font-weight: 500; text-align: ${textAlign};">${escapeHtml(inviterLabel)}</td>
+          <td style="padding: 6px 0; font-weight: 600; color: #0f172a; text-align: ${textAlign};">${escapeHtml(inviterName)}</td>
+        </tr>
+        <tr>
+          <td style="padding: 6px 0; color: #64748b; font-weight: 500; text-align: ${textAlign};">${escapeHtml(roleLabel)}</td>
+          <td style="padding: 6px 0; text-align: ${textAlign};"><span style="display: inline-block; padding: 2px 8px; background-color: #eff6ff; color: #1d4ed8; font-weight: 700; font-size: 12px; border-radius: 4px;">${escapeHtml(designatedRole)}</span></td>
+        </tr>
+        <tr>
+          <td style="padding: 6px 0; color: #64748b; font-weight: 500; text-align: ${textAlign};">${escapeHtml(expiresLabel)}</td>
+          <td style="padding: 6px 0; font-weight: 500; color: #64748b; text-align: ${textAlign};">${escapeHtml(expiresVal)}</td>
+        </tr>
+      </table>
+    </div>
+  `;
+
+  const ctaButtonHtml = `
+    <table border="0" cellpadding="0" cellspacing="0" align="center" style="margin: 28px auto 20px auto;">
+      <tr>
+        <td align="center" bgcolor="#0075DE" style="border-radius: 10px;">
+          <a href="${inviteLink}" target="_blank" style="font-size: 15px; font-weight: 700; color: #ffffff; text-decoration: none; display: inline-block; padding: 14px 32px; border-radius: 10px; background-color: #0075DE; border: 1px solid #0075DE;">
+            ${escapeHtml(ctaText)}
+          </a>
+        </td>
+      </tr>
+    </table>
+    <p style="color: #64748b; font-size: 12px; line-height: 1.5; margin: 0; text-align: center; word-break: break-all; direction: ${direction};">
+      ${escapeHtml(fallbackText)}<br/>
+      <a href="${inviteLink}" style="color: #0075DE; text-decoration: underline;">${inviteLink}</a>
+    </p>
+  `;
+
+  const bodyHtml = `
+    <div style="direction: ${direction}; text-align: ${textAlign};">
+      <p style="color: #334155; font-size: 15px; line-height: 1.6; margin: 0 0 20px 0;">
+        ${escapeHtml(introText)}
+      </p>
+    </div>
+    ${detailsHtml}
+    ${ctaButtonHtml}
+  `;
+
+  const html = buildMasterEmailHtml({
+    subject,
+    title,
+    greeting,
+    bodyHtml,
+    securityNote,
+    baseUrl,
+  });
+
+  const text = `${greeting}\n\n${introText}\n\n${orgLabel} ${companyName}\n${inviterLabel} ${inviterName}\n${roleLabel} ${designatedRole}\n\n${ctaText}: ${inviteLink}\n\n${expiresLabel} ${expiresVal}`;
+
+  return { subject, text, html };
+}
+
+export function buildSupportReplyEmailHtml(options: {
+  recipientName: string;
+  ticketId: string;
+  ticketSubject: string;
+  message: string;
+  baseUrl?: string;
+}): { subject: string; text: string; html: string } {
+  const { recipientName, ticketId, ticketSubject, message, baseUrl } = options;
+  const subject = `Zakir Support: ${ticketSubject}`;
+  const title = "Support Ticket Reply";
+  const greeting = recipientName ? `Hello ${recipientName},` : `Hello,`;
+
+  const bodyHtml = `
+    <p style="color: #334155; font-size: 15px; line-height: 1.6; margin: 0 0 20px 0;">
+      Our support team has replied to your request.
+    </p>
+    
+    <div style="margin: 20px 0; padding: 16px; background-color: #f8fafc; border-left: 4px solid #2563eb; border-radius: 6px;">
+      <p style="margin: 0; font-weight: 700; color: #1d4ed8; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px;">Ticket #${escapeHtml(ticketId)}</p>
+      <p style="margin: 4px 0 0 0; font-weight: 700; color: #0f172a; font-size: 15px;">${escapeHtml(ticketSubject)}</p>
+    </div>
+
+    <div style="background: #f1f5f9; border-radius: 10px; padding: 20px; margin-bottom: 20px; border: 1px solid #e2e8f0;">
+      <p style="margin: 0 0 8px 0; font-size: 11px; font-weight: 700; text-transform: uppercase; color: #64748b;">Latest Response from Support:</p>
+      <p style="margin: 0; color: #0f172a; white-space: pre-wrap; font-size: 14px; line-height: 1.6;">${escapeHtml(message)}</p>
+    </div>
+
+    <p style="margin-bottom: 0; color: #475569; font-size: 14px;">
+      Open your Zakir account to view the response and continue the conversation.
+    </p>
+  `;
+
+  const html = buildMasterEmailHtml({
+    subject,
+    title,
+    greeting,
+    bodyHtml,
+    baseUrl
+  });
+
+  const text = `${greeting}\n\nOur support team has replied to your request.\n\nTicket #${ticketId}: ${ticketSubject}\n\nResponse:\n${message}\n\nOpen your Zakir account to view the response and continue the conversation.`;
+
+  return { subject, text, html };
+}
+
+export function buildNewAccountApprovalEmailHtml(options: {
+  userName?: string;
+  email: string;
+  trialHours?: number;
+  plan?: string;
+  baseUrl?: string;
+}): { subject: string; text: string; html: string } {
+  const { userName, email, trialHours = 24, plan = "Starter", baseUrl } = options;
+  const cleanName = cleanUserName(userName, email);
+  const subject = "تم اعتماد حسابك رسمياً في منصة ذاكر | Your Zakir Account has been Approved";
+  const title = "تم اعتماد حسابك بنجاح";
+  const greeting = cleanName ? `مرحباً ${cleanName}،` : "مرحباً بك،";
+  const appBase = (baseUrl || process.env.APP_URL || "https://www.getzakir.com").replace(/\/$/, "");
+
+  const bodyHtml = `
+    <p style="color: #334155; font-size: 15px; line-height: 1.7; margin: 0 0 16px 0; text-align: right; direction: rtl;">
+      يسرنا إبلاغك بأنه قد تم التحقق من بيانات حسابك والموافقة عليه رسمياً من قبل إدارة منصة <strong>ذاكر (Zakir)</strong>، وأصبح حسابك الآن مفعلاً وجاهزاً للاستخدام بالكامل.
+    </p>
+
+    <!-- Trial Information Banner -->
+    <div style="margin: 22px 0; padding: 18px 20px; background-color: #f0fdf4; border: 1px solid #bbf7d0; border-right: 4px solid #10b981; border-radius: 12px; text-align: right; direction: rtl;">
+      <div style="color: #166534; font-size: 15px; font-weight: 800; margin-bottom: 6px;">
+        فترة التجربة المجانية (${trialHours} ساعة) بدأت الآن
+      </div>
+      <p style="margin: 0; color: #15803d; font-size: 13px; line-height: 1.6;">
+        تم اعتماد باقة <strong>${escapeHtml(plan)}</strong> لحسابك مع فترة تجربة مجانية كاملة مدتها <strong>${trialHours} ساعة</strong> تبدأ من لحظة هذا الاعتماد، لتتيح لك استكشاف وتجربة كافة قدرات التحليلات السببية والذاكرة المؤسسية.
+      </p>
+    </div>
+
+    <!-- Direct Official Login Link -->
+    <div style="margin: 32px 0 24px 0; text-align: center;">
+      <!--[if mso]>
+      <v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w="urn:schemas-microsoft-com:office:word" href="${appBase}/login" style="height:48px;v-text-anchor:middle;width:260px;" arcsize="20%" stroke="f" fillcolor="#0075DE">
+        <w:anchorlock/>
+        <center style="color:#ffffff;font-family:sans-serif;font-size:15px;font-weight:bold;">تسجيل الدخول إلى Zakir</center>
+      </v:roundrect>
+      <![endif]-->
+      <!--[if !mso]><!-->
+      <a href="${appBase}/login" target="_blank" rel="noopener noreferrer" style="display: inline-block; background-color: #0075DE; color: #ffffff; font-size: 15px; font-weight: 800; text-decoration: none; padding: 14px 34px; border-radius: 10px; box-shadow: 0 4px 14px rgba(0, 117, 222, 0.25); text-align: center;">
+        تسجيل الدخول إلى Zakir &bull; Log In to Zakir
+      </a>
+      <!--<![endif]-->
+      <p style="margin: 14px 0 0 0; color: #64748b; font-size: 12px; font-family: monospace;">
+        <a href="${appBase}/login" target="_blank" rel="noopener noreferrer" style="color: #0075DE; text-decoration: underline;">${appBase}/login</a>
+      </p>
+    </div>
+  `;
+
+  const html = buildMasterEmailHtml({
+    subject,
+    title,
+    greeting,
+    bodyHtml,
+    securityNote: "لتسجيل الدخول، يرجى استخدام بريدك الإلكتروني الموثق وكلمة المرور الخاصة بك عبر الرابط الرسمي أعلاه.",
+    baseUrl
+  });
+
+  const text = `${greeting}\n\nيسرنا إبلاغك بأنه قد تم التحقق من بيانات حسابك والموافقة عليه رسمياً من قبل إدارة منصة ذاكر (Zakir).\n\nحسابك الآن مفعل وجاهز للاستخدام، وقد بدأت فترة تجربتك المجانية الكاملة (${trialHours} ساعة) المعتمدة لباقة [${plan}] من لحظة هذا الاعتماد.\n\nلتسجيل الدخول إلى منصة ذاكر، يرجى زيارة الرابط الرسمي التالي:\n${appBase}/login\n\nمع تحيات،\nفريق منصة ذاكر (Zakir Team)`;
+
+  return { subject, text, html };
+}
+
+export function buildNewAccountRejectionEmailHtml(options: {
+  userName?: string;
+  email: string;
+  reason?: string;
+  baseUrl?: string;
+}): { subject: string; text: string; html: string } {
+  const { userName, email, reason = "يرجى تقديم وثائق هوية رسمية واضحة ومحدثة.", baseUrl } = options;
+  const cleanName = cleanUserName(userName, email);
+  const subject = "يلزم تحديث مستندات توثيق حسابك في منصة ذاكر | Action Required: Update Verification Documents - Zakir";
+  const title = "يلزم تحديث مستندات التوثيق";
+  const greeting = cleanName ? `مرحباً ${cleanName}،` : "مرحباً بك،";
+  const appBase = (baseUrl || process.env.APP_URL || "https://www.getzakir.com").replace(/\/$/, "");
+
+  const bodyHtml = `
+    <p style="color: #334155; font-size: 15px; line-height: 1.7; margin: 0 0 16px 0; text-align: right; direction: rtl;">
+      نشكرك على تسجيلك في منصة <strong>ذاكر (Zakir)</strong>. بعد مراجعة مستندات التحقق المرفوعة من قبلك، نود إفادتك بأنه يلزم تحديث أو استبدال بعض المستندات لإتمام عملية توثيق الحساب واعتماده.
+    </p>
+
+    <!-- Reason Banner -->
+    <div style="margin: 22px 0; padding: 18px 20px; background-color: #fff1f2; border: 1px solid #fecdd3; border-right: 4px solid #e11d48; border-radius: 12px; text-align: right; direction: rtl;">
+      <div style="color: #9f1239; font-size: 15px; font-weight: 800; margin-bottom: 6px;">
+        سبب رفض المستندات والملاحظات الإدارية:
+      </div>
+      <p style="margin: 0; color: #be123c; font-size: 14px; line-height: 1.6; font-weight: 600;">
+        ${escapeHtml(reason)}
+      </p>
+    </div>
+
+    <p style="color: #475569; font-size: 14px; line-height: 1.7; margin: 0 0 20px 0; text-align: right; direction: rtl;">
+      يمكنك تسجيل الدخول إلى حسابك الآن واستبدال أو رفع المستندات المطلوبة (صورة واضحة للهوية الوطنية أو جواز السفر، وبيانات المنشأة إن وجدت) ثم الضغط على "إعادة إرسال للمراجعة".
+    </p>
+
+    <!-- Direct Re-Upload Link -->
+    <div style="margin: 32px 0 24px 0; text-align: center;">
+      <!--[if mso]>
+      <v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w="urn:schemas-microsoft-com:office:word" href="${appBase}/login" style="height:48px;v-text-anchor:middle;width:280px;" arcsize="20%" stroke="f" fillcolor="#0075DE">
+        <w:anchorlock/>
+        <center style="color:#ffffff;font-family:sans-serif;font-size:15px;font-weight:bold;">تحديث المستندات وإعادة الإرسال</center>
+      </v:roundrect>
+      <![endif]-->
+      <!--[if !mso]><!-->
+      <a href="${appBase}/login" target="_blank" rel="noopener noreferrer" style="display: inline-block; background-color: #0075DE; color: #ffffff; font-size: 15px; font-weight: 800; text-decoration: none; padding: 14px 34px; border-radius: 10px; box-shadow: 0 4px 14px rgba(0, 117, 222, 0.25); text-align: center;">
+        تحديث المستندات الآن &bull; Update Documents Now
+      </a>
+      <!--<![endif]-->
+      <p style="margin: 14px 0 0 0; color: #64748b; font-size: 12px; font-family: monospace;">
+        <a href="${appBase}/login" target="_blank" rel="noopener noreferrer" style="color: #0075DE; text-decoration: underline;">${appBase}/login</a>
+      </p>
+    </div>
+  `;
+
+  const html = buildMasterEmailHtml({
+    subject,
+    title,
+    greeting,
+    bodyHtml,
+    securityNote: "لتحديث المستندات، قم بتسجيل الدخول إلى المنصة عبر الرابط الرسمي أعلاه باستخدام بريدك وكلمة مرورك.",
+    baseUrl
+  });
+
+  const text = `${greeting}\n\nنود إفادتك بأنه يلزم تحديث مستندات التوثيق الخاصة بحسابك في منصة ذاكر (Zakir).\n\nسبب الرفض والملاحظات الإدارية:\n${reason}\n\nيرجى تسجيل الدخول إلى حسابك لاستبدال أو رفع المستندات المطلوبة وإعادة الإرسال عبر الرابط التالي:\n${appBase}/login\n\nمع تحيات،\nفريق منصة ذاكر (Zakir Team)`;
+
+  return { subject, text, html };
+}
+
 export async function sendSystemMail(
-  toOrOptions: string | { to: string; subject: string; html: string; text?: string; attachments?: any[] },
+  toOrOptions:
+    | string
+    | {
+        to: string;
+        subject: string;
+        html: string;
+        text?: string;
+        attachments?: any[];
+      },
   subjectArg?: string,
   textArg?: string,
-  htmlArg?: string
+  htmlArg?: string,
 ): Promise<{
   success: boolean;
   messageId?: string;
@@ -524,7 +952,12 @@ export async function sendSystemMail(
     subject = subjectArg || "";
     const arg3 = textArg || "";
     const arg4 = htmlArg || "";
-    if (arg3.includes("<!DOCTYPE") || arg3.includes("<html") || arg3.includes("<table") || arg3.includes("<div")) {
+    if (
+      arg3.includes("<!DOCTYPE") ||
+      arg3.includes("<html") ||
+      arg3.includes("<table") ||
+      arg3.includes("<div")
+    ) {
       html = arg3;
       text = arg4;
     } else {
@@ -567,20 +1000,24 @@ export async function sendSystemMail(
   try {
     const resend = getResendInstance();
     if (!resend) {
-      console.warn(`[EMAIL DISPATCH NOTICE] RESEND_API_KEY is not configured. Simulating delivery for: ${to} | Subject: "${subject}"`);
+      console.warn(
+        `[EMAIL DISPATCH NOTICE] RESEND_API_KEY is not configured. Simulating delivery for: ${to} | Subject: "${subject}"`,
+      );
       return {
         success: true,
         simulated: true,
         provider: "local_simulation",
-        messageId: `sim_${Date.now()}_${crypto.randomBytes(4).toString("hex")}`
+        messageId: `sim_${Date.now()}_${crypto.randomBytes(4).toString("hex")}`,
       };
     }
 
-    console.log(`[EMAIL DISPATCH ATTEMPT] To: ${to} | Subject: "${subject}" | Sender: ${fromSender}`);
+    console.log(
+      `[EMAIL DISPATCH ATTEMPT] To: ${to} | Subject: "${subject}" | Sender: ${fromSender}`,
+    );
 
     const emailAttachments: any[] = [...userAttachments];
-    
-    // Official ZAKIR Light Mode Badge (Navy Square #1C2C58 + White Symbol #FFFFFF)
+
+    // Official ZAKIR Light Mode Badge (Navy Square #1C2C58 + White Symbol #FFFFFF) [96x96 px presentation]
     if (
       html.includes("cid:zakir-logo-light") ||
       html.includes("cid:zakir-badge-light") ||
@@ -590,7 +1027,7 @@ export async function sendSystemMail(
         (a: any) =>
           a.contentId === "zakir-logo-light" ||
           a.cid === "zakir-logo-light" ||
-          a.filename === "zakir-badge-light.png"
+          a.filename === "zakir-badge-light.png",
       );
       if (!hasLightBadge) {
         const lightBadgeBuf = getOfficialEmailLogoLightBuffer();
@@ -606,7 +1043,7 @@ export async function sendSystemMail(
       }
     }
 
-    // Official ZAKIR Dark Mode Badge (White Square #FFFFFF + Navy Symbol #1C2C58)
+    // Official ZAKIR Dark Mode Badge (White Square #FFFFFF + Navy Symbol #1C2C58) [96x96 px presentation]
     if (
       html.includes("cid:zakir-logo-dark") ||
       html.includes("cid:zakir-badge-dark")
@@ -615,7 +1052,7 @@ export async function sendSystemMail(
         (a: any) =>
           a.contentId === "zakir-logo-dark" ||
           a.cid === "zakir-logo-dark" ||
-          a.filename === "zakir-badge-dark.png"
+          a.filename === "zakir-badge-dark.png",
       );
       if (!hasDarkBadge) {
         const darkBadgeBuf = getOfficialEmailLogoDarkBuffer();
@@ -637,7 +1074,7 @@ export async function sendSystemMail(
         (a: any) =>
           a.contentId === "zakir-logo-navy" ||
           a.cid === "zakir-logo-navy" ||
-          a.filename === "zakir-logo-navy.png"
+          a.filename === "zakir-logo-navy.png",
       );
       if (!hasNavyLogo) {
         const navyBuf = getOfficialLogoNavyBuffer();
@@ -659,7 +1096,7 @@ export async function sendSystemMail(
         (a: any) =>
           a.contentId === "zakir-logo-white" ||
           a.cid === "zakir-logo-white" ||
-          a.filename === "zakir-logo-white.png"
+          a.filename === "zakir-logo-white.png",
       );
       if (!hasWhiteLogo) {
         const whiteBuf = getOfficialLogoWhiteBuffer();
@@ -690,33 +1127,36 @@ export async function sendSystemMail(
     const response = await resend.emails.send(emailPayload);
 
     if (response.error) {
-      const errStatus = (response.error as any).statusCode || (response.error as any).status || 400;
+      const errStatus =
+        (response.error as any).statusCode ||
+        (response.error as any).status ||
+        400;
       console.error("[EMAIL DELIVERY FAILURE]", {
         code: response.error.name || "RESEND_ERROR",
         message: response.error.message,
         provider: "Resend",
-        httpStatus: errStatus
+        httpStatus: errStatus,
       });
 
       return {
         success: false,
         error: response.error,
         statusCode: errStatus,
-        userFriendlyMessage: "Failed to send email message."
+        userFriendlyMessage: "Failed to send email message.",
       };
     }
 
     return {
       success: true,
       provider: "Resend",
-      messageId: response.data?.id
+      messageId: response.data?.id,
     };
   } catch (err: any) {
     console.error("[EMAIL DISPATCH CRITICAL EXCEPTION]", err);
     return {
       success: false,
       error: err,
-      userFriendlyMessage: "Failed to send email due to a system error."
+      userFriendlyMessage: "Failed to send email due to a system error.",
     };
   }
 }

@@ -132,7 +132,6 @@ export const PrintSettings: React.FC<PrintSettingsProps> = ({
           { id: "typography", labelAr: "الخطوط والتنسيق", labelEn: "Fonts", icon: Type },
           { id: "content", labelAr: "المحتوى والسجلات", labelEn: "Records", icon: Layers },
         ].map((tab) => {
-          const Icon = tab.icon;
           const isSelected = activeTab === tab.id;
           return (
             <button
@@ -147,7 +146,7 @@ export const PrintSettings: React.FC<PrintSettingsProps> = ({
                     : "text-slate-500 hover:text-slate-800 hover:bg-slate-200/50"
               }`}
             >
-              <Icon className="w-3.5 h-3.5" />
+              {tab.icon && React.createElement(tab.icon, { className: "w-3.5 h-3.5" })}
               <span>{lang === "ar" ? tab.labelAr : tab.labelEn}</span>
             </button>
           );

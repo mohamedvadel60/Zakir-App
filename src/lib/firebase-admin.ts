@@ -1140,6 +1140,29 @@ function createSafeAdminAuth(realAuth: any): any {
         };
       }
       throw new Error("Invalid or unverified token");
+    },
+
+    async listUsers(maxResults = 1000, pageToken?: string): Promise<{ users: any[]; pageToken?: string }> {
+      if (isFirebaseAdminAvailable && realAuth && typeof realAuth.listUsers === "function") {
+        try {
+          return await withTimeout(realAuth.listUsers(maxResults, pageToken), 10000);
+        } catch (e: any) {
+          console.warn("Notice: realAuth.listUsers fallback to local/firestore:", e.message);
+        }
+      }
+      const db = readLocalDb();
+      const users = (db.users || []).map((u: any) => ({
+        uid: u.id || u.uid,
+        email: u.email,
+        displayName: u.name || u.ownerName || u.companyName,
+        emailVerified: Boolean(u.isEmailVerified),
+        disabled: Boolean(u.disabled || u.accountStatus === "SUSPENDED" || u.accountStatus === "REJECTED"),
+        metadata: {
+          creationTime: u.createdAt || new Date().toISOString(),
+          lastSignInTime: u.lastLoginAt || u.lastActiveAt
+        }
+      }));
+      return { users };
     }
   };
 }

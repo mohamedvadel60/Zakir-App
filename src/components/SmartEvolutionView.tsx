@@ -329,7 +329,6 @@ export const SmartEvolutionView: React.FC<SmartEvolutionViewProps> = ({
             bg: "bg-emerald-500/10",
           },
         ].map((item, idx) => {
-          const Icon = item.icon;
           return (
             <div
               key={idx}
@@ -342,7 +341,7 @@ export const SmartEvolutionView: React.FC<SmartEvolutionViewProps> = ({
               <div
                 className={`p-2 rounded-lg inline-flex mb-2 ${item.bg} ${item.color}`}
               >
-                <Icon className="w-4 h-4" />
+                {item.icon && React.createElement(item.icon, { className: "w-4 h-4" })}
               </div>
               <div
                 className={`text-2xl font-black ${

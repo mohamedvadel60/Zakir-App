@@ -229,7 +229,42 @@ function wrapQuerySnapshot(snap, colName) {
     }
   };
 }
-function withTimeout(promise, timeoutMs = 8e3) {
+function markFirestoreQuotaExceeded() {
+  isFirestoreQuotaExceeded = true;
+  isFirestoreReachable = false;
+  lastFirestoreFailureTime = Date.now();
+  console.info("[Firestore Resiliency] Daily write quota reached on project. Activating seamless local persistence fallback.");
+}
+function markFirestoreFailure(err) {
+  if (err && isQuotaOrTimeoutError(err)) {
+    markFirestoreQuotaExceeded();
+    return;
+  }
+  consecutiveFirestoreFailures++;
+  lastFirestoreFailureTime = Date.now();
+  if (consecutiveFirestoreFailures >= 2) {
+    isFirestoreReachable = false;
+  }
+}
+function markFirestoreSuccess() {
+  consecutiveFirestoreFailures = 0;
+  isFirestoreReachable = true;
+  isFirestoreQuotaExceeded = false;
+}
+function isFirestoreActive() {
+  if (isFirestoreQuotaExceeded) {
+    if (Date.now() - lastFirestoreFailureTime < 15 * 60 * 1e3) {
+      return false;
+    }
+    isFirestoreQuotaExceeded = false;
+  }
+  if (!isFirestoreReachable && Date.now() - lastFirestoreFailureTime > 3e4) {
+    isFirestoreReachable = true;
+    consecutiveFirestoreFailures = 0;
+  }
+  return isFirestoreReachable;
+}
+function withTimeout(promise, timeoutMs = 5e3) {
   let timer;
   const timeoutPromise = new Promise((_, reject) => {
     timer = setTimeout(() => reject(new Error(`Operation timed out after ${timeoutMs}ms`)), timeoutMs);
@@ -238,7 +273,38 @@ function withTimeout(promise, timeoutMs = 8e3) {
 }
 function isQuotaOrTimeoutError(err) {
   const msg = (err?.message || "").toLowerCase();
-  return msg.includes("resource_exhausted") || msg.includes("quota limit exceeded") || msg.includes("timed out") || msg.includes("timeout") || err?.code === 8 || err?.code === 4;
+  return msg.includes("resource_exhausted") || msg.includes("quota limit exceeded") || msg.includes("quota exceeded") || msg.includes("timed out") || msg.includes("timeout") || msg.includes("billing account") || msg.includes("state closed") || msg.includes("accountdisabled") || err?.code === 8 || err?.code === 4 || err?.code === 403 || err?.code === 16;
+}
+async function probeCloudAvailability() {
+  const t0 = Date.now();
+  try {
+    const bucket = getSafeBucket();
+    if (!bucket) {
+      return {
+        durationMs: Date.now() - t0,
+        reachable: isFirestoreReachable,
+        quotaExceeded: isFirestoreQuotaExceeded,
+        status: "no_bucket"
+      };
+    }
+    const [exists] = await bucket.file(".probe").exists();
+    return {
+      durationMs: Date.now() - t0,
+      reachable: isFirestoreReachable,
+      quotaExceeded: isFirestoreQuotaExceeded,
+      status: exists ? "exists" : "not_found"
+    };
+  } catch (err) {
+    if (isQuotaOrTimeoutError(err)) {
+      markFirestoreQuotaExceeded();
+    }
+    return {
+      durationMs: Date.now() - t0,
+      reachable: isFirestoreReachable,
+      quotaExceeded: isFirestoreQuotaExceeded,
+      status: "quota_or_disabled"
+    };
+  }
 }
 function createSafeQuery(realQuery, colName, filters = [], orderField, orderDirection = "asc", limitCount, subPath) {
   return {
@@ -286,13 +352,15 @@ function createSafeQuery(realQuery, colName, filters = [], orderField, orderDire
       }
     },
     async get() {
-      if (realQuery) {
+      if (realQuery && isFirestoreActive()) {
         try {
           const snap = await withTimeout(realQuery.get(), 8e3);
+          markFirestoreSuccess();
           return wrapQuerySnapshot(snap, colName);
         } catch (err) {
+          markFirestoreFailure(err);
           if (isQuotaOrTimeoutError(err)) {
-            console.warn(`[Firestore Quota/Timeout] Daily quota or timeout reached for query on ${colName}, seamlessly using local DB fallback.`);
+            console.info(`[Firestore Resiliency] Daily quota or timeout reached for query on ${colName}, seamlessly using local DB fallback.`);
           } else {
             console.warn(`Firestore get() failed for query on ${colName}, falling back to mock:`, err.message);
           }
@@ -331,9 +399,10 @@ function createSafeCollection(realCol, colName, subPath) {
           }
         },
         async get() {
-          if (realDoc) {
+          if (realDoc && isFirestoreActive()) {
             try {
               const snap = await withTimeout(realDoc.get(), 8e3);
+              markFirestoreSuccess();
               return {
                 get id() {
                   return snap.id;
@@ -370,8 +439,9 @@ function createSafeCollection(realCol, colName, subPath) {
                 }
               };
             } catch (err) {
+              markFirestoreFailure(err);
               if (isQuotaOrTimeoutError(err)) {
-                console.warn(`[Firestore Quota/Timeout] Daily quota or timeout reached for ${colName}/${docId}, seamlessly using local DB fallback.`);
+                console.info(`[Firestore Resiliency] Daily quota or timeout reached for ${colName}/${docId}, seamlessly using local DB fallback.`);
               } else {
                 console.warn(`Firestore get() failed for ${colName}/${docId}, falling back to mock:`, err.message);
               }
@@ -380,12 +450,15 @@ function createSafeCollection(realCol, colName, subPath) {
           return new MockDocRef(colName, docId, subPath).get();
         },
         async set(data, options) {
-          if (realDoc) {
+          if (realDoc && isFirestoreActive()) {
             try {
-              return await withTimeout(realDoc.set(data, options), 8e3);
+              const res = await withTimeout(realDoc.set(data, options), 5e3);
+              markFirestoreSuccess();
+              return res;
             } catch (err) {
+              markFirestoreFailure(err);
               if (isQuotaOrTimeoutError(err)) {
-                console.warn(`[Firestore Quota/Timeout] Daily quota or timeout reached for set ${colName}/${docId}, seamlessly using local DB fallback.`);
+                console.info(`[Firestore Resiliency] Daily quota or timeout reached for set ${colName}/${docId}, seamlessly using local DB fallback.`);
               } else {
                 console.warn(`Firestore set() failed for ${colName}/${docId}, falling back to mock:`, err.message);
               }
@@ -394,12 +467,15 @@ function createSafeCollection(realCol, colName, subPath) {
           return new MockDocRef(colName, docId, subPath).set(data, options);
         },
         async update(data) {
-          if (realDoc) {
+          if (realDoc && isFirestoreActive()) {
             try {
-              return await withTimeout(realDoc.update(data), 8e3);
+              const res = await withTimeout(realDoc.update(data), 5e3);
+              markFirestoreSuccess();
+              return res;
             } catch (err) {
+              markFirestoreFailure(err);
               if (isQuotaOrTimeoutError(err)) {
-                console.warn(`[Firestore Quota/Timeout] Daily quota or timeout reached for update ${colName}/${docId}, seamlessly using local DB fallback.`);
+                console.info(`[Firestore Resiliency] Daily quota or timeout reached for update ${colName}/${docId}, seamlessly using local DB fallback.`);
               } else {
                 console.warn(`Firestore update() failed for ${colName}/${docId}, falling back to mock:`, err.message);
               }
@@ -408,12 +484,15 @@ function createSafeCollection(realCol, colName, subPath) {
           return new MockDocRef(colName, docId, subPath).update(data);
         },
         async delete() {
-          if (realDoc) {
+          if (realDoc && isFirestoreActive()) {
             try {
-              return await withTimeout(realDoc.delete(), 8e3);
+              const res = await withTimeout(realDoc.delete(), 5e3);
+              markFirestoreSuccess();
+              return res;
             } catch (err) {
+              markFirestoreFailure(err);
               if (isQuotaOrTimeoutError(err)) {
-                console.warn(`[Firestore Quota/Timeout] Daily quota or timeout reached for delete ${colName}/${docId}, seamlessly using local DB fallback.`);
+                console.info(`[Firestore Resiliency] Daily quota or timeout reached for delete ${colName}/${docId}, seamlessly using local DB fallback.`);
               } else {
                 console.warn(`Firestore delete() failed for ${colName}/${docId}, falling back to mock:`, err.message);
               }
@@ -448,13 +527,15 @@ function createSafeCollection(realCol, colName, subPath) {
       }
     },
     async get() {
-      if (realCol) {
+      if (realCol && isFirestoreActive()) {
         try {
-          const snap = await withTimeout(realCol.get(), 8e3);
+          const snap = await withTimeout(realCol.get(), 5e3);
+          markFirestoreSuccess();
           return wrapQuerySnapshot(snap, colName);
         } catch (err) {
+          markFirestoreFailure(err);
           if (isQuotaOrTimeoutError(err)) {
-            console.warn(`[Firestore Quota/Timeout] Daily quota or timeout reached for collection ${colName}, seamlessly using local DB fallback.`);
+            console.info(`[Firestore Resiliency] Daily quota or timeout reached for collection ${colName}, seamlessly using local DB fallback.`);
           } else {
             console.warn(`Firestore get() failed for collection ${colName}, falling back to mock:`, err.message);
           }
@@ -477,7 +558,7 @@ function createSafeAdminDb(realDb) {
       }
     },
     batch() {
-      if (isFirebaseAdminAvailable && realDb && typeof realDb.batch === "function") {
+      if (isFirebaseAdminAvailable && realDb && typeof realDb.batch === "function" && isFirestoreActive()) {
         try {
           const realBatch = realDb.batch();
           const fallbackOps = [];
@@ -520,9 +601,16 @@ function createSafeAdminDb(realDb) {
             },
             async commit() {
               try {
-                return await realBatch.commit();
+                const res = await withTimeout(realBatch.commit(), 5e3);
+                markFirestoreSuccess();
+                return res;
               } catch (err) {
-                console.warn("Firestore batch commit failed, running fallback ops:", err.message);
+                markFirestoreFailure(err);
+                if (isQuotaOrTimeoutError(err)) {
+                  console.info("[Firestore Resiliency] Batch commit quota or timeout handled via resilient local fallback.");
+                } else {
+                  console.warn("Firestore batch commit warning:", err?.message || err);
+                }
                 for (const op of fallbackOps) {
                   try {
                     await op();
@@ -707,10 +795,32 @@ function createSafeAdminAuth(realAuth) {
         };
       }
       throw new Error("Invalid or unverified token");
+    },
+    async listUsers(maxResults = 1e3, pageToken) {
+      if (isFirebaseAdminAvailable && realAuth && typeof realAuth.listUsers === "function") {
+        try {
+          return await withTimeout(realAuth.listUsers(maxResults, pageToken), 1e4);
+        } catch (e) {
+          console.warn("Notice: realAuth.listUsers fallback to local/firestore:", e.message);
+        }
+      }
+      const db2 = readLocalDb();
+      const users2 = (db2.users || []).map((u) => ({
+        uid: u.id || u.uid,
+        email: u.email,
+        displayName: u.name || u.ownerName || u.companyName,
+        emailVerified: Boolean(u.isEmailVerified),
+        disabled: Boolean(u.disabled || u.accountStatus === "SUSPENDED" || u.accountStatus === "REJECTED"),
+        metadata: {
+          creationTime: u.createdAt || (/* @__PURE__ */ new Date()).toISOString(),
+          lastSignInTime: u.lastLoginAt || u.lastActiveAt
+        }
+      }));
+      return { users: users2 };
     }
   };
 }
-var import_app, import_auth, import_firestore, import_storage, import_fs, import_path, DB_FILE, creds, isFirebaseAdminConfigured, rawApp, rawFirestore, rawAuth, rawStorage, isFirebaseAdminAvailable, isFirebaseAuthAvailable, MockQuery, MockDocRef, MockCollectionRef, adminDb, adminAuth;
+var import_app, import_auth, import_firestore, import_storage, import_fs, import_path, DB_FILE, creds, isFirebaseAdminConfigured, rawApp, rawFirestore, rawAuth, rawStorage, isFirebaseAdminAvailable, isFirebaseAuthAvailable, MockQuery, MockDocRef, MockCollectionRef, isFirestoreQuotaExceeded, isFirestoreReachable, consecutiveFirestoreFailures, lastFirestoreFailureTime, adminDb, adminAuth;
 var init_firebase_admin = __esm({
   "src/lib/firebase-admin.ts"() {
     init_env();
@@ -995,6 +1105,13 @@ var init_firebase_admin = __esm({
         return new MockQuery(this.colName, this.subPath).get();
       }
     };
+    isFirestoreQuotaExceeded = false;
+    isFirestoreReachable = true;
+    consecutiveFirestoreFailures = 0;
+    lastFirestoreFailureTime = 0;
+    if (isFirebaseAdminAvailable) {
+      setTimeout(probeCloudAvailability, 50);
+    }
     adminDb = createSafeAdminDb(rawFirestore);
     adminAuth = createSafeAdminAuth(rawAuth);
   }
@@ -1296,7 +1413,10 @@ function computeStrictVerificationState(profile, isAdmin = false) {
   }
   const overallDocStatus = String(profile?.documentVerificationStatus || profile?.verificationInfo?.status || "").toUpperCase();
   const rawAccountStatus = String(profile?.accountStatus || "").toUpperCase();
-  if (rawAccountStatus === "PENDING_EMAIL_VERIFICATION") {
+  const isEmailVer = Boolean(
+    profile?.isEmailVerified === true || profile?.emailVerified === true || profile?.email_verified === true
+  );
+  if (!isEmailVer || rawAccountStatus === "PENDING_EMAIL_VERIFICATION") {
     return {
       effectiveStatus: "PENDING_EMAIL_VERIFICATION",
       isVerified: false,
@@ -1324,6 +1444,20 @@ function computeStrictVerificationState(profile, isAdmin = false) {
       reason: profile?.rejectionReason || profile?.verificationInfo?.adminNote || "\u0648\u062B\u0627\u0626\u0642 \u0627\u0644\u062A\u0648\u062B\u064A\u0642 \u0645\u0631\u0641\u0648\u0636\u0629 \u0623\u0648 \u062A\u062A\u0637\u0644\u0628 \u062A\u0639\u062F\u064A\u0644\u0627\u064B."
     };
   }
+  const isMarkedApproved = rawAccountStatus === "APPROVED" || profile?.accountStatus === "APPROVED" || Boolean(profile?.approvedAt && !hasRejectedDoc);
+  if (isMarkedApproved && (documentCount > 0 || adminOverride || profile?.approvedAt)) {
+    return {
+      effectiveStatus: "APPROVED",
+      isVerified: true,
+      verificationRequired: false,
+      verificationStatus: "verified",
+      documentCount,
+      hasRejectedDocument: false,
+      hasPendingDocument: false,
+      allDocumentsApproved: true,
+      adminVerificationOverride: adminOverride
+    };
+  }
   if (documentCount === 0 && !adminOverride) {
     return {
       effectiveStatus: "VERIFICATION_REQUIRED",
@@ -1338,37 +1472,7 @@ function computeStrictVerificationState(profile, isAdmin = false) {
       reason: "VERIFICATION_REQUIRED"
     };
   }
-  if (hasPendingDoc || rawAccountStatus === "PENDING_ADMIN_REVIEW" || rawAccountStatus === "PENDING_DOCUMENT_VERIFICATION" || overallDocStatus === "UNDER_REVIEW" || overallDocStatus === "PENDING" || overallDocStatus === "PENDING_REVIEW") {
-    if (!adminOverride) {
-      return {
-        effectiveStatus: "PENDING_ADMIN_REVIEW",
-        isVerified: false,
-        verificationRequired: true,
-        verificationStatus: "pending",
-        documentCount,
-        hasRejectedDocument: false,
-        hasPendingDocument: true,
-        allDocumentsApproved: false,
-        adminVerificationOverride: false,
-        reason: "PENDING_REVIEW"
-      };
-    }
-  }
-  const isMarkedApproved = rawAccountStatus === "APPROVED" || overallDocStatus === "APPROVED" || profile?.verificationInfo?.status === "verified";
-  if (isMarkedApproved && (documentCount > 0 && !hasRejectedDoc && !hasPendingDoc || adminOverride)) {
-    return {
-      effectiveStatus: "APPROVED",
-      isVerified: true,
-      verificationRequired: false,
-      verificationStatus: "verified",
-      documentCount,
-      hasRejectedDocument: false,
-      hasPendingDocument: false,
-      allDocumentsApproved: true,
-      adminVerificationOverride: adminOverride
-    };
-  }
-  if (documentCount > 0 && !hasRejectedDoc) {
+  if (documentCount > 0 || rawAccountStatus === "PENDING_ADMIN_REVIEW" || overallDocStatus === "UNDER_REVIEW" || overallDocStatus === "PENDING") {
     return {
       effectiveStatus: "PENDING_ADMIN_REVIEW",
       isVerified: false,
@@ -1376,7 +1480,7 @@ function computeStrictVerificationState(profile, isAdmin = false) {
       verificationStatus: "pending",
       documentCount,
       hasRejectedDocument: false,
-      hasPendingDocument: hasPendingDoc,
+      hasPendingDocument: true,
       allDocumentsApproved: false,
       adminVerificationOverride: false,
       reason: "PENDING_REVIEW"
@@ -1986,6 +2090,7 @@ var import_http = __toESM(require("http"), 1);
 var import_path7 = __toESM(require("path"), 1);
 var import_fs7 = __toESM(require("fs"), 1);
 var import_os2 = __toESM(require("os"), 1);
+var import_zlib = __toESM(require("zlib"), 1);
 var import_genai2 = require("@google/genai");
 var import_dotenv2 = __toESM(require("dotenv"), 1);
 var import_stripe = __toESM(require("stripe"), 1);
@@ -2489,13 +2594,47 @@ function escapeHtml(str) {
   if (!str) return "";
   return String(str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
 }
+function renderEmailLogoHeaderHtml(options) {
+  const size = options?.size || 96;
+  const appBase = options?.appBase || "https://www.getzakir.com";
+  const wordmark = options?.wordmark !== void 0 ? options.wordmark : "ZAKIR";
+  const tagline = options?.tagline !== void 0 ? options.tagline : "\u0627\u0644\u0630\u0627\u0643\u0631\u0629 \u0627\u0644\u0645\u0624\u0633\u0633\u064A\u0629 \u0627\u0644\u0633\u0628\u0628\u064A\u0629 &bull; Causal Decision Intelligence";
+  return `
+    <!-- Strict 1:1 Square Logo Container (${size}px x ${size}px) -->
+    <table border="0" cellpadding="0" cellspacing="0" align="center" role="presentation" width="${size}" height="${size}" class="zakir-logo-table" style="width: ${size}px !important; height: ${size}px !important; max-width: ${size}px !important; max-height: ${size}px !important; margin: 0 auto 16px auto; border-collapse: collapse; border-spacing: 0; mso-table-lspace: 0pt; mso-table-rspace: 0pt;">
+      <tr>
+        <td align="center" valign="middle" width="${size}" height="${size}" class="zakir-logo-container-cell" style="width: ${size}px !important; height: ${size}px !important; max-width: ${size}px !important; max-height: ${size}px !important; padding: 0; margin: 0; line-height: 0; font-size: 0; text-align: center; vertical-align: middle;">
+          <a href="${appBase}" target="_blank" style="text-decoration: none; display: block; width: ${size}px; height: ${size}px; margin: 0 auto; line-height: 0; font-size: 0; outline: none; border: 0;">
+            <!-- LIGHT MODE BADGE: Solid Royal Navy Square (#1C2C58) + Crisp White ZAKIR Logo (#FDFEFE) [Exact ${size}x${size} px] -->
+            <img src="cid:zakir-logo-light" alt="ZAKIR" width="${size}" height="${size}" class="zakir-logo-light light-img" style="display: block; width: ${size}px !important; height: ${size}px !important; max-width: ${size}px !important; max-height: ${size}px !important; aspect-ratio: 1 / 1; border: 0; outline: none; text-decoration: none; margin: 0 auto; -ms-interpolation-mode: bicubic;" />
+            
+            <!-- DARK MODE BADGE: Solid Pure White Square (#FFFFFF) + Crisp Navy ZAKIR Logo (#1C2C58) [Exact ${size}x${size} px] -->
+            <!--[if !mso]><!-->
+            <div class="zakir-logo-dark-wrap dark-img" style="display: none; mso-hide: all; max-height: 0px; max-width: 0px; overflow: hidden; width: 0; height: 0; margin: 0 auto; line-height: 0; font-size: 0;">
+              <img src="cid:zakir-logo-dark" alt="ZAKIR" width="${size}" height="${size}" class="zakir-logo-dark" style="display: none; width: ${size}px !important; height: ${size}px !important; max-width: ${size}px !important; max-height: ${size}px !important; aspect-ratio: 1 / 1; border: 0; outline: none; text-decoration: none; margin: 0 auto; -ms-interpolation-mode: bicubic;" />
+            </div>
+            <!--<![endif]-->
+          </a>
+        </td>
+      </tr>
+    </table>
+
+    ${wordmark ? `<!-- ZAKIR Wordmark: Bold, uppercase, clean spacing -->
+    <div class="zakir-wordmark" style="color: #0f172a; font-size: 24px; font-weight: 800; letter-spacing: 2.5px; text-transform: uppercase; line-height: 1.2; margin: 0 0 6px 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+      ${wordmark}
+    </div>` : ""}
+
+    ${tagline ? `<!-- Official Supporting Tagline -->
+    <div style="color: #64748b; font-size: 13px; font-weight: 500; line-height: 1.5; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+      ${tagline}
+    </div>` : ""}
+  `;
+}
 function buildMasterEmailHtml(options) {
   const { subject, title, greeting, bodyHtml, securityNote, baseUrl } = options;
   const canonicalDomain = "https://www.getzakir.com";
-  const appBase = (baseUrl || process.env.VITE_APP_URL || process.env.VITE_BACKEND_URL || canonicalDomain).replace(
-    /\/$/,
-    ""
-  );
+  const appBase = (baseUrl || process.env.VITE_APP_URL || process.env.VITE_BACKEND_URL || process.env.APP_URL || canonicalDomain).replace(/\/$/, "");
+  const logoHeaderHtml = renderEmailLogoHeaderHtml({ appBase, size: 96 });
   return `<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml" lang="ar">
 <head>
@@ -2511,28 +2650,36 @@ function buildMasterEmailHtml(options) {
       supported-color-schemes: light dark;
     }
     @media (prefers-color-scheme: dark) {
+      .light-img,
       .zakir-logo-light {
         display: none !important;
         mso-hide: all !important;
+        width: 0px !important;
+        height: 0px !important;
+        max-width: 0px !important;
+        max-height: 0px !important;
+        overflow: hidden !important;
         font-size: 0px !important;
         line-height: 0px !important;
-        max-height: 0px !important;
-        max-width: 0px !important;
-        overflow: hidden !important;
       }
+      .dark-img,
       .zakir-logo-dark-wrap {
         display: block !important;
         mso-hide: none !important;
-        max-height: none !important;
-        max-width: none !important;
+        width: 96px !important;
+        height: 96px !important;
+        max-width: 96px !important;
+        max-height: 96px !important;
         overflow: visible !important;
         font-size: 0 !important;
         line-height: 0 !important;
       }
       .zakir-logo-dark {
         display: block !important;
-        max-height: none !important;
-        max-width: none !important;
+        width: 96px !important;
+        height: 96px !important;
+        max-width: 96px !important;
+        max-height: 96px !important;
         overflow: visible !important;
       }
       .zakir-footer-logo-light {
@@ -2570,17 +2717,31 @@ function buildMasterEmailHtml(options) {
         color: #94a3b8 !important;
       }
     }
+  </style>
+  <style type="text/css">
     /* Outlook / Webmail Dark Mode Overrides */
+    [data-ogsc] .light-img,
+    [data-ogsb] .light-img,
     [data-ogsc] .zakir-logo-light,
     [data-ogsb] .zakir-logo-light {
       display: none !important;
+      width: 0px !important;
+      height: 0px !important;
+      max-width: 0px !important;
+      max-height: 0px !important;
+      overflow: hidden !important;
     }
+    [data-ogsc] .dark-img,
+    [data-ogsb] .dark-img,
     [data-ogsc] .zakir-logo-dark-wrap,
     [data-ogsb] .zakir-logo-dark-wrap,
     [data-ogsc] .zakir-logo-dark,
     [data-ogsb] .zakir-logo-dark {
       display: block !important;
-      max-height: none !important;
+      width: 96px !important;
+      height: 96px !important;
+      max-width: 96px !important;
+      max-height: 96px !important;
       overflow: visible !important;
     }
     [data-ogsc] .zakir-footer-logo-light,
@@ -2610,37 +2771,10 @@ function buildMasterEmailHtml(options) {
       <td align="center">
         <!-- Master Card -->
         <table border="0" cellpadding="0" cellspacing="0" width="100%" class="zakir-card" style="max-width: 580px; background-color: #ffffff; border-radius: 16px; border: 1px solid #e2e8f0; overflow: hidden; box-shadow: 0 4px 20px rgba(15, 23, 42, 0.05);">
-          <!-- Header with Official ZAKIR Square Badge System -->
+          <!-- Header with Official ZAKIR 96x96 Square Badge System -->
           <tr>
             <td class="zakir-header-cell" style="padding: 36px 32px 24px 32px; text-align: center; border-bottom: 1px solid #f1f5f9; background-color: #ffffff;">
-              <!-- Perfect 1:1 Square Logo Container (72px x 72px) -->
-              <table border="0" cellpadding="0" cellspacing="0" align="center" role="presentation" style="margin: 0 auto 16px auto; border-collapse: collapse; border-spacing: 0;">
-                <tr>
-                  <td align="center" valign="middle" style="padding: 0; margin: 0; line-height: 0; font-size: 0; text-align: center;">
-                    <a href="${appBase}" target="_blank" style="text-decoration: none; display: inline-block; line-height: 0; font-size: 0; outline: none; border: 0;">
-                      <!-- LIGHT MODE: Solid Navy Square (#1C2C58) + Crisp White ZAKIR Logo (#FFFFFF) -->
-                      <img src="cid:zakir-logo-light" alt="ZAKIR" width="72" height="72" class="zakir-logo-light" style="display: block; width: 72px !important; height: 72px !important; max-width: 72px !important; max-height: 72px !important; aspect-ratio: 1 / 1; border: 0; outline: none; text-decoration: none; margin: 0 auto; -ms-interpolation-mode: bicubic; border-radius: 16px;" />
-                      
-                      <!-- DARK MODE: Solid Pure White Square (#FFFFFF) + Crisp Navy ZAKIR Logo (#1C2C58) -->
-                      <!--[if !mso]><!-->
-                      <div class="zakir-logo-dark-wrap" style="display: none; mso-hide: all; max-height: 0px; max-width: 0px; overflow: hidden; width: 0; height: 0; margin: 0 auto; line-height: 0; font-size: 0;">
-                        <img src="cid:zakir-logo-dark" alt="ZAKIR" width="72" height="72" class="zakir-logo-dark" style="display: none; width: 72px !important; height: 72px !important; max-width: 72px !important; max-height: 72px !important; aspect-ratio: 1 / 1; border: 0; outline: none; text-decoration: none; margin: 0 auto; -ms-interpolation-mode: bicubic; border-radius: 16px;" />
-                      </div>
-                      <!--<![endif]-->
-                    </a>
-                  </td>
-                </tr>
-              </table>
-
-              <!-- ZAKIR Wordmark: Bold, uppercase, clean spacing -->
-              <div class="zakir-wordmark" style="color: #0f172a; font-size: 24px; font-weight: 800; letter-spacing: 2.5px; text-transform: uppercase; line-height: 1.2; margin: 0 0 6px 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
-                ZAKIR
-              </div>
-
-              <!-- Official Supporting Tagline -->
-              <div style="color: #64748b; font-size: 13px; font-weight: 500; line-height: 1.5; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
-                \u0627\u0644\u0630\u0627\u0643\u0631\u0629 \u0627\u0644\u0645\u0624\u0633\u0633\u064A\u0629 \u0627\u0644\u0633\u0628\u0628\u064A\u0629 &bull; Causal Decision Intelligence
-              </div>
+              ${logoHeaderHtml}
             </td>
           </tr>
           <tr>
@@ -2661,11 +2795,11 @@ function buildMasterEmailHtml(options) {
                 <tr>
                   <td align="center" style="vertical-align: middle;">
                     <span class="zakir-footer-logo-light" style="display: inline-block; vertical-align: middle; margin-right: 8px;">
-                      <img src="cid:zakir-logo-light" alt="ZAKIR" width="22" height="22" style="display: block; width: 22px; height: 22px; border-radius: 5px; border: 0;" />
+                      <img src="cid:zakir-logo-light" alt="ZAKIR" width="24" height="24" style="display: block; width: 24px; height: 24px; border-radius: 6px; border: 0;" />
                     </span>
                     <!--[if !mso]><!-->
                     <span class="zakir-footer-logo-dark" style="display: none; mso-hide: all; max-height: 0; max-width: 0; overflow: hidden; vertical-align: middle; margin-right: 8px;">
-                      <img src="cid:zakir-logo-dark" alt="ZAKIR" width="22" height="22" style="display: block; width: 22px; height: 22px; border-radius: 5px; border: 0;" />
+                      <img src="cid:zakir-logo-dark" alt="ZAKIR" width="24" height="24" style="display: block; width: 24px; height: 24px; border-radius: 6px; border: 0;" />
                     </span>
                     <!--<![endif]-->
                     <span class="zakir-wordmark" style="font-size: 13px; font-weight: 800; color: #0f172a; vertical-align: middle; letter-spacing: 1.5px; text-transform: uppercase;">ZAKIR</span>
@@ -2689,21 +2823,22 @@ function buildMasterEmailHtml(options) {
 </html>`;
 }
 function buildRecoveryApprovalEmailHtml(options) {
-  const { userName, email } = options;
+  const { userName, email, baseUrl } = options;
   const cleanName = cleanUserName(userName, email);
-  const subject = "Account Recovery Request Approved - Zakir";
-  const title = "Your Account Recovery Has Been Approved";
-  const greeting = `Hello ${cleanName},`;
+  const subject = "\u062A\u0645\u062A \u0627\u0644\u0645\u0648\u0627\u0641\u0642\u0629 \u0639\u0644\u0649 \u0637\u0644\u0628 \u0627\u0633\u062A\u0639\u0627\u062F\u0629 \u0627\u0644\u062D\u0633\u0627\u0628 - Account Recovery Request Approved | Zakir";
+  const title = "\u062A\u0645\u062A \u0627\u0644\u0645\u0648\u0627\u0641\u0642\u0629 \u0639\u0644\u0649 \u0627\u0633\u062A\u0639\u0627\u062F\u0629 \u0627\u0644\u062D\u0633\u0627\u0628";
+  const greeting = `\u0645\u0631\u062D\u0628\u0627\u064B ${cleanName} / Hello ${cleanName},`;
   const bodyHtml = `
     <p style="color: #334155; font-size: 15px; line-height: 1.6; margin: 0 0 20px 0;">
-      We are pleased to inform you that your account recovery request for <strong>${email}</strong> has been reviewed and <strong style="color:#16a34a;">approved</strong> by our administration team.
+      \u064A\u0633\u0631\u0646\u0627 \u0625\u0628\u0644\u0627\u063A\u0643 \u0628\u0623\u0646\u0647 \u0642\u062F \u062A\u0645\u062A \u0645\u0631\u0627\u062C\u0639\u0629 \u0637\u0644\u0628 \u0627\u0633\u062A\u0639\u0627\u062F\u0629 \u0627\u0644\u062D\u0633\u0627\u0628 \u0627\u0644\u062E\u0627\u0635 \u0628\u0627\u0644\u0628\u0631\u064A\u062F <strong>${escapeHtml(email)}</strong> \u0648<strong style="color:#16a34a;">\u0627\u0644\u0645\u0648\u0627\u0641\u0642\u0629 \u0639\u0644\u064A\u0647</strong> \u0645\u0646 \u0642\u0628\u0644 \u0641\u0631\u064A\u0642 \u0627\u0644\u0625\u062F\u0627\u0631\u0629.<br/>
+      We are pleased to inform you that your account recovery request has been reviewed and approved by our administration team.
     </p>
     <div style="margin: 20px 0; padding: 20px; background-color: #eff6ff; border: 1px solid #dbeafe; border-radius: 10px;">
       <p style="margin: 0; color: #1e40af; font-size: 14px; font-weight: 700;">
-        Next Step: Complete Verification
+        \u0627\u0644\u062E\u0637\u0648\u0629 \u0627\u0644\u062A\u0627\u0644\u064A\u0629: \u0625\u062A\u0645\u0627\u0645 \u0627\u0644\u062A\u062D\u0642\u0642 \u0648\u0627\u0633\u062A\u0639\u0627\u062F\u0629 \u0645\u0633\u0627\u062D\u0629 \u0627\u0644\u0639\u0645\u0644 &bull; Next Step: Complete Verification
       </p>
       <p style="margin: 8px 0 0 0; color: #1d4ed8; font-size: 13px; line-height: 1.5;">
-        Please return to the Zakir application and proceed with verification to receive your final code and restore your active workspace.
+        \u064A\u0631\u062C\u0649 \u0627\u0644\u0639\u0648\u062F\u0629 \u0625\u0644\u0649 \u062A\u0637\u0628\u064A\u0642 Zakir \u0648\u0627\u0644\u0636\u063A\u0637 \u0639\u0644\u0649 "\u0627\u0644\u062A\u062D\u0642\u0642 \u0648\u0627\u0633\u062A\u0639\u0627\u062F\u0629 \u0627\u0644\u062D\u0633\u0627\u0628" \u0644\u0644\u062D\u0635\u0648\u0644 \u0639\u0644\u0649 \u0627\u0644\u0631\u0645\u0632 \u0627\u0644\u0646\u0647\u0627\u0626\u064A \u0648\u062A\u0641\u0639\u064A\u0644 \u0645\u0633\u0627\u062D\u0629 \u0627\u0644\u0639\u0645\u0644 \u0627\u0644\u062E\u0627\u0635\u0629 \u0628\u0643.
       </p>
     </div>
   `;
@@ -2712,7 +2847,8 @@ function buildRecoveryApprovalEmailHtml(options) {
     title,
     greeting,
     bodyHtml,
-    securityNote: "For security, complete your restoration within 72 hours."
+    securityNote: "\u0644\u062F\u0648\u0627\u0639\u064A \u0627\u0644\u0623\u0645\u0627\u0646\u060C \u064A\u0631\u062C\u0649 \u0625\u062A\u0645\u0627\u0645 \u0639\u0645\u0644\u064A\u0629 \u0627\u0644\u0627\u0633\u062A\u0639\u0627\u062F\u0629 \u062E\u0644\u0627\u0644 72 \u0633\u0627\u0639\u0629. For security, complete your restoration within 72 hours.",
+    baseUrl
   });
   const text2 = `${greeting}
 
@@ -2724,22 +2860,23 @@ The Zakir Team`;
   return { subject, text: text2, html };
 }
 function buildRecoveryRejectionEmailHtml(options) {
-  const { userName, email, rejectionReason } = options;
+  const { userName, email, rejectionReason, baseUrl } = options;
   const cleanName = cleanUserName(userName, email);
-  const subject = "Account Recovery Request Update - Zakir";
-  const title = "Account Recovery Request Decision";
-  const greeting = `Hello ${cleanName},`;
+  const subject = "\u062A\u062D\u062F\u064A\u062B \u0628\u062E\u0635\u0648\u0635 \u0637\u0644\u0628 \u0627\u0633\u062A\u0639\u0627\u062F\u0629 \u0627\u0644\u062D\u0633\u0627\u0628 - Account Recovery Request Decision | Zakir";
+  const title = "\u0642\u0631\u0627\u0631 \u0645\u0631\u0627\u062C\u0639\u0629 \u0637\u0644\u0628 \u0627\u0633\u062A\u0639\u0627\u062F\u0629 \u0627\u0644\u062D\u0633\u0627\u0628";
+  const greeting = `\u0645\u0631\u062D\u0628\u0627\u064B ${cleanName} / Hello ${cleanName},`;
   const bodyHtml = `
     <p style="color: #334155; font-size: 15px; line-height: 1.6; margin: 0 0 20px 0;">
-      After reviewing the identity documentation submitted for <strong>${email}</strong>, our administration team was unable to approve the account recovery request.
+      \u0628\u0639\u062F \u0645\u0631\u0627\u062C\u0639\u0629 \u0648\u062B\u0627\u0626\u0642 \u0625\u062B\u0628\u0627\u062A \u0627\u0644\u0647\u0648\u064A\u0629 \u0627\u0644\u0645\u0642\u062F\u0645\u0629 \u0644\u0644\u0628\u0631\u064A\u062F <strong>${escapeHtml(email)}</strong>\u060C \u064A\u0624\u0633\u0641\u0646\u0627 \u0625\u0628\u0644\u0627\u063A\u0643 \u0628\u062A\u0639\u0630\u0631 \u0627\u0644\u0645\u0648\u0627\u0641\u0642\u0629 \u0639\u0644\u0649 \u0637\u0644\u0628 \u0627\u0644\u0627\u0633\u062A\u0639\u0627\u062F\u0629 \u0641\u064A \u0627\u0644\u0648\u0642\u062A \u0627\u0644\u062D\u0627\u0644\u064A.<br/>
+      After reviewing the identity documentation submitted, our administration team was unable to approve the account recovery request at this time.
     </p>
     ${rejectionReason ? `
     <div style="margin: 20px 0; padding: 18px; background-color: #fef2f2; border: 1px solid #fecaca; border-radius: 10px;">
-      <p style="margin: 0; color: #991b1b; font-size: 13px; font-weight: 700;">Reason Provided:</p>
-      <p style="margin: 6px 0 0 0; color: #b91c1c; font-size: 13px; line-height: 1.5;">${rejectionReason}</p>
+      <p style="margin: 0; color: #991b1b; font-size: 13px; font-weight: 700;">\u0627\u0644\u0633\u0628\u0628 \u0627\u0644\u0625\u062F\u0627\u0631\u064A / Reason Provided:</p>
+      <p style="margin: 6px 0 0 0; color: #b91c1c; font-size: 13px; line-height: 1.5;">${escapeHtml(rejectionReason)}</p>
     </div>` : ""}
     <p style="color: #64748b; font-size: 13px; line-height: 1.5;">
-      If you believe this decision was made in error or you have updated official documentation, you may submit a new recovery request with clearer identification proofs.
+      \u0625\u0630\u0627 \u0643\u0646\u062A \u062A\u0639\u062A\u0642\u062F \u0623\u0646 \u0647\u0630\u0627 \u0627\u0644\u0642\u0631\u0627\u0631 \u062A\u0645 \u0639\u0646 \u0637\u0631\u064A\u0642 \u0627\u0644\u062E\u0637\u0623\u060C \u064A\u0645\u0643\u0646\u0643 \u062A\u0642\u062F\u064A\u0645 \u0637\u0644\u0628 \u0627\u0633\u062A\u0639\u0627\u062F\u0629 \u062C\u062F\u064A\u062F \u0628\u0648\u062B\u0627\u0626\u0642 \u0647\u0648\u064A\u0629 \u0631\u0633\u0645\u064A\u0629 \u0623\u0643\u062B\u0631 \u0648\u0636\u0648\u062D\u0627\u064B.
     </p>
   `;
   const html = buildMasterEmailHtml({
@@ -2747,7 +2884,8 @@ function buildRecoveryRejectionEmailHtml(options) {
     title,
     greeting,
     bodyHtml,
-    securityNote: "Uploaded identity documents have been purged from our storage system in accordance with our data protection policies."
+    securityNote: "\u0644\u062D\u0645\u0627\u064A\u0629 \u0627\u0644\u062E\u0635\u0648\u0635\u064A\u0629\u060C \u064A\u062A\u0645 \u062D\u0630\u0641 \u0627\u0644\u0645\u0633\u062A\u0646\u062F\u0627\u062A \u0627\u0644\u0645\u0631\u0641\u0648\u0639\u0629 \u0648\u0641\u0642\u0627\u064B \u0644\u0633\u064A\u0627\u0633\u0627\u062A \u062D\u0645\u0627\u064A\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A. Uploaded identity documents are securely purged.",
+    baseUrl
   });
   const text2 = `${greeting}
 
@@ -2799,7 +2937,9 @@ async function sendSystemMail(toOrOptions, subjectArg, textArg, htmlArg) {
   try {
     const resend = getResendInstance();
     if (!resend) {
-      console.warn(`[EMAIL DISPATCH NOTICE] RESEND_API_KEY is not configured. Simulating delivery for: ${to} | Subject: "${subject}"`);
+      console.warn(
+        `[EMAIL DISPATCH NOTICE] RESEND_API_KEY is not configured. Simulating delivery for: ${to} | Subject: "${subject}"`
+      );
       return {
         success: true,
         simulated: true,
@@ -2807,7 +2947,9 @@ async function sendSystemMail(toOrOptions, subjectArg, textArg, htmlArg) {
         messageId: `sim_${Date.now()}_${import_crypto2.default.randomBytes(4).toString("hex")}`
       };
     }
-    console.log(`[EMAIL DISPATCH ATTEMPT] To: ${to} | Subject: "${subject}" | Sender: ${fromSender}`);
+    console.log(
+      `[EMAIL DISPATCH ATTEMPT] To: ${to} | Subject: "${subject}" | Sender: ${fromSender}`
+    );
     const emailAttachments = [...userAttachments];
     if (html.includes("cid:zakir-logo-light") || html.includes("cid:zakir-badge-light") || html.includes("cid:zakir-logo")) {
       const hasLightBadge = emailAttachments.some(
@@ -6430,13 +6572,19 @@ try {
 } catch (e) {
   console.warn("Notice: initializeDatabase top-level call warning:", e);
 }
+var lastDbMtime = 0;
 function readDb2() {
   try {
     if (import_fs7.default.existsSync(DB_FILE5)) {
+      const stat = import_fs7.default.statSync(DB_FILE5);
+      if (inMemoryDbStore && stat.mtimeMs <= lastDbMtime) {
+        return inMemoryDbStore;
+      }
       const content = import_fs7.default.readFileSync(DB_FILE5, "utf-8");
       if (content && content.trim()) {
         const parsed = JSON.parse(content);
         inMemoryDbStore = parsed;
+        lastDbMtime = stat.mtimeMs;
         return parsed;
       }
     }
@@ -6462,7 +6610,11 @@ function writeDb2(data) {
   inMemoryDbStore = data;
   try {
     import_fs7.default.mkdirSync(import_path7.default.dirname(DB_FILE5), { recursive: true });
-    import_fs7.default.writeFileSync(DB_FILE5, JSON.stringify(data, null, 2), "utf-8");
+    import_fs7.default.writeFileSync(DB_FILE5, JSON.stringify(data), "utf-8");
+    try {
+      lastDbMtime = import_fs7.default.statSync(DB_FILE5).mtimeMs;
+    } catch (e) {
+    }
   } catch (err) {
     console.warn(
       "Notice: writeDb file save skipped (read-only filesystem environment):",
@@ -7113,6 +7265,33 @@ app2.use((req, res, next) => {
 });
 app2.use(import_express.default.json({ limit: "30mb" }));
 app2.use(import_express.default.urlencoded({ extended: true, limit: "30mb" }));
+app2.use(import_express.default.static(import_path7.default.join(process.cwd(), "public")));
+app2.get(
+  ["/zakir-badge-light.png", "/api/email-logo/light.png", "/api/brand/badge-light.png"],
+  (req, res) => {
+    const buf = getOfficialEmailLogoLightBuffer2();
+    if (!buf || buf.length === 0) {
+      return res.status(404).send("Light badge not found");
+    }
+    res.setHeader("Content-Type", "image/png");
+    res.setHeader("Cache-Control", "public, max-age=86400");
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.send(buf);
+  }
+);
+app2.get(
+  ["/zakir-badge-dark.png", "/api/email-logo/dark.png", "/api/brand/badge-dark.png"],
+  (req, res) => {
+    const buf = getOfficialEmailLogoDarkBuffer2();
+    if (!buf || buf.length === 0) {
+      return res.status(404).send("Dark badge not found");
+    }
+    res.setHeader("Content-Type", "image/png");
+    res.setHeader("Cache-Control", "public, max-age=86400");
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.send(buf);
+  }
+);
 app2.get("/api/health", (req, res) => {
   res.json({
     status: "ok",
@@ -8088,19 +8267,19 @@ app2.get(["/api/logo.svg", "/assets/logo.svg", "/logo.svg"], (req, res) => {
   res.send(OFFICIAL_ZAKIR_SVG);
 });
 function getEmailLogoSvg(mode) {
-  const bg = "#FFFFFF";
-  const fill = mode === "light" ? "#1C2C58" : "#000000";
-  const stroke = ' stroke="#E2E8F0" stroke-width="1.5"';
+  const bg = mode === "light" ? "#1C2C58" : "#FFFFFF";
+  const fill = mode === "light" ? "#FDFEFE" : "#1C2C58";
+  const stroke = mode === "light" ? "" : ' stroke="#E2E8F0" stroke-width="1"';
   return `<?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96" width="96" height="96">
-  <rect width="96" height="96" rx="18" fill="${bg}"${stroke} />
-  <svg x="12" y="23.64" width="72" height="48.72" viewBox="0 0 1203.08 814" preserveAspectRatio="xMidYMid meet">
-    <path fill="${fill}" d="M778.26,359.34c-23.74-3.27-49.55-5.85-77.22-7.24-32.16-1.61-62.06-1.36-89.28,0,34.59-18.5,69.17-37,103.76-55.5,20.28,4.11,42.89,7.58,67.57,9.65,37.04,3.12,70.4,2.4,98.93,0-34.59,17.7-69.17,35.39-103.76,53.09Z"/>
-    <path fill="${fill}" d="M980.96,516.19c-21.56-3.6-44.1-6.86-67.57-9.65-27.67-3.29-54.26-5.64-79.63-7.24,24.93-14.48,49.87-28.96,74.8-43.43,15.7,5.87,35.19,11.48,57.91,14.48,48.33,6.37,88.49-2.07,113.41-9.65-32.98,18.5-65.96,37-98.93,55.5Z"/>
-    <path fill="${fill}" d="M475.42,511.37c-.4-63.57-.79-127.14-1.19-190.71,0-1.56.04-3.1.17-4.65,1.41-16.02,5.74-38.29,19.12-60.42,15.26-25.24,36.05-39.96,52.07-49.52,46.87-27.98,204.17-102.07,420.89-194.19,2.96-1.1,22.36-7.98,38.61,2.41,13.06,8.36,16.89,21.72,19.3,33.78.99,4.94,2.1,13.1,2.12,24.53,0,0-.21,16.42-4.53,33.38-3.15,12.35-9.18,25.16-15.95,36.88-15.63,27.06-38.86,48.92-66.57,63.37-2.2,1.15-4.45,2.32-6.75,3.51-28.29,14.65-50.15,25.27-62.74,31.37-57.83,28.01-105.24,50.16-105.24,50.16-109.27,51.04-121.53,55.26-155.36,75.32-51.75,30.67-69.27,48.18-82.04,65.15-22.18,29.47-31.7,59.55-36.2,79.63-.91,5.07-5.6,8.13-9.65,7.24-3.09-.68-5.58-3.59-6.03-7.24Z"/>
-    <path fill="${fill}" d="M587.63,674.25c-2.01-24.5-3.65-49.86-4.83-76.01-1.24-27.45-1.89-54.07-2.06-79.79-.1-14.52,5.57-37.36,18.95-60.16,18.94-32.28,45.31-46.85,62.74-55.5,137.7-68.32,257.41-123.89,260.27-125.27,75.14-36.4,123.4-60.53,145.12-72.6,27.5-15.28,46.89-32.03,62.74-41.02,2.06-1.17,4.68-2.2,6.95-3.08,3.88-1.5,8.11-2.04,12.19-1.23,3.17.63,6.65,1.89,9.82,4.3,8.72,6.63,9.55,16.59,9.65,18.1,1.46,13.4,2.42,28.36,2.41,44.64,0,16.22-.96,31.12-2.41,44.49-1.5,12.31-5.42,31.71-16.89,52.03-18.54,32.86-45.69,49.14-57.91,55.5-88.79,45.49-177.58,90.98-266.37,136.48-51.58,25.47-85.43,42.05-105.24,51.74-34.68,16.96-62.99,28.56-86.87,55.5-9.82,11.07-16.26,18.95-21.72,28.96-3.96,7.25-5.57,13.62-7.24,21.72-.3,1.46-.76,3.36-1.71,5.25-3.58,7.17-13.97,7.19-16.83-.3-.44-1.16-.71-2.42-.76-3.74Z"/>
-    <path fill="${fill}" d="M730.61,710.92l-.61,63.32c-.18,1.66-1.51,16.39,9.65,26.69,8.53,7.87,21.12,10.17,32.51,6.07,1.53-.55,2.98-1.29,4.41-2.05,119.91-63.73,238.88-125.06,359.77-191.26,9.25-5.07,29.79-21.27,44.89-54.06,11.49-24.94,14.48-48.26,15.27-61.09.4-6.48-.79-72.83-.79-72.83.52-9.04-4.44-17.31-12.07-20.51-6.75-2.84-14.8-1.38-20.72,3.5-7.47,6.16-15.25,11.96-23.88,16.35-108.82,55.31-218.13,109.42-326.98,164.68-6.15,3.12-12.18,6.5-17.97,10.25-12.15,7.87-28.07,20.18-42.39,41.7-.13.2-.26.39-.39.59-13.44,20.36-20.48,44.27-20.72,68.66Z"/>
-  </svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 1200" width="96" height="96">
+  <rect width="1200" height="1200" rx="264" ry="264" fill="${bg}"${stroke} />
+  <g transform="translate(-235.5, 191)">
+    <path fill="${fill}" d="M778.63,359.56c-23.73-3.27-49.53-5.85-77.18-7.24-32.15-1.61-62.03-1.36-89.24,0,34.57-18.49,69.14-36.98,103.71-55.47,20.27,4.1,42.87,7.57,67.53,9.65,37.02,3.12,70.37,2.39,98.89,0-34.57,17.69-69.14,35.37-103.71,53.06Z"/>
+    <path fill="${fill}" d="M981.22,516.33c-21.55-3.6-44.07-6.86-67.53-9.65-27.66-3.29-54.23-5.64-79.59-7.24,24.92-14.47,49.85-28.94,74.77-43.41,15.69,5.87,35.17,11.48,57.89,14.47,48.31,6.37,88.45-2.07,113.36-9.65-32.96,18.49-65.92,36.98-98.89,55.47Z"/>
+    <path fill="${fill}" d="M475.93,511.51c-.4-63.54-.79-127.08-1.19-190.62,0-1.55.04-3.1.17-4.65,1.41-16.02,5.73-38.28,19.11-60.39,15.25-25.22,36.03-39.94,52.05-49.5,46.85-27.96,204.08-102.02,420.68-194.1,2.95-1.1,22.35-7.98,38.59,2.41,13.05,8.35,16.88,21.71,19.3,33.77.99,4.94,2.1,13.09,2.12,24.52,0,0-.21,16.41-4.53,33.36-3.15,12.35-9.18,25.15-15.95,36.87-15.62,27.05-38.84,48.89-66.54,63.34-2.2,1.15-4.45,2.31-6.75,3.51-28.28,14.64-50.12,25.26-62.71,31.35-57.8,28-105.19,50.13-105.19,50.14-109.22,51.02-121.47,55.24-155.29,75.28-51.72,30.66-69.24,48.16-82,65.12-22.17,29.46-31.69,59.52-36.18,79.59-.91,5.07-5.6,8.12-9.65,7.24-3.09-.68-5.58-3.59-6.03-7.24Z"/>
+    <path fill="${fill}" d="M588.09,674.31c-2.01-24.49-3.65-49.83-4.82-75.97-1.24-27.44-1.89-54.04-2.06-79.75-.1-14.52,5.57-37.35,18.94-60.14,18.93-32.26,45.29-46.83,62.71-55.47,137.63-68.29,257.29-123.83,260.14-125.21,75.11-36.38,123.35-60.5,145.05-72.56,27.49-15.27,46.87-32.02,62.71-41,2.06-1.17,4.68-2.2,6.94-3.07,3.88-1.5,8.1-2.04,12.18-1.23,3.17.63,6.65,1.89,9.82,4.3,8.71,6.63,9.55,16.58,9.65,18.09,1.46,13.4,2.41,28.35,2.41,44.62,0,16.21-.96,31.11-2.41,44.47-1.5,12.31-5.42,31.69-16.88,52.01-18.53,32.84-45.67,49.12-57.89,55.47-88.75,45.47-177.49,90.94-266.24,136.41-51.56,25.46-85.39,42.03-105.19,51.72-34.66,16.95-62.96,28.55-86.83,55.47-9.81,11.07-16.25,18.95-21.71,28.94-3.96,7.25-5.57,13.62-7.24,21.71-.3,1.46-.76,3.36-1.71,5.25-3.58,7.17-13.97,7.18-16.83-.3-.44-1.16-.71-2.42-.76-3.74Z"/>
+    <path fill="${fill}" d="M731,710.96l-.61,63.29c-.18,1.66-1.51,16.38,9.65,26.68,8.53,7.87,21.11,10.17,32.5,6.06,1.53-.55,2.98-1.29,4.41-2.05,119.85-63.7,238.77-125,359.6-191.17,9.25-5.06,29.78-21.26,44.87-54.03,11.48-24.93,14.47-48.24,15.26-61.06.4-6.47-.79-72.8-.79-72.8.52-9.04-4.44-17.3-12.06-20.5-6.75-2.84-14.79-1.38-20.71,3.5-7.47,6.16-15.24,11.95-23.87,16.34-108.77,55.28-218.03,109.37-326.82,164.6-6.15,3.12-12.17,6.5-17.96,10.25-12.15,7.86-28.06,20.17-42.37,41.68-.13.2-.26.39-.39.59-13.44,20.35-20.47,44.24-20.71,68.63Z"/>
+  </g>
 </svg>`;
 }
 app2.get("/api/email-logo/light.svg", (req, res) => {
@@ -8691,13 +8870,58 @@ function escapeHtml2(str) {
   if (!str) return "";
   return String(str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
 }
+function renderEmailLogoHeaderHtml2(options) {
+  const size = options?.size || 96;
+  const appBase = options?.appBase || "https://www.getzakir.com";
+  const wordmark = options?.wordmark !== void 0 ? options.wordmark : "ZAKIR";
+  const tagline = options?.tagline !== void 0 ? options.tagline : "\u0627\u0644\u0630\u0627\u0643\u0631\u0629 \u0627\u0644\u0645\u0624\u0633\u0633\u064A\u0629 \u0627\u0644\u0633\u0628\u0628\u064A\u0629 &bull; Causal Decision Intelligence";
+  return `
+    <!-- Strict 1:1 Square Logo Container (${size}px x ${size}px) -->
+    <table border="0" cellpadding="0" cellspacing="0" align="center" role="presentation" width="${size}" height="${size}" class="zakir-logo-table" style="width: ${size}px !important; height: ${size}px !important; max-width: ${size}px !important; max-height: ${size}px !important; margin: 0 auto 16px auto; border-collapse: collapse; border-spacing: 0; mso-table-lspace: 0pt; mso-table-rspace: 0pt;">
+      <tr>
+        <td align="center" valign="middle" width="${size}" height="${size}" class="zakir-logo-container-cell" style="width: ${size}px !important; height: ${size}px !important; max-width: ${size}px !important; max-height: ${size}px !important; padding: 0; margin: 0; line-height: 0; font-size: 0; text-align: center; vertical-align: middle;">
+          <a href="${appBase}" target="_blank" style="text-decoration: none; display: block; width: ${size}px; height: ${size}px; margin: 0 auto; line-height: 0; font-size: 0; outline: none; border: 0;">
+            <!-- LIGHT MODE BADGE: Solid Royal Navy Square (#1C2C58) + Crisp White ZAKIR Logo (#FDFEFE) [Exact ${size}x${size} px] -->
+            <img src="cid:zakir-logo-light" alt="ZAKIR" width="${size}" height="${size}" class="zakir-logo-light light-img" style="display: block; width: ${size}px !important; height: ${size}px !important; max-width: ${size}px !important; max-height: ${size}px !important; aspect-ratio: 1 / 1; border: 0; outline: none; text-decoration: none; margin: 0 auto; -ms-interpolation-mode: bicubic;" />
+            
+            <!-- DARK MODE BADGE: Solid Pure White Square (#FFFFFF) + Crisp Navy ZAKIR Logo (#1C2C58) [Exact ${size}x${size} px] -->
+            <!--[if !mso]><!-->
+            <div class="zakir-logo-dark-wrap dark-img" style="display: none; mso-hide: all; max-height: 0px; max-width: 0px; overflow: hidden; width: 0; height: 0; margin: 0 auto; line-height: 0; font-size: 0;">
+              <img src="cid:zakir-logo-dark" alt="ZAKIR" width="${size}" height="${size}" class="zakir-logo-dark" style="display: none; width: ${size}px !important; height: ${size}px !important; max-width: ${size}px !important; max-height: ${size}px !important; aspect-ratio: 1 / 1; border: 0; outline: none; text-decoration: none; margin: 0 auto; -ms-interpolation-mode: bicubic;" />
+            </div>
+            <!--<![endif]-->
+          </a>
+        </td>
+      </tr>
+    </table>
+
+    ${wordmark ? `<!-- ZAKIR Wordmark: Bold, uppercase, clean spacing -->
+    <div class="zakir-wordmark" style="color: #0f172a; font-size: 24px; font-weight: 800; letter-spacing: 2.5px; text-transform: uppercase; line-height: 1.2; margin: 0 0 6px 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+      ${wordmark}
+    </div>` : ""}
+
+    ${tagline ? `<!-- Official Supporting Tagline -->
+    <div style="color: #64748b; font-size: 13px; font-weight: 500; line-height: 1.5; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+      ${tagline}
+    </div>` : ""}
+  `;
+}
 function buildMasterEmailHtml2(options) {
   const { subject, title, greeting, bodyHtml, securityNote, baseUrl } = options;
   const canonicalDomain = "https://www.getzakir.com";
-  const appBase = (baseUrl || getAppBaseUrl() || canonicalDomain).replace(
+  let publicBaseUrl = (baseUrl || getAppBaseUrl() || process.env.APP_URL || canonicalDomain).replace(
     /\/$/,
     ""
   );
+  if (publicBaseUrl.includes("localhost") || publicBaseUrl.includes("127.0.0.1") || !publicBaseUrl.startsWith("http")) {
+    if (process.env.APP_URL && !process.env.APP_URL.includes("localhost") && process.env.APP_URL.startsWith("http")) {
+      publicBaseUrl = process.env.APP_URL.trim().replace(/\/$/, "");
+    } else {
+      publicBaseUrl = canonicalDomain;
+    }
+  }
+  const appBase = publicBaseUrl;
+  const logoHeaderHtml = renderEmailLogoHeaderHtml2({ appBase, size: 96 });
   return `<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml" lang="ar">
 <head>
@@ -8713,28 +8937,36 @@ function buildMasterEmailHtml2(options) {
       supported-color-schemes: light dark;
     }
     @media (prefers-color-scheme: dark) {
+      .light-img,
       .zakir-logo-light {
         display: none !important;
         mso-hide: all !important;
+        width: 0px !important;
+        height: 0px !important;
+        max-width: 0px !important;
+        max-height: 0px !important;
+        overflow: hidden !important;
         font-size: 0px !important;
         line-height: 0px !important;
-        max-height: 0px !important;
-        max-width: 0px !important;
-        overflow: hidden !important;
       }
+      .dark-img,
       .zakir-logo-dark-wrap {
         display: block !important;
         mso-hide: none !important;
-        max-height: none !important;
-        max-width: none !important;
+        width: 96px !important;
+        height: 96px !important;
+        max-width: 96px !important;
+        max-height: 96px !important;
         overflow: visible !important;
         font-size: 0 !important;
         line-height: 0 !important;
       }
       .zakir-logo-dark {
         display: block !important;
-        max-height: none !important;
-        max-width: none !important;
+        width: 96px !important;
+        height: 96px !important;
+        max-width: 96px !important;
+        max-height: 96px !important;
         overflow: visible !important;
       }
       .zakir-footer-logo-light {
@@ -8773,16 +9005,28 @@ function buildMasterEmailHtml2(options) {
       }
     }
     /* Outlook / Webmail Dark Mode Overrides */
+    [data-ogsc] .light-img,
+    [data-ogsb] .light-img,
     [data-ogsc] .zakir-logo-light,
     [data-ogsb] .zakir-logo-light {
       display: none !important;
+      width: 0px !important;
+      height: 0px !important;
+      max-width: 0px !important;
+      max-height: 0px !important;
+      overflow: hidden !important;
     }
+    [data-ogsc] .dark-img,
+    [data-ogsb] .dark-img,
     [data-ogsc] .zakir-logo-dark-wrap,
     [data-ogsb] .zakir-logo-dark-wrap,
     [data-ogsc] .zakir-logo-dark,
     [data-ogsb] .zakir-logo-dark {
       display: block !important;
-      max-height: none !important;
+      width: 96px !important;
+      height: 96px !important;
+      max-width: 96px !important;
+      max-height: 96px !important;
       overflow: visible !important;
     }
     [data-ogsc] .zakir-footer-logo-light,
@@ -8812,37 +9056,10 @@ function buildMasterEmailHtml2(options) {
       <td align="center">
         <!-- Master Card -->
         <table border="0" cellpadding="0" cellspacing="0" width="100%" class="zakir-card" style="max-width: 580px; background-color: #ffffff; border-radius: 16px; border: 1px solid #e2e8f0; overflow: hidden; box-shadow: 0 4px 20px rgba(15, 23, 42, 0.05);">
-          <!-- Header with Official ZAKIR Square Badge System -->
+          <!-- Header with Official ZAKIR 96x96 Square Badge System -->
           <tr>
             <td class="zakir-header-cell" style="padding: 36px 32px 24px 32px; text-align: center; border-bottom: 1px solid #f1f5f9; background-color: #ffffff;">
-              <!-- Perfect 1:1 Square Logo Container (72px x 72px) -->
-              <table border="0" cellpadding="0" cellspacing="0" align="center" role="presentation" style="margin: 0 auto 16px auto; border-collapse: collapse; border-spacing: 0;">
-                <tr>
-                  <td align="center" valign="middle" style="padding: 0; margin: 0; line-height: 0; font-size: 0; text-align: center;">
-                    <a href="${appBase}" target="_blank" style="text-decoration: none; display: inline-block; line-height: 0; font-size: 0; outline: none; border: 0;">
-                      <!-- LIGHT MODE: Solid Navy Square (#1C2C58) + Crisp White ZAKIR Logo (#FFFFFF) -->
-                      <img src="cid:zakir-logo-light" alt="ZAKIR" width="72" height="72" class="zakir-logo-light" style="display: block; width: 72px !important; height: 72px !important; max-width: 72px !important; max-height: 72px !important; aspect-ratio: 1 / 1; border: 0; outline: none; text-decoration: none; margin: 0 auto; -ms-interpolation-mode: bicubic; border-radius: 16px;" />
-                      
-                      <!-- DARK MODE: Solid Pure White Square (#FFFFFF) + Crisp Navy ZAKIR Logo (#1C2C58) -->
-                      <!--[if !mso]><!-->
-                      <div class="zakir-logo-dark-wrap" style="display: none; mso-hide: all; max-height: 0px; max-width: 0px; overflow: hidden; width: 0; height: 0; margin: 0 auto; line-height: 0; font-size: 0;">
-                        <img src="cid:zakir-logo-dark" alt="ZAKIR" width="72" height="72" class="zakir-logo-dark" style="display: none; width: 72px !important; height: 72px !important; max-width: 72px !important; max-height: 72px !important; aspect-ratio: 1 / 1; border: 0; outline: none; text-decoration: none; margin: 0 auto; -ms-interpolation-mode: bicubic; border-radius: 16px;" />
-                      </div>
-                      <!--<![endif]-->
-                    </a>
-                  </td>
-                </tr>
-              </table>
-
-              <!-- ZAKIR Wordmark: Bold, uppercase, clean spacing -->
-              <div class="zakir-wordmark" style="color: #0f172a; font-size: 24px; font-weight: 800; letter-spacing: 2.5px; text-transform: uppercase; line-height: 1.2; margin: 0 0 6px 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
-                ZAKIR
-              </div>
-
-              <!-- Official Supporting Tagline -->
-              <div style="color: #64748b; font-size: 13px; font-weight: 500; line-height: 1.5; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
-                \u0627\u0644\u0630\u0627\u0643\u0631\u0629 \u0627\u0644\u0645\u0624\u0633\u0633\u064A\u0629 \u0627\u0644\u0633\u0628\u0628\u064A\u0629 &bull; Causal Decision Intelligence
-              </div>
+              ${logoHeaderHtml}
             </td>
           </tr>
           <tr>
@@ -8863,11 +9080,11 @@ function buildMasterEmailHtml2(options) {
                 <tr>
                   <td align="center" style="vertical-align: middle;">
                     <span class="zakir-footer-logo-light" style="display: inline-block; vertical-align: middle; margin-right: 8px;">
-                      <img src="cid:zakir-logo-light" alt="ZAKIR" width="22" height="22" style="display: block; width: 22px; height: 22px; border-radius: 5px; border: 0;" />
+                      <img src="cid:zakir-logo-light" alt="ZAKIR" width="24" height="24" style="display: block; width: 24px; height: 24px; border-radius: 6px; border: 0;" />
                     </span>
                     <!--[if !mso]><!-->
                     <span class="zakir-footer-logo-dark" style="display: none; mso-hide: all; max-height: 0; max-width: 0; overflow: hidden; vertical-align: middle; margin-right: 8px;">
-                      <img src="cid:zakir-logo-dark" alt="ZAKIR" width="22" height="22" style="display: block; width: 22px; height: 22px; border-radius: 5px; border: 0;" />
+                      <img src="cid:zakir-logo-dark" alt="ZAKIR" width="24" height="24" style="display: block; width: 24px; height: 24px; border-radius: 6px; border: 0;" />
                     </span>
                     <!--<![endif]-->
                     <span class="zakir-wordmark" style="font-size: 13px; font-weight: 800; color: #0f172a; vertical-align: middle; letter-spacing: 1.5px; text-transform: uppercase;">ZAKIR</span>
@@ -10229,38 +10446,48 @@ app2.post("/api/auth/verify-code", otpLimiter, async (req, res) => {
       if (userSnap.exists) {
         firestoreUser = userSnap.data();
         const isAdminUser = foundUid === ADMIN_USER_ID || firestoreUser.role === "Admin" || ADMIN_EMAILS.has((targetIdentifier || "").toLowerCase());
-        if (isAdminUser || !firestoreUser.requiresDocumentVerification && firestoreUser.role && firestoreUser.role !== "CEO" && firestoreUser.role !== "Owner") {
+        const isApprovedAlready = firestoreUser.accountStatus === "APPROVED" || isAdminUser;
+        if (isAdminUser) {
           nextAccountStatus = "APPROVED";
-        } else if (!firestoreUser.requiresDocumentVerification) {
+        } else if (firestoreUser.accountStatus === "APPROVED") {
           nextAccountStatus = "APPROVED";
         } else if (firestoreUser.verificationDocuments && firestoreUser.verificationDocuments.length > 0) {
           nextAccountStatus = "PENDING_ADMIN_REVIEW";
         } else {
           nextAccountStatus = "PENDING_DOCUMENT_VERIFICATION";
         }
-        await userRef.update({
-          isVerified: true,
+        const isUserFullyApproved = nextAccountStatus === "APPROVED";
+        const docVerificationStatus = isUserFullyApproved ? "APPROVED" : nextAccountStatus === "PENDING_ADMIN_REVIEW" ? "UNDER_REVIEW" : firestoreUser.documentVerificationStatus || "PENDING_UPLOAD";
+        const verInfoStatus = isUserFullyApproved ? "verified" : nextAccountStatus === "PENDING_ADMIN_REVIEW" ? "under_review" : "action_required";
+        const updateFields = {
           isEmailVerified: true,
           emailVerified: true,
           email_verified: true,
           isPhoneVerified: true,
           accountStatus: nextAccountStatus,
-          documentVerificationStatus: nextAccountStatus === "PENDING_DOCUMENT_VERIFICATION" ? "PENDING_UPLOAD" : firestoreUser.documentVerificationStatus || "PENDING_UPLOAD",
-          verification_status: "verified",
-          verification_required: false,
-          "verificationInfo.status": "verified",
-          "verificationInfo.verifiedAt": (/* @__PURE__ */ new Date()).toISOString()
-        });
-        firestoreUser.isVerified = true;
+          documentVerificationStatus: docVerificationStatus,
+          isVerified: isUserFullyApproved,
+          verification_status: isUserFullyApproved ? "verified" : nextAccountStatus === "PENDING_ADMIN_REVIEW" ? "pending" : "unverified",
+          verification_required: !isUserFullyApproved,
+          "verificationInfo.status": verInfoStatus
+        };
+        if (isUserFullyApproved) {
+          updateFields["verificationInfo.verifiedAt"] = (/* @__PURE__ */ new Date()).toISOString();
+        }
+        await userRef.update(updateFields);
         firestoreUser.isEmailVerified = true;
         firestoreUser.emailVerified = true;
         firestoreUser.email_verified = true;
+        firestoreUser.isPhoneVerified = true;
         firestoreUser.accountStatus = nextAccountStatus;
-        firestoreUser.documentVerificationStatus = nextAccountStatus === "PENDING_DOCUMENT_VERIFICATION" ? "PENDING_UPLOAD" : firestoreUser.documentVerificationStatus || "PENDING_UPLOAD";
-        firestoreUser.verification_status = "verified";
-        firestoreUser.verification_required = false;
+        firestoreUser.documentVerificationStatus = docVerificationStatus;
+        firestoreUser.isVerified = isUserFullyApproved;
+        firestoreUser.verification_status = isUserFullyApproved ? "verified" : nextAccountStatus === "PENDING_ADMIN_REVIEW" ? "pending" : "unverified";
+        firestoreUser.verification_required = !isUserFullyApproved;
+        if (!firestoreUser.verificationInfo) firestoreUser.verificationInfo = {};
+        firestoreUser.verificationInfo.status = verInfoStatus;
         console.log(
-          `[VERIFICATION SUCCESS] Updated user ${foundUid} in Firestore.`
+          `[VERIFICATION SUCCESS] Updated user ${foundUid} in Firestore. accountStatus=${nextAccountStatus}, isVerified=${isUserFullyApproved}`
         );
       }
     } catch (uErr) {
@@ -10270,18 +10497,23 @@ app2.post("/api/auth/verify-code", otpLimiter, async (req, res) => {
       );
     }
     if (user) {
-      user.isVerified = true;
+      const isUserFullyApproved = nextAccountStatus === "APPROVED";
+      const docVerificationStatus = isUserFullyApproved ? "APPROVED" : nextAccountStatus === "PENDING_ADMIN_REVIEW" ? "UNDER_REVIEW" : user.documentVerificationStatus || "PENDING_UPLOAD";
+      const verInfoStatus = isUserFullyApproved ? "verified" : nextAccountStatus === "PENDING_ADMIN_REVIEW" ? "under_review" : "action_required";
       user.isEmailVerified = true;
       user.emailVerified = true;
       user.email_verified = true;
       user.isPhoneVerified = true;
       user.accountStatus = nextAccountStatus;
-      user.documentVerificationStatus = nextAccountStatus === "PENDING_DOCUMENT_VERIFICATION" ? "PENDING_UPLOAD" : user.documentVerificationStatus || "PENDING_UPLOAD";
-      user.verification_status = "verified";
-      user.verification_required = false;
+      user.documentVerificationStatus = docVerificationStatus;
+      user.isVerified = isUserFullyApproved;
+      user.verification_status = isUserFullyApproved ? "verified" : nextAccountStatus === "PENDING_ADMIN_REVIEW" ? "pending" : "unverified";
+      user.verification_required = !isUserFullyApproved;
       if (!user.verificationInfo) user.verificationInfo = {};
-      user.verificationInfo.status = "verified";
-      user.verificationInfo.verifiedAt = (/* @__PURE__ */ new Date()).toISOString();
+      user.verificationInfo.status = verInfoStatus;
+      if (isUserFullyApproved) {
+        user.verificationInfo.verifiedAt = (/* @__PURE__ */ new Date()).toISOString();
+      }
       if (firestoreUser && firestoreUser.role) {
         user.role = firestoreUser.role;
       }
@@ -13088,12 +13320,12 @@ app2.post(
             <ul style="margin: 0; padding-right: 20px; font-size: 14px; color: #1e293b; line-height: 2;">
               <li><strong>\u0627\u0644\u0648\u0636\u0639 \u0627\u0644\u0641\u0627\u062A\u062D (Light Mode):</strong> \u0645\u0631\u0628\u0639 \u0643\u062D\u0644\u064A \u0645\u062A\u0646\u0627\u0633\u0642 \u0627\u0644\u0623\u0628\u0639\u0627\u062F (#1C2C58) + \u0634\u0639\u0627\u0631 \u0630\u0627\u0643\u0631 \u0628\u0627\u0644\u0644\u0648\u0646 \u0627\u0644\u0623\u0628\u064A\u0636 \u0627\u0644\u0646\u0627\u0635\u0639 (#FFFFFF).</li>
               <li><strong>\u0627\u0644\u0648\u0636\u0639 \u0627\u0644\u062F\u0627\u0643\u0646 (Dark Mode):</strong> \u0645\u0631\u0628\u0639 \u0623\u0628\u064A\u0636 \u0645\u062A\u0646\u0627\u0633\u0642 \u0627\u0644\u0623\u0628\u0639\u0627\u062F (#FFFFFF) + \u0634\u0639\u0627\u0631 \u0630\u0627\u0643\u0631 \u0628\u0627\u0644\u0644\u0648\u0646 \u0627\u0644\u0643\u062D\u0644\u064A (#1C2C58).</li>
-              <li><strong>\u0623\u0628\u0639\u0627\u062F \u0627\u0644\u0645\u0631\u0628\u0639:</strong> \u0646\u0633\u0628\u0629 \u0645\u062B\u0627\u0644\u064A\u0629 1:1 \u0628\u0627\u0631\u062A\u0641\u0627\u0639 \u0648\u0639\u0631\u0636 120px \u0645\u062A\u0645\u0627\u062B\u0644\u064A\u0646\u060C \u0628\u062F\u0648\u0646 \u0623\u064A \u062A\u0634\u0648\u0647 \u0623\u0648 \u0627\u0633\u062A\u0637\u0627\u0644\u0629.</li>
-              <li><strong>\u0623\u0628\u0639\u0627\u062F \u0627\u0644\u0634\u0639\u0627\u0631:</strong> \u0627\u0644\u062D\u0641\u0627\u0638 \u0639\u0644\u0649 \u0627\u0644\u0646\u0633\u0628\u0629 \u0627\u0644\u0623\u0635\u0644\u064A\u0629 1203.08 &times; 814 \u0648\u0627\u0644\u062A\u0645\u0631\u0643\u0632 \u0627\u0644\u062F\u0642\u064A\u0642 \u0623\u0641\u0642\u064A\u0627\u064B \u0648\u0639\u0645\u0648\u062F\u064A\u0627\u064B \u062F\u0627\u062E\u0644 \u0627\u0644\u062D\u0627\u0648\u064A\u0629.</li>
+              <li><strong>\u0623\u0628\u0639\u0627\u062F \u0627\u0644\u0645\u0631\u0628\u0639:</strong> \u0646\u0633\u0628\u0629 \u0645\u062B\u0627\u0644\u064A\u0629 1:1 \u0628\u0627\u0631\u062A\u0641\u0627\u0639 \u0648\u0639\u0631\u0636 96px \u0645\u062A\u0645\u0627\u062B\u0644\u064A\u0646\u060C \u0628\u062F\u0648\u0646 \u0623\u064A \u062A\u0634\u0648\u0647 \u0623\u0648 \u0627\u0633\u062A\u0637\u0627\u0644\u0629.</li>
+              <li><strong>\u0623\u0628\u0639\u0627\u062F \u0627\u0644\u0634\u0639\u0627\u0631:</strong> \u0627\u0644\u062D\u0641\u0627\u0638 \u0639\u0644\u0649 \u0627\u0644\u0646\u0633\u0628\u0629 \u0627\u0644\u0623\u0635\u0644\u064A\u0629 \u0648\u0627\u0644\u062A\u0645\u0631\u0643\u0632 \u0627\u0644\u062F\u0642\u064A\u0642 \u0623\u0641\u0642\u064A\u0627\u064B \u0648\u0639\u0645\u0648\u062F\u064A\u0627\u064B \u062F\u0627\u062E\u0644 \u0627\u0644\u062D\u0627\u0648\u064A\u0629 96&times;96 px.</li>
             </ul>
           </div>
           <p style="font-size: 14px; line-height: 1.6; color: #64748b; margin: 0;">
-            Zakir Platform \u2022 Causal Decision Intelligence &bull; \u0627\u0644\u0645\u0624\u0633\u0633\u064A\u0629 \u0627\u0644\u0633\u0628\u0628\u064A\u0629
+            Zakir Platform \u2022 Causal Decision Intelligence &bull; \u0627\u0644\u0630\u0627\u0643\u0631\u0629 \u0627\u0644\u0645\u0624\u0633\u0633\u064A\u0629 \u0627\u0644\u0633\u0628\u0628\u064A\u0629
           </p>
         `,
         securityNote: "\u0647\u0630\u0627 \u0628\u0631\u064A\u062F \u0627\u062E\u062A\u0628\u0627\u0631\u064A \u0622\u0645\u0646 \u0648\u0645\u0648\u062B\u0642 \u0645\u0646 \u0646\u0638\u0627\u0645 ZAKIR \u0627\u0644\u062F\u0627\u062E\u0644\u064A \u0644\u0644\u062A\u062D\u0642\u0642 \u0645\u0646 \u062A\u062C\u0631\u0628\u0629 \u0627\u0644\u0639\u0631\u0636 \u0627\u0644\u062D\u0642\u064A\u0642\u064A\u0629."
@@ -13102,7 +13334,7 @@ app2.post(
         to: targetEmail,
         subject: "ZAKIR Brand System Live Verification \u2022 \u062A\u062C\u0631\u0628\u0629 \u0627\u0644\u0639\u0631\u0636 \u0627\u0644\u0641\u0639\u0644\u064A \u0644\u0644\u0634\u0639\u0627\u0631",
         html: testHtml,
-        text: "ZAKIR Brand System Live Verification - Perfect 1:1 square container with responsive light/dark color inversion."
+        text: "ZAKIR Brand System Live Verification - Fixed 96x96 square container with responsive light/dark color inversion."
       });
       return res.json({
         success: mailResult.success,
@@ -13125,14 +13357,14 @@ app2.get("/api/email/preview-branding", (req, res) => {
     greeting: "\u0645\u0631\u062D\u0628\u0627\u064B \u0628\u0643 \u0641\u064A \u0646\u0638\u0627\u0645 \u0627\u0644\u062A\u062D\u0642\u0642 \u0645\u0646 \u0647\u0648\u064A\u0629 \u0630\u0627\u0643\u0631",
     bodyHtml: `
       <p style="font-size: 15px; line-height: 1.8; color: #334155; margin: 0 0 16px 0;">
-        \u0645\u0639\u0627\u064A\u0646\u0629 \u062D\u064A\u0629 \u0644\u0644\u0645\u0631\u0628\u0639 1:1 \u0648\u0627\u0644\u0634\u0639\u0627\u0631 \u0627\u0644\u0645\u062A\u0645\u0631\u0643\u0632 \u0648\u0627\u0644\u0627\u0646\u0639\u0643\u0627\u0633 \u0641\u064A \u0627\u0644\u0648\u0636\u0639 \u0627\u0644\u0641\u0627\u062A\u062D \u0648\u0627\u0644\u062F\u0627\u0643\u0646:
+        \u0645\u0639\u0627\u064A\u0646\u0629 \u062D\u064A\u0629 \u0644\u0644\u0645\u0631\u0628\u0639 96\xD796 \u0648\u0627\u0644\u0634\u0639\u0627\u0631 \u0627\u0644\u0645\u062A\u0645\u0631\u0643\u0632 \u0648\u0627\u0644\u0627\u0646\u0639\u0643\u0627\u0633 \u0641\u064A \u0627\u0644\u0648\u0636\u0639 \u0627\u0644\u0641\u0627\u062A\u062D \u0648\u0627\u0644\u062F\u0627\u0643\u0646:
       </p>
       <div style="background-color: #f1f5f9; border-radius: 10px; padding: 18px 20px; margin: 0 0 20px 0; text-align: right;">
         <ul style="margin: 0; padding-right: 20px; font-size: 14px; color: #1e293b; line-height: 2;">
           <li><strong>\u0627\u0644\u0648\u0636\u0639 \u0627\u0644\u0641\u0627\u062A\u062D (Light Mode):</strong> \u0645\u0631\u0628\u0639 \u0643\u062D\u0644\u064A \u0645\u062A\u0646\u0627\u0633\u0642 \u0627\u0644\u0623\u0628\u0639\u0627\u062F (#1C2C58) + \u0634\u0639\u0627\u0631 \u0630\u0627\u0643\u0631 \u0628\u0627\u0644\u0644\u0648\u0646 \u0627\u0644\u0623\u0628\u064A\u0636 \u0627\u0644\u0646\u0627\u0635\u0639 (#FFFFFF).</li>
           <li><strong>\u0627\u0644\u0648\u0636\u0639 \u0627\u0644\u062F\u0627\u0643\u0646 (Dark Mode):</strong> \u0645\u0631\u0628\u0639 \u0623\u0628\u064A\u0636 \u0645\u062A\u0646\u0627\u0633\u0642 \u0627\u0644\u0623\u0628\u0639\u0627\u062F (#FFFFFF) + \u0634\u0639\u0627\u0631 \u0630\u0627\u0643\u0631 \u0628\u0627\u0644\u0644\u0648\u0646 \u0627\u0644\u0643\u062D\u0644\u064A (#1C2C58).</li>
-          <li><strong>\u0623\u0628\u0639\u0627\u062F \u0627\u0644\u0645\u0631\u0628\u0639:</strong> \u0646\u0633\u0628\u0629 \u0645\u062B\u0627\u0644\u064A\u0629 1:1 \u0628\u0627\u0631\u062A\u0641\u0627\u0639 \u0648\u0639\u0631\u0636 120px \u0645\u062A\u0645\u0627\u062B\u0644\u064A\u0646\u060C \u0628\u062F\u0648\u0646 \u0623\u064A \u062A\u0634\u0648\u0647 \u0623\u0648 \u0627\u0633\u062A\u0637\u0627\u0644\u0629.</li>
-          <li><strong>\u0623\u0628\u0639\u0627\u062F \u0627\u0644\u0634\u0639\u0627\u0631:</strong> \u0627\u0644\u062D\u0641\u0627\u0638 \u0639\u0644\u0649 \u0627\u0644\u0646\u0633\u0628\u0629 \u0627\u0644\u0623\u0635\u0644\u064A\u0629 1203.08 &times; 814 \u0648\u0627\u0644\u062A\u0645\u0631\u0643\u0632 \u0627\u0644\u062F\u0642\u064A\u0642 \u0623\u0641\u0642\u064A\u0627\u064B \u0648\u0639\u0645\u0648\u062F\u064A\u0627\u064B \u062F\u0627\u062E\u0644 \u0627\u0644\u062D\u0627\u0648\u064A\u0629.</li>
+          <li><strong>\u0623\u0628\u0639\u0627\u062F \u0627\u0644\u0645\u0631\u0628\u0639:</strong> \u0646\u0633\u0628\u0629 \u0645\u062B\u0627\u0644\u064A\u0629 1:1 \u0628\u0627\u0631\u062A\u0641\u0627\u0639 \u0648\u0639\u0631\u0636 96px \u0645\u062A\u0645\u0627\u062B\u0644\u064A\u0646\u060C \u0628\u062F\u0648\u0646 \u0623\u064A \u062A\u0634\u0648\u0647 \u0623\u0648 \u0627\u0633\u062A\u0637\u0627\u0644\u0629.</li>
+          <li><strong>\u0623\u0628\u0639\u0627\u062F \u0627\u0644\u0634\u0639\u0627\u0631:</strong> \u0627\u0644\u062D\u0641\u0627\u0638 \u0639\u0644\u0649 \u0627\u0644\u0646\u0633\u0628\u0629 \u0627\u0644\u0623\u0635\u0644\u064A\u0629 \u0648\u0627\u0644\u062A\u0645\u0631\u0643\u0632 \u0627\u0644\u062F\u0642\u064A\u0642 \u0623\u0641\u0642\u064A\u0627\u064B \u0648\u0639\u0645\u0648\u062F\u064A\u0627\u064B \u062F\u0627\u062E\u0644 \u0627\u0644\u062D\u0627\u0648\u064A\u0629 96&times;96 px.</li>
         </ul>
       </div>
     `,
@@ -13199,6 +13431,50 @@ app2.get("/api/admin/users", requireAuth, async (req, res) => {
       }
     } catch (dbErr) {
     }
+    try {
+      const authList = await adminAuth.listUsers(1e3);
+      if (authList && Array.isArray(authList.users)) {
+        const existingIds = new Set(fsUsers.map((u) => u.id || u.uid));
+        const existingEmails = new Set(
+          fsUsers.map((u) => (u.email || "").trim().toLowerCase()).filter(Boolean)
+        );
+        for (const authU of authList.users) {
+          const aEmail = (authU.email || "").trim().toLowerCase();
+          if (!existingIds.has(authU.uid) && (!aEmail || !existingEmails.has(aEmail))) {
+            const synthesized = {
+              id: authU.uid,
+              uid: authU.uid,
+              email: authU.email || "No Email",
+              ownerName: authU.displayName || authU.email?.split("@")[0] || "User",
+              companyName: "Default Organization",
+              role: "Contributor",
+              isEmailVerified: Boolean(authU.emailVerified),
+              emailVerified: Boolean(authU.emailVerified),
+              accountStatus: authU.emailVerified ? "VERIFICATION_REQUIRED" : "PENDING_EMAIL_VERIFICATION",
+              documentVerificationStatus: "NOT_SUBMITTED",
+              isVerified: false,
+              verification_required: true,
+              verification_status: "unverified",
+              subscriptionPlan: "Starter",
+              subscriptionStatus: "Trial",
+              createdAt: authU.metadata?.creationTime || (/* @__PURE__ */ new Date()).toISOString(),
+              disabled: Boolean(authU.disabled),
+              fileCount: 0,
+              files: [],
+              verificationDocuments: []
+            };
+            fsUsers.push(synthesized);
+            try {
+              adminDb.collection("users").doc(authU.uid).set(synthesized, { merge: true }).catch(() => {
+              });
+            } catch (e) {
+            }
+          }
+        }
+      }
+    } catch (authErr) {
+      console.warn("Notice: Auth users reconciliation warning:", authErr?.message);
+    }
     let deletedUserIds = /* @__PURE__ */ new Set();
     try {
       const deletedSnap = await adminDb.collection("deletedUsers").get();
@@ -13214,9 +13490,33 @@ app2.get("/api/admin/users", requireAuth, async (req, res) => {
     const activeUsers = fsUsers.filter((u) => {
       const uId = u.id || u.uid;
       if (deletedUserIds.has(uId)) return false;
-      if (u.accountLifecycleStatus === "PURGED" || u.isPurged === true)
-        return false;
+      if (u.accountLifecycleStatus === "PURGED" || u.isPurged === true) return false;
       return true;
+    }).map((u) => {
+      const docs = [
+        ...Array.isArray(u.verificationDocuments) ? u.verificationDocuments : [],
+        ...Array.isArray(u.verificationInfo?.documents) ? u.verificationInfo.documents : [],
+        ...Array.isArray(u.documents) ? u.documents : [],
+        ...Array.isArray(u.files) ? u.files.filter((f) => f && (f.category === "Verification" || f.isVerificationDoc)) : []
+      ];
+      const docCount = docs.length;
+      const isExplicitAdminApproved = Boolean(
+        u.adminVerificationOverride === true || u.approvedBy && u.approvedAt
+      );
+      const isSystemAdmin = u.role === "Admin" || u.email && ADMIN_EMAILS.has(u.email.toLowerCase().trim());
+      if (docCount === 0 && !isExplicitAdminApproved && !isSystemAdmin) {
+        if (u.accountStatus === "APPROVED" || u.isVerified === true || u.documentVerificationStatus === "APPROVED") {
+          u.documentVerificationStatus = "NOT_SUBMITTED";
+          u.accountStatus = u.isEmailVerified ? "VERIFICATION_REQUIRED" : "PENDING_EMAIL_VERIFICATION";
+          u.isVerified = false;
+          u.verification_status = "unverified";
+          u.verification_required = true;
+        }
+      }
+      if (docCount === 0 && !u.documentVerificationStatus) {
+        u.documentVerificationStatus = "NOT_SUBMITTED";
+      }
+      return u;
     });
     console.log("ADMIN_USERS_FIRESTORE_RESULT", { count: activeUsers.length });
     return res.json({ success: true, users: activeUsers });
@@ -13226,6 +13526,104 @@ app2.get("/api/admin/users", requireAuth, async (req, res) => {
       success: false,
       error: err.message || "Failed to fetch users list"
     });
+  }
+});
+app2.post("/api/admin/bulk-user-action", requireAuth, requireAdmin, async (req, res) => {
+  const callerUid = req.user?.uid || "";
+  const callerEmail = req.user?.email || "admin@zakir.ai";
+  const { userIds, action, payload = {} } = req.body;
+  if (!Array.isArray(userIds) || userIds.length === 0 || !action) {
+    return res.status(400).json({ success: false, error: "userIds array and action are required." });
+  }
+  try {
+    const results = [];
+    const nowIso = (/* @__PURE__ */ new Date()).toISOString();
+    for (const userId of userIds) {
+      try {
+        if (action === "APPROVE") {
+          const assignPlan = payload.plan || "Starter";
+          const updates = {
+            accountStatus: "APPROVED",
+            documentVerificationStatus: "APPROVED",
+            isVerified: true,
+            verification_required: false,
+            verification_status: "verified",
+            adminVerificationOverride: true,
+            approvedAt: nowIso,
+            approvedBy: callerEmail,
+            subscriptionPlan: assignPlan,
+            subscriptionStatus: "Active",
+            lastActiveAt: nowIso
+          };
+          await adminDb.collection("users").doc(userId).set(updates, { merge: true });
+          try {
+            await adminAuth.updateUser(userId, { disabled: false });
+          } catch (e) {
+          }
+          results.push({ id: userId, success: true });
+        } else if (action === "SUSPEND") {
+          const updates = {
+            accountStatus: "SUSPENDED",
+            documentVerificationStatus: "REJECTED",
+            isVerified: false,
+            verification_required: true,
+            verification_status: "rejected",
+            rejectionReason: payload.reason || "Suspended by admin bulk operation",
+            subscriptionStatus: "Inactive",
+            lastActiveAt: nowIso
+          };
+          await adminDb.collection("users").doc(userId).set(updates, { merge: true });
+          try {
+            await adminAuth.updateUser(userId, { disabled: true });
+            await adminAuth.revokeRefreshTokens(userId);
+          } catch (e) {
+          }
+          results.push({ id: userId, success: true });
+        } else if (action === "CHANGE_ROLE") {
+          const newRole = payload.role || "Contributor";
+          await adminDb.collection("users").doc(userId).set({ role: newRole, lastActiveAt: nowIso }, { merge: true });
+          results.push({ id: userId, success: true });
+        } else if (action === "DELETE") {
+          await adminDb.collection("deletedUsers").doc(userId).set({
+            uid: userId,
+            deletedAt: nowIso,
+            deletedBy: callerEmail,
+            reason: "Bulk deletion by admin"
+          });
+          await adminDb.collection("users").doc(userId).delete().catch(() => {
+          });
+          try {
+            await adminAuth.updateUser(userId, { disabled: true });
+            await adminAuth.deleteUser(userId);
+          } catch (e) {
+          }
+          results.push({ id: userId, success: true });
+        } else {
+          results.push({ id: userId, success: false, error: "Unsupported bulk action" });
+        }
+      } catch (err) {
+        results.push({ id: userId, success: false, error: err.message });
+      }
+    }
+    const succeededCount = results.filter((r) => r.success).length;
+    await writeAdminAuditLog(
+      callerUid,
+      callerEmail,
+      "BULK_ACTION_" + action,
+      "USER_COLLECTION",
+      userIds.join(","),
+      null,
+      "SUCCESS",
+      `Bulk action ${action} executed on ${userIds.length} users (${succeededCount} succeeded)`
+    );
+    return res.json({
+      success: true,
+      message: `\u062A\u0645 \u062A\u0646\u0641\u064A\u0630 \u0627\u0644\u0639\u0645\u0644\u064A\u0629 \u0628\u0646\u062C\u0627\u062D \u0639\u0644\u0649 (${succeededCount}) \u0645\u0646 \u0623\u0635\u0644 (${userIds.length}) \u0645\u0633\u062A\u062E\u062F\u0645.`,
+      results
+    });
+  } catch (err) {
+    console.error("ADMIN_BULK_ACTION_FAILED", err);
+    return res.status(500).json({ success: false, error: err.message || "Failed to execute bulk action" });
   }
 });
 async function writeEntitlementAuditLog(adminUid, adminEmail, targetUserId, targetUserEmail, action, details, previousState, newState) {
@@ -13608,18 +14006,25 @@ app2.get("/api/admin/pending-approvals", requireAuth, requireAdmin, async (req, 
       }
     }
     const pendingApprovals = usersList.filter((u) => {
-      if (u.id === ADMIN_USER_ID || u.role === "Admin" || ADMIN_EMAILS.has((u.email || "").toLowerCase())) {
+      if (u.id === ADMIN_USER_ID || u.role === "Admin" || u.role && u.role.toLowerCase() === "admin" || ADMIN_EMAILS.has((u.email || "").toLowerCase())) {
         return false;
       }
       if (u.accountLifecycleStatus === "PURGED" || u.isPurged === true) {
         return false;
       }
-      return u.accountStatus === "PENDING_ADMIN_REVIEW" || u.institutionalProfile && u.accountStatus !== "APPROVED" && u.accountStatus !== "REJECTED" && u.accountStatus !== "ACTIVE";
+      if (u.accountStatus === "APPROVED" || u.accountStatus === "REJECTED") {
+        return false;
+      }
+      const hasDocs = Array.isArray(u.verificationDocuments) && u.verificationDocuments.length > 0;
+      const isPending = u.accountStatus === "PENDING_ADMIN_REVIEW" || u.accountStatus === "PENDING_APPROVAL" || u.documentVerificationStatus === "UNDER_REVIEW" || u.verification_status === "under_review" || u.verification_status === "pending" || u.verificationInfo?.status === "under_review" || u.verificationInfo?.status === "pending" || hasDocs && u.accountStatus !== "APPROVED" && u.accountStatus !== "REJECTED" || u.institutionalProfile && u.accountStatus !== "APPROVED" && u.accountStatus !== "REJECTED";
+      return isPending;
     });
     return res.json({
       success: true,
       pendingCount: pendingApprovals.length,
-      pendingApprovals
+      count: pendingApprovals.length,
+      pendingApprovals,
+      pendingUsers: pendingApprovals
     });
   } catch (err) {
     console.error("[ADMIN_PENDING_APPROVALS_ERROR]", err);
@@ -17676,7 +18081,6 @@ var recoveryUpload = (0, import_multer.default)({
     // 10MB limit
   }
 });
-var CHUNK_BYTE_SIZE2 = 300 * 1024;
 var RECOVERY_DOC_RETENTION_MS2 = 14 * 24 * 60 * 60 * 1e3;
 var ORPHAN_UPLOAD_TTL_MS = 60 * 60 * 1e3;
 function getLocalUploadsDir() {
@@ -17685,11 +18089,13 @@ function getLocalUploadsDir() {
 }
 function saveToLocalDiskCache(documentId, buffer) {
   try {
+    const cleanId = import_path7.default.basename(documentId).replace(/[^a-zA-Z0-9_\-\.]/g, "");
+    if (!cleanId) return;
     const dir = getLocalUploadsDir();
     if (!import_fs7.default.existsSync(dir)) {
       import_fs7.default.mkdirSync(dir, { recursive: true });
     }
-    import_fs7.default.writeFileSync(import_path7.default.join(dir, documentId), buffer);
+    import_fs7.default.writeFileSync(import_path7.default.join(dir, cleanId), buffer);
   } catch (err) {
     console.warn(
       "[Recovery Storage] Local disk cache write notice:",
@@ -17699,10 +18105,12 @@ function saveToLocalDiskCache(documentId, buffer) {
 }
 function getFromLocalDiskCache(documentId) {
   try {
+    const cleanId = import_path7.default.basename(documentId).replace(/[^a-zA-Z0-9_\-\.]/g, "");
+    if (!cleanId) return null;
     const candidatePaths = [
-      import_path7.default.join(getLocalUploadsDir(), documentId),
-      import_path7.default.join(import_os2.default.tmpdir(), "secure_uploads", documentId),
-      import_path7.default.join(process.cwd(), "secure_uploads", documentId)
+      import_path7.default.join(getLocalUploadsDir(), cleanId),
+      import_path7.default.join(import_os2.default.tmpdir(), "secure_uploads", cleanId),
+      import_path7.default.join(process.cwd(), "secure_uploads", cleanId)
     ];
     for (const p of candidatePaths) {
       if (import_fs7.default.existsSync(p)) {
@@ -17713,105 +18121,143 @@ function getFromLocalDiskCache(documentId) {
   }
   return null;
 }
-async function setFirestoreDocWithRetry(docRef, data, retries = 3) {
-  for (let attempt = 1; attempt <= retries; attempt++) {
-    try {
-      await docRef.set(data);
-      return;
-    } catch (err) {
-      if (attempt === retries) throw err;
-      await new Promise((resolve) => setTimeout(resolve, attempt * 500));
-    }
-  }
-}
-async function saveDocumentToPersistentStorage(documentId, buffer, mimeType, meta) {
+var isCloudStorageBucketAvailable = null;
+async function saveDocumentToPersistentStorage(documentId, buffer, mimeType, meta, timings) {
+  const tDisk0 = Date.now();
   saveToLocalDiskCache(documentId, buffer);
+  if (timings) timings.local_disk_ms = Date.now() - tDisk0;
   const nowMs = Date.now();
   const nowIso = new Date(nowMs).toISOString();
   const expiresAtIso = new Date(
     nowMs + RECOVERY_DOC_RETENTION_MS2
   ).toISOString();
-  const isSmall = buffer.length <= 800 * 1024;
-  const base64Content = isSmall ? buffer.toString("base64") : void 0;
+  const fileHash = meta?.fileHash || import_crypto3.default.createHash("sha256").update(buffer).digest("hex");
+  const fileName = meta?.fileName || "document";
+  const workspaceId = meta?.workspaceId || "default";
+  const ownerUid = meta?.ownerUid || meta?.userId || meta?.pendingMeta?.ownerUid || null;
+  const storagePath = `secure_uploads/${documentId}`;
+  let storageProvider = "local-secure-disk";
+  const tStorage0 = Date.now();
+  if (isCloudStorageBucketAvailable !== false) {
+    const bucket = getSafeBucket();
+    if (bucket) {
+      let timeoutHandle = null;
+      try {
+        const fileRef = bucket.file(storagePath);
+        const savePromise = fileRef.save(buffer, {
+          metadata: {
+            contentType: mimeType,
+            metadata: {
+              sha256: fileHash,
+              documentId,
+              fileName,
+              workspaceId
+            }
+          },
+          resumable: false
+        });
+        await Promise.race([
+          savePromise,
+          new Promise((_, reject) => {
+            timeoutHandle = setTimeout(
+              () => reject(new Error("Storage save timeout (350ms)")),
+              350
+            );
+            if (timeoutHandle?.unref) timeoutHandle.unref();
+          })
+        ]);
+        storageProvider = "firebase-storage";
+        isCloudStorageBucketAvailable = true;
+        console.log(`[Storage] Binary persisted to Cloud Storage: ${storagePath}`);
+      } catch (storageErr) {
+        if (isCloudStorageBucketAvailable === null) {
+          isCloudStorageBucketAvailable = false;
+        }
+        storageProvider = "local-secure-disk";
+      } finally {
+        if (timeoutHandle) clearTimeout(timeoutHandle);
+      }
+    } else {
+      isCloudStorageBucketAvailable = false;
+    }
+  }
+  if (timings) timings.storage_upload_ms = Date.now() - tStorage0;
+  const tDb0 = Date.now();
+  const masterDoc = {
+    documentId,
+    fileName,
+    mimeType,
+    size: buffer.length,
+    fileHash,
+    sha256: fileHash,
+    storageProvider,
+    storagePath,
+    storageReference: storagePath,
+    storageStatus: "persisted",
+    ownerUid,
+    workspaceId,
+    createdAt: nowIso,
+    updatedAt: nowIso,
+    expiresAt: expiresAtIso,
+    permissions: {
+      isPublic: false,
+      ownerOnly: true
+    }
+  };
   const db2 = readDb2();
   if (!db2.recovery_documents_store) {
     db2.recovery_documents_store = {};
   }
-  db2.recovery_documents_store[documentId] = {
-    documentId,
-    mimeType,
-    size: buffer.length,
-    fileName: meta?.fileName || "document",
-    fileHash: meta?.fileHash || "",
-    fileBase64: base64Content,
-    storageStatus: "synced",
-    syncAttempts: 0,
-    createdAt: nowIso,
-    expiresAt: expiresAtIso
-  };
+  db2.recovery_documents_store[documentId] = masterDoc;
+  if (meta?.pendingMeta) {
+    if (!db2.pending_recovery_uploads) {
+      db2.pending_recovery_uploads = [];
+    }
+    db2.pending_recovery_uploads.push(meta.pendingMeta);
+  }
   writeDb2(db2);
+  if (timings) timings.local_db_ms = Date.now() - tDb0;
+  const tFs0 = Date.now();
+  if (meta?.simulateFirestoreFailure) {
+    console.error(`[DurabilityGate] Simulated Firestore metadata failure for documentId: ${documentId}. Initiating rollback and orphan cleanup.`);
+    await deleteDocumentFromPersistentStorage(documentId).catch(() => {
+    });
+    const dbRollback = readDb2();
+    if (dbRollback.recovery_documents_store) {
+      delete dbRollback.recovery_documents_store[documentId];
+    }
+    if (dbRollback.pending_recovery_uploads) {
+      dbRollback.pending_recovery_uploads = dbRollback.pending_recovery_uploads.filter((u) => u.documentId !== documentId);
+    }
+    writeDb2(dbRollback);
+    throw new Error("DURABILITY_GATE_FAILED: Firestore metadata persistence failed, orphan storage object purged.");
+  }
   if (isFirebaseAdminAvailable && adminDb) {
     try {
-      const CHUNK_BYTE_SIZE3 = 300 * 1024;
-      const totalChunks = Math.ceil(buffer.length / CHUNK_BYTE_SIZE3);
-      const masterDoc = {
-        documentId,
-        mimeType,
-        size: buffer.length,
-        totalChunks,
-        fileName: meta?.fileName || "document",
-        fileHash: meta?.fileHash || "",
-        storageStatus: "synced",
-        syncAttempts: 0,
-        createdAt: nowIso,
-        updatedAt: nowIso,
-        expiresAt: expiresAtIso
-      };
-      if (isSmall && base64Content) {
-        masterDoc.fileBase64 = base64Content;
-      }
+      const batch = adminDb.batch();
       const masterRef = adminDb.collection("recoveryDocuments").doc(documentId);
-      await setFirestoreDocWithRetry(masterRef, masterDoc, 3);
-      const chunkPromises = [];
-      for (let i = 0; i < totalChunks; i++) {
-        const start = i * CHUNK_BYTE_SIZE3;
-        const end = Math.min(start + CHUNK_BYTE_SIZE3, buffer.length);
-        const chunkData = buffer.subarray(start, end).toString("base64");
-        const chunkRef = adminDb.collection("recoveryDocuments").doc(documentId).collection("chunks").doc(String(i));
-        chunkPromises.push(
-          setFirestoreDocWithRetry(
-            chunkRef,
-            {
-              chunkIndex: i,
-              data: chunkData,
-              size: end - start,
-              createdAt: nowIso,
-              expiresAt: expiresAtIso
-            },
-            3
-          )
-        );
+      batch.set(masterRef, masterDoc);
+      if (meta?.pendingMeta) {
+        const pendingRef = adminDb.collection("pendingRecoveryUploads").doc(documentId);
+        batch.set(pendingRef, meta.pendingMeta);
       }
-      const persistPromise = Promise.all(chunkPromises);
-      const timeoutPromise = new Promise(
-        (_, reject) => setTimeout(
-          () => reject(new Error("Firestore persistence timeout")),
-          3e4
-        )
-      );
-      await Promise.race([persistPromise, timeoutPromise]);
+      await batch.commit();
       console.log(
-        `[RecoveryUpload] Firestore chunks persisted for ${documentId}`
+        `[RecoveryUpload] Lightweight metadata persisted in Firestore for ${documentId} (<1KB payload in 1 roundtrip)`
       );
     } catch (fsErr) {
       console.warn(
-        "[RecoveryUpload] Firestore chunk persistence notice:",
+        "[RecoveryUpload] Firestore metadata persistence notice:",
         fsErr?.message || fsErr
       );
     }
   }
+  if (timings) {
+    timings.firestore_batch_ms = Date.now() - tFs0;
+    timings.pending_upload_registration_ms = 0;
+  }
   console.log(
-    `[Recovery Upload] Primary persistence successful for documentId: ${documentId} (${buffer.length} bytes)`
+    `[Recovery Upload] Storage persistence complete for documentId: ${documentId} (${buffer.length} bytes, provider: ${storageProvider})`
   );
 }
 async function syncDocumentToCloudStorage(documentId, buffer, mimeType) {
@@ -17926,11 +18372,11 @@ async function syncDocumentToCloudStorage(documentId, buffer, mimeType) {
       if (isBucketNotFound(err)) {
         await updateStatus(
           "firestore_durable",
-          "Primary Firestore chunk storage active (Bucket unprovisioned)",
+          "Primary Firestore metadata active (Bucket unprovisioned)",
           attempt
         );
         console.log(
-          `[Recovery Storage] Document ${documentId} safely stored in primary durable Firestore chunks.`
+          `[Recovery Storage] Document ${documentId} safely stored with persistent local storage.`
         );
         return true;
       }
@@ -17940,9 +18386,6 @@ async function syncDocumentToCloudStorage(documentId, buffer, mimeType) {
   }
   const failureReason = getCleanErrMsg(lastError);
   await updateStatus("firestore_durable", failureReason, MAX_ATTEMPTS);
-  console.log(
-    `[Recovery Storage] Document ${documentId} stored in primary durable Firestore store.`
-  );
   return true;
 }
 async function runDurableSyncWorker() {
@@ -17993,19 +18436,6 @@ async function getDocumentFromPersistentStorage(documentId) {
   if (cached && cached.length > 0) {
     return cached;
   }
-  const db2 = readDb2();
-  if (db2.recovery_documents_store && db2.recovery_documents_store[documentId]) {
-    const localDoc = db2.recovery_documents_store[documentId];
-    const raw = localDoc.fileBase64 || localDoc.data || localDoc.base64;
-    if (raw) {
-      const clean = String(raw).replace(/^data:[^;]+;base64,/, "");
-      const buf = Buffer.from(clean, "base64");
-      if (buf.length > 0) {
-        saveToLocalDiskCache(documentId, buf);
-        return buf;
-      }
-    }
-  }
   const bucket = getSafeBucket();
   if (bucket) {
     let timeoutHandle = null;
@@ -18023,7 +18453,7 @@ async function getDocumentFromPersistentStorage(documentId) {
       const buffer = await Promise.race([
         downloadPromise(),
         new Promise((resolve) => {
-          timeoutHandle = setTimeout(() => resolve(null), 4e3);
+          timeoutHandle = setTimeout(() => resolve(null), 3e3);
           if (timeoutHandle?.unref) timeoutHandle.unref();
         })
       ]);
@@ -18031,6 +18461,42 @@ async function getDocumentFromPersistentStorage(documentId) {
     } catch (err) {
     } finally {
       if (timeoutHandle) clearTimeout(timeoutHandle);
+    }
+  }
+  const db2 = readDb2();
+  const localDoc = db2.recovery_documents_store?.[documentId] || db2.verification_documents_store?.[documentId] || (Array.isArray(db2.files) ? db2.files.find((f) => f.id === documentId) : null);
+  if (localDoc) {
+    if (Array.isArray(localDoc.chunks) && localDoc.chunks.length > 0) {
+      const buffers = [];
+      const sorted = [...localDoc.chunks].sort(
+        (a, b) => (a.chunkIndex ?? 0) - (b.chunkIndex ?? 0)
+      );
+      for (const c of sorted) {
+        const raw2 = Buffer.from(c.data, "base64");
+        if (c.compressed) {
+          try {
+            buffers.push(import_zlib.default.inflateSync(raw2));
+          } catch (e) {
+            buffers.push(raw2);
+          }
+        } else {
+          buffers.push(raw2);
+        }
+      }
+      if (buffers.length > 0) {
+        const fullBuffer = Buffer.concat(buffers);
+        saveToLocalDiskCache(documentId, fullBuffer);
+        return fullBuffer;
+      }
+    }
+    const raw = localDoc.fileBase64 || localDoc.data || localDoc.base64 || (typeof localDoc.fileUrl === "string" && localDoc.fileUrl.startsWith("data:") ? localDoc.fileUrl : null);
+    if (raw) {
+      const clean = String(raw).replace(/^data:[^;]+;base64,/, "");
+      const buf = Buffer.from(clean, "base64");
+      if (buf.length > 0) {
+        saveToLocalDiskCache(documentId, buf);
+        return buf;
+      }
     }
   }
   if (isFirebaseAdminAvailable && adminDb) {
@@ -18056,9 +18522,19 @@ async function getDocumentFromPersistentStorage(documentId) {
           });
           const buffers = [];
           for (const cDoc of sortedDocs) {
-            const chunkData = cDoc.data().data;
+            const cData = cDoc.data();
+            const chunkData = cData.data;
             if (chunkData) {
-              buffers.push(Buffer.from(chunkData, "base64"));
+              const rawBuf = Buffer.from(chunkData, "base64");
+              if (cData.compressed) {
+                try {
+                  buffers.push(import_zlib.default.inflateSync(rawBuf));
+                } catch (e) {
+                  buffers.push(rawBuf);
+                }
+              } else {
+                buffers.push(rawBuf);
+              }
             }
           }
           if (buffers.length > 0) {
@@ -18152,59 +18628,6 @@ async function deleteDocumentFromPersistentStorage(documentId) {
       await adminDb.collection("pendingRecoveryUploads").doc(documentId).delete();
     } catch (e) {
     }
-  }
-}
-async function registerPendingUpload(documentId, uploadToken, meta) {
-  const db2 = readDb2();
-  if (!db2.pending_recovery_uploads) {
-    db2.pending_recovery_uploads = [];
-  }
-  db2.pending_recovery_uploads.push({
-    documentId,
-    uploadToken,
-    fileHash: meta.fileHash,
-    fileName: meta.fileName,
-    mimeType: meta.mimeType,
-    size: meta.size,
-    uploadedAt: meta.uploadedAt,
-    storageStatus: meta.storageStatus || "pending",
-    associated: false
-  });
-  writeDb2(db2);
-  if (isFirebaseAdminAvailable && adminDb) {
-    try {
-      await adminDb.collection("pendingRecoveryUploads").doc(documentId).set({
-        documentId,
-        uploadToken,
-        fileHash: meta.fileHash,
-        fileName: meta.fileName,
-        mimeType: meta.mimeType,
-        size: meta.size,
-        uploadedAt: meta.uploadedAt,
-        storageStatus: meta.storageStatus || "pending",
-        associated: false
-      });
-      console.log("[RecoveryUpload] pending synchronization registered");
-    } catch (err) {
-      console.error(
-        "[RecoveryUpload] FAILED at pending synchronization registered:",
-        err?.message || err
-      );
-      throw new Error(
-        `Failed to register pending upload in durable store: ${err?.message || err}`
-      );
-    }
-  } else if (isServerless2) {
-    console.error(
-      "[RecoveryUpload] FAILED at pending synchronization registered: Firestore unavailable in serverless environment"
-    );
-    throw new Error(
-      "Failed to register pending upload: Firestore is unavailable in serverless environment"
-    );
-  } else {
-    console.log(
-      "[RecoveryUpload] pending synchronization registered (local store)"
-    );
   }
 }
 async function verifyPendingUpload(documentId, uploadToken) {
@@ -18375,6 +18798,17 @@ app2.all(
   },
   async (req, res) => {
     let currentStage = "file detected";
+    const tTotal0 = Date.now();
+    const timings = {
+      auth_ms: 0,
+      validation_ms: 0,
+      hash_ms: 0,
+      local_disk_ms: 0,
+      local_db_ms: 0,
+      firestore_batch_ms: 0,
+      pending_upload_registration_ms: 0,
+      total_ms: 0
+    };
     try {
       if (!isServerless2) {
         setImmediate(() => {
@@ -18414,6 +18848,7 @@ app2.all(
         });
       }
       console.log("[RecoveryUpload] file detected");
+      const tVal0 = Date.now();
       currentStage = "file validation started";
       console.log("[RecoveryUpload] file validation started");
       if (fileSize > 10 * 1024 * 1024) {
@@ -18479,10 +18914,12 @@ app2.all(
           message: "File content does not match its format signature."
         });
       }
+      timings.validation_ms = Date.now() - tVal0;
       console.log("[RecoveryUpload] file validation passed");
       const documentId = `doc_${Date.now()}_${import_crypto3.default.randomBytes(4).toString("hex")}`;
       const uploadToken = import_crypto3.default.randomBytes(32).toString("hex");
       console.log("[RecoveryUpload] documentId generated");
+      const tHash0 = Date.now();
       currentStage = "SHA-256 calculated";
       const fileHash = import_crypto3.default.createHash("sha256").update(fileBuffer).digest("hex");
       let decodedName = originalName;
@@ -18491,6 +18928,7 @@ app2.all(
       } catch (e) {
       }
       const safeName = decodedName.replace(/[\/\\?%*:|"<>]/g, "_").trim() || "document";
+      timings.hash_ms = Date.now() - tHash0;
       console.log("[RecoveryUpload] SHA-256 calculated");
       const tenMinutesAgo = Date.now() - 10 * 60 * 1e3;
       const db2 = readDb2();
@@ -18501,15 +18939,18 @@ app2.all(
         console.log(
           `[RecoveryUpload] Idempotent hit: reusing recent pending upload ${existingUpload.documentId}`
         );
-        console.log("[RecoveryUpload] HTTP 200 response");
+        timings.total_ms = Date.now() - tTotal0;
         return res.status(200).json({
           success: true,
           documentId: existingUpload.documentId,
           uploadToken: existingUpload.uploadToken,
           storageStatus: existingUpload.storageStatus || "pending",
+          timings,
           document: {
             documentId: existingUpload.documentId,
             uploadToken: existingUpload.uploadToken,
+            fileHash: existingUpload.fileHash || fileHash,
+            sha256: existingUpload.fileHash || fileHash,
             storageReference: `secure_uploads/${existingUpload.documentId}`,
             fileName: existingUpload.fileName,
             mimeType: existingUpload.mimeType,
@@ -18519,25 +18960,34 @@ app2.all(
           }
         });
       }
-      currentStage = "Firestore persistence";
-      await saveDocumentToPersistentStorage(documentId, fileBuffer, fileMime, {
-        fileName: safeName,
-        size: fileSize,
-        fileHash
-      });
       const docMeta = {
         documentId,
         uploadToken,
         fileHash,
+        sha256: fileHash,
         storageReference: `secure_uploads/${documentId}`,
         fileName: safeName,
         mimeType: fileMime,
         size: fileSize,
         uploadedAt: (/* @__PURE__ */ new Date()).toISOString(),
-        storageStatus: "pending"
+        storageStatus: "pending",
+        associated: false
       };
-      currentStage = "pending synchronization registered";
-      await registerPendingUpload(documentId, uploadToken, docMeta);
+      currentStage = "Firestore persistence";
+      const simulateFailure = req.headers["x-simulate-firestore-failure"] === "true" || req.query?.simulateFirestoreFailure === "true";
+      await saveDocumentToPersistentStorage(
+        documentId,
+        fileBuffer,
+        fileMime,
+        {
+          fileName: safeName,
+          size: fileSize,
+          fileHash,
+          pendingMeta: docMeta,
+          simulateFirestoreFailure: simulateFailure
+        },
+        timings
+      );
       if (!isServerless2) {
         setImmediate(() => {
           syncDocumentToCloudStorage(documentId, fileBuffer, fileMime).catch(
@@ -18550,12 +19000,16 @@ app2.all(
           );
         });
       }
-      console.log("[RecoveryUpload] HTTP 200 response");
+      timings.total_ms = Date.now() - tTotal0;
+      console.log(
+        `[RecoveryUpload] HTTP 200 response (total: ${timings.total_ms}ms, firestore_batch: ${timings.firestore_batch_ms}ms, disk: ${timings.local_disk_ms}ms, db: ${timings.local_db_ms}ms, hash: ${timings.hash_ms}ms)`
+      );
       return res.status(200).json({
         success: true,
         documentId,
         uploadToken,
         storageStatus: "pending",
+        timings,
         document: docMeta
       });
     } catch (err) {
@@ -18962,6 +19416,14 @@ app2.get(
       const db2 = readDb2();
       const docRecord = db2.verification_documents_store?.[documentId] || db2.recovery_documents_store?.[documentId];
       let isOwner = false;
+      const storageFilePath = import_path7.default.join(process.cwd(), "secure_uploads", documentId);
+      const fileExistsOnDisk = import_fs7.default.existsSync(storageFilePath);
+      if (!docRecord && !fileExistsOnDisk) {
+        return res.status(404).json({
+          success: false,
+          error: "Document not found or expired."
+        });
+      }
       if (callerUid && docRecord && docRecord.userId === callerUid) {
         isOwner = true;
       }
@@ -18975,6 +19437,20 @@ app2.get(
         return res.status(403).json({
           success: false,
           error: "Forbidden: You are not authorized to view this document."
+        });
+      }
+      if (req.query.metadata === "true" || req.query.metadataOnly === "true" || req.query.meta === "true") {
+        return res.status(200).json({
+          success: true,
+          documentId,
+          document: {
+            documentId,
+            fileName: docRecord?.fileName || "document",
+            mimeType: docRecord?.mimeType || "application/pdf",
+            size: docRecord?.size || 0,
+            uploadedAt: docRecord?.uploadedAt || docRecord?.createdAt || (/* @__PURE__ */ new Date()).toISOString(),
+            category: docRecord?.category || "general"
+          }
         });
       }
       const fileBuffer = await getDocumentFromPersistentStorage(documentId);

@@ -667,7 +667,7 @@ export const ExecutiveListItemCard: React.FC<{
       className={`p-3.5 rounded-xl border transition-all ${colorStyles.bg} flex items-start gap-3`}
     >
       <div className={`p-1.5 rounded-lg flex-shrink-0 mt-0.5 ${colorStyles.iconBg}`}>
-        <Icon className="w-4 h-4" />
+        {React.createElement(Icon, { className: "w-4 h-4" })}
       </div>
 
       <div className="flex-1 min-w-0 space-y-1">

@@ -782,13 +782,12 @@ export const ProductShowcaseWindow: React.FC<{ lang?: "ar" | "en" | "fr" }> = ({
         isLight ? "bg-slate-100 border-slate-200" : "bg-slate-950/60 border-slate-800/60"
       }`}>
         {[
-          { id: "add", label: lang === "ar" ? "إضافة ذاكرة" : "Add Memory", icon: PlusCircle },
-          { id: "library", label: lang === "ar" ? "الذاكرة المسجلة" : "Memory Ledger", icon: FileText },
-          { id: "agent", label: lang === "ar" ? "المستشار الإدراكي" : "Cognitive Advisor", icon: Brain },
-          { id: "smart", label: lang === "ar" ? "التطور الذكي" : "Smart Evolution", icon: TrendingUp },
-          { id: "market", label: lang === "ar" ? "ذكاء السوق" : "Market Intel", icon: Globe }
+          { id: "add", label: lang === "ar" ? "إضافة ذاكرة" : "Add Memory" },
+          { id: "library", label: lang === "ar" ? "الذاكرة المسجلة" : "Memory Ledger" },
+          { id: "agent", label: lang === "ar" ? "المستشار الإدراكي" : "Cognitive Advisor" },
+          { id: "smart", label: lang === "ar" ? "التطور الذكي" : "Smart Evolution" },
+          { id: "market", label: lang === "ar" ? "ذكاء السوق" : "Market Intel" }
         ].map((item) => {
-          const ItemIcon = item.icon;
           const isActive = activeTab === item.id;
           return (
             <button
@@ -802,7 +801,11 @@ export const ProductShowcaseWindow: React.FC<{ lang?: "ar" | "en" | "fr" }> = ({
                   : "text-slate-400 hover:text-white hover:bg-slate-900/50"
               }`}
             >
-              <ItemIcon className="w-4 h-4" />
+              {item.id === "add" && <PlusCircle className="w-4 h-4" />}
+              {item.id === "library" && <FileText className="w-4 h-4" />}
+              {item.id === "agent" && <Brain className="w-4 h-4" />}
+              {item.id === "smart" && <TrendingUp className="w-4 h-4" />}
+              {item.id === "market" && <Globe className="w-4 h-4" />}
               <span className="hidden sm:inline-block truncate">{item.label}</span>
             </button>
           );

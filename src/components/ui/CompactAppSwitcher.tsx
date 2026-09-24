@@ -208,7 +208,6 @@ export const CompactAppSwitcher: React.FC<CompactAppSwitcherProps> = ({
           >
             <div className="space-y-0.5 pt-1">
               {APPS.map((item) => {
-                const ItemIcon = item.icon;
                 const isSelected = activeTab === item.id;
                 return (
                   <button
@@ -224,7 +223,9 @@ export const CompactAppSwitcher: React.FC<CompactAppSwitcherProps> = ({
                     }`}
                   >
                     <div className="flex items-center gap-2.5 min-w-0">
-                      <ItemIcon className={`w-4 h-4 shrink-0 ${isSelected ? "text-white" : "text-[#0075DE]"}`} />
+                      {item.icon && React.createElement(item.icon, {
+                        className: `w-4 h-4 shrink-0 ${isSelected ? "text-white" : "text-[#0075DE]"}`
+                      })}
                       <span className="truncate font-semibold">{item.label}</span>
                     </div>
                     {isSelected && <Check className="w-3.5 h-3.5 shrink-0 ml-2" />}
