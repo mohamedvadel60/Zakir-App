@@ -818,11 +818,15 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
         false
       );
 
+      const safeFileUrl = uploadedFile.fileUrl && !uploadedFile.fileUrl.startsWith("data:")
+        ? uploadedFile.fileUrl
+        : `/api/auth/verification-document/${uploadedFile.id}`;
+
       const newDoc: AccountVerificationDoc = {
         id: uploadedFile.id,
         docType: "national_id",
         fileName: file.name,
-        fileUrl: uploadedFile.fileUrl,
+        fileUrl: safeFileUrl,
         uploadDate: new Date().toISOString()
       };
 

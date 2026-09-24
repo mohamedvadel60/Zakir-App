@@ -1852,10 +1852,27 @@ export async function uploadFirebaseUserFile(
     return userFile;
   }
 
-  // 1. Save in top-level Firestore collection: /files/{fileId}
+  // Firestore Metadata (Strictly Metadata ONLY: NEVER store Base64 Data URLs in Firestore!)
+  const firestoreDoc: Record<string, any> = {
+    id: fileId,
+    fileName: file.name,
+    fileSize: file.size,
+    mimeType: file.type || "application/octet-stream",
+    uploadDate: new Date().toISOString(),
+    userId: userId,
+    category: category,
+    description: description,
+    storagePath: storagePath,
+    isEncrypted: isEncrypted,
+    storageStatus: downloadUrl && !downloadUrl.startsWith("data:") ? "persisted_cloud" : "persisted_local",
+    // Only store true HTTP/HTTPS download URLs in Firestore, NEVER binary Base64 Data URLs!
+    fileUrl: downloadUrl && !downloadUrl.startsWith("data:") ? downloadUrl : "",
+  };
+
+  // 1. Save metadata in top-level Firestore collection: /files/{fileId}
   try {
     const topFileDocRef = doc(db, "files", fileId);
-    await setDoc(topFileDocRef, userFile);
+    await setDoc(topFileDocRef, firestoreDoc);
   } catch (topErr) {
     console.warn("Firestore top-level /files save error:", topErr);
     if (isOfflineOrQuotaError(topErr)) {
@@ -1867,7 +1884,7 @@ export async function uploadFirebaseUserFile(
   // 2. Save metadata in user's private Firestore subcollection: /users/{userId}/files/{fileId}
   const fileDocRef = doc(db, "users", userId, "files", fileId);
   try {
-    await setDoc(fileDocRef, userFile);
+    await setDoc(fileDocRef, firestoreDoc);
   } catch (error) {
     if (isOfflineOrQuotaError(error)) {
       isFirestoreOffline = true;
@@ -3018,14 +3035,9 @@ export async function uploadRecoveryDocumentApi(
     return { success: false, error: "حجم الملف يتجاوز الحد المسموح 10 ميغابايت." };
   }
 
-  const candidateEndpoints = Array.from(new Set([
-    getAuthApiUrl("/api/auth/recovery-request/upload"),
-    getAuthApiUrl("/auth/recovery-request/upload"),
-    getAuthApiUrl("/api/recovery-request/upload"),
-    "/api/auth/recovery-request/upload",
-    "/auth/recovery-request/upload",
-    "/api/recovery-request/upload"
-  ].filter(Boolean)));
+  const targetEndpoint = getAuthApiUrl("/api/auth/recovery-request/upload") || "/api/auth/recovery-request/upload";
+  const fallbackEndpoint = "/api/auth/recovery-request/upload";
+  const candidateEndpoints = Array.from(new Set([targetEndpoint, fallbackEndpoint].filter(Boolean)));
 
   for (const endpoint of candidateEndpoints) {
     try {

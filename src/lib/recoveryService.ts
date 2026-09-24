@@ -134,79 +134,75 @@ export async function saveDocumentToPersistentStorage(
   documentId: string,
   buffer: Buffer,
   mimeType: string,
-  meta?: { fileName?: string; size?: number; fileHash?: string }
+  meta?: { fileName?: string; size?: number; fileHash?: string; workspaceId?: string; ownerUid?: string }
 ): Promise<void> {
+  // 1. Binary Storage: Persist binary in secure container storage
   saveToLocalDiskCache(documentId, buffer);
 
-  const totalChunks = Math.ceil(buffer.length / CHUNK_BYTE_SIZE);
   const nowMs = Date.now();
   const nowIso = new Date(nowMs).toISOString();
   const expiresAtIso = new Date(nowMs + RECOVERY_DOC_RETENTION_MS).toISOString();
+  const fileHash = meta?.fileHash || crypto.createHash("sha256").update(buffer).digest("hex");
+  const fileName = meta?.fileName || "document";
+  const storagePath = `secure_uploads/${documentId}`;
+  let storageProvider = "local-secure-disk";
 
-  // Save to DB store immediately
+  // 2. Binary Storage: Persist to Cloud Storage bucket if available
+  const bucket = getSafeBucket();
+  if (bucket) {
+    try {
+      const fileRef = bucket.file(storagePath);
+      await fileRef.save(buffer, {
+        metadata: {
+          contentType: mimeType,
+          metadata: {
+            sha256: fileHash,
+            documentId,
+            fileName,
+          }
+        },
+        resumable: false,
+      });
+      storageProvider = "firebase-storage";
+    } catch (e) {
+      // Cloud storage bucket save failed or billing closed; fallback to local container storage
+    }
+  }
+
+  // 3. Metadata Persistence: Local DB store (NO Base64 binary!)
+  const masterDoc = {
+    documentId,
+    mimeType,
+    size: buffer.length,
+    fileName,
+    fileHash,
+    sha256: fileHash,
+    storagePath,
+    storageReference: storagePath,
+    storageProvider,
+    storageStatus: "persisted",
+    syncAttempts: 0,
+    ownerUid: meta?.ownerUid || null,
+    workspaceId: meta?.workspaceId || "default",
+    createdAt: nowIso,
+    updatedAt: nowIso,
+    expiresAt: expiresAtIso
+  };
+
   const db = readDb();
   if (!db.recovery_documents_store) {
     db.recovery_documents_store = {};
   }
-  db.recovery_documents_store[documentId] = {
-    documentId,
-    mimeType,
-    size: buffer.length,
-    fileName: meta?.fileName || "document",
-    fileHash: meta?.fileHash || "",
-    storageStatus: "pending",
-    syncAttempts: 0,
-    createdAt: nowIso,
-    expiresAt: expiresAtIso
-  };
+  db.recovery_documents_store[documentId] = masterDoc;
   writeDb(db);
 
+  // 4. Metadata Persistence: Firestore (Single lightweight document ONLY, NO chunks, NO Base64)
   if (isFirebaseAdminAvailable && adminDb) {
     try {
-      const persistPromise = (async () => {
-        const masterRef = adminDb.collection("recoveryDocuments").doc(documentId);
-        await setFirestoreDocWithRetry(masterRef, {
-          documentId,
-          mimeType,
-          size: buffer.length,
-          totalChunks,
-          fileName: meta?.fileName || "document",
-          fileHash: meta?.fileHash || "",
-          storageStatus: "pending",
-          syncAttempts: 0,
-          createdAt: nowIso,
-          updatedAt: nowIso,
-          expiresAt: expiresAtIso
-        }, 3);
-
-        const chunkPromises: Promise<any>[] = [];
-        for (let i = 0; i < totalChunks; i++) {
-          const start = i * CHUNK_BYTE_SIZE;
-          const end = Math.min(start + CHUNK_BYTE_SIZE, buffer.length);
-          const chunkData = buffer.subarray(start, end).toString("base64");
-          const chunkRef = adminDb
-            .collection("recoveryDocuments")
-            .doc(documentId)
-            .collection("chunks")
-            .doc(String(i));
-
-          chunkPromises.push(
-            setFirestoreDocWithRetry(chunkRef, {
-              chunkIndex: i,
-              data: chunkData,
-              size: end - start,
-              createdAt: nowIso,
-              expiresAt: expiresAtIso
-            }, 3)
-          );
-        }
-        await Promise.all(chunkPromises);
-      })();
-
-      const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error("Firestore persistence timeout")), 30000));
-      await Promise.race([persistPromise, timeoutPromise]);
+      const masterRef = adminDb.collection("recoveryDocuments").doc(documentId);
+      await setFirestoreDocWithRetry(masterRef, masterDoc, 2);
     } catch (fsErr: any) {
-      console.warn("[RecoveryService] Firestore chunk persistence notice (cached in db_store):", fsErr?.message || fsErr);
+      console.warn("[RecoveryService] Firestore metadata persistence notice (cached in db_store):", fsErr?.message || fsErr);
     }
   }
 }

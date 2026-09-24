@@ -149,7 +149,7 @@ export const FileManager: React.FC<FileManagerProps> = ({
       
       let localDataUrl = "";
       try {
-        localDataUrl = await fileToBase64(selectedFile);
+        localDataUrl = URL.createObjectURL(selectedFile);
       } catch (e) {
         localDataUrl = "";
       }

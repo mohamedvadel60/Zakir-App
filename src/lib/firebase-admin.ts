@@ -125,10 +125,10 @@ function resolveFirebaseCredentials() {
 const creds = resolveFirebaseCredentials();
 export const isFirebaseAdminConfigured = creds.isConfigured;
 
-let rawApp: any = null;
-let rawFirestore: any = null;
-let rawAuth: any = null;
-let rawStorage: any = null;
+export let rawApp: any = null;
+export let rawFirestore: any = null;
+export let rawAuth: any = null;
+export let rawStorage: any = null;
 
 if (isFirebaseAdminConfigured) {
   try {
@@ -532,7 +532,51 @@ function wrapQuerySnapshot(snap: any, colName: string): any {
   };
 }
 
-function withTimeout<T>(promise: Promise<T>, timeoutMs: number = 8000): Promise<T> {
+let isFirestoreQuotaExceeded: boolean = false;
+let isFirestoreReachable: boolean = true;
+let consecutiveFirestoreFailures = 0;
+let lastFirestoreFailureTime = 0;
+
+export function markFirestoreQuotaExceeded() {
+  isFirestoreQuotaExceeded = true;
+  isFirestoreReachable = false;
+  lastFirestoreFailureTime = Date.now();
+  console.info("[Firestore Resiliency] Daily write quota reached on project. Activating seamless local persistence fallback.");
+}
+
+export function markFirestoreFailure(err?: any) {
+  if (err && isQuotaOrTimeoutError(err)) {
+    markFirestoreQuotaExceeded();
+    return;
+  }
+  consecutiveFirestoreFailures++;
+  lastFirestoreFailureTime = Date.now();
+  if (consecutiveFirestoreFailures >= 2) {
+    isFirestoreReachable = false;
+  }
+}
+
+export function markFirestoreSuccess() {
+  consecutiveFirestoreFailures = 0;
+  isFirestoreReachable = true;
+  isFirestoreQuotaExceeded = false;
+}
+
+export function isFirestoreActive(): boolean {
+  if (isFirestoreQuotaExceeded) {
+    if (Date.now() - lastFirestoreFailureTime < 15 * 60 * 1000) {
+      return false;
+    }
+    isFirestoreQuotaExceeded = false;
+  }
+  if (!isFirestoreReachable && Date.now() - lastFirestoreFailureTime > 30000) {
+    isFirestoreReachable = true;
+    consecutiveFirestoreFailures = 0;
+  }
+  return isFirestoreReachable;
+}
+
+function withTimeout<T>(promise: Promise<T>, timeoutMs: number = 5000): Promise<T> {
   let timer: any;
   const timeoutPromise = new Promise<T>((_, reject) => {
     timer = setTimeout(() => reject(new Error(`Operation timed out after ${timeoutMs}ms`)), timeoutMs);
@@ -545,11 +589,69 @@ function isQuotaOrTimeoutError(err: any): boolean {
   return (
     msg.includes("resource_exhausted") ||
     msg.includes("quota limit exceeded") ||
+    msg.includes("quota exceeded") ||
     msg.includes("timed out") ||
     msg.includes("timeout") ||
+    msg.includes("billing account") ||
+    msg.includes("state closed") ||
+    msg.includes("accountdisabled") ||
     err?.code === 8 ||
-    err?.code === 4
+    err?.code === 4 ||
+    err?.code === 403 ||
+    err?.code === 16
   );
+}
+
+export function getFirestoreReachabilityState() {
+  return {
+    isFirestoreReachable,
+    isFirestoreQuotaExceeded,
+    isFirestoreActive: isFirestoreActive(),
+    consecutiveFirestoreFailures,
+  };
+}
+
+// Background reachability probe to immediately detect cloud availability without blocking user requests
+export async function probeCloudAvailability(): Promise<{
+  durationMs: number;
+  reachable: boolean;
+  quotaExceeded: boolean;
+  status: string;
+}> {
+  const t0 = Date.now();
+  try {
+    const bucket = getSafeBucket();
+    if (!bucket) {
+      return {
+        durationMs: Date.now() - t0,
+        reachable: isFirestoreReachable,
+        quotaExceeded: isFirestoreQuotaExceeded,
+        status: "no_bucket"
+      };
+    }
+    const [exists] = await bucket.file(".probe").exists();
+    return {
+      durationMs: Date.now() - t0,
+      reachable: isFirestoreReachable,
+      quotaExceeded: isFirestoreQuotaExceeded,
+      status: exists ? "exists" : "not_found"
+    };
+  } catch (err: any) {
+    if (isQuotaOrTimeoutError(err)) {
+      markFirestoreQuotaExceeded();
+    }
+    return {
+      durationMs: Date.now() - t0,
+      reachable: isFirestoreReachable,
+      quotaExceeded: isFirestoreQuotaExceeded,
+      status: "quota_or_disabled"
+    };
+  }
+}
+
+// Trigger probe asynchronously
+if (isFirebaseAdminAvailable) {
+  setTimeout(probeCloudAvailability, 50);
 }
 
 function createSafeQuery(
@@ -606,13 +708,15 @@ function createSafeQuery(
       }
     },
     async get() {
-      if (realQuery) {
+      if (realQuery && isFirestoreActive()) {
         try {
           const snap: any = await withTimeout(realQuery.get(), 8000);
+          markFirestoreSuccess();
           return wrapQuerySnapshot(snap, colName);
         } catch (err: any) {
+          markFirestoreFailure(err);
           if (isQuotaOrTimeoutError(err)) {
-            console.warn(`[Firestore Quota/Timeout] Daily quota or timeout reached for query on ${colName}, seamlessly using local DB fallback.`);
+            console.info(`[Firestore Resiliency] Daily quota or timeout reached for query on ${colName}, seamlessly using local DB fallback.`);
           } else {
             console.warn(`Firestore get() failed for query on ${colName}, falling back to mock:`, err.message);
           }
@@ -646,9 +750,10 @@ function createSafeCollection(realCol: any, colName: string, subPath?: string): 
           }
         },
         async get() {
-          if (realDoc) {
+          if (realDoc && isFirestoreActive()) {
             try {
               const snap: any = await withTimeout(realDoc.get(), 8000);
+              markFirestoreSuccess();
               return {
                 get id() { return snap.id; },
                 get exists() { return snap.exists; },
@@ -673,8 +778,9 @@ function createSafeCollection(realCol: any, colName: string, subPath?: string): 
                 }
               };
             } catch (err: any) {
+              markFirestoreFailure(err);
               if (isQuotaOrTimeoutError(err)) {
-                console.warn(`[Firestore Quota/Timeout] Daily quota or timeout reached for ${colName}/${docId}, seamlessly using local DB fallback.`);
+                console.info(`[Firestore Resiliency] Daily quota or timeout reached for ${colName}/${docId}, seamlessly using local DB fallback.`);
               } else {
                 console.warn(`Firestore get() failed for ${colName}/${docId}, falling back to mock:`, err.message);
               }
@@ -683,12 +789,15 @@ function createSafeCollection(realCol: any, colName: string, subPath?: string): 
           return new MockDocRef(colName, docId, subPath).get();
         },
         async set(data: any, options?: any) {
-          if (realDoc) {
+          if (realDoc && isFirestoreActive()) {
             try {
-              return await withTimeout(realDoc.set(data, options), 8000);
+              const res = await withTimeout(realDoc.set(data, options), 5000);
+              markFirestoreSuccess();
+              return res;
             } catch (err: any) {
+              markFirestoreFailure(err);
               if (isQuotaOrTimeoutError(err)) {
-                console.warn(`[Firestore Quota/Timeout] Daily quota or timeout reached for set ${colName}/${docId}, seamlessly using local DB fallback.`);
+                console.info(`[Firestore Resiliency] Daily quota or timeout reached for set ${colName}/${docId}, seamlessly using local DB fallback.`);
               } else {
                 console.warn(`Firestore set() failed for ${colName}/${docId}, falling back to mock:`, err.message);
               }
@@ -697,12 +806,15 @@ function createSafeCollection(realCol: any, colName: string, subPath?: string): 
           return new MockDocRef(colName, docId, subPath).set(data, options);
         },
         async update(data: any) {
-          if (realDoc) {
+          if (realDoc && isFirestoreActive()) {
             try {
-              return await withTimeout(realDoc.update(data), 8000);
+              const res = await withTimeout(realDoc.update(data), 5000);
+              markFirestoreSuccess();
+              return res;
             } catch (err: any) {
+              markFirestoreFailure(err);
               if (isQuotaOrTimeoutError(err)) {
-                console.warn(`[Firestore Quota/Timeout] Daily quota or timeout reached for update ${colName}/${docId}, seamlessly using local DB fallback.`);
+                console.info(`[Firestore Resiliency] Daily quota or timeout reached for update ${colName}/${docId}, seamlessly using local DB fallback.`);
               } else {
                 console.warn(`Firestore update() failed for ${colName}/${docId}, falling back to mock:`, err.message);
               }
@@ -711,12 +823,15 @@ function createSafeCollection(realCol: any, colName: string, subPath?: string): 
           return new MockDocRef(colName, docId, subPath).update(data);
         },
         async delete() {
-          if (realDoc) {
+          if (realDoc && isFirestoreActive()) {
             try {
-              return await withTimeout(realDoc.delete(), 8000);
+              const res = await withTimeout(realDoc.delete(), 5000);
+              markFirestoreSuccess();
+              return res;
             } catch (err: any) {
+              markFirestoreFailure(err);
               if (isQuotaOrTimeoutError(err)) {
-                console.warn(`[Firestore Quota/Timeout] Daily quota or timeout reached for delete ${colName}/${docId}, seamlessly using local DB fallback.`);
+                console.info(`[Firestore Resiliency] Daily quota or timeout reached for delete ${colName}/${docId}, seamlessly using local DB fallback.`);
               } else {
                 console.warn(`Firestore delete() failed for ${colName}/${docId}, falling back to mock:`, err.message);
               }
@@ -751,13 +866,15 @@ function createSafeCollection(realCol: any, colName: string, subPath?: string): 
       }
     },
     async get() {
-      if (realCol) {
+      if (realCol && isFirestoreActive()) {
         try {
-          const snap = await withTimeout(realCol.get(), 8000);
+          const snap = await withTimeout(realCol.get(), 5000);
+          markFirestoreSuccess();
           return wrapQuerySnapshot(snap, colName);
         } catch (err: any) {
+          markFirestoreFailure(err);
           if (isQuotaOrTimeoutError(err)) {
-            console.warn(`[Firestore Quota/Timeout] Daily quota or timeout reached for collection ${colName}, seamlessly using local DB fallback.`);
+            console.info(`[Firestore Resiliency] Daily quota or timeout reached for collection ${colName}, seamlessly using local DB fallback.`);
           } else {
             console.warn(`Firestore get() failed for collection ${colName}, falling back to mock:`, err.message);
           }
@@ -783,7 +900,7 @@ function createSafeAdminDb(realDb: any): any {
     },
 
     batch(): any {
-      if (isFirebaseAdminAvailable && realDb && typeof realDb.batch === "function") {
+      if (isFirebaseAdminAvailable && realDb && typeof realDb.batch === "function" && isFirestoreActive()) {
         try {
           const realBatch = realDb.batch();
           const fallbackOps: Array<() => Promise<any>> = [];
@@ -823,9 +940,16 @@ function createSafeAdminDb(realDb: any): any {
             },
             async commit() {
               try {
-                return await realBatch.commit();
+                const res = await withTimeout(realBatch.commit(), 5000);
+                markFirestoreSuccess();
+                return res;
               } catch (err: any) {
-                console.warn("Firestore batch commit failed, running fallback ops:", err.message);
+                markFirestoreFailure(err);
+                if (isQuotaOrTimeoutError(err)) {
+                  console.info("[Firestore Resiliency] Batch commit quota or timeout handled via resilient local fallback.");
+                } else {
+                  console.warn("Firestore batch commit warning:", err?.message || err);
+                }
                 for (const op of fallbackOps) {
                   try { await op(); } catch (e) {}
                 }

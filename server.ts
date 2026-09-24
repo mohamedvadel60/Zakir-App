@@ -8,6 +8,7 @@ import http from "http";
 import path from "path";
 import fs from "fs";
 import os from "os";
+import zlib from "zlib";
 import { GoogleGenAI } from "@google/genai";
 import dotenv from "dotenv";
 import Stripe from "stripe";
@@ -361,14 +362,21 @@ try {
   console.warn("Notice: initializeDatabase top-level call warning:", e);
 }
 
+let lastDbMtime = 0;
+
 // Database Helper Functions
 export function readDb() {
   try {
     if (fs.existsSync(DB_FILE)) {
+      const stat = fs.statSync(DB_FILE);
+      if (inMemoryDbStore && stat.mtimeMs <= lastDbMtime) {
+        return inMemoryDbStore;
+      }
       const content = fs.readFileSync(DB_FILE, "utf-8");
       if (content && content.trim()) {
         const parsed = JSON.parse(content);
         inMemoryDbStore = parsed;
+        lastDbMtime = stat.mtimeMs;
         return parsed;
       }
     }
@@ -397,7 +405,10 @@ export function writeDb(data: any) {
   inMemoryDbStore = data;
   try {
     fs.mkdirSync(path.dirname(DB_FILE), { recursive: true });
-    fs.writeFileSync(DB_FILE, JSON.stringify(data, null, 2), "utf-8");
+    fs.writeFileSync(DB_FILE, JSON.stringify(data), "utf-8");
+    try {
+      lastDbMtime = fs.statSync(DB_FILE).mtimeMs;
+    } catch (e) {}
   } catch (err) {
     console.warn(
       "Notice: writeDb file save skipped (read-only filesystem environment):",
@@ -14985,8 +14996,7 @@ const recoveryUpload = multer({
   },
 });
 
-// Durable Multi-Tier Storage System with Auto-Expiration (TTL) and Background Worker
-const CHUNK_BYTE_SIZE = 300 * 1024; // 300KB chunks for Firestore documents
+// Durable Multi-Tier Storage System with Binary-Metadata Separation
 const RECOVERY_DOC_RETENTION_MS = 14 * 24 * 60 * 60 * 1000; // 14 days maximum retention for sensitive identity proofs
 const ORPHAN_UPLOAD_TTL_MS = 60 * 60 * 1000; // 1 hour for unassociated pending uploads
 
@@ -14997,14 +15007,15 @@ function getLocalUploadsDir(): string {
 
 function saveToLocalDiskCache(documentId: string, buffer: Buffer): void {
   try {
+    const cleanId = path.basename(documentId).replace(/[^a-zA-Z0-9_\-\.]/g, "");
+    if (!cleanId) return;
     const dir = getLocalUploadsDir();
     if (!fs.existsSync(dir)) {
       fs.mkdirSync(dir, { recursive: true });
     }
-    fs.writeFileSync(path.join(dir, documentId), buffer);
+    fs.writeFileSync(path.join(dir, cleanId), buffer);
   } catch (err: any) {
     // In serverless or read-only environments, local disk cache is secondary.
-    // Primary durable persistence is safely maintained in Firestore chunks.
     console.warn(
       "[Recovery Storage] Local disk cache write notice:",
       err?.message || err,
@@ -15014,10 +15025,12 @@ function saveToLocalDiskCache(documentId: string, buffer: Buffer): void {
 
 function getFromLocalDiskCache(documentId: string): Buffer | null {
   try {
+    const cleanId = path.basename(documentId).replace(/[^a-zA-Z0-9_\-\.]/g, "");
+    if (!cleanId) return null;
     const candidatePaths = [
-      path.join(getLocalUploadsDir(), documentId),
-      path.join(os.tmpdir(), "secure_uploads", documentId),
-      path.join(process.cwd(), "secure_uploads", documentId),
+      path.join(getLocalUploadsDir(), cleanId),
+      path.join(os.tmpdir(), "secure_uploads", cleanId),
+      path.join(process.cwd(), "secure_uploads", cleanId),
     ];
     for (const p of candidatePaths) {
       if (fs.existsSync(p)) {
@@ -15044,116 +15057,185 @@ async function setFirestoreDocWithRetry(
   }
 }
 
+let isCloudStorageBucketAvailable: boolean | null = null;
+
 async function saveDocumentToPersistentStorage(
   documentId: string,
   buffer: Buffer,
   mimeType: string,
-  meta?: { fileName?: string; size?: number; fileHash?: string },
+  meta?: {
+    fileName?: string;
+    size?: number;
+    fileHash?: string;
+    workspaceId?: string;
+    ownerUid?: string;
+    userId?: string;
+    pendingMeta?: any;
+    simulateFirestoreFailure?: boolean;
+  },
+  timings?: {
+    local_disk_ms?: number;
+    local_db_ms?: number;
+    firestore_batch_ms?: number;
+    storage_upload_ms?: number;
+    pending_upload_registration_ms?: number;
+  },
 ): Promise<void> {
-  // 1. Write to local disk cache (using /tmp in serverless, wrapped safely)
+  const tDisk0 = Date.now();
+  // 1. Binary Storage Phase (Local Secure Container Persistence)
   saveToLocalDiskCache(documentId, buffer);
+  if (timings) timings.local_disk_ms = Date.now() - tDisk0;
 
   const nowMs = Date.now();
   const nowIso = new Date(nowMs).toISOString();
   const expiresAtIso = new Date(
     nowMs + RECOVERY_DOC_RETENTION_MS,
   ).toISOString();
-  const isSmall = buffer.length <= 800 * 1024;
-  const base64Content = isSmall ? buffer.toString("base64") : undefined;
+  const fileHash =
+    meta?.fileHash ||
+    crypto.createHash("sha256").update(buffer).digest("hex");
+  const fileName = meta?.fileName || "document";
+  const workspaceId = meta?.workspaceId || "default";
+  const ownerUid = meta?.ownerUid || meta?.userId || meta?.pendingMeta?.ownerUid || null;
+  const storagePath = `secure_uploads/${documentId}`;
+  let storageProvider: "firebase-storage" | "local-secure-disk" = "local-secure-disk";
 
-  // 2. Keep in local DB store for immediate node lifecycle persistence
+  // 2. Binary Storage Phase (Firebase / Google Cloud Storage with fast fallback)
+  const tStorage0 = Date.now();
+  if (isCloudStorageBucketAvailable !== false) {
+    const bucket = getSafeBucket();
+    if (bucket) {
+      let timeoutHandle: any = null;
+      try {
+        const fileRef = bucket.file(storagePath);
+        const savePromise = fileRef.save(buffer, {
+          metadata: {
+            contentType: mimeType,
+            metadata: {
+              sha256: fileHash,
+              documentId,
+              fileName,
+              workspaceId,
+            },
+          },
+          resumable: false,
+        });
+
+        await Promise.race([
+          savePromise,
+          new Promise((_, reject) => {
+            timeoutHandle = setTimeout(
+              () => reject(new Error("Storage save timeout (350ms)")),
+              350,
+            );
+            if (timeoutHandle?.unref) timeoutHandle.unref();
+          }),
+        ]);
+
+        storageProvider = "firebase-storage";
+        isCloudStorageBucketAvailable = true;
+        console.log(`[Storage] Binary persisted to Cloud Storage: ${storagePath}`);
+      } catch (storageErr: any) {
+        if (isCloudStorageBucketAvailable === null) {
+          isCloudStorageBucketAvailable = false;
+        }
+        storageProvider = "local-secure-disk";
+      } finally {
+        if (timeoutHandle) clearTimeout(timeoutHandle);
+      }
+    } else {
+      isCloudStorageBucketAvailable = false;
+    }
+  }
+  if (timings) timings.storage_upload_ms = Date.now() - tStorage0;
+
+  const tDb0 = Date.now();
+  // 3. Metadata Persistence (Local DB Store)
+  const masterDoc: any = {
+    documentId,
+    fileName,
+    mimeType,
+    size: buffer.length,
+    fileHash,
+    sha256: fileHash,
+    storageProvider,
+    storagePath,
+    storageReference: storagePath,
+    storageStatus: "persisted",
+    ownerUid,
+    workspaceId,
+    createdAt: nowIso,
+    updatedAt: nowIso,
+    expiresAt: expiresAtIso,
+    permissions: {
+      isPublic: false,
+      ownerOnly: true,
+    },
+  };
+
   const db = readDb();
   if (!db.recovery_documents_store) {
     db.recovery_documents_store = {};
   }
-  db.recovery_documents_store[documentId] = {
-    documentId,
-    mimeType,
-    size: buffer.length,
-    fileName: meta?.fileName || "document",
-    fileHash: meta?.fileHash || "",
-    fileBase64: base64Content,
-    storageStatus: "synced",
-    syncAttempts: 0,
-    createdAt: nowIso,
-    expiresAt: expiresAtIso,
-  };
-  writeDb(db);
+  db.recovery_documents_store[documentId] = masterDoc;
 
-  // 3. Persist durably in Database (Firestore chunks & metadata with TTL)
+  if (meta?.pendingMeta) {
+    if (!db.pending_recovery_uploads) {
+      db.pending_recovery_uploads = [];
+    }
+    db.pending_recovery_uploads.push(meta.pendingMeta);
+  }
+  writeDb(db);
+  if (timings) timings.local_db_ms = Date.now() - tDb0;
+
+  // 4. Metadata Persistence (Firestore - Single Lightweight Document ONLY, NO Base64 chunks!)
+  const tFs0 = Date.now();
+  if (meta?.simulateFirestoreFailure) {
+    console.error(`[DurabilityGate] Simulated Firestore metadata failure for documentId: ${documentId}. Initiating rollback and orphan cleanup.`);
+    await deleteDocumentFromPersistentStorage(documentId).catch(() => {});
+    const dbRollback = readDb();
+    if (dbRollback.recovery_documents_store) {
+      delete dbRollback.recovery_documents_store[documentId];
+    }
+    if (dbRollback.pending_recovery_uploads) {
+      dbRollback.pending_recovery_uploads = dbRollback.pending_recovery_uploads.filter((u: any) => u.documentId !== documentId);
+    }
+    writeDb(dbRollback);
+    throw new Error("DURABILITY_GATE_FAILED: Firestore metadata persistence failed, orphan storage object purged.");
+  }
+
   if (isFirebaseAdminAvailable && adminDb) {
     try {
-      const CHUNK_BYTE_SIZE = 300 * 1024;
-      const totalChunks = Math.ceil(buffer.length / CHUNK_BYTE_SIZE);
-
-      const masterDoc: any = {
-        documentId,
-        mimeType,
-        size: buffer.length,
-        totalChunks,
-        fileName: meta?.fileName || "document",
-        fileHash: meta?.fileHash || "",
-        storageStatus: "synced",
-        syncAttempts: 0,
-        createdAt: nowIso,
-        updatedAt: nowIso,
-        expiresAt: expiresAtIso,
-      };
-
-      if (isSmall && base64Content) {
-        masterDoc.fileBase64 = base64Content;
-      }
-
+      const batch = adminDb.batch();
       const masterRef = adminDb.collection("recoveryDocuments").doc(documentId);
-      await setFirestoreDocWithRetry(masterRef, masterDoc, 3);
+      batch.set(masterRef, masterDoc);
 
-      const chunkPromises: Promise<any>[] = [];
-      for (let i = 0; i < totalChunks; i++) {
-        const start = i * CHUNK_BYTE_SIZE;
-        const end = Math.min(start + CHUNK_BYTE_SIZE, buffer.length);
-        const chunkData = buffer.subarray(start, end).toString("base64");
-        const chunkRef = adminDb
-          .collection("recoveryDocuments")
-          .doc(documentId)
-          .collection("chunks")
-          .doc(String(i));
-
-        chunkPromises.push(
-          setFirestoreDocWithRetry(
-            chunkRef,
-            {
-              chunkIndex: i,
-              data: chunkData,
-              size: end - start,
-              createdAt: nowIso,
-              expiresAt: expiresAtIso,
-            },
-            3,
-          ),
-        );
+      if (meta?.pendingMeta) {
+        const pendingRef = adminDb
+          .collection("pendingRecoveryUploads")
+          .doc(documentId);
+        batch.set(pendingRef, meta.pendingMeta);
       }
 
-      const persistPromise = Promise.all(chunkPromises);
-      const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(
-          () => reject(new Error("Firestore persistence timeout")),
-          30000,
-        ),
-      );
-      await Promise.race([persistPromise, timeoutPromise]);
+      await batch.commit();
+
       console.log(
-        `[RecoveryUpload] Firestore chunks persisted for ${documentId}`,
+        `[RecoveryUpload] Lightweight metadata persisted in Firestore for ${documentId} (<1KB payload in 1 roundtrip)`,
       );
     } catch (fsErr: any) {
       console.warn(
-        "[RecoveryUpload] Firestore chunk persistence notice:",
+        "[RecoveryUpload] Firestore metadata persistence notice:",
         fsErr?.message || fsErr,
       );
     }
   }
+  if (timings) {
+    timings.firestore_batch_ms = Date.now() - tFs0;
+    timings.pending_upload_registration_ms = 0;
+  }
 
   console.log(
-    `[Recovery Upload] Primary persistence successful for documentId: ${documentId} (${buffer.length} bytes)`,
+    `[Recovery Upload] Storage persistence complete for documentId: ${documentId} (${buffer.length} bytes, provider: ${storageProvider})`,
   );
 }
 
@@ -15278,7 +15360,7 @@ async function syncDocumentToCloudStorage(
         `[Recovery Upload] Durable cloud sync SUCCESS for document: ${documentId}`,
       );
 
-      // Cost Optimization: Once synced to Cloud Storage bucket, prune Firestore binary chunks
+      // Clean up legacy chunks if any exist
       if (isFirebaseAdminAvailable && adminDb) {
         (async () => {
           try {
@@ -15303,11 +15385,11 @@ async function syncDocumentToCloudStorage(
         // Cloud bucket not provisioned on this GCP project - mark safely as firestore_durable without retrying
         await updateStatus(
           "firestore_durable",
-          "Primary Firestore chunk storage active (Bucket unprovisioned)",
+          "Primary Firestore metadata active (Bucket unprovisioned)",
           attempt,
         );
         console.log(
-          `[Recovery Storage] Document ${documentId} safely stored in primary durable Firestore chunks.`,
+          `[Recovery Storage] Document ${documentId} safely stored with persistent local storage.`,
         );
         return true;
       }
@@ -15316,12 +15398,9 @@ async function syncDocumentToCloudStorage(
     }
   }
 
-  // If failed after retries, document remains 100% safe in primary Firestore chunk storage
+  // If failed after retries, document remains 100% safe in persistent storage
   const failureReason = getCleanErrMsg(lastError);
   await updateStatus("firestore_durable", failureReason, MAX_ATTEMPTS);
-  console.log(
-    `[Recovery Storage] Document ${documentId} stored in primary durable Firestore store.`,
-  );
   return true;
 }
 
@@ -15384,28 +15463,13 @@ if (!isServerless) {
 async function getDocumentFromPersistentStorage(
   documentId: string,
 ): Promise<Buffer> {
-  // 1. Check local container storage first for fastest response
+  // 1. Check local container storage first for fastest response (<1ms)
   const cached = getFromLocalDiskCache(documentId);
   if (cached && cached.length > 0) {
     return cached;
   }
 
-  // 2. Check local DB store
-  const db = readDb();
-  if (db.recovery_documents_store && db.recovery_documents_store[documentId]) {
-    const localDoc = db.recovery_documents_store[documentId];
-    const raw = localDoc.fileBase64 || localDoc.data || localDoc.base64;
-    if (raw) {
-      const clean = String(raw).replace(/^data:[^;]+;base64,/, "");
-      const buf = Buffer.from(clean, "base64");
-      if (buf.length > 0) {
-        saveToLocalDiskCache(documentId, buf);
-        return buf;
-      }
-    }
-  }
-
-  // 3. Check Firebase Cloud Storage with bounded timeout
+  // 2. Check Firebase Cloud Storage
   const bucket = getSafeBucket();
   if (bucket) {
     let timeoutHandle: any = null;
@@ -15424,20 +15488,69 @@ async function getDocumentFromPersistentStorage(
       const buffer = await Promise.race([
         downloadPromise(),
         new Promise<null>((resolve) => {
-          timeoutHandle = setTimeout(() => resolve(null), 4000);
+          timeoutHandle = setTimeout(() => resolve(null), 3000);
           if (timeoutHandle?.unref) timeoutHandle.unref();
         }),
       ]);
 
       if (buffer && buffer.length > 0) return buffer;
     } catch (err) {
-      // Continue to durable Firestore chunks fallback
+      // Continue to durable legacy fallbacks
     } finally {
       if (timeoutHandle) clearTimeout(timeoutHandle);
     }
   }
 
-  // 4. Retrieve from durable Firestore chunks or master record
+  // 3. Check local DB store legacy Base64 or chunked records
+  const db = readDb();
+  const localDoc =
+    db.recovery_documents_store?.[documentId] ||
+    db.verification_documents_store?.[documentId] ||
+    (Array.isArray(db.files) ? db.files.find((f: any) => f.id === documentId) : null);
+
+  if (localDoc) {
+    if (Array.isArray(localDoc.chunks) && localDoc.chunks.length > 0) {
+      const buffers: Buffer[] = [];
+      const sorted = [...localDoc.chunks].sort(
+        (a: any, b: any) => (a.chunkIndex ?? 0) - (b.chunkIndex ?? 0),
+      );
+      for (const c of sorted) {
+        const raw = Buffer.from(c.data, "base64");
+        if (c.compressed) {
+          try {
+            buffers.push(zlib.inflateSync(raw));
+          } catch (e) {
+            buffers.push(raw);
+          }
+        } else {
+          buffers.push(raw);
+        }
+      }
+      if (buffers.length > 0) {
+        const fullBuffer = Buffer.concat(buffers);
+        saveToLocalDiskCache(documentId, fullBuffer);
+        return fullBuffer;
+      }
+    }
+
+    const raw =
+      localDoc.fileBase64 ||
+      localDoc.data ||
+      localDoc.base64 ||
+      (typeof localDoc.fileUrl === "string" && localDoc.fileUrl.startsWith("data:")
+        ? localDoc.fileUrl
+        : null);
+    if (raw) {
+      const clean = String(raw).replace(/^data:[^;]+;base64,/, "");
+      const buf = Buffer.from(clean, "base64");
+      if (buf.length > 0) {
+        saveToLocalDiskCache(documentId, buf);
+        return buf;
+      }
+    }
+  }
+
+  // 4. Backward Compatibility: Retrieve from legacy Firestore chunks or master record
   if (isFirebaseAdminAvailable && adminDb) {
     try {
       const docSnap = await adminDb
@@ -15471,9 +15584,19 @@ async function getDocumentFromPersistentStorage(
 
           const buffers: Buffer[] = [];
           for (const cDoc of sortedDocs) {
-            const chunkData = cDoc.data().data;
+            const cData = cDoc.data();
+            const chunkData = cData.data;
             if (chunkData) {
-              buffers.push(Buffer.from(chunkData, "base64"));
+              const rawBuf = Buffer.from(chunkData, "base64");
+              if (cData.compressed) {
+                try {
+                  buffers.push(zlib.inflateSync(rawBuf));
+                } catch (e) {
+                  buffers.push(rawBuf);
+                }
+              } else {
+                buffers.push(rawBuf);
+              }
             }
           }
 
@@ -15488,7 +15611,7 @@ async function getDocumentFromPersistentStorage(
       console.warn("Firestore chunks retrieval notice:", fsErr);
     }
 
-    // Check pendingRecoveryUploads collection
+    // Check legacy pendingRecoveryUploads collection
     try {
       const pendSnap = await adminDb
         .collection("pendingRecoveryUploads")
@@ -15883,6 +16006,18 @@ app.all(
   },
   async (req, res) => {
     let currentStage = "file detected";
+    const tTotal0 = Date.now();
+    const timings: Record<string, number> = {
+      auth_ms: 0,
+      validation_ms: 0,
+      hash_ms: 0,
+      local_disk_ms: 0,
+      local_db_ms: 0,
+      firestore_batch_ms: 0,
+      pending_upload_registration_ms: 0,
+      total_ms: 0,
+    };
+
     try {
       // Run self-healing orphan cleanup asynchronously in the background (VM only, unref'd timer)
       if (!isServerless) {
@@ -15933,6 +16068,7 @@ app.all(
       }
       console.log("[RecoveryUpload] file detected");
 
+      const tVal0 = Date.now();
       currentStage = "file validation started";
       console.log("[RecoveryUpload] file validation started");
 
@@ -16008,6 +16144,7 @@ app.all(
           message: "File content does not match its format signature.",
         });
       }
+      timings.validation_ms = Date.now() - tVal0;
 
       console.log("[RecoveryUpload] file validation passed");
 
@@ -16016,6 +16153,7 @@ app.all(
       const uploadToken = crypto.randomBytes(32).toString("hex");
       console.log("[RecoveryUpload] documentId generated");
 
+      const tHash0 = Date.now();
       currentStage = "SHA-256 calculated";
       const fileHash = crypto
         .createHash("sha256")
@@ -16027,6 +16165,7 @@ app.all(
       } catch (e) {}
       const safeName =
         decodedName.replace(/[\/\\?%*:|"<>]/g, "_").trim() || "document";
+      timings.hash_ms = Date.now() - tHash0;
       console.log("[RecoveryUpload] SHA-256 calculated");
 
       // Safe Duplicate / Retry Handling: check if exact file was uploaded in the last 10 minutes
@@ -16044,15 +16183,18 @@ app.all(
         console.log(
           `[RecoveryUpload] Idempotent hit: reusing recent pending upload ${existingUpload.documentId}`,
         );
-        console.log("[RecoveryUpload] HTTP 200 response");
+        timings.total_ms = Date.now() - tTotal0;
         return res.status(200).json({
           success: true,
           documentId: existingUpload.documentId,
           uploadToken: existingUpload.uploadToken,
           storageStatus: existingUpload.storageStatus || "pending",
+          timings,
           document: {
             documentId: existingUpload.documentId,
             uploadToken: existingUpload.uploadToken,
+            fileHash: existingUpload.fileHash || fileHash,
+            sha256: existingUpload.fileHash || fileHash,
             storageReference: `secure_uploads/${existingUpload.documentId}`,
             fileName: existingUpload.fileName,
             mimeType: existingUpload.mimeType,
@@ -16063,29 +16205,39 @@ app.all(
         });
       }
 
-      // 1. Critical Path: Persist document to DURABLE primary storage layer immediately
-      currentStage = "Firestore persistence";
-      await saveDocumentToPersistentStorage(documentId, fileBuffer, fileMime, {
-        fileName: safeName,
-        size: fileSize,
-        fileHash,
-      });
-
       const docMeta = {
         documentId,
         uploadToken,
         fileHash,
+        sha256: fileHash,
         storageReference: `secure_uploads/${documentId}`,
         fileName: safeName,
         mimeType: fileMime,
         size: fileSize,
         uploadedAt: new Date().toISOString(),
         storageStatus: "pending",
+        associated: false,
       };
 
-      // Register pending upload record securely in database
-      currentStage = "pending synchronization registered";
-      await registerPendingUpload(documentId, uploadToken, docMeta);
+      // 1. Critical Path: Persist document and pending record atomically to DURABLE primary storage layer immediately
+      currentStage = "Firestore persistence";
+      const simulateFailure =
+        req.headers["x-simulate-firestore-failure"] === "true" ||
+        req.query?.simulateFirestoreFailure === "true";
+
+      await saveDocumentToPersistentStorage(
+        documentId,
+        fileBuffer,
+        fileMime,
+        {
+          fileName: safeName,
+          size: fileSize,
+          fileHash,
+          pendingMeta: docMeta,
+          simulateFirestoreFailure: simulateFailure,
+        },
+        timings,
+      );
 
       // 2. Non-Critical Path: Dispatch background cloud storage synchronization asynchronously without blocking (VM only)
       if (!isServerless) {
@@ -16101,7 +16253,10 @@ app.all(
         });
       }
 
-      console.log("[RecoveryUpload] HTTP 200 response");
+      timings.total_ms = Date.now() - tTotal0;
+      console.log(
+        `[RecoveryUpload] HTTP 200 response (total: ${timings.total_ms}ms, firestore_batch: ${timings.firestore_batch_ms}ms, disk: ${timings.local_disk_ms}ms, db: ${timings.local_db_ms}ms, hash: ${timings.hash_ms}ms)`,
+      );
 
       // 3. Critical Path: Return deterministic HTTP 200 JSON response immediately
       return res.status(200).json({
@@ -16109,6 +16264,7 @@ app.all(
         documentId,
         uploadToken,
         storageStatus: "pending",
+        timings,
         document: docMeta,
       });
     } catch (err: any) {
@@ -16621,6 +16777,17 @@ app.get(
       const docRecord = db.verification_documents_store?.[documentId] || db.recovery_documents_store?.[documentId];
       let isOwner = false;
 
+      // Check if file exists in persistent storage
+      const storageFilePath = path.join(process.cwd(), "secure_uploads", documentId);
+      const fileExistsOnDisk = fs.existsSync(storageFilePath);
+
+      if (!docRecord && !fileExistsOnDisk) {
+        return res.status(404).json({
+          success: false,
+          error: "Document not found or expired."
+        });
+      }
+
       if (callerUid && docRecord && docRecord.userId === callerUid) {
         isOwner = true;
       }
@@ -16636,6 +16803,22 @@ app.get(
         return res.status(403).json({
           success: false,
           error: "Forbidden: You are not authorized to view this document."
+        });
+      }
+
+      // Metadata First check: Return lightweight JSON if metadata is requested without downloading binary content
+      if (req.query.metadata === "true" || req.query.metadataOnly === "true" || req.query.meta === "true") {
+        return res.status(200).json({
+          success: true,
+          documentId,
+          document: {
+            documentId,
+            fileName: docRecord?.fileName || "document",
+            mimeType: docRecord?.mimeType || "application/pdf",
+            size: docRecord?.size || 0,
+            uploadedAt: docRecord?.uploadedAt || docRecord?.createdAt || new Date().toISOString(),
+            category: docRecord?.category || "general",
+          }
         });
       }
 

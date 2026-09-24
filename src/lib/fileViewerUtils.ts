@@ -64,7 +64,13 @@ export function openUserFileInNewTab(file: { fileName: string; fileUrl: string; 
     // Ignore cross-origin error
   }
 
-  // 1. If HTTP or HTTPS URL (e.g. Firebase Storage)
+  // 1. If Blob URL
+  if (file.fileUrl.startsWith("blob:")) {
+    win.location.replace(file.fileUrl);
+    return;
+  }
+
+  // 2. If HTTP or HTTPS URL (e.g. Firebase Storage)
   if (file.fileUrl.startsWith("http://") || file.fileUrl.startsWith("https://")) {
     fetch(file.fileUrl)
       .then((res) => res.blob())
@@ -72,6 +78,11 @@ export function openUserFileInNewTab(file: { fileName: string; fileUrl: string; 
         const fileBlob = new Blob([blob], { type: mime || blob.type || "application/pdf" });
         const blobUrl = URL.createObjectURL(fileBlob);
         win.location.replace(blobUrl);
+        setTimeout(() => {
+          try {
+            URL.revokeObjectURL(blobUrl);
+          } catch (e) {}
+        }, 60000);
       })
       .catch(() => {
         win.location.replace(file.fileUrl);
@@ -86,6 +97,11 @@ export function openUserFileInNewTab(file: { fileName: string; fileUrl: string; 
     const fileBlob = new Blob([blob], { type: finalMime });
     const blobUrl = URL.createObjectURL(fileBlob);
     win.location.replace(blobUrl);
+    setTimeout(() => {
+      try {
+        URL.revokeObjectURL(blobUrl);
+      } catch (e) {}
+    }, 60000);
     return;
   }
 
@@ -109,6 +125,11 @@ export function downloadUserFile(file: { fileName: string; fileUrl: string; mime
   }
 
   let downloadUrl = file.fileUrl;
+
+  if (file.fileUrl.startsWith("blob:")) {
+    triggerDownload(file.fileUrl, fileName);
+    return;
+  }
 
   if (file.fileUrl.startsWith("http://") || file.fileUrl.startsWith("https://")) {
     fetch(file.fileUrl)

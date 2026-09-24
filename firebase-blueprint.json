@@ -136,6 +136,40 @@
         "reviewedBy": { "type": "string" }
       }
     },
+    "RecoveryDocument": {
+      "path": "/recoveryDocuments/{documentId}",
+      "fields": {
+        "documentId": { "type": "string" },
+        "fileName": { "type": "string" },
+        "mimeType": { "type": "string" },
+        "size": { "type": "number" },
+        "fileHash": { "type": "string" },
+        "sha256": { "type": "string" },
+        "storageProvider": { "type": "string" },
+        "storagePath": { "type": "string" },
+        "storageReference": { "type": "string" },
+        "storageStatus": { "type": "string" },
+        "ownerUid": { "type": "string" },
+        "workspaceId": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" },
+        "expiresAt": { "type": "string" }
+      }
+    },
+    "PendingRecoveryUpload": {
+      "path": "/pendingRecoveryUploads/{documentId}",
+      "fields": {
+        "documentId": { "type": "string" },
+        "uploadToken": { "type": "string" },
+        "fileHash": { "type": "string" },
+        "fileName": { "type": "string" },
+        "mimeType": { "type": "string" },
+        "size": { "type": "number" },
+        "uploadedAt": { "type": "string" },
+        "storageStatus": { "type": "string" },
+        "associated": { "type": "boolean" }
+      }
+    },
     "PlatformEvent": {
       "path": "/platform_events/{eventId}",
       "fields": {

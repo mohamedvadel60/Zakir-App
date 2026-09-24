@@ -902,6 +902,25 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       }
 
       if (data.success) {
+        setUsers((prevUsers) =>
+          prevUsers.map((u) => {
+            if (u.id === editingUser.id) {
+              return {
+                ...u,
+                ownerName: editDisplayName.trim(),
+                displayName: editDisplayName.trim(),
+                companyName: editCompanyName.trim() || editDepartment.trim(),
+                role: editRole,
+                department: editDepartment.trim(),
+                phone: editPhone.trim(),
+                isVerified: editVerified,
+                suspended: isSuspended,
+                status: editStatus
+              };
+            }
+            return u;
+          })
+        );
         alert(lang === "ar" ? "تم تحديث بيانات المستخدم بنجاح." : "User profile updated successfully.");
         setEditingUser(null);
         loadAdminData(true);
@@ -6891,6 +6910,57 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       : "bg-slate-50 border-slate-200 focus:border-amber-600 text-slate-900"
                   }`}
                 />
+              </div>
+
+              {/* Company / Institution Name */}
+              <div className="space-y-1.5">
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
+                  {lang === "ar" ? "اسم المؤسسة / الشركة (Company Name)" : "Company / Organization Name"}
+                </label>
+                <input
+                  type="text"
+                  value={editCompanyName}
+                  onChange={(e) => setEditCompanyName(e.target.value)}
+                  placeholder={lang === "ar" ? "أدخل اسم المؤسسة" : "Enter company name"}
+                  className={`w-full p-2.5 text-xs rounded-xl border outline-none transition-all ${
+                    theme === "dark"
+                      ? "bg-slate-950 border-slate-800 focus:border-amber-500 text-white"
+                      : "bg-slate-50 border-slate-200 focus:border-amber-600 text-slate-900"
+                  }`}
+                />
+              </div>
+
+              {/* Phone Number */}
+              <div className="space-y-1.5">
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
+                  {lang === "ar" ? "رقم الهاتف (Phone Number)" : "Phone Number"}
+                </label>
+                <input
+                  type="text"
+                  value={editPhone}
+                  onChange={(e) => setEditPhone(e.target.value)}
+                  placeholder={lang === "ar" ? "أدخل رقم الهاتف" : "Enter phone number"}
+                  className={`w-full p-2.5 text-xs rounded-xl border outline-none transition-all ${
+                    theme === "dark"
+                      ? "bg-slate-950 border-slate-800 focus:border-amber-500 text-white"
+                      : "bg-slate-50 border-slate-200 focus:border-amber-600 text-slate-900"
+                  }`}
+                />
+              </div>
+
+              {/* Is Verified Toggle */}
+              <div className="space-y-1.5 pt-1">
+                <label className="flex items-center gap-2 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={editVerified}
+                    onChange={(e) => setEditVerified(e.target.checked)}
+                    className="w-4 h-4 rounded border-slate-700 text-amber-500 focus:ring-amber-500 focus:ring-offset-0 bg-slate-950 cursor-pointer"
+                  />
+                  <span className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                    {lang === "ar" ? "الحساب موثّق رسمياً (Verified Account)" : "Verified Account"}
+                  </span>
+                </label>
               </div>
             </div>
 
