@@ -34,7 +34,7 @@ async function verifyProductionBuildAndPayload() {
     { name: "Account Recovery OTP", payload: buildOtpEmailHtml({ email: "test@domain.com", otpCode: "445566", type: "account_recovery" }) },
     { name: "Password Reset OTP", payload: buildOtpEmailHtml({ email: "test@domain.com", otpCode: "778899", type: "password_reset" }) },
     { name: "Account Approval", payload: buildRecoveryApprovalEmailHtml({ userName: "User Test", email: "test@domain.com" }) },
-    { name: "Account Rejection", payload: buildRecoveryRejectionEmailHtml({ userName: "User Test", email: "test@domain.com", reason: "Audit failed" }) },
+    { name: "Account Rejection", payload: buildRecoveryRejectionEmailHtml({ userName: "User Test", email: "test@domain.com", rejectionReason: "Audit failed" }) },
     { name: "Administrative Email", payload: { subject: "Admin Alert", html: buildMasterEmailHtml({ subject: "Alert", title: "Security Notice", bodyHtml: "<p>Admin test notice.</p>" }) } },
     { name: "Invitation Email", payload: { subject: "Invitation", html: buildMasterEmailHtml({ subject: "Invite", title: "Workspace Invite", bodyHtml: "<p>Invitation test notice.</p>" }) } }
   ];

@@ -37,6 +37,7 @@ import {
   ADMIN_EMAILS,
   ADMIN_USER_ID,
 } from "./src/middleware/auth.js";
+import { computeCanonicalVerification } from "./src/lib/unifiedVerification.js";
 import { createRateLimiter } from "./src/middleware/rateLimiter.js";
 import {
   adminAuth,
@@ -10635,6 +10636,9 @@ app.post("/api/auth/submit-verification-documents", requireAuth, async (req: Aut
       verificationDocuments: allDocuments,
       documents: allDocuments,
       documentCount: allDocuments.length,
+      isEmailVerified: true,
+      email_verified: true,
+      emailVerified: true,
       canonicalVerificationStatus: "pending",
       accountStatus: "PENDING_ADMIN_REVIEW",
       documentVerificationStatus: "UNDER_REVIEW",
@@ -10758,6 +10762,18 @@ app.get("/api/auth/current-user-status", requireAuth, async (req: AuthRequest, r
     if (!userDoc) {
       const db = readDb();
       userDoc = (db.users || []).find((u: any) => u.id === uid || (u.email && u.email.toLowerCase() === email.toLowerCase()));
+    }
+
+    if (userDoc) {
+      const isSysAdmin = userDoc.role === "Admin" || (userDoc.email && ADMIN_EMAILS.has(userDoc.email.toLowerCase()));
+      const canonical = computeCanonicalVerification(userDoc, isSysAdmin);
+      userDoc.isEmailVerified = canonical.isEmailVerified;
+      userDoc.email_verified = canonical.isEmailVerified;
+      userDoc.emailVerified = canonical.isEmailVerified;
+      userDoc.accountStatus = canonical.accountStatus;
+      userDoc.documentVerificationStatus = canonical.documentVerificationStatus;
+      userDoc.kycStatus = canonical.kycStatus;
+      userDoc.canonicalVerificationStatus = canonical.canonicalStatus;
     }
 
     const entitlement = await checkUserEntitlementServer(uid, email);
@@ -18498,7 +18514,10 @@ app.post(
                   documentCount: nextDocs.length,
                   documentVerificationStatus: "UNDER_REVIEW",
                   verification_status: "under_review",
-                  requiresDocumentVerification: true
+                  requiresDocumentVerification: true,
+                  isEmailVerified: true,
+                  email_verified: true,
+                  emailVerified: true
                 }, { merge: true });
               }
             }

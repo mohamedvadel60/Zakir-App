@@ -278,13 +278,33 @@ export function computeCanonicalVerification(
   const documentCount = docsResult.documentCount;
   const documents = docsResult.documents;
 
-  const isEmailVer = Boolean(
+  const adminRequestedReverification = Boolean(
+    full.adminRequestedEmailReverification === true ||
+    userData.adminRequestedEmailReverification === true ||
+    full.adminRequestedReverification === true ||
+    userData.adminRequestedReverification === true
+  );
+
+  const rawEmailVerified = Boolean(
     full.emailVerified === true ||
     full.isEmailVerified === true ||
     full.email_verified === true ||
+    full.email_verified === "true" ||
+    full.emailVerified === "true" ||
+    full.isEmailVerified === "true" ||
     userData.emailVerified === true ||
-    userData.isEmailVerified === true
+    userData.isEmailVerified === true ||
+    userData.email_verified === true ||
+    userData.email_verified === "true" ||
+    userData.emailVerified === "true" ||
+    userData.isEmailVerified === "true" ||
+    Boolean(full.emailVerifiedAt) ||
+    Boolean(userData.emailVerifiedAt) ||
+    Boolean(full.verificationInfo?.emailVerifiedAt) ||
+    Boolean(userData.verificationInfo?.emailVerifiedAt)
   );
+
+  const isEmailVer = rawEmailVerified && !adminRequestedReverification;
 
   const hasExplicitOverride = Boolean(
     full.adminVerificationOverride === true ||

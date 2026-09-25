@@ -4425,7 +4425,16 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
             }}
           />
         </Suspense>
-      ) : (currentUser && !isUserAdmin(currentUser) && ((!currentUser.isEmailVerified && !currentUser.emailVerified && !currentUser.email_verified) || currentUser.accountStatus === "PENDING_EMAIL_VERIFICATION")) ? (
+      ) : (currentUser && !isUserAdmin(currentUser) && (
+        currentUser.adminRequestedEmailReverification === true ||
+        (
+          !currentUser.isEmailVerified &&
+          !currentUser.emailVerified &&
+          !currentUser.email_verified &&
+          !currentUser.emailVerifiedAt &&
+          !(currentUser as any).verificationInfo?.emailVerifiedAt
+        )
+      )) ? (
         <Suspense fallback={<FullScreenFallback />}>
           <EmailVerificationView
             currentUser={currentUser}

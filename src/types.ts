@@ -207,6 +207,9 @@ export interface User {
   isPhoneVerified?: boolean;
   email_verified?: boolean;
   emailVerified?: boolean;
+  emailVerifiedAt?: string;
+  adminRequestedEmailReverification?: boolean;
+  adminRequestedReverification?: boolean;
   verification_status?: string;
   verified_at?: string;
   verifiedAt?: string | null;

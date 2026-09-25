@@ -1325,6 +1325,15 @@ export async function updateUserPreferences(userId: string, newPrefs: Partial<Us
 export function normalizeStrictUserVerification(user: User): User {
   if (!user) return user;
   const isSysAdmin = isUserAdmin(user);
+
+  if (auth.currentUser && auth.currentUser.email && user.email && auth.currentUser.email.toLowerCase() === user.email.toLowerCase()) {
+    if (auth.currentUser.emailVerified) {
+      user.isEmailVerified = true;
+      user.emailVerified = true;
+      user.email_verified = true;
+    }
+  }
+
   const canonical = computeCanonicalVerification(user, isSysAdmin);
 
   user.isVerified = canonical.isFullyApproved;
