@@ -561,20 +561,24 @@ export async function loginFirebaseUser(email: string, pass: string, attemptId?:
       userData.lastActiveAt = nowIso;
       userData.lastLoginAt = nowIso;
 
-      const isEmailVer = userData.isEmailVerified === true || userData.emailVerified === true || userData.email_verified === true;
+      const breakdown = computeUserVerificationBreakdown(userData);
+      const isEmailVer = Boolean(
+        userData.isEmailVerified === true ||
+        userData.emailVerified === true ||
+        userData.email_verified === true
+      );
       if (isEmailVer) {
         userData.isEmailVerified = true;
         userData.email_verified = true;
         userData.emailVerified = true;
       }
-      const isKycVerified = userData.isVerified === true || userData.kycStatus === "VERIFIED" || userData.documentVerificationStatus === "APPROVED" || userData.adminVerificationOverride === true;
-      if (isKycVerified) {
-        userData.isVerified = true;
-        userData.verification_status = "verified";
-      } else {
-        userData.isVerified = false;
-        userData.verification_status = userData.verification_status === "pending" ? "pending" : (userData.verification_status === "rejected" ? "rejected" : "unverified");
-      }
+      
+      const isKycVerified = breakdown.kycStatus === "VERIFIED";
+      userData.isVerified = isKycVerified;
+      userData.kycStatus = breakdown.kycStatus;
+      userData.documentVerificationStatus = breakdown.documentStatus;
+      userData.verification_status = isKycVerified ? "verified" : (breakdown.kycStatus === "UNDER_REVIEW" ? "pending" : (breakdown.kycStatus === "REJECTED" ? "rejected" : "unverified"));
+      userData.verification_required = !isKycVerified;
 
       if (!userData.userPreferences) {
         userData.userPreferences = { ...DEFAULT_USER_PREFERENCES };
@@ -592,6 +596,8 @@ export async function loginFirebaseUser(email: string, pass: string, attemptId?:
 
       if (isUserAdmin(userData)) {
         userData.isVerified = true;
+        userData.kycStatus = "VERIFIED";
+        userData.documentVerificationStatus = "APPROVED";
         userData.isEmailVerified = true;
         userData.email_verified = true;
         userData.emailVerified = true;
@@ -617,8 +623,18 @@ export async function loginFirebaseUser(email: string, pass: string, attemptId?:
 
     if (srvRes.ok && srvData && (srvData.user || srvData.id)) {
       const authenticatedUser: User = srvData.user || srvData;
+      const serverBreakdown = computeUserVerificationBreakdown(authenticatedUser);
+      const isServerKycVerified = serverBreakdown.kycStatus === "VERIFIED";
+      authenticatedUser.isVerified = isServerKycVerified;
+      authenticatedUser.kycStatus = serverBreakdown.kycStatus;
+      authenticatedUser.documentVerificationStatus = serverBreakdown.documentStatus;
+      authenticatedUser.verification_status = isServerKycVerified ? "verified" : (serverBreakdown.kycStatus === "UNDER_REVIEW" ? "pending" : (serverBreakdown.kycStatus === "REJECTED" ? "rejected" : "unverified"));
+      authenticatedUser.verification_required = !isServerKycVerified;
+
       if (isUserAdmin(authenticatedUser)) {
         authenticatedUser.isVerified = true;
+        authenticatedUser.kycStatus = "VERIFIED";
+        authenticatedUser.documentVerificationStatus = "APPROVED";
         authenticatedUser.isEmailVerified = true;
         authenticatedUser.email_verified = true;
         authenticatedUser.emailVerified = true;

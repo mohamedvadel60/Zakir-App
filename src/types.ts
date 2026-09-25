@@ -242,7 +242,7 @@ export interface User {
   kycStatus?: "VERIFIED" | "NOT_VERIFIED" | "UNDER_REVIEW" | "PENDING_REVIEW" | "REJECTED" | "UNVERIFIED";
   requiresDocumentVerification?: boolean;
   verificationFlowVersion?: number;
-  documentVerificationStatus?: "NOT_SUBMITTED" | "PENDING_EMAIL_VERIFICATION" | "PENDING_UPLOAD" | "UNDER_REVIEW" | "APPROVED" | "REJECTED" | "UNVERIFIED";
+  documentVerificationStatus?: "NOT_SUBMITTED" | "PENDING_EMAIL_VERIFICATION" | "PENDING_UPLOAD" | "PENDING_REVIEW" | "UNDER_REVIEW" | "APPROVED" | "REJECTED" | "UNVERIFIED";
   verificationDocuments?: UploadedVerificationDoc[];
   hasCompany?: boolean;
   institutionalProfile?: InstitutionalProfile;

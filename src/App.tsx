@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef, Suspense } from "react";
 
-export const ZAKIR_BUILD_ID = "ZAKIR_BUILD_2026_09_04_v2.4.2_BUILD_MARKER_AUDIT";
+export const ZAKIR_BUILD_ID = "ZAKIR_BUILD_2026_09_25_KYC_SEPARATION_VERIFIED";
 if (typeof window !== "undefined") {
   (window as any).ZAKIR_BUILD_ID = ZAKIR_BUILD_ID;
 }
@@ -132,6 +132,7 @@ import {
   getAuthenticatedFirebaseUid,
   registerFirebaseUser,
   loginFirebaseUser,
+  computeUserVerificationBreakdown,
   loginWithGoogle,
   loginWithCustomToken,
   logoutFirebaseUser,
@@ -2047,18 +2048,22 @@ This hosting domain (**${currentDomain}**) has not been authorized in your Fireb
       const userProfile = await loginFirebaseUser(loginEmail.trim(), loginPassword, attemptId);
       if (activeLoginAttemptIdRef.current !== attemptId) return;
       
-      const isAccountApproved = userProfile.accountStatus === "APPROVED" || userProfile.accountStatus === "ACTIVE";
-      const isKycVerified = isUserAdmin(userProfile) || userProfile.isVerified === true || userProfile.kycStatus === "VERIFIED" || userProfile.documentVerificationStatus === "APPROVED";
-      const isEmailVerified = !!(userProfile.isEmailVerified || userProfile.emailVerified || userProfile.email_verified);
+      const breakdown = computeUserVerificationBreakdown(userProfile);
+      const isAccountApproved = breakdown.accountApprovalStatus === "APPROVED";
+      const isKycVerified = breakdown.kycStatus === "VERIFIED";
+      const isEmailVerified = breakdown.emailVerified;
 
       const loggedInUser: User = {
         ...userProfile,
+        accountStatus: isAccountApproved ? "APPROVED" : userProfile.accountStatus,
+        kycStatus: breakdown.kycStatus,
+        documentVerificationStatus: breakdown.documentStatus,
         isVerified: isKycVerified,
         isEmailVerified: isEmailVerified,
         email_verified: isEmailVerified,
         emailVerified: isEmailVerified,
         verification_required: !isAccountApproved,
-        verification_status: isKycVerified ? "verified" : (userProfile.verification_status || (userProfile.accountStatus === "PENDING_ADMIN_REVIEW" ? "pending" : (userProfile.accountStatus === "REJECTED" ? "rejected" : "unverified")))
+        verification_status: isKycVerified ? "verified" : (breakdown.kycStatus === "UNDER_REVIEW" ? "pending" : (breakdown.kycStatus === "REJECTED" ? "rejected" : "unverified"))
       };
 
       setCurrentUser(loggedInUser);
