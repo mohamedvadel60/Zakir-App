@@ -188,8 +188,16 @@ export function renderEmailLogoHeaderHtml(options?: {
   tagline?: string;
   size?: number;
 }): string {
-  const size = options?.size || 96;
-  const appBase = options?.appBase || "https://www.getzakir.com";
+  const size = options?.size || 120;
+  const rawAppBase = options?.appBase || "https://www.getzakir.com";
+  const publicAssetBase = (rawAppBase && rawAppBase.startsWith("https://") && !rawAppBase.includes("localhost"))
+    ? rawAppBase.replace(/\/$/, "")
+    : "https://www.getzakir.com";
+  const appBase = rawAppBase;
+
+  const lightLogoUrl = `${publicAssetBase}/email-assets/zakir-badge-light.png`;
+  const darkLogoUrl = `${publicAssetBase}/email-assets/zakir-badge-dark.png`;
+
   const wordmark = options?.wordmark !== undefined ? options.wordmark : "ZAKIR";
   const tagline =
     options?.tagline !== undefined
@@ -200,15 +208,15 @@ export function renderEmailLogoHeaderHtml(options?: {
     <!-- Strict 1:1 Square Logo Container (${size}px x ${size}px) -->
     <table border="0" cellpadding="0" cellspacing="0" align="center" role="presentation" width="${size}" height="${size}" class="zakir-logo-table" style="width: ${size}px !important; height: ${size}px !important; max-width: ${size}px !important; max-height: ${size}px !important; margin: 0 auto 16px auto; border-collapse: collapse; border-spacing: 0; mso-table-lspace: 0pt; mso-table-rspace: 0pt;">
       <tr>
-        <td align="center" valign="middle" width="${size}" height="${size}" class="zakir-logo-container-cell" style="width: ${size}px !important; height: ${size}px !important; max-width: ${size}px !important; max-height: ${size}px !important; padding: 0; margin: 0; line-height: 0; font-size: 0; text-align: center; vertical-align: middle;">
+        <td align="center" valign="middle" width="${size}" height="${size}" bgcolor="#1C2C58" class="zakir-logo-container-cell" style="width: ${size}px !important; height: ${size}px !important; max-width: ${size}px !important; max-height: ${size}px !important; padding: 0; margin: 0; line-height: 0; font-size: 0; text-align: center; vertical-align: middle; background-color: #1C2C58;">
           <a href="${appBase}" target="_blank" style="text-decoration: none; display: block; width: ${size}px; height: ${size}px; margin: 0 auto; line-height: 0; font-size: 0; outline: none; border: 0;">
             <!-- LIGHT MODE BADGE: Solid Royal Navy Square (#1C2C58) + Crisp White ZAKIR Logo (#FDFEFE) [Exact ${size}x${size} px] -->
-            <img src="cid:zakir-logo-light" alt="ZAKIR" width="${size}" height="${size}" class="zakir-logo-light light-img" style="display: block; width: ${size}px !important; height: ${size}px !important; max-width: ${size}px !important; max-height: ${size}px !important; aspect-ratio: 1 / 1; border: 0; outline: none; text-decoration: none; margin: 0 auto; -ms-interpolation-mode: bicubic;" />
+            <img src="${lightLogoUrl}" alt="ZAKIR" width="${size}" height="${size}" class="zakir-logo-light light-img" style="display: block; width: ${size}px !important; height: ${size}px !important; max-width: ${size}px !important; max-height: ${size}px !important; aspect-ratio: 1 / 1; border: 0; outline: none; text-decoration: none; margin: 0 auto; -ms-interpolation-mode: bicubic;" />
             
             <!-- DARK MODE BADGE: Solid Pure White Square (#FFFFFF) + Crisp Navy ZAKIR Logo (#1C2C58) [Exact ${size}x${size} px] -->
             <!--[if !mso]><!-->
             <div class="zakir-logo-dark-wrap dark-img" style="display: none; mso-hide: all; max-height: 0px; max-width: 0px; overflow: hidden; width: 0; height: 0; margin: 0 auto; line-height: 0; font-size: 0;">
-              <img src="cid:zakir-logo-dark" alt="ZAKIR" width="${size}" height="${size}" class="zakir-logo-dark" style="display: none; width: ${size}px !important; height: ${size}px !important; max-width: ${size}px !important; max-height: ${size}px !important; aspect-ratio: 1 / 1; border: 0; outline: none; text-decoration: none; margin: 0 auto; -ms-interpolation-mode: bicubic;" />
+              <img src="${darkLogoUrl}" alt="ZAKIR" width="${size}" height="${size}" class="zakir-logo-dark" style="display: none; width: ${size}px !important; height: ${size}px !important; max-width: ${size}px !important; max-height: ${size}px !important; aspect-ratio: 1 / 1; border: 0; outline: none; text-decoration: none; margin: 0 auto; -ms-interpolation-mode: bicubic;" />
             </div>
             <!--<![endif]-->
           </a>
@@ -254,7 +262,7 @@ export function buildMasterEmailHtml(options: {
     canonicalDomain
   ).replace(/\/$/, "");
 
-  const logoHeaderHtml = renderEmailLogoHeaderHtml({ appBase, size: 96 });
+  const logoHeaderHtml = renderEmailLogoHeaderHtml({ appBase, size: 120 });
 
   return `<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml" lang="ar">
@@ -271,6 +279,9 @@ export function buildMasterEmailHtml(options: {
       supported-color-schemes: light dark;
     }
     @media (prefers-color-scheme: dark) {
+      .zakir-logo-container-cell {
+        background-color: #FFFFFF !important;
+      }
       .light-img,
       .zakir-logo-light {
         display: none !important;
@@ -287,20 +298,20 @@ export function buildMasterEmailHtml(options: {
       .zakir-logo-dark-wrap {
         display: block !important;
         mso-hide: none !important;
-        width: 96px !important;
-        height: 96px !important;
-        max-width: 96px !important;
-        max-height: 96px !important;
+        width: 120px !important;
+        height: 120px !important;
+        max-width: 120px !important;
+        max-height: 120px !important;
         overflow: visible !important;
         font-size: 0 !important;
         line-height: 0 !important;
       }
       .zakir-logo-dark {
         display: block !important;
-        width: 96px !important;
-        height: 96px !important;
-        max-width: 96px !important;
-        max-height: 96px !important;
+        width: 120px !important;
+        height: 120px !important;
+        max-width: 120px !important;
+        max-height: 120px !important;
         overflow: visible !important;
       }
       .zakir-footer-logo-light {
