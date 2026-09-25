@@ -44,3 +44,49 @@ export function formatPlanPriceUSD(
     return `$${detail.monthlyUSD}.00 USD / ${lang === "ar" ? "شهر" : "mo"}`;
   }
 }
+
+export interface PlanLimitDetail {
+  plan: "Starter" | "Professional" | "Enterprise";
+  maxTeamMembers: number; // Starter: 0, Professional: 5, Enterprise: 15
+  allowsTeamInvitations: boolean; // Starter: false, Professional: true, Enterprise: true
+}
+
+export const PLAN_LIMITS: Record<"Starter" | "Professional" | "Enterprise", PlanLimitDetail> = {
+  Starter: {
+    plan: "Starter",
+    maxTeamMembers: 0,
+    allowsTeamInvitations: false,
+  },
+  Professional: {
+    plan: "Professional",
+    maxTeamMembers: 5,
+    allowsTeamInvitations: true,
+  },
+  Enterprise: {
+    plan: "Enterprise",
+    maxTeamMembers: 15,
+    allowsTeamInvitations: true,
+  }
+};
+
+export function normalizeSubscriptionPlan(plan?: string | null): "Starter" | "Professional" | "Enterprise" {
+  if (!plan) return "Starter";
+  const p = plan.trim().toUpperCase();
+  if (p === "ENTERPRISE") return "Enterprise";
+  if (p === "PROFESSIONAL" || p === "PRO") return "Professional";
+  return "Starter";
+}
+
+export function getPlanLimits(plan?: string | null): PlanLimitDetail {
+  const norm = normalizeSubscriptionPlan(plan);
+  return PLAN_LIMITS[norm] || PLAN_LIMITS.Starter;
+}
+
+export function canPlanInviteMembers(plan?: string | null): boolean {
+  return getPlanLimits(plan).allowsTeamInvitations;
+}
+
+export function getPlanMaxTeamMembers(plan?: string | null): number {
+  return getPlanLimits(plan).maxTeamMembers;
+}
+

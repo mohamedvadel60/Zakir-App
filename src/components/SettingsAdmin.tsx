@@ -58,7 +58,7 @@ import { User, UserRole, TeamMember, ModulePermissions, EncryptedModuleSettings,
 import { saveWorkspaceInvitation, deleteWorkspaceInvitation, fetchWorkspaceInvitations, fetchWorkspaceTeamApi, WorkspaceInvitation, sendWorkspaceInvitationApi, resendWorkspaceInvitationApi, saveFirebaseUserProfile, uploadFirebaseUserFile, deleteFirebaseUserFile, isUserAdmin } from "../lib/firebaseServices.js";
 import { openOrDownloadUserFile, openUserFileInNewTab, downloadUserFile } from "../lib/fileViewerUtils.js";
 import { translations } from "../translations.js";
-import { PLAN_PRICES, getPlanCostUSD, formatPlanPriceUSD } from "../lib/pricingConfig.js";
+import { PLAN_PRICES, getPlanCostUSD, formatPlanPriceUSD, PLAN_LIMITS, normalizeSubscriptionPlan, getPlanLimits, canPlanInviteMembers, getPlanMaxTeamMembers } from "../lib/pricingConfig.js";
 import { formatLocalCurrencyEstimate } from "../lib/currencyUtils.js";
 
 function cleanMemberName(name?: string): string {
@@ -4203,124 +4203,227 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
             </div>
           </div>
 
-          {/* ADD NEW TEAM MEMBER WITH CUSTOM POWERS FORM */}
-          <div className={`p-6 rounded-2xl border space-y-4 ${
-            theme === "dark" ? "border-slate-800 bg-slate-950/60" : "border-slate-200 bg-white shadow-sm"
-          }`}>
-            <h3 className={`text-base font-bold flex items-center gap-2 ${theme === "dark" ? "text-white" : "text-slate-900"}`}>
-              <Plus className="w-4 h-4 text-[#0075DE]" />
-              <span>{lang === "ar" ? "إضافة عضو جديد وتخصيص صلاحياته:" : "Provision New Team Member with Custom Powers:"}</span>
-            </h3>
+          {/* TEAM SEATS & PLAN LIMIT SUMMARY BANNER */}
+          {(() => {
+            const userPlan = normalizeSubscriptionPlan(currentUser?.subscriptionPlan);
+            const planLimits = PLAN_LIMITS[userPlan];
+            const activeNonCeoMembers = teamMembers.filter(m => !m.role?.includes("CEO") && m.id !== "tm-owner");
+            const pendingInvs = invitations.filter(inv => inv.status?.toLowerCase() !== "accepted");
+            const distinctEmails = new Set([
+              ...activeNonCeoMembers.map(m => m.email.toLowerCase()),
+              ...pendingInvs.map(i => i.email.toLowerCase())
+            ]);
+            const occupiedSeats = distinctEmails.size;
+            const maxSeats = planLimits.maxTeamMembers;
+            const remainingSeats = Math.max(0, maxSeats - occupiedSeats);
+            const isStarter = userPlan === "Starter";
+            const isAtLimit = occupiedSeats >= maxSeats;
 
-            {invSuccessMsg && (
-              <div className="p-3.5 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-xs font-bold flex items-center gap-2">
-                <CheckCircle2 className="w-4 h-4 flex-shrink-0" />
-                <span>{invSuccessMsg}</span>
-              </div>
-            )}
-
-            {invError && (
-              <div className="p-3.5 rounded-xl bg-red-500/15 border border-red-500/30 text-red-400 text-xs font-bold flex items-center gap-2">
-                <AlertCircle className="w-4 h-4 flex-shrink-0" />
-                <span>{invError}</span>
-              </div>
-            )}
-
-            <form onSubmit={handleAddTeamMemberSubmit} className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div>
-                  <label className="block text-xs font-bold text-slate-400 mb-1">{lang === "ar" ? "الاسم الكامل" : "Full Name"}</label>
-                  <input
-                    type="text"
-                    required
-                    value={newMemberName}
-                    onChange={(e) => setNewMemberName(e.target.value)}
-                    placeholder="e.g. Mohamed Mahmoud"
-                    className={`w-full h-10 px-3 rounded-xl text-xs focus:border-[#0075DE] focus:outline-none border ${
-                      theme === "dark" ? "bg-slate-900 border-slate-800 text-white" : "bg-slate-50 border-slate-300 text-slate-900"
-                    }`}
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-slate-400 mb-1">{lang === "ar" ? "البريد الإلكتروني المؤسسي" : "Corporate Email"}</label>
-                  <input
-                    type="email"
-                    required
-                    value={newMemberEmail}
-                    onChange={(e) => setNewMemberEmail(e.target.value)}
-                    placeholder="e.g. m.mahmoud@g-partner.com"
-                    className={`w-full h-10 px-3 rounded-xl text-xs font-mono focus:border-[#0075DE] focus:outline-none border ${
-                      theme === "dark" ? "bg-slate-900 border-slate-800 text-white" : "bg-slate-50 border-slate-300 text-slate-900"
-                    }`}
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-slate-400 mb-1">{lang === "ar" ? "الدور الوظيفي" : "Designated Role"}</label>
-                  <select
-                    value={newMemberRole}
-                    onChange={(e) => setNewMemberRole(e.target.value)}
-                    className={`w-full h-10 px-3 rounded-xl text-xs focus:border-[#0075DE] focus:outline-none border ${
-                      theme === "dark" ? "bg-slate-900 border-slate-800 text-white" : "bg-slate-50 border-slate-300 text-slate-900"
-                    }`}
-                  >
-                    <option value="Compliance Officer">Compliance Officer</option>
-                    <option value="Risk Auditor">Risk Auditor</option>
-                    <option value="Analyst">Analyst</option>
-                    <option value="Contributor">Contributor</option>
-                    <option value="View Only">View Only</option>
-                  </select>
-                </div>
-              </div>
-
-              {/* Checkboxes for initial powers */}
-              <div className={`p-4 rounded-xl border space-y-2 ${
-                theme === "dark" ? "bg-slate-900 border-slate-800" : "bg-slate-50 border-slate-200"
+            return (
+              <div className={`p-5 rounded-2xl border flex flex-col md:flex-row items-start md:items-center justify-between gap-4 ${
+                isStarter
+                  ? (theme === "dark" ? "bg-amber-500/10 border-amber-500/30 text-amber-300" : "bg-amber-50 border-amber-200 text-amber-900")
+                  : isAtLimit
+                    ? (theme === "dark" ? "bg-red-500/10 border-red-500/30 text-red-300" : "bg-red-50 border-red-200 text-red-900")
+                    : (theme === "dark" ? "bg-[#0075DE]/10 border-[#0075DE]/30 text-blue-200" : "bg-blue-50/70 border-blue-200 text-blue-950")
               }`}>
-                <p className="text-xs font-bold text-[#0075DE]">
-                  {lang === "ar" ? "تحديد الصلاحيات المبدئية للعضو الجديد:" : "Select Initial Powers for New Member:"}
-                </p>
-                <div className="grid grid-cols-2 md:grid-cols-5 gap-3 pt-2">
-                  {[
-                    { key: "fileVault", label: lang === "ar" ? "إدارة الملفات" : "File Vault" },
-                    { key: "memoryVault", label: lang === "ar" ? "مكتبة الذكريات" : "Memory Vault" },
-                    { key: "riskRadar", label: lang === "ar" ? "رادار المخاطر" : "Risk Radar" },
-                    { key: "marketIntel", label: lang === "ar" ? "استخبارات السوق" : "Market Intel" },
-                    { key: "settings", label: lang === "ar" ? "إعدادات النظام" : "System Settings" },
-                  ].map((p) => (
-                    <label key={p.key} className={`flex items-center gap-2 text-xs cursor-pointer ${theme === "dark" ? "text-slate-300" : "text-slate-700"}`}>
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <Users className="w-5 h-5 text-[#0075DE]" />
+                    <h4 className="text-sm font-bold">
+                      {lang === "ar" ? `حدود أعضاء الفريق (خطة ${userPlan}):` : `Team Seat Allocation (${userPlan} Plan):`}
+                    </h4>
+                    <span className="px-2.5 py-0.5 rounded-full text-xs font-mono font-bold bg-[#0075DE]/20 text-[#0075DE]">
+                      {occupiedSeats} / {maxSeats} {lang === "ar" ? "مقاعد مستخدمة" : "seats used"}
+                    </span>
+                  </div>
+                  <p className="text-xs opacity-90">
+                    {isStarter
+                      ? (lang === "ar"
+                          ? "خطة Starter الفردية لا تدعم دعوة أعضاء الفريق (الحد الأقصى 0). يلزم الترقية إلى Professional (حتى 5 أعضاء) أو Enterprise (حتى 15 عضوًا)."
+                          : "Starter plan does not support team members (0 max). Upgrade to Professional (up to 5) or Enterprise (up to 15) to invite team members.")
+                      : isAtLimit
+                        ? (lang === "ar"
+                            ? `تم بلوغ الحد الأقصى للمقاعد (${maxSeats} أعضاء). لا يمكن إرسال دعوات جديدة إلا بعد ترقية الخطة أو إزالة أعضاء/إلغاء دعوات معلقة.`
+                            : `Seat limit reached (${maxSeats} max). Cannot send new invitations until upgrading or freeing seats.`)
+                        : (lang === "ar"
+                            ? `متاح لك دعوة حتى ${remainingSeats} أعضاء إضافيين. يرث أعضاء الفريق ميزات الخطة المدفوعة (${userPlan}) مع تحكمك الكامل في صلاحياتهم.`
+                            : `You can invite up to ${remainingSeats} more members. Members inherit workspace ${userPlan} entitlements while you control individual permissions.`)}
+                  </p>
+                </div>
+
+                {isStarter && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedPlanForCheckout("Professional");
+                      setConfirmingPlanModal("Professional");
+                    }}
+                    className="px-4 py-2 bg-[#0075DE] hover:bg-[#005BAB] text-white text-xs font-bold rounded-xl shrink-0 transition-all shadow-md shadow-[#0075DE]/20 flex items-center gap-1.5"
+                  >
+                    <Zap className="w-3.5 h-3.5" />
+                    <span>{lang === "ar" ? "ترقية الخطة الآن" : "Upgrade Plan Now"}</span>
+                  </button>
+                )}
+              </div>
+            );
+          })()}
+
+          {/* ADD NEW TEAM MEMBER WITH CUSTOM POWERS FORM */}
+          {(() => {
+            const userPlan = normalizeSubscriptionPlan(currentUser?.subscriptionPlan);
+            const planLimits = PLAN_LIMITS[userPlan];
+            const activeNonCeoMembers = teamMembers.filter(m => !m.role?.includes("CEO") && m.id !== "tm-owner");
+            const pendingInvs = invitations.filter(inv => inv.status?.toLowerCase() !== "accepted");
+            const distinctEmails = new Set([
+              ...activeNonCeoMembers.map(m => m.email.toLowerCase()),
+              ...pendingInvs.map(i => i.email.toLowerCase())
+            ]);
+            const occupiedSeats = distinctEmails.size;
+            const maxSeats = planLimits.maxTeamMembers;
+            const isStarter = userPlan === "Starter";
+            const isAtLimit = occupiedSeats >= maxSeats;
+            const canInvite = !isStarter && !isAtLimit;
+
+            return (
+              <div className={`p-6 rounded-2xl border space-y-4 ${
+                theme === "dark" ? "border-slate-800 bg-slate-950/60" : "border-slate-200 bg-white shadow-sm"
+              }`}>
+                <div className="flex items-center justify-between">
+                  <h3 className={`text-base font-bold flex items-center gap-2 ${theme === "dark" ? "text-white" : "text-slate-900"}`}>
+                    <Plus className="w-4 h-4 text-[#0075DE]" />
+                    <span>{lang === "ar" ? "إضافة عضو جديد وتخصيص صلاحياته:" : "Provision New Team Member with Custom Powers:"}</span>
+                  </h3>
+                  {isStarter ? (
+                    <span className="text-[11px] px-2.5 py-1 rounded-full bg-amber-500/15 text-amber-500 font-bold border border-amber-500/30">
+                      {lang === "ar" ? "ممنوع في Starter (0 أعضاء)" : "Locked on Starter (0 seats)"}
+                    </span>
+                  ) : isAtLimit ? (
+                    <span className="text-[11px] px-2.5 py-1 rounded-full bg-red-500/15 text-red-500 font-bold border border-red-500/30">
+                      {lang === "ar" ? "تم الوصول للحد الأقصى" : "Seat Limit Reached"}
+                    </span>
+                  ) : null}
+                </div>
+
+                {invSuccessMsg && (
+                  <div className="p-3.5 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-xs font-bold flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 flex-shrink-0" />
+                    <span>{invSuccessMsg}</span>
+                  </div>
+                )}
+
+                {invError && (
+                  <div className="p-3.5 rounded-xl bg-red-500/15 border border-red-500/30 text-red-400 text-xs font-bold flex items-center gap-2">
+                    <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                    <span>{invError}</span>
+                  </div>
+                )}
+
+                <form onSubmit={handleAddTeamMemberSubmit} className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-400 mb-1">{lang === "ar" ? "الاسم الكامل" : "Full Name"}</label>
                       <input
-                        type="checkbox"
-                        checked={!!newMemberPowers[p.key as keyof ModulePermissions]}
-                        onChange={(e) => setNewMemberPowers({
-                          ...newMemberPowers,
-                          [p.key]: e.target.checked
-                        })}
-                        className={`w-4 h-4 rounded text-[#0075DE] focus:ring-[#0075DE] accent-[#0075DE] ${
-                          theme === "dark" ? "bg-slate-950 border-slate-700" : "bg-white border-slate-300"
+                        type="text"
+                        required
+                        disabled={!canInvite || isSendingInv}
+                        value={newMemberName}
+                        onChange={(e) => setNewMemberName(e.target.value)}
+                        placeholder="e.g. Mohamed Mahmoud"
+                        className={`w-full h-10 px-3 rounded-xl text-xs focus:border-[#0075DE] focus:outline-none border disabled:opacity-50 ${
+                          theme === "dark" ? "bg-slate-900 border-slate-800 text-white" : "bg-slate-50 border-slate-300 text-slate-900"
                         }`}
                       />
-                      <span>{p.label}</span>
-                    </label>
-                  ))}
-                </div>
-              </div>
+                    </div>
 
-              <button
-                type="submit"
-                disabled={isSendingInv}
-                className="px-5 py-3 bg-[#0075DE] hover:bg-[#005BAB] disabled:opacity-50 text-white font-bold text-xs rounded-xl flex items-center gap-2 cursor-pointer transition-all shadow-lg shadow-[#0075DE]/10"
-              >
-                {isSendingInv ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
-                <span>
-                  {isSendingInv
-                    ? (lang === "ar" ? "جاري جاري التوثيق وإرسال البريد..." : "Authenticating & Sending...")
-                    : (lang === "ar" ? "دعوة العضو وتخصيص الصلاحيات" : "Invite Member & Grant CEO Powers")}
-                </span>
-              </button>
-            </form>
-          </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-400 mb-1">{lang === "ar" ? "البريد الإلكتروني المؤسسي" : "Corporate Email"}</label>
+                      <input
+                        type="email"
+                        required
+                        disabled={!canInvite || isSendingInv}
+                        value={newMemberEmail}
+                        onChange={(e) => setNewMemberEmail(e.target.value)}
+                        placeholder="e.g. m.mahmoud@g-partner.com"
+                        className={`w-full h-10 px-3 rounded-xl text-xs font-mono focus:border-[#0075DE] focus:outline-none border disabled:opacity-50 ${
+                          theme === "dark" ? "bg-slate-900 border-slate-800 text-white" : "bg-slate-50 border-slate-300 text-slate-900"
+                        }`}
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-slate-400 mb-1">{lang === "ar" ? "الدور الوظيفي" : "Designated Role"}</label>
+                      <select
+                        value={newMemberRole}
+                        disabled={!canInvite || isSendingInv}
+                        onChange={(e) => setNewMemberRole(e.target.value)}
+                        className={`w-full h-10 px-3 rounded-xl text-xs focus:border-[#0075DE] focus:outline-none border disabled:opacity-50 ${
+                          theme === "dark" ? "bg-slate-900 border-slate-800 text-white" : "bg-slate-50 border-slate-300 text-slate-900"
+                        }`}
+                      >
+                        <option value="Compliance Officer">Compliance Officer</option>
+                        <option value="Risk Auditor">Risk Auditor</option>
+                        <option value="Analyst">Analyst</option>
+                        <option value="Contributor">Contributor</option>
+                        <option value="View Only">View Only</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* Checkboxes for initial powers */}
+                  <div className={`p-4 rounded-xl border space-y-2 ${
+                    theme === "dark" ? "bg-slate-900 border-slate-800" : "bg-slate-50 border-slate-200"
+                  }`}>
+                    <p className="text-xs font-bold text-[#0075DE]">
+                      {lang === "ar" ? "تحديد الصلاحيات المبدئية للعضو الجديد:" : "Select Initial Powers for New Member:"}
+                    </p>
+                    <div className="grid grid-cols-2 md:grid-cols-5 gap-3 pt-2">
+                      {[
+                        { key: "fileVault", label: lang === "ar" ? "إدارة الملفات" : "File Vault" },
+                        { key: "memoryVault", label: lang === "ar" ? "مكتبة الذكريات" : "Memory Vault" },
+                        { key: "riskRadar", label: lang === "ar" ? "رادار المخاطر" : "Risk Radar" },
+                        { key: "marketIntel", label: lang === "ar" ? "استخبارات السوق" : "Market Intel" },
+                        { key: "settings", label: lang === "ar" ? "إعدادات النظام" : "System Settings" },
+                      ].map((p) => (
+                        <label key={p.key} className={`flex items-center gap-2 text-xs cursor-pointer ${!canInvite ? "opacity-50 cursor-not-allowed" : ""} ${theme === "dark" ? "text-slate-300" : "text-slate-700"}`}>
+                          <input
+                            type="checkbox"
+                            disabled={!canInvite || isSendingInv}
+                            checked={!!newMemberPowers[p.key as keyof ModulePermissions]}
+                            onChange={(e) => setNewMemberPowers({
+                              ...newMemberPowers,
+                              [p.key]: e.target.checked
+                            })}
+                            className={`w-4 h-4 rounded text-[#0075DE] focus:ring-[#0075DE] accent-[#0075DE] ${
+                              theme === "dark" ? "bg-slate-950 border-slate-700" : "bg-white border-slate-300"
+                            }`}
+                          />
+                          <span>{p.label}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={!canInvite || isSendingInv}
+                    className="px-5 py-3 bg-[#0075DE] hover:bg-[#005BAB] disabled:opacity-50 text-white font-bold text-xs rounded-xl flex items-center gap-2 cursor-pointer transition-all shadow-lg shadow-[#0075DE]/10"
+                  >
+                    {isSendingInv ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+                    <span>
+                      {isSendingInv
+                        ? (lang === "ar" ? "جاري التوثيق وإرسال البريد..." : "Authenticating & Sending...")
+                        : isStarter
+                          ? (lang === "ar" ? "الترقية مطلوبة لدعوة الأعضاء" : "Upgrade Required to Invite")
+                          : isAtLimit
+                            ? (lang === "ar" ? "تم الوصول للحد الأقصى للمقاعد" : "Seat Limit Reached")
+                            : (lang === "ar" ? "دعوة العضو وتخصيص الصلاحيات" : "Invite Member & Grant CEO Powers")}
+                    </span>
+                  </button>
+                </form>
+              </div>
+            );
+          })()}
 
           {/* PENDING & SENT INVITATIONS LIST */}
           {(() => {

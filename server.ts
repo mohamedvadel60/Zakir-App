@@ -67,11 +67,178 @@ import {
   handleRunMarketIntelligence,
   handleDiagnoseMarketItem,
 } from "./src/server/marketIntelligenceService.js";
+import {
+  PLAN_LIMITS,
+  normalizeSubscriptionPlan,
+  getPlanLimits,
+  canPlanInviteMembers,
+  getPlanMaxTeamMembers
+} from "./src/lib/pricingConfig.js";
 
 dotenv.config();
 
 export const ZAKIR_BUILD_ID =
-  "ZAKIR_BUILD_2026_09_25_KYC_SEPARATION_VERIFIED";
+  "ZAKIR_BUILD_2026_09_25_TEAM_LIMITS_ENTITLEMENTS_VERIFIED";
+
+// Concurrency mutex lock per workspace to strictly guard team invitation limits
+const workspaceInvitationLocks = new Map<string, Promise<any>>();
+
+export async function runWithWorkspaceLock<T>(workspaceId: string, fn: () => Promise<T>): Promise<T> {
+  const currentLock = workspaceInvitationLocks.get(workspaceId) || Promise.resolve();
+  let releaseLock: () => void = () => {};
+  const newLock = new Promise<void>((resolve) => {
+    releaseLock = resolve;
+  });
+  workspaceInvitationLocks.set(workspaceId, newLock);
+  try {
+    await currentLock;
+    return await fn();
+  } finally {
+    releaseLock();
+    if (workspaceInvitationLocks.get(workspaceId) === newLock) {
+      workspaceInvitationLocks.delete(workspaceId);
+    }
+  }
+}
+
+export interface WorkspaceOccupancyInfo {
+  plan: "Starter" | "Professional" | "Enterprise";
+  maxSeats: number;
+  allowsInvitations: boolean;
+  activeMembers: any[];
+  pendingInvitations: any[];
+  distinctOccupiedEmails: Set<string>;
+  occupiedSeats: number;
+  remainingSeats: number;
+  isAtLimit: boolean;
+}
+
+export async function getWorkspaceOccupancy(
+  workspaceId: string,
+  ceoUid: string
+): Promise<WorkspaceOccupancyInfo> {
+  // 1. Resolve CEO document to determine true authoritative workspace subscription plan
+  let ceoData: any = null;
+  if (ceoUid) {
+    try {
+      const snap = await adminDb.collection("users").doc(ceoUid).get();
+      if (snap.exists) ceoData = snap.data();
+    } catch (e) {}
+  }
+  if (!ceoData && workspaceId) {
+    try {
+      const q = await adminDb.collection("users")
+        .where("workspaceId", "==", workspaceId)
+        .where("role", "in", ["CEO", "Admin", "Owner", "FOUNDER"])
+        .limit(1)
+        .get();
+      if (!q.empty) {
+        ceoData = q.docs[0].data();
+        if (!ceoUid) ceoUid = q.docs[0].id;
+      }
+    } catch (e) {}
+  }
+  if (!ceoData) {
+    const db = readDb();
+    ceoData = db.users?.find((u: any) => 
+      (u.id === ceoUid || u.workspaceId === workspaceId) && 
+      ["CEO", "ADMIN", "OWNER", "FOUNDER"].includes((u.role || "").toUpperCase())
+    ) || db.users?.find((u: any) => u.id === ceoUid);
+  }
+
+  const normalizedPlan = normalizeSubscriptionPlan(ceoData?.subscriptionPlan);
+  const planLimits = PLAN_LIMITS[normalizedPlan];
+
+  // 2. Count active members in workspace (excluding CEO)
+  const activeMembers: any[] = [];
+  const distinctEmails = new Set<string>();
+  const ceoEmail = (ceoData?.email || "").trim().toLowerCase();
+
+  try {
+    const memSnap = await adminDb.collection("users").where("workspaceId", "==", workspaceId).get();
+    if (!memSnap.empty) {
+      memSnap.docs.forEach((doc: any) => {
+        const d = doc.data();
+        const docId = doc.id;
+        const memEmail = (d.email || "").trim().toLowerCase();
+        const memRole = (d.role || "").toUpperCase();
+        // Skip CEO / owner themselves
+        if (docId === ceoUid || memEmail === ceoEmail || memRole === "CEO" || memRole === "OWNER") {
+          return;
+        }
+        activeMembers.push({ id: docId, ...d });
+        if (memEmail) distinctEmails.add(memEmail);
+      });
+    }
+  } catch (e) {}
+
+  // Also check local DB
+  const db = readDb();
+  if (db.users) {
+    db.users.forEach((u: any) => {
+      if (u.workspaceId === workspaceId && u.id !== ceoUid) {
+        const uEmail = (u.email || "").trim().toLowerCase();
+        const uRole = (u.role || "").toUpperCase();
+        if (uEmail !== ceoEmail && uRole !== "CEO" && uRole !== "OWNER") {
+          if (!activeMembers.some((m) => m.id === u.id || (m.email && m.email.toLowerCase() === uEmail))) {
+            activeMembers.push(u);
+          }
+          if (uEmail) distinctEmails.add(uEmail);
+        }
+      }
+    });
+  }
+
+  // 3. Count pending invitations for this workspace
+  const pendingInvitations: any[] = [];
+  try {
+    const invSnap = await adminDb.collection("invitations").where("workspaceId", "==", workspaceId).get();
+    if (!invSnap.empty) {
+      invSnap.docs.forEach((doc: any) => {
+        const inv = doc.data();
+        const invEmail = (inv.email || doc.id || "").trim().toLowerCase();
+        const isAccepted = (inv.status || "").toUpperCase() === "ACCEPTED";
+        if (invEmail && !isAccepted && invEmail !== ceoEmail) {
+          pendingInvitations.push({ id: doc.id, ...inv });
+          distinctEmails.add(invEmail);
+        }
+      });
+    }
+  } catch (e) {}
+
+  if (db.invitations) {
+    db.invitations.forEach((inv: any) => {
+      if (inv.workspaceId === workspaceId) {
+        const invEmail = (inv.email || "").trim().toLowerCase();
+        const isAccepted = (inv.status || "").toUpperCase() === "ACCEPTED";
+        if (invEmail && !isAccepted && invEmail !== ceoEmail) {
+          if (!pendingInvitations.some((p) => (p.email || "").toLowerCase() === invEmail)) {
+            pendingInvitations.push(inv);
+          }
+          distinctEmails.add(invEmail);
+        }
+      }
+    });
+  }
+
+  const occupiedSeats = distinctEmails.size;
+  const maxSeats = planLimits.maxTeamMembers;
+  const remainingSeats = Math.max(0, maxSeats - occupiedSeats);
+  const isAtLimit = occupiedSeats >= maxSeats;
+
+  return {
+    plan: normalizedPlan,
+    maxSeats,
+    allowsInvitations: planLimits.allowsTeamInvitations,
+    activeMembers,
+    pendingInvitations,
+    distinctOccupiedEmails: distinctEmails,
+    occupiedSeats,
+    remainingSeats,
+    isAtLimit
+  };
+}
+
 
 export const isServerless = Boolean(
   process.env.VERCEL ||
@@ -6275,6 +6442,14 @@ app.all(
     "/admin/send-invitation",
     "/api/admin/send-invitation/",
     "/admin/send-invitation/",
+    "/api/workspace/invite-member",
+    "/workspace/invite-member",
+    "/api/workspace/invitations/send",
+    "/workspace/invitations/send",
+    "/api/team/invite",
+    "/team/invite",
+    "/api/team/invitations/send",
+    "/team/invitations/send",
   ],
   requireAuth,
   async (req: AuthRequest, res) => {
@@ -6492,38 +6667,40 @@ app.all(
         });
       }
 
-      // 3.b Server-side Plan & Invitation Validation Rules (Test A, B, C, G)
-      const ceoPlan = (ceoData.subscriptionPlan || "Starter").toUpperCase();
+      // Execute within workspace lock to prevent concurrent requests from exceeding plan limits
+      return await runWithWorkspaceLock(workspaceId, async () => {
+        // 3.b Server-side Plan & Invitation Validation Rules (Strict Single Source of Truth)
+        const occupancy = await getWorkspaceOccupancy(workspaceId, callerUid);
 
-      if (ceoPlan === "STARTER") {
-        return res.status(403).json({
-          success: false,
-          code: "STARTER_PLAN_RESTRICTION",
-          error: "Starter plan does not support member invitations.",
-          userFriendlyMessage: "خطة Starter الفردية لا تدعم دعوة أعضاء جدد. يرجى الترقية إلى خطة Professional أو Enterprise."
-        });
-      }
-
-      if (ceoPlan === "PROFESSIONAL") {
-        let currentMembersCount = 1;
-        try {
-          const teamList = ceoData.teamMembersList || [];
-          currentMembersCount = Math.max(1, teamList.length + 1);
-          const membersSnap = await adminDb.collection("users").where("workspaceId", "==", workspaceId).get();
-          if (!membersSnap.empty) {
-            currentMembersCount = Math.max(currentMembersCount, membersSnap.size);
-          }
-        } catch (e) {}
-
-        if (currentMembersCount >= 50) {
-          return res.status(400).json({
+        // Starter Rule: 0 team members / no invitations allowed
+        if (!occupancy.allowsInvitations || occupancy.plan === "Starter") {
+          return res.status(403).json({
             success: false,
-            code: "PROFESSIONAL_LIMIT_EXCEEDED",
-            error: "Professional plan maximum limit of 50 members reached.",
-            userFriendlyMessage: "لقد بلغ عدد أعضاء فريقك في خطة Professional الحد الأقصى (50 عضوًا). لا يمكنك إرسال دعوات إضافية."
+            code: "STARTER_PLAN_RESTRICTION",
+            error: "Starter plan does not support member invitations. Maximum limit is 0 team members.",
+            userFriendlyMessage:
+              "خطة Starter الفردية لا تدعم دعوة أعضاء جدد (الحد الأقصى 0). يرجى الترقية إلى خطة Professional أو Enterprise.",
+            plan: occupancy.plan,
+            maxSeats: occupancy.maxSeats,
+            occupiedSeats: occupancy.occupiedSeats,
           });
         }
-      }
+
+        // Check if this email already occupies a seat (e.g. pending invite or existing member)
+        const isAlreadyOccupyingSeat = occupancy.distinctOccupiedEmails.has(normalizedEmail);
+
+        // Professional (5) / Enterprise (15) Limit Enforcement
+        if (!isAlreadyOccupyingSeat && occupancy.occupiedSeats >= occupancy.maxSeats) {
+          return res.status(403).json({
+            success: false,
+            code: "PLAN_TEAM_LIMIT_EXCEEDED",
+            error: `${occupancy.plan} plan maximum limit of ${occupancy.maxSeats} team members/invitations reached.`,
+            userFriendlyMessage: `لقد وصلت إلى الحد الأقصى لأعضاء الفريق في خطة ${occupancy.plan} (${occupancy.maxSeats} أعضاء). لا يمكن إرسال المزيد من الدعوات.`,
+            plan: occupancy.plan,
+            maxSeats: occupancy.maxSeats,
+            occupiedSeats: occupancy.occupiedSeats,
+          });
+        }
 
       // 4. Prevent Self-Invitation
       if (
@@ -6716,16 +6893,20 @@ app.all(
         sanitizedMessage: `Invited member ${normalizedEmail} to workspace ${workspaceId} as ${designatedRole}`,
       });
 
-      return res.json({
-        success: true,
-        emailSent: mailResult.success,
-        message: mailResult.success
-          ? "Invitation generated and dispatched successfully via email."
-          : "Invitation generated successfully.",
-        userFriendlyMessage: mailResult.success
-          ? `تم إرسال دعوة الموظف بنجاح إلى البريد (${normalizedEmail}).`
-          : `تم إنشاء وتوثيق دعوة الموظف بنجاح (${normalizedEmail}). يمكنك أيضاً نسخ رابط الدعوة ومشاركته مع العضو مباشرة.`,
-        invitation: invitationRecord,
+        return res.json({
+          success: true,
+          emailSent: mailResult.success,
+          message: mailResult.success
+            ? "Invitation generated and dispatched successfully via email."
+            : "Invitation generated successfully.",
+          userFriendlyMessage: mailResult.success
+            ? `تم إرسال دعوة الموظف بنجاح إلى البريد (${normalizedEmail}).`
+            : `تم إنشاء وتوثيق دعوة الموظف بنجاح (${normalizedEmail}). يمكنك أيضاً نسخ رابط الدعوة ومشاركته مع العضو مباشرة.`,
+          invitation: invitationRecord,
+          occupiedSeats: isAlreadyOccupyingSeat ? occupancy.occupiedSeats : occupancy.occupiedSeats + 1,
+          maxSeats: occupancy.maxSeats,
+          remainingSeats: Math.max(0, occupancy.maxSeats - (isAlreadyOccupyingSeat ? occupancy.occupiedSeats : occupancy.occupiedSeats + 1)),
+        });
       });
     } catch (err: any) {
       console.error("send-invitation endpoint exception:", err);
@@ -6995,13 +7176,23 @@ app.all(
   },
 );
 
-// CEO Revoke Workspace Invitation (Strict Admin/CEO RBAC Check)
+// CEO Revoke Workspace Invitation & Member Removal (Strict Admin/CEO RBAC Check)
 app.all(
   [
     "/api/admin/revoke-invitation",
     "/admin/revoke-invitation",
     "/api/admin/revoke-invitation/",
     "/admin/revoke-invitation/",
+    "/api/workspace/invitations/revoke",
+    "/workspace/invitations/revoke",
+    "/api/team/revoke-invitation",
+    "/team/revoke-invitation",
+    "/api/admin/remove-team-member",
+    "/admin/remove-team-member",
+    "/api/workspace/team/remove",
+    "/workspace/team/remove",
+    "/api/team/member/remove",
+    "/team/member/remove",
   ],
   requireAuth,
   async (req: AuthRequest, res) => {
@@ -7050,43 +7241,89 @@ app.all(
         return res.status(403).json({
           success: false,
           code: "FORBIDDEN",
-          error: "Forbidden: Only CEO or Admin can revoke invitations.",
+          error: "Forbidden: Only CEO or Admin can revoke invitations or remove members.",
           userFriendlyMessage:
-            "ليس لديك صلاحية إلغاء الدعوات. هذه الصلاحية محصورة في إدارة المؤسسة.",
+            "ليس لديك صلاحية إلغاء الدعوات أو حذف الأعضاء. هذه الصلاحية محصورة في إدارة المؤسسة.",
         });
       }
 
-      const { email } = req.body;
+      const { email, memberId } = req.body;
       const normalizedEmail = (email || "").trim().toLowerCase();
 
-      if (!normalizedEmail) {
+      if (!normalizedEmail && !memberId) {
         return res
           .status(400)
           .json({
             success: false,
-            code: "INVALID_EMAIL",
-            error: "Email required",
+            code: "INVALID_INPUT",
+            error: "Email or Member ID required",
           });
       }
 
-      try {
-        await adminDb.collection("invitations").doc(normalizedEmail).delete();
-      } catch (e) {}
+      // 1. Delete invitation if exists
+      if (normalizedEmail) {
+        try {
+          await adminDb.collection("invitations").doc(normalizedEmail).delete();
+        } catch (e) {}
+
+        try {
+          const qSnap = await adminDb.collection("invitations").where("email", "==", normalizedEmail).get();
+          if (!qSnap.empty) {
+            for (const doc of qSnap.docs) {
+              await doc.ref.delete();
+            }
+          }
+        } catch (e) {}
+      }
+
+      // 2. Unbind workspace membership from user document if active
+      if (normalizedEmail || memberId) {
+        try {
+          if (memberId) {
+            const cleanMid = memberId.replace("tm-", "");
+            await adminDb.collection("users").doc(cleanMid).update({
+              workspaceId: `ws_${cleanMid.substring(0, 8)}`,
+              workspace: null,
+              role: "Contributor"
+            });
+          }
+          if (normalizedEmail) {
+            const uSnap = await adminDb.collection("users").where("email", "==", normalizedEmail).get();
+            if (!uSnap.empty) {
+              for (const doc of uSnap.docs) {
+                await doc.ref.update({
+                  workspaceId: `ws_${doc.id.substring(0, 8)}`,
+                  workspace: null,
+                  role: "Contributor"
+                });
+              }
+            }
+          }
+        } catch (e) {}
+      }
 
       const db = readDb();
-      if (db.invitations) {
+      if (db.invitations && normalizedEmail) {
         db.invitations = db.invitations.filter(
           (i: any) => i.email?.trim().toLowerCase() !== normalizedEmail,
         );
-        writeDb(db);
       }
+      if (db.users) {
+        db.users.forEach((u: any) => {
+          if ((normalizedEmail && u.email?.trim().toLowerCase() === normalizedEmail) || (memberId && (u.id === memberId || u.id === memberId.replace("tm-", "")))) {
+            u.workspaceId = `ws_${u.id?.substring(0, 8)}`;
+            u.workspace = null;
+          }
+        });
+      }
+      writeDb(db);
 
       try {
         const ceoRef = adminDb.collection("users").doc(callerUid);
         const snap = await ceoRef.get();
         if (snap.exists) {
           const teamList = (snap.data()?.teamMembersList || []).filter(
-            (m: any) => m.email?.trim().toLowerCase() !== normalizedEmail,
+            (m: any) => (normalizedEmail ? m.email?.trim().toLowerCase() !== normalizedEmail : true) && (memberId ? m.id !== memberId : true),
           );
           await ceoRef.update({ teamMembersList: teamList });
         }
@@ -7100,15 +7337,15 @@ app.all(
         userEmail: req.user?.email || callerUser?.email,
         metadata: {
           actor: { id: callerUid, email: req.user?.email || callerUser?.email, role: callerRole || "Admin" },
-          action: "Revoked member invitation",
-          revokedEmail: normalizedEmail,
+          action: "Removed member / revoked invitation",
+          revokedEmail: normalizedEmail || memberId,
         },
-        sanitizedMessage: `Revoked member invitation for ${normalizedEmail}`,
+        sanitizedMessage: `Removed member or revoked invitation for ${normalizedEmail || memberId}`,
       });
 
       return res.json({
         success: true,
-        userFriendlyMessage: `تم إلغاء وسحب الدعوة بنجاح لـ (${normalizedEmail}).`,
+        userFriendlyMessage: `تم إلغاء الدعوة وحذف العضو بنجاح لـ (${normalizedEmail || memberId}).`,
       });
     } catch (err: any) {
       return res
@@ -7116,7 +7353,7 @@ app.all(
         .json({
           success: false,
           error: err.message,
-          userFriendlyMessage: "فشل إلغاء الدعوة.",
+          userFriendlyMessage: "فشل إلغاء الدعوة أو حذف العضو.",
         });
     }
   },
@@ -8083,12 +8320,21 @@ app.all(
         } catch (e) {}
       }
 
+      // Authoritative occupancy stats for the workspace
+      const occupancy = await getWorkspaceOccupancy(workspaceId, ceoUid || callerUid);
+
       return res.json({
         success: true,
         workspaceId,
         companyName,
         teamMembers: teamList,
         invitations: workspaceInvitations,
+        plan: occupancy.plan,
+        maxSeats: occupancy.maxSeats,
+        occupiedSeats: occupancy.occupiedSeats,
+        remainingSeats: occupancy.remainingSeats,
+        allowsInvitations: occupancy.allowsInvitations,
+        isAtLimit: occupancy.isAtLimit,
       });
     } catch (err: any) {
       console.error("GET_WORKSPACE_TEAM_FAILED", err);
@@ -22514,18 +22760,18 @@ const handleSmartEvolution = async (
   }
 };
 
-app.get("/api/smart-evolution/latest", requireAuth, requireEntitlement, handleGetLatestSmartEvolution);
-app.post("/api/smart-evolution", requireAuth, requireEntitlement, handleRunSmartEvolution);
-app.post("/api/smart-evolution/run", requireAuth, requireEntitlement, handleRunSmartEvolution);
-app.post("/api/ai/smart-evolution", requireAuth, requireEntitlement, handleRunSmartEvolution);
+app.get("/api/smart-evolution/latest", requireAuth, requireEntitlement, requireModulePermission("marketIntel"), handleGetLatestSmartEvolution);
+app.post("/api/smart-evolution", requireAuth, requireEntitlement, requireModulePermission("marketIntel"), handleRunSmartEvolution);
+app.post("/api/smart-evolution/run", requireAuth, requireEntitlement, requireModulePermission("marketIntel"), handleRunSmartEvolution);
+app.post("/api/ai/smart-evolution", requireAuth, requireEntitlement, requireModulePermission("marketIntel"), handleRunSmartEvolution);
 
 // --- MARKET INTELLIGENCE ENDPOINTS (DYNAMIC ANALYTICAL ENGINE) ---
-app.get("/api/market-intelligence/latest", requireAuth, requireEntitlement, handleGetLatestMarketIntelligence);
-app.get("/api/market-intelligence/history", requireAuth, requireEntitlement, handleGetMarketIntelligenceHistory);
-app.post("/api/market-intelligence/run", requireAuth, requireEntitlement, handleRunMarketIntelligence);
-app.post("/api/market-intelligence/diagnose-item", requireAuth, requireEntitlement, handleDiagnoseMarketItem);
-app.post("/api/market-intelligence", requireAuth, requireEntitlement, handleRunMarketIntelligence);
-app.post("/api/ai/market-intelligence", requireAuth, requireEntitlement, handleRunMarketIntelligence);
+app.get("/api/market-intelligence/latest", requireAuth, requireEntitlement, requireModulePermission("marketIntel"), handleGetLatestMarketIntelligence);
+app.get("/api/market-intelligence/history", requireAuth, requireEntitlement, requireModulePermission("marketIntel"), handleGetMarketIntelligenceHistory);
+app.post("/api/market-intelligence/run", requireAuth, requireEntitlement, requireModulePermission("marketIntel"), handleRunMarketIntelligence);
+app.post("/api/market-intelligence/diagnose-item", requireAuth, requireEntitlement, requireModulePermission("marketIntel"), handleDiagnoseMarketItem);
+app.post("/api/market-intelligence", requireAuth, requireEntitlement, requireModulePermission("marketIntel"), handleRunMarketIntelligence);
+app.post("/api/ai/market-intelligence", requireAuth, requireEntitlement, requireModulePermission("marketIntel"), handleRunMarketIntelligence);
 
 // --- AI AGENT CHAT ENDPOINT ---
 app.post("/api/agent/chat", requireAuth, requireEntitlement, handleAgentChat);

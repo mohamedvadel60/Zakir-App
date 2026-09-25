@@ -241,19 +241,81 @@ export async function getUserProfileServer(uid?: string, email?: string): Promis
       }
 
       let effectivePlan = profileData.subscriptionPlan;
-      if (profileData.workspaceId && profileData.workspaceId !== uid && (profileData.role || "").toUpperCase() !== "CEO" && (profileData.role || "").toUpperCase() !== "ADMIN" && (profileData.role || "").toUpperCase() !== "OWNER") {
+      let effectiveSubStatus = profileData.subscriptionStatus;
+      let effectiveTrialEndsAt = profileData.trialEndsAt;
+      let effectiveTrialStartedAt = profileData.trialStartedAt;
+
+      const isNonCeoMember = profileData.workspaceId && 
+        (profileData.role || "").toUpperCase() !== "CEO" && 
+        (profileData.role || "").toUpperCase() !== "ADMIN" && 
+        (profileData.role || "").toUpperCase() !== "OWNER" &&
+        (profileData.role || "").toUpperCase() !== "FOUNDER";
+
+      if (isNonCeoMember) {
         try {
-          const ceoSnap = await adminDb.collection("users").where("workspaceId", "==", profileData.workspaceId).where("role", "in", ["CEO", "Admin", "Owner", "FOUNDER"]).limit(1).get();
-          if (!ceoSnap.empty) {
-            const ceoData = ceoSnap.docs[0].data();
-            if (ceoData.subscriptionPlan) {
-              effectivePlan = ceoData.subscriptionPlan;
-            }
+          let ceoData: any = null;
+          // Check if workspace ownerId is directly recorded
+          if (profileData.workspace?.ownerId) {
+            try {
+              const snap = await adminDb.collection("users").doc(profileData.workspace.ownerId).get();
+              if (snap.exists) ceoData = snap.data();
+            } catch (e) {}
           }
-        } catch (e) {}
+          // Query Firestore by workspaceId and CEO role
+          if (!ceoData && profileData.workspaceId) {
+            try {
+              const ceoSnap = await adminDb.collection("users")
+                .where("workspaceId", "==", profileData.workspaceId)
+                .where("role", "in", ["CEO", "Admin", "Owner", "FOUNDER", "Director"])
+                .limit(1)
+                .get();
+              if (!ceoSnap.empty) {
+                ceoData = ceoSnap.docs[0].data();
+              }
+            } catch (e) {}
+          }
+          // Query Firestore workspaces collection for ownerId
+          if (!ceoData && profileData.workspaceId) {
+            try {
+              const wsSnap = await adminDb.collection("workspaces").doc(profileData.workspaceId).get();
+              if (wsSnap.exists && wsSnap.data()?.ownerId) {
+                const snap = await adminDb.collection("users").doc(wsSnap.data().ownerId).get();
+                if (snap.exists) ceoData = snap.data();
+              }
+            } catch (e) {}
+          }
+          // Fallback to local DB for tests/offline
+          if (!ceoData) {
+            try {
+              const db = readDbForAuth();
+              ceoData = db.users?.find((u: any) => 
+                (u.workspaceId === profileData.workspaceId || u.id === profileData.workspace?.ownerId) && 
+                ["CEO", "ADMIN", "OWNER", "FOUNDER"].includes((u.role || "").toUpperCase())
+              );
+            } catch (e) {}
+          }
+
+          if (ceoData) {
+            // Inherit CEO / Workspace subscription entitlement
+            effectivePlan = ceoData.subscriptionPlan || "Starter";
+            effectiveSubStatus = ceoData.subscriptionStatus || "Active";
+            effectiveTrialEndsAt = ceoData.trialEndsAt || null;
+            effectiveTrialStartedAt = ceoData.trialStartedAt || null;
+          }
+        } catch (e) {
+          console.warn("[AUTH] Error resolving CEO workspace subscription:", e);
+        }
       }
 
-      return { ...profileData, id: uid, uid: uid, subscriptionPlan: effectivePlan || profileData.subscriptionPlan || "Starter" };
+      return { 
+        ...profileData, 
+        id: uid, 
+        uid: uid, 
+        subscriptionPlan: effectivePlan || profileData.subscriptionPlan || "Starter",
+        subscriptionStatus: effectiveSubStatus || profileData.subscriptionStatus || "Active",
+        trialEndsAt: effectiveTrialEndsAt !== undefined ? effectiveTrialEndsAt : profileData.trialEndsAt,
+        trialStartedAt: effectiveTrialStartedAt !== undefined ? effectiveTrialStartedAt : profileData.trialStartedAt
+      };
     }
 
     // When UID is provided, DO NOT fall back to arbitrary email matches that could return a mismatched profile ID.
