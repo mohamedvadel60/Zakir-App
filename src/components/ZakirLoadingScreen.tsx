@@ -6,26 +6,28 @@ interface ZakirLoadingScreenProps {
 }
 
 /**
- * ZAKIR Premium Brand Motion Loading Screen
+ * ZAKIR Professional Brand Motion Loading Screen
  *
- * Sequence (3.2 seconds total duration):
- * 1. 0 - 200ms: Background solid canvas render + initial hidden state
- * 2. 200ms - 1700ms: Staggered Draw/Stroke Reveal of the 5 official Zakir vector paths
- * 3. 1600ms - 2400ms: Subtle, slow, cinematic Zoom In (scale 1.0 -> 1.06)
- * 4. 2400ms - 2850ms: Smooth, subtle Zoom Out back to natural size (scale 1.06 -> 1.0)
- * 5. 2850ms - 3250ms: Smooth full screen Fade Out (opacity 1 -> 0)
+ * Sequence (2.8 seconds total duration):
+ * 1. 0 - 900ms:    Slow, smooth Zoom In (scale 0.88 -> 1.05)
+ * 2. 900ms - 1700ms: Slow, smooth Zoom Out (scale 1.05 -> 1.00 natural size)
+ * 3. 1700ms - 2100ms: Brief stable pause at natural size
+ * 4. 2100ms - 2800ms: Smooth full-screen Fade Out (opacity 1 -> 0)
+ * 5. 2800ms:          Complete -> Unmount -> Direct page transition
  *
  * GUARANTEES:
- * - ONLY the official Zakir brand symbol is displayed (ZERO text, ZERO taglines, ZERO spinners)
- * - Perfectly centered horizontally and vertically
- * - Clean light (#F8FAFC) or dark (#0B0F19) canvas matching current app theme
- * - Respects prefers-reduced-motion
+ * - ONLY three effects used: Zoom In -> Zoom Out -> Fade
+ * - ZERO Draw / Stroke animation
+ * - ZERO text / taglines / copyright / spinners
+ * - Small/medium responsive logo size (max 140px desktop, max 110px mobile)
+ * - Clean light (#F8FAFC) or dark (#0B0F19) solid background canvas
+ * - Smooth cubic-bezier(0.22, 1, 0.36, 1) easing
  */
 export const ZakirLoadingScreen: React.FC<ZakirLoadingScreenProps> = ({
   theme: propsTheme,
   onComplete,
 }) => {
-  // Synchronous theme resolution from localStorage or props
+  // Synchronous theme resolution
   const [activeTheme] = useState<"light" | "dark">((): "light" | "dark" => {
     if (propsTheme === "light" || propsTheme === "dark") return propsTheme;
     if (typeof window !== "undefined") {
@@ -35,46 +37,46 @@ export const ZakirLoadingScreen: React.FC<ZakirLoadingScreenProps> = ({
     return "dark";
   });
 
-  // Stage state machine: "init" | "draw" | "zoomin" | "zoomout" | "fadeout" | "hidden"
+  // Stages: "init" | "zoomin" | "zoomout" | "hold" | "fadeout" | "hidden"
   const [stage, setStage] = useState<
-    "init" | "draw" | "zoomin" | "zoomout" | "fadeout" | "hidden"
+    "init" | "zoomin" | "zoomout" | "hold" | "fadeout" | "hidden"
   >("init");
 
   const isLight = activeTheme === "light";
 
   useEffect(() => {
-    // Respect reduced motion settings
+    // Respect reduced motion preferences
     const prefersReducedMotion =
       typeof window !== "undefined" &&
       window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
     if (prefersReducedMotion) {
-      setStage("draw");
-      const tFade = setTimeout(() => setStage("fadeout"), 600);
+      setStage("hold");
+      const tFade = setTimeout(() => setStage("fadeout"), 400);
       const tHide = setTimeout(() => {
         setStage("hidden");
         onComplete?.();
-      }, 900);
+      }, 700);
       return () => {
         clearTimeout(tFade);
         clearTimeout(tHide);
       };
     }
 
-    // Precise Motion Graphics Timeline (~3250ms total)
-    const tDraw = setTimeout(() => setStage("draw"), 150);
-    const tZoomIn = setTimeout(() => setStage("zoomin"), 1600);
-    const tZoomOut = setTimeout(() => setStage("zoomout"), 2400);
-    const tFadeOut = setTimeout(() => setStage("fadeout"), 2850);
+    // Precise 2.8s Timeline
+    const tZoomIn = setTimeout(() => setStage("zoomin"), 20);
+    const tZoomOut = setTimeout(() => setStage("zoomout"), 900);
+    const tHold = setTimeout(() => setStage("hold"), 1700);
+    const tFadeOut = setTimeout(() => setStage("fadeout"), 2100);
     const tHidden = setTimeout(() => {
       setStage("hidden");
       onComplete?.();
-    }, 3250);
+    }, 2800);
 
     return () => {
-      clearTimeout(tDraw);
       clearTimeout(tZoomIn);
       clearTimeout(tZoomOut);
+      clearTimeout(tHold);
       clearTimeout(tFadeOut);
       clearTimeout(tHidden);
     };
@@ -82,13 +84,12 @@ export const ZakirLoadingScreen: React.FC<ZakirLoadingScreenProps> = ({
 
   if (stage === "hidden") return null;
 
-  // Colors according to Zakir Brand Identity:
-  // Light Canvas: #F8FAFC | Dark Canvas: #0B0F19
-  // Symbol Color: Light = #1C2C58 | Dark = #FFFFFF
+  // Background Canvas: Light = #F8FAFC | Dark = #0B0F19
+  // Logo Symbol Color: Light = #1C2C58 | Dark = #FFFFFF
   const bgClass = isLight ? "bg-[#F8FAFC]" : "bg-[#0B0F19]";
   const symbolColor = isLight ? "#1C2C58" : "#FFFFFF";
 
-  // Official ZAKIR 5 Vector Paths (DO NOT MODIFY PATH GEOMETRY)
+  // Official ZAKIR 5 Vector Paths (Exact Brand Asset Geometry)
   const pathD = {
     p1: "M778.26,359.34c-23.74-3.27-49.55-5.85-77.22-7.24-32.16-1.61-62.06-1.36-89.28,0,34.59-18.5,69.17-37,103.76-55.5,20.28,4.11,42.89,7.58,67.57,9.65,37.04,3.12,70.4,2.4,98.93,0-34.59,17.7-69.17,35.39-103.76,53.09Z",
     p2: "M980.96,516.19c-21.56-3.6-44.1-6.86-67.57-9.65-27.67-3.29-54.26-5.64-79.63-7.24,24.93-14.48,49.87-28.96,74.8-43.43,15.7,5.87,35.19,11.48,57.91,14.48,48.33,6.37,88.49-2.07,113.41-9.65-32.98,18.5-65.96,37-98.93,55.5Z",
@@ -99,126 +100,58 @@ export const ZakirLoadingScreen: React.FC<ZakirLoadingScreenProps> = ({
 
   const isFadeOut = stage === "fadeout";
 
-  // Scale state for cinematic Zoom In and Zoom Out
-  let transformScale = "scale(1.0)";
+  // Calculating transform scale for Zoom In -> Zoom Out
+  let transformScale = "scale(0.88)";
+  let transitionStyle = "transform 880ms cubic-bezier(0.22, 1, 0.36, 1)";
+
   if (stage === "zoomin") {
-    transformScale = "scale(1.06)";
-  } else if (stage === "zoomout" || stage === "fadeout") {
-    transformScale = "scale(1.0)";
+    transformScale = "scale(1.05)";
+    transitionStyle = "transform 880ms cubic-bezier(0.22, 1, 0.36, 1)";
+  } else if (stage === "zoomout") {
+    transformScale = "scale(1.00)";
+    transitionStyle = "transform 780ms cubic-bezier(0.22, 1, 0.36, 1)";
+  } else if (stage === "hold" || stage === "fadeout") {
+    transformScale = "scale(1.00)";
+    transitionStyle = "none";
   }
 
   return (
     <div
       id="zakir-brand-loader"
-      className={`fixed inset-0 z-[99999] flex items-center justify-center select-none overflow-hidden ${bgClass}`}
+      className={`fixed inset-0 z-[999999] flex items-center justify-center select-none overflow-hidden ${bgClass}`}
       style={{
-        transition: "opacity 400ms cubic-bezier(0.22, 1, 0.36, 1)",
+        transition: "opacity 650ms cubic-bezier(0.22, 1, 0.36, 1)",
         opacity: isFadeOut ? 0 : 1,
         pointerEvents: isFadeOut ? "none" : "auto",
       }}
       role="status"
       aria-label="Zakir"
     >
-      <style>{`
-        /* Staggered Path Drawing & Reveal Effect */
-        @keyframes pathRevealDraw {
-          0% {
-            opacity: 0;
-            stroke-dashoffset: 1200;
-            transform: translateY(4px);
-          }
-          30% {
-            opacity: 0.6;
-          }
-          100% {
-            opacity: 1;
-            stroke-dashoffset: 0;
-            transform: translateY(0);
-          }
-        }
-
-        @keyframes fillFadeIn {
-          0% {
-            fill-opacity: 0;
-          }
-          100% {
-            fill-opacity: 1;
-          }
-        }
-
-        /* Continuous Sweep Mask Effect for Smooth Vector Reveal */
-        @keyframes clipSweep {
-          0% {
-            clip-path: polygon(-20% -20%, -20% -20%, -20% 120%, -20% 120%);
-          }
-          100% {
-            clip-path: polygon(-20% -20%, 120% -20%, 120% 120%, -20% 120%);
-          }
-        }
-
-        .zakir-draw-path {
-          stroke-dasharray: 1200;
-          stroke-dashoffset: 1200;
-          animation: pathRevealDraw 1300ms cubic-bezier(0.22, 1, 0.36, 1) forwards,
-                     fillFadeIn 600ms cubic-bezier(0.22, 1, 0.36, 1) 700ms forwards;
-          will-change: stroke-dashoffset, opacity, fill-opacity;
-        }
-
-        .zakir-path-1 { animation-delay: 100ms, 700ms; }
-        .zakir-path-2 { animation-delay: 250ms, 800ms; }
-        .zakir-path-3 { animation-delay: 0ms, 650ms; }
-        .zakir-path-4 { animation-delay: 200ms, 750ms; }
-        .zakir-path-5 { animation-delay: 350ms, 850ms; }
-
-        .zakir-clip-sweep {
-          animation: clipSweep 1400ms cubic-bezier(0.22, 1, 0.36, 1) 100ms forwards;
-          will-change: clip-path;
-        }
-
-        @media (prefers-reduced-motion: reduce) {
-          .zakir-draw-path,
-          .zakir-clip-sweep {
-            animation: none !important;
-            stroke-dashoffset: 0 !important;
-            clip-path: none !important;
-            opacity: 1 !important;
-            fill-opacity: 1 !important;
-          }
-        }
-      `}</style>
-
-      {/* Perfectly Centered Zakir Brand Logo Container */}
+      {/* Perfectly Centered Zakir Brand Logo (Medium/Small Responsive Size) */}
       <div
-        className="relative flex items-center justify-center p-4 transition-transform"
+        className="relative flex items-center justify-center p-2"
         style={{
-          transition: "transform 800ms cubic-bezier(0.22, 1, 0.36, 1)",
+          transition: transitionStyle,
           transform: transformScale,
+          willChange: "transform",
         }}
       >
-        <div className="zakir-clip-sweep flex items-center justify-center">
-          <svg
-            viewBox="474.23 0 728.85 810"
-            xmlns="http://www.w3.org/2000/svg"
-            className="block shrink-0 overflow-visible w-28 h-28 sm:w-32 sm:h-32 md:w-36 md:h-36 max-w-[40vw] max-h-[40vh]"
-            style={{
-              aspectRatio: "728.85 / 810",
-            }}
-          >
-            <g
-              fill={symbolColor}
-              stroke={symbolColor}
-              strokeWidth="12"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <path d={pathD.p3} className="zakir-draw-path zakir-path-3" />
-              <path d={pathD.p4} className="zakir-draw-path zakir-path-4" />
-              <path d={pathD.p1} className="zakir-draw-path zakir-path-1" />
-              <path d={pathD.p2} className="zakir-draw-path zakir-path-2" />
-              <path d={pathD.p5} className="zakir-draw-path zakir-path-5" />
-            </g>
-          </svg>
-        </div>
+        <svg
+          viewBox="474.23 0 728.85 810"
+          xmlns="http://www.w3.org/2000/svg"
+          className="block shrink-0 overflow-visible w-24 h-24 sm:w-28 sm:h-28 md:w-32 md:h-32 max-w-[140px] max-h-[140px]"
+          style={{
+            aspectRatio: "728.85 / 810",
+          }}
+        >
+          <g fill={symbolColor}>
+            <path d={pathD.p3} />
+            <path d={pathD.p4} />
+            <path d={pathD.p1} />
+            <path d={pathD.p2} />
+            <path d={pathD.p5} />
+          </g>
+        </svg>
       </div>
     </div>
   );

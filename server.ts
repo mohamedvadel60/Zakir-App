@@ -3516,9 +3516,9 @@ function renderEmailLogoHeaderHtml(options?: {
     <!-- Official ZAKIR Badge (Self-Contained Vector Render from logo.txt) -->
     <table border="0" cellpadding="0" cellspacing="0" align="center" role="presentation" width="${size}" height="${size}" class="zakir-logo-table" style="width: ${size}px !important; height: ${size}px !important; max-width: ${size}px !important; max-height: ${size}px !important; margin: 0 auto 16px auto; border-collapse: collapse; border-spacing: 0;">
       <tr>
-        <td align="center" valign="middle" width="${size}" height="${size}" style="width: ${size}px; height: ${size}px; padding: 0; margin: 0; line-height: 0; font-size: 0; text-align: center; vertical-align: middle;">
+        <td align="center" valign="middle" width="${size}" height="${size}" bgcolor="#1C2C58" style="width: ${size}px; height: ${size}px; padding: 0; margin: 0; line-height: 0; font-size: 0; text-align: center; vertical-align: middle; background-color: #1C2C58; border-radius: 20px;">
           <a href="${appBase}" target="_blank" style="text-decoration: none; display: inline-block; width: ${size}px; height: ${size}px; margin: 0 auto; line-height: 0; font-size: 0; outline: none; border: 0;">
-            <img src="${logoUrl}" alt="ZAKIR" width="${size}" height="${size}" class="zakir-logo" style="display: block; width: ${size}px !important; height: ${size}px !important; max-width: ${size}px !important; max-height: ${size}px !important; border: 0; outline: none; text-decoration: none; margin: 0 auto; -ms-interpolation-mode: bicubic;" />
+            <img src="${logoUrl}" alt="ZAKIR" width="${size}" height="${size}" class="zakir-logo" style="display: block; width: ${size}px !important; height: ${size}px !important; max-width: ${size}px !important; max-height: ${size}px !important; border: 0; outline: none; text-decoration: none; margin: 0 auto; border-radius: 20px; -ms-interpolation-mode: bicubic;" />
           </a>
         </td>
       </tr>
@@ -17183,9 +17183,19 @@ async function getDocumentFromPersistentStorage(
 
     // 6. Check Firestore files collection
     try {
+      let fData: any = null;
       const fSnap = await adminDb.collection("files").doc(documentId).get();
       if (fSnap && fSnap.exists) {
-        const fData = fSnap.data();
+        fData = fSnap.data();
+      } else {
+        // Query collectionGroup for files subcollections
+        const groupSnap = await adminDb.collectionGroup("files").where("id", "==", documentId).limit(1).get().catch(() => null);
+        if (groupSnap && !groupSnap.empty) {
+          fData = groupSnap.docs[0].data();
+        }
+      }
+
+      if (fData) {
         const raw = fData?.fileBase64 || fData?.data || fData?.base64 || (fData?.fileUrl?.startsWith("data:") ? fData.fileUrl : null);
         if (raw) {
           const clean = String(raw).replace(/^data:[^;]+;base64,/, "");
@@ -17233,6 +17243,50 @@ async function getDocumentFromPersistentStorage(
           if (buf.length > 0) {
             saveToLocalDiskCache(documentId, buf);
             return buf;
+          }
+        }
+      }
+    } catch (err) {}
+
+    // Check users collection for embedded verification documents
+    try {
+      const usersSnap = await adminDb.collection("users").get();
+      for (const uDoc of usersSnap.docs) {
+        const uData = uDoc.data();
+        const docsList = [
+          ...(uData.verificationDocuments || []),
+          ...(uData.documents || []),
+          ...(uData.verification_documents || []),
+        ];
+        const match = docsList.find(
+          (d: any) =>
+            (d.documentId || d.id || d.storageReference || d.fileName) === documentId
+        );
+        if (match) {
+          const raw = match.fileBase64 || match.data || match.base64 || (typeof match.fileUrl === "string" && match.fileUrl.startsWith("data:") ? match.fileUrl : null);
+          if (raw) {
+            const clean = String(raw).replace(/^data:[^;]+;base64,/, "");
+            const buf = Buffer.from(clean, "base64");
+            if (buf.length > 0) {
+              saveToLocalDiskCache(documentId, buf);
+              return buf;
+            }
+          }
+          if (match.storagePath && bucket) {
+            const [exists] = await bucket.file(match.storagePath).exists().catch(() => [false]);
+            if (exists) {
+              const [b] = await bucket.file(match.storagePath).download();
+              saveToLocalDiskCache(documentId, b);
+              return b;
+            }
+          }
+          if (typeof match.fileUrl === "string" && (match.fileUrl.startsWith("http://") || match.fileUrl.startsWith("https://"))) {
+            const r = await fetch(match.fileUrl);
+            if (r.ok) {
+              const b = Buffer.from(await r.arrayBuffer());
+              saveToLocalDiskCache(documentId, b);
+              return b;
+            }
           }
         }
       }
@@ -18400,16 +18454,22 @@ app.get(
     "/api/auth/verification-document/:documentId",
     "/api/admin/verification-document/:documentId",
     "/api/verification-document/:documentId",
+    "/api/files/:documentId/preview",
+    "/api/files/:documentId/download",
+    "/api/files/download/:documentId",
+    "/api/files/preview/:documentId",
+    "/api/files/:documentId",
   ],
   requireAuth,
   async (req: AuthRequest, res) => {
     try {
       const callerUid = req.user?.uid;
       const callerEmail = req.user?.email || "";
-      const { documentId } = req.params;
+      const rawDocId = req.params.documentId || "";
+      const documentId = decodeURIComponent(rawDocId).trim();
 
-      if (!documentId || !/^[a-zA-Z0-9_\-\.]+$/.test(documentId)) {
-        return res.status(400).json({ success: false, error: "Invalid document ID." });
+      if (!documentId) {
+        return res.status(400).json({ success: false, error: "Document ID is required." });
       }
 
       const isAdmin = await isUserAdminServer(callerUid || "", callerEmail);
@@ -18506,9 +18566,12 @@ app.get(
         }
       }
 
+      const isDownloadRequested = req.query.download === "true" || req.query.mode === "download" || req.path.includes("/download");
+      const dispositionType = isDownloadRequested ? "attachment" : "inline";
+
       res.setHeader("X-Content-Type-Options", "nosniff");
       res.setHeader("Content-Type", mimeType);
-      res.setHeader("Content-Disposition", `inline; filename="${encodeURIComponent(fileName)}"`);
+      res.setHeader("Content-Disposition", `${dispositionType}; filename="${encodeURIComponent(fileName)}"`);
       res.setHeader("Cache-Control", "private, no-cache, no-store, must-revalidate");
       return res.send(fileBuffer);
     } catch (err: any) {

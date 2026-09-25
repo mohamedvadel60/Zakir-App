@@ -210,9 +210,9 @@ export function renderEmailLogoHeaderHtml(options?: {
     <!-- Official ZAKIR Badge (Self-Contained Vector Render from logo.txt) -->
     <table border="0" cellpadding="0" cellspacing="0" align="center" role="presentation" width="${size}" height="${size}" class="zakir-logo-table" style="width: ${size}px !important; height: ${size}px !important; max-width: ${size}px !important; max-height: ${size}px !important; margin: 0 auto 16px auto; border-collapse: collapse; border-spacing: 0;">
       <tr>
-        <td align="center" valign="middle" width="${size}" height="${size}" style="width: ${size}px; height: ${size}px; padding: 0; margin: 0; line-height: 0; font-size: 0; text-align: center; vertical-align: middle;">
+        <td align="center" valign="middle" width="${size}" height="${size}" bgcolor="#1C2C58" style="width: ${size}px; height: ${size}px; padding: 0; margin: 0; line-height: 0; font-size: 0; text-align: center; vertical-align: middle; background-color: #1C2C58; border-radius: 20px;">
           <a href="${appBase}" target="_blank" style="text-decoration: none; display: inline-block; width: ${size}px; height: ${size}px; margin: 0 auto; line-height: 0; font-size: 0; outline: none; border: 0;">
-            <img src="${logoUrl}" alt="ZAKIR" width="${size}" height="${size}" class="zakir-logo" style="display: block; width: ${size}px !important; height: ${size}px !important; max-width: ${size}px !important; max-height: ${size}px !important; border: 0; outline: none; text-decoration: none; margin: 0 auto; -ms-interpolation-mode: bicubic;" />
+            <img src="${logoUrl}" alt="ZAKIR" width="${size}" height="${size}" class="zakir-logo" style="display: block; width: ${size}px !important; height: ${size}px !important; max-width: ${size}px !important; max-height: ${size}px !important; border: 0; outline: none; text-decoration: none; margin: 0 auto; border-radius: 20px; -ms-interpolation-mode: bicubic;" />
           </a>
         </td>
       </tr>
@@ -850,7 +850,10 @@ export async function sendSystemMail(
     | {
         to: string;
         subject: string;
-        html: string;
+        html?: string;
+        bodyHtml?: string;
+        body?: string;
+        title?: string;
         text?: string;
         attachments?: any[];
       },
@@ -890,17 +893,29 @@ export async function sendSystemMail(
       text = arg3;
     }
   } else if (toOrOptions && typeof toOrOptions === "object") {
-    to = toOrOptions.to;
-    subject = toOrOptions.subject;
-    html = toOrOptions.html;
-    text = toOrOptions.text || "";
+    to = toOrOptions.to || "";
+    subject = toOrOptions.subject || "";
     userAttachments = toOrOptions.attachments || [];
+    if (toOrOptions.html) {
+      html = toOrOptions.html;
+    } else if (toOrOptions.bodyHtml || toOrOptions.body || toOrOptions.title) {
+      html = buildMasterEmailHtml({
+        subject: toOrOptions.subject || "Zakir Notification",
+        title: toOrOptions.title || toOrOptions.subject || "Zakir Notification",
+        bodyHtml: toOrOptions.bodyHtml || toOrOptions.body || "",
+      });
+    } else {
+      html = "";
+    }
+    text = toOrOptions.text || "";
   } else {
     to = "";
     subject = "";
     html = "";
     text = "";
   }
+
+  html = html || "";
 
   let fromSender = (
     process.env.RESEND_FROM ||

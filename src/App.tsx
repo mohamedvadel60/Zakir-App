@@ -630,6 +630,7 @@ export default function App() {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [isAuthChecking, setIsAuthChecking] = useState(true);
   const [isInitialDataLoaded, setIsInitialDataLoaded] = useState(false);
+  const [isInitialAnimationDone, setIsInitialAnimationDone] = useState(false);
   const [authMode, setAuthMode] = useState<"landing" | "register" | "login">(
     () => initialRoute.authMode
   );
@@ -3400,7 +3401,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
 
   const isCustomThemeActive = !!currentUser?.customTheme?.approvedAt;
 
-  const isAppLoading = isAuthChecking || (currentUser && !isInitialDataLoaded);
+  const isAppLoading = isAuthChecking || (currentUser && !isInitialDataLoaded) || !isInitialAnimationDone;
 
   return (
     <div 
@@ -3518,7 +3519,11 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
       
       {/* AUTHENTICATION & LANDING GATEWAY */}
       {isAppLoading ? (
-        <ZakirLoadingScreen key="zakir-global-loading-screen" theme={theme} />
+        <ZakirLoadingScreen
+          key="zakir-global-loading-screen"
+          theme={theme}
+          onComplete={() => setIsInitialAnimationDone(true)}
+        />
       ) : !currentUser ? (
         authMode === "landing" ? (
           <Suspense fallback={<FullScreenFallback />}>
@@ -7510,24 +7515,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
         </div>
       )}
 
-      {/* Platform Footer */}
-      <footer className="w-full py-4 px-6 text-center text-xs border-t mt-auto backdrop-blur-sm transition-colors"
-        style={{
-          borderColor: theme === 'dark' ? 'rgba(30, 41, 59, 0.4)' : 'rgba(226, 232, 240, 0.8)',
-          backgroundColor: theme === 'dark' ? 'rgba(11, 15, 25, 0.4)' : 'rgba(255, 255, 255, 0.6)',
-          color: theme === 'dark' ? '#64748b' : '#475569'
-        }}
-      >
-        <div className="flex items-center justify-center gap-2 select-none text-[11px]">
-          <span className="font-semibold">
-            {lang === "ar" ? "منصة ذاكر المؤسسية للذكاء السببي" : (lang === "fr" ? "Plateforme ZAKIR d'Intelligence Causale" : "Zakir Institutional Causal Intelligence")}
-          </span>
-          <span className="opacity-30">•</span>
-          <span className="opacity-75 tracking-wider uppercase text-[10px] font-mono">
-            {lang === "ar" ? "جميع الحقوق محفوظة" : "All Rights Reserved"} © {new Date().getFullYear()}
-          </span>
-        </div>
-      </footer>
+
 
       {/* Desktop Application Auto-Update Banner */}
       <DesktopUpdateNotification lang={lang} />
