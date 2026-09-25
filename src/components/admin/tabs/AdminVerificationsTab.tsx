@@ -126,7 +126,11 @@ export const AdminVerificationsTab: React.FC<AdminVerificationsTabProps> = ({
       {/* List of Pending Verifications */}
       <div className="space-y-3">
         {pendingApprovals.map((req) => {
-          const docs = Array.isArray(req.documents) ? req.documents : [];
+          const docs = (Array.isArray(req.documents) && req.documents.length > 0)
+            ? req.documents
+            : (Array.isArray(req.verificationDocuments) && req.verificationDocuments.length > 0)
+            ? req.verificationDocuments
+            : (Array.isArray(req.files) ? req.files.filter((f: any) => f && (f.category === "Verification" || f.isVerificationDoc)) : []);
           return (
             <div
               key={req.id || req.userId}

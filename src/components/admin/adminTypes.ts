@@ -20,6 +20,8 @@ export interface PendingApprovalRecord {
   documentVerificationStatus?: string;
   requiresDocumentVerification?: boolean;
   documents?: any[];
+  verificationDocuments?: any[];
+  files?: any[];
   verificationInfo?: any;
   createdAt?: string;
   trialEndsAt?: string;

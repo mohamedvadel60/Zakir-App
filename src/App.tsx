@@ -4414,7 +4414,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
             )}
           </SplitLoginCard>
         )
-      ) : (currentUser && !isUserAdmin(currentUser) && currentUser.accountStatus === "REJECTED") ? (
+      ) : (currentUser && !isUserAdmin(currentUser) && ((currentUser as any).canonicalVerificationStatus === "rejected" || currentUser.accountStatus === "REJECTED" || currentUser.documentVerificationStatus === "REJECTED")) ? (
         <Suspense fallback={<FullScreenFallback />}>
           <AccountRejectedView
             currentUser={currentUser}
@@ -4437,7 +4437,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
             applyUserPreferences={applyUserPreferences}
           />
         </Suspense>
-      ) : (currentUser && !isUserAdmin(currentUser) && ((currentUser.accountStatus as string) === "PENDING_ADMIN_REVIEW" || (currentUser.accountStatus as string) === "PENDING_APPROVAL" || (currentUser.documentVerificationStatus as string) === "UNDER_REVIEW")) ? (
+      ) : (currentUser && !isUserAdmin(currentUser) && ((currentUser as any).canonicalVerificationStatus === "pending" || (currentUser.accountStatus as string) === "PENDING_ADMIN_REVIEW" || (currentUser.accountStatus as string) === "PENDING_APPROVAL" || (currentUser.documentVerificationStatus as string) === "UNDER_REVIEW" || (currentUser.documentVerificationStatus as string) === "PENDING_REVIEW")) ? (
         <Suspense fallback={<FullScreenFallback />}>
           <PendingApprovalView
             currentUser={currentUser}
@@ -4447,7 +4447,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
             onRefreshUser={refreshCurrentUser}
           />
         </Suspense>
-      ) : (currentUser && !isUserAdmin(currentUser) && ((currentUser.accountStatus as string) === "PENDING_DOCUMENT_VERIFICATION" || (currentUser.accountStatus as string) === "VERIFICATION_REQUIRED" || (currentUser.accountStatus as string) === "PENDING_INSTITUTIONAL_DATA" || (currentUser.accountStatus !== "APPROVED" && currentUser.accountStatus !== "ACTIVE"))) ? (
+      ) : (currentUser && !isUserAdmin(currentUser) && ((currentUser as any).canonicalVerificationStatus !== "approved" || currentUser.accountStatus !== "APPROVED" || !currentUser.isVerified)) ? (
         <Suspense fallback={<FullScreenFallback />}>
           <DocumentVerificationView
             currentUser={currentUser}

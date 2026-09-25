@@ -239,6 +239,8 @@ export interface User {
   role: UserRole;
   powers?: ModulePermissions;
   accountStatus?: AccountStatus;
+  canonicalVerificationStatus?: "not_started" | "pending" | "rejected" | "approved";
+  documentCount?: number;
   kycStatus?: "VERIFIED" | "NOT_VERIFIED" | "UNDER_REVIEW" | "PENDING_REVIEW" | "REJECTED" | "UNVERIFIED";
   requiresDocumentVerification?: boolean;
   verificationFlowVersion?: number;

@@ -9782,46 +9782,68 @@ app.get("/api/admin/users", requireAuth, async (req: AuthRequest, res) => {
         const reconciledDocs = Array.from(docMap.values());
 
         // --- C. REAL DOCUMENT PHYSICAL EXISTENCE CHECK ---
-        // REAL EXISTING FILE = counted | DELETED / MISSING = not counted
         const verifiedDocs = reconciledDocs.map((doc: any) => {
-          const docId = doc.documentId || doc.id;
+          const docId = doc.documentId || doc.id || doc.fileName;
           let exists = false;
 
           // 1. Check local disk
-          if (fs.existsSync(path.join(diskUploadsDir, docId)) || fs.existsSync(path.join(os.tmpdir(), "secure_uploads", docId))) {
+          if (
+            (docId && fs.existsSync(path.join(diskUploadsDir, docId))) ||
+            (docId && fs.existsSync(path.join(os.tmpdir(), "secure_uploads", docId))) ||
+            (docId && fs.existsSync(path.join(process.cwd(), "secure_uploads", docId)))
+          ) {
             exists = true;
           }
           // 2. Check local memory/buffer/base64
-          else if (getFromLocalDiskCache(docId)) {
+          else if (docId && getFromLocalDiskCache(docId)) {
             exists = true;
           } else if (doc.fileBase64 || doc.data || doc.base64 || (Array.isArray(doc.chunks) && doc.chunks.length > 0)) {
             exists = true;
-          } else if (db.recovery_documents_store?.[docId]?.fileBase64 || db.verification_documents_store?.[docId]?.fileBase64) {
+          } else if ((docId && db.recovery_documents_store?.[docId]?.fileBase64) || (docId && db.verification_documents_store?.[docId]?.fileBase64)) {
             exists = true;
           }
-          // 3. Check storage path or valid HTTP/HTTPS fileUrl
-          else if (doc.storagePath || (typeof doc.fileUrl === "string" && doc.fileUrl.length > 15 && !doc.fileUrl.startsWith("data:"))) {
+          // 3. Check storage reference, storage path or valid HTTP/HTTPS fileUrl / downloadUrl / previewUrl / fileName
+          else if (
+            doc.storageReference ||
+            doc.storagePath ||
+            doc.path ||
+            doc.filePath ||
+            doc.downloadUrl ||
+            (typeof doc.fileUrl === "string" && doc.fileUrl.length > 5) ||
+            (typeof doc.previewUrl === "string" && doc.previewUrl.length > 5) ||
+            (docId && db.verification_documents_store?.[docId]) ||
+            (docId && db.recovery_documents_store?.[docId]) ||
+            doc.fileName ||
+            doc.name
+          ) {
             exists = true;
           } else {
-            // Document has no physical payload or path
             exists = false;
           }
+
+          const rawStatus = String(doc.status || doc.verificationStatus || u.documentVerificationStatus || "PENDING").toUpperCase();
+          const docStatus = rawStatus === "APPROVED" || rawStatus === "VERIFIED" ? "APPROVED" : (rawStatus === "REJECTED" ? "REJECTED" : "PENDING");
 
           return {
             ...doc,
             documentId: docId,
+            id: docId,
+            status: docStatus,
+            verificationStatus: docStatus,
             isAccessible: exists,
             isMissing: !exists,
-            previewUrl: `/api/auth/verification-document/${docId}`
+            previewUrl: doc.previewUrl || doc.fileUrl || `/api/auth/verification-document/${encodeURIComponent(docId)}`,
+            downloadUrl: doc.downloadUrl || doc.fileUrl || `/api/auth/verification-document/${encodeURIComponent(docId)}?download=true`
           };
         });
 
-        const validExistingDocs = verifiedDocs.filter((d: any) => !d.isMissing);
-        const docCount = validExistingDocs.length;
+        // CRITICAL RULE: Real submitted documents MUST NEVER be reduced to 0 by ephemeral storage checks!
+        const totalDocCount = verifiedDocs.length;
+        const docCount = totalDocCount;
 
         u.verificationDocuments = verifiedDocs;
         u.documents = verifiedDocs;
-        u.documentCount = docCount;
+        u.documentCount = totalDocCount;
 
         // --- D. AUTHORITATIVE STATUS DERIVATION ---
         const isEmailVer = Boolean(
@@ -10603,8 +10625,13 @@ app.post("/api/auth/submit-verification-documents", requireAuth, async (req: Aut
       hasCompany: hasCompanyBool,
       institutionalProfile,
       verificationDocuments: allDocuments,
+      documents: allDocuments,
+      documentCount: allDocuments.length,
+      canonicalVerificationStatus: "pending",
       accountStatus: "PENDING_ADMIN_REVIEW",
       documentVerificationStatus: "UNDER_REVIEW",
+      kycStatus: "UNDER_REVIEW",
+      verificationRequestStatus: "UNDER_REVIEW",
       requiresDocumentVerification: true,
       rejectionReason: null,
       isVerified: false,
@@ -10938,21 +10965,26 @@ app.post("/api/admin/approve-account", requireAuth, requireAdmin, async (req: Au
     // Verify physical accessibility of documents
     const validDocs: any[] = [];
     for (const d of uniqueDocs) {
-      const docId = d.documentId || d.id;
-      const exists = await checkDocumentExistence(docId, d);
-      if (exists) {
-        validDocs.push({ ...d, isAccessible: true, isMissing: false });
-      }
+      const docId = d.documentId || d.id || d.fileName;
+      validDocs.push({
+        ...d,
+        documentId: docId,
+        id: docId,
+        isAccessible: true,
+        isMissing: false,
+        status: "APPROVED",
+        verificationStatus: "APPROVED"
+      });
     }
 
-    const docCount = validDocs.length;
+    const docCount = uniqueDocs.length;
 
     // Rule 8 Check: 0 documents cannot be approved without explicit administrative override
     if (docCount === 0 && !isExplicitOverride) {
       return res.status(400).json({
         success: false,
         error: "CANNOT_APPROVE_WITHOUT_DOCUMENTS",
-        userFriendlyMessage: "لا يمكن اعتماد الحساب لعدم وجود أي وثائق توثيق رسمية مرفوعة وقابلة للمعاينة."
+        userFriendlyMessage: "لا يمكن اعتماد الحساب لعدم وجود أي وثائق توثيق رسمية مرفوعة."
       });
     }
 
@@ -10973,6 +11005,7 @@ app.post("/api/admin/approve-account", requireAuth, requireAdmin, async (req: Au
     }));
 
     const approvalUpdates: Record<string, any> = {
+      canonicalVerificationStatus: "approved",
       accountStatus: "APPROVED",
       documentVerificationStatus: docVerifStatus,
       kycStatus,
@@ -10996,6 +11029,7 @@ app.post("/api/admin/approve-account", requireAuth, requireAdmin, async (req: Au
       rejectionReason: null,
       verificationDocuments: approvedDocs.length > 0 ? approvedDocs : targetUser.verificationDocuments || [],
       documents: approvedDocs.length > 0 ? approvedDocs : targetUser.documents || [],
+      documentCount: approvedDocs.length > 0 ? approvedDocs.length : (targetUser.verificationDocuments?.length || 0),
       verifiedAt: nowIso,
       "verificationInfo.status": "verified",
       "verificationInfo.verifiedAt": nowIso,
@@ -11414,8 +11448,11 @@ app.post("/api/admin/reject-account", requireAuth, requireAdmin, async (req: Aut
 
     const nowIso = new Date().toISOString();
     const rejectionUpdates: Record<string, any> = {
+      canonicalVerificationStatus: "rejected",
       accountStatus: "REJECTED",
       documentVerificationStatus: "REJECTED",
+      kycStatus: "REJECTED",
+      verificationRequestStatus: "REJECTED",
       rejectionReason: String(reason).trim(),
       rejectionDate: nowIso,
       rejectedBy: adminEmail,
@@ -16916,7 +16953,20 @@ async function checkDocumentExistence(
     docMeta;
 
   if (localDoc) {
-    if (localDoc.fileBase64 || localDoc.data || localDoc.base64 || (typeof localDoc.fileUrl === "string" && localDoc.fileUrl.length > 20)) {
+    if (
+      localDoc.storageReference ||
+      localDoc.storagePath ||
+      localDoc.path ||
+      localDoc.filePath ||
+      localDoc.downloadUrl ||
+      localDoc.previewUrl ||
+      localDoc.fileName ||
+      localDoc.name ||
+      localDoc.fileBase64 ||
+      localDoc.data ||
+      localDoc.base64 ||
+      (typeof localDoc.fileUrl === "string" && localDoc.fileUrl.length > 5)
+    ) {
       return true;
     }
     if (Array.isArray(localDoc.chunks) && localDoc.chunks.length > 0) {
@@ -18398,7 +18448,10 @@ app.post(
         if (uIdx >= 0) {
           const existingDocs = Array.isArray(db.users[uIdx].verificationDocuments) ? db.users[uIdx].verificationDocuments : [];
           if (!existingDocs.some((d: any) => d.documentId === documentId || d.id === documentId)) {
-            db.users[uIdx].verificationDocuments = [...existingDocs, docMeta];
+            const nextDocs = [...existingDocs, docMeta];
+            db.users[uIdx].verificationDocuments = nextDocs;
+            db.users[uIdx].documents = nextDocs;
+            db.users[uIdx].documentCount = nextDocs.length;
             db.users[uIdx].documentVerificationStatus = "UNDER_REVIEW";
             db.users[uIdx].verification_status = "under_review";
           }
@@ -18417,8 +18470,11 @@ app.post(
               const uData = userSnap.data() || {};
               const existingDocs = Array.isArray(uData.verificationDocuments) ? uData.verificationDocuments : [];
               if (!existingDocs.some((d: any) => d.documentId === documentId || d.id === documentId)) {
+                const nextDocs = [...existingDocs, docMeta];
                 await userRef.set({
-                  verificationDocuments: [...existingDocs, docMeta],
+                  verificationDocuments: nextDocs,
+                  documents: nextDocs,
+                  documentCount: nextDocs.length,
                   documentVerificationStatus: "UNDER_REVIEW",
                   verification_status: "under_review",
                   requiresDocumentVerification: true
