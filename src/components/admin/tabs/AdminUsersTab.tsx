@@ -47,6 +47,7 @@ interface AdminUsersTabProps {
     action: "APPROVE" | "SUSPEND" | "CHANGE_ROLE" | "DELETE" | "UPDATE" | "BULK_EDIT", 
     payload?: any
   ) => Promise<void>;
+  onReviewDocs?: (user: AdminUserRecord) => void;
   initialFilter?: string;
   loading: boolean;
   lang: "ar" | "fr" | "en";
@@ -56,6 +57,7 @@ interface AdminUsersTabProps {
 export const AdminUsersTab: React.FC<AdminUsersTabProps> = ({
   users,
   onOpenUserDetail,
+  onReviewDocs,
   onQuickApprove,
   onQuickReject,
   onBulkAction,
@@ -106,19 +108,38 @@ export const AdminUsersTab: React.FC<AdminUsersTabProps> = ({
     filterNew: isAr ? "الجدد (7 أيام)" : isFr ? "Nouveaux (7j)" : "New (7d)",
     colUser: isAr ? "المستخدم" : isFr ? "Utilisateur" : "User",
     colWorkspace: isAr ? "المؤسسة / الدور" : isFr ? "Entreprise / Rôle" : "Workspace / Role",
-    colEmailVer: isAr ? "البريد" : isFr ? "Email" : "Email",
-    colDocVer: isAr ? "توثيق الوثائق" : isFr ? "Vérif. Docs" : "Document Verification",
+    colAccountStatus: isAr ? "حالة الحساب" : isFr ? "Statut Compte" : "Account Status",
+    colEmail: isAr ? "البريد الإلكتروني" : isFr ? "Email" : "Email",
+    colEmailVer: isAr ? "توثيق البريد" : isFr ? "Vérif. Email" : "Email Verification",
+    colDocVer: isAr ? "توثيق الوثائق و KYC" : isFr ? "Vérif. Documents & KYC" : "Document Verification & KYC",
     colSubscription: isAr ? "الاشتراك" : isFr ? "Abonnement" : "Subscription",
     colCreated: isAr ? "تاريخ التسجيل" : isFr ? "Date Inscription" : "Created",
     colActions: isAr ? "الإجراءات" : isFr ? "Actions" : "Actions",
     inspect: isAr ? "إدارة الحساب" : isFr ? "Gérer" : "Manage",
     approve: isAr ? "اعتماد" : isFr ? "Approuver" : "Approve",
     reject: isAr ? "تعليق" : isFr ? "Suspendre" : "Suspend",
+    reviewDocsBtn: isAr ? "مراجعة الوثائق" : isFr ? "Examiner pièces" : "Review Docs",
+    reviewReasonBtn: isAr ? "مراجعة السبب" : isFr ? "Voir motif" : "Review Reason",
+    activateAccountBtn: isAr ? "تفعيل الحساب" : isFr ? "Activer compte" : "Activate Account",
+    accountApprovedLabel: isAr ? "معتمد" : isFr ? "Approuvé" : "Approved",
+    accountPendingLabel: isAr ? "قيد الانتظار" : isFr ? "En attente" : "Pending",
+    accountSuspendedLabel: isAr ? "معلق / مرفوض" : isFr ? "Suspendu" : "Suspended",
+    stateNoRequest: isAr ? "لم يطلب التوثيق" : isFr ? "Non demandé" : "Not Requested",
+    stateAwaitingDocs: isAr ? "بانتظار الوثائق" : isFr ? "En attente" : "Awaiting Docs",
+    statePendingReview: isAr ? "قيد المراجعة" : isFr ? "En cours" : "Under Review",
+    stateVerified: isAr ? "موثق" : isFr ? "Vérifié" : "Verified",
+    stateDocsApproved: isAr ? "تم توثيق الوثائق" : isFr ? "Documents validés" : "Docs Approved",
+    stateRejected: isAr ? "مرفوض" : isFr ? "Rejeté" : "Rejected",
+    kycNotVerified: isAr ? "KYC: غير موثق" : isFr ? "KYC: Non vérifié" : "KYC: Unverified",
+    kycAwaiting: isAr ? "طلب بدون وثائق" : isFr ? "Sans documents" : "No Docs Attached",
+    kycPending: isAr ? "KYC: بانتظار القرار" : isFr ? "KYC: Décision requise" : "KYC: Pending Decision",
+    kycVerified: isAr ? "KYC: موثق" : isFr ? "KYC: Vérifié" : "KYC: Verified",
+    kycRejected: isAr ? "KYC: مرفوض" : isFr ? "KYC: Rejeté" : "KYC: Rejected",
     noResults: isAr ? "لم يتم العثور على مستخدمين يطابقون معايير البحث." : isFr ? "Aucun utilisateur trouvé." : "No users matched the criteria.",
     selectedCount: isAr ? "تم تحديد" : isFr ? "Sélectionnés" : "Selected",
     selectAll: isAr ? "تحديد الكل" : isFr ? "Tout sélectionner" : "Select All",
     deselectAll: isAr ? "إلغاء التحديد" : isFr ? "Désélectionner" : "Deselect",
-    bulkApproveBtn: isAr ? "اعتماد وتوثيق المحددين" : isFr ? "Approuver la sélection" : "Approve Selected",
+    bulkApproveBtn: isAr ? "تفعيل حسابات المحددين" : isFr ? "Activer les comptes sélectionnés" : "Activate Selected Accounts",
     bulkSuspendBtn: isAr ? "تعليق المحددين" : isFr ? "Suspendre la sélection" : "Suspend Selected",
     bulkEditBtn: isAr ? "تعديل جماعي" : isFr ? "Modification groupée" : "Bulk Edit",
     bulkDeleteBtn: isAr ? "حذف المحدد" : isFr ? "Supprimer la sélection" : "Delete Selected",
@@ -159,14 +180,12 @@ export const AdminUsersTab: React.FC<AdminUsersTabProps> = ({
 
       // 2. Strict status filter
       const breakdown = computeUserVerificationBreakdown(u);
-      const full = u.fullUser || ({} as any);
-      const accStatus = String(full.accountStatus || (u as any).accountStatus || "").toUpperCase();
-      const isApproved = breakdown.isFullyApproved || accStatus === "APPROVED";
-      const isRejected = accStatus === "REJECTED" || accStatus === "SUSPENDED" || breakdown.documentStatus === "REJECTED";
+      const isFullyApproved = breakdown.isFullyApproved;
+      const isRejected = breakdown.accountApprovalStatus === "REJECTED" || breakdown.accountApprovalStatus === "SUSPENDED" || breakdown.documentStatus === "REJECTED";
       const isAdmin = u.role?.toLowerCase() === "admin" || (u as any).isAdmin === true;
-      const isPending = !isApproved && !isRejected;
+      const isPending = !isFullyApproved && !isRejected;
 
-      if (statusFilter === "approved") return isApproved;
+      if (statusFilter === "approved") return isFullyApproved;
       if (statusFilter === "pending") return isPending;
       if (statusFilter === "rejected") return isRejected;
       if (statusFilter === "admins") return isAdmin;
@@ -450,6 +469,8 @@ export const AdminUsersTab: React.FC<AdminUsersTabProps> = ({
                 </th>
                 <th className="py-3 px-3 text-start">{t.colUser}</th>
                 <th className="py-3 px-3 text-start">{t.colWorkspace}</th>
+                <th className="py-3 px-3 text-start">{t.colAccountStatus}</th>
+                <th className="py-3 px-3 text-start">{t.colEmail}</th>
                 <th className="py-3 px-3 text-start">{t.colEmailVer}</th>
                 <th className="py-3 px-3 text-start">{t.colDocVer}</th>
                 <th className="py-3 px-3 text-start">{t.colSubscription}</th>
@@ -495,11 +516,11 @@ export const AdminUsersTab: React.FC<AdminUsersTabProps> = ({
                           {(u.ownerName || u.email || "U")[0].toUpperCase()}
                         </div>
                         <div className="min-w-0">
-                          <div className="font-bold text-slate-900 dark:text-slate-100 truncate max-w-[170px]">
+                          <div className="font-bold text-slate-900 dark:text-slate-100 truncate max-w-[150px]">
                             {u.ownerName || u.companyName || u.email?.split("@")[0]}
                           </div>
-                          <div className="text-[11px] text-slate-500 dark:text-slate-400 truncate max-w-[190px]">
-                            {u.email}
+                          <div className="text-[10px] text-slate-400 font-mono truncate max-w-[140px]">
+                            {u.id}
                           </div>
                         </div>
                       </div>
@@ -507,11 +528,38 @@ export const AdminUsersTab: React.FC<AdminUsersTabProps> = ({
 
                     {/* Workspace & Role */}
                     <td className="py-3 px-3">
-                      <div className="font-medium text-slate-900 dark:text-slate-100 truncate max-w-[150px]">
+                      <div className="font-medium text-slate-900 dark:text-slate-100 truncate max-w-[140px]">
                         {u.companyName || (isAr ? "منظمة فردية" : "Individual Org")}
                       </div>
                       <div className="text-[11px] text-slate-500 dark:text-slate-400 font-semibold">
                         {u.role || "Contributor"}
+                      </div>
+                    </td>
+
+                    {/* Account Approval Status (Independent of KYC) */}
+                    <td className="py-3 px-3">
+                      {breakdown.accountApprovalStatus === "APPROVED" ? (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                          <CheckCircle className="w-3 h-3" />
+                          <span>{t.accountApprovedLabel}</span>
+                        </span>
+                      ) : breakdown.accountApprovalStatus === "REJECTED" || breakdown.accountApprovalStatus === "SUSPENDED" ? (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20">
+                          <XCircle className="w-3 h-3" />
+                          <span>{t.accountSuspendedLabel}</span>
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
+                          <Clock className="w-3 h-3" />
+                          <span>{t.accountPendingLabel}</span>
+                        </span>
+                      )}
+                    </td>
+
+                    {/* Email */}
+                    <td className="py-3 px-3">
+                      <div className="text-[11px] text-slate-700 dark:text-slate-300 font-medium truncate max-w-[170px]" title={u.email}>
+                        {u.email}
                       </div>
                     </td>
 
@@ -530,28 +578,63 @@ export const AdminUsersTab: React.FC<AdminUsersTabProps> = ({
                       )}
                     </td>
 
-                    {/* Document / KYC Verification Badge */}
+                    {/* Document / KYC Verification Badge (Exact 5 States) */}
                     <td className="py-3 px-3">
-                      {breakdown.documentStatus === "APPROVED" ? (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
-                          <FileCheck2 className="w-3 h-3" />
-                          <span>{t.docApprovedLabel} ({breakdown.documentCount})</span>
-                        </span>
-                      ) : breakdown.documentStatus === "REJECTED" ? (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20">
-                          <FileX className="w-3 h-3" />
-                          <span>{t.docRejectedLabel}</span>
-                        </span>
-                      ) : breakdown.documentStatus === "UNDER_REVIEW" || breakdown.documentStatus === "PENDING_REVIEW" ? (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
-                          <Clock className="w-3 h-3" />
-                          <span>{t.docPendingLabel} ({breakdown.documentCount})</span>
-                        </span>
+                      {breakdown.uiState === "VERIFIED" ? (
+                        /* State 4: Documents Approved & KYC Verified */
+                        <div className="space-y-0.5">
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                            <FileCheck2 className="w-3 h-3" />
+                            <span>{t.stateDocsApproved} ({breakdown.documentCount})</span>
+                          </span>
+                          <div className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold ps-1">
+                            {t.kycVerified}
+                          </div>
+                        </div>
+                      ) : breakdown.uiState === "REJECTED" ? (
+                        /* State 5: Documents / KYC Rejected */
+                        <div className="space-y-0.5">
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20">
+                            <FileX className="w-3 h-3" />
+                            <span>{t.stateRejected}</span>
+                          </span>
+                          <div className="text-[10px] text-rose-500 font-medium ps-1">
+                            {t.kycRejected}
+                          </div>
+                        </div>
+                      ) : breakdown.uiState === "PENDING_REVIEW" ? (
+                        /* State 3: Documents Uploaded & Under Review */
+                        <div className="space-y-0.5">
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
+                            <Clock className="w-3 h-3" />
+                            <span>{t.statePendingReview} ({breakdown.documentCount})</span>
+                          </span>
+                          <div className="text-[10px] text-amber-600 dark:text-amber-400 font-medium ps-1">
+                            {t.kycPending}
+                          </div>
+                        </div>
+                      ) : breakdown.uiState === "AWAITING_DOCS" ? (
+                        /* State 2: Verification Request exists but 0 documents */
+                        <div className="space-y-0.5">
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20">
+                            <FileQuestion className="w-3 h-3" />
+                            <span>{t.stateAwaitingDocs}</span>
+                          </span>
+                          <div className="text-[10px] text-slate-400 font-medium ps-1">
+                            {t.kycAwaiting}
+                          </div>
+                        </div>
                       ) : (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400 border border-slate-200 dark:border-slate-700">
-                          <FileQuestion className="w-3 h-3" />
-                          <span>{t.docNotSubmittedLabel}</span>
-                        </span>
+                        /* State 1: No verification request & 0 documents */
+                        <div className="space-y-0.5">
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400 border border-slate-200 dark:border-slate-700">
+                            <FileQuestion className="w-3 h-3" />
+                            <span>{t.stateNoRequest}</span>
+                          </span>
+                          <div className="text-[10px] text-slate-400 font-medium ps-1">
+                            {t.kycNotVerified}
+                          </div>
+                        </div>
                       )}
                     </td>
 
@@ -563,33 +646,64 @@ export const AdminUsersTab: React.FC<AdminUsersTabProps> = ({
                     </td>
 
                     {/* Created At */}
-                    <td className="py-3 px-3 text-slate-500 dark:text-slate-400 text-[11px]">
+                    <td className="py-3 px-3 text-slate-500 dark:text-slate-400 text-[11px] whitespace-nowrap">
                       {safeFormatDate(u.createdAt, isAr ? "ar" : "en")}
                     </td>
 
-                    {/* Actions */}
+                    {/* Actions: Context-aware and logically sound */}
                     <td className="py-3 px-3 text-end" onClick={(e) => e.stopPropagation()}>
-                      <div className="flex items-center justify-end gap-1.5">
-                        {!breakdown.isFullyApproved && (
+                      <div className="flex items-center justify-end gap-1.5 flex-wrap">
+                        {/* State 3: User has pending documents -> Review Documents button */}
+                        {breakdown.uiState === "PENDING_REVIEW" && (
+                          <button
+                            onClick={() => (onReviewDocs ? onReviewDocs(u) : onOpenUserDetail(u))}
+                            type="button"
+                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-bold bg-blue-600 hover:bg-blue-700 text-white shadow-xs transition-colors cursor-pointer"
+                            title={t.reviewDocsBtn}
+                          >
+                            <FileCheck2 className="w-3 h-3" />
+                            <span>{t.reviewDocsBtn}</span>
+                          </button>
+                        )}
+
+                        {/* State 5: Rejected documents -> Review Reason button */}
+                        {breakdown.uiState === "REJECTED" && (
+                          <button
+                            onClick={() => onOpenUserDetail(u)}
+                            type="button"
+                            className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-semibold bg-rose-50 text-rose-700 hover:bg-rose-100 dark:bg-rose-950/40 dark:text-rose-300 border border-rose-200 dark:border-rose-800 transition-colors cursor-pointer"
+                            title={t.reviewReasonBtn}
+                          >
+                            <AlertCircle className="w-3 h-3" />
+                            <span>{t.reviewReasonBtn}</span>
+                          </button>
+                        )}
+
+                        {/* Separate Account Approval: If account itself is pending approval (not KYC) */}
+                        {breakdown.accountApprovalStatus === "PENDING" && breakdown.uiState !== "PENDING_REVIEW" && (
                           <button
                             onClick={(e) => handleQuickApproveClick(e, u.id)}
                             disabled={approvingUserId === u.id}
                             type="button"
-                            className="px-2.5 py-1 rounded-md text-[11px] font-semibold bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:text-emerald-300 dark:hover:bg-emerald-900/50 border border-emerald-200 dark:border-emerald-800 transition-colors cursor-pointer disabled:opacity-50"
-                            title={t.approve}
+                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-semibold bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:text-emerald-300 dark:hover:bg-emerald-900/50 border border-emerald-200 dark:border-emerald-800 transition-colors cursor-pointer disabled:opacity-50"
+                            title={t.activateAccountBtn}
                           >
                             {approvingUserId === u.id ? (
                               <RefreshCw className="w-3 h-3 animate-spin" />
                             ) : (
-                              t.approve
+                              <>
+                                <UserCheck className="w-3 h-3" />
+                                <span>{t.activateAccountBtn}</span>
+                              </>
                             )}
                           </button>
                         )}
 
+                        {/* Inspect / Manage Account button */}
                         <button
                           onClick={() => onOpenUserDetail(u)}
                           type="button"
-                          className="px-2.5 py-1 rounded-md text-[11px] font-semibold bg-blue-50 text-blue-700 hover:bg-blue-100 dark:bg-blue-950/40 dark:text-blue-300 dark:hover:bg-blue-900/50 border border-blue-200 dark:border-blue-800 transition-colors cursor-pointer"
+                          className="px-2.5 py-1 rounded-md text-[11px] font-semibold bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 transition-colors cursor-pointer"
                         >
                           {t.inspect}
                         </button>

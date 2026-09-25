@@ -531,16 +531,17 @@ export function computeStrictVerificationState(profile: any, isAdmin: boolean = 
 
   // RULE: Explicit Admin Approval -> APPROVED
   const isMarkedApproved = (rawAccountStatus === "APPROVED" || profile?.accountStatus === "APPROVED" || Boolean(profile?.approvedAt && !hasRejectedDoc));
-  if (isMarkedApproved && (documentCount > 0 || adminOverride || profile?.approvedAt)) {
+  if (isMarkedApproved) {
+    const isKycVerified = Boolean(adminOverride || (documentCount > 0 && (overallDocStatus === "APPROVED" || (hasApprovedDoc && !hasRejectedDoc && !hasPendingDoc))));
     return {
       effectiveStatus: "APPROVED",
-      isVerified: true,
+      isVerified: isKycVerified,
       verificationRequired: false,
-      verificationStatus: "verified",
+      verificationStatus: isKycVerified ? "verified" : (hasRejectedDoc ? "rejected" : (hasPendingDoc ? "pending" : "unverified")),
       documentCount,
       hasRejectedDocument: false,
-      hasPendingDocument: false,
-      allDocumentsApproved: true,
+      hasPendingDocument: hasPendingDoc,
+      allDocumentsApproved: isKycVerified,
       adminVerificationOverride: adminOverride,
     };
   }

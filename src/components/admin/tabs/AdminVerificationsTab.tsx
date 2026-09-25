@@ -21,6 +21,8 @@ import { DocumentPreviewModal } from "../../DocumentPreviewModal.js";
 interface AdminVerificationsTabProps {
   pendingApprovals: PendingApprovalRecord[];
   onApprove: (userId: string, plan: string, trialHours: number, notes: string) => Promise<void>;
+  onApproveDocuments?: (userId: string, notes?: string) => Promise<void>;
+  onRejectDocuments?: (userId: string, reason: string) => Promise<void>;
   onReject: (userId: string, reason: string) => Promise<void>;
   onRequireDocs: (userId: string, reason: string) => Promise<void>;
   loading: boolean;
@@ -31,6 +33,8 @@ interface AdminVerificationsTabProps {
 export const AdminVerificationsTab: React.FC<AdminVerificationsTabProps> = ({
   pendingApprovals,
   onApprove,
+  onApproveDocuments,
+  onRejectDocuments,
   onReject,
   onRequireDocs,
   loading,
@@ -54,7 +58,7 @@ export const AdminVerificationsTab: React.FC<AdminVerificationsTabProps> = ({
 
   const t = {
     title: isAr ? "طلبات التوثيق والمراجعة المؤسسية" : isFr ? "Vérifications Institutionnelles" : "Institutional Verifications & KYC",
-    subtitle: isAr ? "فحص الوثائق والتراخيص الرسمية المقدمة من الشركات والمؤسسات واعتماد الحسابات" : isFr ? "Examen des documents officiels et licences pour approbation" : "Review submitted official corporate credentials & documents",
+    subtitle: isAr ? "فحص الوثائق والتراخيص الرسمية المقدمة من الشركات والمؤسسات واعتماد التوثيق" : isFr ? "Examen des documents officiels et licences pour approbation" : "Review submitted official corporate credentials & documents",
     pendingCount: isAr ? "طلبات معلقة" : isFr ? "demandes en attente" : "pending requests",
     noPending: isAr ? "لا توجد طلبات توثيق معلقة حاليًا. جميع الحسابات تمت مراجعتها." : isFr ? "Aucune demande de vérification en attente." : "No pending verification requests. All clear.",
     company: isAr ? "الشركة / المؤسسة" : isFr ? "Entreprise" : "Company",
@@ -62,17 +66,17 @@ export const AdminVerificationsTab: React.FC<AdminVerificationsTabProps> = ({
     submittedDocs: isAr ? "المستندات المرفقة" : isFr ? "Documents joints" : "Attached Documents",
     actions: isAr ? "اتخاذ القرار" : isFr ? "Décision" : "Decision",
     previewDoc: isAr ? "معاينة المستند" : isFr ? "Aperçu" : "Preview",
-    approveBtn: isAr ? "اعتماد وتوثيق الحساب" : isFr ? "Approuver" : "Approve",
+    approveBtn: isAr ? "اعتماد الوثائق و KYC" : isFr ? "Valider documents & KYC" : "Approve Documents & KYC",
     requireDocsBtn: isAr ? "طلب مستندات إضافية" : isFr ? "Demander pièces" : "Request Docs",
     rejectBtn: isAr ? "رفض الطلب" : isFr ? "Rejeter" : "Reject",
-    confirmApprove: isAr ? "تأكيد اعتماد التوثيق" : isFr ? "Confirmer l'approbation" : "Confirm Approval",
-    confirmReject: isAr ? "تأكيد رفض التوثيق" : isFr ? "Confirmer le rejet" : "Confirm Rejection",
+    confirmApprove: isAr ? "تأكيد اعتماد الوثائق و KYC" : isFr ? "Confirmer la validation documents" : "Confirm Document Verification Approval",
+    confirmReject: isAr ? "تأكيد رفض وثائق التوثيق" : isFr ? "Confirmer le rejet des pièces" : "Confirm Document Rejection",
     confirmRequireDocs: isAr ? "طلب إعادة إرفاق مستندات" : isFr ? "Demande de renvoi" : "Require Document Resubmission",
     reasonPlaceholder: isAr ? "اكتب توضيحًا أو سببًا يظهر للمستخدم..." : isFr ? "Indiquez un motif..." : "Enter reason or instructions for the user...",
     planLabel: isAr ? "الباقة المعتمدة" : isFr ? "Plan" : "Assigned Plan",
     trialHoursLabel: isAr ? "ساعات التجربة المجانية" : isFr ? "Heures d'essai" : "Trial Hours",
     cancel: isAr ? "إلغاء" : isFr ? "Annuler" : "Cancel",
-    execute: isAr ? "تنفيذ" : isFr ? "Exécuter" : "Execute"
+    execute: isAr ? "تنفيذ القرار" : isFr ? "Exécuter" : "Execute Decision"
   };
 
   const handleOpenDocPreview = (doc: any) => {
@@ -87,9 +91,17 @@ export const AdminVerificationsTab: React.FC<AdminVerificationsTabProps> = ({
     setProcessing(true);
     try {
       if (actionType === "approve") {
-        await onApprove(actionUserId, selectedPlan, customTrialHours, reasonInput);
+        if (onApproveDocuments) {
+          await onApproveDocuments(actionUserId, reasonInput);
+        } else {
+          await onApprove(actionUserId, selectedPlan, customTrialHours, reasonInput);
+        }
       } else if (actionType === "reject") {
-        await onReject(actionUserId, reasonInput || "Verification documents could not be validated.");
+        if (onRejectDocuments) {
+          await onRejectDocuments(actionUserId, reasonInput || "Verification documents could not be validated.");
+        } else {
+          await onReject(actionUserId, reasonInput || "Verification documents could not be validated.");
+        }
       } else if (actionType === "require_docs") {
         await onRequireDocs(actionUserId, reasonInput || "Additional official identity documents required.");
       }
@@ -182,17 +194,24 @@ export const AdminVerificationsTab: React.FC<AdminVerificationsTabProps> = ({
 
                 {/* Right: Actions */}
                 <div className="flex items-center gap-2 shrink-0 self-end lg:self-center">
-                  <button
-                    onClick={() => {
-                      setActionUserId(req.userId || req.id);
-                      setActionType("approve");
-                    }}
-                    type="button"
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white transition-colors cursor-pointer shadow-xs"
-                  >
-                    <CheckCircle2 className="w-3.5 h-3.5" />
-                    <span>{t.approveBtn}</span>
-                  </button>
+                  {docs.length > 0 ? (
+                    <button
+                      onClick={() => {
+                        setActionUserId(req.userId || req.id);
+                        setActionType("approve");
+                      }}
+                      type="button"
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white transition-colors cursor-pointer shadow-xs"
+                    >
+                      <CheckCircle2 className="w-3.5 h-3.5" />
+                      <span>{t.approveBtn}</span>
+                    </button>
+                  ) : (
+                    <span className="px-2.5 py-1 text-xs font-semibold rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 flex items-center gap-1">
+                      <AlertCircle className="w-3.5 h-3.5" />
+                      <span>{isAr ? "بانتظار الوثائق (الاعتماد معطل)" : "Awaiting Docs (Approval Disabled)"}</span>
+                    </span>
+                  )}
 
                   <button
                     onClick={() => {

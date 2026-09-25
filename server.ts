@@ -71,7 +71,7 @@ import {
 dotenv.config();
 
 export const ZAKIR_BUILD_ID =
-  "ZAKIR_BUILD_2026_09_18_ADMIN_EVENTBUS_PRODUCTION";
+  "ZAKIR_BUILD_2026_09_25_KYC_SEPARATION_VERIFIED";
 
 export const isServerless = Boolean(
   process.env.VERCEL ||
@@ -9446,32 +9446,142 @@ app.get("/api/admin/users", requireAuth, async (req: AuthRequest, res) => {
         return true;
       })
       .map((u: any) => {
-        const docs = [
+        const uId = u.id || u.uid;
+        const uEmail = (u.email || "").toLowerCase().trim();
+
+        // 1. Gather docs explicitly on user object
+        const rawDocs = [
           ...(Array.isArray(u.verificationDocuments) ? u.verificationDocuments : []),
           ...(Array.isArray(u.verificationInfo?.documents) ? u.verificationInfo.documents : []),
           ...(Array.isArray(u.documents) ? u.documents : []),
           ...(Array.isArray(u.files) ? u.files.filter((f: any) => f && (f.category === "Verification" || f.isVerificationDoc)) : [])
         ];
-        const docCount = docs.length;
-        const isExplicitAdminApproved = Boolean(
-          u.adminVerificationOverride === true || (u.approvedBy && u.approvedAt)
-        );
-        const isSystemAdmin = u.role === "Admin" || (u.email && ADMIN_EMAILS.has(u.email.toLowerCase().trim()));
 
-        // If user has 0 documents and no explicit admin override, they MUST NOT be document verified!
-        if (docCount === 0 && !isExplicitAdminApproved && !isSystemAdmin) {
-          if (u.accountStatus === "APPROVED" || u.isVerified === true || u.documentVerificationStatus === "APPROVED") {
-            u.documentVerificationStatus = "NOT_SUBMITTED";
-            u.accountStatus = u.isEmailVerified ? "VERIFICATION_REQUIRED" : "PENDING_EMAIL_VERIFICATION";
-            u.isVerified = false;
-            u.verification_status = "unverified";
-            u.verification_required = true;
+        // 2. Reconcile with unlinked docs in verification_documents_store
+        const db = readDb();
+        if (db.verification_documents_store) {
+          for (const [docId, meta] of Object.entries(db.verification_documents_store as Record<string, any>)) {
+            if (meta) {
+              const matchesUser = meta.userId === uId || (meta.userEmail && meta.userEmail.toLowerCase().trim() === uEmail);
+              if (matchesUser) {
+                if (!rawDocs.some((d: any) => (d.documentId || d.id) === docId)) {
+                  rawDocs.push(meta);
+                }
+              }
+            }
           }
         }
 
-        if (docCount === 0 && !u.documentVerificationStatus) {
-          u.documentVerificationStatus = "NOT_SUBMITTED";
+        // Deduplicate
+        const docMap = new Map<string, any>();
+        for (const d of rawDocs) {
+          if (!d) continue;
+          const dKey = d.documentId || d.id || d.storageReference || d.fileName;
+          if (dKey && !docMap.has(dKey)) {
+            docMap.set(dKey, d);
+          }
         }
+        const reconciledDocs = Array.from(docMap.values());
+        u.verificationDocuments = reconciledDocs;
+        u.documents = reconciledDocs;
+        const docCount = reconciledDocs.length;
+        u.documentCount = docCount;
+
+        const isExplicitAdminApproved = Boolean(
+          u.adminVerificationOverride === true || (u.approvedBy && u.approvedAt && u.documentVerificationStatus === "APPROVED")
+        );
+        const isSystemAdmin = u.role === "Admin" || (u.email && ADMIN_EMAILS.has(u.email.toLowerCase().trim()));
+
+        // Verification Request Status
+        const rawReq = String(u.verificationRequestStatus || u.verificationRequest || "").toUpperCase();
+        const hasInstitutional = Boolean(u.institutionalProfile);
+        const rawDocStatus = String(u.documentVerificationStatus || u.verificationInfo?.status || "").toUpperCase();
+
+        let reqStatus: "NONE" | "SUBMITTED" | "UNDER_REVIEW" | "APPROVED" | "REJECTED" = "NONE";
+        if (rawReq === "APPROVED" || rawReq === "VERIFIED") {
+          reqStatus = "APPROVED";
+        } else if (rawReq === "REJECTED") {
+          reqStatus = "REJECTED";
+        } else if (rawReq === "UNDER_REVIEW" || rawReq === "PENDING" || rawReq === "DOCUMENTS_SUBMITTED") {
+          reqStatus = "UNDER_REVIEW";
+        } else if (rawReq === "SUBMITTED") {
+          reqStatus = "SUBMITTED";
+        } else if (docCount > 0) {
+          reqStatus = rawDocStatus === "APPROVED" ? "APPROVED" : (rawDocStatus === "REJECTED" ? "REJECTED" : "UNDER_REVIEW");
+        } else if (hasInstitutional || rawDocStatus === "UNDER_REVIEW" || rawDocStatus === "PENDING_UPLOAD" || u.verificationInfo?.status === "under_review") {
+          reqStatus = "SUBMITTED";
+        } else {
+          reqStatus = "NONE";
+        }
+        u.verificationRequestStatus = reqStatus;
+
+        // Document Verification Status
+        let docStatus: "NOT_SUBMITTED" | "PENDING_REVIEW" | "UNDER_REVIEW" | "APPROVED" | "REJECTED" = "NOT_SUBMITTED";
+        const hasRejectedDoc = reconciledDocs.some(d => String(d.status || d.verificationStatus || "").toUpperCase() === "REJECTED");
+
+        if (docCount === 0 && !isExplicitAdminApproved && !isSystemAdmin) {
+          docStatus = "NOT_SUBMITTED";
+        } else if (hasRejectedDoc || rawDocStatus === "REJECTED" || reqStatus === "REJECTED") {
+          docStatus = "REJECTED";
+        } else if ((rawDocStatus === "APPROVED" || isExplicitAdminApproved || isSystemAdmin) && (docCount > 0 || isExplicitAdminApproved || isSystemAdmin)) {
+          docStatus = "APPROVED";
+        } else if (docCount > 0) {
+          docStatus = rawDocStatus === "UNDER_REVIEW" ? "UNDER_REVIEW" : "PENDING_REVIEW";
+        } else {
+          docStatus = "NOT_SUBMITTED";
+        }
+        u.documentVerificationStatus = docStatus;
+        u.documentStatus = docStatus;
+
+        // KYC Status
+        let kycStatus: "VERIFIED" | "NOT_VERIFIED" | "UNDER_REVIEW" | "REJECTED" = "NOT_VERIFIED";
+        if (isSystemAdmin || isExplicitAdminApproved || (docCount > 0 && docStatus === "APPROVED")) {
+          kycStatus = "VERIFIED";
+        } else if (docStatus === "REJECTED") {
+          kycStatus = "REJECTED";
+        } else if (docCount > 0 || reqStatus === "UNDER_REVIEW" || reqStatus === "SUBMITTED") {
+          kycStatus = "UNDER_REVIEW";
+        } else {
+          kycStatus = "NOT_VERIFIED";
+        }
+        u.kycStatus = kycStatus;
+
+        // Strict 5-State UI Evaluator
+        let uiState: "NO_REQUEST" | "AWAITING_DOCS" | "PENDING_REVIEW" | "VERIFIED" | "REJECTED" = "NO_REQUEST";
+        if (docStatus === "REJECTED" || kycStatus === "REJECTED" || reqStatus === "REJECTED") {
+          uiState = "REJECTED";
+        } else if (docCount > 0 && docStatus === "APPROVED" && kycStatus === "VERIFIED") {
+          uiState = "VERIFIED";
+        } else if (docCount > 0 && (docStatus === "PENDING_REVIEW" || docStatus === "UNDER_REVIEW")) {
+          uiState = "PENDING_REVIEW";
+        } else if (reqStatus !== "NONE" && docCount === 0) {
+          uiState = "AWAITING_DOCS";
+        } else {
+          uiState = "NO_REQUEST";
+        }
+        u.uiState = uiState;
+        u.canApproveKyc = uiState === "PENDING_REVIEW" && docCount > 0;
+        u.canReviewDocuments = uiState === "PENDING_REVIEW" && docCount > 0;
+
+        // Account status
+        const rawAcc = String(u.accountStatus || "").toUpperCase();
+        if (rawAcc === "APPROVED" || rawAcc === "ACTIVE" || isSystemAdmin) {
+          u.accountStatus = "APPROVED";
+          u.canApproveAccount = false;
+        } else if (rawAcc === "REJECTED") {
+          u.accountStatus = "REJECTED";
+          u.canApproveAccount = false;
+        } else if (rawAcc === "SUSPENDED") {
+          u.accountStatus = "SUSPENDED";
+          u.canApproveAccount = false;
+        } else {
+          u.accountStatus = "PENDING";
+          u.canApproveAccount = true;
+        }
+
+        // isVerified is strictly true only if KYC is verified or sysadmin
+        u.isVerified = kycStatus === "VERIFIED" || isSystemAdmin;
+        u.verification_status = u.isVerified ? "verified" : (uiState === "PENDING_REVIEW" ? "pending" : (uiState === "REJECTED" ? "rejected" : "unverified"));
 
         return u;
       });
@@ -10034,8 +10144,9 @@ app.post("/api/auth/submit-institutional-data", requireAuth, async (req: AuthReq
 
 // Comprehensive verification documents submission endpoint (personal documents + optional company)
 app.post("/api/auth/submit-verification-documents", requireAuth, async (req: AuthRequest, res) => {
-  const uid = req.user?.uid;
-  const email = req.user?.email || "";
+  const isAdmin = req.user?.role === "Admin" || (req.user?.email && ADMIN_EMAILS.has(req.user.email.toLowerCase()));
+  const uid = (isAdmin && req.body?.userId) ? req.body.userId : req.user?.uid;
+  const email = (isAdmin && req.body?.userEmail) ? req.body.userEmail : (req.user?.email || "");
 
   if (!uid) {
     return res.status(401).json({
@@ -10268,7 +10379,7 @@ app.get("/api/auth/current-user-status", requireAuth, async (req: AuthRequest, r
 // ADMIN ACCOUNT APPROVAL & SUBSCRIPTION MANAGEMENT
 // ----------------------------------------------------
 
-// 1. Get all pending account approvals
+// 1. Get all pending verification requests for admin review
 app.get("/api/admin/pending-approvals", requireAuth, requireAdmin, async (req: AuthRequest, res) => {
   try {
     let usersList: any[] = [];
@@ -10290,31 +10401,110 @@ app.get("/api/admin/pending-approvals", requireAuth, requireAdmin, async (req: A
       }
     }
 
-    const pendingApprovals = usersList.filter((u: any) => {
-      // Exclude platform admins and purged accounts
-      if (u.id === ADMIN_USER_ID || u.role === "Admin" || (u.role && u.role.toLowerCase() === "admin") || ADMIN_EMAILS.has((u.email || "").toLowerCase())) {
-        return false;
-      }
-      if (u.accountLifecycleStatus === "PURGED" || u.isPurged === true) {
-        return false;
-      }
-      if (u.accountStatus === "APPROVED" || u.accountStatus === "REJECTED") {
-        return false;
-      }
-      const hasDocs = Array.isArray(u.verificationDocuments) && u.verificationDocuments.length > 0;
-      const isPending =
-        u.accountStatus === "PENDING_ADMIN_REVIEW" ||
-        u.accountStatus === "PENDING_APPROVAL" ||
-        u.documentVerificationStatus === "UNDER_REVIEW" ||
-        u.verification_status === "under_review" ||
-        u.verification_status === "pending" ||
-        u.verificationInfo?.status === "under_review" ||
-        u.verificationInfo?.status === "pending" ||
-        (hasDocs && u.accountStatus !== "APPROVED" && u.accountStatus !== "REJECTED") ||
-        (u.institutionalProfile && u.accountStatus !== "APPROVED" && u.accountStatus !== "REJECTED");
+    const pendingApprovals = usersList
+      .map((u: any) => {
+        const uId = u.id || u.uid;
+        const uEmail = (u.email || "").toLowerCase().trim();
 
-      return isPending;
-    });
+        // Document reconciliation: gather only real documents associated with this user
+        const rawDocs = [
+          ...(Array.isArray(u.verificationDocuments) ? u.verificationDocuments : []),
+          ...(Array.isArray(u.verificationInfo?.documents) ? u.verificationInfo.documents : []),
+          ...(Array.isArray(u.documents) ? u.documents : []),
+          ...(Array.isArray(u.files) ? u.files.filter((f: any) => f && (f.category === "Verification" || f.isVerificationDoc)) : [])
+        ];
+
+        if (db.verification_documents_store) {
+          for (const [docId, meta] of Object.entries(db.verification_documents_store as Record<string, any>)) {
+            if (meta) {
+              const matchesUser = meta.userId === uId || (meta.userEmail && meta.userEmail.toLowerCase().trim() === uEmail);
+              if (matchesUser) {
+                if (!rawDocs.some((d: any) => (d.documentId || d.id) === docId)) {
+                  rawDocs.push(meta);
+                }
+              }
+            }
+          }
+        }
+
+        const docMap = new Map<string, any>();
+        for (const d of rawDocs) {
+          if (!d) continue;
+          const dKey = d.documentId || d.id || d.storageReference || d.fileName;
+          if (dKey && !docMap.has(dKey)) {
+            docMap.set(dKey, d);
+          }
+        }
+        const reconciledDocs = Array.from(docMap.values());
+        u.verificationDocuments = reconciledDocs;
+        u.documents = reconciledDocs;
+        u.documentCount = reconciledDocs.length;
+        return u;
+      })
+      .filter((u: any) => {
+        // Exclude platform admins and purged accounts
+        if (u.id === ADMIN_USER_ID || u.role === "Admin" || (u.role && u.role.toLowerCase() === "admin") || ADMIN_EMAILS.has((u.email || "").toLowerCase())) {
+          return false;
+        }
+        if (u.accountLifecycleStatus === "PURGED" || u.isPurged === true) {
+          return false;
+        }
+
+        // If documents are fully approved, they leave the pending queue
+        if (u.documentVerificationStatus === "APPROVED" || u.isFullyApproved === true) {
+          return false;
+        }
+
+        const hasDocs = Array.isArray(u.verificationDocuments) && u.verificationDocuments.length > 0;
+        const docVerifStr = String(u.documentVerificationStatus || u.verification_status || "").toUpperCase();
+        const reqStatusStr = String(u.verificationRequestStatus || u.verificationRequest || "").toUpperCase();
+        const hasInstitutional = Boolean(u.institutionalProfile);
+
+        // STRICT SEPARATION RULE:
+        // A user MUST have an explicit verification request OR uploaded documents pending review!
+        // Accounts with 0 documents and no verification request MUST NEVER appear in the verification review queue!
+        const hasExplicitRequest =
+          ["SUBMITTED", "PENDING", "UNDER_REVIEW", "DOCUMENTS_SUBMITTED"].includes(reqStatusStr) ||
+          (hasInstitutional && docVerifStr === "UNDER_REVIEW") ||
+          u.verificationInfo?.status === "under_review";
+
+        if (!hasDocs && !hasExplicitRequest) {
+          return false;
+        }
+
+        const isPendingVerification =
+          (hasDocs && docVerifStr !== "APPROVED" && docVerifStr !== "REJECTED") ||
+          (!hasDocs && hasExplicitRequest && docVerifStr !== "APPROVED" && docVerifStr !== "REJECTED");
+
+        return Boolean(isPendingVerification);
+      })
+      .map((u: any) => {
+        const uId = u.id || u.uid;
+        const reqId = u.verificationRequestId || `vreq_${uId}`;
+        const hasDocs = Array.isArray(u.verificationDocuments) && u.verificationDocuments.length > 0;
+        const docVerifStr = String(u.documentVerificationStatus || u.verification_status || "").toUpperCase();
+        const reqStatusStr = String(u.verificationRequestStatus || u.verificationRequest || "").toUpperCase();
+
+        return {
+          id: reqId,
+          requestId: reqId,
+          userId: uId,
+          email: u.email || "",
+          name: u.ownerName || u.fullName || u.email?.split("@")[0] || "User",
+          userName: u.ownerName || u.fullName || u.email?.split("@")[0] || "User",
+          companyName: u.companyName || u.institutionalProfile?.companyName || "Default Organization",
+          role: u.role || "Contributor",
+          accountStatus: u.accountStatus || "APPROVED",
+          requestStatus: hasDocs ? "UNDER_REVIEW" : (reqStatusStr || "SUBMITTED"),
+          documentVerificationStatus: docVerifStr || "UNDER_REVIEW",
+          documentCount: u.verificationDocuments?.length || 0,
+          documents: u.verificationDocuments || [],
+          submittedAt: u.verificationSubmittedAt || u.verificationInfo?.submittedAt || u.createdAt || new Date().toISOString(),
+          createdAt: u.createdAt || new Date().toISOString(),
+          institutionalProfile: u.institutionalProfile || null,
+          requiresDocumentVerification: Boolean(u.requiresDocumentVerification)
+        };
+      });
 
     return res.json({
       success: true,
@@ -10332,7 +10522,7 @@ app.get("/api/admin/pending-approvals", requireAuth, requireAdmin, async (req: A
   }
 });
 
-// 2. Approve User Account
+// 2. Approve User Account (Pure Account Approval - Independent of KYC/Documents)
 app.post("/api/admin/approve-account", requireAuth, requireAdmin, async (req: AuthRequest, res) => {
   const adminUid = req.user?.uid || "";
   const adminEmail = req.user?.email || "admin@zakir.ai";
@@ -10349,7 +10539,6 @@ app.post("/api/admin/approve-account", requireAuth, requireAdmin, async (req: Au
       return res.status(404).json({ success: false, error: "Target user not found." });
     }
 
-    // Verify document eligibility
     const rawDocs = [
       ...(Array.isArray(targetUser.verificationDocuments) ? targetUser.verificationDocuments : []),
       ...(Array.isArray(targetUser.verificationInfo?.documents) ? targetUser.verificationInfo.documents : []),
@@ -10367,38 +10556,25 @@ app.post("/api/admin/approve-account", requireAuth, requireAdmin, async (req: Au
       }
     }
     const docCount = uniqueDocs.length;
-    const hasRejectedDoc = uniqueDocs.some((d: any) => String(d.status || d.verificationStatus || "").toUpperCase() === "REJECTED");
-    const isOverallRejected = String(targetUser.documentVerificationStatus || targetUser.verificationInfo?.status || "").toUpperCase() === "REJECTED";
     const isExplicitOverride = Boolean(adminOverride === true || req.body?.adminVerificationOverride === true);
-
-    // Rule: Non-override approval requires at least 1 document and no rejected documents
-    if (docCount === 0 && !isExplicitOverride) {
-      return res.status(400).json({
-        success: false,
-        error: "Cannot approve account with 0 documents without an explicit admin verification override.",
-        userFriendlyMessage: "لا يمكن توثيق الحساب لأن المستندات المطلوبة غير مرفقة."
-      });
-    }
-
-    if ((hasRejectedDoc || isOverallRejected) && !isExplicitOverride) {
-      return res.status(400).json({
-        success: false,
-        error: "Cannot approve account while documents are in REJECTED state. Request replacement documents first or specify override.",
-        userFriendlyMessage: "لا يمكن توثيق الحساب لوجود مستندات مرفوضة. يجب إعادة رفع المستندات المطلوبة أولاً."
-      });
-    }
 
     const nowIso = new Date().toISOString();
     const trialHours = Math.max(1, Number(customTrialHours) || 24);
     const trialEndsIso = new Date(Date.now() + trialHours * 3600 * 1000).toISOString();
 
+    // SEPARATE ACCOUNT APPROVAL FROM DOCUMENT / KYC APPROVAL
+    // If docCount === 0 and no explicit override: Account is APPROVED, but KYC remains NOT_VERIFIED!
+    const isDocApproved = isExplicitOverride ? true : (docCount > 0 && targetUser.documentVerificationStatus === "APPROVED");
+    const docVerifStatus = isDocApproved ? "APPROVED" : (docCount > 0 ? "UNDER_REVIEW" : "NOT_SUBMITTED");
+    const kycStatus = isDocApproved ? "VERIFIED" : (docCount > 0 ? "UNDER_REVIEW" : "NOT_VERIFIED");
+
     const approvalUpdates: Record<string, any> = {
       accountStatus: "APPROVED",
-      documentVerificationStatus: "APPROVED",
-      requiresDocumentVerification: false,
+      documentVerificationStatus: docVerifStatus,
+      kycStatus,
+      requiresDocumentVerification: docCount === 0 ? false : !isDocApproved,
       adminVerificationOverride: isExplicitOverride,
       approvedAt: nowIso,
-      verifiedAt: nowIso,
       approvedBy: adminEmail,
       approvalNotes: notes || adminNotes || "",
       trialStartedAt: nowIso,
@@ -10407,19 +10583,21 @@ app.post("/api/admin/approve-account", requireAuth, requireAdmin, async (req: Au
       trialDurationHours: trialHours,
       subscriptionPlan: assignPlan,
       subscriptionStatus: "Active",
-      isVerified: true,
+      isVerified: isDocApproved,
       isEmailVerified: true,
       email_verified: true,
       emailVerified: true,
-      verification_status: "verified",
-      verification_required: false,
+      verification_status: isDocApproved ? "verified" : "unverified",
       rejectionReason: null,
-      "verificationInfo.status": "verified",
-      "verificationInfo.verifiedAt": nowIso,
-      "verificationInfo.verifiedBy": adminEmail,
-      "verificationInfo.adminNote": notes || adminNotes || "",
       lastActiveAt: nowIso
     };
+
+    if (isDocApproved) {
+      approvalUpdates.verifiedAt = nowIso;
+      approvalUpdates["verificationInfo.status"] = "verified";
+      approvalUpdates["verificationInfo.verifiedAt"] = nowIso;
+      approvalUpdates["verificationInfo.verifiedBy"] = adminEmail;
+    }
 
     // Update Firestore
     try {
@@ -10487,9 +10665,7 @@ app.post("/api/admin/approve-account", requireAuth, requireAdmin, async (req: Au
               approvalNotificationSent: true,
               approvalEmailMessageId: mailRes.messageId || "",
             }, { merge: true });
-          } catch (e) {
-            console.warn("Firestore approval email flag write notice:", e);
-          }
+          } catch (e) {}
 
           if (db.users) {
             const idx = db.users.findIndex((u: any) => u.id === userId || u.uid === userId);
@@ -10523,6 +10699,293 @@ app.post("/api/admin/approve-account", requireAuth, requireAdmin, async (req: Au
     return res.status(500).json({
       success: false,
       error: err.message || "Failed to approve account"
+    });
+  }
+});
+
+// 2b. Approve Documents & KYC (Requires at least 1 valid document)
+app.post(
+  ["/api/admin/approve-documents", "/api/admin/verify-documents"],
+  requireAuth,
+  requireAdmin,
+  async (req: AuthRequest, res) => {
+    const adminUid = req.user?.uid || "";
+    const adminEmail = req.user?.email || "admin@zakir.ai";
+
+    try {
+      const { notes = "" } = req.body;
+      const userId = req.body?.userId || req.body?.targetUserId || req.body?.id;
+      if (!userId) {
+        return res.status(400).json({ success: false, error: "User ID is required for document approval." });
+      }
+
+      const targetUser = await getUserProfileServer(userId);
+      if (!targetUser) {
+        return res.status(404).json({ success: false, error: "Target user not found." });
+      }
+
+      const rawDocs = [
+        ...(Array.isArray(targetUser.verificationDocuments) ? targetUser.verificationDocuments : []),
+        ...(Array.isArray(targetUser.verificationInfo?.documents) ? targetUser.verificationInfo.documents : []),
+        ...(Array.isArray(targetUser.documents) ? targetUser.documents : []),
+        ...(Array.isArray(targetUser.files) ? targetUser.files.filter((f: any) => f && (f.category === "Verification" || f.category === "Identity" || f.isVerificationDoc)) : [])
+      ];
+
+      const uniqueDocs: any[] = [];
+      const seenIds = new Set<string>();
+      for (const doc of rawDocs) {
+        if (!doc) continue;
+        const docId = String(doc.documentId || doc.id || doc.storageReference || doc.fileName || doc.name || JSON.stringify(doc));
+        if (!seenIds.has(docId)) {
+          seenIds.add(docId);
+          uniqueDocs.push(doc);
+        }
+      }
+
+      const docCount = uniqueDocs.length;
+      if (docCount === 0) {
+        return res.status(400).json({
+          success: false,
+          error: "CANNOT_VERIFY_WITHOUT_DOCUMENTS",
+          userFriendlyMessage: "لا يمكن اعتماد التوثيق المؤسسي / KYC لعدم وجود مستندات مرفقة من المستخدم."
+        });
+      }
+
+      const nowIso = new Date().toISOString();
+
+      // Mark each individual document as APPROVED
+      const approvedDocs = uniqueDocs.map((d: any) => ({
+        ...d,
+        status: "APPROVED",
+        verificationStatus: "APPROVED",
+        reviewedAt: nowIso,
+        reviewedBy: adminEmail
+      }));
+
+      const docApprovalUpdates: Record<string, any> = {
+        documentVerificationStatus: "APPROVED",
+        kycStatus: "VERIFIED",
+        verificationRequestStatus: "APPROVED",
+        accountStatus: "APPROVED",
+        requiresDocumentVerification: false,
+        isVerified: true,
+        verifiedAt: nowIso,
+        verifiedBy: adminEmail,
+        verificationDocuments: approvedDocs,
+        documents: approvedDocs,
+        "verificationInfo.status": "verified",
+        "verificationInfo.verifiedAt": nowIso,
+        "verificationInfo.verifiedBy": adminEmail,
+        "verificationInfo.adminNote": notes || "",
+        lastActiveAt: nowIso
+      };
+
+      // Update Firestore user
+      try {
+        await adminDb.collection("users").doc(userId).set(docApprovalUpdates, { merge: true });
+        // Update verification_requests collection
+        const vreqId = targetUser.verificationRequestId || `vreq_${userId}`;
+        await adminDb.collection("verification_requests").doc(vreqId).set({
+          status: "APPROVED",
+          requestStatus: "APPROVED",
+          reviewedAt: nowIso,
+          reviewedBy: adminEmail,
+          adminNotes: notes || ""
+        }, { merge: true });
+      } catch (fsErr) {
+        console.warn("Firestore doc approval write notice:", fsErr);
+      }
+
+      // Update local DB
+      const db = readDb();
+      if (db.users) {
+        const idx = db.users.findIndex((u: any) => u.id === userId || u.uid === userId);
+        if (idx >= 0) {
+          db.users[idx] = { ...db.users[idx], ...docApprovalUpdates };
+          writeDb(db);
+        }
+      }
+
+      await writeEntitlementAuditLog(
+        adminUid,
+        adminEmail,
+        userId,
+        targetUser.email || "",
+        "APPROVE_ACCOUNT",
+        `Approved ${docCount} verification documents and granted KYC Verified status. Notes: ${notes || "None"}`,
+        { documentVerificationStatus: targetUser.documentVerificationStatus, kycStatus: targetUser.kycStatus },
+        docApprovalUpdates
+      );
+
+      return res.json({
+        success: true,
+        message: `تم اعتماد وتوثيق ${docCount} مستند بنجاح وتأكيد KYC.`,
+        documentCount: docCount,
+        user: {
+          ...targetUser,
+          ...docApprovalUpdates
+        }
+      });
+    } catch (err: any) {
+      console.error("[APPROVE_DOCUMENTS_ERROR]", err);
+      return res.status(500).json({
+        success: false,
+        error: err.message || "Failed to approve documents"
+      });
+    }
+  }
+);
+
+// 2c. Reject Documents (without necessarily deleting or banning account)
+app.post(
+  ["/api/admin/reject-documents", "/api/admin/reject-verification"],
+  requireAuth,
+  requireAdmin,
+  async (req: AuthRequest, res) => {
+    const adminUid = req.user?.uid || "";
+    const adminEmail = req.user?.email || "admin@zakir.ai";
+
+    try {
+      const { reason = "Verification documents could not be validated." } = req.body;
+      const userId = req.body?.userId || req.body?.targetUserId || req.body?.id;
+      if (!userId) {
+        return res.status(400).json({ success: false, error: "User ID is required." });
+      }
+
+      const targetUser = await getUserProfileServer(userId);
+      if (!targetUser) {
+        return res.status(404).json({ success: false, error: "Target user not found." });
+      }
+
+      const nowIso = new Date().toISOString();
+      const rawDocs = Array.isArray(targetUser.verificationDocuments) ? targetUser.verificationDocuments : [];
+      const rejectedDocs = rawDocs.map((d: any) => ({
+        ...d,
+        status: "REJECTED",
+        verificationStatus: "REJECTED",
+        reviewedAt: nowIso,
+        reviewedBy: adminEmail,
+        rejectionReason: reason
+      }));
+
+      const docRejectUpdates: Record<string, any> = {
+        documentVerificationStatus: "REJECTED",
+        kycStatus: "REJECTED",
+        verificationRequestStatus: "REJECTED",
+        requiresDocumentVerification: true,
+        isVerified: false,
+        rejectionReason: String(reason).trim(),
+        verificationDocuments: rejectedDocs,
+        documents: rejectedDocs,
+        "verificationInfo.status": "rejected",
+        "verificationInfo.adminNote": String(reason).trim(),
+        "verificationInfo.verifiedAt": null,
+        lastActiveAt: nowIso
+      };
+
+      try {
+        await adminDb.collection("users").doc(userId).set(docRejectUpdates, { merge: true });
+        const vreqId = targetUser.verificationRequestId || `vreq_${userId}`;
+        await adminDb.collection("verification_requests").doc(vreqId).set({
+          status: "REJECTED",
+          requestStatus: "REJECTED",
+          reviewedAt: nowIso,
+          reviewedBy: adminEmail,
+          rejectionReason: reason
+        }, { merge: true });
+      } catch (fsErr) {}
+
+      const db = readDb();
+      if (db.users) {
+        const idx = db.users.findIndex((u: any) => u.id === userId || u.uid === userId);
+        if (idx >= 0) {
+          db.users[idx] = { ...db.users[idx], ...docRejectUpdates };
+          writeDb(db);
+        }
+      }
+
+      await writeEntitlementAuditLog(
+        adminUid,
+        adminEmail,
+        userId,
+        targetUser.email || "",
+        "REJECT_ACCOUNT",
+        `Rejected verification documents: ${reason}`,
+        { documentVerificationStatus: targetUser.documentVerificationStatus },
+        docRejectUpdates
+      );
+
+      return res.json({
+        success: true,
+        message: "تم رفض المستندات وإشعار المستخدم لإعادة الرفع.",
+        user: {
+          ...targetUser,
+          ...docRejectUpdates
+        }
+      });
+    } catch (err: any) {
+      console.error("[REJECT_DOCUMENTS_ERROR]", err);
+      return res.status(500).json({
+        success: false,
+        error: err.message || "Failed to reject documents"
+      });
+    }
+  }
+);
+
+// 2d. Require Document Resubmission
+app.post("/api/admin/require-documents", requireAuth, requireAdmin, async (req: AuthRequest, res) => {
+  const adminUid = req.user?.uid || "";
+  const adminEmail = req.user?.email || "admin@zakir.ai";
+
+  try {
+    const { reason = "Additional identity documents required." } = req.body;
+    const userId = req.body?.userId || req.body?.targetUserId || req.body?.id;
+    if (!userId) {
+      return res.status(400).json({ success: false, error: "User ID is required." });
+    }
+
+    const targetUser = await getUserProfileServer(userId);
+    if (!targetUser) {
+      return res.status(404).json({ success: false, error: "Target user not found." });
+    }
+
+    const nowIso = new Date().toISOString();
+    const reqUpdates: Record<string, any> = {
+      documentVerificationStatus: "UNDER_REVIEW",
+      verificationRequestStatus: "SUBMITTED",
+      kycStatus: "ACTION_REQUIRED",
+      requiresDocumentVerification: true,
+      isVerified: false,
+      rejectionReason: String(reason).trim(),
+      "verificationInfo.status": "action_required",
+      "verificationInfo.adminNote": String(reason).trim(),
+      lastActiveAt: nowIso
+    };
+
+    try {
+      await adminDb.collection("users").doc(userId).set(reqUpdates, { merge: true });
+    } catch (fsErr) {}
+
+    const db = readDb();
+    if (db.users) {
+      const idx = db.users.findIndex((u: any) => u.id === userId || u.uid === userId);
+      if (idx >= 0) {
+        db.users[idx] = { ...db.users[idx], ...reqUpdates };
+        writeDb(db);
+      }
+    }
+
+    return res.json({
+      success: true,
+      message: "تم إرسال طلب المستندات الإضافية بنجاح.",
+      user: { ...targetUser, ...reqUpdates }
+    });
+  } catch (err: any) {
+    console.error("[REQUIRE_DOCS_ERROR]", err);
+    return res.status(500).json({
+      success: false,
+      error: err.message || "Failed to require documents"
     });
   }
 });
@@ -17220,7 +17683,45 @@ app.post(
       const db = readDb();
       if (!db.verification_documents_store) db.verification_documents_store = {};
       db.verification_documents_store[documentId] = docMeta;
+
+      // Update user profile verificationDocuments array in local store
+      if (uid && db.users) {
+        const uIdx = db.users.findIndex((u: any) => u.id === uid || u.uid === uid);
+        if (uIdx >= 0) {
+          const existingDocs = Array.isArray(db.users[uIdx].verificationDocuments) ? db.users[uIdx].verificationDocuments : [];
+          if (!existingDocs.some((d: any) => d.documentId === documentId || d.id === documentId)) {
+            db.users[uIdx].verificationDocuments = [...existingDocs, docMeta];
+            db.users[uIdx].documentVerificationStatus = "UNDER_REVIEW";
+            db.users[uIdx].verification_status = "under_review";
+          }
+        }
+      }
       writeDb(db);
+
+      // Persist metadata to Firestore
+      if (isFirebaseAdminAvailable && adminDb) {
+        try {
+          await adminDb.collection("verification_documents").doc(documentId).set(docMeta, { merge: true });
+          if (uid) {
+            const userRef = adminDb.collection("users").doc(uid);
+            const userSnap = await userRef.get();
+            if (userSnap.exists) {
+              const uData = userSnap.data() || {};
+              const existingDocs = Array.isArray(uData.verificationDocuments) ? uData.verificationDocuments : [];
+              if (!existingDocs.some((d: any) => d.documentId === documentId || d.id === documentId)) {
+                await userRef.set({
+                  verificationDocuments: [...existingDocs, docMeta],
+                  documentVerificationStatus: "UNDER_REVIEW",
+                  verification_status: "under_review",
+                  requiresDocumentVerification: true
+                }, { merge: true });
+              }
+            }
+          }
+        } catch (fsErr) {
+          console.warn("Firestore verification doc metadata sync warning:", fsErr);
+        }
+      }
 
       return res.status(200).json({
         success: true,
@@ -17750,13 +18251,55 @@ app.get(
         }
       }
 
+      // Reconcile documents for each recovery request
+      const recStore = db.recovery_documents_store || {};
+      const pendingUploads = db.pending_recovery_uploads || [];
+
+      requests = requests.map((r: any) => {
+        const rawDocs = [
+          ...(Array.isArray(r.documents) ? r.documents : []),
+          ...(Array.isArray(r.verificationDocuments) ? r.verificationDocuments : [])
+        ];
+
+        const docIds = Array.isArray(r.documentIds) ? r.documentIds : [];
+        for (const dId of docIds) {
+          if (recStore[dId] && !rawDocs.some((d: any) => (d.documentId || d.id) === dId)) {
+            rawDocs.push(recStore[dId]);
+          }
+        }
+
+        // Check by email or userId in recovery store
+        const rEmail = (r.email || "").toLowerCase().trim();
+        for (const [dId, meta] of Object.entries(recStore as Record<string, any>)) {
+          if (meta) {
+            const matchesReq = meta.requestId === r.requestId || meta.requestId === r.id || (meta.email && meta.email.toLowerCase().trim() === rEmail);
+            if (matchesReq && !rawDocs.some((d: any) => (d.documentId || d.id) === dId)) {
+              rawDocs.push(meta);
+            }
+          }
+        }
+
+        const docMap = new Map<string, any>();
+        for (const d of rawDocs) {
+          if (!d) continue;
+          const key = d.documentId || d.id || d.storageReference || d.fileName;
+          if (key && !docMap.has(key)) {
+            docMap.set(key, d);
+          }
+        }
+        const reconciledDocs = Array.from(docMap.values());
+        r.documents = reconciledDocs;
+        r.documentCount = reconciledDocs.length;
+        return r;
+      });
+
       requests.sort((a, b) => {
         const tA = new Date(a.submittedAt || a.createdAt || 0).getTime();
         const tB = new Date(b.submittedAt || b.createdAt || 0).getTime();
         return tB - tA;
       });
 
-      return res.json({ success: true, requests });
+      return res.json({ success: true, requests, recoveryRequests: requests });
     } catch (err: any) {
       res
         .status(500)
@@ -20402,7 +20945,8 @@ app.post("/api/auth/login", loginRegisterLimiter, async (req, res) => {
     } catch (e) {}
 
     const isExemptRole = isAdminAccount;
-    const isVerified = isExemptRole || userProfile.accountStatus === "APPROVED";
+    const isKycVerified = isExemptRole || userProfile.isVerified === true || userProfile.kycStatus === "VERIFIED" || userProfile.documentVerificationStatus === "APPROVED";
+    const isEmailVer = Boolean(userProfile.isEmailVerified || userProfile.emailVerified || userProfile.email_verified || isExemptRole);
 
     const { passwordHash, secretPasscode, ...cleanProfile } = userProfile;
     if (cleanProfile.encryptedSecurity) {
@@ -20431,12 +20975,12 @@ app.post("/api/auth/login", loginRegisterLimiter, async (req, res) => {
       idToken: authIdToken,
       user: {
         ...cleanProfile,
-        isVerified,
-        isEmailVerified: isVerified,
-        email_verified: isVerified,
-        emailVerified: isVerified,
-        verification_required: !isVerified,
-        verification_status: isVerified ? "verified" : "unverified",
+        isVerified: isKycVerified,
+        isEmailVerified: isEmailVer,
+        email_verified: isEmailVer,
+        emailVerified: isEmailVer,
+        verification_required: !isKycVerified,
+        verification_status: isKycVerified ? "verified" : (userProfile.verification_status || "unverified"),
       },
     });
   } catch (err: any) {
@@ -20735,6 +21279,34 @@ app.post("/api/users/profile", requireAuth, async (req: AuthRequest, res) => {
         incomingData.phone !== undefined
           ? incomingData.phone
           : existingProfile.phone,
+      verificationInfo:
+        incomingData.verificationInfo !== undefined
+          ? incomingData.verificationInfo
+          : existingProfile.verificationInfo,
+      verificationDocuments:
+        incomingData.verificationDocuments !== undefined
+          ? incomingData.verificationDocuments
+          : existingProfile.verificationDocuments,
+      documentVerificationStatus:
+        incomingData.documentVerificationStatus !== undefined
+          ? incomingData.documentVerificationStatus
+          : existingProfile.documentVerificationStatus,
+      verification_status:
+        incomingData.verification_status !== undefined
+          ? incomingData.verification_status
+          : existingProfile.verification_status,
+      verification_required:
+        incomingData.verification_required !== undefined
+          ? incomingData.verification_required
+          : existingProfile.verification_required,
+      documents:
+        incomingData.documents !== undefined
+          ? incomingData.documents
+          : existingProfile.documents,
+      files:
+        incomingData.files !== undefined
+          ? incomingData.files
+          : existingProfile.files,
       updatedAt: new Date().toISOString(),
     };
 

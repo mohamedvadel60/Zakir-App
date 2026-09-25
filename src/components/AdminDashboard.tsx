@@ -43,7 +43,8 @@ import {
   addSupportTicketMessageApi,
   updateSupportTicketStatusApi,
   subscribeToSupportTickets,
-  bulkAdminUserActionApi
+  bulkAdminUserActionApi,
+  computeUserVerificationBreakdown
 } from "../lib/firebaseServices.js";
 import { 
   authenticatedFetch, 
@@ -122,24 +123,33 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         } else if (Array.isArray(json?.users)) {
           setPendingApprovals(json.users);
         } else {
-          // Derive fallback pending from usersData
+          // Derive fallback pending from usersData (strictly only users with real pending verification requests or documents)
           const derived = usersData
             .filter((u) => {
-              const full = u.fullUser || ({} as any);
-              const status = String(full.accountStatus || (u as any).accountStatus || "").toUpperCase();
-              return status !== "APPROVED" && status !== "ACTIVE";
+              const breakdown = computeUserVerificationBreakdown(u);
+              return (
+                (breakdown.uiState === "PENDING_REVIEW" && breakdown.documentCount > 0) ||
+                (breakdown.uiState === "AWAITING_DOCS")
+              );
             })
-            .map((u) => ({
-              id: u.id,
-              userId: u.id,
-              email: u.email,
-              name: u.ownerName,
-              companyName: u.companyName,
-              role: u.role,
-              accountStatus: (u as any).accountStatus || "VERIFICATION_REQUIRED",
-              documents: u.files?.filter((f: any) => f.category === "Verification" || f.isVerificationDoc) || [],
-              createdAt: u.createdAt
-            }));
+            .map((u) => {
+              const breakdown = computeUserVerificationBreakdown(u);
+              return {
+                id: (u as any).verificationRequestId || `vreq_${u.id}`,
+                requestId: (u as any).verificationRequestId || `vreq_${u.id}`,
+                userId: u.id,
+                email: u.email,
+                name: u.ownerName || u.email?.split("@")[0] || "User",
+                userName: u.ownerName || u.email?.split("@")[0] || "User",
+                companyName: u.companyName || "Organization",
+                role: u.role || "Contributor",
+                accountStatus: breakdown.accountApprovalStatus,
+                requestStatus: breakdown.uiState === "PENDING_REVIEW" ? "UNDER_REVIEW" : "AWAITING_DOCUMENTS",
+                documentCount: breakdown.documentCount,
+                documents: breakdown.documents,
+                createdAt: u.createdAt
+              };
+            });
           setPendingApprovals(derived);
         }
       } catch (e) {
@@ -222,7 +232,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     setIsUserModalOpen(true);
   };
 
-  // 1. Approve Account
+  // 1. Pure Account Approval (Account Activation - Independent of KYC)
   const handleApproveAccount = async (
     userId: string,
     plan = "Starter",
@@ -238,7 +248,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           assignPlan: plan,
           customTrialHours: trialHours,
           notes,
-          adminOverride: true
+          adminOverride: false
         })
       });
       const data = await safeJsonResponse(res, "Approve failed");
@@ -246,31 +256,132 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         throw new Error(data?.error || data?.userFriendlyMessage || "Failed to approve account");
       }
 
-      // Optimistically update local users list
+      // Optimistically update local users list for account status
       setUsers((prev) =>
-        prev.map((u) =>
-          u.id === userId
-            ? {
-                ...u,
-                isVerified: true,
+        prev.map((u) => {
+          if (u.id === userId) {
+            const full = (u.fullUser || {}) as any;
+            return {
+              ...u,
+              accountStatus: "APPROVED",
+              fullUser: {
+                ...full,
                 accountStatus: "APPROVED",
-                fullUser: { ...(u.fullUser || {}), accountStatus: "APPROVED", isVerified: true, subscriptionPlan: plan } as any
-              }
-            : u
-        )
+                subscriptionPlan: plan
+              } as any
+            };
+          }
+          return u;
+        })
       );
 
-      // Remove from pending approvals
-      setPendingApprovals((prev) => prev.filter((p) => p.userId !== userId && p.id !== userId));
-
-      showToast("success", "تم اعتماد الحساب وتوثيقه بنجاح");
+      showToast("success", "تم تفعيل الحساب الأساسي بنجاح");
       if (selectedUserRecord?.id === userId) {
         setSelectedUserRecord((prev) =>
-          prev ? { ...prev, isVerified: true, accountStatus: "APPROVED" } : null
+          prev ? { ...prev, accountStatus: "APPROVED" } : null
         );
       }
     } catch (err: any) {
-      showToast("error", err?.message || "فشل اعتماد الحساب");
+      showToast("error", err?.message || "فشل تفعيل الحساب");
+      throw err;
+    }
+  };
+
+  // 1b. Approve Verification Documents & KYC (Requires submitted documents)
+  const handleApproveDocuments = async (userId: string, notes = "") => {
+    try {
+      const res = await authenticatedFetch("/api/admin/approve-documents", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId, notes })
+      });
+      const data = await safeJsonResponse(res, "Approve documents failed");
+      if (!res.ok || data?.success === false) {
+        throw new Error(data?.userFriendlyMessage || data?.error || "Failed to approve documents");
+      }
+
+      // Optimistically update user KYC status
+      setUsers((prev) =>
+        prev.map((u) => {
+          if (u.id === userId) {
+            const full = (u.fullUser || {}) as any;
+            return {
+              ...u,
+              isVerified: true,
+              kycStatus: "VERIFIED",
+              documentVerificationStatus: "APPROVED",
+              fullUser: {
+                ...full,
+                isVerified: true,
+                kycStatus: "VERIFIED",
+                documentVerificationStatus: "APPROVED",
+                verificationRequestStatus: "APPROVED"
+              } as any
+            };
+          }
+          return u;
+        })
+      );
+
+      // Remove from pending verification review queue
+      setPendingApprovals((prev) => prev.filter((p) => p.userId !== userId && p.id !== userId));
+
+      showToast("success", "تم اعتماد الوثائق وتوثيق الهوية المؤسسية بنجاح");
+      if (selectedUserRecord?.id === userId) {
+        setSelectedUserRecord((prev) =>
+          prev ? { ...prev, isVerified: true, kycStatus: "VERIFIED", documentVerificationStatus: "APPROVED" } : null
+        );
+      }
+    } catch (err: any) {
+      showToast("error", err?.message || "فشل اعتماد الوثائق");
+      throw err;
+    }
+  };
+
+  // 1c. Reject Verification Documents (Sets document/KYC status to REJECTED)
+  const handleRejectDocuments = async (userId: string, reason: string) => {
+    try {
+      const res = await authenticatedFetch("/api/admin/reject-documents", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId, reason })
+      });
+      const data = await safeJsonResponse(res, "Reject documents failed");
+      if (!res.ok || data?.success === false) {
+        throw new Error(data?.userFriendlyMessage || data?.error || "Failed to reject documents");
+      }
+
+      setUsers((prev) =>
+        prev.map((u) => {
+          if (u.id === userId) {
+            const full = (u.fullUser || {}) as any;
+            return {
+              ...u,
+              kycStatus: "REJECTED",
+              documentVerificationStatus: "REJECTED",
+              fullUser: {
+                ...full,
+                kycStatus: "REJECTED",
+                documentVerificationStatus: "REJECTED",
+                verificationRequestStatus: "REJECTED",
+                rejectionReason: reason
+              } as any
+            };
+          }
+          return u;
+        })
+      );
+
+      setPendingApprovals((prev) => prev.filter((p) => p.userId !== userId && p.id !== userId));
+
+      showToast("success", "تم رفض وثائق التوثيق وإشعار المستخدم");
+      if (selectedUserRecord?.id === userId) {
+        setSelectedUserRecord((prev) =>
+          prev ? { ...prev, kycStatus: "REJECTED", documentVerificationStatus: "REJECTED" } : null
+        );
+      }
+    } catch (err: any) {
+      showToast("error", err?.message || "فشل رفض الوثائق");
       throw err;
     }
   };
@@ -724,6 +835,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               <AdminUsersTab
                 users={users}
                 onOpenUserDetail={handleOpenUserDetail}
+                onReviewDocs={handleOpenUserDetail}
                 onQuickApprove={(userId) => handleApproveAccount(userId)}
                 onQuickReject={(userId) => handleRejectAccount(userId, "Suspended by admin")}
                 onBulkAction={handleBulkAction}
@@ -738,6 +850,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               <AdminVerificationsTab
                 pendingApprovals={pendingApprovals}
                 onApprove={handleApproveAccount}
+                onApproveDocuments={handleApproveDocuments}
+                onRejectDocuments={handleRejectDocuments}
                 onReject={handleRejectAccount}
                 onRequireDocs={handleRequireDocuments}
                 loading={loading}
@@ -793,6 +907,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           setSelectedUserRecord(null);
         }}
         onApprove={handleApproveAccount}
+        onApproveDocuments={handleApproveDocuments}
+        onRejectDocuments={handleRejectDocuments}
         onReject={handleRejectAccount}
         onRequireDocs={handleRequireDocuments}
         onExtendTrial={handleExtendTrial}

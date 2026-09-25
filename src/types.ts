@@ -239,9 +239,10 @@ export interface User {
   role: UserRole;
   powers?: ModulePermissions;
   accountStatus?: AccountStatus;
+  kycStatus?: "VERIFIED" | "NOT_VERIFIED" | "UNDER_REVIEW" | "PENDING_REVIEW" | "REJECTED" | "UNVERIFIED";
   requiresDocumentVerification?: boolean;
   verificationFlowVersion?: number;
-  documentVerificationStatus?: "PENDING_EMAIL_VERIFICATION" | "PENDING_UPLOAD" | "UNDER_REVIEW" | "APPROVED" | "REJECTED";
+  documentVerificationStatus?: "NOT_SUBMITTED" | "PENDING_EMAIL_VERIFICATION" | "PENDING_UPLOAD" | "UNDER_REVIEW" | "APPROVED" | "REJECTED" | "UNVERIFIED";
   verificationDocuments?: UploadedVerificationDoc[];
   hasCompany?: boolean;
   institutionalProfile?: InstitutionalProfile;

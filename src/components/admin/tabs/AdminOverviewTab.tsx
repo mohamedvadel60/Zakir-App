@@ -11,7 +11,7 @@ import {
   CheckCircle2
 } from "lucide-react";
 import { AdminTab, PendingApprovalRecord, RecoveryRequestRecord } from "../adminTypes.js";
-import { AdminUserRecord } from "../../../lib/firebaseServices.js";
+import { AdminUserRecord, computeUserVerificationBreakdown } from "../../../lib/firebaseServices.js";
 import { SupportTicket } from "../../../types.js";
 import { safeFormatDate } from "../../../lib/dateUtils.js";
 
@@ -53,26 +53,14 @@ export const AdminOverviewTab: React.FC<AdminOverviewTabProps> = ({
     }
   }).length;
 
-  // Accounts requiring review (verification required, document required, under review, not approved)
+  // Accounts requiring review (account approval pending or verification under review)
   const accountsNeedingReview = users.filter((u) => {
-    const full = u.fullUser || ({} as any);
-    const status = String(full.accountStatus || (u as any).accountStatus || "").toUpperCase();
-    const verStatus = String(full.documentVerificationStatus || (u as any).documentVerificationStatus || "").toUpperCase();
-    return (
-      status === "PENDING_ADMIN_REVIEW" ||
-      status === "VERIFICATION_REQUIRED" ||
-      status === "PENDING_DOCUMENT_VERIFICATION" ||
-      verStatus === "UNDER_REVIEW" ||
-      verStatus === "ACTION_REQUIRED" ||
-      String(u.verificationInfo?.status) === "pending_review" ||
-      String(u.verificationInfo?.status) === "action_required"
-    );
+    const breakdown = computeUserVerificationBreakdown(u);
+    return breakdown.accountApprovalStatus === "PENDING" || breakdown.uiState === "PENDING_REVIEW";
   });
 
   // Pending verification requests
-  const pendingDocsCount = pendingApprovals.filter(
-    (a) => String(a.accountStatus || "").toUpperCase() !== "APPROVED"
-  ).length;
+  const pendingDocsCount = pendingApprovals.length;
 
   // Pending recovery requests
   const pendingRecoveryCount = recoveryRequests.filter(

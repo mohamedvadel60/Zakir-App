@@ -1445,16 +1445,17 @@ function computeStrictVerificationState(profile, isAdmin = false) {
     };
   }
   const isMarkedApproved = rawAccountStatus === "APPROVED" || profile?.accountStatus === "APPROVED" || Boolean(profile?.approvedAt && !hasRejectedDoc);
-  if (isMarkedApproved && (documentCount > 0 || adminOverride || profile?.approvedAt)) {
+  if (isMarkedApproved) {
+    const isKycVerified = Boolean(adminOverride || documentCount > 0 && (overallDocStatus === "APPROVED" || hasApprovedDoc && !hasRejectedDoc && !hasPendingDoc));
     return {
       effectiveStatus: "APPROVED",
-      isVerified: true,
+      isVerified: isKycVerified,
       verificationRequired: false,
-      verificationStatus: "verified",
+      verificationStatus: isKycVerified ? "verified" : hasRejectedDoc ? "rejected" : hasPendingDoc ? "pending" : "unverified",
       documentCount,
       hasRejectedDocument: false,
-      hasPendingDocument: false,
-      allDocumentsApproved: true,
+      hasPendingDocument: hasPendingDoc,
+      allDocumentsApproved: isKycVerified,
       adminVerificationOverride: adminOverride
     };
   }
@@ -4483,12 +4484,9 @@ ${f.text}`
   "uncertaintyNotes": "\u0645\u0627 \u0627\u0644\u0630\u064A \u0644\u0627 \u064A\u0645\u0643\u0646 \u0627\u0644\u062C\u0632\u0645 \u0628\u0647 \u0646\u0638\u0631\u0627\u064B \u0644\u062D\u062F\u0648\u062F \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u0645\u062A\u0627\u062D\u0629"
 }`;
         const candidateModels = [
-          "gemini-3.5-flash",
-          "gemini-3.5-flash-lite",
-          "gemini-flash-lite-latest",
-          "gemini-3.7-flash",
-          "gemini-3.1-flash-lite",
-          "gemini-3.8-flash"
+          "gemini-2.5-flash",
+          "gemini-2.0-flash",
+          "gemini-1.5-flash"
         ];
         for (const mName of candidateModels) {
           let response = null;
@@ -6328,7 +6326,7 @@ ${internalSummary || "\u0644\u0627 \u062A\u0648\u062C\u062F \u0633\u062C\u0644\u
 
 // server.ts
 import_dotenv2.default.config();
-var ZAKIR_BUILD_ID = "ZAKIR_BUILD_2026_09_18_ADMIN_EVENTBUS_PRODUCTION";
+var ZAKIR_BUILD_ID = "ZAKIR_BUILD_2026_09_25_KYC_SEPARATION_VERIFIED";
 var isServerless2 = Boolean(
   process.env.VERCEL || process.env.VERCEL_ENV || process.env.NOW_REGION || process.env.AWS_LAMBDA_FUNCTION_NAME || process.env.LAMBDA_TASK_ROOT
 );
@@ -13493,29 +13491,121 @@ app2.get("/api/admin/users", requireAuth, async (req, res) => {
       if (u.accountLifecycleStatus === "PURGED" || u.isPurged === true) return false;
       return true;
     }).map((u) => {
-      const docs = [
+      const uId = u.id || u.uid;
+      const uEmail = (u.email || "").toLowerCase().trim();
+      const rawDocs = [
         ...Array.isArray(u.verificationDocuments) ? u.verificationDocuments : [],
         ...Array.isArray(u.verificationInfo?.documents) ? u.verificationInfo.documents : [],
         ...Array.isArray(u.documents) ? u.documents : [],
         ...Array.isArray(u.files) ? u.files.filter((f) => f && (f.category === "Verification" || f.isVerificationDoc)) : []
       ];
-      const docCount = docs.length;
-      const isExplicitAdminApproved = Boolean(
-        u.adminVerificationOverride === true || u.approvedBy && u.approvedAt
-      );
-      const isSystemAdmin = u.role === "Admin" || u.email && ADMIN_EMAILS.has(u.email.toLowerCase().trim());
-      if (docCount === 0 && !isExplicitAdminApproved && !isSystemAdmin) {
-        if (u.accountStatus === "APPROVED" || u.isVerified === true || u.documentVerificationStatus === "APPROVED") {
-          u.documentVerificationStatus = "NOT_SUBMITTED";
-          u.accountStatus = u.isEmailVerified ? "VERIFICATION_REQUIRED" : "PENDING_EMAIL_VERIFICATION";
-          u.isVerified = false;
-          u.verification_status = "unverified";
-          u.verification_required = true;
+      const db2 = readDb2();
+      if (db2.verification_documents_store) {
+        for (const [docId, meta] of Object.entries(db2.verification_documents_store)) {
+          if (meta) {
+            const matchesUser = meta.userId === uId || meta.userEmail && meta.userEmail.toLowerCase().trim() === uEmail;
+            if (matchesUser) {
+              if (!rawDocs.some((d) => (d.documentId || d.id) === docId)) {
+                rawDocs.push(meta);
+              }
+            }
+          }
         }
       }
-      if (docCount === 0 && !u.documentVerificationStatus) {
-        u.documentVerificationStatus = "NOT_SUBMITTED";
+      const docMap = /* @__PURE__ */ new Map();
+      for (const d of rawDocs) {
+        if (!d) continue;
+        const dKey = d.documentId || d.id || d.storageReference || d.fileName;
+        if (dKey && !docMap.has(dKey)) {
+          docMap.set(dKey, d);
+        }
       }
+      const reconciledDocs = Array.from(docMap.values());
+      u.verificationDocuments = reconciledDocs;
+      u.documents = reconciledDocs;
+      const docCount = reconciledDocs.length;
+      u.documentCount = docCount;
+      const isExplicitAdminApproved = Boolean(
+        u.adminVerificationOverride === true || u.approvedBy && u.approvedAt && u.documentVerificationStatus === "APPROVED"
+      );
+      const isSystemAdmin = u.role === "Admin" || u.email && ADMIN_EMAILS.has(u.email.toLowerCase().trim());
+      const rawReq = String(u.verificationRequestStatus || u.verificationRequest || "").toUpperCase();
+      const hasInstitutional = Boolean(u.institutionalProfile);
+      const rawDocStatus = String(u.documentVerificationStatus || u.verificationInfo?.status || "").toUpperCase();
+      let reqStatus = "NONE";
+      if (rawReq === "APPROVED" || rawReq === "VERIFIED") {
+        reqStatus = "APPROVED";
+      } else if (rawReq === "REJECTED") {
+        reqStatus = "REJECTED";
+      } else if (rawReq === "UNDER_REVIEW" || rawReq === "PENDING" || rawReq === "DOCUMENTS_SUBMITTED") {
+        reqStatus = "UNDER_REVIEW";
+      } else if (rawReq === "SUBMITTED") {
+        reqStatus = "SUBMITTED";
+      } else if (docCount > 0) {
+        reqStatus = rawDocStatus === "APPROVED" ? "APPROVED" : rawDocStatus === "REJECTED" ? "REJECTED" : "UNDER_REVIEW";
+      } else if (hasInstitutional || rawDocStatus === "UNDER_REVIEW" || rawDocStatus === "PENDING_UPLOAD" || u.verificationInfo?.status === "under_review") {
+        reqStatus = "SUBMITTED";
+      } else {
+        reqStatus = "NONE";
+      }
+      u.verificationRequestStatus = reqStatus;
+      let docStatus = "NOT_SUBMITTED";
+      const hasRejectedDoc = reconciledDocs.some((d) => String(d.status || d.verificationStatus || "").toUpperCase() === "REJECTED");
+      if (docCount === 0 && !isExplicitAdminApproved && !isSystemAdmin) {
+        docStatus = "NOT_SUBMITTED";
+      } else if (hasRejectedDoc || rawDocStatus === "REJECTED" || reqStatus === "REJECTED") {
+        docStatus = "REJECTED";
+      } else if ((rawDocStatus === "APPROVED" || isExplicitAdminApproved || isSystemAdmin) && (docCount > 0 || isExplicitAdminApproved || isSystemAdmin)) {
+        docStatus = "APPROVED";
+      } else if (docCount > 0) {
+        docStatus = rawDocStatus === "UNDER_REVIEW" ? "UNDER_REVIEW" : "PENDING_REVIEW";
+      } else {
+        docStatus = "NOT_SUBMITTED";
+      }
+      u.documentVerificationStatus = docStatus;
+      u.documentStatus = docStatus;
+      let kycStatus = "NOT_VERIFIED";
+      if (isSystemAdmin || isExplicitAdminApproved || docCount > 0 && docStatus === "APPROVED") {
+        kycStatus = "VERIFIED";
+      } else if (docStatus === "REJECTED") {
+        kycStatus = "REJECTED";
+      } else if (docCount > 0 || reqStatus === "UNDER_REVIEW" || reqStatus === "SUBMITTED") {
+        kycStatus = "UNDER_REVIEW";
+      } else {
+        kycStatus = "NOT_VERIFIED";
+      }
+      u.kycStatus = kycStatus;
+      let uiState = "NO_REQUEST";
+      if (docStatus === "REJECTED" || kycStatus === "REJECTED" || reqStatus === "REJECTED") {
+        uiState = "REJECTED";
+      } else if (docCount > 0 && docStatus === "APPROVED" && kycStatus === "VERIFIED") {
+        uiState = "VERIFIED";
+      } else if (docCount > 0 && (docStatus === "PENDING_REVIEW" || docStatus === "UNDER_REVIEW")) {
+        uiState = "PENDING_REVIEW";
+      } else if (reqStatus !== "NONE" && docCount === 0) {
+        uiState = "AWAITING_DOCS";
+      } else {
+        uiState = "NO_REQUEST";
+      }
+      u.uiState = uiState;
+      u.canApproveKyc = uiState === "PENDING_REVIEW" && docCount > 0;
+      u.canReviewDocuments = uiState === "PENDING_REVIEW" && docCount > 0;
+      const rawAcc = String(u.accountStatus || "").toUpperCase();
+      if (rawAcc === "APPROVED" || rawAcc === "ACTIVE" || isSystemAdmin) {
+        u.accountStatus = "APPROVED";
+        u.canApproveAccount = false;
+      } else if (rawAcc === "REJECTED") {
+        u.accountStatus = "REJECTED";
+        u.canApproveAccount = false;
+      } else if (rawAcc === "SUSPENDED") {
+        u.accountStatus = "SUSPENDED";
+        u.canApproveAccount = false;
+      } else {
+        u.accountStatus = "PENDING";
+        u.canApproveAccount = true;
+      }
+      u.isVerified = kycStatus === "VERIFIED" || isSystemAdmin;
+      u.verification_status = u.isVerified ? "verified" : uiState === "PENDING_REVIEW" ? "pending" : uiState === "REJECTED" ? "rejected" : "unverified";
       return u;
     });
     console.log("ADMIN_USERS_FIRESTORE_RESULT", { count: activeUsers.length });
@@ -13542,13 +13632,19 @@ app2.post("/api/admin/bulk-user-action", requireAuth, requireAdmin, async (req, 
       try {
         if (action === "APPROVE") {
           const assignPlan = payload.plan || "Starter";
+          let targetUser = await getUserProfileServer(userId);
+          const rawDocs = [
+            ...Array.isArray(targetUser?.verificationDocuments) ? targetUser.verificationDocuments : [],
+            ...Array.isArray(targetUser?.verificationInfo?.documents) ? targetUser.verificationInfo.documents : [],
+            ...Array.isArray(targetUser?.documents) ? targetUser.documents : [],
+            ...Array.isArray(targetUser?.files) ? targetUser.files.filter((f) => f && (f.category === "Verification" || f.isVerificationDoc)) : []
+          ];
+          const hasDocs = rawDocs.length > 0;
           const updates = {
             accountStatus: "APPROVED",
-            documentVerificationStatus: "APPROVED",
+            documentVerificationStatus: hasDocs ? "APPROVED" : "NOT_SUBMITTED",
             isVerified: true,
             verification_required: false,
-            verification_status: "verified",
-            adminVerificationOverride: true,
             approvedAt: nowIso,
             approvedBy: callerEmail,
             subscriptionPlan: assignPlan,
@@ -13558,6 +13654,16 @@ app2.post("/api/admin/bulk-user-action", requireAuth, requireAdmin, async (req, 
           await adminDb.collection("users").doc(userId).set(updates, { merge: true });
           try {
             await adminAuth.updateUser(userId, { disabled: false });
+          } catch (e) {
+          }
+          try {
+            const ldb = readDb2();
+            if (ldb.users) {
+              ldb.users = ldb.users.map(
+                (u) => u.id === userId || u.uid === userId ? { ...u, ...updates } : u
+              );
+              writeDb2(ldb);
+            }
           } catch (e) {
           }
           results.push({ id: userId, success: true });
@@ -13578,28 +13684,138 @@ app2.post("/api/admin/bulk-user-action", requireAuth, requireAdmin, async (req, 
             await adminAuth.revokeRefreshTokens(userId);
           } catch (e) {
           }
+          try {
+            const ldb = readDb2();
+            if (ldb.users) {
+              ldb.users = ldb.users.map(
+                (u) => u.id === userId || u.uid === userId ? { ...u, ...updates } : u
+              );
+              writeDb2(ldb);
+            }
+          } catch (e) {
+          }
           results.push({ id: userId, success: true });
         } else if (action === "CHANGE_ROLE") {
           const newRole = payload.role || "Contributor";
           await adminDb.collection("users").doc(userId).set({ role: newRole, lastActiveAt: nowIso }, { merge: true });
+          try {
+            const ldb = readDb2();
+            if (ldb.users) {
+              ldb.users = ldb.users.map(
+                (u) => u.id === userId || u.uid === userId ? { ...u, role: newRole, lastActiveAt: nowIso } : u
+              );
+              writeDb2(ldb);
+            }
+          } catch (e) {
+          }
+          results.push({ id: userId, success: true });
+        } else if (action === "UPDATE" || action === "BULK_EDIT") {
+          const updates = { lastActiveAt: nowIso };
+          if (payload.role !== void 0 && payload.role !== "") {
+            updates.role = payload.role;
+          }
+          if (payload.accountStatus !== void 0 && payload.accountStatus !== "") {
+            updates.accountStatus = payload.accountStatus;
+            if (payload.accountStatus === "APPROVED") {
+              updates.isVerified = true;
+              let targetUser = await getUserProfileServer(userId);
+              const rawDocs = [
+                ...Array.isArray(targetUser?.verificationDocuments) ? targetUser.verificationDocuments : [],
+                ...Array.isArray(targetUser?.verificationInfo?.documents) ? targetUser.verificationInfo.documents : [],
+                ...Array.isArray(targetUser?.documents) ? targetUser.documents : [],
+                ...Array.isArray(targetUser?.files) ? targetUser.files.filter((f) => f && (f.category === "Verification" || f.isVerificationDoc)) : []
+              ];
+              updates.documentVerificationStatus = rawDocs.length > 0 ? "APPROVED" : "NOT_SUBMITTED";
+              updates.verification_required = false;
+              try {
+                await adminAuth.updateUser(userId, { disabled: false });
+              } catch (e) {
+              }
+            } else if (payload.accountStatus === "SUSPENDED" || payload.accountStatus === "REJECTED") {
+              updates.isVerified = false;
+              updates.documentVerificationStatus = "REJECTED";
+              try {
+                await adminAuth.updateUser(userId, { disabled: true });
+                await adminAuth.revokeRefreshTokens(userId);
+              } catch (e) {
+              }
+            }
+          }
+          if (payload.companyName !== void 0 && payload.companyName !== "") {
+            updates.companyName = payload.companyName;
+            updates.institutionName = payload.companyName;
+          }
+          if (payload.subscriptionPlan !== void 0 && payload.subscriptionPlan !== "") {
+            updates.subscriptionPlan = payload.subscriptionPlan;
+          }
+          if (payload.subscriptionStatus !== void 0 && payload.subscriptionStatus !== "") {
+            updates.subscriptionStatus = payload.subscriptionStatus;
+          }
+          await adminDb.collection("users").doc(userId).set(updates, { merge: true });
+          try {
+            const ldb = readDb2();
+            if (ldb.users) {
+              const existingIdx = ldb.users.findIndex((u) => u.id === userId || u.uid === userId);
+              if (existingIdx >= 0) {
+                ldb.users[existingIdx] = { ...ldb.users[existingIdx], ...updates };
+              } else {
+                ldb.users.push({ id: userId, uid: userId, ...updates });
+              }
+              writeDb2(ldb);
+            }
+          } catch (e) {
+          }
           results.push({ id: userId, success: true });
         } else if (action === "DELETE") {
+          let userRecordData = null;
+          try {
+            const uSnap = await adminDb.collection("users").doc(userId).get();
+            if (uSnap.exists) {
+              userRecordData = uSnap.data();
+            }
+          } catch (e) {
+          }
           await adminDb.collection("deletedUsers").doc(userId).set({
             uid: userId,
+            email: userRecordData?.email || payload.email || "",
+            name: userRecordData?.name || "",
+            companyName: userRecordData?.companyName || "",
+            role: userRecordData?.role || "",
             deletedAt: nowIso,
             deletedBy: callerEmail,
-            reason: "Bulk deletion by admin"
+            reason: payload.reason || "Bulk deletion by admin"
           });
+          try {
+            const memSnap = await adminDb.collection("users").doc(userId).collection("memories").get();
+            for (const mDoc of memSnap.docs) await mDoc.ref.delete();
+            const alertSnap = await adminDb.collection("users").doc(userId).collection("riskAlerts").get();
+            for (const aDoc of alertSnap.docs) await aDoc.ref.delete();
+          } catch (e) {
+          }
           await adminDb.collection("users").doc(userId).delete().catch(() => {
           });
           try {
             await adminAuth.updateUser(userId, { disabled: true });
+            await adminAuth.revokeRefreshTokens(userId);
+          } catch (e) {
+          }
+          try {
             await adminAuth.deleteUser(userId);
+          } catch (e) {
+          }
+          try {
+            const ldb = readDb2();
+            if (ldb.users) ldb.users = ldb.users.filter((u) => u.id !== userId && u.uid !== userId);
+            if (ldb.verification_codes) ldb.verification_codes = ldb.verification_codes.filter((vc) => vc.id !== userId && vc.userId !== userId);
+            if (ldb.support_tickets) ldb.support_tickets = ldb.support_tickets.filter((st) => st.userId !== userId);
+            if (ldb.memories) ldb.memories = ldb.memories.filter((m) => m.userId !== userId);
+            if (ldb.causal_graphs) ldb.causal_graphs = ldb.causal_graphs.filter((cg) => cg.userId !== userId);
+            writeDb2(ldb);
           } catch (e) {
           }
           results.push({ id: userId, success: true });
         } else {
-          results.push({ id: userId, success: false, error: "Unsupported bulk action" });
+          results.push({ id: userId, success: false, error: `Unsupported bulk action '${action}'` });
         }
       } catch (err) {
         results.push({ id: userId, success: false, error: err.message });
@@ -13624,6 +13840,106 @@ app2.post("/api/admin/bulk-user-action", requireAuth, requireAdmin, async (req, 
   } catch (err) {
     console.error("ADMIN_BULK_ACTION_FAILED", err);
     return res.status(500).json({ success: false, error: err.message || "Failed to execute bulk action" });
+  }
+});
+app2.patch(["/api/admin/users/:uid", "/admin/users/:uid"], requireAuth, requireAdmin, async (req, res) => {
+  const callerUid = req.user?.uid || "";
+  const callerEmail = req.user?.email || "admin@zakir.ai";
+  const targetUid = (req.params.uid || "").trim();
+  if (!targetUid) {
+    return res.status(400).json({ success: false, error: "Target UID is required." });
+  }
+  try {
+    const {
+      ownerName,
+      companyName,
+      role,
+      department,
+      phoneNumber,
+      accountStatus,
+      adminNotes
+    } = req.body;
+    const nowIso = (/* @__PURE__ */ new Date()).toISOString();
+    const updates = {
+      lastActiveAt: nowIso,
+      updatedAt: nowIso
+    };
+    if (ownerName !== void 0) {
+      updates.ownerName = String(ownerName).trim();
+      updates.name = updates.ownerName;
+      updates.fullName = updates.ownerName;
+    }
+    if (companyName !== void 0) {
+      updates.companyName = String(companyName).trim();
+    }
+    if (role !== void 0) {
+      updates.role = String(role).trim();
+    }
+    if (department !== void 0) {
+      updates.department = String(department).trim();
+    }
+    if (phoneNumber !== void 0) {
+      updates.phoneNumber = String(phoneNumber).trim();
+      updates.phone = updates.phoneNumber;
+    }
+    if (accountStatus !== void 0) {
+      updates.accountStatus = String(accountStatus).trim();
+      if (updates.accountStatus === "APPROVED") {
+        updates.isVerified = true;
+        updates.verification_status = "verified";
+      } else if (updates.accountStatus === "SUSPENDED" || updates.accountStatus === "REJECTED") {
+        updates.isVerified = false;
+        updates.verification_status = "rejected";
+      }
+    }
+    if (adminNotes !== void 0) {
+      updates.adminNotes = String(adminNotes).trim();
+    }
+    await adminDb.collection("users").doc(targetUid).set(updates, { merge: true });
+    try {
+      const authUpdates = {};
+      if (updates.ownerName) authUpdates.displayName = updates.ownerName;
+      if (updates.accountStatus === "SUSPENDED") {
+        authUpdates.disabled = true;
+        await adminAuth.revokeRefreshTokens(targetUid);
+      } else if (updates.accountStatus === "APPROVED") {
+        authUpdates.disabled = false;
+      }
+      if (Object.keys(authUpdates).length > 0) {
+        await adminAuth.updateUser(targetUid, authUpdates);
+      }
+    } catch (authErr) {
+      console.warn("Notice: Auth user update warning during admin profile patch:", authErr?.message);
+    }
+    try {
+      const db2 = readDb2();
+      if (db2.users) {
+        const idx = db2.users.findIndex((u) => u.id === targetUid || u.uid === targetUid);
+        if (idx >= 0) {
+          db2.users[idx] = { ...db2.users[idx], ...updates };
+          writeDb2(db2);
+        }
+      }
+    } catch (e) {
+    }
+    await writeAdminAuditLog(
+      callerUid,
+      callerEmail,
+      "ADMIN_UPDATE_USER_PROFILE",
+      "USER_PROFILE",
+      targetUid,
+      null,
+      "SUCCESS",
+      `Admin updated profile for user ${targetUid}: ${JSON.stringify(updates)}`
+    );
+    return res.json({
+      success: true,
+      message: "\u062A\u0645 \u062D\u0641\u0638 \u0648\u062A\u062D\u062F\u064A\u062B \u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u0645\u0633\u062A\u062E\u062F\u0645 \u0628\u0646\u062C\u0627\u062D.",
+      updates
+    });
+  } catch (err) {
+    console.error("ADMIN_PATCH_USER_FAILED", err);
+    return res.status(500).json({ success: false, error: err.message || "Failed to update user profile" });
   }
 });
 async function writeEntitlementAuditLog(adminUid, adminEmail, targetUserId, targetUserEmail, action, details, previousState, newState) {
@@ -13781,8 +14097,9 @@ app2.post("/api/auth/submit-institutional-data", requireAuth, async (req, res) =
   }
 });
 app2.post("/api/auth/submit-verification-documents", requireAuth, async (req, res) => {
-  const uid = req.user?.uid;
-  const email = req.user?.email || "";
+  const isAdmin = req.user?.role === "Admin" || req.user?.email && ADMIN_EMAILS.has(req.user.email.toLowerCase());
+  const uid = isAdmin && req.body?.userId ? req.body.userId : req.user?.uid;
+  const email = isAdmin && req.body?.userEmail ? req.body.userEmail : req.user?.email || "";
   if (!uid) {
     return res.status(401).json({
       success: false,
@@ -14005,19 +14322,85 @@ app2.get("/api/admin/pending-approvals", requireAuth, requireAdmin, async (req, 
         }
       }
     }
-    const pendingApprovals = usersList.filter((u) => {
+    const pendingApprovals = usersList.map((u) => {
+      const uId = u.id || u.uid;
+      const uEmail = (u.email || "").toLowerCase().trim();
+      const rawDocs = [
+        ...Array.isArray(u.verificationDocuments) ? u.verificationDocuments : [],
+        ...Array.isArray(u.verificationInfo?.documents) ? u.verificationInfo.documents : [],
+        ...Array.isArray(u.documents) ? u.documents : [],
+        ...Array.isArray(u.files) ? u.files.filter((f) => f && (f.category === "Verification" || f.isVerificationDoc)) : []
+      ];
+      if (db2.verification_documents_store) {
+        for (const [docId, meta] of Object.entries(db2.verification_documents_store)) {
+          if (meta) {
+            const matchesUser = meta.userId === uId || meta.userEmail && meta.userEmail.toLowerCase().trim() === uEmail;
+            if (matchesUser) {
+              if (!rawDocs.some((d) => (d.documentId || d.id) === docId)) {
+                rawDocs.push(meta);
+              }
+            }
+          }
+        }
+      }
+      const docMap = /* @__PURE__ */ new Map();
+      for (const d of rawDocs) {
+        if (!d) continue;
+        const dKey = d.documentId || d.id || d.storageReference || d.fileName;
+        if (dKey && !docMap.has(dKey)) {
+          docMap.set(dKey, d);
+        }
+      }
+      const reconciledDocs = Array.from(docMap.values());
+      u.verificationDocuments = reconciledDocs;
+      u.documents = reconciledDocs;
+      u.documentCount = reconciledDocs.length;
+      return u;
+    }).filter((u) => {
       if (u.id === ADMIN_USER_ID || u.role === "Admin" || u.role && u.role.toLowerCase() === "admin" || ADMIN_EMAILS.has((u.email || "").toLowerCase())) {
         return false;
       }
       if (u.accountLifecycleStatus === "PURGED" || u.isPurged === true) {
         return false;
       }
-      if (u.accountStatus === "APPROVED" || u.accountStatus === "REJECTED") {
+      if (u.documentVerificationStatus === "APPROVED" || u.isFullyApproved === true) {
         return false;
       }
       const hasDocs = Array.isArray(u.verificationDocuments) && u.verificationDocuments.length > 0;
-      const isPending = u.accountStatus === "PENDING_ADMIN_REVIEW" || u.accountStatus === "PENDING_APPROVAL" || u.documentVerificationStatus === "UNDER_REVIEW" || u.verification_status === "under_review" || u.verification_status === "pending" || u.verificationInfo?.status === "under_review" || u.verificationInfo?.status === "pending" || hasDocs && u.accountStatus !== "APPROVED" && u.accountStatus !== "REJECTED" || u.institutionalProfile && u.accountStatus !== "APPROVED" && u.accountStatus !== "REJECTED";
-      return isPending;
+      const docVerifStr = String(u.documentVerificationStatus || u.verification_status || "").toUpperCase();
+      const reqStatusStr = String(u.verificationRequestStatus || u.verificationRequest || "").toUpperCase();
+      const hasInstitutional = Boolean(u.institutionalProfile);
+      const hasExplicitRequest = ["SUBMITTED", "PENDING", "UNDER_REVIEW", "DOCUMENTS_SUBMITTED"].includes(reqStatusStr) || hasInstitutional && docVerifStr === "UNDER_REVIEW" || u.verificationInfo?.status === "under_review";
+      if (!hasDocs && !hasExplicitRequest) {
+        return false;
+      }
+      const isPendingVerification = hasDocs && docVerifStr !== "APPROVED" && docVerifStr !== "REJECTED" || !hasDocs && hasExplicitRequest && docVerifStr !== "APPROVED" && docVerifStr !== "REJECTED";
+      return Boolean(isPendingVerification);
+    }).map((u) => {
+      const uId = u.id || u.uid;
+      const reqId = u.verificationRequestId || `vreq_${uId}`;
+      const hasDocs = Array.isArray(u.verificationDocuments) && u.verificationDocuments.length > 0;
+      const docVerifStr = String(u.documentVerificationStatus || u.verification_status || "").toUpperCase();
+      const reqStatusStr = String(u.verificationRequestStatus || u.verificationRequest || "").toUpperCase();
+      return {
+        id: reqId,
+        requestId: reqId,
+        userId: uId,
+        email: u.email || "",
+        name: u.ownerName || u.fullName || u.email?.split("@")[0] || "User",
+        userName: u.ownerName || u.fullName || u.email?.split("@")[0] || "User",
+        companyName: u.companyName || u.institutionalProfile?.companyName || "Default Organization",
+        role: u.role || "Contributor",
+        accountStatus: u.accountStatus || "APPROVED",
+        requestStatus: hasDocs ? "UNDER_REVIEW" : reqStatusStr || "SUBMITTED",
+        documentVerificationStatus: docVerifStr || "UNDER_REVIEW",
+        documentCount: u.verificationDocuments?.length || 0,
+        documents: u.verificationDocuments || [],
+        submittedAt: u.verificationSubmittedAt || u.verificationInfo?.submittedAt || u.createdAt || (/* @__PURE__ */ new Date()).toISOString(),
+        createdAt: u.createdAt || (/* @__PURE__ */ new Date()).toISOString(),
+        institutionalProfile: u.institutionalProfile || null,
+        requiresDocumentVerification: Boolean(u.requiresDocumentVerification)
+      };
     });
     return res.json({
       success: true,
@@ -14064,33 +14447,20 @@ app2.post("/api/admin/approve-account", requireAuth, requireAdmin, async (req, r
       }
     }
     const docCount = uniqueDocs.length;
-    const hasRejectedDoc = uniqueDocs.some((d) => String(d.status || d.verificationStatus || "").toUpperCase() === "REJECTED");
-    const isOverallRejected = String(targetUser.documentVerificationStatus || targetUser.verificationInfo?.status || "").toUpperCase() === "REJECTED";
     const isExplicitOverride = Boolean(adminOverride === true || req.body?.adminVerificationOverride === true);
-    if (docCount === 0 && !isExplicitOverride) {
-      return res.status(400).json({
-        success: false,
-        error: "Cannot approve account with 0 documents without an explicit admin verification override.",
-        userFriendlyMessage: "\u0644\u0627 \u064A\u0645\u0643\u0646 \u062A\u0648\u062B\u064A\u0642 \u0627\u0644\u062D\u0633\u0627\u0628 \u0644\u0623\u0646 \u0627\u0644\u0645\u0633\u062A\u0646\u062F\u0627\u062A \u0627\u0644\u0645\u0637\u0644\u0648\u0628\u0629 \u063A\u064A\u0631 \u0645\u0631\u0641\u0642\u0629."
-      });
-    }
-    if ((hasRejectedDoc || isOverallRejected) && !isExplicitOverride) {
-      return res.status(400).json({
-        success: false,
-        error: "Cannot approve account while documents are in REJECTED state. Request replacement documents first or specify override.",
-        userFriendlyMessage: "\u0644\u0627 \u064A\u0645\u0643\u0646 \u062A\u0648\u062B\u064A\u0642 \u0627\u0644\u062D\u0633\u0627\u0628 \u0644\u0648\u062C\u0648\u062F \u0645\u0633\u062A\u0646\u062F\u0627\u062A \u0645\u0631\u0641\u0648\u0636\u0629. \u064A\u062C\u0628 \u0625\u0639\u0627\u062F\u0629 \u0631\u0641\u0639 \u0627\u0644\u0645\u0633\u062A\u0646\u062F\u0627\u062A \u0627\u0644\u0645\u0637\u0644\u0648\u0628\u0629 \u0623\u0648\u0644\u0627\u064B."
-      });
-    }
     const nowIso = (/* @__PURE__ */ new Date()).toISOString();
     const trialHours = Math.max(1, Number(customTrialHours) || 24);
     const trialEndsIso = new Date(Date.now() + trialHours * 3600 * 1e3).toISOString();
+    const isDocApproved = isExplicitOverride ? true : docCount > 0 && targetUser.documentVerificationStatus === "APPROVED";
+    const docVerifStatus = isDocApproved ? "APPROVED" : docCount > 0 ? "UNDER_REVIEW" : "NOT_SUBMITTED";
+    const kycStatus = isDocApproved ? "VERIFIED" : docCount > 0 ? "UNDER_REVIEW" : "NOT_VERIFIED";
     const approvalUpdates = {
       accountStatus: "APPROVED",
-      documentVerificationStatus: "APPROVED",
-      requiresDocumentVerification: false,
+      documentVerificationStatus: docVerifStatus,
+      kycStatus,
+      requiresDocumentVerification: docCount === 0 ? false : !isDocApproved,
       adminVerificationOverride: isExplicitOverride,
       approvedAt: nowIso,
-      verifiedAt: nowIso,
       approvedBy: adminEmail,
       approvalNotes: notes || adminNotes || "",
       trialStartedAt: nowIso,
@@ -14099,19 +14469,20 @@ app2.post("/api/admin/approve-account", requireAuth, requireAdmin, async (req, r
       trialDurationHours: trialHours,
       subscriptionPlan: assignPlan,
       subscriptionStatus: "Active",
-      isVerified: true,
+      isVerified: isDocApproved,
       isEmailVerified: true,
       email_verified: true,
       emailVerified: true,
-      verification_status: "verified",
-      verification_required: false,
+      verification_status: isDocApproved ? "verified" : "unverified",
       rejectionReason: null,
-      "verificationInfo.status": "verified",
-      "verificationInfo.verifiedAt": nowIso,
-      "verificationInfo.verifiedBy": adminEmail,
-      "verificationInfo.adminNote": notes || adminNotes || "",
       lastActiveAt: nowIso
     };
+    if (isDocApproved) {
+      approvalUpdates.verifiedAt = nowIso;
+      approvalUpdates["verificationInfo.status"] = "verified";
+      approvalUpdates["verificationInfo.verifiedAt"] = nowIso;
+      approvalUpdates["verificationInfo.verifiedBy"] = adminEmail;
+    }
     try {
       await adminDb.collection("users").doc(userId).set(approvalUpdates, { merge: true });
     } catch (fsErr) {
@@ -14168,7 +14539,6 @@ app2.post("/api/admin/approve-account", requireAuth, requireAdmin, async (req, r
               approvalEmailMessageId: mailRes.messageId || ""
             }, { merge: true });
           } catch (e) {
-            console.warn("Firestore approval email flag write notice:", e);
           }
           if (db2.users) {
             const idx = db2.users.findIndex((u) => u.id === userId || u.uid === userId);
@@ -14201,6 +14571,259 @@ app2.post("/api/admin/approve-account", requireAuth, requireAdmin, async (req, r
     return res.status(500).json({
       success: false,
       error: err.message || "Failed to approve account"
+    });
+  }
+});
+app2.post(
+  ["/api/admin/approve-documents", "/api/admin/verify-documents"],
+  requireAuth,
+  requireAdmin,
+  async (req, res) => {
+    const adminUid = req.user?.uid || "";
+    const adminEmail = req.user?.email || "admin@zakir.ai";
+    try {
+      const { notes = "" } = req.body;
+      const userId = req.body?.userId || req.body?.targetUserId || req.body?.id;
+      if (!userId) {
+        return res.status(400).json({ success: false, error: "User ID is required for document approval." });
+      }
+      const targetUser = await getUserProfileServer(userId);
+      if (!targetUser) {
+        return res.status(404).json({ success: false, error: "Target user not found." });
+      }
+      const rawDocs = [
+        ...Array.isArray(targetUser.verificationDocuments) ? targetUser.verificationDocuments : [],
+        ...Array.isArray(targetUser.verificationInfo?.documents) ? targetUser.verificationInfo.documents : [],
+        ...Array.isArray(targetUser.documents) ? targetUser.documents : [],
+        ...Array.isArray(targetUser.files) ? targetUser.files.filter((f) => f && (f.category === "Verification" || f.category === "Identity" || f.isVerificationDoc)) : []
+      ];
+      const uniqueDocs = [];
+      const seenIds = /* @__PURE__ */ new Set();
+      for (const doc of rawDocs) {
+        if (!doc) continue;
+        const docId = String(doc.documentId || doc.id || doc.storageReference || doc.fileName || doc.name || JSON.stringify(doc));
+        if (!seenIds.has(docId)) {
+          seenIds.add(docId);
+          uniqueDocs.push(doc);
+        }
+      }
+      const docCount = uniqueDocs.length;
+      if (docCount === 0) {
+        return res.status(400).json({
+          success: false,
+          error: "CANNOT_VERIFY_WITHOUT_DOCUMENTS",
+          userFriendlyMessage: "\u0644\u0627 \u064A\u0645\u0643\u0646 \u0627\u0639\u062A\u0645\u0627\u062F \u0627\u0644\u062A\u0648\u062B\u064A\u0642 \u0627\u0644\u0645\u0624\u0633\u0633\u064A / KYC \u0644\u0639\u062F\u0645 \u0648\u062C\u0648\u062F \u0645\u0633\u062A\u0646\u062F\u0627\u062A \u0645\u0631\u0641\u0642\u0629 \u0645\u0646 \u0627\u0644\u0645\u0633\u062A\u062E\u062F\u0645."
+        });
+      }
+      const nowIso = (/* @__PURE__ */ new Date()).toISOString();
+      const approvedDocs = uniqueDocs.map((d) => ({
+        ...d,
+        status: "APPROVED",
+        verificationStatus: "APPROVED",
+        reviewedAt: nowIso,
+        reviewedBy: adminEmail
+      }));
+      const docApprovalUpdates = {
+        documentVerificationStatus: "APPROVED",
+        kycStatus: "VERIFIED",
+        verificationRequestStatus: "APPROVED",
+        accountStatus: "APPROVED",
+        requiresDocumentVerification: false,
+        isVerified: true,
+        verifiedAt: nowIso,
+        verifiedBy: adminEmail,
+        verificationDocuments: approvedDocs,
+        documents: approvedDocs,
+        "verificationInfo.status": "verified",
+        "verificationInfo.verifiedAt": nowIso,
+        "verificationInfo.verifiedBy": adminEmail,
+        "verificationInfo.adminNote": notes || "",
+        lastActiveAt: nowIso
+      };
+      try {
+        await adminDb.collection("users").doc(userId).set(docApprovalUpdates, { merge: true });
+        const vreqId = targetUser.verificationRequestId || `vreq_${userId}`;
+        await adminDb.collection("verification_requests").doc(vreqId).set({
+          status: "APPROVED",
+          requestStatus: "APPROVED",
+          reviewedAt: nowIso,
+          reviewedBy: adminEmail,
+          adminNotes: notes || ""
+        }, { merge: true });
+      } catch (fsErr) {
+        console.warn("Firestore doc approval write notice:", fsErr);
+      }
+      const db2 = readDb2();
+      if (db2.users) {
+        const idx = db2.users.findIndex((u) => u.id === userId || u.uid === userId);
+        if (idx >= 0) {
+          db2.users[idx] = { ...db2.users[idx], ...docApprovalUpdates };
+          writeDb2(db2);
+        }
+      }
+      await writeEntitlementAuditLog(
+        adminUid,
+        adminEmail,
+        userId,
+        targetUser.email || "",
+        "APPROVE_ACCOUNT",
+        `Approved ${docCount} verification documents and granted KYC Verified status. Notes: ${notes || "None"}`,
+        { documentVerificationStatus: targetUser.documentVerificationStatus, kycStatus: targetUser.kycStatus },
+        docApprovalUpdates
+      );
+      return res.json({
+        success: true,
+        message: `\u062A\u0645 \u0627\u0639\u062A\u0645\u0627\u062F \u0648\u062A\u0648\u062B\u064A\u0642 ${docCount} \u0645\u0633\u062A\u0646\u062F \u0628\u0646\u062C\u0627\u062D \u0648\u062A\u0623\u0643\u064A\u062F KYC.`,
+        documentCount: docCount,
+        user: {
+          ...targetUser,
+          ...docApprovalUpdates
+        }
+      });
+    } catch (err) {
+      console.error("[APPROVE_DOCUMENTS_ERROR]", err);
+      return res.status(500).json({
+        success: false,
+        error: err.message || "Failed to approve documents"
+      });
+    }
+  }
+);
+app2.post(
+  ["/api/admin/reject-documents", "/api/admin/reject-verification"],
+  requireAuth,
+  requireAdmin,
+  async (req, res) => {
+    const adminUid = req.user?.uid || "";
+    const adminEmail = req.user?.email || "admin@zakir.ai";
+    try {
+      const { reason = "Verification documents could not be validated." } = req.body;
+      const userId = req.body?.userId || req.body?.targetUserId || req.body?.id;
+      if (!userId) {
+        return res.status(400).json({ success: false, error: "User ID is required." });
+      }
+      const targetUser = await getUserProfileServer(userId);
+      if (!targetUser) {
+        return res.status(404).json({ success: false, error: "Target user not found." });
+      }
+      const nowIso = (/* @__PURE__ */ new Date()).toISOString();
+      const rawDocs = Array.isArray(targetUser.verificationDocuments) ? targetUser.verificationDocuments : [];
+      const rejectedDocs = rawDocs.map((d) => ({
+        ...d,
+        status: "REJECTED",
+        verificationStatus: "REJECTED",
+        reviewedAt: nowIso,
+        reviewedBy: adminEmail,
+        rejectionReason: reason
+      }));
+      const docRejectUpdates = {
+        documentVerificationStatus: "REJECTED",
+        kycStatus: "REJECTED",
+        verificationRequestStatus: "REJECTED",
+        requiresDocumentVerification: true,
+        isVerified: false,
+        rejectionReason: String(reason).trim(),
+        verificationDocuments: rejectedDocs,
+        documents: rejectedDocs,
+        "verificationInfo.status": "rejected",
+        "verificationInfo.adminNote": String(reason).trim(),
+        "verificationInfo.verifiedAt": null,
+        lastActiveAt: nowIso
+      };
+      try {
+        await adminDb.collection("users").doc(userId).set(docRejectUpdates, { merge: true });
+        const vreqId = targetUser.verificationRequestId || `vreq_${userId}`;
+        await adminDb.collection("verification_requests").doc(vreqId).set({
+          status: "REJECTED",
+          requestStatus: "REJECTED",
+          reviewedAt: nowIso,
+          reviewedBy: adminEmail,
+          rejectionReason: reason
+        }, { merge: true });
+      } catch (fsErr) {
+      }
+      const db2 = readDb2();
+      if (db2.users) {
+        const idx = db2.users.findIndex((u) => u.id === userId || u.uid === userId);
+        if (idx >= 0) {
+          db2.users[idx] = { ...db2.users[idx], ...docRejectUpdates };
+          writeDb2(db2);
+        }
+      }
+      await writeEntitlementAuditLog(
+        adminUid,
+        adminEmail,
+        userId,
+        targetUser.email || "",
+        "REJECT_ACCOUNT",
+        `Rejected verification documents: ${reason}`,
+        { documentVerificationStatus: targetUser.documentVerificationStatus },
+        docRejectUpdates
+      );
+      return res.json({
+        success: true,
+        message: "\u062A\u0645 \u0631\u0641\u0636 \u0627\u0644\u0645\u0633\u062A\u0646\u062F\u0627\u062A \u0648\u0625\u0634\u0639\u0627\u0631 \u0627\u0644\u0645\u0633\u062A\u062E\u062F\u0645 \u0644\u0625\u0639\u0627\u062F\u0629 \u0627\u0644\u0631\u0641\u0639.",
+        user: {
+          ...targetUser,
+          ...docRejectUpdates
+        }
+      });
+    } catch (err) {
+      console.error("[REJECT_DOCUMENTS_ERROR]", err);
+      return res.status(500).json({
+        success: false,
+        error: err.message || "Failed to reject documents"
+      });
+    }
+  }
+);
+app2.post("/api/admin/require-documents", requireAuth, requireAdmin, async (req, res) => {
+  const adminUid = req.user?.uid || "";
+  const adminEmail = req.user?.email || "admin@zakir.ai";
+  try {
+    const { reason = "Additional identity documents required." } = req.body;
+    const userId = req.body?.userId || req.body?.targetUserId || req.body?.id;
+    if (!userId) {
+      return res.status(400).json({ success: false, error: "User ID is required." });
+    }
+    const targetUser = await getUserProfileServer(userId);
+    if (!targetUser) {
+      return res.status(404).json({ success: false, error: "Target user not found." });
+    }
+    const nowIso = (/* @__PURE__ */ new Date()).toISOString();
+    const reqUpdates = {
+      documentVerificationStatus: "UNDER_REVIEW",
+      verificationRequestStatus: "SUBMITTED",
+      kycStatus: "ACTION_REQUIRED",
+      requiresDocumentVerification: true,
+      isVerified: false,
+      rejectionReason: String(reason).trim(),
+      "verificationInfo.status": "action_required",
+      "verificationInfo.adminNote": String(reason).trim(),
+      lastActiveAt: nowIso
+    };
+    try {
+      await adminDb.collection("users").doc(userId).set(reqUpdates, { merge: true });
+    } catch (fsErr) {
+    }
+    const db2 = readDb2();
+    if (db2.users) {
+      const idx = db2.users.findIndex((u) => u.id === userId || u.uid === userId);
+      if (idx >= 0) {
+        db2.users[idx] = { ...db2.users[idx], ...reqUpdates };
+        writeDb2(db2);
+      }
+    }
+    return res.json({
+      success: true,
+      message: "\u062A\u0645 \u0625\u0631\u0633\u0627\u0644 \u0637\u0644\u0628 \u0627\u0644\u0645\u0633\u062A\u0646\u062F\u0627\u062A \u0627\u0644\u0625\u0636\u0627\u0641\u064A\u0629 \u0628\u0646\u062C\u0627\u062D.",
+      user: { ...targetUser, ...reqUpdates }
+    });
+  } catch (err) {
+    console.error("[REQUIRE_DOCS_ERROR]", err);
+    return res.status(500).json({
+      success: false,
+      error: err.message || "Failed to require documents"
     });
   }
 });
@@ -19380,7 +20003,41 @@ app2.post(
       const db2 = readDb2();
       if (!db2.verification_documents_store) db2.verification_documents_store = {};
       db2.verification_documents_store[documentId] = docMeta;
+      if (uid && db2.users) {
+        const uIdx = db2.users.findIndex((u) => u.id === uid || u.uid === uid);
+        if (uIdx >= 0) {
+          const existingDocs = Array.isArray(db2.users[uIdx].verificationDocuments) ? db2.users[uIdx].verificationDocuments : [];
+          if (!existingDocs.some((d) => d.documentId === documentId || d.id === documentId)) {
+            db2.users[uIdx].verificationDocuments = [...existingDocs, docMeta];
+            db2.users[uIdx].documentVerificationStatus = "UNDER_REVIEW";
+            db2.users[uIdx].verification_status = "under_review";
+          }
+        }
+      }
       writeDb2(db2);
+      if (isFirebaseAdminAvailable && adminDb) {
+        try {
+          await adminDb.collection("verification_documents").doc(documentId).set(docMeta, { merge: true });
+          if (uid) {
+            const userRef = adminDb.collection("users").doc(uid);
+            const userSnap = await userRef.get();
+            if (userSnap.exists) {
+              const uData = userSnap.data() || {};
+              const existingDocs = Array.isArray(uData.verificationDocuments) ? uData.verificationDocuments : [];
+              if (!existingDocs.some((d) => d.documentId === documentId || d.id === documentId)) {
+                await userRef.set({
+                  verificationDocuments: [...existingDocs, docMeta],
+                  documentVerificationStatus: "UNDER_REVIEW",
+                  verification_status: "under_review",
+                  requiresDocumentVerification: true
+                }, { merge: true });
+              }
+            }
+          }
+        } catch (fsErr) {
+          console.warn("Firestore verification doc metadata sync warning:", fsErr);
+        }
+      }
       return res.status(200).json({
         success: true,
         documentId,
@@ -19786,12 +20443,47 @@ app2.get(
           requests.push(lr);
         }
       }
+      const recStore = db2.recovery_documents_store || {};
+      const pendingUploads = db2.pending_recovery_uploads || [];
+      requests = requests.map((r) => {
+        const rawDocs = [
+          ...Array.isArray(r.documents) ? r.documents : [],
+          ...Array.isArray(r.verificationDocuments) ? r.verificationDocuments : []
+        ];
+        const docIds = Array.isArray(r.documentIds) ? r.documentIds : [];
+        for (const dId of docIds) {
+          if (recStore[dId] && !rawDocs.some((d) => (d.documentId || d.id) === dId)) {
+            rawDocs.push(recStore[dId]);
+          }
+        }
+        const rEmail = (r.email || "").toLowerCase().trim();
+        for (const [dId, meta] of Object.entries(recStore)) {
+          if (meta) {
+            const matchesReq = meta.requestId === r.requestId || meta.requestId === r.id || meta.email && meta.email.toLowerCase().trim() === rEmail;
+            if (matchesReq && !rawDocs.some((d) => (d.documentId || d.id) === dId)) {
+              rawDocs.push(meta);
+            }
+          }
+        }
+        const docMap = /* @__PURE__ */ new Map();
+        for (const d of rawDocs) {
+          if (!d) continue;
+          const key = d.documentId || d.id || d.storageReference || d.fileName;
+          if (key && !docMap.has(key)) {
+            docMap.set(key, d);
+          }
+        }
+        const reconciledDocs = Array.from(docMap.values());
+        r.documents = reconciledDocs;
+        r.documentCount = reconciledDocs.length;
+        return r;
+      });
       requests.sort((a, b) => {
         const tA = new Date(a.submittedAt || a.createdAt || 0).getTime();
         const tB = new Date(b.submittedAt || b.createdAt || 0).getTime();
         return tB - tA;
       });
-      return res.json({ success: true, requests });
+      return res.json({ success: true, requests, recoveryRequests: requests });
     } catch (err) {
       res.status(500).json({ error: err.message || "Failed to fetch recovery requests." });
     }
@@ -20330,7 +21022,363 @@ app2.post(
     }
   }
 );
-app2.all(
+var handleDeleteUserRequest = async (req, res) => {
+  const targetUid = (req.params.uid || req.body?.uid || req.body?.userId || req.query?.uid || req.query?.userId || "").toString().trim();
+  let currentStep = "INITIALIZATION";
+  const executionAudit = {
+    stripe: { status: "pending", details: null },
+    database: { status: "pending", details: null },
+    auth: { status: "pending", details: null }
+  };
+  try {
+    const callerUid = req.user?.uid;
+    const callerEmail = req.user?.email || req.userEmail || "";
+    if (!callerUid) {
+      return res.status(401).json({ success: false, error: "Unauthorized" });
+    }
+    const isCallerAdmin = await isUserAdminServer(callerUid, callerEmail);
+    if (!isCallerAdmin) {
+      return res.status(403).json({
+        success: false,
+        error: "Forbidden: Only administrative personnel can perform account deletion."
+      });
+    }
+    if (!targetUid) {
+      return res.status(400).json({
+        success: false,
+        error: "Target user ID is required for deletion."
+      });
+    }
+    if (targetUid === callerUid) {
+      return res.status(400).json({
+        success: false,
+        error: "You cannot delete your own active administrative account.",
+        userFriendlyMessage: "\u0644\u0627 \u064A\u0645\u0643\u0646\u0643 \u062D\u0630\u0641 \u062D\u0633\u0627\u0628 \u0627\u0644\u0645\u0633\u0624\u0648\u0644 \u0627\u0644\u062D\u0627\u0644\u064A \u0627\u0644\u0630\u064A \u062A\u0633\u062A\u062E\u062F\u0645\u0647 \u0627\u0644\u0622\u0646."
+      });
+    }
+    if (targetUid === ADMIN_USER_ID) {
+      return res.status(400).json({
+        success: false,
+        error: "Primary administrator account cannot be deleted.",
+        userFriendlyMessage: "\u0644\u0627 \u064A\u0645\u0643\u0646 \u062D\u0630\u0641 \u0627\u0644\u062D\u0633\u0627\u0628 \u0627\u0644\u0631\u0626\u064A\u0633\u064A \u0644\u0644\u0645\u0633\u0624\u0648\u0644."
+      });
+    }
+    console.log("USER_DELETE_STARTED", { targetUid, callerUid, callerEmail });
+    let targetEmail = (req.body?.userEmail || req.body?.email || req.query?.userEmail || req.query?.email || "").toString().trim();
+    let userDocData = null;
+    try {
+      const targetSnap = await adminDb.collection("users").doc(targetUid).get();
+      if (targetSnap.exists) {
+        userDocData = targetSnap.data();
+        if (!targetEmail) targetEmail = userDocData?.email || "";
+      }
+    } catch (e) {
+      console.warn("Failed to retrieve target user email from Firestore:", e);
+    }
+    if (!targetEmail) {
+      try {
+        const localDb = readDb2();
+        const found = localDb.users?.find(
+          (u) => u.id === targetUid || u.uid === targetUid
+        );
+        if (found?.email) {
+          targetEmail = found.email;
+        }
+        if (!userDocData && found) userDocData = found;
+      } catch (e) {
+      }
+    }
+    if (!targetEmail) {
+      try {
+        const authUser = await adminAuth.getUser(targetUid);
+        if (authUser?.email) {
+          targetEmail = authUser.email;
+        }
+      } catch (authLookupErr) {
+      }
+    }
+    currentStep = "STRIPE_CANCELLATION";
+    try {
+      const stripe = getStripe();
+      if (stripe) {
+        const subId = userDocData?.stripeSubscriptionId || userDocData?.subscriptionId;
+        const custId = userDocData?.stripeCustomerId || userDocData?.customerId;
+        let canceledCount = 0;
+        if (subId) {
+          try {
+            await stripe.subscriptions.cancel(subId);
+            canceledCount++;
+            console.log(
+              `[AdminDelete] Canceled Stripe subscription ${subId} for target user ${targetUid}`
+            );
+          } catch (subErr) {
+            if (subErr?.code === "resource_missing" || subErr?.statusCode === 404) {
+              console.log(
+                `[AdminDelete] Stripe subscription ${subId} already canceled or non-existent.`
+              );
+            } else {
+              console.warn(
+                `[AdminDelete] Warning canceling subscription ${subId}:`,
+                subErr?.message
+              );
+            }
+          }
+        }
+        if (custId) {
+          try {
+            const activeSubs = await stripe.subscriptions.list({
+              customer: custId,
+              status: "active"
+            });
+            for (const sub of activeSubs.data) {
+              if (sub.id !== subId) {
+                await stripe.subscriptions.cancel(sub.id);
+                canceledCount++;
+                console.log(
+                  `[AdminDelete] Canceled additional active subscription ${sub.id} for customer ${custId}`
+                );
+              }
+            }
+          } catch (custErr) {
+            console.warn(
+              `[AdminDelete] Warning listing active subscriptions for customer ${custId}:`,
+              custErr?.message
+            );
+          }
+        }
+        executionAudit.stripe = {
+          status: "completed",
+          canceledSubscriptions: canceledCount
+        };
+      } else {
+        executionAudit.stripe = {
+          status: "skipped",
+          reason: "Stripe SDK not initialized or key not configured."
+        };
+      }
+    } catch (stripeErr) {
+      console.warn(
+        "[AdminDelete] Non-fatal error during Stripe cancellation step:",
+        stripeErr?.message
+      );
+      executionAudit.stripe = {
+        status: "warning",
+        error: stripeErr?.message || String(stripeErr)
+      };
+    }
+    currentStep = "DATABASE_DATA_DELETION";
+    let deletedRecordsCount = 0;
+    if (userDocData) {
+      try {
+        await adminDb.collection("users_retained").doc(targetUid).set({
+          ...userDocData,
+          archivedAt: (/* @__PURE__ */ new Date()).toISOString(),
+          deletedBy: callerUid,
+          deletionType: "admin"
+        });
+        const memSnap = await adminDb.collection("users").doc(targetUid).collection("memories").get();
+        for (const mDoc of memSnap.docs) {
+          await adminDb.collection("users_retained").doc(targetUid).collection("memories").doc(mDoc.id).set(mDoc.data());
+        }
+        const alertSnap = await adminDb.collection("users").doc(targetUid).collection("riskAlerts").get();
+        for (const aDoc of alertSnap.docs) {
+          await adminDb.collection("users_retained").doc(targetUid).collection("riskAlerts").doc(aDoc.id).set(aDoc.data());
+        }
+        const filesSnap = await adminDb.collection("users").doc(targetUid).collection("files").get();
+        for (const fDoc of filesSnap.docs) {
+          await adminDb.collection("users_retained").doc(targetUid).collection("files").doc(fDoc.id).set(fDoc.data());
+        }
+        const topFilesSnap = await adminDb.collection("files").where("userId", "==", targetUid).get();
+        for (const tfDoc of topFilesSnap.docs) {
+          await adminDb.collection("users_retained").doc(targetUid).collection("top_files").doc(tfDoc.id).set(tfDoc.data());
+        }
+      } catch (archErr) {
+        console.warn(
+          "[AdminDelete] Retention archive warning:",
+          archErr?.message
+        );
+      }
+    }
+    if (targetEmail) {
+      const normEmail = targetEmail.trim().toLowerCase();
+      try {
+        await setAccountLifecycleRecord2({
+          accountId: normEmail,
+          emailNormalized: normEmail,
+          status: "ADMIN_DELETED",
+          deletionType: "admin",
+          deletedAt: (/* @__PURE__ */ new Date()).toISOString(),
+          deletedBy: callerUid,
+          restoreUntil: null,
+          adminApprovalRequired: true,
+          originalUserId: targetUid,
+          originalRole: userDocData?.role || "Contributor",
+          originalWorkspaceId: userDocData?.workspaceId,
+          originalPowers: userDocData?.powers,
+          retainedDataDocPath: `users_retained/${targetUid}`
+        });
+      } catch (lifecycleErr) {
+        console.warn(
+          "Account lifecycle record update warning:",
+          lifecycleErr?.message
+        );
+      }
+    }
+    try {
+      await adminDb.collection("deletedUsers").doc(targetUid).set({
+        uid: targetUid,
+        email: targetEmail,
+        deletedAt: (/* @__PURE__ */ new Date()).toISOString(),
+        deletedBy: callerUid,
+        reason: "admin_deleted"
+      });
+      console.log("USER_DELETED_MARKER_CREATED", { targetUid });
+    } catch (delErr) {
+      console.warn(
+        "Firestore deletedUsers creation warning:",
+        delErr?.message
+      );
+    }
+    try {
+      await adminDb.collection("users").doc(targetUid).delete();
+      deletedRecordsCount++;
+      console.log("USER_FIRESTORE_DELETED", { targetUid });
+    } catch (fsErr) {
+      console.warn("Firestore user doc delete warning:", fsErr?.message);
+    }
+    try {
+      await adminDb.collection("verification_codes").doc(targetUid).delete();
+      const vcSnap = await adminDb.collection("verification_codes").where("userId", "==", targetUid).get();
+      for (const doc of vcSnap.docs) {
+        await doc.ref.delete();
+        deletedRecordsCount++;
+      }
+    } catch (vcErr) {
+      console.warn("Verification codes deletion warning:", vcErr?.message);
+    }
+    try {
+      const userFilesSnap = await adminDb.collection("users").doc(targetUid).collection("files").get();
+      for (const fDoc of userFilesSnap.docs) {
+        await fDoc.ref.delete();
+        deletedRecordsCount++;
+      }
+      const topFilesSnap = await adminDb.collection("files").where("userId", "==", targetUid).get();
+      for (const tfDoc of topFilesSnap.docs) {
+        await tfDoc.ref.delete();
+        deletedRecordsCount++;
+      }
+    } catch (filesErr) {
+      console.warn("Files metadata deletion warning:", filesErr?.message);
+    }
+    try {
+      const memSnap = await adminDb.collection("users").doc(targetUid).collection("memories").get();
+      for (const mDoc of memSnap.docs) {
+        await mDoc.ref.delete();
+        deletedRecordsCount++;
+      }
+      const alertSnap = await adminDb.collection("users").doc(targetUid).collection("riskAlerts").get();
+      for (const aDoc of alertSnap.docs) {
+        await aDoc.ref.delete();
+        deletedRecordsCount++;
+      }
+      const cgSnap = await adminDb.collection("causal_graphs").where("userId", "==", targetUid).get();
+      for (const cgDoc of cgSnap.docs) {
+        await cgDoc.ref.delete();
+        deletedRecordsCount++;
+      }
+    } catch (memErr) {
+      console.warn("Memories/graphs deletion warning:", memErr?.message);
+    }
+    try {
+      const ticketSnap = await adminDb.collection("support_tickets").where("userId", "==", targetUid).get();
+      for (const tDoc of ticketSnap.docs) {
+        await tDoc.ref.delete();
+        deletedRecordsCount++;
+      }
+    } catch (ticketErr) {
+      console.warn("Support tickets deletion warning:", ticketErr?.message);
+    }
+    try {
+      const dbData = readDb2();
+      if (dbData.users)
+        dbData.users = dbData.users.filter(
+          (u) => u.id !== targetUid && u.uid !== targetUid
+        );
+      if (dbData.verification_codes)
+        dbData.verification_codes = dbData.verification_codes.filter(
+          (vc) => vc.id !== targetUid && vc.userId !== targetUid
+        );
+      if (dbData.support_tickets)
+        dbData.support_tickets = dbData.support_tickets.filter(
+          (st) => st.userId !== targetUid
+        );
+      if (dbData.memories)
+        dbData.memories = dbData.memories.filter(
+          (m) => m.userId !== targetUid
+        );
+      if (dbData.causal_graphs)
+        dbData.causal_graphs = dbData.causal_graphs.filter(
+          (cg) => cg.userId !== targetUid
+        );
+      writeDb2(dbData);
+    } catch (dbErr) {
+      console.warn(
+        "Local db write warning during user deletion:",
+        dbErr?.message
+      );
+    }
+    executionAudit.database = {
+      status: "completed",
+      recordsPurged: deletedRecordsCount
+    };
+    currentStep = "FIREBASE_AUTH_DELETION";
+    try {
+      await adminAuth.updateUser(targetUid, { disabled: true });
+      console.log("USER_AUTH_DISABLED", { targetUid });
+      executionAudit.auth.userDisabled = true;
+    } catch (authErr) {
+      if (authErr?.code === "auth/user-not-found") {
+        console.log("USER_AUTH_ALREADY_REMOVED", { targetUid });
+        executionAudit.auth.userDisabled = true;
+      } else {
+        console.warn("USER_AUTH_DISABLE_WARNING", {
+          targetUid,
+          error: authErr?.message
+        });
+        executionAudit.auth.authError = authErr?.message;
+      }
+    }
+    try {
+      await adminAuth.revokeRefreshTokens(targetUid);
+      console.log("USER_TOKENS_REVOKED", { targetUid });
+      executionAudit.auth.tokensRevoked = true;
+    } catch (tokenErr) {
+      console.warn("Revoke refresh tokens warning:", tokenErr?.message);
+      executionAudit.auth.tokenError = tokenErr?.message;
+    }
+    executionAudit.auth.status = "completed";
+    console.log("USER_DELETE_COMPLETED", { targetUid, executionAudit });
+    return res.json({
+      success: true,
+      message: `The user's account has been deleted and archived according to the account recovery policy.`,
+      userFriendlyMessage: "\u062A\u0645 \u062D\u0630\u0641 \u062D\u0633\u0627\u0628 \u0627\u0644\u0645\u0633\u062A\u062E\u062F\u0645 \u0648\u0623\u0631\u0634\u0641\u0629 \u0628\u064A\u0627\u0646\u0627\u062A\u0647 \u0648\u0641\u0642\u064B\u0627 \u0644\u0633\u064A\u0627\u0633\u0629 \u0627\u0633\u062A\u0639\u0627\u062F\u0629 \u0627\u0644\u062D\u0633\u0627\u0628.",
+      executionAudit
+    });
+  } catch (err) {
+    console.error(`USER_DELETE_FAILED during step [${currentStep}]`, {
+      targetUid,
+      error: err.message || String(err)
+    });
+    return res.status(500).json({
+      success: false,
+      failedStep: currentStep,
+      error: err.message || "Administrative deletion process failed.",
+      userFriendlyMessage: `\u062A\u0639\u0630\u0631 \u0625\u062A\u0645\u0627\u0645 \u0639\u0645\u0644\u064A\u0629 \u062D\u0630\u0641 \u0627\u0644\u062D\u0633\u0627\u0628 \u0623\u062B\u0646\u0627\u0621 \u0645\u0631\u062D\u0644\u0629 (${currentStep}).`,
+      executionAudit
+    });
+  }
+};
+app2.delete(
   [
     "/api/admin/delete-user/:uid",
     "/admin/delete-user/:uid",
@@ -20340,362 +21388,17 @@ app2.all(
     "/admin/users/:uid"
   ],
   requireAuth,
-  async (req, res) => {
-    const targetUid = (req.params.uid || req.body?.uid || req.body?.userId || req.query?.uid || req.query?.userId || "").toString().trim();
-    let currentStep = "INITIALIZATION";
-    const executionAudit = {
-      stripe: { status: "pending", details: null },
-      database: { status: "pending", details: null },
-      auth: { status: "pending", details: null }
-    };
-    try {
-      const callerUid = req.user?.uid;
-      const callerEmail = req.user?.email || req.userEmail || "";
-      if (!callerUid) {
-        return res.status(401).json({ success: false, error: "Unauthorized" });
-      }
-      const isCallerAdmin = await isUserAdminServer(callerUid, callerEmail);
-      if (!isCallerAdmin) {
-        return res.status(403).json({
-          success: false,
-          error: "Forbidden: Only administrative personnel can perform account deletion."
-        });
-      }
-      if (!targetUid) {
-        return res.status(400).json({
-          success: false,
-          error: "Target user ID is required for deletion."
-        });
-      }
-      if (targetUid === callerUid) {
-        return res.status(400).json({
-          success: false,
-          error: "You cannot delete your own active administrative account.",
-          userFriendlyMessage: "\u0644\u0627 \u064A\u0645\u0643\u0646\u0643 \u062D\u0630\u0641 \u062D\u0633\u0627\u0628 \u0627\u0644\u0645\u0633\u0624\u0648\u0644 \u0627\u0644\u062D\u0627\u0644\u064A \u0627\u0644\u0630\u064A \u062A\u0633\u062A\u062E\u062F\u0645\u0647 \u0627\u0644\u0622\u0646."
-        });
-      }
-      if (targetUid === ADMIN_USER_ID) {
-        return res.status(400).json({
-          success: false,
-          error: "Primary administrator account cannot be deleted.",
-          userFriendlyMessage: "\u0644\u0627 \u064A\u0645\u0643\u0646 \u062D\u0630\u0641 \u0627\u0644\u062D\u0633\u0627\u0628 \u0627\u0644\u0631\u0626\u064A\u0633\u064A \u0644\u0644\u0645\u0633\u0624\u0648\u0644."
-        });
-      }
-      console.log("USER_DELETE_STARTED", { targetUid, callerUid, callerEmail });
-      let targetEmail = (req.body?.userEmail || req.body?.email || req.query?.userEmail || req.query?.email || "").toString().trim();
-      let userDocData = null;
-      try {
-        const targetSnap = await adminDb.collection("users").doc(targetUid).get();
-        if (targetSnap.exists) {
-          userDocData = targetSnap.data();
-          if (!targetEmail) targetEmail = userDocData?.email || "";
-        }
-      } catch (e) {
-        console.warn("Failed to retrieve target user email from Firestore:", e);
-      }
-      if (!targetEmail) {
-        try {
-          const localDb = readDb2();
-          const found = localDb.users?.find(
-            (u) => u.id === targetUid || u.uid === targetUid
-          );
-          if (found?.email) {
-            targetEmail = found.email;
-          }
-          if (!userDocData && found) userDocData = found;
-        } catch (e) {
-        }
-      }
-      if (!targetEmail) {
-        try {
-          const authUser = await adminAuth.getUser(targetUid);
-          if (authUser?.email) {
-            targetEmail = authUser.email;
-          }
-        } catch (authLookupErr) {
-        }
-      }
-      currentStep = "STRIPE_CANCELLATION";
-      try {
-        const stripe = getStripe();
-        if (stripe) {
-          const subId = userDocData?.stripeSubscriptionId || userDocData?.subscriptionId;
-          const custId = userDocData?.stripeCustomerId || userDocData?.customerId;
-          let canceledCount = 0;
-          if (subId) {
-            try {
-              await stripe.subscriptions.cancel(subId);
-              canceledCount++;
-              console.log(
-                `[AdminDelete] Canceled Stripe subscription ${subId} for target user ${targetUid}`
-              );
-            } catch (subErr) {
-              if (subErr?.code === "resource_missing" || subErr?.statusCode === 404) {
-                console.log(
-                  `[AdminDelete] Stripe subscription ${subId} already canceled or non-existent.`
-                );
-              } else {
-                console.warn(
-                  `[AdminDelete] Warning canceling subscription ${subId}:`,
-                  subErr?.message
-                );
-              }
-            }
-          }
-          if (custId) {
-            try {
-              const activeSubs = await stripe.subscriptions.list({
-                customer: custId,
-                status: "active"
-              });
-              for (const sub of activeSubs.data) {
-                if (sub.id !== subId) {
-                  await stripe.subscriptions.cancel(sub.id);
-                  canceledCount++;
-                  console.log(
-                    `[AdminDelete] Canceled additional active subscription ${sub.id} for customer ${custId}`
-                  );
-                }
-              }
-            } catch (custErr) {
-              console.warn(
-                `[AdminDelete] Warning listing active subscriptions for customer ${custId}:`,
-                custErr?.message
-              );
-            }
-          }
-          executionAudit.stripe = {
-            status: "completed",
-            canceledSubscriptions: canceledCount
-          };
-        } else {
-          executionAudit.stripe = {
-            status: "skipped",
-            reason: "Stripe SDK not initialized or key not configured."
-          };
-        }
-      } catch (stripeErr) {
-        console.warn(
-          "[AdminDelete] Non-fatal error during Stripe cancellation step:",
-          stripeErr?.message
-        );
-        executionAudit.stripe = {
-          status: "warning",
-          error: stripeErr?.message || String(stripeErr)
-        };
-      }
-      currentStep = "DATABASE_DATA_DELETION";
-      let deletedRecordsCount = 0;
-      if (userDocData) {
-        try {
-          await adminDb.collection("users_retained").doc(targetUid).set({
-            ...userDocData,
-            archivedAt: (/* @__PURE__ */ new Date()).toISOString(),
-            deletedBy: callerUid,
-            deletionType: "admin"
-          });
-          const memSnap = await adminDb.collection("users").doc(targetUid).collection("memories").get();
-          for (const mDoc of memSnap.docs) {
-            await adminDb.collection("users_retained").doc(targetUid).collection("memories").doc(mDoc.id).set(mDoc.data());
-          }
-          const alertSnap = await adminDb.collection("users").doc(targetUid).collection("riskAlerts").get();
-          for (const aDoc of alertSnap.docs) {
-            await adminDb.collection("users_retained").doc(targetUid).collection("riskAlerts").doc(aDoc.id).set(aDoc.data());
-          }
-          const filesSnap = await adminDb.collection("users").doc(targetUid).collection("files").get();
-          for (const fDoc of filesSnap.docs) {
-            await adminDb.collection("users_retained").doc(targetUid).collection("files").doc(fDoc.id).set(fDoc.data());
-          }
-          const topFilesSnap = await adminDb.collection("files").where("userId", "==", targetUid).get();
-          for (const tfDoc of topFilesSnap.docs) {
-            await adminDb.collection("users_retained").doc(targetUid).collection("top_files").doc(tfDoc.id).set(tfDoc.data());
-          }
-        } catch (archErr) {
-          console.warn(
-            "[AdminDelete] Retention archive warning:",
-            archErr?.message
-          );
-        }
-      }
-      if (targetEmail) {
-        const normEmail = targetEmail.trim().toLowerCase();
-        try {
-          await setAccountLifecycleRecord2({
-            accountId: normEmail,
-            emailNormalized: normEmail,
-            status: "ADMIN_DELETED",
-            deletionType: "admin",
-            deletedAt: (/* @__PURE__ */ new Date()).toISOString(),
-            deletedBy: callerUid,
-            restoreUntil: null,
-            adminApprovalRequired: true,
-            originalUserId: targetUid,
-            originalRole: userDocData?.role || "Contributor",
-            originalWorkspaceId: userDocData?.workspaceId,
-            originalPowers: userDocData?.powers,
-            retainedDataDocPath: `users_retained/${targetUid}`
-          });
-        } catch (lifecycleErr) {
-          console.warn(
-            "Account lifecycle record update warning:",
-            lifecycleErr?.message
-          );
-        }
-      }
-      try {
-        await adminDb.collection("deletedUsers").doc(targetUid).set({
-          uid: targetUid,
-          email: targetEmail,
-          deletedAt: (/* @__PURE__ */ new Date()).toISOString(),
-          deletedBy: callerUid,
-          reason: "admin_deleted"
-        });
-        console.log("USER_DELETED_MARKER_CREATED", { targetUid });
-      } catch (delErr) {
-        console.warn(
-          "Firestore deletedUsers creation warning:",
-          delErr?.message
-        );
-      }
-      try {
-        await adminDb.collection("users").doc(targetUid).delete();
-        deletedRecordsCount++;
-        console.log("USER_FIRESTORE_DELETED", { targetUid });
-      } catch (fsErr) {
-        console.warn("Firestore user doc delete warning:", fsErr?.message);
-      }
-      try {
-        await adminDb.collection("verification_codes").doc(targetUid).delete();
-        const vcSnap = await adminDb.collection("verification_codes").where("userId", "==", targetUid).get();
-        for (const doc of vcSnap.docs) {
-          await doc.ref.delete();
-          deletedRecordsCount++;
-        }
-      } catch (vcErr) {
-        console.warn("Verification codes deletion warning:", vcErr?.message);
-      }
-      try {
-        const userFilesSnap = await adminDb.collection("users").doc(targetUid).collection("files").get();
-        for (const fDoc of userFilesSnap.docs) {
-          await fDoc.ref.delete();
-          deletedRecordsCount++;
-        }
-        const topFilesSnap = await adminDb.collection("files").where("userId", "==", targetUid).get();
-        for (const tfDoc of topFilesSnap.docs) {
-          await tfDoc.ref.delete();
-          deletedRecordsCount++;
-        }
-      } catch (filesErr) {
-        console.warn("Files metadata deletion warning:", filesErr?.message);
-      }
-      try {
-        const memSnap = await adminDb.collection("users").doc(targetUid).collection("memories").get();
-        for (const mDoc of memSnap.docs) {
-          await mDoc.ref.delete();
-          deletedRecordsCount++;
-        }
-        const alertSnap = await adminDb.collection("users").doc(targetUid).collection("riskAlerts").get();
-        for (const aDoc of alertSnap.docs) {
-          await aDoc.ref.delete();
-          deletedRecordsCount++;
-        }
-        const cgSnap = await adminDb.collection("causal_graphs").where("userId", "==", targetUid).get();
-        for (const cgDoc of cgSnap.docs) {
-          await cgDoc.ref.delete();
-          deletedRecordsCount++;
-        }
-      } catch (memErr) {
-        console.warn("Memories/graphs deletion warning:", memErr?.message);
-      }
-      try {
-        const ticketSnap = await adminDb.collection("support_tickets").where("userId", "==", targetUid).get();
-        for (const tDoc of ticketSnap.docs) {
-          await tDoc.ref.delete();
-          deletedRecordsCount++;
-        }
-      } catch (ticketErr) {
-        console.warn("Support tickets deletion warning:", ticketErr?.message);
-      }
-      try {
-        const dbData = readDb2();
-        if (dbData.users)
-          dbData.users = dbData.users.filter(
-            (u) => u.id !== targetUid && u.uid !== targetUid
-          );
-        if (dbData.verification_codes)
-          dbData.verification_codes = dbData.verification_codes.filter(
-            (vc) => vc.id !== targetUid && vc.userId !== targetUid
-          );
-        if (dbData.support_tickets)
-          dbData.support_tickets = dbData.support_tickets.filter(
-            (st) => st.userId !== targetUid
-          );
-        if (dbData.memories)
-          dbData.memories = dbData.memories.filter(
-            (m) => m.userId !== targetUid
-          );
-        if (dbData.causal_graphs)
-          dbData.causal_graphs = dbData.causal_graphs.filter(
-            (cg) => cg.userId !== targetUid
-          );
-        writeDb2(dbData);
-      } catch (dbErr) {
-        console.warn(
-          "Local db write warning during user deletion:",
-          dbErr?.message
-        );
-      }
-      executionAudit.database = {
-        status: "completed",
-        recordsPurged: deletedRecordsCount
-      };
-      currentStep = "FIREBASE_AUTH_DELETION";
-      try {
-        await adminAuth.updateUser(targetUid, { disabled: true });
-        console.log("USER_AUTH_DISABLED", { targetUid });
-        executionAudit.auth.userDisabled = true;
-      } catch (authErr) {
-        if (authErr?.code === "auth/user-not-found") {
-          console.log("USER_AUTH_ALREADY_REMOVED", { targetUid });
-          executionAudit.auth.userDisabled = true;
-        } else {
-          console.warn("USER_AUTH_DISABLE_WARNING", {
-            targetUid,
-            error: authErr?.message
-          });
-          executionAudit.auth.authError = authErr?.message;
-        }
-      }
-      try {
-        await adminAuth.revokeRefreshTokens(targetUid);
-        console.log("USER_TOKENS_REVOKED", { targetUid });
-        executionAudit.auth.tokensRevoked = true;
-      } catch (tokenErr) {
-        console.warn("Revoke refresh tokens warning:", tokenErr?.message);
-        executionAudit.auth.tokenError = tokenErr?.message;
-      }
-      executionAudit.auth.status = "completed";
-      console.log("USER_DELETE_COMPLETED", { targetUid, executionAudit });
-      return res.json({
-        success: true,
-        message: `The user's account has been deleted and archived according to the account recovery policy.`,
-        userFriendlyMessage: "\u062A\u0645 \u062D\u0630\u0641 \u062D\u0633\u0627\u0628 \u0627\u0644\u0645\u0633\u062A\u062E\u062F\u0645 \u0648\u0623\u0631\u0634\u0641\u0629 \u0628\u064A\u0627\u0646\u0627\u062A\u0647 \u0648\u0641\u0642\u064B\u0627 \u0644\u0633\u064A\u0627\u0633\u0629 \u0627\u0633\u062A\u0639\u0627\u062F\u0629 \u0627\u0644\u062D\u0633\u0627\u0628.",
-        executionAudit
-      });
-    } catch (err) {
-      console.error(`USER_DELETE_FAILED during step [${currentStep}]`, {
-        targetUid,
-        error: err.message || String(err)
-      });
-      return res.status(500).json({
-        success: false,
-        failedStep: currentStep,
-        error: err.message || "Administrative deletion process failed.",
-        userFriendlyMessage: `\u062A\u0639\u0630\u0631 \u0625\u062A\u0645\u0627\u0645 \u0639\u0645\u0644\u064A\u0629 \u062D\u0630\u0641 \u0627\u0644\u062D\u0633\u0627\u0628 \u0623\u062B\u0646\u0627\u0621 \u0645\u0631\u062D\u0644\u0629 (${currentStep}).`,
-        executionAudit
-      });
-    }
-  }
+  handleDeleteUserRequest
+);
+app2.post(
+  [
+    "/api/admin/delete-user/:uid",
+    "/admin/delete-user/:uid",
+    "/api/admin/delete-user",
+    "/admin/delete-user"
+  ],
+  requireAuth,
+  handleDeleteUserRequest
 );
 app2.all(
   "/api/auth/delete-account",
@@ -21799,7 +22502,8 @@ app2.post("/api/auth/login", loginRegisterLimiter, async (req, res) => {
     } catch (e) {
     }
     const isExemptRole = isAdminAccount;
-    const isVerified = isExemptRole || userProfile.accountStatus === "APPROVED";
+    const isKycVerified = isExemptRole || userProfile.isVerified === true || userProfile.kycStatus === "VERIFIED" || userProfile.documentVerificationStatus === "APPROVED";
+    const isEmailVer = Boolean(userProfile.isEmailVerified || userProfile.emailVerified || userProfile.email_verified || isExemptRole);
     const { passwordHash, secretPasscode, ...cleanProfile } = userProfile;
     if (cleanProfile.encryptedSecurity) {
       const {
@@ -21826,12 +22530,12 @@ app2.post("/api/auth/login", loginRegisterLimiter, async (req, res) => {
       idToken: authIdToken,
       user: {
         ...cleanProfile,
-        isVerified,
-        isEmailVerified: isVerified,
-        email_verified: isVerified,
-        emailVerified: isVerified,
-        verification_required: !isVerified,
-        verification_status: isVerified ? "verified" : "unverified"
+        isVerified: isKycVerified,
+        isEmailVerified: isEmailVer,
+        email_verified: isEmailVer,
+        emailVerified: isEmailVer,
+        verification_required: !isKycVerified,
+        verification_status: isKycVerified ? "verified" : userProfile.verification_status || "unverified"
       }
     });
   } catch (err) {
@@ -22031,6 +22735,13 @@ app2.post("/api/users/profile", requireAuth, async (req, res) => {
       issuingEntity: incomingData.issuingEntity !== void 0 ? incomingData.issuingEntity : existingProfile.issuingEntity,
       avatarUrl: incomingData.avatarUrl !== void 0 ? incomingData.avatarUrl : existingProfile.avatarUrl,
       phone: incomingData.phone !== void 0 ? incomingData.phone : existingProfile.phone,
+      verificationInfo: incomingData.verificationInfo !== void 0 ? incomingData.verificationInfo : existingProfile.verificationInfo,
+      verificationDocuments: incomingData.verificationDocuments !== void 0 ? incomingData.verificationDocuments : existingProfile.verificationDocuments,
+      documentVerificationStatus: incomingData.documentVerificationStatus !== void 0 ? incomingData.documentVerificationStatus : existingProfile.documentVerificationStatus,
+      verification_status: incomingData.verification_status !== void 0 ? incomingData.verification_status : existingProfile.verification_status,
+      verification_required: incomingData.verification_required !== void 0 ? incomingData.verification_required : existingProfile.verification_required,
+      documents: incomingData.documents !== void 0 ? incomingData.documents : existingProfile.documents,
+      files: incomingData.files !== void 0 ? incomingData.files : existingProfile.files,
       updatedAt: (/* @__PURE__ */ new Date()).toISOString()
     };
     if (isOwnerOrCeo) {

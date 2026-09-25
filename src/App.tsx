@@ -2047,17 +2047,18 @@ This hosting domain (**${currentDomain}**) has not been authorized in your Fireb
       const userProfile = await loginFirebaseUser(loginEmail.trim(), loginPassword, attemptId);
       if (activeLoginAttemptIdRef.current !== attemptId) return;
       
-      const isAdminApproved = userProfile.accountStatus === "APPROVED" && userProfile.isVerified === true;
+      const isAccountApproved = userProfile.accountStatus === "APPROVED" || userProfile.accountStatus === "ACTIVE";
+      const isKycVerified = isUserAdmin(userProfile) || userProfile.isVerified === true || userProfile.kycStatus === "VERIFIED" || userProfile.documentVerificationStatus === "APPROVED";
       const isEmailVerified = !!(userProfile.isEmailVerified || userProfile.emailVerified || userProfile.email_verified);
 
       const loggedInUser: User = {
         ...userProfile,
-        isVerified: isAdminApproved,
+        isVerified: isKycVerified,
         isEmailVerified: isEmailVerified,
         email_verified: isEmailVerified,
         emailVerified: isEmailVerified,
-        verification_required: !isAdminApproved,
-        verification_status: isAdminApproved ? "verified" : (userProfile.accountStatus === "PENDING_ADMIN_REVIEW" ? "pending" : (userProfile.accountStatus === "REJECTED" ? "rejected" : "unverified"))
+        verification_required: !isAccountApproved,
+        verification_status: isKycVerified ? "verified" : (userProfile.verification_status || (userProfile.accountStatus === "PENDING_ADMIN_REVIEW" ? "pending" : (userProfile.accountStatus === "REJECTED" ? "rejected" : "unverified")))
       };
 
       setCurrentUser(loggedInUser);
@@ -4432,7 +4433,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
             onRefreshUser={refreshCurrentUser}
           />
         </Suspense>
-      ) : (currentUser && !isUserAdmin(currentUser) && ((currentUser.accountStatus as string) === "PENDING_DOCUMENT_VERIFICATION" || (currentUser.accountStatus as string) === "VERIFICATION_REQUIRED" || (currentUser.accountStatus as string) === "PENDING_INSTITUTIONAL_DATA" || (currentUser.documentVerificationStatus as string) === "PENDING_UPLOAD" || (currentUser.documentVerificationStatus as string) === "UNVERIFIED" || currentUser.requiresDocumentVerification || currentUser.accountStatus !== "APPROVED")) ? (
+      ) : (currentUser && !isUserAdmin(currentUser) && ((currentUser.accountStatus as string) === "PENDING_DOCUMENT_VERIFICATION" || (currentUser.accountStatus as string) === "VERIFICATION_REQUIRED" || (currentUser.accountStatus as string) === "PENDING_INSTITUTIONAL_DATA" || (currentUser.accountStatus !== "APPROVED" && currentUser.accountStatus !== "ACTIVE"))) ? (
         <Suspense fallback={<FullScreenFallback />}>
           <DocumentVerificationView
             currentUser={currentUser}
