@@ -89,17 +89,24 @@ export function getOfficialEmailLogoLightBuffer(): Buffer {
   if (emailLogoLightCache && emailLogoLightCache.length > 0) {
     return emailLogoLightCache;
   }
+  const safeDir = typeof __dirname !== "undefined" ? __dirname : process.cwd();
   const possiblePaths = [
-    path.join(process.cwd(), "public", "zakir-email-logo.png"),
     path.join(process.cwd(), "public", "zakir-badge-light.png"),
-    path.join(process.cwd(), "src", "assets", "zakir-email-logo.png"),
+    path.join(process.cwd(), "public", "zakir-email-logo.png"),
+    path.join(process.cwd(), "dist", "zakir-badge-light.png"),
+    path.join(process.cwd(), "dist", "zakir-email-logo.png"),
+    path.join(process.cwd(), "dist", "public", "zakir-badge-light.png"),
     path.join(process.cwd(), "src", "assets", "zakir-badge-light.png"),
+    path.join(process.cwd(), "src", "assets", "zakir-email-logo.png"),
+    path.join(safeDir, "public", "zakir-badge-light.png"),
+    path.join(safeDir, "zakir-badge-light.png"),
+    path.join(safeDir, "..", "public", "zakir-badge-light.png"),
   ];
   for (const p of possiblePaths) {
     if (fs.existsSync(p)) {
       try {
         const b = fs.readFileSync(p);
-        if (b && b.length > 0) {
+        if (b && b.length > 0 && b.subarray(0, 8).toString("hex") === "89504e470d0a1a0a") {
           emailLogoLightCache = b;
           return b;
         }
@@ -198,7 +205,7 @@ export function renderEmailLogoHeaderHtml(options?: {
     : "https://www.getzakir.com";
   const appBase = rawAppBase;
 
-  const logoUrl = `${publicAssetBase}/zakir-email-logo.png`;
+  const logoUrl = "cid:zakir-logo-light";
 
   const wordmark = options?.wordmark !== undefined ? options.wordmark : "ZAKIR";
   const tagline =
@@ -347,7 +354,7 @@ export function buildMasterEmailHtml(options: {
               <table border="0" cellpadding="0" cellspacing="0" align="center" role="presentation" style="margin: 0 auto 10px auto;">
                 <tr>
                   <td align="center" style="vertical-align: middle;">
-                    <img src="${publicAssetBase}/zakir-email-logo.png" alt="ZAKIR" width="24" height="24" style="display: inline-block; width: 24px; height: 24px; border-radius: 6px; border: 0; vertical-align: middle; margin-right: 8px;" />
+                    <img src="cid:zakir-logo-light" alt="ZAKIR" width="24" height="24" style="display: inline-block; width: 24px; height: 24px; border-radius: 6px; border: 0; vertical-align: middle; margin-right: 8px;" />
                     <span class="zakir-wordmark" style="font-size: 13px; font-weight: 800; color: #0f172a; vertical-align: middle; letter-spacing: 1.5px; text-transform: uppercase;">ZAKIR</span>
                   </td>
                 </tr>

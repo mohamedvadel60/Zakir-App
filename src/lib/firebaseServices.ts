@@ -393,14 +393,25 @@ export function clearUserLocalCache(userId?: string): void {
 
 /**
  * Scenario 2: Existing User Login
- * - Fetches user profile from /users/{uid} in Firestore.
- * - Restores persisted workspace, custom preferences, subscription status, and configurations.
+ * - Performs safe email normalization.
+ * - Authenticates with Firebase Auth.
+ * - Resolves user profile from /users/{uid} in Firestore with legacy fallback.
+ * - Preserves existing user roles (CEO, Contributor, Admin, Analyst, etc.) and workspaces without overwriting.
+ * - Separates Authentication Failures from Post-Authentication Account/Profile states.
  */
 export async function loginFirebaseUser(email: string, pass: string, attemptId?: string): Promise<User> {
-  const normalizedEmail = email.trim().toLowerCase();
+  const normalizedEmail = (email || "").trim().toLowerCase();
   const currentAttemptId = attemptId || `login_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
   let clientAuthError: any = null;
   let clientUid: string | null = null;
+
+  if (!normalizedEmail || !pass) {
+    throw new LoginError("LOGIN_INVALID_CREDENTIALS", "بيانات الدخول غير صحيحة. يرجى التحقق من البريد الإلكتروني وكلمة المرور.", {
+      originalCode: "MISSING_FIELDS",
+      email: normalizedEmail,
+      attemptId: currentAttemptId
+    });
+  }
 
   logLoginTrace("LOGIN_ATTEMPT_START", {
     attemptId: currentAttemptId,
@@ -424,7 +435,7 @@ export async function loginFirebaseUser(email: string, pass: string, attemptId?:
     });
   } catch (authErr: any) {
     clientAuthError = authErr;
-    const fbCode = authErr?.code || "";
+    const fbCode = (authErr?.code || "").toLowerCase().trim();
     logLoginTrace("LOGIN_FIREBASE_RESULT", {
       attemptId: currentAttemptId,
       email: normalizedEmail,
@@ -432,7 +443,7 @@ export async function loginFirebaseUser(email: string, pass: string, attemptId?:
       success: false
     });
 
-    // Deterministic early exits for non-credential client errors & lifecycle checks:
+    // Check if account was deleted for relevant error codes
     if (
       fbCode === "auth/user-disabled" ||
       fbCode === "auth/invalid-credential" ||
@@ -471,10 +482,118 @@ export async function loginFirebaseUser(email: string, pass: string, attemptId?:
       }
     }
 
+    // Specific deterministic handling for non-credential client errors
     if (fbCode === "auth/user-disabled") {
-      throw new LoginError("LOGIN_USER_DISABLED", "User account is disabled.", {
+      throw new LoginError("LOGIN_USER_DISABLED", "هذا الحساب معطّل حالياً. يرجى تقديم طلب استعادة الحساب أو التواصل مع الإدارة.", {
         originalCode: fbCode,
         email: normalizedEmail,
+        statusCode: 403,
+        attemptId: currentAttemptId
+      });
+    }
+
+    if (fbCode === "auth/invalid-email") {
+      throw new LoginError("LOGIN_INVALID_EMAIL", "صيغة البريد الإلكتروني غير صالحة. يرجى إدخال بريد إلكتروني صحيح.", {
+        originalCode: fbCode,
+        email: normalizedEmail,
+        statusCode: 400,
+        attemptId: currentAttemptId
+      });
+    }
+
+    if (fbCode === "auth/too-many-requests") {
+      throw new LoginError("LOGIN_TOO_MANY_REQUESTS", "تم حظر المحاولات مؤقتاً لكثرة الطلبات. يرجى الانتظار دقيقة والمحاولة لاحقاً.", {
+        originalCode: fbCode,
+        email: normalizedEmail,
+        statusCode: 429,
+        attemptId: currentAttemptId
+      });
+    }
+
+    if (fbCode === "auth/network-request-failed") {
+      throw new LoginError("LOGIN_NETWORK_ERROR", "تعذر إتمام العملية بسبب انقطاع مؤقت في الاتصال. يرجى التحقق من اتصال الإنترنت والمحاولة مجدداً.", {
+        originalCode: fbCode,
+        email: normalizedEmail,
+        attemptId: currentAttemptId
+      });
+    }
+
+    if (fbCode === "auth/unauthorized-domain") {
+      throw new LoginError("LOGIN_UNAUTHORIZED_DOMAIN", "النطاق الحالي غير مصرح له بتسجيل الدخول في إعدادات Firebase.", {
+        originalCode: fbCode,
+        email: normalizedEmail,
+        attemptId: currentAttemptId
+      });
+    }
+
+    if (fbCode === "auth/operation-not-allowed") {
+      throw new LoginError("LOGIN_OPERATION_NOT_ALLOWED", "طريقة تسجيل الدخول بالبريد الإلكتروني وكلمة المرور غير مفعّلة في النظام.", {
+        originalCode: fbCode,
+        email: normalizedEmail,
+        attemptId: currentAttemptId
+      });
+    }
+
+    if (fbCode === "auth/internal-error") {
+      throw new LoginError("LOGIN_INTERNAL_ERROR", "حدث خطأ داخلي في خدمة المصادقة. يرجى المحاولة مرة أخرى لاحقاً.", {
+        originalCode: fbCode,
+        email: normalizedEmail,
+        attemptId: currentAttemptId
+      });
+    }
+
+    // Try resilient server-backed login in case of legacy account or custom token sync
+    try {
+      const url = getAuthApiUrl("/api/auth/login");
+      const srvRes = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: normalizedEmail, password: pass })
+      });
+      const srvData = await safeJsonResponse(srvRes);
+
+      if (srvRes.ok && srvData && (srvData.user || srvData.id)) {
+        const authenticatedUser: User = srvData.user || srvData;
+        const serverBreakdown = computeUserVerificationBreakdown(authenticatedUser);
+        const isServerKycVerified = serverBreakdown.kycStatus === "VERIFIED";
+        authenticatedUser.isVerified = isServerKycVerified;
+        authenticatedUser.kycStatus = serverBreakdown.kycStatus;
+        authenticatedUser.documentVerificationStatus = serverBreakdown.documentStatus;
+        authenticatedUser.verification_status = isServerKycVerified ? "verified" : (serverBreakdown.kycStatus === "UNDER_REVIEW" ? "pending" : (serverBreakdown.kycStatus === "REJECTED" ? "rejected" : "unverified"));
+        authenticatedUser.verification_required = !isServerKycVerified;
+
+        if (isUserAdmin(authenticatedUser)) {
+          authenticatedUser.isVerified = true;
+          authenticatedUser.kycStatus = "VERIFIED";
+          authenticatedUser.documentVerificationStatus = "APPROVED";
+          authenticatedUser.isEmailVerified = true;
+          authenticatedUser.email_verified = true;
+          authenticatedUser.emailVerified = true;
+          authenticatedUser.verification_required = false;
+          authenticatedUser.verification_status = "verified";
+        }
+
+        if (srvData.customToken && !auth.currentUser) {
+          try {
+            await signInWithCustomToken(auth, srvData.customToken);
+          } catch (ctErr) {
+            console.warn("Notice: signInWithCustomToken sync notice:", ctErr);
+          }
+        }
+
+        setLocalItem(`user_${authenticatedUser.id}`, authenticatedUser);
+        return authenticatedUser;
+      }
+    } catch (srvFallbackErr) {
+      console.warn("Notice: Server login fallback notice:", srvFallbackErr);
+    }
+
+    // Differentiate user-not-found vs invalid-credential
+    if (fbCode === "auth/user-not-found") {
+      throw new LoginError("LOGIN_USER_NOT_FOUND", "لم يتم العثور على حساب مسجل بهذا البريد الإلكتروني.", {
+        originalCode: fbCode,
+        email: normalizedEmail,
+        statusCode: 404,
         attemptId: currentAttemptId
       });
     }
@@ -482,30 +601,25 @@ export async function loginFirebaseUser(email: string, pass: string, attemptId?:
     if (
       fbCode === "auth/invalid-credential" ||
       fbCode === "auth/wrong-password" ||
-      fbCode === "auth/user-not-found" ||
       fbCode === "auth/invalid-login-credentials"
     ) {
       throw new LoginError("LOGIN_INVALID_CREDENTIALS", "بيانات الدخول غير صحيحة. يرجى التحقق من البريد الإلكتروني وكلمة المرور.", {
         originalCode: fbCode,
         email: normalizedEmail,
+        statusCode: 401,
         attemptId: currentAttemptId
       });
     }
-    if (fbCode === "auth/too-many-requests") {
-      throw new LoginError("LOGIN_TOO_MANY_REQUESTS", "Too many requests.", {
-        originalCode: fbCode,
-        attemptId: currentAttemptId
-      });
-    }
-    if (fbCode === "auth/unauthorized-domain") {
-      throw new LoginError("LOGIN_UNAUTHORIZED_DOMAIN", "Domain unauthorized.", {
-        originalCode: fbCode,
-        attemptId: currentAttemptId
-      });
-    }
+
+    const norm = normalizeLoginError(authErr);
+    throw new LoginError(norm, formatLoginErrorMessage(norm, "ar"), {
+      originalCode: fbCode,
+      email: normalizedEmail,
+      attemptId: currentAttemptId
+    });
   }
 
-  // 2. If client authentication succeeded, try Firestore retrieval
+  // 2. Client authentication succeeded!
   if (clientUid) {
     const uid = clientUid;
 
@@ -557,13 +671,56 @@ export async function loginFirebaseUser(email: string, pass: string, attemptId?:
 
     // Retrieve user document from /users/{uid}
     const userDocRef = doc(db, "users", uid);
-    let userSnap;
+    let userSnap: any = null;
     try {
       userSnap = await getDocWithRetry(userDocRef, 4, 200);
     } catch (error) {
       console.warn("Notice: getDocWithRetry error for userDocRef in loginFirebaseUser:", uid, error);
     }
 
+    // Fallback: check /users by email in case of legacy document keying
+    if (!userSnap || !userSnap.exists()) {
+      try {
+        const emailQuery = query(
+          collection(db, "users"),
+          where("email", "==", normalizedEmail),
+          limit(1)
+        );
+        const emailSnap = await getDocs(emailQuery);
+        if (!emailSnap.empty) {
+          userSnap = emailSnap.docs[0];
+        }
+      } catch (e) {
+        console.warn("Notice: Query users by email fallback notice:", e);
+      }
+    }
+
+    // Fallback: check authoritative server profile via ID token
+    if (!userSnap || !userSnap.exists()) {
+      try {
+        const idToken = await auth.currentUser?.getIdToken();
+        if (idToken) {
+          const res = await fetch(getAuthApiUrl("/api/auth/current-user-status"), {
+            headers: {
+              Authorization: `Bearer ${idToken}`
+            }
+          });
+          if (res.ok) {
+            const serverProfile = await safeJsonResponse(res);
+            if (serverProfile && (serverProfile.id || serverProfile.user)) {
+              const uProfile: User = serverProfile.user || serverProfile;
+              uProfile.id = uid;
+              setLocalItem(`user_${uid}`, uProfile);
+              return uProfile;
+            }
+          }
+        }
+      } catch (srvFetchErr) {
+        console.warn("Notice: Server profile lookup via ID token notice:", srvFetchErr);
+      }
+    }
+
+    // If profile exists in Firestore, load, normalize and preserve all existing fields
     if (userSnap && userSnap.exists()) {
       const userData = userSnap.data() as User;
       userData.id = uid;
@@ -571,18 +728,57 @@ export async function loginFirebaseUser(email: string, pass: string, attemptId?:
       userData.lastActiveAt = nowIso;
       userData.lastLoginAt = nowIso;
 
-      const breakdown = computeUserVerificationBreakdown(userData);
+      // Preserve role with safe normalization
+      const rawRole = (userData.role || "CEO").toString().trim();
+      const upperRole = rawRole.toUpperCase();
+      let canonicalRole: UserRole = "CEO";
+      if (upperRole === "ADMIN" || upperRole === "SYSTEM_ADMIN" || isUserAdmin(userData) || (auth.currentUser?.email && ADMIN_EMAILS.includes(auth.currentUser.email.toLowerCase().trim()))) {
+        canonicalRole = "Admin";
+      } else if (upperRole === "CEO" || upperRole === "OWNER" || upperRole === "FOUNDER") {
+        canonicalRole = "CEO";
+      } else if (upperRole === "CONTRIBUTOR" || upperRole === "MEMBER") {
+        canonicalRole = "Contributor";
+      } else if (upperRole === "ANALYST" || upperRole === "INVESTOR") {
+        canonicalRole = "Analyst";
+      } else if (upperRole === "AUDITOR" || upperRole === "RISK AUDITOR" || upperRole === "RISK_AUDITOR") {
+        canonicalRole = "Risk Auditor";
+      } else if (upperRole === "COMPLIANCE" || upperRole === "COMPLIANCE OFFICER" || upperRole === "COMPLIANCE_OFFICER") {
+        canonicalRole = "Compliance Officer";
+      } else if (upperRole === "VIEW ONLY" || upperRole === "VIEW_ONLY" || upperRole === "VIEWER") {
+        canonicalRole = "View Only";
+      } else {
+        canonicalRole = "CEO";
+      }
+      userData.role = canonicalRole;
+
+      // Preserve workspace
+      if (!userData.workspaceId) {
+        userData.workspaceId = `ws_${uid.substring(0, 8)}_${Date.now().toString(36)}`;
+      }
+      if (!userData.workspace || typeof userData.workspace !== "object") {
+        userData.workspace = {
+          id: userData.workspaceId,
+          name: userData.companyName ? `${userData.companyName} Workspace` : "Organization Workspace",
+          ownerId: canonicalRole === "CEO" ? uid : `owner_${userData.workspaceId}`,
+          createdAt: userData.createdAt || nowIso,
+          memberCount: 1
+        };
+      }
+
+      // Check email verification from multiple legacy flags or Auth token
       const isEmailVer = Boolean(
         userData.isEmailVerified === true ||
         userData.emailVerified === true ||
-        userData.email_verified === true
+        userData.email_verified === true ||
+        auth.currentUser?.emailVerified === true
       );
       if (isEmailVer) {
         userData.isEmailVerified = true;
         userData.email_verified = true;
         userData.emailVerified = true;
       }
-      
+
+      const breakdown = computeUserVerificationBreakdown(userData);
       const isKycVerified = breakdown.kycStatus === "VERIFIED";
       userData.isVerified = isKycVerified;
       userData.kycStatus = breakdown.kycStatus;
@@ -618,264 +814,57 @@ export async function loginFirebaseUser(email: string, pass: string, attemptId?:
       setLocalItem(`user_${uid}`, userData);
       return userData;
     }
-  }
 
-  // 3. Resilient Authoritative Server-backed Login (resolves rules latency, missing docs, or client SDK blocks)
-  try {
-    const url = getAuthApiUrl("/api/auth/login");
-    const srvRes = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email: normalizedEmail, password: pass })
-    });
-    
-    const srvData = await safeJsonResponse(srvRes);
+    // If Firebase Auth succeeded but no Firestore doc was found anywhere:
+    // Synthesize a safe initial profile for this authentic user instead of rejecting
+    const isEmailVer = Boolean(auth.currentUser?.emailVerified);
+    const isAdmin = Boolean(
+      auth.currentUser?.email &&
+      ADMIN_EMAILS.includes(auth.currentUser.email.toLowerCase().trim())
+    );
+    const defaultRole: UserRole = isAdmin ? "Admin" : "CEO";
+    const wsId = `ws_${uid.substring(0, 8)}_${Date.now().toString(36)}`;
+    const nowIso = new Date().toISOString();
 
-    if (srvRes.ok && srvData && (srvData.user || srvData.id)) {
-      const authenticatedUser: User = srvData.user || srvData;
-      const serverBreakdown = computeUserVerificationBreakdown(authenticatedUser);
-      const isServerKycVerified = serverBreakdown.kycStatus === "VERIFIED";
-      authenticatedUser.isVerified = isServerKycVerified;
-      authenticatedUser.kycStatus = serverBreakdown.kycStatus;
-      authenticatedUser.documentVerificationStatus = serverBreakdown.documentStatus;
-      authenticatedUser.verification_status = isServerKycVerified ? "verified" : (serverBreakdown.kycStatus === "UNDER_REVIEW" ? "pending" : (serverBreakdown.kycStatus === "REJECTED" ? "rejected" : "unverified"));
-      authenticatedUser.verification_required = !isServerKycVerified;
-
-      if (isUserAdmin(authenticatedUser)) {
-        authenticatedUser.isVerified = true;
-        authenticatedUser.kycStatus = "VERIFIED";
-        authenticatedUser.documentVerificationStatus = "APPROVED";
-        authenticatedUser.isEmailVerified = true;
-        authenticatedUser.email_verified = true;
-        authenticatedUser.emailVerified = true;
-        authenticatedUser.verification_required = false;
-        authenticatedUser.verification_status = "verified";
-      }
-      logLoginTrace("LOGIN_SERVER_RESULT", {
-        attemptId: currentAttemptId,
-        email: normalizedEmail,
-        serverHttpStatus: srvRes.status,
-        success: true
-      });
-
-      // Synchronize client Firebase Auth session with custom token if not authenticated
-      if (srvData.customToken && !auth.currentUser) {
-        try {
-          await signInWithCustomToken(auth, srvData.customToken);
-        } catch (ctErr) {
-          console.warn("Notice: signInWithCustomToken sync notice:", ctErr);
-        }
-      }
-
-      setLocalItem(`user_${authenticatedUser.id}`, authenticatedUser);
-      return authenticatedUser;
-    }
-
-    // Server error responses classified deterministically
-    const serverStatus = srvRes.status;
-    const serverCode = srvData?.code || srvData?.error || "";
-    logLoginTrace("LOGIN_SERVER_RESULT", {
-      attemptId: currentAttemptId,
+    const synthesizedUser: User = {
+      id: uid,
       email: normalizedEmail,
-      serverHttpStatus: serverStatus,
-      serverErrorCode: serverCode,
-      success: false
-    });
+      companyName: "Personal Account",
+      ownerName: normalizedEmail.split("@")[0] || "User",
+      role: defaultRole,
+      workspaceId: wsId,
+      workspace: {
+        id: wsId,
+        name: "Personal Workspace",
+        ownerId: uid,
+        createdAt: nowIso,
+        memberCount: 1
+      },
+      subscriptionStatus: "Active",
+      userPreferences: { ...DEFAULT_USER_PREFERENCES },
+      createdAt: nowIso,
+      lastActiveAt: nowIso,
+      lastLoginAt: nowIso,
+      isVerified: isAdmin,
+      isEmailVerified: isEmailVer,
+      email_verified: isEmailVer,
+      emailVerified: isEmailVer,
+      accountStatus: isAdmin ? "APPROVED" : (isEmailVer ? "APPROVED" : "PENDING_EMAIL_VERIFICATION"),
+      documentVerificationStatus: isAdmin ? "APPROVED" : "NOT_SUBMITTED",
+      verification_required: !isAdmin && !isEmailVer,
+      verification_status: isAdmin ? "verified" : (isEmailVer ? "verified" : "unverified")
+    };
 
-    if (serverCode === "SELF_RESTORE_AVAILABLE" || srvData?.error === "SELF_RESTORE_AVAILABLE") {
-      throw new LoginError("LOGIN_SELF_DELETED", srvData?.message || "Self deleted account found", {
-        originalCode: "SELF_RESTORE_AVAILABLE",
-        email: normalizedEmail,
-        daysRemaining: srvData?.daysRemaining ?? 31,
-        restoreUntil: srvData?.restoreUntil,
-        statusCode: 403,
-        attemptId: currentAttemptId
-      });
-    }
+    try {
+      await setDoc(userDocRef, synthesizedUser);
+    } catch (e) {}
 
-    if (serverStatus === 429 || serverCode === "TOO_MANY_REQUESTS" || serverCode === "auth/too-many-requests") {
-      throw new LoginError("LOGIN_TOO_MANY_REQUESTS", "Too many requests", {
-        originalCode: serverCode || "TOO_MANY_REQUESTS",
-        statusCode: 429,
-        attemptId: currentAttemptId
-      });
-    }
-
-    if (
-      serverStatus === 403 ||
-      serverCode === "auth/user-disabled" ||
-      serverCode === "USER_DISABLED" ||
-      serverCode === "ADMIN_DELETED_BLOCKED"
-    ) {
-      try {
-        const resolution = await resolveAccountState(normalizedEmail);
-        if (resolution && resolution.accountState && resolution.accountState.startsWith("DELETED_ACCOUNT")) {
-          throw new LoginError("LOGIN_SELF_DELETED", resolution.userFriendlyMessage || "Account deleted, restoration available", {
-            originalCode: "SELF_RESTORE_AVAILABLE",
-            email: normalizedEmail,
-            daysRemaining: resolution.daysRemaining ?? 31,
-            restoreUntil: resolution.restoreUntil,
-            hasRecoveryRequest: resolution.hasRecoveryRequest,
-            recoveryStatus: resolution.recoveryStatus,
-            recoveryRequestId: resolution.recoveryRequestId,
-            accountState: resolution.accountState,
-            initialTab: resolution.hasRecoveryRequest ? "status" : "request",
-            isExpired: resolution.isExpired,
-            statusCode: 403,
-            attemptId: currentAttemptId
-          });
-        }
-      } catch (lcErr) {
-        if (lcErr instanceof LoginError) throw lcErr;
-      }
-      throw new LoginError("LOGIN_USER_DISABLED", srvData?.message || "User disabled", {
-        originalCode: serverCode || "auth/user-disabled",
-        email: normalizedEmail,
-        statusCode: 403,
-        attemptId: currentAttemptId
-      });
-    }
-
-    if (serverCode === "auth/user-not-found" || serverCode === "EMAIL_NOT_FOUND" || serverCode === "USER_NOT_FOUND") {
-      try {
-        const resolution = await resolveAccountState(normalizedEmail);
-        if (resolution && resolution.accountState && resolution.accountState.startsWith("DELETED_ACCOUNT")) {
-          throw new LoginError("LOGIN_SELF_DELETED", resolution.userFriendlyMessage || "Account deleted, restoration available", {
-            originalCode: "SELF_RESTORE_AVAILABLE",
-            email: normalizedEmail,
-            daysRemaining: resolution.daysRemaining ?? 31,
-            restoreUntil: resolution.restoreUntil,
-            hasRecoveryRequest: resolution.hasRecoveryRequest,
-            recoveryStatus: resolution.recoveryStatus,
-            recoveryRequestId: resolution.recoveryRequestId,
-            accountState: resolution.accountState,
-            initialTab: resolution.hasRecoveryRequest ? "status" : "request",
-            isExpired: resolution.isExpired,
-            statusCode: 403,
-            attemptId: currentAttemptId
-          });
-        }
-      } catch (lcErr) {
-        if (lcErr instanceof LoginError) throw lcErr;
-      }
-      throw new LoginError("LOGIN_USER_NOT_FOUND", srvData?.message || "User not found", {
-        originalCode: serverCode,
-        statusCode: 401,
-        attemptId: currentAttemptId
-      });
-    }
-
-    if (
-      serverStatus === 401 ||
-      serverCode === "auth/invalid-credential" ||
-      serverCode === "INVALID_CREDENTIALS"
-    ) {
-      try {
-        const resolution = await resolveAccountState(normalizedEmail);
-        if (resolution && resolution.accountState && resolution.accountState.startsWith("DELETED_ACCOUNT")) {
-          throw new LoginError("LOGIN_SELF_DELETED", resolution.userFriendlyMessage || "Account deleted, restoration available", {
-            originalCode: "SELF_RESTORE_AVAILABLE",
-            email: normalizedEmail,
-            daysRemaining: resolution.daysRemaining ?? 31,
-            restoreUntil: resolution.restoreUntil,
-            hasRecoveryRequest: resolution.hasRecoveryRequest,
-            recoveryStatus: resolution.recoveryStatus,
-            recoveryRequestId: resolution.recoveryRequestId,
-            accountState: resolution.accountState,
-            initialTab: resolution.hasRecoveryRequest ? "status" : "request",
-            isExpired: resolution.isExpired,
-            statusCode: 403,
-            attemptId: currentAttemptId
-          });
-        }
-      } catch (lcErr) {
-        if (lcErr instanceof LoginError) throw lcErr;
-      }
-      throw new LoginError("LOGIN_INVALID_CREDENTIALS", "Invalid credentials", {
-        originalCode: serverCode || "auth/invalid-credential",
-        statusCode: 401,
-        attemptId: currentAttemptId
-      });
-    }
-
-    if (serverStatus >= 500) {
-      // If client already established invalid credentials, keep invalid credentials
-      if (
-        clientAuthError?.code === "auth/invalid-credential" ||
-        clientAuthError?.code === "auth/invalid-login-credentials" ||
-        clientAuthError?.code === "auth/wrong-password"
-      ) {
-        throw new LoginError("LOGIN_INVALID_CREDENTIALS", "Invalid credentials", {
-          originalCode: clientAuthError.code,
-          attemptId: currentAttemptId
-        });
-      }
-      throw new LoginError("LOGIN_SERVER_ERROR", "Server error", {
-        originalCode: serverCode || "SERVER_ERROR",
-        statusCode: serverStatus,
-        attemptId: currentAttemptId
-      });
-    }
-
-    const norm = normalizeLoginError({
-      firebaseError: clientAuthError,
-      serverResponse: srvData,
-      httpStatus: serverStatus
-    });
-    throw new LoginError(norm, "Authentication failed", {
-      originalCode: serverCode || (clientAuthError ? clientAuthError.code : undefined),
-      statusCode: serverStatus,
-      attemptId: currentAttemptId
-    });
-  } catch (srvErr: any) {
-    if (srvErr instanceof LoginError) {
-      throw srvErr;
-    }
-
-    // Fetch threw a network error
-    if (isNetworkException(srvErr)) {
-      if (
-        clientAuthError?.code === "auth/invalid-credential" ||
-        clientAuthError?.code === "auth/invalid-login-credentials" ||
-        clientAuthError?.code === "auth/wrong-password"
-      ) {
-        throw new LoginError("LOGIN_INVALID_CREDENTIALS", "Invalid credentials", {
-          originalCode: clientAuthError.code,
-          attemptId: currentAttemptId
-        });
-      }
-      throw new LoginError("LOGIN_NETWORK_ERROR", "Network connection failed", {
-        originalCode: "NETWORK_ERROR",
-        attemptId: currentAttemptId
-      });
-    }
-
-    // If client had a known error
-    if (clientAuthError) {
-      const norm = normalizeLoginError(clientAuthError);
-      throw new LoginError(norm, clientAuthError.message, {
-        originalCode: clientAuthError.code,
-        attemptId: currentAttemptId
-      });
-    }
-
-    const norm = normalizeLoginError(srvErr);
-    throw new LoginError(norm, srvErr?.message || "Login failed", {
-      attemptId: currentAttemptId
-    });
+    setLocalItem(`user_${uid}`, synthesizedUser);
+    return synthesizedUser;
   }
 
-  // 4. Final safety guarantee
-  if (clientAuthError) {
-    const norm = normalizeLoginError(clientAuthError);
-    throw new LoginError(norm, clientAuthError.message, {
-      originalCode: clientAuthError.code,
-      attemptId: currentAttemptId
-    });
-  }
-
-  throw new LoginError("LOGIN_INVALID_CREDENTIALS", "Invalid credentials", {
-    originalCode: "auth/invalid-credential",
+  throw new LoginError("LOGIN_UNKNOWN", formatLoginErrorMessage("LOGIN_UNKNOWN", "ar"), {
+    email: normalizedEmail,
     attemptId: currentAttemptId
   });
 }

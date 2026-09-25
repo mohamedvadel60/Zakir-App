@@ -449,6 +449,23 @@ export const requireModulePermission = (moduleKey: "fileVault" | "memoryVault" |
       });
     }
 
+    // Strict KYC and Account Approval Gate
+    const canonical = computeCanonicalVerification(profile, false);
+    if (canonical.canonicalStatus !== "approved") {
+      return res.status(403).json({
+        success: false,
+        code: "VERIFICATION_REQUIRED",
+        canonicalStatus: canonical.canonicalStatus,
+        accountStatus: canonical.accountStatus,
+        documentVerificationStatus: canonical.documentVerificationStatus,
+        kycStatus: canonical.kycStatus,
+        documentCount: canonical.documentCount,
+        rejectionReason: canonical.rejectionReason,
+        error: "Account approval required to access workspace resources.",
+        userFriendlyMessage: canonical.userFriendlyMessage
+      });
+    }
+
     const role = (profile.role || "").toUpperCase();
     if (role === "CEO" || role === "ADMIN") {
       return next();
@@ -882,14 +899,22 @@ export const requireEntitlement = async (
   try {
     const entitlement = await checkUserEntitlementServer(uid, email);
     if (!entitlement.allowed) {
+      const isVerRequired = (
+        entitlement.reason === "PENDING_REVIEW" ||
+        entitlement.reason === "REJECTED" ||
+        entitlement.reason === "VERIFICATION_REQUIRED" ||
+        entitlement.reason === "PENDING_DOCUMENT_VERIFICATION" ||
+        entitlement.reason === "PENDING_EMAIL_VERIFICATION" ||
+        entitlement.reason === "NOT_APPROVED"
+      );
       return res.status(403).json({
         success: false,
-        code: entitlement.reason === "TRIAL_EXPIRED" ? "TRIAL_EXPIRED" : "ENTITLEMENT_REQUIRED",
+        code: isVerRequired ? "VERIFICATION_REQUIRED" : (entitlement.reason === "TRIAL_EXPIRED" ? "TRIAL_EXPIRED" : "ENTITLEMENT_REQUIRED"),
         reason: entitlement.reason,
         accountStatus: entitlement.accountStatus,
         trialEndsAt: entitlement.trialEndsAt,
         trialRemainingSeconds: entitlement.trialRemainingSeconds,
-        error: entitlement.userFriendlyMessage || "Access denied: Subscription or active trial required",
+        error: entitlement.userFriendlyMessage || "Access denied: Verification or subscription required",
         userFriendlyMessage: entitlement.userFriendlyMessage
       });
     }

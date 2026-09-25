@@ -7,12 +7,14 @@
     
     <title>Zakir — Organizational Causal Memory & Decision Intelligence</title>
     <meta name="description" content="Zakir is an organizational causal memory and decision intelligence platform that connects decisions, outcomes, risks, and institutional knowledge." />
+    <meta name="application-name" content="Zakir" />
+    <meta name="apple-mobile-web-app-title" content="Zakir" />
     <link rel="canonical" href="https://getzakir.com/" />
     
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon.png" />
     <link rel="icon" href="/favicon.ico" />
-    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
     <link rel="manifest" href="/manifest.json" />
     
     <meta property="og:type" content="website" />
@@ -32,6 +34,7 @@
       "@context": "https://schema.org",
       "@type": "WebSite",
       "name": "Zakir",
+      "alternateName": ["Zakir Platform", "Zakir Causal Memory", "getzakir.com"],
       "url": "https://getzakir.com/"
     }
     </script>
@@ -41,7 +44,7 @@
       "@type": "Organization",
       "name": "Zakir",
       "url": "https://getzakir.com/",
-      "logo": "https://getzakir.com/apple-touch-icon.png"
+      "logo": "https://getzakir.com/icon-512.png"
     }
     </script>
     
@@ -63,15 +66,11 @@
         font-weight: 800;
       }
       @keyframes initRectMotion {
-        0% { opacity: 0.15; transform: scale(0.95); }
-        18% { opacity: 1; transform: scale(1.0); }
-        78% { opacity: 1; transform: scale(1.0); }
-        88% { opacity: 1; transform: scale(1.008); }
-        100% { opacity: 0.15; transform: scale(0.95); }
+        0% { opacity: 0; }
+        100% { opacity: 1; }
       }
       .init-container {
-        animation: initRectMotion 6s cubic-bezier(0.16, 1, 0.3, 1) infinite;
-        transform-origin: center center;
+        animation: initRectMotion 0.8s cubic-bezier(0.22, 1, 0.36, 1) forwards;
       }
       @media (prefers-reduced-motion: reduce) {
         .init-container {
@@ -112,16 +111,13 @@
           try {
             var saved = localStorage.getItem('zakir_theme');
             var splash = document.getElementById('zakir-init-splash');
-            var bgRect = document.getElementById('zakir-init-bg-rect');
             var paths = document.getElementById('zakir-init-paths');
             if (saved === 'light') {
               if (splash) splash.style.backgroundColor = '#F8FAFC';
-              if (bgRect) bgRect.setAttribute('fill', '#1c2c58');
-              if (paths) paths.setAttribute('fill', '#ffffff');
+              if (paths) paths.setAttribute('fill', '#1C2C58');
             } else {
               if (splash) splash.style.backgroundColor = '#0B0F19';
-              if (bgRect) bgRect.setAttribute('fill', '#ffffff');
-              if (paths) paths.setAttribute('fill', '#1c2c58');
+              if (paths) paths.setAttribute('fill', '#FFFFFF');
             }
           } catch(e) {}
         })();

@@ -2157,10 +2157,8 @@ This hosting domain (**${currentDomain}**) has not been authorized in your Fireb
         } catch (lcFallbackErr) {}
       }
 
-      // Normal login errors display generic invalid credentials.
-      const formattedError = lang === "ar" 
-        ? "بيانات الدخول غير صحيحة. يرجى التحقق من البريد الإلكتروني وكلمة المرور."
-        : formatAuthError(err);
+      // Deterministic error formatting across all supported languages (Arabic, French, English)
+      const formattedError = formatAuthError(err);
       logLoginTrace("LOGIN_UI_ERROR_SET", {
         attemptId,
         normalizedErrorCode: normalizedCode,

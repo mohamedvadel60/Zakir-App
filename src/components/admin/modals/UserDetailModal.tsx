@@ -84,6 +84,7 @@ export const UserDetailModal: React.FC<UserDetailModalProps> = ({
   // Document preview state
   const [selectedDocId, setSelectedDocId] = useState<string | null>(null);
   const [selectedDocName, setSelectedDocName] = useState<string>("");
+  const [selectedDocUrl, setSelectedDocUrl] = useState<string | undefined>(undefined);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
 
   // Editable Profile State
@@ -150,6 +151,7 @@ export const UserDetailModal: React.FC<UserDetailModalProps> = ({
     const docId = doc.documentId || doc.id || doc.storageReference || doc.fileName;
     setSelectedDocId(docId);
     setSelectedDocName(doc.fileName || doc.name || "Document");
+    setSelectedDocUrl(doc.fileUrl || doc.url || doc.previewUrl || undefined);
     setIsPreviewOpen(true);
   };
 
@@ -578,15 +580,26 @@ export const UserDetailModal: React.FC<UserDetailModalProps> = ({
                             </span>
                           )}
 
-                          <button
-                            onClick={() => handleOpenDocPreview(doc)}
-                            type="button"
-                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold bg-blue-50 text-blue-600 hover:bg-blue-100 dark:bg-blue-950/40 dark:text-blue-300 dark:hover:bg-blue-900/60 border border-blue-200 dark:border-blue-800 transition-colors cursor-pointer"
-                            title="Preview Document"
-                          >
-                            <Eye className="w-3.5 h-3.5" />
-                            <span>{isAr ? "معاينة" : "Preview"}</span>
-                          </button>
+                          <div className="inline-flex items-center gap-1.5">
+                            <button
+                              onClick={() => handleOpenDocPreview(doc)}
+                              type="button"
+                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold bg-blue-50 text-blue-600 hover:bg-blue-100 dark:bg-blue-950/40 dark:text-blue-300 dark:hover:bg-blue-900/60 border border-blue-200 dark:border-blue-800 transition-colors cursor-pointer"
+                              title={isAr ? "معاينة المستند" : "Preview Document"}
+                            >
+                              <Eye className="w-3.5 h-3.5" />
+                              <span>{isAr ? "معاينة" : "Preview"}</span>
+                            </button>
+                            <button
+                              onClick={() => downloadUserFile(doc)}
+                              type="button"
+                              className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-semibold bg-slate-100 text-slate-700 hover:bg-emerald-50 hover:text-emerald-600 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-emerald-950/40 dark:hover:text-emerald-400 border border-slate-200 dark:border-slate-700 transition-colors cursor-pointer"
+                              title={isAr ? "تنزيل المستند" : "Download Document"}
+                            >
+                              <Download className="w-3.5 h-3.5" />
+                              <span>{isAr ? "تنزيل" : "Download"}</span>
+                            </button>
+                          </div>
                         </div>
                       </div>
                     );
@@ -1049,10 +1062,12 @@ export const UserDetailModal: React.FC<UserDetailModalProps> = ({
       <DocumentPreviewModal
         documentId={selectedDocId}
         fileName={selectedDocName}
+        fileUrl={selectedDocUrl}
         isOpen={isPreviewOpen}
         onClose={() => {
           setIsPreviewOpen(false);
           setSelectedDocId(null);
+          setSelectedDocUrl(undefined);
         }}
         lang={lang === "fr" ? "en" : lang}
       />

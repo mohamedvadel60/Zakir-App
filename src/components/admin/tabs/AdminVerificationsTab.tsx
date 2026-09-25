@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { PendingApprovalRecord } from "../adminTypes.js";
 import { safeFormatDate } from "../../../lib/dateUtils.js";
+import { downloadUserFile } from "../../../lib/fileViewerUtils.js";
 import { DocumentPreviewModal } from "../../DocumentPreviewModal.js";
 
 interface AdminVerificationsTabProps {
@@ -46,6 +47,7 @@ export const AdminVerificationsTab: React.FC<AdminVerificationsTabProps> = ({
 
   const [selectedDocId, setSelectedDocId] = useState<string | null>(null);
   const [selectedDocName, setSelectedDocName] = useState<string>("");
+  const [selectedDocUrl, setSelectedDocUrl] = useState<string | undefined>(undefined);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
 
   // Action dialog state
@@ -83,6 +85,7 @@ export const AdminVerificationsTab: React.FC<AdminVerificationsTabProps> = ({
     const docId = doc.documentId || doc.id || doc.storageReference || doc.fileName;
     setSelectedDocId(docId);
     setSelectedDocName(doc.fileName || doc.name || "Verification Document");
+    setSelectedDocUrl(doc.fileUrl || doc.url || doc.previewUrl || undefined);
     setIsPreviewOpen(true);
   };
 
@@ -175,16 +178,29 @@ export const AdminVerificationsTab: React.FC<AdminVerificationsTabProps> = ({
                           {t.submittedDocs}:
                         </span>
                         {docs.map((doc, idx) => (
-                          <button
+                          <div
                             key={idx}
-                            onClick={() => handleOpenDocPreview(doc)}
-                            type="button"
-                            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-medium bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-blue-50 hover:text-blue-600 dark:hover:bg-blue-950/40 dark:hover:text-blue-400 border border-slate-200 dark:border-slate-700 transition-colors cursor-pointer"
+                            className="inline-flex items-center rounded-lg bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 overflow-hidden"
                           >
-                            <FileText className="w-3 h-3 text-blue-500" />
-                            <span className="truncate max-w-[150px]">{doc.fileName || doc.name || `Document #${idx + 1}`}</span>
-                            <Eye className="w-3 h-3 ms-1 opacity-70" />
-                          </button>
+                            <button
+                              onClick={() => handleOpenDocPreview(doc)}
+                              type="button"
+                              className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-medium text-slate-700 dark:text-slate-300 hover:bg-blue-50 hover:text-blue-600 dark:hover:bg-blue-950/40 dark:hover:text-blue-400 transition-colors cursor-pointer"
+                              title={isAr ? "معاينة المستند" : "Preview Document"}
+                            >
+                              <FileText className="w-3 h-3 text-blue-500" />
+                              <span className="truncate max-w-[130px]">{doc.fileName || doc.name || `Document #${idx + 1}`}</span>
+                              <Eye className="w-3 h-3 ms-0.5 opacity-70" />
+                            </button>
+                            <button
+                              onClick={() => downloadUserFile(doc)}
+                              type="button"
+                              className="px-1.5 py-1 border-s border-slate-200 dark:border-slate-700 text-slate-400 hover:text-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 transition-colors cursor-pointer"
+                              title={isAr ? "تنزيل المستند الأصلي" : "Download Document"}
+                            >
+                              <Download className="w-3 h-3" />
+                            </button>
+                          </div>
                         ))}
                       </div>
                     ) : (
@@ -352,10 +368,12 @@ export const AdminVerificationsTab: React.FC<AdminVerificationsTabProps> = ({
       <DocumentPreviewModal
         documentId={selectedDocId}
         fileName={selectedDocName}
+        fileUrl={selectedDocUrl}
         isOpen={isPreviewOpen}
         onClose={() => {
           setIsPreviewOpen(false);
           setSelectedDocId(null);
+          setSelectedDocUrl(undefined);
         }}
         lang={lang === "fr" ? "en" : lang}
       />

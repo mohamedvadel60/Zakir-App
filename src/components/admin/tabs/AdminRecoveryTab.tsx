@@ -8,11 +8,13 @@ import {
   FileText, 
   Eye, 
   User, 
-  RefreshCw 
+  RefreshCw,
+  Download
 } from "lucide-react";
 import { RecoveryRequestRecord } from "../adminTypes.js";
 import { safeFormatDate } from "../../../lib/dateUtils.js";
 import { DocumentPreviewModal } from "../../DocumentPreviewModal.js";
+import { downloadUserFile } from "../../../lib/fileViewerUtils.js";
 
 interface AdminRecoveryTabProps {
   recoveryRequests: RecoveryRequestRecord[];
@@ -145,11 +147,26 @@ export const AdminRecoveryTab: React.FC<AdminRecoveryTabProps> = ({
                             setIsPreviewOpen(true);
                           }}
                           type="button"
-                          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-medium bg-purple-50 text-purple-700 hover:bg-purple-100 dark:bg-purple-950/40 dark:text-purple-300 transition-colors"
+                          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-medium bg-purple-50 text-purple-700 hover:bg-purple-100 dark:bg-purple-950/40 dark:text-purple-300 transition-colors cursor-pointer"
                         >
                           <FileText className="w-3 h-3" />
                           <span>{t.previewDoc}</span>
                           <Eye className="w-3 h-3 ms-1" />
+                        </button>
+                        <button
+                          onClick={() => {
+                            downloadUserFile({
+                              documentId: req.documentId || req.identityDocument?.id || "doc",
+                              fileName: req.documentName || "Identity_Document.pdf",
+                              mimeType: "application/pdf"
+                            });
+                          }}
+                          type="button"
+                          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-medium bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 transition-colors cursor-pointer"
+                          title={isAr ? "تنزيل الوثيقة" : "Download Document"}
+                        >
+                          <Download className="w-3 h-3" />
+                          <span>{isAr ? "تنزيل" : "Download"}</span>
                         </button>
                       </div>
                     )}

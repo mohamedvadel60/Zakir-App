@@ -6,21 +6,21 @@ interface ZakirLoadingScreenProps {
 }
 
 /**
- * ZAKIR Professional Brand Motion Loading Screen
+ * ZAKIR Professional Pure Fade Motion Loading Screen
  *
  * Sequence (2.8 seconds total duration):
- * 1. 0 - 900ms:    Slow, smooth Zoom In (scale 0.88 -> 1.05)
- * 2. 900ms - 1700ms: Slow, smooth Zoom Out (scale 1.05 -> 1.00 natural size)
- * 3. 1700ms - 2100ms: Brief stable pause at natural size
- * 4. 2100ms - 2800ms: Smooth full-screen Fade Out (opacity 1 -> 0)
+ * 1. 0 - 20ms:     Initial State (Opacity = 0)
+ * 2. 20ms - 900ms:  Smooth, slow Fade In (Opacity 0 -> 1 over 880ms)
+ * 3. 900ms - 1900ms: Hold visible in center (Opacity = 1 for 1000ms)
+ * 4. 1900ms - 2800ms: Smooth, slow Fade Out (Opacity 1 -> 0 over 900ms)
  * 5. 2800ms:          Complete -> Unmount -> Direct page transition
  *
- * GUARANTEES:
- * - ONLY three effects used: Zoom In -> Zoom Out -> Fade
- * - ZERO Draw / Stroke animation
- * - ZERO text / taglines / copyright / spinners
- * - Small/medium responsive logo size (max 140px desktop, max 110px mobile)
- * - Clean light (#F8FAFC) or dark (#0B0F19) solid background canvas
+ * STRICT DISCIPLINE & RULES ENFORCED:
+ * - ONLY Fade In and Fade Out allowed
+ * - ZERO Zoom In / Zoom Out / Scale changes
+ * - ZERO Draw / Stroke / Rotation / Bounce / Slide / Blur / Glow / Particles
+ * - ZERO text / taglines / copyright / spinners / footers / progress bars
+ * - Small/medium centered logo preserving exact aspect ratio
  * - Smooth cubic-bezier(0.22, 1, 0.36, 1) easing
  */
 export const ZakirLoadingScreen: React.FC<ZakirLoadingScreenProps> = ({
@@ -37,9 +37,9 @@ export const ZakirLoadingScreen: React.FC<ZakirLoadingScreenProps> = ({
     return "dark";
   });
 
-  // Stages: "init" | "zoomin" | "zoomout" | "hold" | "fadeout" | "hidden"
+  // Stages: "init" | "fadein" | "hold" | "fadeout" | "hidden"
   const [stage, setStage] = useState<
-    "init" | "zoomin" | "zoomout" | "hold" | "fadeout" | "hidden"
+    "init" | "fadein" | "hold" | "fadeout" | "hidden"
   >("init");
 
   const isLight = activeTheme === "light";
@@ -63,19 +63,17 @@ export const ZakirLoadingScreen: React.FC<ZakirLoadingScreenProps> = ({
       };
     }
 
-    // Precise 2.8s Timeline
-    const tZoomIn = setTimeout(() => setStage("zoomin"), 20);
-    const tZoomOut = setTimeout(() => setStage("zoomout"), 900);
-    const tHold = setTimeout(() => setStage("hold"), 1700);
-    const tFadeOut = setTimeout(() => setStage("fadeout"), 2100);
+    // Precise 2.8s Pure Fade Timeline
+    const tFadeIn = setTimeout(() => setStage("fadein"), 20);
+    const tHold = setTimeout(() => setStage("hold"), 900);
+    const tFadeOut = setTimeout(() => setStage("fadeout"), 1900);
     const tHidden = setTimeout(() => {
       setStage("hidden");
       onComplete?.();
     }, 2800);
 
     return () => {
-      clearTimeout(tZoomIn);
-      clearTimeout(tZoomOut);
+      clearTimeout(tFadeIn);
       clearTimeout(tHold);
       clearTimeout(tFadeOut);
       clearTimeout(tHidden);
@@ -98,44 +96,28 @@ export const ZakirLoadingScreen: React.FC<ZakirLoadingScreenProps> = ({
     p5: "M730.61,710.92l-.61,63.32c-.18,1.66-1.51,16.39,9.65,26.69,8.53,7.87,21.12,10.17,32.51,6.07,1.53-.55,2.98-1.29,4.41-2.05,119.91-63.73,238.88-125.06,359.77-191.26,9.25-5.07,29.79-21.27,44.89-54.06,11.49-24.94,14.48-48.26,15.27-61.09.4-6.48-.79-72.83-.79-72.83.52-9.04-4.44-17.31-12.07-20.51-6.75-2.84-14.8-1.38-20.72,3.5-7.47,6.16-15.25,11.96-23.88,16.35-108.82,55.31-218.13,109.42-326.98,164.68-6.15,3.12-12.18,6.5-17.97,10.25-12.15,7.87-28.07,20.18-42.39,41.7-.13.2-.26.39-.39.59-13.44,20.36-20.48,44.27-20.72,68.66Z",
   };
 
-  const isFadeOut = stage === "fadeout";
-
-  // Calculating transform scale for Zoom In -> Zoom Out
-  let transformScale = "scale(0.88)";
-  let transitionStyle = "transform 880ms cubic-bezier(0.22, 1, 0.36, 1)";
-
-  if (stage === "zoomin") {
-    transformScale = "scale(1.05)";
-    transitionStyle = "transform 880ms cubic-bezier(0.22, 1, 0.36, 1)";
-  } else if (stage === "zoomout") {
-    transformScale = "scale(1.00)";
-    transitionStyle = "transform 780ms cubic-bezier(0.22, 1, 0.36, 1)";
-  } else if (stage === "hold" || stage === "fadeout") {
-    transformScale = "scale(1.00)";
-    transitionStyle = "none";
-  }
+  // Pure Fade opacity & transition:
+  // stage === "init" -> opacity 0
+  // stage === "fadein" -> opacity 1 (transition 880ms)
+  // stage === "hold" -> opacity 1
+  // stage === "fadeout" -> opacity 0 (transition 900ms)
+  const isVisible = stage === "fadein" || stage === "hold";
+  const transitionDuration = stage === "fadeout" ? "900ms" : "880ms";
 
   return (
     <div
       id="zakir-brand-loader"
       className={`fixed inset-0 z-[999999] flex items-center justify-center select-none overflow-hidden ${bgClass}`}
       style={{
-        transition: "opacity 650ms cubic-bezier(0.22, 1, 0.36, 1)",
-        opacity: isFadeOut ? 0 : 1,
-        pointerEvents: isFadeOut ? "none" : "auto",
+        transition: `opacity ${transitionDuration} cubic-bezier(0.22, 1, 0.36, 1)`,
+        opacity: isVisible ? 1 : 0,
+        pointerEvents: stage === "fadeout" ? "none" : "auto",
       }}
       role="status"
       aria-label="Zakir"
     >
-      {/* Perfectly Centered Zakir Brand Logo (Medium/Small Responsive Size) */}
-      <div
-        className="relative flex items-center justify-center p-2"
-        style={{
-          transition: transitionStyle,
-          transform: transformScale,
-          willChange: "transform",
-        }}
-      >
+      {/* Centered Zakir Logo (Small/Medium Responsive Size, Pure Fixed Geometry) */}
+      <div className="relative flex items-center justify-center p-2">
         <svg
           viewBox="474.23 0 728.85 810"
           xmlns="http://www.w3.org/2000/svg"

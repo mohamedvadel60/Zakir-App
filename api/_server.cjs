@@ -1117,6 +1117,261 @@ var init_firebase_admin = __esm({
   }
 });
 
+// src/lib/unifiedVerification.ts
+function normalizeUserDocuments(userData, extraDocs) {
+  if (!userData) {
+    return {
+      documents: [],
+      documentCount: 0,
+      uploadedDocuments: [],
+      accessibleDocuments: [],
+      accessibleCount: 0,
+      missingDocuments: [],
+      missingCount: 0,
+      personalDocuments: [],
+      companyDocuments: [],
+      requiredDocuments: {
+        personalRequired: true,
+        personalSatisfied: false,
+        companyRequired: false,
+        companySatisfied: true,
+        isFullySatisfied: false
+      }
+    };
+  }
+  const full = userData.fullUser || userData;
+  const userId = full.id || full.uid || userData.id || userData.uid || "";
+  const userEmail = (full.email || userData.email || "").toLowerCase().trim();
+  const rawDocs = [
+    ...Array.isArray(full.verificationDocuments) ? full.verificationDocuments : [],
+    ...Array.isArray(full.verificationInfo?.documents) ? full.verificationInfo.documents : [],
+    ...Array.isArray(full.documents) ? full.documents : [],
+    ...Array.isArray(full.files) ? full.files.filter((f) => f && (f.category === "Verification" || f.category === "Identity" || f.isVerificationDoc)) : [],
+    ...Array.isArray(userData.files) ? userData.files.filter((f) => f && (f.category === "Verification" || f.category === "Identity" || f.isVerificationDoc)) : [],
+    ...Array.isArray(userData.verificationDocuments) ? userData.verificationDocuments : [],
+    ...Array.isArray(userData.verificationInfo?.documents) ? userData.verificationInfo.documents : [],
+    ...Array.isArray(userData.documents) ? userData.documents : [],
+    ...Array.isArray(extraDocs) ? extraDocs : []
+  ];
+  if (full.identityDocument) {
+    rawDocs.push(
+      typeof full.identityDocument === "string" ? { documentId: full.identityDocument, fileName: "National_ID_Card.pdf", category: "personal", docType: "national_id" } : { category: "personal", docType: "national_id", ...full.identityDocument }
+    );
+  }
+  if (full.commercialRegisterDoc) {
+    rawDocs.push(
+      typeof full.commercialRegisterDoc === "string" ? { documentId: full.commercialRegisterDoc, fileName: "Commercial_Register.pdf", category: "company", docType: "commercial_register" } : { category: "company", docType: "commercial_register", ...full.commercialRegisterDoc }
+    );
+  }
+  if (full.licenseDoc) {
+    rawDocs.push(
+      typeof full.licenseDoc === "string" ? { documentId: full.licenseDoc, fileName: "Trade_License.pdf", category: "company", docType: "commercial_register" } : { category: "company", docType: "commercial_register", ...full.licenseDoc }
+    );
+  }
+  if (full.taxCardDoc) {
+    rawDocs.push(
+      typeof full.taxCardDoc === "string" ? { documentId: full.taxCardDoc, fileName: "Tax_Certificate.pdf", category: "company", docType: "tax_card" } : { category: "company", docType: "tax_card", ...full.taxCardDoc }
+    );
+  }
+  const seenIds = /* @__PURE__ */ new Set();
+  const normalizedDocs = [];
+  for (const doc of rawDocs) {
+    if (!doc || doc.deleted === true || doc.isDeleted === true) continue;
+    const rawId = doc.documentId || doc.id || doc.storageReference || doc.storagePath || doc.fileName || doc.name;
+    const documentId = String(rawId || `doc_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`);
+    const cleanKey = `${documentId}_${doc.fileName || doc.name || ""}`;
+    if (seenIds.has(cleanKey)) continue;
+    seenIds.add(cleanKey);
+    const fileName = doc.fileName || doc.name || "Verification_Document";
+    const category = doc.category === "company" ? "company" : doc.category === "personal" ? "personal" : doc.category === "other" ? "other" : "personal";
+    const rawStatus = String(doc.status || doc.verificationStatus || full.documentVerificationStatus || "PENDING").toUpperCase();
+    const status = rawStatus === "APPROVED" || rawStatus === "VERIFIED" ? "APPROVED" : rawStatus === "REJECTED" ? "REJECTED" : rawStatus === "UNDER_REVIEW" ? "UNDER_REVIEW" : "PENDING";
+    const isExplicitlyMissing = doc.isMissing === true;
+    const isAccessible = !isExplicitlyMissing;
+    const previewUrl = doc.previewUrl || doc.fileUrl || doc.downloadUrl || `/api/auth/verification-document/${encodeURIComponent(documentId)}`;
+    const downloadUrl = doc.downloadUrl || doc.fileUrl || `/api/auth/verification-document/${encodeURIComponent(documentId)}?download=true`;
+    const uDoc = {
+      documentId,
+      id: documentId,
+      fileName,
+      name: fileName,
+      mimeType: doc.mimeType || "application/pdf",
+      size: typeof doc.size === "number" ? doc.size : typeof doc.fileSize === "number" ? doc.fileSize : 0,
+      category,
+      docType: doc.docType || (category === "company" ? "commercial_register" : "national_id"),
+      storageReference: doc.storageReference || doc.storagePath,
+      storagePath: doc.storagePath || doc.storageReference,
+      fileUrl: doc.fileUrl,
+      downloadUrl,
+      previewUrl,
+      uploadedAt: doc.uploadedAt || doc.uploadDate || doc.createdAt || (/* @__PURE__ */ new Date()).toISOString(),
+      status,
+      verificationStatus: status,
+      isAccessible,
+      isMissing: isExplicitlyMissing,
+      userId: doc.userId || userId,
+      userEmail: doc.userEmail || userEmail,
+      workspaceId: doc.workspaceId || full.workspaceId,
+      rejectionReason: doc.rejectionReason,
+      reviewedAt: doc.reviewedAt,
+      reviewedBy: doc.reviewedBy
+    };
+    normalizedDocs.push(uDoc);
+  }
+  const documentCount = normalizedDocs.length;
+  const accessibleDocuments = normalizedDocs.filter((d) => d.isAccessible);
+  const missingDocuments = normalizedDocs.filter((d) => d.isMissing);
+  const personalDocuments = normalizedDocs.filter((d) => d.category === "personal");
+  const companyDocuments = normalizedDocs.filter((d) => d.category === "company");
+  const hasCompany = Boolean(
+    full.hasCompany || full.institutionalProfile && (full.institutionalProfile.hasCompany || full.institutionalProfile.companyName)
+  );
+  const personalRequired = true;
+  const personalSatisfied = personalDocuments.length > 0;
+  const companyRequired = hasCompany;
+  const companySatisfied = !hasCompany || companyDocuments.length > 0;
+  const isFullySatisfied = personalSatisfied && companySatisfied;
+  return {
+    documents: normalizedDocs,
+    documentCount,
+    uploadedDocuments: normalizedDocs,
+    accessibleDocuments,
+    accessibleCount: accessibleDocuments.length,
+    missingDocuments,
+    missingCount: missingDocuments.length,
+    personalDocuments,
+    companyDocuments,
+    requiredDocuments: {
+      personalRequired,
+      personalSatisfied,
+      companyRequired,
+      companySatisfied,
+      isFullySatisfied
+    }
+  };
+}
+function computeCanonicalVerification(userData, isSysAdmin = false, extraDocs) {
+  if (!userData) {
+    return {
+      canonicalStatus: "not_started",
+      accountStatus: "VERIFICATION_REQUIRED",
+      documentVerificationStatus: "NOT_SUBMITTED",
+      kycStatus: "NOT_VERIFIED",
+      uiState: "NO_REQUEST",
+      isEmailVerified: false,
+      isFullyApproved: false,
+      hasExplicitOverride: false,
+      documentCount: 0,
+      documents: [],
+      canApproveKyc: false,
+      canReviewDocuments: false,
+      canApproveAccount: false,
+      userFriendlyMessage: "\u064A\u0631\u062C\u0649 \u062A\u0633\u062C\u064A\u0644 \u0627\u0644\u062F\u062E\u0648\u0644 \u0648\u0625\u0643\u0645\u0627\u0644 \u0625\u062C\u0631\u0627\u0621\u0627\u062A \u0627\u0639\u062A\u0645\u0627\u062F \u0627\u0644\u062D\u0633\u0627\u0628."
+    };
+  }
+  const full = userData.fullUser || userData;
+  const docsResult = normalizeUserDocuments(userData, extraDocs);
+  const documentCount = docsResult.documentCount;
+  const documents = docsResult.documents;
+  const isEmailVer = Boolean(
+    full.emailVerified === true || full.isEmailVerified === true || full.email_verified === true || userData.emailVerified === true || userData.isEmailVerified === true
+  );
+  const hasExplicitOverride = Boolean(
+    full.adminVerificationOverride === true || userData.adminVerificationOverride === true
+  );
+  if (isSysAdmin) {
+    return {
+      canonicalStatus: "approved",
+      accountStatus: "APPROVED",
+      documentVerificationStatus: "APPROVED",
+      kycStatus: "VERIFIED",
+      uiState: "VERIFIED",
+      isEmailVerified: true,
+      isFullyApproved: true,
+      hasExplicitOverride: true,
+      documentCount,
+      documents,
+      canApproveKyc: false,
+      canReviewDocuments: false,
+      canApproveAccount: false,
+      approvedAt: full.approvedAt || (/* @__PURE__ */ new Date()).toISOString(),
+      approvedBy: full.approvedBy || "system_admin",
+      userFriendlyMessage: "\u062D\u0633\u0627\u0628 \u0625\u062F\u0627\u0631\u064A \u0645\u0639\u062A\u0645\u062F \u0628\u0635\u0644\u0627\u062D\u064A\u0627\u062A \u0643\u0627\u0645\u0644\u0629."
+    };
+  }
+  const rawAccStatus = String(full.accountStatus || userData.accountStatus || "").toUpperCase();
+  const rawDocStatus = String(full.documentVerificationStatus || userData.documentVerificationStatus || full.verificationInfo?.status || "").toUpperCase();
+  const rawReqStatus = String(full.verificationRequestStatus || full.verificationRequest || userData.verificationRequestStatus || userData.verificationRequest || "").toUpperCase();
+  const rejectionReason = full.rejectionReason || userData.rejectionReason || full.verificationInfo?.adminNote || void 0;
+  const hasRejectedDoc = documents.some((d) => d.status === "REJECTED");
+  const isExplicitlyAdminApproved = Boolean(
+    full.approvedBy && full.approvedAt || userData.approvedBy && userData.approvedAt
+  );
+  let canonicalStatus = "not_started";
+  let accountStatus = "VERIFICATION_REQUIRED";
+  let documentVerificationStatus = "NOT_SUBMITTED";
+  let kycStatus = "NOT_VERIFIED";
+  let uiState = "NO_REQUEST";
+  let isFullyApproved = false;
+  let userFriendlyMessage = "";
+  if (rawAccStatus === "REJECTED" || rawDocStatus === "REJECTED" || rawReqStatus === "REJECTED" || hasRejectedDoc) {
+    canonicalStatus = "rejected";
+    accountStatus = "REJECTED";
+    documentVerificationStatus = "REJECTED";
+    kycStatus = "REJECTED";
+    uiState = "REJECTED";
+    userFriendlyMessage = rejectionReason ? `\u062A\u0645 \u0631\u0641\u0636 \u0637\u0644\u0628 \u0627\u0639\u062A\u0645\u0627\u062F \u0627\u0644\u062D\u0633\u0627\u0628: ${rejectionReason}` : "\u062A\u0645 \u0631\u0641\u0636 \u0637\u0644\u0628 \u0627\u0644\u0627\u0639\u062A\u0645\u0627\u062F. \u064A\u0631\u062C\u0649 \u0645\u0631\u0627\u062C\u0639\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u0648\u0625\u0639\u0627\u062F\u0629 \u062A\u0642\u062F\u064A\u0645 \u0627\u0644\u0645\u0633\u062A\u0646\u062F\u0627\u062A \u0627\u0644\u0645\u0637\u0644\u0648\u0628\u0629.";
+  } else if ((rawAccStatus === "APPROVED" || rawAccStatus === "ACTIVE") && (isExplicitlyAdminApproved || hasExplicitOverride)) {
+    canonicalStatus = "approved";
+    accountStatus = "APPROVED";
+    documentVerificationStatus = "APPROVED";
+    kycStatus = "VERIFIED";
+    uiState = "VERIFIED";
+    isFullyApproved = true;
+    userFriendlyMessage = "\u062A\u0645 \u0627\u0639\u062A\u0645\u0627\u062F \u0648\u062A\u0648\u062B\u064A\u0642 \u0627\u0644\u062D\u0633\u0627\u0628 \u0631\u0633\u0645\u064A\u0627\u064B.";
+  } else if (rawAccStatus === "PENDING_ADMIN_REVIEW" || rawAccStatus === "PENDING_APPROVAL" || rawDocStatus === "UNDER_REVIEW" || rawDocStatus === "PENDING_REVIEW" || rawReqStatus === "UNDER_REVIEW" || rawReqStatus === "PENDING" || rawReqStatus === "SUBMITTED" || rawReqStatus === "DOCUMENTS_SUBMITTED" || full.verificationSubmittedAt || full.verificationInfo?.submittedAt || documentCount > 0 && rawAccStatus !== "APPROVED") {
+    canonicalStatus = "pending";
+    accountStatus = "PENDING_ADMIN_REVIEW";
+    documentVerificationStatus = "UNDER_REVIEW";
+    kycStatus = "UNDER_REVIEW";
+    uiState = "PENDING_REVIEW";
+    userFriendlyMessage = "\u0637\u0644\u0628 \u0627\u0639\u062A\u0645\u0627\u062F \u0627\u0644\u062D\u0633\u0627\u0628 \u0642\u064A\u062F \u0627\u0644\u0645\u0631\u0627\u062C\u0639\u0629 \u0648\u0627\u0644\u062A\u062F\u0642\u064A\u0642 \u0627\u0644\u0625\u062F\u0627\u0631\u064A.";
+  } else {
+    canonicalStatus = "not_started";
+    accountStatus = isEmailVer ? "VERIFICATION_REQUIRED" : "PENDING_EMAIL_VERIFICATION";
+    documentVerificationStatus = "NOT_SUBMITTED";
+    kycStatus = "NOT_VERIFIED";
+    uiState = "NO_REQUEST";
+    userFriendlyMessage = isEmailVer ? "\u0627\u0644\u062D\u0633\u0627\u0628 \u063A\u064A\u0631 \u0645\u0639\u062A\u0645\u062F \u0628\u0639\u062F. \u064A\u0631\u062C\u0649 \u0625\u062A\u0645\u0627\u0645 \u062E\u0637\u0648\u0627\u062A \u0627\u0644\u062A\u0648\u062B\u064A\u0642 \u0648\u0631\u0641\u0639 \u0627\u0644\u0645\u0633\u062A\u0646\u062F\u0627\u062A \u0627\u0644\u0631\u0633\u0645\u064A\u0629." : "\u064A\u0631\u062C\u0649 \u062A\u0623\u0643\u064A\u062F \u0627\u0644\u0628\u0631\u064A\u062F \u0627\u0644\u0625\u0644\u0643\u062A\u0631\u0648\u0646\u064A \u0644\u0644\u0628\u062F\u0621 \u0641\u064A \u0625\u062C\u0631\u0627\u0621\u0627\u062A \u0627\u0639\u062A\u0645\u0627\u062F \u0627\u0644\u062D\u0633\u0627\u0628.";
+  }
+  const canApproveKyc = isEmailVer && documentCount > 0 && kycStatus !== "VERIFIED";
+  const canReviewDocuments = documentCount > 0;
+  const canApproveAccount = isEmailVer && documentCount > 0 && canonicalStatus !== "approved";
+  return {
+    canonicalStatus,
+    accountStatus,
+    documentVerificationStatus,
+    kycStatus,
+    uiState,
+    isEmailVerified: isEmailVer,
+    isFullyApproved,
+    hasExplicitOverride,
+    documentCount,
+    documents,
+    rejectionReason,
+    canApproveKyc,
+    canReviewDocuments,
+    canApproveAccount,
+    approvedAt: full.approvedAt,
+    approvedBy: full.approvedBy,
+    userFriendlyMessage
+  };
+}
+var init_unifiedVerification = __esm({
+  "src/lib/unifiedVerification.ts"() {
+  }
+});
+
 // src/middleware/auth.ts
 var auth_exports = {};
 __export(auth_exports, {
@@ -1127,12 +1382,14 @@ __export(auth_exports, {
   checkPasscodeRateLimit: () => checkPasscodeRateLimit,
   checkUserEntitlementServer: () => checkUserEntitlementServer,
   computeStrictVerificationState: () => computeStrictVerificationState,
+  deriveAccountAndVerificationState: () => deriveAccountAndVerificationState,
   generateSecuritySessionToken: () => generateSecuritySessionToken,
   getUserProfileServer: () => getUserProfileServer,
   hashSecurityPasscode: () => hashSecurityPasscode,
   isUserAdminServer: () => isUserAdminServer,
   recordPasscodeFailure: () => recordPasscodeFailure,
   requireAdmin: () => requireAdmin,
+  requireApprovedAccount: () => requireApprovedAccount,
   requireAuth: () => requireAuth,
   requireEntitlement: () => requireEntitlement,
   requireModulePermission: () => requireModulePermission,
@@ -1414,138 +1671,77 @@ async function isUserAdminServer(uid, email) {
   }
   return false;
 }
-function computeStrictVerificationState(profile, isAdmin = false) {
-  if (isAdmin || profile?.role === "ADMIN" || profile?.isAdmin === true) {
+function deriveAccountAndVerificationState(profile, isAdmin = false) {
+  if (!profile) {
     return {
-      effectiveStatus: "APPROVED",
-      isVerified: true,
-      verificationRequired: false,
-      verificationStatus: "verified",
+      emailVerified: false,
       documentCount: 0,
-      hasRejectedDocument: false,
-      hasPendingDocument: false,
-      allDocumentsApproved: true,
-      adminVerificationOverride: true
-    };
-  }
-  const rawDocs = [
-    ...Array.isArray(profile?.verificationDocuments) ? profile.verificationDocuments : [],
-    ...Array.isArray(profile?.verificationInfo?.documents) ? profile.verificationInfo.documents : [],
-    ...Array.isArray(profile?.documents) ? profile.documents : [],
-    ...Array.isArray(profile?.files) ? profile.files.filter((f) => f && (f.category === "Verification" || f.category === "Identity" || f.isVerificationDoc)) : []
-  ];
-  const uniqueDocs = [];
-  const seenIds = /* @__PURE__ */ new Set();
-  for (const doc of rawDocs) {
-    if (!doc) continue;
-    const docId = String(doc.documentId || doc.id || doc.storageReference || doc.fileName || JSON.stringify(doc));
-    if (!seenIds.has(docId)) {
-      seenIds.add(docId);
-      uniqueDocs.push(doc);
-    }
-  }
-  const documentCount = uniqueDocs.length;
-  const adminOverride = profile?.adminVerificationOverride === true;
-  let hasRejectedDoc = false;
-  let hasPendingDoc = false;
-  let hasApprovedDoc = false;
-  for (const d of uniqueDocs) {
-    const s = String(d.status || d.verificationStatus || "").toUpperCase();
-    if (s === "REJECTED") {
-      hasRejectedDoc = true;
-    } else if (s === "APPROVED" || s === "VERIFIED") {
-      hasApprovedDoc = true;
-    } else if (s === "PENDING" || s === "PENDING_REVIEW" || s === "PENDING_ADMIN_REVIEW" || s === "UNDER_REVIEW" || !s) {
-      hasPendingDoc = true;
-    }
-  }
-  const overallDocStatus = String(profile?.documentVerificationStatus || profile?.verificationInfo?.status || "").toUpperCase();
-  const rawAccountStatus = String(profile?.accountStatus || "").toUpperCase();
-  const isEmailVer = Boolean(
-    profile?.isEmailVerified === true || profile?.emailVerified === true || profile?.email_verified === true
-  );
-  if (!isEmailVer || rawAccountStatus === "PENDING_EMAIL_VERIFICATION") {
-    return {
+      accessibleDocumentCount: 0,
+      documents: [],
+      kycStatus: "NOT_SUBMITTED",
+      accountApprovalStatus: "NOT_APPROVED",
       effectiveStatus: "PENDING_EMAIL_VERIFICATION",
       isVerified: false,
+      isFullyApproved: false,
       verificationRequired: true,
-      verificationStatus: "action_required",
-      documentCount,
-      hasRejectedDocument: hasRejectedDoc,
-      hasPendingDocument: hasPendingDoc,
-      allDocumentsApproved: false,
-      adminVerificationOverride: adminOverride,
-      reason: "PENDING_EMAIL_VERIFICATION"
-    };
-  }
-  if (rawAccountStatus === "REJECTED" || overallDocStatus === "REJECTED" || hasRejectedDoc && !adminOverride) {
-    return {
-      effectiveStatus: "REJECTED",
-      isVerified: false,
-      verificationRequired: true,
-      verificationStatus: "rejected",
-      documentCount,
-      hasRejectedDocument: true,
-      hasPendingDocument: hasPendingDoc,
-      allDocumentsApproved: false,
-      adminVerificationOverride: adminOverride,
-      reason: profile?.rejectionReason || profile?.verificationInfo?.adminNote || "\u0648\u062B\u0627\u0626\u0642 \u0627\u0644\u062A\u0648\u062B\u064A\u0642 \u0645\u0631\u0641\u0648\u0636\u0629 \u0623\u0648 \u062A\u062A\u0637\u0644\u0628 \u062A\u0639\u062F\u064A\u0644\u0627\u064B."
-    };
-  }
-  const isMarkedApproved = rawAccountStatus === "APPROVED" || profile?.accountStatus === "APPROVED" || Boolean(profile?.approvedAt && !hasRejectedDoc);
-  if (isMarkedApproved) {
-    const isKycVerified = Boolean(adminOverride || documentCount > 0 && (overallDocStatus === "APPROVED" || hasApprovedDoc && !hasRejectedDoc && !hasPendingDoc));
-    return {
-      effectiveStatus: "APPROVED",
-      isVerified: isKycVerified,
-      verificationRequired: false,
-      verificationStatus: isKycVerified ? "verified" : hasRejectedDoc ? "rejected" : hasPendingDoc ? "pending" : "unverified",
-      documentCount,
-      hasRejectedDocument: false,
-      hasPendingDocument: hasPendingDoc,
-      allDocumentsApproved: isKycVerified,
-      adminVerificationOverride: adminOverride
-    };
-  }
-  if (documentCount === 0 && !adminOverride) {
-    return {
-      effectiveStatus: "VERIFICATION_REQUIRED",
-      isVerified: false,
-      verificationRequired: true,
-      verificationStatus: "action_required",
-      documentCount: 0,
+      verificationStatus: "unverified",
+      uiState: "NO_REQUEST",
+      canApproveKyc: false,
+      canReviewDocuments: false,
+      canApproveAccount: false,
+      adminVerificationOverride: false,
       hasRejectedDocument: false,
       hasPendingDocument: false,
       allDocumentsApproved: false,
-      adminVerificationOverride: false,
-      reason: "VERIFICATION_REQUIRED"
+      reason: "PROFILE_NOT_FOUND"
     };
   }
-  if (documentCount > 0 || rawAccountStatus === "PENDING_ADMIN_REVIEW" || overallDocStatus === "UNDER_REVIEW" || overallDocStatus === "PENDING") {
-    return {
-      effectiveStatus: "PENDING_ADMIN_REVIEW",
-      isVerified: false,
-      verificationRequired: true,
-      verificationStatus: "pending",
-      documentCount,
-      hasRejectedDocument: false,
-      hasPendingDocument: true,
-      allDocumentsApproved: false,
-      adminVerificationOverride: false,
-      reason: "PENDING_REVIEW"
-    };
-  }
+  const pEmail = (profile.email || "").toLowerCase().trim();
+  const isSysAdmin = isAdmin || profile.role === "ADMIN" || profile.role === "Admin" || profile.isAdmin === true || pEmail && ADMIN_EMAILS.has(pEmail);
+  const canonical = computeCanonicalVerification(profile, isSysAdmin);
+  const docsResult = normalizeUserDocuments(profile);
+  const effectiveStatus = canonical.canonicalStatus === "approved" ? "APPROVED" : canonical.canonicalStatus === "rejected" ? "REJECTED" : canonical.canonicalStatus === "pending" ? "PENDING_ADMIN_REVIEW" : !canonical.isEmailVerified ? "PENDING_EMAIL_VERIFICATION" : "VERIFICATION_REQUIRED";
+  const accountApprovalStatus = canonical.canonicalStatus === "approved" ? "APPROVED" : canonical.canonicalStatus === "rejected" ? "REJECTED" : "PENDING_APPROVAL";
   return {
-    effectiveStatus: "VERIFICATION_REQUIRED",
-    isVerified: false,
-    verificationRequired: true,
-    verificationStatus: "action_required",
-    documentCount,
-    hasRejectedDocument: hasRejectedDoc,
-    hasPendingDocument: hasPendingDoc,
-    allDocumentsApproved: false,
-    adminVerificationOverride: false,
-    reason: "VERIFICATION_REQUIRED"
+    emailVerified: canonical.isEmailVerified,
+    documentCount: canonical.documentCount,
+    accessibleDocumentCount: docsResult.accessibleCount,
+    documents: canonical.documents,
+    kycStatus: canonical.kycStatus === "VERIFIED" ? "APPROVED" : canonical.kycStatus,
+    accountApprovalStatus,
+    effectiveStatus,
+    isVerified: canonical.isFullyApproved,
+    isFullyApproved: canonical.isFullyApproved,
+    verificationRequired: !canonical.isFullyApproved,
+    verificationStatus: canonical.canonicalStatus === "approved" ? "verified" : canonical.canonicalStatus === "rejected" ? "rejected" : canonical.canonicalStatus === "pending" ? "pending" : "unverified",
+    uiState: canonical.uiState,
+    canApproveKyc: canonical.canApproveKyc,
+    canReviewDocuments: canonical.canReviewDocuments,
+    canApproveAccount: canonical.canApproveAccount,
+    adminVerificationOverride: canonical.hasExplicitOverride,
+    hasRejectedDocument: canonical.documents.some((d) => d.status === "REJECTED"),
+    hasPendingDocument: canonical.documents.some((d) => d.status === "PENDING" || d.status === "UNDER_REVIEW"),
+    allDocumentsApproved: canonical.canonicalStatus === "approved",
+    reason: canonical.userFriendlyMessage,
+    approvedAt: canonical.approvedAt,
+    approvedBy: canonical.approvedBy,
+    rejectionReason: canonical.rejectionReason
+  };
+}
+function computeStrictVerificationState(profile, isAdmin = false) {
+  const derived = deriveAccountAndVerificationState(profile, isAdmin);
+  const effectiveStatus = derived.effectiveStatus === "SUSPENDED" ? "REJECTED" : derived.effectiveStatus;
+  return {
+    effectiveStatus,
+    isVerified: derived.isVerified,
+    verificationRequired: derived.verificationRequired,
+    verificationStatus: derived.verificationStatus,
+    documentCount: derived.documentCount,
+    hasRejectedDocument: derived.hasRejectedDocument,
+    hasPendingDocument: derived.hasPendingDocument,
+    allDocumentsApproved: derived.allDocumentsApproved,
+    adminVerificationOverride: derived.adminVerificationOverride,
+    reason: derived.reason
   };
 }
 async function verifyUserAccess(uid, email) {
@@ -1753,13 +1949,14 @@ async function verifyUserAccess(uid, email) {
     profile
   };
 }
-var import_fs2, import_path2, import_crypto, DB_FILE2, SECRET_SALT, passcodeAttemptsMap, ADMIN_USER_ID, ADMIN_UIDS, ADMIN_EMAILS, requireAdmin, requireModulePermission, checkUserEntitlementServer, requireEntitlement, requireAuth;
+var import_fs2, import_path2, import_crypto, DB_FILE2, SECRET_SALT, passcodeAttemptsMap, ADMIN_USER_ID, ADMIN_UIDS, ADMIN_EMAILS, requireAdmin, requireModulePermission, checkUserEntitlementServer, requireEntitlement, requireApprovedAccount, requireAuth;
 var init_auth = __esm({
   "src/middleware/auth.ts"() {
     init_firebase_admin();
     import_fs2 = __toESM(require("fs"), 1);
     import_path2 = __toESM(require("path"), 1);
     import_crypto = __toESM(require("crypto"), 1);
+    init_unifiedVerification();
     DB_FILE2 = import_path2.default.join(process.cwd(), "src", "db_store.json");
     SECRET_SALT = process.env.SECURITY_SECRET_SALT || "ZakirSecSalt_2026_EnterpriseSecure";
     passcodeAttemptsMap = /* @__PURE__ */ new Map();
@@ -1771,6 +1968,7 @@ var init_auth = __esm({
     ADMIN_EMAILS = new Set([
       "mohamedvadel60@mail.com",
       "mohamedvadel60@gmail.com",
+      "sarasara222341@gmail.com",
       "admin@zakir.ai",
       "admin@getzakir.com",
       (process.env.ADMIN_EMAIL || "").toLowerCase().trim()
@@ -1822,6 +2020,21 @@ var init_auth = __esm({
             userFriendlyMessage: "\u062A\u0639\u0630\u0631 \u0627\u0644\u0639\u062B\u0648\u0631 \u0639\u0644\u0649 \u0645\u0644\u0641 \u062A\u0639\u0631\u064A\u0641 \u0627\u0644\u0645\u0633\u062A\u062E\u062F\u0645."
           });
         }
+        const canonical = computeCanonicalVerification(profile, false);
+        if (canonical.canonicalStatus !== "approved") {
+          return res.status(403).json({
+            success: false,
+            code: "VERIFICATION_REQUIRED",
+            canonicalStatus: canonical.canonicalStatus,
+            accountStatus: canonical.accountStatus,
+            documentVerificationStatus: canonical.documentVerificationStatus,
+            kycStatus: canonical.kycStatus,
+            documentCount: canonical.documentCount,
+            rejectionReason: canonical.rejectionReason,
+            error: "Account approval required to access workspace resources.",
+            userFriendlyMessage: canonical.userFriendlyMessage
+          });
+        }
         const role = (profile.role || "").toUpperCase();
         if (role === "CEO" || role === "ADMIN") {
           return next();
@@ -1854,14 +2067,15 @@ var init_auth = __esm({
       try {
         const entitlement = await checkUserEntitlementServer(uid, email);
         if (!entitlement.allowed) {
+          const isVerRequired = entitlement.reason === "PENDING_REVIEW" || entitlement.reason === "REJECTED" || entitlement.reason === "VERIFICATION_REQUIRED" || entitlement.reason === "PENDING_DOCUMENT_VERIFICATION" || entitlement.reason === "PENDING_EMAIL_VERIFICATION" || entitlement.reason === "NOT_APPROVED";
           return res.status(403).json({
             success: false,
-            code: entitlement.reason === "TRIAL_EXPIRED" ? "TRIAL_EXPIRED" : "ENTITLEMENT_REQUIRED",
+            code: isVerRequired ? "VERIFICATION_REQUIRED" : entitlement.reason === "TRIAL_EXPIRED" ? "TRIAL_EXPIRED" : "ENTITLEMENT_REQUIRED",
             reason: entitlement.reason,
             accountStatus: entitlement.accountStatus,
             trialEndsAt: entitlement.trialEndsAt,
             trialRemainingSeconds: entitlement.trialRemainingSeconds,
-            error: entitlement.userFriendlyMessage || "Access denied: Subscription or active trial required",
+            error: entitlement.userFriendlyMessage || "Access denied: Verification or subscription required",
             userFriendlyMessage: entitlement.userFriendlyMessage
           });
         }
@@ -1874,6 +2088,48 @@ var init_auth = __esm({
           code: "ENTITLEMENT_CHECK_FAILED",
           error: "Failed to verify access entitlement.",
           userFriendlyMessage: "\u062A\u0639\u0630\u0631 \u0627\u0644\u062A\u062D\u0642\u0642 \u0645\u0646 \u0635\u0644\u0627\u062D\u064A\u0627\u062A \u0627\u0644\u0627\u0634\u062A\u0631\u0627\u0643. \u064A\u0631\u062C\u0649 \u0627\u0644\u0645\u062D\u0627\u0648\u0644\u0629 \u0644\u0627\u062D\u0642\u0627\u064B."
+        });
+      }
+    };
+    requireApprovedAccount = async (req, res, next) => {
+      const uid = req.user?.uid;
+      const email = req.user?.email;
+      if (!uid) {
+        return res.status(401).json({
+          success: false,
+          code: "UNAUTHORIZED",
+          error: "Authentication required.",
+          userFriendlyMessage: "\u064A\u062C\u0628 \u062A\u0633\u062C\u064A\u0644 \u0627\u0644\u062F\u062E\u0648\u0644 \u0623\u0648\u0644\u0627\u064B \u0644\u0644\u0648\u0635\u0648\u0644 \u0625\u0644\u0649 \u0647\u0630\u0627 \u0627\u0644\u0645\u0648\u0631\u062F."
+        });
+      }
+      try {
+        const isCallerAdmin = await isUserAdminServer(uid, email);
+        if (isCallerAdmin) {
+          return next();
+        }
+        const profile = await getUserProfileServer(uid, email);
+        const canonical = computeCanonicalVerification(profile, false);
+        if (canonical.canonicalStatus !== "approved") {
+          return res.status(403).json({
+            success: false,
+            code: "VERIFICATION_REQUIRED",
+            canonicalStatus: canonical.canonicalStatus,
+            accountStatus: canonical.accountStatus,
+            documentVerificationStatus: canonical.documentVerificationStatus,
+            kycStatus: canonical.kycStatus,
+            documentCount: canonical.documentCount,
+            rejectionReason: canonical.rejectionReason,
+            error: "Account approval required to access workspace resources.",
+            userFriendlyMessage: canonical.userFriendlyMessage
+          });
+        }
+        next();
+      } catch (err) {
+        console.error("[REQUIRE_APPROVED_ACCOUNT_ERROR]", err);
+        return res.status(500).json({
+          success: false,
+          code: "APPROVAL_CHECK_FAILED",
+          error: "Failed to verify account approval status."
         });
       }
     };
@@ -2593,13 +2849,21 @@ function getOfficialEmailLogoLightBuffer() {
   }
   const possiblePaths = [
     import_path3.default.join(process.cwd(), "public", "zakir-badge-light.png"),
-    import_path3.default.join(process.cwd(), "src", "assets", "zakir-badge-light.png")
+    import_path3.default.join(process.cwd(), "public", "zakir-email-logo.png"),
+    import_path3.default.join(process.cwd(), "dist", "zakir-badge-light.png"),
+    import_path3.default.join(process.cwd(), "dist", "zakir-email-logo.png"),
+    import_path3.default.join(process.cwd(), "dist", "public", "zakir-badge-light.png"),
+    import_path3.default.join(process.cwd(), "src", "assets", "zakir-badge-light.png"),
+    import_path3.default.join(process.cwd(), "src", "assets", "zakir-email-logo.png"),
+    import_path3.default.join(__dirname, "public", "zakir-badge-light.png"),
+    import_path3.default.join(__dirname, "zakir-badge-light.png"),
+    import_path3.default.join(__dirname, "..", "public", "zakir-badge-light.png")
   ];
   for (const p of possiblePaths) {
     if (import_fs3.default.existsSync(p)) {
       try {
         const b = import_fs3.default.readFileSync(p);
-        if (b && b.length > 0) {
+        if (b && b.length > 0 && b.subarray(0, 8).toString("hex") === "89504e470d0a1a0a") {
           emailLogoLightCache = b;
           return b;
         }
@@ -2614,7 +2878,9 @@ function getOfficialEmailLogoDarkBuffer() {
     return emailLogoDarkCache;
   }
   const possiblePaths = [
+    import_path3.default.join(process.cwd(), "public", "zakir-email-logo.png"),
     import_path3.default.join(process.cwd(), "public", "zakir-badge-dark.png"),
+    import_path3.default.join(process.cwd(), "src", "assets", "zakir-email-logo.png"),
     import_path3.default.join(process.cwd(), "src", "assets", "zakir-badge-dark.png")
   ];
   for (const p of possiblePaths) {
@@ -2647,31 +2913,26 @@ function escapeHtml(str) {
 }
 function renderEmailLogoHeaderHtml(options) {
   const size = options?.size || 96;
-  const appBase = options?.appBase || "https://www.getzakir.com";
+  const rawAppBase = options?.appBase || "https://www.getzakir.com";
+  const publicAssetBase = rawAppBase && rawAppBase.startsWith("https://") && !rawAppBase.includes("localhost") ? rawAppBase.replace(/\/$/, "") : "https://www.getzakir.com";
+  const appBase = rawAppBase;
+  const logoUrl = "cid:zakir-logo-light";
   const wordmark = options?.wordmark !== void 0 ? options.wordmark : "ZAKIR";
   const tagline = options?.tagline !== void 0 ? options.tagline : "\u0627\u0644\u0630\u0627\u0643\u0631\u0629 \u0627\u0644\u0645\u0624\u0633\u0633\u064A\u0629 \u0627\u0644\u0633\u0628\u0628\u064A\u0629 &bull; Causal Decision Intelligence";
   return `
-    <!-- Strict 1:1 Square Logo Container (${size}px x ${size}px) -->
-    <table border="0" cellpadding="0" cellspacing="0" align="center" role="presentation" width="${size}" height="${size}" class="zakir-logo-table" style="width: ${size}px !important; height: ${size}px !important; max-width: ${size}px !important; max-height: ${size}px !important; margin: 0 auto 16px auto; border-collapse: collapse; border-spacing: 0; mso-table-lspace: 0pt; mso-table-rspace: 0pt;">
+    <!-- Official ZAKIR Badge (Self-Contained Vector Render from logo.txt) -->
+    <table border="0" cellpadding="0" cellspacing="0" align="center" role="presentation" width="${size}" height="${size}" class="zakir-logo-table" style="width: ${size}px !important; height: ${size}px !important; max-width: ${size}px !important; max-height: ${size}px !important; margin: 0 auto 16px auto; border-collapse: collapse; border-spacing: 0;">
       <tr>
-        <td align="center" valign="middle" width="${size}" height="${size}" class="zakir-logo-container-cell" style="width: ${size}px !important; height: ${size}px !important; max-width: ${size}px !important; max-height: ${size}px !important; padding: 0; margin: 0; line-height: 0; font-size: 0; text-align: center; vertical-align: middle;">
-          <a href="${appBase}" target="_blank" style="text-decoration: none; display: block; width: ${size}px; height: ${size}px; margin: 0 auto; line-height: 0; font-size: 0; outline: none; border: 0;">
-            <!-- LIGHT MODE BADGE: Solid Royal Navy Square (#1C2C58) + Crisp White ZAKIR Logo (#FDFEFE) [Exact ${size}x${size} px] -->
-            <img src="cid:zakir-logo-light" alt="ZAKIR" width="${size}" height="${size}" class="zakir-logo-light light-img" style="display: block; width: ${size}px !important; height: ${size}px !important; max-width: ${size}px !important; max-height: ${size}px !important; aspect-ratio: 1 / 1; border: 0; outline: none; text-decoration: none; margin: 0 auto; -ms-interpolation-mode: bicubic;" />
-            
-            <!-- DARK MODE BADGE: Solid Pure White Square (#FFFFFF) + Crisp Navy ZAKIR Logo (#1C2C58) [Exact ${size}x${size} px] -->
-            <!--[if !mso]><!-->
-            <div class="zakir-logo-dark-wrap dark-img" style="display: none; mso-hide: all; max-height: 0px; max-width: 0px; overflow: hidden; width: 0; height: 0; margin: 0 auto; line-height: 0; font-size: 0;">
-              <img src="cid:zakir-logo-dark" alt="ZAKIR" width="${size}" height="${size}" class="zakir-logo-dark" style="display: none; width: ${size}px !important; height: ${size}px !important; max-width: ${size}px !important; max-height: ${size}px !important; aspect-ratio: 1 / 1; border: 0; outline: none; text-decoration: none; margin: 0 auto; -ms-interpolation-mode: bicubic;" />
-            </div>
-            <!--<![endif]-->
+        <td align="center" valign="middle" width="${size}" height="${size}" bgcolor="#1C2C58" style="width: ${size}px; height: ${size}px; padding: 0; margin: 0; line-height: 0; font-size: 0; text-align: center; vertical-align: middle; background-color: #1C2C58; border-radius: 20px;">
+          <a href="${appBase}" target="_blank" style="text-decoration: none; display: inline-block; width: ${size}px; height: ${size}px; margin: 0 auto; line-height: 0; font-size: 0; outline: none; border: 0;">
+            <img src="${logoUrl}" alt="ZAKIR" width="${size}" height="${size}" class="zakir-logo" style="display: block; width: ${size}px !important; height: ${size}px !important; max-width: ${size}px !important; max-height: ${size}px !important; border: 0; outline: none; text-decoration: none; margin: 0 auto; border-radius: 20px; -ms-interpolation-mode: bicubic;" />
           </a>
         </td>
       </tr>
     </table>
 
     ${wordmark ? `<!-- ZAKIR Wordmark: Bold, uppercase, clean spacing -->
-    <div class="zakir-wordmark" style="color: #0f172a; font-size: 24px; font-weight: 800; letter-spacing: 2.5px; text-transform: uppercase; line-height: 1.2; margin: 0 0 6px 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+    <div class="zakir-wordmark" style="color: #0f172a; font-size: 22px; font-weight: 800; letter-spacing: 2.5px; text-transform: uppercase; line-height: 1.2; margin: 0 0 6px 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
       ${wordmark}
     </div>` : ""}
 
@@ -2685,6 +2946,7 @@ function buildMasterEmailHtml(options) {
   const { subject, title, greeting, bodyHtml, securityNote, baseUrl } = options;
   const canonicalDomain = "https://www.getzakir.com";
   const appBase = (baseUrl || process.env.VITE_APP_URL || process.env.VITE_BACKEND_URL || process.env.APP_URL || canonicalDomain).replace(/\/$/, "");
+  const publicAssetBase = appBase && appBase.startsWith("https://") && !appBase.includes("localhost") ? appBase.replace(/\/$/, "") : "https://www.getzakir.com";
   const logoHeaderHtml = renderEmailLogoHeaderHtml({ appBase, size: 96 });
   return `<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml" lang="ar">
@@ -2700,49 +2962,11 @@ function buildMasterEmailHtml(options) {
       color-scheme: light dark;
       supported-color-schemes: light dark;
     }
+    .zakir-logo {
+      display: block !important;
+      border-radius: 20px;
+    }
     @media (prefers-color-scheme: dark) {
-      .light-img,
-      .zakir-logo-light {
-        display: none !important;
-        mso-hide: all !important;
-        width: 0px !important;
-        height: 0px !important;
-        max-width: 0px !important;
-        max-height: 0px !important;
-        overflow: hidden !important;
-        font-size: 0px !important;
-        line-height: 0px !important;
-      }
-      .dark-img,
-      .zakir-logo-dark-wrap {
-        display: block !important;
-        mso-hide: none !important;
-        width: 96px !important;
-        height: 96px !important;
-        max-width: 96px !important;
-        max-height: 96px !important;
-        overflow: visible !important;
-        font-size: 0 !important;
-        line-height: 0 !important;
-      }
-      .zakir-logo-dark {
-        display: block !important;
-        width: 96px !important;
-        height: 96px !important;
-        max-width: 96px !important;
-        max-height: 96px !important;
-        overflow: visible !important;
-      }
-      .zakir-footer-logo-light {
-        display: none !important;
-        max-height: 0px !important;
-        overflow: hidden !important;
-      }
-      .zakir-footer-logo-dark {
-        display: inline-block !important;
-        max-height: none !important;
-        overflow: visible !important;
-      }
       .zakir-card {
         background-color: #0b1329 !important;
         border-color: #1e293b !important;
@@ -2768,43 +2992,7 @@ function buildMasterEmailHtml(options) {
         color: #94a3b8 !important;
       }
     }
-  </style>
-  <style type="text/css">
-    /* Outlook / Webmail Dark Mode Overrides */
-    [data-ogsc] .light-img,
-    [data-ogsb] .light-img,
-    [data-ogsc] .zakir-logo-light,
-    [data-ogsb] .zakir-logo-light {
-      display: none !important;
-      width: 0px !important;
-      height: 0px !important;
-      max-width: 0px !important;
-      max-height: 0px !important;
-      overflow: hidden !important;
-    }
-    [data-ogsc] .dark-img,
-    [data-ogsb] .dark-img,
-    [data-ogsc] .zakir-logo-dark-wrap,
-    [data-ogsb] .zakir-logo-dark-wrap,
-    [data-ogsc] .zakir-logo-dark,
-    [data-ogsb] .zakir-logo-dark {
-      display: block !important;
-      width: 96px !important;
-      height: 96px !important;
-      max-width: 96px !important;
-      max-height: 96px !important;
-      overflow: visible !important;
-    }
-    [data-ogsc] .zakir-footer-logo-light,
-    [data-ogsb] .zakir-footer-logo-light {
-      display: none !important;
-    }
-    [data-ogsc] .zakir-footer-logo-dark,
-    [data-ogsb] .zakir-footer-logo-dark {
-      display: inline-block !important;
-      max-height: none !important;
-      overflow: visible !important;
-    }
+    /* Webmail Dark Mode Overrides */
     [data-ogsc] .zakir-card,
     [data-ogsb] .zakir-card {
       background-color: #0b1329 !important;
@@ -2841,18 +3029,11 @@ function buildMasterEmailHtml(options) {
           </tr>
           <tr>
             <td class="zakir-footer-cell" style="background-color: #f8fafc; padding: 24px 32px; border-top: 1px solid #e2e8f0; text-align: center; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
-              <!-- Mini Footer Brand with Light/Dark Inversion -->
+              <!-- Mini Footer Brand -->
               <table border="0" cellpadding="0" cellspacing="0" align="center" role="presentation" style="margin: 0 auto 10px auto;">
                 <tr>
                   <td align="center" style="vertical-align: middle;">
-                    <span class="zakir-footer-logo-light" style="display: inline-block; vertical-align: middle; margin-right: 8px;">
-                      <img src="cid:zakir-logo-light" alt="ZAKIR" width="24" height="24" style="display: block; width: 24px; height: 24px; border-radius: 6px; border: 0;" />
-                    </span>
-                    <!--[if !mso]><!-->
-                    <span class="zakir-footer-logo-dark" style="display: none; mso-hide: all; max-height: 0; max-width: 0; overflow: hidden; vertical-align: middle; margin-right: 8px;">
-                      <img src="cid:zakir-logo-dark" alt="ZAKIR" width="24" height="24" style="display: block; width: 24px; height: 24px; border-radius: 6px; border: 0;" />
-                    </span>
-                    <!--<![endif]-->
+                    <img src="cid:zakir-logo-light" alt="ZAKIR" width="24" height="24" style="display: inline-block; width: 24px; height: 24px; border-radius: 6px; border: 0; vertical-align: middle; margin-right: 8px;" />
                     <span class="zakir-wordmark" style="font-size: 13px; font-weight: 800; color: #0f172a; vertical-align: middle; letter-spacing: 1.5px; text-transform: uppercase;">ZAKIR</span>
                   </td>
                 </tr>
@@ -2967,17 +3148,28 @@ async function sendSystemMail(toOrOptions, subjectArg, textArg, htmlArg) {
       text2 = arg3;
     }
   } else if (toOrOptions && typeof toOrOptions === "object") {
-    to = toOrOptions.to;
-    subject = toOrOptions.subject;
-    html = toOrOptions.html;
-    text2 = toOrOptions.text || "";
+    to = toOrOptions.to || "";
+    subject = toOrOptions.subject || "";
     userAttachments = toOrOptions.attachments || [];
+    if (toOrOptions.html) {
+      html = toOrOptions.html;
+    } else if (toOrOptions.bodyHtml || toOrOptions.body || toOrOptions.title) {
+      html = buildMasterEmailHtml({
+        subject: toOrOptions.subject || "Zakir Notification",
+        title: toOrOptions.title || toOrOptions.subject || "Zakir Notification",
+        bodyHtml: toOrOptions.bodyHtml || toOrOptions.body || ""
+      });
+    } else {
+      html = "";
+    }
+    text2 = toOrOptions.text || "";
   } else {
     to = "";
     subject = "";
     html = "";
     text2 = "";
   }
+  html = html || "";
   let fromSender = (process.env.RESEND_FROM || process.env.RESEND_FROM_EMAIL || process.env.EMAIL_FROM || "noreply@getzakir.com").trim();
   if (!fromSender || fromSender.includes("yourdomain.com") || fromSender.includes("example.com") || fromSender.includes("onboarding@resend.dev")) {
     fromSender = "noreply@getzakir.com";
@@ -6402,7 +6594,7 @@ function normalizeSubscriptionPlan(plan) {
 
 // server.ts
 import_dotenv2.default.config();
-var ZAKIR_BUILD_ID = "ZAKIR_BUILD_2026_09_25_TEAM_LIMITS_ENTITLEMENTS_VERIFIED";
+var ZAKIR_BUILD_ID = "ZAKIR_BUILD_2026_09_25_ADMIN_KYC_DOCUMENTS_INTEGRITY";
 var workspaceInvitationLocks = /* @__PURE__ */ new Map();
 async function runWithWorkspaceLock(workspaceId, fn) {
   const currentLock = workspaceInvitationLocks.get(workspaceId) || Promise.resolve();
@@ -7468,27 +7660,40 @@ app2.use(import_express.default.json({ limit: "30mb" }));
 app2.use(import_express.default.urlencoded({ extended: true, limit: "30mb" }));
 app2.use(import_express.default.static(import_path7.default.join(process.cwd(), "public")));
 app2.get(
-  ["/zakir-badge-light.png", "/api/email-logo/light.png", "/api/brand/badge-light.png"],
+  [
+    "/zakir-email-logo.png",
+    "/email-assets/zakir-email-logo.png",
+    "/zakir-badge-light.png",
+    "/email-assets/zakir-badge-light.png",
+    "/api/email-logo/light.png",
+    "/api/brand/badge-light.png",
+    "/api/email-logo/logo.png"
+  ],
   (req, res) => {
     const buf = getOfficialEmailLogoLightBuffer2();
     if (!buf || buf.length === 0) {
-      return res.status(404).send("Light badge not found");
+      return res.status(404).send("Logo not found");
     }
     res.setHeader("Content-Type", "image/png");
-    res.setHeader("Cache-Control", "public, max-age=86400");
+    res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
     res.setHeader("Access-Control-Allow-Origin", "*");
     res.send(buf);
   }
 );
 app2.get(
-  ["/zakir-badge-dark.png", "/api/email-logo/dark.png", "/api/brand/badge-dark.png"],
+  [
+    "/zakir-badge-dark.png",
+    "/email-assets/zakir-badge-dark.png",
+    "/api/email-logo/dark.png",
+    "/api/brand/badge-dark.png"
+  ],
   (req, res) => {
-    const buf = getOfficialEmailLogoDarkBuffer2();
+    const buf = getOfficialEmailLogoDarkBuffer2() || getOfficialEmailLogoLightBuffer2();
     if (!buf || buf.length === 0) {
       return res.status(404).send("Dark badge not found");
     }
     res.setHeader("Content-Type", "image/png");
-    res.setHeader("Cache-Control", "public, max-age=86400");
+    res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
     res.setHeader("Access-Control-Allow-Origin", "*");
     res.send(buf);
   }
@@ -8255,7 +8460,32 @@ app2.get(
     );
   }
 );
-var OFFICIAL_ZAKIR_SVG = `<?xml version="1.0" encoding="UTF-8"?><svg id="Layer_1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1203.08 814"><defs><style>.cls-1{fill:none;}.cls-1,.cls-2{stroke-width:0px;}.cls-2{fill:#1c2c58;}</style></defs><rect class="cls-1" y="371" width="56" height="56"/><path class="cls-2" d="M778.26,359.34c-23.74-3.27-49.55-5.85-77.22-7.24-32.16-1.61-62.06-1.36-89.28,0,34.59-18.5,69.17-37,103.76-55.5,20.28,4.11,42.89,7.58,67.57,9.65,37.04,3.12,70.4,2.4,98.93,0-34.59,17.7-69.17,35.39-103.76,53.09Z"/><path class="cls-2" d="M980.96,516.19c-21.56-3.6-44.1-6.86-67.57-9.65-27.67-3.29-54.26-5.64-79.63-7.24,24.93-14.48,49.87-28.96,74.8-43.43,15.7,5.87,35.19,11.48,57.91,14.48,48.33,6.37,88.49-2.07,113.41-9.65-32.98,18.5-65.96,37-98.93,55.5Z"/><path class="cls-2" d="M475.42,511.37c-.4-63.57-.79-127.14-1.19-190.71,0-1.56.04-3.1.17-4.65,1.41-16.02,5.74-38.29,19.12-60.42,15.26-25.24,36.05-39.96,52.07-49.52,46.87-27.98,204.17-102.07,420.89-194.19,2.96-1.1,22.36-7.98,38.61,2.41,13.06,8.36,16.89,21.72,19.3,33.78.99,4.94,2.1,13.1,2.12,24.53,0,0-.21,16.42-4.53,33.38-3.15,12.35-9.18,25.16-15.95,36.88-15.63,27.06-38.86,48.92-66.57,63.37-2.2,1.15-4.45,2.32-6.75,3.51-28.29,14.65-50.15,25.27-62.74,31.37-57.83,28.01-105.24,50.16-105.24,50.16-109.27,51.04-121.53,55.26-155.36,75.32-51.75,30.67-69.27,48.18-82.04,65.15-22.18,29.47-31.7,59.55-36.2,79.63-.91,5.07-5.6,8.13-9.65,7.24-3.09-.68-5.58-3.59-6.03-7.24Z"/><path class="cls-2" d="M587.63,674.25c-2.01-24.5-3.65-49.86-4.83-76.01-1.24-27.45-1.89-54.07-2.06-79.79-.1-14.52,5.57-37.36,18.95-60.16,18.94-32.28,45.31-46.85,62.74-55.5,137.7-68.32,257.41-123.89,260.27-125.27,75.14-36.4,123.4-60.53,145.12-72.6,27.5-15.28,46.89-32.03,62.74-41.02,2.06-1.17,4.68-2.2,6.95-3.08,3.88-1.5,8.11-2.04,12.19-1.23,3.17.63,6.65,1.89,9.82,4.3,8.72,6.63,9.55,16.59,9.65,18.1,1.46,13.4,2.42,28.36,2.41,44.64,0,16.22-.96,31.12-2.41,44.49-1.5,12.31-5.42,31.71-16.89,52.03-18.54,32.86-45.69,49.14-57.91,55.5-88.79,45.49-177.58,90.98-266.37,136.48-51.58,25.47-85.43,42.05-105.24,51.74-34.68,16.96-62.99,28.56-86.87,55.5-9.82,11.07-16.26,18.95-21.72,28.96-3.96,7.25-5.57,13.62-7.24,21.72-.3,1.46-.76,3.36-1.71,5.25-3.58,7.17-13.97,7.19-16.83-.3-.44-1.16-.71-2.42-.76-3.74Z"/><path class="cls-2" d="M730.61,710.92l-.61,63.32c-.18,1.66-1.51,16.39,9.65,26.69,8.53,7.87,21.12,10.17,32.51,6.07,1.53-.55,2.98-1.29,4.41-2.05,119.91-63.73,238.88-125.06,359.77-191.26,9.25-5.07,29.79-21.27,44.89-54.06,11.49-24.94,14.48-48.26,15.27-61.09.4-6.48-.79-72.83-.79-72.83.52-9.04-4.44-17.31-12.07-20.51-6.75-2.84-14.8-1.38-20.72,3.5-7.47,6.16-15.25,11.96-23.88,16.35-108.82,55.31-218.13,109.42-326.98,164.68-6.15,3.12-12.18,6.5-17.97,10.25-12.15,7.87-28.07,20.18-42.39,41.7-.13.2-.26.39-.39.59-13.44,20.36-20.48,44.27-20.72,68.66Z"/></svg>`;
+var OFFICIAL_ZAKIR_SVG = `<?xml version="1.0" encoding="UTF-8"?>
+<svg id="Layer_1" data-name="Layer 1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1999.27 1999.27">
+  <defs>
+    <style>
+      .cls-1 {
+        fill: #fff;
+      }
+
+      .cls-1, .cls-2 {
+        stroke-width: 0px;
+      }
+
+      .cls-2 {
+        fill: #1c2c58;
+      }
+    </style>
+  </defs>
+  <rect class="cls-2" width="1999.27" height="1999.27" rx="437.34" ry="437.34"/>
+  <g transform="translate(-906,-1072)">
+    <path class="cls-1" d="M1787.51,1969.4c-49.07-6.76-102.43-12.1-159.61-14.97-66.49-3.33-128.28-2.81-184.55,0,71.49-38.24,142.99-76.48,214.48-114.72,41.92,8.48,88.66,15.66,139.66,19.96,76.56,6.45,145.53,4.94,204.51,0-71.49,36.58-142.99,73.15-214.48,109.73h0Z"/>
+    <path class="cls-1" d="M2206.48,2293.61c-44.57-7.44-91.14-14.19-139.66-19.96-57.2-6.8-112.15-11.66-164.6-14.97,51.54-29.92,103.09-59.85,154.63-89.77,32.45,12.14,72.73,23.74,119.72,29.92,99.91,13.17,182.92-4.28,234.44-19.96-68.16,38.24-136.33,76.48-204.51,114.72l-.02.02Z"/>
+    <path class="cls-1" d="M1161.51,2283.64c-.83-131.4-1.63-262.81-2.46-394.21,0-3.21.08-6.41.35-9.62,2.92-33.13,11.85-79.17,39.52-124.89,31.54-52.16,74.51-82.6,107.64-102.37,96.89-57.82,422.05-210.98,869.99-401.41,6.1-2.27,46.22-16.5,79.81,4.98,26.99,17.27,34.91,44.9,39.91,69.84,2.05,10.22,4.34,27.07,4.38,50.71,0,0-.43,33.94-9.37,68.99-6.51,25.54-18.98,52.01-32.99,76.25-32.3,55.94-80.32,101.11-137.61,130.99-4.55,2.38-9.2,4.78-13.96,7.26-58.48,30.28-103.65,52.24-129.69,64.83-119.53,57.91-217.54,103.67-217.54,103.69-225.87,105.51-251.21,114.24-321.15,155.68-106.96,63.41-143.19,99.6-169.58,134.67-45.85,60.92-65.54,123.09-74.82,164.6-1.88,10.49-11.58,16.79-19.96,14.97-6.39-1.41-11.54-7.42-12.47-14.97h-.02Z"/>
+    <path class="cls-1" d="M1393.46,2620.32c-4.16-50.65-7.55-103.05-9.97-157.11-2.56-56.75-3.91-111.76-4.26-164.93-.21-30.03,11.52-77.24,39.17-124.37,39.15-66.72,93.66-96.85,129.69-114.72,284.63-141.23,532.09-256.09,537.98-258.94,155.33-75.24,255.1-125.12,299.97-150.06,56.85-31.58,96.93-66.22,129.69-84.79,4.26-2.42,9.68-4.55,14.35-6.35,8.02-3.1,16.75-4.22,25.19-2.54,6.56,1.3,13.75,3.91,20.31,8.89,18.01,13.71,19.75,34.29,19.96,37.41,3.02,27.71,4.98,58.63,4.98,92.28s-1.99,64.34-4.98,91.97c-3.1,25.46-11.21,65.54-34.91,107.56-38.32,67.92-94.45,101.58-119.72,114.72-183.54,94.03-367.06,188.07-550.6,282.1-106.63,52.65-176.59,86.92-217.54,106.96-71.68,35.05-130.21,59.04-179.57,114.72-20.29,22.89-33.61,39.19-44.9,59.85-8.19,14.99-11.52,28.17-14.97,44.9-.62,3.02-1.57,6.95-3.54,10.86-7.4,14.83-28.89,14.85-34.81-.62-.91-2.4-1.47-5-1.57-7.73l.04-.04Z"/>
+    <path class="cls-1" d="M1689.01,2696.11l-1.26,130.89c-.37,3.43-3.12,33.87,19.96,55.18,17.64,16.28,43.66,21.03,67.21,12.53,3.16-1.14,6.16-2.67,9.12-4.24,247.86-131.74,493.79-258.51,743.67-395.35,19.13-10.46,61.59-43.97,92.79-111.74,23.74-51.56,29.92-99.76,31.56-126.28.83-13.38-1.63-150.55-1.63-150.55,1.08-18.7-9.18-35.78-24.94-42.4-13.96-5.87-30.59-2.85-42.83,7.24-15.45,12.74-31.52,24.71-49.36,33.79-224.94,114.32-450.9,226.18-675.88,340.4-12.72,6.45-25.17,13.44-37.14,21.2-25.13,16.25-58.03,41.71-87.62,86.2-.27.41-.54.81-.81,1.22-27.79,42.08-42.33,91.49-42.83,141.93v-.02Z"/>
+  </g>
+</svg>`;
 var officialPngLogoCache = null;
 var officialLogoLightCache = null;
 var officialLogoDarkCache = null;
@@ -8312,13 +8542,21 @@ function getOfficialEmailLogoLightBuffer2() {
   }
   const possiblePaths = [
     import_path7.default.join(process.cwd(), "public", "zakir-badge-light.png"),
-    import_path7.default.join(process.cwd(), "src", "assets", "zakir-badge-light.png")
+    import_path7.default.join(process.cwd(), "public", "zakir-email-logo.png"),
+    import_path7.default.join(process.cwd(), "dist", "zakir-badge-light.png"),
+    import_path7.default.join(process.cwd(), "dist", "zakir-email-logo.png"),
+    import_path7.default.join(process.cwd(), "dist", "public", "zakir-badge-light.png"),
+    import_path7.default.join(process.cwd(), "src", "assets", "zakir-badge-light.png"),
+    import_path7.default.join(process.cwd(), "src", "assets", "zakir-email-logo.png"),
+    import_path7.default.join(__dirname, "public", "zakir-badge-light.png"),
+    import_path7.default.join(__dirname, "zakir-badge-light.png"),
+    import_path7.default.join(__dirname, "..", "public", "zakir-badge-light.png")
   ];
   for (const p of possiblePaths) {
     if (import_fs7.default.existsSync(p)) {
       try {
         const data = import_fs7.default.readFileSync(p);
-        if (data && data.length > 0) {
+        if (data && data.length > 0 && data.subarray(0, 8).toString("hex") === "89504e470d0a1a0a") {
           officialLogoLightCache = data;
           return officialLogoLightCache;
         }
@@ -8333,7 +8571,9 @@ function getOfficialEmailLogoDarkBuffer2() {
     return officialLogoDarkCache;
   }
   const possiblePaths = [
+    import_path7.default.join(process.cwd(), "public", "zakir-email-logo.png"),
     import_path7.default.join(process.cwd(), "public", "zakir-badge-dark.png"),
+    import_path7.default.join(process.cwd(), "src", "assets", "zakir-email-logo.png"),
     import_path7.default.join(process.cwd(), "src", "assets", "zakir-badge-dark.png")
   ];
   for (const p of possiblePaths) {
@@ -8467,21 +8707,8 @@ app2.get(["/api/logo.svg", "/assets/logo.svg", "/logo.svg"], (req, res) => {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.send(OFFICIAL_ZAKIR_SVG);
 });
-function getEmailLogoSvg(mode) {
-  const bg = mode === "light" ? "#1C2C58" : "#FFFFFF";
-  const fill = mode === "light" ? "#FDFEFE" : "#1C2C58";
-  const stroke = mode === "light" ? "" : ' stroke="#E2E8F0" stroke-width="1"';
-  return `<?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 1200" width="96" height="96">
-  <rect width="1200" height="1200" rx="264" ry="264" fill="${bg}"${stroke} />
-  <g transform="translate(-235.5, 191)">
-    <path fill="${fill}" d="M778.63,359.56c-23.73-3.27-49.53-5.85-77.18-7.24-32.15-1.61-62.03-1.36-89.24,0,34.57-18.49,69.14-36.98,103.71-55.47,20.27,4.1,42.87,7.57,67.53,9.65,37.02,3.12,70.37,2.39,98.89,0-34.57,17.69-69.14,35.37-103.71,53.06Z"/>
-    <path fill="${fill}" d="M981.22,516.33c-21.55-3.6-44.07-6.86-67.53-9.65-27.66-3.29-54.23-5.64-79.59-7.24,24.92-14.47,49.85-28.94,74.77-43.41,15.69,5.87,35.17,11.48,57.89,14.47,48.31,6.37,88.45-2.07,113.36-9.65-32.96,18.49-65.92,36.98-98.89,55.47Z"/>
-    <path fill="${fill}" d="M475.93,511.51c-.4-63.54-.79-127.08-1.19-190.62,0-1.55.04-3.1.17-4.65,1.41-16.02,5.73-38.28,19.11-60.39,15.25-25.22,36.03-39.94,52.05-49.5,46.85-27.96,204.08-102.02,420.68-194.1,2.95-1.1,22.35-7.98,38.59,2.41,13.05,8.35,16.88,21.71,19.3,33.77.99,4.94,2.1,13.09,2.12,24.52,0,0-.21,16.41-4.53,33.36-3.15,12.35-9.18,25.15-15.95,36.87-15.62,27.05-38.84,48.89-66.54,63.34-2.2,1.15-4.45,2.31-6.75,3.51-28.28,14.64-50.12,25.26-62.71,31.35-57.8,28-105.19,50.13-105.19,50.14-109.22,51.02-121.47,55.24-155.29,75.28-51.72,30.66-69.24,48.16-82,65.12-22.17,29.46-31.69,59.52-36.18,79.59-.91,5.07-5.6,8.12-9.65,7.24-3.09-.68-5.58-3.59-6.03-7.24Z"/>
-    <path fill="${fill}" d="M588.09,674.31c-2.01-24.49-3.65-49.83-4.82-75.97-1.24-27.44-1.89-54.04-2.06-79.75-.1-14.52,5.57-37.35,18.94-60.14,18.93-32.26,45.29-46.83,62.71-55.47,137.63-68.29,257.29-123.83,260.14-125.21,75.11-36.38,123.35-60.5,145.05-72.56,27.49-15.27,46.87-32.02,62.71-41,2.06-1.17,4.68-2.2,6.94-3.07,3.88-1.5,8.1-2.04,12.18-1.23,3.17.63,6.65,1.89,9.82,4.3,8.71,6.63,9.55,16.58,9.65,18.09,1.46,13.4,2.41,28.35,2.41,44.62,0,16.21-.96,31.11-2.41,44.47-1.5,12.31-5.42,31.69-16.88,52.01-18.53,32.84-45.67,49.12-57.89,55.47-88.75,45.47-177.49,90.94-266.24,136.41-51.56,25.46-85.39,42.03-105.19,51.72-34.66,16.95-62.96,28.55-86.83,55.47-9.81,11.07-16.25,18.95-21.71,28.94-3.96,7.25-5.57,13.62-7.24,21.71-.3,1.46-.76,3.36-1.71,5.25-3.58,7.17-13.97,7.18-16.83-.3-.44-1.16-.71-2.42-.76-3.74Z"/>
-    <path fill="${fill}" d="M731,710.96l-.61,63.29c-.18,1.66-1.51,16.38,9.65,26.68,8.53,7.87,21.11,10.17,32.5,6.06,1.53-.55,2.98-1.29,4.41-2.05,119.85-63.7,238.77-125,359.6-191.17,9.25-5.06,29.78-21.26,44.87-54.03,11.48-24.93,14.47-48.24,15.26-61.06.4-6.47-.79-72.8-.79-72.8.52-9.04-4.44-17.3-12.06-20.5-6.75-2.84-14.79-1.38-20.71,3.5-7.47,6.16-15.24,11.95-23.87,16.34-108.77,55.28-218.03,109.37-326.82,164.6-6.15,3.12-12.17,6.5-17.96,10.25-12.15,7.86-28.06,20.17-42.37,41.68-.13.2-.26.39-.39.59-13.44,20.35-20.47,44.24-20.71,68.63Z"/>
-  </g>
-</svg>`;
+function getEmailLogoSvg(mode = "light") {
+  return OFFICIAL_ZAKIR_SVG;
 }
 app2.get("/api/email-logo/light.svg", (req, res) => {
   res.setHeader("Content-Type", "image/svg+xml");
@@ -8586,7 +8813,7 @@ app2.get(
   }
 );
 app2.get(
-  ["/api/email-logo/light.png", "/api/brand/badge-light.png", "/public/zakir-badge-light.png"],
+  ["/api/email-logo/light.png", "/api/brand/badge-light.png", "/public/zakir-badge-light.png", "/email-assets/zakir-badge-light.png"],
   (req, res) => {
     const buf = getOfficialEmailLogoLightBuffer2();
     if (!buf || buf.length === 0) {
@@ -8599,7 +8826,7 @@ app2.get(
   }
 );
 app2.get(
-  ["/api/email-logo/dark.png", "/api/brand/badge-dark.png", "/public/zakir-badge-dark.png"],
+  ["/api/email-logo/dark.png", "/api/brand/badge-dark.png", "/public/zakir-badge-dark.png", "/email-assets/zakir-badge-dark.png"],
   (req, res) => {
     const buf = getOfficialEmailLogoDarkBuffer2();
     if (!buf || buf.length === 0) {
@@ -9073,31 +9300,26 @@ function escapeHtml2(str) {
 }
 function renderEmailLogoHeaderHtml2(options) {
   const size = options?.size || 96;
-  const appBase = options?.appBase || "https://www.getzakir.com";
+  const rawAppBase = options?.appBase || "https://www.getzakir.com";
+  const publicAssetBase = rawAppBase && rawAppBase.startsWith("https://") && !rawAppBase.includes("localhost") ? rawAppBase.replace(/\/$/, "") : "https://www.getzakir.com";
+  const appBase = rawAppBase;
+  const logoUrl = "cid:zakir-logo-light";
   const wordmark = options?.wordmark !== void 0 ? options.wordmark : "ZAKIR";
   const tagline = options?.tagline !== void 0 ? options.tagline : "\u0627\u0644\u0630\u0627\u0643\u0631\u0629 \u0627\u0644\u0645\u0624\u0633\u0633\u064A\u0629 \u0627\u0644\u0633\u0628\u0628\u064A\u0629 &bull; Causal Decision Intelligence";
   return `
-    <!-- Strict 1:1 Square Logo Container (${size}px x ${size}px) -->
-    <table border="0" cellpadding="0" cellspacing="0" align="center" role="presentation" width="${size}" height="${size}" class="zakir-logo-table" style="width: ${size}px !important; height: ${size}px !important; max-width: ${size}px !important; max-height: ${size}px !important; margin: 0 auto 16px auto; border-collapse: collapse; border-spacing: 0; mso-table-lspace: 0pt; mso-table-rspace: 0pt;">
+    <!-- Official ZAKIR Badge (Self-Contained Vector Render from logo.txt) -->
+    <table border="0" cellpadding="0" cellspacing="0" align="center" role="presentation" width="${size}" height="${size}" class="zakir-logo-table" style="width: ${size}px !important; height: ${size}px !important; max-width: ${size}px !important; max-height: ${size}px !important; margin: 0 auto 16px auto; border-collapse: collapse; border-spacing: 0;">
       <tr>
-        <td align="center" valign="middle" width="${size}" height="${size}" class="zakir-logo-container-cell" style="width: ${size}px !important; height: ${size}px !important; max-width: ${size}px !important; max-height: ${size}px !important; padding: 0; margin: 0; line-height: 0; font-size: 0; text-align: center; vertical-align: middle;">
-          <a href="${appBase}" target="_blank" style="text-decoration: none; display: block; width: ${size}px; height: ${size}px; margin: 0 auto; line-height: 0; font-size: 0; outline: none; border: 0;">
-            <!-- LIGHT MODE BADGE: Solid Royal Navy Square (#1C2C58) + Crisp White ZAKIR Logo (#FDFEFE) [Exact ${size}x${size} px] -->
-            <img src="cid:zakir-logo-light" alt="ZAKIR" width="${size}" height="${size}" class="zakir-logo-light light-img" style="display: block; width: ${size}px !important; height: ${size}px !important; max-width: ${size}px !important; max-height: ${size}px !important; aspect-ratio: 1 / 1; border: 0; outline: none; text-decoration: none; margin: 0 auto; -ms-interpolation-mode: bicubic;" />
-            
-            <!-- DARK MODE BADGE: Solid Pure White Square (#FFFFFF) + Crisp Navy ZAKIR Logo (#1C2C58) [Exact ${size}x${size} px] -->
-            <!--[if !mso]><!-->
-            <div class="zakir-logo-dark-wrap dark-img" style="display: none; mso-hide: all; max-height: 0px; max-width: 0px; overflow: hidden; width: 0; height: 0; margin: 0 auto; line-height: 0; font-size: 0;">
-              <img src="cid:zakir-logo-dark" alt="ZAKIR" width="${size}" height="${size}" class="zakir-logo-dark" style="display: none; width: ${size}px !important; height: ${size}px !important; max-width: ${size}px !important; max-height: ${size}px !important; aspect-ratio: 1 / 1; border: 0; outline: none; text-decoration: none; margin: 0 auto; -ms-interpolation-mode: bicubic;" />
-            </div>
-            <!--<![endif]-->
+        <td align="center" valign="middle" width="${size}" height="${size}" bgcolor="#1C2C58" style="width: ${size}px; height: ${size}px; padding: 0; margin: 0; line-height: 0; font-size: 0; text-align: center; vertical-align: middle; background-color: #1C2C58; border-radius: 20px;">
+          <a href="${appBase}" target="_blank" style="text-decoration: none; display: inline-block; width: ${size}px; height: ${size}px; margin: 0 auto; line-height: 0; font-size: 0; outline: none; border: 0;">
+            <img src="${logoUrl}" alt="ZAKIR" width="${size}" height="${size}" class="zakir-logo" style="display: block; width: ${size}px !important; height: ${size}px !important; max-width: ${size}px !important; max-height: ${size}px !important; border: 0; outline: none; text-decoration: none; margin: 0 auto; border-radius: 20px; -ms-interpolation-mode: bicubic;" />
           </a>
         </td>
       </tr>
     </table>
 
     ${wordmark ? `<!-- ZAKIR Wordmark: Bold, uppercase, clean spacing -->
-    <div class="zakir-wordmark" style="color: #0f172a; font-size: 24px; font-weight: 800; letter-spacing: 2.5px; text-transform: uppercase; line-height: 1.2; margin: 0 0 6px 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+    <div class="zakir-wordmark" style="color: #0f172a; font-size: 22px; font-weight: 800; letter-spacing: 2.5px; text-transform: uppercase; line-height: 1.2; margin: 0 0 6px 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
       ${wordmark}
     </div>` : ""}
 
@@ -9122,6 +9344,7 @@ function buildMasterEmailHtml2(options) {
     }
   }
   const appBase = publicBaseUrl;
+  const publicAssetBase = appBase && appBase.startsWith("https://") && !appBase.includes("localhost") ? appBase.replace(/\/$/, "") : "https://www.getzakir.com";
   const logoHeaderHtml = renderEmailLogoHeaderHtml2({ appBase, size: 96 });
   return `<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml" lang="ar">
@@ -9137,49 +9360,11 @@ function buildMasterEmailHtml2(options) {
       color-scheme: light dark;
       supported-color-schemes: light dark;
     }
+    .zakir-logo {
+      display: block !important;
+      border-radius: 20px;
+    }
     @media (prefers-color-scheme: dark) {
-      .light-img,
-      .zakir-logo-light {
-        display: none !important;
-        mso-hide: all !important;
-        width: 0px !important;
-        height: 0px !important;
-        max-width: 0px !important;
-        max-height: 0px !important;
-        overflow: hidden !important;
-        font-size: 0px !important;
-        line-height: 0px !important;
-      }
-      .dark-img,
-      .zakir-logo-dark-wrap {
-        display: block !important;
-        mso-hide: none !important;
-        width: 96px !important;
-        height: 96px !important;
-        max-width: 96px !important;
-        max-height: 96px !important;
-        overflow: visible !important;
-        font-size: 0 !important;
-        line-height: 0 !important;
-      }
-      .zakir-logo-dark {
-        display: block !important;
-        width: 96px !important;
-        height: 96px !important;
-        max-width: 96px !important;
-        max-height: 96px !important;
-        overflow: visible !important;
-      }
-      .zakir-footer-logo-light {
-        display: none !important;
-        max-height: 0px !important;
-        overflow: hidden !important;
-      }
-      .zakir-footer-logo-dark {
-        display: inline-block !important;
-        max-height: none !important;
-        overflow: visible !important;
-      }
       .zakir-card {
         background-color: #0b1329 !important;
         border-color: #1e293b !important;
@@ -9205,41 +9390,7 @@ function buildMasterEmailHtml2(options) {
         color: #94a3b8 !important;
       }
     }
-    /* Outlook / Webmail Dark Mode Overrides */
-    [data-ogsc] .light-img,
-    [data-ogsb] .light-img,
-    [data-ogsc] .zakir-logo-light,
-    [data-ogsb] .zakir-logo-light {
-      display: none !important;
-      width: 0px !important;
-      height: 0px !important;
-      max-width: 0px !important;
-      max-height: 0px !important;
-      overflow: hidden !important;
-    }
-    [data-ogsc] .dark-img,
-    [data-ogsb] .dark-img,
-    [data-ogsc] .zakir-logo-dark-wrap,
-    [data-ogsb] .zakir-logo-dark-wrap,
-    [data-ogsc] .zakir-logo-dark,
-    [data-ogsb] .zakir-logo-dark {
-      display: block !important;
-      width: 96px !important;
-      height: 96px !important;
-      max-width: 96px !important;
-      max-height: 96px !important;
-      overflow: visible !important;
-    }
-    [data-ogsc] .zakir-footer-logo-light,
-    [data-ogsb] .zakir-footer-logo-light {
-      display: none !important;
-    }
-    [data-ogsc] .zakir-footer-logo-dark,
-    [data-ogsb] .zakir-footer-logo-dark {
-      display: inline-block !important;
-      max-height: none !important;
-      overflow: visible !important;
-    }
+    /* Webmail Dark Mode Overrides */
     [data-ogsc] .zakir-card,
     [data-ogsb] .zakir-card {
       background-color: #0b1329 !important;
@@ -9276,18 +9427,11 @@ function buildMasterEmailHtml2(options) {
           </tr>
           <tr>
             <td class="zakir-footer-cell" style="background-color: #f8fafc; padding: 24px 32px; border-top: 1px solid #e2e8f0; text-align: center; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
-              <!-- Mini Footer Brand with Light/Dark Inversion -->
+              <!-- Mini Footer Brand -->
               <table border="0" cellpadding="0" cellspacing="0" align="center" role="presentation" style="margin: 0 auto 10px auto;">
                 <tr>
                   <td align="center" style="vertical-align: middle;">
-                    <span class="zakir-footer-logo-light" style="display: inline-block; vertical-align: middle; margin-right: 8px;">
-                      <img src="cid:zakir-logo-light" alt="ZAKIR" width="24" height="24" style="display: block; width: 24px; height: 24px; border-radius: 6px; border: 0;" />
-                    </span>
-                    <!--[if !mso]><!-->
-                    <span class="zakir-footer-logo-dark" style="display: none; mso-hide: all; max-height: 0; max-width: 0; overflow: hidden; vertical-align: middle; margin-right: 8px;">
-                      <img src="cid:zakir-logo-dark" alt="ZAKIR" width="24" height="24" style="display: block; width: 24px; height: 24px; border-radius: 6px; border: 0;" />
-                    </span>
-                    <!--<![endif]-->
+                    <img src="cid:zakir-logo-light" alt="ZAKIR" width="24" height="24" style="display: inline-block; width: 24px; height: 24px; border-radius: 6px; border: 0; vertical-align: middle; margin-right: 8px;" />
                     <span class="zakir-wordmark" style="font-size: 13px; font-weight: 800; color: #0f172a; vertical-align: middle; letter-spacing: 1.5px; text-transform: uppercase;">ZAKIR</span>
                   </td>
                 </tr>
@@ -13627,14 +13771,14 @@ app2.get("/api/email/preview-branding", (req, res) => {
     greeting: "\u0645\u0631\u062D\u0628\u0627\u064B \u0628\u0643 \u0641\u064A \u0646\u0638\u0627\u0645 \u0627\u0644\u062A\u062D\u0642\u0642 \u0645\u0646 \u0647\u0648\u064A\u0629 \u0630\u0627\u0643\u0631",
     bodyHtml: `
       <p style="font-size: 15px; line-height: 1.8; color: #334155; margin: 0 0 16px 0;">
-        \u0645\u0639\u0627\u064A\u0646\u0629 \u062D\u064A\u0629 \u0644\u0644\u0645\u0631\u0628\u0639 96\xD796 \u0648\u0627\u0644\u0634\u0639\u0627\u0631 \u0627\u0644\u0645\u062A\u0645\u0631\u0643\u0632 \u0648\u0627\u0644\u0627\u0646\u0639\u0643\u0627\u0633 \u0641\u064A \u0627\u0644\u0648\u0636\u0639 \u0627\u0644\u0641\u0627\u062A\u062D \u0648\u0627\u0644\u062F\u0627\u0643\u0646:
+        \u0645\u0639\u0627\u064A\u0646\u0629 \u062D\u064A\u0629 \u0644\u0644\u0645\u0631\u0628\u0639 120\xD7120 \u0648\u0627\u0644\u0634\u0639\u0627\u0631 \u0627\u0644\u0645\u062A\u0645\u0631\u0643\u0632 \u0648\u0627\u0644\u0627\u0646\u0639\u0643\u0627\u0633 \u0641\u064A \u0627\u0644\u0648\u0636\u0639 \u0627\u0644\u0641\u0627\u062A\u062D \u0648\u0627\u0644\u062F\u0627\u0643\u0646:
       </p>
       <div style="background-color: #f1f5f9; border-radius: 10px; padding: 18px 20px; margin: 0 0 20px 0; text-align: right;">
         <ul style="margin: 0; padding-right: 20px; font-size: 14px; color: #1e293b; line-height: 2;">
           <li><strong>\u0627\u0644\u0648\u0636\u0639 \u0627\u0644\u0641\u0627\u062A\u062D (Light Mode):</strong> \u0645\u0631\u0628\u0639 \u0643\u062D\u0644\u064A \u0645\u062A\u0646\u0627\u0633\u0642 \u0627\u0644\u0623\u0628\u0639\u0627\u062F (#1C2C58) + \u0634\u0639\u0627\u0631 \u0630\u0627\u0643\u0631 \u0628\u0627\u0644\u0644\u0648\u0646 \u0627\u0644\u0623\u0628\u064A\u0636 \u0627\u0644\u0646\u0627\u0635\u0639 (#FFFFFF).</li>
           <li><strong>\u0627\u0644\u0648\u0636\u0639 \u0627\u0644\u062F\u0627\u0643\u0646 (Dark Mode):</strong> \u0645\u0631\u0628\u0639 \u0623\u0628\u064A\u0636 \u0645\u062A\u0646\u0627\u0633\u0642 \u0627\u0644\u0623\u0628\u0639\u0627\u062F (#FFFFFF) + \u0634\u0639\u0627\u0631 \u0630\u0627\u0643\u0631 \u0628\u0627\u0644\u0644\u0648\u0646 \u0627\u0644\u0643\u062D\u0644\u064A (#1C2C58).</li>
-          <li><strong>\u0623\u0628\u0639\u0627\u062F \u0627\u0644\u0645\u0631\u0628\u0639:</strong> \u0646\u0633\u0628\u0629 \u0645\u062B\u0627\u0644\u064A\u0629 1:1 \u0628\u0627\u0631\u062A\u0641\u0627\u0639 \u0648\u0639\u0631\u0636 96px \u0645\u062A\u0645\u0627\u062B\u0644\u064A\u0646\u060C \u0628\u062F\u0648\u0646 \u0623\u064A \u062A\u0634\u0648\u0647 \u0623\u0648 \u0627\u0633\u062A\u0637\u0627\u0644\u0629.</li>
-          <li><strong>\u0623\u0628\u0639\u0627\u062F \u0627\u0644\u0634\u0639\u0627\u0631:</strong> \u0627\u0644\u062D\u0641\u0627\u0638 \u0639\u0644\u0649 \u0627\u0644\u0646\u0633\u0628\u0629 \u0627\u0644\u0623\u0635\u0644\u064A\u0629 \u0648\u0627\u0644\u062A\u0645\u0631\u0643\u0632 \u0627\u0644\u062F\u0642\u064A\u0642 \u0623\u0641\u0642\u064A\u0627\u064B \u0648\u0639\u0645\u0648\u062F\u064A\u0627\u064B \u062F\u0627\u062E\u0644 \u0627\u0644\u062D\u0627\u0648\u064A\u0629 96&times;96 px.</li>
+          <li><strong>\u0623\u0628\u0639\u0627\u062F \u0627\u0644\u0645\u0631\u0628\u0639:</strong> \u0646\u0633\u0628\u0629 \u0645\u062B\u0627\u0644\u064A\u0629 1:1 \u0628\u0627\u0631\u062A\u0641\u0627\u0639 \u0648\u0639\u0631\u0636 120px \u0645\u062A\u0645\u0627\u062B\u0644\u064A\u0646\u060C \u0628\u062F\u0648\u0646 \u0623\u064A \u062A\u0634\u0648\u0647 \u0623\u0648 \u0627\u0633\u062A\u0637\u0627\u0644\u0629.</li>
+          <li><strong>\u0623\u0628\u0639\u0627\u062F \u0627\u0644\u0634\u0639\u0627\u0631:</strong> \u0627\u0644\u062D\u0641\u0627\u0638 \u0639\u0644\u0649 \u0627\u0644\u0646\u0633\u0628\u0629 \u0627\u0644\u0623\u0635\u0644\u064A\u0629 \u0648\u0627\u0644\u062A\u0645\u0631\u0643\u0632 \u0627\u0644\u062F\u0642\u064A\u0642 \u0623\u0641\u0642\u064A\u0627\u064B \u0648\u0639\u0645\u0648\u062F\u064A\u0627\u064B \u062F\u0627\u062E\u0644 \u0627\u0644\u062D\u0627\u0648\u064A\u0629 120&times;120 px.</li>
         </ul>
       </div>
     `,
@@ -13686,13 +13830,13 @@ app2.get("/api/admin/users", requireAuth, async (req, res) => {
       );
     }
     try {
-      const db2 = readDb2();
-      if (db2.users && Array.isArray(db2.users)) {
+      const db3 = readDb2();
+      if (db3.users && Array.isArray(db3.users)) {
         const existingIds = new Set(fsUsers.map((u) => u.id));
         const existingEmails = new Set(
           fsUsers.map((u) => (u.email || "").trim().toLowerCase()).filter(Boolean)
         );
-        for (const localU of db2.users) {
+        for (const localU of db3.users) {
           const lEmail = (localU.email || "").trim().toLowerCase();
           if (!existingIds.has(localU.id) && (!lEmail || !existingEmails.has(lEmail))) {
             fsUsers.push(localU);
@@ -13757,6 +13901,46 @@ app2.get("/api/admin/users", requireAuth, async (req, res) => {
       }
     } catch (e) {
     }
+    let topFiles = [];
+    let fsVerDocs = [];
+    const subFilesMap = /* @__PURE__ */ new Map();
+    if (isFirebaseAdminAvailable && adminDb) {
+      try {
+        const [topSnap, verSnap] = await Promise.all([
+          adminDb.collection("files").get().catch(() => ({ empty: true, docs: [] })),
+          adminDb.collection("verification_documents").get().catch(() => ({ empty: true, docs: [] }))
+        ]);
+        if (topSnap && !topSnap.empty && topSnap.docs) {
+          topFiles = topSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+        }
+        if (verSnap && !verSnap.empty && verSnap.docs) {
+          fsVerDocs = verSnap.docs.map((d) => ({ id: d.id, documentId: d.id, ...d.data() }));
+        }
+      } catch (e) {
+      }
+      try {
+        const chunkSize = 15;
+        for (let i = 0; i < fsUsers.length; i += chunkSize) {
+          const chunk = fsUsers.slice(i, i + chunkSize);
+          await Promise.all(
+            chunk.map(async (u) => {
+              const uId = u.id || u.uid;
+              if (!uId) return;
+              try {
+                const subSnap = await adminDb.collection("users").doc(uId).collection("files").get();
+                if (subSnap && !subSnap.empty && subSnap.docs) {
+                  subFilesMap.set(uId, subSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
+                }
+              } catch (err) {
+              }
+            })
+          );
+        }
+      } catch (e) {
+      }
+    }
+    const db2 = readDb2();
+    const diskUploadsDir = import_path7.default.join(process.cwd(), "secure_uploads");
     const activeUsers = fsUsers.filter((u) => {
       const uId = u.id || u.uid;
       if (deletedUserIds.has(uId)) return false;
@@ -13765,45 +13949,124 @@ app2.get("/api/admin/users", requireAuth, async (req, res) => {
     }).map((u) => {
       const uId = u.id || u.uid;
       const uEmail = (u.email || "").toLowerCase().trim();
+      const userFilesMap = /* @__PURE__ */ new Map();
+      const subFiles = subFilesMap.get(uId) || [];
+      for (const sf of subFiles) {
+        if (sf && sf.id) userFilesMap.set(sf.id, sf);
+      }
+      for (const tf of topFiles) {
+        if (tf && (tf.userId === uId || tf.userUid === uId || tf.ownerUid === uId)) {
+          if (!userFilesMap.has(tf.id)) userFilesMap.set(tf.id, tf);
+        }
+      }
+      if (Array.isArray(db2.files)) {
+        for (const df of db2.files) {
+          if (df && (df.userId === uId || df.userUid === uId || df.ownerUid === uId)) {
+            if (!userFilesMap.has(df.id)) userFilesMap.set(df.id, df);
+          }
+        }
+      }
+      if (Array.isArray(u.files)) {
+        for (const uf of u.files) {
+          if (uf && uf.id) {
+            if (!userFilesMap.has(uf.id)) userFilesMap.set(uf.id, uf);
+          }
+        }
+      }
+      const reconciledFiles = Array.from(userFilesMap.values()).map((f) => ({
+        ...f,
+        previewUrl: f.fileUrl || `/api/auth/verification-document/${f.id}`
+      }));
+      u.files = reconciledFiles;
+      u.fileCount = reconciledFiles.length;
       const rawDocs = [
         ...Array.isArray(u.verificationDocuments) ? u.verificationDocuments : [],
         ...Array.isArray(u.verificationInfo?.documents) ? u.verificationInfo.documents : [],
         ...Array.isArray(u.documents) ? u.documents : [],
-        ...Array.isArray(u.files) ? u.files.filter((f) => f && (f.category === "Verification" || f.isVerificationDoc)) : []
+        ...reconciledFiles.filter((f) => f && (f.category === "Verification" || f.category === "Identity" || f.isVerificationDoc))
       ];
-      const db2 = readDb2();
+      for (const vd of fsVerDocs) {
+        if (vd && (vd.userId === uId || vd.userEmail && vd.userEmail.toLowerCase().trim() === uEmail)) {
+          rawDocs.push(vd);
+        }
+      }
       if (db2.verification_documents_store) {
         for (const [docId, meta] of Object.entries(db2.verification_documents_store)) {
           if (meta) {
             const matchesUser = meta.userId === uId || meta.userEmail && meta.userEmail.toLowerCase().trim() === uEmail;
             if (matchesUser) {
-              if (!rawDocs.some((d) => (d.documentId || d.id) === docId)) {
-                rawDocs.push(meta);
-              }
+              rawDocs.push({ ...meta, documentId: docId });
+            }
+          }
+        }
+      }
+      if (db2.recovery_documents_store) {
+        for (const [docId, meta] of Object.entries(db2.recovery_documents_store)) {
+          if (meta) {
+            const matchesUser = meta.userId === uId || meta.userEmail && meta.userEmail.toLowerCase().trim() === uEmail;
+            if (matchesUser) {
+              rawDocs.push({ ...meta, documentId: docId });
             }
           }
         }
       }
       const docMap = /* @__PURE__ */ new Map();
       for (const d of rawDocs) {
-        if (!d) continue;
+        if (!d || d.deleted === true || d.isDeleted === true) continue;
         const dKey = d.documentId || d.id || d.storageReference || d.fileName;
         if (dKey && !docMap.has(dKey)) {
-          docMap.set(dKey, d);
+          docMap.set(dKey, { ...d, documentId: dKey });
         }
       }
       const reconciledDocs = Array.from(docMap.values());
-      u.verificationDocuments = reconciledDocs;
-      u.documents = reconciledDocs;
-      const docCount = reconciledDocs.length;
-      u.documentCount = docCount;
-      const isExplicitAdminApproved = Boolean(
-        u.adminVerificationOverride === true || u.approvedBy && u.approvedAt && u.documentVerificationStatus === "APPROVED"
+      const verifiedDocs = reconciledDocs.map((doc) => {
+        const docId = doc.documentId || doc.id || doc.fileName;
+        let exists = false;
+        if (docId && import_fs7.default.existsSync(import_path7.default.join(diskUploadsDir, docId)) || docId && import_fs7.default.existsSync(import_path7.default.join(import_os2.default.tmpdir(), "secure_uploads", docId)) || docId && import_fs7.default.existsSync(import_path7.default.join(process.cwd(), "secure_uploads", docId))) {
+          exists = true;
+        } else if (docId && getFromLocalDiskCache(docId)) {
+          exists = true;
+        } else if (doc.fileBase64 || doc.data || doc.base64 || Array.isArray(doc.chunks) && doc.chunks.length > 0) {
+          exists = true;
+        } else if (docId && db2.recovery_documents_store?.[docId]?.fileBase64 || docId && db2.verification_documents_store?.[docId]?.fileBase64) {
+          exists = true;
+        } else if (doc.storageReference || doc.storagePath || doc.path || doc.filePath || doc.downloadUrl || typeof doc.fileUrl === "string" && doc.fileUrl.length > 5 || typeof doc.previewUrl === "string" && doc.previewUrl.length > 5 || docId && db2.verification_documents_store?.[docId] || docId && db2.recovery_documents_store?.[docId] || doc.fileName || doc.name) {
+          exists = true;
+        } else {
+          exists = false;
+        }
+        const rawStatus = String(doc.status || doc.verificationStatus || u.documentVerificationStatus || "PENDING").toUpperCase();
+        const docStatus2 = rawStatus === "APPROVED" || rawStatus === "VERIFIED" ? "APPROVED" : rawStatus === "REJECTED" ? "REJECTED" : "PENDING";
+        return {
+          ...doc,
+          documentId: docId,
+          id: docId,
+          status: docStatus2,
+          verificationStatus: docStatus2,
+          isAccessible: exists,
+          isMissing: !exists,
+          previewUrl: doc.previewUrl || doc.fileUrl || `/api/auth/verification-document/${encodeURIComponent(docId)}`,
+          downloadUrl: doc.downloadUrl || doc.fileUrl || `/api/auth/verification-document/${encodeURIComponent(docId)}?download=true`
+        };
+      });
+      const totalDocCount = verifiedDocs.length;
+      const docCount = totalDocCount;
+      u.verificationDocuments = verifiedDocs;
+      u.documents = verifiedDocs;
+      u.documentCount = totalDocCount;
+      const isEmailVer = Boolean(
+        u.emailVerified === true || u.isEmailVerified === true || u.email_verified === true
       );
-      const isSystemAdmin = u.role === "Admin" || u.email && ADMIN_EMAILS.has(u.email.toLowerCase().trim());
+      u.emailVerified = isEmailVer;
+      u.isEmailVerified = isEmailVer;
+      const isSystemAdmin = u.role === "Admin" || uEmail && ADMIN_EMAILS.has(uEmail);
+      const isExplicitAdminApproved = Boolean(
+        u.approvedBy && u.approvedAt && (String(u.accountStatus || "").toUpperCase() === "APPROVED" || String(u.documentVerificationStatus || "").toUpperCase() === "APPROVED") || u.adminVerificationOverride === true
+      );
       const rawReq = String(u.verificationRequestStatus || u.verificationRequest || "").toUpperCase();
       const hasInstitutional = Boolean(u.institutionalProfile);
       const rawDocStatus = String(u.documentVerificationStatus || u.verificationInfo?.status || "").toUpperCase();
+      const rawAcc = String(u.accountStatus || "").toUpperCase();
       let reqStatus = "NONE";
       if (rawReq === "APPROVED" || rawReq === "VERIFIED") {
         reqStatus = "APPROVED";
@@ -13822,12 +14085,12 @@ app2.get("/api/admin/users", requireAuth, async (req, res) => {
       }
       u.verificationRequestStatus = reqStatus;
       let docStatus = "NOT_SUBMITTED";
-      const hasRejectedDoc = reconciledDocs.some((d) => String(d.status || d.verificationStatus || "").toUpperCase() === "REJECTED");
-      if (docCount === 0 && !isExplicitAdminApproved && !isSystemAdmin) {
+      const hasRejectedDoc = verifiedDocs.some((d) => String(d.status || d.verificationStatus || "").toUpperCase() === "REJECTED");
+      if (docCount === 0) {
         docStatus = "NOT_SUBMITTED";
       } else if (hasRejectedDoc || rawDocStatus === "REJECTED" || reqStatus === "REJECTED") {
         docStatus = "REJECTED";
-      } else if ((rawDocStatus === "APPROVED" || isExplicitAdminApproved || isSystemAdmin) && (docCount > 0 || isExplicitAdminApproved || isSystemAdmin)) {
+      } else if ((rawDocStatus === "APPROVED" || isExplicitAdminApproved) && docCount > 0) {
         docStatus = "APPROVED";
       } else if (docCount > 0) {
         docStatus = rawDocStatus === "UNDER_REVIEW" ? "UNDER_REVIEW" : "PENDING_REVIEW";
@@ -13837,10 +14100,14 @@ app2.get("/api/admin/users", requireAuth, async (req, res) => {
       u.documentVerificationStatus = docStatus;
       u.documentStatus = docStatus;
       let kycStatus = "NOT_VERIFIED";
-      if (isSystemAdmin || isExplicitAdminApproved || docCount > 0 && docStatus === "APPROVED") {
+      if (isSystemAdmin) {
         kycStatus = "VERIFIED";
+      } else if (docCount === 0) {
+        kycStatus = "NOT_VERIFIED";
       } else if (docStatus === "REJECTED") {
         kycStatus = "REJECTED";
+      } else if (docCount > 0 && docStatus === "APPROVED") {
+        kycStatus = "VERIFIED";
       } else if (docCount > 0 || reqStatus === "UNDER_REVIEW" || reqStatus === "SUBMITTED") {
         kycStatus = "UNDER_REVIEW";
       } else {
@@ -13852,7 +14119,7 @@ app2.get("/api/admin/users", requireAuth, async (req, res) => {
         uiState = "REJECTED";
       } else if (docCount > 0 && docStatus === "APPROVED" && kycStatus === "VERIFIED") {
         uiState = "VERIFIED";
-      } else if (docCount > 0 && (docStatus === "PENDING_REVIEW" || docStatus === "UNDER_REVIEW")) {
+      } else if (docCount > 0) {
         uiState = "PENDING_REVIEW";
       } else if (reqStatus !== "NONE" && docCount === 0) {
         uiState = "AWAITING_DOCS";
@@ -13860,24 +14127,28 @@ app2.get("/api/admin/users", requireAuth, async (req, res) => {
         uiState = "NO_REQUEST";
       }
       u.uiState = uiState;
-      u.canApproveKyc = uiState === "PENDING_REVIEW" && docCount > 0;
-      u.canReviewDocuments = uiState === "PENDING_REVIEW" && docCount > 0;
-      const rawAcc = String(u.accountStatus || "").toUpperCase();
-      if (rawAcc === "APPROVED" || rawAcc === "ACTIVE" || isSystemAdmin) {
-        u.accountStatus = "APPROVED";
-        u.canApproveAccount = false;
-      } else if (rawAcc === "REJECTED") {
-        u.accountStatus = "REJECTED";
-        u.canApproveAccount = false;
+      let accountStatus = "PENDING";
+      if (isSystemAdmin) {
+        accountStatus = "APPROVED";
       } else if (rawAcc === "SUSPENDED") {
-        u.accountStatus = "SUSPENDED";
-        u.canApproveAccount = false;
+        accountStatus = "SUSPENDED";
+      } else if (rawAcc === "REJECTED" || docStatus === "REJECTED") {
+        accountStatus = "REJECTED";
+      } else if (!isEmailVer) {
+        accountStatus = "PENDING";
+      } else if (docCount === 0) {
+        accountStatus = "PENDING";
+      } else if (kycStatus === "VERIFIED" && isExplicitAdminApproved && (rawAcc === "APPROVED" || rawAcc === "ACTIVE")) {
+        accountStatus = "APPROVED";
       } else {
-        u.accountStatus = "PENDING";
-        u.canApproveAccount = true;
+        accountStatus = "PENDING";
       }
-      u.isVerified = kycStatus === "VERIFIED" || isSystemAdmin;
-      u.verification_status = u.isVerified ? "verified" : uiState === "PENDING_REVIEW" ? "pending" : uiState === "REJECTED" ? "rejected" : "unverified";
+      u.accountStatus = accountStatus;
+      u.canApproveKyc = isEmailVer && docCount > 0 && kycStatus !== "VERIFIED";
+      u.canReviewDocuments = docCount > 0;
+      u.canApproveAccount = isEmailVer && docCount > 0 && kycStatus === "VERIFIED" && accountStatus !== "APPROVED";
+      u.isVerified = isSystemAdmin || isEmailVer && docCount > 0 && kycStatus === "VERIFIED" && accountStatus === "APPROVED";
+      u.verification_status = u.isVerified ? "verified" : uiState === "PENDING_REVIEW" ? "pending" : uiState === "REJECTED" ? "rejected" : uiState === "AWAITING_DOCS" ? "action_required" : "unverified";
       return u;
     });
     console.log("ADMIN_USERS_FIRESTORE_RESULT", { count: activeUsers.length });
@@ -13915,8 +14186,10 @@ app2.post("/api/admin/bulk-user-action", requireAuth, requireAdmin, async (req, 
           const updates = {
             accountStatus: "APPROVED",
             documentVerificationStatus: hasDocs ? "APPROVED" : "NOT_SUBMITTED",
-            isVerified: true,
-            verification_required: false,
+            kycStatus: hasDocs ? "VERIFIED" : "NOT_VERIFIED",
+            isVerified: hasDocs,
+            verification_required: !hasDocs,
+            verification_status: hasDocs ? "verified" : "unverified",
             approvedAt: nowIso,
             approvedBy: callerEmail,
             subscriptionPlan: assignPlan,
@@ -14456,8 +14729,13 @@ app2.post("/api/auth/submit-verification-documents", requireAuth, async (req, re
       hasCompany: hasCompanyBool,
       institutionalProfile,
       verificationDocuments: allDocuments,
+      documents: allDocuments,
+      documentCount: allDocuments.length,
+      canonicalVerificationStatus: "pending",
       accountStatus: "PENDING_ADMIN_REVIEW",
       documentVerificationStatus: "UNDER_REVIEW",
+      kycStatus: "UNDER_REVIEW",
+      verificationRequestStatus: "UNDER_REVIEW",
       requiresDocumentVerification: true,
       rejectionReason: null,
       isVerified: false,
@@ -14702,6 +14980,17 @@ app2.post("/api/admin/approve-account", requireAuth, requireAdmin, async (req, r
     if (!targetUser) {
       return res.status(404).json({ success: false, error: "Target user not found." });
     }
+    const isEmailVer = Boolean(
+      targetUser.emailVerified === true || targetUser.isEmailVerified === true || targetUser.email_verified === true
+    );
+    const isExplicitOverride = Boolean(adminOverride === true || req.body?.adminVerificationOverride === true);
+    if (!isEmailVer && !isExplicitOverride) {
+      return res.status(400).json({
+        success: false,
+        error: "CANNOT_APPROVE_UNVERIFIED_EMAIL",
+        userFriendlyMessage: "\u0644\u0627 \u064A\u0645\u0643\u0646 \u0627\u0639\u062A\u0645\u0627\u062F \u0627\u0644\u062D\u0633\u0627\u0628 \u0642\u0628\u0644 \u062A\u0623\u0643\u064A\u062F \u0648\u062A\u0648\u062B\u064A\u0642 \u0627\u0644\u0628\u0631\u064A\u062F \u0627\u0644\u0625\u0644\u0643\u062A\u0631\u0648\u0646\u064A."
+      });
+    }
     const rawDocs = [
       ...Array.isArray(targetUser.verificationDocuments) ? targetUser.verificationDocuments : [],
       ...Array.isArray(targetUser.verificationInfo?.documents) ? targetUser.verificationInfo.documents : [],
@@ -14711,26 +15000,54 @@ app2.post("/api/admin/approve-account", requireAuth, requireAdmin, async (req, r
     const uniqueDocs = [];
     const seenIds = /* @__PURE__ */ new Set();
     for (const doc of rawDocs) {
-      if (!doc) continue;
+      if (!doc || doc.deleted === true || doc.isDeleted === true) continue;
       const docId = String(doc.documentId || doc.id || doc.storageReference || doc.fileName || doc.name || JSON.stringify(doc));
       if (!seenIds.has(docId)) {
         seenIds.add(docId);
         uniqueDocs.push(doc);
       }
     }
+    const validDocs = [];
+    for (const d of uniqueDocs) {
+      const docId = d.documentId || d.id || d.fileName;
+      validDocs.push({
+        ...d,
+        documentId: docId,
+        id: docId,
+        isAccessible: true,
+        isMissing: false,
+        status: "APPROVED",
+        verificationStatus: "APPROVED"
+      });
+    }
     const docCount = uniqueDocs.length;
-    const isExplicitOverride = Boolean(adminOverride === true || req.body?.adminVerificationOverride === true);
+    if (docCount === 0 && !isExplicitOverride) {
+      return res.status(400).json({
+        success: false,
+        error: "CANNOT_APPROVE_WITHOUT_DOCUMENTS",
+        userFriendlyMessage: "\u0644\u0627 \u064A\u0645\u0643\u0646 \u0627\u0639\u062A\u0645\u0627\u062F \u0627\u0644\u062D\u0633\u0627\u0628 \u0644\u0639\u062F\u0645 \u0648\u062C\u0648\u062F \u0623\u064A \u0648\u062B\u0627\u0626\u0642 \u062A\u0648\u062B\u064A\u0642 \u0631\u0633\u0645\u064A\u0629 \u0645\u0631\u0641\u0648\u0639\u0629."
+      });
+    }
     const nowIso = (/* @__PURE__ */ new Date()).toISOString();
     const trialHours = Math.max(1, Number(customTrialHours) || 24);
     const trialEndsIso = new Date(Date.now() + trialHours * 3600 * 1e3).toISOString();
-    const isDocApproved = isExplicitOverride ? true : docCount > 0 && targetUser.documentVerificationStatus === "APPROVED";
-    const docVerifStatus = isDocApproved ? "APPROVED" : docCount > 0 ? "UNDER_REVIEW" : "NOT_SUBMITTED";
-    const kycStatus = isDocApproved ? "VERIFIED" : docCount > 0 ? "UNDER_REVIEW" : "NOT_VERIFIED";
+    const isDocApproved = isExplicitOverride ? true : docCount > 0;
+    const docVerifStatus = isDocApproved ? "APPROVED" : "NOT_SUBMITTED";
+    const kycStatus = isDocApproved ? "VERIFIED" : "NOT_VERIFIED";
+    const approvedDocs = validDocs.map((d) => ({
+      ...d,
+      status: "APPROVED",
+      verificationStatus: "APPROVED",
+      reviewedAt: nowIso,
+      reviewedBy: adminEmail
+    }));
     const approvalUpdates = {
+      canonicalVerificationStatus: "approved",
       accountStatus: "APPROVED",
       documentVerificationStatus: docVerifStatus,
       kycStatus,
-      requiresDocumentVerification: docCount === 0 ? false : !isDocApproved,
+      verificationRequestStatus: "APPROVED",
+      requiresDocumentVerification: false,
       adminVerificationOverride: isExplicitOverride,
       approvedAt: nowIso,
       approvedBy: adminEmail,
@@ -14741,20 +15058,22 @@ app2.post("/api/admin/approve-account", requireAuth, requireAdmin, async (req, r
       trialDurationHours: trialHours,
       subscriptionPlan: assignPlan,
       subscriptionStatus: "Active",
-      isVerified: isDocApproved,
+      isVerified: true,
       isEmailVerified: true,
       email_verified: true,
       emailVerified: true,
-      verification_status: isDocApproved ? "verified" : "unverified",
+      verification_status: "verified",
       rejectionReason: null,
+      verificationDocuments: approvedDocs.length > 0 ? approvedDocs : targetUser.verificationDocuments || [],
+      documents: approvedDocs.length > 0 ? approvedDocs : targetUser.documents || [],
+      documentCount: approvedDocs.length > 0 ? approvedDocs.length : targetUser.verificationDocuments?.length || 0,
+      verifiedAt: nowIso,
+      "verificationInfo.status": "verified",
+      "verificationInfo.verifiedAt": nowIso,
+      "verificationInfo.verifiedBy": adminEmail,
+      "verificationInfo.adminNote": notes || adminNotes || "Approved by Admin",
       lastActiveAt: nowIso
     };
-    if (isDocApproved) {
-      approvalUpdates.verifiedAt = nowIso;
-      approvalUpdates["verificationInfo.status"] = "verified";
-      approvalUpdates["verificationInfo.verifiedAt"] = nowIso;
-      approvalUpdates["verificationInfo.verifiedBy"] = adminEmail;
-    }
     try {
       await adminDb.collection("users").doc(userId).set(approvalUpdates, { merge: true });
     } catch (fsErr) {
@@ -15114,8 +15433,11 @@ app2.post("/api/admin/reject-account", requireAuth, requireAdmin, async (req, re
     }
     const nowIso = (/* @__PURE__ */ new Date()).toISOString();
     const rejectionUpdates = {
+      canonicalVerificationStatus: "rejected",
       accountStatus: "REJECTED",
       documentVerificationStatus: "REJECTED",
+      kycStatus: "REJECTED",
+      verificationRequestStatus: "REJECTED",
       rejectionReason: String(reason).trim(),
       rejectionDate: nowIso,
       rejectedBy: adminEmail,
@@ -17190,38 +17512,104 @@ app2.post(
             error: "fileId and targetUserId are required"
           });
         }
+        if (isFirebaseAdminAvailable && adminDb) {
+          try {
+            await Promise.allSettled([
+              adminDb.collection("users").doc(targetUserId).collection("files").doc(fileId).delete(),
+              adminDb.collection("files").doc(fileId).delete(),
+              adminDb.collection("verification_documents").doc(fileId).delete(),
+              adminDb.collection("recoveryDocuments").doc(fileId).delete()
+            ]);
+          } catch (e) {
+          }
+        }
         try {
-          await adminDb.collection("users").doc(targetUserId).collection("files").doc(fileId).delete();
+          await deleteDocumentFromPersistentStorage(fileId);
         } catch (e) {
         }
         const bucket = getSafeBucket();
         if (bucket) {
           try {
-            const fileRef = bucket.file(
-              `users/${targetUserId}/files/${fileId}`
-            );
-            await fileRef.delete().catch(() => {
-            });
-            const secureRef = bucket.file(`secure_uploads/${fileId}`);
-            await secureRef.delete().catch(() => {
-            });
+            await Promise.allSettled([
+              bucket.file(`users/${targetUserId}/files/${fileId}`).delete(),
+              bucket.file(`files/${fileId}`).delete(),
+              bucket.file(`secure_uploads/${fileId}`).delete()
+            ]);
           } catch (e) {
           }
         }
         const db2 = readDb2();
+        if (db2.files && Array.isArray(db2.files)) {
+          db2.files = db2.files.filter((f) => f.id !== fileId && f.documentId !== fileId);
+        }
+        if (db2.verification_documents_store && db2.verification_documents_store[fileId]) {
+          delete db2.verification_documents_store[fileId];
+        }
+        if (db2.recovery_documents_store && db2.recovery_documents_store[fileId]) {
+          delete db2.recovery_documents_store[fileId];
+        }
+        let remainingDocsCount = 0;
+        let targetUser = await getUserProfileServer(targetUserId);
         if (db2.users) {
           const uIdx = db2.users.findIndex(
             (u) => u.id === targetUserId || u.uid === targetUserId
           );
-          if (uIdx !== -1 && db2.users[uIdx].files) {
-            db2.users[uIdx].files = db2.users[uIdx].files.filter(
-              (f) => f.id !== fileId
-            );
-            db2.users[uIdx].fileCount = Math.max(
-              0,
-              (db2.users[uIdx].fileCount || 1) - 1
-            );
-            writeDb2(db2);
+          if (uIdx !== -1) {
+            if (db2.users[uIdx].files) {
+              db2.users[uIdx].files = db2.users[uIdx].files.filter(
+                (f) => f.id !== fileId
+              );
+              db2.users[uIdx].fileCount = db2.users[uIdx].files.length;
+            }
+            if (db2.users[uIdx].verificationDocuments) {
+              db2.users[uIdx].verificationDocuments = db2.users[uIdx].verificationDocuments.filter(
+                (d) => (d.documentId || d.id) !== fileId
+              );
+            }
+            if (db2.users[uIdx].documents) {
+              db2.users[uIdx].documents = db2.users[uIdx].documents.filter(
+                (d) => (d.documentId || d.id) !== fileId
+              );
+            }
+            remainingDocsCount = (db2.users[uIdx].verificationDocuments || []).length;
+          }
+        }
+        writeDb2(db2);
+        if (isFirebaseAdminAvailable && adminDb && targetUser) {
+          try {
+            const rawDocs = [
+              ...Array.isArray(targetUser.verificationDocuments) ? targetUser.verificationDocuments : [],
+              ...Array.isArray(targetUser.documents) ? targetUser.documents : []
+            ].filter((d) => (d.documentId || d.id) !== fileId);
+            remainingDocsCount = rawDocs.length;
+            const userCleanUpdate = {
+              verificationDocuments: rawDocs,
+              documents: rawDocs
+            };
+            const isTargetSysAdmin = targetUser.role === "Admin" || targetUser.email && ADMIN_EMAILS.has(targetUser.email.toLowerCase());
+            if (remainingDocsCount === 0 && !isTargetSysAdmin) {
+              userCleanUpdate.documentVerificationStatus = "NOT_SUBMITTED";
+              userCleanUpdate.kycStatus = "NOT_VERIFIED";
+              userCleanUpdate.isVerified = false;
+              userCleanUpdate.requiresDocumentVerification = true;
+              userCleanUpdate.verification_required = true;
+              userCleanUpdate.verification_status = "unverified";
+              if (String(targetUser.accountStatus || "").toUpperCase() === "APPROVED" || String(targetUser.accountStatus || "").toUpperCase() === "ACTIVE") {
+                userCleanUpdate.accountStatus = "VERIFICATION_REQUIRED";
+                userCleanUpdate.approvedAt = null;
+                userCleanUpdate.approvedBy = null;
+                userCleanUpdate.rejectionReason = "\u062A\u0645 \u0625\u0644\u063A\u0627\u0621 \u0627\u0639\u062A\u0645\u0627\u062F \u0627\u0644\u062D\u0633\u0627\u0628 \u0648\u062A\u0648\u062B\u064A\u0642 KYC \u062A\u0644\u0642\u0627\u0626\u064A\u0627\u064B \u0644\u062D\u0630\u0641 \u0648\u062B\u0627\u0626\u0642 \u0627\u0644\u062A\u0648\u062B\u064A\u0642.";
+              }
+            }
+            await adminDb.collection("users").doc(targetUserId).set(userCleanUpdate, { merge: true });
+            if (db2.users) {
+              const uIdx = db2.users.findIndex((u) => u.id === targetUserId || u.uid === targetUserId);
+              if (uIdx !== -1) {
+                db2.users[uIdx] = { ...db2.users[uIdx], ...userCleanUpdate };
+                writeDb2(db2);
+              }
+            }
+          } catch (e) {
           }
         }
         await writeAdminAuditLog(
@@ -17232,7 +17620,7 @@ app2.post(
           fileId,
           null,
           "SUCCESS",
-          `Deleted file ${fileId} for user ${targetUserId}`
+          `Deleted file ${fileId} for user ${targetUserId}. Remaining docs: ${remainingDocsCount}`
         );
         emitPlatformEvent({
           eventType: "FILE_DELETED",
@@ -17244,13 +17632,16 @@ app2.post(
           metadata: {
             actor: { id: callerUid, email: callerEmail, role: "Admin" },
             action: "Deleted file",
-            targetUserId
+            targetUserId,
+            fileId,
+            remainingDocsCount
           },
           sanitizedMessage: `File ${fileId} deleted for user ${targetUserId}`
         });
         return res.json({
           success: true,
-          message: "File deleted successfully."
+          message: "File deleted successfully and user verification state audited.",
+          remainingDocsCount
         });
       }
       if (action === "update") {
@@ -19326,40 +19717,127 @@ if (!isServerless2) {
   );
   if (tSync?.unref) tSync.unref();
 }
+async function checkDocumentExistence(documentId, docMeta) {
+  if (!documentId) return false;
+  const p1 = import_path7.default.join(process.cwd(), "secure_uploads", documentId);
+  const p2 = import_path7.default.join(import_os2.default.tmpdir(), "secure_uploads", documentId);
+  const p3 = import_path7.default.join(getLocalUploadsDir(), documentId);
+  if (import_fs7.default.existsSync(p1) || import_fs7.default.existsSync(p2) || import_fs7.default.existsSync(p3)) {
+    return true;
+  }
+  if (getFromLocalDiskCache(documentId)) {
+    return true;
+  }
+  const db2 = readDb2();
+  const localDoc = db2.recovery_documents_store?.[documentId] || db2.verification_documents_store?.[documentId] || (Array.isArray(db2.files) ? db2.files.find((f) => f.id === documentId || f.documentId === documentId) : null) || docMeta;
+  if (localDoc) {
+    if (localDoc.storageReference || localDoc.storagePath || localDoc.path || localDoc.filePath || localDoc.downloadUrl || localDoc.previewUrl || localDoc.fileName || localDoc.name || localDoc.fileBase64 || localDoc.data || localDoc.base64 || typeof localDoc.fileUrl === "string" && localDoc.fileUrl.length > 5) {
+      return true;
+    }
+    if (Array.isArray(localDoc.chunks) && localDoc.chunks.length > 0) {
+      return true;
+    }
+  }
+  const bucket = getSafeBucket();
+  if (bucket) {
+    try {
+      const candidates = [`secure_uploads/${documentId}`, `files/${documentId}`];
+      if (localDoc?.storagePath) candidates.push(localDoc.storagePath);
+      if (localDoc?.storageReference) candidates.push(localDoc.storageReference);
+      for (const cPath of candidates) {
+        const [exists] = await bucket.file(cPath).exists().catch(() => [false]);
+        if (exists) return true;
+      }
+    } catch (e) {
+    }
+  }
+  if (isFirebaseAdminAvailable && adminDb) {
+    try {
+      const rSnap = await adminDb.collection("recoveryDocuments").doc(documentId).get();
+      if (rSnap && rSnap.exists) return true;
+      const vSnap = await adminDb.collection("verification_documents").doc(documentId).get();
+      if (vSnap && vSnap.exists) {
+        const vData = vSnap.data();
+        if (vData?.fileBase64 || vData?.data || vData?.storagePath || vData?.storageReference || vData?.fileUrl) {
+          return true;
+        }
+      }
+      const fSnap = await adminDb.collection("files").doc(documentId).get();
+      if (fSnap && fSnap.exists) return true;
+    } catch (e) {
+    }
+  }
+  return false;
+}
 async function getDocumentFromPersistentStorage(documentId) {
   const cached = getFromLocalDiskCache(documentId);
   if (cached && cached.length > 0) {
     return cached;
   }
+  const candidateDiskPaths = [
+    import_path7.default.join(process.cwd(), "secure_uploads", documentId),
+    import_path7.default.join(import_os2.default.tmpdir(), "secure_uploads", documentId),
+    import_path7.default.join(getLocalUploadsDir(), documentId)
+  ];
+  for (const p of candidateDiskPaths) {
+    if (import_fs7.default.existsSync(p)) {
+      try {
+        const buf = import_fs7.default.readFileSync(p);
+        if (buf && buf.length > 0) {
+          saveToLocalDiskCache(documentId, buf);
+          return buf;
+        }
+      } catch (e) {
+      }
+    }
+  }
+  const db2 = readDb2();
+  const localDoc = db2.recovery_documents_store?.[documentId] || db2.verification_documents_store?.[documentId] || (Array.isArray(db2.files) ? db2.files.find((f) => f.id === documentId || f.documentId === documentId) : null);
   const bucket = getSafeBucket();
   if (bucket) {
     let timeoutHandle = null;
     try {
-      const fileRef = bucket.file(`secure_uploads/${documentId}`);
-      const downloadPromise = async () => {
-        const [exists] = await fileRef.exists().catch(() => [false]);
-        if (exists) {
-          const [fileBuffer] = await fileRef.download();
-          saveToLocalDiskCache(documentId, fileBuffer);
-          return fileBuffer;
+      const candidates = [
+        documentId,
+        `secure_uploads/${documentId}`,
+        `files/${documentId}`,
+        `verification_documents/${documentId}`,
+        `recoveryDocuments/${documentId}`
+      ];
+      if (localDoc?.storagePath) candidates.push(localDoc.storagePath);
+      if (localDoc?.storageReference) candidates.push(localDoc.storageReference);
+      if (localDoc?.userId) {
+        candidates.push(`users/${localDoc.userId}/files/${documentId}`);
+        if (localDoc.fileName) {
+          candidates.push(`users/${localDoc.userId}/files/${documentId}_${localDoc.fileName}`);
         }
-        return null;
-      };
-      const buffer = await Promise.race([
-        downloadPromise(),
-        new Promise((resolve) => {
-          timeoutHandle = setTimeout(() => resolve(null), 3e3);
-          if (timeoutHandle?.unref) timeoutHandle.unref();
-        })
-      ]);
-      if (buffer && buffer.length > 0) return buffer;
+      }
+      for (const cPath of candidates) {
+        if (!cPath) continue;
+        const fileRef = bucket.file(cPath);
+        const downloadPromise = async () => {
+          const [exists] = await fileRef.exists().catch(() => [false]);
+          if (exists) {
+            const [fileBuffer] = await fileRef.download();
+            saveToLocalDiskCache(documentId, fileBuffer);
+            return fileBuffer;
+          }
+          return null;
+        };
+        const buffer = await Promise.race([
+          downloadPromise(),
+          new Promise((resolve) => {
+            timeoutHandle = setTimeout(() => resolve(null), 3500);
+            if (timeoutHandle?.unref) timeoutHandle.unref();
+          })
+        ]);
+        if (buffer && buffer.length > 0) return buffer;
+      }
     } catch (err) {
     } finally {
       if (timeoutHandle) clearTimeout(timeoutHandle);
     }
   }
-  const db2 = readDb2();
-  const localDoc = db2.recovery_documents_store?.[documentId] || db2.verification_documents_store?.[documentId] || (Array.isArray(db2.files) ? db2.files.find((f) => f.id === documentId) : null);
   if (localDoc) {
     if (Array.isArray(localDoc.chunks) && localDoc.chunks.length > 0) {
       const buffers = [];
@@ -19391,6 +19869,20 @@ async function getDocumentFromPersistentStorage(documentId) {
       if (buf.length > 0) {
         saveToLocalDiskCache(documentId, buf);
         return buf;
+      }
+    }
+    if (typeof localDoc.fileUrl === "string" && (localDoc.fileUrl.startsWith("http://") || localDoc.fileUrl.startsWith("https://"))) {
+      try {
+        const resp = await fetch(localDoc.fileUrl);
+        if (resp.ok) {
+          const arrBuf = await resp.arrayBuffer();
+          const buf = Buffer.from(arrBuf);
+          if (buf.length > 0) {
+            saveToLocalDiskCache(documentId, buf);
+            return buf;
+          }
+        }
+      } catch (e) {
       }
     }
   }
@@ -19443,6 +19935,78 @@ async function getDocumentFromPersistentStorage(documentId) {
       console.warn("Firestore chunks retrieval notice:", fsErr);
     }
     try {
+      const vSnap = await adminDb.collection("verification_documents").doc(documentId).get();
+      if (vSnap && vSnap.exists) {
+        const vData = vSnap.data();
+        const raw = vData?.fileBase64 || vData?.data || vData?.base64;
+        if (raw) {
+          const clean = String(raw).replace(/^data:[^;]+;base64,/, "");
+          const buf = Buffer.from(clean, "base64");
+          if (buf.length > 0) {
+            saveToLocalDiskCache(documentId, buf);
+            return buf;
+          }
+        }
+        if (vData?.storagePath && bucket) {
+          const [exists] = await bucket.file(vData.storagePath).exists().catch(() => [false]);
+          if (exists) {
+            const [b] = await bucket.file(vData.storagePath).download();
+            saveToLocalDiskCache(documentId, b);
+            return b;
+          }
+        }
+        if (typeof vData?.fileUrl === "string" && (vData.fileUrl.startsWith("http://") || vData.fileUrl.startsWith("https://"))) {
+          const r = await fetch(vData.fileUrl);
+          if (r.ok) {
+            const b = Buffer.from(await r.arrayBuffer());
+            saveToLocalDiskCache(documentId, b);
+            return b;
+          }
+        }
+      }
+    } catch (e) {
+    }
+    try {
+      let fData = null;
+      const fSnap = await adminDb.collection("files").doc(documentId).get();
+      if (fSnap && fSnap.exists) {
+        fData = fSnap.data();
+      } else {
+        const groupSnap = await adminDb.collectionGroup("files").where("id", "==", documentId).limit(1).get().catch(() => null);
+        if (groupSnap && !groupSnap.empty) {
+          fData = groupSnap.docs[0].data();
+        }
+      }
+      if (fData) {
+        const raw = fData?.fileBase64 || fData?.data || fData?.base64 || (fData?.fileUrl?.startsWith("data:") ? fData.fileUrl : null);
+        if (raw) {
+          const clean = String(raw).replace(/^data:[^;]+;base64,/, "");
+          const buf = Buffer.from(clean, "base64");
+          if (buf.length > 0) {
+            saveToLocalDiskCache(documentId, buf);
+            return buf;
+          }
+        }
+        if (fData?.storagePath && bucket) {
+          const [exists] = await bucket.file(fData.storagePath).exists().catch(() => [false]);
+          if (exists) {
+            const [b] = await bucket.file(fData.storagePath).download();
+            saveToLocalDiskCache(documentId, b);
+            return b;
+          }
+        }
+        if (typeof fData?.fileUrl === "string" && (fData.fileUrl.startsWith("http://") || fData.fileUrl.startsWith("https://"))) {
+          const r = await fetch(fData.fileUrl);
+          if (r.ok) {
+            const b = Buffer.from(await r.arrayBuffer());
+            saveToLocalDiskCache(documentId, b);
+            return b;
+          }
+        }
+      }
+    } catch (e) {
+    }
+    try {
       const pendSnap = await adminDb.collection("pendingRecoveryUploads").doc(documentId).get();
       if (pendSnap && pendSnap.exists) {
         const pData = pendSnap.data();
@@ -19453,6 +20017,48 @@ async function getDocumentFromPersistentStorage(documentId) {
           if (buf.length > 0) {
             saveToLocalDiskCache(documentId, buf);
             return buf;
+          }
+        }
+      }
+    } catch (err) {
+    }
+    try {
+      const usersSnap = await adminDb.collection("users").get();
+      for (const uDoc of usersSnap.docs) {
+        const uData = uDoc.data();
+        const docsList = [
+          ...uData.verificationDocuments || [],
+          ...uData.documents || [],
+          ...uData.verification_documents || []
+        ];
+        const match = docsList.find(
+          (d) => (d.documentId || d.id || d.storageReference || d.fileName) === documentId
+        );
+        if (match) {
+          const raw = match.fileBase64 || match.data || match.base64 || (typeof match.fileUrl === "string" && match.fileUrl.startsWith("data:") ? match.fileUrl : null);
+          if (raw) {
+            const clean = String(raw).replace(/^data:[^;]+;base64,/, "");
+            const buf = Buffer.from(clean, "base64");
+            if (buf.length > 0) {
+              saveToLocalDiskCache(documentId, buf);
+              return buf;
+            }
+          }
+          if (match.storagePath && bucket) {
+            const [exists] = await bucket.file(match.storagePath).exists().catch(() => [false]);
+            if (exists) {
+              const [b] = await bucket.file(match.storagePath).download();
+              saveToLocalDiskCache(documentId, b);
+              return b;
+            }
+          }
+          if (typeof match.fileUrl === "string" && (match.fileUrl.startsWith("http://") || match.fileUrl.startsWith("https://"))) {
+            const r = await fetch(match.fileUrl);
+            if (r.ok) {
+              const b = Buffer.from(await r.arrayBuffer());
+              saveToLocalDiskCache(documentId, b);
+              return b;
+            }
           }
         }
       }
@@ -20280,7 +20886,10 @@ app2.post(
         if (uIdx >= 0) {
           const existingDocs = Array.isArray(db2.users[uIdx].verificationDocuments) ? db2.users[uIdx].verificationDocuments : [];
           if (!existingDocs.some((d) => d.documentId === documentId || d.id === documentId)) {
-            db2.users[uIdx].verificationDocuments = [...existingDocs, docMeta];
+            const nextDocs = [...existingDocs, docMeta];
+            db2.users[uIdx].verificationDocuments = nextDocs;
+            db2.users[uIdx].documents = nextDocs;
+            db2.users[uIdx].documentCount = nextDocs.length;
             db2.users[uIdx].documentVerificationStatus = "UNDER_REVIEW";
             db2.users[uIdx].verification_status = "under_review";
           }
@@ -20297,8 +20906,11 @@ app2.post(
               const uData = userSnap.data() || {};
               const existingDocs = Array.isArray(uData.verificationDocuments) ? uData.verificationDocuments : [];
               if (!existingDocs.some((d) => d.documentId === documentId || d.id === documentId)) {
+                const nextDocs = [...existingDocs, docMeta];
                 await userRef.set({
-                  verificationDocuments: [...existingDocs, docMeta],
+                  verificationDocuments: nextDocs,
+                  documents: nextDocs,
+                  documentCount: nextDocs.length,
                   documentVerificationStatus: "UNDER_REVIEW",
                   verification_status: "under_review",
                   requiresDocumentVerification: true
@@ -20330,35 +20942,60 @@ app2.get(
   [
     "/api/auth/verification-document/:documentId",
     "/api/admin/verification-document/:documentId",
-    "/api/verification-document/:documentId"
+    "/api/verification-document/:documentId",
+    "/api/files/:documentId/preview",
+    "/api/files/:documentId/download",
+    "/api/files/download/:documentId",
+    "/api/files/preview/:documentId",
+    "/api/files/:documentId"
   ],
   requireAuth,
   async (req, res) => {
     try {
       const callerUid = req.user?.uid;
       const callerEmail = req.user?.email || "";
-      const { documentId } = req.params;
-      if (!documentId || !/^[a-zA-Z0-9_\-\.]+$/.test(documentId)) {
-        return res.status(400).json({ success: false, error: "Invalid document ID." });
+      const rawDocId = req.params.documentId || "";
+      const documentId = decodeURIComponent(rawDocId).trim();
+      if (!documentId) {
+        return res.status(400).json({ success: false, error: "Document ID is required." });
       }
       const isAdmin = await isUserAdminServer(callerUid || "", callerEmail);
       const db2 = readDb2();
-      const docRecord = db2.verification_documents_store?.[documentId] || db2.recovery_documents_store?.[documentId];
-      let isOwner = false;
-      const storageFilePath = import_path7.default.join(process.cwd(), "secure_uploads", documentId);
-      const fileExistsOnDisk = import_fs7.default.existsSync(storageFilePath);
-      if (!docRecord && !fileExistsOnDisk) {
-        return res.status(404).json({
-          success: false,
-          error: "Document not found or expired."
-        });
+      let docRecord = db2.verification_documents_store?.[documentId] || db2.recovery_documents_store?.[documentId];
+      if (!docRecord && Array.isArray(db2.files)) {
+        docRecord = db2.files.find((f) => f.id === documentId || f.documentId === documentId);
       }
-      if (callerUid && docRecord && docRecord.userId === callerUid) {
+      if (!docRecord && isFirebaseAdminAvailable && adminDb) {
+        try {
+          const vSnap = await adminDb.collection("verification_documents").doc(documentId).get();
+          if (vSnap && vSnap.exists) {
+            docRecord = { id: vSnap.id, ...vSnap.data() };
+          } else {
+            const fSnap = await adminDb.collection("files").doc(documentId).get();
+            if (fSnap && fSnap.exists) {
+              docRecord = { id: fSnap.id, ...fSnap.data() };
+            } else {
+              const rSnap = await adminDb.collection("recoveryDocuments").doc(documentId).get();
+              if (rSnap && rSnap.exists) {
+                docRecord = { id: rSnap.id, ...rSnap.data() };
+              } else if (callerUid) {
+                const uFileSnap = await adminDb.collection("users").doc(callerUid).collection("files").doc(documentId).get();
+                if (uFileSnap && uFileSnap.exists) {
+                  docRecord = { id: uFileSnap.id, ...uFileSnap.data() };
+                }
+              }
+            }
+          }
+        } catch (e) {
+        }
+      }
+      let isOwner = false;
+      if (callerUid && docRecord && (docRecord.userId === callerUid || docRecord.userUid === callerUid || docRecord.ownerUid === callerUid)) {
         isOwner = true;
       }
       if (!isOwner && callerUid) {
         const callerProfile = await getUserProfileServer(callerUid, callerEmail);
-        if (callerProfile?.verificationDocuments?.some((d) => d.documentId === documentId || d.id === documentId)) {
+        if (callerProfile?.verificationDocuments?.some((d) => (d.documentId || d.id) === documentId) || callerProfile?.documents?.some((d) => (d.documentId || d.id) === documentId) || callerProfile?.files?.some((f) => (f.id || f.fileId) === documentId)) {
           isOwner = true;
         }
       }
@@ -20374,20 +21011,30 @@ app2.get(
           documentId,
           document: {
             documentId,
-            fileName: docRecord?.fileName || "document",
+            fileName: docRecord?.fileName || docRecord?.name || "document",
             mimeType: docRecord?.mimeType || "application/pdf",
-            size: docRecord?.size || 0,
+            size: docRecord?.size || docRecord?.fileSize || 0,
             uploadedAt: docRecord?.uploadedAt || docRecord?.createdAt || (/* @__PURE__ */ new Date()).toISOString(),
-            category: docRecord?.category || "general"
+            category: docRecord?.category || "general",
+            userId: docRecord?.userId || null
           }
         });
       }
-      const fileBuffer = await getDocumentFromPersistentStorage(documentId);
+      let fileBuffer = null;
+      try {
+        fileBuffer = await getDocumentFromPersistentStorage(documentId);
+      } catch (err) {
+        console.warn(`[Doc Retrieval Warning] could not load buffer for ${documentId}:`, err?.message);
+      }
       if (!fileBuffer || fileBuffer.length === 0) {
-        return res.status(404).json({ success: false, error: "Document not found or expired." });
+        return res.status(404).json({
+          success: false,
+          error: "DOCUMENT_NOT_FOUND",
+          message: "\u062A\u0639\u0630\u0631 \u062A\u062D\u0645\u064A\u0644 \u0627\u0644\u0648\u062B\u064A\u0642\u0629 \u0644\u0623\u0646 \u0627\u0644\u0645\u0644\u0641 \u063A\u064A\u0631 \u0645\u062A\u0648\u0641\u0631 \u0641\u064A \u0627\u0644\u062A\u062E\u0632\u064A\u0646."
+        });
       }
       let mimeType = docRecord?.mimeType || "application/pdf";
-      const fileName = docRecord?.fileName || "document";
+      const fileName = docRecord?.fileName || docRecord?.name || "document";
       if (fileBuffer.length >= 4) {
         if (fileBuffer.subarray(0, 4).toString() === "%PDF") {
           mimeType = "application/pdf";
@@ -20399,9 +21046,11 @@ app2.get(
           mimeType = "image/webp";
         }
       }
+      const isDownloadRequested = req.query.download === "true" || req.query.mode === "download" || req.path.includes("/download");
+      const dispositionType = isDownloadRequested ? "attachment" : "inline";
       res.setHeader("X-Content-Type-Options", "nosniff");
       res.setHeader("Content-Type", mimeType);
-      res.setHeader("Content-Disposition", `inline; filename="${encodeURIComponent(fileName)}"`);
+      res.setHeader("Content-Disposition", `${dispositionType}; filename="${encodeURIComponent(fileName)}"`);
       res.setHeader("Cache-Control", "private, no-cache, no-store, must-revalidate");
       return res.send(fileBuffer);
     } catch (err) {
@@ -20410,6 +21059,111 @@ app2.get(
     }
   }
 );
+app2.get("/api/admin/users/:userId/documents", requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const { userId } = req.params;
+    if (!userId) {
+      return res.status(400).json({ success: false, error: "User ID is required" });
+    }
+    const targetUser = await getUserProfileServer(userId);
+    if (!targetUser) {
+      return res.status(404).json({ success: false, error: "User not found" });
+    }
+    const uEmail = (targetUser.email || "").toLowerCase().trim();
+    let userFiles = [];
+    const fileIdMap = /* @__PURE__ */ new Map();
+    if (isFirebaseAdminAvailable && adminDb) {
+      try {
+        const subSnap = await adminDb.collection("users").doc(userId).collection("files").get();
+        subSnap.docs.forEach((d) => {
+          fileIdMap.set(d.id, { id: d.id, ...d.data(), source: "subcollection" });
+        });
+      } catch (e) {
+      }
+      try {
+        const topSnap = await adminDb.collection("files").where("userId", "==", userId).get();
+        topSnap.docs.forEach((d) => {
+          if (!fileIdMap.has(d.id)) {
+            fileIdMap.set(d.id, { id: d.id, ...d.data(), source: "top_files" });
+          }
+        });
+      } catch (e) {
+      }
+    }
+    const db2 = readDb2();
+    if (Array.isArray(db2.files)) {
+      db2.files.forEach((f) => {
+        if (f.userId === userId || f.userUid === userId || f.ownerUid === userId) {
+          if (!fileIdMap.has(f.id)) {
+            fileIdMap.set(f.id, { ...f, source: "db_files" });
+          }
+        }
+      });
+    }
+    if (Array.isArray(targetUser.files)) {
+      targetUser.files.forEach((f) => {
+        if (f && f.id && !fileIdMap.has(f.id)) {
+          fileIdMap.set(f.id, { ...f, source: "user_obj" });
+        }
+      });
+    }
+    userFiles = Array.from(fileIdMap.values());
+    const docMap = /* @__PURE__ */ new Map();
+    const rawDocs = [
+      ...Array.isArray(targetUser.verificationDocuments) ? targetUser.verificationDocuments : [],
+      ...Array.isArray(targetUser.verificationInfo?.documents) ? targetUser.verificationInfo.documents : [],
+      ...Array.isArray(targetUser.documents) ? targetUser.documents : [],
+      ...userFiles.filter((f) => f && (f.category === "Verification" || f.category === "Identity" || f.isVerificationDoc))
+    ];
+    if (db2.verification_documents_store) {
+      for (const [docId, meta] of Object.entries(db2.verification_documents_store)) {
+        if (meta && (meta.userId === userId || meta.userEmail && meta.userEmail.toLowerCase().trim() === uEmail)) {
+          rawDocs.push(meta);
+        }
+      }
+    }
+    for (const d of rawDocs) {
+      if (!d) continue;
+      const key = d.documentId || d.id || d.storageReference || d.fileName;
+      if (key && !docMap.has(key)) {
+        docMap.set(key, { ...d, documentId: key });
+      }
+    }
+    const allDocs = Array.from(docMap.values());
+    const verifiedDocs = [];
+    for (const doc of allDocs) {
+      const docId = doc.documentId || doc.id;
+      const exists = await checkDocumentExistence(docId, doc);
+      verifiedDocs.push({
+        ...doc,
+        documentId: docId,
+        isAccessible: exists,
+        isMissing: !exists,
+        previewUrl: `/api/auth/verification-document/${docId}`
+      });
+    }
+    const validExistingDocs = verifiedDocs.filter((d) => !d.isMissing);
+    return res.json({
+      success: true,
+      userId,
+      email: targetUser.email,
+      documentCount: validExistingDocs.length,
+      documents: verifiedDocs,
+      fileCount: userFiles.length,
+      files: userFiles.map((f) => ({
+        ...f,
+        previewUrl: f.fileUrl || `/api/auth/verification-document/${f.id}`
+      })),
+      isEmailVerified: Boolean(targetUser.emailVerified || targetUser.isEmailVerified),
+      accountStatus: targetUser.accountStatus,
+      documentVerificationStatus: validExistingDocs.length === 0 ? "NOT_SUBMITTED" : targetUser.documentVerificationStatus,
+      kycStatus: validExistingDocs.length === 0 ? "NOT_VERIFIED" : targetUser.kycStatus
+    });
+  } catch (err) {
+    console.error("[GET_USER_DOCUMENTS_ERROR]", err);
+    return res.status(500).json({ success: false, error: err.message || "Failed to fetch user documents" });
+  }
+});
 app2.all(
   [
     "/api/auth/recovery-request/submit",
@@ -23465,7 +24219,7 @@ app2.get("/api/world-bank", async (req, res) => {
     });
   }
 });
-app2.all("/api/database/schema", requireAuth, async (req, res) => {
+app2.all("/api/database/schema", requireAuth, requireApprovedAccount, async (req, res) => {
   try {
     const authUserId = req.user?.uid;
     if (!authUserId) {

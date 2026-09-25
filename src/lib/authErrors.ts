@@ -7,6 +7,7 @@
 export type LoginErrorCode =
   | "LOGIN_INVALID_CREDENTIALS"
   | "LOGIN_USER_NOT_FOUND"
+  | "LOGIN_INVALID_EMAIL"
   | "LOGIN_USER_DISABLED"
   | "LOGIN_SELF_DELETED"
   | "LOGIN_ADMIN_DELETED"
@@ -15,6 +16,9 @@ export type LoginErrorCode =
   | "LOGIN_UNAUTHORIZED_DOMAIN"
   | "LOGIN_OPERATION_NOT_ALLOWED"
   | "LOGIN_WEAK_PASSWORD"
+  | "LOGIN_INTERNAL_ERROR"
+  | "LOGIN_PROFILE_NOT_FOUND"
+  | "LOGIN_PROFILE_ERROR"
   | "LOGIN_SERVER_ERROR"
   | "LOGIN_UNKNOWN";
 
@@ -175,6 +179,9 @@ export function normalizeLoginError(source: any): LoginErrorCode {
     if (fbCode === "auth/user-not-found") {
       return "LOGIN_USER_NOT_FOUND";
     }
+    if (fbCode === "auth/invalid-email") {
+      return "LOGIN_INVALID_EMAIL";
+    }
     if (fbCode === "auth/user-disabled") {
       return "LOGIN_USER_DISABLED";
     }
@@ -192,6 +199,9 @@ export function normalizeLoginError(source: any): LoginErrorCode {
     }
     if (fbCode === "auth/weak-password") {
       return "LOGIN_WEAK_PASSWORD";
+    }
+    if (fbCode === "auth/internal-error") {
+      return "LOGIN_INTERNAL_ERROR";
     }
   }
 
@@ -222,6 +232,12 @@ export function normalizeLoginError(source: any): LoginErrorCode {
       return "LOGIN_USER_NOT_FOUND";
     }
     if (
+      apiCode === "INVALID_EMAIL" ||
+      apiCode === "AUTH/INVALID-EMAIL"
+    ) {
+      return "LOGIN_INVALID_EMAIL";
+    }
+    if (
       apiCode === "USER_DISABLED" ||
       apiCode === "ADMIN_DELETED_BLOCKED" ||
       apiCode === "ACCOUNT_DISABLED" ||
@@ -241,6 +257,15 @@ export function normalizeLoginError(source: any): LoginErrorCode {
     }
     if (apiCode === "UNAUTHORIZED_DOMAIN" || apiCode === "AUTH/UNAUTHORIZED-DOMAIN") {
       return "LOGIN_UNAUTHORIZED_DOMAIN";
+    }
+    if (apiCode === "OPERATION_NOT_ALLOWED" || apiCode === "AUTH/OPERATION-NOT-ALLOWED") {
+      return "LOGIN_OPERATION_NOT_ALLOWED";
+    }
+    if (apiCode === "PROFILE_NOT_FOUND") {
+      return "LOGIN_PROFILE_NOT_FOUND";
+    }
+    if (apiCode === "PROFILE_ERROR") {
+      return "LOGIN_PROFILE_ERROR";
     }
     if (apiCode === "INTERNAL_SERVER_ERROR" || apiCode === "SERVER_ERROR") {
       return "LOGIN_SERVER_ERROR";
@@ -273,6 +298,24 @@ export function normalizeLoginError(source: any): LoginErrorCode {
     return "LOGIN_UNAUTHORIZED_DOMAIN";
   }
   if (
+    rawMsg.includes("operation-not-allowed") ||
+    rawMsg.includes("sign-in method is not enabled")
+  ) {
+    return "LOGIN_OPERATION_NOT_ALLOWED";
+  }
+  if (
+    rawMsg.includes("invalid-email") ||
+    rawMsg.includes("invalid email")
+  ) {
+    return "LOGIN_INVALID_EMAIL";
+  }
+  if (
+    rawMsg.includes("internal-error") ||
+    rawMsg.includes("internal error")
+  ) {
+    return "LOGIN_INTERNAL_ERROR";
+  }
+  if (
     rawMsg.includes("user-disabled") ||
     rawMsg.includes("admin_deleted_blocked") ||
     rawMsg.includes("حساب معطّل") ||
@@ -303,6 +346,12 @@ export function normalizeLoginError(source: any): LoginErrorCode {
     rawMsg.includes("لم يتم العثور على حساب")
   ) {
     return "LOGIN_USER_NOT_FOUND";
+  }
+  if (
+    rawMsg.includes("profile_not_found") ||
+    rawMsg.includes("ملف المستخدم غير موجود")
+  ) {
+    return "LOGIN_PROFILE_NOT_FOUND";
   }
   if (
     rawMsg.includes("invalid-credential") ||
@@ -342,6 +391,13 @@ export function formatLoginErrorMessage(code: LoginErrorCode, lang: string = "ar
         ? "Aucun compte trouvé avec cette adresse e-mail."
         : "No registered account found for this email.";
 
+    case "LOGIN_INVALID_EMAIL":
+      return lang === "ar"
+        ? "صيغة البريد الإلكتروني غير صالحة. يرجى إدخال بريد إلكتروني صحيح."
+        : lang === "fr"
+        ? "Format d'e-mail invalide. Veuillez entrer une adresse e-mail valide."
+        : "Invalid email format. Please enter a valid email address.";
+
     case "LOGIN_USER_DISABLED":
       return lang === "ar"
         ? "هذا الحساب معطّل حالياً. يرجى تقديم طلب استعادة الحساب أو التواصل مع الإدارة."
@@ -365,7 +421,7 @@ export function formatLoginErrorMessage(code: LoginErrorCode, lang: string = "ar
 
     case "LOGIN_TOO_MANY_REQUESTS":
       return lang === "ar"
-        ? "تم حظر الطلبات مؤقتاً لكثرة المحاولات. يرجى الانتظار دقيقة والمحاولة لاحقاً."
+        ? "تم حظر المحاولات مؤقتاً لكثرة الطلبات. يرجى الانتظار دقيقة والمحاولة لاحقاً."
         : lang === "fr"
         ? "Trop de tentatives infructueuses. Veuillez patienter une minute et réessayer."
         : "Too many failed attempts. Please wait a minute and try again.";
@@ -386,7 +442,7 @@ export function formatLoginErrorMessage(code: LoginErrorCode, lang: string = "ar
 
     case "LOGIN_OPERATION_NOT_ALLOWED":
       return lang === "ar"
-        ? "طريقة تسجيل الدخول غير مفعّلة في النظام."
+        ? "طريقة تسجيل الدخول بالبريد الإلكتروني وكلمة المرور غير مفعّلة في النظام."
         : lang === "fr"
         ? "Cette méthode de connexion n'est pas activée."
         : "This sign-in provider is not enabled.";
@@ -397,6 +453,27 @@ export function formatLoginErrorMessage(code: LoginErrorCode, lang: string = "ar
         : lang === "fr"
         ? "Le mot de passe est trop faible (6 caractères minimum)."
         : "The password is too weak (minimum 6 characters).";
+
+    case "LOGIN_INTERNAL_ERROR":
+      return lang === "ar"
+        ? "حدث خطأ داخلي في خدمة المصادقة. يرجى المحاولة مرة أخرى لاحقاً."
+        : lang === "fr"
+        ? "Une erreur interne s'est produite lors de l'authentification. Veuillez réessayer."
+        : "An internal error occurred during authentication. Please try again.";
+
+    case "LOGIN_PROFILE_NOT_FOUND":
+      return lang === "ar"
+        ? "تم التحقق من بيانات الدخول، ولكن تعذر العثور على ملف المستخدم المرتبط في النظام."
+        : lang === "fr"
+        ? "Authentification réussie, mais le profil utilisateur n'a pas été trouvé."
+        : "Authentication succeeded, but user profile was not found in database.";
+
+    case "LOGIN_PROFILE_ERROR":
+      return lang === "ar"
+        ? "حدث خطأ أثناء تحميل بيانات الملف الشخصي بعد تسجيل الدخول."
+        : lang === "fr"
+        ? "Une erreur est survenue lors du chargement du profil utilisateur."
+        : "An error occurred while loading user profile after sign-in.";
 
     case "LOGIN_SERVER_ERROR":
       return lang === "ar"

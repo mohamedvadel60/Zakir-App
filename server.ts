@@ -19,6 +19,7 @@ import { getOrCreateUser } from "./src/db/users.js";
 import {
   requireAuth,
   requireAdmin,
+  requireApprovedAccount,
   isUserAdminServer,
   requireModulePermission,
   checkUserEntitlementServer,
@@ -2526,17 +2527,24 @@ function getOfficialEmailLogoLightBuffer(): Buffer {
   if (officialLogoLightCache && officialLogoLightCache.length > 0) {
     return officialLogoLightCache;
   }
+  const safeDir = typeof __dirname !== "undefined" ? __dirname : process.cwd();
   const possiblePaths = [
-    path.join(process.cwd(), "public", "zakir-email-logo.png"),
     path.join(process.cwd(), "public", "zakir-badge-light.png"),
-    path.join(process.cwd(), "src", "assets", "zakir-email-logo.png"),
+    path.join(process.cwd(), "public", "zakir-email-logo.png"),
+    path.join(process.cwd(), "dist", "zakir-badge-light.png"),
+    path.join(process.cwd(), "dist", "zakir-email-logo.png"),
+    path.join(process.cwd(), "dist", "public", "zakir-badge-light.png"),
     path.join(process.cwd(), "src", "assets", "zakir-badge-light.png"),
+    path.join(process.cwd(), "src", "assets", "zakir-email-logo.png"),
+    path.join(safeDir, "public", "zakir-badge-light.png"),
+    path.join(safeDir, "zakir-badge-light.png"),
+    path.join(safeDir, "..", "public", "zakir-badge-light.png"),
   ];
   for (const p of possiblePaths) {
     if (fs.existsSync(p)) {
       try {
         const data = fs.readFileSync(p);
-        if (data && data.length > 0) {
+        if (data && data.length > 0 && data.subarray(0, 8).toString("hex") === "89504e470d0a1a0a") {
           officialLogoLightCache = data;
           return officialLogoLightCache;
         }
@@ -3504,7 +3512,7 @@ function renderEmailLogoHeaderHtml(options?: {
     : "https://www.getzakir.com";
   const appBase = rawAppBase;
 
-  const logoUrl = `${publicAssetBase}/zakir-email-logo.png`;
+  const logoUrl = "cid:zakir-logo-light";
 
   const wordmark = options?.wordmark !== undefined ? options.wordmark : "ZAKIR";
   const tagline =
@@ -3667,7 +3675,7 @@ function buildMasterEmailHtml(options: {
               <table border="0" cellpadding="0" cellspacing="0" align="center" role="presentation" style="margin: 0 auto 10px auto;">
                 <tr>
                   <td align="center" style="vertical-align: middle;">
-                    <img src="${publicAssetBase}/zakir-email-logo.png" alt="ZAKIR" width="24" height="24" style="display: inline-block; width: 24px; height: 24px; border-radius: 6px; border: 0; vertical-align: middle; margin-right: 8px;" />
+                    <img src="cid:zakir-logo-light" alt="ZAKIR" width="24" height="24" style="display: inline-block; width: 24px; height: 24px; border-radius: 6px; border: 0; vertical-align: middle; margin-right: 8px;" />
                     <span class="zakir-wordmark" style="font-size: 13px; font-weight: 800; color: #0f172a; vertical-align: middle; letter-spacing: 1.5px; text-transform: uppercase;">ZAKIR</span>
                   </td>
                 </tr>
@@ -17046,11 +17054,24 @@ async function getDocumentFromPersistentStorage(
   if (bucket) {
     let timeoutHandle: any = null;
     try {
-      const candidates = [`secure_uploads/${documentId}`, `files/${documentId}`];
+      const candidates = [
+        documentId,
+        `secure_uploads/${documentId}`,
+        `files/${documentId}`,
+        `verification_documents/${documentId}`,
+        `recoveryDocuments/${documentId}`,
+      ];
       if (localDoc?.storagePath) candidates.push(localDoc.storagePath);
       if (localDoc?.storageReference) candidates.push(localDoc.storageReference);
+      if (localDoc?.userId) {
+        candidates.push(`users/${localDoc.userId}/files/${documentId}`);
+        if (localDoc.fileName) {
+          candidates.push(`users/${localDoc.userId}/files/${documentId}_${localDoc.fileName}`);
+        }
+      }
 
       for (const cPath of candidates) {
+        if (!cPath) continue;
         const fileRef = bucket.file(cPath);
         const downloadPromise = async () => {
           const [exists] = await fileRef.exists().catch(() => [false]);
@@ -18550,6 +18571,11 @@ app.get(
               const rSnap = await adminDb.collection("recoveryDocuments").doc(documentId).get();
               if (rSnap && rSnap.exists) {
                 docRecord = { id: rSnap.id, ...rSnap.data() };
+              } else if (callerUid) {
+                const uFileSnap = await adminDb.collection("users").doc(callerUid).collection("files").doc(documentId).get();
+                if (uFileSnap && uFileSnap.exists) {
+                  docRecord = { id: uFileSnap.id, ...uFileSnap.data() };
+                }
               }
             }
           }
@@ -18563,7 +18589,11 @@ app.get(
 
       if (!isOwner && callerUid) {
         const callerProfile = await getUserProfileServer(callerUid, callerEmail);
-        if (callerProfile?.verificationDocuments?.some((d: any) => (d.documentId || d.id) === documentId)) {
+        if (
+          callerProfile?.verificationDocuments?.some((d: any) => (d.documentId || d.id) === documentId) ||
+          callerProfile?.documents?.some((d: any) => (d.documentId || d.id) === documentId) ||
+          callerProfile?.files?.some((f: any) => (f.id || f.fileId) === documentId)
+        ) {
           isOwner = true;
         }
       }
@@ -22797,7 +22827,7 @@ app.get("/api/world-bank", async (req, res) => {
 });
 
 // --- INTERACTIVE POSTGRESQL QUERY SIMULATOR ---
-app.all("/api/database/schema", requireAuth, async (req: AuthRequest, res) => {
+app.all("/api/database/schema", requireAuth, requireApprovedAccount, async (req: AuthRequest, res) => {
   try {
     const authUserId = req.user?.uid;
     if (!authUserId) {

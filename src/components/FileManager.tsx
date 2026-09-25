@@ -32,6 +32,7 @@ import {
 } from "../lib/firebaseServices.js";
 import { openOrDownloadUserFile, downloadUserFile as downloadUserFileUtil, openUserFileInNewTab as openUserFileInNewTabUtil } from "../lib/fileViewerUtils.js";
 import { authenticatedFetch } from "../lib/apiUtils.js";
+import { DocumentPreviewModal } from "./DocumentPreviewModal.js";
 
 interface FileManagerProps {
   userId: string;
@@ -86,6 +87,9 @@ export const FileManager: React.FC<FileManagerProps> = ({
   const [search, setSearch] = useState<string>("");
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
+
+  // In-app Document Preview Modal State
+  const [previewModalDoc, setPreviewModalDoc] = useState<UserFile | null>(null);
 
   // Decryption & Passcode Modal State
   const [passcodeModal, setPasscodeModal] = useState<{
@@ -204,7 +208,7 @@ export const FileManager: React.FC<FileManagerProps> = ({
     deleteFirebaseUserFile(userId, file.id, file.storagePath).catch(e => console.warn("Background delete error:", e));
   };
 
-  // Preview File Handler - Opens directly in a new browser web tab
+  // Preview File Handler - Opens in interactive preview modal
   const handlePreviewFile = (file: UserFile, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
     const isLocked = file.isEncrypted && !unlockedFileIds.has(file.id);
@@ -217,7 +221,7 @@ export const FileManager: React.FC<FileManagerProps> = ({
         error: ""
       });
     } else {
-      openUserFileInNewTab(file);
+      setPreviewModalDoc(file);
     }
   };
 
@@ -1034,6 +1038,16 @@ export const FileManager: React.FC<FileManagerProps> = ({
           </div>
         </div>
       )}
+      {/* Document Preview Modal */}
+      <DocumentPreviewModal
+        documentId={previewModalDoc?.id || null}
+        fileName={previewModalDoc?.fileName}
+        category={previewModalDoc?.category}
+        fileUrl={previewModalDoc?.fileUrl}
+        isOpen={Boolean(previewModalDoc)}
+        onClose={() => setPreviewModalDoc(null)}
+        lang={lang}
+      />
     </div>
   );
 };

@@ -256,7 +256,7 @@ export interface User {
   rejectionReason?: string;
   rejectionDate?: string;
   createdAt: string;
-  trialExpiresAt: string;
+  trialExpiresAt?: string;
   teamMembersList?: TeamMember[];
   encryptedSecurity?: EncryptedModuleSettings;
   lastActiveAt?: string;
