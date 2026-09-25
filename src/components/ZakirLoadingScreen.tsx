@@ -6,20 +6,26 @@ interface ZakirLoadingScreenProps {
 }
 
 /**
- * ZAKIR Professional Brand Loading System
+ * ZAKIR Premium Brand Motion Loading Screen
  *
- * Sequence (~1350ms total):
- * 1. Phase 1 (0 - 650ms): Fade In (opacity 0 -> 1) + Logo Drawing/Reveal (clip-path progressive reveal) + Subtle Zoom (scale 0.92 -> 1) concurrently.
- * 2. Phase 2 (650 - 800ms): Pure Hold (150ms static hold at scale 1.0, opacity 1.0).
- * 3. Phase 3 (800 - 1050ms): Logo Scale Down (1.0 -> 0.58) + App Box Emergence (96x96, radius 20px, opacity 0 -> 1, scale 0.90 -> 1).
- * 4. Centering Hold (1050 - 1100ms): Mathematical flex centering inside 96x96 box.
- * 5. Phase 4 (1100 - 1350ms): Smooth Exit (opacity 1 -> 0, scale 1.0 -> 0.97).
+ * Sequence (3.2 seconds total duration):
+ * 1. 0 - 200ms: Background solid canvas render + initial hidden state
+ * 2. 200ms - 1700ms: Staggered Draw/Stroke Reveal of the 5 official Zakir vector paths
+ * 3. 1600ms - 2400ms: Subtle, slow, cinematic Zoom In (scale 1.0 -> 1.06)
+ * 4. 2400ms - 2850ms: Smooth, subtle Zoom Out back to natural size (scale 1.06 -> 1.0)
+ * 5. 2850ms - 3250ms: Smooth full screen Fade Out (opacity 1 -> 0)
+ *
+ * GUARANTEES:
+ * - ONLY the official Zakir brand symbol is displayed (ZERO text, ZERO taglines, ZERO spinners)
+ * - Perfectly centered horizontally and vertically
+ * - Clean light (#F8FAFC) or dark (#0B0F19) canvas matching current app theme
+ * - Respects prefers-reduced-motion
  */
 export const ZakirLoadingScreen: React.FC<ZakirLoadingScreenProps> = ({
   theme: propsTheme,
   onComplete,
 }) => {
-  // Synchronous theme resolution from localStorage
+  // Synchronous theme resolution from localStorage or props
   const [activeTheme] = useState<"light" | "dark">((): "light" | "dark" => {
     if (propsTheme === "light" || propsTheme === "dark") return propsTheme;
     if (typeof window !== "undefined") {
@@ -29,62 +35,58 @@ export const ZakirLoadingScreen: React.FC<ZakirLoadingScreenProps> = ({
     return "dark";
   });
 
-  // Stage state machine: "draw" | "hold" | "box" | "centered" | "exit" | "hidden"
+  // Stage state machine: "init" | "draw" | "zoomin" | "zoomout" | "fadeout" | "hidden"
   const [stage, setStage] = useState<
-    "draw" | "hold" | "box" | "centered" | "exit" | "hidden"
-  >("draw");
+    "init" | "draw" | "zoomin" | "zoomout" | "fadeout" | "hidden"
+  >("init");
 
   const isLight = activeTheme === "light";
 
   useEffect(() => {
-    // Respect reduced motion
+    // Respect reduced motion settings
     const prefersReducedMotion =
       typeof window !== "undefined" &&
       window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
     if (prefersReducedMotion) {
-      setStage("centered");
-      const t = setTimeout(() => {
-        setStage("exit");
-        setTimeout(() => {
-          setStage("hidden");
-          onComplete?.();
-        }, 200);
-      }, 400);
-      return () => clearTimeout(t);
+      setStage("draw");
+      const tFade = setTimeout(() => setStage("fadeout"), 600);
+      const tHide = setTimeout(() => {
+        setStage("hidden");
+        onComplete?.();
+      }, 900);
+      return () => {
+        clearTimeout(tFade);
+        clearTimeout(tHide);
+      };
     }
 
-    // Precise timeline orchestrator (~1350ms total)
-    const tHold = setTimeout(() => setStage("hold"), 650);
-    const tBox = setTimeout(() => setStage("box"), 800);
-    const tCenter = setTimeout(() => setStage("centered"), 1050);
-    const tExit = setTimeout(() => setStage("exit"), 1100);
-    const tHide = setTimeout(() => {
+    // Precise Motion Graphics Timeline (~3250ms total)
+    const tDraw = setTimeout(() => setStage("draw"), 150);
+    const tZoomIn = setTimeout(() => setStage("zoomin"), 1600);
+    const tZoomOut = setTimeout(() => setStage("zoomout"), 2400);
+    const tFadeOut = setTimeout(() => setStage("fadeout"), 2850);
+    const tHidden = setTimeout(() => {
       setStage("hidden");
       onComplete?.();
-    }, 1350);
+    }, 3250);
 
     return () => {
-      clearTimeout(tHold);
-      clearTimeout(tBox);
-      clearTimeout(tCenter);
-      clearTimeout(tExit);
-      clearTimeout(tHide);
+      clearTimeout(tDraw);
+      clearTimeout(tZoomIn);
+      clearTimeout(tZoomOut);
+      clearTimeout(tFadeOut);
+      clearTimeout(tHidden);
     };
   }, [onComplete]);
 
   if (stage === "hidden") return null;
 
-  // Colors according to ZAKIR Brand Rules:
-  // Light Mode Canvas: #F8FAFC
-  // Dark Mode Canvas: #0B0F19
-  // Standalone Symbol: Light = #1C2C58, Dark = #FFFFFF
-  // 96x96 Box: Light = #1C2C58, Dark = #FFFFFF
-  // Symbol inside 96x96 Box: Light = #FFFFFF, Dark = #1C2C58
+  // Colors according to Zakir Brand Identity:
+  // Light Canvas: #F8FAFC | Dark Canvas: #0B0F19
+  // Symbol Color: Light = #1C2C58 | Dark = #FFFFFF
   const bgClass = isLight ? "bg-[#F8FAFC]" : "bg-[#0B0F19]";
-  const standaloneSymbolColor = isLight ? "#1C2C58" : "#FFFFFF";
-  const boxBgColor = isLight ? "#1C2C58" : "#FFFFFF";
-  const boxSymbolColor = isLight ? "#FFFFFF" : "#1C2C58";
+  const symbolColor = isLight ? "#1C2C58" : "#FFFFFF";
 
   // Official ZAKIR 5 Vector Paths (DO NOT MODIFY PATH GEOMETRY)
   const pathD = {
@@ -95,146 +97,128 @@ export const ZakirLoadingScreen: React.FC<ZakirLoadingScreenProps> = ({
     p5: "M730.61,710.92l-.61,63.32c-.18,1.66-1.51,16.39,9.65,26.69,8.53,7.87,21.12,10.17,32.51,6.07,1.53-.55,2.98-1.29,4.41-2.05,119.91-63.73,238.88-125.06,359.77-191.26,9.25-5.07,29.79-21.27,44.89-54.06,11.49-24.94,14.48-48.26,15.27-61.09.4-6.48-.79-72.83-.79-72.83.52-9.04-4.44-17.31-12.07-20.51-6.75-2.84-14.8-1.38-20.72,3.5-7.47,6.16-15.25,11.96-23.88,16.35-108.82,55.31-218.13,109.42-326.98,164.68-6.15,3.12-12.18,6.5-17.97,10.25-12.15,7.87-28.07,20.18-42.39,41.7-.13.2-.26.39-.39.59-13.44,20.36-20.48,44.27-20.72,68.66Z",
   };
 
-  const isExit = stage === "exit";
-  const isBoxOrBeyond = stage === "box" || stage === "centered" || stage === "exit";
+  const isFadeOut = stage === "fadeout";
+
+  // Scale state for cinematic Zoom In and Zoom Out
+  let transformScale = "scale(1.0)";
+  if (stage === "zoomin") {
+    transformScale = "scale(1.06)";
+  } else if (stage === "zoomout" || stage === "fadeout") {
+    transformScale = "scale(1.0)";
+  }
 
   return (
     <div
-      id="zakir-loading-screen"
+      id="zakir-brand-loader"
       className={`fixed inset-0 z-[99999] flex items-center justify-center select-none overflow-hidden ${bgClass}`}
       style={{
-        transition:
-          "opacity 250ms cubic-bezier(0.4, 0, 0.2, 1), transform 250ms cubic-bezier(0.4, 0, 0.2, 1)",
-        opacity: isExit ? 0 : 1,
-        transform: isExit ? "scale(0.97)" : "scale(1)",
-        pointerEvents: isExit ? "none" : "auto",
+        transition: "opacity 400ms cubic-bezier(0.22, 1, 0.36, 1)",
+        opacity: isFadeOut ? 0 : 1,
+        pointerEvents: isFadeOut ? "none" : "auto",
       }}
       role="status"
-      aria-label="Loading ZAKIR"
+      aria-label="Zakir"
     >
       <style>{`
-        /* 1. Phase 1: Fade In + Drawing/Reveal + Subtle Zoom (0 - 650ms) */
-        @keyframes zakirDrawAndZoom {
+        /* Staggered Path Drawing & Reveal Effect */
+        @keyframes pathRevealDraw {
           0% {
             opacity: 0;
-            transform: scale(0.92);
-            clip-path: polygon(-10% -10%, -10% -10%, -10% 110%, -10% 110%);
+            stroke-dashoffset: 1200;
+            transform: translateY(4px);
+          }
+          30% {
+            opacity: 0.6;
           }
           100% {
             opacity: 1;
-            transform: scale(1.0);
-            clip-path: polygon(-10% -10%, 110% -10%, 110% 110%, -10% 110%);
+            stroke-dashoffset: 0;
+            transform: translateY(0);
           }
         }
 
-        /* 2. Phase 3: Box Emergence (800 - 1050ms) */
-        @keyframes zakirBoxEmerge {
+        @keyframes fillFadeIn {
           0% {
-            opacity: 0;
-            transform: scale(0.90);
+            fill-opacity: 0;
           }
           100% {
-            opacity: 1;
-            transform: scale(1.0);
+            fill-opacity: 1;
           }
         }
 
-        /* 3. Phase 3: Logo Scale Down inside Box (800 - 1050ms) */
-        @keyframes zakirLogoScaleDown {
+        /* Continuous Sweep Mask Effect for Smooth Vector Reveal */
+        @keyframes clipSweep {
           0% {
-            transform: scale(1.724);
+            clip-path: polygon(-20% -20%, -20% -20%, -20% 120%, -20% 120%);
           }
           100% {
-            transform: scale(1.0);
+            clip-path: polygon(-20% -20%, 120% -20%, 120% 120%, -20% 120%);
           }
         }
 
-        .zakir-draw-zoom {
-          animation: zakirDrawAndZoom 650ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
-          will-change: transform, opacity, clip-path;
+        .zakir-draw-path {
+          stroke-dasharray: 1200;
+          stroke-dashoffset: 1200;
+          animation: pathRevealDraw 1300ms cubic-bezier(0.22, 1, 0.36, 1) forwards,
+                     fillFadeIn 600ms cubic-bezier(0.22, 1, 0.36, 1) 700ms forwards;
+          will-change: stroke-dashoffset, opacity, fill-opacity;
         }
 
-        .zakir-box-appear {
-          animation: zakirBoxEmerge 250ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
-          will-change: transform, opacity;
-        }
+        .zakir-path-1 { animation-delay: 100ms, 700ms; }
+        .zakir-path-2 { animation-delay: 250ms, 800ms; }
+        .zakir-path-3 { animation-delay: 0ms, 650ms; }
+        .zakir-path-4 { animation-delay: 200ms, 750ms; }
+        .zakir-path-5 { animation-delay: 350ms, 850ms; }
 
-        .zakir-logo-scale-down {
-          animation: zakirLogoScaleDown 250ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
-          will-change: transform;
+        .zakir-clip-sweep {
+          animation: clipSweep 1400ms cubic-bezier(0.22, 1, 0.36, 1) 100ms forwards;
+          will-change: clip-path;
         }
 
         @media (prefers-reduced-motion: reduce) {
-          .zakir-draw-zoom,
-          .zakir-box-appear,
-          .zakir-logo-scale-down {
+          .zakir-draw-path,
+          .zakir-clip-sweep {
             animation: none !important;
-            transform: none !important;
+            stroke-dashoffset: 0 !important;
             clip-path: none !important;
             opacity: 1 !important;
+            fill-opacity: 1 !important;
           }
         }
       `}</style>
 
-      {/* Main Container System */}
-      <div className="relative flex items-center justify-center">
-        {!isBoxOrBeyond ? (
-          /* ========================================================================= */
-          /* STAGE 1 & 2 (0 - 800ms): Standalone Logo Drawing / Reveal & Hold          */
-          /* ========================================================================= */
-          <div className="zakir-draw-zoom relative flex items-center justify-center">
-            <svg
-              viewBox="474.23 0 728.85 810"
-              xmlns="http://www.w3.org/2000/svg"
-              className="block shrink-0 overflow-visible"
-              style={{ width: "96px", height: "96px" }}
-            >
-              <g fill={standaloneSymbolColor}>
-                <path d={pathD.p1} />
-                <path d={pathD.p2} />
-                <path d={pathD.p3} />
-                <path d={pathD.p4} />
-                <path d={pathD.p5} />
-              </g>
-            </svg>
-          </div>
-        ) : (
-          /* ========================================================================= */
-          /* STAGE 3 & 4 (800 - 1350ms): 96px x 96px App Box & Scaled Down Centered Logo */
-          /* ========================================================================= */
-          <div
-            className="zakir-box-appear flex items-center justify-center shrink-0 overflow-hidden"
+      {/* Perfectly Centered Zakir Brand Logo Container */}
+      <div
+        className="relative flex items-center justify-center p-4 transition-transform"
+        style={{
+          transition: "transform 800ms cubic-bezier(0.22, 1, 0.36, 1)",
+          transform: transformScale,
+        }}
+      >
+        <div className="zakir-clip-sweep flex items-center justify-center">
+          <svg
+            viewBox="474.23 0 728.85 810"
+            xmlns="http://www.w3.org/2000/svg"
+            className="block shrink-0 overflow-visible w-28 h-28 sm:w-32 sm:h-32 md:w-36 md:h-36 max-w-[40vw] max-h-[40vh]"
             style={{
-              width: "96px",
-              height: "96px",
-              minWidth: "96px",
-              minHeight: "96px",
-              maxWidth: "96px",
-              maxHeight: "96px",
-              borderRadius: "20px",
-              backgroundColor: boxBgColor,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
+              aspectRatio: "728.85 / 810",
             }}
           >
-            {/* Logo Symbol Mathematically Centered Inside 96x96 Box */}
-            <svg
-              viewBox="474.23 0 728.85 810"
-              xmlns="http://www.w3.org/2000/svg"
-              className="zakir-logo-scale-down shrink-0 block"
-              style={{ width: "56px", height: "56px" }}
+            <g
+              fill={symbolColor}
+              stroke={symbolColor}
+              strokeWidth="12"
+              strokeLinecap="round"
+              strokeLinejoin="round"
             >
-              <g fill={boxSymbolColor}>
-                <path d={pathD.p1} />
-                <path d={pathD.p2} />
-                <path d={pathD.p3} />
-                <path d={pathD.p4} />
-                <path d={pathD.p5} />
-              </g>
-            </svg>
-          </div>
-        )}
+              <path d={pathD.p3} className="zakir-draw-path zakir-path-3" />
+              <path d={pathD.p4} className="zakir-draw-path zakir-path-4" />
+              <path d={pathD.p1} className="zakir-draw-path zakir-path-1" />
+              <path d={pathD.p2} className="zakir-draw-path zakir-path-2" />
+              <path d={pathD.p5} className="zakir-draw-path zakir-path-5" />
+            </g>
+          </svg>
+        </div>
       </div>
     </div>
   );

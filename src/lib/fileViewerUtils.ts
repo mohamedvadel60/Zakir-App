@@ -1,4 +1,5 @@
 import { UserFile } from "../types.js";
+import { getFreshAuthToken } from "./apiUtils.js";
 
 export function dataUrlToBlob(fileUrl: string, fallbackMime?: string): { blob: Blob; mime: string } {
   let url = (fileUrl || "").trim();
@@ -33,89 +34,74 @@ export function dataUrlToBlob(fileUrl: string, fallbackMime?: string): { blob: B
   return { blob: new Blob([], { type: mime || fallbackMime || "application/pdf" }), mime: mime || fallbackMime || "application/pdf" };
 }
 
-export function openUserFileInNewTab(file: { fileName: string; fileUrl: string; mimeType?: string; [key: string]: any }) {
-  if (!file || !file.fileUrl) {
-    alert("رابط الملف غير متاح");
+export async function openUserFileInNewTab(file: { fileName?: string; fileUrl?: string; mimeType?: string; [key: string]: any }) {
+  const fileId = file?.documentId || file?.id;
+  const rawUrl = file?.fileUrl || (fileId ? `/api/auth/verification-document/${fileId}` : "");
+
+  if (!rawUrl) {
+    console.warn("File preview URL not available:", file);
     return;
   }
 
-  const fileName = file.fileName || "document";
+  const fileName = file.fileName || file.name || "document";
   let mime = file.mimeType || "";
   if (!mime) {
     const ext = fileName.split(".").pop()?.toLowerCase();
     if (ext === "pdf") mime = "application/pdf";
     else if (["jpg", "jpeg", "png", "webp", "gif", "svg"].includes(ext || "")) mime = `image/${ext === "jpg" ? "jpeg" : ext}`;
     else if (["txt", "csv", "json", "xml", "html"].includes(ext || "")) mime = `text/${ext === "csv" ? "csv" : ext === "json" ? "json" : "plain"}`;
-    else mime = "application/pdf"; // default assumption for verification documents
-  }
-
-  // Open blank window immediately to bypass popup blockers synchronously
-  const win = window.open("about:blank", "_blank");
-
-  if (!win) {
-    // Fallback if popup blocked
-    downloadUserFile(file);
-    return;
-  }
-
-  try {
-    win.document.title = fileName + " - معاينة المستند";
-  } catch (e) {
-    // Ignore cross-origin error
+    else mime = "application/pdf";
   }
 
   // 1. If Blob URL
-  if (file.fileUrl.startsWith("blob:")) {
-    win.location.replace(file.fileUrl);
-    return;
-  }
-
-  // 2. If HTTP or HTTPS URL (e.g. Firebase Storage)
-  if (file.fileUrl.startsWith("http://") || file.fileUrl.startsWith("https://")) {
-    fetch(file.fileUrl)
-      .then((res) => res.blob())
-      .then((blob) => {
-        const fileBlob = new Blob([blob], { type: mime || blob.type || "application/pdf" });
-        const blobUrl = URL.createObjectURL(fileBlob);
-        win.location.replace(blobUrl);
-        setTimeout(() => {
-          try {
-            URL.revokeObjectURL(blobUrl);
-          } catch (e) {}
-        }, 60000);
-      })
-      .catch(() => {
-        win.location.replace(file.fileUrl);
-      });
+  if (rawUrl.startsWith("blob:")) {
+    window.open(rawUrl, "_blank");
     return;
   }
 
   // 2. If Data URL or Base64 string
-  const { blob, mime: detectedMime } = dataUrlToBlob(file.fileUrl, mime);
-  if (blob.size > 0) {
-    const finalMime = detectedMime || mime || "application/pdf";
-    const fileBlob = new Blob([blob], { type: finalMime });
-    const blobUrl = URL.createObjectURL(fileBlob);
-    win.location.replace(blobUrl);
-    setTimeout(() => {
-      try {
-        URL.revokeObjectURL(blobUrl);
-      } catch (e) {}
-    }, 60000);
-    return;
+  if (rawUrl.startsWith("data:")) {
+    const { blob, mime: detectedMime } = dataUrlToBlob(rawUrl, mime);
+    if (blob.size > 0) {
+      const blobUrl = URL.createObjectURL(blob);
+      window.open(blobUrl, "_blank");
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 60000);
+      return;
+    }
   }
 
-  // 3. Fallback direct redirect
-  win.location.replace(file.fileUrl);
+  // 3. If relative or API route, or authenticated URL
+  try {
+    const token = await getFreshAuthToken();
+    const headers: Record<string, string> = {};
+    if (token) headers["Authorization"] = `Bearer ${token}`;
+
+    const res = await fetch(rawUrl, { headers });
+    if (res.ok) {
+      const blob = await res.blob();
+      const finalBlob = new Blob([blob], { type: mime || blob.type || "application/pdf" });
+      const blobUrl = URL.createObjectURL(finalBlob);
+      window.open(blobUrl, "_blank");
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 60000);
+      return;
+    }
+  } catch (err) {
+    console.warn("Authenticated fetch error for file opening, opening directly:", err);
+  }
+
+  window.open(rawUrl, "_blank");
 }
 
-export function downloadUserFile(file: { fileName: string; fileUrl: string; mimeType?: string; [key: string]: any }) {
-  if (!file || !file.fileUrl) {
-    alert("رابط الملف غير متاح");
+export async function downloadUserFile(file: { fileName?: string; fileUrl?: string; mimeType?: string; [key: string]: any }) {
+  const fileId = file?.documentId || file?.id;
+  const rawUrl = file?.fileUrl || (fileId ? `/api/auth/verification-document/${fileId}` : "");
+
+  if (!rawUrl) {
+    console.warn("File download URL not available:", file);
     return;
   }
 
-  const fileName = file.fileName || "downloaded_file";
+  const fileName = file.fileName || file.name || "downloaded_file";
   let mime = file.mimeType || "";
   if (!mime) {
     const ext = fileName.split(".").pop()?.toLowerCase();
@@ -124,34 +110,40 @@ export function downloadUserFile(file: { fileName: string; fileUrl: string; mime
     else mime = "application/octet-stream";
   }
 
-  let downloadUrl = file.fileUrl;
-
-  if (file.fileUrl.startsWith("blob:")) {
-    triggerDownload(file.fileUrl, fileName);
+  if (rawUrl.startsWith("blob:")) {
+    triggerDownload(rawUrl, fileName);
     return;
   }
 
-  if (file.fileUrl.startsWith("http://") || file.fileUrl.startsWith("https://")) {
-    fetch(file.fileUrl)
-      .then((res) => res.blob())
-      .then((blob) => {
-        const fileBlob = new Blob([blob], { type: mime || blob.type || "application/octet-stream" });
-        const blobUrl = URL.createObjectURL(fileBlob);
-        triggerDownload(blobUrl, fileName);
-      })
-      .catch(() => {
-        triggerDownload(file.fileUrl, fileName);
-      });
-    return;
+  if (rawUrl.startsWith("data:")) {
+    const { blob } = dataUrlToBlob(rawUrl, mime);
+    if (blob.size > 0) {
+      const blobUrl = URL.createObjectURL(blob);
+      triggerDownload(blobUrl, fileName);
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 60000);
+      return;
+    }
   }
 
-  const { blob } = dataUrlToBlob(file.fileUrl, mime);
-  if (blob.size > 0) {
-    const fileBlob = new Blob([blob], { type: mime || "application/octet-stream" });
-    downloadUrl = URL.createObjectURL(fileBlob);
+  try {
+    const token = await getFreshAuthToken();
+    const headers: Record<string, string> = {};
+    if (token) headers["Authorization"] = `Bearer ${token}`;
+
+    const res = await fetch(rawUrl, { headers });
+    if (res.ok) {
+      const blob = await res.blob();
+      const finalBlob = new Blob([blob], { type: mime || blob.type || "application/octet-stream" });
+      const blobUrl = URL.createObjectURL(finalBlob);
+      triggerDownload(blobUrl, fileName);
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 60000);
+      return;
+    }
+  } catch (err) {
+    console.warn("Download fetch error:", err);
   }
 
-  triggerDownload(downloadUrl, fileName);
+  triggerDownload(rawUrl, fileName);
 }
 
 function triggerDownload(url: string, fileName: string) {

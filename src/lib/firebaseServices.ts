@@ -1963,23 +1963,46 @@ export async function deleteFirebaseUserFile(userId: string, fileId: string, sto
     console.warn("Delete user subcollection file warning:", error);
   }
 
-  // 3. Sync & remove from user's profile verificationInfo if present
+  // 3. Sync & remove from user's profile verificationDocuments, documents & verificationInfo
   try {
     const userDocRef = doc(db, "users", userId);
     const userSnap = await getDoc(userDocRef);
     if (userSnap.exists()) {
-      const userData = userSnap.data() as User;
-      if (userData.verificationInfo?.documents) {
-        const remainingDocs = userData.verificationInfo.documents.filter(
-          (d) => d.id !== fileId && d.fileName !== fileId
-        );
-        if (remainingDocs.length !== userData.verificationInfo.documents.length) {
-          await updateDoc(userDocRef, {
-            "verificationInfo.documents": remainingDocs,
-            "verificationInfo.status": remainingDocs.length === 0 ? "unverified" : userData.verificationInfo.status
-          });
+      const userData = userSnap.data() as any;
+      const isSysAdmin = userData.role === "Admin" || (userData.email && ADMIN_EMAILS.includes(userData.email.toLowerCase()));
+
+      const currentVerDocs = Array.isArray(userData.verificationDocuments) ? userData.verificationDocuments : [];
+      const currentDocs = Array.isArray(userData.documents) ? userData.documents : [];
+      const currentVerInfoDocs = Array.isArray(userData.verificationInfo?.documents) ? userData.verificationInfo.documents : [];
+
+      const remainingVerDocs = currentVerDocs.filter((d: any) => (d.documentId || d.id || d.fileName) !== fileId);
+      const remainingDocs = currentDocs.filter((d: any) => (d.documentId || d.id || d.fileName) !== fileId);
+      const remainingVerInfoDocs = currentVerInfoDocs.filter((d: any) => (d.id || d.documentId || d.fileName) !== fileId);
+
+      const totalRemaining = remainingVerDocs.length + remainingVerInfoDocs.length;
+      const updates: Record<string, any> = {
+        verificationDocuments: remainingVerDocs,
+        documents: remainingDocs,
+        "verificationInfo.documents": remainingVerInfoDocs
+      };
+
+      // AUTOMATIC REVOCATION IF 0 REMAINING DOCUMENTS:
+      if (totalRemaining === 0 && !isSysAdmin) {
+        updates.documentVerificationStatus = "NOT_SUBMITTED";
+        updates.kycStatus = "NOT_VERIFIED";
+        updates.isVerified = false;
+        updates.requiresDocumentVerification = true;
+        updates.verification_required = true;
+        updates.verification_status = "unverified";
+        updates["verificationInfo.status"] = "unverified";
+        if (userData.accountStatus === "APPROVED" || userData.accountStatus === "ACTIVE") {
+          updates.accountStatus = "VERIFICATION_REQUIRED";
+          updates.approvedAt = null;
+          updates.approvedBy = null;
         }
       }
+
+      await updateDoc(userDocRef, updates);
     }
   } catch (e) {
     console.warn("User profile verification doc cleanup error:", e);
@@ -2500,11 +2523,17 @@ export interface AdminUserRecord {
   role?: string;
   fileCount: number;
   files: UserFile[];
+  documentCount?: number;
+  documents?: any[];
   verificationInfo?: VerificationInfo;
   verificationDocuments?: any[];
   rejectionReason?: string;
   emailVerified?: boolean;
   isVerified?: boolean;
+  accountStatus?: string;
+  documentVerificationStatus?: string;
+  kycStatus?: string;
+  uiState?: string;
   fullUser?: User;
 }
 
@@ -2531,6 +2560,12 @@ export async function fetchAllUsersForAdmin(): Promise<AdminUserRecord[]> {
   if (fetchedUsers.length > 0) {
     const records: AdminUserRecord[] = fetchedUsers.map((userData: any) => {
       const userId = userData.id || userData.uid;
+      const userFiles = Array.isArray(userData.files) ? userData.files : [];
+      const userDocs = Array.isArray(userData.verificationDocuments)
+        ? userData.verificationDocuments
+        : Array.isArray(userData.documents)
+          ? userData.documents
+          : [];
       return {
         id: userId,
         email: userData.email || "No Email",
@@ -2541,10 +2576,20 @@ export async function fetchAllUsersForAdmin(): Promise<AdminUserRecord[]> {
         companyName: userData.companyName,
         ownerName: userData.ownerName,
         role: userData.role,
-        fileCount: Array.isArray(userData.files) ? userData.files.length : (userData.fileCount || 0),
-        files: Array.isArray(userData.files) ? userData.files : [],
+        fileCount: typeof userData.fileCount === "number" ? userData.fileCount : userFiles.length,
+        files: userFiles,
+        documentCount: typeof userData.documentCount === "number" ? userData.documentCount : userDocs.length,
+        documents: userDocs,
+        verificationDocuments: userDocs,
         verificationInfo: userData.verificationInfo,
-        fullUser: { ...userData, id: userId }
+        rejectionReason: userData.rejectionReason,
+        emailVerified: Boolean(userData.emailVerified || userData.isEmailVerified),
+        isVerified: Boolean(userData.isVerified),
+        accountStatus: userData.accountStatus,
+        documentVerificationStatus: userData.documentVerificationStatus,
+        kycStatus: userData.kycStatus,
+        uiState: userData.uiState,
+        fullUser: { ...userData, id: userId, files: userFiles, verificationDocuments: userDocs }
       };
     });
     const sorted = records.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
@@ -2674,7 +2719,7 @@ export function computeUserVerificationBreakdown(userData: any, extraDocs?: any[
   const uniqueDocs: any[] = [];
   const seenIds = new Set<string>();
   for (const doc of rawDocs) {
-    if (!doc) continue;
+    if (!doc || doc.deleted === true || doc.isDeleted === true) continue;
     const docId = String(doc.documentId || doc.id || doc.storageReference || doc.fileName || doc.name || JSON.stringify(doc));
     if (!seenIds.has(docId)) {
       seenIds.add(docId);
@@ -2682,7 +2727,9 @@ export function computeUserVerificationBreakdown(userData: any, extraDocs?: any[
     }
   }
 
-  const documentCount = uniqueDocs.length;
+  // Count only non-missing, non-deleted documents
+  const validDocs = uniqueDocs.filter((d: any) => !d.isMissing && d.deleted !== true && d.isDeleted !== true);
+  const documentCount = validDocs.length;
   const hasExplicitOverride = Boolean(
     full.adminVerificationOverride === true ||
     userData.adminVerificationOverride === true
@@ -2694,22 +2741,10 @@ export function computeUserVerificationBreakdown(userData: any, extraDocs?: any[
   const rawReq = String(full.verificationRequestStatus || full.verificationRequest || userData.verificationRequestStatus || userData.verificationRequest || "").toUpperCase();
   const hasInstitutional = Boolean(full.institutionalProfile || userData.institutionalProfile);
 
-  // 1. Account Approval Status (Independent of KYC / Documents)
+  // 1. Account Approval Status (Strict Rule 10: Approved ONLY IF email verified + docs exist + KYC approved + Admin explicit approval)
   let accountApprovalStatus: "APPROVED" | "PENDING" | "REJECTED" | "SUSPENDED" = "PENDING";
   let accountApproval: "APPROVED" | "PENDING_APPROVAL" | "REJECTED" = "PENDING_APPROVAL";
-  if (rawAccStatus === "APPROVED" || rawAccStatus === "ACTIVE" || isSysAdmin) {
-    accountApprovalStatus = "APPROVED";
-    accountApproval = "APPROVED";
-  } else if (rawAccStatus === "REJECTED") {
-    accountApprovalStatus = "REJECTED";
-    accountApproval = "REJECTED";
-  } else if (rawAccStatus === "SUSPENDED") {
-    accountApprovalStatus = "SUSPENDED";
-    accountApproval = "REJECTED";
-  } else {
-    accountApprovalStatus = "PENDING";
-    accountApproval = "PENDING_APPROVAL";
-  }
+  const isExplicitlyAdminApproved = Boolean((full.approvedBy && full.approvedAt) || (userData.approvedBy && userData.approvedAt));
 
   // 2. Verification Request Status
   let verificationRequestStatus: "NONE" | "SUBMITTED" | "UNDER_REVIEW" | "APPROVED" | "REJECTED" = "NONE";
@@ -2741,13 +2776,14 @@ export function computeUserVerificationBreakdown(userData: any, extraDocs?: any[
   const hasRejectedDoc = uniqueDocs.some(d => String(d.status || d.verificationStatus || "").toUpperCase() === "REJECTED");
   const isOverallDocRejected = rawDocStatus === "REJECTED" || verificationRequestStatus === "REJECTED";
 
-  if (documentCount === 0 && !hasExplicitOverride) {
+  // RULE 8: If documentCount === 0, document status CANNOT be APPROVED!
+  if (documentCount === 0) {
     documentStatus = "NOT_SUBMITTED";
     documentReview = "NONE";
   } else if (hasRejectedDoc || isOverallDocRejected) {
     documentStatus = "REJECTED";
     documentReview = "REJECTED";
-  } else if (rawDocStatus === "APPROVED" || full.verificationInfo?.status === "verified" || hasExplicitOverride) {
+  } else if (rawDocStatus === "APPROVED" || full.verificationInfo?.status === "verified") {
     documentStatus = "APPROVED";
     documentReview = "APPROVED";
   } else if (documentCount > 0) {
@@ -2758,23 +2794,50 @@ export function computeUserVerificationBreakdown(userData: any, extraDocs?: any[
   const documentSubmission: "SUBMITTED" | "NOT_SUBMITTED" = documentCount > 0 ? "SUBMITTED" : "NOT_SUBMITTED";
 
   // 4. KYC Status (Identity Verification)
+  // RULE 7 & 8: documentCount === 0 means KYC MUST be NOT_SUBMITTED. NEVER VERIFIED/APPROVED with 0 documents!
   let kycStatus: "VERIFIED" | "NOT_VERIFIED" | "UNDER_REVIEW" | "PENDING_REVIEW" | "REJECTED" | "UNVERIFIED" = "NOT_VERIFIED";
-  if (isSysAdmin || hasExplicitOverride || (documentCount > 0 && documentStatus === "APPROVED")) {
+  if (isSysAdmin) {
     kycStatus = "VERIFIED";
+  } else if (documentCount === 0) {
+    kycStatus = "NOT_VERIFIED";
   } else if (documentStatus === "REJECTED") {
     kycStatus = "REJECTED";
+  } else if (documentCount > 0 && documentStatus === "APPROVED") {
+    kycStatus = "VERIFIED";
   } else if (documentCount > 0 || verificationRequestStatus === "UNDER_REVIEW" || verificationRequestStatus === "SUBMITTED") {
     kycStatus = "UNDER_REVIEW";
   } else {
     kycStatus = "NOT_VERIFIED";
   }
 
-  // 5. Explicit 5-State UX Evaluator
-  // State 1: No request & no documents -> NO_REQUEST
-  // State 2: Request exists & no documents -> AWAITING_DOCS
-  // State 3: Documents > 0 & pending review -> PENDING_REVIEW
-  // State 4: Documents > 0 & approved & KYC verified -> VERIFIED
-  // State 5: Documents rejected -> REJECTED
+  // 5. Account Approval derivation
+  if (isSysAdmin) {
+    accountApprovalStatus = "APPROVED";
+    accountApproval = "APPROVED";
+  } else if (rawAccStatus === "SUSPENDED") {
+    accountApprovalStatus = "SUSPENDED";
+    accountApproval = "REJECTED";
+  } else if (rawAccStatus === "REJECTED" || kycStatus === "REJECTED") {
+    accountApprovalStatus = "REJECTED";
+    accountApproval = "REJECTED";
+  } else if (!isEmailVer) {
+    // RULE 9: Unverified email -> Account cannot be APPROVED
+    accountApprovalStatus = "PENDING";
+    accountApproval = "PENDING_APPROVAL";
+  } else if (documentCount === 0) {
+    // RULE 8 & 10: 0 documents -> Account cannot be APPROVED
+    accountApprovalStatus = "PENDING";
+    accountApproval = "PENDING_APPROVAL";
+  } else if (kycStatus === "VERIFIED" && isExplicitlyAdminApproved && (rawAccStatus === "APPROVED" || rawAccStatus === "ACTIVE")) {
+    // RULE 10: All 5 conditions satisfied
+    accountApprovalStatus = "APPROVED";
+    accountApproval = "APPROVED";
+  } else {
+    accountApprovalStatus = "PENDING";
+    accountApproval = "PENDING_APPROVAL";
+  }
+
+  // 6. Explicit 5-State UX Evaluator
   let uiState: "NO_REQUEST" | "AWAITING_DOCS" | "PENDING_REVIEW" | "VERIFIED" | "REJECTED" = "NO_REQUEST";
   if (documentStatus === "REJECTED" || kycStatus === "REJECTED" || verificationRequestStatus === "REJECTED") {
     uiState = "REJECTED"; // State 5
@@ -2789,13 +2852,14 @@ export function computeUserVerificationBreakdown(userData: any, extraDocs?: any[
   }
 
   // Action Permissions:
-  // canApproveKyc: Only when verification request exists AND documentCount > 0 AND pending
-  const canApproveKyc = uiState === "PENDING_REVIEW" && documentCount > 0;
-  const canReviewDocuments = uiState === "PENDING_REVIEW" && documentCount > 0;
-  const canApproveAccount = accountApprovalStatus === "PENDING";
+  // canApproveKyc: Only when email is verified AND documentCount > 0 AND pending
+  const canApproveKyc = isEmailVer && documentCount > 0 && uiState === "PENDING_REVIEW";
+  const canReviewDocuments = documentCount > 0;
+  // canApproveAccount: Only when email verified + documents exist + KYC is approved + not already approved
+  const canApproveAccount = isEmailVer && documentCount > 0 && kycStatus === "VERIFIED" && accountApprovalStatus !== "APPROVED";
 
-  // isFullyApproved requires both account to be approved AND KYC verified (for system-level readiness)
-  const isFullyApproved = (accountApprovalStatus === "APPROVED" || isSysAdmin) && (kycStatus === "VERIFIED" || isSysAdmin);
+  // isFullyApproved requires both account to be approved AND KYC verified AND email verified
+  const isFullyApproved = isSysAdmin || (isEmailVer && accountApprovalStatus === "APPROVED" && kycStatus === "VERIFIED" && documentCount > 0);
 
   return {
     emailVerified: isEmailVer,

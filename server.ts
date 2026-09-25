@@ -31,6 +31,7 @@ import {
   generateSecuritySessionToken,
   getUserProfileServer,
   computeStrictVerificationState,
+  deriveAccountAndVerificationState,
   AuthRequest,
   ADMIN_EMAILS,
   ADMIN_USER_ID,
@@ -78,7 +79,7 @@ import {
 dotenv.config();
 
 export const ZAKIR_BUILD_ID =
-  "ZAKIR_BUILD_2026_09_25_EMAIL_LOGO_VERIFIED";
+  "ZAKIR_BUILD_2026_09_25_ADMIN_KYC_DOCUMENTS_INTEGRITY";
 
 // Concurrency mutex lock per workspace to strictly guard team invitation limits
 const workspaceInvitationLocks = new Map<string, Promise<any>>();
@@ -1414,28 +1415,41 @@ app.use(express.urlencoded({ extended: true, limit: "30mb" }));
 app.use(express.static(path.join(process.cwd(), "public")));
 
 app.get(
-  ["/zakir-badge-light.png", "/email-assets/zakir-badge-light.png", "/api/email-logo/light.png", "/api/brand/badge-light.png"],
+  [
+    "/zakir-email-logo.png",
+    "/email-assets/zakir-email-logo.png",
+    "/zakir-badge-light.png",
+    "/email-assets/zakir-badge-light.png",
+    "/api/email-logo/light.png",
+    "/api/brand/badge-light.png",
+    "/api/email-logo/logo.png"
+  ],
   (req, res) => {
     const buf = getOfficialEmailLogoLightBuffer();
     if (!buf || buf.length === 0) {
-      return res.status(404).send("Light badge not found");
+      return res.status(404).send("Logo not found");
     }
     res.setHeader("Content-Type", "image/png");
-    res.setHeader("Cache-Control", "public, max-age=86400");
+    res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
     res.setHeader("Access-Control-Allow-Origin", "*");
     res.send(buf);
   }
 );
 
 app.get(
-  ["/zakir-badge-dark.png", "/email-assets/zakir-badge-dark.png", "/api/email-logo/dark.png", "/api/brand/badge-dark.png"],
+  [
+    "/zakir-badge-dark.png",
+    "/email-assets/zakir-badge-dark.png",
+    "/api/email-logo/dark.png",
+    "/api/brand/badge-dark.png"
+  ],
   (req, res) => {
-    const buf = getOfficialEmailLogoDarkBuffer();
+    const buf = getOfficialEmailLogoDarkBuffer() || getOfficialEmailLogoLightBuffer();
     if (!buf || buf.length === 0) {
       return res.status(404).send("Dark badge not found");
     }
     res.setHeader("Content-Type", "image/png");
-    res.setHeader("Cache-Control", "public, max-age=86400");
+    res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
     res.setHeader("Access-Control-Allow-Origin", "*");
     res.send(buf);
   }
@@ -2429,7 +2443,32 @@ app.get(
 );
 
 // Official Zakir Logo SVG String
-const OFFICIAL_ZAKIR_SVG = `<?xml version="1.0" encoding="UTF-8"?><svg id="Layer_1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1203.08 814"><defs><style>.cls-1{fill:none;}.cls-1,.cls-2{stroke-width:0px;}.cls-2{fill:#1c2c58;}</style></defs><rect class="cls-1" y="371" width="56" height="56"/><path class="cls-2" d="M778.26,359.34c-23.74-3.27-49.55-5.85-77.22-7.24-32.16-1.61-62.06-1.36-89.28,0,34.59-18.5,69.17-37,103.76-55.5,20.28,4.11,42.89,7.58,67.57,9.65,37.04,3.12,70.4,2.4,98.93,0-34.59,17.7-69.17,35.39-103.76,53.09Z"/><path class="cls-2" d="M980.96,516.19c-21.56-3.6-44.1-6.86-67.57-9.65-27.67-3.29-54.26-5.64-79.63-7.24,24.93-14.48,49.87-28.96,74.8-43.43,15.7,5.87,35.19,11.48,57.91,14.48,48.33,6.37,88.49-2.07,113.41-9.65-32.98,18.5-65.96,37-98.93,55.5Z"/><path class="cls-2" d="M475.42,511.37c-.4-63.57-.79-127.14-1.19-190.71,0-1.56.04-3.1.17-4.65,1.41-16.02,5.74-38.29,19.12-60.42,15.26-25.24,36.05-39.96,52.07-49.52,46.87-27.98,204.17-102.07,420.89-194.19,2.96-1.1,22.36-7.98,38.61,2.41,13.06,8.36,16.89,21.72,19.3,33.78.99,4.94,2.1,13.1,2.12,24.53,0,0-.21,16.42-4.53,33.38-3.15,12.35-9.18,25.16-15.95,36.88-15.63,27.06-38.86,48.92-66.57,63.37-2.2,1.15-4.45,2.32-6.75,3.51-28.29,14.65-50.15,25.27-62.74,31.37-57.83,28.01-105.24,50.16-105.24,50.16-109.27,51.04-121.53,55.26-155.36,75.32-51.75,30.67-69.27,48.18-82.04,65.15-22.18,29.47-31.7,59.55-36.2,79.63-.91,5.07-5.6,8.13-9.65,7.24-3.09-.68-5.58-3.59-6.03-7.24Z"/><path class="cls-2" d="M587.63,674.25c-2.01-24.5-3.65-49.86-4.83-76.01-1.24-27.45-1.89-54.07-2.06-79.79-.1-14.52,5.57-37.36,18.95-60.16,18.94-32.28,45.31-46.85,62.74-55.5,137.7-68.32,257.41-123.89,260.27-125.27,75.14-36.4,123.4-60.53,145.12-72.6,27.5-15.28,46.89-32.03,62.74-41.02,2.06-1.17,4.68-2.2,6.95-3.08,3.88-1.5,8.11-2.04,12.19-1.23,3.17.63,6.65,1.89,9.82,4.3,8.72,6.63,9.55,16.59,9.65,18.1,1.46,13.4,2.42,28.36,2.41,44.64,0,16.22-.96,31.12-2.41,44.49-1.5,12.31-5.42,31.71-16.89,52.03-18.54,32.86-45.69,49.14-57.91,55.5-88.79,45.49-177.58,90.98-266.37,136.48-51.58,25.47-85.43,42.05-105.24,51.74-34.68,16.96-62.99,28.56-86.87,55.5-9.82,11.07-16.26,18.95-21.72,28.96-3.96,7.25-5.57,13.62-7.24,21.72-.3,1.46-.76,3.36-1.71,5.25-3.58,7.17-13.97,7.19-16.83-.3-.44-1.16-.71-2.42-.76-3.74Z"/><path class="cls-2" d="M730.61,710.92l-.61,63.32c-.18,1.66-1.51,16.39,9.65,26.69,8.53,7.87,21.12,10.17,32.51,6.07,1.53-.55,2.98-1.29,4.41-2.05,119.91-63.73,238.88-125.06,359.77-191.26,9.25-5.07,29.79-21.27,44.89-54.06,11.49-24.94,14.48-48.26,15.27-61.09.4-6.48-.79-72.83-.79-72.83.52-9.04-4.44-17.31-12.07-20.51-6.75-2.84-14.8-1.38-20.72,3.5-7.47,6.16-15.25,11.96-23.88,16.35-108.82,55.31-218.13,109.42-326.98,164.68-6.15,3.12-12.18,6.5-17.97,10.25-12.15,7.87-28.07,20.18-42.39,41.7-.13.2-.26.39-.39.59-13.44,20.36-20.48,44.27-20.72,68.66Z"/></svg>`;
+const OFFICIAL_ZAKIR_SVG = `<?xml version="1.0" encoding="UTF-8"?>
+<svg id="Layer_1" data-name="Layer 1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1999.27 1999.27">
+  <defs>
+    <style>
+      .cls-1 {
+        fill: #fff;
+      }
+
+      .cls-1, .cls-2 {
+        stroke-width: 0px;
+      }
+
+      .cls-2 {
+        fill: #1c2c58;
+      }
+    </style>
+  </defs>
+  <rect class="cls-2" width="1999.27" height="1999.27" rx="437.34" ry="437.34"/>
+  <g transform="translate(-906,-1072)">
+    <path class="cls-1" d="M1787.51,1969.4c-49.07-6.76-102.43-12.1-159.61-14.97-66.49-3.33-128.28-2.81-184.55,0,71.49-38.24,142.99-76.48,214.48-114.72,41.92,8.48,88.66,15.66,139.66,19.96,76.56,6.45,145.53,4.94,204.51,0-71.49,36.58-142.99,73.15-214.48,109.73h0Z"/>
+    <path class="cls-1" d="M2206.48,2293.61c-44.57-7.44-91.14-14.19-139.66-19.96-57.2-6.8-112.15-11.66-164.6-14.97,51.54-29.92,103.09-59.85,154.63-89.77,32.45,12.14,72.73,23.74,119.72,29.92,99.91,13.17,182.92-4.28,234.44-19.96-68.16,38.24-136.33,76.48-204.51,114.72l-.02.02Z"/>
+    <path class="cls-1" d="M1161.51,2283.64c-.83-131.4-1.63-262.81-2.46-394.21,0-3.21.08-6.41.35-9.62,2.92-33.13,11.85-79.17,39.52-124.89,31.54-52.16,74.51-82.6,107.64-102.37,96.89-57.82,422.05-210.98,869.99-401.41,6.1-2.27,46.22-16.5,79.81,4.98,26.99,17.27,34.91,44.9,39.91,69.84,2.05,10.22,4.34,27.07,4.38,50.71,0,0-.43,33.94-9.37,68.99-6.51,25.54-18.98,52.01-32.99,76.25-32.3,55.94-80.32,101.11-137.61,130.99-4.55,2.38-9.2,4.78-13.96,7.26-58.48,30.28-103.65,52.24-129.69,64.83-119.53,57.91-217.54,103.67-217.54,103.69-225.87,105.51-251.21,114.24-321.15,155.68-106.96,63.41-143.19,99.6-169.58,134.67-45.85,60.92-65.54,123.09-74.82,164.6-1.88,10.49-11.58,16.79-19.96,14.97-6.39-1.41-11.54-7.42-12.47-14.97h-.02Z"/>
+    <path class="cls-1" d="M1393.46,2620.32c-4.16-50.65-7.55-103.05-9.97-157.11-2.56-56.75-3.91-111.76-4.26-164.93-.21-30.03,11.52-77.24,39.17-124.37,39.15-66.72,93.66-96.85,129.69-114.72,284.63-141.23,532.09-256.09,537.98-258.94,155.33-75.24,255.1-125.12,299.97-150.06,56.85-31.58,96.93-66.22,129.69-84.79,4.26-2.42,9.68-4.55,14.35-6.35,8.02-3.1,16.75-4.22,25.19-2.54,6.56,1.3,13.75,3.91,20.31,8.89,18.01,13.71,19.75,34.29,19.96,37.41,3.02,27.71,4.98,58.63,4.98,92.28s-1.99,64.34-4.98,91.97c-3.1,25.46-11.21,65.54-34.91,107.56-38.32,67.92-94.45,101.58-119.72,114.72-183.54,94.03-367.06,188.07-550.6,282.1-106.63,52.65-176.59,86.92-217.54,106.96-71.68,35.05-130.21,59.04-179.57,114.72-20.29,22.89-33.61,39.19-44.9,59.85-8.19,14.99-11.52,28.17-14.97,44.9-.62,3.02-1.57,6.95-3.54,10.86-7.4,14.83-28.89,14.85-34.81-.62-.91-2.4-1.47-5-1.57-7.73l.04-.04Z"/>
+    <path class="cls-1" d="M1689.01,2696.11l-1.26,130.89c-.37,3.43-3.12,33.87,19.96,55.18,17.64,16.28,43.66,21.03,67.21,12.53,3.16-1.14,6.16-2.67,9.12-4.24,247.86-131.74,493.79-258.51,743.67-395.35,19.13-10.46,61.59-43.97,92.79-111.74,23.74-51.56,29.92-99.76,31.56-126.28.83-13.38-1.63-150.55-1.63-150.55,1.08-18.7-9.18-35.78-24.94-42.4-13.96-5.87-30.59-2.85-42.83,7.24-15.45,12.74-31.52,24.71-49.36,33.79-224.94,114.32-450.9,226.18-675.88,340.4-12.72,6.45-25.17,13.44-37.14,21.2-25.13,16.25-58.03,41.71-87.62,86.2-.27.41-.54.81-.81,1.22-27.79,42.08-42.33,91.49-42.83,141.93v-.02Z"/>
+  </g>
+</svg>`;
 
 let officialPngLogoCache: Buffer | null = null;
 let officialEmailLogoBufferCache: Buffer | null = null;
@@ -2488,7 +2527,9 @@ function getOfficialEmailLogoLightBuffer(): Buffer {
     return officialLogoLightCache;
   }
   const possiblePaths = [
+    path.join(process.cwd(), "public", "zakir-email-logo.png"),
     path.join(process.cwd(), "public", "zakir-badge-light.png"),
+    path.join(process.cwd(), "src", "assets", "zakir-email-logo.png"),
     path.join(process.cwd(), "src", "assets", "zakir-badge-light.png"),
   ];
   for (const p of possiblePaths) {
@@ -2510,7 +2551,9 @@ function getOfficialEmailLogoDarkBuffer(): Buffer {
     return officialLogoDarkCache;
   }
   const possiblePaths = [
+    path.join(process.cwd(), "public", "zakir-email-logo.png"),
     path.join(process.cwd(), "public", "zakir-badge-dark.png"),
+    path.join(process.cwd(), "src", "assets", "zakir-email-logo.png"),
     path.join(process.cwd(), "src", "assets", "zakir-badge-dark.png"),
   ];
   for (const p of possiblePaths) {
@@ -2660,22 +2703,8 @@ app.get(["/api/logo.svg", "/assets/logo.svg", "/logo.svg"], (req, res) => {
   res.send(OFFICIAL_ZAKIR_SVG);
 });
 
-function getEmailLogoSvg(mode: "light" | "dark"): string {
-  const bg = mode === "light" ? "#1C2C58" : "#FFFFFF";
-  const fill = mode === "light" ? "#FDFEFE" : "#1C2C58";
-  const stroke = mode === "light" ? "" : ' stroke="#E2E8F0" stroke-width="1"';
-  
-  return `<?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 1200" width="96" height="96">
-  <rect width="1200" height="1200" rx="264" ry="264" fill="${bg}"${stroke} />
-  <g transform="translate(-235.5, 191)">
-    <path fill="${fill}" d="M778.63,359.56c-23.73-3.27-49.53-5.85-77.18-7.24-32.15-1.61-62.03-1.36-89.24,0,34.57-18.49,69.14-36.98,103.71-55.47,20.27,4.1,42.87,7.57,67.53,9.65,37.02,3.12,70.37,2.39,98.89,0-34.57,17.69-69.14,35.37-103.71,53.06Z"/>
-    <path fill="${fill}" d="M981.22,516.33c-21.55-3.6-44.07-6.86-67.53-9.65-27.66-3.29-54.23-5.64-79.59-7.24,24.92-14.47,49.85-28.94,74.77-43.41,15.69,5.87,35.17,11.48,57.89,14.47,48.31,6.37,88.45-2.07,113.36-9.65-32.96,18.49-65.92,36.98-98.89,55.47Z"/>
-    <path fill="${fill}" d="M475.93,511.51c-.4-63.54-.79-127.08-1.19-190.62,0-1.55.04-3.1.17-4.65,1.41-16.02,5.73-38.28,19.11-60.39,15.25-25.22,36.03-39.94,52.05-49.5,46.85-27.96,204.08-102.02,420.68-194.1,2.95-1.1,22.35-7.98,38.59,2.41,13.05,8.35,16.88,21.71,19.3,33.77.99,4.94,2.1,13.09,2.12,24.52,0,0-.21,16.41-4.53,33.36-3.15,12.35-9.18,25.15-15.95,36.87-15.62,27.05-38.84,48.89-66.54,63.34-2.2,1.15-4.45,2.31-6.75,3.51-28.28,14.64-50.12,25.26-62.71,31.35-57.8,28-105.19,50.13-105.19,50.14-109.22,51.02-121.47,55.24-155.29,75.28-51.72,30.66-69.24,48.16-82,65.12-22.17,29.46-31.69,59.52-36.18,79.59-.91,5.07-5.6,8.12-9.65,7.24-3.09-.68-5.58-3.59-6.03-7.24Z"/>
-    <path fill="${fill}" d="M588.09,674.31c-2.01-24.49-3.65-49.83-4.82-75.97-1.24-27.44-1.89-54.04-2.06-79.75-.1-14.52,5.57-37.35,18.94-60.14,18.93-32.26,45.29-46.83,62.71-55.47,137.63-68.29,257.29-123.83,260.14-125.21,75.11-36.38,123.35-60.5,145.05-72.56,27.49-15.27,46.87-32.02,62.71-41,2.06-1.17,4.68-2.2,6.94-3.07,3.88-1.5,8.1-2.04,12.18-1.23,3.17.63,6.65,1.89,9.82,4.3,8.71,6.63,9.55,16.58,9.65,18.09,1.46,13.4,2.41,28.35,2.41,44.62,0,16.21-.96,31.11-2.41,44.47-1.5,12.31-5.42,31.69-16.88,52.01-18.53,32.84-45.67,49.12-57.89,55.47-88.75,45.47-177.49,90.94-266.24,136.41-51.56,25.46-85.39,42.03-105.19,51.72-34.66,16.95-62.96,28.55-86.83,55.47-9.81,11.07-16.25,18.95-21.71,28.94-3.96,7.25-5.57,13.62-7.24,21.71-.3,1.46-.76,3.36-1.71,5.25-3.58,7.17-13.97,7.18-16.83-.3-.44-1.16-.71-2.42-.76-3.74Z"/>
-    <path fill="${fill}" d="M731,710.96l-.61,63.29c-.18,1.66-1.51,16.38,9.65,26.68,8.53,7.87,21.11,10.17,32.5,6.06,1.53-.55,2.98-1.29,4.41-2.05,119.85-63.7,238.77-125,359.6-191.17,9.25-5.06,29.78-21.26,44.87-54.03,11.48-24.93,14.47-48.24,15.26-61.06.4-6.47-.79-72.8-.79-72.8.52-9.04-4.44-17.3-12.06-20.5-6.75-2.84-14.79-1.38-20.71,3.5-7.47,6.16-15.24,11.95-23.87,16.34-108.77,55.28-218.03,109.37-326.82,164.6-6.15,3.12-12.17,6.5-17.96,10.25-12.15,7.86-28.06,20.17-42.37,41.68-.13.2-.26.39-.39.59-13.44,20.35-20.47,44.24-20.71,68.63Z"/>
-  </g>
-</svg>`;
+function getEmailLogoSvg(mode: "light" | "dark" = "light"): string {
+  return OFFICIAL_ZAKIR_SVG;
 }
 
 app.get("/api/email-logo/light.svg", (req, res) => {
@@ -3468,15 +3497,14 @@ function renderEmailLogoHeaderHtml(options?: {
   tagline?: string;
   size?: number;
 }): string {
-  const size = options?.size || 120;
+  const size = options?.size || 96;
   const rawAppBase = options?.appBase || "https://www.getzakir.com";
   const publicAssetBase = (rawAppBase && rawAppBase.startsWith("https://") && !rawAppBase.includes("localhost"))
     ? rawAppBase.replace(/\/$/, "")
     : "https://www.getzakir.com";
   const appBase = rawAppBase;
 
-  const lightLogoUrl = `${publicAssetBase}/email-assets/zakir-badge-light.png`;
-  const darkLogoUrl = `${publicAssetBase}/email-assets/zakir-badge-dark.png`;
+  const logoUrl = `${publicAssetBase}/zakir-email-logo.png`;
 
   const wordmark = options?.wordmark !== undefined ? options.wordmark : "ZAKIR";
   const tagline =
@@ -3485,20 +3513,12 @@ function renderEmailLogoHeaderHtml(options?: {
       : "الذاكرة المؤسسية السببية &bull; Causal Decision Intelligence";
 
   return `
-    <!-- Strict 1:1 Square Logo Container (${size}px x ${size}px) -->
-    <table border="0" cellpadding="0" cellspacing="0" align="center" role="presentation" width="${size}" height="${size}" class="zakir-logo-table" style="width: ${size}px !important; height: ${size}px !important; max-width: ${size}px !important; max-height: ${size}px !important; margin: 0 auto 16px auto; border-collapse: collapse; border-spacing: 0; mso-table-lspace: 0pt; mso-table-rspace: 0pt;">
+    <!-- Official ZAKIR Badge (Self-Contained Vector Render from logo.txt) -->
+    <table border="0" cellpadding="0" cellspacing="0" align="center" role="presentation" width="${size}" height="${size}" class="zakir-logo-table" style="width: ${size}px !important; height: ${size}px !important; max-width: ${size}px !important; max-height: ${size}px !important; margin: 0 auto 16px auto; border-collapse: collapse; border-spacing: 0;">
       <tr>
-        <td align="center" valign="middle" width="${size}" height="${size}" bgcolor="#1C2C58" class="zakir-logo-container-cell" style="width: ${size}px !important; height: ${size}px !important; max-width: ${size}px !important; max-height: ${size}px !important; padding: 0; margin: 0; line-height: 0; font-size: 0; text-align: center; vertical-align: middle; background-color: #1C2C58;">
-          <a href="${appBase}" target="_blank" style="text-decoration: none; display: block; width: ${size}px; height: ${size}px; margin: 0 auto; line-height: 0; font-size: 0; outline: none; border: 0;">
-            <!-- LIGHT MODE BADGE: Solid Royal Navy Square (#1C2C58) + Crisp White ZAKIR Logo (#FDFEFE) [Exact ${size}x${size} px] -->
-            <img src="${lightLogoUrl}" alt="ZAKIR" width="${size}" height="${size}" class="zakir-logo-light light-img" style="display: block; width: ${size}px !important; height: ${size}px !important; max-width: ${size}px !important; max-height: ${size}px !important; aspect-ratio: 1 / 1; border: 0; outline: none; text-decoration: none; margin: 0 auto; -ms-interpolation-mode: bicubic;" />
-            
-            <!-- DARK MODE BADGE: Solid Pure White Square (#FFFFFF) + Crisp Navy ZAKIR Logo (#1C2C58) [Exact ${size}x${size} px] -->
-            <!--[if !mso]><!-->
-            <div class="zakir-logo-dark-wrap dark-img" style="display: none; mso-hide: all; max-height: 0px; max-width: 0px; overflow: hidden; width: 0; height: 0; margin: 0 auto; line-height: 0; font-size: 0;">
-              <img src="${darkLogoUrl}" alt="ZAKIR" width="${size}" height="${size}" class="zakir-logo-dark" style="display: none; width: ${size}px !important; height: ${size}px !important; max-width: ${size}px !important; max-height: ${size}px !important; aspect-ratio: 1 / 1; border: 0; outline: none; text-decoration: none; margin: 0 auto; -ms-interpolation-mode: bicubic;" />
-            </div>
-            <!--<![endif]-->
+        <td align="center" valign="middle" width="${size}" height="${size}" style="width: ${size}px; height: ${size}px; padding: 0; margin: 0; line-height: 0; font-size: 0; text-align: center; vertical-align: middle;">
+          <a href="${appBase}" target="_blank" style="text-decoration: none; display: inline-block; width: ${size}px; height: ${size}px; margin: 0 auto; line-height: 0; font-size: 0; outline: none; border: 0;">
+            <img src="${logoUrl}" alt="ZAKIR" width="${size}" height="${size}" class="zakir-logo" style="display: block; width: ${size}px !important; height: ${size}px !important; max-width: ${size}px !important; max-height: ${size}px !important; border: 0; outline: none; text-decoration: none; margin: 0 auto; -ms-interpolation-mode: bicubic;" />
           </a>
         </td>
       </tr>
@@ -3507,7 +3527,7 @@ function renderEmailLogoHeaderHtml(options?: {
     ${
       wordmark
         ? `<!-- ZAKIR Wordmark: Bold, uppercase, clean spacing -->
-    <div class="zakir-wordmark" style="color: #0f172a; font-size: 24px; font-weight: 800; letter-spacing: 2.5px; text-transform: uppercase; line-height: 1.2; margin: 0 0 6px 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+    <div class="zakir-wordmark" style="color: #0f172a; font-size: 22px; font-weight: 800; letter-spacing: 2.5px; text-transform: uppercase; line-height: 1.2; margin: 0 0 6px 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
       ${wordmark}
     </div>`
         : ""
@@ -3556,7 +3576,11 @@ function buildMasterEmailHtml(options: {
   }
 
   const appBase = publicBaseUrl;
-  const logoHeaderHtml = renderEmailLogoHeaderHtml({ appBase, size: 120 });
+  const publicAssetBase = (appBase && appBase.startsWith("https://") && !appBase.includes("localhost"))
+    ? appBase.replace(/\/$/, "")
+    : "https://www.getzakir.com";
+
+  const logoHeaderHtml = renderEmailLogoHeaderHtml({ appBase, size: 96 });
 
   return `<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml" lang="ar">
@@ -3572,52 +3596,11 @@ function buildMasterEmailHtml(options: {
       color-scheme: light dark;
       supported-color-schemes: light dark;
     }
+    .zakir-logo {
+      display: block !important;
+      border-radius: 20px;
+    }
     @media (prefers-color-scheme: dark) {
-      .zakir-logo-container-cell {
-        background-color: #FFFFFF !important;
-      }
-      .light-img,
-      .zakir-logo-light {
-        display: none !important;
-        mso-hide: all !important;
-        width: 0px !important;
-        height: 0px !important;
-        max-width: 0px !important;
-        max-height: 0px !important;
-        overflow: hidden !important;
-        font-size: 0px !important;
-        line-height: 0px !important;
-      }
-      .dark-img,
-      .zakir-logo-dark-wrap {
-        display: block !important;
-        mso-hide: none !important;
-        width: 120px !important;
-        height: 120px !important;
-        max-width: 120px !important;
-        max-height: 120px !important;
-        overflow: visible !important;
-        font-size: 0 !important;
-        line-height: 0 !important;
-      }
-      .zakir-logo-dark {
-        display: block !important;
-        width: 120px !important;
-        height: 120px !important;
-        max-width: 120px !important;
-        max-height: 120px !important;
-        overflow: visible !important;
-      }
-      .zakir-footer-logo-light {
-        display: none !important;
-        max-height: 0px !important;
-        overflow: hidden !important;
-      }
-      .zakir-footer-logo-dark {
-        display: inline-block !important;
-        max-height: none !important;
-        overflow: visible !important;
-      }
       .zakir-card {
         background-color: #0b1329 !important;
         border-color: #1e293b !important;
@@ -3643,41 +3626,7 @@ function buildMasterEmailHtml(options: {
         color: #94a3b8 !important;
       }
     }
-    /* Outlook / Webmail Dark Mode Overrides */
-    [data-ogsc] .light-img,
-    [data-ogsb] .light-img,
-    [data-ogsc] .zakir-logo-light,
-    [data-ogsb] .zakir-logo-light {
-      display: none !important;
-      width: 0px !important;
-      height: 0px !important;
-      max-width: 0px !important;
-      max-height: 0px !important;
-      overflow: hidden !important;
-    }
-    [data-ogsc] .dark-img,
-    [data-ogsb] .dark-img,
-    [data-ogsc] .zakir-logo-dark-wrap,
-    [data-ogsb] .zakir-logo-dark-wrap,
-    [data-ogsc] .zakir-logo-dark,
-    [data-ogsb] .zakir-logo-dark {
-      display: block !important;
-      width: 96px !important;
-      height: 96px !important;
-      max-width: 96px !important;
-      max-height: 96px !important;
-      overflow: visible !important;
-    }
-    [data-ogsc] .zakir-footer-logo-light,
-    [data-ogsb] .zakir-footer-logo-light {
-      display: none !important;
-    }
-    [data-ogsc] .zakir-footer-logo-dark,
-    [data-ogsb] .zakir-footer-logo-dark {
-      display: inline-block !important;
-      max-height: none !important;
-      overflow: visible !important;
-    }
+    /* Webmail Dark Mode Overrides */
     [data-ogsc] .zakir-card,
     [data-ogsb] .zakir-card {
       background-color: #0b1329 !important;
@@ -3714,18 +3663,11 @@ function buildMasterEmailHtml(options: {
           </tr>
           <tr>
             <td class="zakir-footer-cell" style="background-color: #f8fafc; padding: 24px 32px; border-top: 1px solid #e2e8f0; text-align: center; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
-              <!-- Mini Footer Brand with Light/Dark Inversion -->
+              <!-- Mini Footer Brand -->
               <table border="0" cellpadding="0" cellspacing="0" align="center" role="presentation" style="margin: 0 auto 10px auto;">
                 <tr>
                   <td align="center" style="vertical-align: middle;">
-                    <span class="zakir-footer-logo-light" style="display: inline-block; vertical-align: middle; margin-right: 8px;">
-                      <img src="cid:zakir-logo-light" alt="ZAKIR" width="24" height="24" style="display: block; width: 24px; height: 24px; border-radius: 6px; border: 0;" />
-                    </span>
-                    <!--[if !mso]><!-->
-                    <span class="zakir-footer-logo-dark" style="display: none; mso-hide: all; max-height: 0; max-width: 0; overflow: hidden; vertical-align: middle; margin-right: 8px;">
-                      <img src="cid:zakir-logo-dark" alt="ZAKIR" width="24" height="24" style="display: block; width: 24px; height: 24px; border-radius: 6px; border: 0;" />
-                    </span>
-                    <!--<![endif]-->
+                    <img src="${publicAssetBase}/zakir-email-logo.png" alt="ZAKIR" width="24" height="24" style="display: inline-block; width: 24px; height: 24px; border-radius: 6px; border: 0; vertical-align: middle; margin-right: 8px;" />
                     <span class="zakir-wordmark" style="font-size: 13px; font-weight: 800; color: #0f172a; vertical-align: middle; letter-spacing: 1.5px; text-transform: uppercase;">ZAKIR</span>
                   </td>
                 </tr>
@@ -9693,8 +9635,50 @@ app.get("/api/admin/users", requireAuth, async (req: AuthRequest, res) => {
       }
     } catch (e) {}
 
-    // 5. NORMALIZE VERIFICATION STATE (CRITICAL INTEGRITY AUDIT)
-    // Never allow an account with 0 submitted documents to appear as Verified without explicit admin approval
+    // 5. PRE-FETCH ALL USER FILES AND VERIFICATION DOCUMENTS FROM FIRESTORE
+    let topFiles: any[] = [];
+    let fsVerDocs: any[] = [];
+    const subFilesMap = new Map<string, any[]>();
+
+    if (isFirebaseAdminAvailable && adminDb) {
+      try {
+        const [topSnap, verSnap] = await Promise.all([
+          adminDb.collection("files").get().catch(() => ({ empty: true, docs: [] })),
+          adminDb.collection("verification_documents").get().catch(() => ({ empty: true, docs: [] }))
+        ]);
+        if (topSnap && !topSnap.empty && topSnap.docs) {
+          topFiles = topSnap.docs.map((d: any) => ({ id: d.id, ...d.data() }));
+        }
+        if (verSnap && !verSnap.empty && verSnap.docs) {
+          fsVerDocs = verSnap.docs.map((d: any) => ({ id: d.id, documentId: d.id, ...d.data() }));
+        }
+      } catch (e) {}
+
+      // Fetch user subcollection files in parallel chunks
+      try {
+        const chunkSize = 15;
+        for (let i = 0; i < fsUsers.length; i += chunkSize) {
+          const chunk = fsUsers.slice(i, i + chunkSize);
+          await Promise.all(
+            chunk.map(async (u: any) => {
+              const uId = u.id || u.uid;
+              if (!uId) return;
+              try {
+                const subSnap = await adminDb.collection("users").doc(uId).collection("files").get();
+                if (subSnap && !subSnap.empty && subSnap.docs) {
+                  subFilesMap.set(uId, subSnap.docs.map((d: any) => ({ id: d.id, ...d.data() })));
+                }
+              } catch (err) {}
+            })
+          );
+        }
+      } catch (e) {}
+    }
+
+    const db = readDb();
+    const diskUploadsDir = path.join(process.cwd(), "secure_uploads");
+
+    // 6. NORMALIZE VERIFICATION STATE (CRITICAL INTEGRITY AUDIT)
     const activeUsers = fsUsers
       .filter((u: any) => {
         const uId = u.id || u.uid;
@@ -9706,54 +9690,160 @@ app.get("/api/admin/users", requireAuth, async (req: AuthRequest, res) => {
         const uId = u.id || u.uid;
         const uEmail = (u.email || "").toLowerCase().trim();
 
-        // 1. Gather docs explicitly on user object
+        // --- A. GATHER ALL USER FILES ---
+        const userFilesMap = new Map<string, any>();
+
+        // 1. From user subcollection users/{uid}/files
+        const subFiles = subFilesMap.get(uId) || [];
+        for (const sf of subFiles) {
+          if (sf && sf.id) userFilesMap.set(sf.id, sf);
+        }
+
+        // 2. From top-level files collection in Firestore
+        for (const tf of topFiles) {
+          if (tf && (tf.userId === uId || tf.userUid === uId || tf.ownerUid === uId)) {
+            if (!userFilesMap.has(tf.id)) userFilesMap.set(tf.id, tf);
+          }
+        }
+
+        // 3. From local db.files
+        if (Array.isArray(db.files)) {
+          for (const df of db.files) {
+            if (df && (df.userId === uId || df.userUid === uId || df.ownerUid === uId)) {
+              if (!userFilesMap.has(df.id)) userFilesMap.set(df.id, df);
+            }
+          }
+        }
+
+        // 4. From user object's own files array
+        if (Array.isArray(u.files)) {
+          for (const uf of u.files) {
+            if (uf && uf.id) {
+              if (!userFilesMap.has(uf.id)) userFilesMap.set(uf.id, uf);
+            }
+          }
+        }
+
+        const reconciledFiles = Array.from(userFilesMap.values()).map((f: any) => ({
+          ...f,
+          previewUrl: f.fileUrl || `/api/auth/verification-document/${f.id}`
+        }));
+        u.files = reconciledFiles;
+        u.fileCount = reconciledFiles.length;
+
+        // --- B. GATHER ALL VERIFICATION DOCUMENTS ---
         const rawDocs = [
           ...(Array.isArray(u.verificationDocuments) ? u.verificationDocuments : []),
           ...(Array.isArray(u.verificationInfo?.documents) ? u.verificationInfo.documents : []),
           ...(Array.isArray(u.documents) ? u.documents : []),
-          ...(Array.isArray(u.files) ? u.files.filter((f: any) => f && (f.category === "Verification" || f.isVerificationDoc)) : [])
+          ...reconciledFiles.filter((f: any) => f && (f.category === "Verification" || f.category === "Identity" || f.isVerificationDoc))
         ];
 
-        // 2. Reconcile with unlinked docs in verification_documents_store
-        const db = readDb();
+        // Add from Firestore verification_documents collection
+        for (const vd of fsVerDocs) {
+          if (vd && (vd.userId === uId || (vd.userEmail && vd.userEmail.toLowerCase().trim() === uEmail))) {
+            rawDocs.push(vd);
+          }
+        }
+
+        // Add from local verification_documents_store & recovery_documents_store
         if (db.verification_documents_store) {
           for (const [docId, meta] of Object.entries(db.verification_documents_store as Record<string, any>)) {
             if (meta) {
               const matchesUser = meta.userId === uId || (meta.userEmail && meta.userEmail.toLowerCase().trim() === uEmail);
               if (matchesUser) {
-                if (!rawDocs.some((d: any) => (d.documentId || d.id) === docId)) {
-                  rawDocs.push(meta);
-                }
+                rawDocs.push({ ...meta, documentId: docId });
               }
             }
           }
         }
 
-        // Deduplicate
-        const docMap = new Map<string, any>();
-        for (const d of rawDocs) {
-          if (!d) continue;
-          const dKey = d.documentId || d.id || d.storageReference || d.fileName;
-          if (dKey && !docMap.has(dKey)) {
-            docMap.set(dKey, d);
+        if (db.recovery_documents_store) {
+          for (const [docId, meta] of Object.entries(db.recovery_documents_store as Record<string, any>)) {
+            if (meta) {
+              const matchesUser = meta.userId === uId || (meta.userEmail && meta.userEmail.toLowerCase().trim() === uEmail);
+              if (matchesUser) {
+                rawDocs.push({ ...meta, documentId: docId });
+              }
+            }
           }
         }
+
+        // Deduplicate documents
+        const docMap = new Map<string, any>();
+        for (const d of rawDocs) {
+          if (!d || d.deleted === true || d.isDeleted === true) continue;
+          const dKey = d.documentId || d.id || d.storageReference || d.fileName;
+          if (dKey && !docMap.has(dKey)) {
+            docMap.set(dKey, { ...d, documentId: dKey });
+          }
+        }
+
         const reconciledDocs = Array.from(docMap.values());
-        u.verificationDocuments = reconciledDocs;
-        u.documents = reconciledDocs;
-        const docCount = reconciledDocs.length;
+
+        // --- C. REAL DOCUMENT PHYSICAL EXISTENCE CHECK ---
+        // REAL EXISTING FILE = counted | DELETED / MISSING = not counted
+        const verifiedDocs = reconciledDocs.map((doc: any) => {
+          const docId = doc.documentId || doc.id;
+          let exists = false;
+
+          // 1. Check local disk
+          if (fs.existsSync(path.join(diskUploadsDir, docId)) || fs.existsSync(path.join(os.tmpdir(), "secure_uploads", docId))) {
+            exists = true;
+          }
+          // 2. Check local memory/buffer/base64
+          else if (getFromLocalDiskCache(docId)) {
+            exists = true;
+          } else if (doc.fileBase64 || doc.data || doc.base64 || (Array.isArray(doc.chunks) && doc.chunks.length > 0)) {
+            exists = true;
+          } else if (db.recovery_documents_store?.[docId]?.fileBase64 || db.verification_documents_store?.[docId]?.fileBase64) {
+            exists = true;
+          }
+          // 3. Check storage path or valid HTTP/HTTPS fileUrl
+          else if (doc.storagePath || (typeof doc.fileUrl === "string" && doc.fileUrl.length > 15 && !doc.fileUrl.startsWith("data:"))) {
+            exists = true;
+          } else {
+            // Document has no physical payload or path
+            exists = false;
+          }
+
+          return {
+            ...doc,
+            documentId: docId,
+            isAccessible: exists,
+            isMissing: !exists,
+            previewUrl: `/api/auth/verification-document/${docId}`
+          };
+        });
+
+        const validExistingDocs = verifiedDocs.filter((d: any) => !d.isMissing);
+        const docCount = validExistingDocs.length;
+
+        u.verificationDocuments = verifiedDocs;
+        u.documents = verifiedDocs;
         u.documentCount = docCount;
 
-        const isExplicitAdminApproved = Boolean(
-          u.adminVerificationOverride === true || (u.approvedBy && u.approvedAt && u.documentVerificationStatus === "APPROVED")
+        // --- D. AUTHORITATIVE STATUS DERIVATION ---
+        const isEmailVer = Boolean(
+          u.emailVerified === true ||
+          u.isEmailVerified === true ||
+          u.email_verified === true
         );
-        const isSystemAdmin = u.role === "Admin" || (u.email && ADMIN_EMAILS.has(u.email.toLowerCase().trim()));
+        u.emailVerified = isEmailVer;
+        u.isEmailVerified = isEmailVer;
 
-        // Verification Request Status
+        const isSystemAdmin = u.role === "Admin" || (uEmail && ADMIN_EMAILS.has(uEmail));
+        const isExplicitAdminApproved = Boolean(
+          (u.approvedBy && u.approvedAt && (String(u.accountStatus || "").toUpperCase() === "APPROVED" || String(u.documentVerificationStatus || "").toUpperCase() === "APPROVED")) ||
+          u.adminVerificationOverride === true
+        );
+
         const rawReq = String(u.verificationRequestStatus || u.verificationRequest || "").toUpperCase();
         const hasInstitutional = Boolean(u.institutionalProfile);
         const rawDocStatus = String(u.documentVerificationStatus || u.verificationInfo?.status || "").toUpperCase();
+        const rawAcc = String(u.accountStatus || "").toUpperCase();
 
+        // 1. Verification Request Status
         let reqStatus: "NONE" | "SUBMITTED" | "UNDER_REVIEW" | "APPROVED" | "REJECTED" = "NONE";
         if (rawReq === "APPROVED" || rawReq === "VERIFIED") {
           reqStatus = "APPROVED";
@@ -9772,15 +9862,15 @@ app.get("/api/admin/users", requireAuth, async (req: AuthRequest, res) => {
         }
         u.verificationRequestStatus = reqStatus;
 
-        // Document Verification Status
+        // 2. Document Verification Status (RULE 8: 0 documents CANNOT be APPROVED under any circumstance)
         let docStatus: "NOT_SUBMITTED" | "PENDING_REVIEW" | "UNDER_REVIEW" | "APPROVED" | "REJECTED" = "NOT_SUBMITTED";
-        const hasRejectedDoc = reconciledDocs.some(d => String(d.status || d.verificationStatus || "").toUpperCase() === "REJECTED");
+        const hasRejectedDoc = verifiedDocs.some((d: any) => String(d.status || d.verificationStatus || "").toUpperCase() === "REJECTED");
 
-        if (docCount === 0 && !isExplicitAdminApproved && !isSystemAdmin) {
+        if (docCount === 0) {
           docStatus = "NOT_SUBMITTED";
         } else if (hasRejectedDoc || rawDocStatus === "REJECTED" || reqStatus === "REJECTED") {
           docStatus = "REJECTED";
-        } else if ((rawDocStatus === "APPROVED" || isExplicitAdminApproved || isSystemAdmin) && (docCount > 0 || isExplicitAdminApproved || isSystemAdmin)) {
+        } else if ((rawDocStatus === "APPROVED" || isExplicitAdminApproved) && docCount > 0) {
           docStatus = "APPROVED";
         } else if (docCount > 0) {
           docStatus = rawDocStatus === "UNDER_REVIEW" ? "UNDER_REVIEW" : "PENDING_REVIEW";
@@ -9790,12 +9880,16 @@ app.get("/api/admin/users", requireAuth, async (req: AuthRequest, res) => {
         u.documentVerificationStatus = docStatus;
         u.documentStatus = docStatus;
 
-        // KYC Status
+        // 3. KYC Status (RULE 7 & 8: 0 documents = NOT_VERIFIED)
         let kycStatus: "VERIFIED" | "NOT_VERIFIED" | "UNDER_REVIEW" | "REJECTED" = "NOT_VERIFIED";
-        if (isSystemAdmin || isExplicitAdminApproved || (docCount > 0 && docStatus === "APPROVED")) {
+        if (isSystemAdmin) {
           kycStatus = "VERIFIED";
+        } else if (docCount === 0) {
+          kycStatus = "NOT_VERIFIED";
         } else if (docStatus === "REJECTED") {
           kycStatus = "REJECTED";
+        } else if (docCount > 0 && docStatus === "APPROVED") {
+          kycStatus = "VERIFIED";
         } else if (docCount > 0 || reqStatus === "UNDER_REVIEW" || reqStatus === "SUBMITTED") {
           kycStatus = "UNDER_REVIEW";
         } else {
@@ -9803,13 +9897,13 @@ app.get("/api/admin/users", requireAuth, async (req: AuthRequest, res) => {
         }
         u.kycStatus = kycStatus;
 
-        // Strict 5-State UI Evaluator
+        // 4. Strict 5-State UI Evaluator
         let uiState: "NO_REQUEST" | "AWAITING_DOCS" | "PENDING_REVIEW" | "VERIFIED" | "REJECTED" = "NO_REQUEST";
         if (docStatus === "REJECTED" || kycStatus === "REJECTED" || reqStatus === "REJECTED") {
           uiState = "REJECTED";
         } else if (docCount > 0 && docStatus === "APPROVED" && kycStatus === "VERIFIED") {
           uiState = "VERIFIED";
-        } else if (docCount > 0 && (docStatus === "PENDING_REVIEW" || docStatus === "UNDER_REVIEW")) {
+        } else if (docCount > 0) {
           uiState = "PENDING_REVIEW";
         } else if (reqStatus !== "NONE" && docCount === 0) {
           uiState = "AWAITING_DOCS";
@@ -9817,28 +9911,37 @@ app.get("/api/admin/users", requireAuth, async (req: AuthRequest, res) => {
           uiState = "NO_REQUEST";
         }
         u.uiState = uiState;
-        u.canApproveKyc = uiState === "PENDING_REVIEW" && docCount > 0;
-        u.canReviewDocuments = uiState === "PENDING_REVIEW" && docCount > 0;
 
-        // Account status
-        const rawAcc = String(u.accountStatus || "").toUpperCase();
-        if (rawAcc === "APPROVED" || rawAcc === "ACTIVE" || isSystemAdmin) {
-          u.accountStatus = "APPROVED";
-          u.canApproveAccount = false;
-        } else if (rawAcc === "REJECTED") {
-          u.accountStatus = "REJECTED";
-          u.canApproveAccount = false;
+        // 5. Account Status (STRICT RULE 10: Approved ONLY IF email verified + docs exist + KYC verified + explicit admin approval)
+        let accountStatus: "APPROVED" | "PENDING" | "REJECTED" | "SUSPENDED" = "PENDING";
+        if (isSystemAdmin) {
+          accountStatus = "APPROVED";
         } else if (rawAcc === "SUSPENDED") {
-          u.accountStatus = "SUSPENDED";
-          u.canApproveAccount = false;
+          accountStatus = "SUSPENDED";
+        } else if (rawAcc === "REJECTED" || docStatus === "REJECTED") {
+          accountStatus = "REJECTED";
+        } else if (!isEmailVer) {
+          // Rule 9: Email unverified -> cannot be approved
+          accountStatus = "PENDING";
+        } else if (docCount === 0) {
+          // Rule 8: 0 documents -> cannot be approved
+          accountStatus = "PENDING";
+        } else if (kycStatus === "VERIFIED" && isExplicitAdminApproved && (rawAcc === "APPROVED" || rawAcc === "ACTIVE")) {
+          // All 5 conditions satisfied
+          accountStatus = "APPROVED";
         } else {
-          u.accountStatus = "PENDING";
-          u.canApproveAccount = true;
+          accountStatus = "PENDING";
         }
+        u.accountStatus = accountStatus;
 
-        // isVerified is strictly true only if KYC is verified or sysadmin
-        u.isVerified = kycStatus === "VERIFIED" || isSystemAdmin;
-        u.verification_status = u.isVerified ? "verified" : (uiState === "PENDING_REVIEW" ? "pending" : (uiState === "REJECTED" ? "rejected" : "unverified"));
+        // Explicit Action Permissions
+        u.canApproveKyc = isEmailVer && docCount > 0 && kycStatus !== "VERIFIED";
+        u.canReviewDocuments = docCount > 0;
+        u.canApproveAccount = isEmailVer && docCount > 0 && kycStatus === "VERIFIED" && accountStatus !== "APPROVED";
+
+        // Verified boolean strictly requires verified email, real docs, and approved KYC
+        u.isVerified = isSystemAdmin || (isEmailVer && docCount > 0 && kycStatus === "VERIFIED" && accountStatus === "APPROVED");
+        u.verification_status = u.isVerified ? "verified" : (uiState === "PENDING_REVIEW" ? "pending" : (uiState === "REJECTED" ? "rejected" : (uiState === "AWAITING_DOCS" ? "action_required" : "unverified")));
 
         return u;
       });
@@ -9885,8 +9988,10 @@ app.post("/api/admin/bulk-user-action", requireAuth, requireAdmin, async (req: A
           const updates: Record<string, any> = {
             accountStatus: "APPROVED",
             documentVerificationStatus: hasDocs ? "APPROVED" : "NOT_SUBMITTED",
-            isVerified: true,
-            verification_required: false,
+            kycStatus: hasDocs ? "VERIFIED" : "NOT_VERIFIED",
+            isVerified: hasDocs,
+            verification_required: !hasDocs,
+            verification_status: hasDocs ? "verified" : "unverified",
             approvedAt: nowIso,
             approvedBy: callerEmail,
             subscriptionPlan: assignPlan,
@@ -10779,7 +10884,7 @@ app.get("/api/admin/pending-approvals", requireAuth, requireAdmin, async (req: A
   }
 });
 
-// 2. Approve User Account (Pure Account Approval - Independent of KYC/Documents)
+// 2. Approve User Account (Strict Rule 10: Email verified + Real docs + KYC verified + Explicit Admin approval)
 app.post("/api/admin/approve-account", requireAuth, requireAdmin, async (req: AuthRequest, res) => {
   const adminUid = req.user?.uid || "";
   const adminEmail = req.user?.email || "admin@zakir.ai";
@@ -10796,6 +10901,23 @@ app.post("/api/admin/approve-account", requireAuth, requireAdmin, async (req: Au
       return res.status(404).json({ success: false, error: "Target user not found." });
     }
 
+    const isEmailVer = Boolean(
+      targetUser.emailVerified === true ||
+      targetUser.isEmailVerified === true ||
+      targetUser.email_verified === true
+    );
+
+    const isExplicitOverride = Boolean(adminOverride === true || req.body?.adminVerificationOverride === true);
+
+    // Rule 9 Check: Email must be verified before approval
+    if (!isEmailVer && !isExplicitOverride) {
+      return res.status(400).json({
+        success: false,
+        error: "CANNOT_APPROVE_UNVERIFIED_EMAIL",
+        userFriendlyMessage: "لا يمكن اعتماد الحساب قبل تأكيد وتوثيق البريد الإلكتروني."
+      });
+    }
+
     const rawDocs = [
       ...(Array.isArray(targetUser.verificationDocuments) ? targetUser.verificationDocuments : []),
       ...(Array.isArray(targetUser.verificationInfo?.documents) ? targetUser.verificationInfo.documents : []),
@@ -10805,31 +10927,57 @@ app.post("/api/admin/approve-account", requireAuth, requireAdmin, async (req: Au
     const uniqueDocs: any[] = [];
     const seenIds = new Set<string>();
     for (const doc of rawDocs) {
-      if (!doc) continue;
+      if (!doc || doc.deleted === true || doc.isDeleted === true) continue;
       const docId = String(doc.documentId || doc.id || doc.storageReference || doc.fileName || doc.name || JSON.stringify(doc));
       if (!seenIds.has(docId)) {
         seenIds.add(docId);
         uniqueDocs.push(doc);
       }
     }
-    const docCount = uniqueDocs.length;
-    const isExplicitOverride = Boolean(adminOverride === true || req.body?.adminVerificationOverride === true);
+
+    // Verify physical accessibility of documents
+    const validDocs: any[] = [];
+    for (const d of uniqueDocs) {
+      const docId = d.documentId || d.id;
+      const exists = await checkDocumentExistence(docId, d);
+      if (exists) {
+        validDocs.push({ ...d, isAccessible: true, isMissing: false });
+      }
+    }
+
+    const docCount = validDocs.length;
+
+    // Rule 8 Check: 0 documents cannot be approved without explicit administrative override
+    if (docCount === 0 && !isExplicitOverride) {
+      return res.status(400).json({
+        success: false,
+        error: "CANNOT_APPROVE_WITHOUT_DOCUMENTS",
+        userFriendlyMessage: "لا يمكن اعتماد الحساب لعدم وجود أي وثائق توثيق رسمية مرفوعة وقابلة للمعاينة."
+      });
+    }
 
     const nowIso = new Date().toISOString();
     const trialHours = Math.max(1, Number(customTrialHours) || 24);
     const trialEndsIso = new Date(Date.now() + trialHours * 3600 * 1000).toISOString();
 
-    // SEPARATE ACCOUNT APPROVAL FROM DOCUMENT / KYC APPROVAL
-    // If docCount === 0 and no explicit override: Account is APPROVED, but KYC remains NOT_VERIFIED!
-    const isDocApproved = isExplicitOverride ? true : (docCount > 0 && targetUser.documentVerificationStatus === "APPROVED");
-    const docVerifStatus = isDocApproved ? "APPROVED" : (docCount > 0 ? "UNDER_REVIEW" : "NOT_SUBMITTED");
-    const kycStatus = isDocApproved ? "VERIFIED" : (docCount > 0 ? "UNDER_REVIEW" : "NOT_VERIFIED");
+    const isDocApproved = isExplicitOverride ? true : (docCount > 0);
+    const docVerifStatus = isDocApproved ? "APPROVED" : "NOT_SUBMITTED";
+    const kycStatus = isDocApproved ? "VERIFIED" : "NOT_VERIFIED";
+
+    const approvedDocs = validDocs.map((d: any) => ({
+      ...d,
+      status: "APPROVED",
+      verificationStatus: "APPROVED",
+      reviewedAt: nowIso,
+      reviewedBy: adminEmail
+    }));
 
     const approvalUpdates: Record<string, any> = {
       accountStatus: "APPROVED",
       documentVerificationStatus: docVerifStatus,
       kycStatus,
-      requiresDocumentVerification: docCount === 0 ? false : !isDocApproved,
+      verificationRequestStatus: "APPROVED",
+      requiresDocumentVerification: false,
       adminVerificationOverride: isExplicitOverride,
       approvedAt: nowIso,
       approvedBy: adminEmail,
@@ -10840,21 +10988,21 @@ app.post("/api/admin/approve-account", requireAuth, requireAdmin, async (req: Au
       trialDurationHours: trialHours,
       subscriptionPlan: assignPlan,
       subscriptionStatus: "Active",
-      isVerified: isDocApproved,
+      isVerified: true,
       isEmailVerified: true,
       email_verified: true,
       emailVerified: true,
-      verification_status: isDocApproved ? "verified" : "unverified",
+      verification_status: "verified",
       rejectionReason: null,
+      verificationDocuments: approvedDocs.length > 0 ? approvedDocs : targetUser.verificationDocuments || [],
+      documents: approvedDocs.length > 0 ? approvedDocs : targetUser.documents || [],
+      verifiedAt: nowIso,
+      "verificationInfo.status": "verified",
+      "verificationInfo.verifiedAt": nowIso,
+      "verificationInfo.verifiedBy": adminEmail,
+      "verificationInfo.adminNote": notes || adminNotes || "Approved by Admin",
       lastActiveAt: nowIso
     };
-
-    if (isDocApproved) {
-      approvalUpdates.verifiedAt = nowIso;
-      approvalUpdates["verificationInfo.status"] = "verified";
-      approvalUpdates["verificationInfo.verifiedAt"] = nowIso;
-      approvalUpdates["verificationInfo.verifiedBy"] = adminEmail;
-    }
 
     // Update Firestore
     try {
@@ -13760,45 +13908,119 @@ app.post(
             });
         }
 
+        // 1. Delete from Firestore subcollection and root collections
+        if (isFirebaseAdminAvailable && adminDb) {
+          try {
+            await Promise.allSettled([
+              adminDb.collection("users").doc(targetUserId).collection("files").doc(fileId).delete(),
+              adminDb.collection("files").doc(fileId).delete(),
+              adminDb.collection("verification_documents").doc(fileId).delete(),
+              adminDb.collection("recoveryDocuments").doc(fileId).delete(),
+            ]);
+          } catch (e) {}
+        }
+
+        // 2. Delete from persistent disk & cloud storage
         try {
-          await adminDb
-            .collection("users")
-            .doc(targetUserId)
-            .collection("files")
-            .doc(fileId)
-            .delete();
+          await deleteDocumentFromPersistentStorage(fileId);
         } catch (e) {}
 
         const bucket = getSafeBucket();
         if (bucket) {
           try {
-            // Attempt to delete from the standard files path
-            const fileRef = bucket.file(
-              `users/${targetUserId}/files/${fileId}`,
-            );
-            await fileRef.delete().catch(() => {});
-
-            // Also try the root secure_uploads path just in case
-            const secureRef = bucket.file(`secure_uploads/${fileId}`);
-            await secureRef.delete().catch(() => {});
+            await Promise.allSettled([
+              bucket.file(`users/${targetUserId}/files/${fileId}`).delete(),
+              bucket.file(`files/${fileId}`).delete(),
+              bucket.file(`secure_uploads/${fileId}`).delete(),
+            ]);
           } catch (e) {}
         }
 
+        // 3. Update local DB
         const db = readDb();
+        if (db.files && Array.isArray(db.files)) {
+          db.files = db.files.filter((f: any) => f.id !== fileId && f.documentId !== fileId);
+        }
+        if (db.verification_documents_store && db.verification_documents_store[fileId]) {
+          delete db.verification_documents_store[fileId];
+        }
+        if (db.recovery_documents_store && db.recovery_documents_store[fileId]) {
+          delete db.recovery_documents_store[fileId];
+        }
+
+        let remainingDocsCount = 0;
+        let targetUser = await getUserProfileServer(targetUserId);
+
         if (db.users) {
           const uIdx = db.users.findIndex(
             (u: any) => u.id === targetUserId || u.uid === targetUserId,
           );
-          if (uIdx !== -1 && db.users[uIdx].files) {
-            db.users[uIdx].files = db.users[uIdx].files.filter(
-              (f: any) => f.id !== fileId,
-            );
-            db.users[uIdx].fileCount = Math.max(
-              0,
-              (db.users[uIdx].fileCount || 1) - 1,
-            );
-            writeDb(db);
+          if (uIdx !== -1) {
+            if (db.users[uIdx].files) {
+              db.users[uIdx].files = db.users[uIdx].files.filter(
+                (f: any) => f.id !== fileId,
+              );
+              db.users[uIdx].fileCount = db.users[uIdx].files.length;
+            }
+            if (db.users[uIdx].verificationDocuments) {
+              db.users[uIdx].verificationDocuments = db.users[uIdx].verificationDocuments.filter(
+                (d: any) => (d.documentId || d.id) !== fileId,
+              );
+            }
+            if (db.users[uIdx].documents) {
+              db.users[uIdx].documents = db.users[uIdx].documents.filter(
+                (d: any) => (d.documentId || d.id) !== fileId,
+              );
+            }
+            remainingDocsCount = (db.users[uIdx].verificationDocuments || []).length;
           }
+        }
+        writeDb(db);
+
+        // 4. Update Firestore User Profile arrays
+        if (isFirebaseAdminAvailable && adminDb && targetUser) {
+          try {
+            const rawDocs = [
+              ...(Array.isArray(targetUser.verificationDocuments) ? targetUser.verificationDocuments : []),
+              ...(Array.isArray(targetUser.documents) ? targetUser.documents : []),
+            ].filter((d: any) => (d.documentId || d.id) !== fileId);
+
+            remainingDocsCount = rawDocs.length;
+
+            const userCleanUpdate: Record<string, any> = {
+              verificationDocuments: rawDocs,
+              documents: rawDocs,
+            };
+
+            const isTargetSysAdmin = targetUser.role === "Admin" || (targetUser.email && ADMIN_EMAILS.has(targetUser.email.toLowerCase()));
+
+            // AUTOMATIC REVOCATION IF REMAINING DOCS IS 0:
+            // "يمكن أن يبقى الحساب في حالة Verified/Approved بعد أن يقوم المستخدم برفع وثائق ثم حذفها، وهذا غير مقبول."
+            if (remainingDocsCount === 0 && !isTargetSysAdmin) {
+              userCleanUpdate.documentVerificationStatus = "NOT_SUBMITTED";
+              userCleanUpdate.kycStatus = "NOT_VERIFIED";
+              userCleanUpdate.isVerified = false;
+              userCleanUpdate.requiresDocumentVerification = true;
+              userCleanUpdate.verification_required = true;
+              userCleanUpdate.verification_status = "unverified";
+              if (String(targetUser.accountStatus || "").toUpperCase() === "APPROVED" || String(targetUser.accountStatus || "").toUpperCase() === "ACTIVE") {
+                userCleanUpdate.accountStatus = "VERIFICATION_REQUIRED";
+                userCleanUpdate.approvedAt = null;
+                userCleanUpdate.approvedBy = null;
+                userCleanUpdate.rejectionReason = "تم إلغاء اعتماد الحساب وتوثيق KYC تلقائياً لحذف وثائق التوثيق.";
+              }
+            }
+
+            await adminDb.collection("users").doc(targetUserId).set(userCleanUpdate, { merge: true });
+
+            if (db.users) {
+              const uIdx = db.users.findIndex((u: any) => u.id === targetUserId || u.uid === targetUserId);
+              if (uIdx !== -1) {
+                db.users[uIdx] = { ...db.users[uIdx], ...userCleanUpdate };
+                writeDb(db);
+              }
+            }
+          } catch (e) {}
         }
 
         await writeAdminAuditLog(
@@ -13809,7 +14031,7 @@ app.post(
           fileId,
           null,
           "SUCCESS",
-          `Deleted file ${fileId} for user ${targetUserId}`,
+          `Deleted file ${fileId} for user ${targetUserId}. Remaining docs: ${remainingDocsCount}`,
         );
 
         emitPlatformEvent({
@@ -13823,13 +14045,16 @@ app.post(
             actor: { id: callerUid, email: callerEmail, role: "Admin" },
             action: "Deleted file",
             targetUserId,
+            fileId,
+            remainingDocsCount
           },
           sanitizedMessage: `File ${fileId} deleted for user ${targetUserId}`,
         });
 
         return res.json({
           success: true,
-          message: "File deleted successfully.",
+          message: "File deleted successfully and user verification state audited.",
+          remainingDocsCount
         });
       }
 
@@ -16666,6 +16891,73 @@ if (!isServerless) {
   if (tSync?.unref) tSync.unref();
 }
 
+async function checkDocumentExistence(
+  documentId: string,
+  docMeta?: any
+): Promise<boolean> {
+  if (!documentId) return false;
+  // 1. Check local container storage
+  const p1 = path.join(process.cwd(), "secure_uploads", documentId);
+  const p2 = path.join(os.tmpdir(), "secure_uploads", documentId);
+  const p3 = path.join(getLocalUploadsDir(), documentId);
+  if (fs.existsSync(p1) || fs.existsSync(p2) || fs.existsSync(p3)) {
+    return true;
+  }
+  if (getFromLocalDiskCache(documentId)) {
+    return true;
+  }
+
+  // 2. Check local DB stores
+  const db = readDb();
+  const localDoc =
+    db.recovery_documents_store?.[documentId] ||
+    db.verification_documents_store?.[documentId] ||
+    (Array.isArray(db.files) ? db.files.find((f: any) => f.id === documentId || f.documentId === documentId) : null) ||
+    docMeta;
+
+  if (localDoc) {
+    if (localDoc.fileBase64 || localDoc.data || localDoc.base64 || (typeof localDoc.fileUrl === "string" && localDoc.fileUrl.length > 20)) {
+      return true;
+    }
+    if (Array.isArray(localDoc.chunks) && localDoc.chunks.length > 0) {
+      return true;
+    }
+  }
+
+  // 3. Check Firebase Storage
+  const bucket = getSafeBucket();
+  if (bucket) {
+    try {
+      const candidates = [`secure_uploads/${documentId}`, `files/${documentId}`];
+      if (localDoc?.storagePath) candidates.push(localDoc.storagePath);
+      if (localDoc?.storageReference) candidates.push(localDoc.storageReference);
+      for (const cPath of candidates) {
+        const [exists] = await bucket.file(cPath).exists().catch(() => [false]);
+        if (exists) return true;
+      }
+    } catch (e) {}
+  }
+
+  // 4. Check Firestore
+  if (isFirebaseAdminAvailable && adminDb) {
+    try {
+      const rSnap = await adminDb.collection("recoveryDocuments").doc(documentId).get();
+      if (rSnap && rSnap.exists) return true;
+      const vSnap = await adminDb.collection("verification_documents").doc(documentId).get();
+      if (vSnap && vSnap.exists) {
+        const vData = vSnap.data();
+        if (vData?.fileBase64 || vData?.data || vData?.storagePath || vData?.storageReference || vData?.fileUrl) {
+          return true;
+        }
+      }
+      const fSnap = await adminDb.collection("files").doc(documentId).get();
+      if (fSnap && fSnap.exists) return true;
+    } catch (e) {}
+  }
+
+  return false;
+}
+
 async function getDocumentFromPersistentStorage(
   documentId: string,
 ): Promise<Buffer> {
@@ -16675,45 +16967,69 @@ async function getDocumentFromPersistentStorage(
     return cached;
   }
 
+  // Check direct disk paths
+  const candidateDiskPaths = [
+    path.join(process.cwd(), "secure_uploads", documentId),
+    path.join(os.tmpdir(), "secure_uploads", documentId),
+    path.join(getLocalUploadsDir(), documentId),
+  ];
+  for (const p of candidateDiskPaths) {
+    if (fs.existsSync(p)) {
+      try {
+        const buf = fs.readFileSync(p);
+        if (buf && buf.length > 0) {
+          saveToLocalDiskCache(documentId, buf);
+          return buf;
+        }
+      } catch (e) {}
+    }
+  }
+
+  const db = readDb();
+  const localDoc =
+    db.recovery_documents_store?.[documentId] ||
+    db.verification_documents_store?.[documentId] ||
+    (Array.isArray(db.files) ? db.files.find((f: any) => f.id === documentId || f.documentId === documentId) : null);
+
   // 2. Check Firebase Cloud Storage
   const bucket = getSafeBucket();
   if (bucket) {
     let timeoutHandle: any = null;
     try {
-      const fileRef = bucket.file(`secure_uploads/${documentId}`);
-      const downloadPromise = async () => {
-        const [exists] = await fileRef.exists().catch(() => [false]);
-        if (exists) {
-          const [fileBuffer] = await fileRef.download();
-          saveToLocalDiskCache(documentId, fileBuffer);
-          return fileBuffer;
-        }
-        return null;
-      };
+      const candidates = [`secure_uploads/${documentId}`, `files/${documentId}`];
+      if (localDoc?.storagePath) candidates.push(localDoc.storagePath);
+      if (localDoc?.storageReference) candidates.push(localDoc.storageReference);
 
-      const buffer = await Promise.race([
-        downloadPromise(),
-        new Promise<null>((resolve) => {
-          timeoutHandle = setTimeout(() => resolve(null), 3000);
-          if (timeoutHandle?.unref) timeoutHandle.unref();
-        }),
-      ]);
+      for (const cPath of candidates) {
+        const fileRef = bucket.file(cPath);
+        const downloadPromise = async () => {
+          const [exists] = await fileRef.exists().catch(() => [false]);
+          if (exists) {
+            const [fileBuffer] = await fileRef.download();
+            saveToLocalDiskCache(documentId, fileBuffer);
+            return fileBuffer;
+          }
+          return null;
+        };
 
-      if (buffer && buffer.length > 0) return buffer;
+        const buffer = await Promise.race([
+          downloadPromise(),
+          new Promise<null>((resolve) => {
+            timeoutHandle = setTimeout(() => resolve(null), 3500);
+            if (timeoutHandle?.unref) timeoutHandle.unref();
+          }),
+        ]);
+
+        if (buffer && buffer.length > 0) return buffer;
+      }
     } catch (err) {
-      // Continue to durable legacy fallbacks
+      // Continue to fallbacks
     } finally {
       if (timeoutHandle) clearTimeout(timeoutHandle);
     }
   }
 
   // 3. Check local DB store legacy Base64 or chunked records
-  const db = readDb();
-  const localDoc =
-    db.recovery_documents_store?.[documentId] ||
-    db.verification_documents_store?.[documentId] ||
-    (Array.isArray(db.files) ? db.files.find((f: any) => f.id === documentId) : null);
-
   if (localDoc) {
     if (Array.isArray(localDoc.chunks) && localDoc.chunks.length > 0) {
       const buffers: Buffer[] = [];
@@ -16754,9 +17070,24 @@ async function getDocumentFromPersistentStorage(
         return buf;
       }
     }
+
+    // If localDoc has external HTTP/HTTPS URL
+    if (typeof localDoc.fileUrl === "string" && (localDoc.fileUrl.startsWith("http://") || localDoc.fileUrl.startsWith("https://"))) {
+      try {
+        const resp = await fetch(localDoc.fileUrl);
+        if (resp.ok) {
+          const arrBuf = await resp.arrayBuffer();
+          const buf = Buffer.from(arrBuf);
+          if (buf.length > 0) {
+            saveToLocalDiskCache(documentId, buf);
+            return buf;
+          }
+        }
+      } catch (e) {}
+    }
   }
 
-  // 4. Backward Compatibility: Retrieve from legacy Firestore chunks or master record
+  // 4. Retrieve from Firestore recoveryDocuments chunks or master record
   if (isFirebaseAdminAvailable && adminDb) {
     try {
       const docSnap = await adminDb
@@ -16816,6 +17147,72 @@ async function getDocumentFromPersistentStorage(
     } catch (fsErr) {
       console.warn("Firestore chunks retrieval notice:", fsErr);
     }
+
+    // 5. Check Firestore verification_documents collection
+    try {
+      const vSnap = await adminDb.collection("verification_documents").doc(documentId).get();
+      if (vSnap && vSnap.exists) {
+        const vData = vSnap.data();
+        const raw = vData?.fileBase64 || vData?.data || vData?.base64;
+        if (raw) {
+          const clean = String(raw).replace(/^data:[^;]+;base64,/, "");
+          const buf = Buffer.from(clean, "base64");
+          if (buf.length > 0) {
+            saveToLocalDiskCache(documentId, buf);
+            return buf;
+          }
+        }
+        if (vData?.storagePath && bucket) {
+          const [exists] = await bucket.file(vData.storagePath).exists().catch(() => [false]);
+          if (exists) {
+            const [b] = await bucket.file(vData.storagePath).download();
+            saveToLocalDiskCache(documentId, b);
+            return b;
+          }
+        }
+        if (typeof vData?.fileUrl === "string" && (vData.fileUrl.startsWith("http://") || vData.fileUrl.startsWith("https://"))) {
+          const r = await fetch(vData.fileUrl);
+          if (r.ok) {
+            const b = Buffer.from(await r.arrayBuffer());
+            saveToLocalDiskCache(documentId, b);
+            return b;
+          }
+        }
+      }
+    } catch (e) {}
+
+    // 6. Check Firestore files collection
+    try {
+      const fSnap = await adminDb.collection("files").doc(documentId).get();
+      if (fSnap && fSnap.exists) {
+        const fData = fSnap.data();
+        const raw = fData?.fileBase64 || fData?.data || fData?.base64 || (fData?.fileUrl?.startsWith("data:") ? fData.fileUrl : null);
+        if (raw) {
+          const clean = String(raw).replace(/^data:[^;]+;base64,/, "");
+          const buf = Buffer.from(clean, "base64");
+          if (buf.length > 0) {
+            saveToLocalDiskCache(documentId, buf);
+            return buf;
+          }
+        }
+        if (fData?.storagePath && bucket) {
+          const [exists] = await bucket.file(fData.storagePath).exists().catch(() => [false]);
+          if (exists) {
+            const [b] = await bucket.file(fData.storagePath).download();
+            saveToLocalDiskCache(documentId, b);
+            return b;
+          }
+        }
+        if (typeof fData?.fileUrl === "string" && (fData.fileUrl.startsWith("http://") || fData.fileUrl.startsWith("https://"))) {
+          const r = await fetch(fData.fileUrl);
+          if (r.ok) {
+            const b = Buffer.from(await r.arrayBuffer());
+            saveToLocalDiskCache(documentId, b);
+            return b;
+          }
+        }
+      }
+    } catch (e) {}
 
     // Check legacy pendingRecoveryUploads collection
     try {
@@ -18018,27 +18415,39 @@ app.get(
       const isAdmin = await isUserAdminServer(callerUid || "", callerEmail);
 
       const db = readDb();
-      const docRecord = db.verification_documents_store?.[documentId] || db.recovery_documents_store?.[documentId];
-      let isOwner = false;
-
-      // Check if file exists in persistent storage
-      const storageFilePath = path.join(process.cwd(), "secure_uploads", documentId);
-      const fileExistsOnDisk = fs.existsSync(storageFilePath);
-
-      if (!docRecord && !fileExistsOnDisk) {
-        return res.status(404).json({
-          success: false,
-          error: "Document not found or expired."
-        });
+      let docRecord = db.verification_documents_store?.[documentId] || db.recovery_documents_store?.[documentId];
+      if (!docRecord && Array.isArray(db.files)) {
+        docRecord = db.files.find((f: any) => f.id === documentId || f.documentId === documentId);
       }
 
-      if (callerUid && docRecord && docRecord.userId === callerUid) {
+      // Check Firestore collections if not found in local db
+      if (!docRecord && isFirebaseAdminAvailable && adminDb) {
+        try {
+          const vSnap = await adminDb.collection("verification_documents").doc(documentId).get();
+          if (vSnap && vSnap.exists) {
+            docRecord = { id: vSnap.id, ...vSnap.data() };
+          } else {
+            const fSnap = await adminDb.collection("files").doc(documentId).get();
+            if (fSnap && fSnap.exists) {
+              docRecord = { id: fSnap.id, ...fSnap.data() };
+            } else {
+              const rSnap = await adminDb.collection("recoveryDocuments").doc(documentId).get();
+              if (rSnap && rSnap.exists) {
+                docRecord = { id: rSnap.id, ...rSnap.data() };
+              }
+            }
+          }
+        } catch (e) {}
+      }
+
+      let isOwner = false;
+      if (callerUid && docRecord && (docRecord.userId === callerUid || docRecord.userUid === callerUid || docRecord.ownerUid === callerUid)) {
         isOwner = true;
       }
 
       if (!isOwner && callerUid) {
         const callerProfile = await getUserProfileServer(callerUid, callerEmail);
-        if (callerProfile?.verificationDocuments?.some((d: any) => d.documentId === documentId || d.id === documentId)) {
+        if (callerProfile?.verificationDocuments?.some((d: any) => (d.documentId || d.id) === documentId)) {
           isOwner = true;
         }
       }
@@ -18050,29 +18459,40 @@ app.get(
         });
       }
 
-      // Metadata First check: Return lightweight JSON if metadata is requested without downloading binary content
+      // Metadata First check: Return lightweight JSON if metadata is requested
       if (req.query.metadata === "true" || req.query.metadataOnly === "true" || req.query.meta === "true") {
         return res.status(200).json({
           success: true,
           documentId,
           document: {
             documentId,
-            fileName: docRecord?.fileName || "document",
+            fileName: docRecord?.fileName || docRecord?.name || "document",
             mimeType: docRecord?.mimeType || "application/pdf",
-            size: docRecord?.size || 0,
+            size: docRecord?.size || docRecord?.fileSize || 0,
             uploadedAt: docRecord?.uploadedAt || docRecord?.createdAt || new Date().toISOString(),
             category: docRecord?.category || "general",
+            userId: docRecord?.userId || null,
           }
         });
       }
 
-      const fileBuffer = await getDocumentFromPersistentStorage(documentId);
+      let fileBuffer: Buffer | null = null;
+      try {
+        fileBuffer = await getDocumentFromPersistentStorage(documentId);
+      } catch (err: any) {
+        console.warn(`[Doc Retrieval Warning] could not load buffer for ${documentId}:`, err?.message);
+      }
+
       if (!fileBuffer || fileBuffer.length === 0) {
-        return res.status(404).json({ success: false, error: "Document not found or expired." });
+        return res.status(404).json({
+          success: false,
+          error: "DOCUMENT_NOT_FOUND",
+          message: "تعذر تحميل الوثيقة لأن الملف غير متوفر في التخزين.",
+        });
       }
 
       let mimeType = docRecord?.mimeType || "application/pdf";
-      const fileName = docRecord?.fileName || "document";
+      const fileName = docRecord?.fileName || docRecord?.name || "document";
 
       if (fileBuffer.length >= 4) {
         if (fileBuffer.subarray(0, 4).toString() === "%PDF") {
@@ -18097,6 +18517,131 @@ app.get(
     }
   }
 );
+
+// Admin Endpoint: Get Consolidated User Documents & Files with Real Verification
+app.get("/api/admin/users/:userId/documents", requireAuth, requireAdmin, async (req: AuthRequest, res) => {
+  try {
+    const { userId } = req.params;
+    if (!userId) {
+      return res.status(400).json({ success: false, error: "User ID is required" });
+    }
+
+    const targetUser = await getUserProfileServer(userId);
+    if (!targetUser) {
+      return res.status(404).json({ success: false, error: "User not found" });
+    }
+
+    const uEmail = (targetUser.email || "").toLowerCase().trim();
+
+    // 1. Gather files
+    let userFiles: any[] = [];
+    const fileIdMap = new Map<string, any>();
+
+    // From Firestore users/{uid}/files
+    if (isFirebaseAdminAvailable && adminDb) {
+      try {
+        const subSnap = await adminDb.collection("users").doc(userId).collection("files").get();
+        subSnap.docs.forEach((d: any) => {
+          fileIdMap.set(d.id, { id: d.id, ...d.data(), source: "subcollection" });
+        });
+      } catch (e) {}
+
+      try {
+        const topSnap = await adminDb.collection("files").where("userId", "==", userId).get();
+        topSnap.docs.forEach((d: any) => {
+          if (!fileIdMap.has(d.id)) {
+            fileIdMap.set(d.id, { id: d.id, ...d.data(), source: "top_files" });
+          }
+        });
+      } catch (e) {}
+    }
+
+    // From local db
+    const db = readDb();
+    if (Array.isArray(db.files)) {
+      db.files.forEach((f: any) => {
+        if (f.userId === userId || f.userUid === userId || f.ownerUid === userId) {
+          if (!fileIdMap.has(f.id)) {
+            fileIdMap.set(f.id, { ...f, source: "db_files" });
+          }
+        }
+      });
+    }
+
+    if (Array.isArray(targetUser.files)) {
+      targetUser.files.forEach((f: any) => {
+        if (f && f.id && !fileIdMap.has(f.id)) {
+          fileIdMap.set(f.id, { ...f, source: "user_obj" });
+        }
+      });
+    }
+
+    userFiles = Array.from(fileIdMap.values());
+
+    // 2. Gather documents
+    const docMap = new Map<string, any>();
+    const rawDocs = [
+      ...(Array.isArray(targetUser.verificationDocuments) ? targetUser.verificationDocuments : []),
+      ...(Array.isArray(targetUser.verificationInfo?.documents) ? targetUser.verificationInfo.documents : []),
+      ...(Array.isArray(targetUser.documents) ? targetUser.documents : []),
+      ...userFiles.filter((f: any) => f && (f.category === "Verification" || f.category === "Identity" || f.isVerificationDoc))
+    ];
+
+    if (db.verification_documents_store) {
+      for (const [docId, meta] of Object.entries(db.verification_documents_store as Record<string, any>)) {
+        if (meta && (meta.userId === userId || (meta.userEmail && meta.userEmail.toLowerCase().trim() === uEmail))) {
+          rawDocs.push(meta);
+        }
+      }
+    }
+
+    for (const d of rawDocs) {
+      if (!d) continue;
+      const key = d.documentId || d.id || d.storageReference || d.fileName;
+      if (key && !docMap.has(key)) {
+        docMap.set(key, { ...d, documentId: key });
+      }
+    }
+
+    const allDocs = Array.from(docMap.values());
+
+    // 3. Verify actual physical existence for each document
+    const verifiedDocs: any[] = [];
+    for (const doc of allDocs) {
+      const docId = doc.documentId || doc.id;
+      const exists = await checkDocumentExistence(docId, doc);
+      verifiedDocs.push({
+        ...doc,
+        documentId: docId,
+        isAccessible: exists,
+        isMissing: !exists,
+        previewUrl: `/api/auth/verification-document/${docId}`
+      });
+    }
+
+    const validExistingDocs = verifiedDocs.filter(d => !d.isMissing);
+
+    return res.json({
+      success: true,
+      userId,
+      email: targetUser.email,
+      documentCount: validExistingDocs.length,
+      documents: verifiedDocs,
+      fileCount: userFiles.length,
+      files: userFiles.map(f => ({
+        ...f,
+        previewUrl: f.fileUrl || `/api/auth/verification-document/${f.id}`
+      })),
+      isEmailVerified: Boolean(targetUser.emailVerified || targetUser.isEmailVerified),
+      accountStatus: targetUser.accountStatus,
+      documentVerificationStatus: validExistingDocs.length === 0 ? "NOT_SUBMITTED" : targetUser.documentVerificationStatus,
+      kycStatus: validExistingDocs.length === 0 ? "NOT_VERIFIED" : targetUser.kycStatus
+    });
+  } catch (err: any) {
+    console.error("[GET_USER_DOCUMENTS_ERROR]", err);
+    return res.status(500).json({ success: false, error: err.message || "Failed to fetch user documents" });
+  }
+});
 
 // 3. Submit Account Recovery Request (User submission)
 app.all(

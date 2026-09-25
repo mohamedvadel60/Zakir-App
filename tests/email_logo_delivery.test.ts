@@ -20,22 +20,23 @@ function assert(condition: boolean, description: string) {
 }
 
 // 1. Verify Public Image Assets exist
+const emailLogoPath = path.join(process.cwd(), "public", "zakir-email-logo.png");
 const lightBadgePath = path.join(process.cwd(), "public", "email-assets", "zakir-badge-light.png");
 const darkBadgePath = path.join(process.cwd(), "public", "email-assets", "zakir-badge-dark.png");
 
+assert(fs.existsSync(emailLogoPath), "Email logo asset exists in public/zakir-email-logo.png");
 assert(fs.existsSync(lightBadgePath), "Light mode badge asset exists in public/email-assets/zakir-badge-light.png");
 assert(fs.existsSync(darkBadgePath), "Dark mode badge asset exists in public/email-assets/zakir-badge-dark.png");
 
 // 2. Test renderEmailLogoHeaderHtml
-const headerHtml = renderEmailLogoHeaderHtml({ size: 120, appBase: "https://www.getzakir.com" });
+const headerHtml = renderEmailLogoHeaderHtml({ size: 96, appBase: "https://www.getzakir.com" });
 
-assert(headerHtml.includes('width="120"'), "Logo container header has explicit width=120");
-assert(headerHtml.includes('height="120"'), "Logo container header has explicit height=120");
-assert(headerHtml.includes("https://www.getzakir.com/email-assets/zakir-badge-light.png"), "Light logo uses absolute public HTTPS URL");
-assert(headerHtml.includes("https://www.getzakir.com/email-assets/zakir-badge-dark.png"), "Dark logo uses absolute public HTTPS URL");
+assert(headerHtml.includes('width="96"'), "Logo container header has explicit width=96");
+assert(headerHtml.includes('height="96"'), "Logo container header has explicit height=96");
+assert(headerHtml.includes("https://www.getzakir.com/zakir-email-logo.png"), "Logo uses absolute public HTTPS URL");
 assert(!headerHtml.includes('src="/'), "Logo HTML contains no relative image URLs");
 assert(!headerHtml.includes("localhost"), "Logo HTML contains no localhost URLs");
-assert(headerHtml.includes('bgcolor="#1C2C58"'), "Light container TD has explicit fallback bgcolor=#1C2C58");
+assert(headerHtml.includes('bgcolor="#1C2C58"'), "Container TD has explicit fallback bgcolor=#1C2C58");
 
 // 3. Test buildMasterEmailHtml
 const masterHtml = buildMasterEmailHtml({
@@ -46,12 +47,9 @@ const masterHtml = buildMasterEmailHtml({
   baseUrl: "https://www.getzakir.com"
 });
 
-assert(masterHtml.includes('width="120"'), "Master HTML email contains width=120");
-assert(masterHtml.includes('height="120"'), "Master HTML email contains height=120");
-assert(masterHtml.includes("https://www.getzakir.com/email-assets/zakir-badge-light.png"), "Master HTML email contains light mode public image URL");
-assert(masterHtml.includes("https://www.getzakir.com/email-assets/zakir-badge-dark.png"), "Master HTML email contains dark mode public image URL");
-assert(masterHtml.includes(".zakir-logo-container-cell"), "Master HTML email has dark mode container cell class");
-assert(masterHtml.includes("background-color: #FFFFFF !important;"), "Master HTML email dark mode CSS changes container background to white");
+assert(masterHtml.includes('width="96"'), "Master HTML email contains width=96");
+assert(masterHtml.includes('height="96"'), "Master HTML email contains height=96");
+assert(masterHtml.includes("https://www.getzakir.com/zakir-email-logo.png"), "Master HTML email contains public image URL");
 assert(!masterHtml.includes('src=""'), "No empty image sources in Master HTML email");
 
 // 4. Test sendSystemMail generation

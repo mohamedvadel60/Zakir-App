@@ -466,7 +466,11 @@ const ViewLoadingFallback = () => (
 
 const FullScreenFallback = () => {
   const savedTheme = typeof window !== "undefined" && localStorage.getItem("zakir_theme") === "light" ? "light" : "dark";
-  return <ZakirLoadingScreen theme={savedTheme} />;
+  return (
+    <div className={`fixed inset-0 z-[9999] flex items-center justify-center select-none ${savedTheme === "light" ? "bg-[#F8FAFC]" : "bg-[#0B0F19]"}`}>
+      <div className="w-8 h-8 border-2 border-[#1C2C58] dark:border-white border-t-transparent rounded-full animate-spin" />
+    </div>
+  );
 };
 
 type TabType =

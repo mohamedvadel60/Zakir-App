@@ -41,8 +41,7 @@ async function runTests() {
   const has96WidthStyle = logoHeader.includes('width: 96px !important');
   const has96HeightStyle = logoHeader.includes('height: 96px !important');
   const hasCenterAlign = logoHeader.includes('align="center"') && logoHeader.includes('valign="middle"');
-  const hasLightCid = logoHeader.includes('cid:zakir-logo-light');
-  const hasDarkCid = logoHeader.includes('cid:zakir-logo-dark');
+  const hasLogoImg = logoHeader.includes('zakir-email-logo.png') || logoHeader.includes('zakir-badge');
   const hasPurple = /purple|violet|#8b5cf6|#a855f7|#7c3aed|#6d28d9/i.test(logoHeader);
 
   console.log("- Container Width 96 Attribute:", has96WidthAttr ? "PASS" : "FAIL");
@@ -50,11 +49,10 @@ async function runTests() {
   console.log("- Container Width 96 CSS Style:", has96WidthStyle ? "PASS" : "FAIL");
   console.log("- Container Height 96 CSS Style:", has96HeightStyle ? "PASS" : "FAIL");
   console.log("- Horizontal & Vertical Centering:", hasCenterAlign ? "PASS" : "FAIL");
-  console.log("- Light Mode CID (zakir-logo-light):", hasLightCid ? "PASS" : "FAIL");
-  console.log("- Dark Mode CID (zakir-logo-dark):", hasDarkCid ? "PASS" : "FAIL");
+  console.log("- Logo Image Source:", hasLogoImg ? "PASS" : "FAIL");
   console.log("- No Purple/Violet in Dark Mode:", !hasPurple ? "PASS" : "FAIL");
 
-  if (!has96WidthAttr || !has96HeightAttr || !hasCenterAlign || hasPurple) {
+  if (!has96WidthAttr || !has96HeightAttr || !hasCenterAlign || !hasLogoImg || hasPurple) {
     throw new Error("Logo container structure validation failed!");
   }
 

@@ -560,7 +560,11 @@ export const UserDetailModal: React.FC<UserDetailModalProps> = ({
                         </div>
 
                         <div className="flex items-center gap-2 shrink-0">
-                          {docStatus === "APPROVED" ? (
+                          {doc.isMissing ? (
+                            <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20">
+                              {isAr ? "غير متوفر بالتخزين" : "Missing File"}
+                            </span>
+                          ) : docStatus === "APPROVED" ? (
                             <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
                               {isAr ? "معتمد" : "Approved"}
                             </span>
@@ -847,17 +851,31 @@ export const UserDetailModal: React.FC<UserDetailModalProps> = ({
                     : (isAr ? "الحساب مسجل وبانتظار موافقة المشرف للتفعيل والسماح بالدخول." : "Account awaiting admin activation.")}
                 </p>
 
-                <div className="flex items-center gap-2.5 pt-1">
+                <div className="flex items-center gap-2.5 pt-1 flex-wrap">
                   {breakdown.accountApprovalStatus !== "APPROVED" ? (
-                    <button
-                      onClick={handleApproveAccountAction}
-                      disabled={actionLoading}
-                      type="button"
-                      className="py-2 px-3.5 rounded-xl text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white transition-colors cursor-pointer flex items-center justify-center gap-1.5 shadow-xs"
-                    >
-                      <CheckCircle className="w-3.5 h-3.5" />
-                      <span>{t.activateAccountBtn}</span>
-                    </button>
+                    <>
+                      <button
+                        onClick={handleApproveAccountAction}
+                        disabled={actionLoading || !breakdown.emailVerified || breakdown.documentCount === 0}
+                        type="button"
+                        className="py-2 px-3.5 rounded-xl text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 disabled:opacity-40 disabled:hover:bg-emerald-600 text-white transition-colors cursor-pointer flex items-center justify-center gap-1.5 shadow-xs"
+                      >
+                        <CheckCircle className="w-3.5 h-3.5" />
+                        <span>{t.activateAccountBtn}</span>
+                      </button>
+
+                      {!breakdown.emailVerified && (
+                        <span className="text-[11px] text-amber-600 dark:text-amber-400 font-medium">
+                          {isAr ? "يتطلب تأكيد البريد الإلكتروني أولاً." : "Requires verified email."}
+                        </span>
+                      )}
+
+                      {breakdown.documentCount === 0 && (
+                        <span className="text-[11px] text-amber-600 dark:text-amber-400 font-medium">
+                          {isAr ? "يتطلب رفع وثائق التوثيق أولاً (0 وثائق)." : "Requires uploaded documents (0 docs)."}
+                        </span>
+                      )}
+                    </>
                   ) : (
                     <button
                       onClick={handleRejectAction}
@@ -978,6 +996,14 @@ export const UserDetailModal: React.FC<UserDetailModalProps> = ({
                   </div>
 
                   <div className="flex items-center gap-1.5 shrink-0">
+                    <button
+                      onClick={() => handleOpenDocPreview(file)}
+                      type="button"
+                      className="p-1.5 rounded-lg text-slate-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-950/40 transition-colors"
+                      title={isAr ? "معاينة الملف" : "Preview"}
+                    >
+                      <Eye className="w-4 h-4" />
+                    </button>
                     <button
                       onClick={() => openUserFileInNewTab(file)}
                       type="button"

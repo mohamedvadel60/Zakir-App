@@ -485,6 +485,32 @@ export interface EntitlementCheckResult {
 
 export type UserEntitlementResult = EntitlementCheckResult;
 
+export interface DerivedAccountVerificationState {
+  emailVerified: boolean;
+  documentCount: number;
+  accessibleDocumentCount: number;
+  documents: any[];
+  kycStatus: "NOT_SUBMITTED" | "SUBMITTED" | "UNDER_REVIEW" | "APPROVED" | "REJECTED" | "ACTION_REQUIRED";
+  accountApprovalStatus: "NOT_APPROVED" | "PENDING_APPROVAL" | "APPROVED" | "REJECTED" | "SUSPENDED";
+  effectiveStatus: "APPROVED" | "REJECTED" | "SUSPENDED" | "PENDING_ADMIN_REVIEW" | "VERIFICATION_REQUIRED" | "PENDING_DOCUMENT_VERIFICATION" | "PENDING_EMAIL_VERIFICATION";
+  isVerified: boolean;
+  isFullyApproved: boolean;
+  verificationRequired: boolean;
+  verificationStatus: "verified" | "rejected" | "pending" | "unverified" | "action_required";
+  uiState: "NO_REQUEST" | "AWAITING_DOCS" | "PENDING_REVIEW" | "VERIFIED" | "REJECTED";
+  canApproveKyc: boolean;
+  canReviewDocuments: boolean;
+  canApproveAccount: boolean;
+  adminVerificationOverride: boolean;
+  hasRejectedDocument: boolean;
+  hasPendingDocument: boolean;
+  allDocumentsApproved: boolean;
+  reason?: string;
+  approvedAt?: string;
+  approvedBy?: string;
+  rejectionReason?: string;
+}
+
 export interface StrictVerificationResult {
   effectiveStatus: "APPROVED" | "REJECTED" | "PENDING_ADMIN_REVIEW" | "VERIFICATION_REQUIRED" | "PENDING_DOCUMENT_VERIFICATION" | "PENDING_EMAIL_VERIFICATION";
   isVerified: boolean;
@@ -498,48 +524,119 @@ export interface StrictVerificationResult {
   reason?: string;
 }
 
-export function computeStrictVerificationState(profile: any, isAdmin: boolean = false): StrictVerificationResult {
-  if (isAdmin || profile?.role === "ADMIN" || profile?.isAdmin === true) {
+/**
+ * CANONICAL SOURCE OF TRUTH: Central function responsible for deriving KYC, Email, and Account states.
+ * Strictly adheres to the mandatory rules:
+ * 1. Email verification is independent and must come from real authentication state.
+ * 2. Documents count is calculated from real existing accessible documents.
+ * 3. If documents.length === 0, KYC CANNOT be APPROVED (MUST be NOT_SUBMITTED), and Account CANNOT be APPROVED.
+ * 4. Account is APPROVED ONLY IF: Email verified + Real documents exist + Documents reviewed & approved (KYC APPROVED) + Explicit admin approval.
+ * 5. Deleting all documents immediately invalidates any prior KYC / Account approval.
+ */
+export function deriveAccountAndVerificationState(profile: any, isAdmin: boolean = false): DerivedAccountVerificationState {
+  if (!profile) {
     return {
-      effectiveStatus: "APPROVED",
-      isVerified: true,
-      verificationRequired: false,
-      verificationStatus: "verified",
+      emailVerified: false,
       documentCount: 0,
+      accessibleDocumentCount: 0,
+      documents: [],
+      kycStatus: "NOT_SUBMITTED",
+      accountApprovalStatus: "NOT_APPROVED",
+      effectiveStatus: "PENDING_EMAIL_VERIFICATION",
+      isVerified: false,
+      isFullyApproved: false,
+      verificationRequired: true,
+      verificationStatus: "unverified",
+      uiState: "NO_REQUEST",
+      canApproveKyc: false,
+      canReviewDocuments: false,
+      canApproveAccount: false,
+      adminVerificationOverride: false,
       hasRejectedDocument: false,
       hasPendingDocument: false,
-      allDocumentsApproved: true,
-      adminVerificationOverride: true,
+      allDocumentsApproved: false,
+      reason: "PROFILE_NOT_FOUND"
     };
   }
 
-  // 1. Gather all documents
+  const pEmail = (profile.email || "").toLowerCase().trim();
+  const isSysAdmin = isAdmin || 
+    profile.role === "ADMIN" || 
+    profile.role === "Admin" || 
+    profile.isAdmin === true || 
+    (pEmail && ADMIN_EMAILS.has(pEmail));
+
+  // 1. Gather all documents from all sources on profile
   const rawDocs = [
-    ...(Array.isArray(profile?.verificationDocuments) ? profile.verificationDocuments : []),
-    ...(Array.isArray(profile?.verificationInfo?.documents) ? profile.verificationInfo.documents : []),
-    ...(Array.isArray(profile?.documents) ? profile.documents : []),
-    ...(Array.isArray(profile?.files) ? profile.files.filter((f: any) => f && (f.category === "Verification" || f.category === "Identity" || f.isVerificationDoc)) : [])
+    ...(Array.isArray(profile.verificationDocuments) ? profile.verificationDocuments : []),
+    ...(Array.isArray(profile.verificationInfo?.documents) ? profile.verificationInfo.documents : []),
+    ...(Array.isArray(profile.documents) ? profile.documents : []),
+    ...(Array.isArray(profile.files) ? profile.files.filter((f: any) => f && (f.category === "Verification" || f.category === "Identity" || f.isVerificationDoc)) : [])
   ];
 
+  if (profile.identityDocument) {
+    rawDocs.push(typeof profile.identityDocument === "string" ? { documentId: profile.identityDocument, fileName: "Identity Document" } : profile.identityDocument);
+  }
+  if (profile.commercialRegisterDoc) {
+    rawDocs.push(typeof profile.commercialRegisterDoc === "string" ? { documentId: profile.commercialRegisterDoc, fileName: "Commercial Register" } : profile.commercialRegisterDoc);
+  }
+
+  // Deduplicate and filter out deleted/purged
   const uniqueDocs: any[] = [];
-  const seenIds = new Set<string>();
+  const seenKeys = new Set<string>();
   for (const doc of rawDocs) {
-    if (!doc) continue;
-    const docId = String(doc.documentId || doc.id || doc.storageReference || doc.fileName || JSON.stringify(doc));
-    if (!seenIds.has(docId)) {
-      seenIds.add(docId);
+    if (!doc || doc.deleted === true || doc.isDeleted === true) continue;
+    const docKey = String(doc.documentId || doc.id || doc.storageReference || doc.fileName || doc.name || JSON.stringify(doc));
+    if (!seenKeys.has(docKey)) {
+      seenKeys.add(docKey);
       uniqueDocs.push(doc);
     }
   }
 
-  const documentCount = uniqueDocs.length;
-  const adminOverride = profile?.adminVerificationOverride === true;
+  // Filter accessible documents (exclude missing files)
+  const accessibleDocs = uniqueDocs.filter((d: any) => !d.isMissing && !d.inaccessible);
+  const documentCount = accessibleDocs.length;
 
+  // System Administrator bypass
+  if (isSysAdmin) {
+    return {
+      emailVerified: true,
+      documentCount,
+      accessibleDocumentCount: documentCount,
+      documents: accessibleDocs,
+      kycStatus: "APPROVED",
+      accountApprovalStatus: "APPROVED",
+      effectiveStatus: "APPROVED",
+      isVerified: true,
+      isFullyApproved: true,
+      verificationRequired: false,
+      verificationStatus: "verified",
+      uiState: "VERIFIED",
+      canApproveKyc: false,
+      canReviewDocuments: false,
+      canApproveAccount: false,
+      adminVerificationOverride: true,
+      hasRejectedDocument: false,
+      hasPendingDocument: false,
+      allDocumentsApproved: true,
+      approvedAt: profile.approvedAt || new Date().toISOString(),
+      approvedBy: profile.approvedBy || "system_admin"
+    };
+  }
+
+  // 2. Email Verification check (Strictly authoritative)
+  const isEmailVer = Boolean(
+    profile.emailVerified === true ||
+    profile.isEmailVerified === true ||
+    profile.email_verified === true
+  );
+
+  // 3. Document inspection
   let hasRejectedDoc = false;
-  let hasPendingDoc = false;
   let hasApprovedDoc = false;
+  let hasPendingDoc = false;
 
-  for (const d of uniqueDocs) {
+  for (const d of accessibleDocs) {
     const s = String(d.status || d.verificationStatus || "").toUpperCase();
     if (s === "REJECTED") {
       hasRejectedDoc = true;
@@ -550,108 +647,143 @@ export function computeStrictVerificationState(profile: any, isAdmin: boolean = 
     }
   }
 
-  const overallDocStatus = String(profile?.documentVerificationStatus || profile?.verificationInfo?.status || "").toUpperCase();
-  const rawAccountStatus = String(profile?.accountStatus || "").toUpperCase();
+  const rawAccountStatus = String(profile.accountStatus || "").toUpperCase();
+  const rawDocStatus = String(profile.documentVerificationStatus || profile.verificationInfo?.status || "").toUpperCase();
+  const rawReqStatus = String(profile.verificationRequestStatus || profile.verificationRequest || "").toUpperCase();
+  const hasExplicitOverride = Boolean(profile.adminVerificationOverride === true);
+  const isExplicitlyAdminApproved = Boolean(profile.approvedBy && profile.approvedAt);
+  const isSuspended = rawAccountStatus === "SUSPENDED";
+  const isAccountRejected = rawAccountStatus === "REJECTED";
 
-  const isEmailVer = Boolean(
-    profile?.isEmailVerified === true ||
-    profile?.emailVerified === true ||
-    profile?.email_verified === true
-  );
-
-  // RULE: Email verification pending
-  if (!isEmailVer || rawAccountStatus === "PENDING_EMAIL_VERIFICATION") {
-    return {
-      effectiveStatus: "PENDING_EMAIL_VERIFICATION",
-      isVerified: false,
-      verificationRequired: true,
-      verificationStatus: "action_required",
-      documentCount,
-      hasRejectedDocument: hasRejectedDoc,
-      hasPendingDocument: hasPendingDoc,
-      allDocumentsApproved: false,
-      adminVerificationOverride: adminOverride,
-      reason: "PENDING_EMAIL_VERIFICATION"
-    };
+  // 4. Derive KYC Status strictly
+  let kycStatus: "NOT_SUBMITTED" | "SUBMITTED" | "UNDER_REVIEW" | "APPROVED" | "REJECTED" | "ACTION_REQUIRED" = "NOT_SUBMITTED";
+  if (documentCount === 0) {
+    // RULE 8: If documents.length === 0, KYC CANNOT BE APPROVED UNDER ANY CIRCUMSTANCES!
+    if (rawDocStatus === "ACTION_REQUIRED" || rawReqStatus === "ACTION_REQUIRED") {
+      kycStatus = "ACTION_REQUIRED";
+    } else if (rawReqStatus === "SUBMITTED" || rawReqStatus === "UNDER_REVIEW" || profile.institutionalProfile) {
+      kycStatus = "SUBMITTED";
+    } else {
+      kycStatus = "NOT_SUBMITTED";
+    }
+  } else if (hasRejectedDoc || rawDocStatus === "REJECTED" || rawReqStatus === "REJECTED") {
+    kycStatus = "REJECTED";
+  } else if (rawDocStatus === "APPROVED" || (hasApprovedDoc && !hasPendingDoc && !hasRejectedDoc)) {
+    // Only approved after real verification
+    kycStatus = "APPROVED";
+  } else {
+    kycStatus = "UNDER_REVIEW";
   }
 
-  // RULE: Rejected documents or explicitly rejected account
-  if (rawAccountStatus === "REJECTED" || overallDocStatus === "REJECTED" || (hasRejectedDoc && !adminOverride)) {
-    return {
-      effectiveStatus: "REJECTED",
-      isVerified: false,
-      verificationRequired: true,
-      verificationStatus: "rejected",
-      documentCount,
-      hasRejectedDocument: true,
-      hasPendingDocument: hasPendingDoc,
-      allDocumentsApproved: false,
-      adminVerificationOverride: adminOverride,
-      reason: profile?.rejectionReason || profile?.verificationInfo?.adminNote || "وثائق التوثيق مرفوضة أو تتطلب تعديلاً.",
-    };
+  // 5. Derive UI State (5 States)
+  let uiState: "NO_REQUEST" | "AWAITING_DOCS" | "PENDING_REVIEW" | "VERIFIED" | "REJECTED" = "NO_REQUEST";
+  if (kycStatus === "REJECTED") {
+    uiState = "REJECTED";
+  } else if (kycStatus === "APPROVED" && documentCount > 0) {
+    uiState = "VERIFIED";
+  } else if (documentCount > 0) {
+    uiState = "PENDING_REVIEW";
+  } else if (kycStatus === "SUBMITTED" || kycStatus === "ACTION_REQUIRED" || (rawReqStatus !== "NONE" && rawReqStatus !== "")) {
+    uiState = "AWAITING_DOCS";
+  } else {
+    uiState = "NO_REQUEST";
   }
 
-  // RULE: Explicit Admin Approval -> APPROVED
-  const isMarkedApproved = (rawAccountStatus === "APPROVED" || profile?.accountStatus === "APPROVED" || Boolean(profile?.approvedAt && !hasRejectedDoc));
-  if (isMarkedApproved) {
-    const isKycVerified = Boolean(adminOverride || (documentCount > 0 && (overallDocStatus === "APPROVED" || (hasApprovedDoc && !hasRejectedDoc && !hasPendingDoc))));
-    return {
-      effectiveStatus: "APPROVED",
-      isVerified: isKycVerified,
-      verificationRequired: false,
-      verificationStatus: isKycVerified ? "verified" : (hasRejectedDoc ? "rejected" : (hasPendingDoc ? "pending" : "unverified")),
-      documentCount,
-      hasRejectedDocument: false,
-      hasPendingDocument: hasPendingDoc,
-      allDocumentsApproved: isKycVerified,
-      adminVerificationOverride: adminOverride,
-    };
+  // 6. Derive Account Approval Status strictly
+  // RULE 10: ACCOUNT APPROVED ONLY IF:
+  // 1. Email confirmed
+  // 2. Required documents actually exist (documentCount > 0)
+  // 3. Documents are accessible
+  // 4. Documents have been reviewed & approved (kycStatus === "APPROVED")
+  // 5. Admin explicitly approves the account
+  let accountApprovalStatus: "NOT_APPROVED" | "PENDING_APPROVAL" | "APPROVED" | "REJECTED" | "SUSPENDED" = "PENDING_APPROVAL";
+  let effectiveStatus: "APPROVED" | "REJECTED" | "SUSPENDED" | "PENDING_ADMIN_REVIEW" | "VERIFICATION_REQUIRED" | "PENDING_DOCUMENT_VERIFICATION" | "PENDING_EMAIL_VERIFICATION" = "PENDING_ADMIN_REVIEW";
+  let isFullyApproved = false;
+  let reason = "";
+
+  if (isSuspended) {
+    accountApprovalStatus = "SUSPENDED";
+    effectiveStatus = "SUSPENDED";
+    reason = "ACCOUNT_SUSPENDED";
+  } else if (isAccountRejected || kycStatus === "REJECTED") {
+    accountApprovalStatus = "REJECTED";
+    effectiveStatus = "REJECTED";
+    reason = profile.rejectionReason || profile.verificationInfo?.adminNote || "DOCUMENTS_REJECTED";
+  } else if (!isEmailVer) {
+    // RULE 9: Email verification is mandatory prior to approval
+    accountApprovalStatus = "NOT_APPROVED";
+    effectiveStatus = "PENDING_EMAIL_VERIFICATION";
+    reason = "PENDING_EMAIL_VERIFICATION";
+  } else if (documentCount === 0) {
+    // RULE 8 & 10: Cannot be approved without actual documents
+    accountApprovalStatus = "NOT_APPROVED";
+    effectiveStatus = "VERIFICATION_REQUIRED";
+    reason = "DOCUMENTS_REQUIRED";
+  } else if (kycStatus === "APPROVED" && isExplicitlyAdminApproved && rawAccountStatus === "APPROVED") {
+    // Full 5-condition satisfaction
+    accountApprovalStatus = "APPROVED";
+    effectiveStatus = "APPROVED";
+    isFullyApproved = true;
+  } else if (documentCount > 0) {
+    accountApprovalStatus = "PENDING_APPROVAL";
+    effectiveStatus = "PENDING_ADMIN_REVIEW";
+    reason = "PENDING_ADMIN_REVIEW";
+  } else {
+    accountApprovalStatus = "NOT_APPROVED";
+    effectiveStatus = "VERIFICATION_REQUIRED";
+    reason = "VERIFICATION_REQUIRED";
   }
 
-  // RULE: No documents and no admin override -> VERIFICATION_REQUIRED
-  if (documentCount === 0 && !adminOverride) {
-    return {
-      effectiveStatus: "VERIFICATION_REQUIRED",
-      isVerified: false,
-      verificationRequired: true,
-      verificationStatus: "action_required",
-      documentCount: 0,
-      hasRejectedDocument: false,
-      hasPendingDocument: false,
-      allDocumentsApproved: false,
-      adminVerificationOverride: false,
-      reason: "VERIFICATION_REQUIRED"
-    };
-  }
+  const isVerified = isEmailVer && documentCount > 0 && kycStatus === "APPROVED";
+  const verificationStatus: "verified" | "rejected" | "pending" | "unverified" | "action_required" =
+    isVerified ? "verified" : (kycStatus === "REJECTED" ? "rejected" : (uiState === "PENDING_REVIEW" ? "pending" : (uiState === "AWAITING_DOCS" ? "action_required" : "unverified")));
 
-  // RULE: Documents pending review -> PENDING_ADMIN_REVIEW
-  if (documentCount > 0 || rawAccountStatus === "PENDING_ADMIN_REVIEW" || overallDocStatus === "UNDER_REVIEW" || overallDocStatus === "PENDING") {
-    return {
-      effectiveStatus: "PENDING_ADMIN_REVIEW",
-      isVerified: false,
-      verificationRequired: true,
-      verificationStatus: "pending",
-      documentCount,
-      hasRejectedDocument: false,
-      hasPendingDocument: true,
-      allDocumentsApproved: false,
-      adminVerificationOverride: false,
-      reason: "PENDING_REVIEW"
-    };
-  }
+  const canApproveKyc = isEmailVer && documentCount > 0 && kycStatus !== "APPROVED";
+  const canReviewDocuments = documentCount > 0;
+  // Account can only be approved if email is verified, docs exist, KYC is approved, and account isn't approved yet
+  const canApproveAccount = isEmailVer && documentCount > 0 && kycStatus === "APPROVED" && accountApprovalStatus !== "APPROVED";
 
-  // Default fallback -> VERIFICATION_REQUIRED
   return {
-    effectiveStatus: "VERIFICATION_REQUIRED",
-    isVerified: false,
-    verificationRequired: true,
-    verificationStatus: "action_required",
+    emailVerified: isEmailVer,
     documentCount,
+    accessibleDocumentCount: documentCount,
+    documents: accessibleDocs,
+    kycStatus,
+    accountApprovalStatus,
+    effectiveStatus,
+    isVerified,
+    isFullyApproved,
+    verificationRequired: !isFullyApproved,
+    verificationStatus,
+    uiState,
+    canApproveKyc,
+    canReviewDocuments,
+    canApproveAccount,
+    adminVerificationOverride: hasExplicitOverride,
     hasRejectedDocument: hasRejectedDoc,
     hasPendingDocument: hasPendingDoc,
-    allDocumentsApproved: false,
-    adminVerificationOverride: false,
-    reason: "VERIFICATION_REQUIRED"
+    allDocumentsApproved: kycStatus === "APPROVED",
+    reason,
+    approvedAt: profile.approvedAt,
+    approvedBy: profile.approvedBy,
+    rejectionReason: profile.rejectionReason
+  };
+}
+
+export function computeStrictVerificationState(profile: any, isAdmin: boolean = false): StrictVerificationResult {
+  const derived = deriveAccountAndVerificationState(profile, isAdmin);
+  const effectiveStatus = derived.effectiveStatus === "SUSPENDED" ? "REJECTED" : derived.effectiveStatus;
+  return {
+    effectiveStatus,
+    isVerified: derived.isVerified,
+    verificationRequired: derived.verificationRequired,
+    verificationStatus: derived.verificationStatus,
+    documentCount: derived.documentCount,
+    hasRejectedDocument: derived.hasRejectedDocument,
+    hasPendingDocument: derived.hasPendingDocument,
+    allDocumentsApproved: derived.allDocumentsApproved,
+    adminVerificationOverride: derived.adminVerificationOverride,
+    reason: derived.reason
   };
 }
 
