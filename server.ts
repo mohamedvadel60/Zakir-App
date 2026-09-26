@@ -11224,11 +11224,12 @@ app.post("/api/admin/approve-account", requireAuth, requireAdmin, async (req: Au
 
   try {
     const { assignPlan = "Starter", customTrialHours = 24, notes = "", adminNotes = "", adminOverride = false } = req.body;
-    const userId = req.body?.userId || req.body?.targetUserId || req.body?.id;
-    if (!userId) {
+    const rawUserId = req.body?.userId || req.body?.targetUserId || req.body?.id;
+    if (!rawUserId) {
       return res.status(400).json({ success: false, error: "User ID is required for approval." });
     }
 
+    const userId = await resolveCanonicalUserId(rawUserId);
     const targetUser = await getUserProfileServer(userId);
     if (!targetUser) {
       return res.status(404).json({ success: false, error: "Target user not found." });
@@ -11450,6 +11451,38 @@ app.post("/api/admin/approve-account", requireAuth, requireAdmin, async (req: Au
   }
 });
 
+async function resolveCanonicalUserId(identifier: string): Promise<string> {
+  if (!identifier) return "";
+  const cleanId = String(identifier).trim();
+  if (isFirebaseAdminAvailable && adminDb) {
+    try {
+      const uDoc = await adminDb.collection("users").doc(cleanId).get();
+      if (uDoc.exists) return cleanId;
+    } catch (e) {}
+  }
+  const db = readDb();
+  if (db.users) {
+    const found = db.users.find((u: any) => u.id === cleanId || u.uid === cleanId);
+    if (found) return found.id || found.uid || cleanId;
+  }
+  if (cleanId.startsWith("vreq_") || cleanId.startsWith("req_")) {
+    const rawUserId = cleanId.replace(/^(vreq|req)_/, "");
+    if (db.users) {
+      const foundByReq = db.users.find((u: any) => u.id === rawUserId || u.uid === rawUserId || u.verificationRequestId === cleanId);
+      if (foundByReq) return foundByReq.id || foundByReq.uid || rawUserId;
+    }
+    return rawUserId;
+  }
+  if (cleanId.includes("@")) {
+    const normEmail = cleanId.toLowerCase();
+    if (db.users) {
+      const foundByEmail = db.users.find((u: any) => (u.email || "").toLowerCase() === normEmail);
+      if (foundByEmail) return foundByEmail.id || foundByEmail.uid || cleanId;
+    }
+  }
+  return cleanId;
+}
+
 // 2b. Approve Documents & KYC (Requires at least 1 valid document)
 app.post(
   ["/api/admin/approve-documents", "/api/admin/verify-documents"],
@@ -11461,11 +11494,12 @@ app.post(
 
     try {
       const { notes = "" } = req.body;
-      const userId = req.body?.userId || req.body?.targetUserId || req.body?.id;
-      if (!userId) {
+      const rawUserId = req.body?.userId || req.body?.targetUserId || req.body?.id;
+      if (!rawUserId) {
         return res.status(400).json({ success: false, error: "User ID is required for document approval." });
       }
 
+      const userId = await resolveCanonicalUserId(rawUserId);
       const targetUser = await getUserProfileServer(userId);
       if (!targetUser) {
         return res.status(404).json({ success: false, error: "Target user not found." });

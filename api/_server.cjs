@@ -2441,9 +2441,11 @@ var init_auth = __esm({
 var server_exports = {};
 __export(server_exports, {
   ZAKIR_BUILD_ID: () => ZAKIR_BUILD_ID,
+  accuratelyDetectMimeType: () => accuratelyDetectMimeType,
   activeSupportSessions: () => activeSupportSessions,
   default: () => server_default,
   getAccountLifecycleRecord: () => getAccountLifecycleRecord2,
+  getCachedBinary: () => getCachedBinary,
   getGeminiClient: () => getGeminiClient,
   getWorkspaceOccupancy: () => getWorkspaceOccupancy,
   handleAccountReactivationRequestServer: () => handleAccountReactivationRequestServer,
@@ -2456,10 +2458,12 @@ __export(server_exports, {
   reconcileWorkspaceData: () => reconcileWorkspaceData,
   requestAccountReactivationServer: () => requestAccountReactivationServer,
   resolveAccountLifecycle: () => resolveAccountLifecycle2,
+  resolveDocumentFromStorage: () => resolveDocumentFromStorage,
   resolveUserByEmailOrId: () => resolveUserByEmailOrId,
   restoreAccountFullServer: () => restoreAccountFullServer2,
   runWithWorkspaceLock: () => runWithWorkspaceLock,
   setAccountLifecycleRecord: () => setAccountLifecycleRecord2,
+  setCachedBinary: () => setCachedBinary,
   setGeminiCooldown: () => setGeminiCooldown,
   writeDb: () => writeDb2
 });
@@ -15510,10 +15514,11 @@ app2.post("/api/admin/approve-account", requireAuth, requireAdmin, async (req, r
   const adminEmail = req.user?.email || "admin@zakir.ai";
   try {
     const { assignPlan = "Starter", customTrialHours = 24, notes = "", adminNotes = "", adminOverride = false } = req.body;
-    const userId = req.body?.userId || req.body?.targetUserId || req.body?.id;
-    if (!userId) {
+    const rawUserId = req.body?.userId || req.body?.targetUserId || req.body?.id;
+    if (!rawUserId) {
       return res.status(400).json({ success: false, error: "User ID is required for approval." });
     }
+    const userId = await resolveCanonicalUserId(rawUserId);
     const targetUser = await getUserProfileServer(userId);
     if (!targetUser) {
       return res.status(404).json({ success: false, error: "Target user not found." });
@@ -15701,6 +15706,38 @@ app2.post("/api/admin/approve-account", requireAuth, requireAdmin, async (req, r
     });
   }
 });
+async function resolveCanonicalUserId(identifier) {
+  if (!identifier) return "";
+  const cleanId = String(identifier).trim();
+  if (isFirebaseAdminAvailable && adminDb) {
+    try {
+      const uDoc = await adminDb.collection("users").doc(cleanId).get();
+      if (uDoc.exists) return cleanId;
+    } catch (e) {
+    }
+  }
+  const db2 = readDb2();
+  if (db2.users) {
+    const found = db2.users.find((u) => u.id === cleanId || u.uid === cleanId);
+    if (found) return found.id || found.uid || cleanId;
+  }
+  if (cleanId.startsWith("vreq_") || cleanId.startsWith("req_")) {
+    const rawUserId = cleanId.replace(/^(vreq|req)_/, "");
+    if (db2.users) {
+      const foundByReq = db2.users.find((u) => u.id === rawUserId || u.uid === rawUserId || u.verificationRequestId === cleanId);
+      if (foundByReq) return foundByReq.id || foundByReq.uid || rawUserId;
+    }
+    return rawUserId;
+  }
+  if (cleanId.includes("@")) {
+    const normEmail = cleanId.toLowerCase();
+    if (db2.users) {
+      const foundByEmail = db2.users.find((u) => (u.email || "").toLowerCase() === normEmail);
+      if (foundByEmail) return foundByEmail.id || foundByEmail.uid || cleanId;
+    }
+  }
+  return cleanId;
+}
 app2.post(
   ["/api/admin/approve-documents", "/api/admin/verify-documents"],
   requireAuth,
@@ -15710,10 +15747,11 @@ app2.post(
     const adminEmail = req.user?.email || "admin@zakir.ai";
     try {
       const { notes = "" } = req.body;
-      const userId = req.body?.userId || req.body?.targetUserId || req.body?.id;
-      if (!userId) {
+      const rawUserId = req.body?.userId || req.body?.targetUserId || req.body?.id;
+      if (!rawUserId) {
         return res.status(400).json({ success: false, error: "User ID is required for document approval." });
       }
+      const userId = await resolveCanonicalUserId(rawUserId);
       const targetUser = await getUserProfileServer(userId);
       if (!targetUser) {
         return res.status(404).json({ success: false, error: "Target user not found." });
@@ -20030,34 +20068,130 @@ function getLocalUploadsDir() {
   const base = isServerless2 ? import_os2.default.tmpdir() : process.cwd();
   return import_path7.default.join(base, "secure_uploads");
 }
+var documentBinaryCache = /* @__PURE__ */ new Map();
+var MAX_MEMORY_CACHE_ITEMS = 300;
+var BINARY_CACHE_TTL_MS = 20 * 60 * 1e3;
+function getCachedBinary(documentId) {
+  if (!documentId) return null;
+  const item = documentBinaryCache.get(documentId);
+  if (!item) return null;
+  if (Date.now() - item.cachedAt > BINARY_CACHE_TTL_MS) {
+    documentBinaryCache.delete(documentId);
+    return null;
+  }
+  return item;
+}
+function setCachedBinary(documentId, buffer, mimeType, fileName = "document", sha256) {
+  if (!documentId || !buffer || buffer.length === 0) return;
+  if (documentBinaryCache.size >= MAX_MEMORY_CACHE_ITEMS) {
+    const oldestKey = documentBinaryCache.keys().next().value;
+    if (oldestKey) documentBinaryCache.delete(oldestKey);
+  }
+  const cleanMime = accuratelyDetectMimeType(buffer, mimeType, fileName);
+  const hash = sha256 || import_crypto3.default.createHash("sha256").update(buffer).digest("hex");
+  documentBinaryCache.set(documentId, {
+    buffer,
+    mimeType: cleanMime,
+    fileName,
+    size: buffer.length,
+    sha256: hash,
+    cachedAt: Date.now()
+  });
+}
+function accuratelyDetectMimeType(buffer, fallbackMime, fileName) {
+  if (buffer && buffer.length >= 4) {
+    if (buffer.subarray(0, 4).toString() === "%PDF" || buffer.subarray(0, 5).toString() === "%PDF-") {
+      return "application/pdf";
+    }
+    if (buffer[0] === 255 && buffer[1] === 216 && buffer[2] === 255) {
+      return "image/jpeg";
+    }
+    if (buffer[0] === 137 && buffer[1] === 80 && buffer[2] === 78 && buffer[3] === 71) {
+      return "image/png";
+    }
+    if (buffer.subarray(0, 4).toString() === "GIF8") {
+      return "image/gif";
+    }
+    if (buffer.length >= 12 && buffer.subarray(0, 4).toString() === "RIFF" && buffer.subarray(8, 12).toString() === "WEBP") {
+      return "image/webp";
+    }
+    if (buffer.subarray(0, 5).toString().toLowerCase().includes("<svg") || buffer.subarray(0, 5).toString().toLowerCase().includes("<?xml")) {
+      return "image/svg+xml";
+    }
+  }
+  if (fallbackMime && fallbackMime !== "application/octet-stream" && fallbackMime !== "") {
+    return fallbackMime.toLowerCase();
+  }
+  if (fileName) {
+    const ext = fileName.split(".").pop()?.toLowerCase();
+    if (ext === "pdf") return "application/pdf";
+    if (["jpg", "jpeg"].includes(ext || "")) return "image/jpeg";
+    if (ext === "png") return "image/png";
+    if (ext === "webp") return "image/webp";
+    if (ext === "gif") return "image/gif";
+    if (ext === "svg") return "image/svg+xml";
+    if (ext === "csv") return "text/csv; charset=utf-8";
+    if (ext === "txt" || ext === "log") return "text/plain; charset=utf-8";
+    if (ext === "json") return "application/json";
+    if (ext === "html" || ext === "htm") return "text/html; charset=utf-8";
+    if (ext === "doc") return "application/msword";
+    if (ext === "docx") return "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+    if (ext === "xls") return "application/vnd.ms-excel";
+    if (ext === "xlsx") return "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+  }
+  return "application/pdf";
+}
 function saveToLocalDiskCache(documentId, buffer) {
   try {
     const cleanId = import_path7.default.basename(documentId).replace(/[^a-zA-Z0-9_\-\.]/g, "");
     if (!cleanId) return;
-    const dir = getLocalUploadsDir();
-    if (!import_fs7.default.existsSync(dir)) {
-      import_fs7.default.mkdirSync(dir, { recursive: true });
+    const dirs = [getLocalUploadsDir(), import_path7.default.join(import_os2.default.tmpdir(), "secure_uploads"), import_path7.default.join(process.cwd(), "secure_uploads")];
+    for (const dir of dirs) {
+      if (!import_fs7.default.existsSync(dir)) {
+        try {
+          import_fs7.default.mkdirSync(dir, { recursive: true });
+        } catch (e) {
+        }
+      }
+      try {
+        import_fs7.default.writeFileSync(import_path7.default.join(dir, cleanId), buffer);
+        if (cleanId !== documentId) {
+          const directName = import_path7.default.basename(documentId);
+          if (directName) import_fs7.default.writeFileSync(import_path7.default.join(dir, directName), buffer);
+        }
+      } catch (e) {
+      }
     }
-    import_fs7.default.writeFileSync(import_path7.default.join(dir, cleanId), buffer);
+    setCachedBinary(documentId, buffer);
   } catch (err) {
-    console.warn(
-      "[Recovery Storage] Local disk cache write notice:",
-      err?.message || err
-    );
+    console.warn("[Storage] Local disk cache write notice:", err?.message || err);
   }
 }
 function getFromLocalDiskCache(documentId) {
   try {
+    const mem = getCachedBinary(documentId);
+    if (mem && mem.buffer && mem.buffer.length > 0) return mem.buffer;
     const cleanId = import_path7.default.basename(documentId).replace(/[^a-zA-Z0-9_\-\.]/g, "");
-    if (!cleanId) return null;
+    const directName = import_path7.default.basename(documentId);
     const candidatePaths = [
       import_path7.default.join(getLocalUploadsDir(), cleanId),
       import_path7.default.join(import_os2.default.tmpdir(), "secure_uploads", cleanId),
-      import_path7.default.join(process.cwd(), "secure_uploads", cleanId)
+      import_path7.default.join(process.cwd(), "secure_uploads", cleanId),
+      import_path7.default.join(getLocalUploadsDir(), directName),
+      import_path7.default.join(import_os2.default.tmpdir(), "secure_uploads", directName),
+      import_path7.default.join(process.cwd(), "secure_uploads", directName),
+      import_path7.default.join(process.cwd(), documentId)
     ];
     for (const p of candidatePaths) {
       if (import_fs7.default.existsSync(p)) {
-        return import_fs7.default.readFileSync(p);
+        try {
+          const buf = import_fs7.default.readFileSync(p);
+          if (buf && buf.length > 0) {
+            setCachedBinary(documentId, buf);
+            return buf;
+          }
+        } catch (e) {
+        }
       }
     }
   } catch (err) {
@@ -20068,6 +20202,7 @@ var isCloudStorageBucketAvailable = null;
 async function saveDocumentToPersistentStorage(documentId, buffer, mimeType, meta, timings) {
   const tDisk0 = Date.now();
   saveToLocalDiskCache(documentId, buffer);
+  setCachedBinary(documentId, buffer, mimeType, meta?.fileName);
   if (timings) timings.local_disk_ms = Date.now() - tDisk0;
   const nowMs = Date.now();
   const nowIso = new Date(nowMs).toISOString();
@@ -20111,7 +20246,6 @@ async function saveDocumentToPersistentStorage(documentId, buffer, mimeType, met
         ]);
         storageProvider = "firebase-storage";
         isCloudStorageBucketAvailable = true;
-        console.log(`[Storage] Binary persisted to Cloud Storage: ${storagePath}`);
       } catch (storageErr) {
         if (isCloudStorageBucketAvailable === null) {
           isCloudStorageBucketAvailable = false;
@@ -20162,7 +20296,7 @@ async function saveDocumentToPersistentStorage(documentId, buffer, mimeType, met
   if (timings) timings.local_db_ms = Date.now() - tDb0;
   const tFs0 = Date.now();
   if (meta?.simulateFirestoreFailure) {
-    console.error(`[DurabilityGate] Simulated Firestore metadata failure for documentId: ${documentId}. Initiating rollback and orphan cleanup.`);
+    console.error(`[DurabilityGate] Simulated Firestore metadata failure for documentId: ${documentId}. Initiating rollback.`);
     await deleteDocumentFromPersistentStorage(documentId).catch(() => {
     });
     const dbRollback = readDb2();
@@ -20185,9 +20319,6 @@ async function saveDocumentToPersistentStorage(documentId, buffer, mimeType, met
         batch.set(pendingRef, meta.pendingMeta);
       }
       await batch.commit();
-      console.log(
-        `[RecoveryUpload] Lightweight metadata persisted in Firestore for ${documentId} (<1KB payload in 1 roundtrip)`
-      );
     } catch (fsErr) {
       console.warn(
         "[RecoveryUpload] Firestore metadata persistence notice:",
@@ -20199,15 +20330,10 @@ async function saveDocumentToPersistentStorage(documentId, buffer, mimeType, met
     timings.firestore_batch_ms = Date.now() - tFs0;
     timings.pending_upload_registration_ms = 0;
   }
-  console.log(
-    `[Recovery Upload] Storage persistence complete for documentId: ${documentId} (${buffer.length} bytes, provider: ${storageProvider})`
-  );
 }
 async function syncDocumentToCloudStorage(documentId, buffer, mimeType) {
   const bucket = getSafeBucket();
-  if (!bucket) {
-    return false;
-  }
+  if (!bucket) return false;
   let docBuffer = buffer;
   let docMime = mimeType || "application/pdf";
   if (!docBuffer) {
@@ -20245,14 +20371,6 @@ async function syncDocumentToCloudStorage(documentId, buffer, mimeType) {
     } catch (e) {
     }
   };
-  const getCleanErrMsg = (err) => {
-    if (!err) return "Unknown error";
-    if (typeof err === "string") return err;
-    if (err.message) return err.message;
-    if (err.errors?.[0]?.message) return err.errors[0].message;
-    if (err.code) return `Error code ${err.code}`;
-    return "Storage operation unfulfilled";
-  };
   const isBucketNotFound = (err) => {
     if (!err) return false;
     const msg = String(
@@ -20263,13 +20381,13 @@ async function syncDocumentToCloudStorage(documentId, buffer, mimeType) {
     return code === 404 || code === 403 || reason === "notfound" || msg.includes("not found") || msg.includes("not exist");
   };
   const MAX_ATTEMPTS = 2;
-  const ATTEMPT_TIMEOUT_MS = 4e3;
+  const ATTEMPT_TIMEOUT_MS = 2500;
   let lastError = null;
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
     let timeoutHandle = null;
     try {
       if (attempt > 1) {
-        await new Promise((res) => setTimeout(res, 1e3));
+        await new Promise((res) => setTimeout(res, 500));
       }
       await Promise.race([
         (async () => {
@@ -20292,34 +20410,14 @@ async function syncDocumentToCloudStorage(documentId, buffer, mimeType) {
         })
       ]);
       await updateStatus("synced", void 0, attempt);
-      console.log(
-        `[Recovery Upload] Durable cloud sync SUCCESS for document: ${documentId}`
-      );
-      if (isFirebaseAdminAvailable && adminDb) {
-        (async () => {
-          try {
-            const chunksSnap = await adminDb.collection("recoveryDocuments").doc(documentId).collection("chunks").get();
-            if (chunksSnap && !chunksSnap.empty) {
-              const batch = adminDb.batch();
-              chunksSnap.docs.forEach((doc) => batch.delete(doc.ref));
-              await batch.commit();
-            }
-          } catch (pruneErr) {
-          }
-        })().catch(() => {
-        });
-      }
       return true;
     } catch (err) {
       lastError = err;
       if (isBucketNotFound(err)) {
         await updateStatus(
           "firestore_durable",
-          "Primary Firestore metadata active (Bucket unprovisioned)",
+          "Primary storage active (Bucket unprovisioned)",
           attempt
-        );
-        console.log(
-          `[Recovery Storage] Document ${documentId} safely stored with persistent local storage.`
         );
         return true;
       }
@@ -20327,8 +20425,7 @@ async function syncDocumentToCloudStorage(documentId, buffer, mimeType) {
       if (timeoutHandle) clearTimeout(timeoutHandle);
     }
   }
-  const failureReason = getCleanErrMsg(lastError);
-  await updateStatus("firestore_durable", failureReason, MAX_ATTEMPTS);
+  await updateStatus("firestore_durable", lastError?.message || "Storage operation unfulfilled", MAX_ATTEMPTS);
   return true;
 }
 async function runDurableSyncWorker() {
@@ -20348,17 +20445,6 @@ async function runDurableSyncWorker() {
         store[docId]?.mimeType
       );
     }
-    if (adminDb) {
-      const snap = await adminDb.collection("recoveryDocuments").where("storageStatus", "==", "pending").limit(2).get();
-      if (snap && !snap.empty) {
-        for (const doc of snap.docs) {
-          const data = doc.data();
-          if ((data.syncAttempts || 0) < 2) {
-            await syncDocumentToCloudStorage(doc.id, void 0, data.mimeType);
-          }
-        }
-      }
-    }
   } catch (err) {
   }
 }
@@ -20374,52 +20460,363 @@ if (!isServerless2) {
   );
   if (tSync?.unref) tSync.unref();
 }
-async function checkDocumentExistence(documentId, docMeta) {
-  if (!documentId) return false;
-  const p1 = import_path7.default.join(process.cwd(), "secure_uploads", documentId);
-  const p2 = import_path7.default.join(import_os2.default.tmpdir(), "secure_uploads", documentId);
-  const p3 = import_path7.default.join(getLocalUploadsDir(), documentId);
-  if (import_fs7.default.existsSync(p1) || import_fs7.default.existsSync(p2) || import_fs7.default.existsSync(p3)) {
-    return true;
+async function resolveDocumentFromStorage(rawDocumentId) {
+  const documentId = decodeURIComponent(rawDocumentId || "").trim();
+  if (!documentId) {
+    const err = new Error("Document ID is required.");
+    err.code = "STORAGE_REFERENCE_INVALID";
+    err.status = 400;
+    throw err;
   }
-  if (getFromLocalDiskCache(documentId)) {
-    return true;
+  const memCached = getCachedBinary(documentId);
+  if (memCached && memCached.buffer && memCached.buffer.length > 0) {
+    return {
+      documentId,
+      buffer: memCached.buffer,
+      mimeType: memCached.mimeType,
+      fileName: memCached.fileName || "document",
+      size: memCached.size,
+      sha256: memCached.sha256,
+      source: "memory_cache"
+    };
+  }
+  const diskBuf = getFromLocalDiskCache(documentId);
+  if (diskBuf && diskBuf.length > 0) {
+    const mime = accuratelyDetectMimeType(diskBuf);
+    const hash = import_crypto3.default.createHash("sha256").update(diskBuf).digest("hex");
+    setCachedBinary(documentId, diskBuf, mime, "document", hash);
+    return {
+      documentId,
+      buffer: diskBuf,
+      mimeType: mime,
+      fileName: "document",
+      size: diskBuf.length,
+      sha256: hash,
+      source: "local_disk"
+    };
   }
   const db2 = readDb2();
-  const localDoc = db2.recovery_documents_store?.[documentId] || db2.verification_documents_store?.[documentId] || (Array.isArray(db2.files) ? db2.files.find((f) => f.id === documentId || f.documentId === documentId) : null) || docMeta;
-  if (localDoc) {
-    if (localDoc.storageReference || localDoc.storagePath || localDoc.path || localDoc.filePath || localDoc.downloadUrl || localDoc.previewUrl || localDoc.fileName || localDoc.name || localDoc.fileBase64 || localDoc.data || localDoc.base64 || typeof localDoc.fileUrl === "string" && localDoc.fileUrl.length > 5) {
-      return true;
+  const tryExtractBufferFromRecord = async (rec, recName) => {
+    if (!rec) return null;
+    const fileName = rec.fileName || rec.name || rec.documentName || "document";
+    const declaredMime = rec.mimeType || rec.type || "";
+    if (Array.isArray(rec.chunks) && rec.chunks.length > 0) {
+      try {
+        const buffers = [];
+        const sorted = [...rec.chunks].sort((a, b) => (a.chunkIndex ?? 0) - (b.chunkIndex ?? 0));
+        for (const c of sorted) {
+          const raw = Buffer.from(c.data, "base64");
+          if (c.compressed) {
+            try {
+              buffers.push(import_zlib.default.inflateSync(raw));
+            } catch (e) {
+              buffers.push(raw);
+            }
+          } else {
+            buffers.push(raw);
+          }
+        }
+        if (buffers.length > 0) {
+          const fullBuf = Buffer.concat(buffers);
+          saveToLocalDiskCache(documentId, fullBuf);
+          const mime = accuratelyDetectMimeType(fullBuf, declaredMime, fileName);
+          const hash = rec.fileHash || rec.sha256 || import_crypto3.default.createHash("sha256").update(fullBuf).digest("hex");
+          setCachedBinary(documentId, fullBuf, mime, fileName, hash);
+          return {
+            documentId,
+            buffer: fullBuf,
+            mimeType: mime,
+            fileName,
+            size: fullBuf.length,
+            sha256: hash,
+            source: `${recName}_chunks`,
+            metadata: rec
+          };
+        }
+      } catch (chunkErr) {
+        console.warn(`[Storage Resolver] Chunks assembly failed for ${documentId}:`, chunkErr);
+      }
     }
-    if (Array.isArray(localDoc.chunks) && localDoc.chunks.length > 0) {
-      return true;
+    const rawBase64 = rec.fileBase64 || rec.data || rec.base64 || (typeof rec.fileUrl === "string" && rec.fileUrl.startsWith("data:") ? rec.fileUrl : null);
+    if (rawBase64) {
+      try {
+        const clean = String(rawBase64).replace(/^data:[^;]+;base64,/, "");
+        const buf = Buffer.from(clean, "base64");
+        if (buf && buf.length > 0) {
+          saveToLocalDiskCache(documentId, buf);
+          const mime = accuratelyDetectMimeType(buf, declaredMime, fileName);
+          const hash = rec.fileHash || rec.sha256 || import_crypto3.default.createHash("sha256").update(buf).digest("hex");
+          setCachedBinary(documentId, buf, mime, fileName, hash);
+          return {
+            documentId,
+            buffer: buf,
+            mimeType: mime,
+            fileName,
+            size: buf.length,
+            sha256: hash,
+            source: `${recName}_base64`,
+            metadata: rec
+          };
+        }
+      } catch (b64Err) {
+      }
+    }
+    const possiblePaths = [rec.storagePath, rec.storageReference, rec.filePath, rec.path].filter(Boolean);
+    for (const p of possiblePaths) {
+      const pClean = import_path7.default.basename(p);
+      const onDisk = getFromLocalDiskCache(pClean);
+      if (onDisk && onDisk.length > 0) {
+        saveToLocalDiskCache(documentId, onDisk);
+        const mime = accuratelyDetectMimeType(onDisk, declaredMime, fileName);
+        const hash = rec.fileHash || rec.sha256 || import_crypto3.default.createHash("sha256").update(onDisk).digest("hex");
+        setCachedBinary(documentId, onDisk, mime, fileName, hash);
+        return {
+          documentId,
+          buffer: onDisk,
+          mimeType: mime,
+          fileName,
+          size: onDisk.length,
+          sha256: hash,
+          source: `${recName}_disk_ref`,
+          metadata: rec
+        };
+      }
+    }
+    if (typeof rec.fileUrl === "string" && (rec.fileUrl.startsWith("http://") || rec.fileUrl.startsWith("https://"))) {
+      try {
+        const resp = await fetch(rec.fileUrl);
+        if (resp.ok) {
+          const arrBuf = await resp.arrayBuffer();
+          const buf = Buffer.from(arrBuf);
+          if (buf && buf.length > 0) {
+            saveToLocalDiskCache(documentId, buf);
+            const mime = accuratelyDetectMimeType(buf, resp.headers.get("content-type") || declaredMime, fileName);
+            const hash = rec.fileHash || import_crypto3.default.createHash("sha256").update(buf).digest("hex");
+            setCachedBinary(documentId, buf, mime, fileName, hash);
+            return {
+              documentId,
+              buffer: buf,
+              mimeType: mime,
+              fileName,
+              size: buf.length,
+              sha256: hash,
+              source: `${recName}_http_url`,
+              metadata: rec
+            };
+          }
+        }
+      } catch (e) {
+      }
+    }
+    return null;
+  };
+  const localVerDoc = db2.verification_documents_store?.[documentId];
+  if (localVerDoc) {
+    const res = await tryExtractBufferFromRecord(localVerDoc, "local_verification_store");
+    if (res) return res;
+  }
+  const localRecDoc = db2.recovery_documents_store?.[documentId];
+  if (localRecDoc) {
+    const res = await tryExtractBufferFromRecord(localRecDoc, "local_recovery_store");
+    if (res) return res;
+  }
+  if (Array.isArray(db2.files)) {
+    const fDoc = db2.files.find((f) => f.id === documentId || f.documentId === documentId || f.fileId === documentId);
+    if (fDoc) {
+      const res = await tryExtractBufferFromRecord(fDoc, "local_files_store");
+      if (res) return res;
     }
   }
-  const bucket = getSafeBucket();
-  if (bucket) {
-    try {
-      const candidates = [`secure_uploads/${documentId}`, `files/${documentId}`];
-      if (localDoc?.storagePath) candidates.push(localDoc.storagePath);
-      if (localDoc?.storageReference) candidates.push(localDoc.storageReference);
-      for (const cPath of candidates) {
-        const [exists] = await bucket.file(cPath).exists().catch(() => [false]);
-        if (exists) return true;
+  if (Array.isArray(db2.users)) {
+    for (const u of db2.users) {
+      const docList = [
+        ...Array.isArray(u.verificationDocuments) ? u.verificationDocuments : [],
+        ...Array.isArray(u.documents) ? u.documents : [],
+        ...Array.isArray(u.verificationInfo?.documents) ? u.verificationInfo.documents : [],
+        ...Array.isArray(u.files) ? u.files : []
+      ];
+      const match = docList.find((d) => (d.documentId || d.id || d.fileId || d.storageReference || d.fileName) === documentId);
+      if (match) {
+        const res = await tryExtractBufferFromRecord(match, "local_user_embedded_doc");
+        if (res) return res;
       }
-    } catch (e) {
+    }
+  }
+  if (Array.isArray(db2.pending_recovery_uploads)) {
+    const pDoc = db2.pending_recovery_uploads.find((p) => p.documentId === documentId || p.id === documentId);
+    if (pDoc) {
+      const res = await tryExtractBufferFromRecord(pDoc.document || pDoc, "local_pending_recovery_store");
+      if (res) return res;
     }
   }
   if (isFirebaseAdminAvailable && adminDb) {
     try {
-      const rSnap = await adminDb.collection("recoveryDocuments").doc(documentId).get();
-      if (rSnap && rSnap.exists) return true;
-      const vSnap = await adminDb.collection("verification_documents").doc(documentId).get();
-      if (vSnap && vSnap.exists) {
-        const vData = vSnap.data();
-        if (vData?.fileBase64 || vData?.data || vData?.storagePath || vData?.storageReference || vData?.fileUrl) {
-          return true;
+      const fetchFirestoreSnapshots = async () => {
+        return await Promise.all([
+          adminDb.collection("verification_documents").doc(documentId).get().catch(() => null),
+          adminDb.collection("recoveryDocuments").doc(documentId).get().catch(() => null),
+          adminDb.collection("files").doc(documentId).get().catch(() => null),
+          adminDb.collection("pendingRecoveryUploads").doc(documentId).get().catch(() => null)
+        ]);
+      };
+      let fsTimeout = null;
+      const fsSnaps = await Promise.race([
+        fetchFirestoreSnapshots(),
+        new Promise((resolve) => {
+          fsTimeout = setTimeout(() => resolve([null, null, null, null]), 800);
+          if (fsTimeout?.unref) fsTimeout.unref();
+        })
+      ]);
+      if (fsTimeout) clearTimeout(fsTimeout);
+      const [verSnap, recSnap, fileSnap, pendSnap] = fsSnaps || [null, null, null, null];
+      if (verSnap && verSnap.exists) {
+        const res = await tryExtractBufferFromRecord(verSnap.data(), "firestore_verification_doc");
+        if (res) return res;
+      }
+      if (recSnap && recSnap.exists) {
+        const recData = recSnap.data() || {};
+        const res = await tryExtractBufferFromRecord(recData, "firestore_recovery_doc");
+        if (res) return res;
+        try {
+          const chunksSnap = await adminDb.collection("recoveryDocuments").doc(documentId).collection("chunks").get();
+          if (chunksSnap && !chunksSnap.empty) {
+            const sortedDocs = chunksSnap.docs.sort((a, b) => {
+              const idxA = Number(a.data().chunkIndex ?? a.id);
+              const idxB = Number(b.data().chunkIndex ?? b.id);
+              return idxA - idxB;
+            });
+            const buffers = [];
+            for (const cDoc of sortedDocs) {
+              const cData = cDoc.data();
+              if (cData.data) {
+                const rawBuf = Buffer.from(cData.data, "base64");
+                if (cData.compressed) {
+                  try {
+                    buffers.push(import_zlib.default.inflateSync(rawBuf));
+                  } catch (e) {
+                    buffers.push(rawBuf);
+                  }
+                } else {
+                  buffers.push(rawBuf);
+                }
+              }
+            }
+            if (buffers.length > 0) {
+              const fullBuf = Buffer.concat(buffers);
+              saveToLocalDiskCache(documentId, fullBuf);
+              const mime = accuratelyDetectMimeType(fullBuf, recData.mimeType, recData.fileName);
+              const hash = recData.fileHash || import_crypto3.default.createHash("sha256").update(fullBuf).digest("hex");
+              setCachedBinary(documentId, fullBuf, mime, recData.fileName || "document", hash);
+              return {
+                documentId,
+                buffer: fullBuf,
+                mimeType: mime,
+                fileName: recData.fileName || "document",
+                size: fullBuf.length,
+                sha256: hash,
+                source: "firestore_recovery_subchunks",
+                metadata: recData
+              };
+            }
+          }
+        } catch (chunksErr) {
         }
       }
-      const fSnap = await adminDb.collection("files").doc(documentId).get();
+      if (fileSnap && fileSnap.exists) {
+        const res = await tryExtractBufferFromRecord(fileSnap.data(), "firestore_files_doc");
+        if (res) return res;
+      }
+      if (pendSnap && pendSnap.exists) {
+        const pData = pendSnap.data()?.document || pendSnap.data();
+        const res = await tryExtractBufferFromRecord(pData, "firestore_pending_doc");
+        if (res) return res;
+      }
+    } catch (fsErr) {
+      console.warn("[Storage Resolver] Firestore search notice:", fsErr);
+    }
+  }
+  if (isCloudStorageBucketAvailable !== false) {
+    const bucket = getSafeBucket();
+    if (bucket) {
+      const candidates = [
+        `secure_uploads/${documentId}`,
+        `files/${documentId}`,
+        `verification_documents/${documentId}`,
+        `recoveryDocuments/${documentId}`,
+        documentId
+      ];
+      for (const cPath of candidates) {
+        try {
+          const fileRef = bucket.file(cPath);
+          let timeoutHandle = null;
+          const downloadPromise = async () => {
+            const [exists] = await fileRef.exists().catch(() => [false]);
+            if (exists) {
+              const [b] = await fileRef.download();
+              return b;
+            }
+            return null;
+          };
+          const fileBuf = await Promise.race([
+            downloadPromise(),
+            new Promise((resolve) => {
+              timeoutHandle = setTimeout(() => resolve(null), 600);
+              if (timeoutHandle?.unref) timeoutHandle.unref();
+            })
+          ]);
+          if (timeoutHandle) clearTimeout(timeoutHandle);
+          if (fileBuf && fileBuf.length > 0) {
+            saveToLocalDiskCache(documentId, fileBuf);
+            const mime = accuratelyDetectMimeType(fileBuf);
+            const hash = import_crypto3.default.createHash("sha256").update(fileBuf).digest("hex");
+            setCachedBinary(documentId, fileBuf, mime, "document", hash);
+            return {
+              documentId,
+              buffer: fileBuf,
+              mimeType: mime,
+              fileName: "document",
+              size: fileBuf.length,
+              sha256: hash,
+              source: "firebase_cloud_storage"
+            };
+          }
+        } catch (storageErr) {
+        }
+      }
+    }
+  }
+  const error = new Error("\u062A\u0639\u0630\u0631 \u062A\u062D\u0645\u064A\u0644 \u0627\u0644\u0648\u062B\u064A\u0642\u0629 \u0644\u0623\u0646 \u0627\u0644\u0645\u0644\u0641 \u063A\u064A\u0631 \u0645\u062A\u0648\u0641\u0631 \u0641\u064A \u0627\u0644\u062A\u062E\u0632\u064A\u0646.");
+  error.code = "FILE_NOT_FOUND";
+  error.status = 404;
+  throw error;
+}
+async function checkDocumentExistence(documentId, docMeta) {
+  if (!documentId) return false;
+  if (getCachedBinary(documentId)) return true;
+  const p1 = import_path7.default.join(process.cwd(), "secure_uploads", documentId);
+  const p2 = import_path7.default.join(import_os2.default.tmpdir(), "secure_uploads", documentId);
+  const p3 = import_path7.default.join(getLocalUploadsDir(), documentId);
+  if (import_fs7.default.existsSync(p1) || import_fs7.default.existsSync(p2) || import_fs7.default.existsSync(p3)) return true;
+  if (getFromLocalDiskCache(documentId)) return true;
+  const db2 = readDb2();
+  if (db2.verification_documents_store?.[documentId] || db2.recovery_documents_store?.[documentId]) {
+    return true;
+  }
+  if (Array.isArray(db2.files) && db2.files.some((f) => f.id === documentId || f.documentId === documentId)) {
+    return true;
+  }
+  if (docMeta) {
+    if (docMeta.fileBase64 || docMeta.data || docMeta.base64 || docMeta.storageReference || docMeta.storagePath || typeof docMeta.fileUrl === "string" && docMeta.fileUrl.length > 5 || Array.isArray(docMeta.chunks) && docMeta.chunks.length > 0) {
+      return true;
+    }
+  }
+  if (isFirebaseAdminAvailable && adminDb) {
+    try {
+      const vSnap = await adminDb.collection("verification_documents").doc(documentId).get().catch(() => null);
+      if (vSnap && vSnap.exists) return true;
+      const rSnap = await adminDb.collection("recoveryDocuments").doc(documentId).get().catch(() => null);
+      if (rSnap && rSnap.exists) return true;
+      const fSnap = await adminDb.collection("files").doc(documentId).get().catch(() => null);
       if (fSnap && fSnap.exists) return true;
     } catch (e) {
     }
@@ -20427,304 +20824,8 @@ async function checkDocumentExistence(documentId, docMeta) {
   return false;
 }
 async function getDocumentFromPersistentStorage(documentId) {
-  const cached = getFromLocalDiskCache(documentId);
-  if (cached && cached.length > 0) {
-    return cached;
-  }
-  const candidateDiskPaths = [
-    import_path7.default.join(process.cwd(), "secure_uploads", documentId),
-    import_path7.default.join(import_os2.default.tmpdir(), "secure_uploads", documentId),
-    import_path7.default.join(getLocalUploadsDir(), documentId)
-  ];
-  for (const p of candidateDiskPaths) {
-    if (import_fs7.default.existsSync(p)) {
-      try {
-        const buf = import_fs7.default.readFileSync(p);
-        if (buf && buf.length > 0) {
-          saveToLocalDiskCache(documentId, buf);
-          return buf;
-        }
-      } catch (e) {
-      }
-    }
-  }
-  const db2 = readDb2();
-  const localDoc = db2.recovery_documents_store?.[documentId] || db2.verification_documents_store?.[documentId] || (Array.isArray(db2.files) ? db2.files.find((f) => f.id === documentId || f.documentId === documentId) : null);
-  const bucket = getSafeBucket();
-  if (bucket) {
-    let timeoutHandle = null;
-    try {
-      const candidates = [
-        documentId,
-        `secure_uploads/${documentId}`,
-        `files/${documentId}`,
-        `verification_documents/${documentId}`,
-        `recoveryDocuments/${documentId}`
-      ];
-      if (localDoc?.storagePath) candidates.push(localDoc.storagePath);
-      if (localDoc?.storageReference) candidates.push(localDoc.storageReference);
-      if (localDoc?.userId) {
-        candidates.push(`users/${localDoc.userId}/files/${documentId}`);
-        if (localDoc.fileName) {
-          candidates.push(`users/${localDoc.userId}/files/${documentId}_${localDoc.fileName}`);
-        }
-      }
-      for (const cPath of candidates) {
-        if (!cPath) continue;
-        const fileRef = bucket.file(cPath);
-        const downloadPromise = async () => {
-          const [exists] = await fileRef.exists().catch(() => [false]);
-          if (exists) {
-            const [fileBuffer] = await fileRef.download();
-            saveToLocalDiskCache(documentId, fileBuffer);
-            return fileBuffer;
-          }
-          return null;
-        };
-        const buffer = await Promise.race([
-          downloadPromise(),
-          new Promise((resolve) => {
-            timeoutHandle = setTimeout(() => resolve(null), 3500);
-            if (timeoutHandle?.unref) timeoutHandle.unref();
-          })
-        ]);
-        if (buffer && buffer.length > 0) return buffer;
-      }
-    } catch (err) {
-    } finally {
-      if (timeoutHandle) clearTimeout(timeoutHandle);
-    }
-  }
-  if (localDoc) {
-    if (Array.isArray(localDoc.chunks) && localDoc.chunks.length > 0) {
-      const buffers = [];
-      const sorted = [...localDoc.chunks].sort(
-        (a, b) => (a.chunkIndex ?? 0) - (b.chunkIndex ?? 0)
-      );
-      for (const c of sorted) {
-        const raw2 = Buffer.from(c.data, "base64");
-        if (c.compressed) {
-          try {
-            buffers.push(import_zlib.default.inflateSync(raw2));
-          } catch (e) {
-            buffers.push(raw2);
-          }
-        } else {
-          buffers.push(raw2);
-        }
-      }
-      if (buffers.length > 0) {
-        const fullBuffer = Buffer.concat(buffers);
-        saveToLocalDiskCache(documentId, fullBuffer);
-        return fullBuffer;
-      }
-    }
-    const raw = localDoc.fileBase64 || localDoc.data || localDoc.base64 || (typeof localDoc.fileUrl === "string" && localDoc.fileUrl.startsWith("data:") ? localDoc.fileUrl : null);
-    if (raw) {
-      const clean = String(raw).replace(/^data:[^;]+;base64,/, "");
-      const buf = Buffer.from(clean, "base64");
-      if (buf.length > 0) {
-        saveToLocalDiskCache(documentId, buf);
-        return buf;
-      }
-    }
-    if (typeof localDoc.fileUrl === "string" && (localDoc.fileUrl.startsWith("http://") || localDoc.fileUrl.startsWith("https://"))) {
-      try {
-        const resp = await fetch(localDoc.fileUrl);
-        if (resp.ok) {
-          const arrBuf = await resp.arrayBuffer();
-          const buf = Buffer.from(arrBuf);
-          if (buf.length > 0) {
-            saveToLocalDiskCache(documentId, buf);
-            return buf;
-          }
-        }
-      } catch (e) {
-      }
-    }
-  }
-  if (isFirebaseAdminAvailable && adminDb) {
-    try {
-      const docSnap = await adminDb.collection("recoveryDocuments").doc(documentId).get();
-      if (docSnap && docSnap.exists) {
-        const meta = docSnap.data();
-        const raw = meta?.fileBase64 || meta?.data || meta?.base64;
-        if (raw) {
-          const clean = String(raw).replace(/^data:[^;]+;base64,/, "");
-          const buf = Buffer.from(clean, "base64");
-          if (buf.length > 0) {
-            saveToLocalDiskCache(documentId, buf);
-            return buf;
-          }
-        }
-        const chunksSnap = await adminDb.collection("recoveryDocuments").doc(documentId).collection("chunks").get();
-        if (chunksSnap && !chunksSnap.empty) {
-          const sortedDocs = chunksSnap.docs.sort((a, b) => {
-            const idxA = Number(a.data().chunkIndex ?? a.id);
-            const idxB = Number(b.data().chunkIndex ?? b.id);
-            return idxA - idxB;
-          });
-          const buffers = [];
-          for (const cDoc of sortedDocs) {
-            const cData = cDoc.data();
-            const chunkData = cData.data;
-            if (chunkData) {
-              const rawBuf = Buffer.from(chunkData, "base64");
-              if (cData.compressed) {
-                try {
-                  buffers.push(import_zlib.default.inflateSync(rawBuf));
-                } catch (e) {
-                  buffers.push(rawBuf);
-                }
-              } else {
-                buffers.push(rawBuf);
-              }
-            }
-          }
-          if (buffers.length > 0) {
-            const fullBuffer = Buffer.concat(buffers);
-            saveToLocalDiskCache(documentId, fullBuffer);
-            return fullBuffer;
-          }
-        }
-      }
-    } catch (fsErr) {
-      console.warn("Firestore chunks retrieval notice:", fsErr);
-    }
-    try {
-      const vSnap = await adminDb.collection("verification_documents").doc(documentId).get();
-      if (vSnap && vSnap.exists) {
-        const vData = vSnap.data();
-        const raw = vData?.fileBase64 || vData?.data || vData?.base64;
-        if (raw) {
-          const clean = String(raw).replace(/^data:[^;]+;base64,/, "");
-          const buf = Buffer.from(clean, "base64");
-          if (buf.length > 0) {
-            saveToLocalDiskCache(documentId, buf);
-            return buf;
-          }
-        }
-        if (vData?.storagePath && bucket) {
-          const [exists] = await bucket.file(vData.storagePath).exists().catch(() => [false]);
-          if (exists) {
-            const [b] = await bucket.file(vData.storagePath).download();
-            saveToLocalDiskCache(documentId, b);
-            return b;
-          }
-        }
-        if (typeof vData?.fileUrl === "string" && (vData.fileUrl.startsWith("http://") || vData.fileUrl.startsWith("https://"))) {
-          const r = await fetch(vData.fileUrl);
-          if (r.ok) {
-            const b = Buffer.from(await r.arrayBuffer());
-            saveToLocalDiskCache(documentId, b);
-            return b;
-          }
-        }
-      }
-    } catch (e) {
-    }
-    try {
-      let fData = null;
-      const fSnap = await adminDb.collection("files").doc(documentId).get();
-      if (fSnap && fSnap.exists) {
-        fData = fSnap.data();
-      } else {
-        const groupSnap = await adminDb.collectionGroup("files").where("id", "==", documentId).limit(1).get().catch(() => null);
-        if (groupSnap && !groupSnap.empty) {
-          fData = groupSnap.docs[0].data();
-        }
-      }
-      if (fData) {
-        const raw = fData?.fileBase64 || fData?.data || fData?.base64 || (fData?.fileUrl?.startsWith("data:") ? fData.fileUrl : null);
-        if (raw) {
-          const clean = String(raw).replace(/^data:[^;]+;base64,/, "");
-          const buf = Buffer.from(clean, "base64");
-          if (buf.length > 0) {
-            saveToLocalDiskCache(documentId, buf);
-            return buf;
-          }
-        }
-        if (fData?.storagePath && bucket) {
-          const [exists] = await bucket.file(fData.storagePath).exists().catch(() => [false]);
-          if (exists) {
-            const [b] = await bucket.file(fData.storagePath).download();
-            saveToLocalDiskCache(documentId, b);
-            return b;
-          }
-        }
-        if (typeof fData?.fileUrl === "string" && (fData.fileUrl.startsWith("http://") || fData.fileUrl.startsWith("https://"))) {
-          const r = await fetch(fData.fileUrl);
-          if (r.ok) {
-            const b = Buffer.from(await r.arrayBuffer());
-            saveToLocalDiskCache(documentId, b);
-            return b;
-          }
-        }
-      }
-    } catch (e) {
-    }
-    try {
-      const pendSnap = await adminDb.collection("pendingRecoveryUploads").doc(documentId).get();
-      if (pendSnap && pendSnap.exists) {
-        const pData = pendSnap.data();
-        const raw = pData?.fileBase64 || pData?.document?.fileBase64 || pData?.data || pData?.base64;
-        if (raw) {
-          const clean = String(raw).replace(/^data:[^;]+;base64,/, "");
-          const buf = Buffer.from(clean, "base64");
-          if (buf.length > 0) {
-            saveToLocalDiskCache(documentId, buf);
-            return buf;
-          }
-        }
-      }
-    } catch (err) {
-    }
-    try {
-      const usersSnap = await adminDb.collection("users").get();
-      for (const uDoc of usersSnap.docs) {
-        const uData = uDoc.data();
-        const docsList = [
-          ...uData.verificationDocuments || [],
-          ...uData.documents || [],
-          ...uData.verification_documents || []
-        ];
-        const match = docsList.find(
-          (d) => (d.documentId || d.id || d.storageReference || d.fileName) === documentId
-        );
-        if (match) {
-          const raw = match.fileBase64 || match.data || match.base64 || (typeof match.fileUrl === "string" && match.fileUrl.startsWith("data:") ? match.fileUrl : null);
-          if (raw) {
-            const clean = String(raw).replace(/^data:[^;]+;base64,/, "");
-            const buf = Buffer.from(clean, "base64");
-            if (buf.length > 0) {
-              saveToLocalDiskCache(documentId, buf);
-              return buf;
-            }
-          }
-          if (match.storagePath && bucket) {
-            const [exists] = await bucket.file(match.storagePath).exists().catch(() => [false]);
-            if (exists) {
-              const [b] = await bucket.file(match.storagePath).download();
-              saveToLocalDiskCache(documentId, b);
-              return b;
-            }
-          }
-          if (typeof match.fileUrl === "string" && (match.fileUrl.startsWith("http://") || match.fileUrl.startsWith("https://"))) {
-            const r = await fetch(match.fileUrl);
-            if (r.ok) {
-              const b = Buffer.from(await r.arrayBuffer());
-              saveToLocalDiskCache(documentId, b);
-              return b;
-            }
-          }
-        }
-      }
-    } catch (err) {
-    }
-  }
-  throw new Error(
-    `Document file not found on server storage for ID: ${documentId}`
-  );
+  const resolved = await resolveDocumentFromStorage(documentId);
+  return resolved.buffer;
 }
 async function deleteDocumentFromPersistentStorage(documentId) {
   console.log(`[Storage Purge] Completely purging document: ${documentId}`);
@@ -21314,7 +21415,9 @@ app2.all(
       }
       if (!fileBuffer) {
         try {
-          fileBuffer = await getDocumentFromPersistentStorage(safeDocId);
+          const resolved = await resolveDocumentFromStorage(safeDocId);
+          fileBuffer = resolved.buffer;
+          if (resolved.mimeType) mimeType = resolved.mimeType;
         } catch (err) {
           const svgContent = `<svg xmlns="http://www.w3.org/2000/svg" width="800" height="500" viewBox="0 0 800 500">
   <defs>
@@ -21689,6 +21792,9 @@ app2.get(
     "/api/auth/verification-document/:documentId",
     "/api/admin/verification-document/:documentId",
     "/api/verification-document/:documentId",
+    "/api/auth/recovery-document/:documentId",
+    "/api/admin/recovery-document/:documentId",
+    "/api/recovery-document/:documentId",
     "/api/files/:documentId/preview",
     "/api/files/:documentId/download",
     "/api/files/download/:documentId",
@@ -21703,52 +21809,54 @@ app2.get(
       const rawDocId = req.params.documentId || "";
       const documentId = decodeURIComponent(rawDocId).trim();
       if (!documentId) {
-        return res.status(400).json({ success: false, error: "Document ID is required." });
+        return res.status(400).json({ success: false, error: "STORAGE_REFERENCE_INVALID", message: "Document ID is required." });
       }
       const isAdmin = await isUserAdminServer(callerUid || "", callerEmail);
+      const isAdminPath = (req.originalUrl || req.url || "").includes("/admin/");
+      if (isAdminPath && !isAdmin) {
+        return res.status(403).json({
+          success: false,
+          error: "UNAUTHORIZED",
+          message: "Forbidden: Admin privileges required to access admin document endpoints.",
+          userFriendlyMessage: "\u063A\u064A\u0631 \u0645\u0635\u0631\u062D \u0644\u0643 \u0628\u0627\u0644\u0648\u0635\u0648\u0644 \u0625\u0644\u0649 \u0644\u0648\u062D\u0629 \u0627\u0644\u062A\u062D\u0643\u0645 \u0627\u0644\u0625\u062F\u0627\u0631\u064A\u0629."
+        });
+      }
+      let isOwner = false;
       const db2 = readDb2();
       let docRecord = db2.verification_documents_store?.[documentId] || db2.recovery_documents_store?.[documentId];
       if (!docRecord && Array.isArray(db2.files)) {
-        docRecord = db2.files.find((f) => f.id === documentId || f.documentId === documentId);
+        docRecord = db2.files.find((f) => f.id === documentId || f.documentId === documentId || f.fileId === documentId);
       }
-      if (!docRecord && isFirebaseAdminAvailable && adminDb) {
-        try {
-          const vSnap = await adminDb.collection("verification_documents").doc(documentId).get();
-          if (vSnap && vSnap.exists) {
-            docRecord = { id: vSnap.id, ...vSnap.data() };
-          } else {
-            const fSnap = await adminDb.collection("files").doc(documentId).get();
-            if (fSnap && fSnap.exists) {
-              docRecord = { id: fSnap.id, ...fSnap.data() };
-            } else {
-              const rSnap = await adminDb.collection("recoveryDocuments").doc(documentId).get();
-              if (rSnap && rSnap.exists) {
-                docRecord = { id: rSnap.id, ...rSnap.data() };
-              } else if (callerUid) {
-                const uFileSnap = await adminDb.collection("users").doc(callerUid).collection("files").doc(documentId).get();
-                if (uFileSnap && uFileSnap.exists) {
-                  docRecord = { id: uFileSnap.id, ...uFileSnap.data() };
-                }
-              }
-            }
-          }
-        } catch (e) {
-        }
-      }
-      let isOwner = false;
       if (callerUid && docRecord && (docRecord.userId === callerUid || docRecord.userUid === callerUid || docRecord.ownerUid === callerUid)) {
         isOwner = true;
       }
       if (!isOwner && callerUid) {
         const callerProfile = await getUserProfileServer(callerUid, callerEmail);
-        if (callerProfile?.verificationDocuments?.some((d) => (d.documentId || d.id) === documentId) || callerProfile?.documents?.some((d) => (d.documentId || d.id) === documentId) || callerProfile?.files?.some((f) => (f.id || f.fileId) === documentId)) {
+        if (callerProfile?.verificationDocuments?.some((d) => (d.documentId || d.id || d.fileId) === documentId) || callerProfile?.documents?.some((d) => (d.documentId || d.id || d.fileId) === documentId) || callerProfile?.files?.some((f) => (f.id || f.fileId) === documentId)) {
           isOwner = true;
+        }
+      }
+      if (!isAdmin && !isOwner && isFirebaseAdminAvailable && adminDb && callerUid) {
+        try {
+          const [vSnap, rSnap, fSnap] = await Promise.all([
+            adminDb.collection("verification_documents").doc(documentId).get().catch(() => null),
+            adminDb.collection("recoveryDocuments").doc(documentId).get().catch(() => null),
+            adminDb.collection("files").doc(documentId).get().catch(() => null)
+          ]);
+          const docData = vSnap?.data() || rSnap?.data() || fSnap?.data();
+          if (docData && (docData.userId === callerUid || docData.ownerUid === callerUid || docData.userUid === callerUid)) {
+            isOwner = true;
+            if (!docRecord) docRecord = docData;
+          }
+        } catch (e) {
         }
       }
       if (!isAdmin && !isOwner) {
         return res.status(403).json({
           success: false,
-          error: "Forbidden: You are not authorized to view this document."
+          error: "FORBIDDEN",
+          code: "FORBIDDEN",
+          message: "Forbidden: You are not authorized to view this document."
         });
       }
       if (req.query.metadata === "true" || req.query.metadataOnly === "true" || req.query.meta === "true") {
@@ -21766,42 +21874,71 @@ app2.get(
           }
         });
       }
-      let fileBuffer = null;
+      let resolved;
       try {
-        fileBuffer = await getDocumentFromPersistentStorage(documentId);
+        resolved = await resolveDocumentFromStorage(documentId);
       } catch (err) {
-        console.warn(`[Doc Retrieval Warning] could not load buffer for ${documentId}:`, err?.message);
-      }
-      if (!fileBuffer || fileBuffer.length === 0) {
-        return res.status(404).json({
+        const status = err.status || 404;
+        const code = err.code || "FILE_NOT_FOUND";
+        return res.status(status).json({
           success: false,
-          error: "DOCUMENT_NOT_FOUND",
-          message: "\u062A\u0639\u0630\u0631 \u062A\u062D\u0645\u064A\u0644 \u0627\u0644\u0648\u062B\u064A\u0642\u0629 \u0644\u0623\u0646 \u0627\u0644\u0645\u0644\u0641 \u063A\u064A\u0631 \u0645\u062A\u0648\u0641\u0631 \u0641\u064A \u0627\u0644\u062A\u062E\u0632\u064A\u0646."
+          error: code,
+          code,
+          message: err.message || "\u062A\u0639\u0630\u0631 \u062A\u062D\u0645\u064A\u0644 \u0627\u0644\u0648\u062B\u064A\u0642\u0629 \u0644\u0623\u0646 \u0627\u0644\u0645\u0644\u0641 \u063A\u064A\u0631 \u0645\u062A\u0648\u0641\u0631 \u0641\u064A \u0627\u0644\u062A\u062E\u0632\u064A\u0646."
         });
       }
-      let mimeType = docRecord?.mimeType || "application/pdf";
-      const fileName = docRecord?.fileName || docRecord?.name || "document";
-      if (fileBuffer.length >= 4) {
-        if (fileBuffer.subarray(0, 4).toString() === "%PDF") {
-          mimeType = "application/pdf";
-        } else if (fileBuffer[0] === 255 && fileBuffer[1] === 216) {
-          mimeType = "image/jpeg";
-        } else if (fileBuffer[0] === 137 && fileBuffer[1] === 80) {
-          mimeType = "image/png";
-        } else if (fileBuffer.subarray(0, 4).toString() === "RIFF" && fileBuffer.subarray(8, 12).toString() === "WEBP") {
-          mimeType = "image/webp";
-        }
+      const fileBuffer = resolved.buffer;
+      const mimeType = resolved.mimeType || "application/pdf";
+      const fileName = resolved.fileName || docRecord?.fileName || docRecord?.name || "document";
+      const totalLength = fileBuffer.length;
+      const etag = `W/"${resolved.sha256 || import_crypto3.default.createHash("sha256").update(fileBuffer).digest("hex")}"`;
+      if (req.headers["if-none-match"] === etag) {
+        res.setHeader("ETag", etag);
+        res.setHeader("Cache-Control", "private, max-age=300, stale-while-revalidate=600");
+        return res.status(304).end();
       }
       const isDownloadRequested = req.query.download === "true" || req.query.mode === "download" || req.path.includes("/download");
       const dispositionType = isDownloadRequested ? "attachment" : "inline";
+      const cleanDocName = (fileName || "document").replace(/[\r\n\t]/g, " ").trim();
+      const docExtMatch = cleanDocName.match(/\.([a-zA-Z0-9]+)$/);
+      const docExt = docExtMatch ? `.${docExtMatch[1]}` : "";
+      const baseAsciiDocName = cleanDocName.replace(/\.[a-zA-Z0-9]+$/, "").replace(/[^\x20-\x7E]/g, "_").replace(/["\\]/g, "_").trim();
+      const safeAsciiFilename = (baseAsciiDocName || "document") + docExt;
+      const utf8EncodedFilename = encodeURIComponent(cleanDocName);
       res.setHeader("X-Content-Type-Options", "nosniff");
       res.setHeader("Content-Type", mimeType);
-      res.setHeader("Content-Disposition", `${dispositionType}; filename="${encodeURIComponent(fileName)}"`);
-      res.setHeader("Cache-Control", "private, no-cache, no-store, must-revalidate");
+      res.setHeader("Accept-Ranges", "bytes");
+      res.setHeader("ETag", etag);
+      res.setHeader("Cache-Control", "private, max-age=300, stale-while-revalidate=600");
+      res.setHeader(
+        "Content-Disposition",
+        `${dispositionType}; filename="${safeAsciiFilename}"; filename*=UTF-8''${utf8EncodedFilename}`
+      );
+      const range = req.headers.range;
+      if (range && !isDownloadRequested) {
+        const parts = range.replace(/bytes=/, "").split("-");
+        const start = parseInt(parts[0], 10) || 0;
+        const end = parts[1] ? parseInt(parts[1], 10) : totalLength - 1;
+        if (start >= totalLength || end >= totalLength || start > end) {
+          res.setHeader("Content-Range", `bytes */${totalLength}`);
+          return res.status(416).end();
+        }
+        const chunk = fileBuffer.subarray(start, end + 1);
+        res.setHeader("Content-Range", `bytes ${start}-${end}/${totalLength}`);
+        res.setHeader("Content-Length", chunk.length);
+        res.status(206);
+        return res.send(chunk);
+      }
+      res.setHeader("Content-Length", totalLength);
       return res.send(fileBuffer);
     } catch (err) {
-      console.error("[VERIFICATION_DOC_RETRIEVE_ERROR]", err);
-      return res.status(500).json({ success: false, error: err.message || "Failed to retrieve document." });
+      console.error("[DOCUMENT_PREVIEW_ENDPOINT_ERROR]", err);
+      return res.status(500).json({
+        success: false,
+        error: "STORAGE_READ_FAILED",
+        code: "STORAGE_READ_FAILED",
+        message: err.message || "Failed to retrieve document stream."
+      });
     }
   }
 );
@@ -25478,8 +25615,10 @@ var server_default = app2;
 // Annotate the CommonJS export names for ESM import in node:
 0 && (module.exports = {
   ZAKIR_BUILD_ID,
+  accuratelyDetectMimeType,
   activeSupportSessions,
   getAccountLifecycleRecord,
+  getCachedBinary,
   getGeminiClient,
   getWorkspaceOccupancy,
   handleAccountReactivationRequestServer,
@@ -25492,10 +25631,12 @@ var server_default = app2;
   reconcileWorkspaceData,
   requestAccountReactivationServer,
   resolveAccountLifecycle,
+  resolveDocumentFromStorage,
   resolveUserByEmailOrId,
   restoreAccountFullServer,
   runWithWorkspaceLock,
   setAccountLifecycleRecord,
+  setCachedBinary,
   setGeminiCooldown,
   writeDb
 });

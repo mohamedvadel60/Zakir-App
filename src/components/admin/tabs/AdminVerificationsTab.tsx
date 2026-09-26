@@ -239,7 +239,8 @@ export const AdminVerificationsTab: React.FC<AdminVerificationsTabProps> = ({
                   {docs.length > 0 ? (
                     <button
                       onClick={() => {
-                        setActionUserId(req.userId || req.id);
+                        const targetId = req.userId || (req.id?.startsWith("vreq_") ? req.id.replace("vreq_", "") : req.id);
+                        setActionUserId(targetId);
                         setActionType("approve");
                       }}
                       type="button"
@@ -257,7 +258,8 @@ export const AdminVerificationsTab: React.FC<AdminVerificationsTabProps> = ({
 
                   <button
                     onClick={() => {
-                      setActionUserId(req.userId || req.id);
+                      const targetId = req.userId || (req.id?.startsWith("vreq_") ? req.id.replace("vreq_", "") : req.id);
+                      setActionUserId(targetId);
                       setActionType("require_docs");
                     }}
                     type="button"
@@ -269,7 +271,8 @@ export const AdminVerificationsTab: React.FC<AdminVerificationsTabProps> = ({
 
                   <button
                     onClick={() => {
-                      setActionUserId(req.userId || req.id);
+                      const targetId = req.userId || (req.id?.startsWith("vreq_") ? req.id.replace("vreq_", "") : req.id);
+                      setActionUserId(targetId);
                       setActionType("reject");
                     }}
                     type="button"
