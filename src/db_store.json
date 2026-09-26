@@ -75,10 +75,11 @@
         "autoSaveMemories": true
       },
       "stripeCustomerId": null,
-      "lastActiveAt": "2026-09-26T12:49:25.352Z",
-      "lastLoginAt": "2026-09-26T12:49:25.352Z",
+      "lastActiveAt": "2026-09-26T13:06:34.545Z",
+      "lastLoginAt": "2026-09-26T13:06:34.545Z",
       "accountStatus": "APPROVED",
-      "verificationStatus": "verified"
+      "verificationStatus": "verified",
+      "uid": "IKd49SpWgBa5XubDF2sLqaslOyF3"
     },
     {
       "id": "ElyZcGgenUZWsY3o9bq0ObHaNJo1",
@@ -2009,6 +2010,60 @@
         "status": "unverified"
       },
       "verificationStatus": "unverified"
+    },
+    {
+      "id": "toKBrIdHJPUPGW7h09MR1hizYpc2",
+      "email": "ui_workspace_test_1790427988253@zakir.ai",
+      "passwordHash": "RealWorkspacePass2026!#",
+      "companyName": "Real UI Workspace Enterprise",
+      "ownerName": "Real UI Founder",
+      "role": "CEO",
+      "workspaceId": "ws_toKBrIdH_muielj99",
+      "workspace": {
+        "id": "ws_toKBrIdH_muielj99",
+        "name": "Real UI Workspace Enterprise Workspace",
+        "ownerId": "toKBrIdHJPUPGW7h09MR1hizYpc2",
+        "createdAt": "2026-09-26T13:06:30.716Z",
+        "memberCount": 1
+      },
+      "teamMembersList": [
+        {
+          "id": "tm-owner",
+          "uid": "toKBrIdHJPUPGW7h09MR1hizYpc2",
+          "name": "Real UI Founder",
+          "email": "ui_workspace_test_1790427988253@zakir.ai",
+          "role": "CEO / Owner",
+          "powers": {
+            "fileVault": true,
+            "memoryVault": true,
+            "riskRadar": true,
+            "marketIntel": true,
+            "settings": true
+          },
+          "addedAt": "2026-09-26"
+        }
+      ],
+      "subscriptionStatus": "Pending Selection",
+      "accountStatus": "PENDING_EMAIL_VERIFICATION",
+      "requiresDocumentVerification": true,
+      "verificationFlowVersion": 2,
+      "documentVerificationStatus": "PENDING_EMAIL_VERIFICATION",
+      "verificationDocuments": [],
+      "createdAt": "2026-09-26T13:06:30.716Z",
+      "trialExpiresAt": "2026-09-27T13:06:30.717Z",
+      "lastActiveAt": "2026-09-26T13:06:33.049Z",
+      "lastLoginAt": "2026-09-26T13:06:33.049Z",
+      "isVerified": false,
+      "isEmailVerified": false,
+      "email_verified": false,
+      "emailVerified": false,
+      "verification_required": true,
+      "verification_status": "unverified",
+      "verificationInfo": {
+        "status": "unverified"
+      },
+      "uid": "toKBrIdHJPUPGW7h09MR1hizYpc2",
+      "verificationStatus": "unverified"
     }
   ],
   "verification_codes": [
@@ -2425,6 +2480,21 @@
       "sendCount": 0,
       "initialOtpSent": true,
       "lastSentAt": "2026-09-26T12:49:21.895Z"
+    },
+    {
+      "id": "toKBrIdHJPUPGW7h09MR1hizYpc2",
+      "userId": "toKBrIdHJPUPGW7h09MR1hizYpc2",
+      "email": "ui_workspace_test_1790427988253@zakir.ai",
+      "phone": "",
+      "codeHash": "adf1ed7d67969992cea35641db421108e133a3ac7c2f82cace2ca4c801c0a9ad",
+      "type": "account_registration",
+      "createdAt": "2026-09-26T13:06:30.838Z",
+      "expiresAt": "2026-09-26T13:16:30.838Z",
+      "attempts": 0,
+      "used": false,
+      "sendCount": 0,
+      "initialOtpSent": true,
+      "lastSentAt": "2026-09-26T13:06:30.838Z"
     }
   ],
   "support_tickets": [],
@@ -8288,6 +8358,38 @@
     }
   ],
   "platform_events": [
+    {
+      "id": "evt_1790427994609_v77k1am",
+      "eventType": "USER_LOGGED_IN",
+      "severity": "INFO",
+      "category": "AUTH",
+      "timestamp": "2026-09-26T13:06:34.609Z",
+      "userId": "IKd49SpWgBa5XubDF2sLqaslOyF3",
+      "userEmail": "sarasara222341@gmail.com",
+      "requestId": "req_1790427993489_a1466354",
+      "sanitizedMessage": "User logged in: sarasara222341@gmail.com (role: Admin)",
+      "status": "ACTIVE",
+      "metadata": {
+        "role": "Admin"
+      },
+      "source": "server"
+    },
+    {
+      "id": "evt_1790427993153_v3x63tn",
+      "eventType": "USER_LOGGED_IN",
+      "severity": "INFO",
+      "category": "AUTH",
+      "timestamp": "2026-09-26T13:06:33.153Z",
+      "userId": "toKBrIdHJPUPGW7h09MR1hizYpc2",
+      "userEmail": "ui_workspace_test_1790427988253@zakir.ai",
+      "requestId": "req_1790427991910_7063d80b",
+      "sanitizedMessage": "User logged in: ui_workspace_test_1790427988253@zakir.ai (role: CEO)",
+      "status": "ACTIVE",
+      "metadata": {
+        "role": "CEO"
+      },
+      "source": "server"
+    },
     {
       "id": "evt_1790426968263_29wmcbn",
       "eventType": "USER_LOGGED_IN",
@@ -14284,6 +14386,38 @@
       "status": "ACTIVE",
       "metadata": {
         "role": "CEO"
+      },
+      "source": "server"
+    },
+    {
+      "id": "evt_1790427993153_v3x63tn",
+      "eventType": "USER_LOGGED_IN",
+      "severity": "INFO",
+      "category": "AUTH",
+      "timestamp": "2026-09-26T13:06:33.153Z",
+      "userId": "toKBrIdHJPUPGW7h09MR1hizYpc2",
+      "userEmail": "ui_workspace_test_1790427988253@zakir.ai",
+      "requestId": "req_1790427991910_7063d80b",
+      "sanitizedMessage": "User logged in: ui_workspace_test_1790427988253@zakir.ai (role: CEO)",
+      "status": "ACTIVE",
+      "metadata": {
+        "role": "CEO"
+      },
+      "source": "server"
+    },
+    {
+      "id": "evt_1790427994609_v77k1am",
+      "eventType": "USER_LOGGED_IN",
+      "severity": "INFO",
+      "category": "AUTH",
+      "timestamp": "2026-09-26T13:06:34.609Z",
+      "userId": "IKd49SpWgBa5XubDF2sLqaslOyF3",
+      "userEmail": "sarasara222341@gmail.com",
+      "requestId": "req_1790427993489_a1466354",
+      "sanitizedMessage": "User logged in: sarasara222341@gmail.com (role: Admin)",
+      "status": "ACTIVE",
+      "metadata": {
+        "role": "Admin"
       },
       "source": "server"
     }
@@ -32072,6 +32206,15 @@
     }
   ],
   "email_delivery_logs": [
+    {
+      "id": "01a0ddd3-0ccd-7114-be3f-7a21fdaf5736",
+      "recipient": "ui_workspace_test_1790427988253@zakir.ai",
+      "type": "notification",
+      "subject": "رمز التحقق لتفعيل حسابك في Zakir - Verify your Zakir account",
+      "timestamp": "2026-09-26T13:06:31.471Z",
+      "status": "DELIVERED",
+      "error": null
+    },
     {
       "id": "01a0ddc3-584e-76a2-abc6-62fa58a1330d",
       "recipient": "admin_created_1790426956963@zakir.ai",

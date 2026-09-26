@@ -1486,6 +1486,28 @@ export function subscribeToFirebaseAuthState(rawCallback: (user: User | null) =>
         }
       }
 
+      // Authoritative Server API Profile Fallback when client Firestore is offline or unSynced
+      if (!userObj) {
+        try {
+          const token = await fbUser.getIdToken().catch(() => null);
+          const headers: Record<string, string> = {};
+          if (token) headers["Authorization"] = `Bearer ${token}`;
+          headers["X-Auth-Token"] = token || fbUser.uid;
+
+          const apiRes = await fetch(getAuthApiUrl(`/api/auth/current-user-status?uid=${encodeURIComponent(fbUser.uid)}&email=${encodeURIComponent(fbUser.email || "")}`), {
+            headers
+          });
+          if (apiRes.ok) {
+            const apiData = await safeJsonResponse(apiRes);
+            if (apiData && apiData.success && apiData.user) {
+              userObj = apiData.user as User;
+            }
+          }
+        } catch (serverErr) {
+          console.warn("Notice: Server profile lookup in subscribeToFirebaseAuthState:", serverErr);
+        }
+      }
+
       if (userObj) {
         if (
           (userObj as any).deleted === true ||
