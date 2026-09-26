@@ -314,10 +314,21 @@ export function computeCanonicalVerification(
     Boolean(userData.verificationInfo?.emailVerifiedAt) ||
     Boolean(full.accountStatus && full.accountStatus !== "PENDING_EMAIL_VERIFICATION") ||
     Boolean(userData.accountStatus && userData.accountStatus !== "PENDING_EMAIL_VERIFICATION") ||
+    (Array.isArray(full.verificationDocuments) && full.verificationDocuments.length > 0) ||
+    (Array.isArray(userData.verificationDocuments) && userData.verificationDocuments.length > 0) ||
     documentCount > 0
   );
 
   const isEmailVer = rawEmailVerified && !adminRequestedReverification;
+
+  if (isEmailVer) {
+    full.emailVerified = true;
+    full.isEmailVerified = true;
+    full.email_verified = true;
+    userData.emailVerified = true;
+    userData.isEmailVerified = true;
+    userData.email_verified = true;
+  }
 
   const hasExplicitOverride = Boolean(
     full.adminVerificationOverride === true ||

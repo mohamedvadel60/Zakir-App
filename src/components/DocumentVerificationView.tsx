@@ -328,6 +328,9 @@ export const DocumentVerificationView: React.FC<DocumentVerificationViewProps> =
       const updatedUser: UserType = {
         ...currentUser,
         ...(resData.user || {}),
+        isEmailVerified: true,
+        emailVerified: true,
+        email_verified: true,
         accountStatus: "PENDING_ADMIN_REVIEW",
         documentVerificationStatus: "UNDER_REVIEW",
         requiresDocumentVerification: true,

@@ -123,6 +123,27 @@ const PendingApprovalView = React.lazy<React.ComponentType<any>>(() => import(".
 const AccountRejectedView = React.lazy<React.ComponentType<any>>(() => import("./components/AccountRejectedView").then((m: any) => ({ default: m.AccountRejectedView || m.default })));
 const RiskRadarChart = React.lazy<React.ComponentType<any>>(() => import("./components/RiskRadarChart").then((m: any) => ({ default: m.RiskRadarChart || m.default })));
 const AdminDashboard = React.lazy<React.ComponentType<any>>(() => import("./components/AdminDashboard").then((m: any) => ({ default: m.AdminDashboard || m.default })));
+
+export function checkIsEmailVerificationRequired(user: any): boolean {
+  if (!user || isUserAdmin(user)) return false;
+  if (user.adminRequestedEmailReverification === true || user.adminRequestedReverification === true) {
+    return true;
+  }
+  const isVerified = Boolean(
+    user.isEmailVerified === true ||
+    user.emailVerified === true ||
+    user.email_verified === true ||
+    user.email_verified === "true" ||
+    user.emailVerified === "true" ||
+    user.isEmailVerified === "true" ||
+    Boolean(user.emailVerifiedAt) ||
+    Boolean(user.verificationInfo?.emailVerifiedAt) ||
+    Boolean(user.accountStatus && user.accountStatus !== "PENDING_EMAIL_VERIFICATION") ||
+    (Array.isArray(user.verificationDocuments) && user.verificationDocuments.length > 0) ||
+    (Array.isArray(user.documents) && user.documents.length > 0)
+  );
+  return !isVerified;
+}
 import { DesktopUpdateNotification } from "./components/DesktopUpdateNotification";
 const DeletedAccountRecovery = React.lazy<React.ComponentType<any>>(() => import("./components/DeletedAccountRecovery").then((m: any) => ({ default: m.DeletedAccountRecovery || m.default })));
 const GmailVault = React.lazy<React.ComponentType<any>>(() => import("./components/GmailVault").then((m: any) => ({ default: m.GmailVault || m.default })));
@@ -1266,18 +1287,7 @@ This hosting domain (**${currentDomain}**) has not been authorized in your Fireb
         currentUser.accountStatus === "REJECTED" ||
         currentUser.documentVerificationStatus === "REJECTED";
 
-      const isEmailVerificationRequired = Boolean(
-        !isUserAdmin(currentUser) &&
-        (currentUser.adminRequestedEmailReverification === true ||
-          (
-            !currentUser.isEmailVerified &&
-            !currentUser.emailVerified &&
-            !currentUser.email_verified &&
-            !currentUser.emailVerifiedAt &&
-            !(currentUser as any).verificationInfo?.emailVerifiedAt &&
-            (currentUser.accountStatus === "PENDING_EMAIL_VERIFICATION" || !currentUser.accountStatus)
-          ))
-      );
+      const isEmailVerificationRequired = checkIsEmailVerificationRequired(currentUser);
 
       const isPendingApproval =
         (currentUser as any).canonicalVerificationStatus === "pending" ||
@@ -4567,17 +4577,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
             }}
           />
         </Suspense>
-      ) : (currentUser && !isUserAdmin(currentUser) && (
-        currentUser.adminRequestedEmailReverification === true ||
-        (
-          !currentUser.isEmailVerified &&
-          !currentUser.emailVerified &&
-          !currentUser.email_verified &&
-          !currentUser.emailVerifiedAt &&
-          !(currentUser as any).verificationInfo?.emailVerifiedAt &&
-          (currentUser.accountStatus === "PENDING_EMAIL_VERIFICATION" || !currentUser.accountStatus)
-        )
-      )) ? (
+      ) : (currentUser && checkIsEmailVerificationRequired(currentUser)) ? (
         <Suspense fallback={<FullScreenFallback />}>
           <EmailVerificationView
             currentUser={currentUser}

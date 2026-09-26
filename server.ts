@@ -10850,10 +10850,34 @@ app.get("/api/auth/current-user-status", requireAuth, async (req: AuthRequest, r
     if (userDoc) {
       const isSysAdmin = userDoc.role === "Admin" || (userDoc.email && ADMIN_EMAILS.has(userDoc.email.toLowerCase()));
       const canonical = computeCanonicalVerification(userDoc, isSysAdmin);
-      userDoc.isEmailVerified = canonical.isEmailVerified;
-      userDoc.email_verified = canonical.isEmailVerified;
-      userDoc.emailVerified = canonical.isEmailVerified;
-      userDoc.accountStatus = canonical.accountStatus;
+      
+      const wasEmailVerified = Boolean(
+        userDoc.isEmailVerified === true ||
+        userDoc.emailVerified === true ||
+        userDoc.email_verified === true ||
+        Boolean(userDoc.emailVerifiedAt) ||
+        Boolean(userDoc.verificationInfo?.emailVerifiedAt) ||
+        canonical.isEmailVerified
+      );
+
+      const adminReverifRequested = Boolean(
+        userDoc.adminRequestedEmailReverification === true ||
+        userDoc.adminRequestedReverification === true
+      );
+
+      const finalEmailVerified = wasEmailVerified && !adminReverifRequested;
+
+      userDoc.isEmailVerified = finalEmailVerified;
+      userDoc.email_verified = finalEmailVerified;
+      userDoc.emailVerified = finalEmailVerified;
+      userDoc.adminRequestedEmailReverification = adminReverifRequested;
+
+      if (finalEmailVerified && canonical.accountStatus === "PENDING_EMAIL_VERIFICATION") {
+        userDoc.accountStatus = "PENDING_DOCUMENT_VERIFICATION";
+      } else {
+        userDoc.accountStatus = canonical.accountStatus;
+      }
+
       userDoc.documentVerificationStatus = canonical.documentVerificationStatus;
       userDoc.kycStatus = canonical.kycStatus;
       userDoc.canonicalVerificationStatus = canonical.canonicalStatus;
