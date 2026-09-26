@@ -6,6 +6,7 @@
 
 export type LoginErrorCode =
   | "LOGIN_INVALID_CREDENTIALS"
+  | "LOGIN_GOOGLE_ONLY_ACCOUNT"
   | "LOGIN_USER_NOT_FOUND"
   | "LOGIN_INVALID_EMAIL"
   | "LOGIN_USER_DISABLED"
@@ -160,6 +161,8 @@ export function normalizeLoginError(source: any): LoginErrorCode {
   if (!source) {
     return "LOGIN_INVALID_CREDENTIALS";
   }
+
+  const rawCode = String(source?.code || source?.originalCode || source?.errorCode || "").toLowerCase();
 
   // Already a typed LoginError
   if (source instanceof LoginError || source?.name === "LoginError") {
@@ -354,6 +357,16 @@ export function normalizeLoginError(source: any): LoginErrorCode {
     return "LOGIN_PROFILE_NOT_FOUND";
   }
   if (
+    rawCode.includes("google-only") ||
+    rawCode.includes("google_only") ||
+    rawMsg.includes("مرتبط بتسجيل الدخول عبر google") ||
+    rawMsg.includes("connexion google") ||
+    rawMsg.includes("google sign-in only")
+  ) {
+    return "LOGIN_GOOGLE_ONLY_ACCOUNT";
+  }
+
+  if (
     rawMsg.includes("invalid-credential") ||
     rawMsg.includes("invalid-login-credentials") ||
     rawMsg.includes("wrong-password") ||
@@ -377,6 +390,13 @@ export function normalizeLoginError(source: any): LoginErrorCode {
  */
 export function formatLoginErrorMessage(code: LoginErrorCode, lang: string = "ar"): string {
   switch (code) {
+    case "LOGIN_GOOGLE_ONLY_ACCOUNT":
+      return lang === "ar"
+        ? "هذا الحساب مرتبط بتسجيل الدخول عبر Google فقط. لاستخدام البريد الإلكتروني وكلمة المرور، قم أولاً بتعيين كلمة مرور من إعدادات الحساب."
+        : lang === "fr"
+        ? "Ce compte est associé uniquement à la connexion Google. Pour utiliser un e-mail et un mot de passe, définissez d'abord un mot de passe dans les paramètres du compte."
+        : "This account is linked with Google Sign-In only. To use Email & Password, please set a password first from your account settings.";
+
     case "LOGIN_INVALID_CREDENTIALS":
       return lang === "ar"
         ? "بيانات الدخول غير صحيحة. يرجى التحقق من البريد الإلكتروني وكلمة المرور."

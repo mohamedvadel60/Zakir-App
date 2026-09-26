@@ -423,7 +423,10 @@ export async function loginFirebaseUser(email: string, pass: string, attemptId?:
     const userCredential = await signInWithEmailAndPassword(auth, normalizedEmail, pass);
     clientUid = userCredential.user.uid;
     try {
-      await userCredential.user.getIdToken();
+      const token = await userCredential.user.getIdToken(true);
+      if (token && typeof window !== "undefined") {
+        localStorage.setItem("zakir_auth_token", token);
+      }
     } catch (tErr) {
       console.warn("Notice: getIdToken resolution in loginFirebaseUser:", tErr);
     }
@@ -584,6 +587,15 @@ export async function loginFirebaseUser(email: string, pass: string, attemptId?:
         setLocalItem(`user_${authenticatedUser.id}`, authenticatedUser);
         return authenticatedUser;
       }
+
+      if (srvData && (srvData.code === "auth/google-only-account" || srvData.error === "GOOGLE_ONLY_ACCOUNT" || srvData.code === "GOOGLE_ONLY_ACCOUNT")) {
+        throw new LoginError("LOGIN_GOOGLE_ONLY_ACCOUNT", srvData.message || formatLoginErrorMessage("LOGIN_GOOGLE_ONLY_ACCOUNT", "ar"), {
+          originalCode: "auth/google-only-account",
+          email: normalizedEmail,
+          statusCode: 401,
+          attemptId: currentAttemptId
+        });
+      }
     } catch (srvFallbackErr) {
       if (srvFallbackErr instanceof LoginError) throw srvFallbackErr;
       console.warn("Notice: Server login fallback notice:", srvFallbackErr);
@@ -624,53 +636,7 @@ export async function loginFirebaseUser(email: string, pass: string, attemptId?:
   if (clientUid) {
     const uid = clientUid;
 
-    // Check if account was marked deleted in account state resolution or /deletedUsers/{uid}
-    try {
-      const resolution = await resolveAccountState(normalizedEmail);
-      if (resolution && resolution.accountState && resolution.accountState.startsWith("DELETED_ACCOUNT")) {
-        await signOut(auth);
-        clearUserLocalCache(uid);
-        throw new LoginError("LOGIN_SELF_DELETED", resolution.userFriendlyMessage || "تم العثور على حسابك المحذوف سابقاً، وهو متاح للاستعادة.", {
-          originalCode: "SELF_RESTORE_AVAILABLE",
-          email: normalizedEmail,
-          daysRemaining: resolution.daysRemaining ?? 31,
-          restoreUntil: resolution.restoreUntil,
-          hasRecoveryRequest: resolution.hasRecoveryRequest,
-          recoveryStatus: resolution.recoveryStatus,
-          recoveryRequestId: resolution.recoveryRequestId,
-          accountState: resolution.accountState,
-          initialTab: resolution.hasRecoveryRequest ? "status" : "request",
-          isExpired: resolution.isExpired,
-          statusCode: 403,
-          attemptId: currentAttemptId
-        });
-      }
-
-      const deletedSnap = await getDocWithRetry(doc(db, "deletedUsers", uid), 2, 150);
-      if (deletedSnap && deletedSnap.exists()) {
-        await signOut(auth);
-        clearUserLocalCache(uid);
-        throw new LoginError("LOGIN_SELF_DELETED", "تم العثور على حسابك المحذوف سابقاً، وهو متاح للاستعادة.", {
-          originalCode: "SELF_RESTORE_AVAILABLE",
-          email: normalizedEmail,
-          daysRemaining: 31,
-          attemptId: currentAttemptId
-        });
-      }
-    } catch (dErr: any) {
-      if (dErr instanceof LoginError) throw dErr;
-      if (dErr.message?.includes("deleted") || dErr.message?.includes("حذف")) {
-        throw new LoginError("LOGIN_SELF_DELETED", dErr.message, {
-          originalCode: "SELF_RESTORE_AVAILABLE",
-          email: normalizedEmail,
-          daysRemaining: 31,
-          attemptId: currentAttemptId
-        });
-      }
-      console.warn("Notice: Verifying account status in /deletedUsers/ encountered non-fatal error:", uid, dErr);
-    }
-
-    // Retrieve user document from /users/{uid}
+    // Retrieve user document from /users/{uid} FIRST (MANDATORY RULE: ACTIVE USER > OLD DELETION RECORD)
     const userDocRef = doc(db, "users", uid);
     let userSnap: any = null;
     try {
@@ -696,7 +662,8 @@ export async function loginFirebaseUser(email: string, pass: string, attemptId?:
       }
     }
 
-    // Fallback: check authoritative server profile via ID token
+    // Authoritative Server Profile lookup via ID token (Crucial when client Firestore is offline or quota-limited)
+    let serverProfileUser: User | null = null;
     if (!userSnap || !userSnap.exists()) {
       try {
         const idToken = await auth.currentUser?.getIdToken();
@@ -709,16 +676,59 @@ export async function loginFirebaseUser(email: string, pass: string, attemptId?:
           if (res.ok) {
             const serverProfile = await safeJsonResponse(res);
             if (serverProfile && (serverProfile.id || serverProfile.user)) {
-              const uProfile: User = serverProfile.user || serverProfile;
-              uProfile.id = uid;
-              setLocalItem(`user_${uid}`, uProfile);
-              return uProfile;
+              serverProfileUser = (serverProfile.user || serverProfile) as User;
             }
           }
         }
       } catch (srvFetchErr) {
         console.warn("Notice: Server profile lookup via ID token notice:", srvFetchErr);
       }
+    }
+
+    const userData = (userSnap && userSnap.exists() ? (userSnap.data() as User) : null) || serverProfileUser;
+    const isExplicitlyDeleted = Boolean(
+      userData && (
+        (userData as any).deleted === true ||
+        (userData as any).status === "ADMIN_DELETED" ||
+        (userData as any).status === "SELF_DELETED" ||
+        (userData as any).accountLifecycleStatus === "SELF_DELETED" ||
+        (userData as any).accountLifecycleStatus === "PURGED"
+      )
+    );
+
+    // ONLY IF the authenticated user profile is EXPLICITLY marked deleted, check resolution
+    if (userData && isExplicitlyDeleted) {
+      try {
+        const resolution = await resolveAccountState(normalizedEmail, uid);
+        if (resolution && resolution.accountState && resolution.accountState.startsWith("DELETED_ACCOUNT")) {
+          await signOut(auth);
+          clearUserLocalCache(uid);
+          throw new LoginError("LOGIN_SELF_DELETED", resolution.userFriendlyMessage || "تم العثور على حسابك المحذوف سابقاً، وهو متاح للاستعادة.", {
+            originalCode: "SELF_RESTORE_AVAILABLE",
+            email: normalizedEmail,
+            daysRemaining: resolution.daysRemaining ?? 31,
+            restoreUntil: resolution.restoreUntil,
+            hasRecoveryRequest: resolution.hasRecoveryRequest,
+            recoveryStatus: resolution.recoveryStatus,
+            recoveryRequestId: resolution.recoveryRequestId,
+            accountState: resolution.accountState,
+            initialTab: resolution.hasRecoveryRequest ? "status" : "request",
+            isExpired: resolution.isExpired,
+            statusCode: 403,
+            attemptId: currentAttemptId
+          });
+        }
+      } catch (dErr: any) {
+        if (dErr instanceof LoginError) throw dErr;
+      }
+    }
+
+    // If serverProfileUser exists and is active, save to cache and return immediately
+    if (serverProfileUser && !isExplicitlyDeleted) {
+      serverProfileUser.id = uid;
+      (serverProfileUser as any).uid = uid;
+      setLocalItem(`user_${uid}`, serverProfileUser);
+      return serverProfileUser;
     }
 
     // If profile exists in Firestore, load, normalize and preserve all existing fields
@@ -957,58 +967,10 @@ export async function loginWithGoogle(): Promise<User> {
   isFirestoreOffline = false;
   
   const normEmail = (email || "").trim().toLowerCase();
-  if (normEmail) {
-    try {
-      const resolution = await resolveAccountState(normEmail);
-      if (resolution && resolution.accountState && resolution.accountState.startsWith("DELETED_ACCOUNT")) {
-        await signOut(auth);
-        clearUserLocalCache(uid);
-        throw new LoginError("LOGIN_SELF_DELETED", resolution.userFriendlyMessage || "تم العثور على حسابك المحذوف سابقاً، وهو متاح للاستعادة.", {
-          originalCode: "SELF_RESTORE_AVAILABLE",
-          email: normEmail,
-          daysRemaining: resolution.daysRemaining ?? 31,
-          restoreUntil: resolution.restoreUntil,
-          hasRecoveryRequest: resolution.hasRecoveryRequest,
-          recoveryStatus: resolution.recoveryStatus,
-          recoveryRequestId: resolution.recoveryRequestId,
-          accountState: resolution.accountState,
-          initialTab: resolution.hasRecoveryRequest ? "status" : "request",
-          isExpired: resolution.isExpired
-        });
-      }
-    } catch (lcErr: any) {
-      if (lcErr instanceof LoginError || lcErr.name === "LoginError") throw lcErr;
-    }
-  }
 
-  // Check if account was marked deleted in /deletedUsers/{uid}
-  try {
-    const deletedSnap = await getDocWithRetry(doc(db, "deletedUsers", uid), 3, 200);
-    if (deletedSnap && deletedSnap.exists()) {
-      await signOut(auth);
-      clearUserLocalCache(uid);
-      throw new LoginError("LOGIN_SELF_DELETED", "تم العثور على حسابك المحذوف سابقاً، وهو متاح للاستعادة.", {
-        originalCode: "SELF_RESTORE_AVAILABLE",
-        email: normEmail,
-        daysRemaining: 31
-      });
-    }
-  } catch (dErr: any) {
-    if (dErr instanceof LoginError || dErr.name === "LoginError") throw dErr;
-    if (dErr.message?.includes("deleted") || dErr.message?.includes("حذف")) {
-      await signOut(auth);
-      clearUserLocalCache(uid);
-      throw new LoginError("LOGIN_SELF_DELETED", dErr.message, {
-        originalCode: "SELF_RESTORE_AVAILABLE",
-        email: normEmail,
-        daysRemaining: 31
-      });
-    }
-    console.warn("Notice: /deletedUsers/ check in loginWithGoogle encountered non-fatal error:", uid, dErr);
-  }
-
+  // Retrieve user document from /users/{uid} FIRST (MANDATORY RULE: ACTIVE USER > OLD DELETION RECORD)
   const userDocRef = doc(db, "users", uid);
-  let userSnap;
+  let userSnap: any = null;
   try {
     userSnap = await getDoc(userDocRef);
   } catch (error) {
@@ -1024,6 +986,75 @@ export async function loginWithGoogle(): Promise<User> {
       }
       handleFirestoreError(error, OperationType.GET, `users/${uid}`);
     }
+  }
+
+  // Authoritative Server Profile lookup via ID token if userSnap not yet found in Firestore
+  let serverProfileUser: User | null = null;
+  if (!userSnap || !userSnap.exists()) {
+    try {
+      const idToken = await auth.currentUser?.getIdToken();
+      if (idToken) {
+        const res = await fetch(getAuthApiUrl("/api/auth/current-user-status"), {
+          headers: {
+            Authorization: `Bearer ${idToken}`
+          }
+        });
+        if (res.ok) {
+          const serverProfile = await safeJsonResponse(res);
+          if (serverProfile && (serverProfile.id || serverProfile.user)) {
+            serverProfileUser = (serverProfile.user || serverProfile) as User;
+          }
+        }
+      }
+    } catch (srvFetchErr) {
+      console.warn("Notice: Server profile lookup via ID token notice in loginWithGoogle:", srvFetchErr);
+    }
+  }
+
+  const existingUserData = (userSnap && userSnap.exists() ? (userSnap.data() as User) : null) || serverProfileUser;
+  const isExplicitlyDeleted = Boolean(
+    existingUserData && (
+      (existingUserData as any).deleted === true ||
+      (existingUserData as any).status === "ADMIN_DELETED" ||
+      (existingUserData as any).status === "SELF_DELETED" ||
+      (existingUserData as any).accountLifecycleStatus === "SELF_DELETED" ||
+      (existingUserData as any).accountLifecycleStatus === "PURGED"
+    )
+  );
+
+  // ONLY IF the authenticated user profile is EXPLICITLY marked deleted, check resolution
+  if (existingUserData && isExplicitlyDeleted) {
+    if (normEmail) {
+      try {
+        const resolution = await resolveAccountState(normEmail, uid);
+        if (resolution && resolution.accountState && resolution.accountState.startsWith("DELETED_ACCOUNT")) {
+          await signOut(auth);
+          clearUserLocalCache(uid);
+          throw new LoginError("LOGIN_SELF_DELETED", resolution.userFriendlyMessage || "تم العثور على حسابك المحذوف سابقاً، وهو متاح للاستعادة.", {
+            originalCode: "SELF_RESTORE_AVAILABLE",
+            email: normEmail,
+            daysRemaining: resolution.daysRemaining ?? 31,
+            restoreUntil: resolution.restoreUntil,
+            hasRecoveryRequest: resolution.hasRecoveryRequest,
+            recoveryStatus: resolution.recoveryStatus,
+            recoveryRequestId: resolution.recoveryRequestId,
+            accountState: resolution.accountState,
+            initialTab: resolution.hasRecoveryRequest ? "status" : "request",
+            isExpired: resolution.isExpired
+          });
+        }
+      } catch (lcErr: any) {
+        if (lcErr instanceof LoginError || lcErr.name === "LoginError") throw lcErr;
+      }
+    }
+  }
+
+  // If serverProfileUser exists and is active, save and return immediately
+  if (serverProfileUser && !isExplicitlyDeleted) {
+    serverProfileUser.id = uid;
+    (serverProfileUser as any).uid = uid;
+    setLocalItem(`user_${uid}`, serverProfileUser);
+    return serverProfileUser;
   }
 
   if (userSnap && userSnap.exists()) {
@@ -1414,6 +1445,10 @@ export function subscribeToFirebaseAuthState(rawCallback: (user: User | null) =>
   };
   return onAuthStateChanged(auth, async (fbUser: FirebaseUser | null) => {
     if (!fbUser) {
+      if (auth.currentUser) {
+        console.warn("Notice: Ignored transient null onAuthStateChanged event while auth.currentUser is active during CAPTCHA/token refresh.");
+        return;
+      }
       callback(null);
       return;
     }
@@ -3187,9 +3222,47 @@ export interface AccountStateResolution {
   userFriendlyMessage: string;
 }
 
-export async function resolveAccountState(email: string): Promise<AccountStateResolution> {
+export async function resolveAccountState(email: string, optUid?: string): Promise<AccountStateResolution> {
   const normEmail = (email || "").trim().toLowerCase();
-  if (!normEmail) {
+  const targetUid = optUid || (auth.currentUser?.email?.toLowerCase() === normEmail ? auth.currentUser?.uid : null);
+
+  // 1. Mandatory Business Rule: ACTIVE USER HAS ABSOLUTE PRIORITY
+  // If UID is known, check if active user exists in Firestore users collection
+  if (targetUid) {
+    try {
+      const uSnap = await getDocWithRetry(doc(db, "users", targetUid), 2, 100);
+      if (uSnap && uSnap.exists()) {
+        const uData = uSnap.data() as any;
+        const isDeleted = Boolean(
+          uData?.deleted === true ||
+          uData?.status === "SELF_DELETED" ||
+          uData?.status === "ADMIN_DELETED" ||
+          uData?.accountLifecycleStatus === "SELF_DELETED" ||
+          uData?.accountLifecycleStatus === "PURGED"
+        );
+        if (!isDeleted) {
+          return {
+            success: true,
+            email: normEmail || uData.email || "",
+            accountState: "ACTIVE_ACCOUNT",
+            lifecycleStatus: "ACTIVE",
+            canRestore: false,
+            adminApprovalRequired: false,
+            daysRemaining: 0,
+            restoreUntil: null,
+            hasRecoveryRequest: false,
+            recoveryRequestId: null,
+            recoveryStatus: "none",
+            isExpired: false,
+            originalUserId: targetUid,
+            userFriendlyMessage: "البريد الإلكتروني مسجل بالفعل. يرجى تسجيل الدخول إلى حسابك."
+          };
+        }
+      }
+    } catch (e) {}
+  }
+
+  if (!normEmail && !targetUid) {
     return {
       success: false,
       email: "",
@@ -3208,7 +3281,7 @@ export async function resolveAccountState(email: string): Promise<AccountStateRe
     };
   }
 
-  // 1. Primary check: Server-authoritative resolve-account endpoint
+  // 2. Primary check: Server-authoritative resolve-account endpoint with email AND uid
   try {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 8000);
@@ -3217,7 +3290,7 @@ export async function resolveAccountState(email: string): Promise<AccountStateRe
       method: "POST",
       credentials: "include",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email: normEmail }),
+      body: JSON.stringify({ email: normEmail, uid: targetUid }),
       signal: controller.signal
     });
     clearTimeout(timeoutId);

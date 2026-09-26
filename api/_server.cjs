@@ -2436,6 +2436,7 @@ __export(server_exports, {
   readDb: () => readDb2,
   reconcileWorkspaceData: () => reconcileWorkspaceData,
   requestAccountReactivationServer: () => requestAccountReactivationServer,
+  resolveAccountLifecycle: () => resolveAccountLifecycle2,
   resolveUserByEmailOrId: () => resolveUserByEmailOrId,
   restoreAccountFullServer: () => restoreAccountFullServer2,
   runWithWorkspaceLock: () => runWithWorkspaceLock,
@@ -3405,100 +3406,319 @@ function writeDb(data) {
   } catch (e) {
   }
 }
-async function getAccountLifecycleRecord(email) {
-  const normalizedEmail = (email || "").trim().toLowerCase();
-  if (!normalizedEmail) return null;
-  if (isFirebaseAdminAvailable && adminDb) {
-    try {
-      const snap = await adminDb.collection("accountLifecycle").doc(normalizedEmail).get();
-      if (snap.exists) {
-        const d = snap.data();
-        if (d && d.status !== "ACTIVE" && d.status !== "NEW") return d;
+async function resolveAccountLifecycle(identifier, optUid) {
+  const rawId = (identifier || "").trim();
+  const normalizedEmail = rawId.includes("@") ? rawId.toLowerCase() : "";
+  let uid = optUid ? optUid.trim() : !rawId.includes("@") && rawId.length >= 8 ? rawId : null;
+  const isUserActive = (u) => Boolean(
+    u && u.deleted !== true && u.status !== "SELF_DELETED" && u.status !== "ADMIN_DELETED" && u.accountLifecycleStatus !== "SELF_DELETED" && u.accountLifecycleStatus !== "PURGED"
+  );
+  let activeUser = null;
+  let activeUid = null;
+  if (uid) {
+    if (isFirebaseAdminAvailable && adminDb) {
+      try {
+        const uDoc = await adminDb.collection("users").doc(uid).get();
+        if (uDoc.exists && isUserActive(uDoc.data())) {
+          activeUser = uDoc.data();
+          activeUid = uid;
+        }
+      } catch (e) {
       }
-    } catch (e) {
     }
+    if (!activeUser) {
+      const db2 = readDb();
+      const localU = db2.users?.find((u) => (u.id === uid || u.uid === uid) && isUserActive(u));
+      if (localU) {
+        activeUser = localU;
+        activeUid = uid;
+      }
+    }
+    if (!activeUser && isFirebaseAdminAvailable && adminAuth) {
+      try {
+        const authUser = await adminAuth.getUser(uid).catch(() => null);
+        if (authUser && !authUser.disabled) {
+          activeUser = { id: authUser.uid, uid: authUser.uid, email: authUser.email, role: "Contributor" };
+          activeUid = uid;
+        }
+      } catch (e) {
+      }
+    }
+  }
+  if (!activeUser && normalizedEmail) {
+    if (isFirebaseAdminAvailable && adminDb) {
+      try {
+        const emSnap = await adminDb.collection("users").where("email", "==", normalizedEmail).limit(1).get();
+        if (!emSnap.empty && isUserActive(emSnap.docs[0].data())) {
+          activeUser = emSnap.docs[0].data();
+          activeUid = emSnap.docs[0].id;
+        }
+      } catch (e) {
+      }
+    }
+    if (!activeUser) {
+      const db2 = readDb();
+      const localU = db2.users?.find((u) => (u.email || "").trim().toLowerCase() === normalizedEmail && isUserActive(u));
+      if (localU) {
+        activeUser = localU;
+        activeUid = localU.id || localU.uid;
+      }
+    }
+    if (!activeUser && isFirebaseAdminAvailable && adminAuth) {
+      try {
+        const authUser = await adminAuth.getUserByEmail(normalizedEmail).catch(() => null);
+        if (authUser && !authUser.disabled) {
+          activeUser = { id: authUser.uid, uid: authUser.uid, email: authUser.email, role: "Contributor" };
+          activeUid = authUser.uid;
+        }
+      } catch (e) {
+      }
+    }
+  }
+  if (activeUser) {
+    const activeUserId = activeUid || activeUser.id || activeUser.uid;
+    const finalEmail = (normalizedEmail || activeUser.email || "").trim().toLowerCase();
     try {
-      const delSnap = await adminDb.collection("deletedUsers").where("email", "==", normalizedEmail).limit(1).get();
-      if (!delSnap.empty) {
-        const dData = delSnap.docs[0].data();
-        const deletedAt = dData.deletedAt || (/* @__PURE__ */ new Date()).toISOString();
-        const restoreUntil = new Date(new Date(deletedAt).getTime() + 31 * 24 * 60 * 60 * 1e3).toISOString();
-        return {
-          accountId: normalizedEmail,
-          emailNormalized: normalizedEmail,
-          status: dData.reason === "admin_deleted" || dData.deletionType === "admin" ? "ADMIN_DELETED" : "SELF_DELETED",
-          deletionType: dData.reason === "admin_deleted" || dData.deletionType === "admin" ? "admin" : "self",
-          deletedAt,
-          restoreUntil,
-          originalUserId: dData.uid || delSnap.docs[0].id,
-          adminApprovalRequired: dData.reason === "admin_deleted" || dData.deletionType === "admin"
+      const db2 = readDb();
+      let changed = false;
+      if (db2.retained_users && db2.retained_users.length > 0) {
+        const origLen = db2.retained_users.length;
+        db2.retained_users = db2.retained_users.filter(
+          (u) => (activeUserId ? u.id !== activeUserId && u.uid !== activeUserId : true) && (finalEmail ? (u.email || "").trim().toLowerCase() !== finalEmail : true)
+        );
+        if (db2.retained_users.length !== origLen) changed = true;
+      }
+      if (db2.deleted_users && db2.deleted_users.length > 0) {
+        const origLen = db2.deleted_users.length;
+        db2.deleted_users = db2.deleted_users.filter(
+          (u) => (activeUserId ? u.id !== activeUserId && u.uid !== activeUserId : true) && (finalEmail ? (u.email || "").trim().toLowerCase() !== finalEmail : true)
+        );
+        if (db2.deleted_users.length !== origLen) changed = true;
+      }
+      if (db2.account_lifecycle && finalEmail) {
+        const idx = db2.account_lifecycle.findIndex(
+          (r) => (r.emailNormalized || r.accountId || r.email || "").trim().toLowerCase() === finalEmail
+        );
+        const activePayload = {
+          accountId: finalEmail,
+          emailNormalized: finalEmail,
+          status: "ACTIVE",
+          deletionType: null,
+          deletedAt: null,
+          deletedBy: null,
+          restoreUntil: null,
+          originalUserId: activeUserId,
+          retainedDataDocPath: null,
+          adminApprovalRequired: false,
+          canRestore: false,
+          daysRemaining: 0,
+          updatedAt: (/* @__PURE__ */ new Date()).toISOString()
         };
+        if (idx >= 0) db2.account_lifecycle[idx] = activePayload;
+        else db2.account_lifecycle.push(activePayload);
+        changed = true;
       }
+      if (changed) writeDb(db2);
     } catch (e) {
     }
-  }
-  const db2 = readDb();
-  const localLifecycle = db2.account_lifecycle?.find((r) => (r.emailNormalized || r.email || "").trim().toLowerCase() === normalizedEmail);
-  if (localLifecycle && localLifecycle.status !== "ACTIVE" && localLifecycle.status !== "NEW") {
-    return localLifecycle;
-  }
-  const localDeleted = db2.deleted_users?.find((u) => (u.email || "").trim().toLowerCase() === normalizedEmail);
-  if (localDeleted) {
-    const deletedAt = localDeleted.deletedAt || (/* @__PURE__ */ new Date()).toISOString();
-    const restoreUntil = new Date(new Date(deletedAt).getTime() + 31 * 24 * 60 * 60 * 1e3).toISOString();
+    if (isFirebaseAdminAvailable && adminDb) {
+      try {
+        if (activeUserId) {
+          adminDb.collection("users_retained").doc(activeUserId).delete().catch(() => {
+          });
+          adminDb.collection("deletedUsers").doc(activeUserId).delete().catch(() => {
+          });
+        }
+        if (finalEmail) {
+          adminDb.collection("accountLifecycle").doc(finalEmail).set({
+            accountId: finalEmail,
+            emailNormalized: finalEmail,
+            status: "ACTIVE",
+            deletionType: null,
+            deletedAt: null,
+            deletedBy: null,
+            restoreUntil: null,
+            originalUserId: activeUserId,
+            retainedDataDocPath: null,
+            adminApprovalRequired: false,
+            canRestore: false,
+            daysRemaining: 0,
+            updatedAt: (/* @__PURE__ */ new Date()).toISOString()
+          }, { merge: true }).catch(() => {
+          });
+        }
+      } catch (e) {
+      }
+    }
     return {
-      accountId: normalizedEmail,
-      emailNormalized: normalizedEmail,
-      status: localDeleted.reason === "admin_deleted" || localDeleted.deletionType === "admin" ? "ADMIN_DELETED" : "SELF_DELETED",
-      deletionType: localDeleted.reason === "admin_deleted" || localDeleted.deletionType === "admin" ? "admin" : "self",
-      deletedAt,
-      restoreUntil,
-      originalUserId: localDeleted.uid || localDeleted.id,
-      adminApprovalRequired: localDeleted.reason === "admin_deleted" || localDeleted.deletionType === "admin"
+      status: "ACTIVE",
+      accountState: "ACTIVE_ACCOUNT",
+      email: finalEmail,
+      isDeleted: false,
+      canRestore: false,
+      adminApprovalRequired: false,
+      daysRemaining: 0,
+      restoreUntil: null,
+      deletedAt: null,
+      originalUserId: activeUserId || null,
+      user: activeUser,
+      userFriendlyMessage: "\u0627\u0644\u0628\u0631\u064A\u062F \u0627\u0644\u0625\u0644\u0643\u062A\u0631\u0648\u0646\u064A \u0645\u0633\u062C\u0644 \u0628\u0627\u0644\u0641\u0639\u0644. \u064A\u0631\u062C\u0649 \u062A\u0633\u062C\u064A\u0644 \u0627\u0644\u062F\u062E\u0648\u0644 \u0625\u0644\u0649 \u062D\u0633\u0627\u0628\u0643."
     };
   }
-  if (isFirebaseAdminAvailable && adminDb) {
-    try {
-      const activeUserSnap = await adminDb.collection("users").where("email", "==", normalizedEmail).limit(1).get();
-      if (!activeUserSnap.empty) {
-        const activeDoc = activeUserSnap.docs[0].data();
-        if (activeDoc && (activeDoc.email || "").trim().toLowerCase() === normalizedEmail && activeDoc.deleted !== true && activeDoc.status !== "SELF_DELETED" && activeDoc.status !== "ADMIN_DELETED") {
-          return {
-            accountId: normalizedEmail,
-            emailNormalized: normalizedEmail,
-            status: "ACTIVE",
-            canRestore: false,
-            adminApprovalRequired: false
-          };
+  let record = null;
+  if (normalizedEmail) {
+    if (isFirebaseAdminAvailable && adminDb) {
+      try {
+        const docRef = adminDb.collection("accountLifecycle").doc(normalizedEmail);
+        const docSnap = await docRef.get();
+        if (docSnap.exists) {
+          const d = docSnap.data();
+          if (d && (d.emailNormalized === normalizedEmail || d.accountId === normalizedEmail || (d.email || "").trim().toLowerCase() === normalizedEmail)) {
+            record = d;
+          }
+        }
+      } catch (e) {
+      }
+    }
+    if (!record) {
+      const db2 = readDb();
+      const found = db2.account_lifecycle?.find((r) => (r.emailNormalized || r.accountId || r.email || "").trim().toLowerCase() === normalizedEmail);
+      if (found) record = found;
+    }
+    if (!record) {
+      let deletedMarker = null;
+      if (isFirebaseAdminAvailable && adminDb) {
+        try {
+          const delSnap = await adminDb.collection("deletedUsers").where("email", "==", normalizedEmail).limit(1).get();
+          if (!delSnap.empty) deletedMarker = delSnap.docs[0].data();
+        } catch (e) {
         }
       }
-    } catch (e) {
-    }
-    try {
-      const authUser = await adminAuth.getUserByEmail(normalizedEmail).catch(() => null);
-      if (authUser && !authUser.disabled) {
-        return {
+      if (!deletedMarker) {
+        const db2 = readDb();
+        deletedMarker = db2.deleted_users?.find((u) => (u.email || "").trim().toLowerCase() === normalizedEmail);
+      }
+      if (deletedMarker) {
+        const deletedAt = deletedMarker.deletedAt || (/* @__PURE__ */ new Date()).toISOString();
+        const restoreUntil = new Date(new Date(deletedAt).getTime() + 31 * 24 * 60 * 60 * 1e3).toISOString();
+        record = {
           accountId: normalizedEmail,
           emailNormalized: normalizedEmail,
-          status: "ACTIVE",
-          canRestore: false,
+          status: deletedMarker.reason === "admin_deleted" || deletedMarker.deletionType === "admin" ? "ADMIN_DELETED" : "SELF_DELETED",
+          deletionType: deletedMarker.reason === "admin_deleted" || deletedMarker.deletionType === "admin" ? "admin" : "self",
+          deletedAt,
+          restoreUntil,
+          originalUserId: deletedMarker.uid || deletedMarker.id,
+          adminApprovalRequired: deletedMarker.reason === "admin_deleted" || deletedMarker.deletionType === "admin"
+        };
+      }
+    }
+    if (!record) {
+      let retainedData = null;
+      if (isFirebaseAdminAvailable && adminDb) {
+        try {
+          const retSnap = await adminDb.collection("users_retained").where("email", "==", normalizedEmail).limit(1).get();
+          if (!retSnap.empty) retainedData = retSnap.docs[0].data();
+        } catch (e) {
+        }
+      }
+      if (!retainedData) {
+        const db2 = readDb();
+        retainedData = db2.retained_users?.find((u) => (u.email || "").trim().toLowerCase() === normalizedEmail);
+      }
+      if (retainedData) {
+        const archivedAt = retainedData.archivedAt || retainedData.deletedAt || (/* @__PURE__ */ new Date()).toISOString();
+        const restoreUntil = new Date(new Date(archivedAt).getTime() + 31 * 24 * 60 * 60 * 1e3).toISOString();
+        record = {
+          accountId: normalizedEmail,
+          emailNormalized: normalizedEmail,
+          status: "SELF_DELETED",
+          deletionType: "self",
+          deletedAt: archivedAt,
+          restoreUntil,
+          originalUserId: retainedData.id || retainedData.uid,
           adminApprovalRequired: false
         };
       }
-    } catch (e) {
     }
   }
-  const localActive = db2.users?.find((u) => (u.email || "").trim().toLowerCase() === normalizedEmail);
-  if (localActive && localActive.deleted !== true && localActive.status !== "SELF_DELETED" && localActive.status !== "ADMIN_DELETED") {
+  const isDeleted = Boolean(
+    record && (record.status === "SELF_DELETED" || record.status === "ADMIN_DELETED" || record.status === "SELF_RESTORE_AVAILABLE" || record.status === "ADMIN_APPROVAL_REQUIRED" || record.status === "ADMIN_APPROVAL_PENDING" || record.status === "ADMIN_APPROVED" || record.status === "PURGED" || record.deletionType === "self" || record.deletionType === "admin")
+  );
+  if (isDeleted) {
+    const deletedAt = record.deletedAt || record.archivedAt || record.createdAt || (/* @__PURE__ */ new Date()).toISOString();
+    const delTime = new Date(deletedAt).getTime();
+    const restoreUntilMs = delTime + 31 * 24 * 60 * 60 * 1e3;
+    const restoreUntilIso = record.restoreUntil || new Date(restoreUntilMs).toISOString();
+    const daysRemaining = Math.max(0, Math.ceil((new Date(restoreUntilIso).getTime() - Date.now()) / (24 * 3600 * 1e3)));
     return {
-      accountId: normalizedEmail,
-      emailNormalized: normalizedEmail,
-      status: "ACTIVE",
-      canRestore: false,
-      adminApprovalRequired: false
+      status: record.status || "SELF_DELETED",
+      accountState: "DELETED_ACCOUNT_NO_RECOVERY_REQUEST",
+      email: normalizedEmail,
+      isDeleted: true,
+      canRestore: daysRemaining > 0 || record.status === "ADMIN_DELETED" || record.status === "ADMIN_APPROVED",
+      adminApprovalRequired: Boolean(record.adminApprovalRequired || record.status === "ADMIN_DELETED" || record.deletionType === "admin"),
+      daysRemaining,
+      restoreUntil: restoreUntilIso,
+      deletedAt,
+      originalUserId: record.originalUserId || null,
+      userFriendlyMessage: "\u062A\u0645 \u0627\u0644\u0639\u062B\u0648\u0631 \u0639\u0644\u0649 \u062D\u0633\u0627\u0628 \u0633\u0627\u0628\u0642 \u062A\u0645 \u062D\u0630\u0641\u0647."
     };
   }
-  return localLifecycle || null;
+  return {
+    status: "NEW",
+    accountState: "NO_ACCOUNT",
+    email: normalizedEmail,
+    isDeleted: false,
+    canRestore: false,
+    adminApprovalRequired: false,
+    daysRemaining: 0,
+    restoreUntil: null,
+    deletedAt: null,
+    originalUserId: null,
+    userFriendlyMessage: "\u0644\u0627 \u064A\u0648\u062C\u062F \u062D\u0633\u0627\u0628 \u0645\u0633\u062C\u0644 \u0628\u0647\u0630\u0627 \u0627\u0644\u0628\u0631\u064A\u062F \u0627\u0644\u0625\u0644\u0643\u062A\u0631\u0648\u0646\u064A."
+  };
+}
+async function getAccountLifecycleRecord(email, optUid) {
+  const normalizedEmail = (email || "").trim().toLowerCase();
+  if (!normalizedEmail && !optUid) return null;
+  try {
+    const resolution = await resolveAccountLifecycle(normalizedEmail || optUid, optUid);
+    if (resolution.status === "ACTIVE") {
+      return {
+        accountId: normalizedEmail || optUid,
+        emailNormalized: normalizedEmail,
+        status: "ACTIVE",
+        deletionType: null,
+        deletedAt: null,
+        deletedBy: null,
+        restoreUntil: null,
+        originalUserId: resolution.originalUserId,
+        retainedDataDocPath: null,
+        adminApprovalRequired: false,
+        canRestore: false,
+        daysRemaining: 0
+      };
+    }
+    if (resolution.isDeleted) {
+      return {
+        accountId: normalizedEmail || optUid,
+        emailNormalized: normalizedEmail,
+        status: resolution.status,
+        deletionType: resolution.adminApprovalRequired ? "admin" : "self",
+        deletedAt: resolution.deletedAt,
+        restoreUntil: resolution.restoreUntil,
+        originalUserId: resolution.originalUserId,
+        adminApprovalRequired: resolution.adminApprovalRequired,
+        canRestore: resolution.canRestore,
+        daysRemaining: resolution.daysRemaining
+      };
+    }
+    return null;
+  } catch (err) {
+    console.error("recoveryService getAccountLifecycleRecord error:", err);
+    return null;
+  }
 }
 async function setAccountLifecycleRecord(record) {
   const normalizedEmail = (record.email || record.emailNormalized || "").trim().toLowerCase();
@@ -11340,90 +11560,74 @@ app2.post("/api/auth/reset-password", otpLimiter, async (req, res) => {
     res.status(500).json({ error: err.message || "Failed to reset password" });
   }
 });
-app2.post("/api/auth/set-password", async (req, res) => {
+app2.post("/api/auth/set-password", requireAuth, async (req, res) => {
   try {
-    const { userId, email, newPassword, currentPassword, isGoogleUser } = req.body;
-    if (!newPassword || newPassword.length < 6) {
-      return res.status(400).json({ error: "Password must be at least 6 characters long." });
+    const { newPassword, currentPassword, isGoogleUser } = req.body;
+    const uid = req.user?.uid;
+    const authenticatedEmail = req.user?.email || "";
+    if (!uid) {
+      return res.status(401).json({
+        success: false,
+        error: "Unauthorized: Missing authenticated session.",
+        userFriendlyMessage: "\u064A\u062C\u0628 \u062A\u0633\u062C\u064A\u0644 \u0627\u0644\u062F\u062E\u0648\u0644 \u0623\u0648\u0644\u0627\u064B \u0644\u062A\u0646\u0641\u064A\u0630 \u0647\u0630\u0627 \u0627\u0644\u0625\u062C\u0631\u0627\u0621."
+      });
     }
-    const cleanEmail = email ? email.trim().toLowerCase() : "";
-    const db2 = readDb2();
-    let user = db2.users.find(
-      (u) => u.id === userId || cleanEmail && u.email?.toLowerCase() === cleanEmail
-    );
-    let uid = userId || user?.id;
-    let firestoreUserSnap = null;
-    if (uid) {
-      try {
-        const docRef = adminDb.collection("users").doc(uid);
-        const docSnap = await docRef.get();
-        if (docSnap.exists) {
-          firestoreUserSnap = docSnap;
-        }
-      } catch (fsErr) {
-        console.warn("Firestore lookup failed in set-password:", fsErr);
-      }
+    if (!newPassword || typeof newPassword !== "string" || newPassword.length < 6) {
+      return res.status(400).json({
+        success: false,
+        error: "Password must be at least 6 characters long.",
+        userFriendlyMessage: "\u064A\u062C\u0628 \u0623\u0644\u0627 \u062A\u0642\u0644 \u0643\u0644\u0645\u0629 \u0627\u0644\u0645\u0631\u0648\u0631 \u0627\u0644\u062C\u062F\u064A\u062F\u0629 \u0639\u0646 6 \u0623\u062D\u0631\u0641 \u0623\u0648 \u0623\u0631\u0642\u0627\u0645."
+      });
     }
-    const existingPassword = user?.passwordHash || firestoreUserSnap?.data()?.passwordHash;
-    if (existingPassword && !isGoogleUser && currentPassword) {
-      if (existingPassword !== currentPassword && hashVerificationCode(currentPassword) !== existingPassword) {
+    const authUser = await adminAuth.getUser(uid).catch(() => null);
+    const providers = authUser?.providerData?.map((p) => p.providerId) || [];
+    const hasExistingPassword = providers.includes("password") || Boolean(authUser?.passwordHash);
+    if (hasExistingPassword && !isGoogleUser && currentPassword) {
+      const db2 = readDb2();
+      const localUser = db2.users?.find((u) => u.id === uid || authenticatedEmail && u.email?.toLowerCase() === authenticatedEmail.toLowerCase());
+      const userDoc = await adminDb.collection("users").doc(uid).get().catch(() => null);
+      const storedPassword = localUser?.passwordHash || userDoc?.data()?.passwordHash;
+      if (storedPassword && storedPassword !== currentPassword && hashVerificationCode(currentPassword) !== storedPassword) {
         return res.status(400).json({
+          success: false,
           error: "Current password is incorrect.",
           userFriendlyMessage: "\u0643\u0644\u0645\u0629 \u0627\u0644\u0645\u0631\u0648\u0631 \u0627\u0644\u062D\u0627\u0644\u064A\u0629 \u063A\u064A\u0631 \u0635\u062D\u064A\u062D\u0629."
         });
       }
     }
-    if (uid) {
-      try {
-        await adminAuth.updateUser(uid, { password: newPassword });
-        console.log(
-          `[PASSWORD SET] Updated Firebase Auth password for uid: ${uid}`
-        );
-      } catch (authErr) {
-        console.warn(
-          "Could not update Firebase Auth user directly (proceeding with Firestore update):",
-          authErr.message
-        );
-      }
+    await adminAuth.updateUser(uid, { password: newPassword });
+    console.log(`[PASSWORD SET] Linked/Updated Firebase Auth password provider for exact UID: ${uid}`);
+    try {
+      await adminDb.collection("users").doc(uid).set(
+        {
+          hasPasswordSet: true,
+          updatedAt: (/* @__PURE__ */ new Date()).toISOString()
+        },
+        { merge: true }
+      );
+    } catch (fsErr) {
+      console.warn("Could not update Firestore user hasPasswordSet:", fsErr);
     }
-    if (uid) {
-      try {
-        await adminDb.collection("users").doc(uid).set(
-          {
-            passwordHash: newPassword,
-            hasPasswordSet: true,
-            updatedAt: (/* @__PURE__ */ new Date()).toISOString()
-          },
-          { merge: true }
-        );
-      } catch (fsErr) {
-        console.warn("Could not update Firestore user password:", fsErr);
-      }
-    }
-    if (user) {
-      user.passwordHash = newPassword;
-      user.hasPasswordSet = true;
-      writeDb2(db2);
-    } else if (uid && cleanEmail) {
-      const newUser = {
-        id: uid,
-        email: cleanEmail,
-        passwordHash: newPassword,
-        hasPasswordSet: true,
-        role: uid === ADMIN_USER_ID ? "Admin" : "Contributor",
-        createdAt: (/* @__PURE__ */ new Date()).toISOString()
-      };
-      db2.users.push(newUser);
-      writeDb2(db2);
+    const localDb = readDb2();
+    const userInDb = localDb.users?.find((u) => u.id === uid || authenticatedEmail && u.email?.toLowerCase() === authenticatedEmail.toLowerCase());
+    if (userInDb) {
+      userInDb.hasPasswordSet = true;
+      delete userInDb.passwordHash;
+      delete userInDb.password;
+      writeDb2(localDb);
     }
     return res.json({
       success: true,
       message: "Password has been successfully set.",
-      userFriendlyMessage: "\u062A\u0645 \u062A\u0639\u064A\u064A\u0646 \u0648\u062D\u0641\u0638 \u0643\u0644\u0645\u0629 \u0627\u0644\u0645\u0631\u0648\u0631 \u0628\u0646\u062C\u0627\u062D."
+      userFriendlyMessage: "\u062A\u0645 \u062A\u0639\u064A\u064A\u0646 \u0648\u062D\u0641\u0638 \u0643\u0644\u0645\u0629 \u0627\u0644\u0645\u0631\u0648\u0631 \u0644\u062D\u0633\u0627\u0628\u0643 \u0628\u0646\u062C\u0627\u062D."
     });
   } catch (err) {
     console.error("Error setting password:", err);
-    res.status(500).json({ error: err.message || "Failed to set password." });
+    res.status(500).json({
+      success: false,
+      error: err.message || "Failed to set password.",
+      userFriendlyMessage: "\u062D\u062F\u062B \u062E\u0637\u0623 \u0623\u062B\u0646\u0627\u0621 \u062D\u0641\u0638 \u0643\u0644\u0645\u0629 \u0627\u0644\u0645\u0631\u0648\u0631. \u064A\u0631\u062C\u0649 \u0627\u0644\u0645\u062D\u0627\u0648\u0644\u0629 \u0645\u0631\u0629 \u0623\u062E\u0631\u0649."
+    });
   }
 });
 app2.post("/api/auth/verify-account-password", async (req, res) => {
@@ -17962,12 +18166,197 @@ Zakir Support`;
     }
   }
 );
-async function getAccountLifecycleRecord2(email) {
-  const normalizedEmail = (email || "").trim().toLowerCase();
-  if (!normalizedEmail) return null;
-  try {
-    let record = null;
-    if (isFirebaseAdminAvailable) {
+async function resolveAccountLifecycle2(identifier, optUid) {
+  const rawId = (identifier || "").trim();
+  const normalizedEmail = rawId.includes("@") ? rawId.toLowerCase() : "";
+  let uid = optUid ? optUid.trim() : !rawId.includes("@") && rawId.length >= 8 ? rawId : null;
+  const isUserActive = (u) => Boolean(
+    u && u.deleted !== true && u.status !== "SELF_DELETED" && u.status !== "ADMIN_DELETED" && u.accountLifecycleStatus !== "SELF_DELETED" && u.accountLifecycleStatus !== "PURGED"
+  );
+  let activeUser = null;
+  let activeUid = null;
+  if (uid) {
+    if (isFirebaseAdminAvailable && adminDb) {
+      try {
+        const uDoc = await adminDb.collection("users").doc(uid).get();
+        if (uDoc.exists) {
+          const data = uDoc.data();
+          if (isUserActive(data)) {
+            activeUser = data;
+            activeUid = uid;
+          }
+        }
+      } catch (e) {
+      }
+    }
+    if (!activeUser) {
+      const db2 = readDb2();
+      const localU = db2.users?.find(
+        (u) => (u.id === uid || u.uid === uid) && isUserActive(u)
+      );
+      if (localU) {
+        activeUser = localU;
+        activeUid = uid;
+      }
+    }
+    if (!activeUser && isFirebaseAdminAvailable && adminAuth) {
+      try {
+        const authUser = await adminAuth.getUser(uid).catch(() => null);
+        if (authUser && !authUser.disabled) {
+          activeUser = {
+            id: authUser.uid,
+            uid: authUser.uid,
+            email: authUser.email || normalizedEmail,
+            name: authUser.displayName || "User",
+            role: "Contributor"
+          };
+          activeUid = uid;
+        }
+      } catch (e) {
+      }
+    }
+  }
+  if (!activeUser && normalizedEmail) {
+    if (isFirebaseAdminAvailable && adminDb) {
+      try {
+        const emSnap = await adminDb.collection("users").where("email", "==", normalizedEmail).limit(1).get();
+        if (!emSnap.empty) {
+          const data = emSnap.docs[0].data();
+          if (isUserActive(data)) {
+            activeUser = data;
+            activeUid = emSnap.docs[0].id || data.id || data.uid;
+          }
+        }
+      } catch (e) {
+      }
+    }
+    if (!activeUser) {
+      const db2 = readDb2();
+      const localU = db2.users?.find(
+        (u) => (u.email || "").trim().toLowerCase() === normalizedEmail && isUserActive(u)
+      );
+      if (localU) {
+        activeUser = localU;
+        activeUid = localU.id || localU.uid;
+      }
+    }
+    if (!activeUser && isFirebaseAdminAvailable && adminAuth) {
+      try {
+        const authUser = await adminAuth.getUserByEmail(normalizedEmail).catch(() => null);
+        if (authUser && !authUser.disabled) {
+          activeUser = {
+            id: authUser.uid,
+            uid: authUser.uid,
+            email: authUser.email,
+            name: authUser.displayName || "User",
+            role: "Contributor"
+          };
+          activeUid = authUser.uid;
+        }
+      } catch (e) {
+      }
+    }
+  }
+  if (activeUser) {
+    const activeUserId = activeUid || activeUser.id || activeUser.uid;
+    const finalEmail = (normalizedEmail || activeUser.email || "").trim().toLowerCase();
+    try {
+      const db2 = readDb2();
+      let changed = false;
+      if (db2.retained_users && db2.retained_users.length > 0) {
+        const origLen = db2.retained_users.length;
+        db2.retained_users = db2.retained_users.filter(
+          (u) => (activeUserId ? u.id !== activeUserId && u.uid !== activeUserId : true) && (finalEmail ? (u.email || "").trim().toLowerCase() !== finalEmail : true)
+        );
+        if (db2.retained_users.length !== origLen) changed = true;
+      }
+      if (db2.deleted_users && db2.deleted_users.length > 0) {
+        const origLen = db2.deleted_users.length;
+        db2.deleted_users = db2.deleted_users.filter(
+          (u) => (activeUserId ? u.id !== activeUserId && u.uid !== activeUserId : true) && (finalEmail ? (u.email || "").trim().toLowerCase() !== finalEmail : true)
+        );
+        if (db2.deleted_users.length !== origLen) changed = true;
+      }
+      if (db2.account_lifecycle && finalEmail) {
+        const idx = db2.account_lifecycle.findIndex(
+          (r) => (r.emailNormalized || r.accountId || r.email || "").trim().toLowerCase() === finalEmail
+        );
+        const activePayload = {
+          accountId: finalEmail,
+          emailNormalized: finalEmail,
+          status: "ACTIVE",
+          deletionType: null,
+          deletedAt: null,
+          deletedBy: null,
+          restoreUntil: null,
+          originalUserId: activeUserId,
+          retainedDataDocPath: null,
+          adminApprovalRequired: false,
+          canRestore: false,
+          daysRemaining: 0,
+          updatedAt: (/* @__PURE__ */ new Date()).toISOString()
+        };
+        if (idx >= 0) {
+          db2.account_lifecycle[idx] = activePayload;
+        } else {
+          db2.account_lifecycle.push(activePayload);
+        }
+        changed = true;
+      }
+      if (changed) writeDb2(db2);
+    } catch (e) {
+    }
+    if (isFirebaseAdminAvailable && adminDb) {
+      try {
+        if (activeUserId) {
+          adminDb.collection("users_retained").doc(activeUserId).delete().catch(() => {
+          });
+          adminDb.collection("deletedUsers").doc(activeUserId).delete().catch(() => {
+          });
+        }
+        if (finalEmail) {
+          adminDb.collection("accountLifecycle").doc(finalEmail).set({
+            accountId: finalEmail,
+            emailNormalized: finalEmail,
+            status: "ACTIVE",
+            deletionType: null,
+            deletedAt: null,
+            deletedBy: null,
+            restoreUntil: null,
+            originalUserId: activeUserId,
+            retainedDataDocPath: null,
+            adminApprovalRequired: false,
+            canRestore: false,
+            daysRemaining: 0,
+            updatedAt: (/* @__PURE__ */ new Date()).toISOString()
+          }, { merge: true }).catch(() => {
+          });
+        }
+      } catch (e) {
+      }
+    }
+    return {
+      status: "ACTIVE",
+      accountState: "ACTIVE_ACCOUNT",
+      email: finalEmail,
+      isDeleted: false,
+      canRestore: false,
+      adminApprovalRequired: false,
+      daysRemaining: 0,
+      restoreUntil: null,
+      deletedAt: null,
+      originalUserId: activeUserId || null,
+      user: activeUser,
+      userFriendlyMessage: "\u0627\u0644\u0628\u0631\u064A\u062F \u0627\u0644\u0625\u0644\u0643\u062A\u0631\u0648\u0646\u064A \u0645\u0633\u062C\u0644 \u0628\u0627\u0644\u0641\u0639\u0644. \u064A\u0631\u062C\u0649 \u062A\u0633\u062C\u064A\u0644 \u0627\u0644\u062F\u062E\u0648\u0644 \u0625\u0644\u0649 \u062D\u0633\u0627\u0628\u0643.",
+      hasRecoveryRequest: false,
+      recoveryRequestId: null,
+      recoveryStatus: "none",
+      isExpired: false
+    };
+  }
+  let record = null;
+  if (normalizedEmail) {
+    if (isFirebaseAdminAvailable && adminDb) {
       try {
         const docRef = adminDb.collection("accountLifecycle").doc(normalizedEmail);
         const docSnap = await docRef.get();
@@ -17991,18 +18380,14 @@ async function getAccountLifecycleRecord2(email) {
     }
     if (!record) {
       const db2 = readDb2();
-      if (!db2.account_lifecycle) db2.account_lifecycle = [];
-      const found = db2.account_lifecycle.find(
+      const found = db2.account_lifecycle?.find(
         (r) => (r.emailNormalized || r.accountId || r.email || "").trim().toLowerCase() === normalizedEmail
       );
-      if (found) {
-        record = found;
-      }
+      if (found) record = found;
     }
-    if (record && record.status !== "ACTIVE" && record.status !== "NEW") {
-    } else {
+    if (!record) {
       let deletedMarker = null;
-      if (isFirebaseAdminAvailable) {
+      if (isFirebaseAdminAvailable && adminDb) {
         try {
           const delSnap = await adminDb.collection("deletedUsers").where("email", "==", normalizedEmail).limit(1).get();
           if (!delSnap.empty) {
@@ -18034,182 +18419,196 @@ async function getAccountLifecycleRecord2(email) {
         };
       }
     }
-    if (!record || record.status === "ACTIVE") {
-      try {
-        const db2 = readDb2();
-        const retUser = db2.retained_users?.find(
-          (u) => u.email?.trim().toLowerCase() === normalizedEmail
-        );
-        if (retUser) {
-          const archivedAt = retUser.archivedAt || retUser.deletedAt || (/* @__PURE__ */ new Date()).toISOString();
-          const restoreUntil = new Date(
-            new Date(archivedAt).getTime() + 31 * 24 * 60 * 60 * 1e3
-          ).toISOString();
-          record = {
-            accountId: normalizedEmail,
-            emailNormalized: normalizedEmail,
-            status: "SELF_DELETED",
-            deletionType: "self",
-            deletedAt: archivedAt,
-            restoreUntil,
-            originalUserId: retUser.id,
-            adminApprovalRequired: false
-          };
-        }
-      } catch (e) {
-      }
-    }
-    if (!record || record.status === "ACTIVE") {
-      if (isFirebaseAdminAvailable) {
+    if (!record) {
+      let retainedData = null;
+      if (isFirebaseAdminAvailable && adminDb) {
         try {
-          const activeUserSnap = await adminDb.collection("users").where("email", "==", normalizedEmail).limit(1).get();
-          if (!activeUserSnap.empty) {
-            const activeDoc = activeUserSnap.docs[0].data();
-            if (activeDoc && (activeDoc.deleted === true || activeDoc.status === "ADMIN_DELETED" || activeDoc.status === "SELF_DELETED" || activeDoc.accountLifecycleStatus === "SELF_DELETED" || activeDoc.accountLifecycleStatus === "PURGED")) {
-              const deletedAt = activeDoc.deletedAt || (/* @__PURE__ */ new Date()).toISOString();
-              const restoreUntil = new Date(
-                new Date(deletedAt).getTime() + 31 * 24 * 60 * 60 * 1e3
-              ).toISOString();
-              record = {
-                accountId: normalizedEmail,
-                emailNormalized: normalizedEmail,
-                status: activeDoc.status === "ADMIN_DELETED" ? "ADMIN_DELETED" : "SELF_DELETED",
-                deletionType: activeDoc.status === "ADMIN_DELETED" ? "admin" : "self",
-                deletedAt,
-                restoreUntil,
-                originalUserId: activeUserSnap.docs[0].id,
-                adminApprovalRequired: activeDoc.status === "ADMIN_DELETED"
-              };
-            }
+          const retSnap = await adminDb.collection("users_retained").where("email", "==", normalizedEmail).limit(1).get();
+          if (!retSnap.empty) {
+            retainedData = retSnap.docs[0].data();
           }
-        } catch (activeErr) {
+        } catch (e) {
         }
       }
-      const db2 = readDb2();
-      const localActive = db2.users?.find(
-        (u) => (u.email || "").trim().toLowerCase() === normalizedEmail
-      );
-      if (localActive && (localActive.deleted === true || localActive.status === "ADMIN_DELETED" || localActive.status === "SELF_DELETED" || localActive.accountLifecycleStatus === "SELF_DELETED")) {
-        const deletedAt = localActive.deletedAt || (/* @__PURE__ */ new Date()).toISOString();
+      if (!retainedData) {
+        const db2 = readDb2();
+        retainedData = db2.retained_users?.find(
+          (u) => (u.email || "").trim().toLowerCase() === normalizedEmail
+        );
+      }
+      if (retainedData) {
+        const archivedAt = retainedData.archivedAt || retainedData.deletedAt || (/* @__PURE__ */ new Date()).toISOString();
         const restoreUntil = new Date(
-          new Date(deletedAt).getTime() + 31 * 24 * 60 * 60 * 1e3
+          new Date(archivedAt).getTime() + 31 * 24 * 60 * 60 * 1e3
         ).toISOString();
         record = {
           accountId: normalizedEmail,
           emailNormalized: normalizedEmail,
-          status: localActive.status === "ADMIN_DELETED" ? "ADMIN_DELETED" : "SELF_DELETED",
-          deletionType: localActive.status === "ADMIN_DELETED" ? "admin" : "self",
-          deletedAt,
+          status: "SELF_DELETED",
+          deletionType: "self",
+          deletedAt: archivedAt,
           restoreUntil,
-          originalUserId: localActive.id,
-          adminApprovalRequired: localActive.status === "ADMIN_DELETED"
-        };
-      }
-    }
-    if (!record) {
-      if (isFirebaseAdminAvailable) {
-        try {
-          const activeUserSnap = await adminDb.collection("users").where("email", "==", normalizedEmail).limit(1).get();
-          if (!activeUserSnap.empty) {
-            const activeDoc = activeUserSnap.docs[0].data();
-            if (activeDoc && activeDoc.deleted !== true && activeDoc.status !== "ADMIN_DELETED" && activeDoc.status !== "SELF_DELETED" && activeDoc.accountLifecycleStatus !== "PURGED") {
-              return {
-                accountId: normalizedEmail,
-                emailNormalized: normalizedEmail,
-                status: "ACTIVE",
-                canRestore: false,
-                adminApprovalRequired: false
-              };
-            }
-          }
-        } catch (activeErr) {
-        }
-      }
-      const db2 = readDb2();
-      const localActive = db2.users?.find(
-        (u) => (u.email || "").trim().toLowerCase() === normalizedEmail
-      );
-      if (localActive && localActive.deleted !== true && localActive.status !== "ADMIN_DELETED" && localActive.status !== "SELF_DELETED" && localActive.accountLifecycleStatus !== "PURGED") {
-        return {
-          accountId: normalizedEmail,
-          emailNormalized: normalizedEmail,
-          status: "ACTIVE",
-          canRestore: false,
+          originalUserId: retainedData.id || retainedData.uid,
           adminApprovalRequired: false
         };
       }
-      if (isFirebaseAdminAvailable) {
-        try {
-          const authUser = await adminAuth.getUserByEmail(normalizedEmail).catch(() => null);
-          if (authUser && !authUser.disabled) {
-            return {
-              accountId: normalizedEmail,
-              emailNormalized: normalizedEmail,
-              status: "ACTIVE",
-              canRestore: false,
-              adminApprovalRequired: false
-            };
-          }
-        } catch (authErr) {
-        }
-      }
-      return null;
     }
-    if (!record) return null;
-    if (record.deletionType === "self" && record.status === "SELF_DELETED" && record.restoreUntil) {
-      const nowMs = Date.now();
-      const restoreUntilMs = new Date(record.restoreUntil).getTime();
-      if (nowMs > restoreUntilMs) {
-        console.log(
-          `[LIFECYCLE PURGE] Self-deleted account ${normalizedEmail} expired 31-day window. Purging retained user data.`
-        );
-        if (record.originalUserId) {
-          try {
-            await purgeRetainedUserDataServer(record.originalUserId);
-          } catch (pErr) {
-            console.warn("Purge retained data error:", pErr);
-          }
+  }
+  const isDeleted = Boolean(
+    record && (record.status === "SELF_DELETED" || record.status === "ADMIN_DELETED" || record.status === "SELF_RESTORE_AVAILABLE" || record.status === "ADMIN_APPROVAL_REQUIRED" || record.status === "ADMIN_APPROVAL_PENDING" || record.status === "ADMIN_APPROVED" || record.status === "PURGED" || record.deletionType === "self" || record.deletionType === "admin")
+  );
+  if (isDeleted) {
+    const deletedAt = record.deletedAt || record.archivedAt || record.createdAt || (/* @__PURE__ */ new Date()).toISOString();
+    const delTime = new Date(deletedAt).getTime();
+    const thirtyOneDaysMs = 31 * 24 * 60 * 60 * 1e3;
+    const restoreUntilMs = delTime + thirtyOneDaysMs;
+    const restoreUntilIso = record.restoreUntil || new Date(restoreUntilMs).toISOString();
+    const remainingMs = new Date(restoreUntilIso).getTime() - Date.now();
+    const daysRemaining = Math.max(0, Math.ceil(remainingMs / (24 * 3600 * 1e3)));
+    const isExpired = record.status === "PURGED" || daysRemaining <= 0 && record.status !== "ADMIN_DELETED" && record.status !== "ADMIN_APPROVED";
+    const requestDocs = [];
+    if (isFirebaseAdminAvailable && adminDb && normalizedEmail) {
+      try {
+        const qSnap = await adminDb.collection("recoveryRequests").where("email", "==", normalizedEmail).get();
+        if (qSnap && !qSnap.empty) {
+          qSnap.docs.forEach((d) => requestDocs.push(d.data()));
         }
-        const purgedFields = {
-          status: "PURGED",
-          deletionType: "self",
-          purgedAt: (/* @__PURE__ */ new Date()).toISOString(),
-          retainedDataDocPath: null,
-          updatedAt: (/* @__PURE__ */ new Date()).toISOString()
-        };
-        if (isFirebaseAdminAvailable) {
-          try {
-            await adminDb.collection("accountLifecycle").doc(normalizedEmail).set(purgedFields, { merge: true });
-          } catch (e) {
-          }
+      } catch (e) {
+      }
+      try {
+        const emailSnap = await adminDb.collection("recoveryRequests_by_email").doc(normalizedEmail).get();
+        if (emailSnap.exists) {
+          requestDocs.push(emailSnap.data());
         }
-        record = { ...record, ...purgedFields };
-        const db2 = readDb2();
-        if (!db2.account_lifecycle) db2.account_lifecycle = [];
-        const idx = db2.account_lifecycle.findIndex(
-          (r) => r.emailNormalized === normalizedEmail
-        );
-        if (idx >= 0) db2.account_lifecycle[idx] = record;
-        else db2.account_lifecycle.push(record);
-        writeDb2(db2);
+      } catch (e) {
       }
     }
-    if (record.status === "SELF_DELETED" && record.restoreUntil) {
-      const nowMs = Date.now();
-      const restoreUntilMs = new Date(record.restoreUntil).getTime();
-      const remainingMs = restoreUntilMs - nowMs;
-      if (remainingMs > 0) {
-        record.canRestore = true;
-        record.daysRemaining = Math.max(
-          1,
-          Math.ceil(remainingMs / (24 * 3600 * 1e3))
-        );
-      } else {
-        record.canRestore = false;
-        record.daysRemaining = 0;
+    try {
+      const db2 = readDb2();
+      const localReqs = getLocalRecoveryRequestsList(db2).filter(
+        (r) => (r?.email || "").trim().toLowerCase() === normalizedEmail
+      );
+      requestDocs.push(...localReqs);
+    } catch (e) {
+    }
+    const validRequestDocs = requestDocs.filter((r) => isRealRecoveryRequestDoc(r, normalizedEmail));
+    validRequestDocs.sort((a, b) => {
+      const ta = new Date(a.submittedAt || a.createdAt || a.updatedAt || 0).getTime();
+      const tb = new Date(b.submittedAt || b.createdAt || b.updatedAt || 0).getTime();
+      return tb - ta;
+    });
+    const latestRequest = validRequestDocs[0] || null;
+    let recoveryStatus = "none";
+    let recoveryRequestId = null;
+    if (latestRequest) {
+      const raw = (latestRequest.status || latestRequest.decision || "").toLowerCase();
+      if (raw === "approved") {
+        recoveryStatus = "approved";
+        recoveryRequestId = latestRequest.requestId || latestRequest.id || null;
+      } else if (raw === "rejected") {
+        recoveryStatus = "rejected";
+        recoveryRequestId = latestRequest.requestId || latestRequest.id || null;
+      } else if (raw === "pending" || raw === "under_review" || raw === "submitted") {
+        recoveryStatus = "pending";
+        recoveryRequestId = latestRequest.requestId || latestRequest.id || null;
       }
     }
-    return record;
+    const hasRecoveryRequest = Boolean(latestRequest && recoveryRequestId && recoveryStatus !== "none");
+    let accountState = "DELETED_ACCOUNT_NO_RECOVERY_REQUEST";
+    if (hasRecoveryRequest) {
+      if (recoveryStatus === "approved") accountState = "DELETED_ACCOUNT_RECOVERY_APPROVED";
+      else if (recoveryStatus === "rejected") accountState = "DELETED_ACCOUNT_RECOVERY_REJECTED";
+      else accountState = "DELETED_ACCOUNT_RECOVERY_PENDING";
+    }
+    let userFriendlyMessage = `\u062A\u0645 \u0627\u0644\u0639\u062B\u0648\u0631 \u0639\u0644\u0649 \u062D\u0633\u0627\u0628 \u0633\u0627\u0628\u0642 \u062A\u0645 \u062D\u0630\u0641\u0647 (${daysRemaining > 0 ? `\u0645\u062A\u0628\u0642\u064A ${daysRemaining} \u064A\u0648\u0645\u0627\u064B \u0644\u0644\u0627\u0633\u062A\u0639\u0627\u062F\u0629` : "\u0627\u0646\u062A\u0647\u062A \u0641\u062A\u0631\u0629 \u0627\u0644\u0627\u0633\u062A\u0639\u0627\u062F\u0629 \u0627\u0644\u0645\u0628\u0627\u0634\u0631\u0629"}).`;
+    if (accountState === "DELETED_ACCOUNT_RECOVERY_APPROVED") {
+      userFriendlyMessage = "\u062A\u0645\u062A \u0627\u0644\u0645\u0648\u0627\u0641\u0642\u0629 \u0639\u0644\u0649 \u0637\u0644\u0628 \u0627\u0633\u062A\u0639\u0627\u062F\u0629 \u062D\u0633\u0627\u0628\u0643 \u0645\u0646 \u0642\u0628\u0644 \u0625\u062F\u0627\u0631\u0629 \u0627\u0644\u0645\u0646\u0635\u0629! \u064A\u0645\u0643\u0646\u0643 \u0627\u0644\u0622\u0646 \u0625\u0643\u0645\u0627\u0644 \u0627\u0633\u062A\u0639\u0627\u062F\u0629 \u0627\u0644\u062D\u0633\u0627\u0628.";
+    } else if (accountState === "DELETED_ACCOUNT_RECOVERY_PENDING") {
+      userFriendlyMessage = "\u0637\u0644\u0628 \u0627\u0633\u062A\u0639\u0627\u062F\u0629 \u062D\u0633\u0627\u0628\u0643 \u0642\u064A\u062F \u0627\u0644\u0645\u0631\u0627\u062C\u0639\u0629 \u062D\u0627\u0644\u064A\u0627\u064B \u0645\u0646 \u0642\u0628\u0644 \u0625\u062F\u0627\u0631\u0629 \u0627\u0644\u0645\u0646\u0635\u0629. \u064A\u0631\u062C\u0649 \u0645\u062A\u0627\u0628\u0639\u0629 \u062D\u0627\u0644\u0629 \u0627\u0644\u0637\u0644\u0628.";
+    } else if (accountState === "DELETED_ACCOUNT_RECOVERY_REJECTED") {
+      userFriendlyMessage = "\u062A\u0645\u062A \u0645\u0631\u0627\u062C\u0639\u0629 \u0637\u0644\u0628 \u0627\u0633\u062A\u0639\u0627\u062F\u0629 \u0627\u0644\u062D\u0633\u0627\u0628 \u0648\u0631\u0641\u0636\u0647. \u064A\u0645\u0643\u0646\u0643 \u0645\u0631\u0627\u062C\u0639\u0629 \u0633\u0628\u0628 \u0627\u0644\u0631\u0641\u0636 \u0623\u0648 \u0627\u0644\u062A\u0648\u0627\u0635\u0644 \u0645\u0639 \u0627\u0644\u062F\u0639\u0645.";
+    } else if (isExpired) {
+      userFriendlyMessage = "\u0627\u0646\u062A\u0647\u062A \u0641\u062A\u0631\u0629 \u0633\u0645\u0627\u062D \u0627\u0633\u062A\u0639\u0627\u062F\u0629 \u0647\u0630\u0627 \u0627\u0644\u062D\u0633\u0627\u0628 (31 \u064A\u0648\u0645\u0627\u064B). \u062A\u0645 \u062D\u0630\u0641 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u0628\u0634\u0643\u0644 \u0646\u0647\u0627\u0626\u064A \u0648\u0641\u0642 \u0633\u064A\u0627\u0633\u0629 \u0627\u0644\u0646\u0638\u0627\u0645.";
+    }
+    return {
+      status: record.status || "SELF_DELETED",
+      accountState,
+      email: normalizedEmail,
+      isDeleted: true,
+      canRestore: !isExpired && (daysRemaining > 0 || record.status === "ADMIN_DELETED" || record.status === "ADMIN_APPROVED"),
+      adminApprovalRequired: Boolean(
+        record.adminApprovalRequired || record.status === "ADMIN_DELETED" || record.deletionType === "admin"
+      ),
+      daysRemaining,
+      restoreUntil: restoreUntilIso,
+      deletedAt,
+      originalUserId: record.originalUserId || null,
+      userFriendlyMessage,
+      hasRecoveryRequest,
+      recoveryRequestId: hasRecoveryRequest ? recoveryRequestId : null,
+      recoveryStatus,
+      initialTab: hasRecoveryRequest ? "status" : "request",
+      nextAction: accountState === "DELETED_ACCOUNT_NO_RECOVERY_REQUEST" ? "START_RECOVERY" : accountState === "DELETED_ACCOUNT_RECOVERY_PENDING" ? "WAIT_FOR_APPROVAL" : accountState === "DELETED_ACCOUNT_RECOVERY_APPROVED" ? "PROCEED_TO_RESTORE" : accountState === "DELETED_ACCOUNT_RECOVERY_REJECTED" ? "VIEW_REJECTION" : "NONE",
+      isExpired,
+      rawRecord: record
+    };
+  }
+  return {
+    status: "NEW",
+    accountState: "NO_ACCOUNT",
+    email: normalizedEmail,
+    isDeleted: false,
+    canRestore: false,
+    adminApprovalRequired: false,
+    daysRemaining: 0,
+    restoreUntil: null,
+    deletedAt: null,
+    originalUserId: null,
+    userFriendlyMessage: "\u0644\u0627 \u064A\u0648\u062C\u062F \u062D\u0633\u0627\u0628 \u0645\u0633\u062C\u0644 \u0628\u0647\u0630\u0627 \u0627\u0644\u0628\u0631\u064A\u062F \u0627\u0644\u0625\u0644\u0643\u062A\u0631\u0648\u0646\u064A.",
+    hasRecoveryRequest: false,
+    recoveryRequestId: null,
+    recoveryStatus: "none",
+    isExpired: false
+  };
+}
+async function getAccountLifecycleRecord2(email, optUid) {
+  const normalizedEmail = (email || "").trim().toLowerCase();
+  if (!normalizedEmail && !optUid) return null;
+  try {
+    const resolution = await resolveAccountLifecycle2(normalizedEmail || optUid, optUid);
+    if (resolution.status === "ACTIVE") {
+      return {
+        accountId: normalizedEmail || optUid,
+        emailNormalized: normalizedEmail,
+        status: "ACTIVE",
+        deletionType: null,
+        deletedAt: null,
+        deletedBy: null,
+        restoreUntil: null,
+        originalUserId: resolution.originalUserId,
+        retainedDataDocPath: null,
+        adminApprovalRequired: false,
+        canRestore: false,
+        daysRemaining: 0
+      };
+    }
+    if (resolution.isDeleted) {
+      return {
+        accountId: normalizedEmail || optUid,
+        emailNormalized: normalizedEmail,
+        status: resolution.status,
+        deletionType: resolution.adminApprovalRequired ? "admin" : "self",
+        deletedAt: resolution.deletedAt,
+        restoreUntil: resolution.restoreUntil,
+        originalUserId: resolution.originalUserId,
+        adminApprovalRequired: resolution.adminApprovalRequired,
+        canRestore: resolution.canRestore,
+        daysRemaining: resolution.daysRemaining,
+        isExpired: resolution.isExpired,
+        ...resolution.rawRecord || {}
+      };
+    }
+    return null;
   } catch (err) {
     console.error("getAccountLifecycleRecord error:", err);
     return null;
@@ -18588,7 +18987,8 @@ app2.all(
     }
     if (req.method === "GET" || req.method === "HEAD") {
       const queryEmail = (req.query.email || "").trim();
-      if (!queryEmail) {
+      const queryUid = (req.query.uid || "").trim();
+      if (!queryEmail && !queryUid) {
         return res.status(200).json({
           success: true,
           endpoint: "/api/auth/resolve-account",
@@ -18598,169 +18998,29 @@ app2.all(
       }
     }
     try {
-      const email = (req.body?.email || req.query?.email || "").toString().trim();
-      if (!email) {
-        return res.status(400).json({ success: false, error: "Email parameter is required." });
-      }
-      const normalizedEmail = email.toLowerCase();
-      let record = await getAccountLifecycleRecord2(normalizedEmail);
-      if (!record) {
-        let existsActive = false;
-        let activeUserId = null;
-        if (isFirebaseAdminAvailable && adminDb) {
-          try {
-            const userSnap = await adminDb.collection("users").where("email", "==", normalizedEmail).limit(1).get();
-            if (!userSnap.empty) {
-              existsActive = true;
-              activeUserId = userSnap.docs[0].id;
-            }
-          } catch (e) {
-          }
-        }
-        if (!existsActive) {
-          const db2 = readDb2();
-          const localUser = db2.users?.find(
-            (u) => (u.email || "").trim().toLowerCase() === normalizedEmail
-          );
-          if (localUser) {
-            existsActive = true;
-            activeUserId = localUser.id;
-          }
-        }
-        if (existsActive) {
-          return res.json({
-            success: true,
-            email: normalizedEmail,
-            accountState: "ACTIVE_ACCOUNT",
-            lifecycleStatus: "ACTIVE",
-            canRestore: false,
-            adminApprovalRequired: false,
-            daysRemaining: 0,
-            restoreUntil: null,
-            hasRecoveryRequest: false,
-            recoveryRequestId: null,
-            recoveryStatus: "none",
-            isExpired: false,
-            originalUserId: activeUserId,
-            userFriendlyMessage: "\u0627\u0644\u0628\u0631\u064A\u062F \u0627\u0644\u0625\u0644\u0643\u062A\u0631\u0648\u0646\u064A \u0645\u0633\u062C\u0644 \u0628\u0627\u0644\u0641\u0639\u0644. \u064A\u0631\u062C\u0649 \u062A\u0633\u062C\u064A\u0644 \u0627\u0644\u062F\u062E\u0648\u0644 \u0625\u0644\u0649 \u062D\u0633\u0627\u0628\u0643."
-          });
-        }
-      }
-      const requestDocs = [];
-      if (isFirebaseAdminAvailable) {
+      let email = (req.body?.email || req.query?.email || "").toString().trim();
+      let uid = (req.body?.uid || req.query?.uid || "").toString().trim() || null;
+      const authHeader = req.headers.authorization;
+      if (authHeader && authHeader.startsWith("Bearer ") && isFirebaseAdminAvailable && adminAuth) {
         try {
-          const qSnap = await adminDb.collection("recoveryRequests").where("email", "==", normalizedEmail).get();
-          if (qSnap && !qSnap.empty) {
-            qSnap.docs.forEach((d) => requestDocs.push(d.data()));
-          }
-        } catch (e) {
-        }
-        try {
-          const emailSnap = await adminDb.collection("recoveryRequests_by_email").doc(normalizedEmail).get();
-          if (emailSnap.exists) {
-            requestDocs.push(emailSnap.data());
-          }
-        } catch (e) {
-        }
-        try {
-          const legacySnap = await adminDb.collection("accountRecoveryRequests_by_email").doc(normalizedEmail).get();
-          if (legacySnap.exists) {
-            requestDocs.push(legacySnap.data());
+          const token = authHeader.substring(7).trim();
+          const decoded = await adminAuth.verifyIdToken(token);
+          if (decoded?.uid) {
+            uid = uid || decoded.uid;
+            if (!email && decoded.email) email = decoded.email;
           }
         } catch (e) {
         }
       }
-      try {
-        const db2 = readDb2();
-        const localReqs = getLocalRecoveryRequestsList(db2).filter(
-          (r) => (r?.email || "").trim().toLowerCase() === normalizedEmail
-        );
-        requestDocs.push(...localReqs);
-      } catch (e) {
+      if (!email && !uid) {
+        return res.status(400).json({ success: false, error: "Email or UID parameter is required." });
       }
-      const validRequestDocs = requestDocs.filter((r) => isRealRecoveryRequestDoc(r, normalizedEmail));
-      validRequestDocs.sort((a, b) => {
-        const ta = new Date(a.submittedAt || a.createdAt || a.updatedAt || 0).getTime();
-        const tb = new Date(b.submittedAt || b.createdAt || b.updatedAt || 0).getTime();
-        return tb - ta;
-      });
-      const latestRequest = validRequestDocs[0] || null;
-      let recoveryStatus = "none";
-      let recoveryRequestId = null;
-      if (latestRequest) {
-        const raw = (latestRequest.status || latestRequest.decision || "").toLowerCase();
-        if (raw === "approved") {
-          recoveryStatus = "approved";
-          recoveryRequestId = latestRequest.requestId || latestRequest.id || null;
-        } else if (raw === "rejected") {
-          recoveryStatus = "rejected";
-          recoveryRequestId = latestRequest.requestId || latestRequest.id || null;
-        } else if (raw === "pending" || raw === "under_review" || raw === "submitted") {
-          recoveryStatus = "pending";
-          recoveryRequestId = latestRequest.requestId || latestRequest.id || null;
-        } else {
-          recoveryStatus = "none";
-          recoveryRequestId = null;
-        }
-      }
-      const isDeleted = record && (record.status === "SELF_DELETED" || record.status === "ADMIN_DELETED" || record.status === "SELF_RESTORE_AVAILABLE" || record.status === "ADMIN_APPROVAL_REQUIRED" || record.status === "ADMIN_APPROVAL_PENDING" || record.status === "ADMIN_APPROVED" || record.status === "PURGED" || record.deletionType === "self" || record.deletionType === "admin");
-      if (isDeleted) {
-        const deletedAt = record.deletedAt || record.archivedAt || record.createdAt || (/* @__PURE__ */ new Date()).toISOString();
-        const delTime = new Date(deletedAt).getTime();
-        const thirtyOneDaysMs = 31 * 24 * 60 * 60 * 1e3;
-        const restoreUntilMs = delTime + thirtyOneDaysMs;
-        const restoreUntilIso = record.restoreUntil || new Date(restoreUntilMs).toISOString();
-        const remainingMs = new Date(restoreUntilIso).getTime() - Date.now();
-        const daysRemaining = Math.max(0, Math.ceil(remainingMs / (24 * 3600 * 1e3)));
-        const isExpired = record.status === "PURGED" || daysRemaining <= 0 && record.status !== "ADMIN_DELETED" && record.status !== "ADMIN_APPROVED";
-        const hasRecoveryRequest = Boolean(latestRequest && recoveryRequestId && recoveryStatus !== "none");
-        let accountState = "DELETED_ACCOUNT_NO_RECOVERY_REQUEST";
-        if (hasRecoveryRequest) {
-          if (recoveryStatus === "approved") {
-            accountState = "DELETED_ACCOUNT_RECOVERY_APPROVED";
-          } else if (recoveryStatus === "rejected") {
-            accountState = "DELETED_ACCOUNT_RECOVERY_REJECTED";
-          } else {
-            accountState = "DELETED_ACCOUNT_RECOVERY_PENDING";
-          }
-        } else {
-          accountState = "DELETED_ACCOUNT_NO_RECOVERY_REQUEST";
-        }
-        let userFriendlyMessage = `\u062A\u0645 \u0627\u0644\u0639\u062B\u0648\u0631 \u0639\u0644\u0649 \u062D\u0633\u0627\u0628 \u0633\u0627\u0628\u0642 \u062A\u0645 \u062D\u0630\u0641\u0647 (${daysRemaining > 0 ? `\u0645\u062A\u0628\u0642\u064A ${daysRemaining} \u064A\u0648\u0645\u0627\u064B \u0644\u0644\u0627\u0633\u062A\u0639\u0627\u062F\u0629` : "\u0627\u0646\u062A\u0647\u062A \u0641\u062A\u0631\u0629 \u0627\u0644\u0627\u0633\u062A\u0639\u0627\u062F\u0629 \u0627\u0644\u0645\u0628\u0627\u0634\u0631\u0629"}).`;
-        if (accountState === "DELETED_ACCOUNT_RECOVERY_APPROVED") {
-          userFriendlyMessage = "\u062A\u0645\u062A \u0627\u0644\u0645\u0648\u0627\u0641\u0642\u0629 \u0639\u0644\u0649 \u0637\u0644\u0628 \u0627\u0633\u062A\u0639\u0627\u062F\u0629 \u062D\u0633\u0627\u0628\u0643 \u0645\u0646 \u0642\u0628\u0644 \u0625\u062F\u0627\u0631\u0629 \u0627\u0644\u0645\u0646\u0635\u0629! \u064A\u0645\u0643\u0646\u0643 \u0627\u0644\u0622\u0646 \u0625\u0643\u0645\u0627\u0644 \u0627\u0633\u062A\u0639\u0627\u062F\u0629 \u0627\u0644\u062D\u0633\u0627\u0628.";
-        } else if (accountState === "DELETED_ACCOUNT_RECOVERY_PENDING") {
-          userFriendlyMessage = "\u0637\u0644\u0628 \u0627\u0633\u062A\u0639\u0627\u062F\u0629 \u062D\u0633\u0627\u0628\u0643 \u0642\u064A\u062F \u0627\u0644\u0645\u0631\u0627\u062C\u0639\u0629 \u062D\u0627\u0644\u064A\u0627\u064B \u0645\u0646 \u0642\u0628\u0644 \u0625\u062F\u0627\u0631\u0629 \u0627\u0644\u0645\u0646\u0635\u0629. \u064A\u0631\u062C\u0649 \u0645\u062A\u0627\u0628\u0639\u0629 \u062D\u0627\u0644\u0629 \u0627\u0644\u0637\u0644\u0628.";
-        } else if (accountState === "DELETED_ACCOUNT_RECOVERY_REJECTED") {
-          userFriendlyMessage = "\u062A\u0645\u062A \u0645\u0631\u0627\u062C\u0639\u0629 \u0637\u0644\u0628 \u0627\u0633\u062A\u0639\u0627\u062F\u0629 \u0627\u0644\u062D\u0633\u0627\u0628 \u0648\u0631\u0641\u0636\u0647. \u064A\u0645\u0643\u0646\u0643 \u0645\u0631\u0627\u062C\u0639\u0629 \u0633\u0628\u0628 \u0627\u0644\u0631\u0641\u0636 \u0623\u0648 \u0627\u0644\u062A\u0648\u0627\u0635\u0644 \u0645\u0639 \u0627\u0644\u062F\u0639\u0645.";
-        } else if (isExpired) {
-          userFriendlyMessage = "\u0627\u0646\u062A\u0647\u062A \u0641\u062A\u0631\u0629 \u0633\u0645\u0627\u062D \u0627\u0633\u062A\u0639\u0627\u062F\u0629 \u0647\u0630\u0627 \u0627\u0644\u062D\u0633\u0627\u0628 (31 \u064A\u0648\u0645\u0627\u064B). \u062A\u0645 \u062D\u0630\u0641 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u0628\u0634\u0643\u0644 \u0646\u0647\u0627\u0626\u064A \u0648\u0641\u0642 \u0633\u064A\u0627\u0633\u0629 \u0627\u0644\u0646\u0638\u0627\u0645.";
-        }
+      const normalizedEmail = email ? email.toLowerCase() : "";
+      const resolution = await resolveAccountLifecycle2(normalizedEmail || uid, uid);
+      if (resolution.status === "ACTIVE") {
         return res.json({
           success: true,
-          email: normalizedEmail,
-          accountState,
-          lifecycleStatus: record.status || "SELF_DELETED",
-          canRestore: !isExpired && (daysRemaining > 0 || record.status === "ADMIN_DELETED" || record.status === "ADMIN_APPROVED"),
-          adminApprovalRequired: Boolean(
-            record.adminApprovalRequired || record.status === "ADMIN_DELETED" || record.deletionType === "admin"
-          ),
-          daysRemaining,
-          restoreUntil: restoreUntilIso,
-          hasRecoveryRequest,
-          recoveryRequestId: hasRecoveryRequest ? recoveryRequestId : null,
-          recoveryStatus: hasRecoveryRequest ? recoveryStatus : "none",
-          initialTab: hasRecoveryRequest ? "status" : "request",
-          nextAction: accountState === "DELETED_ACCOUNT_NO_RECOVERY_REQUEST" ? "START_RECOVERY" : accountState === "DELETED_ACCOUNT_RECOVERY_PENDING" ? "WAIT_FOR_APPROVAL" : accountState === "DELETED_ACCOUNT_RECOVERY_APPROVED" ? "PROCEED_TO_RESTORE" : accountState === "DELETED_ACCOUNT_RECOVERY_REJECTED" ? "VIEW_REJECTION" : "NONE",
-          isExpired,
-          originalUserId: record.originalUserId || null,
-          userFriendlyMessage
-        });
-      }
-      if (record && record.status === "ACTIVE") {
-        return res.json({
-          success: true,
-          email: normalizedEmail,
+          email: normalizedEmail || resolution.email || "",
           accountState: "ACTIVE_ACCOUNT",
           lifecycleStatus: "ACTIVE",
           canRestore: false,
@@ -18771,13 +19031,33 @@ app2.all(
           recoveryRequestId: null,
           recoveryStatus: "none",
           isExpired: false,
-          originalUserId: null,
+          originalUserId: resolution.originalUserId,
           userFriendlyMessage: "\u0627\u0644\u0628\u0631\u064A\u062F \u0627\u0644\u0625\u0644\u0643\u062A\u0631\u0648\u0646\u064A \u0645\u0633\u062C\u0644 \u0628\u0627\u0644\u0641\u0639\u0644. \u064A\u0631\u062C\u0649 \u062A\u0633\u062C\u064A\u0644 \u0627\u0644\u062F\u062E\u0648\u0644 \u0625\u0644\u0649 \u062D\u0633\u0627\u0628\u0643."
+        });
+      }
+      if (resolution.isDeleted) {
+        return res.json({
+          success: true,
+          email: normalizedEmail || resolution.email || "",
+          accountState: resolution.accountState,
+          lifecycleStatus: resolution.status,
+          canRestore: resolution.canRestore,
+          adminApprovalRequired: resolution.adminApprovalRequired,
+          daysRemaining: resolution.daysRemaining,
+          restoreUntil: resolution.restoreUntil,
+          hasRecoveryRequest: resolution.hasRecoveryRequest,
+          recoveryRequestId: resolution.recoveryRequestId,
+          recoveryStatus: resolution.recoveryStatus,
+          initialTab: resolution.initialTab || "request",
+          nextAction: resolution.nextAction || "NONE",
+          isExpired: resolution.isExpired,
+          originalUserId: resolution.originalUserId,
+          userFriendlyMessage: resolution.userFriendlyMessage
         });
       }
       return res.json({
         success: true,
-        email: normalizedEmail,
+        email: normalizedEmail || resolution.email || "",
         accountState: "NO_ACCOUNT",
         lifecycleStatus: "NONE",
         canRestore: false,
@@ -18802,12 +19082,13 @@ app2.all(
 );
 app2.post("/api/auth/check-lifecycle", async (req, res) => {
   try {
-    const { email } = req.body;
-    if (!email || typeof email !== "string") {
-      return res.status(400).json({ success: false, error: "Email parameter is required." });
+    const { email, uid } = req.body;
+    const normalizedEmail = (email || "").trim().toLowerCase();
+    const optUid = uid ? String(uid).trim() : null;
+    if (!normalizedEmail && !optUid) {
+      return res.status(400).json({ success: false, error: "Email or UID parameter is required." });
     }
-    const normalizedEmail = email.trim().toLowerCase();
-    const record = await getAccountLifecycleRecord2(normalizedEmail);
+    const record = await getAccountLifecycleRecord2(normalizedEmail, optUid);
     if (!record || record.status === "PURGED") {
       return res.json({
         success: true,
@@ -23452,12 +23733,6 @@ app2.post("/api/auth/login", loginRegisterLimiter, async (req, res) => {
       return res.status(400).json({ error: "Email and password are required." });
     }
     const normalizedEmail = email.trim().toLowerCase();
-    let lifecycleRecord = null;
-    try {
-      lifecycleRecord = await getAccountLifecycleRecord2(normalizedEmail);
-    } catch (lcErr) {
-      console.warn("Notice: Lifecycle record fetch in /api/auth/login:", lcErr);
-    }
     let authUid = null;
     let authIdToken = null;
     let apiKey = "AIzaSyAvjj-PBHknriQ73FYyQc2nhhBNCF_lvnE";
@@ -23503,122 +23778,228 @@ app2.post("/api/auth/login", loginRegisterLimiter, async (req, res) => {
     let userProfile = null;
     let userFromDb = null;
     let foundDocId = null;
-    if (lifecycleRecord && (lifecycleRecord.status === "SELF_DELETED" || lifecycleRecord.status === "SELF_RESTORE_AVAILABLE" || lifecycleRecord.status === "ADMIN_DELETED" || lifecycleRecord.status === "ADMIN_APPROVAL_REQUIRED" || lifecycleRecord.status === "ADMIN_APPROVAL_PENDING" || lifecycleRecord.deletionType === "admin" || lifecycleRecord.deletionType === "self")) {
-      let archivedProfile = null;
-      if (lifecycleRecord.originalUserId) {
-        try {
-          const docSnap = await adminDb.collection("users_retained").doc(lifecycleRecord.originalUserId).get();
-          if (docSnap.exists) {
-            archivedProfile = docSnap.data();
-            if (!authUid) authUid = lifecycleRecord.originalUserId;
-          }
-        } catch (e) {
-        }
-      }
-      if (!archivedProfile) {
-        try {
-          const db2 = readDb2();
-          const found = db2.retained_users?.find(
-            (u) => (u.email || "").trim().toLowerCase() === normalizedEmail
-          );
-          if (found) {
-            archivedProfile = found;
-            if (!authUid) authUid = found.id;
-          }
-        } catch (e) {
-        }
-      }
-      if (archivedProfile) {
-        userProfile = archivedProfile;
-      }
-    }
-    if (!userProfile) {
+    const isDocActive = (d) => Boolean(
+      d && d.deleted !== true && d.status !== "SELF_DELETED" && d.status !== "ADMIN_DELETED" && d.accountLifecycleStatus !== "SELF_DELETED" && d.accountLifecycleStatus !== "PURGED"
+    );
+    if (isFirebaseAdminAvailable && adminDb) {
       try {
         if (authUid) {
           const docSnap = await adminDb.collection("users").doc(authUid).get();
           if (docSnap.exists) {
-            userProfile = docSnap.data();
-            foundDocId = authUid;
+            const data = docSnap.data();
+            if (isDocActive(data)) {
+              userProfile = data;
+              foundDocId = authUid;
+            }
           }
         }
         if (!userProfile) {
           const emailSnap = await adminDb.collection("users").where("email", "==", normalizedEmail).limit(1).get();
           if (!emailSnap.empty) {
             const docData = emailSnap.docs[0].data();
-            foundDocId = emailSnap.docs[0].id;
-            if (docData && (docData.email || "").trim().toLowerCase() === normalizedEmail) {
+            if (isDocActive(docData)) {
               userProfile = docData;
-              if (!authUid) {
-                authUid = foundDocId;
-              }
+              foundDocId = emailSnap.docs[0].id;
+              if (!authUid) authUid = foundDocId;
             }
           }
         }
       } catch (fsErr) {
         console.warn("adminDb user lookup notice in login:", fsErr);
       }
-      let adminAuthUser = null;
+    }
+    const localDb = readDb2();
+    userFromDb = localDb.users?.find(
+      (u) => (authUid && (u.id === authUid || u.uid === authUid) || (u.email || "").trim().toLowerCase() === normalizedEmail) && isDocActive(u)
+    );
+    if (!userProfile && userFromDb) {
+      userProfile = userFromDb;
+      if (!authUid) authUid = userFromDb.id || userFromDb.uid;
+      if (!foundDocId) foundDocId = userFromDb.id || userFromDb.uid;
+    }
+    if (!userProfile && isFirebaseAdminAvailable && adminAuth) {
       try {
-        adminAuthUser = await adminAuth.getUserByEmail(normalizedEmail);
-        if (adminAuthUser) {
-          if (!authUid) authUid = adminAuthUser.uid;
-          if (!userProfile) {
-            try {
-              const docSnap = await adminDb.collection("users").doc(adminAuthUser.uid).get();
-              if (docSnap.exists) {
-                userProfile = docSnap.data();
-                foundDocId = adminAuthUser.uid;
-              }
-            } catch (e) {
-            }
-          }
+        const authLookup = authUid ? await adminAuth.getUser(authUid).catch(() => null) : await adminAuth.getUserByEmail(normalizedEmail).catch(() => null);
+        if (authLookup && !authLookup.disabled) {
+          if (!authUid) authUid = authLookup.uid;
+          if (!foundDocId) foundDocId = authLookup.uid;
+          userProfile = {
+            id: authLookup.uid,
+            uid: authLookup.uid,
+            email: authLookup.email || normalizedEmail,
+            name: authLookup.displayName || "User",
+            role: "Contributor",
+            emailVerified: authLookup.emailVerified
+          };
         }
       } catch (e) {
       }
-      const localDb = readDb2();
-      userFromDb = localDb.users?.find(
-        (u) => (u.email || "").trim().toLowerCase() === normalizedEmail
-      );
-      if (!userProfile && userFromDb) {
-        userProfile = userFromDb;
-        if (!authUid) authUid = userFromDb.id || userFromDb.uid;
-        if (!foundDocId) foundDocId = userFromDb.id || userFromDb.uid;
+    }
+    if (authUid && !userProfile) {
+      userProfile = {
+        id: authUid,
+        uid: authUid,
+        email: normalizedEmail,
+        name: normalizedEmail.split("@")[0] || "User",
+        role: "Contributor",
+        accountStatus: "APPROVED",
+        isEmailVerified: true,
+        emailVerified: true,
+        createdAt: (/* @__PURE__ */ new Date()).toISOString()
+      };
+      foundDocId = authUid;
+      try {
+        const db2 = readDb2();
+        if (!db2.users) db2.users = [];
+        const existsLocally = db2.users.find((u) => u.id === authUid || u.uid === authUid);
+        if (!existsLocally) {
+          db2.users.push(userProfile);
+          writeDb2(db2);
+        }
+      } catch (e) {
       }
     }
-    const isDeletedLifecycle = Boolean(
-      lifecycleRecord && (lifecycleRecord.status === "SELF_DELETED" || lifecycleRecord.status === "ADMIN_DELETED" || lifecycleRecord.status === "SELF_RESTORE_AVAILABLE" || lifecycleRecord.status === "ADMIN_APPROVAL_REQUIRED" || lifecycleRecord.status === "ADMIN_APPROVAL_PENDING" || lifecycleRecord.deletionType === "self" || lifecycleRecord.deletionType === "admin")
-    );
-    const sendDeletedLifecycleResponse = (rec) => {
-      const deletedAt = rec.deletedAt || rec.archivedAt || rec.createdAt || (/* @__PURE__ */ new Date()).toISOString();
-      const delTime = new Date(deletedAt).getTime();
-      const thirtyOneDaysMs = 31 * 24 * 60 * 60 * 1e3;
-      const restoreUntilMs = delTime + thirtyOneDaysMs;
-      const restoreUntilIso = new Date(restoreUntilMs).toISOString();
-      const remainingMs = restoreUntilMs - Date.now();
-      const daysRemaining = Math.max(0, Math.ceil(remainingMs / (24 * 3600 * 1e3)));
-      if (daysRemaining <= 0) {
-        return res.status(403).json({
-          code: "RESTORE_EXPIRED",
-          error: "RESTORE_EXPIRED",
-          status: "RESTORE_EXPIRED",
-          email: normalizedEmail,
-          daysRemaining: 0,
-          restoreUntil: restoreUntilIso,
-          message: "\u0627\u0646\u062A\u0647\u062A \u0641\u062A\u0631\u0629 \u0627\u0633\u062A\u0639\u0627\u062F\u0629 \u0647\u0630\u0627 \u0627\u0644\u062D\u0633\u0627\u0628. \u062A\u0645 \u062D\u0630\u0641 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u0628\u0634\u0643\u0644 \u0646\u0647\u0627\u0626\u064A \u0648\u0644\u0645 \u064A\u0639\u062F \u0642\u0627\u0628\u0644\u0627\u064B \u0644\u0644\u0627\u0633\u062A\u0639\u0627\u062F\u0629 \u0648\u0641\u0642 \u0633\u064A\u0627\u0633\u0629 \u0627\u0644\u0646\u0638\u0627\u0645."
-        });
+    if (userProfile) {
+      const activeUserId = authUid || userProfile.id || userProfile.uid;
+      try {
+        const db2 = readDb2();
+        let changed = false;
+        if (db2.retained_users && db2.retained_users.length > 0) {
+          const origLen = db2.retained_users.length;
+          db2.retained_users = db2.retained_users.filter(
+            (u) => (activeUserId ? u.id !== activeUserId && u.uid !== activeUserId : true) && (normalizedEmail ? (u.email || "").trim().toLowerCase() !== normalizedEmail : true)
+          );
+          if (db2.retained_users.length !== origLen) changed = true;
+        }
+        if (db2.deleted_users && db2.deleted_users.length > 0) {
+          const origLen = db2.deleted_users.length;
+          db2.deleted_users = db2.deleted_users.filter(
+            (u) => (activeUserId ? u.id !== activeUserId && u.uid !== activeUserId : true) && (normalizedEmail ? (u.email || "").trim().toLowerCase() !== normalizedEmail : true)
+          );
+          if (db2.deleted_users.length !== origLen) changed = true;
+        }
+        if (db2.account_lifecycle && normalizedEmail) {
+          const idx = db2.account_lifecycle.findIndex(
+            (r) => (r.emailNormalized || r.accountId || r.email || "").trim().toLowerCase() === normalizedEmail
+          );
+          const activePayload = {
+            accountId: normalizedEmail,
+            emailNormalized: normalizedEmail,
+            status: "ACTIVE",
+            deletionType: null,
+            deletedAt: null,
+            deletedBy: null,
+            restoreUntil: null,
+            originalUserId: activeUserId,
+            retainedDataDocPath: null,
+            adminApprovalRequired: false,
+            canRestore: false,
+            daysRemaining: 0,
+            updatedAt: (/* @__PURE__ */ new Date()).toISOString()
+          };
+          if (idx >= 0) db2.account_lifecycle[idx] = activePayload;
+          else db2.account_lifecycle.push(activePayload);
+          changed = true;
+        }
+        if (changed) writeDb2(db2);
+      } catch (e) {
       }
-      return res.status(403).json({
-        code: "SELF_RESTORE_AVAILABLE",
-        error: "SELF_RESTORE_AVAILABLE",
-        status: "SELF_RESTORE_AVAILABLE",
-        email: normalizedEmail,
-        daysRemaining,
-        restoreUntil: restoreUntilIso,
-        message: "\u062A\u0645 \u0627\u0644\u0639\u062B\u0648\u0631 \u0639\u0644\u0649 \u062D\u0633\u0627\u0628\u0643 \u0627\u0644\u0645\u062D\u0630\u0648\u0641 \u0633\u0627\u0628\u0642\u0627\u064B\u060C \u0648\u0647\u0648 \u0645\u062A\u0627\u062D \u0644\u0644\u0627\u0633\u062A\u0639\u0627\u062F\u0629."
-      });
-    };
-    if (isDeletedLifecycle) {
-      return sendDeletedLifecycleResponse(lifecycleRecord);
+      if (isFirebaseAdminAvailable && adminDb) {
+        try {
+          if (activeUserId) {
+            adminDb.collection("users_retained").doc(activeUserId).delete().catch(() => {
+            });
+            adminDb.collection("deletedUsers").doc(activeUserId).delete().catch(() => {
+            });
+          }
+          if (normalizedEmail) {
+            adminDb.collection("accountLifecycle").doc(normalizedEmail).set({
+              accountId: normalizedEmail,
+              emailNormalized: normalizedEmail,
+              status: "ACTIVE",
+              deletionType: null,
+              deletedAt: null,
+              deletedBy: null,
+              restoreUntil: null,
+              originalUserId: activeUserId,
+              retainedDataDocPath: null,
+              adminApprovalRequired: false,
+              canRestore: false,
+              daysRemaining: 0,
+              updatedAt: (/* @__PURE__ */ new Date()).toISOString()
+            }, { merge: true }).catch(() => {
+            });
+          }
+        } catch (e) {
+        }
+      }
+    }
+    let lifecycleRecord = null;
+    if (!userProfile && !authUid) {
+      try {
+        lifecycleRecord = await getAccountLifecycleRecord2(normalizedEmail, authUid || void 0);
+      } catch (lcErr) {
+        console.warn("Notice: Lifecycle record fetch in /api/auth/login:", lcErr);
+      }
+      if (lifecycleRecord && (lifecycleRecord.status === "SELF_DELETED" || lifecycleRecord.status === "ADMIN_DELETED" || lifecycleRecord.status === "SELF_RESTORE_AVAILABLE" || lifecycleRecord.status === "ADMIN_APPROVAL_REQUIRED" || lifecycleRecord.status === "ADMIN_APPROVAL_PENDING" || lifecycleRecord.deletionType === "self" || lifecycleRecord.deletionType === "admin")) {
+        let archivedProfile = null;
+        if (lifecycleRecord.originalUserId) {
+          try {
+            const docSnap = await adminDb.collection("users_retained").doc(lifecycleRecord.originalUserId).get();
+            if (docSnap.exists) {
+              archivedProfile = docSnap.data();
+              if (!authUid) authUid = lifecycleRecord.originalUserId;
+            }
+          } catch (e) {
+          }
+        }
+        if (!archivedProfile) {
+          try {
+            const db2 = readDb2();
+            const found = db2.retained_users?.find(
+              (u) => (u.email || "").trim().toLowerCase() === normalizedEmail
+            );
+            if (found) {
+              archivedProfile = found;
+              if (!authUid) authUid = found.id;
+            }
+          } catch (e) {
+          }
+        }
+        if (archivedProfile) {
+          userProfile = archivedProfile;
+        }
+        const sendDeletedLifecycleResponse = (rec) => {
+          const deletedAt = rec.deletedAt || rec.archivedAt || rec.createdAt || (/* @__PURE__ */ new Date()).toISOString();
+          const delTime = new Date(deletedAt).getTime();
+          const thirtyOneDaysMs = 31 * 24 * 60 * 60 * 1e3;
+          const restoreUntilMs = delTime + thirtyOneDaysMs;
+          const restoreUntilIso = new Date(restoreUntilMs).toISOString();
+          const remainingMs = restoreUntilMs - Date.now();
+          const daysRemaining = Math.max(0, Math.ceil(remainingMs / (24 * 3600 * 1e3)));
+          if (daysRemaining <= 0) {
+            return res.status(403).json({
+              code: "RESTORE_EXPIRED",
+              error: "RESTORE_EXPIRED",
+              status: "RESTORE_EXPIRED",
+              email: normalizedEmail,
+              daysRemaining: 0,
+              restoreUntil: restoreUntilIso,
+              message: "\u0627\u0646\u062A\u0647\u062A \u0641\u062A\u0631\u0629 \u0627\u0633\u062A\u0639\u0627\u062F\u0629 \u0647\u0630\u0627 \u0627\u0644\u062D\u0633\u0627\u0628. \u062A\u0645 \u062D\u0630\u0641 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u0628\u0634\u0643\u0644 \u0646\u0647\u0627\u0626\u064A \u0648\u0644\u0645 \u064A\u0639\u062F \u0642\u0627\u0628\u0644\u0627\u064B \u0644\u0644\u0627\u0633\u062A\u0639\u0627\u062F\u0629 \u0648\u0641\u0642 \u0633\u064A\u0627\u0633\u0629 \u0627\u0644\u0646\u0638\u0627\u0645."
+            });
+          }
+          return res.status(403).json({
+            code: "SELF_RESTORE_AVAILABLE",
+            error: "SELF_RESTORE_AVAILABLE",
+            status: "SELF_RESTORE_AVAILABLE",
+            email: normalizedEmail,
+            daysRemaining,
+            restoreUntil: restoreUntilIso,
+            message: "\u062A\u0645 \u0627\u0644\u0639\u062B\u0648\u0631 \u0639\u0644\u0649 \u062D\u0633\u0627\u0628\u0643 \u0627\u0644\u0645\u062D\u0630\u0648\u0641 \u0633\u0627\u0628\u0642\u0627\u064B\u060C \u0648\u0647\u0648 \u0645\u062A\u0627\u062D \u0644\u0644\u0627\u0633\u062A\u0639\u0627\u062F\u0629."
+          });
+        };
+        return sendDeletedLifecycleResponse(lifecycleRecord);
+      }
     }
     if (!userProfile && !authUid) {
       return res.status(401).json({
@@ -23633,6 +24014,22 @@ app2.post("/api/auth/login", loginRegisterLimiter, async (req, res) => {
       authIdToken || storedPassword && (storedPassword === password || storedPassword === cleanPassword || hashVerificationCode(password) === storedPassword || hashVerificationCode(cleanPassword) === storedPassword)
     );
     if (!isPasswordMatch) {
+      try {
+        const authLookup = authUid ? await adminAuth.getUser(authUid).catch(() => null) : await adminAuth.getUserByEmail(normalizedEmail).catch(() => null);
+        if (authLookup) {
+          const providers = authLookup.providerData?.map((p) => p.providerId) || [];
+          const hasGoogle = providers.includes("google.com");
+          const hasPassword = providers.includes("password") || authLookup.passwordHash != null;
+          if (hasGoogle && !hasPassword) {
+            return res.status(401).json({
+              code: "auth/google-only-account",
+              error: "GOOGLE_ONLY_ACCOUNT",
+              message: "\u0647\u0630\u0627 \u0627\u0644\u062D\u0633\u0627\u0628 \u0645\u0631\u062A\u0628\u0637 \u0628\u062A\u0633\u062C\u064A\u0644 \u0627\u0644\u062F\u062E\u0648\u0644 \u0639\u0628\u0631 Google \u0641\u0642\u0637. \u0644\u0627\u0633\u062A\u062E\u062F\u0627\u0645 \u0627\u0644\u0628\u0631\u064A\u062F \u0627\u0644\u0625\u0644\u0643\u062A\u0631\u0648\u0646\u064A \u0648\u0643\u0644\u0645\u0629 \u0627\u0644\u0645\u0631\u0648\u0631\u060C \u0642\u0645 \u0623\u0648\u0644\u0627\u064B \u0628\u062A\u0639\u064A\u064A\u0646 \u0643\u0644\u0645\u0629 \u0645\u0631\u0648\u0631 \u0645\u0646 \u0625\u0639\u062F\u0627\u062F\u0627\u062A \u0627\u0644\u062D\u0633\u0627\u0628."
+            });
+          }
+        }
+      } catch (lookupErr) {
+      }
       return res.status(401).json({
         code: "auth/invalid-credential",
         error: "INVALID_CREDENTIALS",
@@ -23837,20 +24234,20 @@ app2.post("/api/auth/login", loginRegisterLimiter, async (req, res) => {
       console.warn("Notice: adminAuth createCustomToken error:", ctErr);
     }
     try {
-      const localDb = readDb2();
-      if (!localDb.users) localDb.users = [];
-      const existingIdx = localDb.users.findIndex(
+      const localDb2 = readDb2();
+      if (!localDb2.users) localDb2.users = [];
+      const existingIdx = localDb2.users.findIndex(
         (u) => u.id === authUid || u.email?.toLowerCase() === normalizedEmail
       );
       if (existingIdx >= 0) {
-        localDb.users[existingIdx] = {
-          ...localDb.users[existingIdx],
+        localDb2.users[existingIdx] = {
+          ...localDb2.users[existingIdx],
           ...userProfile
         };
       } else {
-        localDb.users.push(userProfile);
+        localDb2.users.push(userProfile);
       }
-      writeDb2(localDb);
+      writeDb2(localDb2);
     } catch (e) {
     }
     const isExemptRole = isAdminAccount;
@@ -24891,6 +25288,7 @@ var server_default = app2;
   readDb,
   reconcileWorkspaceData,
   requestAccountReactivationServer,
+  resolveAccountLifecycle,
   resolveUserByEmailOrId,
   restoreAccountFullServer,
   runWithWorkspaceLock,
