@@ -9611,6 +9611,11 @@ app.get("/api/admin/users", requireAuth, async (req: AuthRequest, res) => {
         for (const authU of authList.users) {
           const aEmail = (authU.email || "").trim().toLowerCase();
           if (!existingIds.has(authU.uid) && (!aEmail || !existingEmails.has(aEmail))) {
+            // Check if user already exists in db store before synthesizing
+            const db = readDb();
+            const existingLocal = (db.users || []).find((u: any) => u.id === authU.uid || u.uid === authU.uid || (u.email && u.email.toLowerCase() === aEmail));
+            const isEmailVer = Boolean(authU.emailVerified || existingLocal?.isEmailVerified || existingLocal?.emailVerified || existingLocal?.email_verified);
+            
             // Synthesize canonical profile from Auth metadata
             const synthesized: any = {
               id: authU.uid,
@@ -9619,9 +9624,10 @@ app.get("/api/admin/users", requireAuth, async (req: AuthRequest, res) => {
               ownerName: authU.displayName || authU.email?.split("@")[0] || "User",
               companyName: "Default Organization",
               role: "Contributor",
-              isEmailVerified: Boolean(authU.emailVerified),
-              emailVerified: Boolean(authU.emailVerified),
-              accountStatus: authU.emailVerified ? "VERIFICATION_REQUIRED" : "PENDING_EMAIL_VERIFICATION",
+              isEmailVerified: isEmailVer,
+              emailVerified: isEmailVer,
+              email_verified: isEmailVer,
+              accountStatus: isEmailVer ? "PENDING_DOCUMENT_VERIFICATION" : "PENDING_EMAIL_VERIFICATION",
               documentVerificationStatus: "NOT_SUBMITTED",
               isVerified: false,
               verification_required: true,
@@ -10657,8 +10663,29 @@ app.post("/api/auth/submit-verification-documents", requireAuth, async (req: Aut
       if (key2) seenDocKeys.add(key2);
       if (key3) seenDocKeys.add(key3);
 
-      allDocuments.push(doc);
+      const activeDoc = {
+        ...doc,
+        status: "UNDER_REVIEW",
+        verificationStatus: "UNDER_REVIEW"
+      };
+
+      allDocuments.push(activeDoc);
     }
+
+    // Preserve previous rejection reason for historical review records
+    let existingUserDoc: any = null;
+    if (isFirebaseAdminAvailable && adminDb) {
+      try {
+        const snap = await adminDb.collection("users").doc(uid).get();
+        if (snap.exists) existingUserDoc = snap.data();
+      } catch (e) {}
+    }
+    if (!existingUserDoc) {
+      const db = readDb();
+      existingUserDoc = (db.users || []).find((u: any) => u.id === uid || u.uid === uid);
+    }
+
+    const prevRejection = existingUserDoc?.rejectionReason || existingUserDoc?.verificationInfo?.adminNote || existingUserDoc?.previousRejectionReason;
 
     const institutionalProfile = {
       fullName: String(fullName).trim(),
@@ -10699,6 +10726,8 @@ app.post("/api/auth/submit-verification-documents", requireAuth, async (req: Aut
       verificationRequestStatus: "UNDER_REVIEW",
       requiresDocumentVerification: true,
       rejectionReason: null,
+      previousRejectionReason: prevRejection || null,
+      historicalRejectionReason: prevRejection || null,
       isVerified: false,
       verifiedAt: null,
       adminVerificationOverride: false,
@@ -10707,6 +10736,7 @@ app.post("/api/auth/submit-verification-documents", requireAuth, async (req: Aut
       "verificationInfo.status": "under_review",
       "verificationInfo.submittedAt": nowIso,
       "verificationInfo.adminNote": null,
+      "verificationInfo.previousAdminNote": prevRejection || null,
       "verificationInfo.verifiedAt": null,
       verificationSubmittedAt: nowIso,
       lastActiveAt: nowIso
@@ -10952,6 +10982,7 @@ app.get("/api/admin/pending-approvals", requireAuth, requireAdmin, async (req: A
         }
 
         const isPendingVerification =
+          u.accountStatus === "PENDING_ADMIN_REVIEW" ||
           (hasDocs && docVerifStr !== "APPROVED" && docVerifStr !== "REJECTED") ||
           (!hasDocs && hasExplicitRequest && docVerifStr !== "APPROVED" && docVerifStr !== "REJECTED");
 
@@ -11398,6 +11429,8 @@ app.post(
       }));
 
       const docRejectUpdates: Record<string, any> = {
+        accountStatus: "REJECTED",
+        canonicalVerificationStatus: "rejected",
         documentVerificationStatus: "REJECTED",
         kycStatus: "REJECTED",
         verificationRequestStatus: "REJECTED",

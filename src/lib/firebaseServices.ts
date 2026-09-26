@@ -1358,6 +1358,9 @@ export function normalizeStrictUserVerification(user: User): User {
     user.isEmailVerified = true;
     user.emailVerified = true;
     user.email_verified = true;
+    if (user.accountStatus === "PENDING_EMAIL_VERIFICATION" || !user.accountStatus) {
+      user.accountStatus = "PENDING_DOCUMENT_VERIFICATION";
+    }
   }
 
   const canonical = computeCanonicalVerification(user, isSysAdmin);

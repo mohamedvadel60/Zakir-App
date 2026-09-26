@@ -364,8 +364,28 @@ export function computeCanonicalVerification(
   let isFullyApproved = false;
   let userFriendlyMessage = "";
 
-  // 1. REJECTED STATE (State C)
-  if (rawAccStatus === "REJECTED" || rawDocStatus === "REJECTED" || rawReqStatus === "REJECTED" || hasRejectedDoc) {
+  // 1. PENDING STATE (State B) - User submitted documents/request and waiting for admin review (takes precedence over stale rejection flags)
+  if (
+    rawAccStatus === "PENDING_ADMIN_REVIEW" ||
+    rawAccStatus === "PENDING_APPROVAL" ||
+    full.canonicalVerificationStatus === "pending" ||
+    userData.canonicalVerificationStatus === "pending" ||
+    rawDocStatus === "UNDER_REVIEW" ||
+    rawDocStatus === "PENDING_REVIEW" ||
+    rawReqStatus === "UNDER_REVIEW" ||
+    rawReqStatus === "PENDING" ||
+    rawReqStatus === "SUBMITTED" ||
+    rawReqStatus === "DOCUMENTS_SUBMITTED"
+  ) {
+    canonicalStatus = "pending";
+    accountStatus = "PENDING_ADMIN_REVIEW";
+    documentVerificationStatus = "UNDER_REVIEW";
+    kycStatus = "UNDER_REVIEW";
+    uiState = "PENDING_REVIEW";
+    userFriendlyMessage = "طلب اعتماد الحساب قيد المراجعة والتدقيق الإداري.";
+  }
+  // 2. REJECTED STATE (State C) - Active rejection without active pending resubmission
+  else if (rawAccStatus === "REJECTED" || rawDocStatus === "REJECTED" || rawReqStatus === "REJECTED" || hasRejectedDoc) {
     canonicalStatus = "rejected";
     accountStatus = "REJECTED";
     documentVerificationStatus = "REJECTED";
@@ -375,7 +395,7 @@ export function computeCanonicalVerification(
       ? `تم رفض طلب اعتماد الحساب: ${rejectionReason}`
       : "تم رفض طلب الاعتماد. يرجى مراجعة البيانات وإعادة تقديم المستندات المطلوبة.";
   }
-  // 2. APPROVED STATE (State D)
+  // 3. APPROVED STATE (State D)
   else if (rawAccStatus === "APPROVED" || rawAccStatus === "ACTIVE") {
     canonicalStatus = "approved";
     accountStatus = "APPROVED";
@@ -402,26 +422,6 @@ export function computeCanonicalVerification(
       isFullyApproved = false;
       userFriendlyMessage = "الحساب معتمد ومفعل بالكامل.";
     }
-  }
-  // 3. PENDING STATE (State B) - User submitted documents/request and waiting for admin review
-  else if (
-    rawAccStatus === "PENDING_ADMIN_REVIEW" ||
-    rawAccStatus === "PENDING_APPROVAL" ||
-    rawDocStatus === "UNDER_REVIEW" ||
-    rawDocStatus === "PENDING_REVIEW" ||
-    rawReqStatus === "UNDER_REVIEW" ||
-    rawReqStatus === "PENDING" ||
-    rawReqStatus === "SUBMITTED" ||
-    rawReqStatus === "DOCUMENTS_SUBMITTED" ||
-    Boolean(full.verificationSubmittedAt || userData.verificationSubmittedAt || full.verificationInfo?.submittedAt || userData.verificationInfo?.submittedAt) ||
-    (documentCount > 0 && rawAccStatus !== "APPROVED" && rawAccStatus !== "PENDING_DOCUMENT_VERIFICATION" && rawAccStatus !== "PENDING_INSTITUTIONAL_DATA" && rawDocStatus !== "PENDING_UPLOAD")
-  ) {
-    canonicalStatus = "pending";
-    accountStatus = "PENDING_ADMIN_REVIEW";
-    documentVerificationStatus = "UNDER_REVIEW";
-    kycStatus = "UNDER_REVIEW";
-    uiState = "PENDING_REVIEW";
-    userFriendlyMessage = "طلب اعتماد الحساب قيد المراجعة والتدقيق الإداري.";
   }
   // 4. NOT STARTED STATE (State A) - User has not started or not finished uploading documents
   else {
