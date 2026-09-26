@@ -17,8 +17,13 @@ function getClientFirebaseConfig() {
     }
   }
   
+  let apiKey = env.VITE_FIREBASE_API_KEY || env.FIREBASE_API_KEY;
+  if (!apiKey || !apiKey.startsWith("AIzaSy")) {
+    apiKey = "AIzaSyAvjj-PBHknriQ73FYyQc2nhhBNCF_lvnE";
+  }
+
   return {
-    apiKey: env.VITE_FIREBASE_API_KEY || env.FIREBASE_API_KEY || "AIzaSyAvjj-PBHknriQ73FYyQc2nhhBNCF_lvnE",
+    apiKey: apiKey,
     authDomain: env.VITE_FIREBASE_AUTH_DOMAIN || env.FIREBASE_AUTH_DOMAIN || "potent-turbine-47c1c.firebaseapp.com",
     projectId: env.VITE_FIREBASE_PROJECT_ID || env.FIREBASE_PROJECT_ID || "potent-turbine-47c1c",
     storageBucket: env.VITE_FIREBASE_STORAGE_BUCKET || env.FIREBASE_STORAGE_BUCKET || "potent-turbine-47c1c.firebasestorage.app",

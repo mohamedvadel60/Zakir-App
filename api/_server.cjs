@@ -1286,9 +1286,17 @@ function computeCanonicalVerification(userData, isSysAdmin = false, extraDocs) {
     full.adminRequestedEmailReverification === true || userData.adminRequestedEmailReverification === true || full.adminRequestedReverification === true || userData.adminRequestedReverification === true
   );
   const rawEmailVerified = Boolean(
-    full.emailVerified === true || full.isEmailVerified === true || full.email_verified === true || full.email_verified === "true" || full.emailVerified === "true" || full.isEmailVerified === "true" || userData.emailVerified === true || userData.isEmailVerified === true || userData.email_verified === true || userData.email_verified === "true" || userData.emailVerified === "true" || userData.isEmailVerified === "true" || Boolean(full.emailVerifiedAt) || Boolean(userData.emailVerifiedAt) || Boolean(full.verificationInfo?.emailVerifiedAt) || Boolean(userData.verificationInfo?.emailVerifiedAt) || Boolean(full.accountStatus && full.accountStatus !== "PENDING_EMAIL_VERIFICATION") || Boolean(userData.accountStatus && userData.accountStatus !== "PENDING_EMAIL_VERIFICATION") || documentCount > 0
+    full.emailVerified === true || full.isEmailVerified === true || full.email_verified === true || full.email_verified === "true" || full.emailVerified === "true" || full.isEmailVerified === "true" || userData.emailVerified === true || userData.isEmailVerified === true || userData.email_verified === true || userData.email_verified === "true" || userData.emailVerified === "true" || userData.isEmailVerified === "true" || Boolean(full.emailVerifiedAt) || Boolean(userData.emailVerifiedAt) || Boolean(full.verificationInfo?.emailVerifiedAt) || Boolean(userData.verificationInfo?.emailVerifiedAt) || Boolean(full.accountStatus && full.accountStatus !== "PENDING_EMAIL_VERIFICATION") || Boolean(userData.accountStatus && userData.accountStatus !== "PENDING_EMAIL_VERIFICATION") || Array.isArray(full.verificationDocuments) && full.verificationDocuments.length > 0 || Array.isArray(userData.verificationDocuments) && userData.verificationDocuments.length > 0 || documentCount > 0
   );
   const isEmailVer = rawEmailVerified && !adminRequestedReverification;
+  if (isEmailVer) {
+    full.emailVerified = true;
+    full.isEmailVerified = true;
+    full.email_verified = true;
+    userData.emailVerified = true;
+    userData.isEmailVerified = true;
+    userData.email_verified = true;
+  }
   const hasExplicitOverride = Boolean(
     full.adminVerificationOverride === true || userData.adminVerificationOverride === true
   );
@@ -1702,7 +1710,7 @@ async function isUserAdminServer(uid, email) {
         const data = uDoc.data();
         const role = (data?.role || "").trim().toLowerCase();
         const em = (data?.email || "").trim().toLowerCase();
-        if (role === "admin" || data?.isAdmin === true || em && ADMIN_EMAILS.has(em)) {
+        if ((role === "admin" || data?.isAdmin === true) && (em && ADMIN_EMAILS.has(em))) {
           return true;
         }
       }
@@ -1714,7 +1722,8 @@ async function isUserAdminServer(uid, email) {
     const found = db2?.users?.find((u) => u.id === uid || directEmail && u.email?.toLowerCase() === directEmail);
     if (found) {
       const r = (found.role || "").trim().toLowerCase();
-      if (r === "admin" || found.isAdmin === true || found.email && ADMIN_EMAILS.has(found.email.toLowerCase())) {
+      const em = (found.email || "").trim().toLowerCase();
+      if ((r === "admin" || found.isAdmin === true) && (em && ADMIN_EMAILS.has(em))) {
         return true;
       }
     }
@@ -2017,9 +2026,6 @@ var init_auth = __esm({
       "SYhfciebGFUj29qGgAa0pqNunrk2"
     ]);
     ADMIN_EMAILS = new Set([
-      "mohamedvadel60@mail.com",
-      "mohamedvadel60@gmail.com",
-      "sarasara222341@gmail.com",
       "admin@zakir.ai",
       "admin@getzakir.com",
       (process.env.ADMIN_EMAIL || "").toLowerCase().trim()
@@ -2663,8 +2669,12 @@ function getClientFirebaseConfig() {
       env = {};
     }
   }
+  let apiKey = env.VITE_FIREBASE_API_KEY || env.FIREBASE_API_KEY;
+  if (!apiKey || !apiKey.startsWith("AIzaSy")) {
+    apiKey = "AIzaSyAvjj-PBHknriQ73FYyQc2nhhBNCF_lvnE";
+  }
   return {
-    apiKey: env.VITE_FIREBASE_API_KEY || env.FIREBASE_API_KEY || "AIzaSyAvjj-PBHknriQ73FYyQc2nhhBNCF_lvnE",
+    apiKey,
     authDomain: env.VITE_FIREBASE_AUTH_DOMAIN || env.FIREBASE_AUTH_DOMAIN || "potent-turbine-47c1c.firebaseapp.com",
     projectId: env.VITE_FIREBASE_PROJECT_ID || env.FIREBASE_PROJECT_ID || "potent-turbine-47c1c",
     storageBucket: env.VITE_FIREBASE_STORAGE_BUCKET || env.FIREBASE_STORAGE_BUCKET || "potent-turbine-47c1c.firebasestorage.app",
@@ -3366,8 +3376,8 @@ var RECOVERY_DOC_RETENTION_MS = 14 * 24 * 60 * 60 * 1e3;
 var DB_FILE3 = import_path4.default.join(process.cwd(), "src", "db_store.json");
 var ADMIN_USER_ID2 = "SYhfciebGFUj29gqGaa0pqNunrk2";
 var ADMIN_EMAILS2 = new Set([
-  "mohamedvadel60@mail.com",
-  "mohamedvadel60@gmail.com",
+  "admin@zakir.ai",
+  "admin@getzakir.com",
   (process.env.ADMIN_EMAIL || "").toLowerCase().trim()
 ].filter(Boolean));
 function readDb() {
@@ -13925,6 +13935,9 @@ app2.get("/api/admin/users", requireAuth, async (req, res) => {
         for (const authU of authList.users) {
           const aEmail = (authU.email || "").trim().toLowerCase();
           if (!existingIds.has(authU.uid) && (!aEmail || !existingEmails.has(aEmail))) {
+            const db3 = readDb2();
+            const existingLocal = (db3.users || []).find((u) => u.id === authU.uid || u.uid === authU.uid || u.email && u.email.toLowerCase() === aEmail);
+            const isEmailVer = Boolean(authU.emailVerified || existingLocal?.isEmailVerified || existingLocal?.emailVerified || existingLocal?.email_verified);
             const synthesized = {
               id: authU.uid,
               uid: authU.uid,
@@ -13932,9 +13945,10 @@ app2.get("/api/admin/users", requireAuth, async (req, res) => {
               ownerName: authU.displayName || authU.email?.split("@")[0] || "User",
               companyName: "Default Organization",
               role: "Contributor",
-              isEmailVerified: Boolean(authU.emailVerified),
-              emailVerified: Boolean(authU.emailVerified),
-              accountStatus: authU.emailVerified ? "VERIFICATION_REQUIRED" : "PENDING_EMAIL_VERIFICATION",
+              isEmailVerified: isEmailVer,
+              emailVerified: isEmailVer,
+              email_verified: isEmailVer,
+              accountStatus: isEmailVer ? "PENDING_DOCUMENT_VERIFICATION" : "PENDING_EMAIL_VERIFICATION",
               documentVerificationStatus: "NOT_SUBMITTED",
               isVerified: false,
               verification_required: true,
@@ -14970,10 +14984,22 @@ app2.get("/api/auth/current-user-status", requireAuth, async (req, res) => {
     if (userDoc) {
       const isSysAdmin = userDoc.role === "Admin" || userDoc.email && ADMIN_EMAILS.has(userDoc.email.toLowerCase());
       const canonical = computeCanonicalVerification(userDoc, isSysAdmin);
-      userDoc.isEmailVerified = canonical.isEmailVerified;
-      userDoc.email_verified = canonical.isEmailVerified;
-      userDoc.emailVerified = canonical.isEmailVerified;
-      userDoc.accountStatus = canonical.accountStatus;
+      const wasEmailVerified = Boolean(
+        userDoc.isEmailVerified === true || userDoc.emailVerified === true || userDoc.email_verified === true || Boolean(userDoc.emailVerifiedAt) || Boolean(userDoc.verificationInfo?.emailVerifiedAt) || canonical.isEmailVerified
+      );
+      const adminReverifRequested = Boolean(
+        userDoc.adminRequestedEmailReverification === true || userDoc.adminRequestedReverification === true
+      );
+      const finalEmailVerified = wasEmailVerified && !adminReverifRequested;
+      userDoc.isEmailVerified = finalEmailVerified;
+      userDoc.email_verified = finalEmailVerified;
+      userDoc.emailVerified = finalEmailVerified;
+      userDoc.adminRequestedEmailReverification = adminReverifRequested;
+      if (finalEmailVerified && canonical.accountStatus === "PENDING_EMAIL_VERIFICATION") {
+        userDoc.accountStatus = "PENDING_DOCUMENT_VERIFICATION";
+      } else {
+        userDoc.accountStatus = canonical.accountStatus;
+      }
       userDoc.documentVerificationStatus = canonical.documentVerificationStatus;
       userDoc.kycStatus = canonical.kycStatus;
       userDoc.canonicalVerificationStatus = canonical.canonicalStatus;
@@ -23434,7 +23460,12 @@ app2.post("/api/auth/login", loginRegisterLimiter, async (req, res) => {
     }
     let authUid = null;
     let authIdToken = null;
-    const apiKey = process.env.VITE_FIREBASE_API_KEY || process.env.FIREBASE_API_KEY || "AIzaSyAvjj-PBHknriQ73FYyQc2nhhBNCF_lvnE";
+    let apiKey = "AIzaSyAvjj-PBHknriQ73FYyQc2nhhBNCF_lvnE";
+    if (process.env.FIREBASE_API_KEY && process.env.FIREBASE_API_KEY.startsWith("AIzaSy")) {
+      apiKey = process.env.FIREBASE_API_KEY;
+    } else if (process.env.VITE_FIREBASE_API_KEY && process.env.VITE_FIREBASE_API_KEY.startsWith("AIzaSy")) {
+      apiKey = process.env.VITE_FIREBASE_API_KEY;
+    }
     try {
       const restRes = await fetch(
         `https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${apiKey}`,
@@ -23471,6 +23502,7 @@ app2.post("/api/auth/login", loginRegisterLimiter, async (req, res) => {
     }
     let userProfile = null;
     let userFromDb = null;
+    let foundDocId = null;
     if (lifecycleRecord && (lifecycleRecord.status === "SELF_DELETED" || lifecycleRecord.status === "SELF_RESTORE_AVAILABLE" || lifecycleRecord.status === "ADMIN_DELETED" || lifecycleRecord.status === "ADMIN_APPROVAL_REQUIRED" || lifecycleRecord.status === "ADMIN_APPROVAL_PENDING" || lifecycleRecord.deletionType === "admin" || lifecycleRecord.deletionType === "self")) {
       let archivedProfile = null;
       if (lifecycleRecord.originalUserId) {
@@ -23506,23 +23538,18 @@ app2.post("/api/auth/login", loginRegisterLimiter, async (req, res) => {
           const docSnap = await adminDb.collection("users").doc(authUid).get();
           if (docSnap.exists) {
             userProfile = docSnap.data();
+            foundDocId = authUid;
           }
         }
         if (!userProfile) {
           const emailSnap = await adminDb.collection("users").where("email", "==", normalizedEmail).limit(1).get();
           if (!emailSnap.empty) {
             const docData = emailSnap.docs[0].data();
-            const foundDocId = emailSnap.docs[0].id;
+            foundDocId = emailSnap.docs[0].id;
             if (docData && (docData.email || "").trim().toLowerCase() === normalizedEmail) {
-              if (authUid && foundDocId !== authUid && docData.id !== authUid) {
-                console.error(
-                  `[MANDATORY_UID_ASSERTION_FAILURE] /api/auth/login email lookup mismatch: authUid (${authUid}) !== docId (${foundDocId})`
-                );
-              } else {
-                userProfile = docData;
-                if (!authUid) {
-                  authUid = foundDocId;
-                }
+              userProfile = docData;
+              if (!authUid) {
+                authUid = foundDocId;
               }
             }
           }
@@ -23540,6 +23567,7 @@ app2.post("/api/auth/login", loginRegisterLimiter, async (req, res) => {
               const docSnap = await adminDb.collection("users").doc(adminAuthUser.uid).get();
               if (docSnap.exists) {
                 userProfile = docSnap.data();
+                foundDocId = adminAuthUser.uid;
               }
             } catch (e) {
             }
@@ -23549,11 +23577,12 @@ app2.post("/api/auth/login", loginRegisterLimiter, async (req, res) => {
       }
       const localDb = readDb2();
       userFromDb = localDb.users?.find(
-        (u) => u.email?.toLowerCase() === normalizedEmail
+        (u) => (u.email || "").trim().toLowerCase() === normalizedEmail
       );
       if (!userProfile && userFromDb) {
         userProfile = userFromDb;
-        if (!authUid) authUid = userFromDb.id;
+        if (!authUid) authUid = userFromDb.id || userFromDb.uid;
+        if (!foundDocId) foundDocId = userFromDb.id || userFromDb.uid;
       }
     }
     const isDeletedLifecycle = Boolean(
@@ -23610,12 +23639,73 @@ app2.post("/api/auth/login", loginRegisterLimiter, async (req, res) => {
         message: "\u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u062F\u062E\u0648\u0644 \u063A\u064A\u0631 \u0635\u062D\u064A\u062D\u0629. \u064A\u0631\u062C\u0649 \u0627\u0644\u062A\u062D\u0642\u0642 \u0645\u0646 \u0627\u0644\u0628\u0631\u064A\u062F \u0627\u0644\u0625\u0644\u0643\u062A\u0631\u0648\u0646\u064A \u0648\u0643\u0644\u0645\u0629 \u0627\u0644\u0645\u0631\u0648\u0631."
       });
     }
-    if (authUid && isFirebaseAdminAvailable) {
+    let targetUid = authUid || userProfile?.id || userProfile?.uid;
+    let authUserRecord = null;
+    if (normalizedEmail) {
       try {
-        await adminAuth.updateUser(authUid, {
+        authUserRecord = await adminAuth.getUserByEmail(normalizedEmail);
+      } catch (e) {
+      }
+    }
+    if (authUserRecord) {
+      targetUid = authUserRecord.uid;
+    } else if (targetUid) {
+      try {
+        authUserRecord = await adminAuth.getUser(targetUid);
+      } catch (e) {
+      }
+    }
+    if (!authUserRecord && targetUid) {
+      try {
+        authUserRecord = await adminAuth.createUser({
+          uid: targetUid,
+          email: normalizedEmail,
+          password: cleanPassword || password || "ZakirPass2026!",
+          displayName: userProfile?.ownerName || userProfile?.companyName || normalizedEmail.split("@")[0],
+          emailVerified: true
+        });
+      } catch (cErr) {
+        console.warn("Notice: Auth user provisioning in login:", cErr?.message);
+      }
+    }
+    if (authUserRecord) {
+      targetUid = authUserRecord.uid;
+      try {
+        await adminAuth.updateUser(targetUid, {
           password: cleanPassword || password
         });
-      } catch (pwSyncErr) {
+      } catch (e) {
+      }
+    }
+    if (targetUid) {
+      authUid = targetUid;
+      if (userProfile) {
+        userProfile.id = targetUid;
+        userProfile.uid = targetUid;
+      }
+      if (foundDocId && foundDocId !== targetUid) {
+        try {
+          const memSnap = await adminDb.collection("users").doc(foundDocId).collection("memories").get();
+          if (!memSnap.empty) {
+            for (const mDoc of memSnap.docs) {
+              await adminDb.collection("users").doc(targetUid).collection("memories").doc(mDoc.id).set(mDoc.data(), { merge: true });
+            }
+          }
+          const filesSnap = await adminDb.collection("users").doc(foundDocId).collection("files").get();
+          if (!filesSnap.empty) {
+            for (const fDoc of filesSnap.docs) {
+              await adminDb.collection("users").doc(targetUid).collection("files").doc(fDoc.id).set(fDoc.data(), { merge: true });
+            }
+          }
+          const alertsSnap = await adminDb.collection("users").doc(foundDocId).collection("riskAlerts").get();
+          if (!alertsSnap.empty) {
+            for (const aDoc of alertsSnap.docs) {
+              await adminDb.collection("users").doc(targetUid).collection("riskAlerts").doc(aDoc.id).set(aDoc.data(), { merge: true });
+            }
+          }
+        } catch (syncErr) {
+          console.warn("Notice: Subcollection migration on login notice:", syncErr);
+        }
       }
     }
     const nowIso = (/* @__PURE__ */ new Date()).toISOString();

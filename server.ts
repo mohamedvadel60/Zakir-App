@@ -21708,10 +21708,12 @@ app.post("/api/auth/login", loginRegisterLimiter, async (req, res) => {
     // 2. Authoritative verification: Firebase Identity Platform REST API (if available) + Firestore / Admin Auth
     let authUid: string | null = null;
     let authIdToken: string | null = null;
-    const apiKey =
-      process.env.VITE_FIREBASE_API_KEY ||
-      process.env.FIREBASE_API_KEY ||
-      "AIzaSyAvjj-PBHknriQ73FYyQc2nhhBNCF_lvnE";
+    let apiKey = "AIzaSyAvjj-PBHknriQ73FYyQc2nhhBNCF_lvnE";
+    if (process.env.FIREBASE_API_KEY && process.env.FIREBASE_API_KEY.startsWith("AIzaSy")) {
+      apiKey = process.env.FIREBASE_API_KEY;
+    } else if (process.env.VITE_FIREBASE_API_KEY && process.env.VITE_FIREBASE_API_KEY.startsWith("AIzaSy")) {
+      apiKey = process.env.VITE_FIREBASE_API_KEY;
+    }
 
     try {
       const restRes = await fetch(
@@ -21751,6 +21753,7 @@ app.post("/api/auth/login", loginRegisterLimiter, async (req, res) => {
     // 3. Resilient user lookup across Firestore, Firebase Admin Auth, and Local DB
     let userProfile: any = null;
     let userFromDb: any = null;
+    let foundDocId: string | null = null;
 
     // Check if the user is in a deleted lifecycle state; if so, load their archived profile to verify credentials
     if (
@@ -21803,6 +21806,7 @@ app.post("/api/auth/login", loginRegisterLimiter, async (req, res) => {
           const docSnap = await adminDb.collection("users").doc(authUid).get();
           if (docSnap.exists) {
             userProfile = docSnap.data();
+            foundDocId = authUid;
           }
         }
         if (!userProfile) {
@@ -21813,21 +21817,14 @@ app.post("/api/auth/login", loginRegisterLimiter, async (req, res) => {
             .get();
           if (!emailSnap.empty) {
             const docData = emailSnap.docs[0].data();
-            const foundDocId = emailSnap.docs[0].id;
+            foundDocId = emailSnap.docs[0].id;
             if (
               docData &&
               (docData.email || "").trim().toLowerCase() === normalizedEmail
             ) {
-              // Strict UID assertion: if authUid already resolved, doc ID MUST match authUid
-              if (authUid && foundDocId !== authUid && docData.id !== authUid) {
-                console.error(
-                  `[MANDATORY_UID_ASSERTION_FAILURE] /api/auth/login email lookup mismatch: authUid (${authUid}) !== docId (${foundDocId})`,
-                );
-              } else {
-                userProfile = docData;
-                if (!authUid) {
-                  authUid = foundDocId;
-                }
+              userProfile = docData;
+              if (!authUid) {
+                authUid = foundDocId;
               }
             }
           }
@@ -21850,6 +21847,7 @@ app.post("/api/auth/login", loginRegisterLimiter, async (req, res) => {
                 .get();
               if (docSnap.exists) {
                 userProfile = docSnap.data();
+                foundDocId = adminAuthUser.uid;
               }
             } catch (e) {}
           }
@@ -21859,11 +21857,12 @@ app.post("/api/auth/login", loginRegisterLimiter, async (req, res) => {
       // Check Local DB
       const localDb = readDb();
       userFromDb = localDb.users?.find(
-        (u: any) => u.email?.toLowerCase() === normalizedEmail,
+        (u: any) => (u.email || "").trim().toLowerCase() === normalizedEmail,
       );
       if (!userProfile && userFromDb) {
         userProfile = userFromDb;
-        if (!authUid) authUid = userFromDb.id;
+        if (!authUid) authUid = userFromDb.id || userFromDb.uid;
+        if (!foundDocId) foundDocId = userFromDb.id || userFromDb.uid;
       }
     }
 
@@ -22002,6 +22001,31 @@ app.post("/api/auth/login", loginRegisterLimiter, async (req, res) => {
       if (userProfile) {
         userProfile.id = targetUid;
         userProfile.uid = targetUid;
+      }
+      if (foundDocId && foundDocId !== targetUid) {
+        try {
+          // Copy any existing subcollections from foundDocId to targetUid if targetUid doc doesn't have them
+          const memSnap = await adminDb.collection("users").doc(foundDocId).collection("memories").get();
+          if (!memSnap.empty) {
+            for (const mDoc of memSnap.docs) {
+              await adminDb.collection("users").doc(targetUid).collection("memories").doc(mDoc.id).set(mDoc.data(), { merge: true });
+            }
+          }
+          const filesSnap = await adminDb.collection("users").doc(foundDocId).collection("files").get();
+          if (!filesSnap.empty) {
+            for (const fDoc of filesSnap.docs) {
+              await adminDb.collection("users").doc(targetUid).collection("files").doc(fDoc.id).set(fDoc.data(), { merge: true });
+            }
+          }
+          const alertsSnap = await adminDb.collection("users").doc(foundDocId).collection("riskAlerts").get();
+          if (!alertsSnap.empty) {
+            for (const aDoc of alertsSnap.docs) {
+              await adminDb.collection("users").doc(targetUid).collection("riskAlerts").doc(aDoc.id).set(aDoc.data(), { merge: true });
+            }
+          }
+        } catch (syncErr) {
+          console.warn("Notice: Subcollection migration on login notice:", syncErr);
+        }
       }
     }
 

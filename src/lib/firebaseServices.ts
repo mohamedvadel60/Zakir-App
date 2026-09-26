@@ -573,7 +573,7 @@ export async function loginFirebaseUser(email: string, pass: string, attemptId?:
           authenticatedUser.verification_status = "verified";
         }
 
-        if (srvData.customToken && !auth.currentUser) {
+        if (srvData.customToken) {
           try {
             await signInWithCustomToken(auth, srvData.customToken);
           } catch (ctErr) {
@@ -585,6 +585,7 @@ export async function loginFirebaseUser(email: string, pass: string, attemptId?:
         return authenticatedUser;
       }
     } catch (srvFallbackErr) {
+      if (srvFallbackErr instanceof LoginError) throw srvFallbackErr;
       console.warn("Notice: Server login fallback notice:", srvFallbackErr);
     }
 
