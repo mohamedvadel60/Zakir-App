@@ -1323,10 +1323,12 @@ function computeCanonicalVerification(userData, isSysAdmin = false, extraDocs) {
   const rawAccStatus = String(full.accountStatus || userData.accountStatus || "").toUpperCase();
   const rawDocStatus = String(full.documentVerificationStatus || userData.documentVerificationStatus || full.verificationInfo?.status || "").toUpperCase();
   const rawReqStatus = String(full.verificationRequestStatus || full.verificationRequest || userData.verificationRequestStatus || userData.verificationRequest || "").toUpperCase();
+  const rawCanonical = String(full.canonicalVerificationStatus || userData.canonicalVerificationStatus || "").toLowerCase();
+  const rawKycStatus = String(full.kycStatus || userData.kycStatus || "").toUpperCase();
   const rejectionReason = full.rejectionReason || userData.rejectionReason || full.verificationInfo?.adminNote || void 0;
   const hasRejectedDoc = documents.some((d) => d.status === "REJECTED");
   const isExplicitlyAdminApproved = Boolean(
-    full.approvedBy && full.approvedAt || userData.approvedBy && userData.approvedAt || full.approvedAt || userData.approvedAt
+    rawCanonical === "approved" || rawAccStatus === "APPROVED" || rawAccStatus === "ACTIVE" || rawKycStatus === "VERIFIED" && rawDocStatus === "APPROVED" || Boolean(full.approvedAt || userData.approvedAt || full.approvedBy || userData.approvedBy)
   );
   let canonicalStatus = "not_started";
   let accountStatus = "VERIFICATION_REQUIRED";
@@ -1335,31 +1337,23 @@ function computeCanonicalVerification(userData, isSysAdmin = false, extraDocs) {
   let uiState = "NO_REQUEST";
   let isFullyApproved = false;
   let userFriendlyMessage = "";
-  if (rawAccStatus === "PENDING_ADMIN_REVIEW" || rawAccStatus === "PENDING_APPROVAL" || full.canonicalVerificationStatus === "pending" || userData.canonicalVerificationStatus === "pending" || rawDocStatus === "UNDER_REVIEW" || rawDocStatus === "PENDING_REVIEW" || rawReqStatus === "UNDER_REVIEW" || rawReqStatus === "PENDING" || rawReqStatus === "SUBMITTED" || rawReqStatus === "DOCUMENTS_SUBMITTED") {
-    canonicalStatus = "pending";
-    accountStatus = "PENDING_ADMIN_REVIEW";
-    documentVerificationStatus = "UNDER_REVIEW";
-    kycStatus = "UNDER_REVIEW";
-    uiState = "PENDING_REVIEW";
-    userFriendlyMessage = "\u0637\u0644\u0628 \u0627\u0639\u062A\u0645\u0627\u062F \u0627\u0644\u062D\u0633\u0627\u0628 \u0642\u064A\u062F \u0627\u0644\u0645\u0631\u0627\u062C\u0639\u0629 \u0648\u0627\u0644\u062A\u062F\u0642\u064A\u0642 \u0627\u0644\u0625\u062F\u0627\u0631\u064A.";
-  } else if (rawAccStatus === "REJECTED" || rawDocStatus === "REJECTED" || rawReqStatus === "REJECTED" || hasRejectedDoc) {
-    canonicalStatus = "rejected";
-    accountStatus = "REJECTED";
-    documentVerificationStatus = "REJECTED";
-    kycStatus = "REJECTED";
-    uiState = "REJECTED";
-    userFriendlyMessage = rejectionReason ? `\u062A\u0645 \u0631\u0641\u0636 \u0637\u0644\u0628 \u0627\u0639\u062A\u0645\u0627\u062F \u0627\u0644\u062D\u0633\u0627\u0628: ${rejectionReason}` : "\u062A\u0645 \u0631\u0641\u0636 \u0637\u0644\u0628 \u0627\u0644\u0627\u0639\u062A\u0645\u0627\u062F. \u064A\u0631\u062C\u0649 \u0645\u0631\u0627\u062C\u0639\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u0648\u0625\u0639\u0627\u062F\u0629 \u062A\u0642\u062F\u064A\u0645 \u0627\u0644\u0645\u0633\u062A\u0646\u062F\u0627\u062A \u0627\u0644\u0645\u0637\u0644\u0648\u0628\u0629.";
-  } else if (rawAccStatus === "APPROVED" || rawAccStatus === "ACTIVE") {
+  if (isExplicitlyAdminApproved && rawAccStatus !== "REJECTED" && rawCanonical !== "rejected" && !hasRejectedDoc) {
     canonicalStatus = "approved";
     accountStatus = "APPROVED";
     const hasPendingDoc = documents.some((d) => d.status === "PENDING" || d.status === "UNDER_REVIEW");
     const allApprovedDocs = documentCount > 0 && documents.every((d) => d.status === "APPROVED" || d.verificationStatus === "APPROVED");
-    if (hasExplicitOverride || documentCount > 0 && allApprovedDocs) {
+    if (hasExplicitOverride || documentCount > 0 && (allApprovedDocs || rawDocStatus === "APPROVED" || rawKycStatus === "VERIFIED" || rawCanonical === "approved")) {
       documentVerificationStatus = "APPROVED";
       kycStatus = "VERIFIED";
       uiState = "VERIFIED";
       isFullyApproved = true;
       userFriendlyMessage = "\u062A\u0645 \u0627\u0639\u062A\u0645\u0627\u062F \u0648\u062A\u0648\u062B\u064A\u0642 \u0627\u0644\u062D\u0633\u0627\u0628 \u0631\u0633\u0645\u064A\u0627\u064B.";
+      documents.forEach((d) => {
+        if (d.status !== "REJECTED") {
+          d.status = "APPROVED";
+          d.verificationStatus = "APPROVED";
+        }
+      });
     } else if (documentCount > 0 && (hasPendingDoc || rawDocStatus === "UNDER_REVIEW" || rawReqStatus === "UNDER_REVIEW")) {
       documentVerificationStatus = "UNDER_REVIEW";
       kycStatus = "UNDER_REVIEW";
@@ -1373,6 +1367,20 @@ function computeCanonicalVerification(userData, isSysAdmin = false, extraDocs) {
       isFullyApproved = false;
       userFriendlyMessage = "\u0627\u0644\u062D\u0633\u0627\u0628 \u0645\u0639\u062A\u0645\u062F \u0648\u0645\u0641\u0639\u0644 \u0628\u0627\u0644\u0643\u0627\u0645\u0644.";
     }
+  } else if ((rawAccStatus === "REJECTED" || rawDocStatus === "REJECTED" || rawReqStatus === "REJECTED" || rawCanonical === "rejected" || hasRejectedDoc) && rawReqStatus !== "SUBMITTED" && rawReqStatus !== "UNDER_REVIEW" && rawCanonical !== "pending") {
+    canonicalStatus = "rejected";
+    accountStatus = "REJECTED";
+    documentVerificationStatus = "REJECTED";
+    kycStatus = "REJECTED";
+    uiState = "REJECTED";
+    userFriendlyMessage = rejectionReason ? `\u062A\u0645 \u0631\u0641\u0636 \u0637\u0644\u0628 \u0627\u0639\u062A\u0645\u0627\u062F \u0627\u0644\u062D\u0633\u0627\u0628: ${rejectionReason}` : "\u062A\u0645 \u0631\u0641\u0636 \u0637\u0644\u0628 \u0627\u0644\u0627\u0639\u062A\u0645\u0627\u062F. \u064A\u0631\u062C\u0649 \u0645\u0631\u0627\u062C\u0639\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u0648\u0625\u0639\u0627\u062F\u0629 \u062A\u0642\u062F\u064A\u0645 \u0627\u0644\u0645\u0633\u062A\u0646\u062F\u0627\u062A \u0627\u0644\u0645\u0637\u0644\u0648\u0628\u0629.";
+  } else if (rawAccStatus === "PENDING_ADMIN_REVIEW" || rawAccStatus === "PENDING_APPROVAL" || rawCanonical === "pending" || rawDocStatus === "UNDER_REVIEW" || rawDocStatus === "PENDING_REVIEW" || rawReqStatus === "UNDER_REVIEW" || rawReqStatus === "PENDING" || rawReqStatus === "SUBMITTED" || rawReqStatus === "DOCUMENTS_SUBMITTED") {
+    canonicalStatus = "pending";
+    accountStatus = "PENDING_ADMIN_REVIEW";
+    documentVerificationStatus = "UNDER_REVIEW";
+    kycStatus = "UNDER_REVIEW";
+    uiState = "PENDING_REVIEW";
+    userFriendlyMessage = "\u0637\u0644\u0628 \u0627\u0639\u062A\u0645\u0627\u062F \u0627\u0644\u062D\u0633\u0627\u0628 \u0642\u064A\u062F \u0627\u0644\u0645\u0631\u0627\u062C\u0639\u0629 \u0648\u0627\u0644\u062A\u062F\u0642\u064A\u0642 \u0627\u0644\u0625\u062F\u0627\u0631\u064A.";
   } else {
     canonicalStatus = "not_started";
     accountStatus = isEmailVer ? rawAccStatus === "PENDING_INSTITUTIONAL_DATA" ? "PENDING_INSTITUTIONAL_DATA" : rawAccStatus === "VERIFICATION_REQUIRED" ? "VERIFICATION_REQUIRED" : "PENDING_DOCUMENT_VERIFICATION" : "PENDING_EMAIL_VERIFICATION";
@@ -1596,6 +1604,17 @@ async function getUserProfileServer(uid, email) {
     if (profileData) {
       profileData.id = uid;
       profileData.uid = uid;
+      if (!profileData.emailVerified && !profileData.isEmailVerified && !profileData.email_verified) {
+        try {
+          const authUser = await adminAuth.getUser(uid);
+          if (authUser && (authUser.emailVerified || authUser.providerData && authUser.providerData.some((p) => p.providerId === "google.com"))) {
+            profileData.emailVerified = true;
+            profileData.isEmailVerified = true;
+            profileData.email_verified = true;
+          }
+        } catch (e) {
+        }
+      }
       try {
         adminDb.collection("users").doc(uid).set({ ...profileData, id: uid, uid }, { merge: true }).catch(() => {
         });
@@ -15355,9 +15374,18 @@ app2.post("/api/admin/approve-account", requireAuth, requireAdmin, async (req, r
     if (!targetUser) {
       return res.status(404).json({ success: false, error: "Target user not found." });
     }
-    const isEmailVer = Boolean(
-      targetUser.emailVerified === true || targetUser.isEmailVerified === true || targetUser.email_verified === true
+    let isEmailVer = Boolean(
+      targetUser.emailVerified === true || targetUser.isEmailVerified === true || targetUser.email_verified === true || targetUser.email_verified === "true" || targetUser.emailVerified === "true" || targetUser.isEmailVerified === "true" || Boolean(targetUser.emailVerifiedAt) || Boolean(targetUser.verificationInfo?.emailVerifiedAt) || Boolean(targetUser.accountStatus && targetUser.accountStatus !== "PENDING_EMAIL_VERIFICATION") || Array.isArray(targetUser.verificationDocuments) && targetUser.verificationDocuments.length > 0
     );
+    if (!isEmailVer && isFirebaseAdminAvailable && adminAuth) {
+      try {
+        const authUser = await adminAuth.getUser(userId);
+        if (authUser && (authUser.emailVerified || authUser.providerData && authUser.providerData.some((p) => p.providerId === "google.com"))) {
+          isEmailVer = true;
+        }
+      } catch (e) {
+      }
+    }
     const isExplicitOverride = Boolean(adminOverride === true || req.body?.adminVerificationOverride === true);
     if (!isEmailVer && !isExplicitOverride) {
       return res.status(400).json({
@@ -15366,12 +15394,23 @@ app2.post("/api/admin/approve-account", requireAuth, requireAdmin, async (req, r
         userFriendlyMessage: "\u0644\u0627 \u064A\u0645\u0643\u0646 \u0627\u0639\u062A\u0645\u0627\u062F \u0627\u0644\u062D\u0633\u0627\u0628 \u0642\u0628\u0644 \u062A\u0623\u0643\u064A\u062F \u0648\u062A\u0648\u062B\u064A\u0642 \u0627\u0644\u0628\u0631\u064A\u062F \u0627\u0644\u0625\u0644\u0643\u062A\u0631\u0648\u0646\u064A."
       });
     }
+    const db2 = readDb2();
     const rawDocs = [
       ...Array.isArray(targetUser.verificationDocuments) ? targetUser.verificationDocuments : [],
       ...Array.isArray(targetUser.verificationInfo?.documents) ? targetUser.verificationInfo.documents : [],
       ...Array.isArray(targetUser.documents) ? targetUser.documents : [],
       ...Array.isArray(targetUser.files) ? targetUser.files.filter((f) => f && (f.category === "Verification" || f.category === "Identity" || f.isVerificationDoc)) : []
     ];
+    if (db2.verification_documents_store) {
+      for (const [docId, meta] of Object.entries(db2.verification_documents_store)) {
+        if (meta) {
+          const matchesUser = meta.userId === userId || meta.userEmail && targetUser.email && meta.userEmail.toLowerCase().trim() === targetUser.email.toLowerCase().trim();
+          if (matchesUser) {
+            rawDocs.push(meta);
+          }
+        }
+      }
+    }
     const uniqueDocs = [];
     const seenIds = /* @__PURE__ */ new Set();
     for (const doc of rawDocs) {
@@ -15443,6 +15482,13 @@ app2.post("/api/admin/approve-account", requireAuth, requireAdmin, async (req, r
       documents: approvedDocs.length > 0 ? approvedDocs : targetUser.documents || [],
       documentCount: approvedDocs.length > 0 ? approvedDocs.length : targetUser.verificationDocuments?.length || 0,
       verifiedAt: nowIso,
+      verificationInfo: {
+        ...targetUser.verificationInfo || {},
+        status: "verified",
+        verifiedAt: nowIso,
+        verifiedBy: adminEmail,
+        adminNote: notes || adminNotes || "Approved by Admin"
+      },
       "verificationInfo.status": "verified",
       "verificationInfo.verifiedAt": nowIso,
       "verificationInfo.verifiedBy": adminEmail,
@@ -15451,10 +15497,17 @@ app2.post("/api/admin/approve-account", requireAuth, requireAdmin, async (req, r
     };
     try {
       await adminDb.collection("users").doc(userId).set(approvalUpdates, { merge: true });
+      const vreqId = targetUser.verificationRequestId || `vreq_${userId}`;
+      await adminDb.collection("verification_requests").doc(vreqId).set({
+        status: "APPROVED",
+        requestStatus: "APPROVED",
+        reviewedAt: nowIso,
+        reviewedBy: adminEmail,
+        adminNotes: notes || adminNotes || "Approved by Admin"
+      }, { merge: true });
     } catch (fsErr) {
       console.warn("Firestore approval write notice:", fsErr);
     }
-    const db2 = readDb2();
     if (db2.users) {
       const idx = db2.users.findIndex((u) => u.id === userId || u.uid === userId);
       if (idx >= 0) {
@@ -15557,12 +15610,23 @@ app2.post(
       if (!targetUser) {
         return res.status(404).json({ success: false, error: "Target user not found." });
       }
+      const db2 = readDb2();
       const rawDocs = [
         ...Array.isArray(targetUser.verificationDocuments) ? targetUser.verificationDocuments : [],
         ...Array.isArray(targetUser.verificationInfo?.documents) ? targetUser.verificationInfo.documents : [],
         ...Array.isArray(targetUser.documents) ? targetUser.documents : [],
         ...Array.isArray(targetUser.files) ? targetUser.files.filter((f) => f && (f.category === "Verification" || f.category === "Identity" || f.isVerificationDoc)) : []
       ];
+      if (db2.verification_documents_store) {
+        for (const [docId, meta] of Object.entries(db2.verification_documents_store)) {
+          if (meta) {
+            const matchesUser = meta.userId === userId || meta.userEmail && targetUser.email && meta.userEmail.toLowerCase().trim() === targetUser.email.toLowerCase().trim();
+            if (matchesUser) {
+              rawDocs.push(meta);
+            }
+          }
+        }
+      }
       const uniqueDocs = [];
       const seenIds = /* @__PURE__ */ new Set();
       for (const doc of rawDocs) {
@@ -15590,16 +15654,32 @@ app2.post(
         reviewedBy: adminEmail
       }));
       const docApprovalUpdates = {
+        canonicalVerificationStatus: "approved",
+        accountStatus: "APPROVED",
         documentVerificationStatus: "APPROVED",
         kycStatus: "VERIFIED",
         verificationRequestStatus: "APPROVED",
-        accountStatus: "APPROVED",
         requiresDocumentVerification: false,
         isVerified: true,
+        isEmailVerified: true,
+        email_verified: true,
+        emailVerified: true,
+        verification_status: "verified",
+        rejectionReason: null,
+        approvedAt: nowIso,
+        approvedBy: adminEmail,
         verifiedAt: nowIso,
         verifiedBy: adminEmail,
         verificationDocuments: approvedDocs,
         documents: approvedDocs,
+        documentCount: approvedDocs.length,
+        verificationInfo: {
+          ...targetUser.verificationInfo || {},
+          status: "verified",
+          verifiedAt: nowIso,
+          verifiedBy: adminEmail,
+          adminNote: notes || "Approved by Admin"
+        },
         "verificationInfo.status": "verified",
         "verificationInfo.verifiedAt": nowIso,
         "verificationInfo.verifiedBy": adminEmail,
@@ -15619,7 +15699,6 @@ app2.post(
       } catch (fsErr) {
         console.warn("Firestore doc approval write notice:", fsErr);
       }
-      const db2 = readDb2();
       if (db2.users) {
         const idx = db2.users.findIndex((u) => u.id === userId || u.uid === userId);
         if (idx >= 0) {

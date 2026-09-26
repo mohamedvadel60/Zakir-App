@@ -246,6 +246,18 @@ export async function getUserProfileServer(uid?: string, email?: string): Promis
       profileData.id = uid;
       profileData.uid = uid;
 
+      // Sync email verification state with Firebase Auth if not already marked
+      if (!profileData.emailVerified && !profileData.isEmailVerified && !profileData.email_verified) {
+        try {
+          const authUser = await adminAuth.getUser(uid);
+          if (authUser && (authUser.emailVerified || (authUser.providerData && authUser.providerData.some((p: any) => p.providerId === "google.com")))) {
+            profileData.emailVerified = true;
+            profileData.isEmailVerified = true;
+            profileData.email_verified = true;
+          }
+        } catch (e) {}
+      }
+
       // Persist harmonized profile document to users/{uid}
       try {
         adminDb.collection("users").doc(uid).set({ ...profileData, id: uid, uid: uid }, { merge: true }).catch(() => {});

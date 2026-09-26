@@ -264,10 +264,18 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             return {
               ...u,
               accountStatus: "APPROVED",
+              isVerified: true,
+              kycStatus: "VERIFIED",
+              documentVerificationStatus: "APPROVED",
               fullUser: {
                 ...full,
                 accountStatus: "APPROVED",
-                subscriptionPlan: plan
+                subscriptionPlan: plan,
+                isVerified: true,
+                kycStatus: "VERIFIED",
+                documentVerificationStatus: "APPROVED",
+                canonicalVerificationStatus: "approved",
+                verificationRequestStatus: "APPROVED"
               } as any
             };
           }
@@ -275,10 +283,28 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         })
       );
 
+      // Remove from pending approvals queue
+      setPendingApprovals((prev) => prev.filter((p) => p.userId !== userId && p.id !== userId));
+
       showToast("success", "تم تفعيل الحساب الأساسي بنجاح");
       if (selectedUserRecord?.id === userId) {
         setSelectedUserRecord((prev) =>
-          prev ? { ...prev, accountStatus: "APPROVED" } : null
+          prev ? {
+            ...prev,
+            accountStatus: "APPROVED",
+            isVerified: true,
+            kycStatus: "VERIFIED",
+            documentVerificationStatus: "APPROVED",
+            fullUser: {
+              ...(prev.fullUser || {}),
+              accountStatus: "APPROVED",
+              isVerified: true,
+              kycStatus: "VERIFIED",
+              documentVerificationStatus: "APPROVED",
+              canonicalVerificationStatus: "approved",
+              verificationRequestStatus: "APPROVED"
+            }
+          } : null
         );
       }
     } catch (err: any) {

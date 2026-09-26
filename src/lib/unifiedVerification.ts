@@ -360,11 +360,17 @@ export function computeCanonicalVerification(
   const rawAccStatus = String(full.accountStatus || userData.accountStatus || "").toUpperCase();
   const rawDocStatus = String(full.documentVerificationStatus || userData.documentVerificationStatus || full.verificationInfo?.status || "").toUpperCase();
   const rawReqStatus = String(full.verificationRequestStatus || full.verificationRequest || userData.verificationRequestStatus || userData.verificationRequest || "").toUpperCase();
+  const rawCanonical = String(full.canonicalVerificationStatus || userData.canonicalVerificationStatus || "").toLowerCase();
+  const rawKycStatus = String(full.kycStatus || userData.kycStatus || "").toUpperCase();
   const rejectionReason = full.rejectionReason || userData.rejectionReason || full.verificationInfo?.adminNote || undefined;
 
   const hasRejectedDoc = documents.some((d) => d.status === "REJECTED");
   const isExplicitlyAdminApproved = Boolean(
-    (full.approvedBy && full.approvedAt) || (userData.approvedBy && userData.approvedAt) || full.approvedAt || userData.approvedAt
+    rawCanonical === "approved" ||
+    rawAccStatus === "APPROVED" ||
+    rawAccStatus === "ACTIVE" ||
+    (rawKycStatus === "VERIFIED" && rawDocStatus === "APPROVED") ||
+    Boolean(full.approvedAt || userData.approvedAt || full.approvedBy || userData.approvedBy)
   );
 
   let canonicalStatus: CanonicalVerificationState = "not_started";
@@ -375,51 +381,33 @@ export function computeCanonicalVerification(
   let isFullyApproved = false;
   let userFriendlyMessage = "";
 
-  // 1. PENDING STATE (State B) - User submitted documents/request and waiting for admin review (takes precedence over stale rejection flags)
+  // 1. APPROVED STATE (State D) - Primary precedence when account is approved by admin
   if (
-    rawAccStatus === "PENDING_ADMIN_REVIEW" ||
-    rawAccStatus === "PENDING_APPROVAL" ||
-    full.canonicalVerificationStatus === "pending" ||
-    userData.canonicalVerificationStatus === "pending" ||
-    rawDocStatus === "UNDER_REVIEW" ||
-    rawDocStatus === "PENDING_REVIEW" ||
-    rawReqStatus === "UNDER_REVIEW" ||
-    rawReqStatus === "PENDING" ||
-    rawReqStatus === "SUBMITTED" ||
-    rawReqStatus === "DOCUMENTS_SUBMITTED"
+    isExplicitlyAdminApproved &&
+    rawAccStatus !== "REJECTED" &&
+    rawCanonical !== "rejected" &&
+    !hasRejectedDoc
   ) {
-    canonicalStatus = "pending";
-    accountStatus = "PENDING_ADMIN_REVIEW";
-    documentVerificationStatus = "UNDER_REVIEW";
-    kycStatus = "UNDER_REVIEW";
-    uiState = "PENDING_REVIEW";
-    userFriendlyMessage = "طلب اعتماد الحساب قيد المراجعة والتدقيق الإداري.";
-  }
-  // 2. REJECTED STATE (State C) - Active rejection without active pending resubmission
-  else if (rawAccStatus === "REJECTED" || rawDocStatus === "REJECTED" || rawReqStatus === "REJECTED" || hasRejectedDoc) {
-    canonicalStatus = "rejected";
-    accountStatus = "REJECTED";
-    documentVerificationStatus = "REJECTED";
-    kycStatus = "REJECTED";
-    uiState = "REJECTED";
-    userFriendlyMessage = rejectionReason
-      ? `تم رفض طلب اعتماد الحساب: ${rejectionReason}`
-      : "تم رفض طلب الاعتماد. يرجى مراجعة البيانات وإعادة تقديم المستندات المطلوبة.";
-  }
-  // 3. APPROVED STATE (State D)
-  else if (rawAccStatus === "APPROVED" || rawAccStatus === "ACTIVE") {
     canonicalStatus = "approved";
     accountStatus = "APPROVED";
 
     const hasPendingDoc = documents.some((d) => d.status === "PENDING" || d.status === "UNDER_REVIEW");
     const allApprovedDocs = documentCount > 0 && documents.every((d) => d.status === "APPROVED" || d.verificationStatus === "APPROVED");
 
-    if (hasExplicitOverride || (documentCount > 0 && allApprovedDocs)) {
+    if (hasExplicitOverride || (documentCount > 0 && (allApprovedDocs || rawDocStatus === "APPROVED" || rawKycStatus === "VERIFIED" || rawCanonical === "approved"))) {
       documentVerificationStatus = "APPROVED";
       kycStatus = "VERIFIED";
       uiState = "VERIFIED";
       isFullyApproved = true;
       userFriendlyMessage = "تم اعتماد وتوثيق الحساب رسمياً.";
+
+      // Mark documents as approved in the returned list
+      documents.forEach((d) => {
+        if (d.status !== "REJECTED") {
+          d.status = "APPROVED";
+          d.verificationStatus = "APPROVED";
+        }
+      });
     } else if (documentCount > 0 && (hasPendingDoc || rawDocStatus === "UNDER_REVIEW" || rawReqStatus === "UNDER_REVIEW")) {
       documentVerificationStatus = "UNDER_REVIEW";
       kycStatus = "UNDER_REVIEW";
@@ -433,6 +421,41 @@ export function computeCanonicalVerification(
       isFullyApproved = false;
       userFriendlyMessage = "الحساب معتمد ومفعل بالكامل.";
     }
+  }
+  // 2. REJECTED STATE (State C) - Active rejection without pending resubmission
+  else if (
+    (rawAccStatus === "REJECTED" || rawDocStatus === "REJECTED" || rawReqStatus === "REJECTED" || rawCanonical === "rejected" || hasRejectedDoc) &&
+    rawReqStatus !== "SUBMITTED" &&
+    rawReqStatus !== "UNDER_REVIEW" &&
+    rawCanonical !== "pending"
+  ) {
+    canonicalStatus = "rejected";
+    accountStatus = "REJECTED";
+    documentVerificationStatus = "REJECTED";
+    kycStatus = "REJECTED";
+    uiState = "REJECTED";
+    userFriendlyMessage = rejectionReason
+      ? `تم رفض طلب اعتماد الحساب: ${rejectionReason}`
+      : "تم رفض طلب الاعتماد. يرجى مراجعة البيانات وإعادة تقديم المستندات المطلوبة.";
+  }
+  // 3. PENDING STATE (State B) - User submitted documents/request and waiting for admin review
+  else if (
+    rawAccStatus === "PENDING_ADMIN_REVIEW" ||
+    rawAccStatus === "PENDING_APPROVAL" ||
+    rawCanonical === "pending" ||
+    rawDocStatus === "UNDER_REVIEW" ||
+    rawDocStatus === "PENDING_REVIEW" ||
+    rawReqStatus === "UNDER_REVIEW" ||
+    rawReqStatus === "PENDING" ||
+    rawReqStatus === "SUBMITTED" ||
+    rawReqStatus === "DOCUMENTS_SUBMITTED"
+  ) {
+    canonicalStatus = "pending";
+    accountStatus = "PENDING_ADMIN_REVIEW";
+    documentVerificationStatus = "UNDER_REVIEW";
+    kycStatus = "UNDER_REVIEW";
+    uiState = "PENDING_REVIEW";
+    userFriendlyMessage = "طلب اعتماد الحساب قيد المراجعة والتدقيق الإداري.";
   }
   // 4. NOT STARTED STATE (State A) - User has not started or not finished uploading documents
   else {

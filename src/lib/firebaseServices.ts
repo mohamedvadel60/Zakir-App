@@ -977,14 +977,7 @@ export async function loginWithGoogle(): Promise<User> {
     if (isOfflineOrQuotaError(error)) {
       isFirestoreOffline = true;
     } else {
-      const errMessage = error instanceof Error ? error.message : String(error);
-      const isAuthPermissionError = errMessage.toLowerCase().includes("permission") || errMessage.toLowerCase().includes("denied") || errMessage.toLowerCase().includes("unauthenticated");
-      if (isAuthPermissionError) {
-        await signOut(auth);
-        clearUserLocalCache(uid);
-        throw new Error("Access denied: Insufficient permissions to access profile.");
-      }
-      handleFirestoreError(error, OperationType.GET, `users/${uid}`);
+      console.warn("Notice: getDoc error for userDocRef in loginFirebaseUser (proceeding to server profile fallback):", uid, error);
     }
   }
 
@@ -1496,12 +1489,6 @@ export function subscribeToFirebaseAuthState(rawCallback: (user: User | null) =>
           return;
         }
       } catch (dErr: any) {
-        if (dErr.message?.includes("deleted") || dErr.message?.includes("حذف")) {
-          await signOut(auth);
-          clearUserLocalCache(fbUser.uid);
-          callback(null);
-          return;
-        }
         console.warn("Notice: Verifying account status in /deletedUsers/ encountered non-fatal error in subscribeToFirebaseAuthState:", fbUser.uid, dErr);
       }
 

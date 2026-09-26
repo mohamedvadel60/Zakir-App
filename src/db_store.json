@@ -2094,6 +2094,1217 @@
       "isVerified": true,
       "isEmailVerified": true,
       "createdAt": "2026-09-26T13:33:55.290Z"
+    },
+    {
+      "id": "oFTvPZwSn8dOjqaeFxyqyNFPFNk2",
+      "email": "rejected_test_1790451362619@getzakir.com",
+      "passwordHash": "Password123!@#",
+      "companyName": "حساب فردي / مستخدم شخصي",
+      "ownerName": "Rejected User Test",
+      "role": "CEO",
+      "workspaceId": "ws_oFTvPZwS_muisii7l",
+      "workspace": {
+        "id": "ws_oFTvPZwS_muisii7l",
+        "name": "Rejected Corp Workspace",
+        "ownerId": "oFTvPZwSn8dOjqaeFxyqyNFPFNk2",
+        "createdAt": "2026-09-26T19:36:04.017Z",
+        "memberCount": 1
+      },
+      "teamMembersList": [
+        {
+          "id": "tm-owner",
+          "uid": "oFTvPZwSn8dOjqaeFxyqyNFPFNk2",
+          "name": "Rejected User Test",
+          "email": "rejected_test_1790451362619@getzakir.com",
+          "role": "CEO / Owner",
+          "powers": {
+            "fileVault": true,
+            "memoryVault": true,
+            "riskRadar": true,
+            "marketIntel": true,
+            "settings": true
+          },
+          "addedAt": "2026-09-26"
+        }
+      ],
+      "subscriptionStatus": "Pending Selection",
+      "accountStatus": "PENDING_ADMIN_REVIEW",
+      "requiresDocumentVerification": true,
+      "verificationFlowVersion": 2,
+      "documentVerificationStatus": "UNDER_REVIEW",
+      "verificationDocuments": [
+        {
+          "documentId": "doc_1790451367046_67e9d755",
+          "fileName": "ChatGPT_Image_New_ID.png.pdf",
+          "mimeType": "application/pdf",
+          "size": 80,
+          "fileHash": "037594c1a7bf5f4b9d6f35666d53b60b1c244cc067a4c56487c025b7b396f28a",
+          "category": "personal",
+          "docType": "national_id",
+          "storageReference": "secure_uploads/doc_1790451367046_67e9d755",
+          "uploadedAt": "2026-09-26T19:36:07.119Z",
+          "userId": "oFTvPZwSn8dOjqaeFxyqyNFPFNk2",
+          "status": "UNDER_REVIEW",
+          "verificationStatus": "UNDER_REVIEW"
+        }
+      ],
+      "createdAt": "2026-09-26T19:36:04.017Z",
+      "trialExpiresAt": "2026-09-27T19:36:04.017Z",
+      "lastActiveAt": "2026-09-26T19:36:09.606Z",
+      "lastLoginAt": "2026-09-26T19:36:08.990Z",
+      "isVerified": false,
+      "isEmailVerified": true,
+      "email_verified": true,
+      "emailVerified": true,
+      "verification_required": true,
+      "verification_status": "under_review",
+      "verificationInfo": {
+        "status": "action_required"
+      },
+      "isPhoneVerified": true,
+      "documents": [
+        {
+          "documentId": "doc_1790451367046_67e9d755",
+          "fileName": "ChatGPT_Image_New_ID.png.pdf",
+          "mimeType": "application/pdf",
+          "size": 80,
+          "fileHash": "037594c1a7bf5f4b9d6f35666d53b60b1c244cc067a4c56487c025b7b396f28a",
+          "category": "personal",
+          "docType": "national_id",
+          "storageReference": "secure_uploads/doc_1790451367046_67e9d755",
+          "uploadedAt": "2026-09-26T19:36:07.119Z",
+          "userId": "oFTvPZwSn8dOjqaeFxyqyNFPFNk2",
+          "status": "UNDER_REVIEW",
+          "verificationStatus": "UNDER_REVIEW"
+        }
+      ],
+      "documentCount": 1,
+      "emailVerifiedAt": "2026-09-26T19:36:06.170Z",
+      "verificationInfo.emailVerifiedAt": "2026-09-26T19:36:07.219Z",
+      "fullName": "Rejected User Test",
+      "phone": "+966500000000",
+      "jobTitle": "Executive",
+      "organizationName": "حساب فردي / مستخدم شخصي",
+      "sector": "Individual",
+      "country": "International",
+      "hasCompany": false,
+      "institutionalProfile": {
+        "fullName": "Rejected User Test",
+        "phone": "+966500000000",
+        "jobTitle": "Executive",
+        "hasCompany": false,
+        "companyName": "حساب فردي / مستخدم شخصي",
+        "sector": "Individual",
+        "country": "International",
+        "registrationNumber": "",
+        "companySize": "1-10",
+        "intendedUse": "Strategic Decision Intelligence",
+        "additionalNotes": "",
+        "submittedAt": "2026-09-26T19:36:09.606Z"
+      },
+      "canonicalVerificationStatus": "pending",
+      "kycStatus": "UNDER_REVIEW",
+      "verificationRequestStatus": "UNDER_REVIEW",
+      "rejectionReason": null,
+      "previousRejectionReason": "Official verification documents required. Old document is blurry.",
+      "historicalRejectionReason": "Official verification documents required. Old document is blurry.",
+      "verifiedAt": null,
+      "adminVerificationOverride": false,
+      "verificationInfo.status": "under_review",
+      "verificationInfo.submittedAt": "2026-09-26T19:36:09.606Z",
+      "verificationInfo.adminNote": null,
+      "verificationInfo.previousAdminNote": "Official verification documents required. Old document is blurry.",
+      "verificationInfo.verifiedAt": null,
+      "verificationSubmittedAt": "2026-09-26T19:36:09.606Z",
+      "uid": "oFTvPZwSn8dOjqaeFxyqyNFPFNk2",
+      "verificationStatus": "pending"
+    },
+    {
+      "id": "7tRmj4dfaCZil6erkEZns8FZyQ43",
+      "email": "no_doc_1790451369740@getzakir.com",
+      "passwordHash": "Password123!@#",
+      "companyName": "حساب فردي / مستخدم شخصي",
+      "ownerName": "Attacker",
+      "role": "CEO",
+      "workspaceId": "ws_7tRmj4df_muisinnj",
+      "workspace": {
+        "id": "ws_7tRmj4df_muisinnj",
+        "name": "No Doc Co Workspace",
+        "ownerId": "7tRmj4dfaCZil6erkEZns8FZyQ43",
+        "createdAt": "2026-09-26T19:36:11.071Z",
+        "memberCount": 1
+      },
+      "teamMembersList": [
+        {
+          "id": "tm-owner",
+          "uid": "7tRmj4dfaCZil6erkEZns8FZyQ43",
+          "name": "No Doc Test",
+          "email": "no_doc_1790451369740@getzakir.com",
+          "role": "CEO / Owner",
+          "powers": {
+            "fileVault": true,
+            "memoryVault": true,
+            "riskRadar": true,
+            "marketIntel": true,
+            "settings": true
+          },
+          "addedAt": "2026-09-26"
+        }
+      ],
+      "subscriptionStatus": "Pending Selection",
+      "accountStatus": "PENDING_ADMIN_REVIEW",
+      "requiresDocumentVerification": true,
+      "verificationFlowVersion": 2,
+      "documentVerificationStatus": "UNDER_REVIEW",
+      "verificationDocuments": [
+        {
+          "documentId": "doc_1790451367046_67e9d755",
+          "fileName": "ChatGPT_Image_New_ID.png.pdf",
+          "mimeType": "application/pdf",
+          "size": 80,
+          "fileHash": "037594c1a7bf5f4b9d6f35666d53b60b1c244cc067a4c56487c025b7b396f28a",
+          "category": "personal",
+          "docType": "national_id",
+          "storageReference": "secure_uploads/doc_1790451367046_67e9d755",
+          "uploadedAt": "2026-09-26T19:36:07.119Z",
+          "userId": "oFTvPZwSn8dOjqaeFxyqyNFPFNk2",
+          "status": "UNDER_REVIEW",
+          "verificationStatus": "UNDER_REVIEW"
+        }
+      ],
+      "createdAt": "2026-09-26T19:36:11.071Z",
+      "trialExpiresAt": "2026-09-27T19:36:11.071Z",
+      "lastActiveAt": "2026-09-26T19:36:11.719Z",
+      "lastLoginAt": "2026-09-26T19:36:11.071Z",
+      "isVerified": false,
+      "isEmailVerified": true,
+      "email_verified": true,
+      "emailVerified": true,
+      "verification_required": true,
+      "verification_status": "under_review",
+      "verificationInfo": {
+        "status": "unverified"
+      },
+      "fullName": "Attacker",
+      "phone": "+966500000000",
+      "jobTitle": "Executive",
+      "organizationName": "حساب فردي / مستخدم شخصي",
+      "sector": "Individual",
+      "country": "International",
+      "hasCompany": false,
+      "institutionalProfile": {
+        "fullName": "Attacker",
+        "phone": "+966500000000",
+        "jobTitle": "Executive",
+        "hasCompany": false,
+        "companyName": "حساب فردي / مستخدم شخصي",
+        "sector": "Individual",
+        "country": "International",
+        "registrationNumber": "",
+        "companySize": "1-10",
+        "intendedUse": "Strategic Decision Intelligence",
+        "additionalNotes": "",
+        "submittedAt": "2026-09-26T19:36:11.719Z"
+      },
+      "documents": [
+        {
+          "documentId": "doc_1790451367046_67e9d755",
+          "fileName": "ChatGPT_Image_New_ID.png.pdf",
+          "mimeType": "application/pdf",
+          "size": 80,
+          "fileHash": "037594c1a7bf5f4b9d6f35666d53b60b1c244cc067a4c56487c025b7b396f28a",
+          "category": "personal",
+          "docType": "national_id",
+          "storageReference": "secure_uploads/doc_1790451367046_67e9d755",
+          "uploadedAt": "2026-09-26T19:36:07.119Z",
+          "userId": "oFTvPZwSn8dOjqaeFxyqyNFPFNk2",
+          "status": "UNDER_REVIEW",
+          "verificationStatus": "UNDER_REVIEW"
+        }
+      ],
+      "documentCount": 1,
+      "canonicalVerificationStatus": "pending",
+      "kycStatus": "UNDER_REVIEW",
+      "verificationRequestStatus": "UNDER_REVIEW",
+      "rejectionReason": null,
+      "previousRejectionReason": null,
+      "historicalRejectionReason": null,
+      "verifiedAt": null,
+      "adminVerificationOverride": false,
+      "verificationInfo.status": "under_review",
+      "verificationInfo.submittedAt": "2026-09-26T19:36:11.719Z",
+      "verificationInfo.adminNote": null,
+      "verificationInfo.previousAdminNote": null,
+      "verificationInfo.verifiedAt": null,
+      "verificationSubmittedAt": "2026-09-26T19:36:11.719Z"
+    },
+    {
+      "id": "fXStOUp6lRYUlEgj9ALEvWFIoMj1",
+      "email": "kyc_user_1790451394915@getzakir.com",
+      "passwordHash": "Password123!@#",
+      "companyName": "Zakir Institutional Ltd",
+      "ownerName": "KYC Test Applicant",
+      "role": "CEO",
+      "workspaceId": "ws_fXStOUp6_muisj70a",
+      "workspace": {
+        "id": "ws_fXStOUp6_muisj70a",
+        "name": "Zakir Institutional Ltd Workspace",
+        "ownerId": "fXStOUp6lRYUlEgj9ALEvWFIoMj1",
+        "createdAt": "2026-09-26T19:36:36.154Z",
+        "memberCount": 1
+      },
+      "teamMembersList": [
+        {
+          "id": "tm-owner",
+          "uid": "fXStOUp6lRYUlEgj9ALEvWFIoMj1",
+          "name": "KYC Test Applicant",
+          "email": "kyc_user_1790451394915@getzakir.com",
+          "role": "CEO / Owner",
+          "powers": {
+            "fileVault": true,
+            "memoryVault": true,
+            "riskRadar": true,
+            "marketIntel": true,
+            "settings": true
+          },
+          "addedAt": "2026-09-26"
+        }
+      ],
+      "subscriptionStatus": "Pending Selection",
+      "accountStatus": "PENDING_DOCUMENT_VERIFICATION",
+      "requiresDocumentVerification": true,
+      "verificationFlowVersion": 2,
+      "documentVerificationStatus": "PENDING_EMAIL_VERIFICATION",
+      "verificationDocuments": [],
+      "createdAt": "2026-09-26T19:36:36.154Z",
+      "trialExpiresAt": "2026-09-27T19:36:36.154Z",
+      "lastActiveAt": "2026-09-26T19:36:36.154Z",
+      "lastLoginAt": "2026-09-26T19:36:36.154Z",
+      "isVerified": false,
+      "isEmailVerified": true,
+      "email_verified": true,
+      "emailVerified": true,
+      "verification_required": true,
+      "verification_status": "unverified",
+      "verificationInfo": {
+        "status": "action_required"
+      },
+      "isPhoneVerified": true
+    },
+    {
+      "id": "SDBFgXpEaEW8RCWRyam5vBT4fHd2",
+      "email": "kyc_user_1790451421865@getzakir.com",
+      "passwordHash": "Password123!@#",
+      "companyName": "Zakir Institutional Ltd",
+      "ownerName": "KYC Test Applicant",
+      "role": "CEO",
+      "workspaceId": "ws_SDBFgXpE_muisjrym",
+      "workspace": {
+        "id": "ws_SDBFgXpE_muisjrym",
+        "name": "Zakir Institutional Ltd Workspace",
+        "ownerId": "SDBFgXpEaEW8RCWRyam5vBT4fHd2",
+        "createdAt": "2026-09-26T19:37:03.310Z",
+        "memberCount": 1
+      },
+      "teamMembersList": [
+        {
+          "id": "tm-owner",
+          "uid": "SDBFgXpEaEW8RCWRyam5vBT4fHd2",
+          "name": "KYC Test Applicant",
+          "email": "kyc_user_1790451421865@getzakir.com",
+          "role": "CEO / Owner",
+          "powers": {
+            "fileVault": true,
+            "memoryVault": true,
+            "riskRadar": true,
+            "marketIntel": true,
+            "settings": true
+          },
+          "addedAt": "2026-09-26"
+        }
+      ],
+      "subscriptionStatus": "Active",
+      "accountStatus": "APPROVED",
+      "requiresDocumentVerification": false,
+      "verificationFlowVersion": 2,
+      "documentVerificationStatus": "APPROVED",
+      "verificationDocuments": [
+        {
+          "documentId": "doc_1790451425262_63272740",
+          "fileName": "Government_ID.pdf",
+          "mimeType": "application/pdf",
+          "size": 63,
+          "fileHash": "9224e22a7758f82ea6f6f869e4cd851388e63a261f8e7401e9ac2b8046f5d3a6",
+          "category": "personal",
+          "docType": "national_id",
+          "storageReference": "secure_uploads/doc_1790451425262_63272740",
+          "uploadedAt": "2026-09-26T19:37:05.335Z",
+          "userId": "SDBFgXpEaEW8RCWRyam5vBT4fHd2",
+          "status": "APPROVED",
+          "verificationStatus": "APPROVED",
+          "id": "doc_1790451425262_63272740",
+          "isAccessible": true,
+          "isMissing": false,
+          "reviewedAt": "2026-09-26T19:37:06.003Z",
+          "reviewedBy": "mohamedvadel60@gmail.com"
+        }
+      ],
+      "createdAt": "2026-09-26T19:37:03.310Z",
+      "trialExpiresAt": "2026-09-28T19:37:06.003Z",
+      "lastActiveAt": "2026-09-26T19:37:09.749Z",
+      "lastLoginAt": "2026-09-26T19:37:09.749Z",
+      "isVerified": true,
+      "isEmailVerified": true,
+      "email_verified": true,
+      "emailVerified": true,
+      "verification_required": false,
+      "verification_status": "verified",
+      "verificationInfo": {
+        "status": "action_required"
+      },
+      "isPhoneVerified": true,
+      "documents": [
+        {
+          "documentId": "doc_1790451425262_63272740",
+          "fileName": "Government_ID.pdf",
+          "mimeType": "application/pdf",
+          "size": 63,
+          "fileHash": "9224e22a7758f82ea6f6f869e4cd851388e63a261f8e7401e9ac2b8046f5d3a6",
+          "category": "personal",
+          "docType": "national_id",
+          "storageReference": "secure_uploads/doc_1790451425262_63272740",
+          "uploadedAt": "2026-09-26T19:37:05.335Z",
+          "userId": "SDBFgXpEaEW8RCWRyam5vBT4fHd2",
+          "status": "APPROVED",
+          "verificationStatus": "APPROVED",
+          "id": "doc_1790451425262_63272740",
+          "isAccessible": true,
+          "isMissing": false,
+          "reviewedAt": "2026-09-26T19:37:06.003Z",
+          "reviewedBy": "mohamedvadel60@gmail.com"
+        }
+      ],
+      "documentCount": 1,
+      "emailVerifiedAt": "2026-09-26T19:37:05.435Z",
+      "verificationInfo.emailVerifiedAt": "2026-09-26T19:37:05.435Z",
+      "fullName": "KYC Test Applicant",
+      "phone": "+971501234567",
+      "jobTitle": "Executive",
+      "organizationName": "Zakir Institutional Ltd",
+      "sector": "General",
+      "country": "International",
+      "hasCompany": true,
+      "institutionalProfile": {
+        "fullName": "KYC Test Applicant",
+        "phone": "+971501234567",
+        "jobTitle": "Executive",
+        "hasCompany": true,
+        "companyName": "Zakir Institutional Ltd",
+        "sector": "General",
+        "country": "International",
+        "registrationNumber": "",
+        "companySize": "1-10",
+        "intendedUse": "Strategic Decision Intelligence",
+        "additionalNotes": "",
+        "submittedAt": "2026-09-26T19:37:05.531Z"
+      },
+      "canonicalVerificationStatus": "approved",
+      "kycStatus": "VERIFIED",
+      "verificationRequestStatus": "APPROVED",
+      "rejectionReason": null,
+      "previousRejectionReason": null,
+      "historicalRejectionReason": null,
+      "verifiedAt": "2026-09-26T19:37:06.003Z",
+      "adminVerificationOverride": false,
+      "verificationInfo.status": "verified",
+      "verificationInfo.submittedAt": "2026-09-26T19:37:05.531Z",
+      "verificationInfo.adminNote": "Approved KYC & full verification",
+      "verificationInfo.previousAdminNote": null,
+      "verificationInfo.verifiedAt": "2026-09-26T19:37:06.003Z",
+      "verificationSubmittedAt": "2026-09-26T19:37:05.531Z",
+      "uid": "SDBFgXpEaEW8RCWRyam5vBT4fHd2",
+      "approvedAt": "2026-09-26T19:37:06.003Z",
+      "approvedBy": "mohamedvadel60@gmail.com",
+      "approvalNotes": "Approved KYC & full verification",
+      "trialStartedAt": "2026-09-26T19:37:06.003Z",
+      "trialEndsAt": "2026-09-28T19:37:06.003Z",
+      "trialDurationHours": 48,
+      "subscriptionPlan": "Enterprise",
+      "verificationInfo.verifiedBy": "mohamedvadel60@gmail.com",
+      "approvalEmailSentAt": "2026-09-26T19:37:06.003Z",
+      "approvalNotificationSent": true,
+      "approvalEmailMessageId": "01a0df38-a407-724d-944c-0544c9754d8d",
+      "verificationStatus": "verified"
+    },
+    {
+      "id": "rxYjdz1X0hV1cUT0fg70wgJhTIz2",
+      "email": "unverified_1790451426692@getzakir.com",
+      "passwordHash": "Password123!@#",
+      "companyName": "Unverified Corp",
+      "ownerName": "Unverified User",
+      "role": "CEO",
+      "workspaceId": "ws_rxYjdz1X_muisjvgc",
+      "workspace": {
+        "id": "ws_rxYjdz1X_muisjvgc",
+        "name": "Unverified Corp Workspace",
+        "ownerId": "rxYjdz1X0hV1cUT0fg70wgJhTIz2",
+        "createdAt": "2026-09-26T19:37:07.836Z",
+        "memberCount": 1
+      },
+      "teamMembersList": [
+        {
+          "id": "tm-owner",
+          "uid": "rxYjdz1X0hV1cUT0fg70wgJhTIz2",
+          "name": "Unverified User",
+          "email": "unverified_1790451426692@getzakir.com",
+          "role": "CEO / Owner",
+          "powers": {
+            "fileVault": true,
+            "memoryVault": true,
+            "riskRadar": true,
+            "marketIntel": true,
+            "settings": true
+          },
+          "addedAt": "2026-09-26"
+        }
+      ],
+      "subscriptionStatus": "Pending Selection",
+      "accountStatus": "PENDING_EMAIL_VERIFICATION",
+      "requiresDocumentVerification": true,
+      "verificationFlowVersion": 2,
+      "documentVerificationStatus": "PENDING_EMAIL_VERIFICATION",
+      "verificationDocuments": [],
+      "createdAt": "2026-09-26T19:37:07.836Z",
+      "trialExpiresAt": "2026-09-27T19:37:07.836Z",
+      "lastActiveAt": "2026-09-26T19:37:07.836Z",
+      "lastLoginAt": "2026-09-26T19:37:07.836Z",
+      "isVerified": false,
+      "isEmailVerified": false,
+      "email_verified": false,
+      "emailVerified": false,
+      "verification_required": true,
+      "verification_status": "unverified",
+      "verificationInfo": {
+        "status": "unverified"
+      },
+      "uid": "rxYjdz1X0hV1cUT0fg70wgJhTIz2"
+    },
+    {
+      "id": "tDQI3wl1pfQx5yuGwyiBVSwa9aG3",
+      "email": "pending_only_1790451430173@getzakir.com",
+      "passwordHash": "Password123!@#",
+      "companyName": "حساب فردي / مستخدم شخصي",
+      "ownerName": "Pending Only",
+      "role": "CEO",
+      "workspaceId": "ws_tDQI3wl1_muisjyfj",
+      "workspace": {
+        "id": "ws_tDQI3wl1_muisjyfj",
+        "name": "Pending Co Workspace",
+        "ownerId": "tDQI3wl1pfQx5yuGwyiBVSwa9aG3",
+        "createdAt": "2026-09-26T19:37:11.695Z",
+        "memberCount": 1
+      },
+      "teamMembersList": [
+        {
+          "id": "tm-owner",
+          "uid": "tDQI3wl1pfQx5yuGwyiBVSwa9aG3",
+          "name": "Pending Only",
+          "email": "pending_only_1790451430173@getzakir.com",
+          "role": "CEO / Owner",
+          "powers": {
+            "fileVault": true,
+            "memoryVault": true,
+            "riskRadar": true,
+            "marketIntel": true,
+            "settings": true
+          },
+          "addedAt": "2026-09-26"
+        }
+      ],
+      "subscriptionStatus": "Pending Selection",
+      "accountStatus": "REJECTED",
+      "requiresDocumentVerification": true,
+      "verificationFlowVersion": 2,
+      "documentVerificationStatus": "REJECTED",
+      "verificationDocuments": [
+        {
+          "documentId": "doc_p_1",
+          "fileName": "id.pdf",
+          "category": "personal",
+          "uploadedAt": "2026-09-26T19:37:13.389Z",
+          "status": "REJECTED",
+          "verificationStatus": "REJECTED",
+          "reviewedAt": "2026-09-26T19:37:13.891Z",
+          "reviewedBy": "mohamedvadel60@gmail.com",
+          "rejectionReason": "Document illegible"
+        }
+      ],
+      "createdAt": "2026-09-26T19:37:11.695Z",
+      "trialExpiresAt": "2026-09-27T19:37:11.695Z",
+      "lastActiveAt": "2026-09-26T19:37:13.891Z",
+      "lastLoginAt": "2026-09-26T19:37:11.695Z",
+      "isVerified": false,
+      "isEmailVerified": true,
+      "email_verified": true,
+      "emailVerified": true,
+      "verification_required": true,
+      "verification_status": "under_review",
+      "verificationInfo": {
+        "status": "action_required"
+      },
+      "isPhoneVerified": true,
+      "fullName": "Pending Only",
+      "phone": "+971501112233",
+      "jobTitle": "Executive",
+      "organizationName": "حساب فردي / مستخدم شخصي",
+      "sector": "Individual",
+      "country": "International",
+      "hasCompany": false,
+      "institutionalProfile": {
+        "fullName": "Pending Only",
+        "phone": "+971501112233",
+        "jobTitle": "Executive",
+        "hasCompany": false,
+        "companyName": "حساب فردي / مستخدم شخصي",
+        "sector": "Individual",
+        "country": "International",
+        "registrationNumber": "",
+        "companySize": "1-10",
+        "intendedUse": "Strategic Decision Intelligence",
+        "additionalNotes": "",
+        "submittedAt": "2026-09-26T19:37:13.389Z"
+      },
+      "documents": [
+        {
+          "documentId": "doc_p_1",
+          "fileName": "id.pdf",
+          "category": "personal",
+          "uploadedAt": "2026-09-26T19:37:13.389Z",
+          "status": "REJECTED",
+          "verificationStatus": "REJECTED",
+          "reviewedAt": "2026-09-26T19:37:13.891Z",
+          "reviewedBy": "mohamedvadel60@gmail.com",
+          "rejectionReason": "Document illegible"
+        }
+      ],
+      "documentCount": 1,
+      "canonicalVerificationStatus": "rejected",
+      "kycStatus": "REJECTED",
+      "verificationRequestStatus": "REJECTED",
+      "rejectionReason": "Document illegible",
+      "previousRejectionReason": null,
+      "historicalRejectionReason": null,
+      "verifiedAt": null,
+      "adminVerificationOverride": false,
+      "verificationInfo.status": "rejected",
+      "verificationInfo.submittedAt": "2026-09-26T19:37:13.389Z",
+      "verificationInfo.adminNote": "Document illegible",
+      "verificationInfo.previousAdminNote": null,
+      "verificationInfo.verifiedAt": null,
+      "verificationSubmittedAt": "2026-09-26T19:37:13.389Z",
+      "uid": "tDQI3wl1pfQx5yuGwyiBVSwa9aG3"
+    },
+    {
+      "id": "ffsNtKmlguRo0kKfcM4htRYKaPG2",
+      "uid": "ffsNtKmlguRo0kKfcM4htRYKaPG2",
+      "email": "medvadhil7777@gmail.com",
+      "ownerName": "MED",
+      "companyName": "Default Organization",
+      "role": "Contributor",
+      "isEmailVerified": false,
+      "emailVerified": false,
+      "email_verified": false,
+      "accountStatus": "PENDING_EMAIL_VERIFICATION",
+      "documentVerificationStatus": "NOT_SUBMITTED",
+      "isVerified": false,
+      "verification_required": true,
+      "verification_status": "unverified",
+      "subscriptionPlan": "Starter",
+      "subscriptionStatus": "Trial",
+      "createdAt": "Sat, 26 Sep 2026 13:15:09 GMT",
+      "disabled": false,
+      "fileCount": 0,
+      "files": [],
+      "verificationDocuments": []
+    },
+    {
+      "id": "GA6MO7EBQRPjnT5m2TupZOZHwJg2",
+      "email": "kyc_user_1790451491613@getzakir.com",
+      "passwordHash": "Password123!@#",
+      "companyName": "Zakir Institutional Ltd",
+      "ownerName": "KYC Test Applicant",
+      "role": "CEO",
+      "workspaceId": "ws_GA6MO7EB_muisl9qd",
+      "workspace": {
+        "id": "ws_GA6MO7EB_muisl9qd",
+        "name": "Zakir Institutional Ltd Workspace",
+        "ownerId": "GA6MO7EBQRPjnT5m2TupZOZHwJg2",
+        "createdAt": "2026-09-26T19:38:12.997Z",
+        "memberCount": 1
+      },
+      "teamMembersList": [
+        {
+          "id": "tm-owner",
+          "uid": "GA6MO7EBQRPjnT5m2TupZOZHwJg2",
+          "name": "KYC Test Applicant",
+          "email": "kyc_user_1790451491613@getzakir.com",
+          "role": "CEO / Owner",
+          "powers": {
+            "fileVault": true,
+            "memoryVault": true,
+            "riskRadar": true,
+            "marketIntel": true,
+            "settings": true
+          },
+          "addedAt": "2026-09-26"
+        }
+      ],
+      "subscriptionStatus": "Active",
+      "accountStatus": "APPROVED",
+      "requiresDocumentVerification": false,
+      "verificationFlowVersion": 2,
+      "documentVerificationStatus": "APPROVED",
+      "verificationDocuments": [
+        {
+          "documentId": "doc_1790451503512_dcad6336",
+          "fileName": "Government_ID.pdf",
+          "mimeType": "application/pdf",
+          "size": 63,
+          "fileHash": "9224e22a7758f82ea6f6f869e4cd851388e63a261f8e7401e9ac2b8046f5d3a6",
+          "category": "personal",
+          "docType": "national_id",
+          "storageReference": "secure_uploads/doc_1790451503512_dcad6336",
+          "uploadedAt": "2026-09-26T19:38:23.726Z",
+          "userId": "GA6MO7EBQRPjnT5m2TupZOZHwJg2",
+          "status": "APPROVED",
+          "verificationStatus": "APPROVED",
+          "id": "doc_1790451503512_dcad6336",
+          "isAccessible": true,
+          "isMissing": false,
+          "reviewedAt": "2026-09-26T19:38:24.394Z",
+          "reviewedBy": "mohamedvadel60@gmail.com"
+        }
+      ],
+      "createdAt": "2026-09-26T19:38:12.997Z",
+      "trialExpiresAt": "2026-09-28T19:38:24.394Z",
+      "lastActiveAt": "2026-09-26T19:38:28.418Z",
+      "lastLoginAt": "2026-09-26T19:38:28.418Z",
+      "isVerified": true,
+      "isEmailVerified": true,
+      "email_verified": true,
+      "emailVerified": true,
+      "verification_required": false,
+      "verification_status": "verified",
+      "verificationInfo": {
+        "status": "verified",
+        "verifiedAt": "2026-09-26T19:38:24.394Z",
+        "verifiedBy": "mohamedvadel60@gmail.com",
+        "adminNote": "Approved KYC & full verification"
+      },
+      "isPhoneVerified": true,
+      "documents": [
+        {
+          "documentId": "doc_1790451503512_dcad6336",
+          "fileName": "Government_ID.pdf",
+          "mimeType": "application/pdf",
+          "size": 63,
+          "fileHash": "9224e22a7758f82ea6f6f869e4cd851388e63a261f8e7401e9ac2b8046f5d3a6",
+          "category": "personal",
+          "docType": "national_id",
+          "storageReference": "secure_uploads/doc_1790451503512_dcad6336",
+          "uploadedAt": "2026-09-26T19:38:23.726Z",
+          "userId": "GA6MO7EBQRPjnT5m2TupZOZHwJg2",
+          "status": "APPROVED",
+          "verificationStatus": "APPROVED",
+          "id": "doc_1790451503512_dcad6336",
+          "isAccessible": true,
+          "isMissing": false,
+          "reviewedAt": "2026-09-26T19:38:24.394Z",
+          "reviewedBy": "mohamedvadel60@gmail.com"
+        }
+      ],
+      "documentCount": 1,
+      "emailVerifiedAt": "2026-09-26T19:38:23.831Z",
+      "verificationInfo.emailVerifiedAt": "2026-09-26T19:38:23.831Z",
+      "fullName": "KYC Test Applicant",
+      "phone": "+971501234567",
+      "jobTitle": "Executive",
+      "organizationName": "Zakir Institutional Ltd",
+      "sector": "General",
+      "country": "International",
+      "hasCompany": true,
+      "institutionalProfile": {
+        "fullName": "KYC Test Applicant",
+        "phone": "+971501234567",
+        "jobTitle": "Executive",
+        "hasCompany": true,
+        "companyName": "Zakir Institutional Ltd",
+        "sector": "General",
+        "country": "International",
+        "registrationNumber": "",
+        "companySize": "1-10",
+        "intendedUse": "Strategic Decision Intelligence",
+        "additionalNotes": "",
+        "submittedAt": "2026-09-26T19:38:23.938Z"
+      },
+      "canonicalVerificationStatus": "approved",
+      "kycStatus": "VERIFIED",
+      "verificationRequestStatus": "APPROVED",
+      "rejectionReason": null,
+      "previousRejectionReason": null,
+      "historicalRejectionReason": null,
+      "verifiedAt": "2026-09-26T19:38:24.394Z",
+      "adminVerificationOverride": false,
+      "verificationInfo.status": "verified",
+      "verificationInfo.submittedAt": "2026-09-26T19:38:23.938Z",
+      "verificationInfo.adminNote": "Approved KYC & full verification",
+      "verificationInfo.previousAdminNote": null,
+      "verificationInfo.verifiedAt": "2026-09-26T19:38:24.394Z",
+      "verificationSubmittedAt": "2026-09-26T19:38:23.938Z",
+      "uid": "GA6MO7EBQRPjnT5m2TupZOZHwJg2",
+      "approvedAt": "2026-09-26T19:38:24.394Z",
+      "approvedBy": "mohamedvadel60@gmail.com",
+      "approvalNotes": "Approved KYC & full verification",
+      "trialStartedAt": "2026-09-26T19:38:24.394Z",
+      "trialEndsAt": "2026-09-28T19:38:24.394Z",
+      "trialDurationHours": 48,
+      "subscriptionPlan": "Enterprise",
+      "verificationInfo.verifiedBy": "mohamedvadel60@gmail.com",
+      "approvalEmailSentAt": "2026-09-26T19:38:24.394Z",
+      "approvalNotificationSent": true,
+      "approvalEmailMessageId": "01a0df39-d655-72db-b119-fbe79314e23d",
+      "verificationStatus": "verified"
+    },
+    {
+      "id": "SkZjA5YYjYacx6AlapMWVlrGNiR2",
+      "email": "unverified_1790451505091@getzakir.com",
+      "passwordHash": "Password123!@#",
+      "companyName": "Unverified Corp",
+      "ownerName": "Unverified User",
+      "role": "CEO",
+      "workspaceId": "ws_SkZjA5YY_muisljvy",
+      "workspace": {
+        "id": "ws_SkZjA5YY_muisljvy",
+        "name": "Unverified Corp Workspace",
+        "ownerId": "SkZjA5YYjYacx6AlapMWVlrGNiR2",
+        "createdAt": "2026-09-26T19:38:26.158Z",
+        "memberCount": 1
+      },
+      "teamMembersList": [
+        {
+          "id": "tm-owner",
+          "uid": "SkZjA5YYjYacx6AlapMWVlrGNiR2",
+          "name": "Unverified User",
+          "email": "unverified_1790451505091@getzakir.com",
+          "role": "CEO / Owner",
+          "powers": {
+            "fileVault": true,
+            "memoryVault": true,
+            "riskRadar": true,
+            "marketIntel": true,
+            "settings": true
+          },
+          "addedAt": "2026-09-26"
+        }
+      ],
+      "subscriptionStatus": "Pending Selection",
+      "accountStatus": "PENDING_EMAIL_VERIFICATION",
+      "requiresDocumentVerification": true,
+      "verificationFlowVersion": 2,
+      "documentVerificationStatus": "PENDING_EMAIL_VERIFICATION",
+      "verificationDocuments": [],
+      "createdAt": "2026-09-26T19:38:26.158Z",
+      "trialExpiresAt": "2026-09-27T19:38:26.158Z",
+      "lastActiveAt": "2026-09-26T19:38:26.158Z",
+      "lastLoginAt": "2026-09-26T19:38:26.158Z",
+      "isVerified": false,
+      "isEmailVerified": false,
+      "email_verified": false,
+      "emailVerified": false,
+      "verification_required": true,
+      "verification_status": "unverified",
+      "verificationInfo": {
+        "status": "unverified"
+      },
+      "uid": "SkZjA5YYjYacx6AlapMWVlrGNiR2"
+    },
+    {
+      "id": "y2F7HS3JnzdnE8p5Org7EZV9VHu1",
+      "email": "pending_only_1790451508853@getzakir.com",
+      "passwordHash": "Password123!@#",
+      "companyName": "حساب فردي / مستخدم شخصي",
+      "ownerName": "Pending Only",
+      "role": "CEO",
+      "workspaceId": "ws_y2F7HS3J_muislmtn",
+      "workspace": {
+        "id": "ws_y2F7HS3J_muislmtn",
+        "name": "Pending Co Workspace",
+        "ownerId": "y2F7HS3JnzdnE8p5Org7EZV9VHu1",
+        "createdAt": "2026-09-26T19:38:29.963Z",
+        "memberCount": 1
+      },
+      "teamMembersList": [
+        {
+          "id": "tm-owner",
+          "uid": "y2F7HS3JnzdnE8p5Org7EZV9VHu1",
+          "name": "Pending Only",
+          "email": "pending_only_1790451508853@getzakir.com",
+          "role": "CEO / Owner",
+          "powers": {
+            "fileVault": true,
+            "memoryVault": true,
+            "riskRadar": true,
+            "marketIntel": true,
+            "settings": true
+          },
+          "addedAt": "2026-09-26"
+        }
+      ],
+      "subscriptionStatus": "Pending Selection",
+      "accountStatus": "REJECTED",
+      "requiresDocumentVerification": true,
+      "verificationFlowVersion": 2,
+      "documentVerificationStatus": "REJECTED",
+      "verificationDocuments": [
+        {
+          "documentId": "doc_p_1",
+          "fileName": "id.pdf",
+          "category": "personal",
+          "uploadedAt": "2026-09-26T19:38:33.266Z",
+          "status": "REJECTED",
+          "verificationStatus": "REJECTED",
+          "reviewedAt": "2026-09-26T19:38:33.864Z",
+          "reviewedBy": "mohamedvadel60@gmail.com",
+          "rejectionReason": "Document illegible"
+        }
+      ],
+      "createdAt": "2026-09-26T19:38:29.963Z",
+      "trialExpiresAt": "2026-09-27T19:38:29.963Z",
+      "lastActiveAt": "2026-09-26T19:38:33.864Z",
+      "lastLoginAt": "2026-09-26T19:38:29.963Z",
+      "isVerified": false,
+      "isEmailVerified": true,
+      "email_verified": true,
+      "emailVerified": true,
+      "verification_required": true,
+      "verification_status": "under_review",
+      "verificationInfo": {
+        "status": "action_required"
+      },
+      "isPhoneVerified": true,
+      "fullName": "Pending Only",
+      "phone": "+971501112233",
+      "jobTitle": "Executive",
+      "organizationName": "حساب فردي / مستخدم شخصي",
+      "sector": "Individual",
+      "country": "International",
+      "hasCompany": false,
+      "institutionalProfile": {
+        "fullName": "Pending Only",
+        "phone": "+971501112233",
+        "jobTitle": "Executive",
+        "hasCompany": false,
+        "companyName": "حساب فردي / مستخدم شخصي",
+        "sector": "Individual",
+        "country": "International",
+        "registrationNumber": "",
+        "companySize": "1-10",
+        "intendedUse": "Strategic Decision Intelligence",
+        "additionalNotes": "",
+        "submittedAt": "2026-09-26T19:38:33.266Z"
+      },
+      "documents": [
+        {
+          "documentId": "doc_p_1",
+          "fileName": "id.pdf",
+          "category": "personal",
+          "uploadedAt": "2026-09-26T19:38:33.266Z",
+          "status": "REJECTED",
+          "verificationStatus": "REJECTED",
+          "reviewedAt": "2026-09-26T19:38:33.864Z",
+          "reviewedBy": "mohamedvadel60@gmail.com",
+          "rejectionReason": "Document illegible"
+        }
+      ],
+      "documentCount": 1,
+      "canonicalVerificationStatus": "rejected",
+      "kycStatus": "REJECTED",
+      "verificationRequestStatus": "REJECTED",
+      "rejectionReason": "Document illegible",
+      "previousRejectionReason": null,
+      "historicalRejectionReason": null,
+      "verifiedAt": null,
+      "adminVerificationOverride": false,
+      "verificationInfo.status": "rejected",
+      "verificationInfo.submittedAt": "2026-09-26T19:38:33.266Z",
+      "verificationInfo.adminNote": "Document illegible",
+      "verificationInfo.previousAdminNote": null,
+      "verificationInfo.verifiedAt": null,
+      "verificationSubmittedAt": "2026-09-26T19:38:33.266Z",
+      "uid": "y2F7HS3JnzdnE8p5Org7EZV9VHu1"
+    },
+    {
+      "id": "gO266Fz3YWbpNARhAN593GiUd313",
+      "email": "prod_kyc_1790451856003@getzakir.com",
+      "passwordHash": "Password123!@#",
+      "companyName": "Global Trade Tech",
+      "ownerName": "Prod Verification User",
+      "role": "CEO",
+      "workspaceId": "ws_gO266Fz3_muist2w0",
+      "workspace": {
+        "id": "ws_gO266Fz3_muist2w0",
+        "name": "Global Trade Tech Workspace",
+        "ownerId": "gO266Fz3YWbpNARhAN593GiUd313",
+        "createdAt": "2026-09-26T19:44:17.376Z",
+        "memberCount": 1
+      },
+      "teamMembersList": [
+        {
+          "id": "tm-owner",
+          "uid": "gO266Fz3YWbpNARhAN593GiUd313",
+          "name": "Prod Verification User",
+          "email": "prod_kyc_1790451856003@getzakir.com",
+          "role": "CEO / Owner",
+          "powers": {
+            "fileVault": true,
+            "memoryVault": true,
+            "riskRadar": true,
+            "marketIntel": true,
+            "settings": true
+          },
+          "addedAt": "2026-09-26"
+        }
+      ],
+      "subscriptionStatus": "Active",
+      "accountStatus": "APPROVED",
+      "requiresDocumentVerification": false,
+      "verificationFlowVersion": 2,
+      "documentVerificationStatus": "APPROVED",
+      "verificationDocuments": [
+        {
+          "documentId": "doc_1790451859297_ec7d4c3c",
+          "fileName": "Commercial_Registry.pdf",
+          "mimeType": "application/pdf",
+          "size": 33,
+          "fileHash": "62d6e48fd49ef1e3d58dcd79173894ed0f7562675129cbc35ab16a0a16074e11",
+          "category": "personal",
+          "docType": "commercial_registry",
+          "storageReference": "secure_uploads/doc_1790451859297_ec7d4c3c",
+          "uploadedAt": "2026-09-26T19:44:19.710Z",
+          "userId": "gO266Fz3YWbpNARhAN593GiUd313",
+          "status": "APPROVED",
+          "verificationStatus": "APPROVED",
+          "id": "doc_1790451859297_ec7d4c3c",
+          "isAccessible": true,
+          "isMissing": false,
+          "reviewedAt": "2026-09-26T19:44:33.119Z",
+          "reviewedBy": "mohamedvadel60@gmail.com"
+        }
+      ],
+      "createdAt": "2026-09-26T19:44:17.376Z",
+      "trialExpiresAt": "2026-09-27T19:44:33.119Z",
+      "lastActiveAt": "2026-09-26T19:44:33.119Z",
+      "lastLoginAt": "2026-09-26T19:44:26.730Z",
+      "isVerified": true,
+      "isEmailVerified": true,
+      "email_verified": true,
+      "emailVerified": true,
+      "verification_required": false,
+      "verification_status": "verified",
+      "verificationInfo": {
+        "status": "verified",
+        "verifiedAt": "2026-09-26T19:44:33.119Z",
+        "verifiedBy": "mohamedvadel60@gmail.com",
+        "adminNote": "Duplicate approval attempt"
+      },
+      "isPhoneVerified": true,
+      "documents": [
+        {
+          "documentId": "doc_1790451859297_ec7d4c3c",
+          "fileName": "Commercial_Registry.pdf",
+          "mimeType": "application/pdf",
+          "size": 33,
+          "fileHash": "62d6e48fd49ef1e3d58dcd79173894ed0f7562675129cbc35ab16a0a16074e11",
+          "category": "personal",
+          "docType": "commercial_registry",
+          "storageReference": "secure_uploads/doc_1790451859297_ec7d4c3c",
+          "uploadedAt": "2026-09-26T19:44:19.710Z",
+          "userId": "gO266Fz3YWbpNARhAN593GiUd313",
+          "status": "APPROVED",
+          "verificationStatus": "APPROVED",
+          "id": "doc_1790451859297_ec7d4c3c",
+          "isAccessible": true,
+          "isMissing": false,
+          "reviewedAt": "2026-09-26T19:44:33.119Z",
+          "reviewedBy": "mohamedvadel60@gmail.com"
+        }
+      ],
+      "documentCount": 1,
+      "emailVerifiedAt": "2026-09-26T19:44:19.813Z",
+      "verificationInfo.emailVerifiedAt": "2026-09-26T19:44:19.813Z",
+      "fullName": "Prod Verification User",
+      "phone": "+971509998877",
+      "jobTitle": "Executive",
+      "organizationName": "Global Trade Tech",
+      "sector": "General",
+      "country": "International",
+      "hasCompany": true,
+      "institutionalProfile": {
+        "fullName": "Prod Verification User",
+        "phone": "+971509998877",
+        "jobTitle": "Executive",
+        "hasCompany": true,
+        "companyName": "Global Trade Tech",
+        "sector": "General",
+        "country": "International",
+        "registrationNumber": "",
+        "companySize": "1-10",
+        "intendedUse": "Strategic Decision Intelligence",
+        "additionalNotes": "",
+        "submittedAt": "2026-09-26T19:44:19.994Z"
+      },
+      "canonicalVerificationStatus": "approved",
+      "kycStatus": "VERIFIED",
+      "verificationRequestStatus": "APPROVED",
+      "rejectionReason": null,
+      "previousRejectionReason": null,
+      "historicalRejectionReason": null,
+      "verifiedAt": "2026-09-26T19:44:33.119Z",
+      "adminVerificationOverride": false,
+      "verificationInfo.status": "verified",
+      "verificationInfo.submittedAt": "2026-09-26T19:44:19.994Z",
+      "verificationInfo.adminNote": "Duplicate approval attempt",
+      "verificationInfo.previousAdminNote": null,
+      "verificationInfo.verifiedAt": "2026-09-26T19:44:33.119Z",
+      "verificationSubmittedAt": "2026-09-26T19:44:19.994Z",
+      "uid": "gO266Fz3YWbpNARhAN593GiUd313",
+      "approvedAt": "2026-09-26T19:44:33.119Z",
+      "approvedBy": "mohamedvadel60@gmail.com",
+      "approvalNotes": "Duplicate approval attempt",
+      "trialStartedAt": "2026-09-26T19:44:33.119Z",
+      "trialEndsAt": "2026-09-27T19:44:33.119Z",
+      "trialDurationHours": 24,
+      "subscriptionPlan": "Enterprise",
+      "verificationInfo.verifiedBy": "mohamedvadel60@gmail.com",
+      "approvalEmailSentAt": "2026-09-26T19:44:20.816Z",
+      "approvalNotificationSent": true,
+      "approvalEmailMessageId": "01a0df3f-475b-7303-a3dc-22c95562f16c",
+      "verificationStatus": "verified"
+    },
+    {
+      "id": "F9Mjef68QgRmps807arWrRdyYln2",
+      "email": "pending_check_1790451856003@getzakir.com",
+      "passwordHash": "Password123!@#",
+      "companyName": "حساب فردي / مستخدم شخصي",
+      "ownerName": "Pending User",
+      "role": "CEO",
+      "workspaceId": "ws_F9Mjef68_muistbk5",
+      "workspace": {
+        "id": "ws_F9Mjef68_muistbk5",
+        "name": "Pending Corp Workspace",
+        "ownerId": "F9Mjef68QgRmps807arWrRdyYln2",
+        "createdAt": "2026-09-26T19:44:28.613Z",
+        "memberCount": 1
+      },
+      "teamMembersList": [
+        {
+          "id": "tm-owner",
+          "uid": "F9Mjef68QgRmps807arWrRdyYln2",
+          "name": "Pending User",
+          "email": "pending_check_1790451856003@getzakir.com",
+          "role": "CEO / Owner",
+          "powers": {
+            "fileVault": true,
+            "memoryVault": true,
+            "riskRadar": true,
+            "marketIntel": true,
+            "settings": true
+          },
+          "addedAt": "2026-09-26"
+        }
+      ],
+      "subscriptionStatus": "Pending Selection",
+      "accountStatus": "REJECTED",
+      "requiresDocumentVerification": true,
+      "verificationFlowVersion": 2,
+      "documentVerificationStatus": "REJECTED",
+      "verificationDocuments": [
+        {
+          "documentId": "doc_p",
+          "fileName": "id.pdf",
+          "category": "personal",
+          "uploadedAt": "2026-09-26T19:44:30.952Z",
+          "status": "REJECTED",
+          "verificationStatus": "REJECTED",
+          "reviewedAt": "2026-09-26T19:44:31.618Z",
+          "reviewedBy": "mohamedvadel60@gmail.com",
+          "rejectionReason": "Document unreadable and blurry"
+        }
+      ],
+      "createdAt": "2026-09-26T19:44:28.613Z",
+      "trialExpiresAt": "2026-09-27T19:44:28.613Z",
+      "lastActiveAt": "2026-09-26T19:44:31.618Z",
+      "lastLoginAt": "2026-09-26T19:44:28.613Z",
+      "isVerified": false,
+      "isEmailVerified": true,
+      "email_verified": true,
+      "emailVerified": true,
+      "verification_required": true,
+      "verification_status": "under_review",
+      "verificationInfo": {
+        "status": "action_required"
+      },
+      "isPhoneVerified": true,
+      "fullName": "Pending User",
+      "phone": "+971501112233",
+      "jobTitle": "Executive",
+      "organizationName": "حساب فردي / مستخدم شخصي",
+      "sector": "Individual",
+      "country": "International",
+      "hasCompany": false,
+      "institutionalProfile": {
+        "fullName": "Pending User",
+        "phone": "+971501112233",
+        "jobTitle": "Executive",
+        "hasCompany": false,
+        "companyName": "حساب فردي / مستخدم شخصي",
+        "sector": "Individual",
+        "country": "International",
+        "registrationNumber": "",
+        "companySize": "1-10",
+        "intendedUse": "Strategic Decision Intelligence",
+        "additionalNotes": "",
+        "submittedAt": "2026-09-26T19:44:30.952Z"
+      },
+      "documents": [
+        {
+          "documentId": "doc_p",
+          "fileName": "id.pdf",
+          "category": "personal",
+          "uploadedAt": "2026-09-26T19:44:30.952Z",
+          "status": "REJECTED",
+          "verificationStatus": "REJECTED",
+          "reviewedAt": "2026-09-26T19:44:31.618Z",
+          "reviewedBy": "mohamedvadel60@gmail.com",
+          "rejectionReason": "Document unreadable and blurry"
+        }
+      ],
+      "documentCount": 1,
+      "canonicalVerificationStatus": "rejected",
+      "kycStatus": "REJECTED",
+      "verificationRequestStatus": "REJECTED",
+      "rejectionReason": "Document unreadable and blurry",
+      "previousRejectionReason": null,
+      "historicalRejectionReason": null,
+      "verifiedAt": null,
+      "adminVerificationOverride": false,
+      "verificationInfo.status": "rejected",
+      "verificationInfo.submittedAt": "2026-09-26T19:44:30.952Z",
+      "verificationInfo.adminNote": "Document unreadable and blurry",
+      "verificationInfo.previousAdminNote": null,
+      "verificationInfo.verifiedAt": null,
+      "verificationSubmittedAt": "2026-09-26T19:44:30.952Z",
+      "uid": "F9Mjef68QgRmps807arWrRdyYln2"
     }
   ],
   "verification_codes": [
@@ -2525,6 +3736,219 @@
       "sendCount": 0,
       "initialOtpSent": true,
       "lastSentAt": "2026-09-26T13:06:30.838Z"
+    },
+    {
+      "id": "oFTvPZwSn8dOjqaeFxyqyNFPFNk2",
+      "userId": "oFTvPZwSn8dOjqaeFxyqyNFPFNk2",
+      "email": "rejected_test_1790451362619@getzakir.com",
+      "phone": "",
+      "codeHash": "634c267fe46c61d98176ea1dab569b6606e4fe09bb7ed621b4e139430ed0b937",
+      "type": "account_registration",
+      "createdAt": "2026-09-26T19:36:04.173Z",
+      "expiresAt": "2026-09-26T19:46:04.173Z",
+      "attempts": 0,
+      "used": true,
+      "sendCount": 0,
+      "initialOtpSent": true,
+      "lastSentAt": "2026-09-26T19:36:04.173Z",
+      "verifiedAt": "2026-09-26T19:36:04.654Z"
+    },
+    {
+      "used": true,
+      "verifiedAt": "2026-09-26T19:36:04.654Z",
+      "id": "rejected_test_1790451362619@getzakir.com"
+    },
+    {
+      "id": "7tRmj4dfaCZil6erkEZns8FZyQ43",
+      "userId": "7tRmj4dfaCZil6erkEZns8FZyQ43",
+      "email": "no_doc_1790451369740@getzakir.com",
+      "phone": "",
+      "codeHash": "6bc2ec5f6061e4d52d42032c0ae3cae22a506c55b1a0bd877401cc37ca0fb669",
+      "type": "account_registration",
+      "createdAt": "2026-09-26T19:36:11.233Z",
+      "expiresAt": "2026-09-26T19:46:11.233Z",
+      "attempts": 0,
+      "used": false,
+      "sendCount": 0,
+      "initialOtpSent": true,
+      "lastSentAt": "2026-09-26T19:36:11.233Z"
+    },
+    {
+      "id": "fXStOUp6lRYUlEgj9ALEvWFIoMj1",
+      "userId": "fXStOUp6lRYUlEgj9ALEvWFIoMj1",
+      "email": "kyc_user_1790451394915@getzakir.com",
+      "phone": "",
+      "codeHash": "4ecd5e3346a1ac036f5e04ddb1fcbb1a90082483fd9ccaba6f24c941f1018b94",
+      "type": "account_registration",
+      "createdAt": "2026-09-26T19:36:36.308Z",
+      "expiresAt": "2026-09-26T19:46:36.308Z",
+      "attempts": 0,
+      "used": true,
+      "sendCount": 0,
+      "initialOtpSent": true,
+      "lastSentAt": "2026-09-26T19:36:36.308Z",
+      "verifiedAt": "2026-09-26T19:36:36.829Z"
+    },
+    {
+      "used": true,
+      "verifiedAt": "2026-09-26T19:36:36.829Z",
+      "id": "kyc_user_1790451394915@getzakir.com"
+    },
+    {
+      "id": "SDBFgXpEaEW8RCWRyam5vBT4fHd2",
+      "userId": "SDBFgXpEaEW8RCWRyam5vBT4fHd2",
+      "email": "kyc_user_1790451421865@getzakir.com",
+      "phone": "",
+      "codeHash": "f31731f41e9ff9b1c602e2b1d4e0dc2019274c94551def0da5d37b15992aa0e8",
+      "type": "account_registration",
+      "createdAt": "2026-09-26T19:37:03.471Z",
+      "expiresAt": "2026-09-26T19:47:03.471Z",
+      "attempts": 0,
+      "used": true,
+      "sendCount": 0,
+      "initialOtpSent": true,
+      "lastSentAt": "2026-09-26T19:37:03.471Z",
+      "verifiedAt": "2026-09-26T19:37:03.966Z"
+    },
+    {
+      "used": true,
+      "verifiedAt": "2026-09-26T19:37:03.966Z",
+      "id": "kyc_user_1790451421865@getzakir.com"
+    },
+    {
+      "id": "rxYjdz1X0hV1cUT0fg70wgJhTIz2",
+      "userId": "rxYjdz1X0hV1cUT0fg70wgJhTIz2",
+      "email": "unverified_1790451426692@getzakir.com",
+      "phone": "",
+      "codeHash": "0fc665f2f3020abd0274c28cb1526b17fdfe86f63cc4eab144534e7b049a33a3",
+      "type": "account_registration",
+      "createdAt": "2026-09-26T19:37:07.997Z",
+      "expiresAt": "2026-09-26T19:47:07.997Z",
+      "attempts": 0,
+      "used": false,
+      "sendCount": 0,
+      "initialOtpSent": true,
+      "lastSentAt": "2026-09-26T19:37:07.997Z"
+    },
+    {
+      "id": "tDQI3wl1pfQx5yuGwyiBVSwa9aG3",
+      "userId": "tDQI3wl1pfQx5yuGwyiBVSwa9aG3",
+      "email": "pending_only_1790451430173@getzakir.com",
+      "phone": "",
+      "codeHash": "2573a1bcb5df142451c562d4215c2c759baa1850b0f081354b237aae1f01b616",
+      "type": "account_registration",
+      "createdAt": "2026-09-26T19:37:11.853Z",
+      "expiresAt": "2026-09-26T19:47:11.853Z",
+      "attempts": 0,
+      "used": true,
+      "sendCount": 0,
+      "initialOtpSent": true,
+      "lastSentAt": "2026-09-26T19:37:11.853Z",
+      "verifiedAt": "2026-09-26T19:37:12.284Z"
+    },
+    {
+      "used": true,
+      "verifiedAt": "2026-09-26T19:37:12.284Z",
+      "id": "pending_only_1790451430173@getzakir.com"
+    },
+    {
+      "id": "GA6MO7EBQRPjnT5m2TupZOZHwJg2",
+      "userId": "GA6MO7EBQRPjnT5m2TupZOZHwJg2",
+      "email": "kyc_user_1790451491613@getzakir.com",
+      "phone": "",
+      "codeHash": "721a99160678118296c7cc063a211164897603d4e99418f68cef8ca34a2de541",
+      "type": "account_registration",
+      "createdAt": "2026-09-26T19:38:13.150Z",
+      "expiresAt": "2026-09-26T19:48:13.150Z",
+      "attempts": 0,
+      "used": true,
+      "sendCount": 0,
+      "initialOtpSent": true,
+      "lastSentAt": "2026-09-26T19:38:13.150Z",
+      "verifiedAt": "2026-09-26T19:38:22.300Z"
+    },
+    {
+      "used": true,
+      "verifiedAt": "2026-09-26T19:38:22.300Z",
+      "id": "kyc_user_1790451491613@getzakir.com"
+    },
+    {
+      "id": "SkZjA5YYjYacx6AlapMWVlrGNiR2",
+      "userId": "SkZjA5YYjYacx6AlapMWVlrGNiR2",
+      "email": "unverified_1790451505091@getzakir.com",
+      "phone": "",
+      "codeHash": "9925cfd0a44bbc8935dd6ebb8c7119dc5e5a23f049be23233763cd65fa9bf058",
+      "type": "account_registration",
+      "createdAt": "2026-09-26T19:38:26.313Z",
+      "expiresAt": "2026-09-26T19:48:26.313Z",
+      "attempts": 0,
+      "used": false,
+      "sendCount": 0,
+      "initialOtpSent": true,
+      "lastSentAt": "2026-09-26T19:38:26.313Z"
+    },
+    {
+      "id": "y2F7HS3JnzdnE8p5Org7EZV9VHu1",
+      "userId": "y2F7HS3JnzdnE8p5Org7EZV9VHu1",
+      "email": "pending_only_1790451508853@getzakir.com",
+      "phone": "",
+      "codeHash": "aca8b5538d8e081f0c6be0944c84a3522a661a4357ad9e7805d52ee70e154e1e",
+      "type": "account_registration",
+      "createdAt": "2026-09-26T19:38:30.117Z",
+      "expiresAt": "2026-09-26T19:48:30.117Z",
+      "attempts": 0,
+      "used": true,
+      "sendCount": 0,
+      "initialOtpSent": true,
+      "lastSentAt": "2026-09-26T19:38:30.117Z",
+      "verifiedAt": "2026-09-26T19:38:30.883Z"
+    },
+    {
+      "used": true,
+      "verifiedAt": "2026-09-26T19:38:30.883Z",
+      "id": "pending_only_1790451508853@getzakir.com"
+    },
+    {
+      "id": "gO266Fz3YWbpNARhAN593GiUd313",
+      "userId": "gO266Fz3YWbpNARhAN593GiUd313",
+      "email": "prod_kyc_1790451856003@getzakir.com",
+      "phone": "",
+      "codeHash": "df1fcdf87276a73759a9e78473aaf594a6193c001d4b362cfdca6ce0d57577b7",
+      "type": "account_registration",
+      "createdAt": "2026-09-26T19:44:17.528Z",
+      "expiresAt": "2026-09-26T19:54:17.528Z",
+      "attempts": 0,
+      "used": true,
+      "sendCount": 0,
+      "initialOtpSent": true,
+      "lastSentAt": "2026-09-26T19:44:17.528Z",
+      "verifiedAt": "2026-09-26T19:44:18.091Z"
+    },
+    {
+      "used": true,
+      "verifiedAt": "2026-09-26T19:44:18.091Z",
+      "id": "prod_kyc_1790451856003@getzakir.com"
+    },
+    {
+      "id": "F9Mjef68QgRmps807arWrRdyYln2",
+      "userId": "F9Mjef68QgRmps807arWrRdyYln2",
+      "email": "pending_check_1790451856003@getzakir.com",
+      "phone": "",
+      "codeHash": "dc5d14b6249c46b00d5c045c2407fafa0bf60eebb0aecfc21411f85c653a217e",
+      "type": "account_registration",
+      "createdAt": "2026-09-26T19:44:28.785Z",
+      "expiresAt": "2026-09-26T19:54:28.785Z",
+      "attempts": 0,
+      "used": true,
+      "sendCount": 0,
+      "initialOtpSent": true,
+      "lastSentAt": "2026-09-26T19:44:28.785Z",
+      "verifiedAt": "2026-09-26T19:44:29.494Z"
+    },
+    {
+      "used": true,
+      "verifiedAt": "2026-09-26T19:44:29.494Z",
+      "id": "pending_check_1790451856003@getzakir.com"
     }
   ],
   "support_tickets": [],
@@ -2731,7 +4155,7 @@
       "adminApprovalRequired": false,
       "canRestore": false,
       "daysRemaining": 0,
-      "updatedAt": "2026-09-26T15:37:54.079Z",
+      "updatedAt": "2026-09-26T19:38:53.573Z",
       "id": "mohamedmed11332@gmail.com"
     },
     {
@@ -2747,7 +4171,7 @@
       "adminApprovalRequired": false,
       "canRestore": false,
       "daysRemaining": 0,
-      "updatedAt": "2026-09-26T15:37:56.878Z",
+      "updatedAt": "2026-09-26T19:38:55.087Z",
       "id": "mohamedvadhil0@gmail.com"
     },
     {
@@ -2763,7 +4187,7 @@
       "adminApprovalRequired": false,
       "canRestore": false,
       "daysRemaining": 0,
-      "updatedAt": "2026-09-26T15:37:57.997Z",
+      "updatedAt": "2026-09-26T19:38:55.647Z",
       "id": "anas1220045@gmail.com"
     },
     {
@@ -2779,7 +4203,7 @@
       "adminApprovalRequired": false,
       "canRestore": false,
       "daysRemaining": 0,
-      "updatedAt": "2026-09-26T15:37:54.396Z",
+      "updatedAt": "2026-09-26T19:38:53.771Z",
       "id": "mohamedvadel60@gmail.com"
     },
     {
@@ -3079,7 +4503,7 @@
       "adminApprovalRequired": false,
       "canRestore": false,
       "daysRemaining": 0,
-      "updatedAt": "2026-09-26T15:37:53.687Z",
+      "updatedAt": "2026-09-26T19:38:53.376Z",
       "id": "sarasara222341@gmail.com"
     },
     {
@@ -3362,7 +4786,7 @@
       "adminApprovalRequired": false,
       "canRestore": false,
       "daysRemaining": 0,
-      "updatedAt": "2026-09-26T15:37:54.791Z",
+      "updatedAt": "2026-09-26T19:38:53.957Z",
       "id": "mohamedvadhil0@entreprise8.com"
     },
     {
@@ -3378,7 +4802,7 @@
       "adminApprovalRequired": false,
       "canRestore": false,
       "daysRemaining": 0,
-      "updatedAt": "2026-09-26T15:37:55.191Z",
+      "updatedAt": "2026-09-26T19:38:54.133Z",
       "id": "mohamedhaiballa64@gmail.com"
     },
     {
@@ -3394,7 +4818,7 @@
       "adminApprovalRequired": false,
       "canRestore": false,
       "daysRemaining": 0,
-      "updatedAt": "2026-09-26T15:37:55.501Z",
+      "updatedAt": "2026-09-26T19:38:54.320Z",
       "id": "medvadhil7@gmail.com"
     },
     {
@@ -3410,7 +4834,7 @@
       "adminApprovalRequired": false,
       "canRestore": false,
       "daysRemaining": 0,
-      "updatedAt": "2026-09-26T15:37:55.804Z",
+      "updatedAt": "2026-09-26T19:38:54.518Z",
       "id": "mohamedvadel60@hotmail.com"
     },
     {
@@ -3426,7 +4850,7 @@
       "adminApprovalRequired": false,
       "canRestore": false,
       "daysRemaining": 0,
-      "updatedAt": "2026-09-26T15:37:56.187Z",
+      "updatedAt": "2026-09-26T19:38:54.717Z",
       "id": "mohamedvadel60@entreprise8.com"
     },
     {
@@ -3442,7 +4866,7 @@
       "adminApprovalRequired": false,
       "canRestore": false,
       "daysRemaining": 0,
-      "updatedAt": "2026-09-26T15:37:56.586Z",
+      "updatedAt": "2026-09-26T19:38:54.898Z",
       "id": "mohamedvadhil01@hotmail.com"
     },
     {
@@ -3458,7 +4882,7 @@
       "adminApprovalRequired": false,
       "canRestore": false,
       "daysRemaining": 0,
-      "updatedAt": "2026-09-26T15:37:57.359Z",
+      "updatedAt": "2026-09-26T19:38:55.274Z",
       "id": "mohamedvadel60@entreprise6.com"
     },
     {
@@ -3474,7 +4898,7 @@
       "adminApprovalRequired": false,
       "canRestore": false,
       "daysRemaining": 0,
-      "updatedAt": "2026-09-26T15:37:57.692Z",
+      "updatedAt": "2026-09-26T19:38:55.469Z",
       "id": "mohamevadhil01@hotmail.com"
     },
     {
@@ -3490,7 +4914,7 @@
       "adminApprovalRequired": false,
       "canRestore": false,
       "daysRemaining": 0,
-      "updatedAt": "2026-09-26T15:37:58.367Z",
+      "updatedAt": "2026-09-26T19:38:55.829Z",
       "id": "pending.user@getzakir.com"
     },
     {
@@ -3506,7 +4930,7 @@
       "adminApprovalRequired": false,
       "canRestore": false,
       "daysRemaining": 0,
-      "updatedAt": "2026-09-26T15:37:58.767Z",
+      "updatedAt": "2026-09-26T19:38:56.006Z",
       "id": "rejected.user@getzakir.com"
     },
     {
@@ -3522,7 +4946,7 @@
       "adminApprovalRequired": false,
       "canRestore": false,
       "daysRemaining": 0,
-      "updatedAt": "2026-09-26T15:37:59.084Z",
+      "updatedAt": "2026-09-26T19:38:56.234Z",
       "id": "approved.user@getzakir.com"
     },
     {
@@ -3538,7 +4962,7 @@
       "adminApprovalRequired": false,
       "canRestore": false,
       "daysRemaining": 0,
-      "updatedAt": "2026-09-26T15:37:59.594Z",
+      "updatedAt": "2026-09-26T19:38:56.422Z",
       "id": "applicant_1790416466539@getzakir.com"
     },
     {
@@ -3554,7 +4978,7 @@
       "adminApprovalRequired": false,
       "canRestore": false,
       "daysRemaining": 0,
-      "updatedAt": "2026-09-26T15:38:00.080Z",
+      "updatedAt": "2026-09-26T19:38:56.612Z",
       "id": "applicant_1790416498452@getzakir.com"
     },
     {
@@ -3570,7 +4994,7 @@
       "adminApprovalRequired": false,
       "canRestore": false,
       "daysRemaining": 0,
-      "updatedAt": "2026-09-26T15:38:00.472Z",
+      "updatedAt": "2026-09-26T19:38:56.806Z",
       "id": "applicant_1790416570908@getzakir.com"
     },
     {
@@ -3586,7 +5010,7 @@
       "adminApprovalRequired": false,
       "canRestore": false,
       "daysRemaining": 0,
-      "updatedAt": "2026-09-26T15:38:00.873Z",
+      "updatedAt": "2026-09-26T19:38:56.989Z",
       "id": "applicant_1790416647879@getzakir.com"
     },
     {
@@ -3602,7 +5026,7 @@
       "adminApprovalRequired": false,
       "canRestore": false,
       "daysRemaining": 0,
-      "updatedAt": "2026-09-26T15:38:01.162Z",
+      "updatedAt": "2026-09-26T19:38:57.175Z",
       "id": "applicant_1790416732542@getzakir.com"
     },
     {
@@ -3618,7 +5042,7 @@
       "adminApprovalRequired": false,
       "canRestore": false,
       "daysRemaining": 0,
-      "updatedAt": "2026-09-26T15:38:01.486Z",
+      "updatedAt": "2026-09-26T19:38:57.354Z",
       "id": "applicant_1790421163066@getzakir.com"
     },
     {
@@ -3634,7 +5058,7 @@
       "adminApprovalRequired": false,
       "canRestore": false,
       "daysRemaining": 0,
-      "updatedAt": "2026-09-26T15:38:01.962Z",
+      "updatedAt": "2026-09-26T19:38:57.536Z",
       "id": "unverified_1790421200459@test.com"
     },
     {
@@ -3650,7 +5074,7 @@
       "adminApprovalRequired": false,
       "canRestore": false,
       "daysRemaining": 0,
-      "updatedAt": "2026-09-26T15:38:02.360Z",
+      "updatedAt": "2026-09-26T19:38:57.711Z",
       "id": "rejected_test_1790421814575@getzakir.com"
     },
     {
@@ -3666,7 +5090,7 @@
       "adminApprovalRequired": false,
       "canRestore": false,
       "daysRemaining": 0,
-      "updatedAt": "2026-09-26T15:38:02.803Z",
+      "updatedAt": "2026-09-26T19:38:57.887Z",
       "id": "no_doc_1790421822689@getzakir.com"
     },
     {
@@ -3682,7 +5106,7 @@
       "adminApprovalRequired": false,
       "canRestore": false,
       "daysRemaining": 0,
-      "updatedAt": "2026-09-26T15:38:03.273Z",
+      "updatedAt": "2026-09-26T19:38:58.070Z",
       "id": "rejected_test_1790421871641@getzakir.com"
     },
     {
@@ -3698,7 +5122,7 @@
       "adminApprovalRequired": false,
       "canRestore": false,
       "daysRemaining": 0,
-      "updatedAt": "2026-09-26T15:38:03.592Z",
+      "updatedAt": "2026-09-26T19:38:58.254Z",
       "id": "no_doc_1790421883559@getzakir.com"
     },
     {
@@ -3714,7 +5138,7 @@
       "adminApprovalRequired": false,
       "canRestore": false,
       "daysRemaining": 0,
-      "updatedAt": "2026-09-26T15:38:03.886Z",
+      "updatedAt": "2026-09-26T19:38:58.430Z",
       "id": "test_ws_creation_1790426782370@zakir.ai"
     },
     {
@@ -3730,7 +5154,7 @@
       "adminApprovalRequired": false,
       "canRestore": false,
       "daysRemaining": 0,
-      "updatedAt": "2026-09-26T15:38:04.268Z",
+      "updatedAt": "2026-09-26T19:38:58.615Z",
       "id": "test_user_a_1790426921729@zakir.ai"
     },
     {
@@ -3746,7 +5170,7 @@
       "adminApprovalRequired": false,
       "canRestore": false,
       "daysRemaining": 0,
-      "updatedAt": "2026-09-26T15:38:04.588Z",
+      "updatedAt": "2026-09-26T19:38:58.788Z",
       "id": "test_user_b_1790426921729@zakir.ai"
     },
     {
@@ -3762,7 +5186,7 @@
       "adminApprovalRequired": false,
       "canRestore": false,
       "daysRemaining": 0,
-      "updatedAt": "2026-09-26T15:38:04.861Z",
+      "updatedAt": "2026-09-26T19:38:58.968Z",
       "id": "admin_created_1790426921729@zakir.ai"
     },
     {
@@ -3778,7 +5202,7 @@
       "adminApprovalRequired": false,
       "canRestore": false,
       "daysRemaining": 0,
-      "updatedAt": "2026-09-26T15:38:05.093Z",
+      "updatedAt": "2026-09-26T19:38:59.148Z",
       "id": "test_user_a_1790426956963@zakir.ai"
     },
     {
@@ -3794,7 +5218,7 @@
       "adminApprovalRequired": false,
       "canRestore": false,
       "daysRemaining": 0,
-      "updatedAt": "2026-09-26T15:38:05.463Z",
+      "updatedAt": "2026-09-26T19:38:59.331Z",
       "id": "test_user_b_1790426956963@zakir.ai"
     },
     {
@@ -3810,7 +5234,7 @@
       "adminApprovalRequired": false,
       "canRestore": false,
       "daysRemaining": 0,
-      "updatedAt": "2026-09-26T15:38:05.784Z",
+      "updatedAt": "2026-09-26T19:38:59.513Z",
       "id": "admin_created_1790426956963@zakir.ai"
     },
     {
@@ -3826,7 +5250,7 @@
       "adminApprovalRequired": false,
       "canRestore": false,
       "daysRemaining": 0,
-      "updatedAt": "2026-09-26T15:38:06.073Z",
+      "updatedAt": "2026-09-26T19:38:59.697Z",
       "id": "ui_workspace_test_1790427988253@zakir.ai"
     },
     {
@@ -3842,8 +5266,184 @@
       "adminApprovalRequired": false,
       "canRestore": false,
       "daysRemaining": 0,
-      "updatedAt": "2026-09-26T15:38:06.377Z",
+      "updatedAt": "2026-09-26T19:38:59.870Z",
       "id": "google_user_a_1790429635290@gmail.com"
+    },
+    {
+      "accountId": "rejected_test_1790451362619@getzakir.com",
+      "emailNormalized": "rejected_test_1790451362619@getzakir.com",
+      "status": "ACTIVE",
+      "deletionType": null,
+      "deletedAt": null,
+      "deletedBy": null,
+      "restoreUntil": null,
+      "originalUserId": "oFTvPZwSn8dOjqaeFxyqyNFPFNk2",
+      "retainedDataDocPath": null,
+      "adminApprovalRequired": false,
+      "canRestore": false,
+      "daysRemaining": 0,
+      "updatedAt": "2026-09-26T19:39:00.050Z",
+      "id": "rejected_test_1790451362619@getzakir.com"
+    },
+    {
+      "accountId": "kyc_user_1790451421865@getzakir.com",
+      "emailNormalized": "kyc_user_1790451421865@getzakir.com",
+      "status": "ACTIVE",
+      "deletionType": null,
+      "deletedAt": null,
+      "deletedBy": null,
+      "restoreUntil": null,
+      "originalUserId": "SDBFgXpEaEW8RCWRyam5vBT4fHd2",
+      "retainedDataDocPath": null,
+      "adminApprovalRequired": false,
+      "canRestore": false,
+      "daysRemaining": 0,
+      "updatedAt": "2026-09-26T19:39:00.604Z",
+      "id": "kyc_user_1790451421865@getzakir.com"
+    },
+    {
+      "accountId": "no_doc_1790451369740@getzakir.com",
+      "emailNormalized": "no_doc_1790451369740@getzakir.com",
+      "status": "ACTIVE",
+      "deletionType": null,
+      "deletedAt": null,
+      "deletedBy": null,
+      "restoreUntil": null,
+      "originalUserId": "7tRmj4dfaCZil6erkEZns8FZyQ43",
+      "retainedDataDocPath": null,
+      "adminApprovalRequired": false,
+      "canRestore": false,
+      "daysRemaining": 0,
+      "updatedAt": "2026-09-26T19:39:00.246Z",
+      "id": "no_doc_1790451369740@getzakir.com"
+    },
+    {
+      "accountId": "kyc_user_1790451394915@getzakir.com",
+      "emailNormalized": "kyc_user_1790451394915@getzakir.com",
+      "status": "ACTIVE",
+      "deletionType": null,
+      "deletedAt": null,
+      "deletedBy": null,
+      "restoreUntil": null,
+      "originalUserId": "fXStOUp6lRYUlEgj9ALEvWFIoMj1",
+      "retainedDataDocPath": null,
+      "adminApprovalRequired": false,
+      "canRestore": false,
+      "daysRemaining": 0,
+      "updatedAt": "2026-09-26T19:39:00.429Z",
+      "id": "kyc_user_1790451394915@getzakir.com"
+    },
+    {
+      "accountId": "unverified_1790451426692@getzakir.com",
+      "emailNormalized": "unverified_1790451426692@getzakir.com",
+      "status": "ACTIVE",
+      "deletionType": null,
+      "deletedAt": null,
+      "deletedBy": null,
+      "restoreUntil": null,
+      "originalUserId": "rxYjdz1X0hV1cUT0fg70wgJhTIz2",
+      "retainedDataDocPath": null,
+      "adminApprovalRequired": false,
+      "canRestore": false,
+      "daysRemaining": 0,
+      "updatedAt": "2026-09-26T19:39:00.792Z",
+      "id": "unverified_1790451426692@getzakir.com"
+    },
+    {
+      "accountId": "pending_only_1790451430173@getzakir.com",
+      "emailNormalized": "pending_only_1790451430173@getzakir.com",
+      "status": "ACTIVE",
+      "deletionType": null,
+      "deletedAt": null,
+      "deletedBy": null,
+      "restoreUntil": null,
+      "originalUserId": "tDQI3wl1pfQx5yuGwyiBVSwa9aG3",
+      "retainedDataDocPath": null,
+      "adminApprovalRequired": false,
+      "canRestore": false,
+      "daysRemaining": 0,
+      "updatedAt": "2026-09-26T19:39:00.977Z",
+      "id": "pending_only_1790451430173@getzakir.com"
+    },
+    {
+      "accountId": "medvadhil7777@gmail.com",
+      "emailNormalized": "medvadhil7777@gmail.com",
+      "status": "ACTIVE",
+      "deletionType": null,
+      "deletedAt": null,
+      "deletedBy": null,
+      "restoreUntil": null,
+      "originalUserId": "ffsNtKmlguRo0kKfcM4htRYKaPG2",
+      "retainedDataDocPath": null,
+      "adminApprovalRequired": false,
+      "canRestore": false,
+      "daysRemaining": 0,
+      "updatedAt": "2026-09-26T19:39:01.172Z",
+      "id": "medvadhil7777@gmail.com"
+    },
+    {
+      "accountId": "kyc_user_1790451491613@getzakir.com",
+      "emailNormalized": "kyc_user_1790451491613@getzakir.com",
+      "status": "ACTIVE",
+      "deletionType": null,
+      "deletedAt": null,
+      "deletedBy": null,
+      "restoreUntil": null,
+      "originalUserId": "GA6MO7EBQRPjnT5m2TupZOZHwJg2",
+      "retainedDataDocPath": null,
+      "adminApprovalRequired": false,
+      "canRestore": false,
+      "daysRemaining": 0,
+      "updatedAt": "2026-09-26T19:39:01.364Z",
+      "id": "kyc_user_1790451491613@getzakir.com"
+    },
+    {
+      "accountId": "unverified_1790451505091@getzakir.com",
+      "emailNormalized": "unverified_1790451505091@getzakir.com",
+      "status": "ACTIVE",
+      "deletionType": null,
+      "deletedAt": null,
+      "deletedBy": null,
+      "restoreUntil": null,
+      "originalUserId": "SkZjA5YYjYacx6AlapMWVlrGNiR2",
+      "retainedDataDocPath": null,
+      "adminApprovalRequired": false,
+      "canRestore": false,
+      "daysRemaining": 0,
+      "updatedAt": "2026-09-26T19:39:01.554Z",
+      "id": "unverified_1790451505091@getzakir.com"
+    },
+    {
+      "accountId": "pending_only_1790451508853@getzakir.com",
+      "emailNormalized": "pending_only_1790451508853@getzakir.com",
+      "status": "ACTIVE",
+      "deletionType": null,
+      "deletedAt": null,
+      "deletedBy": null,
+      "restoreUntil": null,
+      "originalUserId": "y2F7HS3JnzdnE8p5Org7EZV9VHu1",
+      "retainedDataDocPath": null,
+      "adminApprovalRequired": false,
+      "canRestore": false,
+      "daysRemaining": 0,
+      "updatedAt": "2026-09-26T19:39:01.743Z",
+      "id": "pending_only_1790451508853@getzakir.com"
+    },
+    {
+      "accountId": "prod_kyc_1790451856003@getzakir.com",
+      "emailNormalized": "prod_kyc_1790451856003@getzakir.com",
+      "status": "ACTIVE",
+      "deletionType": null,
+      "deletedAt": null,
+      "deletedBy": null,
+      "restoreUntil": null,
+      "originalUserId": "gO266Fz3YWbpNARhAN593GiUd313",
+      "retainedDataDocPath": null,
+      "adminApprovalRequired": false,
+      "canRestore": false,
+      "daysRemaining": 0,
+      "updatedAt": "2026-09-26T19:44:25.988Z",
+      "id": "prod_kyc_1790451856003@getzakir.com"
     }
   ],
   "account_reactivation_requests": [
@@ -6892,6 +8492,111 @@
         "isPublic": false,
         "ownerOnly": true
       }
+    },
+    "doc_1790451365835_68e403cd": {
+      "documentId": "doc_1790451365835_68e403cd",
+      "fileName": "Old_National_ID.pdf",
+      "mimeType": "application/pdf",
+      "size": 63,
+      "fileHash": "9224e22a7758f82ea6f6f869e4cd851388e63a261f8e7401e9ac2b8046f5d3a6",
+      "sha256": "9224e22a7758f82ea6f6f869e4cd851388e63a261f8e7401e9ac2b8046f5d3a6",
+      "storageProvider": "local-secure-disk",
+      "storagePath": "secure_uploads/doc_1790451365835_68e403cd",
+      "storageReference": "secure_uploads/doc_1790451365835_68e403cd",
+      "storageStatus": "persisted",
+      "ownerUid": null,
+      "workspaceId": "default",
+      "createdAt": "2026-09-26T19:36:05.836Z",
+      "updatedAt": "2026-09-26T19:36:05.836Z",
+      "expiresAt": "2026-10-10T19:36:05.836Z",
+      "permissions": {
+        "isPublic": false,
+        "ownerOnly": true
+      }
+    },
+    "doc_1790451367046_67e9d755": {
+      "documentId": "doc_1790451367046_67e9d755",
+      "fileName": "ChatGPT_Image_New_ID.png.pdf",
+      "mimeType": "application/pdf",
+      "size": 80,
+      "fileHash": "037594c1a7bf5f4b9d6f35666d53b60b1c244cc067a4c56487c025b7b396f28a",
+      "sha256": "037594c1a7bf5f4b9d6f35666d53b60b1c244cc067a4c56487c025b7b396f28a",
+      "storageProvider": "local-secure-disk",
+      "storagePath": "secure_uploads/doc_1790451367046_67e9d755",
+      "storageReference": "secure_uploads/doc_1790451367046_67e9d755",
+      "storageStatus": "persisted",
+      "ownerUid": null,
+      "workspaceId": "default",
+      "createdAt": "2026-09-26T19:36:07.047Z",
+      "updatedAt": "2026-09-26T19:36:07.047Z",
+      "expiresAt": "2026-10-10T19:36:07.047Z",
+      "permissions": {
+        "isPublic": false,
+        "ownerOnly": true
+      }
+    },
+    "doc_1790451425262_63272740": {
+      "documentId": "doc_1790451425262_63272740",
+      "fileName": "Government_ID.pdf",
+      "mimeType": "application/pdf",
+      "size": 63,
+      "fileHash": "9224e22a7758f82ea6f6f869e4cd851388e63a261f8e7401e9ac2b8046f5d3a6",
+      "sha256": "9224e22a7758f82ea6f6f869e4cd851388e63a261f8e7401e9ac2b8046f5d3a6",
+      "storageProvider": "local-secure-disk",
+      "storagePath": "secure_uploads/doc_1790451425262_63272740",
+      "storageReference": "secure_uploads/doc_1790451425262_63272740",
+      "storageStatus": "persisted",
+      "ownerUid": null,
+      "workspaceId": "default",
+      "createdAt": "2026-09-26T19:37:05.263Z",
+      "updatedAt": "2026-09-26T19:37:05.263Z",
+      "expiresAt": "2026-10-10T19:37:05.263Z",
+      "permissions": {
+        "isPublic": false,
+        "ownerOnly": true
+      }
+    },
+    "doc_1790451503512_dcad6336": {
+      "documentId": "doc_1790451503512_dcad6336",
+      "fileName": "Government_ID.pdf",
+      "mimeType": "application/pdf",
+      "size": 63,
+      "fileHash": "9224e22a7758f82ea6f6f869e4cd851388e63a261f8e7401e9ac2b8046f5d3a6",
+      "sha256": "9224e22a7758f82ea6f6f869e4cd851388e63a261f8e7401e9ac2b8046f5d3a6",
+      "storageProvider": "local-secure-disk",
+      "storagePath": "secure_uploads/doc_1790451503512_dcad6336",
+      "storageReference": "secure_uploads/doc_1790451503512_dcad6336",
+      "storageStatus": "persisted",
+      "ownerUid": null,
+      "workspaceId": "default",
+      "createdAt": "2026-09-26T19:38:23.513Z",
+      "updatedAt": "2026-09-26T19:38:23.513Z",
+      "expiresAt": "2026-10-10T19:38:23.513Z",
+      "permissions": {
+        "isPublic": false,
+        "ownerOnly": true
+      }
+    },
+    "doc_1790451859297_ec7d4c3c": {
+      "documentId": "doc_1790451859297_ec7d4c3c",
+      "fileName": "Commercial_Registry.pdf",
+      "mimeType": "application/pdf",
+      "size": 33,
+      "fileHash": "62d6e48fd49ef1e3d58dcd79173894ed0f7562675129cbc35ab16a0a16074e11",
+      "sha256": "62d6e48fd49ef1e3d58dcd79173894ed0f7562675129cbc35ab16a0a16074e11",
+      "storageProvider": "local-secure-disk",
+      "storagePath": "secure_uploads/doc_1790451859297_ec7d4c3c",
+      "storageReference": "secure_uploads/doc_1790451859297_ec7d4c3c",
+      "storageStatus": "persisted",
+      "ownerUid": null,
+      "workspaceId": "default",
+      "createdAt": "2026-09-26T19:44:19.298Z",
+      "updatedAt": "2026-09-26T19:44:19.298Z",
+      "expiresAt": "2026-10-10T19:44:19.298Z",
+      "permissions": {
+        "isPublic": false,
+        "ownerOnly": true
+      }
     }
   },
   "invitations": [
@@ -7327,6 +9032,116 @@
           "ownerOnly": true
         },
         "id": "doc_1790421880745_80e39840"
+      },
+      {
+        "documentId": "doc_1790451365835_68e403cd",
+        "fileName": "Old_National_ID.pdf",
+        "mimeType": "application/pdf",
+        "size": 63,
+        "fileHash": "9224e22a7758f82ea6f6f869e4cd851388e63a261f8e7401e9ac2b8046f5d3a6",
+        "sha256": "9224e22a7758f82ea6f6f869e4cd851388e63a261f8e7401e9ac2b8046f5d3a6",
+        "storageProvider": "local-secure-disk",
+        "storagePath": "secure_uploads/doc_1790451365835_68e403cd",
+        "storageReference": "secure_uploads/doc_1790451365835_68e403cd",
+        "storageStatus": "persisted",
+        "ownerUid": null,
+        "workspaceId": "default",
+        "createdAt": "2026-09-26T19:36:05.836Z",
+        "updatedAt": "2026-09-26T19:36:05.836Z",
+        "expiresAt": "2026-10-10T19:36:05.836Z",
+        "permissions": {
+          "isPublic": false,
+          "ownerOnly": true
+        },
+        "id": "doc_1790451365835_68e403cd"
+      },
+      {
+        "documentId": "doc_1790451367046_67e9d755",
+        "fileName": "ChatGPT_Image_New_ID.png.pdf",
+        "mimeType": "application/pdf",
+        "size": 80,
+        "fileHash": "037594c1a7bf5f4b9d6f35666d53b60b1c244cc067a4c56487c025b7b396f28a",
+        "sha256": "037594c1a7bf5f4b9d6f35666d53b60b1c244cc067a4c56487c025b7b396f28a",
+        "storageProvider": "local-secure-disk",
+        "storagePath": "secure_uploads/doc_1790451367046_67e9d755",
+        "storageReference": "secure_uploads/doc_1790451367046_67e9d755",
+        "storageStatus": "persisted",
+        "ownerUid": null,
+        "workspaceId": "default",
+        "createdAt": "2026-09-26T19:36:07.047Z",
+        "updatedAt": "2026-09-26T19:36:07.047Z",
+        "expiresAt": "2026-10-10T19:36:07.047Z",
+        "permissions": {
+          "isPublic": false,
+          "ownerOnly": true
+        },
+        "id": "doc_1790451367046_67e9d755"
+      },
+      {
+        "documentId": "doc_1790451425262_63272740",
+        "fileName": "Government_ID.pdf",
+        "mimeType": "application/pdf",
+        "size": 63,
+        "fileHash": "9224e22a7758f82ea6f6f869e4cd851388e63a261f8e7401e9ac2b8046f5d3a6",
+        "sha256": "9224e22a7758f82ea6f6f869e4cd851388e63a261f8e7401e9ac2b8046f5d3a6",
+        "storageProvider": "local-secure-disk",
+        "storagePath": "secure_uploads/doc_1790451425262_63272740",
+        "storageReference": "secure_uploads/doc_1790451425262_63272740",
+        "storageStatus": "persisted",
+        "ownerUid": null,
+        "workspaceId": "default",
+        "createdAt": "2026-09-26T19:37:05.263Z",
+        "updatedAt": "2026-09-26T19:37:05.263Z",
+        "expiresAt": "2026-10-10T19:37:05.263Z",
+        "permissions": {
+          "isPublic": false,
+          "ownerOnly": true
+        },
+        "id": "doc_1790451425262_63272740"
+      },
+      {
+        "documentId": "doc_1790451503512_dcad6336",
+        "fileName": "Government_ID.pdf",
+        "mimeType": "application/pdf",
+        "size": 63,
+        "fileHash": "9224e22a7758f82ea6f6f869e4cd851388e63a261f8e7401e9ac2b8046f5d3a6",
+        "sha256": "9224e22a7758f82ea6f6f869e4cd851388e63a261f8e7401e9ac2b8046f5d3a6",
+        "storageProvider": "local-secure-disk",
+        "storagePath": "secure_uploads/doc_1790451503512_dcad6336",
+        "storageReference": "secure_uploads/doc_1790451503512_dcad6336",
+        "storageStatus": "persisted",
+        "ownerUid": null,
+        "workspaceId": "default",
+        "createdAt": "2026-09-26T19:38:23.513Z",
+        "updatedAt": "2026-09-26T19:38:23.513Z",
+        "expiresAt": "2026-10-10T19:38:23.513Z",
+        "permissions": {
+          "isPublic": false,
+          "ownerOnly": true
+        },
+        "id": "doc_1790451503512_dcad6336"
+      },
+      {
+        "documentId": "doc_1790451859297_ec7d4c3c",
+        "fileName": "Commercial_Registry.pdf",
+        "mimeType": "application/pdf",
+        "size": 33,
+        "fileHash": "62d6e48fd49ef1e3d58dcd79173894ed0f7562675129cbc35ab16a0a16074e11",
+        "sha256": "62d6e48fd49ef1e3d58dcd79173894ed0f7562675129cbc35ab16a0a16074e11",
+        "storageProvider": "local-secure-disk",
+        "storagePath": "secure_uploads/doc_1790451859297_ec7d4c3c",
+        "storageReference": "secure_uploads/doc_1790451859297_ec7d4c3c",
+        "storageStatus": "persisted",
+        "ownerUid": null,
+        "workspaceId": "default",
+        "createdAt": "2026-09-26T19:44:19.298Z",
+        "updatedAt": "2026-09-26T19:44:19.298Z",
+        "expiresAt": "2026-10-10T19:44:19.298Z",
+        "permissions": {
+          "isPublic": false,
+          "ownerOnly": true
+        },
+        "id": "doc_1790451859297_ec7d4c3c"
       }
     ],
     "system_health": [
@@ -7620,6 +9435,71 @@
         "uploadedAt": "2026-09-26T11:24:40.816Z",
         "userId": "ra28MNgoWcMRezzZywX0MyklHUD3",
         "id": "doc_1790421880745_80e39840"
+      },
+      {
+        "documentId": "doc_1790451365835_68e403cd",
+        "fileName": "Old_National_ID.pdf",
+        "mimeType": "application/pdf",
+        "size": 63,
+        "fileHash": "9224e22a7758f82ea6f6f869e4cd851388e63a261f8e7401e9ac2b8046f5d3a6",
+        "category": "personal",
+        "docType": "national_id",
+        "storageReference": "secure_uploads/doc_1790451365835_68e403cd",
+        "uploadedAt": "2026-09-26T19:36:06.073Z",
+        "userId": "oFTvPZwSn8dOjqaeFxyqyNFPFNk2",
+        "id": "doc_1790451365835_68e403cd"
+      },
+      {
+        "documentId": "doc_1790451367046_67e9d755",
+        "fileName": "ChatGPT_Image_New_ID.png.pdf",
+        "mimeType": "application/pdf",
+        "size": 80,
+        "fileHash": "037594c1a7bf5f4b9d6f35666d53b60b1c244cc067a4c56487c025b7b396f28a",
+        "category": "personal",
+        "docType": "national_id",
+        "storageReference": "secure_uploads/doc_1790451367046_67e9d755",
+        "uploadedAt": "2026-09-26T19:36:07.119Z",
+        "userId": "oFTvPZwSn8dOjqaeFxyqyNFPFNk2",
+        "id": "doc_1790451367046_67e9d755"
+      },
+      {
+        "documentId": "doc_1790451425262_63272740",
+        "fileName": "Government_ID.pdf",
+        "mimeType": "application/pdf",
+        "size": 63,
+        "fileHash": "9224e22a7758f82ea6f6f869e4cd851388e63a261f8e7401e9ac2b8046f5d3a6",
+        "category": "personal",
+        "docType": "national_id",
+        "storageReference": "secure_uploads/doc_1790451425262_63272740",
+        "uploadedAt": "2026-09-26T19:37:05.335Z",
+        "userId": "SDBFgXpEaEW8RCWRyam5vBT4fHd2",
+        "id": "doc_1790451425262_63272740"
+      },
+      {
+        "documentId": "doc_1790451503512_dcad6336",
+        "fileName": "Government_ID.pdf",
+        "mimeType": "application/pdf",
+        "size": 63,
+        "fileHash": "9224e22a7758f82ea6f6f869e4cd851388e63a261f8e7401e9ac2b8046f5d3a6",
+        "category": "personal",
+        "docType": "national_id",
+        "storageReference": "secure_uploads/doc_1790451503512_dcad6336",
+        "uploadedAt": "2026-09-26T19:38:23.726Z",
+        "userId": "GA6MO7EBQRPjnT5m2TupZOZHwJg2",
+        "id": "doc_1790451503512_dcad6336"
+      },
+      {
+        "documentId": "doc_1790451859297_ec7d4c3c",
+        "fileName": "Commercial_Registry.pdf",
+        "mimeType": "application/pdf",
+        "size": 33,
+        "fileHash": "62d6e48fd49ef1e3d58dcd79173894ed0f7562675129cbc35ab16a0a16074e11",
+        "category": "company",
+        "docType": "commercial_registry",
+        "storageReference": "secure_uploads/doc_1790451859297_ec7d4c3c",
+        "uploadedAt": "2026-09-26T19:44:19.710Z",
+        "userId": "gO266Fz3YWbpNARhAN593GiUd313",
+        "id": "doc_1790451859297_ec7d4c3c"
       }
     ],
     "verification_requests": [
@@ -7638,6 +9518,38 @@
         "reviewedBy": "admin@zakir.ai",
         "rejectionReason": "Official verification documents required. Old document is blurry.",
         "id": "vreq_ra28MNgoWcMRezzZywX0MyklHUD3"
+      },
+      {
+        "status": "REJECTED",
+        "requestStatus": "REJECTED",
+        "reviewedAt": "2026-09-26T19:36:06.535Z",
+        "reviewedBy": "admin@zakir.ai",
+        "rejectionReason": "Official verification documents required. Old document is blurry.",
+        "id": "vreq_oFTvPZwSn8dOjqaeFxyqyNFPFNk2"
+      },
+      {
+        "status": "REJECTED",
+        "requestStatus": "REJECTED",
+        "reviewedAt": "2026-09-26T19:37:13.891Z",
+        "reviewedBy": "mohamedvadel60@gmail.com",
+        "rejectionReason": "Document illegible",
+        "id": "vreq_tDQI3wl1pfQx5yuGwyiBVSwa9aG3"
+      },
+      {
+        "status": "REJECTED",
+        "requestStatus": "REJECTED",
+        "reviewedAt": "2026-09-26T19:38:33.864Z",
+        "reviewedBy": "mohamedvadel60@gmail.com",
+        "rejectionReason": "Document illegible",
+        "id": "vreq_y2F7HS3JnzdnE8p5Org7EZV9VHu1"
+      },
+      {
+        "status": "REJECTED",
+        "requestStatus": "REJECTED",
+        "reviewedAt": "2026-09-26T19:44:31.618Z",
+        "reviewedBy": "mohamedvadel60@gmail.com",
+        "rejectionReason": "Document unreadable and blurry",
+        "id": "vreq_F9Mjef68QgRmps807arWrRdyYln2"
       }
     ]
   },
@@ -8857,6 +10769,849 @@
     }
   ],
   "platform_events": [
+    {
+      "id": "evt_1790451873397_bh9gs5y",
+      "eventType": "ADMIN_AUDIT_ACTION",
+      "severity": "INFO",
+      "category": "BILLING",
+      "timestamp": "2026-09-26T19:44:33.397Z",
+      "userId": "SYhfciebGFUj29gqGaa0pqNunrk2",
+      "userEmail": "mohamedvadel60@gmail.com",
+      "resourceId": "gO266Fz3YWbpNARhAN593GiUd313",
+      "sanitizedMessage": "Admin [mohamedvadel60@gmail.com] performed APPROVE_ACCOUNT on user [prod_kyc_1790451856003@getzakir.com]: Approved account with 24h trial and plan [Enterprise]. Notes: Duplicate approval attempt",
+      "status": "ACTIVE",
+      "metadata": {
+        "action": "APPROVE_ACCOUNT",
+        "targetUserId": "gO266Fz3YWbpNARhAN593GiUd313",
+        "targetUserEmail": "prod_kyc_1790451856003@getzakir.com",
+        "details": "Approved account with 24h trial and plan [Enterprise]. Notes: Duplicate approval attempt",
+        "newState": {
+          "canonicalVerificationStatus": "approved",
+          "accountStatus": "APPROVED",
+          "documentVerificationStatus": "APPROVED",
+          "kycStatus": "VERIFIED",
+          "verificationRequestStatus": "APPROVED",
+          "requiresDocumentVerification": false,
+          "adminVerificationOverride": false,
+          "approvedAt": "2026-09-26T19:44:33.119Z",
+          "approvedBy": "mohamedvadel60@gmail.com",
+          "approvalNotes": "Duplicate approval attempt",
+          "trialStartedAt": "2026-09-26T19:44:33.119Z",
+          "trialEndsAt": "2026-09-27T19:44:33.119Z",
+          "trialExpiresAt": "2026-09-27T19:44:33.119Z",
+          "trialDurationHours": 24,
+          "subscriptionPlan": "Enterprise",
+          "subscriptionStatus": "Active",
+          "isVerified": true,
+          "isEmailVerified": true,
+          "email_verified": true,
+          "emailVerified": true,
+          "verification_status": "verified",
+          "rejectionReason": null,
+          "verificationDocuments": [
+            {
+              "documentId": "doc_1790451859297_ec7d4c3c",
+              "fileName": "Commercial_Registry.pdf",
+              "mimeType": "application/pdf",
+              "size": 33,
+              "fileHash": "62d6e48fd49ef1e3d58dcd79173894ed0f7562675129cbc35ab16a0a16074e11",
+              "category": "personal",
+              "docType": "commercial_registry",
+              "storageReference": "secure_uploads/doc_1790451859297_ec7d4c3c",
+              "uploadedAt": "2026-09-26T19:44:19.710Z",
+              "userId": "gO266Fz3YWbpNARhAN593GiUd313",
+              "status": "APPROVED",
+              "verificationStatus": "APPROVED",
+              "id": "doc_1790451859297_ec7d4c3c",
+              "isAccessible": true,
+              "isMissing": false,
+              "reviewedAt": "2026-09-26T19:44:33.119Z",
+              "reviewedBy": "mohamedvadel60@gmail.com"
+            }
+          ],
+          "documents": [
+            {
+              "documentId": "doc_1790451859297_ec7d4c3c",
+              "fileName": "Commercial_Registry.pdf",
+              "mimeType": "application/pdf",
+              "size": 33,
+              "fileHash": "62d6e48fd49ef1e3d58dcd79173894ed0f7562675129cbc35ab16a0a16074e11",
+              "category": "personal",
+              "docType": "commercial_registry",
+              "storageReference": "secure_uploads/doc_1790451859297_ec7d4c3c",
+              "uploadedAt": "2026-09-26T19:44:19.710Z",
+              "userId": "gO266Fz3YWbpNARhAN593GiUd313",
+              "status": "APPROVED",
+              "verificationStatus": "APPROVED",
+              "id": "doc_1790451859297_ec7d4c3c",
+              "isAccessible": true,
+              "isMissing": false,
+              "reviewedAt": "2026-09-26T19:44:33.119Z",
+              "reviewedBy": "mohamedvadel60@gmail.com"
+            }
+          ],
+          "documentCount": 1,
+          "verifiedAt": "2026-09-26T19:44:33.119Z",
+          "verificationInfo": {
+            "status": "verified",
+            "verifiedAt": "2026-09-26T19:44:33.119Z",
+            "verifiedBy": "mohamedvadel60@gmail.com",
+            "adminNote": "Duplicate approval attempt"
+          },
+          "verificationInfo.status": "verified",
+          "verificationInfo.verifiedAt": "2026-09-26T19:44:33.119Z",
+          "verificationInfo.verifiedBy": "mohamedvadel60@gmail.com",
+          "verificationInfo.adminNote": "Duplicate approval attempt",
+          "lastActiveAt": "2026-09-26T19:44:33.119Z"
+        }
+      },
+      "source": "server"
+    },
+    {
+      "id": "evt_1790451871900_j3203q1",
+      "eventType": "ADMIN_AUDIT_ACTION",
+      "severity": "INFO",
+      "category": "BILLING",
+      "timestamp": "2026-09-26T19:44:31.900Z",
+      "userId": "SYhfciebGFUj29gqGaa0pqNunrk2",
+      "userEmail": "mohamedvadel60@gmail.com",
+      "resourceId": "F9Mjef68QgRmps807arWrRdyYln2",
+      "sanitizedMessage": "Admin [mohamedvadel60@gmail.com] performed REJECT_ACCOUNT on user [pending_check_1790451856003@getzakir.com]: Rejected verification documents: Document unreadable and blurry",
+      "status": "ACTIVE",
+      "metadata": {
+        "action": "REJECT_ACCOUNT",
+        "targetUserId": "F9Mjef68QgRmps807arWrRdyYln2",
+        "targetUserEmail": "pending_check_1790451856003@getzakir.com",
+        "details": "Rejected verification documents: Document unreadable and blurry",
+        "newState": {
+          "accountStatus": "REJECTED",
+          "canonicalVerificationStatus": "rejected",
+          "documentVerificationStatus": "REJECTED",
+          "kycStatus": "REJECTED",
+          "verificationRequestStatus": "REJECTED",
+          "requiresDocumentVerification": true,
+          "isVerified": false,
+          "rejectionReason": "Document unreadable and blurry",
+          "verificationDocuments": [
+            {
+              "documentId": "doc_p",
+              "fileName": "id.pdf",
+              "category": "personal",
+              "uploadedAt": "2026-09-26T19:44:30.952Z",
+              "status": "REJECTED",
+              "verificationStatus": "REJECTED",
+              "reviewedAt": "2026-09-26T19:44:31.618Z",
+              "reviewedBy": "mohamedvadel60@gmail.com",
+              "rejectionReason": "Document unreadable and blurry"
+            }
+          ],
+          "documents": [
+            {
+              "documentId": "doc_p",
+              "fileName": "id.pdf",
+              "category": "personal",
+              "uploadedAt": "2026-09-26T19:44:30.952Z",
+              "status": "REJECTED",
+              "verificationStatus": "REJECTED",
+              "reviewedAt": "2026-09-26T19:44:31.618Z",
+              "reviewedBy": "mohamedvadel60@gmail.com",
+              "rejectionReason": "Document unreadable and blurry"
+            }
+          ],
+          "verificationInfo.status": "rejected",
+          "verificationInfo.adminNote": "Document unreadable and blurry",
+          "verificationInfo.verifiedAt": null,
+          "lastActiveAt": "2026-09-26T19:44:31.618Z"
+        }
+      },
+      "source": "server"
+    },
+    {
+      "id": "evt_1790451871091_bpqfs1p",
+      "eventType": "INSTITUTIONAL_VERIFICATION_SUBMITTED",
+      "severity": "NOTICE",
+      "category": "AUTH",
+      "timestamp": "2026-09-26T19:44:31.091Z",
+      "userId": "F9Mjef68QgRmps807arWrRdyYln2",
+      "userEmail": "pending_check_1790451856003@getzakir.com",
+      "sanitizedMessage": "User verification documents submitted by [pending_check_1790451856003@getzakir.com] (Personal) - Pending admin review.",
+      "status": "ACTIVE",
+      "metadata": {
+        "fullName": "Pending User",
+        "phone": "+971501112233",
+        "jobTitle": "Executive",
+        "hasCompany": false,
+        "companyName": "حساب فردي / مستخدم شخصي",
+        "sector": "Individual",
+        "country": "International",
+        "registrationNumber": "",
+        "companySize": "1-10",
+        "intendedUse": "Strategic Decision Intelligence",
+        "additionalNotes": "",
+        "submittedAt": "2026-09-26T19:44:30.952Z",
+        "documentsCount": 1
+      },
+      "source": "server"
+    },
+    {
+      "id": "evt_1790451870794_rvfvyzo",
+      "eventType": "OTP_VERIFICATION_SUCCESS",
+      "severity": "NOTICE",
+      "category": "AUTH",
+      "timestamp": "2026-09-26T19:44:30.794Z",
+      "userId": "F9Mjef68QgRmps807arWrRdyYln2",
+      "userEmail": "pending_check_1790451856003@getzakir.com",
+      "requestId": "req_1790451869390_aa85782a",
+      "sanitizedMessage": "Verification code successfully validated for: pending_check_1790451856003@getzakir.com",
+      "status": "ACTIVE",
+      "metadata": {
+        "targetIdentifier": "pending_check_1790451856003@getzakir.com",
+        "type": "account_registration"
+      },
+      "source": "server"
+    },
+    {
+      "id": "evt_1790451866921_0hs4cek",
+      "eventType": "USER_LOGGED_IN",
+      "severity": "INFO",
+      "category": "AUTH",
+      "timestamp": "2026-09-26T19:44:26.921Z",
+      "userId": "gO266Fz3YWbpNARhAN593GiUd313",
+      "userEmail": "prod_kyc_1790451856003@getzakir.com",
+      "requestId": "req_1790451865423_3281f770",
+      "sanitizedMessage": "User logged in: prod_kyc_1790451856003@getzakir.com (role: CEO)",
+      "status": "ACTIVE",
+      "metadata": {
+        "role": "CEO"
+      },
+      "source": "server"
+    },
+    {
+      "id": "evt_1790451860101_2qcrxbi",
+      "eventType": "INSTITUTIONAL_VERIFICATION_SUBMITTED",
+      "severity": "NOTICE",
+      "category": "AUTH",
+      "timestamp": "2026-09-26T19:44:20.100Z",
+      "userId": "gO266Fz3YWbpNARhAN593GiUd313",
+      "userEmail": "prod_kyc_1790451856003@getzakir.com",
+      "sanitizedMessage": "User verification documents submitted by [prod_kyc_1790451856003@getzakir.com] (Global Trade Tech) - Pending admin review.",
+      "status": "ACTIVE",
+      "metadata": {
+        "fullName": "Prod Verification User",
+        "phone": "+971509998877",
+        "jobTitle": "Executive",
+        "hasCompany": true,
+        "companyName": "Global Trade Tech",
+        "sector": "General",
+        "country": "International",
+        "registrationNumber": "",
+        "companySize": "1-10",
+        "intendedUse": "Strategic Decision Intelligence",
+        "additionalNotes": "",
+        "submittedAt": "2026-09-26T19:44:19.994Z",
+        "documentsCount": 1
+      },
+      "source": "server"
+    },
+    {
+      "id": "evt_1790451859156_ek9susg",
+      "eventType": "OTP_VERIFICATION_SUCCESS",
+      "severity": "NOTICE",
+      "category": "AUTH",
+      "timestamp": "2026-09-26T19:44:19.156Z",
+      "userId": "gO266Fz3YWbpNARhAN593GiUd313",
+      "userEmail": "prod_kyc_1790451856003@getzakir.com",
+      "requestId": "req_1790451857998_c381a254",
+      "sanitizedMessage": "Verification code successfully validated for: prod_kyc_1790451856003@getzakir.com",
+      "status": "ACTIVE",
+      "metadata": {
+        "targetIdentifier": "prod_kyc_1790451856003@getzakir.com",
+        "type": "account_registration"
+      },
+      "source": "server"
+    },
+    {
+      "id": "evt_1790451514057_02v9vso",
+      "eventType": "ADMIN_AUDIT_ACTION",
+      "severity": "INFO",
+      "category": "BILLING",
+      "timestamp": "2026-09-26T19:38:34.057Z",
+      "userId": "SYhfciebGFUj29gqGaa0pqNunrk2",
+      "userEmail": "mohamedvadel60@gmail.com",
+      "resourceId": "y2F7HS3JnzdnE8p5Org7EZV9VHu1",
+      "sanitizedMessage": "Admin [mohamedvadel60@gmail.com] performed REJECT_ACCOUNT on user [pending_only_1790451508853@getzakir.com]: Rejected verification documents: Document illegible",
+      "status": "ACTIVE",
+      "metadata": {
+        "action": "REJECT_ACCOUNT",
+        "targetUserId": "y2F7HS3JnzdnE8p5Org7EZV9VHu1",
+        "targetUserEmail": "pending_only_1790451508853@getzakir.com",
+        "details": "Rejected verification documents: Document illegible",
+        "newState": {
+          "accountStatus": "REJECTED",
+          "canonicalVerificationStatus": "rejected",
+          "documentVerificationStatus": "REJECTED",
+          "kycStatus": "REJECTED",
+          "verificationRequestStatus": "REJECTED",
+          "requiresDocumentVerification": true,
+          "isVerified": false,
+          "rejectionReason": "Document illegible",
+          "verificationDocuments": [
+            {
+              "documentId": "doc_p_1",
+              "fileName": "id.pdf",
+              "category": "personal",
+              "uploadedAt": "2026-09-26T19:38:33.266Z",
+              "status": "REJECTED",
+              "verificationStatus": "REJECTED",
+              "reviewedAt": "2026-09-26T19:38:33.864Z",
+              "reviewedBy": "mohamedvadel60@gmail.com",
+              "rejectionReason": "Document illegible"
+            }
+          ],
+          "documents": [
+            {
+              "documentId": "doc_p_1",
+              "fileName": "id.pdf",
+              "category": "personal",
+              "uploadedAt": "2026-09-26T19:38:33.266Z",
+              "status": "REJECTED",
+              "verificationStatus": "REJECTED",
+              "reviewedAt": "2026-09-26T19:38:33.864Z",
+              "reviewedBy": "mohamedvadel60@gmail.com",
+              "rejectionReason": "Document illegible"
+            }
+          ],
+          "verificationInfo.status": "rejected",
+          "verificationInfo.adminNote": "Document illegible",
+          "verificationInfo.verifiedAt": null,
+          "lastActiveAt": "2026-09-26T19:38:33.864Z"
+        }
+      },
+      "source": "server"
+    },
+    {
+      "id": "evt_1790451513367_lq0so42",
+      "eventType": "INSTITUTIONAL_VERIFICATION_SUBMITTED",
+      "severity": "NOTICE",
+      "category": "AUTH",
+      "timestamp": "2026-09-26T19:38:33.367Z",
+      "userId": "y2F7HS3JnzdnE8p5Org7EZV9VHu1",
+      "userEmail": "pending_only_1790451508853@getzakir.com",
+      "sanitizedMessage": "User verification documents submitted by [pending_only_1790451508853@getzakir.com] (Personal) - Pending admin review.",
+      "status": "ACTIVE",
+      "metadata": {
+        "fullName": "Pending Only",
+        "phone": "+971501112233",
+        "jobTitle": "Executive",
+        "hasCompany": false,
+        "companyName": "حساب فردي / مستخدم شخصي",
+        "sector": "Individual",
+        "country": "International",
+        "registrationNumber": "",
+        "companySize": "1-10",
+        "intendedUse": "Strategic Decision Intelligence",
+        "additionalNotes": "",
+        "submittedAt": "2026-09-26T19:38:33.266Z",
+        "documentsCount": 1
+      },
+      "source": "server"
+    },
+    {
+      "id": "evt_1790451513131_wwbgltn",
+      "eventType": "OTP_VERIFICATION_SUCCESS",
+      "severity": "NOTICE",
+      "category": "AUTH",
+      "timestamp": "2026-09-26T19:38:33.131Z",
+      "userId": "y2F7HS3JnzdnE8p5Org7EZV9VHu1",
+      "userEmail": "pending_only_1790451508853@getzakir.com",
+      "requestId": "req_1790451510787_f2ee9ff5",
+      "sanitizedMessage": "Verification code successfully validated for: pending_only_1790451508853@getzakir.com",
+      "status": "ACTIVE",
+      "metadata": {
+        "targetIdentifier": "pending_only_1790451508853@getzakir.com",
+        "type": "account_registration"
+      },
+      "source": "server"
+    },
+    {
+      "id": "evt_1790451508549_nlc3nrz",
+      "eventType": "USER_LOGGED_IN",
+      "severity": "INFO",
+      "category": "AUTH",
+      "timestamp": "2026-09-26T19:38:28.549Z",
+      "userId": "GA6MO7EBQRPjnT5m2TupZOZHwJg2",
+      "userEmail": "kyc_user_1790451491613@getzakir.com",
+      "requestId": "req_1790451507373_69fe154f",
+      "sanitizedMessage": "User logged in: kyc_user_1790451491613@getzakir.com (role: CEO)",
+      "status": "ACTIVE",
+      "metadata": {
+        "role": "CEO"
+      },
+      "source": "server"
+    },
+    {
+      "id": "evt_1790451504043_dvc8vko",
+      "eventType": "INSTITUTIONAL_VERIFICATION_SUBMITTED",
+      "severity": "NOTICE",
+      "category": "AUTH",
+      "timestamp": "2026-09-26T19:38:24.043Z",
+      "userId": "GA6MO7EBQRPjnT5m2TupZOZHwJg2",
+      "userEmail": "kyc_user_1790451491613@getzakir.com",
+      "sanitizedMessage": "User verification documents submitted by [kyc_user_1790451491613@getzakir.com] (Zakir Institutional Ltd) - Pending admin review.",
+      "status": "ACTIVE",
+      "metadata": {
+        "fullName": "KYC Test Applicant",
+        "phone": "+971501234567",
+        "jobTitle": "Executive",
+        "hasCompany": true,
+        "companyName": "Zakir Institutional Ltd",
+        "sector": "General",
+        "country": "International",
+        "registrationNumber": "",
+        "companySize": "1-10",
+        "intendedUse": "Strategic Decision Intelligence",
+        "additionalNotes": "",
+        "submittedAt": "2026-09-26T19:38:23.938Z",
+        "documentsCount": 1
+      },
+      "source": "server"
+    },
+    {
+      "id": "evt_1790451503370_hc1a41w",
+      "eventType": "OTP_VERIFICATION_SUCCESS",
+      "severity": "NOTICE",
+      "category": "AUTH",
+      "timestamp": "2026-09-26T19:38:23.370Z",
+      "userId": "GA6MO7EBQRPjnT5m2TupZOZHwJg2",
+      "userEmail": "kyc_user_1790451491613@getzakir.com",
+      "requestId": "req_1790451502208_79e0dfb7",
+      "sanitizedMessage": "Verification code successfully validated for: kyc_user_1790451491613@getzakir.com",
+      "status": "ACTIVE",
+      "metadata": {
+        "targetIdentifier": "kyc_user_1790451491613@getzakir.com",
+        "type": "account_registration"
+      },
+      "source": "server"
+    },
+    {
+      "id": "evt_1790451434081_a0wz9na",
+      "eventType": "ADMIN_AUDIT_ACTION",
+      "severity": "INFO",
+      "category": "BILLING",
+      "timestamp": "2026-09-26T19:37:14.081Z",
+      "userId": "SYhfciebGFUj29gqGaa0pqNunrk2",
+      "userEmail": "mohamedvadel60@gmail.com",
+      "resourceId": "tDQI3wl1pfQx5yuGwyiBVSwa9aG3",
+      "sanitizedMessage": "Admin [mohamedvadel60@gmail.com] performed REJECT_ACCOUNT on user [pending_only_1790451430173@getzakir.com]: Rejected verification documents: Document illegible",
+      "status": "ACTIVE",
+      "metadata": {
+        "action": "REJECT_ACCOUNT",
+        "targetUserId": "tDQI3wl1pfQx5yuGwyiBVSwa9aG3",
+        "targetUserEmail": "pending_only_1790451430173@getzakir.com",
+        "details": "Rejected verification documents: Document illegible",
+        "newState": {
+          "accountStatus": "REJECTED",
+          "canonicalVerificationStatus": "rejected",
+          "documentVerificationStatus": "REJECTED",
+          "kycStatus": "REJECTED",
+          "verificationRequestStatus": "REJECTED",
+          "requiresDocumentVerification": true,
+          "isVerified": false,
+          "rejectionReason": "Document illegible",
+          "verificationDocuments": [
+            {
+              "documentId": "doc_p_1",
+              "fileName": "id.pdf",
+              "category": "personal",
+              "uploadedAt": "2026-09-26T19:37:13.389Z",
+              "status": "REJECTED",
+              "verificationStatus": "REJECTED",
+              "reviewedAt": "2026-09-26T19:37:13.891Z",
+              "reviewedBy": "mohamedvadel60@gmail.com",
+              "rejectionReason": "Document illegible"
+            }
+          ],
+          "documents": [
+            {
+              "documentId": "doc_p_1",
+              "fileName": "id.pdf",
+              "category": "personal",
+              "uploadedAt": "2026-09-26T19:37:13.389Z",
+              "status": "REJECTED",
+              "verificationStatus": "REJECTED",
+              "reviewedAt": "2026-09-26T19:37:13.891Z",
+              "reviewedBy": "mohamedvadel60@gmail.com",
+              "rejectionReason": "Document illegible"
+            }
+          ],
+          "verificationInfo.status": "rejected",
+          "verificationInfo.adminNote": "Document illegible",
+          "verificationInfo.verifiedAt": null,
+          "lastActiveAt": "2026-09-26T19:37:13.891Z"
+        }
+      },
+      "source": "server"
+    },
+    {
+      "id": "evt_1790451433489_5waxwcb",
+      "eventType": "INSTITUTIONAL_VERIFICATION_SUBMITTED",
+      "severity": "NOTICE",
+      "category": "AUTH",
+      "timestamp": "2026-09-26T19:37:13.489Z",
+      "userId": "tDQI3wl1pfQx5yuGwyiBVSwa9aG3",
+      "userEmail": "pending_only_1790451430173@getzakir.com",
+      "sanitizedMessage": "User verification documents submitted by [pending_only_1790451430173@getzakir.com] (Personal) - Pending admin review.",
+      "status": "ACTIVE",
+      "metadata": {
+        "fullName": "Pending Only",
+        "phone": "+971501112233",
+        "jobTitle": "Executive",
+        "hasCompany": false,
+        "companyName": "حساب فردي / مستخدم شخصي",
+        "sector": "Individual",
+        "country": "International",
+        "registrationNumber": "",
+        "companySize": "1-10",
+        "intendedUse": "Strategic Decision Intelligence",
+        "additionalNotes": "",
+        "submittedAt": "2026-09-26T19:37:13.389Z",
+        "documentsCount": 1
+      },
+      "source": "server"
+    },
+    {
+      "id": "evt_1790451433253_wd0cvji",
+      "eventType": "OTP_VERIFICATION_SUCCESS",
+      "severity": "NOTICE",
+      "category": "AUTH",
+      "timestamp": "2026-09-26T19:37:13.253Z",
+      "userId": "tDQI3wl1pfQx5yuGwyiBVSwa9aG3",
+      "userEmail": "pending_only_1790451430173@getzakir.com",
+      "requestId": "req_1790451432199_3d652cbb",
+      "sanitizedMessage": "Verification code successfully validated for: pending_only_1790451430173@getzakir.com",
+      "status": "ACTIVE",
+      "metadata": {
+        "targetIdentifier": "pending_only_1790451430173@getzakir.com",
+        "type": "account_registration"
+      },
+      "source": "server"
+    },
+    {
+      "id": "evt_1790451429879_3kmquti",
+      "eventType": "USER_LOGGED_IN",
+      "severity": "INFO",
+      "category": "AUTH",
+      "timestamp": "2026-09-26T19:37:09.879Z",
+      "userId": "SDBFgXpEaEW8RCWRyam5vBT4fHd2",
+      "userEmail": "kyc_user_1790451421865@getzakir.com",
+      "requestId": "req_1790451428697_68a941d4",
+      "sanitizedMessage": "User logged in: kyc_user_1790451421865@getzakir.com (role: CEO)",
+      "status": "ACTIVE",
+      "metadata": {
+        "role": "CEO"
+      },
+      "source": "server"
+    },
+    {
+      "id": "evt_1790451425685_g9pu4yw",
+      "eventType": "INSTITUTIONAL_VERIFICATION_SUBMITTED",
+      "severity": "NOTICE",
+      "category": "AUTH",
+      "timestamp": "2026-09-26T19:37:05.685Z",
+      "userId": "SDBFgXpEaEW8RCWRyam5vBT4fHd2",
+      "userEmail": "kyc_user_1790451421865@getzakir.com",
+      "sanitizedMessage": "User verification documents submitted by [kyc_user_1790451421865@getzakir.com] (Zakir Institutional Ltd) - Pending admin review.",
+      "status": "ACTIVE",
+      "metadata": {
+        "fullName": "KYC Test Applicant",
+        "phone": "+971501234567",
+        "jobTitle": "Executive",
+        "hasCompany": true,
+        "companyName": "Zakir Institutional Ltd",
+        "sector": "General",
+        "country": "International",
+        "registrationNumber": "",
+        "companySize": "1-10",
+        "intendedUse": "Strategic Decision Intelligence",
+        "additionalNotes": "",
+        "submittedAt": "2026-09-26T19:37:05.531Z",
+        "documentsCount": 1
+      },
+      "source": "server"
+    },
+    {
+      "id": "evt_1790451425126_kdnl738",
+      "eventType": "OTP_VERIFICATION_SUCCESS",
+      "severity": "NOTICE",
+      "category": "AUTH",
+      "timestamp": "2026-09-26T19:37:05.126Z",
+      "userId": "SDBFgXpEaEW8RCWRyam5vBT4fHd2",
+      "userEmail": "kyc_user_1790451421865@getzakir.com",
+      "requestId": "req_1790451423876_643eb8be",
+      "sanitizedMessage": "Verification code successfully validated for: kyc_user_1790451421865@getzakir.com",
+      "status": "ACTIVE",
+      "metadata": {
+        "targetIdentifier": "kyc_user_1790451421865@getzakir.com",
+        "type": "account_registration"
+      },
+      "source": "server"
+    },
+    {
+      "id": "evt_1790451397864_0513bqo",
+      "eventType": "OTP_VERIFICATION_SUCCESS",
+      "severity": "NOTICE",
+      "category": "AUTH",
+      "timestamp": "2026-09-26T19:36:37.864Z",
+      "userId": "fXStOUp6lRYUlEgj9ALEvWFIoMj1",
+      "userEmail": "kyc_user_1790451394915@getzakir.com",
+      "requestId": "req_1790451396742_60f8f623",
+      "sanitizedMessage": "Verification code successfully validated for: kyc_user_1790451394915@getzakir.com",
+      "status": "ACTIVE",
+      "metadata": {
+        "targetIdentifier": "kyc_user_1790451394915@getzakir.com",
+        "type": "account_registration"
+      },
+      "source": "server"
+    },
+    {
+      "id": "evt_1790451371811_echsgpr",
+      "eventType": "INSTITUTIONAL_VERIFICATION_SUBMITTED",
+      "severity": "NOTICE",
+      "category": "AUTH",
+      "timestamp": "2026-09-26T19:36:11.810Z",
+      "userId": "7tRmj4dfaCZil6erkEZns8FZyQ43",
+      "userEmail": "no_doc_1790451369740@getzakir.com",
+      "sanitizedMessage": "User verification documents submitted by [no_doc_1790451369740@getzakir.com] (Personal) - Pending admin review.",
+      "status": "ACTIVE",
+      "metadata": {
+        "fullName": "Attacker",
+        "phone": "+966500000000",
+        "jobTitle": "Executive",
+        "hasCompany": false,
+        "companyName": "حساب فردي / مستخدم شخصي",
+        "sector": "Individual",
+        "country": "International",
+        "registrationNumber": "",
+        "companySize": "1-10",
+        "intendedUse": "Strategic Decision Intelligence",
+        "additionalNotes": "",
+        "submittedAt": "2026-09-26T19:36:11.719Z",
+        "documentsCount": 1
+      },
+      "source": "server"
+    },
+    {
+      "id": "evt_1790451369701_qchp5c7",
+      "eventType": "INSTITUTIONAL_VERIFICATION_SUBMITTED",
+      "severity": "NOTICE",
+      "category": "AUTH",
+      "timestamp": "2026-09-26T19:36:09.701Z",
+      "userId": "oFTvPZwSn8dOjqaeFxyqyNFPFNk2",
+      "userEmail": "rejected_test_1790451362619@getzakir.com",
+      "sanitizedMessage": "User verification documents submitted by [rejected_test_1790451362619@getzakir.com] (Personal) - Pending admin review.",
+      "status": "ACTIVE",
+      "metadata": {
+        "fullName": "Rejected User Test",
+        "phone": "+966500000000",
+        "jobTitle": "Executive",
+        "hasCompany": false,
+        "companyName": "حساب فردي / مستخدم شخصي",
+        "sector": "Individual",
+        "country": "International",
+        "registrationNumber": "",
+        "companySize": "1-10",
+        "intendedUse": "Strategic Decision Intelligence",
+        "additionalNotes": "",
+        "submittedAt": "2026-09-26T19:36:09.606Z",
+        "documentsCount": 1
+      },
+      "source": "server"
+    },
+    {
+      "id": "evt_1790451369476_oh1vmxt",
+      "eventType": "INSTITUTIONAL_VERIFICATION_SUBMITTED",
+      "severity": "NOTICE",
+      "category": "AUTH",
+      "timestamp": "2026-09-26T19:36:09.476Z",
+      "userId": "oFTvPZwSn8dOjqaeFxyqyNFPFNk2",
+      "userEmail": "rejected_test_1790451362619@getzakir.com",
+      "sanitizedMessage": "User verification documents submitted by [rejected_test_1790451362619@getzakir.com] (Personal) - Pending admin review.",
+      "status": "ACTIVE",
+      "metadata": {
+        "fullName": "Rejected User Test",
+        "phone": "+966500000000",
+        "jobTitle": "Executive",
+        "hasCompany": false,
+        "companyName": "حساب فردي / مستخدم شخصي",
+        "sector": "Individual",
+        "country": "International",
+        "registrationNumber": "",
+        "companySize": "1-10",
+        "intendedUse": "Strategic Decision Intelligence",
+        "additionalNotes": "",
+        "submittedAt": "2026-09-26T19:36:09.381Z",
+        "documentsCount": 1
+      },
+      "source": "server"
+    },
+    {
+      "id": "evt_1790451369110_lt6xi7y",
+      "eventType": "USER_LOGGED_IN",
+      "severity": "INFO",
+      "category": "AUTH",
+      "timestamp": "2026-09-26T19:36:09.110Z",
+      "userId": "oFTvPZwSn8dOjqaeFxyqyNFPFNk2",
+      "userEmail": "rejected_test_1790451362619@getzakir.com",
+      "requestId": "req_1790451367954_82e05376",
+      "sanitizedMessage": "User logged in: rejected_test_1790451362619@getzakir.com (role: CEO)",
+      "status": "ACTIVE",
+      "metadata": {
+        "role": "CEO"
+      },
+      "source": "server"
+    },
+    {
+      "id": "evt_1790451367515_teal3op",
+      "eventType": "INSTITUTIONAL_VERIFICATION_SUBMITTED",
+      "severity": "NOTICE",
+      "category": "AUTH",
+      "timestamp": "2026-09-26T19:36:07.515Z",
+      "userId": "oFTvPZwSn8dOjqaeFxyqyNFPFNk2",
+      "userEmail": "rejected_test_1790451362619@getzakir.com",
+      "sanitizedMessage": "User verification documents submitted by [rejected_test_1790451362619@getzakir.com] (Personal) - Pending admin review.",
+      "status": "ACTIVE",
+      "metadata": {
+        "fullName": "Rejected User Test",
+        "phone": "+966500000000",
+        "jobTitle": "Executive",
+        "hasCompany": false,
+        "companyName": "حساب فردي / مستخدم شخصي",
+        "sector": "Individual",
+        "country": "International",
+        "registrationNumber": "",
+        "companySize": "1-10",
+        "intendedUse": "Strategic Decision Intelligence",
+        "additionalNotes": "[إعادة إرسال]: Attached clear new national ID card",
+        "submittedAt": "2026-09-26T19:36:07.418Z",
+        "documentsCount": 1
+      },
+      "source": "server"
+    },
+    {
+      "id": "evt_1790451366713_m29bw1j",
+      "eventType": "ADMIN_AUDIT_ACTION",
+      "severity": "INFO",
+      "category": "BILLING",
+      "timestamp": "2026-09-26T19:36:06.713Z",
+      "userId": "SYhfciebGFUj29gqGaa0pqNunrk2",
+      "userEmail": "admin@zakir.ai",
+      "resourceId": "oFTvPZwSn8dOjqaeFxyqyNFPFNk2",
+      "sanitizedMessage": "Admin [admin@zakir.ai] performed REJECT_ACCOUNT on user [rejected_test_1790451362619@getzakir.com]: Rejected verification documents: Official verification documents required. Old document is blurry.",
+      "status": "ACTIVE",
+      "metadata": {
+        "action": "REJECT_ACCOUNT",
+        "targetUserId": "oFTvPZwSn8dOjqaeFxyqyNFPFNk2",
+        "targetUserEmail": "rejected_test_1790451362619@getzakir.com",
+        "details": "Rejected verification documents: Official verification documents required. Old document is blurry.",
+        "newState": {
+          "accountStatus": "REJECTED",
+          "canonicalVerificationStatus": "rejected",
+          "documentVerificationStatus": "REJECTED",
+          "kycStatus": "REJECTED",
+          "verificationRequestStatus": "REJECTED",
+          "requiresDocumentVerification": true,
+          "isVerified": false,
+          "rejectionReason": "Official verification documents required. Old document is blurry.",
+          "verificationDocuments": [
+            {
+              "documentId": "doc_1790451365835_68e403cd",
+              "fileName": "Old_National_ID.pdf",
+              "mimeType": "application/pdf",
+              "size": 63,
+              "fileHash": "9224e22a7758f82ea6f6f869e4cd851388e63a261f8e7401e9ac2b8046f5d3a6",
+              "category": "personal",
+              "docType": "national_id",
+              "storageReference": "secure_uploads/doc_1790451365835_68e403cd",
+              "uploadedAt": "2026-09-26T19:36:06.073Z",
+              "userId": "oFTvPZwSn8dOjqaeFxyqyNFPFNk2",
+              "status": "REJECTED",
+              "verificationStatus": "REJECTED",
+              "reviewedAt": "2026-09-26T19:36:06.535Z",
+              "reviewedBy": "admin@zakir.ai",
+              "rejectionReason": "Official verification documents required. Old document is blurry."
+            }
+          ],
+          "documents": [
+            {
+              "documentId": "doc_1790451365835_68e403cd",
+              "fileName": "Old_National_ID.pdf",
+              "mimeType": "application/pdf",
+              "size": 63,
+              "fileHash": "9224e22a7758f82ea6f6f869e4cd851388e63a261f8e7401e9ac2b8046f5d3a6",
+              "category": "personal",
+              "docType": "national_id",
+              "storageReference": "secure_uploads/doc_1790451365835_68e403cd",
+              "uploadedAt": "2026-09-26T19:36:06.073Z",
+              "userId": "oFTvPZwSn8dOjqaeFxyqyNFPFNk2",
+              "status": "REJECTED",
+              "verificationStatus": "REJECTED",
+              "reviewedAt": "2026-09-26T19:36:06.535Z",
+              "reviewedBy": "admin@zakir.ai",
+              "rejectionReason": "Official verification documents required. Old document is blurry."
+            }
+          ],
+          "verificationInfo.status": "rejected",
+          "verificationInfo.adminNote": "Official verification documents required. Old document is blurry.",
+          "verificationInfo.verifiedAt": null,
+          "lastActiveAt": "2026-09-26T19:36:06.535Z"
+        }
+      },
+      "source": "server"
+    },
+    {
+      "id": "evt_1790451366368_lyzu2w4",
+      "eventType": "INSTITUTIONAL_VERIFICATION_SUBMITTED",
+      "severity": "NOTICE",
+      "category": "AUTH",
+      "timestamp": "2026-09-26T19:36:06.368Z",
+      "userId": "oFTvPZwSn8dOjqaeFxyqyNFPFNk2",
+      "userEmail": "rejected_test_1790451362619@getzakir.com",
+      "sanitizedMessage": "User verification documents submitted by [rejected_test_1790451362619@getzakir.com] (Personal) - Pending admin review.",
+      "status": "ACTIVE",
+      "metadata": {
+        "fullName": "Rejected User Test",
+        "phone": "+966500000000",
+        "jobTitle": "Executive",
+        "hasCompany": false,
+        "companyName": "حساب فردي / مستخدم شخصي",
+        "sector": "Individual",
+        "country": "International",
+        "registrationNumber": "",
+        "companySize": "1-10",
+        "intendedUse": "Strategic Decision Intelligence",
+        "additionalNotes": "",
+        "submittedAt": "2026-09-26T19:36:06.271Z",
+        "documentsCount": 1
+      },
+      "source": "server"
+    },
+    {
+      "id": "evt_1790451365689_hrda3q2",
+      "eventType": "OTP_VERIFICATION_SUCCESS",
+      "severity": "NOTICE",
+      "category": "AUTH",
+      "timestamp": "2026-09-26T19:36:05.689Z",
+      "userId": "oFTvPZwSn8dOjqaeFxyqyNFPFNk2",
+      "userEmail": "rejected_test_1790451362619@getzakir.com",
+      "requestId": "req_1790451364566_a4db09a5",
+      "sanitizedMessage": "Verification code successfully validated for: rejected_test_1790451362619@getzakir.com",
+      "status": "ACTIVE",
+      "metadata": {
+        "targetIdentifier": "rejected_test_1790451362619@getzakir.com",
+        "type": "account_registration"
+      },
+      "source": "server"
+    },
     {
       "id": "evt_1790434601650_hnbr7it",
       "eventType": "USER_LOGGED_IN",
@@ -15749,6 +18504,849 @@
       "status": "ACTIVE",
       "metadata": {
         "role": "Contributor"
+      },
+      "source": "server"
+    },
+    {
+      "id": "evt_1790451365689_hrda3q2",
+      "eventType": "OTP_VERIFICATION_SUCCESS",
+      "severity": "NOTICE",
+      "category": "AUTH",
+      "timestamp": "2026-09-26T19:36:05.689Z",
+      "userId": "oFTvPZwSn8dOjqaeFxyqyNFPFNk2",
+      "userEmail": "rejected_test_1790451362619@getzakir.com",
+      "requestId": "req_1790451364566_a4db09a5",
+      "sanitizedMessage": "Verification code successfully validated for: rejected_test_1790451362619@getzakir.com",
+      "status": "ACTIVE",
+      "metadata": {
+        "targetIdentifier": "rejected_test_1790451362619@getzakir.com",
+        "type": "account_registration"
+      },
+      "source": "server"
+    },
+    {
+      "id": "evt_1790451366368_lyzu2w4",
+      "eventType": "INSTITUTIONAL_VERIFICATION_SUBMITTED",
+      "severity": "NOTICE",
+      "category": "AUTH",
+      "timestamp": "2026-09-26T19:36:06.368Z",
+      "userId": "oFTvPZwSn8dOjqaeFxyqyNFPFNk2",
+      "userEmail": "rejected_test_1790451362619@getzakir.com",
+      "sanitizedMessage": "User verification documents submitted by [rejected_test_1790451362619@getzakir.com] (Personal) - Pending admin review.",
+      "status": "ACTIVE",
+      "metadata": {
+        "fullName": "Rejected User Test",
+        "phone": "+966500000000",
+        "jobTitle": "Executive",
+        "hasCompany": false,
+        "companyName": "حساب فردي / مستخدم شخصي",
+        "sector": "Individual",
+        "country": "International",
+        "registrationNumber": "",
+        "companySize": "1-10",
+        "intendedUse": "Strategic Decision Intelligence",
+        "additionalNotes": "",
+        "submittedAt": "2026-09-26T19:36:06.271Z",
+        "documentsCount": 1
+      },
+      "source": "server"
+    },
+    {
+      "id": "evt_1790451366713_m29bw1j",
+      "eventType": "ADMIN_AUDIT_ACTION",
+      "severity": "INFO",
+      "category": "BILLING",
+      "timestamp": "2026-09-26T19:36:06.713Z",
+      "userId": "SYhfciebGFUj29gqGaa0pqNunrk2",
+      "userEmail": "admin@zakir.ai",
+      "resourceId": "oFTvPZwSn8dOjqaeFxyqyNFPFNk2",
+      "sanitizedMessage": "Admin [admin@zakir.ai] performed REJECT_ACCOUNT on user [rejected_test_1790451362619@getzakir.com]: Rejected verification documents: Official verification documents required. Old document is blurry.",
+      "status": "ACTIVE",
+      "metadata": {
+        "action": "REJECT_ACCOUNT",
+        "targetUserId": "oFTvPZwSn8dOjqaeFxyqyNFPFNk2",
+        "targetUserEmail": "rejected_test_1790451362619@getzakir.com",
+        "details": "Rejected verification documents: Official verification documents required. Old document is blurry.",
+        "newState": {
+          "accountStatus": "REJECTED",
+          "canonicalVerificationStatus": "rejected",
+          "documentVerificationStatus": "REJECTED",
+          "kycStatus": "REJECTED",
+          "verificationRequestStatus": "REJECTED",
+          "requiresDocumentVerification": true,
+          "isVerified": false,
+          "rejectionReason": "Official verification documents required. Old document is blurry.",
+          "verificationDocuments": [
+            {
+              "documentId": "doc_1790451365835_68e403cd",
+              "fileName": "Old_National_ID.pdf",
+              "mimeType": "application/pdf",
+              "size": 63,
+              "fileHash": "9224e22a7758f82ea6f6f869e4cd851388e63a261f8e7401e9ac2b8046f5d3a6",
+              "category": "personal",
+              "docType": "national_id",
+              "storageReference": "secure_uploads/doc_1790451365835_68e403cd",
+              "uploadedAt": "2026-09-26T19:36:06.073Z",
+              "userId": "oFTvPZwSn8dOjqaeFxyqyNFPFNk2",
+              "status": "REJECTED",
+              "verificationStatus": "REJECTED",
+              "reviewedAt": "2026-09-26T19:36:06.535Z",
+              "reviewedBy": "admin@zakir.ai",
+              "rejectionReason": "Official verification documents required. Old document is blurry."
+            }
+          ],
+          "documents": [
+            {
+              "documentId": "doc_1790451365835_68e403cd",
+              "fileName": "Old_National_ID.pdf",
+              "mimeType": "application/pdf",
+              "size": 63,
+              "fileHash": "9224e22a7758f82ea6f6f869e4cd851388e63a261f8e7401e9ac2b8046f5d3a6",
+              "category": "personal",
+              "docType": "national_id",
+              "storageReference": "secure_uploads/doc_1790451365835_68e403cd",
+              "uploadedAt": "2026-09-26T19:36:06.073Z",
+              "userId": "oFTvPZwSn8dOjqaeFxyqyNFPFNk2",
+              "status": "REJECTED",
+              "verificationStatus": "REJECTED",
+              "reviewedAt": "2026-09-26T19:36:06.535Z",
+              "reviewedBy": "admin@zakir.ai",
+              "rejectionReason": "Official verification documents required. Old document is blurry."
+            }
+          ],
+          "verificationInfo.status": "rejected",
+          "verificationInfo.adminNote": "Official verification documents required. Old document is blurry.",
+          "verificationInfo.verifiedAt": null,
+          "lastActiveAt": "2026-09-26T19:36:06.535Z"
+        }
+      },
+      "source": "server"
+    },
+    {
+      "id": "evt_1790451367515_teal3op",
+      "eventType": "INSTITUTIONAL_VERIFICATION_SUBMITTED",
+      "severity": "NOTICE",
+      "category": "AUTH",
+      "timestamp": "2026-09-26T19:36:07.515Z",
+      "userId": "oFTvPZwSn8dOjqaeFxyqyNFPFNk2",
+      "userEmail": "rejected_test_1790451362619@getzakir.com",
+      "sanitizedMessage": "User verification documents submitted by [rejected_test_1790451362619@getzakir.com] (Personal) - Pending admin review.",
+      "status": "ACTIVE",
+      "metadata": {
+        "fullName": "Rejected User Test",
+        "phone": "+966500000000",
+        "jobTitle": "Executive",
+        "hasCompany": false,
+        "companyName": "حساب فردي / مستخدم شخصي",
+        "sector": "Individual",
+        "country": "International",
+        "registrationNumber": "",
+        "companySize": "1-10",
+        "intendedUse": "Strategic Decision Intelligence",
+        "additionalNotes": "[إعادة إرسال]: Attached clear new national ID card",
+        "submittedAt": "2026-09-26T19:36:07.418Z",
+        "documentsCount": 1
+      },
+      "source": "server"
+    },
+    {
+      "id": "evt_1790451369110_lt6xi7y",
+      "eventType": "USER_LOGGED_IN",
+      "severity": "INFO",
+      "category": "AUTH",
+      "timestamp": "2026-09-26T19:36:09.110Z",
+      "userId": "oFTvPZwSn8dOjqaeFxyqyNFPFNk2",
+      "userEmail": "rejected_test_1790451362619@getzakir.com",
+      "requestId": "req_1790451367954_82e05376",
+      "sanitizedMessage": "User logged in: rejected_test_1790451362619@getzakir.com (role: CEO)",
+      "status": "ACTIVE",
+      "metadata": {
+        "role": "CEO"
+      },
+      "source": "server"
+    },
+    {
+      "id": "evt_1790451369476_oh1vmxt",
+      "eventType": "INSTITUTIONAL_VERIFICATION_SUBMITTED",
+      "severity": "NOTICE",
+      "category": "AUTH",
+      "timestamp": "2026-09-26T19:36:09.476Z",
+      "userId": "oFTvPZwSn8dOjqaeFxyqyNFPFNk2",
+      "userEmail": "rejected_test_1790451362619@getzakir.com",
+      "sanitizedMessage": "User verification documents submitted by [rejected_test_1790451362619@getzakir.com] (Personal) - Pending admin review.",
+      "status": "ACTIVE",
+      "metadata": {
+        "fullName": "Rejected User Test",
+        "phone": "+966500000000",
+        "jobTitle": "Executive",
+        "hasCompany": false,
+        "companyName": "حساب فردي / مستخدم شخصي",
+        "sector": "Individual",
+        "country": "International",
+        "registrationNumber": "",
+        "companySize": "1-10",
+        "intendedUse": "Strategic Decision Intelligence",
+        "additionalNotes": "",
+        "submittedAt": "2026-09-26T19:36:09.381Z",
+        "documentsCount": 1
+      },
+      "source": "server"
+    },
+    {
+      "id": "evt_1790451369701_qchp5c7",
+      "eventType": "INSTITUTIONAL_VERIFICATION_SUBMITTED",
+      "severity": "NOTICE",
+      "category": "AUTH",
+      "timestamp": "2026-09-26T19:36:09.701Z",
+      "userId": "oFTvPZwSn8dOjqaeFxyqyNFPFNk2",
+      "userEmail": "rejected_test_1790451362619@getzakir.com",
+      "sanitizedMessage": "User verification documents submitted by [rejected_test_1790451362619@getzakir.com] (Personal) - Pending admin review.",
+      "status": "ACTIVE",
+      "metadata": {
+        "fullName": "Rejected User Test",
+        "phone": "+966500000000",
+        "jobTitle": "Executive",
+        "hasCompany": false,
+        "companyName": "حساب فردي / مستخدم شخصي",
+        "sector": "Individual",
+        "country": "International",
+        "registrationNumber": "",
+        "companySize": "1-10",
+        "intendedUse": "Strategic Decision Intelligence",
+        "additionalNotes": "",
+        "submittedAt": "2026-09-26T19:36:09.606Z",
+        "documentsCount": 1
+      },
+      "source": "server"
+    },
+    {
+      "id": "evt_1790451371811_echsgpr",
+      "eventType": "INSTITUTIONAL_VERIFICATION_SUBMITTED",
+      "severity": "NOTICE",
+      "category": "AUTH",
+      "timestamp": "2026-09-26T19:36:11.810Z",
+      "userId": "7tRmj4dfaCZil6erkEZns8FZyQ43",
+      "userEmail": "no_doc_1790451369740@getzakir.com",
+      "sanitizedMessage": "User verification documents submitted by [no_doc_1790451369740@getzakir.com] (Personal) - Pending admin review.",
+      "status": "ACTIVE",
+      "metadata": {
+        "fullName": "Attacker",
+        "phone": "+966500000000",
+        "jobTitle": "Executive",
+        "hasCompany": false,
+        "companyName": "حساب فردي / مستخدم شخصي",
+        "sector": "Individual",
+        "country": "International",
+        "registrationNumber": "",
+        "companySize": "1-10",
+        "intendedUse": "Strategic Decision Intelligence",
+        "additionalNotes": "",
+        "submittedAt": "2026-09-26T19:36:11.719Z",
+        "documentsCount": 1
+      },
+      "source": "server"
+    },
+    {
+      "id": "evt_1790451397864_0513bqo",
+      "eventType": "OTP_VERIFICATION_SUCCESS",
+      "severity": "NOTICE",
+      "category": "AUTH",
+      "timestamp": "2026-09-26T19:36:37.864Z",
+      "userId": "fXStOUp6lRYUlEgj9ALEvWFIoMj1",
+      "userEmail": "kyc_user_1790451394915@getzakir.com",
+      "requestId": "req_1790451396742_60f8f623",
+      "sanitizedMessage": "Verification code successfully validated for: kyc_user_1790451394915@getzakir.com",
+      "status": "ACTIVE",
+      "metadata": {
+        "targetIdentifier": "kyc_user_1790451394915@getzakir.com",
+        "type": "account_registration"
+      },
+      "source": "server"
+    },
+    {
+      "id": "evt_1790451425126_kdnl738",
+      "eventType": "OTP_VERIFICATION_SUCCESS",
+      "severity": "NOTICE",
+      "category": "AUTH",
+      "timestamp": "2026-09-26T19:37:05.126Z",
+      "userId": "SDBFgXpEaEW8RCWRyam5vBT4fHd2",
+      "userEmail": "kyc_user_1790451421865@getzakir.com",
+      "requestId": "req_1790451423876_643eb8be",
+      "sanitizedMessage": "Verification code successfully validated for: kyc_user_1790451421865@getzakir.com",
+      "status": "ACTIVE",
+      "metadata": {
+        "targetIdentifier": "kyc_user_1790451421865@getzakir.com",
+        "type": "account_registration"
+      },
+      "source": "server"
+    },
+    {
+      "id": "evt_1790451425685_g9pu4yw",
+      "eventType": "INSTITUTIONAL_VERIFICATION_SUBMITTED",
+      "severity": "NOTICE",
+      "category": "AUTH",
+      "timestamp": "2026-09-26T19:37:05.685Z",
+      "userId": "SDBFgXpEaEW8RCWRyam5vBT4fHd2",
+      "userEmail": "kyc_user_1790451421865@getzakir.com",
+      "sanitizedMessage": "User verification documents submitted by [kyc_user_1790451421865@getzakir.com] (Zakir Institutional Ltd) - Pending admin review.",
+      "status": "ACTIVE",
+      "metadata": {
+        "fullName": "KYC Test Applicant",
+        "phone": "+971501234567",
+        "jobTitle": "Executive",
+        "hasCompany": true,
+        "companyName": "Zakir Institutional Ltd",
+        "sector": "General",
+        "country": "International",
+        "registrationNumber": "",
+        "companySize": "1-10",
+        "intendedUse": "Strategic Decision Intelligence",
+        "additionalNotes": "",
+        "submittedAt": "2026-09-26T19:37:05.531Z",
+        "documentsCount": 1
+      },
+      "source": "server"
+    },
+    {
+      "id": "evt_1790451429879_3kmquti",
+      "eventType": "USER_LOGGED_IN",
+      "severity": "INFO",
+      "category": "AUTH",
+      "timestamp": "2026-09-26T19:37:09.879Z",
+      "userId": "SDBFgXpEaEW8RCWRyam5vBT4fHd2",
+      "userEmail": "kyc_user_1790451421865@getzakir.com",
+      "requestId": "req_1790451428697_68a941d4",
+      "sanitizedMessage": "User logged in: kyc_user_1790451421865@getzakir.com (role: CEO)",
+      "status": "ACTIVE",
+      "metadata": {
+        "role": "CEO"
+      },
+      "source": "server"
+    },
+    {
+      "id": "evt_1790451433253_wd0cvji",
+      "eventType": "OTP_VERIFICATION_SUCCESS",
+      "severity": "NOTICE",
+      "category": "AUTH",
+      "timestamp": "2026-09-26T19:37:13.253Z",
+      "userId": "tDQI3wl1pfQx5yuGwyiBVSwa9aG3",
+      "userEmail": "pending_only_1790451430173@getzakir.com",
+      "requestId": "req_1790451432199_3d652cbb",
+      "sanitizedMessage": "Verification code successfully validated for: pending_only_1790451430173@getzakir.com",
+      "status": "ACTIVE",
+      "metadata": {
+        "targetIdentifier": "pending_only_1790451430173@getzakir.com",
+        "type": "account_registration"
+      },
+      "source": "server"
+    },
+    {
+      "id": "evt_1790451433489_5waxwcb",
+      "eventType": "INSTITUTIONAL_VERIFICATION_SUBMITTED",
+      "severity": "NOTICE",
+      "category": "AUTH",
+      "timestamp": "2026-09-26T19:37:13.489Z",
+      "userId": "tDQI3wl1pfQx5yuGwyiBVSwa9aG3",
+      "userEmail": "pending_only_1790451430173@getzakir.com",
+      "sanitizedMessage": "User verification documents submitted by [pending_only_1790451430173@getzakir.com] (Personal) - Pending admin review.",
+      "status": "ACTIVE",
+      "metadata": {
+        "fullName": "Pending Only",
+        "phone": "+971501112233",
+        "jobTitle": "Executive",
+        "hasCompany": false,
+        "companyName": "حساب فردي / مستخدم شخصي",
+        "sector": "Individual",
+        "country": "International",
+        "registrationNumber": "",
+        "companySize": "1-10",
+        "intendedUse": "Strategic Decision Intelligence",
+        "additionalNotes": "",
+        "submittedAt": "2026-09-26T19:37:13.389Z",
+        "documentsCount": 1
+      },
+      "source": "server"
+    },
+    {
+      "id": "evt_1790451434081_a0wz9na",
+      "eventType": "ADMIN_AUDIT_ACTION",
+      "severity": "INFO",
+      "category": "BILLING",
+      "timestamp": "2026-09-26T19:37:14.081Z",
+      "userId": "SYhfciebGFUj29gqGaa0pqNunrk2",
+      "userEmail": "mohamedvadel60@gmail.com",
+      "resourceId": "tDQI3wl1pfQx5yuGwyiBVSwa9aG3",
+      "sanitizedMessage": "Admin [mohamedvadel60@gmail.com] performed REJECT_ACCOUNT on user [pending_only_1790451430173@getzakir.com]: Rejected verification documents: Document illegible",
+      "status": "ACTIVE",
+      "metadata": {
+        "action": "REJECT_ACCOUNT",
+        "targetUserId": "tDQI3wl1pfQx5yuGwyiBVSwa9aG3",
+        "targetUserEmail": "pending_only_1790451430173@getzakir.com",
+        "details": "Rejected verification documents: Document illegible",
+        "newState": {
+          "accountStatus": "REJECTED",
+          "canonicalVerificationStatus": "rejected",
+          "documentVerificationStatus": "REJECTED",
+          "kycStatus": "REJECTED",
+          "verificationRequestStatus": "REJECTED",
+          "requiresDocumentVerification": true,
+          "isVerified": false,
+          "rejectionReason": "Document illegible",
+          "verificationDocuments": [
+            {
+              "documentId": "doc_p_1",
+              "fileName": "id.pdf",
+              "category": "personal",
+              "uploadedAt": "2026-09-26T19:37:13.389Z",
+              "status": "REJECTED",
+              "verificationStatus": "REJECTED",
+              "reviewedAt": "2026-09-26T19:37:13.891Z",
+              "reviewedBy": "mohamedvadel60@gmail.com",
+              "rejectionReason": "Document illegible"
+            }
+          ],
+          "documents": [
+            {
+              "documentId": "doc_p_1",
+              "fileName": "id.pdf",
+              "category": "personal",
+              "uploadedAt": "2026-09-26T19:37:13.389Z",
+              "status": "REJECTED",
+              "verificationStatus": "REJECTED",
+              "reviewedAt": "2026-09-26T19:37:13.891Z",
+              "reviewedBy": "mohamedvadel60@gmail.com",
+              "rejectionReason": "Document illegible"
+            }
+          ],
+          "verificationInfo.status": "rejected",
+          "verificationInfo.adminNote": "Document illegible",
+          "verificationInfo.verifiedAt": null,
+          "lastActiveAt": "2026-09-26T19:37:13.891Z"
+        }
+      },
+      "source": "server"
+    },
+    {
+      "id": "evt_1790451503370_hc1a41w",
+      "eventType": "OTP_VERIFICATION_SUCCESS",
+      "severity": "NOTICE",
+      "category": "AUTH",
+      "timestamp": "2026-09-26T19:38:23.370Z",
+      "userId": "GA6MO7EBQRPjnT5m2TupZOZHwJg2",
+      "userEmail": "kyc_user_1790451491613@getzakir.com",
+      "requestId": "req_1790451502208_79e0dfb7",
+      "sanitizedMessage": "Verification code successfully validated for: kyc_user_1790451491613@getzakir.com",
+      "status": "ACTIVE",
+      "metadata": {
+        "targetIdentifier": "kyc_user_1790451491613@getzakir.com",
+        "type": "account_registration"
+      },
+      "source": "server"
+    },
+    {
+      "id": "evt_1790451504043_dvc8vko",
+      "eventType": "INSTITUTIONAL_VERIFICATION_SUBMITTED",
+      "severity": "NOTICE",
+      "category": "AUTH",
+      "timestamp": "2026-09-26T19:38:24.043Z",
+      "userId": "GA6MO7EBQRPjnT5m2TupZOZHwJg2",
+      "userEmail": "kyc_user_1790451491613@getzakir.com",
+      "sanitizedMessage": "User verification documents submitted by [kyc_user_1790451491613@getzakir.com] (Zakir Institutional Ltd) - Pending admin review.",
+      "status": "ACTIVE",
+      "metadata": {
+        "fullName": "KYC Test Applicant",
+        "phone": "+971501234567",
+        "jobTitle": "Executive",
+        "hasCompany": true,
+        "companyName": "Zakir Institutional Ltd",
+        "sector": "General",
+        "country": "International",
+        "registrationNumber": "",
+        "companySize": "1-10",
+        "intendedUse": "Strategic Decision Intelligence",
+        "additionalNotes": "",
+        "submittedAt": "2026-09-26T19:38:23.938Z",
+        "documentsCount": 1
+      },
+      "source": "server"
+    },
+    {
+      "id": "evt_1790451508549_nlc3nrz",
+      "eventType": "USER_LOGGED_IN",
+      "severity": "INFO",
+      "category": "AUTH",
+      "timestamp": "2026-09-26T19:38:28.549Z",
+      "userId": "GA6MO7EBQRPjnT5m2TupZOZHwJg2",
+      "userEmail": "kyc_user_1790451491613@getzakir.com",
+      "requestId": "req_1790451507373_69fe154f",
+      "sanitizedMessage": "User logged in: kyc_user_1790451491613@getzakir.com (role: CEO)",
+      "status": "ACTIVE",
+      "metadata": {
+        "role": "CEO"
+      },
+      "source": "server"
+    },
+    {
+      "id": "evt_1790451513131_wwbgltn",
+      "eventType": "OTP_VERIFICATION_SUCCESS",
+      "severity": "NOTICE",
+      "category": "AUTH",
+      "timestamp": "2026-09-26T19:38:33.131Z",
+      "userId": "y2F7HS3JnzdnE8p5Org7EZV9VHu1",
+      "userEmail": "pending_only_1790451508853@getzakir.com",
+      "requestId": "req_1790451510787_f2ee9ff5",
+      "sanitizedMessage": "Verification code successfully validated for: pending_only_1790451508853@getzakir.com",
+      "status": "ACTIVE",
+      "metadata": {
+        "targetIdentifier": "pending_only_1790451508853@getzakir.com",
+        "type": "account_registration"
+      },
+      "source": "server"
+    },
+    {
+      "id": "evt_1790451513367_lq0so42",
+      "eventType": "INSTITUTIONAL_VERIFICATION_SUBMITTED",
+      "severity": "NOTICE",
+      "category": "AUTH",
+      "timestamp": "2026-09-26T19:38:33.367Z",
+      "userId": "y2F7HS3JnzdnE8p5Org7EZV9VHu1",
+      "userEmail": "pending_only_1790451508853@getzakir.com",
+      "sanitizedMessage": "User verification documents submitted by [pending_only_1790451508853@getzakir.com] (Personal) - Pending admin review.",
+      "status": "ACTIVE",
+      "metadata": {
+        "fullName": "Pending Only",
+        "phone": "+971501112233",
+        "jobTitle": "Executive",
+        "hasCompany": false,
+        "companyName": "حساب فردي / مستخدم شخصي",
+        "sector": "Individual",
+        "country": "International",
+        "registrationNumber": "",
+        "companySize": "1-10",
+        "intendedUse": "Strategic Decision Intelligence",
+        "additionalNotes": "",
+        "submittedAt": "2026-09-26T19:38:33.266Z",
+        "documentsCount": 1
+      },
+      "source": "server"
+    },
+    {
+      "id": "evt_1790451514057_02v9vso",
+      "eventType": "ADMIN_AUDIT_ACTION",
+      "severity": "INFO",
+      "category": "BILLING",
+      "timestamp": "2026-09-26T19:38:34.057Z",
+      "userId": "SYhfciebGFUj29gqGaa0pqNunrk2",
+      "userEmail": "mohamedvadel60@gmail.com",
+      "resourceId": "y2F7HS3JnzdnE8p5Org7EZV9VHu1",
+      "sanitizedMessage": "Admin [mohamedvadel60@gmail.com] performed REJECT_ACCOUNT on user [pending_only_1790451508853@getzakir.com]: Rejected verification documents: Document illegible",
+      "status": "ACTIVE",
+      "metadata": {
+        "action": "REJECT_ACCOUNT",
+        "targetUserId": "y2F7HS3JnzdnE8p5Org7EZV9VHu1",
+        "targetUserEmail": "pending_only_1790451508853@getzakir.com",
+        "details": "Rejected verification documents: Document illegible",
+        "newState": {
+          "accountStatus": "REJECTED",
+          "canonicalVerificationStatus": "rejected",
+          "documentVerificationStatus": "REJECTED",
+          "kycStatus": "REJECTED",
+          "verificationRequestStatus": "REJECTED",
+          "requiresDocumentVerification": true,
+          "isVerified": false,
+          "rejectionReason": "Document illegible",
+          "verificationDocuments": [
+            {
+              "documentId": "doc_p_1",
+              "fileName": "id.pdf",
+              "category": "personal",
+              "uploadedAt": "2026-09-26T19:38:33.266Z",
+              "status": "REJECTED",
+              "verificationStatus": "REJECTED",
+              "reviewedAt": "2026-09-26T19:38:33.864Z",
+              "reviewedBy": "mohamedvadel60@gmail.com",
+              "rejectionReason": "Document illegible"
+            }
+          ],
+          "documents": [
+            {
+              "documentId": "doc_p_1",
+              "fileName": "id.pdf",
+              "category": "personal",
+              "uploadedAt": "2026-09-26T19:38:33.266Z",
+              "status": "REJECTED",
+              "verificationStatus": "REJECTED",
+              "reviewedAt": "2026-09-26T19:38:33.864Z",
+              "reviewedBy": "mohamedvadel60@gmail.com",
+              "rejectionReason": "Document illegible"
+            }
+          ],
+          "verificationInfo.status": "rejected",
+          "verificationInfo.adminNote": "Document illegible",
+          "verificationInfo.verifiedAt": null,
+          "lastActiveAt": "2026-09-26T19:38:33.864Z"
+        }
+      },
+      "source": "server"
+    },
+    {
+      "id": "evt_1790451859156_ek9susg",
+      "eventType": "OTP_VERIFICATION_SUCCESS",
+      "severity": "NOTICE",
+      "category": "AUTH",
+      "timestamp": "2026-09-26T19:44:19.156Z",
+      "userId": "gO266Fz3YWbpNARhAN593GiUd313",
+      "userEmail": "prod_kyc_1790451856003@getzakir.com",
+      "requestId": "req_1790451857998_c381a254",
+      "sanitizedMessage": "Verification code successfully validated for: prod_kyc_1790451856003@getzakir.com",
+      "status": "ACTIVE",
+      "metadata": {
+        "targetIdentifier": "prod_kyc_1790451856003@getzakir.com",
+        "type": "account_registration"
+      },
+      "source": "server"
+    },
+    {
+      "id": "evt_1790451860101_2qcrxbi",
+      "eventType": "INSTITUTIONAL_VERIFICATION_SUBMITTED",
+      "severity": "NOTICE",
+      "category": "AUTH",
+      "timestamp": "2026-09-26T19:44:20.100Z",
+      "userId": "gO266Fz3YWbpNARhAN593GiUd313",
+      "userEmail": "prod_kyc_1790451856003@getzakir.com",
+      "sanitizedMessage": "User verification documents submitted by [prod_kyc_1790451856003@getzakir.com] (Global Trade Tech) - Pending admin review.",
+      "status": "ACTIVE",
+      "metadata": {
+        "fullName": "Prod Verification User",
+        "phone": "+971509998877",
+        "jobTitle": "Executive",
+        "hasCompany": true,
+        "companyName": "Global Trade Tech",
+        "sector": "General",
+        "country": "International",
+        "registrationNumber": "",
+        "companySize": "1-10",
+        "intendedUse": "Strategic Decision Intelligence",
+        "additionalNotes": "",
+        "submittedAt": "2026-09-26T19:44:19.994Z",
+        "documentsCount": 1
+      },
+      "source": "server"
+    },
+    {
+      "id": "evt_1790451866921_0hs4cek",
+      "eventType": "USER_LOGGED_IN",
+      "severity": "INFO",
+      "category": "AUTH",
+      "timestamp": "2026-09-26T19:44:26.921Z",
+      "userId": "gO266Fz3YWbpNARhAN593GiUd313",
+      "userEmail": "prod_kyc_1790451856003@getzakir.com",
+      "requestId": "req_1790451865423_3281f770",
+      "sanitizedMessage": "User logged in: prod_kyc_1790451856003@getzakir.com (role: CEO)",
+      "status": "ACTIVE",
+      "metadata": {
+        "role": "CEO"
+      },
+      "source": "server"
+    },
+    {
+      "id": "evt_1790451870794_rvfvyzo",
+      "eventType": "OTP_VERIFICATION_SUCCESS",
+      "severity": "NOTICE",
+      "category": "AUTH",
+      "timestamp": "2026-09-26T19:44:30.794Z",
+      "userId": "F9Mjef68QgRmps807arWrRdyYln2",
+      "userEmail": "pending_check_1790451856003@getzakir.com",
+      "requestId": "req_1790451869390_aa85782a",
+      "sanitizedMessage": "Verification code successfully validated for: pending_check_1790451856003@getzakir.com",
+      "status": "ACTIVE",
+      "metadata": {
+        "targetIdentifier": "pending_check_1790451856003@getzakir.com",
+        "type": "account_registration"
+      },
+      "source": "server"
+    },
+    {
+      "id": "evt_1790451871091_bpqfs1p",
+      "eventType": "INSTITUTIONAL_VERIFICATION_SUBMITTED",
+      "severity": "NOTICE",
+      "category": "AUTH",
+      "timestamp": "2026-09-26T19:44:31.091Z",
+      "userId": "F9Mjef68QgRmps807arWrRdyYln2",
+      "userEmail": "pending_check_1790451856003@getzakir.com",
+      "sanitizedMessage": "User verification documents submitted by [pending_check_1790451856003@getzakir.com] (Personal) - Pending admin review.",
+      "status": "ACTIVE",
+      "metadata": {
+        "fullName": "Pending User",
+        "phone": "+971501112233",
+        "jobTitle": "Executive",
+        "hasCompany": false,
+        "companyName": "حساب فردي / مستخدم شخصي",
+        "sector": "Individual",
+        "country": "International",
+        "registrationNumber": "",
+        "companySize": "1-10",
+        "intendedUse": "Strategic Decision Intelligence",
+        "additionalNotes": "",
+        "submittedAt": "2026-09-26T19:44:30.952Z",
+        "documentsCount": 1
+      },
+      "source": "server"
+    },
+    {
+      "id": "evt_1790451871900_j3203q1",
+      "eventType": "ADMIN_AUDIT_ACTION",
+      "severity": "INFO",
+      "category": "BILLING",
+      "timestamp": "2026-09-26T19:44:31.900Z",
+      "userId": "SYhfciebGFUj29gqGaa0pqNunrk2",
+      "userEmail": "mohamedvadel60@gmail.com",
+      "resourceId": "F9Mjef68QgRmps807arWrRdyYln2",
+      "sanitizedMessage": "Admin [mohamedvadel60@gmail.com] performed REJECT_ACCOUNT on user [pending_check_1790451856003@getzakir.com]: Rejected verification documents: Document unreadable and blurry",
+      "status": "ACTIVE",
+      "metadata": {
+        "action": "REJECT_ACCOUNT",
+        "targetUserId": "F9Mjef68QgRmps807arWrRdyYln2",
+        "targetUserEmail": "pending_check_1790451856003@getzakir.com",
+        "details": "Rejected verification documents: Document unreadable and blurry",
+        "newState": {
+          "accountStatus": "REJECTED",
+          "canonicalVerificationStatus": "rejected",
+          "documentVerificationStatus": "REJECTED",
+          "kycStatus": "REJECTED",
+          "verificationRequestStatus": "REJECTED",
+          "requiresDocumentVerification": true,
+          "isVerified": false,
+          "rejectionReason": "Document unreadable and blurry",
+          "verificationDocuments": [
+            {
+              "documentId": "doc_p",
+              "fileName": "id.pdf",
+              "category": "personal",
+              "uploadedAt": "2026-09-26T19:44:30.952Z",
+              "status": "REJECTED",
+              "verificationStatus": "REJECTED",
+              "reviewedAt": "2026-09-26T19:44:31.618Z",
+              "reviewedBy": "mohamedvadel60@gmail.com",
+              "rejectionReason": "Document unreadable and blurry"
+            }
+          ],
+          "documents": [
+            {
+              "documentId": "doc_p",
+              "fileName": "id.pdf",
+              "category": "personal",
+              "uploadedAt": "2026-09-26T19:44:30.952Z",
+              "status": "REJECTED",
+              "verificationStatus": "REJECTED",
+              "reviewedAt": "2026-09-26T19:44:31.618Z",
+              "reviewedBy": "mohamedvadel60@gmail.com",
+              "rejectionReason": "Document unreadable and blurry"
+            }
+          ],
+          "verificationInfo.status": "rejected",
+          "verificationInfo.adminNote": "Document unreadable and blurry",
+          "verificationInfo.verifiedAt": null,
+          "lastActiveAt": "2026-09-26T19:44:31.618Z"
+        }
+      },
+      "source": "server"
+    },
+    {
+      "id": "evt_1790451873397_bh9gs5y",
+      "eventType": "ADMIN_AUDIT_ACTION",
+      "severity": "INFO",
+      "category": "BILLING",
+      "timestamp": "2026-09-26T19:44:33.397Z",
+      "userId": "SYhfciebGFUj29gqGaa0pqNunrk2",
+      "userEmail": "mohamedvadel60@gmail.com",
+      "resourceId": "gO266Fz3YWbpNARhAN593GiUd313",
+      "sanitizedMessage": "Admin [mohamedvadel60@gmail.com] performed APPROVE_ACCOUNT on user [prod_kyc_1790451856003@getzakir.com]: Approved account with 24h trial and plan [Enterprise]. Notes: Duplicate approval attempt",
+      "status": "ACTIVE",
+      "metadata": {
+        "action": "APPROVE_ACCOUNT",
+        "targetUserId": "gO266Fz3YWbpNARhAN593GiUd313",
+        "targetUserEmail": "prod_kyc_1790451856003@getzakir.com",
+        "details": "Approved account with 24h trial and plan [Enterprise]. Notes: Duplicate approval attempt",
+        "newState": {
+          "canonicalVerificationStatus": "approved",
+          "accountStatus": "APPROVED",
+          "documentVerificationStatus": "APPROVED",
+          "kycStatus": "VERIFIED",
+          "verificationRequestStatus": "APPROVED",
+          "requiresDocumentVerification": false,
+          "adminVerificationOverride": false,
+          "approvedAt": "2026-09-26T19:44:33.119Z",
+          "approvedBy": "mohamedvadel60@gmail.com",
+          "approvalNotes": "Duplicate approval attempt",
+          "trialStartedAt": "2026-09-26T19:44:33.119Z",
+          "trialEndsAt": "2026-09-27T19:44:33.119Z",
+          "trialExpiresAt": "2026-09-27T19:44:33.119Z",
+          "trialDurationHours": 24,
+          "subscriptionPlan": "Enterprise",
+          "subscriptionStatus": "Active",
+          "isVerified": true,
+          "isEmailVerified": true,
+          "email_verified": true,
+          "emailVerified": true,
+          "verification_status": "verified",
+          "rejectionReason": null,
+          "verificationDocuments": [
+            {
+              "documentId": "doc_1790451859297_ec7d4c3c",
+              "fileName": "Commercial_Registry.pdf",
+              "mimeType": "application/pdf",
+              "size": 33,
+              "fileHash": "62d6e48fd49ef1e3d58dcd79173894ed0f7562675129cbc35ab16a0a16074e11",
+              "category": "personal",
+              "docType": "commercial_registry",
+              "storageReference": "secure_uploads/doc_1790451859297_ec7d4c3c",
+              "uploadedAt": "2026-09-26T19:44:19.710Z",
+              "userId": "gO266Fz3YWbpNARhAN593GiUd313",
+              "status": "APPROVED",
+              "verificationStatus": "APPROVED",
+              "id": "doc_1790451859297_ec7d4c3c",
+              "isAccessible": true,
+              "isMissing": false,
+              "reviewedAt": "2026-09-26T19:44:33.119Z",
+              "reviewedBy": "mohamedvadel60@gmail.com"
+            }
+          ],
+          "documents": [
+            {
+              "documentId": "doc_1790451859297_ec7d4c3c",
+              "fileName": "Commercial_Registry.pdf",
+              "mimeType": "application/pdf",
+              "size": 33,
+              "fileHash": "62d6e48fd49ef1e3d58dcd79173894ed0f7562675129cbc35ab16a0a16074e11",
+              "category": "personal",
+              "docType": "commercial_registry",
+              "storageReference": "secure_uploads/doc_1790451859297_ec7d4c3c",
+              "uploadedAt": "2026-09-26T19:44:19.710Z",
+              "userId": "gO266Fz3YWbpNARhAN593GiUd313",
+              "status": "APPROVED",
+              "verificationStatus": "APPROVED",
+              "id": "doc_1790451859297_ec7d4c3c",
+              "isAccessible": true,
+              "isMissing": false,
+              "reviewedAt": "2026-09-26T19:44:33.119Z",
+              "reviewedBy": "mohamedvadel60@gmail.com"
+            }
+          ],
+          "documentCount": 1,
+          "verifiedAt": "2026-09-26T19:44:33.119Z",
+          "verificationInfo": {
+            "status": "verified",
+            "verifiedAt": "2026-09-26T19:44:33.119Z",
+            "verifiedBy": "mohamedvadel60@gmail.com",
+            "adminNote": "Duplicate approval attempt"
+          },
+          "verificationInfo.status": "verified",
+          "verificationInfo.verifiedAt": "2026-09-26T19:44:33.119Z",
+          "verificationInfo.verifiedBy": "mohamedvadel60@gmail.com",
+          "verificationInfo.adminNote": "Duplicate approval attempt",
+          "lastActiveAt": "2026-09-26T19:44:33.119Z"
+        }
       },
       "source": "server"
     }
@@ -33538,6 +37136,105 @@
   ],
   "email_delivery_logs": [
     {
+      "id": "01a0df3f-6594-75cb-ba46-64c6c71f6da0",
+      "recipient": "pending_check_1790451856003@getzakir.com",
+      "type": "notification",
+      "subject": "رمز التحقق لتفعيل حسابك في Zakir - Verify your Zakir account",
+      "timestamp": "2026-09-26T19:44:29.328Z",
+      "status": "DELIVERED",
+      "error": null
+    },
+    {
+      "id": "01a0df3f-3937-703b-8af5-bb48ea31042e",
+      "recipient": "prod_kyc_1790451856003@getzakir.com",
+      "type": "notification",
+      "subject": "رمز التحقق لتفعيل حسابك في Zakir - Verify your Zakir account",
+      "timestamp": "2026-09-26T19:44:17.932Z",
+      "status": "DELIVERED",
+      "error": null
+    },
+    {
+      "id": "01a0df39-ebef-72cb-8d96-78426d85b4f4",
+      "recipient": "pending_only_1790451508853@getzakir.com",
+      "type": "notification",
+      "subject": "رمز التحقق لتفعيل حسابك في Zakir - Verify your Zakir account",
+      "timestamp": "2026-09-26T19:38:30.758Z",
+      "status": "DELIVERED",
+      "error": null
+    },
+    {
+      "id": "01a0df39-dcfd-749b-9a2d-535e448ee3d7",
+      "recipient": "unverified_1790451505091@getzakir.com",
+      "type": "notification",
+      "subject": "رمز التحقق لتفعيل حسابك في Zakir - Verify your Zakir account",
+      "timestamp": "2026-09-26T19:38:26.670Z",
+      "status": "DELIVERED",
+      "error": null
+    },
+    {
+      "id": "01a0df39-ca4c-702c-9dde-5472f12b1b9d",
+      "recipient": "kyc_user_1790451491613@getzakir.com",
+      "type": "notification",
+      "subject": "رمز التحقق لتفعيل حسابك في Zakir - Verify your Zakir account",
+      "timestamp": "2026-09-26T19:38:22.176Z",
+      "status": "DELIVERED",
+      "error": null
+    },
+    {
+      "id": "01a0df38-ba21-7268-ba83-565c7cebc9bd",
+      "recipient": "pending_only_1790451430173@getzakir.com",
+      "type": "notification",
+      "subject": "رمز التحقق لتفعيل حسابك في Zakir - Verify your Zakir account",
+      "timestamp": "2026-09-26T19:37:12.178Z",
+      "status": "DELIVERED",
+      "error": null
+    },
+    {
+      "id": "01a0df38-ab0e-7691-afbd-754546b647e7",
+      "recipient": "unverified_1790451426692@getzakir.com",
+      "type": "notification",
+      "subject": "رمز التحقق لتفعيل حسابك في Zakir - Verify your Zakir account",
+      "timestamp": "2026-09-26T19:37:08.336Z",
+      "status": "DELIVERED",
+      "error": null
+    },
+    {
+      "id": "01a0df38-997b-74f1-ba16-7b144634e19a",
+      "recipient": "kyc_user_1790451421865@getzakir.com",
+      "type": "notification",
+      "subject": "رمز التحقق لتفعيل حسابك في Zakir - Verify your Zakir account",
+      "timestamp": "2026-09-26T19:37:03.847Z",
+      "status": "DELIVERED",
+      "error": null
+    },
+    {
+      "id": "01a0df38-2f78-75ef-89a6-abbeaa8062c5",
+      "recipient": "kyc_user_1790451394915@getzakir.com",
+      "type": "notification",
+      "subject": "رمز التحقق لتفعيل حسابك في Zakir - Verify your Zakir account",
+      "timestamp": "2026-09-26T19:36:36.712Z",
+      "status": "DELIVERED",
+      "error": null
+    },
+    {
+      "id": "01a0df37-cd70-7727-a556-ffd965af98d4",
+      "recipient": "no_doc_1790451369740@getzakir.com",
+      "type": "notification",
+      "subject": "رمز التحقق لتفعيل حسابك في Zakir - Verify your Zakir account",
+      "timestamp": "2026-09-26T19:36:11.611Z",
+      "status": "DELIVERED",
+      "error": null
+    },
+    {
+      "id": "01a0df37-b1ee-7283-945d-afc96ddf34b4",
+      "recipient": "rejected_test_1790451362619@getzakir.com",
+      "type": "notification",
+      "subject": "رمز التحقق لتفعيل حسابك في Zakir - Verify your Zakir account",
+      "timestamp": "2026-09-26T19:36:04.535Z",
+      "status": "DELIVERED",
+      "error": null
+    },
+    {
       "id": "01a0ddd3-0ccd-7114-be3f-7a21fdaf5736",
       "recipient": "ui_workspace_test_1790427988253@zakir.ai",
       "type": "notification",
@@ -34537,9 +38234,386 @@
       "storageReference": "secure_uploads/doc_1790421880745_80e39840",
       "uploadedAt": "2026-09-26T11:24:40.816Z",
       "userId": "ra28MNgoWcMRezzZywX0MyklHUD3"
+    },
+    "doc_1790451365835_68e403cd": {
+      "documentId": "doc_1790451365835_68e403cd",
+      "fileName": "Old_National_ID.pdf",
+      "mimeType": "application/pdf",
+      "size": 63,
+      "fileHash": "9224e22a7758f82ea6f6f869e4cd851388e63a261f8e7401e9ac2b8046f5d3a6",
+      "category": "personal",
+      "docType": "national_id",
+      "storageReference": "secure_uploads/doc_1790451365835_68e403cd",
+      "uploadedAt": "2026-09-26T19:36:06.073Z",
+      "userId": "oFTvPZwSn8dOjqaeFxyqyNFPFNk2"
+    },
+    "doc_1790451367046_67e9d755": {
+      "documentId": "doc_1790451367046_67e9d755",
+      "fileName": "ChatGPT_Image_New_ID.png.pdf",
+      "mimeType": "application/pdf",
+      "size": 80,
+      "fileHash": "037594c1a7bf5f4b9d6f35666d53b60b1c244cc067a4c56487c025b7b396f28a",
+      "category": "personal",
+      "docType": "national_id",
+      "storageReference": "secure_uploads/doc_1790451367046_67e9d755",
+      "uploadedAt": "2026-09-26T19:36:07.119Z",
+      "userId": "oFTvPZwSn8dOjqaeFxyqyNFPFNk2"
+    },
+    "doc_1790451425262_63272740": {
+      "documentId": "doc_1790451425262_63272740",
+      "fileName": "Government_ID.pdf",
+      "mimeType": "application/pdf",
+      "size": 63,
+      "fileHash": "9224e22a7758f82ea6f6f869e4cd851388e63a261f8e7401e9ac2b8046f5d3a6",
+      "category": "personal",
+      "docType": "national_id",
+      "storageReference": "secure_uploads/doc_1790451425262_63272740",
+      "uploadedAt": "2026-09-26T19:37:05.335Z",
+      "userId": "SDBFgXpEaEW8RCWRyam5vBT4fHd2"
+    },
+    "doc_1790451503512_dcad6336": {
+      "documentId": "doc_1790451503512_dcad6336",
+      "fileName": "Government_ID.pdf",
+      "mimeType": "application/pdf",
+      "size": 63,
+      "fileHash": "9224e22a7758f82ea6f6f869e4cd851388e63a261f8e7401e9ac2b8046f5d3a6",
+      "category": "personal",
+      "docType": "national_id",
+      "storageReference": "secure_uploads/doc_1790451503512_dcad6336",
+      "uploadedAt": "2026-09-26T19:38:23.726Z",
+      "userId": "GA6MO7EBQRPjnT5m2TupZOZHwJg2"
+    },
+    "doc_1790451859297_ec7d4c3c": {
+      "documentId": "doc_1790451859297_ec7d4c3c",
+      "fileName": "Commercial_Registry.pdf",
+      "mimeType": "application/pdf",
+      "size": 33,
+      "fileHash": "62d6e48fd49ef1e3d58dcd79173894ed0f7562675129cbc35ab16a0a16074e11",
+      "category": "company",
+      "docType": "commercial_registry",
+      "storageReference": "secure_uploads/doc_1790451859297_ec7d4c3c",
+      "uploadedAt": "2026-09-26T19:44:19.710Z",
+      "userId": "gO266Fz3YWbpNARhAN593GiUd313"
     }
   },
   "admin_entitlement_audit_logs": [
+    {
+      "id": "ent_audit_1790451873291_e6c3b202",
+      "timestamp": "2026-09-26T19:44:33.292Z",
+      "adminId": "SYhfciebGFUj29gqGaa0pqNunrk2",
+      "adminEmail": "mohamedvadel60@gmail.com",
+      "targetUserId": "gO266Fz3YWbpNARhAN593GiUd313",
+      "targetUserEmail": "prod_kyc_1790451856003@getzakir.com",
+      "action": "APPROVE_ACCOUNT",
+      "details": "Approved account with 24h trial and plan [Enterprise]. Notes: Duplicate approval attempt",
+      "previousState": {
+        "accountStatus": "APPROVED",
+        "plan": "Enterprise"
+      },
+      "newState": {
+        "canonicalVerificationStatus": "approved",
+        "accountStatus": "APPROVED",
+        "documentVerificationStatus": "APPROVED",
+        "kycStatus": "VERIFIED",
+        "verificationRequestStatus": "APPROVED",
+        "requiresDocumentVerification": false,
+        "adminVerificationOverride": false,
+        "approvedAt": "2026-09-26T19:44:33.119Z",
+        "approvedBy": "mohamedvadel60@gmail.com",
+        "approvalNotes": "Duplicate approval attempt",
+        "trialStartedAt": "2026-09-26T19:44:33.119Z",
+        "trialEndsAt": "2026-09-27T19:44:33.119Z",
+        "trialExpiresAt": "2026-09-27T19:44:33.119Z",
+        "trialDurationHours": 24,
+        "subscriptionPlan": "Enterprise",
+        "subscriptionStatus": "Active",
+        "isVerified": true,
+        "isEmailVerified": true,
+        "email_verified": true,
+        "emailVerified": true,
+        "verification_status": "verified",
+        "rejectionReason": null,
+        "verificationDocuments": [
+          {
+            "documentId": "doc_1790451859297_ec7d4c3c",
+            "fileName": "Commercial_Registry.pdf",
+            "mimeType": "application/pdf",
+            "size": 33,
+            "fileHash": "62d6e48fd49ef1e3d58dcd79173894ed0f7562675129cbc35ab16a0a16074e11",
+            "category": "personal",
+            "docType": "commercial_registry",
+            "storageReference": "secure_uploads/doc_1790451859297_ec7d4c3c",
+            "uploadedAt": "2026-09-26T19:44:19.710Z",
+            "userId": "gO266Fz3YWbpNARhAN593GiUd313",
+            "status": "APPROVED",
+            "verificationStatus": "APPROVED",
+            "id": "doc_1790451859297_ec7d4c3c",
+            "isAccessible": true,
+            "isMissing": false,
+            "reviewedAt": "2026-09-26T19:44:33.119Z",
+            "reviewedBy": "mohamedvadel60@gmail.com"
+          }
+        ],
+        "documents": [
+          {
+            "documentId": "doc_1790451859297_ec7d4c3c",
+            "fileName": "Commercial_Registry.pdf",
+            "mimeType": "application/pdf",
+            "size": 33,
+            "fileHash": "62d6e48fd49ef1e3d58dcd79173894ed0f7562675129cbc35ab16a0a16074e11",
+            "category": "personal",
+            "docType": "commercial_registry",
+            "storageReference": "secure_uploads/doc_1790451859297_ec7d4c3c",
+            "uploadedAt": "2026-09-26T19:44:19.710Z",
+            "userId": "gO266Fz3YWbpNARhAN593GiUd313",
+            "status": "APPROVED",
+            "verificationStatus": "APPROVED",
+            "id": "doc_1790451859297_ec7d4c3c",
+            "isAccessible": true,
+            "isMissing": false,
+            "reviewedAt": "2026-09-26T19:44:33.119Z",
+            "reviewedBy": "mohamedvadel60@gmail.com"
+          }
+        ],
+        "documentCount": 1,
+        "verifiedAt": "2026-09-26T19:44:33.119Z",
+        "verificationInfo": {
+          "status": "verified",
+          "verifiedAt": "2026-09-26T19:44:33.119Z",
+          "verifiedBy": "mohamedvadel60@gmail.com",
+          "adminNote": "Duplicate approval attempt"
+        },
+        "verificationInfo.status": "verified",
+        "verificationInfo.verifiedAt": "2026-09-26T19:44:33.119Z",
+        "verificationInfo.verifiedBy": "mohamedvadel60@gmail.com",
+        "verificationInfo.adminNote": "Duplicate approval attempt",
+        "lastActiveAt": "2026-09-26T19:44:33.119Z"
+      }
+    },
+    {
+      "id": "ent_audit_1790451871802_7daa236a",
+      "timestamp": "2026-09-26T19:44:31.802Z",
+      "adminId": "SYhfciebGFUj29gqGaa0pqNunrk2",
+      "adminEmail": "mohamedvadel60@gmail.com",
+      "targetUserId": "F9Mjef68QgRmps807arWrRdyYln2",
+      "targetUserEmail": "pending_check_1790451856003@getzakir.com",
+      "action": "REJECT_ACCOUNT",
+      "details": "Rejected verification documents: Document unreadable and blurry",
+      "previousState": {
+        "documentVerificationStatus": "UNDER_REVIEW"
+      },
+      "newState": {
+        "accountStatus": "REJECTED",
+        "canonicalVerificationStatus": "rejected",
+        "documentVerificationStatus": "REJECTED",
+        "kycStatus": "REJECTED",
+        "verificationRequestStatus": "REJECTED",
+        "requiresDocumentVerification": true,
+        "isVerified": false,
+        "rejectionReason": "Document unreadable and blurry",
+        "verificationDocuments": [
+          {
+            "documentId": "doc_p",
+            "fileName": "id.pdf",
+            "category": "personal",
+            "uploadedAt": "2026-09-26T19:44:30.952Z",
+            "status": "REJECTED",
+            "verificationStatus": "REJECTED",
+            "reviewedAt": "2026-09-26T19:44:31.618Z",
+            "reviewedBy": "mohamedvadel60@gmail.com",
+            "rejectionReason": "Document unreadable and blurry"
+          }
+        ],
+        "documents": [
+          {
+            "documentId": "doc_p",
+            "fileName": "id.pdf",
+            "category": "personal",
+            "uploadedAt": "2026-09-26T19:44:30.952Z",
+            "status": "REJECTED",
+            "verificationStatus": "REJECTED",
+            "reviewedAt": "2026-09-26T19:44:31.618Z",
+            "reviewedBy": "mohamedvadel60@gmail.com",
+            "rejectionReason": "Document unreadable and blurry"
+          }
+        ],
+        "verificationInfo.status": "rejected",
+        "verificationInfo.adminNote": "Document unreadable and blurry",
+        "verificationInfo.verifiedAt": null,
+        "lastActiveAt": "2026-09-26T19:44:31.618Z"
+      }
+    },
+    {
+      "id": "ent_audit_1790451513981_ca9840ac",
+      "timestamp": "2026-09-26T19:38:33.981Z",
+      "adminId": "SYhfciebGFUj29gqGaa0pqNunrk2",
+      "adminEmail": "mohamedvadel60@gmail.com",
+      "targetUserId": "y2F7HS3JnzdnE8p5Org7EZV9VHu1",
+      "targetUserEmail": "pending_only_1790451508853@getzakir.com",
+      "action": "REJECT_ACCOUNT",
+      "details": "Rejected verification documents: Document illegible",
+      "previousState": {
+        "documentVerificationStatus": "UNDER_REVIEW"
+      },
+      "newState": {
+        "accountStatus": "REJECTED",
+        "canonicalVerificationStatus": "rejected",
+        "documentVerificationStatus": "REJECTED",
+        "kycStatus": "REJECTED",
+        "verificationRequestStatus": "REJECTED",
+        "requiresDocumentVerification": true,
+        "isVerified": false,
+        "rejectionReason": "Document illegible",
+        "verificationDocuments": [
+          {
+            "documentId": "doc_p_1",
+            "fileName": "id.pdf",
+            "category": "personal",
+            "uploadedAt": "2026-09-26T19:38:33.266Z",
+            "status": "REJECTED",
+            "verificationStatus": "REJECTED",
+            "reviewedAt": "2026-09-26T19:38:33.864Z",
+            "reviewedBy": "mohamedvadel60@gmail.com",
+            "rejectionReason": "Document illegible"
+          }
+        ],
+        "documents": [
+          {
+            "documentId": "doc_p_1",
+            "fileName": "id.pdf",
+            "category": "personal",
+            "uploadedAt": "2026-09-26T19:38:33.266Z",
+            "status": "REJECTED",
+            "verificationStatus": "REJECTED",
+            "reviewedAt": "2026-09-26T19:38:33.864Z",
+            "reviewedBy": "mohamedvadel60@gmail.com",
+            "rejectionReason": "Document illegible"
+          }
+        ],
+        "verificationInfo.status": "rejected",
+        "verificationInfo.adminNote": "Document illegible",
+        "verificationInfo.verifiedAt": null,
+        "lastActiveAt": "2026-09-26T19:38:33.864Z"
+      }
+    },
+    {
+      "id": "ent_audit_1790451434002_5a8a53aa",
+      "timestamp": "2026-09-26T19:37:14.002Z",
+      "adminId": "SYhfciebGFUj29gqGaa0pqNunrk2",
+      "adminEmail": "mohamedvadel60@gmail.com",
+      "targetUserId": "tDQI3wl1pfQx5yuGwyiBVSwa9aG3",
+      "targetUserEmail": "pending_only_1790451430173@getzakir.com",
+      "action": "REJECT_ACCOUNT",
+      "details": "Rejected verification documents: Document illegible",
+      "previousState": {
+        "documentVerificationStatus": "UNDER_REVIEW"
+      },
+      "newState": {
+        "accountStatus": "REJECTED",
+        "canonicalVerificationStatus": "rejected",
+        "documentVerificationStatus": "REJECTED",
+        "kycStatus": "REJECTED",
+        "verificationRequestStatus": "REJECTED",
+        "requiresDocumentVerification": true,
+        "isVerified": false,
+        "rejectionReason": "Document illegible",
+        "verificationDocuments": [
+          {
+            "documentId": "doc_p_1",
+            "fileName": "id.pdf",
+            "category": "personal",
+            "uploadedAt": "2026-09-26T19:37:13.389Z",
+            "status": "REJECTED",
+            "verificationStatus": "REJECTED",
+            "reviewedAt": "2026-09-26T19:37:13.891Z",
+            "reviewedBy": "mohamedvadel60@gmail.com",
+            "rejectionReason": "Document illegible"
+          }
+        ],
+        "documents": [
+          {
+            "documentId": "doc_p_1",
+            "fileName": "id.pdf",
+            "category": "personal",
+            "uploadedAt": "2026-09-26T19:37:13.389Z",
+            "status": "REJECTED",
+            "verificationStatus": "REJECTED",
+            "reviewedAt": "2026-09-26T19:37:13.891Z",
+            "reviewedBy": "mohamedvadel60@gmail.com",
+            "rejectionReason": "Document illegible"
+          }
+        ],
+        "verificationInfo.status": "rejected",
+        "verificationInfo.adminNote": "Document illegible",
+        "verificationInfo.verifiedAt": null,
+        "lastActiveAt": "2026-09-26T19:37:13.891Z"
+      }
+    },
+    {
+      "id": "ent_audit_1790451366645_6ff1149b",
+      "timestamp": "2026-09-26T19:36:06.645Z",
+      "adminId": "SYhfciebGFUj29gqGaa0pqNunrk2",
+      "adminEmail": "admin@zakir.ai",
+      "targetUserId": "oFTvPZwSn8dOjqaeFxyqyNFPFNk2",
+      "targetUserEmail": "rejected_test_1790451362619@getzakir.com",
+      "action": "REJECT_ACCOUNT",
+      "details": "Rejected verification documents: Official verification documents required. Old document is blurry.",
+      "previousState": {
+        "documentVerificationStatus": "UNDER_REVIEW"
+      },
+      "newState": {
+        "accountStatus": "REJECTED",
+        "canonicalVerificationStatus": "rejected",
+        "documentVerificationStatus": "REJECTED",
+        "kycStatus": "REJECTED",
+        "verificationRequestStatus": "REJECTED",
+        "requiresDocumentVerification": true,
+        "isVerified": false,
+        "rejectionReason": "Official verification documents required. Old document is blurry.",
+        "verificationDocuments": [
+          {
+            "documentId": "doc_1790451365835_68e403cd",
+            "fileName": "Old_National_ID.pdf",
+            "mimeType": "application/pdf",
+            "size": 63,
+            "fileHash": "9224e22a7758f82ea6f6f869e4cd851388e63a261f8e7401e9ac2b8046f5d3a6",
+            "category": "personal",
+            "docType": "national_id",
+            "storageReference": "secure_uploads/doc_1790451365835_68e403cd",
+            "uploadedAt": "2026-09-26T19:36:06.073Z",
+            "userId": "oFTvPZwSn8dOjqaeFxyqyNFPFNk2",
+            "status": "REJECTED",
+            "verificationStatus": "REJECTED",
+            "reviewedAt": "2026-09-26T19:36:06.535Z",
+            "reviewedBy": "admin@zakir.ai",
+            "rejectionReason": "Official verification documents required. Old document is blurry."
+          }
+        ],
+        "documents": [
+          {
+            "documentId": "doc_1790451365835_68e403cd",
+            "fileName": "Old_National_ID.pdf",
+            "mimeType": "application/pdf",
+            "size": 63,
+            "fileHash": "9224e22a7758f82ea6f6f869e4cd851388e63a261f8e7401e9ac2b8046f5d3a6",
+            "category": "personal",
+            "docType": "national_id",
+            "storageReference": "secure_uploads/doc_1790451365835_68e403cd",
+            "uploadedAt": "2026-09-26T19:36:06.073Z",
+            "userId": "oFTvPZwSn8dOjqaeFxyqyNFPFNk2",
+            "status": "REJECTED",
+            "verificationStatus": "REJECTED",
+            "reviewedAt": "2026-09-26T19:36:06.535Z",
+            "reviewedBy": "admin@zakir.ai",
+            "rejectionReason": "Official verification documents required. Old document is blurry."
+          }
+        ],
+        "verificationInfo.status": "rejected",
+        "verificationInfo.adminNote": "Official verification documents required. Old document is blurry.",
+        "verificationInfo.verifiedAt": null,
+        "lastActiveAt": "2026-09-26T19:36:06.535Z"
+      }
+    },
     {
       "id": "ent_audit_1790421880342_6dfe87d1",
       "timestamp": "2026-09-26T11:24:40.342Z",
@@ -35560,6 +39634,323 @@
         "verificationInfo.adminNote": "Official verification documents required. Old document is blurry.",
         "verificationInfo.verifiedAt": null,
         "lastActiveAt": "2026-09-26T11:24:40.234Z"
+      }
+    },
+    {
+      "id": "ent_audit_1790451366645_6ff1149b",
+      "timestamp": "2026-09-26T19:36:06.645Z",
+      "adminId": "SYhfciebGFUj29gqGaa0pqNunrk2",
+      "adminEmail": "admin@zakir.ai",
+      "targetUserId": "oFTvPZwSn8dOjqaeFxyqyNFPFNk2",
+      "targetUserEmail": "rejected_test_1790451362619@getzakir.com",
+      "action": "REJECT_ACCOUNT",
+      "details": "Rejected verification documents: Official verification documents required. Old document is blurry.",
+      "previousState": {
+        "documentVerificationStatus": "UNDER_REVIEW"
+      },
+      "newState": {
+        "accountStatus": "REJECTED",
+        "canonicalVerificationStatus": "rejected",
+        "documentVerificationStatus": "REJECTED",
+        "kycStatus": "REJECTED",
+        "verificationRequestStatus": "REJECTED",
+        "requiresDocumentVerification": true,
+        "isVerified": false,
+        "rejectionReason": "Official verification documents required. Old document is blurry.",
+        "verificationDocuments": [
+          {
+            "documentId": "doc_1790451365835_68e403cd",
+            "fileName": "Old_National_ID.pdf",
+            "mimeType": "application/pdf",
+            "size": 63,
+            "fileHash": "9224e22a7758f82ea6f6f869e4cd851388e63a261f8e7401e9ac2b8046f5d3a6",
+            "category": "personal",
+            "docType": "national_id",
+            "storageReference": "secure_uploads/doc_1790451365835_68e403cd",
+            "uploadedAt": "2026-09-26T19:36:06.073Z",
+            "userId": "oFTvPZwSn8dOjqaeFxyqyNFPFNk2",
+            "status": "REJECTED",
+            "verificationStatus": "REJECTED",
+            "reviewedAt": "2026-09-26T19:36:06.535Z",
+            "reviewedBy": "admin@zakir.ai",
+            "rejectionReason": "Official verification documents required. Old document is blurry."
+          }
+        ],
+        "documents": [
+          {
+            "documentId": "doc_1790451365835_68e403cd",
+            "fileName": "Old_National_ID.pdf",
+            "mimeType": "application/pdf",
+            "size": 63,
+            "fileHash": "9224e22a7758f82ea6f6f869e4cd851388e63a261f8e7401e9ac2b8046f5d3a6",
+            "category": "personal",
+            "docType": "national_id",
+            "storageReference": "secure_uploads/doc_1790451365835_68e403cd",
+            "uploadedAt": "2026-09-26T19:36:06.073Z",
+            "userId": "oFTvPZwSn8dOjqaeFxyqyNFPFNk2",
+            "status": "REJECTED",
+            "verificationStatus": "REJECTED",
+            "reviewedAt": "2026-09-26T19:36:06.535Z",
+            "reviewedBy": "admin@zakir.ai",
+            "rejectionReason": "Official verification documents required. Old document is blurry."
+          }
+        ],
+        "verificationInfo.status": "rejected",
+        "verificationInfo.adminNote": "Official verification documents required. Old document is blurry.",
+        "verificationInfo.verifiedAt": null,
+        "lastActiveAt": "2026-09-26T19:36:06.535Z"
+      }
+    },
+    {
+      "id": "ent_audit_1790451434002_5a8a53aa",
+      "timestamp": "2026-09-26T19:37:14.002Z",
+      "adminId": "SYhfciebGFUj29gqGaa0pqNunrk2",
+      "adminEmail": "mohamedvadel60@gmail.com",
+      "targetUserId": "tDQI3wl1pfQx5yuGwyiBVSwa9aG3",
+      "targetUserEmail": "pending_only_1790451430173@getzakir.com",
+      "action": "REJECT_ACCOUNT",
+      "details": "Rejected verification documents: Document illegible",
+      "previousState": {
+        "documentVerificationStatus": "UNDER_REVIEW"
+      },
+      "newState": {
+        "accountStatus": "REJECTED",
+        "canonicalVerificationStatus": "rejected",
+        "documentVerificationStatus": "REJECTED",
+        "kycStatus": "REJECTED",
+        "verificationRequestStatus": "REJECTED",
+        "requiresDocumentVerification": true,
+        "isVerified": false,
+        "rejectionReason": "Document illegible",
+        "verificationDocuments": [
+          {
+            "documentId": "doc_p_1",
+            "fileName": "id.pdf",
+            "category": "personal",
+            "uploadedAt": "2026-09-26T19:37:13.389Z",
+            "status": "REJECTED",
+            "verificationStatus": "REJECTED",
+            "reviewedAt": "2026-09-26T19:37:13.891Z",
+            "reviewedBy": "mohamedvadel60@gmail.com",
+            "rejectionReason": "Document illegible"
+          }
+        ],
+        "documents": [
+          {
+            "documentId": "doc_p_1",
+            "fileName": "id.pdf",
+            "category": "personal",
+            "uploadedAt": "2026-09-26T19:37:13.389Z",
+            "status": "REJECTED",
+            "verificationStatus": "REJECTED",
+            "reviewedAt": "2026-09-26T19:37:13.891Z",
+            "reviewedBy": "mohamedvadel60@gmail.com",
+            "rejectionReason": "Document illegible"
+          }
+        ],
+        "verificationInfo.status": "rejected",
+        "verificationInfo.adminNote": "Document illegible",
+        "verificationInfo.verifiedAt": null,
+        "lastActiveAt": "2026-09-26T19:37:13.891Z"
+      }
+    },
+    {
+      "id": "ent_audit_1790451513981_ca9840ac",
+      "timestamp": "2026-09-26T19:38:33.981Z",
+      "adminId": "SYhfciebGFUj29gqGaa0pqNunrk2",
+      "adminEmail": "mohamedvadel60@gmail.com",
+      "targetUserId": "y2F7HS3JnzdnE8p5Org7EZV9VHu1",
+      "targetUserEmail": "pending_only_1790451508853@getzakir.com",
+      "action": "REJECT_ACCOUNT",
+      "details": "Rejected verification documents: Document illegible",
+      "previousState": {
+        "documentVerificationStatus": "UNDER_REVIEW"
+      },
+      "newState": {
+        "accountStatus": "REJECTED",
+        "canonicalVerificationStatus": "rejected",
+        "documentVerificationStatus": "REJECTED",
+        "kycStatus": "REJECTED",
+        "verificationRequestStatus": "REJECTED",
+        "requiresDocumentVerification": true,
+        "isVerified": false,
+        "rejectionReason": "Document illegible",
+        "verificationDocuments": [
+          {
+            "documentId": "doc_p_1",
+            "fileName": "id.pdf",
+            "category": "personal",
+            "uploadedAt": "2026-09-26T19:38:33.266Z",
+            "status": "REJECTED",
+            "verificationStatus": "REJECTED",
+            "reviewedAt": "2026-09-26T19:38:33.864Z",
+            "reviewedBy": "mohamedvadel60@gmail.com",
+            "rejectionReason": "Document illegible"
+          }
+        ],
+        "documents": [
+          {
+            "documentId": "doc_p_1",
+            "fileName": "id.pdf",
+            "category": "personal",
+            "uploadedAt": "2026-09-26T19:38:33.266Z",
+            "status": "REJECTED",
+            "verificationStatus": "REJECTED",
+            "reviewedAt": "2026-09-26T19:38:33.864Z",
+            "reviewedBy": "mohamedvadel60@gmail.com",
+            "rejectionReason": "Document illegible"
+          }
+        ],
+        "verificationInfo.status": "rejected",
+        "verificationInfo.adminNote": "Document illegible",
+        "verificationInfo.verifiedAt": null,
+        "lastActiveAt": "2026-09-26T19:38:33.864Z"
+      }
+    },
+    {
+      "id": "ent_audit_1790451871802_7daa236a",
+      "timestamp": "2026-09-26T19:44:31.802Z",
+      "adminId": "SYhfciebGFUj29gqGaa0pqNunrk2",
+      "adminEmail": "mohamedvadel60@gmail.com",
+      "targetUserId": "F9Mjef68QgRmps807arWrRdyYln2",
+      "targetUserEmail": "pending_check_1790451856003@getzakir.com",
+      "action": "REJECT_ACCOUNT",
+      "details": "Rejected verification documents: Document unreadable and blurry",
+      "previousState": {
+        "documentVerificationStatus": "UNDER_REVIEW"
+      },
+      "newState": {
+        "accountStatus": "REJECTED",
+        "canonicalVerificationStatus": "rejected",
+        "documentVerificationStatus": "REJECTED",
+        "kycStatus": "REJECTED",
+        "verificationRequestStatus": "REJECTED",
+        "requiresDocumentVerification": true,
+        "isVerified": false,
+        "rejectionReason": "Document unreadable and blurry",
+        "verificationDocuments": [
+          {
+            "documentId": "doc_p",
+            "fileName": "id.pdf",
+            "category": "personal",
+            "uploadedAt": "2026-09-26T19:44:30.952Z",
+            "status": "REJECTED",
+            "verificationStatus": "REJECTED",
+            "reviewedAt": "2026-09-26T19:44:31.618Z",
+            "reviewedBy": "mohamedvadel60@gmail.com",
+            "rejectionReason": "Document unreadable and blurry"
+          }
+        ],
+        "documents": [
+          {
+            "documentId": "doc_p",
+            "fileName": "id.pdf",
+            "category": "personal",
+            "uploadedAt": "2026-09-26T19:44:30.952Z",
+            "status": "REJECTED",
+            "verificationStatus": "REJECTED",
+            "reviewedAt": "2026-09-26T19:44:31.618Z",
+            "reviewedBy": "mohamedvadel60@gmail.com",
+            "rejectionReason": "Document unreadable and blurry"
+          }
+        ],
+        "verificationInfo.status": "rejected",
+        "verificationInfo.adminNote": "Document unreadable and blurry",
+        "verificationInfo.verifiedAt": null,
+        "lastActiveAt": "2026-09-26T19:44:31.618Z"
+      }
+    },
+    {
+      "id": "ent_audit_1790451873291_e6c3b202",
+      "timestamp": "2026-09-26T19:44:33.292Z",
+      "adminId": "SYhfciebGFUj29gqGaa0pqNunrk2",
+      "adminEmail": "mohamedvadel60@gmail.com",
+      "targetUserId": "gO266Fz3YWbpNARhAN593GiUd313",
+      "targetUserEmail": "prod_kyc_1790451856003@getzakir.com",
+      "action": "APPROVE_ACCOUNT",
+      "details": "Approved account with 24h trial and plan [Enterprise]. Notes: Duplicate approval attempt",
+      "previousState": {
+        "accountStatus": "APPROVED",
+        "plan": "Enterprise"
+      },
+      "newState": {
+        "canonicalVerificationStatus": "approved",
+        "accountStatus": "APPROVED",
+        "documentVerificationStatus": "APPROVED",
+        "kycStatus": "VERIFIED",
+        "verificationRequestStatus": "APPROVED",
+        "requiresDocumentVerification": false,
+        "adminVerificationOverride": false,
+        "approvedAt": "2026-09-26T19:44:33.119Z",
+        "approvedBy": "mohamedvadel60@gmail.com",
+        "approvalNotes": "Duplicate approval attempt",
+        "trialStartedAt": "2026-09-26T19:44:33.119Z",
+        "trialEndsAt": "2026-09-27T19:44:33.119Z",
+        "trialExpiresAt": "2026-09-27T19:44:33.119Z",
+        "trialDurationHours": 24,
+        "subscriptionPlan": "Enterprise",
+        "subscriptionStatus": "Active",
+        "isVerified": true,
+        "isEmailVerified": true,
+        "email_verified": true,
+        "emailVerified": true,
+        "verification_status": "verified",
+        "rejectionReason": null,
+        "verificationDocuments": [
+          {
+            "documentId": "doc_1790451859297_ec7d4c3c",
+            "fileName": "Commercial_Registry.pdf",
+            "mimeType": "application/pdf",
+            "size": 33,
+            "fileHash": "62d6e48fd49ef1e3d58dcd79173894ed0f7562675129cbc35ab16a0a16074e11",
+            "category": "personal",
+            "docType": "commercial_registry",
+            "storageReference": "secure_uploads/doc_1790451859297_ec7d4c3c",
+            "uploadedAt": "2026-09-26T19:44:19.710Z",
+            "userId": "gO266Fz3YWbpNARhAN593GiUd313",
+            "status": "APPROVED",
+            "verificationStatus": "APPROVED",
+            "id": "doc_1790451859297_ec7d4c3c",
+            "isAccessible": true,
+            "isMissing": false,
+            "reviewedAt": "2026-09-26T19:44:33.119Z",
+            "reviewedBy": "mohamedvadel60@gmail.com"
+          }
+        ],
+        "documents": [
+          {
+            "documentId": "doc_1790451859297_ec7d4c3c",
+            "fileName": "Commercial_Registry.pdf",
+            "mimeType": "application/pdf",
+            "size": 33,
+            "fileHash": "62d6e48fd49ef1e3d58dcd79173894ed0f7562675129cbc35ab16a0a16074e11",
+            "category": "personal",
+            "docType": "commercial_registry",
+            "storageReference": "secure_uploads/doc_1790451859297_ec7d4c3c",
+            "uploadedAt": "2026-09-26T19:44:19.710Z",
+            "userId": "gO266Fz3YWbpNARhAN593GiUd313",
+            "status": "APPROVED",
+            "verificationStatus": "APPROVED",
+            "id": "doc_1790451859297_ec7d4c3c",
+            "isAccessible": true,
+            "isMissing": false,
+            "reviewedAt": "2026-09-26T19:44:33.119Z",
+            "reviewedBy": "mohamedvadel60@gmail.com"
+          }
+        ],
+        "documentCount": 1,
+        "verifiedAt": "2026-09-26T19:44:33.119Z",
+        "verificationInfo": {
+          "status": "verified",
+          "verifiedAt": "2026-09-26T19:44:33.119Z",
+          "verifiedBy": "mohamedvadel60@gmail.com",
+          "adminNote": "Duplicate approval attempt"
+        },
+        "verificationInfo.status": "verified",
+        "verificationInfo.verifiedAt": "2026-09-26T19:44:33.119Z",
+        "verificationInfo.verifiedBy": "mohamedvadel60@gmail.com",
+        "verificationInfo.adminNote": "Duplicate approval attempt",
+        "lastActiveAt": "2026-09-26T19:44:33.119Z"
       }
     }
   ]

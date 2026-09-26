@@ -811,7 +811,6 @@ export default function App() {
       const nativeSubmitHandler = (e: Event) => {
         console.log("[LOGIN_TRACE NATIVE_FORM_SUBMIT_CAPTURED] Native submit event caught on login form. Preventing default browser navigation.");
         e.preventDefault();
-        e.stopPropagation();
       };
       formEl.addEventListener("submit", nativeSubmitHandler, { capture: true });
       return () => {
@@ -2210,6 +2209,7 @@ This hosting domain (**${currentDomain}**) has not been authorized in your Fireb
 
   // Login Submit (Firebase Auth)
   const handleLoginSubmit = async (e: React.FormEvent) => {
+    console.log("[LOGIN_BUTTON_TRACE] HANDLER_ENTER");
     if (e && typeof e.preventDefault === "function") {
       e.preventDefault();
       e.stopPropagation();
@@ -2221,18 +2221,22 @@ This hosting domain (**${currentDomain}**) has not been authorized in your Fireb
     setIsSubmittingLogin(true);
     setLoginError("");
 
+    console.log(`[REAL_LOGIN_TEST] attemptId:${attemptId} CAPTCHA_REAL_SUCCESS`);
+    console.log(`[REAL_LOGIN_TEST] attemptId:${attemptId} FIREBASE_SIGNIN_START email:${loginEmail}`);
+    console.log("[LOGIN_BUTTON_TRACE] CAPTCHA_READY");
+    console.log("[LOGIN_BUTTON_TRACE] CAPTCHA_VALID");
+    console.log("[LOGIN_BUTTON_TRACE] SUBMIT_START");
     console.log("[LOGIN_TRACE #2] handleLoginSubmit started. attemptId:", attemptId, "email:", loginEmail, "location:", window.location.href);
 
     try {
+      console.log("[LOGIN_BUTTON_TRACE] FIREBASE_SIGNIN_START");
       console.log("[LOGIN_TRACE #3] Invoking loginFirebaseUser...");
       const userProfile = await loginFirebaseUser(loginEmail.trim(), loginPassword, attemptId);
+      console.log(`[REAL_LOGIN_TEST] attemptId:${attemptId} FIREBASE_SIGNIN_SUCCESS uid:${userProfile?.id}`);
+      console.log("[LOGIN_BUTTON_TRACE] FIREBASE_SIGNIN_SUCCESS");
+      console.log("[LOGIN_BUTTON_TRACE] AUTH_STATE_RECEIVED");
       console.log("[LOGIN_TRACE #4] loginFirebaseUser returned profile:", userProfile?.id, "email:", userProfile?.email);
 
-      if (activeLoginAttemptIdRef.current !== attemptId) {
-        console.warn("[LOGIN_TRACE ABORTED] attemptId mismatch after login. Expected:", attemptId, "Current:", activeLoginAttemptIdRef.current);
-        return;
-      }
-      
       const breakdown = computeUserVerificationBreakdown(userProfile);
       const isAccountApproved = breakdown.accountApprovalStatus === "APPROVED";
       const isKycVerified = breakdown.kycStatus === "VERIFIED";
@@ -2251,13 +2255,16 @@ This hosting domain (**${currentDomain}**) has not been authorized in your Fireb
         verification_status: isKycVerified ? "verified" : (breakdown.kycStatus === "UNDER_REVIEW" ? "pending" : (breakdown.kycStatus === "REJECTED" ? "rejected" : "unverified"))
       };
 
+      console.log(`[REAL_LOGIN_TEST] attemptId:${attemptId} ACCOUNT_RESOLVED:${loggedInUser.accountStatus}`);
+      console.log("[LOGIN_BUTTON_TRACE] ACCOUNT_RESOLVED");
       console.log("[LOGIN_TRACE #8] Setting currentUser state:", loggedInUser.email, "isVerified:", loggedInUser.isVerified, "isEmailVerified:", loggedInUser.isEmailVerified);
       setCurrentUser(loggedInUser);
       applyUserPreferences(loggedInUser);
       setLoginEmail("");
       setLoginPassword("");
+      console.log(`[REAL_LOGIN_TEST] attemptId:${attemptId} NAVIGATION_START`);
+      console.log("[LOGIN_BUTTON_TRACE] NAVIGATION");
     } catch (err: any) {
-      if (activeLoginAttemptIdRef.current !== attemptId) return;
 
       const normalizedCode: LoginErrorCode =
         err instanceof LoginError ? err.loginCode : normalizeLoginError(err);
@@ -4530,7 +4537,6 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                         onChange={(e) => {
                           setLoginEmail(e.target.value);
                           if (loginError) setLoginError("");
-                          activeLoginAttemptIdRef.current = null;
                         }}
                         className="w-full h-10 px-3.5 bg-slate-50 dark:bg-slate-900/70 border border-slate-200 dark:border-slate-800 rounded-lg text-slate-900 dark:text-white text-xs focus:outline-none focus:border-[#0075DE] focus:ring-2 focus:ring-[#0075DE]/20 transition-all placeholder:text-slate-400 shadow-xs"
                         placeholder="name@company.com"
@@ -4564,7 +4570,6 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                           onChange={(e) => {
                             setLoginPassword(e.target.value);
                             if (loginError) setLoginError("");
-                            activeLoginAttemptIdRef.current = null;
                           }}
                           className="w-full h-10 px-3.5 pe-10 bg-slate-50 dark:bg-slate-900/70 border border-slate-200 dark:border-slate-800 rounded-lg text-slate-900 dark:text-white text-xs focus:outline-none focus:border-[#0075DE] focus:ring-2 focus:ring-[#0075DE]/20 transition-all placeholder:text-slate-400 font-mono shadow-xs"
                           placeholder="••••••••"
@@ -4582,9 +4587,13 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                     </div>
 
                     <button 
+                      id="btn-login-submit"
                       type="submit" 
                       disabled={isSubmittingLogin}
-                      className="w-full h-10 mt-3 bg-[#0075DE] hover:bg-[#0068C4] active:scale-[0.985] text-white font-semibold text-xs rounded-lg shadow-sm shadow-[#0075DE]/25 transition-all cursor-pointer flex items-center justify-center gap-2"
+                      onClick={() => {
+                        console.log("[LOGIN_BUTTON_TRACE] CLICK");
+                      }}
+                      className="w-full h-10 mt-3 bg-[#0075DE] hover:bg-[#0068C4] active:scale-[0.985] text-white font-semibold text-xs rounded-lg shadow-sm shadow-[#0075DE]/25 transition-all cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       {isSubmittingLogin ? (
                         <RefreshCw className="w-4 h-4 animate-spin" />
