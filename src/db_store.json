@@ -6,10 +6,9 @@
       "passwordHash": "Password123!",
       "companyName": "Zakir Inc",
       "ownerName": "Mohamed",
-      "role": "Admin",
+      "role": "CEO",
       "createdAt": "2026-08-04T18:50:58.786Z",
       "trialExpiresAt": "2026-08-05T18:50:58.786Z",
-      "isAdmin": true,
       "accountStatus": "APPROVED",
       "isVerified": true,
       "isEmailVerified": true,
@@ -27,7 +26,7 @@
       "passwordHash": "Chow._.9i",
       "companyName": "ACM GROUP",
       "ownerName": "محمد",
-      "role": "Admin",
+      "role": "CEO",
       "workspaceId": "ws_IKd49SpW_mtd3ujo7",
       "workspace": {
         "id": "ws_IKd49SpW_mtd3ujo7",
@@ -42,12 +41,12 @@
       "emailVerified": true,
       "email_verified": true,
       "isPhoneVerified": true,
-      "verification_required": false,
+      "verification_required": true,
       "verificationInfo": {
         "verifiedAt": "2026-08-28T15:27:23.196Z",
         "status": "verified"
       },
-      "isVerified": true,
+      "isVerified": false,
       "verification_status": "verified",
       "isEmailVerified": true,
       "teamMembersList": [
@@ -75,8 +74,8 @@
         "autoSaveMemories": true
       },
       "stripeCustomerId": null,
-      "lastActiveAt": "2026-09-26T13:06:34.545Z",
-      "lastLoginAt": "2026-09-26T13:06:34.545Z",
+      "lastActiveAt": "2026-09-26T13:34:01.780Z",
+      "lastLoginAt": "2026-09-26T13:34:01.780Z",
       "accountStatus": "APPROVED",
       "verificationStatus": "verified",
       "uid": "IKd49SpWgBa5XubDF2sLqaslOyF3"
@@ -156,8 +155,7 @@
     {
       "id": "SYhfciebGFUj29gqGaa0pqNunrk2",
       "email": "mohamedvadel60@gmail.com",
-      "role": "Admin",
-      "isAdmin": true,
+      "role": "CEO",
       "accountStatus": "PENDING_ADMIN_REVIEW",
       "isVerified": false,
       "fullName": "Mohamed Med",
@@ -2064,6 +2062,26 @@
       },
       "uid": "toKBrIdHJPUPGW7h09MR1hizYpc2",
       "verificationStatus": "unverified"
+    },
+    {
+      "id": "goog_uid_a_1790429635290",
+      "uid": "goog_uid_a_1790429635290",
+      "email": "google_user_a_1790429635290@gmail.com",
+      "ownerName": "Google User A",
+      "companyName": "Company A Workspace",
+      "role": "CEO",
+      "workspaceId": "ws_goog_uid_a1",
+      "workspace": {
+        "id": "ws_goog_uid_a1",
+        "name": "Company A Workspace",
+        "ownerId": "goog_uid_a_1790429635290",
+        "createdAt": "2026-09-26T13:33:55.290Z",
+        "memberCount": 1
+      },
+      "accountStatus": "APPROVED",
+      "isVerified": true,
+      "isEmailVerified": true,
+      "createdAt": "2026-09-26T13:33:55.290Z"
     }
   ],
   "verification_codes": [
@@ -8359,6 +8377,22 @@
   ],
   "platform_events": [
     {
+      "id": "evt_1790429641890_wwwmik4",
+      "eventType": "USER_LOGGED_IN",
+      "severity": "INFO",
+      "category": "AUTH",
+      "timestamp": "2026-09-26T13:34:01.890Z",
+      "userId": "IKd49SpWgBa5XubDF2sLqaslOyF3",
+      "userEmail": "sarasara222341@gmail.com",
+      "requestId": "req_1790429640483_b4d53d4f",
+      "sanitizedMessage": "User logged in: sarasara222341@gmail.com (role: CEO)",
+      "status": "ACTIVE",
+      "metadata": {
+        "role": "CEO"
+      },
+      "source": "server"
+    },
+    {
       "id": "evt_1790427994609_v77k1am",
       "eventType": "USER_LOGGED_IN",
       "severity": "INFO",
@@ -14418,6 +14452,22 @@
       "status": "ACTIVE",
       "metadata": {
         "role": "Admin"
+      },
+      "source": "server"
+    },
+    {
+      "id": "evt_1790429641890_wwwmik4",
+      "eventType": "USER_LOGGED_IN",
+      "severity": "INFO",
+      "category": "AUTH",
+      "timestamp": "2026-09-26T13:34:01.890Z",
+      "userId": "IKd49SpWgBa5XubDF2sLqaslOyF3",
+      "userEmail": "sarasara222341@gmail.com",
+      "requestId": "req_1790429640483_b4d53d4f",
+      "sanitizedMessage": "User logged in: sarasara222341@gmail.com (role: CEO)",
+      "status": "ACTIVE",
+      "metadata": {
+        "role": "CEO"
       },
       "source": "server"
     }

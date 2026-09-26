@@ -1042,6 +1042,15 @@ export async function loginWithGoogle(): Promise<User> {
       });
     }
 
+    userData.id = uid;
+    (userData as any).uid = uid;
+
+    const isSysAdmin = isUserAdmin(userData);
+    if (!isSysAdmin && (userData.role === "Admin" || (userData.role as string) === "admin" || (userData as any).isAdmin)) {
+      userData.role = "CEO";
+      (userData as any).isAdmin = false;
+    }
+
     const nowIso = new Date().toISOString();
     userData.lastActiveAt = nowIso;
     userData.lastLoginAt = nowIso;
@@ -1050,10 +1059,7 @@ export async function loginWithGoogle(): Promise<User> {
     }
     
     try {
-      await updateDoc(userDocRef, {
-        lastActiveAt: nowIso,
-        lastLoginAt: nowIso
-      });
+      await setDoc(userDocRef, { ...userData, id: uid, uid: uid, role: userData.role, isAdmin: false }, { merge: true });
     } catch (e) {
       console.warn("Failed to update last login timestamp:", e);
     }
@@ -1083,6 +1089,20 @@ export async function loginWithGoogle(): Promise<User> {
               daysRemaining: 31
             });
           }
+
+          foundData.id = uid;
+          (foundData as any).uid = uid;
+
+          const isSysAdmin = isUserAdmin({ id: uid, email, role: foundData.role });
+          if (!isSysAdmin && (foundData.role === "Admin" || (foundData.role as string) === "admin" || (foundData as any).isAdmin)) {
+            foundData.role = "CEO";
+            (foundData as any).isAdmin = false;
+          }
+
+          try {
+            await setDoc(userDocRef, { ...foundData, id: uid, uid: uid, role: foundData.role, isAdmin: false }, { merge: true });
+          } catch (e) {}
+
           setLocalItem(`user_${uid}`, foundData);
           return foundData;
         }
@@ -2491,9 +2511,6 @@ export const ADMIN_UIDS = new Set([
   "SYhfciebGFUj29qGgAa0pqNunrk2"
 ]);
 export const ADMIN_EMAILS: string[] = [
-  "mohamedvadel60@mail.com",
-  "mohamedvadel60@gmail.com",
-  "sarasara222341@gmail.com",
   "admin@zakir.ai",
   "admin@getzakir.com",
   (((import.meta as any).env?.VITE_ADMIN_EMAIL) || (typeof process !== "undefined" ? process.env?.ADMIN_EMAIL : "") || "").toLowerCase().trim()

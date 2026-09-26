@@ -31,8 +31,8 @@ const DB_FILE = path.join(process.cwd(), "src", "db_store.json");
 
 const ADMIN_USER_ID = "SYhfciebGFUj29gqGaa0pqNunrk2";
 const ADMIN_EMAILS = new Set([
-  "mohamedvadel60@mail.com",
-  "mohamedvadel60@gmail.com",
+  "admin@zakir.ai",
+  "admin@getzakir.com",
   (process.env.ADMIN_EMAIL || "").toLowerCase().trim()
 ].filter(Boolean));
 

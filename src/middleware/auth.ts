@@ -187,9 +187,6 @@ export const ADMIN_UIDS = new Set([
   "SYhfciebGFUj29qGgAa0pqNunrk2"
 ]);
 export const ADMIN_EMAILS = new Set([
-  "mohamedvadel60@mail.com",
-  "mohamedvadel60@gmail.com",
-  "sarasara222341@gmail.com",
   "admin@zakir.ai",
   "admin@getzakir.com",
   (process.env.ADMIN_EMAIL || "").toLowerCase().trim()
@@ -386,7 +383,7 @@ export async function isUserAdminServer(uid: string, email?: string): Promise<bo
         const data = uDoc.data();
         const role = (data?.role || "").trim().toLowerCase();
         const em = (data?.email || "").trim().toLowerCase();
-        if (role === "admin" || data?.isAdmin === true || (em && ADMIN_EMAILS.has(em))) {
+        if ((role === "admin" || data?.isAdmin === true) && (em && ADMIN_EMAILS.has(em))) {
           return true;
         }
       }
@@ -399,7 +396,8 @@ export async function isUserAdminServer(uid: string, email?: string): Promise<bo
     const found = db?.users?.find((u: any) => u.id === uid || (directEmail && u.email?.toLowerCase() === directEmail));
     if (found) {
       const r = (found.role || "").trim().toLowerCase();
-      if (r === "admin" || found.isAdmin === true || (found.email && ADMIN_EMAILS.has(found.email.toLowerCase()))) {
+      const em = (found.email || "").trim().toLowerCase();
+      if ((r === "admin" || found.isAdmin === true) && (em && ADMIN_EMAILS.has(em))) {
         return true;
       }
     }
