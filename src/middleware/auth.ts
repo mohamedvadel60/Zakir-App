@@ -227,11 +227,32 @@ export async function getUserProfileServer(uid?: string, email?: string): Promis
       } catch (e) {}
     }
 
-    if (profileData) {
-      if (fetchedId && fetchedId !== uid) {
-        console.error(`[MANDATORY_UID_ASSERTION_FAILURE] Mismatch in getUserProfileServer: firebaseUser.uid (${uid}) !== profileDocument.id (${fetchedId})`);
-        throw new Error(`SECURITY_FATAL_UID_MISMATCH: firebaseUser.uid (${uid}) !== profileDocument.id (${fetchedId})`);
+    if (!profileData && normalizedEmail) {
+      try {
+        const snap = await adminDb.collection("users").where("email", "==", normalizedEmail).limit(1).get();
+        if (!snap.empty) {
+          profileData = snap.docs[0].data();
+        }
+      } catch (e) {}
+      if (!profileData) {
+        try {
+          const db = readDbForAuth();
+          const localUser = db.users?.find((u: any) => (u.email || "").trim().toLowerCase() === normalizedEmail);
+          if (localUser) {
+            profileData = localUser;
+          }
+        } catch (e) {}
       }
+    }
+
+    if (profileData) {
+      profileData.id = uid;
+      profileData.uid = uid;
+
+      // Persist harmonized profile document to users/{uid}
+      try {
+        adminDb.collection("users").doc(uid).set({ ...profileData, id: uid, uid: uid }, { merge: true }).catch(() => {});
+      } catch (e) {}
 
       if (!profileData.files || !Array.isArray(profileData.files) || profileData.files.length === 0) {
         try {

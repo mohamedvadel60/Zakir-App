@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 
 interface ZakirLoadingScreenProps {
   theme?: "light" | "dark";
@@ -27,6 +27,11 @@ export const ZakirLoadingScreen: React.FC<ZakirLoadingScreenProps> = ({
   theme: propsTheme,
   onComplete,
 }) => {
+  const onCompleteRef = useRef(onComplete);
+  useEffect(() => {
+    onCompleteRef.current = onComplete;
+  });
+
   // Synchronous theme resolution
   const [activeTheme] = useState<"light" | "dark">((): "light" | "dark" => {
     if (propsTheme === "light" || propsTheme === "dark") return propsTheme;
@@ -55,7 +60,7 @@ export const ZakirLoadingScreen: React.FC<ZakirLoadingScreenProps> = ({
       const tFade = setTimeout(() => setStage("fadeout"), 400);
       const tHide = setTimeout(() => {
         setStage("hidden");
-        onComplete?.();
+        onCompleteRef.current?.();
       }, 700);
       return () => {
         clearTimeout(tFade);
@@ -69,7 +74,7 @@ export const ZakirLoadingScreen: React.FC<ZakirLoadingScreenProps> = ({
     const tFadeOut = setTimeout(() => setStage("fadeout"), 1900);
     const tHidden = setTimeout(() => {
       setStage("hidden");
-      onComplete?.();
+      onCompleteRef.current?.();
     }, 2800);
 
     return () => {
@@ -78,7 +83,7 @@ export const ZakirLoadingScreen: React.FC<ZakirLoadingScreenProps> = ({
       clearTimeout(tFadeOut);
       clearTimeout(tHidden);
     };
-  }, [onComplete]);
+  }, []);
 
   if (stage === "hidden") return null;
 

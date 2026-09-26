@@ -57,15 +57,32 @@ export const DocumentVerificationView: React.FC<DocumentVerificationViewProps> =
     currentUser.institutionalProfile?.additionalNotes || ""
   );
 
+  const getDocKey = (d: any) =>
+    String(d?.documentId || d?.id || d?.storageReference || d?.fileName || d?.fileUrl || "");
+
+  const deduplicateDocs = (docs: UploadedVerificationDoc[]) => {
+    const seen = new Set<string>();
+    return (docs || []).filter((doc) => {
+      const key = getDocKey(doc);
+      if (!key || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  };
+
   // Document Storage
   const [personalDocs, setPersonalDocs] = useState<UploadedVerificationDoc[]>(() => {
-    return (currentUser.verificationDocuments || []).filter(
-      (d) => d.category === "personal"
+    return deduplicateDocs(
+      (currentUser.verificationDocuments || []).filter(
+        (d) => d.category === "personal" || !d.category
+      )
     );
   });
   const [companyDocs, setCompanyDocs] = useState<UploadedVerificationDoc[]>(() => {
-    return (currentUser.verificationDocuments || []).filter(
-      (d) => d.category === "company"
+    return deduplicateDocs(
+      (currentUser.verificationDocuments || []).filter(
+        (d) => d.category === "company"
+      )
     );
   });
 
@@ -210,17 +227,41 @@ export const DocumentVerificationView: React.FC<DocumentVerificationViewProps> =
     }
   };
 
-  const removeDoc = (category: "personal" | "company", docId: string) => {
+  const removeDoc = async (category: "personal" | "company", targetDoc: UploadedVerificationDoc | any) => {
+    const targetKey = getDocKey(targetDoc);
+    if (!targetKey) return;
+
     if (category === "personal") {
-      setPersonalDocs((prev) => prev.filter((d) => d.documentId !== docId));
+      setPersonalDocs((prev) => prev.filter((d) => getDocKey(d) !== targetKey));
     } else {
-      setCompanyDocs((prev) => prev.filter((d) => d.documentId !== docId));
+      setCompanyDocs((prev) => prev.filter((d) => getDocKey(d) !== targetKey));
+    }
+
+    if (currentUser.verificationDocuments) {
+      currentUser.verificationDocuments = currentUser.verificationDocuments.filter(
+        (d) => getDocKey(d) !== targetKey
+      );
+    }
+
+    try {
+      await authenticatedFetch("/api/auth/verification-document/delete", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ documentId: targetDoc.documentId || targetDoc.id || targetKey }),
+      });
+    } catch (err) {
+      console.warn("Failed to delete document on server:", err);
     }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitError("");
+
+    const uniquePersonal = deduplicateDocs(personalDocs);
+    const uniqueCompany = deduplicateDocs(companyDocs);
 
     if (!fullName.trim() || !phone.trim()) {
       setSubmitError(
@@ -231,7 +272,7 @@ export const DocumentVerificationView: React.FC<DocumentVerificationViewProps> =
       return;
     }
 
-    if (personalDocs.length === 0) {
+    if (uniquePersonal.length === 0) {
       setSubmitError(
         isAr
           ? "يرجى رفع وثيقة إثبات شخصية رسمية واحدة على الأقل (بطاقة هوية / جواز سفر)."
@@ -260,8 +301,8 @@ export const DocumentVerificationView: React.FC<DocumentVerificationViewProps> =
         sector: hasCompany ? sector.trim() : "",
         country: hasCompany ? country.trim() : "",
         registrationNumber: hasCompany ? registrationNumber.trim() : "",
-        personalDocuments: personalDocs,
-        companyDocuments: hasCompany ? companyDocs : [],
+        personalDocuments: uniquePersonal,
+        companyDocuments: hasCompany ? uniqueCompany : [],
         additionalNotes: additionalNotes.trim(),
       };
 
@@ -290,10 +331,14 @@ export const DocumentVerificationView: React.FC<DocumentVerificationViewProps> =
         accountStatus: "PENDING_ADMIN_REVIEW",
         documentVerificationStatus: "UNDER_REVIEW",
         requiresDocumentVerification: true,
-        verificationDocuments: [
-          ...personalDocs,
-          ...(hasCompany ? companyDocs : []),
-        ],
+        verificationDocuments: deduplicateDocs([
+          ...uniquePersonal,
+          ...(hasCompany ? uniqueCompany : []),
+        ]),
+        documents: deduplicateDocs([
+          ...uniquePersonal,
+          ...(hasCompany ? uniqueCompany : []),
+        ]),
         institutionalProfile: resData.institutionalProfile,
       };
 
@@ -546,45 +591,54 @@ export const DocumentVerificationView: React.FC<DocumentVerificationViewProps> =
               {/* Uploaded Personal Docs List */}
               {personalDocs.length > 0 && (
                 <div className="space-y-2 mt-3">
-                  {personalDocs.map((doc) => (
-                    <div
-                      key={doc.documentId}
-                      className="flex items-center justify-between p-3 rounded-xl bg-slate-100 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700"
-                    >
-                      <div className="flex items-center gap-3 overflow-hidden">
-                        <FileCheck className="w-5 h-5 text-emerald-500 shrink-0" />
-                        <div className="truncate">
-                          <p className="text-xs font-semibold text-slate-900 dark:text-white truncate">
-                            {doc.fileName}
-                          </p>
-                          <div className="flex items-center gap-2 text-[11px] text-slate-500 dark:text-slate-400">
-                            <span>{getDocTypeLabel(doc.docType)}</span>
-                            <span>•</span>
-                            <span>{formatFileSize(doc.size)}</span>
+                  {personalDocs.map((doc, idx) => {
+                    const docKey = getDocKey(doc) || `pdoc_${idx}`;
+                    return (
+                      <div
+                        key={docKey}
+                        className="flex items-center justify-between p-3 rounded-xl bg-slate-100 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700"
+                      >
+                        <div className="flex items-center gap-3 overflow-hidden">
+                          <FileCheck className="w-5 h-5 text-emerald-500 shrink-0" />
+                          <div className="truncate">
+                            <p className="text-xs font-semibold text-slate-900 dark:text-white truncate">
+                              {doc.fileName}
+                            </p>
+                            <div className="flex items-center gap-2 text-[11px] text-slate-500 dark:text-slate-400">
+                              <span>{getDocTypeLabel(doc.docType)}</span>
+                              <span>•</span>
+                              <span>{formatFileSize(doc.size)}</span>
+                            </div>
                           </div>
                         </div>
-                      </div>
 
-                      <div className="flex items-center gap-2 shrink-0">
-                        <button
-                          type="button"
-                          onClick={() => setPreviewDoc({ id: doc.documentId, name: doc.fileName, category: doc.category })}
-                          className="p-1.5 text-slate-500 hover:text-[#0075DE] transition-colors"
-                          title={isAr ? "معاينة الوثيقة" : "Preview"}
-                        >
-                          <Eye className="w-4 h-4" />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => removeDoc("personal", doc.documentId)}
-                          className="p-1.5 text-slate-500 hover:text-rose-500 transition-colors"
-                          title={isAr ? "حذف" : "Remove"}
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setPreviewDoc({
+                                id: doc.documentId || docKey,
+                                name: doc.fileName,
+                                category: doc.category,
+                              })
+                            }
+                            className="p-1.5 text-slate-500 hover:text-[#0075DE] transition-colors"
+                            title={isAr ? "معاينة الوثيقة" : "Preview"}
+                          >
+                            <Eye className="w-4 h-4" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => removeDoc("personal", doc)}
+                            className="p-1.5 text-slate-500 hover:text-rose-500 transition-colors"
+                            title={isAr ? "حذف" : "Remove"}
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>
@@ -765,45 +819,54 @@ export const DocumentVerificationView: React.FC<DocumentVerificationViewProps> =
                       {/* Uploaded Company Docs List */}
                       {companyDocs.length > 0 && (
                         <div className="space-y-2 mt-2">
-                          {companyDocs.map((doc) => (
-                            <div
-                              key={doc.documentId}
-                              className="flex items-center justify-between p-3 rounded-xl bg-slate-100 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700"
-                            >
-                              <div className="flex items-center gap-3 overflow-hidden">
-                                <FileCheck className="w-5 h-5 text-blue-500 shrink-0" />
-                                <div className="truncate">
-                                  <p className="text-xs font-semibold text-slate-900 dark:text-white truncate">
-                                    {doc.fileName}
-                                  </p>
-                                  <div className="flex items-center gap-2 text-[11px] text-slate-500 dark:text-slate-400">
-                                    <span>{getDocTypeLabel(doc.docType)}</span>
-                                    <span>•</span>
-                                    <span>{formatFileSize(doc.size)}</span>
+                          {companyDocs.map((doc, idx) => {
+                            const docKey = getDocKey(doc) || `cdoc_${idx}`;
+                            return (
+                              <div
+                                key={docKey}
+                                className="flex items-center justify-between p-3 rounded-xl bg-slate-100 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700"
+                              >
+                                <div className="flex items-center gap-3 overflow-hidden">
+                                  <FileCheck className="w-5 h-5 text-blue-500 shrink-0" />
+                                  <div className="truncate">
+                                    <p className="text-xs font-semibold text-slate-900 dark:text-white truncate">
+                                      {doc.fileName}
+                                    </p>
+                                    <div className="flex items-center gap-2 text-[11px] text-slate-500 dark:text-slate-400">
+                                      <span>{getDocTypeLabel(doc.docType)}</span>
+                                      <span>•</span>
+                                      <span>{formatFileSize(doc.size)}</span>
+                                    </div>
                                   </div>
                                 </div>
-                              </div>
 
-                              <div className="flex items-center gap-2 shrink-0">
-                                <button
-                                  type="button"
-                                  onClick={() => setPreviewDoc({ id: doc.documentId, name: doc.fileName, category: doc.category })}
-                                  className="p-1.5 text-slate-500 hover:text-[#0075DE] transition-colors"
-                                  title={isAr ? "معاينة الوثيقة" : "Preview"}
-                                >
-                                  <Eye className="w-4 h-4" />
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => removeDoc("company", doc.documentId)}
-                                  className="p-1.5 text-slate-500 hover:text-rose-500 transition-colors"
-                                  title={isAr ? "حذف" : "Remove"}
-                                >
-                                  <Trash2 className="w-4 h-4" />
-                                </button>
+                                <div className="flex items-center gap-2 shrink-0">
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      setPreviewDoc({
+                                        id: doc.documentId || docKey,
+                                        name: doc.fileName,
+                                        category: doc.category,
+                                      })
+                                    }
+                                    className="p-1.5 text-slate-500 hover:text-[#0075DE] transition-colors"
+                                    title={isAr ? "معاينة الوثيقة" : "Preview"}
+                                  >
+                                    <Eye className="w-4 h-4" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => removeDoc("company", doc)}
+                                    className="p-1.5 text-slate-500 hover:text-rose-500 transition-colors"
+                                    title={isAr ? "حذف" : "Remove"}
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                  </button>
+                                </div>
                               </div>
-                            </div>
-                          ))}
+                            );
+                          })}
                         </div>
                       )}
                     </div>

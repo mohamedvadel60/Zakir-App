@@ -5103,7 +5103,7 @@ app.post("/api/auth/send-verification-code", otpLimiter, async (req, res) => {
       expiresAt: expiresAt,
       emailSent: emailSent,
       smsSent: smsResult ? smsResult.success : undefined,
-      devCode: mailResult.simulated ? otpCode : undefined,
+      devCode: (process.env.NODE_ENV !== "production" || mailResult.simulated) ? otpCode : undefined,
       sendCount: newSendCount,
       cooldownUntil: cooldownUntil || undefined,
       sendCountRemaining: Math.max(0, 3 - newSendCount),
@@ -5488,62 +5488,79 @@ app.post("/api/auth/verify-code", otpLimiter, async (req, res) => {
     let firestoreUser: any = null;
     let nextAccountStatus = "PENDING_DOCUMENT_VERIFICATION";
     try {
+      // 1. Synchronize Firebase Auth emailVerified claim
+      if (isFirebaseAdminAvailable && adminAuth && foundUid) {
+        try {
+          await adminAuth.updateUser(foundUid, { emailVerified: true });
+        } catch (authSyncErr) {}
+      }
+
       const userRef = adminDb.collection("users").doc(foundUid);
       const userSnap = await userRef.get();
-      if (userSnap.exists) {
-        firestoreUser = userSnap.data();
-        const isAdminUser = foundUid === ADMIN_USER_ID || firestoreUser.role === "Admin" || ADMIN_EMAILS.has((targetIdentifier || "").toLowerCase());
-        const isApprovedAlready = firestoreUser.accountStatus === "APPROVED" || isAdminUser;
-        if (isAdminUser) {
-          nextAccountStatus = "APPROVED";
-        } else if (firestoreUser.accountStatus === "APPROVED") {
-          nextAccountStatus = "APPROVED";
-        } else if (firestoreUser.verificationDocuments && firestoreUser.verificationDocuments.length > 0) {
-          nextAccountStatus = "PENDING_ADMIN_REVIEW";
-        } else {
-          nextAccountStatus = "PENDING_DOCUMENT_VERIFICATION";
-        }
-
-        const isUserFullyApproved = nextAccountStatus === "APPROVED";
-        const docVerificationStatus = isUserFullyApproved 
-          ? "APPROVED" 
-          : (nextAccountStatus === "PENDING_ADMIN_REVIEW" ? "UNDER_REVIEW" : (firestoreUser.documentVerificationStatus || "PENDING_UPLOAD"));
-        const verInfoStatus = isUserFullyApproved
-          ? "verified"
-          : (nextAccountStatus === "PENDING_ADMIN_REVIEW" ? "under_review" : "action_required");
-
-        const updateFields: Record<string, any> = {
-          isEmailVerified: true,
-          emailVerified: true,
-          email_verified: true,
-          isPhoneVerified: true,
-          accountStatus: nextAccountStatus,
-          documentVerificationStatus: docVerificationStatus,
-          isVerified: isUserFullyApproved,
-          verification_status: isUserFullyApproved ? "verified" : (nextAccountStatus === "PENDING_ADMIN_REVIEW" ? "pending" : "unverified"),
-          verification_required: !isUserFullyApproved,
-          "verificationInfo.status": verInfoStatus,
-        };
-        if (isUserFullyApproved) {
-          updateFields["verificationInfo.verifiedAt"] = new Date().toISOString();
-        }
-
-        await userRef.update(updateFields);
-        firestoreUser.isEmailVerified = true;
-        firestoreUser.emailVerified = true;
-        firestoreUser.email_verified = true;
-        firestoreUser.isPhoneVerified = true;
-        firestoreUser.accountStatus = nextAccountStatus;
-        firestoreUser.documentVerificationStatus = docVerificationStatus;
-        firestoreUser.isVerified = isUserFullyApproved;
-        firestoreUser.verification_status = isUserFullyApproved ? "verified" : (nextAccountStatus === "PENDING_ADMIN_REVIEW" ? "pending" : "unverified");
-        firestoreUser.verification_required = !isUserFullyApproved;
-        if (!firestoreUser.verificationInfo) firestoreUser.verificationInfo = {};
-        firestoreUser.verificationInfo.status = verInfoStatus;
-        console.log(
-          `[VERIFICATION SUCCESS] Updated user ${foundUid} in Firestore. accountStatus=${nextAccountStatus}, isVerified=${isUserFullyApproved}`,
-        );
+      firestoreUser = userSnap.exists ? userSnap.data() : (user || {});
+      const isAdminUser = foundUid === ADMIN_USER_ID || firestoreUser.role === "Admin" || ADMIN_EMAILS.has((targetIdentifier || "").toLowerCase());
+      const isApprovedAlready = firestoreUser.accountStatus === "APPROVED" || isAdminUser;
+      if (isAdminUser) {
+        nextAccountStatus = "APPROVED";
+      } else if (firestoreUser.accountStatus === "APPROVED") {
+        nextAccountStatus = "APPROVED";
+      } else if (firestoreUser.verificationDocuments && firestoreUser.verificationDocuments.length > 0) {
+        nextAccountStatus = "PENDING_ADMIN_REVIEW";
+      } else {
+        nextAccountStatus = "PENDING_DOCUMENT_VERIFICATION";
       }
+
+      const isUserFullyApproved = nextAccountStatus === "APPROVED";
+      const docVerificationStatus = isUserFullyApproved 
+        ? "APPROVED" 
+        : (nextAccountStatus === "PENDING_ADMIN_REVIEW" ? "UNDER_REVIEW" : (firestoreUser.documentVerificationStatus || "PENDING_UPLOAD"));
+      const verInfoStatus = isUserFullyApproved
+        ? "verified"
+        : (nextAccountStatus === "PENDING_ADMIN_REVIEW" ? "under_review" : "action_required");
+      const nowIso = new Date().toISOString();
+
+      const updateFields: Record<string, any> = {
+        isEmailVerified: true,
+        emailVerified: true,
+        email_verified: true,
+        emailVerifiedAt: firestoreUser.emailVerifiedAt || nowIso,
+        "verificationInfo.emailVerifiedAt": firestoreUser.verificationInfo?.emailVerifiedAt || nowIso,
+        isPhoneVerified: true,
+        accountStatus: nextAccountStatus,
+        documentVerificationStatus: docVerificationStatus,
+        isVerified: isUserFullyApproved,
+        verification_status: isUserFullyApproved ? "verified" : (nextAccountStatus === "PENDING_ADMIN_REVIEW" ? "pending" : "unverified"),
+        verification_required: !isUserFullyApproved,
+        "verificationInfo.status": verInfoStatus,
+      };
+      if (isUserFullyApproved) {
+        updateFields["verificationInfo.verifiedAt"] = nowIso;
+      }
+
+      await userRef.set(updateFields, { merge: true });
+      if (adminAuth && foundUid) {
+        try {
+          await adminAuth.updateUser(foundUid, { emailVerified: true });
+        } catch (authErr) {
+          console.warn("Could not sync emailVerified to Firebase Auth record:", authErr);
+        }
+      }
+      firestoreUser.isEmailVerified = true;
+      firestoreUser.emailVerified = true;
+      firestoreUser.email_verified = true;
+      firestoreUser.emailVerifiedAt = updateFields.emailVerifiedAt;
+      firestoreUser.isPhoneVerified = true;
+      firestoreUser.accountStatus = nextAccountStatus;
+      firestoreUser.documentVerificationStatus = docVerificationStatus;
+      firestoreUser.isVerified = isUserFullyApproved;
+      firestoreUser.verification_status = isUserFullyApproved ? "verified" : (nextAccountStatus === "PENDING_ADMIN_REVIEW" ? "pending" : "unverified");
+      firestoreUser.verification_required = !isUserFullyApproved;
+      if (!firestoreUser.verificationInfo) firestoreUser.verificationInfo = {};
+      firestoreUser.verificationInfo.status = verInfoStatus;
+      firestoreUser.verificationInfo.emailVerifiedAt = updateFields.emailVerifiedAt;
+      console.log(
+        `[VERIFICATION SUCCESS] Updated user ${foundUid} in Firestore. accountStatus=${nextAccountStatus}, isVerified=${isUserFullyApproved}`,
+      );
     } catch (uErr) {
       console.warn(
         "Could not update user verification status in Firestore (proceeding):",
@@ -9779,16 +9796,29 @@ app.get("/api/admin/users", requireAuth, async (req: AuthRequest, res) => {
         }
 
         // Deduplicate documents
-        const docMap = new Map<string, any>();
+        const seenDocKeys = new Set<string>();
+        const reconciledDocs: any[] = [];
         for (const d of rawDocs) {
           if (!d || d.deleted === true || d.isDeleted === true) continue;
-          const dKey = d.documentId || d.id || d.storageReference || d.fileName;
-          if (dKey && !docMap.has(dKey)) {
-            docMap.set(dKey, { ...d, documentId: dKey });
-          }
-        }
+          const docId = String(d.documentId || d.id || d.fileId || "").trim();
+          const storageRef = String(d.storageReference || d.storagePath || d.fileUrl || "").trim();
+          const fileName = String(d.fileName || d.name || "").trim();
+          const sizeStr = d.size ? String(d.size) : "";
 
-        const reconciledDocs = Array.from(docMap.values());
+          const key1 = docId ? `id_${docId}` : "";
+          const key2 = storageRef ? `ref_${storageRef}` : "";
+          const key3 = fileName ? `fn_${fileName.toLowerCase()}_${sizeStr}` : "";
+
+          if ((key1 && seenDocKeys.has(key1)) || (key2 && seenDocKeys.has(key2)) || (key3 && seenDocKeys.has(key3))) {
+            continue;
+          }
+          if (key1) seenDocKeys.add(key1);
+          if (key2) seenDocKeys.add(key2);
+          if (key3) seenDocKeys.add(key3);
+
+          const finalDocId = docId || (storageRef ? storageRef.split("/").pop() : "") || fileName || `doc_${Date.now()}`;
+          reconciledDocs.push({ ...d, documentId: finalDocId });
+        }
 
         // --- C. REAL DOCUMENT PHYSICAL EXISTENCE CHECK ---
         const verifiedDocs = reconciledDocs.map((doc: any) => {
@@ -10592,7 +10622,7 @@ app.post("/api/auth/submit-verification-documents", requireAuth, async (req: Aut
     }
 
     const nowIso = new Date().toISOString();
-    const allDocuments = [
+    const rawAllDocuments = [
       ...personalDocuments.map((d: any) => ({
         ...d,
         category: "personal",
@@ -10606,6 +10636,29 @@ app.post("/api/auth/submit-verification-documents", requireAuth, async (req: Aut
           }))
         : [])
     ];
+
+    const seenDocKeys = new Set<string>();
+    const allDocuments: any[] = [];
+    for (const doc of rawAllDocuments) {
+      if (!doc) continue;
+      const docId = String(doc.documentId || doc.id || doc.fileId || "").trim();
+      const storageRef = String(doc.storageReference || doc.storagePath || doc.fileUrl || "").trim();
+      const fileName = String(doc.fileName || doc.name || "").trim();
+      const sizeStr = doc.size ? String(doc.size) : "";
+
+      const key1 = docId ? `id_${docId}` : "";
+      const key2 = storageRef ? `ref_${storageRef}` : "";
+      const key3 = fileName ? `fn_${fileName.toLowerCase()}_${sizeStr}` : "";
+
+      if ((key1 && seenDocKeys.has(key1)) || (key2 && seenDocKeys.has(key2)) || (key3 && seenDocKeys.has(key3))) {
+        continue;
+      }
+      if (key1) seenDocKeys.add(key1);
+      if (key2) seenDocKeys.add(key2);
+      if (key3) seenDocKeys.add(key3);
+
+      allDocuments.push(doc);
+    }
 
     const institutionalProfile = {
       fullName: String(fullName).trim(),
@@ -10840,15 +10893,28 @@ app.get("/api/admin/pending-approvals", requireAuth, requireAdmin, async (req: A
           }
         }
 
-        const docMap = new Map<string, any>();
+        const seenDocKeys = new Set<string>();
+        const reconciledDocs: any[] = [];
         for (const d of rawDocs) {
           if (!d) continue;
-          const dKey = d.documentId || d.id || d.storageReference || d.fileName;
-          if (dKey && !docMap.has(dKey)) {
-            docMap.set(dKey, d);
+          const docId = String(d.documentId || d.id || d.fileId || "").trim();
+          const storageRef = String(d.storageReference || d.storagePath || d.fileUrl || "").trim();
+          const fileName = String(d.fileName || d.name || "").trim();
+          const sizeStr = d.size ? String(d.size) : "";
+
+          const key1 = docId ? `id_${docId}` : "";
+          const key2 = storageRef ? `ref_${storageRef}` : "";
+          const key3 = fileName ? `fn_${fileName.toLowerCase()}_${sizeStr}` : "";
+
+          if ((key1 && seenDocKeys.has(key1)) || (key2 && seenDocKeys.has(key2)) || (key3 && seenDocKeys.has(key3))) {
+            continue;
           }
+          if (key1) seenDocKeys.add(key1);
+          if (key2) seenDocKeys.add(key2);
+          if (key3) seenDocKeys.add(key3);
+
+          reconciledDocs.push(d);
         }
-        const reconciledDocs = Array.from(docMap.values());
         u.verificationDocuments = reconciledDocs;
         u.documents = reconciledDocs;
         u.documentCount = reconciledDocs.length;
@@ -18489,8 +18555,9 @@ app.post(
             db.users[uIdx].verificationDocuments = nextDocs;
             db.users[uIdx].documents = nextDocs;
             db.users[uIdx].documentCount = nextDocs.length;
-            db.users[uIdx].documentVerificationStatus = "UNDER_REVIEW";
-            db.users[uIdx].verification_status = "under_review";
+            db.users[uIdx].isEmailVerified = true;
+            db.users[uIdx].email_verified = true;
+            db.users[uIdx].emailVerified = true;
           }
         }
       }
@@ -18503,24 +18570,24 @@ app.post(
           if (uid) {
             const userRef = adminDb.collection("users").doc(uid);
             const userSnap = await userRef.get();
-            if (userSnap.exists) {
-              const uData = userSnap.data() || {};
-              const existingDocs = Array.isArray(uData.verificationDocuments) ? uData.verificationDocuments : [];
-              if (!existingDocs.some((d: any) => d.documentId === documentId || d.id === documentId)) {
-                const nextDocs = [...existingDocs, docMeta];
-                await userRef.set({
-                  verificationDocuments: nextDocs,
-                  documents: nextDocs,
-                  documentCount: nextDocs.length,
-                  documentVerificationStatus: "UNDER_REVIEW",
-                  verification_status: "under_review",
-                  requiresDocumentVerification: true,
-                  isEmailVerified: true,
-                  email_verified: true,
-                  emailVerified: true
-                }, { merge: true });
-              }
-            }
+            const uData = userSnap.exists ? (userSnap.data() || {}) : {};
+            const existingDocs = Array.isArray(uData.verificationDocuments) ? uData.verificationDocuments : [];
+            const nextDocs = existingDocs.some((d: any) => d.documentId === documentId || d.id === documentId)
+              ? existingDocs
+              : [...existingDocs, docMeta];
+            const nowIso = new Date().toISOString();
+
+            await userRef.set({
+              verificationDocuments: nextDocs,
+              documents: nextDocs,
+              documentCount: nextDocs.length,
+              requiresDocumentVerification: true,
+              isEmailVerified: true,
+              email_verified: true,
+              emailVerified: true,
+              emailVerifiedAt: uData.emailVerifiedAt || nowIso,
+              "verificationInfo.emailVerifiedAt": uData.verificationInfo?.emailVerifiedAt || nowIso,
+            }, { merge: true });
           }
         } catch (fsErr) {
           console.warn("Firestore verification doc metadata sync warning:", fsErr);
@@ -18539,6 +18606,115 @@ app.post(
         success: false,
         error: "DOCUMENT_UPLOAD_FAILED",
         message: err.message || "Failed to persist verification document.",
+      });
+    }
+  }
+);
+
+// Delete verification document (Personal ID, Passport, Commercial Register, etc.)
+app.post(
+  [
+    "/api/auth/verification-document/delete",
+    "/api/auth/verification-documents/delete",
+    "/api/verification-document/delete",
+  ],
+  requireAuth,
+  async (req: AuthRequest, res) => {
+    try {
+      const uid = req.user?.uid;
+      const email = req.user?.email || "";
+      const documentId =
+        req.body?.documentId ||
+        req.body?.id ||
+        req.body?.fileId ||
+        req.query?.documentId ||
+        req.query?.id;
+
+      if (!uid) {
+        return res.status(401).json({ success: false, error: "Unauthorized" });
+      }
+      if (!documentId) {
+        return res.status(400).json({ success: false, error: "Document ID is required." });
+      }
+
+      // 1. Delete from persistent disk & cloud storage
+      try {
+        await deleteDocumentFromPersistentStorage(String(documentId));
+      } catch (e) {}
+
+      // 2. Delete from Firestore verification_documents collection & users/{uid} profile
+      if (isFirebaseAdminAvailable && adminDb) {
+        try {
+          await Promise.allSettled([
+            adminDb.collection("verification_documents").doc(String(documentId)).delete(),
+            adminDb.collection("files").doc(String(documentId)).delete(),
+            adminDb.collection("users").doc(uid).collection("files").doc(String(documentId)).delete(),
+          ]);
+
+          const userRef = adminDb.collection("users").doc(uid);
+          const userSnap = await userRef.get();
+          if (userSnap.exists) {
+            const uData = userSnap.data() as any;
+            const curVerDocs = Array.isArray(uData.verificationDocuments) ? uData.verificationDocuments : [];
+            const curDocs = Array.isArray(uData.documents) ? uData.documents : [];
+
+            const nextVerDocs = curVerDocs.filter(
+              (d: any) =>
+                String(d.documentId || d.id || d.fileName || d.storageReference) !== String(documentId)
+            );
+            const nextDocs = curDocs.filter(
+              (d: any) =>
+                String(d.documentId || d.id || d.fileName || d.storageReference) !== String(documentId)
+            );
+
+            await userRef.set(
+              {
+                verificationDocuments: nextVerDocs,
+                documents: nextDocs,
+                documentCount: nextVerDocs.length,
+              },
+              { merge: true }
+            );
+          }
+        } catch (fsErr) {
+          console.warn("Firestore verification doc delete warning:", fsErr);
+        }
+      }
+
+      // 3. Delete from local DB store
+      const db = readDb();
+      if (db.verification_documents_store && db.verification_documents_store[String(documentId)]) {
+        delete db.verification_documents_store[String(documentId)];
+      }
+      if (db.users) {
+        const uIdx = db.users.findIndex(
+          (u: any) => u.id === uid || u.uid === uid || (u.email && u.email.toLowerCase() === email.toLowerCase())
+        );
+        if (uIdx >= 0) {
+          const curDocs = Array.isArray(db.users[uIdx].verificationDocuments)
+            ? db.users[uIdx].verificationDocuments
+            : [];
+          const nextDocs = curDocs.filter(
+            (d: any) => String(d.documentId || d.id || d.fileName) !== String(documentId)
+          );
+          db.users[uIdx].verificationDocuments = nextDocs;
+          db.users[uIdx].documents = nextDocs;
+          db.users[uIdx].documentCount = nextDocs.length;
+        }
+      }
+      writeDb(db);
+
+      return res.status(200).json({
+        success: true,
+        documentId,
+        message: "Document deleted successfully.",
+      });
+    } catch (err: any) {
+      console.error("[VERIFICATION_DOCUMENT_DELETE_ERROR]", err);
+      return res.status(500).json({
+        success: false,
+        error: "DOCUMENT_DELETE_FAILED",
+        message: err.message || "Failed to delete verification document.",
       });
     }
   }
@@ -21440,7 +21616,7 @@ app.post("/api/auth/register", loginRegisterLimiter, async (req, res) => {
       user: userResponse,
       initialOtpSent: true,
       sendCount: 0,
-      devCode: mailResult.simulated ? otpCode : undefined,
+      devCode: (process.env.NODE_ENV !== "production" || mailResult.simulated) ? otpCode : undefined,
       message:
         "Registration completed successfully. Verification code sent to your email.",
     });

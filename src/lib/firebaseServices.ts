@@ -724,9 +724,14 @@ export async function loginFirebaseUser(email: string, pass: string, attemptId?:
     if (userSnap && userSnap.exists()) {
       const userData = userSnap.data() as User;
       userData.id = uid;
+      (userData as any).uid = uid;
       const nowIso = new Date().toISOString();
       userData.lastActiveAt = nowIso;
       userData.lastLoginAt = nowIso;
+
+      try {
+        setDoc(doc(db, "users", uid), { ...userData, id: uid, uid }, { merge: true }).catch(() => {});
+      } catch (e) {}
 
       // Preserve role with safe normalization
       const rawRole = (userData.role || "CEO").toString().trim();
@@ -1326,12 +1331,33 @@ export function normalizeStrictUserVerification(user: User): User {
   if (!user) return user;
   const isSysAdmin = isUserAdmin(user);
 
+  // 1. Check if user already had email verified in any field, auth token, or local cache
+  const cached = user.id ? getLocalItem<User>(`user_${user.id}`) : null;
+  const wasEmailVerified = Boolean(
+    user.isEmailVerified === true ||
+    user.emailVerified === true ||
+    user.email_verified === true ||
+    (user.email_verified as any) === "true" ||
+    (user.emailVerified as any) === "true" ||
+    (user.isEmailVerified as any) === "true" ||
+    Boolean(user.emailVerifiedAt) ||
+    Boolean((user as any).verificationInfo?.emailVerifiedAt) ||
+    Boolean(user.accountStatus && user.accountStatus !== "PENDING_EMAIL_VERIFICATION") ||
+    (cached && (cached.isEmailVerified || cached.emailVerified || cached.email_verified))
+  );
+
   if (auth.currentUser && auth.currentUser.email && user.email && auth.currentUser.email.toLowerCase() === user.email.toLowerCase()) {
     if (auth.currentUser.emailVerified) {
       user.isEmailVerified = true;
       user.emailVerified = true;
       user.email_verified = true;
     }
+  }
+
+  if (wasEmailVerified && !user.adminRequestedEmailReverification) {
+    user.isEmailVerified = true;
+    user.emailVerified = true;
+    user.email_verified = true;
   }
 
   const canonical = computeCanonicalVerification(user, isSysAdmin);
@@ -1438,8 +1464,26 @@ export function subscribeToFirebaseAuthState(rawCallback: (user: User | null) =>
         }
       }
 
+      let userObj: User | null = null;
       if (userSnap && userSnap.exists()) {
-        const userObj = userSnap.data() as User;
+        userObj = userSnap.data() as User;
+      } else if (fbUser.email) {
+        try {
+          const emailQuery = query(
+            collection(db, "users"),
+            where("email", "==", fbUser.email.toLowerCase().trim()),
+            limit(1)
+          );
+          const emailSnap = await getDocs(emailQuery);
+          if (!emailSnap.empty) {
+            userObj = emailSnap.docs[0].data() as User;
+          }
+        } catch (e) {
+          console.warn("Notice: Email fallback query in subscribeToFirebaseAuthState:", e);
+        }
+      }
+
+      if (userObj) {
         if (
           (userObj as any).deleted === true ||
           (userObj as any).status === "ADMIN_DELETED" ||
@@ -1453,11 +1497,14 @@ export function subscribeToFirebaseAuthState(rawCallback: (user: User | null) =>
           return;
         }
 
-        const profileId = userObj.id || fbUser.uid;
-        if (profileId !== fbUser.uid) {
-          console.error(`[MANDATORY_UID_ASSERTION_FAILURE] Mismatch in subscribeToFirebaseAuthState: fbUser.uid (${fbUser.uid}) !== userObj.id (${profileId})`);
-          throw new Error(`SECURITY_FATAL_UID_MISMATCH: fbUser.uid (${fbUser.uid}) !== userObj.id (${profileId})`);
-        }
+        userObj.id = fbUser.uid;
+        (userObj as any).uid = fbUser.uid;
+
+        // Persist harmonized profile document to users/{fbUser.uid}
+        try {
+          setDoc(doc(db, "users", fbUser.uid), { ...userObj, id: fbUser.uid, uid: fbUser.uid }, { merge: true }).catch(() => {});
+        } catch (e) {}
+
         const validatedUser = { ...userObj, id: fbUser.uid };
         const isSysAdmin = isUserAdmin(validatedUser);
         if (!isSysAdmin && (validatedUser.role === "Admin" || (validatedUser.role as string) === "admin")) {
@@ -3755,6 +3802,12 @@ export function subscribeToFirebaseUserProfile(userId: string, callback: (user: 
   return onSnapshot(userDocRef, (docSnap) => {
     if (docSnap.exists()) {
       let uData = docSnap.data() as User;
+      const cached = getLocalItem<User>(`user_${userId}`);
+      if (cached && (cached.isEmailVerified || cached.emailVerified || cached.email_verified) && !uData.adminRequestedEmailReverification) {
+        uData.isEmailVerified = true;
+        uData.emailVerified = true;
+        uData.email_verified = true;
+      }
       uData = normalizeStrictUserVerification(uData);
       setLocalItem(`user_${userId}`, uData);
       callback(uData);

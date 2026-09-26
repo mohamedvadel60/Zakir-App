@@ -42,7 +42,29 @@ export const PendingApprovalView: React.FC<PendingApprovalViewProps> = ({
   const [previewDoc, setPreviewDoc] = useState<{ id: string; name: string; category?: string } | null>(null);
 
   const profile = currentUser.institutionalProfile;
-  const docs = currentUser.verificationDocuments || [];
+  const rawDocs = currentUser.verificationDocuments || [];
+  const seenKeys = new Set<string>();
+  const docs: any[] = [];
+  for (const d of (rawDocs as any[])) {
+    if (!d) continue;
+    const docId = String(d.documentId || d.id || d.fileId || "").trim();
+    const storageRef = String(d.storageReference || d.storagePath || d.fileUrl || "").trim();
+    const fileName = String(d.fileName || d.name || "").trim();
+    const sizeStr = d.size ? String(d.size) : "";
+
+    const key1 = docId ? `id_${docId}` : "";
+    const key2 = storageRef ? `ref_${storageRef}` : "";
+    const key3 = fileName ? `fn_${fileName.toLowerCase()}_${sizeStr}` : "";
+
+    if ((key1 && seenKeys.has(key1)) || (key2 && seenKeys.has(key2)) || (key3 && seenKeys.has(key3))) {
+      continue;
+    }
+    if (key1) seenKeys.add(key1);
+    if (key2) seenKeys.add(key2);
+    if (key3) seenKeys.add(key3);
+
+    docs.push(d);
+  }
 
   const handleRefreshClick = async () => {
     setIsRefreshing(true);
@@ -270,9 +292,11 @@ export const PendingApprovalView: React.FC<PendingApprovalViewProps> = ({
                   {isAr ? "المستندات المرفقة للتدقيق:" : "Attached Documents for Verification:"}
                 </span>
                 <div className="space-y-1.5">
-                  {docs.map((doc) => (
-                    <div
-                      key={doc.documentId}
+                  {docs.map((doc, idx) => {
+                    const docKey = doc.documentId || doc.id || doc.fileName || `pdoc_${idx}`;
+                    return (
+                      <div
+                        key={docKey}
                       className="flex items-center justify-between p-2.5 rounded-lg bg-white dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 text-xs"
                     >
                       <div className="flex items-center gap-2 truncate">
@@ -292,7 +316,8 @@ export const PendingApprovalView: React.FC<PendingApprovalViewProps> = ({
                         <span>{isAr ? "معاينة" : "Preview"}</span>
                       </button>
                     </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             )}

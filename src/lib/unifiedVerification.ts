@@ -147,15 +147,25 @@ export function normalizeUserDocuments(userData: any, extraDocs?: any[]): Unifie
   for (const doc of rawDocs) {
     if (!doc || doc.deleted === true || doc.isDeleted === true) continue;
 
-    const rawId = doc.documentId || doc.id || doc.storageReference || doc.storagePath || doc.fileName || doc.name;
-    const documentId = String(rawId || `doc_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`);
+    const docId = String(doc.documentId || doc.id || doc.fileId || "").trim();
+    const storageRef = String(doc.storageReference || doc.storagePath || doc.fileUrl || "").trim();
+    const fileName = String(doc.fileName || doc.name || "").trim();
+    const sizeStr = doc.size ? String(doc.size) : (doc.fileSize ? String(doc.fileSize) : "");
 
-    // Clean unique key: do not duplicate exact document
-    const cleanKey = `${documentId}_${doc.fileName || doc.name || ""}`;
-    if (seenIds.has(cleanKey)) continue;
-    seenIds.add(cleanKey);
+    // Check multiple duplicate key signatures so documents don't duplicate across different array sources
+    const key1 = docId ? `id_${docId}` : "";
+    const key2 = storageRef ? `ref_${storageRef}` : "";
+    const key3 = fileName ? `fn_${fileName.toLowerCase()}_${sizeStr}` : "";
 
-    const fileName = doc.fileName || doc.name || "Verification_Document";
+    if ((key1 && seenIds.has(key1)) || (key2 && seenIds.has(key2)) || (key3 && seenIds.has(key3))) {
+      continue;
+    }
+    if (key1) seenIds.add(key1);
+    if (key2) seenIds.add(key2);
+    if (key3) seenIds.add(key3);
+
+    const documentId = docId || (storageRef ? storageRef.split("/").pop() : "") || (fileName ? fileName : `doc_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`);
+    const displayFileName = fileName || "Verification_Document";
     const category: "personal" | "company" | "other" =
       doc.category === "company" ? "company" : (doc.category === "personal" ? "personal" : (doc.category === "other" ? "other" : "personal"));
 
@@ -178,8 +188,8 @@ export function normalizeUserDocuments(userData: any, extraDocs?: any[]): Unifie
     const uDoc: UnifiedDocument = {
       documentId,
       id: documentId,
-      fileName,
-      name: fileName,
+      fileName: displayFileName,
+      name: displayFileName,
       mimeType: doc.mimeType || "application/pdf",
       size: typeof doc.size === "number" ? doc.size : (typeof doc.fileSize === "number" ? doc.fileSize : 0),
       category,
@@ -301,7 +311,10 @@ export function computeCanonicalVerification(
     Boolean(full.emailVerifiedAt) ||
     Boolean(userData.emailVerifiedAt) ||
     Boolean(full.verificationInfo?.emailVerifiedAt) ||
-    Boolean(userData.verificationInfo?.emailVerifiedAt)
+    Boolean(userData.verificationInfo?.emailVerifiedAt) ||
+    Boolean(full.accountStatus && full.accountStatus !== "PENDING_EMAIL_VERIFICATION") ||
+    Boolean(userData.accountStatus && userData.accountStatus !== "PENDING_EMAIL_VERIFICATION") ||
+    documentCount > 0
   );
 
   const isEmailVer = rawEmailVerified && !adminRequestedReverification;
@@ -340,7 +353,7 @@ export function computeCanonicalVerification(
 
   const hasRejectedDoc = documents.some((d) => d.status === "REJECTED");
   const isExplicitlyAdminApproved = Boolean(
-    (full.approvedBy && full.approvedAt) || (userData.approvedBy && userData.approvedAt)
+    (full.approvedBy && full.approvedAt) || (userData.approvedBy && userData.approvedAt) || full.approvedAt || userData.approvedAt
   );
 
   let canonicalStatus: CanonicalVerificationState = "not_started";
@@ -362,18 +375,33 @@ export function computeCanonicalVerification(
       ? `تم رفض طلب اعتماد الحساب: ${rejectionReason}`
       : "تم رفض طلب الاعتماد. يرجى مراجعة البيانات وإعادة تقديم المستندات المطلوبة.";
   }
-  // 2. APPROVED STATE (State D) - STRICT RULE: Only when Admin explicitly approved OR explicit override
-  else if (
-    (rawAccStatus === "APPROVED" || rawAccStatus === "ACTIVE") &&
-    (isExplicitlyAdminApproved || hasExplicitOverride)
-  ) {
+  // 2. APPROVED STATE (State D)
+  else if (rawAccStatus === "APPROVED" || rawAccStatus === "ACTIVE") {
     canonicalStatus = "approved";
     accountStatus = "APPROVED";
-    documentVerificationStatus = "APPROVED";
-    kycStatus = "VERIFIED";
-    uiState = "VERIFIED";
-    isFullyApproved = true;
-    userFriendlyMessage = "تم اعتماد وتوثيق الحساب رسمياً.";
+
+    const hasPendingDoc = documents.some((d) => d.status === "PENDING" || d.status === "UNDER_REVIEW");
+    const allApprovedDocs = documentCount > 0 && documents.every((d) => d.status === "APPROVED" || d.verificationStatus === "APPROVED");
+
+    if (hasExplicitOverride || (documentCount > 0 && allApprovedDocs)) {
+      documentVerificationStatus = "APPROVED";
+      kycStatus = "VERIFIED";
+      uiState = "VERIFIED";
+      isFullyApproved = true;
+      userFriendlyMessage = "تم اعتماد وتوثيق الحساب رسمياً.";
+    } else if (documentCount > 0 && (hasPendingDoc || rawDocStatus === "UNDER_REVIEW" || rawReqStatus === "UNDER_REVIEW")) {
+      documentVerificationStatus = "UNDER_REVIEW";
+      kycStatus = "UNDER_REVIEW";
+      uiState = "PENDING_REVIEW";
+      isFullyApproved = false;
+      userFriendlyMessage = "الحساب معتمد، ووثائق التوثيق المؤسسي قيد المراجعة.";
+    } else {
+      documentVerificationStatus = "NOT_SUBMITTED";
+      kycStatus = "NOT_VERIFIED";
+      uiState = "NO_REQUEST";
+      isFullyApproved = false;
+      userFriendlyMessage = "الحساب معتمد ومفعل بالكامل.";
+    }
   }
   // 3. PENDING STATE (State B) - User submitted documents/request and waiting for admin review
   else if (
@@ -385,9 +413,8 @@ export function computeCanonicalVerification(
     rawReqStatus === "PENDING" ||
     rawReqStatus === "SUBMITTED" ||
     rawReqStatus === "DOCUMENTS_SUBMITTED" ||
-    full.verificationSubmittedAt ||
-    full.verificationInfo?.submittedAt ||
-    (documentCount > 0 && rawAccStatus !== "APPROVED")
+    Boolean(full.verificationSubmittedAt || userData.verificationSubmittedAt || full.verificationInfo?.submittedAt || userData.verificationInfo?.submittedAt) ||
+    (documentCount > 0 && rawAccStatus !== "APPROVED" && rawAccStatus !== "PENDING_DOCUMENT_VERIFICATION" && rawAccStatus !== "PENDING_INSTITUTIONAL_DATA" && rawDocStatus !== "PENDING_UPLOAD")
   ) {
     canonicalStatus = "pending";
     accountStatus = "PENDING_ADMIN_REVIEW";
@@ -399,8 +426,10 @@ export function computeCanonicalVerification(
   // 4. NOT STARTED STATE (State A) - User has not started or not finished uploading documents
   else {
     canonicalStatus = "not_started";
-    accountStatus = isEmailVer ? "VERIFICATION_REQUIRED" : "PENDING_EMAIL_VERIFICATION";
-    documentVerificationStatus = "NOT_SUBMITTED";
+    accountStatus = isEmailVer 
+      ? (rawAccStatus === "PENDING_INSTITUTIONAL_DATA" ? "PENDING_INSTITUTIONAL_DATA" : (rawAccStatus === "VERIFICATION_REQUIRED" ? "VERIFICATION_REQUIRED" : "PENDING_DOCUMENT_VERIFICATION")) 
+      : "PENDING_EMAIL_VERIFICATION";
+    documentVerificationStatus = rawDocStatus === "PENDING_UPLOAD" ? "PENDING_UPLOAD" : "NOT_SUBMITTED";
     kycStatus = "NOT_VERIFIED";
     uiState = "NO_REQUEST";
     userFriendlyMessage = isEmailVer

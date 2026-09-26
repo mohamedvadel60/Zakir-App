@@ -129,11 +129,33 @@ export const AdminVerificationsTab: React.FC<AdminVerificationsTabProps> = ({
       {/* List of Pending Verifications */}
       <div className="space-y-3">
         {pendingApprovals.map((req) => {
-          const docs = (Array.isArray(req.documents) && req.documents.length > 0)
-            ? req.documents
-            : (Array.isArray(req.verificationDocuments) && req.verificationDocuments.length > 0)
-            ? req.verificationDocuments
-            : (Array.isArray(req.files) ? req.files.filter((f: any) => f && (f.category === "Verification" || f.isVerificationDoc)) : []);
+          const rawDocsList = [
+            ...(Array.isArray(req.documents) ? req.documents : []),
+            ...(Array.isArray(req.verificationDocuments) ? req.verificationDocuments : []),
+            ...(Array.isArray(req.files) ? req.files.filter((f: any) => f && (f.category === "Verification" || f.isVerificationDoc)) : [])
+          ];
+          const seenKeys = new Set<string>();
+          const docs: any[] = [];
+          for (const d of rawDocsList) {
+            if (!d) continue;
+            const docId = String(d.documentId || d.id || d.fileId || "").trim();
+            const storageRef = String(d.storageReference || d.storagePath || d.fileUrl || "").trim();
+            const fileName = String(d.fileName || d.name || "").trim();
+            const sizeStr = d.size ? String(d.size) : "";
+
+            const key1 = docId ? `id_${docId}` : "";
+            const key2 = storageRef ? `ref_${storageRef}` : "";
+            const key3 = fileName ? `fn_${fileName.toLowerCase()}_${sizeStr}` : "";
+
+            if ((key1 && seenKeys.has(key1)) || (key2 && seenKeys.has(key2)) || (key3 && seenKeys.has(key3))) {
+              continue;
+            }
+            if (key1) seenKeys.add(key1);
+            if (key2) seenKeys.add(key2);
+            if (key3) seenKeys.add(key3);
+
+            docs.push(d);
+          }
           return (
             <div
               key={req.id || req.userId}

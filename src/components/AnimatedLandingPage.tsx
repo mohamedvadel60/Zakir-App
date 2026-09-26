@@ -243,7 +243,9 @@ export const AnimatedLandingPage: React.FC<AnimatedLandingPageProps> = ({
           <motion.div 
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.96 }}
-            onClick={() => onNavigateAuth("login")}
+            onClick={() => {
+              window.scrollTo({ top: 0, behavior: "smooth" });
+            }}
             className="flex items-center gap-3 cursor-pointer"
           >
             <ZakirLogo theme={theme} lang={lang} showText />

@@ -164,6 +164,7 @@ import {
   resolveAccountState,
   requestAccountReactivationApi,
   restoreAccountApi,
+  normalizeStrictUserVerification,
   API_BASE_URL
 } from "./lib/firebaseServices.js";
 import {
@@ -467,9 +468,7 @@ const ViewLoadingFallback = () => (
 const FullScreenFallback = () => {
   const savedTheme = typeof window !== "undefined" && localStorage.getItem("zakir_theme") === "light" ? "light" : "dark";
   return (
-    <div className={`fixed inset-0 z-[9999] flex items-center justify-center select-none ${savedTheme === "light" ? "bg-[#F8FAFC]" : "bg-[#0B0F19]"}`}>
-      <div className="w-8 h-8 border-2 border-[#1C2C58] dark:border-white border-t-transparent rounded-full animate-spin" />
-    </div>
+    <div className={`fixed inset-0 z-[9999] flex items-center justify-center select-none ${savedTheme === "light" ? "bg-[#F8FAFC]" : "bg-[#0B0F19]"}`} />
   );
 };
 
@@ -526,7 +525,34 @@ function parseRouteFromLocation(): {
     settingsSubTab = tabParam;
   }
 
-  if (pathname === "" || pathname === "/" || pathname === "/dashboard" || pathname === "/overview") {
+  if (pathname === "" || pathname === "/") {
+    return { tab: "dashboard", settingsSubTab, authMode: "landing" };
+  }
+  if (pathname === "/login") {
+    return { tab: "dashboard", settingsSubTab, authMode: "login" };
+  }
+  if (pathname === "/register" || pathname === "/signup") {
+    return { tab: "dashboard", settingsSubTab, authMode: "register" };
+  }
+  if (pathname === "/forgot-password") {
+    return { tab: "dashboard", settingsSubTab, authMode: "login", showForgotPassword: true };
+  }
+  if (pathname === "/verify-email") {
+    return { tab: "dashboard", settingsSubTab, authMode: "landing" };
+  }
+  if (pathname === "/account-verification" || pathname === "/institutional-verification" || pathname === "/kyc") {
+    return { tab: "dashboard", settingsSubTab, authMode: "landing" };
+  }
+  if (pathname === "/pending-approval") {
+    return { tab: "dashboard", settingsSubTab, authMode: "landing" };
+  }
+  if (pathname === "/account-rejected") {
+    return { tab: "dashboard", settingsSubTab, authMode: "landing" };
+  }
+  if (pathname === "/recovery" || pathname === "/account-recovery") {
+    return { tab: "dashboard", settingsSubTab, authMode: "landing" };
+  }
+  if (pathname === "/dashboard" || pathname === "/overview") {
     return { tab: "dashboard", settingsSubTab, authMode: "landing" };
   }
   if (pathname === "/cognitive-advisor" || pathname === "/agent" || pathname === "/advisor") {
@@ -566,17 +592,8 @@ function parseRouteFromLocation(): {
   if (pathname === "/admin" || pathname === "/admin-dashboard") {
     return { tab: "dashboard", settingsSubTab, authMode: "landing" };
   }
-  if (pathname === "/login") {
-    return { tab: "dashboard", settingsSubTab, authMode: "login" };
-  }
-  if (pathname === "/register" || pathname === "/signup") {
-    return { tab: "dashboard", settingsSubTab, authMode: "register" };
-  }
-  if (pathname === "/forgot-password") {
-    return { tab: "dashboard", settingsSubTab, authMode: "login", showForgotPassword: true };
-  }
 
-  // Fallback for unrecognized paths: default to "dashboard"
+  // Fallback for unrecognized paths: default to "landing"
   return { tab: "dashboard", settingsSubTab, authMode: "landing" };
 }
 
@@ -1180,40 +1197,139 @@ This hosting domain (**${currentDomain}**) has not been authorized in your Fireb
     localStorage.setItem("zakir_active_tab", activeTab);
   }, [activeTab]);
 
-  // Synchronize browser URL bar with current route for authenticated users
+  const [adminWorkspaceMode, setAdminWorkspaceMode] = useState<boolean>(false);
+
+  // Helper to determine if current user has full approved access to the main workspace
+  const isUserInWorkspace = useMemo(() => {
+    if (!currentUser) return false;
+    if (isUserAdmin(currentUser)) {
+      return Boolean(adminWorkspaceMode);
+    }
+    const isApproved =
+      currentUser.accountStatus === "APPROVED" ||
+      (currentUser as any).canonicalVerificationStatus === "approved";
+    return Boolean(isApproved && currentUser.isVerified);
+  }, [currentUser, adminWorkspaceMode]);
+
+  // Synchronize browser URL bar strictly separating public routes, verification gates, and workspace
   useEffect(() => {
     if (typeof window === "undefined") return;
+    if (isAuthChecking) return;
 
-    if (currentUser && !isAuthChecking) {
-      const currentPath = window.location.pathname.toLowerCase().replace(/\/$/, "");
-      const searchParams = new URLSearchParams(window.location.search);
+    const currentPath = window.location.pathname.toLowerCase().replace(/\/$/, "");
+    const searchParams = new URLSearchParams(window.location.search);
 
-      const hasSpecialParams =
-        searchParams.has("invitationToken") ||
-        searchParams.has("session_id") ||
-        searchParams.has("checkout") ||
-        searchParams.has("token");
+    const hasSpecialParams =
+      searchParams.has("invitationToken") ||
+      searchParams.has("session_id") ||
+      searchParams.has("checkout") ||
+      searchParams.has("token");
 
-      if (isUserAdmin(currentUser) && (currentPath === "/admin" || currentPath === "/admin-dashboard")) {
+    if (hasSpecialParams) return;
+
+    // 1. Unauthenticated / Public Mode
+    if (!currentUser) {
+      if (deletedAccountRecovery) {
+        if (currentPath !== "/recovery") {
+          window.history.replaceState({ authMode: "recovery" }, "", "/recovery" + window.location.hash);
+        }
+      } else if (authMode === "login") {
+        const expected = showForgotPassword ? "/forgot-password" : "/login";
+        if (currentPath !== expected) {
+          window.history.replaceState({ authMode: "login" }, "", expected + window.location.hash);
+        }
+      } else if (authMode === "register") {
+        if (currentPath !== "/register" && currentPath !== "/signup") {
+          window.history.replaceState({ authMode: "register" }, "", "/register" + window.location.hash);
+        }
+      } else {
+        // Landing / Home page
+        if (currentPath !== "" && currentPath !== "/") {
+          window.history.replaceState({ authMode: "landing" }, "", "/" + window.location.search + window.location.hash);
+        }
+      }
+      return;
+    }
+
+    // 2. Authenticated Admin in Control Center
+    if (isUserAdmin(currentUser) && !adminWorkspaceMode) {
+      if (currentPath !== "/admin" && currentPath !== "/admin-dashboard") {
+        window.history.replaceState({ admin: true }, "", "/admin" + window.location.hash);
+      }
+      return;
+    }
+
+    // 3. Authenticated User in Specific Verification Gates
+    if (!isUserAdmin(currentUser)) {
+      const isRejected =
+        (currentUser as any).canonicalVerificationStatus === "rejected" ||
+        currentUser.accountStatus === "REJECTED" ||
+        currentUser.documentVerificationStatus === "REJECTED";
+
+      const isEmailVerificationRequired = Boolean(
+        !isUserAdmin(currentUser) &&
+        (currentUser.adminRequestedEmailReverification === true ||
+          (
+            !currentUser.isEmailVerified &&
+            !currentUser.emailVerified &&
+            !currentUser.email_verified &&
+            !currentUser.emailVerifiedAt &&
+            !(currentUser as any).verificationInfo?.emailVerifiedAt &&
+            (currentUser.accountStatus === "PENDING_EMAIL_VERIFICATION" || !currentUser.accountStatus)
+          ))
+      );
+
+      const isPendingApproval =
+        (currentUser as any).canonicalVerificationStatus === "pending" ||
+        currentUser.accountStatus === "PENDING_ADMIN_REVIEW" ||
+        (currentUser.accountStatus as string) === "PENDING_APPROVAL" ||
+        currentUser.documentVerificationStatus === "UNDER_REVIEW" ||
+        currentUser.documentVerificationStatus === "PENDING_REVIEW";
+
+      const isDocumentVerificationRequired =
+        (currentUser as any).canonicalVerificationStatus !== "approved" ||
+        currentUser.accountStatus !== "APPROVED" ||
+        !currentUser.isVerified;
+
+      if (isRejected) {
+        if (currentPath !== "/account-rejected") {
+          window.history.replaceState({ gate: "rejected" }, "", "/account-rejected" + window.location.hash);
+        }
+        return;
+      } else if (isEmailVerificationRequired) {
+        if (currentPath !== "/verify-email") {
+          window.history.replaceState({ gate: "verify-email" }, "", "/verify-email" + window.location.hash);
+        }
+        return;
+      } else if (isPendingApproval) {
+        if (currentPath !== "/pending-approval") {
+          window.history.replaceState({ gate: "pending-approval" }, "", "/pending-approval" + window.location.hash);
+        }
+        return;
+      } else if (isDocumentVerificationRequired) {
+        if (currentPath !== "/account-verification" && currentPath !== "/institutional-verification" && currentPath !== "/kyc") {
+          window.history.replaceState({ gate: "document-verification" }, "", "/account-verification" + window.location.hash);
+        }
         return;
       }
+    }
 
-      if (!hasSpecialParams) {
-        const canonicalUrl = getCanonicalPath(activeTab, settingsActiveSubTab);
-        const [canonicalPath] = canonicalUrl.split("?");
+    // 4. Authenticated User in Workspace
+    if (isUserInWorkspace) {
+      const canonicalUrl = getCanonicalPath(activeTab, settingsActiveSubTab);
+      const [canonicalPath] = canonicalUrl.split("?");
 
-        if (
-          currentPath !== canonicalPath ||
-          (activeTab === "settings" && searchParams.get("tab") !== settingsActiveSubTab)
-        ) {
-          const fullUrl = canonicalUrl + window.location.hash;
-          if (window.history && window.history.pushState) {
-            window.history.pushState({ tab: activeTab, settingsSubTab: settingsActiveSubTab }, "", fullUrl);
-          }
+      if (
+        currentPath !== canonicalPath ||
+        (activeTab === "settings" && searchParams.get("tab") !== settingsActiveSubTab)
+      ) {
+        const fullUrl = canonicalUrl + window.location.hash;
+        if (window.history && window.history.pushState) {
+          window.history.pushState({ tab: activeTab, settingsSubTab: settingsActiveSubTab }, "", fullUrl);
         }
       }
     }
-  }, [activeTab, settingsActiveSubTab, currentUser, isAuthChecking]);
+  }, [activeTab, settingsActiveSubTab, currentUser, isAuthChecking, authMode, showForgotPassword, deletedAccountRecovery, adminWorkspaceMode, isUserInWorkspace]);
 
   // Sync route state on browser popstate (back/forward navigation)
   useEffect(() => {
@@ -1239,7 +1355,6 @@ This hosting domain (**${currentDomain}**) has not been authorized in your Fireb
     return localStorage.getItem("zakir_sidebar_collapsed") === "true";
   });
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState<boolean>(false);
-  const [adminWorkspaceMode, setAdminWorkspaceMode] = useState<boolean>(false);
 
   const toggleSidebarCollapse = () => {
     setIsSidebarCollapsed(prev => {
@@ -1266,8 +1381,11 @@ This hosting domain (**${currentDomain}**) has not been authorized in your Fireb
   const [urlInvitation, setUrlInvitation] = useState<WorkspaceInvitation | null>(null);
   const [invitationMismatch, setInvitationMismatch] = useState<{ invitedEmail: string; loggedInEmail: string } | null>(null);
 
-  // Parse invitation URL parameters on mount
+  // Parse invitation URL parameters and preload landing page chunk on mount
   useEffect(() => {
+    // Eagerly preload landing page chunk during initial splash to guarantee 0ms transition gap
+    import("./components/AnimatedLandingPage").catch(() => {});
+
     try {
       const searchParams = new URLSearchParams(window.location.search);
       const token = searchParams.get("invitationToken") || searchParams.get("inviteToken") || searchParams.get("token") || searchParams.get("invite");
@@ -1587,19 +1705,16 @@ This hosting domain (**${currentDomain}**) has not been authorized in your Fireb
   // Subscribe to Firebase Auth state & Live Profile Sync
   useEffect(() => {
     let unsubsProfile: (() => void) | null = null;
+    const safetyTimer = setTimeout(() => {
+      setIsAuthChecking(false);
+    }, 3000);
+
     const unsubscribeAuth = subscribeToFirebaseAuthState((fbUser) => {
+      clearTimeout(safetyTimer);
       if (fbUser) {
         const route = parseRouteFromLocation();
         setActiveTab(route.tab);
         setSettingsActiveSubTab(route.settingsSubTab);
-
-        const currentPath = window.location.pathname.toLowerCase().replace(/\/$/, "");
-        if (currentPath === "" || currentPath === "/") {
-          const canonical = getCanonicalPath(route.tab, route.settingsSubTab);
-          if (window.history && window.history.replaceState) {
-            window.history.replaceState({ tab: route.tab }, "", canonical + window.location.hash);
-          }
-        }
       }
 
       setCurrentUser(prevUser => {
@@ -1626,6 +1741,7 @@ This hosting domain (**${currentDomain}**) has not been authorized in your Fireb
     });
 
     return () => {
+      clearTimeout(safetyTimer);
       unsubscribeAuth();
       if (unsubsProfile) unsubsProfile();
     };
@@ -1633,6 +1749,10 @@ This hosting domain (**${currentDomain}**) has not been authorized in your Fireb
 
   // Fetch initial data (Firestore user-specific + server fallback)
   useEffect(() => {
+    let safetyDataTimer = setTimeout(() => {
+      setIsInitialDataLoaded(true);
+    }, 2800);
+
     async function loadData() {
       setIsLoading(true);
       setSmartData(null); // Clear previous user's analysis on user/workspace switch
@@ -1737,11 +1857,13 @@ This hosting domain (**${currentDomain}**) has not been authorized in your Fireb
         setMetrics(FALLBACK_METRICS);
         setSqlSchema(FALLBACK_SCHEMA);
       } finally {
+        clearTimeout(safetyDataTimer);
         setIsLoading(false);
         setIsInitialDataLoaded(true);
       }
     }
     loadData();
+    return () => clearTimeout(safetyDataTimer);
   }, [refreshKey, currentUser?.id, currentUser?.role, currentUser?.workspace?.ownerId, currentUser?.email]);
 
 
@@ -2188,6 +2310,9 @@ This hosting domain (**${currentDomain}**) has not been authorized in your Fireb
     applyUserPreferences(null);
     setAuthMode("landing");
     setActiveTab("dashboard");
+    if (typeof window !== "undefined" && window.history && window.history.replaceState) {
+      window.history.replaceState({ authMode: "landing" }, "", "/" + window.location.hash);
+    }
   };
 
   // Refresh current user data from server
@@ -2197,7 +2322,24 @@ This hosting domain (**${currentDomain}**) has not been authorized in your Fireb
       if (res.ok) {
         const data = await res.json();
         if (data.success && data.user) {
-          setCurrentUser(data.user);
+          setCurrentUser(prevUser => {
+            let updated = data.user;
+            const wasEmailVerified = Boolean(
+              prevUser?.isEmailVerified ||
+              prevUser?.emailVerified ||
+              prevUser?.email_verified ||
+              prevUser?.emailVerifiedAt ||
+              (prevUser as any)?.verificationInfo?.emailVerifiedAt ||
+              (prevUser?.accountStatus && prevUser.accountStatus !== "PENDING_EMAIL_VERIFICATION")
+            );
+            if (wasEmailVerified && !updated.adminRequestedEmailReverification) {
+              updated.isEmailVerified = true;
+              updated.emailVerified = true;
+              updated.email_verified = true;
+            }
+            updated = normalizeStrictUserVerification(updated);
+            return updated;
+          });
         }
       }
     } catch (e) {
@@ -4432,7 +4574,8 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
           !currentUser.emailVerified &&
           !currentUser.email_verified &&
           !currentUser.emailVerifiedAt &&
-          !(currentUser as any).verificationInfo?.emailVerifiedAt
+          !(currentUser as any).verificationInfo?.emailVerifiedAt &&
+          (currentUser.accountStatus === "PENDING_EMAIL_VERIFICATION" || !currentUser.accountStatus)
         )
       )) ? (
         <Suspense fallback={<FullScreenFallback />}>

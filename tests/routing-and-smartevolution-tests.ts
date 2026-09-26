@@ -55,11 +55,11 @@ async function runComprehensiveAuditSuite() {
   // TEST 1: Refresh on "/" -> returns tab: "dashboard"
   try {
     const appCode = fs.readFileSync("src/App.tsx", "utf8");
-    const hasRootMatch = appCode.includes('if (pathname === "" || pathname === "/" || pathname === "/dashboard" || pathname === "/overview")');
+    const hasRootMatch = appCode.includes('if (pathname === "" || pathname === "/")') && appCode.includes('if (pathname === "/dashboard" || pathname === "/overview")');
     const hasStaleFallbackRemoved = !appCode.includes('localStorage.getItem("zakir_active_tab")');
 
     if (hasRootMatch && hasStaleFallbackRemoved) {
-      console.log("✓ Test 1: Refresh current route (Root / -> /dashboard) PASS");
+      console.log("✓ Test 1: Refresh current route (Root / -> landing, /dashboard -> dashboard) PASS");
       results["Refresh current route"] = "PASS";
     } else {
       console.log("✗ Test 1 FAIL");
