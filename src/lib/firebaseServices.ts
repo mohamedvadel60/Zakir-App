@@ -1472,7 +1472,7 @@ export function subscribeToFirebaseAuthState(rawCallback: (user: User | null) =>
       // Check account lifecycle and deletion state before proceeding
       if (fbUser.email) {
         try {
-          const resolution = await resolveAccountState(fbUser.email);
+          const resolution = await resolveAccountState(fbUser.email, fbUser.uid);
           if (resolution && resolution.accountState && resolution.accountState.startsWith("DELETED_ACCOUNT")) {
             console.warn("subscribeToFirebaseAuthState: Detected deleted account for email:", fbUser.email);
             await signOut(auth);

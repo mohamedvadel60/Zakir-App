@@ -788,6 +788,44 @@ export default function App() {
   const [isSubmittingLogin, setIsSubmittingLogin] = useState(false);
   const [isSubmittingGoogle, setIsSubmittingGoogle] = useState(false);
   const activeLoginAttemptIdRef = useRef<string | null>(null);
+  const loginFormRef = useRef<HTMLFormElement | null>(null);
+
+  // Instrument form submit prevention & navigation diagnostic tracing
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    try {
+      const navEntries = performance.getEntriesByType("navigation");
+      console.log("[LOGIN_TRACE #1] Page mount location:", window.location.href, "Navigation entries:", navEntries);
+    } catch (e) {}
+
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      console.log("[LOGIN_TRACE UNLOAD] Window beforeunload triggered at location:", window.location.href, "Timestamp:", new Date().toISOString());
+    };
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    window.addEventListener("pagehide", handleBeforeUnload);
+
+    const formEl = loginFormRef.current;
+    if (formEl) {
+      const nativeSubmitHandler = (e: Event) => {
+        console.log("[LOGIN_TRACE NATIVE_FORM_SUBMIT_CAPTURED] Native submit event caught on login form. Preventing default browser navigation.");
+        e.preventDefault();
+        e.stopPropagation();
+      };
+      formEl.addEventListener("submit", nativeSubmitHandler, { capture: true });
+      return () => {
+        window.removeEventListener("beforeunload", handleBeforeUnload);
+        window.removeEventListener("pagehide", handleBeforeUnload);
+        formEl.removeEventListener("submit", nativeSubmitHandler, { capture: true });
+      };
+    }
+
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+      window.removeEventListener("pagehide", handleBeforeUnload);
+    };
+  }, [loginFormRef.current]);
 
   // Password Reset State
   const [showForgotPassword, setShowForgotPassword] = useState(false);
@@ -2172,7 +2210,10 @@ This hosting domain (**${currentDomain}**) has not been authorized in your Fireb
 
   // Login Submit (Firebase Auth)
   const handleLoginSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+    if (e && typeof e.preventDefault === "function") {
+      e.preventDefault();
+      e.stopPropagation();
+    }
     if (isSubmittingLogin) return;
 
     const attemptId = `attempt_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
@@ -2180,9 +2221,17 @@ This hosting domain (**${currentDomain}**) has not been authorized in your Fireb
     setIsSubmittingLogin(true);
     setLoginError("");
 
+    console.log("[LOGIN_TRACE #2] handleLoginSubmit started. attemptId:", attemptId, "email:", loginEmail, "location:", window.location.href);
+
     try {
+      console.log("[LOGIN_TRACE #3] Invoking loginFirebaseUser...");
       const userProfile = await loginFirebaseUser(loginEmail.trim(), loginPassword, attemptId);
-      if (activeLoginAttemptIdRef.current !== attemptId) return;
+      console.log("[LOGIN_TRACE #4] loginFirebaseUser returned profile:", userProfile?.id, "email:", userProfile?.email);
+
+      if (activeLoginAttemptIdRef.current !== attemptId) {
+        console.warn("[LOGIN_TRACE ABORTED] attemptId mismatch after login. Expected:", attemptId, "Current:", activeLoginAttemptIdRef.current);
+        return;
+      }
       
       const breakdown = computeUserVerificationBreakdown(userProfile);
       const isAccountApproved = breakdown.accountApprovalStatus === "APPROVED";
@@ -2202,6 +2251,7 @@ This hosting domain (**${currentDomain}**) has not been authorized in your Fireb
         verification_status: isKycVerified ? "verified" : (breakdown.kycStatus === "UNDER_REVIEW" ? "pending" : (breakdown.kycStatus === "REJECTED" ? "rejected" : "unverified"))
       };
 
+      console.log("[LOGIN_TRACE #8] Setting currentUser state:", loggedInUser.email, "isVerified:", loggedInUser.isVerified, "isEmailVerified:", loggedInUser.isEmailVerified);
       setCurrentUser(loggedInUser);
       applyUserPreferences(loggedInUser);
       setLoginEmail("");
@@ -2264,7 +2314,7 @@ This hosting domain (**${currentDomain}**) has not been authorized in your Fireb
       // Definitive safety check: Verify account state before displaying invalid credentials to prevent false negatives for deleted accounts
       if (normalizedEmail) {
         try {
-          const resolution = await resolveAccountState(normalizedEmail);
+          const resolution = await resolveAccountState(normalizedEmail, err?.uid);
           if (resolution && resolution.accountState && resolution.accountState.startsWith("DELETED_ACCOUNT")) {
             setDeletedAccountRecovery({
               email: normalizedEmail,
@@ -4369,7 +4419,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                     </p>
                   </div>
 
-                  <form onSubmit={handleLoginSubmit} className="space-y-3.5">
+                  <form ref={loginFormRef} action="javascript:void(0);" onSubmit={handleLoginSubmit} className="space-y-3.5">
                     {/* Google Sign In Button */}
                     <button 
                       type="button"
