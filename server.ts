@@ -3513,7 +3513,7 @@ function renderEmailLogoHeaderHtml(options?: {
     : "https://www.getzakir.com";
   const appBase = rawAppBase;
 
-  const logoUrl = "cid:zakir-logo-light";
+  const logoUrl = `${publicAssetBase}/zakir-email-logo.png`;
 
   const wordmark = options?.wordmark !== undefined ? options.wordmark : "ZAKIR";
   const tagline =
@@ -3676,7 +3676,7 @@ function buildMasterEmailHtml(options: {
               <table border="0" cellpadding="0" cellspacing="0" align="center" role="presentation" style="margin: 0 auto 10px auto;">
                 <tr>
                   <td align="center" style="vertical-align: middle;">
-                    <img src="cid:zakir-logo-light" alt="ZAKIR" width="24" height="24" style="display: inline-block; width: 24px; height: 24px; border-radius: 6px; border: 0; vertical-align: middle; margin-right: 8px;" />
+                    <img src="https://www.getzakir.com/zakir-email-logo.png" alt="ZAKIR" width="24" height="24" style="display: inline-block; width: 24px; height: 24px; border-radius: 6px; border: 0; vertical-align: middle; margin-right: 8px;" />
                     <span class="zakir-wordmark" style="font-size: 13px; font-weight: 800; color: #0f172a; vertical-align: middle; letter-spacing: 1.5px; text-transform: uppercase;">ZAKIR</span>
                   </td>
                 </tr>
