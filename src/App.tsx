@@ -2091,7 +2091,6 @@ This hosting domain (**${currentDomain}**) has not been authorized in your Fireb
       setRegPassword("");
       setRegConfirmPassword("");
       setRegLifecycleState(null);
-      setAuthMode("landing");
     } catch (err: any) {
       let msg = err.message || "Registration failed.";
       if (/missing or (insufficient )?permission/i.test(msg) || /permission-denied/i.test(msg)) {
@@ -2207,7 +2206,6 @@ This hosting domain (**${currentDomain}**) has not been authorized in your Fireb
       applyUserPreferences(loggedInUser);
       setLoginEmail("");
       setLoginPassword("");
-      setAuthMode("landing");
     } catch (err: any) {
       if (activeLoginAttemptIdRef.current !== attemptId) return;
 

@@ -18,8 +18,8 @@
       "verification_required": false,
       "verification_status": "verified",
       "verificationStatus": "verified",
-      "lastActiveAt": "2026-09-25T08:24:59.149Z",
-      "lastLoginAt": "2026-09-25T08:24:59.149Z"
+      "lastActiveAt": "2026-09-26T12:47:04.205Z",
+      "lastLoginAt": "2026-09-26T12:47:04.205Z"
     },
     {
       "id": "IKd49SpWgBa5XubDF2sLqaslOyF3",
@@ -27,7 +27,7 @@
       "passwordHash": "Chow._.9i",
       "companyName": "ACM GROUP",
       "ownerName": "محمد",
-      "role": "CEO",
+      "role": "Admin",
       "workspaceId": "ws_IKd49SpW_mtd3ujo7",
       "workspace": {
         "id": "ws_IKd49SpW_mtd3ujo7",
@@ -75,8 +75,10 @@
         "autoSaveMemories": true
       },
       "stripeCustomerId": null,
-      "lastActiveAt": "2026-09-03T13:32:04.570Z",
-      "lastLoginAt": "2026-09-03T13:32:04.570Z"
+      "lastActiveAt": "2026-09-26T12:49:25.352Z",
+      "lastLoginAt": "2026-09-26T12:49:25.352Z",
+      "accountStatus": "APPROVED",
+      "verificationStatus": "verified"
     },
     {
       "id": "ElyZcGgenUZWsY3o9bq0ObHaNJo1",
@@ -1663,6 +1665,350 @@
       "verificationInfo.previousAdminNote": null,
       "verificationInfo.verifiedAt": null,
       "verificationSubmittedAt": "2026-09-26T11:24:45.669Z"
+    },
+    {
+      "id": "gXZ2D6HAomgJSDIW8AfwWVCYe4R2",
+      "email": "test_ws_creation_1790426782370@zakir.ai",
+      "passwordHash": "TestPassword123!",
+      "companyName": "Test New Workspace",
+      "ownerName": "Test Owner",
+      "role": "CEO",
+      "workspaceId": "ws_gXZ2D6HA_muidvnv3",
+      "workspace": {
+        "id": "ws_gXZ2D6HA_muidvnv3",
+        "name": "Test New Workspace Workspace",
+        "ownerId": "gXZ2D6HAomgJSDIW8AfwWVCYe4R2",
+        "createdAt": "2026-09-26T12:46:23.631Z",
+        "memberCount": 1
+      },
+      "teamMembersList": [
+        {
+          "id": "tm-owner",
+          "uid": "gXZ2D6HAomgJSDIW8AfwWVCYe4R2",
+          "name": "Test Owner",
+          "email": "test_ws_creation_1790426782370@zakir.ai",
+          "role": "CEO / Owner",
+          "powers": {
+            "fileVault": true,
+            "memoryVault": true,
+            "riskRadar": true,
+            "marketIntel": true,
+            "settings": true
+          },
+          "addedAt": "2026-09-26"
+        }
+      ],
+      "subscriptionStatus": "Pending Selection",
+      "accountStatus": "PENDING_EMAIL_VERIFICATION",
+      "requiresDocumentVerification": true,
+      "verificationFlowVersion": 2,
+      "documentVerificationStatus": "PENDING_EMAIL_VERIFICATION",
+      "verificationDocuments": [],
+      "createdAt": "2026-09-26T12:46:23.631Z",
+      "trialExpiresAt": "2026-09-27T12:46:23.631Z",
+      "lastActiveAt": "2026-09-26T12:46:23.631Z",
+      "lastLoginAt": "2026-09-26T12:46:23.631Z",
+      "isVerified": false,
+      "isEmailVerified": false,
+      "email_verified": false,
+      "emailVerified": false,
+      "verification_required": true,
+      "verification_status": "unverified",
+      "verificationInfo": {
+        "status": "unverified"
+      }
+    },
+    {
+      "id": "kApgfHgWXBWNgFc559XDrRVPA8z1",
+      "email": "test_user_a_1790426921729@zakir.ai",
+      "passwordHash": "TestPass2026!#A",
+      "companyName": "Zakir Test Enterprise A",
+      "ownerName": "User A CEO",
+      "role": "CEO",
+      "workspaceId": "ws_kApgfHgW_muidyoe9",
+      "workspace": {
+        "id": "ws_kApgfHgW_muidyoe9",
+        "name": "Zakir Test Enterprise A Workspace",
+        "ownerId": "kApgfHgWXBWNgFc559XDrRVPA8z1",
+        "createdAt": "2026-09-26T12:48:44.289Z",
+        "memberCount": 1
+      },
+      "teamMembersList": [
+        {
+          "id": "tm-owner",
+          "uid": "kApgfHgWXBWNgFc559XDrRVPA8z1",
+          "name": "User A CEO",
+          "email": "test_user_a_1790426921729@zakir.ai",
+          "role": "CEO / Owner",
+          "powers": {
+            "fileVault": true,
+            "memoryVault": true,
+            "riskRadar": true,
+            "marketIntel": true,
+            "settings": true
+          },
+          "addedAt": "2026-09-26"
+        }
+      ],
+      "subscriptionStatus": "Pending Selection",
+      "accountStatus": "PENDING_EMAIL_VERIFICATION",
+      "requiresDocumentVerification": true,
+      "verificationFlowVersion": 2,
+      "documentVerificationStatus": "PENDING_EMAIL_VERIFICATION",
+      "verificationDocuments": [],
+      "createdAt": "2026-09-26T12:48:44.289Z",
+      "trialExpiresAt": "2026-09-27T12:48:44.289Z",
+      "lastActiveAt": "2026-09-26T12:48:52.759Z",
+      "lastLoginAt": "2026-09-26T12:48:52.759Z",
+      "isVerified": false,
+      "isEmailVerified": false,
+      "email_verified": false,
+      "emailVerified": false,
+      "verification_required": true,
+      "verification_status": "unverified",
+      "verificationInfo": {
+        "status": "unverified"
+      },
+      "verificationStatus": "unverified"
+    },
+    {
+      "id": "Nb8bcYnH1xQLRxQSzduauD1Egy83",
+      "email": "test_user_b_1790426921729@zakir.ai",
+      "passwordHash": "TestPass2026!#B",
+      "companyName": "Zakir Test Enterprise B",
+      "ownerName": "User B CEO",
+      "role": "CEO",
+      "workspaceId": "ws_Nb8bcYnH_muidypwf",
+      "workspace": {
+        "id": "ws_Nb8bcYnH_muidypwf",
+        "name": "Zakir Test Enterprise B Workspace",
+        "ownerId": "Nb8bcYnH1xQLRxQSzduauD1Egy83",
+        "createdAt": "2026-09-26T12:48:46.239Z",
+        "memberCount": 1
+      },
+      "teamMembersList": [
+        {
+          "id": "tm-owner",
+          "uid": "Nb8bcYnH1xQLRxQSzduauD1Egy83",
+          "name": "User B CEO",
+          "email": "test_user_b_1790426921729@zakir.ai",
+          "role": "CEO / Owner",
+          "powers": {
+            "fileVault": true,
+            "memoryVault": true,
+            "riskRadar": true,
+            "marketIntel": true,
+            "settings": true
+          },
+          "addedAt": "2026-09-26"
+        }
+      ],
+      "subscriptionStatus": "Pending Selection",
+      "accountStatus": "PENDING_EMAIL_VERIFICATION",
+      "requiresDocumentVerification": true,
+      "verificationFlowVersion": 2,
+      "documentVerificationStatus": "PENDING_EMAIL_VERIFICATION",
+      "verificationDocuments": [],
+      "createdAt": "2026-09-26T12:48:46.239Z",
+      "trialExpiresAt": "2026-09-27T12:48:46.239Z",
+      "lastActiveAt": "2026-09-26T12:48:51.655Z",
+      "lastLoginAt": "2026-09-26T12:48:51.655Z",
+      "isVerified": false,
+      "isEmailVerified": false,
+      "email_verified": false,
+      "emailVerified": false,
+      "verification_required": true,
+      "verification_status": "unverified",
+      "verificationInfo": {
+        "status": "unverified"
+      },
+      "verificationStatus": "unverified"
+    },
+    {
+      "id": "usr_admin_prov_1790426927730",
+      "email": "admin_created_1790426921729@zakir.ai",
+      "ownerName": "Admin Created Employee",
+      "companyName": "Zakir Corporate",
+      "role": "Analyst",
+      "workspaceId": "ws_corp_1790426927730",
+      "workspace": {
+        "id": "ws_corp_1790426927730",
+        "name": "Zakir Corporate Workspace",
+        "ownerId": "SYhfciebGFUj29gqGaa0pqNunrk2",
+        "createdAt": "2026-09-26T12:48:47.729Z",
+        "memberCount": 2
+      },
+      "passwordHash": "AdminMember2026!",
+      "accountStatus": "APPROVED",
+      "isVerified": false,
+      "isEmailVerified": true,
+      "createdAt": "2026-09-26T12:48:47.729Z",
+      "email_verified": true,
+      "emailVerified": true,
+      "verification_required": true,
+      "verification_status": "verified",
+      "verificationStatus": "verified",
+      "lastActiveAt": "2026-09-26T12:48:48.395Z",
+      "lastLoginAt": "2026-09-26T12:48:48.395Z"
+    },
+    {
+      "id": "UG0tDcTdeLgySaxclPN9sk6auRs1",
+      "email": "test_user_a_1790426956963@zakir.ai",
+      "passwordHash": "TestPass2026!#A",
+      "companyName": "Zakir Test Enterprise A",
+      "ownerName": "User A CEO",
+      "role": "CEO",
+      "workspaceId": "ws_UG0tDcTd_muidzek7",
+      "workspace": {
+        "id": "ws_UG0tDcTd_muidzek7",
+        "name": "Zakir Test Enterprise A Workspace",
+        "ownerId": "UG0tDcTdeLgySaxclPN9sk6auRs1",
+        "createdAt": "2026-09-26T12:49:18.199Z",
+        "memberCount": 1
+      },
+      "teamMembersList": [
+        {
+          "id": "tm-owner",
+          "uid": "UG0tDcTdeLgySaxclPN9sk6auRs1",
+          "name": "User A CEO",
+          "email": "test_user_a_1790426956963@zakir.ai",
+          "role": "CEO / Owner",
+          "powers": {
+            "fileVault": true,
+            "memoryVault": true,
+            "riskRadar": true,
+            "marketIntel": true,
+            "settings": true
+          },
+          "addedAt": "2026-09-26"
+        }
+      ],
+      "subscriptionStatus": "Pending Selection",
+      "accountStatus": "PENDING_EMAIL_VERIFICATION",
+      "requiresDocumentVerification": true,
+      "verificationFlowVersion": 2,
+      "documentVerificationStatus": "PENDING_EMAIL_VERIFICATION",
+      "verificationDocuments": [],
+      "createdAt": "2026-09-26T12:49:18.199Z",
+      "trialExpiresAt": "2026-09-27T12:49:18.199Z",
+      "lastActiveAt": "2026-09-26T12:49:28.060Z",
+      "lastLoginAt": "2026-09-26T12:49:28.060Z",
+      "isVerified": false,
+      "isEmailVerified": false,
+      "email_verified": false,
+      "emailVerified": false,
+      "verification_required": true,
+      "verification_status": "unverified",
+      "verificationInfo": {
+        "status": "unverified"
+      },
+      "verificationStatus": "unverified"
+    },
+    {
+      "id": "RvznBflYiHRxqNgOOU9MCXmevcd2",
+      "email": "test_user_b_1790426956963@zakir.ai",
+      "passwordHash": "TestPass2026!#B",
+      "companyName": "Zakir Test Enterprise B",
+      "ownerName": "User B CEO",
+      "role": "CEO",
+      "workspaceId": "ws_RvznBflY_muidzg3t",
+      "workspace": {
+        "id": "ws_RvznBflY_muidzg3t",
+        "name": "Zakir Test Enterprise B Workspace",
+        "ownerId": "RvznBflYiHRxqNgOOU9MCXmevcd2",
+        "createdAt": "2026-09-26T12:49:20.201Z",
+        "memberCount": 1
+      },
+      "teamMembersList": [
+        {
+          "id": "tm-owner",
+          "uid": "RvznBflYiHRxqNgOOU9MCXmevcd2",
+          "name": "User B CEO",
+          "email": "test_user_b_1790426956963@zakir.ai",
+          "role": "CEO / Owner",
+          "powers": {
+            "fileVault": true,
+            "memoryVault": true,
+            "riskRadar": true,
+            "marketIntel": true,
+            "settings": true
+          },
+          "addedAt": "2026-09-26"
+        }
+      ],
+      "subscriptionStatus": "Pending Selection",
+      "accountStatus": "PENDING_EMAIL_VERIFICATION",
+      "requiresDocumentVerification": true,
+      "verificationFlowVersion": 2,
+      "documentVerificationStatus": "PENDING_EMAIL_VERIFICATION",
+      "verificationDocuments": [],
+      "createdAt": "2026-09-26T12:49:20.201Z",
+      "trialExpiresAt": "2026-09-27T12:49:20.201Z",
+      "lastActiveAt": "2026-09-26T12:49:26.850Z",
+      "lastLoginAt": "2026-09-26T12:49:26.850Z",
+      "isVerified": false,
+      "isEmailVerified": false,
+      "email_verified": false,
+      "emailVerified": false,
+      "verification_required": true,
+      "verification_status": "unverified",
+      "verificationInfo": {
+        "status": "unverified"
+      },
+      "verificationStatus": "unverified"
+    },
+    {
+      "id": "D89HCZP9rHPvJPIR1mVqFsoBcgk2",
+      "email": "admin_created_1790426956963@zakir.ai",
+      "passwordHash": "AdminMember2026!#",
+      "companyName": "Zakir Corporate",
+      "ownerName": "Admin Member",
+      "role": "Contributor",
+      "workspaceId": "ws_D89HCZP9_muidzhbi",
+      "workspace": {
+        "id": "ws_D89HCZP9_muidzhbi",
+        "name": "Zakir Corporate Workspace",
+        "ownerId": "D89HCZP9rHPvJPIR1mVqFsoBcgk2",
+        "createdAt": "2026-09-26T12:49:21.774Z",
+        "memberCount": 1
+      },
+      "teamMembersList": [
+        {
+          "id": "tm-owner",
+          "uid": "D89HCZP9rHPvJPIR1mVqFsoBcgk2",
+          "name": "Admin Member",
+          "email": "admin_created_1790426956963@zakir.ai",
+          "role": "CEO / Owner",
+          "powers": {
+            "fileVault": true,
+            "memoryVault": true,
+            "riskRadar": true,
+            "marketIntel": true,
+            "settings": true
+          },
+          "addedAt": "2026-09-26"
+        }
+      ],
+      "subscriptionStatus": "Pending Selection",
+      "accountStatus": "PENDING_EMAIL_VERIFICATION",
+      "requiresDocumentVerification": true,
+      "verificationFlowVersion": 2,
+      "documentVerificationStatus": "PENDING_EMAIL_VERIFICATION",
+      "verificationDocuments": [],
+      "createdAt": "2026-09-26T12:49:21.774Z",
+      "trialExpiresAt": "2026-09-27T12:49:21.774Z",
+      "lastActiveAt": "2026-09-26T12:49:24.263Z",
+      "lastLoginAt": "2026-09-26T12:49:24.263Z",
+      "isVerified": false,
+      "isEmailVerified": false,
+      "email_verified": false,
+      "emailVerified": false,
+      "verification_required": true,
+      "verification_status": "unverified",
+      "verificationInfo": {
+        "status": "unverified"
+      },
+      "verificationStatus": "unverified"
     }
   ],
   "verification_codes": [
@@ -1989,6 +2335,96 @@
       "sendCount": 0,
       "initialOtpSent": true,
       "lastSentAt": "2026-09-26T11:24:44.973Z"
+    },
+    {
+      "id": "gXZ2D6HAomgJSDIW8AfwWVCYe4R2",
+      "userId": "gXZ2D6HAomgJSDIW8AfwWVCYe4R2",
+      "email": "test_ws_creation_1790426782370@zakir.ai",
+      "phone": "",
+      "codeHash": "06ed05443e4548fd805de4832785c3a84fd340b1141b619ea492c20ddcc26ba0",
+      "type": "account_registration",
+      "createdAt": "2026-09-26T12:46:23.825Z",
+      "expiresAt": "2026-09-26T12:56:23.825Z",
+      "attempts": 0,
+      "used": false,
+      "sendCount": 0,
+      "initialOtpSent": true,
+      "lastSentAt": "2026-09-26T12:46:23.825Z"
+    },
+    {
+      "id": "kApgfHgWXBWNgFc559XDrRVPA8z1",
+      "userId": "kApgfHgWXBWNgFc559XDrRVPA8z1",
+      "email": "test_user_a_1790426921729@zakir.ai",
+      "phone": "",
+      "codeHash": "a3cad561cdf60e4a0f1d86b93ff2955713faf550cc6c3dfb6a31eb59da6c60cb",
+      "type": "account_registration",
+      "createdAt": "2026-09-26T12:48:44.451Z",
+      "expiresAt": "2026-09-26T12:58:44.450Z",
+      "attempts": 0,
+      "used": false,
+      "sendCount": 0,
+      "initialOtpSent": true,
+      "lastSentAt": "2026-09-26T12:48:44.451Z"
+    },
+    {
+      "id": "Nb8bcYnH1xQLRxQSzduauD1Egy83",
+      "userId": "Nb8bcYnH1xQLRxQSzduauD1Egy83",
+      "email": "test_user_b_1790426921729@zakir.ai",
+      "phone": "",
+      "codeHash": "122ccda27bb3743e2be139e62949d25b769a3430afa6c72d25d1878db82a4198",
+      "type": "account_registration",
+      "createdAt": "2026-09-26T12:48:46.359Z",
+      "expiresAt": "2026-09-26T12:58:46.359Z",
+      "attempts": 0,
+      "used": false,
+      "sendCount": 0,
+      "initialOtpSent": true,
+      "lastSentAt": "2026-09-26T12:48:46.359Z"
+    },
+    {
+      "id": "UG0tDcTdeLgySaxclPN9sk6auRs1",
+      "userId": "UG0tDcTdeLgySaxclPN9sk6auRs1",
+      "email": "test_user_a_1790426956963@zakir.ai",
+      "phone": "",
+      "codeHash": "402be17b86b4f063b9d72f3612013d0f9b10cc08e92547f98e2fc9bd20ad794c",
+      "type": "account_registration",
+      "createdAt": "2026-09-26T12:49:18.323Z",
+      "expiresAt": "2026-09-26T12:59:18.323Z",
+      "attempts": 0,
+      "used": false,
+      "sendCount": 0,
+      "initialOtpSent": true,
+      "lastSentAt": "2026-09-26T12:49:18.323Z"
+    },
+    {
+      "id": "RvznBflYiHRxqNgOOU9MCXmevcd2",
+      "userId": "RvznBflYiHRxqNgOOU9MCXmevcd2",
+      "email": "test_user_b_1790426956963@zakir.ai",
+      "phone": "",
+      "codeHash": "0ac5666254508eeca1e9601a5559ad7f6e4cab5889abed9576aeb3176a0b0db2",
+      "type": "account_registration",
+      "createdAt": "2026-09-26T12:49:20.320Z",
+      "expiresAt": "2026-09-26T12:59:20.320Z",
+      "attempts": 0,
+      "used": false,
+      "sendCount": 0,
+      "initialOtpSent": true,
+      "lastSentAt": "2026-09-26T12:49:20.320Z"
+    },
+    {
+      "id": "D89HCZP9rHPvJPIR1mVqFsoBcgk2",
+      "userId": "D89HCZP9rHPvJPIR1mVqFsoBcgk2",
+      "email": "admin_created_1790426956963@zakir.ai",
+      "phone": "",
+      "codeHash": "ed25c21f942e9ba3be2d76837196b84090271412dd74f2fbf81e968eac6a8b68",
+      "type": "account_registration",
+      "createdAt": "2026-09-26T12:49:21.895Z",
+      "expiresAt": "2026-09-26T12:59:21.895Z",
+      "attempts": 0,
+      "used": false,
+      "sendCount": 0,
+      "initialOtpSent": true,
+      "lastSentAt": "2026-09-26T12:49:21.895Z"
     }
   ],
   "support_tickets": [],
@@ -7853,6 +8289,182 @@
   ],
   "platform_events": [
     {
+      "id": "evt_1790426968263_29wmcbn",
+      "eventType": "USER_LOGGED_IN",
+      "severity": "INFO",
+      "category": "AUTH",
+      "timestamp": "2026-09-26T12:49:28.263Z",
+      "userId": "UG0tDcTdeLgySaxclPN9sk6auRs1",
+      "userEmail": "test_user_a_1790426956963@zakir.ai",
+      "requestId": "req_1790426967020_f308843e",
+      "sanitizedMessage": "User logged in: test_user_a_1790426956963@zakir.ai (role: CEO)",
+      "status": "ACTIVE",
+      "metadata": {
+        "role": "CEO"
+      },
+      "source": "server"
+    },
+    {
+      "id": "evt_1790426966953_lujumot",
+      "eventType": "USER_LOGGED_IN",
+      "severity": "INFO",
+      "category": "AUTH",
+      "timestamp": "2026-09-26T12:49:26.953Z",
+      "userId": "RvznBflYiHRxqNgOOU9MCXmevcd2",
+      "userEmail": "test_user_b_1790426956963@zakir.ai",
+      "requestId": "req_1790426965909_11f18775",
+      "sanitizedMessage": "User logged in: test_user_b_1790426956963@zakir.ai (role: CEO)",
+      "status": "ACTIVE",
+      "metadata": {
+        "role": "CEO"
+      },
+      "source": "server"
+    },
+    {
+      "id": "evt_1790426965416_m6l139h",
+      "eventType": "USER_LOGGED_IN",
+      "severity": "INFO",
+      "category": "AUTH",
+      "timestamp": "2026-09-26T12:49:25.416Z",
+      "userId": "IKd49SpWgBa5XubDF2sLqaslOyF3",
+      "userEmail": "sarasara222341@gmail.com",
+      "requestId": "req_1790426964429_2c140766",
+      "sanitizedMessage": "User logged in: sarasara222341@gmail.com (role: Admin)",
+      "status": "ACTIVE",
+      "metadata": {
+        "role": "Admin"
+      },
+      "source": "server"
+    },
+    {
+      "id": "evt_1790426964362_i8m2u5s",
+      "eventType": "USER_LOGGED_IN",
+      "severity": "INFO",
+      "category": "AUTH",
+      "timestamp": "2026-09-26T12:49:24.362Z",
+      "userId": "D89HCZP9rHPvJPIR1mVqFsoBcgk2",
+      "userEmail": "admin_created_1790426956963@zakir.ai",
+      "requestId": "req_1790426963350_89d0a3b9",
+      "sanitizedMessage": "User logged in: admin_created_1790426956963@zakir.ai (role: Contributor)",
+      "status": "ACTIVE",
+      "metadata": {
+        "role": "Contributor"
+      },
+      "source": "server"
+    },
+    {
+      "id": "evt_1790426963280_zvlxenr",
+      "eventType": "USER_LOGGED_IN",
+      "severity": "INFO",
+      "category": "AUTH",
+      "timestamp": "2026-09-26T12:49:23.280Z",
+      "userId": "UG0tDcTdeLgySaxclPN9sk6auRs1",
+      "userEmail": "test_user_a_1790426956963@zakir.ai",
+      "requestId": "req_1790426962228_1e2d872c",
+      "sanitizedMessage": "User logged in: test_user_a_1790426956963@zakir.ai (role: CEO)",
+      "status": "ACTIVE",
+      "metadata": {
+        "role": "CEO"
+      },
+      "source": "server"
+    },
+    {
+      "id": "evt_1790426932860_9bv6y7h",
+      "eventType": "USER_LOGGED_IN",
+      "severity": "INFO",
+      "category": "AUTH",
+      "timestamp": "2026-09-26T12:48:52.860Z",
+      "userId": "kApgfHgWXBWNgFc559XDrRVPA8z1",
+      "userEmail": "test_user_a_1790426921729@zakir.ai",
+      "requestId": "req_1790426931826_98b79fd1",
+      "sanitizedMessage": "User logged in: test_user_a_1790426921729@zakir.ai (role: CEO)",
+      "status": "ACTIVE",
+      "metadata": {
+        "role": "CEO"
+      },
+      "source": "server"
+    },
+    {
+      "id": "evt_1790426931762_m6zqpvc",
+      "eventType": "USER_LOGGED_IN",
+      "severity": "INFO",
+      "category": "AUTH",
+      "timestamp": "2026-09-26T12:48:51.762Z",
+      "userId": "Nb8bcYnH1xQLRxQSzduauD1Egy83",
+      "userEmail": "test_user_b_1790426921729@zakir.ai",
+      "requestId": "req_1790426930708_bdccfdc4",
+      "sanitizedMessage": "User logged in: test_user_b_1790426921729@zakir.ai (role: CEO)",
+      "status": "ACTIVE",
+      "metadata": {
+        "role": "CEO"
+      },
+      "source": "server"
+    },
+    {
+      "id": "evt_1790426929614_uq3uh2t",
+      "eventType": "USER_LOGGED_IN",
+      "severity": "INFO",
+      "category": "AUTH",
+      "timestamp": "2026-09-26T12:48:49.614Z",
+      "userId": "IKd49SpWgBa5XubDF2sLqaslOyF3",
+      "userEmail": "sarasara222341@gmail.com",
+      "requestId": "req_1790426928576_bc43f0ea",
+      "sanitizedMessage": "User logged in: sarasara222341@gmail.com (role: Admin)",
+      "status": "ACTIVE",
+      "metadata": {
+        "role": "Admin"
+      },
+      "source": "server"
+    },
+    {
+      "id": "evt_1790426928503_axw09la",
+      "eventType": "USER_LOGGED_IN",
+      "severity": "INFO",
+      "category": "AUTH",
+      "timestamp": "2026-09-26T12:48:48.503Z",
+      "userId": "usr_admin_prov_1790426927730",
+      "userEmail": "admin_created_1790426921729@zakir.ai",
+      "requestId": "req_1790426927779_8fbeb264",
+      "sanitizedMessage": "User logged in: admin_created_1790426921729@zakir.ai (role: Analyst)",
+      "status": "ACTIVE",
+      "metadata": {
+        "role": "Analyst"
+      },
+      "source": "server"
+    },
+    {
+      "id": "evt_1790426824276_vxkrd5c",
+      "eventType": "USER_LOGGED_IN",
+      "severity": "INFO",
+      "category": "AUTH",
+      "timestamp": "2026-09-26T12:47:04.276Z",
+      "userId": "usr_5it21aafq",
+      "userEmail": "mohamedvadel60@gmail.com",
+      "requestId": "req_1790426823500_b5c07dd5",
+      "sanitizedMessage": "User logged in: mohamedvadel60@gmail.com (role: Admin)",
+      "status": "ACTIVE",
+      "metadata": {
+        "role": "Admin"
+      },
+      "source": "server"
+    },
+    {
+      "id": "evt_1790426823428_uen3e12",
+      "eventType": "USER_LOGGED_IN",
+      "severity": "INFO",
+      "category": "AUTH",
+      "timestamp": "2026-09-26T12:47:03.428Z",
+      "userId": "IKd49SpWgBa5XubDF2sLqaslOyF3",
+      "userEmail": "sarasara222341@gmail.com",
+      "requestId": "req_1790426822353_b8a35ef6",
+      "sanitizedMessage": "User logged in: sarasara222341@gmail.com (role: Admin)",
+      "status": "ACTIVE",
+      "metadata": {
+        "role": "Admin"
+      },
+      "source": "server"
+    },
+    {
       "id": "evt_1790421885756_yab2s2d",
       "eventType": "INSTITUTIONAL_VERIFICATION_SUBMITTED",
       "severity": "NOTICE",
@@ -13480,6 +14092,198 @@
         "additionalNotes": "",
         "submittedAt": "2026-09-26T11:24:45.669Z",
         "documentsCount": 1
+      },
+      "source": "server"
+    },
+    {
+      "id": "evt_1790426823428_uen3e12",
+      "eventType": "USER_LOGGED_IN",
+      "severity": "INFO",
+      "category": "AUTH",
+      "timestamp": "2026-09-26T12:47:03.428Z",
+      "userId": "IKd49SpWgBa5XubDF2sLqaslOyF3",
+      "userEmail": "sarasara222341@gmail.com",
+      "requestId": "req_1790426822353_b8a35ef6",
+      "sanitizedMessage": "User logged in: sarasara222341@gmail.com (role: Admin)",
+      "status": "ACTIVE",
+      "metadata": {
+        "role": "Admin"
+      },
+      "source": "server"
+    },
+    {
+      "id": "evt_1790426824276_vxkrd5c",
+      "eventType": "USER_LOGGED_IN",
+      "severity": "INFO",
+      "category": "AUTH",
+      "timestamp": "2026-09-26T12:47:04.276Z",
+      "userId": "usr_5it21aafq",
+      "userEmail": "mohamedvadel60@gmail.com",
+      "requestId": "req_1790426823500_b5c07dd5",
+      "sanitizedMessage": "User logged in: mohamedvadel60@gmail.com (role: Admin)",
+      "status": "ACTIVE",
+      "metadata": {
+        "role": "Admin"
+      },
+      "source": "server"
+    },
+    {
+      "id": "evt_1790426927699_o7akw4m",
+      "eventType": "USER_LOGGED_IN",
+      "severity": "INFO",
+      "category": "AUTH",
+      "timestamp": "2026-09-26T12:48:47.699Z",
+      "userId": "kApgfHgWXBWNgFc559XDrRVPA8z1",
+      "userEmail": "test_user_a_1790426921729@zakir.ai",
+      "requestId": "req_1790426926688_8a92e6ff",
+      "sanitizedMessage": "User logged in: test_user_a_1790426921729@zakir.ai (role: CEO)",
+      "status": "ACTIVE",
+      "metadata": {
+        "role": "CEO"
+      },
+      "source": "server"
+    },
+    {
+      "id": "evt_1790426928503_axw09la",
+      "eventType": "USER_LOGGED_IN",
+      "severity": "INFO",
+      "category": "AUTH",
+      "timestamp": "2026-09-26T12:48:48.503Z",
+      "userId": "usr_admin_prov_1790426927730",
+      "userEmail": "admin_created_1790426921729@zakir.ai",
+      "requestId": "req_1790426927779_8fbeb264",
+      "sanitizedMessage": "User logged in: admin_created_1790426921729@zakir.ai (role: Analyst)",
+      "status": "ACTIVE",
+      "metadata": {
+        "role": "Analyst"
+      },
+      "source": "server"
+    },
+    {
+      "id": "evt_1790426929614_uq3uh2t",
+      "eventType": "USER_LOGGED_IN",
+      "severity": "INFO",
+      "category": "AUTH",
+      "timestamp": "2026-09-26T12:48:49.614Z",
+      "userId": "IKd49SpWgBa5XubDF2sLqaslOyF3",
+      "userEmail": "sarasara222341@gmail.com",
+      "requestId": "req_1790426928576_bc43f0ea",
+      "sanitizedMessage": "User logged in: sarasara222341@gmail.com (role: Admin)",
+      "status": "ACTIVE",
+      "metadata": {
+        "role": "Admin"
+      },
+      "source": "server"
+    },
+    {
+      "id": "evt_1790426931762_m6zqpvc",
+      "eventType": "USER_LOGGED_IN",
+      "severity": "INFO",
+      "category": "AUTH",
+      "timestamp": "2026-09-26T12:48:51.762Z",
+      "userId": "Nb8bcYnH1xQLRxQSzduauD1Egy83",
+      "userEmail": "test_user_b_1790426921729@zakir.ai",
+      "requestId": "req_1790426930708_bdccfdc4",
+      "sanitizedMessage": "User logged in: test_user_b_1790426921729@zakir.ai (role: CEO)",
+      "status": "ACTIVE",
+      "metadata": {
+        "role": "CEO"
+      },
+      "source": "server"
+    },
+    {
+      "id": "evt_1790426932860_9bv6y7h",
+      "eventType": "USER_LOGGED_IN",
+      "severity": "INFO",
+      "category": "AUTH",
+      "timestamp": "2026-09-26T12:48:52.860Z",
+      "userId": "kApgfHgWXBWNgFc559XDrRVPA8z1",
+      "userEmail": "test_user_a_1790426921729@zakir.ai",
+      "requestId": "req_1790426931826_98b79fd1",
+      "sanitizedMessage": "User logged in: test_user_a_1790426921729@zakir.ai (role: CEO)",
+      "status": "ACTIVE",
+      "metadata": {
+        "role": "CEO"
+      },
+      "source": "server"
+    },
+    {
+      "id": "evt_1790426963280_zvlxenr",
+      "eventType": "USER_LOGGED_IN",
+      "severity": "INFO",
+      "category": "AUTH",
+      "timestamp": "2026-09-26T12:49:23.280Z",
+      "userId": "UG0tDcTdeLgySaxclPN9sk6auRs1",
+      "userEmail": "test_user_a_1790426956963@zakir.ai",
+      "requestId": "req_1790426962228_1e2d872c",
+      "sanitizedMessage": "User logged in: test_user_a_1790426956963@zakir.ai (role: CEO)",
+      "status": "ACTIVE",
+      "metadata": {
+        "role": "CEO"
+      },
+      "source": "server"
+    },
+    {
+      "id": "evt_1790426964362_i8m2u5s",
+      "eventType": "USER_LOGGED_IN",
+      "severity": "INFO",
+      "category": "AUTH",
+      "timestamp": "2026-09-26T12:49:24.362Z",
+      "userId": "D89HCZP9rHPvJPIR1mVqFsoBcgk2",
+      "userEmail": "admin_created_1790426956963@zakir.ai",
+      "requestId": "req_1790426963350_89d0a3b9",
+      "sanitizedMessage": "User logged in: admin_created_1790426956963@zakir.ai (role: Contributor)",
+      "status": "ACTIVE",
+      "metadata": {
+        "role": "Contributor"
+      },
+      "source": "server"
+    },
+    {
+      "id": "evt_1790426965416_m6l139h",
+      "eventType": "USER_LOGGED_IN",
+      "severity": "INFO",
+      "category": "AUTH",
+      "timestamp": "2026-09-26T12:49:25.416Z",
+      "userId": "IKd49SpWgBa5XubDF2sLqaslOyF3",
+      "userEmail": "sarasara222341@gmail.com",
+      "requestId": "req_1790426964429_2c140766",
+      "sanitizedMessage": "User logged in: sarasara222341@gmail.com (role: Admin)",
+      "status": "ACTIVE",
+      "metadata": {
+        "role": "Admin"
+      },
+      "source": "server"
+    },
+    {
+      "id": "evt_1790426966953_lujumot",
+      "eventType": "USER_LOGGED_IN",
+      "severity": "INFO",
+      "category": "AUTH",
+      "timestamp": "2026-09-26T12:49:26.953Z",
+      "userId": "RvznBflYiHRxqNgOOU9MCXmevcd2",
+      "userEmail": "test_user_b_1790426956963@zakir.ai",
+      "requestId": "req_1790426965909_11f18775",
+      "sanitizedMessage": "User logged in: test_user_b_1790426956963@zakir.ai (role: CEO)",
+      "status": "ACTIVE",
+      "metadata": {
+        "role": "CEO"
+      },
+      "source": "server"
+    },
+    {
+      "id": "evt_1790426968263_29wmcbn",
+      "eventType": "USER_LOGGED_IN",
+      "severity": "INFO",
+      "category": "AUTH",
+      "timestamp": "2026-09-26T12:49:28.263Z",
+      "userId": "UG0tDcTdeLgySaxclPN9sk6auRs1",
+      "userEmail": "test_user_a_1790426956963@zakir.ai",
+      "requestId": "req_1790426967020_f308843e",
+      "sanitizedMessage": "User logged in: test_user_a_1790426956963@zakir.ai (role: CEO)",
+      "status": "ACTIVE",
+      "metadata": {
+        "role": "CEO"
       },
       "source": "server"
     }
@@ -31268,6 +32072,60 @@
     }
   ],
   "email_delivery_logs": [
+    {
+      "id": "01a0ddc3-584e-76a2-abc6-62fa58a1330d",
+      "recipient": "admin_created_1790426956963@zakir.ai",
+      "type": "notification",
+      "subject": "رمز التحقق لتفعيل حسابك في Zakir - Verify your Zakir account",
+      "timestamp": "2026-09-26T12:49:22.211Z",
+      "status": "DELIVERED",
+      "error": null
+    },
+    {
+      "id": "01a0ddc3-522e-70a9-9801-3bf879fa3dd8",
+      "recipient": "test_user_b_1790426956963@zakir.ai",
+      "type": "notification",
+      "subject": "رمز التحقق لتفعيل حسابك في Zakir - Verify your Zakir account",
+      "timestamp": "2026-09-26T12:49:20.647Z",
+      "status": "DELIVERED",
+      "error": null
+    },
+    {
+      "id": "01a0ddc3-4b68-7024-886c-9d953593d477",
+      "recipient": "test_user_a_1790426956963@zakir.ai",
+      "type": "notification",
+      "subject": "رمز التحقق لتفعيل حسابك في Zakir - Verify your Zakir account",
+      "timestamp": "2026-09-26T12:49:19.032Z",
+      "status": "DELIVERED",
+      "error": null
+    },
+    {
+      "id": "01a0ddc2-cd87-747d-adb7-03b853b000b1",
+      "recipient": "test_user_b_1790426921729@zakir.ai",
+      "type": "notification",
+      "subject": "رمز التحقق لتفعيل حسابك في Zakir - Verify your Zakir account",
+      "timestamp": "2026-09-26T12:48:46.669Z",
+      "status": "DELIVERED",
+      "error": null
+    },
+    {
+      "id": "01a0ddc2-c63e-7757-ba4c-b6bdf7a01dab",
+      "recipient": "test_user_a_1790426921729@zakir.ai",
+      "type": "notification",
+      "subject": "رمز التحقق لتفعيل حسابك في Zakir - Verify your Zakir account",
+      "timestamp": "2026-09-26T12:48:44.963Z",
+      "status": "DELIVERED",
+      "error": null
+    },
+    {
+      "id": "01a0ddc0-a1e8-7450-a61e-eb3ec17f88a9",
+      "recipient": "test_ws_creation_1790426782370@zakir.ai",
+      "type": "notification",
+      "subject": "رمز التحقق لتفعيل حسابك في Zakir - Verify your Zakir account",
+      "timestamp": "2026-09-26T12:46:24.426Z",
+      "status": "DELIVERED",
+      "error": null
+    },
     {
       "id": "01a0dd75-e1b2-712f-ab3f-cc64e68781e0",
       "recipient": "no_doc_1790421883559@getzakir.com",

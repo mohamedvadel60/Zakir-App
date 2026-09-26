@@ -21956,14 +21956,52 @@ app.post("/api/auth/login", loginRegisterLimiter, async (req, res) => {
       });
     }
 
-    // If password matched and we have a UID, ensure password in Firebase Auth is synchronized
-    if (authUid && isFirebaseAdminAvailable) {
+    // If password matched and we have a UID, ensure password and user profile identity in Firebase Auth and Firestore are strictly harmonized
+    let targetUid = authUid || userProfile?.id || userProfile?.uid;
+    let authUserRecord: any = null;
+
+    if (normalizedEmail) {
       try {
-        await adminAuth.updateUser(authUid, {
-          password: cleanPassword || password,
+        authUserRecord = await adminAuth.getUserByEmail(normalizedEmail);
+      } catch (e) {}
+    }
+
+    if (authUserRecord) {
+      targetUid = authUserRecord.uid;
+    } else if (targetUid) {
+      try {
+        authUserRecord = await adminAuth.getUser(targetUid);
+      } catch (e) {}
+    }
+
+    if (!authUserRecord && targetUid) {
+      try {
+        authUserRecord = await adminAuth.createUser({
+          uid: targetUid,
+          email: normalizedEmail,
+          password: cleanPassword || password || "ZakirPass2026!",
+          displayName: userProfile?.ownerName || userProfile?.companyName || normalizedEmail.split("@")[0],
+          emailVerified: true
         });
-      } catch (pwSyncErr) {
-        // Non-blocking sync
+      } catch (cErr: any) {
+        console.warn("Notice: Auth user provisioning in login:", cErr?.message);
+      }
+    }
+
+    if (authUserRecord) {
+      targetUid = authUserRecord.uid;
+      try {
+        await adminAuth.updateUser(targetUid, {
+          password: cleanPassword || password
+        });
+      } catch (e) {}
+    }
+
+    if (targetUid) {
+      authUid = targetUid;
+      if (userProfile) {
+        userProfile.id = targetUid;
+        userProfile.uid = targetUid;
       }
     }
 
