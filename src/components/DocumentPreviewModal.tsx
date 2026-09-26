@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, Download, FileText, RefreshCw, AlertCircle, ExternalLink, ZoomIn, ZoomOut, RotateCcw } from "lucide-react";
+import { X, Download, FileText, RefreshCw, AlertCircle, ExternalLink, ZoomIn, ZoomOut, RotateCcw, ShieldAlert, FileQuestion } from "lucide-react";
 import { fetchFileAsBlob, downloadUserFile, detectMimeType } from "../lib/fileViewerUtils.js";
 
 interface DocumentPreviewModalProps {
@@ -30,17 +30,8 @@ export const DocumentPreviewModal: React.FC<DocumentPreviewModalProps> = ({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (!isOpen || (!documentId && !fileUrl)) {
-      if (blobUrl && blobUrl.startsWith("blob:")) {
-        URL.revokeObjectURL(blobUrl);
-      }
-      setBlobUrl(null);
-      setTextContent(null);
-      setError(null);
-      setZoom(1);
-      return;
-    }
+  const loadDocument = (bypassCache = false) => {
+    if (!isOpen || (!documentId && !fileUrl)) return;
 
     let isMounted = true;
     setLoading(true);
@@ -50,13 +41,13 @@ export const DocumentPreviewModal: React.FC<DocumentPreviewModalProps> = ({
 
     const target = (documentId || fileUrl || "").trim();
 
-    fetchFileAsBlob({ documentId: target, fileUrl: target, fileName })
-      .then(async ({ blob, mime }) => {
+    fetchFileAsBlob({ documentId: target, fileUrl: target, fileName, bypassCache })
+      .then(async ({ blob, mime, objectUrl }) => {
         if (!isMounted) return;
         const detectedMime = mime || detectMimeType(fileName, blob.type);
         setMimeType(detectedMime.toLowerCase());
 
-        // If plain text / csv / json, extract text content for embedded rendering
+        // If text / json / csv, read text for display
         if (
           detectedMime.includes("text/") ||
           detectedMime.includes("json") ||
@@ -68,9 +59,9 @@ export const DocumentPreviewModal: React.FC<DocumentPreviewModalProps> = ({
           } catch (e) {}
         }
 
-        const objectUrl = URL.createObjectURL(blob);
+        const urlToUse = objectUrl || URL.createObjectURL(blob);
         if (isMounted) {
-          setBlobUrl(objectUrl);
+          setBlobUrl(urlToUse);
         }
       })
       .catch((err: any) => {
@@ -89,9 +80,21 @@ export const DocumentPreviewModal: React.FC<DocumentPreviewModalProps> = ({
 
     return () => {
       isMounted = false;
-      if (blobUrl && blobUrl.startsWith("blob:")) {
-        URL.revokeObjectURL(blobUrl);
-      }
+    };
+  };
+
+  useEffect(() => {
+    if (!isOpen || (!documentId && !fileUrl)) {
+      setBlobUrl(null);
+      setTextContent(null);
+      setError(null);
+      setZoom(1);
+      return;
+    }
+
+    const cleanup = loadDocument(false);
+    return () => {
+      if (cleanup) cleanup();
     };
   }, [isOpen, documentId, fileUrl]);
 
@@ -107,6 +110,9 @@ export const DocumentPreviewModal: React.FC<DocumentPreviewModalProps> = ({
     mimeType.includes("gif") ||
     mimeType.includes("svg");
   const isText = Boolean(textContent !== null);
+
+  const isForbiddenError = error?.includes("صلاحية") || error?.includes("Forbidden") || error?.includes("تسجيل الدخول");
+  const isNotFoundError = error?.includes("غير متوفر") || error?.includes("Not Found");
 
   const handleDownload = () => {
     downloadUserFile({
@@ -236,18 +242,28 @@ export const DocumentPreviewModal: React.FC<DocumentPreviewModalProps> = ({
 
             {error && !loading && (
               <div className="flex flex-col items-center justify-center gap-3 max-w-md text-center py-10 px-4">
-                <div className="w-12 h-12 rounded-full bg-rose-500/10 text-rose-400 flex items-center justify-center border border-rose-500/20">
-                  <AlertCircle className="w-6 h-6" />
+                <div className={`w-12 h-12 rounded-full flex items-center justify-center border ${
+                  isForbiddenError 
+                    ? "bg-amber-500/10 text-amber-400 border-amber-500/20" 
+                    : isNotFoundError
+                    ? "bg-slate-500/10 text-slate-400 border-slate-500/20"
+                    : "bg-rose-500/10 text-rose-400 border-rose-500/20"
+                }`}>
+                  {isForbiddenError ? (
+                    <ShieldAlert className="w-6 h-6" />
+                  ) : isNotFoundError ? (
+                    <FileQuestion className="w-6 h-6" />
+                  ) : (
+                    <AlertCircle className="w-6 h-6" />
+                  )}
                 </div>
-                <p className="text-sm font-medium text-rose-300">{error}</p>
+                <p className="text-sm font-medium text-slate-200">{error}</p>
                 <button
-                  onClick={() => {
-                    setError(null);
-                    setLoading(true);
-                  }}
-                  className="mt-2 px-4 py-2 text-xs font-semibold rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 transition-colors cursor-pointer"
+                  onClick={() => loadDocument(true)}
+                  className="mt-2 px-4 py-2 text-xs font-semibold rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 transition-colors cursor-pointer flex items-center gap-1.5"
                 >
-                  {isAr ? "إعادة المحاولة" : "Try Again"}
+                  <RefreshCw className="w-3.5 h-3.5" />
+                  <span>{isAr ? "إعادة المحاولة" : "Try Again"}</span>
                 </button>
               </div>
             )}

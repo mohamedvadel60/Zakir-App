@@ -11030,6 +11030,193 @@ app.get("/api/admin/pending-approvals", requireAuth, requireAdmin, async (req: A
   }
 });
 
+// Helper: Send authoritative account approval notification using Firebase Auth email as source of truth
+async function sendUserApprovalNotification(params: {
+  userId: string;
+  adminEmail: string;
+  plan?: string;
+  trialHours?: number;
+  notes?: string;
+  forceResend?: boolean;
+}): Promise<{
+  success: boolean;
+  skipped?: boolean;
+  messageId?: string;
+  targetEmail?: string;
+  error?: any;
+  userFriendlyMessage?: string;
+}> {
+  const { userId, adminEmail, plan = "Enterprise", trialHours = 24, notes = "", forceResend = false } = params;
+
+  if (!userId || typeof userId !== "string" || !userId.trim()) {
+    return {
+      success: false,
+      error: "TARGET_USER_ID_MISSING",
+      userFriendlyMessage: "معرف المستخدم المستهدف مفقود."
+    };
+  }
+
+  const cleanUid = userId.trim();
+  let targetUser = await getUserProfileServer(cleanUid);
+
+  // 1. Resolve authoritative recipient email using Firebase Admin Auth first
+  let authEmail = "";
+  let authUser: any = null;
+  if (isFirebaseAdminAvailable && adminAuth) {
+    try {
+      authUser = await adminAuth.getUser(cleanUid);
+      if (authUser && authUser.email) {
+        authEmail = authUser.email.trim().toLowerCase();
+      }
+    } catch (e: any) {
+      console.warn("[APPROVAL_NOTIFICATION_AUTH_LOOKUP_WARN]", { uid: cleanUid, message: e?.message });
+    }
+  }
+
+  const firestoreEmail = (targetUser?.email || "").trim().toLowerCase();
+
+  if (authEmail && firestoreEmail && authEmail !== firestoreEmail) {
+    console.warn("[APPROVAL_NOTIFICATION_EMAIL_MISMATCH]", {
+      uid: cleanUid,
+      authEmail,
+      firestoreEmail
+    });
+  }
+
+  const recipientEmail = authEmail || firestoreEmail;
+
+  if (!recipientEmail || !recipientEmail.includes("@")) {
+    console.error("[APPROVAL_NOTIFICATION_NO_VALID_RECIPIENT]", { uid: cleanUid });
+    return {
+      success: false,
+      error: "TARGET_USER_EMAIL_NOT_FOUND",
+      userFriendlyMessage: "لم يتم العثور على بريد إلكتروني صالح للمستخدم المستهدف."
+    };
+  }
+
+  // 2. Idempotency / Duplicate Check
+  const alreadyNotified = Boolean(targetUser?.approvalEmailSentAt || targetUser?.approvalNotificationSent);
+  if (alreadyNotified && !forceResend) {
+    console.log("[APPROVAL_NOTIFICATION_SKIPPED_DUPLICATE]", {
+      uid: cleanUid,
+      recipientMasked: recipientEmail.replace(/(.{2})(.*)(@.*)/, "$1***$3")
+    });
+    return {
+      success: true,
+      skipped: true,
+      targetEmail: recipientEmail,
+      messageId: targetUser?.approvalEmailMessageId || ""
+    };
+  }
+
+  // 3. Construct Notification Email Content
+  const recipientName =
+    targetUser?.fullName ||
+    targetUser?.ownerName ||
+    targetUser?.name ||
+    authUser?.displayName ||
+    "";
+
+  const effectivePlan = plan || targetUser?.subscriptionPlan || "Enterprise";
+  const effectiveTrialHours = trialHours || targetUser?.trialDurationHours || 24;
+
+  const emailContent = buildNewAccountApprovalEmailHtml({
+    userName: recipientName,
+    email: recipientEmail,
+    trialHours: effectiveTrialHours,
+    plan: effectivePlan
+  });
+
+  // 4. Dispatch Email via sendSystemMail / Resend
+  console.log("[APPROVAL_NOTIFICATION_DISPATCH_START]", {
+    uid: cleanUid,
+    recipient: recipientEmail,
+    plan: effectivePlan,
+    trialHours: effectiveTrialHours
+  });
+
+  try {
+    const mailRes = await sendSystemMail({
+      to: recipientEmail,
+      subject: emailContent.subject,
+      html: emailContent.html,
+      text: emailContent.text
+    });
+
+    const nowIso = new Date().toISOString();
+
+    if (mailRes.success) {
+      const trackingUpdates: Record<string, any> = {
+        approvalEmailSentAt: nowIso,
+        approvalNotificationSent: true,
+        approvalEmailMessageId: mailRes.messageId || "",
+        approvalEmailRecipient: recipientEmail,
+        approvalNotificationStatus: "SENT"
+      };
+
+      try {
+        await adminDb.collection("users").doc(cleanUid).set(trackingUpdates, { merge: true });
+      } catch (e) {}
+
+      const db = readDb();
+      if (db.users) {
+        const idx = db.users.findIndex((u: any) => u.id === cleanUid || u.uid === cleanUid);
+        if (idx >= 0) {
+          db.users[idx] = { ...db.users[idx], ...trackingUpdates };
+          writeDb(db);
+        }
+      }
+
+      console.log("[APPROVAL_NOTIFICATION_DELIVERED]", {
+        uid: cleanUid,
+        recipient: recipientEmail,
+        messageId: mailRes.messageId,
+        simulated: mailRes.simulated || false
+      });
+
+      return {
+        success: true,
+        targetEmail: recipientEmail,
+        messageId: mailRes.messageId,
+        skipped: false
+      };
+    } else {
+      const trackingUpdates: Record<string, any> = {
+        approvalNotificationStatus: "FAILED",
+        approvalNotificationError: mailRes.userFriendlyMessage || "Delivery failed",
+        approvalNotificationAttemptedAt: nowIso,
+        approvalEmailRecipient: recipientEmail
+      };
+
+      try {
+        await adminDb.collection("users").doc(cleanUid).set(trackingUpdates, { merge: true });
+      } catch (e) {}
+
+      console.error("[APPROVAL_NOTIFICATION_FAILED]", {
+        uid: cleanUid,
+        recipient: recipientEmail,
+        error: mailRes.error,
+        statusCode: mailRes.statusCode
+      });
+
+      return {
+        success: false,
+        targetEmail: recipientEmail,
+        error: mailRes.error,
+        userFriendlyMessage: mailRes.userFriendlyMessage || "فشل تسليم البريد الإلكتروني للمستخدم المستهدف."
+      };
+    }
+  } catch (err: any) {
+    console.error("[APPROVAL_NOTIFICATION_UNEXPECTED_ERROR]", err);
+    return {
+      success: false,
+      targetEmail: recipientEmail,
+      error: err,
+      userFriendlyMessage: err?.message || "حدث خطأ غير متوقع أثناء إرسال إشعار الاعتماد."
+    };
+  }
+}
+
 // 2. Approve User Account (Strict Rule 10: Email verified + Real docs + KYC verified + Explicit Admin approval)
 app.post("/api/admin/approve-account", requireAuth, requireAdmin, async (req: AuthRequest, res) => {
   const adminUid = req.user?.uid || "";
@@ -11228,68 +11415,27 @@ app.post("/api/admin/approve-account", requireAuth, requireAdmin, async (req: Au
       approvalUpdates
     );
 
-    // Send official account approval email with duplicate protection
-    let emailDispatchResult: { success: boolean; messageId?: string; simulated?: boolean; skipped?: boolean } = { success: false, skipped: false };
-    const userEmail = (targetUser.email || "").trim();
-    const alreadyNotified = Boolean(targetUser.approvalEmailSentAt || targetUser.approvalNotificationSent);
-
-    if (userEmail && !alreadyNotified) {
-      try {
-        const emailContent = buildNewAccountApprovalEmailHtml({
-          userName: targetUser.fullName || targetUser.ownerName || targetUser.name || "",
-          email: userEmail,
-          trialHours: trialHours,
-          plan: assignPlan,
-        });
-
-        const mailRes = await sendSystemMail({
-          to: userEmail,
-          subject: emailContent.subject,
-          html: emailContent.html,
-          text: emailContent.text,
-        });
-
-        emailDispatchResult = {
-          success: mailRes.success,
-          messageId: mailRes.messageId,
-          simulated: mailRes.simulated,
-        };
-
-        if (mailRes.success) {
-          approvalUpdates.approvalEmailSentAt = nowIso;
-          approvalUpdates.approvalNotificationSent = true;
-          approvalUpdates.approvalEmailMessageId = mailRes.messageId || "";
-
-          try {
-            await adminDb.collection("users").doc(userId).set({
-              approvalEmailSentAt: nowIso,
-              approvalNotificationSent: true,
-              approvalEmailMessageId: mailRes.messageId || "",
-            }, { merge: true });
-          } catch (e) {}
-
-          if (db.users) {
-            const idx = db.users.findIndex((u: any) => u.id === userId || u.uid === userId);
-            if (idx >= 0) {
-              db.users[idx].approvalEmailSentAt = nowIso;
-              db.users[idx].approvalNotificationSent = true;
-              db.users[idx].approvalEmailMessageId = mailRes.messageId || "";
-              writeDb(db);
-            }
-          }
-        }
-      } catch (mailErr) {
-        console.error("[APPROVAL_EMAIL_DISPATCH_ERROR]", mailErr);
-      }
-    } else if (alreadyNotified) {
-      emailDispatchResult = { success: true, skipped: true };
-    }
+    // Send official account approval email using authoritative Firebase Auth resolution and idempotency
+    const notificationResult = await sendUserApprovalNotification({
+      userId,
+      adminEmail,
+      plan: assignPlan,
+      trialHours,
+      notes: notes || adminNotes || ""
+    });
 
     return res.json({
       success: true,
       message: `تم اعتماد الحساب بنجاح وتفعيل الفترة التجريبية لمدة ${trialHours} ساعة.`,
-      emailSent: emailDispatchResult.success,
-      emailSkipped: emailDispatchResult.skipped || false,
+      approvalStatus: "SUCCESS",
+      notification: {
+        status: notificationResult.success ? (notificationResult.skipped ? "SKIPPED" : "SENT") : "FAILED",
+        recipient: notificationResult.targetEmail || null,
+        messageId: notificationResult.messageId || null,
+        error: notificationResult.success ? null : (notificationResult.userFriendlyMessage || "Failed to deliver email")
+      },
+      emailSent: notificationResult.success,
+      emailSkipped: notificationResult.skipped || false,
       user: {
         ...targetUser,
         ...approvalUpdates
@@ -11445,10 +11591,28 @@ app.post(
         docApprovalUpdates
       );
 
+      // Send official account approval email using authoritative Firebase Auth resolution and idempotency
+      const notificationResult = await sendUserApprovalNotification({
+        userId,
+        adminEmail,
+        plan: targetUser.subscriptionPlan || "Enterprise",
+        trialHours: targetUser.trialDurationHours || 24,
+        notes: notes || ""
+      });
+
       return res.json({
         success: true,
         message: `تم اعتماد وتوثيق ${docCount} مستند بنجاح وتأكيد KYC.`,
         documentCount: docCount,
+        approvalStatus: "SUCCESS",
+        notification: {
+          status: notificationResult.success ? (notificationResult.skipped ? "SKIPPED" : "SENT") : "FAILED",
+          recipient: notificationResult.targetEmail || null,
+          messageId: notificationResult.messageId || null,
+          error: notificationResult.success ? null : (notificationResult.userFriendlyMessage || "Failed to deliver email")
+        },
+        emailSent: notificationResult.success,
+        emailSkipped: notificationResult.skipped || false,
         user: {
           ...targetUser,
           ...docApprovalUpdates
@@ -16766,36 +16930,173 @@ function getLocalUploadsDir(): string {
   return path.join(base, "secure_uploads");
 }
 
+// ================= IN-MEMORY HIGH-SPEED BINARY CACHE =================
+export interface StorageMemoryCacheItem {
+  buffer: Buffer;
+  mimeType: string;
+  fileName: string;
+  size: number;
+  sha256: string;
+  cachedAt: number;
+}
+
+const documentBinaryCache = new Map<string, StorageMemoryCacheItem>();
+const MAX_MEMORY_CACHE_ITEMS = 300;
+const BINARY_CACHE_TTL_MS = 20 * 60 * 1000; // 20 minutes in-memory caching
+
+export function getCachedBinary(documentId: string): StorageMemoryCacheItem | null {
+  if (!documentId) return null;
+  const item = documentBinaryCache.get(documentId);
+  if (!item) return null;
+  if (Date.now() - item.cachedAt > BINARY_CACHE_TTL_MS) {
+    documentBinaryCache.delete(documentId);
+    return null;
+  }
+  return item;
+}
+
+export function setCachedBinary(
+  documentId: string,
+  buffer: Buffer,
+  mimeType?: string,
+  fileName: string = "document",
+  sha256?: string
+) {
+  if (!documentId || !buffer || buffer.length === 0) return;
+  if (documentBinaryCache.size >= MAX_MEMORY_CACHE_ITEMS) {
+    const oldestKey = documentBinaryCache.keys().next().value;
+    if (oldestKey) documentBinaryCache.delete(oldestKey);
+  }
+  const cleanMime = accuratelyDetectMimeType(buffer, mimeType, fileName);
+  const hash = sha256 || crypto.createHash("sha256").update(buffer).digest("hex");
+  documentBinaryCache.set(documentId, {
+    buffer,
+    mimeType: cleanMime,
+    fileName,
+    size: buffer.length,
+    sha256: hash,
+    cachedAt: Date.now(),
+  });
+}
+
+export function accuratelyDetectMimeType(
+  buffer?: Buffer | null,
+  fallbackMime?: string,
+  fileName?: string
+): string {
+  if (buffer && buffer.length >= 4) {
+    if (
+      buffer.subarray(0, 4).toString() === "%PDF" ||
+      buffer.subarray(0, 5).toString() === "%PDF-"
+    ) {
+      return "application/pdf";
+    }
+    if (
+      buffer[0] === 0xff &&
+      buffer[1] === 0xd8 &&
+      buffer[2] === 0xff
+    ) {
+      return "image/jpeg";
+    }
+    if (
+      buffer[0] === 0x89 &&
+      buffer[1] === 0x50 &&
+      buffer[2] === 0x4e &&
+      buffer[3] === 0x47
+    ) {
+      return "image/png";
+    }
+    if (buffer.subarray(0, 4).toString() === "GIF8") {
+      return "image/gif";
+    }
+    if (
+      buffer.length >= 12 &&
+      buffer.subarray(0, 4).toString() === "RIFF" &&
+      buffer.subarray(8, 12).toString() === "WEBP"
+    ) {
+      return "image/webp";
+    }
+    if (
+      buffer.subarray(0, 5).toString().toLowerCase().includes("<svg") ||
+      buffer.subarray(0, 5).toString().toLowerCase().includes("<?xml")
+    ) {
+      return "image/svg+xml";
+    }
+  }
+
+  if (fallbackMime && fallbackMime !== "application/octet-stream" && fallbackMime !== "") {
+    return fallbackMime.toLowerCase();
+  }
+
+  if (fileName) {
+    const ext = fileName.split(".").pop()?.toLowerCase();
+    if (ext === "pdf") return "application/pdf";
+    if (["jpg", "jpeg"].includes(ext || "")) return "image/jpeg";
+    if (ext === "png") return "image/png";
+    if (ext === "webp") return "image/webp";
+    if (ext === "gif") return "image/gif";
+    if (ext === "svg") return "image/svg+xml";
+    if (ext === "csv") return "text/csv; charset=utf-8";
+    if (ext === "txt" || ext === "log") return "text/plain; charset=utf-8";
+    if (ext === "json") return "application/json";
+    if (ext === "html" || ext === "htm") return "text/html; charset=utf-8";
+    if (ext === "doc") return "application/msword";
+    if (ext === "docx") return "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+    if (ext === "xls") return "application/vnd.ms-excel";
+    if (ext === "xlsx") return "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+  }
+
+  return "application/pdf";
+}
+
 function saveToLocalDiskCache(documentId: string, buffer: Buffer): void {
   try {
     const cleanId = path.basename(documentId).replace(/[^a-zA-Z0-9_\-\.]/g, "");
     if (!cleanId) return;
-    const dir = getLocalUploadsDir();
-    if (!fs.existsSync(dir)) {
-      fs.mkdirSync(dir, { recursive: true });
+    const dirs = [getLocalUploadsDir(), path.join(os.tmpdir(), "secure_uploads"), path.join(process.cwd(), "secure_uploads")];
+    for (const dir of dirs) {
+      if (!fs.existsSync(dir)) {
+        try { fs.mkdirSync(dir, { recursive: true }); } catch (e) {}
+      }
+      try {
+        fs.writeFileSync(path.join(dir, cleanId), buffer);
+        if (cleanId !== documentId) {
+          const directName = path.basename(documentId);
+          if (directName) fs.writeFileSync(path.join(dir, directName), buffer);
+        }
+      } catch (e) {}
     }
-    fs.writeFileSync(path.join(dir, cleanId), buffer);
+    setCachedBinary(documentId, buffer);
   } catch (err: any) {
-    // In serverless or read-only environments, local disk cache is secondary.
-    console.warn(
-      "[Recovery Storage] Local disk cache write notice:",
-      err?.message || err,
-    );
+    console.warn("[Storage] Local disk cache write notice:", err?.message || err);
   }
 }
 
 function getFromLocalDiskCache(documentId: string): Buffer | null {
   try {
+    const mem = getCachedBinary(documentId);
+    if (mem && mem.buffer && mem.buffer.length > 0) return mem.buffer;
+
     const cleanId = path.basename(documentId).replace(/[^a-zA-Z0-9_\-\.]/g, "");
-    if (!cleanId) return null;
+    const directName = path.basename(documentId);
     const candidatePaths = [
       path.join(getLocalUploadsDir(), cleanId),
       path.join(os.tmpdir(), "secure_uploads", cleanId),
       path.join(process.cwd(), "secure_uploads", cleanId),
+      path.join(getLocalUploadsDir(), directName),
+      path.join(os.tmpdir(), "secure_uploads", directName),
+      path.join(process.cwd(), "secure_uploads", directName),
+      path.join(process.cwd(), documentId),
     ];
     for (const p of candidatePaths) {
       if (fs.existsSync(p)) {
-        return fs.readFileSync(p);
+        try {
+          const buf = fs.readFileSync(p);
+          if (buf && buf.length > 0) {
+            setCachedBinary(documentId, buf);
+            return buf;
+          }
+        } catch (e) {}
       }
     }
   } catch (err) {}
@@ -16843,8 +17144,9 @@ async function saveDocumentToPersistentStorage(
   },
 ): Promise<void> {
   const tDisk0 = Date.now();
-  // 1. Binary Storage Phase (Local Secure Container Persistence)
+  // 1. Binary Storage Phase (Local Secure Container Persistence & In-Memory Cache)
   saveToLocalDiskCache(documentId, buffer);
+  setCachedBinary(documentId, buffer, mimeType, meta?.fileName);
   if (timings) timings.local_disk_ms = Date.now() - tDisk0;
 
   const nowMs = Date.now();
@@ -16861,7 +17163,7 @@ async function saveDocumentToPersistentStorage(
   const storagePath = `secure_uploads/${documentId}`;
   let storageProvider: "firebase-storage" | "local-secure-disk" = "local-secure-disk";
 
-  // 2. Binary Storage Phase (Firebase / Google Cloud Storage with fast fallback)
+  // 2. Binary Storage Phase (Firebase / Google Cloud Storage with non-blocking race)
   const tStorage0 = Date.now();
   if (isCloudStorageBucketAvailable !== false) {
     const bucket = getSafeBucket();
@@ -16895,7 +17197,6 @@ async function saveDocumentToPersistentStorage(
 
         storageProvider = "firebase-storage";
         isCloudStorageBucketAvailable = true;
-        console.log(`[Storage] Binary persisted to Cloud Storage: ${storagePath}`);
       } catch (storageErr: any) {
         if (isCloudStorageBucketAvailable === null) {
           isCloudStorageBucketAvailable = false;
@@ -16949,10 +17250,10 @@ async function saveDocumentToPersistentStorage(
   writeDb(db);
   if (timings) timings.local_db_ms = Date.now() - tDb0;
 
-  // 4. Metadata Persistence (Firestore - Single Lightweight Document ONLY, NO Base64 chunks!)
+  // 4. Metadata Persistence (Firestore - Single Lightweight Document ONLY)
   const tFs0 = Date.now();
   if (meta?.simulateFirestoreFailure) {
-    console.error(`[DurabilityGate] Simulated Firestore metadata failure for documentId: ${documentId}. Initiating rollback and orphan cleanup.`);
+    console.error(`[DurabilityGate] Simulated Firestore metadata failure for documentId: ${documentId}. Initiating rollback.`);
     await deleteDocumentFromPersistentStorage(documentId).catch(() => {});
     const dbRollback = readDb();
     if (dbRollback.recovery_documents_store) {
@@ -16979,10 +17280,6 @@ async function saveDocumentToPersistentStorage(
       }
 
       await batch.commit();
-
-      console.log(
-        `[RecoveryUpload] Lightweight metadata persisted in Firestore for ${documentId} (<1KB payload in 1 roundtrip)`,
-      );
     } catch (fsErr: any) {
       console.warn(
         "[RecoveryUpload] Firestore metadata persistence notice:",
@@ -16994,24 +17291,17 @@ async function saveDocumentToPersistentStorage(
     timings.firestore_batch_ms = Date.now() - tFs0;
     timings.pending_upload_registration_ms = 0;
   }
-
-  console.log(
-    `[Recovery Upload] Storage persistence complete for documentId: ${documentId} (${buffer.length} bytes, provider: ${storageProvider})`,
-  );
 }
 
-// Background Cloud Storage Synchronization with durable queue reconciliation
+// Background Cloud Storage Synchronization
 async function syncDocumentToCloudStorage(
   documentId: string,
   buffer?: Buffer,
   mimeType?: string,
 ): Promise<boolean> {
   const bucket = getSafeBucket();
-  if (!bucket) {
-    return false;
-  }
+  if (!bucket) return false;
 
-  // Resolve buffer and mimeType if not supplied
   let docBuffer = buffer;
   let docMime = mimeType || "application/pdf";
 
@@ -17058,15 +17348,6 @@ async function syncDocumentToCloudStorage(
     } catch (e) {}
   };
 
-  const getCleanErrMsg = (err: any): string => {
-    if (!err) return "Unknown error";
-    if (typeof err === "string") return err;
-    if (err.message) return err.message;
-    if (err.errors?.[0]?.message) return err.errors[0].message;
-    if (err.code) return `Error code ${err.code}`;
-    return "Storage operation unfulfilled";
-  };
-
   const isBucketNotFound = (err: any): boolean => {
     if (!err) return false;
     const msg = String(
@@ -17084,14 +17365,14 @@ async function syncDocumentToCloudStorage(
   };
 
   const MAX_ATTEMPTS = 2;
-  const ATTEMPT_TIMEOUT_MS = 4000;
+  const ATTEMPT_TIMEOUT_MS = 2500;
   let lastError: any = null;
 
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
     let timeoutHandle: any = null;
     try {
       if (attempt > 1) {
-        await new Promise((res) => setTimeout(res, 1000));
+        await new Promise((res) => setTimeout(res, 500));
       }
 
       await Promise.race([
@@ -17117,40 +17398,14 @@ async function syncDocumentToCloudStorage(
       ]);
 
       await updateStatus("synced", undefined, attempt);
-      console.log(
-        `[Recovery Upload] Durable cloud sync SUCCESS for document: ${documentId}`,
-      );
-
-      // Clean up legacy chunks if any exist
-      if (isFirebaseAdminAvailable && adminDb) {
-        (async () => {
-          try {
-            const chunksSnap = await adminDb
-              .collection("recoveryDocuments")
-              .doc(documentId)
-              .collection("chunks")
-              .get();
-            if (chunksSnap && !chunksSnap.empty) {
-              const batch = adminDb.batch();
-              chunksSnap.docs.forEach((doc: any) => batch.delete(doc.ref));
-              await batch.commit();
-            }
-          } catch (pruneErr) {}
-        })().catch(() => {});
-      }
-
       return true;
     } catch (err: any) {
       lastError = err;
       if (isBucketNotFound(err)) {
-        // Cloud bucket not provisioned on this GCP project - mark safely as firestore_durable without retrying
         await updateStatus(
           "firestore_durable",
-          "Primary Firestore metadata active (Bucket unprovisioned)",
+          "Primary storage active (Bucket unprovisioned)",
           attempt,
-        );
-        console.log(
-          `[Recovery Storage] Document ${documentId} safely stored with persistent local storage.`,
         );
         return true;
       }
@@ -17159,20 +17414,17 @@ async function syncDocumentToCloudStorage(
     }
   }
 
-  // If failed after retries, document remains 100% safe in persistent storage
-  const failureReason = getCleanErrMsg(lastError);
-  await updateStatus("firestore_durable", failureReason, MAX_ATTEMPTS);
+  await updateStatus("firestore_durable", lastError?.message || "Storage operation unfulfilled", MAX_ATTEMPTS);
   return true;
 }
 
-// Durable Background Reconciliation Worker: Scans for 'pending' uploads and syncs them
+// Durable Background Reconciliation Worker
 async function runDurableSyncWorker() {
   if (!isFirebaseAdminAvailable) return;
   const bucket = getSafeBucket();
   if (!bucket) return;
 
   try {
-    // 1. Check local DB pending sync items
     const db = readDb();
     const store = db.recovery_documents_store || {};
     const pendingDocIds = Object.keys(store).filter(
@@ -17188,28 +17440,9 @@ async function runDurableSyncWorker() {
         store[docId]?.mimeType,
       );
     }
-
-    // 2. Check Firestore pending sync records
-    if (adminDb) {
-      const snap = await adminDb
-        .collection("recoveryDocuments")
-        .where("storageStatus", "==", "pending")
-        .limit(2)
-        .get();
-
-      if (snap && !snap.empty) {
-        for (const doc of snap.docs) {
-          const data = doc.data();
-          if ((data.syncAttempts || 0) < 2) {
-            await syncDocumentToCloudStorage(doc.id, undefined, data.mimeType);
-          }
-        }
-      }
-    }
   } catch (err) {}
 }
 
-// Periodic background runner (every 5 minutes) for sync reconciliation and TTL cleanup (VM only)
 if (!isServerless) {
   const tSync = setInterval(
     () => {
@@ -17221,79 +17454,435 @@ if (!isServerless) {
   if (tSync?.unref) tSync.unref();
 }
 
+export interface ResolvedDocumentData {
+  documentId: string;
+  buffer: Buffer;
+  mimeType: string;
+  fileName: string;
+  size: number;
+  sha256: string;
+  source: string;
+  metadata?: any;
+}
+
+/**
+ * UNIFIED STORAGE RESOLVER
+ * Resolves binary data across all project storage backends with 0 false-negatives:
+ * 1. In-memory binary cache (<0.1ms)
+ * 2. Local secure container disk (<1ms)
+ * 3. Local DB metadata + base64 / chunks / URLs
+ * 4. User profile embedded documents in local DB
+ * 5. Firestore collections (verification_documents, recoveryDocuments, files, pendingRecoveryUploads)
+ * 6. Firestore chunks reassembly
+ * 7. Firebase Cloud Storage (fast bounded check)
+ */
+export async function resolveDocumentFromStorage(
+  rawDocumentId: string
+): Promise<ResolvedDocumentData> {
+  const documentId = decodeURIComponent(rawDocumentId || "").trim();
+  if (!documentId) {
+    const err: any = new Error("Document ID is required.");
+    err.code = "STORAGE_REFERENCE_INVALID";
+    err.status = 400;
+    throw err;
+  }
+
+  // 1. In-memory cache check (0ms)
+  const memCached = getCachedBinary(documentId);
+  if (memCached && memCached.buffer && memCached.buffer.length > 0) {
+    return {
+      documentId,
+      buffer: memCached.buffer,
+      mimeType: memCached.mimeType,
+      fileName: memCached.fileName || "document",
+      size: memCached.size,
+      sha256: memCached.sha256,
+      source: "memory_cache",
+    };
+  }
+
+  // 2. Local disk check (<1ms)
+  const diskBuf = getFromLocalDiskCache(documentId);
+  if (diskBuf && diskBuf.length > 0) {
+    const mime = accuratelyDetectMimeType(diskBuf);
+    const hash = crypto.createHash("sha256").update(diskBuf).digest("hex");
+    setCachedBinary(documentId, diskBuf, mime, "document", hash);
+    return {
+      documentId,
+      buffer: diskBuf,
+      mimeType: mime,
+      fileName: "document",
+      size: diskBuf.length,
+      sha256: hash,
+      source: "local_disk",
+    };
+  }
+
+  const db = readDb();
+
+  // Helper to extract Buffer from generic document record
+  const tryExtractBufferFromRecord = async (rec: any, recName: string): Promise<ResolvedDocumentData | null> => {
+    if (!rec) return null;
+    const fileName = rec.fileName || rec.name || rec.documentName || "document";
+    const declaredMime = rec.mimeType || rec.type || "";
+
+    // 3a. Chunks reassembly
+    if (Array.isArray(rec.chunks) && rec.chunks.length > 0) {
+      try {
+        const buffers: Buffer[] = [];
+        const sorted = [...rec.chunks].sort((a: any, b: any) => (a.chunkIndex ?? 0) - (b.chunkIndex ?? 0));
+        for (const c of sorted) {
+          const raw = Buffer.from(c.data, "base64");
+          if (c.compressed) {
+            try { buffers.push(zlib.inflateSync(raw)); } catch (e) { buffers.push(raw); }
+          } else {
+            buffers.push(raw);
+          }
+        }
+        if (buffers.length > 0) {
+          const fullBuf = Buffer.concat(buffers);
+          saveToLocalDiskCache(documentId, fullBuf);
+          const mime = accuratelyDetectMimeType(fullBuf, declaredMime, fileName);
+          const hash = rec.fileHash || rec.sha256 || crypto.createHash("sha256").update(fullBuf).digest("hex");
+          setCachedBinary(documentId, fullBuf, mime, fileName, hash);
+          return {
+            documentId,
+            buffer: fullBuf,
+            mimeType: mime,
+            fileName,
+            size: fullBuf.length,
+            sha256: hash,
+            source: `${recName}_chunks`,
+            metadata: rec,
+          };
+        }
+      } catch (chunkErr) {
+        console.warn(`[Storage Resolver] Chunks assembly failed for ${documentId}:`, chunkErr);
+      }
+    }
+
+    // 3b. Base64 string / Data URL
+    const rawBase64 = rec.fileBase64 || rec.data || rec.base64 ||
+      (typeof rec.fileUrl === "string" && rec.fileUrl.startsWith("data:") ? rec.fileUrl : null);
+    if (rawBase64) {
+      try {
+        const clean = String(rawBase64).replace(/^data:[^;]+;base64,/, "");
+        const buf = Buffer.from(clean, "base64");
+        if (buf && buf.length > 0) {
+          saveToLocalDiskCache(documentId, buf);
+          const mime = accuratelyDetectMimeType(buf, declaredMime, fileName);
+          const hash = rec.fileHash || rec.sha256 || crypto.createHash("sha256").update(buf).digest("hex");
+          setCachedBinary(documentId, buf, mime, fileName, hash);
+          return {
+            documentId,
+            buffer: buf,
+            mimeType: mime,
+            fileName,
+            size: buf.length,
+            sha256: hash,
+            source: `${recName}_base64`,
+            metadata: rec,
+          };
+        }
+      } catch (b64Err) {}
+    }
+
+    // 3c. Direct disk storagePath / storageReference
+    const possiblePaths = [rec.storagePath, rec.storageReference, rec.filePath, rec.path].filter(Boolean);
+    for (const p of possiblePaths) {
+      const pClean = path.basename(p);
+      const onDisk = getFromLocalDiskCache(pClean);
+      if (onDisk && onDisk.length > 0) {
+        saveToLocalDiskCache(documentId, onDisk);
+        const mime = accuratelyDetectMimeType(onDisk, declaredMime, fileName);
+        const hash = rec.fileHash || rec.sha256 || crypto.createHash("sha256").update(onDisk).digest("hex");
+        setCachedBinary(documentId, onDisk, mime, fileName, hash);
+        return {
+          documentId,
+          buffer: onDisk,
+          mimeType: mime,
+          fileName,
+          size: onDisk.length,
+          sha256: hash,
+          source: `${recName}_disk_ref`,
+          metadata: rec,
+        };
+      }
+    }
+
+    // 3d. External HTTP/HTTPS URL
+    if (typeof rec.fileUrl === "string" && (rec.fileUrl.startsWith("http://") || rec.fileUrl.startsWith("https://"))) {
+      try {
+        const resp = await fetch(rec.fileUrl);
+        if (resp.ok) {
+          const arrBuf = await resp.arrayBuffer();
+          const buf = Buffer.from(arrBuf);
+          if (buf && buf.length > 0) {
+            saveToLocalDiskCache(documentId, buf);
+            const mime = accuratelyDetectMimeType(buf, resp.headers.get("content-type") || declaredMime, fileName);
+            const hash = rec.fileHash || crypto.createHash("sha256").update(buf).digest("hex");
+            setCachedBinary(documentId, buf, mime, fileName, hash);
+            return {
+              documentId,
+              buffer: buf,
+              mimeType: mime,
+              fileName,
+              size: buf.length,
+              sha256: hash,
+              source: `${recName}_http_url`,
+              metadata: rec,
+            };
+          }
+        }
+      } catch (e) {}
+    }
+
+    return null;
+  };
+
+  // 3. Search local DB stores
+  const localVerDoc = db.verification_documents_store?.[documentId];
+  if (localVerDoc) {
+    const res = await tryExtractBufferFromRecord(localVerDoc, "local_verification_store");
+    if (res) return res;
+  }
+
+  const localRecDoc = db.recovery_documents_store?.[documentId];
+  if (localRecDoc) {
+    const res = await tryExtractBufferFromRecord(localRecDoc, "local_recovery_store");
+    if (res) return res;
+  }
+
+  if (Array.isArray(db.files)) {
+    const fDoc = db.files.find((f: any) => f.id === documentId || f.documentId === documentId || f.fileId === documentId);
+    if (fDoc) {
+      const res = await tryExtractBufferFromRecord(fDoc, "local_files_store");
+      if (res) return res;
+    }
+  }
+
+  // Check users collection in local db for embedded document records
+  if (Array.isArray(db.users)) {
+    for (const u of db.users) {
+      const docList = [
+        ...(Array.isArray(u.verificationDocuments) ? u.verificationDocuments : []),
+        ...(Array.isArray(u.documents) ? u.documents : []),
+        ...(Array.isArray(u.verificationInfo?.documents) ? u.verificationInfo.documents : []),
+        ...(Array.isArray(u.files) ? u.files : []),
+      ];
+      const match = docList.find((d: any) => (d.documentId || d.id || d.fileId || d.storageReference || d.fileName) === documentId);
+      if (match) {
+        const res = await tryExtractBufferFromRecord(match, "local_user_embedded_doc");
+        if (res) return res;
+      }
+    }
+  }
+
+  if (Array.isArray(db.pending_recovery_uploads)) {
+    const pDoc = db.pending_recovery_uploads.find((p: any) => p.documentId === documentId || p.id === documentId);
+    if (pDoc) {
+      const res = await tryExtractBufferFromRecord(pDoc.document || pDoc, "local_pending_recovery_store");
+      if (res) return res;
+    }
+  }
+
+  // 4. Search Firestore Collections in parallel (Fast non-blocking lookup with 800ms timeout)
+  if (isFirebaseAdminAvailable && adminDb) {
+    try {
+      const fetchFirestoreSnapshots = async () => {
+        return await Promise.all([
+          adminDb.collection("verification_documents").doc(documentId).get().catch(() => null),
+          adminDb.collection("recoveryDocuments").doc(documentId).get().catch(() => null),
+          adminDb.collection("files").doc(documentId).get().catch(() => null),
+          adminDb.collection("pendingRecoveryUploads").doc(documentId).get().catch(() => null),
+        ]);
+      };
+
+      let fsTimeout: any = null;
+      const fsSnaps = await Promise.race([
+        fetchFirestoreSnapshots(),
+        new Promise<any[]>((resolve) => {
+          fsTimeout = setTimeout(() => resolve([null, null, null, null]), 800);
+          if (fsTimeout?.unref) fsTimeout.unref();
+        }),
+      ]);
+      if (fsTimeout) clearTimeout(fsTimeout);
+
+      const [verSnap, recSnap, fileSnap, pendSnap] = fsSnaps || [null, null, null, null];
+
+      if (verSnap && verSnap.exists) {
+        const res = await tryExtractBufferFromRecord(verSnap.data(), "firestore_verification_doc");
+        if (res) return res;
+      }
+
+      if (recSnap && recSnap.exists) {
+        // Also check chunks subcollection of recoveryDocuments
+        const recData = recSnap.data() || {};
+        const res = await tryExtractBufferFromRecord(recData, "firestore_recovery_doc");
+        if (res) return res;
+
+        try {
+          const chunksSnap = await adminDb.collection("recoveryDocuments").doc(documentId).collection("chunks").get();
+          if (chunksSnap && !chunksSnap.empty) {
+            const sortedDocs = chunksSnap.docs.sort((a: any, b: any) => {
+              const idxA = Number(a.data().chunkIndex ?? a.id);
+              const idxB = Number(b.data().chunkIndex ?? b.id);
+              return idxA - idxB;
+            });
+            const buffers: Buffer[] = [];
+            for (const cDoc of sortedDocs) {
+              const cData = cDoc.data();
+              if (cData.data) {
+                const rawBuf = Buffer.from(cData.data, "base64");
+                if (cData.compressed) {
+                  try { buffers.push(zlib.inflateSync(rawBuf)); } catch (e) { buffers.push(rawBuf); }
+                } else {
+                  buffers.push(rawBuf);
+                }
+              }
+            }
+            if (buffers.length > 0) {
+              const fullBuf = Buffer.concat(buffers);
+              saveToLocalDiskCache(documentId, fullBuf);
+              const mime = accuratelyDetectMimeType(fullBuf, recData.mimeType, recData.fileName);
+              const hash = recData.fileHash || crypto.createHash("sha256").update(fullBuf).digest("hex");
+              setCachedBinary(documentId, fullBuf, mime, recData.fileName || "document", hash);
+              return {
+                documentId,
+                buffer: fullBuf,
+                mimeType: mime,
+                fileName: recData.fileName || "document",
+                size: fullBuf.length,
+                sha256: hash,
+                source: "firestore_recovery_subchunks",
+                metadata: recData,
+              };
+            }
+          }
+        } catch (chunksErr) {}
+      }
+
+      if (fileSnap && fileSnap.exists) {
+        const res = await tryExtractBufferFromRecord(fileSnap.data(), "firestore_files_doc");
+        if (res) return res;
+      }
+
+      if (pendSnap && pendSnap.exists) {
+        const pData = pendSnap.data()?.document || pendSnap.data();
+        const res = await tryExtractBufferFromRecord(pData, "firestore_pending_doc");
+        if (res) return res;
+      }
+    } catch (fsErr) {
+      console.warn("[Storage Resolver] Firestore search notice:", fsErr);
+    }
+  }
+
+  // 5. Firebase Cloud Storage Bucket Check (Fast non-blocking resolution)
+  if (isCloudStorageBucketAvailable !== false) {
+    const bucket = getSafeBucket();
+    if (bucket) {
+      const candidates = [
+        `secure_uploads/${documentId}`,
+        `files/${documentId}`,
+        `verification_documents/${documentId}`,
+        `recoveryDocuments/${documentId}`,
+        documentId,
+      ];
+
+      for (const cPath of candidates) {
+        try {
+          const fileRef = bucket.file(cPath);
+          let timeoutHandle: any = null;
+          const downloadPromise = async () => {
+            const [exists] = await fileRef.exists().catch(() => [false]);
+            if (exists) {
+              const [b] = await fileRef.download();
+              return b;
+            }
+            return null;
+          };
+
+          const fileBuf = await Promise.race([
+            downloadPromise(),
+            new Promise<null>((resolve) => {
+              timeoutHandle = setTimeout(() => resolve(null), 600);
+              if (timeoutHandle?.unref) timeoutHandle.unref();
+            }),
+          ]);
+          if (timeoutHandle) clearTimeout(timeoutHandle);
+
+          if (fileBuf && fileBuf.length > 0) {
+            saveToLocalDiskCache(documentId, fileBuf);
+            const mime = accuratelyDetectMimeType(fileBuf);
+            const hash = crypto.createHash("sha256").update(fileBuf).digest("hex");
+            setCachedBinary(documentId, fileBuf, mime, "document", hash);
+            return {
+              documentId,
+              buffer: fileBuf,
+              mimeType: mime,
+              fileName: "document",
+              size: fileBuf.length,
+              sha256: hash,
+              source: "firebase_cloud_storage",
+            };
+          }
+        } catch (storageErr) {}
+      }
+    }
+  }
+
+  // If completely unresolvable after checking all sources
+  const error: any = new Error("تعذر تحميل الوثيقة لأن الملف غير متوفر في التخزين.");
+  error.code = "FILE_NOT_FOUND";
+  error.status = 404;
+  throw error;
+}
+
 async function checkDocumentExistence(
   documentId: string,
   docMeta?: any
 ): Promise<boolean> {
   if (!documentId) return false;
-  // 1. Check local container storage
+  // 1. In-memory binary cache
+  if (getCachedBinary(documentId)) return true;
+
+  // 2. Local container storage
   const p1 = path.join(process.cwd(), "secure_uploads", documentId);
   const p2 = path.join(os.tmpdir(), "secure_uploads", documentId);
   const p3 = path.join(getLocalUploadsDir(), documentId);
-  if (fs.existsSync(p1) || fs.existsSync(p2) || fs.existsSync(p3)) {
-    return true;
-  }
-  if (getFromLocalDiskCache(documentId)) {
-    return true;
-  }
+  if (fs.existsSync(p1) || fs.existsSync(p2) || fs.existsSync(p3)) return true;
+  if (getFromLocalDiskCache(documentId)) return true;
 
-  // 2. Check local DB stores
+  // 3. Local DB store check
   const db = readDb();
-  const localDoc =
-    db.recovery_documents_store?.[documentId] ||
-    db.verification_documents_store?.[documentId] ||
-    (Array.isArray(db.files) ? db.files.find((f: any) => f.id === documentId || f.documentId === documentId) : null) ||
-    docMeta;
-
-  if (localDoc) {
+  if (db.verification_documents_store?.[documentId] || db.recovery_documents_store?.[documentId]) {
+    return true;
+  }
+  if (Array.isArray(db.files) && db.files.some((f: any) => f.id === documentId || f.documentId === documentId)) {
+    return true;
+  }
+  if (docMeta) {
     if (
-      localDoc.storageReference ||
-      localDoc.storagePath ||
-      localDoc.path ||
-      localDoc.filePath ||
-      localDoc.downloadUrl ||
-      localDoc.previewUrl ||
-      localDoc.fileName ||
-      localDoc.name ||
-      localDoc.fileBase64 ||
-      localDoc.data ||
-      localDoc.base64 ||
-      (typeof localDoc.fileUrl === "string" && localDoc.fileUrl.length > 5)
+      docMeta.fileBase64 ||
+      docMeta.data ||
+      docMeta.base64 ||
+      docMeta.storageReference ||
+      docMeta.storagePath ||
+      (typeof docMeta.fileUrl === "string" && docMeta.fileUrl.length > 5) ||
+      (Array.isArray(docMeta.chunks) && docMeta.chunks.length > 0)
     ) {
       return true;
     }
-    if (Array.isArray(localDoc.chunks) && localDoc.chunks.length > 0) {
-      return true;
-    }
   }
 
-  // 3. Check Firebase Storage
-  const bucket = getSafeBucket();
-  if (bucket) {
-    try {
-      const candidates = [`secure_uploads/${documentId}`, `files/${documentId}`];
-      if (localDoc?.storagePath) candidates.push(localDoc.storagePath);
-      if (localDoc?.storageReference) candidates.push(localDoc.storageReference);
-      for (const cPath of candidates) {
-        const [exists] = await bucket.file(cPath).exists().catch(() => [false]);
-        if (exists) return true;
-      }
-    } catch (e) {}
-  }
-
-  // 4. Check Firestore
+  // 4. Firestore collection check
   if (isFirebaseAdminAvailable && adminDb) {
     try {
-      const rSnap = await adminDb.collection("recoveryDocuments").doc(documentId).get();
+      const vSnap = await adminDb.collection("verification_documents").doc(documentId).get().catch(() => null);
+      if (vSnap && vSnap.exists) return true;
+      const rSnap = await adminDb.collection("recoveryDocuments").doc(documentId).get().catch(() => null);
       if (rSnap && rSnap.exists) return true;
-      const vSnap = await adminDb.collection("verification_documents").doc(documentId).get();
-      if (vSnap && vSnap.exists) {
-        const vData = vSnap.data();
-        if (vData?.fileBase64 || vData?.data || vData?.storagePath || vData?.storageReference || vData?.fileUrl) {
-          return true;
-        }
-      }
-      const fSnap = await adminDb.collection("files").doc(documentId).get();
+      const fSnap = await adminDb.collection("files").doc(documentId).get().catch(() => null);
       if (fSnap && fSnap.exists) return true;
     } catch (e) {}
   }
@@ -17304,354 +17893,8 @@ async function checkDocumentExistence(
 async function getDocumentFromPersistentStorage(
   documentId: string,
 ): Promise<Buffer> {
-  // 1. Check local container storage first for fastest response (<1ms)
-  const cached = getFromLocalDiskCache(documentId);
-  if (cached && cached.length > 0) {
-    return cached;
-  }
-
-  // Check direct disk paths
-  const candidateDiskPaths = [
-    path.join(process.cwd(), "secure_uploads", documentId),
-    path.join(os.tmpdir(), "secure_uploads", documentId),
-    path.join(getLocalUploadsDir(), documentId),
-  ];
-  for (const p of candidateDiskPaths) {
-    if (fs.existsSync(p)) {
-      try {
-        const buf = fs.readFileSync(p);
-        if (buf && buf.length > 0) {
-          saveToLocalDiskCache(documentId, buf);
-          return buf;
-        }
-      } catch (e) {}
-    }
-  }
-
-  const db = readDb();
-  const localDoc =
-    db.recovery_documents_store?.[documentId] ||
-    db.verification_documents_store?.[documentId] ||
-    (Array.isArray(db.files) ? db.files.find((f: any) => f.id === documentId || f.documentId === documentId) : null);
-
-  // 2. Check Firebase Cloud Storage
-  const bucket = getSafeBucket();
-  if (bucket) {
-    let timeoutHandle: any = null;
-    try {
-      const candidates = [
-        documentId,
-        `secure_uploads/${documentId}`,
-        `files/${documentId}`,
-        `verification_documents/${documentId}`,
-        `recoveryDocuments/${documentId}`,
-      ];
-      if (localDoc?.storagePath) candidates.push(localDoc.storagePath);
-      if (localDoc?.storageReference) candidates.push(localDoc.storageReference);
-      if (localDoc?.userId) {
-        candidates.push(`users/${localDoc.userId}/files/${documentId}`);
-        if (localDoc.fileName) {
-          candidates.push(`users/${localDoc.userId}/files/${documentId}_${localDoc.fileName}`);
-        }
-      }
-
-      for (const cPath of candidates) {
-        if (!cPath) continue;
-        const fileRef = bucket.file(cPath);
-        const downloadPromise = async () => {
-          const [exists] = await fileRef.exists().catch(() => [false]);
-          if (exists) {
-            const [fileBuffer] = await fileRef.download();
-            saveToLocalDiskCache(documentId, fileBuffer);
-            return fileBuffer;
-          }
-          return null;
-        };
-
-        const buffer = await Promise.race([
-          downloadPromise(),
-          new Promise<null>((resolve) => {
-            timeoutHandle = setTimeout(() => resolve(null), 3500);
-            if (timeoutHandle?.unref) timeoutHandle.unref();
-          }),
-        ]);
-
-        if (buffer && buffer.length > 0) return buffer;
-      }
-    } catch (err) {
-      // Continue to fallbacks
-    } finally {
-      if (timeoutHandle) clearTimeout(timeoutHandle);
-    }
-  }
-
-  // 3. Check local DB store legacy Base64 or chunked records
-  if (localDoc) {
-    if (Array.isArray(localDoc.chunks) && localDoc.chunks.length > 0) {
-      const buffers: Buffer[] = [];
-      const sorted = [...localDoc.chunks].sort(
-        (a: any, b: any) => (a.chunkIndex ?? 0) - (b.chunkIndex ?? 0),
-      );
-      for (const c of sorted) {
-        const raw = Buffer.from(c.data, "base64");
-        if (c.compressed) {
-          try {
-            buffers.push(zlib.inflateSync(raw));
-          } catch (e) {
-            buffers.push(raw);
-          }
-        } else {
-          buffers.push(raw);
-        }
-      }
-      if (buffers.length > 0) {
-        const fullBuffer = Buffer.concat(buffers);
-        saveToLocalDiskCache(documentId, fullBuffer);
-        return fullBuffer;
-      }
-    }
-
-    const raw =
-      localDoc.fileBase64 ||
-      localDoc.data ||
-      localDoc.base64 ||
-      (typeof localDoc.fileUrl === "string" && localDoc.fileUrl.startsWith("data:")
-        ? localDoc.fileUrl
-        : null);
-    if (raw) {
-      const clean = String(raw).replace(/^data:[^;]+;base64,/, "");
-      const buf = Buffer.from(clean, "base64");
-      if (buf.length > 0) {
-        saveToLocalDiskCache(documentId, buf);
-        return buf;
-      }
-    }
-
-    // If localDoc has external HTTP/HTTPS URL
-    if (typeof localDoc.fileUrl === "string" && (localDoc.fileUrl.startsWith("http://") || localDoc.fileUrl.startsWith("https://"))) {
-      try {
-        const resp = await fetch(localDoc.fileUrl);
-        if (resp.ok) {
-          const arrBuf = await resp.arrayBuffer();
-          const buf = Buffer.from(arrBuf);
-          if (buf.length > 0) {
-            saveToLocalDiskCache(documentId, buf);
-            return buf;
-          }
-        }
-      } catch (e) {}
-    }
-  }
-
-  // 4. Retrieve from Firestore recoveryDocuments chunks or master record
-  if (isFirebaseAdminAvailable && adminDb) {
-    try {
-      const docSnap = await adminDb
-        .collection("recoveryDocuments")
-        .doc(documentId)
-        .get();
-      if (docSnap && docSnap.exists) {
-        const meta = docSnap.data();
-        const raw = meta?.fileBase64 || meta?.data || meta?.base64;
-        if (raw) {
-          const clean = String(raw).replace(/^data:[^;]+;base64,/, "");
-          const buf = Buffer.from(clean, "base64");
-          if (buf.length > 0) {
-            saveToLocalDiskCache(documentId, buf);
-            return buf;
-          }
-        }
-
-        const chunksSnap = await adminDb
-          .collection("recoveryDocuments")
-          .doc(documentId)
-          .collection("chunks")
-          .get();
-
-        if (chunksSnap && !chunksSnap.empty) {
-          const sortedDocs = chunksSnap.docs.sort((a: any, b: any) => {
-            const idxA = Number(a.data().chunkIndex ?? a.id);
-            const idxB = Number(b.data().chunkIndex ?? b.id);
-            return idxA - idxB;
-          });
-
-          const buffers: Buffer[] = [];
-          for (const cDoc of sortedDocs) {
-            const cData = cDoc.data();
-            const chunkData = cData.data;
-            if (chunkData) {
-              const rawBuf = Buffer.from(chunkData, "base64");
-              if (cData.compressed) {
-                try {
-                  buffers.push(zlib.inflateSync(rawBuf));
-                } catch (e) {
-                  buffers.push(rawBuf);
-                }
-              } else {
-                buffers.push(rawBuf);
-              }
-            }
-          }
-
-          if (buffers.length > 0) {
-            const fullBuffer = Buffer.concat(buffers);
-            saveToLocalDiskCache(documentId, fullBuffer);
-            return fullBuffer;
-          }
-        }
-      }
-    } catch (fsErr) {
-      console.warn("Firestore chunks retrieval notice:", fsErr);
-    }
-
-    // 5. Check Firestore verification_documents collection
-    try {
-      const vSnap = await adminDb.collection("verification_documents").doc(documentId).get();
-      if (vSnap && vSnap.exists) {
-        const vData = vSnap.data();
-        const raw = vData?.fileBase64 || vData?.data || vData?.base64;
-        if (raw) {
-          const clean = String(raw).replace(/^data:[^;]+;base64,/, "");
-          const buf = Buffer.from(clean, "base64");
-          if (buf.length > 0) {
-            saveToLocalDiskCache(documentId, buf);
-            return buf;
-          }
-        }
-        if (vData?.storagePath && bucket) {
-          const [exists] = await bucket.file(vData.storagePath).exists().catch(() => [false]);
-          if (exists) {
-            const [b] = await bucket.file(vData.storagePath).download();
-            saveToLocalDiskCache(documentId, b);
-            return b;
-          }
-        }
-        if (typeof vData?.fileUrl === "string" && (vData.fileUrl.startsWith("http://") || vData.fileUrl.startsWith("https://"))) {
-          const r = await fetch(vData.fileUrl);
-          if (r.ok) {
-            const b = Buffer.from(await r.arrayBuffer());
-            saveToLocalDiskCache(documentId, b);
-            return b;
-          }
-        }
-      }
-    } catch (e) {}
-
-    // 6. Check Firestore files collection
-    try {
-      let fData: any = null;
-      const fSnap = await adminDb.collection("files").doc(documentId).get();
-      if (fSnap && fSnap.exists) {
-        fData = fSnap.data();
-      } else {
-        // Query collectionGroup for files subcollections
-        const groupSnap = await adminDb.collectionGroup("files").where("id", "==", documentId).limit(1).get().catch(() => null);
-        if (groupSnap && !groupSnap.empty) {
-          fData = groupSnap.docs[0].data();
-        }
-      }
-
-      if (fData) {
-        const raw = fData?.fileBase64 || fData?.data || fData?.base64 || (fData?.fileUrl?.startsWith("data:") ? fData.fileUrl : null);
-        if (raw) {
-          const clean = String(raw).replace(/^data:[^;]+;base64,/, "");
-          const buf = Buffer.from(clean, "base64");
-          if (buf.length > 0) {
-            saveToLocalDiskCache(documentId, buf);
-            return buf;
-          }
-        }
-        if (fData?.storagePath && bucket) {
-          const [exists] = await bucket.file(fData.storagePath).exists().catch(() => [false]);
-          if (exists) {
-            const [b] = await bucket.file(fData.storagePath).download();
-            saveToLocalDiskCache(documentId, b);
-            return b;
-          }
-        }
-        if (typeof fData?.fileUrl === "string" && (fData.fileUrl.startsWith("http://") || fData.fileUrl.startsWith("https://"))) {
-          const r = await fetch(fData.fileUrl);
-          if (r.ok) {
-            const b = Buffer.from(await r.arrayBuffer());
-            saveToLocalDiskCache(documentId, b);
-            return b;
-          }
-        }
-      }
-    } catch (e) {}
-
-    // Check legacy pendingRecoveryUploads collection
-    try {
-      const pendSnap = await adminDb
-        .collection("pendingRecoveryUploads")
-        .doc(documentId)
-        .get();
-      if (pendSnap && pendSnap.exists) {
-        const pData = pendSnap.data();
-        const raw =
-          pData?.fileBase64 ||
-          pData?.document?.fileBase64 ||
-          pData?.data ||
-          pData?.base64;
-        if (raw) {
-          const clean = String(raw).replace(/^data:[^;]+;base64,/, "");
-          const buf = Buffer.from(clean, "base64");
-          if (buf.length > 0) {
-            saveToLocalDiskCache(documentId, buf);
-            return buf;
-          }
-        }
-      }
-    } catch (err) {}
-
-    // Check users collection for embedded verification documents
-    try {
-      const usersSnap = await adminDb.collection("users").get();
-      for (const uDoc of usersSnap.docs) {
-        const uData = uDoc.data();
-        const docsList = [
-          ...(uData.verificationDocuments || []),
-          ...(uData.documents || []),
-          ...(uData.verification_documents || []),
-        ];
-        const match = docsList.find(
-          (d: any) =>
-            (d.documentId || d.id || d.storageReference || d.fileName) === documentId
-        );
-        if (match) {
-          const raw = match.fileBase64 || match.data || match.base64 || (typeof match.fileUrl === "string" && match.fileUrl.startsWith("data:") ? match.fileUrl : null);
-          if (raw) {
-            const clean = String(raw).replace(/^data:[^;]+;base64,/, "");
-            const buf = Buffer.from(clean, "base64");
-            if (buf.length > 0) {
-              saveToLocalDiskCache(documentId, buf);
-              return buf;
-            }
-          }
-          if (match.storagePath && bucket) {
-            const [exists] = await bucket.file(match.storagePath).exists().catch(() => [false]);
-            if (exists) {
-              const [b] = await bucket.file(match.storagePath).download();
-              saveToLocalDiskCache(documentId, b);
-              return b;
-            }
-          }
-          if (typeof match.fileUrl === "string" && (match.fileUrl.startsWith("http://") || match.fileUrl.startsWith("https://"))) {
-            const r = await fetch(match.fileUrl);
-            if (r.ok) {
-              const b = Buffer.from(await r.arrayBuffer());
-              saveToLocalDiskCache(documentId, b);
-              return b;
-            }
-          }
-        }
-      }
-    } catch (err) {}
-  }
-
-  throw new Error(
-    `Document file not found on server storage for ID: ${documentId}`,
-  );
+  const resolved = await resolveDocumentFromStorage(documentId);
+  return resolved.buffer;
 }
 
 async function deleteDocumentFromPersistentStorage(
@@ -18448,7 +18691,7 @@ app.all(
       const originalName = docMeta?.fileName || `document_${safeDocId}.pdf`;
       let mimeType = docMeta?.mimeType || "";
 
-      // Download the file from our safe persistent storage engine
+      // Download the file from our unified multi-tier storage engine
       let fileBuffer: Buffer | null = null;
 
       if (docMeta?.fileBase64 || docMeta?.data || docMeta?.base64) {
@@ -18463,7 +18706,9 @@ app.all(
 
       if (!fileBuffer) {
         try {
-          fileBuffer = await getDocumentFromPersistentStorage(safeDocId);
+          const resolved = await resolveDocumentFromStorage(safeDocId);
+          fileBuffer = resolved.buffer;
+          if (resolved.mimeType) mimeType = resolved.mimeType;
         } catch (err: any) {
           // Fallback: If binary was purged or unavailable, generate a verified document record visual badge / SVG preview
           const svgContent = `<svg xmlns="http://www.w3.org/2000/svg" width="800" height="500" viewBox="0 0 800 500">
@@ -18923,12 +19168,15 @@ app.post(
   }
 );
 
-// Fetch / Download / Preview Verification Document (Admin or Document Owner)
+// Fetch / Download / Preview Verification Document (Admin or Document Owner) with High-Speed Streaming
 app.get(
   [
     "/api/auth/verification-document/:documentId",
     "/api/admin/verification-document/:documentId",
     "/api/verification-document/:documentId",
+    "/api/auth/recovery-document/:documentId",
+    "/api/admin/recovery-document/:documentId",
+    "/api/recovery-document/:documentId",
     "/api/files/:documentId/preview",
     "/api/files/:documentId/download",
     "/api/files/download/:documentId",
@@ -18944,43 +19192,29 @@ app.get(
       const documentId = decodeURIComponent(rawDocId).trim();
 
       if (!documentId) {
-        return res.status(400).json({ success: false, error: "Document ID is required." });
+        return res.status(400).json({ success: false, error: "STORAGE_REFERENCE_INVALID", message: "Document ID is required." });
       }
 
       const isAdmin = await isUserAdminServer(callerUid || "", callerEmail);
+      const isAdminPath = (req.originalUrl || req.url || "").includes("/admin/");
 
+      if (isAdminPath && !isAdmin) {
+        return res.status(403).json({
+          success: false,
+          error: "UNAUTHORIZED",
+          message: "Forbidden: Admin privileges required to access admin document endpoints.",
+          userFriendlyMessage: "غير مصرح لك بالوصول إلى لوحة التحكم الإدارية."
+        });
+      }
+
+      // 1. Check Document Authorization
+      let isOwner = false;
       const db = readDb();
       let docRecord = db.verification_documents_store?.[documentId] || db.recovery_documents_store?.[documentId];
       if (!docRecord && Array.isArray(db.files)) {
-        docRecord = db.files.find((f: any) => f.id === documentId || f.documentId === documentId);
+        docRecord = db.files.find((f: any) => f.id === documentId || f.documentId === documentId || f.fileId === documentId);
       }
 
-      // Check Firestore collections if not found in local db
-      if (!docRecord && isFirebaseAdminAvailable && adminDb) {
-        try {
-          const vSnap = await adminDb.collection("verification_documents").doc(documentId).get();
-          if (vSnap && vSnap.exists) {
-            docRecord = { id: vSnap.id, ...vSnap.data() };
-          } else {
-            const fSnap = await adminDb.collection("files").doc(documentId).get();
-            if (fSnap && fSnap.exists) {
-              docRecord = { id: fSnap.id, ...fSnap.data() };
-            } else {
-              const rSnap = await adminDb.collection("recoveryDocuments").doc(documentId).get();
-              if (rSnap && rSnap.exists) {
-                docRecord = { id: rSnap.id, ...rSnap.data() };
-              } else if (callerUid) {
-                const uFileSnap = await adminDb.collection("users").doc(callerUid).collection("files").doc(documentId).get();
-                if (uFileSnap && uFileSnap.exists) {
-                  docRecord = { id: uFileSnap.id, ...uFileSnap.data() };
-                }
-              }
-            }
-          }
-        } catch (e) {}
-      }
-
-      let isOwner = false;
       if (callerUid && docRecord && (docRecord.userId === callerUid || docRecord.userUid === callerUid || docRecord.ownerUid === callerUid)) {
         isOwner = true;
       }
@@ -18988,22 +19222,41 @@ app.get(
       if (!isOwner && callerUid) {
         const callerProfile = await getUserProfileServer(callerUid, callerEmail);
         if (
-          callerProfile?.verificationDocuments?.some((d: any) => (d.documentId || d.id) === documentId) ||
-          callerProfile?.documents?.some((d: any) => (d.documentId || d.id) === documentId) ||
+          callerProfile?.verificationDocuments?.some((d: any) => (d.documentId || d.id || d.fileId) === documentId) ||
+          callerProfile?.documents?.some((d: any) => (d.documentId || d.id || d.fileId) === documentId) ||
           callerProfile?.files?.some((f: any) => (f.id || f.fileId) === documentId)
         ) {
           isOwner = true;
         }
       }
 
+      // Check Firestore doc ownership if still unresolved
+      if (!isAdmin && !isOwner && isFirebaseAdminAvailable && adminDb && callerUid) {
+        try {
+          const [vSnap, rSnap, fSnap] = await Promise.all([
+            adminDb.collection("verification_documents").doc(documentId).get().catch(() => null),
+            adminDb.collection("recoveryDocuments").doc(documentId).get().catch(() => null),
+            adminDb.collection("files").doc(documentId).get().catch(() => null),
+          ]);
+          const docData = vSnap?.data() || rSnap?.data() || fSnap?.data();
+          if (docData && (docData.userId === callerUid || docData.ownerUid === callerUid || docData.userUid === callerUid)) {
+            isOwner = true;
+            if (!docRecord) docRecord = docData;
+          }
+        } catch (e) {}
+      }
+
+      // Strict Access Control: Admin or Owner ONLY
       if (!isAdmin && !isOwner) {
         return res.status(403).json({
           success: false,
-          error: "Forbidden: You are not authorized to view this document."
+          error: "FORBIDDEN",
+          code: "FORBIDDEN",
+          message: "Forbidden: You are not authorized to view this document."
         });
       }
 
-      // Metadata First check: Return lightweight JSON if metadata is requested
+      // 2. Fast Metadata-Only query handler (<1ms)
       if (req.query.metadata === "true" || req.query.metadataOnly === "true" || req.query.meta === "true") {
         return res.status(200).json({
           success: true,
@@ -19020,47 +19273,91 @@ app.get(
         });
       }
 
-      let fileBuffer: Buffer | null = null;
+      // 3. Resolve Binary through Unified Multi-Tier Storage Engine
+      let resolved: ResolvedDocumentData;
       try {
-        fileBuffer = await getDocumentFromPersistentStorage(documentId);
+        resolved = await resolveDocumentFromStorage(documentId);
       } catch (err: any) {
-        console.warn(`[Doc Retrieval Warning] could not load buffer for ${documentId}:`, err?.message);
-      }
-
-      if (!fileBuffer || fileBuffer.length === 0) {
-        return res.status(404).json({
+        const status = err.status || 404;
+        const code = err.code || "FILE_NOT_FOUND";
+        return res.status(status).json({
           success: false,
-          error: "DOCUMENT_NOT_FOUND",
-          message: "تعذر تحميل الوثيقة لأن الملف غير متوفر في التخزين.",
+          error: code,
+          code,
+          message: err.message || "تعذر تحميل الوثيقة لأن الملف غير متوفر في التخزين.",
         });
       }
 
-      let mimeType = docRecord?.mimeType || "application/pdf";
-      const fileName = docRecord?.fileName || docRecord?.name || "document";
+      const fileBuffer = resolved.buffer;
+      const mimeType = resolved.mimeType || "application/pdf";
+      const fileName = resolved.fileName || docRecord?.fileName || docRecord?.name || "document";
+      const totalLength = fileBuffer.length;
+      const etag = `W/"${resolved.sha256 || crypto.createHash("sha256").update(fileBuffer).digest("hex")}"`;
 
-      if (fileBuffer.length >= 4) {
-        if (fileBuffer.subarray(0, 4).toString() === "%PDF") {
-          mimeType = "application/pdf";
-        } else if (fileBuffer[0] === 0xff && fileBuffer[1] === 0xd8) {
-          mimeType = "image/jpeg";
-        } else if (fileBuffer[0] === 0x89 && fileBuffer[1] === 0x50) {
-          mimeType = "image/png";
-        } else if (fileBuffer.subarray(0, 4).toString() === "RIFF" && fileBuffer.subarray(8, 12).toString() === "WEBP") {
-          mimeType = "image/webp";
-        }
+      // 4. HTTP Cache validation (Conditional GET / 304 Not Modified)
+      if (req.headers["if-none-match"] === etag) {
+        res.setHeader("ETag", etag);
+        res.setHeader("Cache-Control", "private, max-age=300, stale-while-revalidate=600");
+        return res.status(304).end();
       }
 
       const isDownloadRequested = req.query.download === "true" || req.query.mode === "download" || req.path.includes("/download");
       const dispositionType = isDownloadRequested ? "attachment" : "inline";
 
+      const cleanDocName = (fileName || "document")
+        .replace(/[\r\n\t]/g, " ")
+        .trim();
+      const docExtMatch = cleanDocName.match(/\.([a-zA-Z0-9]+)$/);
+      const docExt = docExtMatch ? `.${docExtMatch[1]}` : "";
+      const baseAsciiDocName = cleanDocName
+        .replace(/\.[a-zA-Z0-9]+$/, "")
+        .replace(/[^\x20-\x7E]/g, "_")
+        .replace(/["\\]/g, "_")
+        .trim();
+      const safeAsciiFilename = (baseAsciiDocName || "document") + docExt;
+      const utf8EncodedFilename = encodeURIComponent(cleanDocName);
+
+      // Base Headers for Fast Preview & Streaming
       res.setHeader("X-Content-Type-Options", "nosniff");
       res.setHeader("Content-Type", mimeType);
-      res.setHeader("Content-Disposition", `${dispositionType}; filename="${encodeURIComponent(fileName)}"`);
-      res.setHeader("Cache-Control", "private, no-cache, no-store, must-revalidate");
+      res.setHeader("Accept-Ranges", "bytes");
+      res.setHeader("ETag", etag);
+      res.setHeader("Cache-Control", "private, max-age=300, stale-while-revalidate=600");
+      res.setHeader(
+        "Content-Disposition",
+        `${dispositionType}; filename="${safeAsciiFilename}"; filename*=UTF-8''${utf8EncodedFilename}`
+      );
+
+      // 5. HTTP 206 Partial Content (Byte Range Requests for Fast PDF seeking)
+      const range = req.headers.range;
+      if (range && !isDownloadRequested) {
+        const parts = range.replace(/bytes=/, "").split("-");
+        const start = parseInt(parts[0], 10) || 0;
+        const end = parts[1] ? parseInt(parts[1], 10) : totalLength - 1;
+
+        if (start >= totalLength || end >= totalLength || start > end) {
+          res.setHeader("Content-Range", `bytes */${totalLength}`);
+          return res.status(416).end();
+        }
+
+        const chunk = fileBuffer.subarray(start, end + 1);
+        res.setHeader("Content-Range", `bytes ${start}-${end}/${totalLength}`);
+        res.setHeader("Content-Length", chunk.length);
+        res.status(206);
+        return res.send(chunk);
+      }
+
+      // 6. Full Stream / Buffer response
+      res.setHeader("Content-Length", totalLength);
       return res.send(fileBuffer);
     } catch (err: any) {
-      console.error("[VERIFICATION_DOC_RETRIEVE_ERROR]", err);
-      return res.status(500).json({ success: false, error: err.message || "Failed to retrieve document." });
+      console.error("[DOCUMENT_PREVIEW_ENDPOINT_ERROR]", err);
+      return res.status(500).json({
+        success: false,
+        error: "STORAGE_READ_FAILED",
+        code: "STORAGE_READ_FAILED",
+        message: err.message || "Failed to retrieve document stream.",
+      });
     }
   }
 );

@@ -94,7 +94,27 @@ export const AdminRecoveryTab: React.FC<AdminRecoveryTabProps> = ({
       <div className="space-y-3">
         {recoveryRequests.map((req) => {
           const isPending = req.status === "pending";
-          const hasDoc = Boolean(req.documentId || req.identityDocument);
+          const attachedDocs: any[] = [];
+          if (req.documentId || req.identityDocument) {
+            attachedDocs.push({
+              documentId: req.documentId || req.identityDocument?.id || "doc",
+              fileName: req.documentName || req.identityDocument?.fileName || "Identity Document",
+              mimeType: req.identityDocument?.mimeType || "application/pdf"
+            });
+          }
+          if (Array.isArray((req as any).documents)) {
+            for (const d of (req as any).documents) {
+              const docId = d.documentId || d.id || d.storageReference;
+              if (docId && !attachedDocs.some(a => a.documentId === docId)) {
+                attachedDocs.push({
+                  documentId: docId,
+                  fileName: d.fileName || d.name || "Identity Document",
+                  mimeType: d.mimeType || "application/pdf"
+                });
+              }
+            }
+          }
+          const hasDoc = attachedDocs.length > 0;
 
           return (
             <div
@@ -139,35 +159,38 @@ export const AdminRecoveryTab: React.FC<AdminRecoveryTabProps> = ({
                     )}
 
                     {hasDoc && (
-                      <div className="mt-2.5 flex items-center gap-2">
-                        <button
-                          onClick={() => {
-                            setSelectedDocId(req.documentId || req.identityDocument?.id || "doc");
-                            setSelectedDocName(req.documentName || "Identity Document");
-                            setIsPreviewOpen(true);
-                          }}
-                          type="button"
-                          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-medium bg-purple-50 text-purple-700 hover:bg-purple-100 dark:bg-purple-950/40 dark:text-purple-300 transition-colors cursor-pointer"
-                        >
-                          <FileText className="w-3 h-3" />
-                          <span>{t.previewDoc}</span>
-                          <Eye className="w-3 h-3 ms-1" />
-                        </button>
-                        <button
-                          onClick={() => {
-                            downloadUserFile({
-                              documentId: req.documentId || req.identityDocument?.id || "doc",
-                              fileName: req.documentName || "Identity_Document.pdf",
-                              mimeType: "application/pdf"
-                            });
-                          }}
-                          type="button"
-                          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-medium bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 transition-colors cursor-pointer"
-                          title={isAr ? "تنزيل الوثيقة" : "Download Document"}
-                        >
-                          <Download className="w-3 h-3" />
-                          <span>{isAr ? "تنزيل" : "Download"}</span>
-                        </button>
+                      <div className="mt-2.5 flex flex-wrap items-center gap-2">
+                        {attachedDocs.map((docItem, idx) => (
+                          <div key={docItem.documentId || idx} className="flex items-center gap-1">
+                            <button
+                              onClick={() => {
+                                setSelectedDocId(docItem.documentId);
+                                setSelectedDocName(docItem.fileName || "Identity Document");
+                                setIsPreviewOpen(true);
+                              }}
+                              type="button"
+                              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-medium bg-purple-50 text-purple-700 hover:bg-purple-100 dark:bg-purple-950/40 dark:text-purple-300 transition-colors cursor-pointer"
+                            >
+                              <FileText className="w-3 h-3" />
+                              <span>{docItem.fileName ? `${t.previewDoc} (${docItem.fileName})` : t.previewDoc}</span>
+                              <Eye className="w-3 h-3 ms-1" />
+                            </button>
+                            <button
+                              onClick={() => {
+                                downloadUserFile({
+                                  documentId: docItem.documentId,
+                                  fileName: docItem.fileName || "Identity_Document.pdf",
+                                  mimeType: docItem.mimeType || "application/pdf"
+                                });
+                              }}
+                              type="button"
+                              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-medium bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 transition-colors cursor-pointer"
+                              title={isAr ? "تنزيل الوثيقة" : "Download Document"}
+                            >
+                              <Download className="w-3 h-3" />
+                            </button>
+                          </div>
+                        ))}
                       </div>
                     )}
                   </div>

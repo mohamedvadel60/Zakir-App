@@ -941,7 +941,7 @@ export async function sendSystemMail(
   }
 
   if (!fromSender.includes("<")) {
-    fromSender = `Zakir Platform <${fromSender}>`;
+    fromSender = `Zakir <${fromSender}>`;
   }
 
   try {
@@ -1062,6 +1062,8 @@ export async function sendSystemMail(
     const emailPayload: any = {
       from: fromSender,
       to: [to],
+      reply_to: "support@getzakir.com",
+      replyTo: "support@getzakir.com",
       subject: subject,
       html: html,
       text: text || undefined,

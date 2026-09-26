@@ -3258,7 +3258,7 @@ async function sendSystemMail(toOrOptions, subjectArg, textArg, htmlArg) {
     fromSender = "noreply@getzakir.com";
   }
   if (!fromSender.includes("<")) {
-    fromSender = `Zakir Platform <${fromSender}>`;
+    fromSender = `Zakir <${fromSender}>`;
   }
   try {
     const resend = getResendInstance();
@@ -3348,6 +3348,8 @@ async function sendSystemMail(toOrOptions, subjectArg, textArg, htmlArg) {
     const emailPayload = {
       from: fromSender,
       to: [to],
+      reply_to: "support@getzakir.com",
+      replyTo: "support@getzakir.com",
       subject,
       html,
       text: text2 || void 0
@@ -15361,6 +15363,148 @@ app2.get("/api/admin/pending-approvals", requireAuth, requireAdmin, async (req, 
     });
   }
 });
+async function sendUserApprovalNotification(params) {
+  const { userId, adminEmail, plan = "Enterprise", trialHours = 24, notes = "", forceResend = false } = params;
+  if (!userId || typeof userId !== "string" || !userId.trim()) {
+    return {
+      success: false,
+      error: "TARGET_USER_ID_MISSING",
+      userFriendlyMessage: "\u0645\u0639\u0631\u0641 \u0627\u0644\u0645\u0633\u062A\u062E\u062F\u0645 \u0627\u0644\u0645\u0633\u062A\u0647\u062F\u0641 \u0645\u0641\u0642\u0648\u062F."
+    };
+  }
+  const cleanUid = userId.trim();
+  let targetUser = await getUserProfileServer(cleanUid);
+  let authEmail = "";
+  let authUser = null;
+  if (isFirebaseAdminAvailable && adminAuth) {
+    try {
+      authUser = await adminAuth.getUser(cleanUid);
+      if (authUser && authUser.email) {
+        authEmail = authUser.email.trim().toLowerCase();
+      }
+    } catch (e) {
+      console.warn("[APPROVAL_NOTIFICATION_AUTH_LOOKUP_WARN]", { uid: cleanUid, message: e?.message });
+    }
+  }
+  const firestoreEmail = (targetUser?.email || "").trim().toLowerCase();
+  if (authEmail && firestoreEmail && authEmail !== firestoreEmail) {
+    console.warn("[APPROVAL_NOTIFICATION_EMAIL_MISMATCH]", {
+      uid: cleanUid,
+      authEmail,
+      firestoreEmail
+    });
+  }
+  const recipientEmail = authEmail || firestoreEmail;
+  if (!recipientEmail || !recipientEmail.includes("@")) {
+    console.error("[APPROVAL_NOTIFICATION_NO_VALID_RECIPIENT]", { uid: cleanUid });
+    return {
+      success: false,
+      error: "TARGET_USER_EMAIL_NOT_FOUND",
+      userFriendlyMessage: "\u0644\u0645 \u064A\u062A\u0645 \u0627\u0644\u0639\u062B\u0648\u0631 \u0639\u0644\u0649 \u0628\u0631\u064A\u062F \u0625\u0644\u0643\u062A\u0631\u0648\u0646\u064A \u0635\u0627\u0644\u062D \u0644\u0644\u0645\u0633\u062A\u062E\u062F\u0645 \u0627\u0644\u0645\u0633\u062A\u0647\u062F\u0641."
+    };
+  }
+  const alreadyNotified = Boolean(targetUser?.approvalEmailSentAt || targetUser?.approvalNotificationSent);
+  if (alreadyNotified && !forceResend) {
+    console.log("[APPROVAL_NOTIFICATION_SKIPPED_DUPLICATE]", {
+      uid: cleanUid,
+      recipientMasked: recipientEmail.replace(/(.{2})(.*)(@.*)/, "$1***$3")
+    });
+    return {
+      success: true,
+      skipped: true,
+      targetEmail: recipientEmail,
+      messageId: targetUser?.approvalEmailMessageId || ""
+    };
+  }
+  const recipientName = targetUser?.fullName || targetUser?.ownerName || targetUser?.name || authUser?.displayName || "";
+  const effectivePlan = plan || targetUser?.subscriptionPlan || "Enterprise";
+  const effectiveTrialHours = trialHours || targetUser?.trialDurationHours || 24;
+  const emailContent = buildNewAccountApprovalEmailHtml({
+    userName: recipientName,
+    email: recipientEmail,
+    trialHours: effectiveTrialHours,
+    plan: effectivePlan
+  });
+  console.log("[APPROVAL_NOTIFICATION_DISPATCH_START]", {
+    uid: cleanUid,
+    recipient: recipientEmail,
+    plan: effectivePlan,
+    trialHours: effectiveTrialHours
+  });
+  try {
+    const mailRes = await sendSystemMail2({
+      to: recipientEmail,
+      subject: emailContent.subject,
+      html: emailContent.html,
+      text: emailContent.text
+    });
+    const nowIso = (/* @__PURE__ */ new Date()).toISOString();
+    if (mailRes.success) {
+      const trackingUpdates = {
+        approvalEmailSentAt: nowIso,
+        approvalNotificationSent: true,
+        approvalEmailMessageId: mailRes.messageId || "",
+        approvalEmailRecipient: recipientEmail,
+        approvalNotificationStatus: "SENT"
+      };
+      try {
+        await adminDb.collection("users").doc(cleanUid).set(trackingUpdates, { merge: true });
+      } catch (e) {
+      }
+      const db2 = readDb2();
+      if (db2.users) {
+        const idx = db2.users.findIndex((u) => u.id === cleanUid || u.uid === cleanUid);
+        if (idx >= 0) {
+          db2.users[idx] = { ...db2.users[idx], ...trackingUpdates };
+          writeDb2(db2);
+        }
+      }
+      console.log("[APPROVAL_NOTIFICATION_DELIVERED]", {
+        uid: cleanUid,
+        recipient: recipientEmail,
+        messageId: mailRes.messageId,
+        simulated: mailRes.simulated || false
+      });
+      return {
+        success: true,
+        targetEmail: recipientEmail,
+        messageId: mailRes.messageId,
+        skipped: false
+      };
+    } else {
+      const trackingUpdates = {
+        approvalNotificationStatus: "FAILED",
+        approvalNotificationError: mailRes.userFriendlyMessage || "Delivery failed",
+        approvalNotificationAttemptedAt: nowIso,
+        approvalEmailRecipient: recipientEmail
+      };
+      try {
+        await adminDb.collection("users").doc(cleanUid).set(trackingUpdates, { merge: true });
+      } catch (e) {
+      }
+      console.error("[APPROVAL_NOTIFICATION_FAILED]", {
+        uid: cleanUid,
+        recipient: recipientEmail,
+        error: mailRes.error,
+        statusCode: mailRes.statusCode
+      });
+      return {
+        success: false,
+        targetEmail: recipientEmail,
+        error: mailRes.error,
+        userFriendlyMessage: mailRes.userFriendlyMessage || "\u0641\u0634\u0644 \u062A\u0633\u0644\u064A\u0645 \u0627\u0644\u0628\u0631\u064A\u062F \u0627\u0644\u0625\u0644\u0643\u062A\u0631\u0648\u0646\u064A \u0644\u0644\u0645\u0633\u062A\u062E\u062F\u0645 \u0627\u0644\u0645\u0633\u062A\u0647\u062F\u0641."
+      };
+    }
+  } catch (err) {
+    console.error("[APPROVAL_NOTIFICATION_UNEXPECTED_ERROR]", err);
+    return {
+      success: false,
+      targetEmail: recipientEmail,
+      error: err,
+      userFriendlyMessage: err?.message || "\u062D\u062F\u062B \u062E\u0637\u0623 \u063A\u064A\u0631 \u0645\u062A\u0648\u0642\u0639 \u0623\u062B\u0646\u0627\u0621 \u0625\u0631\u0633\u0627\u0644 \u0625\u0634\u0639\u0627\u0631 \u0627\u0644\u0627\u0639\u062A\u0645\u0627\u062F."
+    };
+  }
+}
 app2.post("/api/admin/approve-account", requireAuth, requireAdmin, async (req, res) => {
   const adminUid = req.user?.uid || "";
   const adminEmail = req.user?.email || "admin@zakir.ai";
@@ -15525,61 +15669,25 @@ app2.post("/api/admin/approve-account", requireAuth, requireAdmin, async (req, r
       { accountStatus: targetUser.accountStatus, plan: targetUser.subscriptionPlan },
       approvalUpdates
     );
-    let emailDispatchResult = { success: false, skipped: false };
-    const userEmail = (targetUser.email || "").trim();
-    const alreadyNotified = Boolean(targetUser.approvalEmailSentAt || targetUser.approvalNotificationSent);
-    if (userEmail && !alreadyNotified) {
-      try {
-        const emailContent = buildNewAccountApprovalEmailHtml({
-          userName: targetUser.fullName || targetUser.ownerName || targetUser.name || "",
-          email: userEmail,
-          trialHours,
-          plan: assignPlan
-        });
-        const mailRes = await sendSystemMail2({
-          to: userEmail,
-          subject: emailContent.subject,
-          html: emailContent.html,
-          text: emailContent.text
-        });
-        emailDispatchResult = {
-          success: mailRes.success,
-          messageId: mailRes.messageId,
-          simulated: mailRes.simulated
-        };
-        if (mailRes.success) {
-          approvalUpdates.approvalEmailSentAt = nowIso;
-          approvalUpdates.approvalNotificationSent = true;
-          approvalUpdates.approvalEmailMessageId = mailRes.messageId || "";
-          try {
-            await adminDb.collection("users").doc(userId).set({
-              approvalEmailSentAt: nowIso,
-              approvalNotificationSent: true,
-              approvalEmailMessageId: mailRes.messageId || ""
-            }, { merge: true });
-          } catch (e) {
-          }
-          if (db2.users) {
-            const idx = db2.users.findIndex((u) => u.id === userId || u.uid === userId);
-            if (idx >= 0) {
-              db2.users[idx].approvalEmailSentAt = nowIso;
-              db2.users[idx].approvalNotificationSent = true;
-              db2.users[idx].approvalEmailMessageId = mailRes.messageId || "";
-              writeDb2(db2);
-            }
-          }
-        }
-      } catch (mailErr) {
-        console.error("[APPROVAL_EMAIL_DISPATCH_ERROR]", mailErr);
-      }
-    } else if (alreadyNotified) {
-      emailDispatchResult = { success: true, skipped: true };
-    }
+    const notificationResult = await sendUserApprovalNotification({
+      userId,
+      adminEmail,
+      plan: assignPlan,
+      trialHours,
+      notes: notes || adminNotes || ""
+    });
     return res.json({
       success: true,
       message: `\u062A\u0645 \u0627\u0639\u062A\u0645\u0627\u062F \u0627\u0644\u062D\u0633\u0627\u0628 \u0628\u0646\u062C\u0627\u062D \u0648\u062A\u0641\u0639\u064A\u0644 \u0627\u0644\u0641\u062A\u0631\u0629 \u0627\u0644\u062A\u062C\u0631\u064A\u0628\u064A\u0629 \u0644\u0645\u062F\u0629 ${trialHours} \u0633\u0627\u0639\u0629.`,
-      emailSent: emailDispatchResult.success,
-      emailSkipped: emailDispatchResult.skipped || false,
+      approvalStatus: "SUCCESS",
+      notification: {
+        status: notificationResult.success ? notificationResult.skipped ? "SKIPPED" : "SENT" : "FAILED",
+        recipient: notificationResult.targetEmail || null,
+        messageId: notificationResult.messageId || null,
+        error: notificationResult.success ? null : notificationResult.userFriendlyMessage || "Failed to deliver email"
+      },
+      emailSent: notificationResult.success,
+      emailSkipped: notificationResult.skipped || false,
       user: {
         ...targetUser,
         ...approvalUpdates
@@ -15716,10 +15824,26 @@ app2.post(
         { documentVerificationStatus: targetUser.documentVerificationStatus, kycStatus: targetUser.kycStatus },
         docApprovalUpdates
       );
+      const notificationResult = await sendUserApprovalNotification({
+        userId,
+        adminEmail,
+        plan: targetUser.subscriptionPlan || "Enterprise",
+        trialHours: targetUser.trialDurationHours || 24,
+        notes: notes || ""
+      });
       return res.json({
         success: true,
         message: `\u062A\u0645 \u0627\u0639\u062A\u0645\u0627\u062F \u0648\u062A\u0648\u062B\u064A\u0642 ${docCount} \u0645\u0633\u062A\u0646\u062F \u0628\u0646\u062C\u0627\u062D \u0648\u062A\u0623\u0643\u064A\u062F KYC.`,
         documentCount: docCount,
+        approvalStatus: "SUCCESS",
+        notification: {
+          status: notificationResult.success ? notificationResult.skipped ? "SKIPPED" : "SENT" : "FAILED",
+          recipient: notificationResult.targetEmail || null,
+          messageId: notificationResult.messageId || null,
+          error: notificationResult.success ? null : notificationResult.userFriendlyMessage || "Failed to deliver email"
+        },
+        emailSent: notificationResult.success,
+        emailSkipped: notificationResult.skipped || false,
         user: {
           ...targetUser,
           ...docApprovalUpdates

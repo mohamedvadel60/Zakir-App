@@ -288,7 +288,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
       showToast("success", "تم تفعيل الحساب الأساسي بنجاح");
       if (selectedUserRecord?.id === userId) {
-        setSelectedUserRecord((prev) =>
+        setSelectedUserRecord((prev: any) =>
           prev ? {
             ...prev,
             accountStatus: "APPROVED",
@@ -297,6 +297,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             documentVerificationStatus: "APPROVED",
             fullUser: {
               ...(prev.fullUser || {}),
+              id: prev.id || userId,
               accountStatus: "APPROVED",
               isVerified: true,
               kycStatus: "VERIFIED",
