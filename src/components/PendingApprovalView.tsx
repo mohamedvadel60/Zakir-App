@@ -81,6 +81,9 @@ export const PendingApprovalView: React.FC<PendingApprovalViewProps> = ({
               : "Account approved! Redirecting to workspace..."
           );
           await onRefreshUser();
+          setTimeout(() => {
+            window.location.href = "/dashboard";
+          }, 600);
         } else if (data.entitlement.accountStatus === "REJECTED") {
           setRefreshMessage(
             isAr

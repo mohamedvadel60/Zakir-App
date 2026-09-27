@@ -205,7 +205,8 @@ export function renderEmailLogoHeaderHtml(options?: {
     : "https://www.getzakir.com";
   const appBase = rawAppBase;
 
-  const logoUrl = "cid:zakir-logo-light";
+  const lightLogoUrl = `${publicAssetBase}/zakir-badge-light.png`;
+  const darkLogoUrl = `${publicAssetBase}/zakir-badge-dark.png`;
 
   const wordmark = options?.wordmark !== undefined ? options.wordmark : "ZAKIR";
   const tagline =
@@ -214,12 +215,15 @@ export function renderEmailLogoHeaderHtml(options?: {
       : "الذاكرة المؤسسية السببية &bull; Causal Decision Intelligence";
 
   return `
-    <!-- Official ZAKIR Badge (Self-Contained Vector Render from logo.txt) -->
+    <!-- Official ZAKIR Badge (Light Mode: Navy #1C2C58 + White Emblem / Dark Mode: White #FFFFFF + Navy Emblem) -->
     <table border="0" cellpadding="0" cellspacing="0" align="center" role="presentation" width="${size}" height="${size}" class="zakir-logo-table" style="width: ${size}px !important; height: ${size}px !important; max-width: ${size}px !important; max-height: ${size}px !important; margin: 0 auto 16px auto; border-collapse: collapse; border-spacing: 0;">
       <tr>
-        <td align="center" valign="middle" width="${size}" height="${size}" bgcolor="#1C2C58" style="width: ${size}px; height: ${size}px; padding: 0; margin: 0; line-height: 0; font-size: 0; text-align: center; vertical-align: middle; background-color: #1C2C58; border-radius: 20px;">
+        <td align="center" valign="middle" width="${size}" height="${size}" class="zakir-logo-cell" bgcolor="#1C2C58" style="width: ${size}px; height: ${size}px; padding: 0; margin: 0; line-height: 0; font-size: 0; text-align: center; vertical-align: middle; background-color: #1C2C58; border-radius: 20px;">
           <a href="${appBase}" target="_blank" style="text-decoration: none; display: inline-block; width: ${size}px; height: ${size}px; margin: 0 auto; line-height: 0; font-size: 0; outline: none; border: 0;">
-            <img src="${logoUrl}" alt="ZAKIR" width="${size}" height="${size}" class="zakir-logo" style="display: block; width: ${size}px !important; height: ${size}px !important; max-width: ${size}px !important; max-height: ${size}px !important; border: 0; outline: none; text-decoration: none; margin: 0 auto; border-radius: 20px; -ms-interpolation-mode: bicubic;" />
+            <!-- Light Mode Logo -->
+            <img src="${lightLogoUrl}" alt="ZAKIR" width="${size}" height="${size}" class="zakir-logo zakir-light-logo" style="display: block !important; width: ${size}px !important; height: ${size}px !important; max-width: ${size}px !important; max-height: ${size}px !important; border: 0; outline: none; text-decoration: none; margin: 0 auto; border-radius: 20px; -ms-interpolation-mode: bicubic;" />
+            <!-- Dark Mode Logo -->
+            <img src="${darkLogoUrl}" alt="ZAKIR" width="${size}" height="${size}" class="zakir-logo zakir-dark-logo" style="display: none !important; mso-hide: all; width: ${size}px !important; height: ${size}px !important; max-width: ${size}px !important; max-height: ${size}px !important; border: 0; outline: none; text-decoration: none; margin: 0 auto; border-radius: 20px; -ms-interpolation-mode: bicubic;" />
           </a>
         </td>
       </tr>
@@ -287,6 +291,13 @@ export function buildMasterEmailHtml(options: {
       display: block !important;
       border-radius: 20px;
     }
+    .zakir-light-logo {
+      display: block !important;
+    }
+    .zakir-dark-logo {
+      display: none !important;
+      mso-hide: all;
+    }
     @media (prefers-color-scheme: dark) {
       .zakir-card {
         background-color: #0b1329 !important;
@@ -295,6 +306,16 @@ export function buildMasterEmailHtml(options: {
       .zakir-header-cell {
         background-color: #0b1329 !important;
         border-bottom-color: #1e293b !important;
+      }
+      .zakir-logo-cell {
+        background-color: #ffffff !important;
+      }
+      .zakir-light-logo {
+        display: none !important;
+        mso-hide: all;
+      }
+      .zakir-dark-logo {
+        display: block !important;
       }
       .zakir-wordmark {
         color: #f8fafc !important;
@@ -318,6 +339,19 @@ export function buildMasterEmailHtml(options: {
     [data-ogsb] .zakir-card {
       background-color: #0b1329 !important;
       border-color: #1e293b !important;
+    }
+    [data-ogsc] .zakir-logo-cell,
+    [data-ogsb] .zakir-logo-cell {
+      background-color: #ffffff !important;
+    }
+    [data-ogsc] .zakir-light-logo,
+    [data-ogsb] .zakir-light-logo {
+      display: none !important;
+      mso-hide: all;
+    }
+    [data-ogsc] .zakir-dark-logo,
+    [data-ogsb] .zakir-dark-logo {
+      display: block !important;
     }
     [data-ogsc] .zakir-wordmark,
     [data-ogsb] .zakir-wordmark {
@@ -353,8 +387,11 @@ export function buildMasterEmailHtml(options: {
               <!-- Mini Footer Brand -->
               <table border="0" cellpadding="0" cellspacing="0" align="center" role="presentation" style="margin: 0 auto 10px auto;">
                 <tr>
-                  <td align="center" style="vertical-align: middle;">
-                    <img src="cid:zakir-logo-light" alt="ZAKIR" width="24" height="24" style="display: inline-block; width: 24px; height: 24px; border-radius: 6px; border: 0; vertical-align: middle; margin-right: 8px;" />
+                  <td align="center" width="24" height="24" class="zakir-logo-cell" bgcolor="#1C2C58" style="width: 24px; height: 24px; vertical-align: middle; background-color: #1C2C58; border-radius: 6px; padding: 0;">
+                    <img src="${publicAssetBase}/zakir-badge-light.png" alt="ZAKIR" width="24" height="24" class="zakir-logo zakir-light-logo" style="display: block !important; width: 24px !important; height: 24px !important; border-radius: 6px; border: 0;" />
+                    <img src="${publicAssetBase}/zakir-badge-dark.png" alt="ZAKIR" width="24" height="24" class="zakir-logo zakir-dark-logo" style="display: none !important; mso-hide: all; width: 24px !important; height: 24px !important; border-radius: 6px; border: 0;" />
+                  </td>
+                  <td style="padding-left: 8px; vertical-align: middle;">
                     <span class="zakir-wordmark" style="font-size: 13px; font-weight: 800; color: #0f172a; vertical-align: middle; letter-spacing: 1.5px; text-transform: uppercase;">ZAKIR</span>
                   </td>
                 </tr>
