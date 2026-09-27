@@ -15,6 +15,7 @@ import {
   Map, 
   Settings as SettingsIcon, 
   LogOut, 
+  LogIn,
   RefreshCw, 
   Search, 
   Filter, 
@@ -758,6 +759,7 @@ export default function App() {
   const [regConfirmPassword, setRegConfirmPassword] = useState("");
   const [showRegPassword, setShowRegPassword] = useState(false);
   const [regError, setRegError] = useState("");
+  const [existingAccountDetected, setExistingAccountDetected] = useState(false);
   const [isSubmittingReg, setIsSubmittingReg] = useState(false);
   const [regLifecycleState, setRegLifecycleState] = useState<{
     status: "NEW" | "ACTIVE" | "ADMIN_DELETED" | "ADMIN_APPROVAL_PENDING" | "SELF_DELETED" | "SELF_RESTORE_AVAILABLE" | "PURGED";
@@ -1094,12 +1096,12 @@ This hosting domain (**${currentDomain}**) has not been authorized in your Fireb
     }
 
     const errCode = ((err?.code || "") as string).toLowerCase().trim();
-    if (errCode === "auth/email-already-in-use" || String(err?.message || "").toLowerCase().includes("email-already-in-use")) {
+    if (errCode === "auth/email-already-in-use" || errCode === "auth/email-already-exists" || String(err?.message || "").toLowerCase().includes("email-already-in-use")) {
       return lang === "ar" 
-        ? "البريد الإلكتروني هذا مستخدم بالفعل في حساب آخر." 
+        ? "هذا البريد الإلكتروني مرتبط بحساب موجود بالفعل. يرجى تسجيل الدخول باستخدام حسابك الحالي." 
         : lang === "fr" 
-        ? "Cet e-mail est déjà utilisé par un autre compte." 
-        : "This email address is already in use by another account.";
+        ? "Cet e-mail est déjà associé à un compte existant. Veuillez vous connecter avec votre compte actuel." 
+        : "This email address is already associated with an existing account. Please log in using your current account.";
     }
 
     const normalized = normalizeLoginError(err);
@@ -1930,6 +1932,7 @@ This hosting domain (**${currentDomain}**) has not been authorized in your Fireb
   const handleRegisterSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setRegError("");
+    setExistingAccountDetected(false);
 
     if (!regOwnerName.trim() || !regCompanyName.trim() || !regEmail.trim()) {
       setRegError(lang === "ar" ? "يرجى ملء جميع الحقول المطلوبة." : (lang === "fr" ? "Veuillez remplir tous les champs obligatoires." : "Please fill in all required fields."));
@@ -2011,11 +2014,13 @@ This hosting domain (**${currentDomain}**) has not been authorized in your Fireb
           }
 
           if (lifecycle.status === "ACTIVE") {
-            setLoginEmail(normalizedEmail);
-            setLoginError(lang === "ar"
-              ? "هذا البريد الإلكتروني مسجل بالفعل. يرجى تسجيل الدخول إلى حسابك."
-              : "This email address is already registered. Please log in.");
-            setAuthMode("landing");
+            setRegLifecycleState({ status: "ACTIVE", email: normalizedEmail });
+            setExistingAccountDetected(true);
+            setRegError(lang === "ar"
+              ? "هذا البريد الإلكتروني مرتبط بحساب موجود بالفعل. يرجى تسجيل الدخول باستخدام حسابك الحالي."
+              : (lang === "fr"
+              ? "Cet e-mail est déjà associé à un compte existant. Veuillez vous connecter avec votre compte actuel."
+              : "This email address is already associated with an existing account. Please log in using your current account."));
             setIsSubmittingReg(false);
             return;
           }
@@ -2073,6 +2078,23 @@ This hosting domain (**${currentDomain}**) has not been authorized in your Fireb
 
       const regData = await safeParseJsonResponse(regRes);
       if (!regRes.ok || !regData || !regData.success) {
+        if (
+          regData?.code === "EMAIL_ALREADY_IN_USE" ||
+          regData?.code === "EMAIL_EXISTS" ||
+          regRes.status === 409 ||
+          /already (in use|exists)|email-already-in-use|email-already-exists|مستعمل|مسجل|موجود|مرتبط بحساب/i.test(regData?.error || regData?.message || "")
+        ) {
+          setRegLifecycleState({ status: "ACTIVE", email: normalizedEmail });
+          setExistingAccountDetected(true);
+          setRegError(lang === "ar"
+            ? "هذا البريد الإلكتروني مرتبط بحساب موجود بالفعل. يرجى تسجيل الدخول باستخدام حسابك الحالي."
+            : (lang === "fr"
+            ? "Cet e-mail est déjà associé à un compte existant. Veuillez vous connecter avec votre compte actuel."
+            : "This email address is already associated with an existing account. Please log in using your current account."));
+          setIsSubmittingReg(false);
+          return;
+        }
+
         if (regData?.code === "ADMIN_DELETED_BLOCKED" || regData?.adminApprovalRequired) {
           setRegLifecycleState({
             status: "ADMIN_DELETED",
@@ -2130,6 +2152,22 @@ This hosting domain (**${currentDomain}**) has not been authorized in your Fireb
       setRegLifecycleState(null);
     } catch (err: any) {
       let msg = err.message || "Registration failed.";
+      const errCode = ((err?.code || "") as string).toLowerCase().trim();
+      if (
+        errCode === "auth/email-already-in-use" ||
+        errCode === "auth/email-already-exists" ||
+        /already (in use|exists)|email-already-in-use|email-already-exists|مستعمل|مسجل|موجود|مرتبط بحساب/i.test(msg)
+      ) {
+        setRegLifecycleState({ status: "ACTIVE", email: regEmail.trim().toLowerCase() });
+        setExistingAccountDetected(true);
+        setRegError(lang === "ar"
+          ? "هذا البريد الإلكتروني مرتبط بحساب موجود بالفعل. يرجى تسجيل الدخول باستخدام حسابك الحالي."
+          : (lang === "fr"
+          ? "Cet e-mail est déjà associé à un compte existant. Veuillez vous connecter avec votre compte actuel."
+          : "This email address is already associated with an existing account. Please log in using your current account."));
+        setIsSubmittingReg(false);
+        return;
+      }
       if (/missing or (insufficient )?permission/i.test(msg) || /permission-denied/i.test(msg)) {
         msg = lang === "ar" ? "حدث خطأ أثناء معالجة الحساب. يرجى المحاولة مرة أخرى." : "An error occurred while processing your account. Please try again.";
       }
@@ -4135,14 +4173,44 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
 
                   {/* Registration Form */}
                   <form onSubmit={handleRegisterSubmit} className="space-y-3.5">
-                    {regError && (
+                    {(existingAccountDetected || regLifecycleState?.status === "ACTIVE" || /مرتبط بحساب موجود|مسجل بالفعل|already associated|already in use|email-already-in-use/i.test(regError)) ? (
+                      <div className="p-3.5 bg-amber-500/10 dark:bg-amber-950/20 border border-amber-500/30 rounded-xl space-y-3 my-3 text-start">
+                        <div className="flex items-start gap-2.5">
+                          <AlertTriangle className="w-5 h-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                          <div>
+                            <h4 className="text-xs font-bold text-amber-800 dark:text-amber-300">
+                              {lang === "ar" ? "حساب موجود بالفعل" : (lang === "fr" ? "Compte existant" : "Existing Account")}
+                            </h4>
+                            <p className="text-[11px] text-amber-700/90 dark:text-amber-400/90 mt-1 leading-relaxed font-medium">
+                              {lang === "ar"
+                                ? "هذا البريد الإلكتروني مرتبط بحساب موجود بالفعل. يرجى تسجيل الدخول باستخدام حسابك الحالي."
+                                : (lang === "fr"
+                                ? "Cet e-mail est déjà associé à un compte existant. Veuillez vous connecter avec votre compte actuel."
+                                : "This email address is already associated with an existing account. Please log in using your current account.")}
+                            </p>
+                          </div>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setLoginEmail(regEmail);
+                            setAuthMode("login");
+                          }}
+                          className="w-full py-2 px-3 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-semibold transition-colors flex items-center justify-center gap-2 cursor-pointer shadow-xs"
+                        >
+                          <LogIn className="w-3.5 h-3.5" />
+                          <span>{lang === "ar" ? "الانتقال إلى تسجيل الدخول" : (lang === "fr" ? "Se connecter" : "Go to Login")}</span>
+                        </button>
+                      </div>
+                    ) : regError ? (
                       <div className="p-3 bg-rose-500/10 dark:bg-rose-950/20 border border-rose-500/20 rounded-lg text-rose-600 dark:text-rose-400 text-xs flex items-start gap-2.5 my-3 shadow-xs text-start">
                         <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5 text-rose-500" />
                         <div className="flex-1 min-w-0 text-start">
                           {renderErrorContent(regError)}
                         </div>
                       </div>
-                    )}
+                    ) : null}
 
                     {/* Account Lifecycle Special Action Cards */}
                     {regLifecycleState?.status === "ADMIN_DELETED" && (

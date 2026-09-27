@@ -11451,7 +11451,7 @@ app.post("/api/admin/approve-account", requireAuth, requireAdmin, async (req: Au
   }
 });
 
-async function resolveCanonicalUserId(identifier: string): Promise<string> {
+export async function resolveCanonicalUserId(identifier: string): Promise<string> {
   if (!identifier) return "";
   const cleanId = String(identifier).trim();
   if (isFirebaseAdminAvailable && adminDb) {
@@ -21721,9 +21721,12 @@ app.post("/api/auth/register", loginRegisterLimiter, async (req, res) => {
         (u: any) => u.email?.trim().toLowerCase() === normalizedEmail,
       )
     ) {
-      return res
-        .status(400)
-        .json({ success: false, error: "Email already exists." });
+      return res.status(409).json({
+        success: false,
+        code: "EMAIL_ALREADY_IN_USE",
+        error:
+          "هذا البريد الإلكتروني مرتبط بحساب موجود بالفعل. يرجى تسجيل الدخول باستخدام حسابك الحالي.",
+      });
     }
 
     // Check Firestore users collection to avoid duplicate registrations
@@ -21734,9 +21737,12 @@ app.post("/api/auth/register", loginRegisterLimiter, async (req, res) => {
         .limit(1)
         .get();
       if (!existingSnap.empty) {
-        return res
-          .status(400)
-          .json({ success: false, error: "Email already exists." });
+        return res.status(409).json({
+          success: false,
+          code: "EMAIL_ALREADY_IN_USE",
+          error:
+            "هذا البريد الإلكتروني مرتبط بحساب موجود بالفعل. يرجى تسجيل الدخول باستخدام حسابك الحالي.",
+        });
       }
     } catch (err) {}
 
@@ -21744,9 +21750,12 @@ app.post("/api/auth/register", loginRegisterLimiter, async (req, res) => {
     try {
       const existingAuthUser = await adminAuth.getUserByEmail(normalizedEmail);
       if (existingAuthUser) {
-        return res
-          .status(400)
-          .json({ success: false, error: "Email already exists." });
+        return res.status(409).json({
+          success: false,
+          code: "EMAIL_ALREADY_IN_USE",
+          error:
+            "هذا البريد الإلكتروني مرتبط بحساب موجود بالفعل. يرجى تسجيل الدخول باستخدام حسابك الحالي.",
+        });
       }
     } catch (err) {}
 
@@ -21768,10 +21777,13 @@ app.post("/api/auth/register", loginRegisterLimiter, async (req, res) => {
         source: "firebase_auth",
       });
     } catch (authErr: any) {
-      if (authErr?.code === "auth/email-already-exists") {
-        return res
-          .status(400)
-          .json({ success: false, error: "Email already exists." });
+      if (authErr?.code === "auth/email-already-exists" || authErr?.code === "auth/email-already-in-use") {
+        return res.status(409).json({
+          success: false,
+          code: "EMAIL_ALREADY_IN_USE",
+          error:
+            "هذا البريد الإلكتروني مرتبط بحساب موجود بالفعل. يرجى تسجيل الدخول باستخدام حسابك الحالي.",
+        });
       }
       userId =
         "usr_" +
