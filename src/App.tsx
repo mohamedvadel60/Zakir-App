@@ -2460,6 +2460,7 @@ This hosting domain (**${currentDomain}**) has not been authorized in your Fireb
             }
 
             updated = normalizeStrictUserVerification(updated);
+            applyUserPreferences(updated);
             return updated;
           });
         }
@@ -2471,12 +2472,10 @@ This hosting domain (**${currentDomain}**) has not been authorized in your Fireb
 
   // Change language or theme inside App state and persist to Firestore for logged-in user
   const toggleLanguage = (selectedLang: "en" | "ar" | "fr") => {
-    // Restrict language changes for invited members; they inherit the organization-defined language
-    if (currentUser && currentUser.role !== "CEO" && currentUser.role !== "Admin") {
-      return;
-    }
     setLang(selectedLang);
     localStorage.setItem("zakir_lang", selectedLang);
+    document.documentElement.lang = selectedLang;
+    document.documentElement.dir = selectedLang === "ar" ? "rtl" : "ltr";
     if (currentUser?.id) {
       setCurrentUser(prevUser => {
         if (!prevUser) return null;
@@ -2522,12 +2521,28 @@ This hosting domain (**${currentDomain}**) has not been authorized in your Fireb
       r === "FIRST ADMINISTRATOR" ||
       r === "FIRST_ADMINISTRATOR" ||
       r === "OWNER" ||
-      r === "FOUNDER"
+      r === "FOUNDER" ||
+      r === "ACCOUNT OWNER"
     ) {
       return true;
     }
-    if (user.workspace?.ownerId && user.id && user.workspace.ownerId === user.id) {
+    const userUid = (user as any).uid || user.id;
+    if (user.workspace?.ownerId && userUid && (user.workspace.ownerId === user.id || user.workspace.ownerId === userUid)) {
       return true;
+    }
+    if (!user.hasCompany && (user.accountStatus === "APPROVED" || user.isVerified)) {
+      if (!user.workspace?.ownerId || user.workspace.ownerId === user.id || user.workspace.ownerId === userUid || ((user.workspace as any)?.memberCount ?? 1) <= 1) {
+        return true;
+      }
+    }
+    if (Array.isArray(user.teamMembersList)) {
+      const selfMember = user.teamMembersList.find((m: any) => 
+        (m.uid && (m.uid === user.id || m.uid === userUid)) ||
+        (m.email && user.email && m.email.toLowerCase() === user.email.toLowerCase())
+      );
+      if (selfMember && (selfMember.role?.toUpperCase().includes("CEO") || selfMember.role?.toUpperCase().includes("OWNER") || selfMember.id === "tm-owner")) {
+        return true;
+      }
     }
     if (isUserAdmin(user)) {
       return true;
@@ -2541,15 +2556,29 @@ This hosting domain (**${currentDomain}**) has not been authorized in your Fireb
     if (isUserCeoOrAdmin(currentUser)) return true;
     // Core accessible modules and User-Specific Settings are always accessible to authenticated users
     if (moduleId === "dashboard" || moduleId === "support" || moduleId === "gmail" || moduleId === "smart" || moduleId === "settings") return true;
-    if (!currentUser.powers) return false;
-    switch (moduleId) {
-      case "files": return Boolean(currentUser.powers.fileVault);
-      case "library":
-      case "add": return Boolean(currentUser.powers.memoryVault);
-      case "alerts": return Boolean(currentUser.powers.riskRadar);
-      case "market": return Boolean(currentUser.powers.marketIntel);
-      default: return false;
+    
+    if (currentUser.powers) {
+      switch (moduleId) {
+        case "files": return Boolean(currentUser.powers.fileVault);
+        case "library":
+        case "add": return Boolean(currentUser.powers.memoryVault);
+        case "alerts": return Boolean(currentUser.powers.riskRadar);
+        case "market": return Boolean(currentUser.powers.marketIntel);
+        default: return true;
+      }
     }
+
+    const roleUpper = (currentUser.role || "").toUpperCase();
+    if (roleUpper === "COMPLIANCE OFFICER" || roleUpper.includes("COMPLIANCE")) {
+      return true;
+    }
+    if (roleUpper === "ANALYST") {
+      return moduleId !== "settings";
+    }
+    if (roleUpper === "RISK AUDITOR") {
+      return moduleId === "alerts" || moduleId === "library" || moduleId === "files";
+    }
+    return true;
   };
 
   // Action: Add Memory (Firestore /users/{uid}/memories)
@@ -4804,6 +4833,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
           <AnimatePresence>
             {isMobileSidebarOpen && (
               <motion.div
+                key="mobile-sidebar"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
@@ -5053,8 +5083,8 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
             )}
             
             {/* Top Workspace Header Bar with Compact App Switcher & Language Switcher */}
-            <div className={`sticky top-0 z-30 px-4 sm:px-8 py-3 border-b flex items-center justify-between backdrop-blur-md transition-colors ${
-              theme === "light" ? "bg-white/80 border-slate-200/90 shadow-xs" : "bg-[#090D16]/80 border-slate-900/80"
+            <div className={`sticky top-0 z-30 px-4 sm:px-8 py-3 border-b flex items-center justify-between transition-colors ${
+              theme === "light" ? "bg-white border-slate-200/90 shadow-xs" : "bg-[#090D16] border-slate-900 shadow-sm"
             }`}>
               <div className="flex items-center gap-2.5">
                 <button
@@ -5067,15 +5097,13 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
               </div>
 
               <div className="flex items-center gap-2.5">
-                {/* Instant Compact Language Switcher: available to CEO/Admin/Unauthenticated */}
-                {(!currentUser || currentUser.role === "CEO" || currentUser.role === "Admin") && (
-                  <CompactLanguageSwitcher 
-                    lang={lang}
-                    onToggleLanguage={toggleLanguage}
-                    theme={theme}
-                    align="end"
-                  />
-                )}
+                {/* Instant Compact Language Switcher */}
+                <CompactLanguageSwitcher 
+                  lang={lang}
+                  onToggleLanguage={toggleLanguage}
+                  theme={theme}
+                  align="end"
+                />
 
                 <div className={`hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-xl border text-[11px] font-mono font-medium ${
                   theme === "light" ? "bg-slate-50 border-slate-200 text-slate-700" : "bg-slate-900/60 border-slate-800 text-slate-300"
@@ -6302,6 +6330,7 @@ Could not establish a secure HTTPS connection or complete the SSL handshake with
                             <AnimatePresence>
                               {isExpanded && (
                                 <motion.div 
+                                  key={`expanded-${m.id}`}
                                   initial={{ height: 0, opacity: 0 }}
                                   animate={{ height: "auto", opacity: 1 }}
                                   exit={{ height: 0, opacity: 0 }}

@@ -1288,6 +1288,7 @@ export const ProductShowcaseWindow: React.FC<{ lang?: "ar" | "en" | "fr" }> = ({
                     <AnimatePresence>
                       {passcodeModalOpen && (
                         <motion.div 
+                          key="passcode-modal"
                           initial={{ opacity: 0 }}
                           animate={{ opacity: 1 }}
                           exit={{ opacity: 0 }}
@@ -1945,6 +1946,7 @@ export const ProductShowcaseWindow: React.FC<{ lang?: "ar" | "en" | "fr" }> = ({
                     <AnimatePresence>
                       {isMarketAnalyzing && (
                         <motion.div 
+                          key="market-analyzing"
                           initial={{ opacity: 0, height: 0 }}
                           animate={{ opacity: 1, height: "auto" }}
                           className={`p-4 border rounded-xl text-center flex flex-col items-center justify-center space-y-2 ${
@@ -1958,6 +1960,7 @@ export const ProductShowcaseWindow: React.FC<{ lang?: "ar" | "en" | "fr" }> = ({
 
                       {marketAnalysisResult && (
                         <motion.div 
+                          key="market-result"
                           initial={{ opacity: 0, scale: 0.98 }}
                           animate={{ opacity: 1, scale: 1 }}
                           className={`p-4 border rounded-xl space-y-2.5 ${

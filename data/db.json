@@ -104,6 +104,66 @@
       "accountStatus": "VERIFICATION_REQUIRED",
       "documentVerificationStatus": "NOT_SUBMITTED",
       "createdAt": "2026-09-27T18:14:35.694Z"
+    },
+    {
+      "id": "test_verification_user_1790536446360",
+      "email": "verification.test.1790536446360@zakir-test.com",
+      "ownerName": "Verification Tester",
+      "companyName": "Test Org",
+      "role": "CEO",
+      "accountStatus": "VERIFICATION_REQUIRED",
+      "documentVerificationStatus": "NOT_SUBMITTED",
+      "createdAt": "2026-09-27T19:14:06.360Z"
+    },
+    {
+      "id": "usr_real_kyc_1790536745542",
+      "uid": "usr_real_kyc_1790536745542",
+      "email": "kyc.tester.1790536745542@zakir.ai",
+      "ownerName": "Zakir Real KYC Tester",
+      "fullName": "Zakir Real KYC Tester",
+      "role": "CEO",
+      "companyName": "Zakir Enterprise Intelligence Inc.",
+      "accountStatus": "PENDING_DOCUMENT_VERIFICATION",
+      "documentVerificationStatus": "NOT_SUBMITTED",
+      "isEmailVerified": true,
+      "emailVerified": true,
+      "verificationDocuments": [],
+      "documents": [],
+      "createdAt": "2026-09-27T19:19:05.542Z"
+    },
+    {
+      "id": "c7b9ajACKmWpHjqZd1Pdy0hrCj23",
+      "uid": "c7b9ajACKmWpHjqZd1Pdy0hrCj23",
+      "email": "kyc.tester.1790536828004@zakir.ai",
+      "ownerName": "Zakir Real KYC Tester",
+      "fullName": "Zakir Real KYC Tester",
+      "role": "CEO",
+      "companyName": "Zakir Enterprise Intelligence Inc.",
+      "accountStatus": "PENDING_DOCUMENT_VERIFICATION",
+      "documentVerificationStatus": "NOT_SUBMITTED",
+      "isEmailVerified": true,
+      "emailVerified": true,
+      "email_verified": true,
+      "verificationDocuments": [],
+      "documents": [],
+      "createdAt": "2026-09-27T19:20:29.698Z"
+    },
+    {
+      "id": "RfHYzDvhuUTnlerKE6f7dDtifyW2",
+      "uid": "RfHYzDvhuUTnlerKE6f7dDtifyW2",
+      "email": "kyc.tester.1790536860254@zakir.ai",
+      "ownerName": "Zakir Real KYC Tester",
+      "fullName": "Zakir Real KYC Tester",
+      "role": "CEO",
+      "companyName": "Zakir Enterprise Intelligence Inc.",
+      "accountStatus": "PENDING_DOCUMENT_VERIFICATION",
+      "documentVerificationStatus": "NOT_SUBMITTED",
+      "isEmailVerified": true,
+      "emailVerified": true,
+      "email_verified": true,
+      "verificationDocuments": [],
+      "documents": [],
+      "createdAt": "2026-09-27T19:21:01.665Z"
     }
   ],
   "verification_documents_store": {
@@ -114,6 +174,14 @@
       "size": 512000,
       "category": "personal",
       "uploadedAt": "2026-09-27T18:05:17.184Z"
+    },
+    "doc_test_resiliency_1790536432342": {
+      "documentId": "doc_test_resiliency_1790536432342",
+      "fileName": "ChatGPT Image 23 sept. 2026, 18_53_39.png",
+      "mimeType": "image/png",
+      "size": 512000,
+      "category": "personal",
+      "uploadedAt": "2026-09-27T19:13:52.343Z"
     }
   }
 }

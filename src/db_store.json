@@ -28,7 +28,10 @@
         "verifiedAt": "2026-02-10T11:30:00Z"
       },
       "createdAt": "2026-02-10T11:30:00Z",
-      "trialExpiresAt": "2026-09-27T20:42:43.698Z"
+      "trialExpiresAt": "2026-09-27T20:42:43.698Z",
+      "verificationDocuments": [],
+      "documents": [],
+      "documentCount": 0
     },
     {
       "id": "usr_compliance",
@@ -43,7 +46,24 @@
         "verifiedAt": "2026-03-01T14:15:00Z"
       },
       "createdAt": "2026-03-01T14:15:00Z",
-      "trialExpiresAt": "2026-09-27T20:42:43.698Z"
+      "trialExpiresAt": "2026-09-27T20:42:43.698Z",
+      "files": [],
+      "fileCount": 0,
+      "verificationDocuments": [],
+      "documents": [],
+      "documentCount": 0,
+      "emailVerified": true,
+      "verificationRequestStatus": "NONE",
+      "documentVerificationStatus": "NOT_SUBMITTED",
+      "documentStatus": "NOT_SUBMITTED",
+      "kycStatus": "NOT_VERIFIED",
+      "uiState": "NO_REQUEST",
+      "accountStatus": "PENDING",
+      "canApproveKyc": false,
+      "canReviewDocuments": false,
+      "canApproveAccount": false,
+      "isVerified": false,
+      "verification_status": "unverified"
     },
     {
       "id": "usr_a",
@@ -64,12 +84,25 @@
       "email": "user_b@zakir.ai",
       "name": "User Beta",
       "role": "CEO",
-      "accountStatus": "APPROVED",
+      "accountStatus": "PENDING",
       "isEmailVerified": true,
       "emailVerified": true,
-      "documentVerificationStatus": "APPROVED",
-      "kycStatus": "APPROVED",
-      "workspaceId": "ws_beta"
+      "documentVerificationStatus": "NOT_SUBMITTED",
+      "kycStatus": "NOT_VERIFIED",
+      "workspaceId": "ws_beta",
+      "files": [],
+      "fileCount": 0,
+      "verificationDocuments": [],
+      "documents": [],
+      "documentCount": 0,
+      "verificationRequestStatus": "NONE",
+      "documentStatus": "NOT_SUBMITTED",
+      "uiState": "NO_REQUEST",
+      "canApproveKyc": false,
+      "canReviewDocuments": false,
+      "canApproveAccount": false,
+      "isVerified": false,
+      "verification_status": "unverified"
     },
     {
       "id": "17I5nrXQLFUFx3zhcowLDNGZemO2",
@@ -490,23 +523,60 @@
       "uid": "MwlaEvpmSUYQl5oopJOj7Gc3dd52",
       "email": "mohamedvadhil0@gmail.com",
       "ownerName": "Mohamed Vadhil",
-      "companyName": "Default Organization",
-      "role": "Contributor",
+      "companyName": "Zakir Enterprise",
+      "role": "CEO",
       "isEmailVerified": false,
       "emailVerified": false,
       "email_verified": false,
-      "accountStatus": "PENDING_EMAIL_VERIFICATION",
-      "documentVerificationStatus": "NOT_SUBMITTED",
-      "isVerified": false,
-      "verification_required": true,
-      "verification_status": "unverified",
+      "accountStatus": "APPROVED",
+      "documentVerificationStatus": "APPROVED",
+      "isVerified": true,
+      "verification_required": false,
+      "verification_status": "verified",
       "subscriptionPlan": "Starter",
       "subscriptionStatus": "Trial",
       "createdAt": "Tue, 25 Aug 2026 16:37:43 GMT",
       "disabled": false,
       "fileCount": 0,
       "files": [],
-      "verificationDocuments": []
+      "verificationDocuments": [],
+      "fullName": "Mohamed Vadhil",
+      "workspaceId": "ws_MwlaEvpmSUYQl5oopJOj7Gc3dd52",
+      "workspace": {
+        "id": "ws_MwlaEvpmSUYQl5oopJOj7Gc3dd52",
+        "name": "Zakir Enterprise Workspace",
+        "ownerId": "MwlaEvpmSUYQl5oopJOj7Gc3dd52",
+        "createdAt": "2026-09-07T22:20:17.097Z",
+        "memberCount": 1
+      },
+      "powers": {
+        "fileVault": true,
+        "memoryVault": true,
+        "riskRadar": true,
+        "marketIntel": true,
+        "settings": true
+      },
+      "teamMembersList": [
+        {
+          "id": "tm-owner",
+          "uid": "MwlaEvpmSUYQl5oopJOj7Gc3dd52",
+          "name": "Mohamed Vadhil",
+          "email": "mohamedvadhil0@gmail.com",
+          "role": "CEO / Owner",
+          "status": "Active",
+          "powers": {
+            "fileVault": true,
+            "memoryVault": true,
+            "riskRadar": true,
+            "marketIntel": true,
+            "settings": true
+          },
+          "addedAt": "2026-09-27"
+        }
+      ],
+      "kycStatus": "VERIFIED",
+      "canonicalVerificationStatus": "approved",
+      "updatedAt": "2026-09-27T18:41:04.487Z"
     },
     {
       "id": "Nb8bcYnH1xQLRxQSzduauD1Egy83",
@@ -564,7 +634,7 @@
       "isEmailVerified": true,
       "emailVerified": true,
       "email_verified": true,
-      "accountStatus": "PENDING_DOCUMENT_VERIFICATION",
+      "accountStatus": "PENDING",
       "documentVerificationStatus": "NOT_SUBMITTED",
       "isVerified": false,
       "verification_required": true,
@@ -575,7 +645,16 @@
       "disabled": false,
       "fileCount": 0,
       "files": [],
-      "verificationDocuments": []
+      "verificationDocuments": [],
+      "documents": [],
+      "documentCount": 0,
+      "verificationRequestStatus": "NONE",
+      "documentStatus": "NOT_SUBMITTED",
+      "kycStatus": "NOT_VERIFIED",
+      "uiState": "NO_REQUEST",
+      "canApproveKyc": false,
+      "canReviewDocuments": false,
+      "canApproveAccount": false
     },
     {
       "id": "RvznBflYiHRxqNgOOU9MCXmevcd2",
@@ -932,7 +1011,7 @@
       "isEmailVerified": false,
       "emailVerified": false,
       "email_verified": false,
-      "accountStatus": "PENDING_EMAIL_VERIFICATION",
+      "accountStatus": "PENDING",
       "documentVerificationStatus": "NOT_SUBMITTED",
       "isVerified": false,
       "verification_required": true,
@@ -943,7 +1022,16 @@
       "disabled": false,
       "fileCount": 0,
       "files": [],
-      "verificationDocuments": []
+      "verificationDocuments": [],
+      "documents": [],
+      "documentCount": 0,
+      "verificationRequestStatus": "NONE",
+      "documentStatus": "NOT_SUBMITTED",
+      "kycStatus": "NOT_VERIFIED",
+      "uiState": "NO_REQUEST",
+      "canApproveKyc": false,
+      "canReviewDocuments": false,
+      "canApproveAccount": false
     },
     {
       "id": "oAe1wngjlNQqsvxIts0q8x1QDfP2",
@@ -1024,7 +1112,7 @@
       "isEmailVerified": true,
       "emailVerified": true,
       "email_verified": true,
-      "accountStatus": "PENDING_DOCUMENT_VERIFICATION",
+      "accountStatus": "PENDING",
       "documentVerificationStatus": "NOT_SUBMITTED",
       "isVerified": false,
       "verification_required": true,
@@ -1035,7 +1123,16 @@
       "disabled": false,
       "fileCount": 0,
       "files": [],
-      "verificationDocuments": []
+      "verificationDocuments": [],
+      "documents": [],
+      "documentCount": 0,
+      "verificationRequestStatus": "NONE",
+      "documentStatus": "NOT_SUBMITTED",
+      "kycStatus": "NOT_VERIFIED",
+      "uiState": "NO_REQUEST",
+      "canApproveKyc": false,
+      "canReviewDocuments": false,
+      "canApproveAccount": false
     },
     {
       "id": "q1vvh5t6lTWCAoQAi3lnH5yhJqH3",
@@ -1277,10 +1374,10 @@
         }
       ],
       "subscriptionStatus": "Pending Selection",
-      "accountStatus": "PENDING_EMAIL_VERIFICATION",
+      "accountStatus": "PENDING",
       "requiresDocumentVerification": true,
       "verificationFlowVersion": 2,
-      "documentVerificationStatus": "PENDING_EMAIL_VERIFICATION",
+      "documentVerificationStatus": "NOT_SUBMITTED",
       "verificationDocuments": [],
       "createdAt": "2026-09-27T17:49:13.708Z",
       "trialExpiresAt": "2026-09-28T17:49:13.708Z",
@@ -1294,7 +1391,18 @@
       "verification_status": "unverified",
       "verificationInfo": {
         "status": "unverified"
-      }
+      },
+      "files": [],
+      "fileCount": 0,
+      "documents": [],
+      "documentCount": 0,
+      "verificationRequestStatus": "NONE",
+      "documentStatus": "NOT_SUBMITTED",
+      "kycStatus": "NOT_VERIFIED",
+      "uiState": "NO_REQUEST",
+      "canApproveKyc": false,
+      "canReviewDocuments": false,
+      "canApproveAccount": false
     },
     {
       "id": "Wi0buUrDEqMCeCop4uQXz6tjjFB2",
@@ -1591,6 +1699,483 @@
       "verificationInfo.verifiedAt": null,
       "verificationSubmittedAt": "2026-09-27T18:14:35.703Z",
       "lastActiveAt": "2026-09-27T18:14:35.703Z"
+    },
+    {
+      "id": "test_verification_user_1790536446360",
+      "email": "verification.test.1790536446360@zakir-test.com",
+      "fullName": "Verification Tester",
+      "ownerName": "Verification Tester",
+      "phone": "+966 50 123 4567",
+      "jobTitle": "CEO",
+      "companyName": "Test Org Enterprise",
+      "organizationName": "Test Org Enterprise",
+      "sector": "Technology",
+      "country": "Saudi Arabia",
+      "hasCompany": true,
+      "institutionalProfile": {
+        "fullName": "Verification Tester",
+        "phone": "+966 50 123 4567",
+        "jobTitle": "CEO",
+        "hasCompany": true,
+        "companyName": "Test Org Enterprise",
+        "sector": "Technology",
+        "country": "Saudi Arabia",
+        "registrationNumber": "1234567890",
+        "companySize": "1-10",
+        "intendedUse": "Strategic Decision Intelligence",
+        "additionalNotes": "",
+        "submittedAt": "2026-09-27T19:14:06.368Z"
+      },
+      "verificationDocuments": [
+        {
+          "documentId": "doc_p_1790536446361",
+          "fileName": "national_id.png",
+          "mimeType": "image/png",
+          "size": 102400,
+          "category": "personal",
+          "uploadedAt": "2026-09-27T19:14:06.368Z",
+          "status": "UNDER_REVIEW",
+          "verificationStatus": "UNDER_REVIEW"
+        },
+        {
+          "documentId": "doc_c_1790536446361",
+          "fileName": "cr_license.pdf",
+          "mimeType": "application/pdf",
+          "size": 204800,
+          "category": "company",
+          "uploadedAt": "2026-09-27T19:14:06.368Z",
+          "status": "UNDER_REVIEW",
+          "verificationStatus": "UNDER_REVIEW"
+        }
+      ],
+      "documents": [
+        {
+          "documentId": "doc_p_1790536446361",
+          "fileName": "national_id.png",
+          "mimeType": "image/png",
+          "size": 102400,
+          "category": "personal",
+          "uploadedAt": "2026-09-27T19:14:06.368Z",
+          "status": "UNDER_REVIEW",
+          "verificationStatus": "UNDER_REVIEW"
+        },
+        {
+          "documentId": "doc_c_1790536446361",
+          "fileName": "cr_license.pdf",
+          "mimeType": "application/pdf",
+          "size": 204800,
+          "category": "company",
+          "uploadedAt": "2026-09-27T19:14:06.368Z",
+          "status": "UNDER_REVIEW",
+          "verificationStatus": "UNDER_REVIEW"
+        }
+      ],
+      "documentCount": 2,
+      "isEmailVerified": true,
+      "email_verified": true,
+      "emailVerified": true,
+      "canonicalVerificationStatus": "pending",
+      "accountStatus": "PENDING_ADMIN_REVIEW",
+      "documentVerificationStatus": "UNDER_REVIEW",
+      "kycStatus": "UNDER_REVIEW",
+      "verificationRequestStatus": "UNDER_REVIEW",
+      "requiresDocumentVerification": true,
+      "rejectionReason": null,
+      "previousRejectionReason": null,
+      "historicalRejectionReason": null,
+      "isVerified": false,
+      "verifiedAt": null,
+      "adminVerificationOverride": false,
+      "verification_required": true,
+      "verification_status": "under_review",
+      "verificationInfo.status": "under_review",
+      "verificationInfo.submittedAt": "2026-09-27T19:14:06.368Z",
+      "verificationInfo.adminNote": null,
+      "verificationInfo.previousAdminNote": null,
+      "verificationInfo.verifiedAt": null,
+      "verificationSubmittedAt": "2026-09-27T19:14:06.368Z",
+      "lastActiveAt": "2026-09-27T19:14:06.368Z"
+    },
+    {
+      "id": "WDsZNEaEmePalBVt0oE0GWaPvv62",
+      "email": "new.user.1790536463461@zakir-test.com",
+      "passwordHash": "Password123!",
+      "companyName": "New Ventures LLC",
+      "ownerName": "New User Owner",
+      "role": "CEO",
+      "powers": {
+        "fileVault": true,
+        "memoryVault": true,
+        "riskRadar": true,
+        "marketIntel": true,
+        "settings": true
+      },
+      "workspaceId": "ws_WDsZNEaE_muk76js1",
+      "workspace": {
+        "id": "ws_WDsZNEaE_muk76js1",
+        "name": "New Ventures LLC Workspace",
+        "ownerId": "WDsZNEaEmePalBVt0oE0GWaPvv62",
+        "createdAt": "2026-09-27T19:14:26.593Z",
+        "memberCount": 1
+      },
+      "teamMembersList": [
+        {
+          "id": "tm-owner",
+          "uid": "WDsZNEaEmePalBVt0oE0GWaPvv62",
+          "name": "New User Owner",
+          "email": "new.user.1790536463461@zakir-test.com",
+          "role": "CEO / Owner",
+          "powers": {
+            "fileVault": true,
+            "memoryVault": true,
+            "riskRadar": true,
+            "marketIntel": true,
+            "settings": true
+          },
+          "addedAt": "2026-09-27"
+        }
+      ],
+      "subscriptionStatus": "Pending Selection",
+      "accountStatus": "PENDING_EMAIL_VERIFICATION",
+      "requiresDocumentVerification": true,
+      "verificationFlowVersion": 2,
+      "documentVerificationStatus": "PENDING_EMAIL_VERIFICATION",
+      "verificationDocuments": [],
+      "createdAt": "2026-09-27T19:14:26.593Z",
+      "trialExpiresAt": "2026-09-28T19:14:26.593Z",
+      "lastActiveAt": "2026-09-27T19:14:26.593Z",
+      "lastLoginAt": "2026-09-27T19:14:26.593Z",
+      "isVerified": false,
+      "isEmailVerified": false,
+      "email_verified": false,
+      "emailVerified": false,
+      "verification_required": true,
+      "verification_status": "unverified",
+      "verificationInfo": {
+        "status": "unverified"
+      }
+    },
+    {
+      "id": "c7b9ajACKmWpHjqZd1Pdy0hrCj23",
+      "email": "kyc.tester.1790536828004@zakir.ai",
+      "passwordHash": "ZakirRealTestPass_1790536828004!",
+      "companyName": "Zakir Enterprise Intelligence Inc.",
+      "ownerName": "Zakir Real KYC Tester",
+      "role": "CEO",
+      "powers": {
+        "fileVault": true,
+        "memoryVault": true,
+        "riskRadar": true,
+        "marketIntel": true,
+        "settings": true
+      },
+      "workspaceId": "ws_c7b9ajAC_muk7ebki",
+      "workspace": {
+        "id": "ws_c7b9ajAC_muk7ebki",
+        "name": "Zakir Enterprise Intelligence Inc. Workspace",
+        "ownerId": "c7b9ajACKmWpHjqZd1Pdy0hrCj23",
+        "createdAt": "2026-09-27T19:20:29.202Z",
+        "memberCount": 1
+      },
+      "teamMembersList": [
+        {
+          "id": "tm-owner",
+          "uid": "c7b9ajACKmWpHjqZd1Pdy0hrCj23",
+          "name": "Zakir Real KYC Tester",
+          "email": "kyc.tester.1790536828004@zakir.ai",
+          "role": "CEO / Owner",
+          "powers": {
+            "fileVault": true,
+            "memoryVault": true,
+            "riskRadar": true,
+            "marketIntel": true,
+            "settings": true
+          },
+          "addedAt": "2026-09-27"
+        }
+      ],
+      "subscriptionStatus": "Pending Selection",
+      "accountStatus": "PENDING_ADMIN_REVIEW",
+      "requiresDocumentVerification": true,
+      "verificationFlowVersion": 2,
+      "documentVerificationStatus": "UNDER_REVIEW",
+      "verificationDocuments": [
+        {
+          "documentId": "doc_1790536830296_b17f6558",
+          "fileName": "national_id_card_1790536828004.png",
+          "mimeType": "image/png",
+          "size": 67,
+          "fileHash": "ebf4f635a17d10d6eb46ba680b70142419aa3220f228001a036d311a22ee9d2a",
+          "fileBase64": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAACklEQVR4nGMAAQAABQABDQottAAAAABJRU5ErkJggg==",
+          "category": "personal",
+          "docType": "national_id",
+          "storageReference": "secure_uploads/doc_1790536830296_b17f6558",
+          "uploadedAt": "2026-09-27T19:20:30.301Z",
+          "userId": "c7b9ajACKmWpHjqZd1Pdy0hrCj23",
+          "status": "UNDER_REVIEW",
+          "verificationStatus": "UNDER_REVIEW"
+        },
+        {
+          "documentId": "doc_1790536829900_05f3dc52",
+          "fileName": "official_cr_license_1790536828004.pdf",
+          "mimeType": "application/pdf",
+          "size": 517,
+          "fileHash": "68b1566375cc52253ad48f574fa11ccd1b923be5ef07ecfd1eb5d2755baf4b47",
+          "fileBase64": "JVBERi0xLjQKMSAwIG9iago8PCAvVHlwZSAvQ2F0YWxvZyAvUGFnZXMgMiAwIFIgPj4KZW5kb2JqCjIgMCBvYmoKPDwgL1R5cGUgL1BhZ2VzIC9LaWRzIFszIDAgUl0gL0NvdW50IDEgPj4KZW5kb2JqCjMgMCBvYmoKPDwgL1R5cGUgL1BhZ2UgL1BhcmVudCAyIDAgUiAvTWVkaWFCb3ggWzAgMCA2MTIgNzkyXSAvQ29udGVudHMgNCAwIFIgL1Jlc291cmNlcyA8PCA+PiA+PgplbmRvYmoKNCAwIG9iago8PCAvTGVuZ3RoIDkwID4+CnN0cmVhbQpCVAovRjEgMTIgVGYKNzIgNzEyIFRkCihPZmZpY2lhbCBDUiBEb2N1bWVudCBmb3IgWmFraXIgVGVzdCBBdWRpdCAxNzkwNTM2ODI4MDA0KSBUagpFVAplbmRzdHJlYW0KZW5kb2JqCnhyZWYKMCA1CjAwMDAwMDAwMDAgNjU1MzUgZiAKMDAwMDAwMDAwOSAwMDAwMCBuIAowMDAwMDAwMDU4IDAwMDAwIG4gCjAwMDAwMDAxMTUgMDAwMDAgbiAKMDAwMDAwMDIxNiAwMDAwMCBuIAp0cmFpbGVyCjw8IC9TaXplIDUgL1Jvb3QgMSAwIFIgPj4Kc3RhcnR4cmVmCjMxMAolJUVPRg==",
+          "category": "company",
+          "docType": "commercial_register",
+          "storageReference": "secure_uploads/doc_1790536829900_05f3dc52",
+          "uploadedAt": "2026-09-27T19:20:30.052Z",
+          "userId": "c7b9ajACKmWpHjqZd1Pdy0hrCj23",
+          "status": "UNDER_REVIEW",
+          "verificationStatus": "UNDER_REVIEW"
+        }
+      ],
+      "createdAt": "2026-09-27T19:20:29.701Z",
+      "trialExpiresAt": "2026-09-28T19:20:29.202Z",
+      "lastActiveAt": "2026-09-27T19:20:30.497Z",
+      "lastLoginAt": "2026-09-27T19:20:29.202Z",
+      "isVerified": false,
+      "isEmailVerified": true,
+      "email_verified": true,
+      "emailVerified": true,
+      "verification_required": true,
+      "verification_status": "under_review",
+      "verificationInfo": {
+        "status": "unverified"
+      },
+      "uid": "c7b9ajACKmWpHjqZd1Pdy0hrCj23",
+      "fullName": "Zakir Real KYC Tester",
+      "documents": [
+        {
+          "documentId": "doc_1790536830296_b17f6558",
+          "fileName": "national_id_card_1790536828004.png",
+          "mimeType": "image/png",
+          "size": 67,
+          "fileHash": "ebf4f635a17d10d6eb46ba680b70142419aa3220f228001a036d311a22ee9d2a",
+          "fileBase64": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAACklEQVR4nGMAAQAABQABDQottAAAAABJRU5ErkJggg==",
+          "category": "personal",
+          "docType": "national_id",
+          "storageReference": "secure_uploads/doc_1790536830296_b17f6558",
+          "uploadedAt": "2026-09-27T19:20:30.301Z",
+          "userId": "c7b9ajACKmWpHjqZd1Pdy0hrCj23",
+          "status": "UNDER_REVIEW",
+          "verificationStatus": "UNDER_REVIEW"
+        },
+        {
+          "documentId": "doc_1790536829900_05f3dc52",
+          "fileName": "official_cr_license_1790536828004.pdf",
+          "mimeType": "application/pdf",
+          "size": 517,
+          "fileHash": "68b1566375cc52253ad48f574fa11ccd1b923be5ef07ecfd1eb5d2755baf4b47",
+          "fileBase64": "JVBERi0xLjQKMSAwIG9iago8PCAvVHlwZSAvQ2F0YWxvZyAvUGFnZXMgMiAwIFIgPj4KZW5kb2JqCjIgMCBvYmoKPDwgL1R5cGUgL1BhZ2VzIC9LaWRzIFszIDAgUl0gL0NvdW50IDEgPj4KZW5kb2JqCjMgMCBvYmoKPDwgL1R5cGUgL1BhZ2UgL1BhcmVudCAyIDAgUiAvTWVkaWFCb3ggWzAgMCA2MTIgNzkyXSAvQ29udGVudHMgNCAwIFIgL1Jlc291cmNlcyA8PCA+PiA+PgplbmRvYmoKNCAwIG9iago8PCAvTGVuZ3RoIDkwID4+CnN0cmVhbQpCVAovRjEgMTIgVGYKNzIgNzEyIFRkCihPZmZpY2lhbCBDUiBEb2N1bWVudCBmb3IgWmFraXIgVGVzdCBBdWRpdCAxNzkwNTM2ODI4MDA0KSBUagpFVAplbmRzdHJlYW0KZW5kb2JqCnhyZWYKMCA1CjAwMDAwMDAwMDAgNjU1MzUgZiAKMDAwMDAwMDAwOSAwMDAwMCBuIAowMDAwMDAwMDU4IDAwMDAwIG4gCjAwMDAwMDAxMTUgMDAwMDAgbiAKMDAwMDAwMDIxNiAwMDAwMCBuIAp0cmFpbGVyCjw8IC9TaXplIDUgL1Jvb3QgMSAwIFIgPj4Kc3RhcnR4cmVmCjMxMAolJUVPRg==",
+          "category": "company",
+          "docType": "commercial_register",
+          "storageReference": "secure_uploads/doc_1790536829900_05f3dc52",
+          "uploadedAt": "2026-09-27T19:20:30.052Z",
+          "userId": "c7b9ajACKmWpHjqZd1Pdy0hrCj23",
+          "status": "UNDER_REVIEW",
+          "verificationStatus": "UNDER_REVIEW"
+        }
+      ],
+      "documentCount": 2,
+      "emailVerifiedAt": "2026-09-27T19:20:30.058Z",
+      "verificationInfo.emailVerifiedAt": "2026-09-27T19:20:30.308Z",
+      "phone": "+966 55 987 6543",
+      "jobTitle": "Chief Executive Officer",
+      "organizationName": "Zakir Enterprise Intelligence Inc.",
+      "sector": "Artificial Intelligence",
+      "country": "Saudi Arabia",
+      "hasCompany": true,
+      "institutionalProfile": {
+        "fullName": "Zakir Real KYC Tester",
+        "phone": "+966 55 987 6543",
+        "jobTitle": "Chief Executive Officer",
+        "hasCompany": true,
+        "companyName": "Zakir Enterprise Intelligence Inc.",
+        "sector": "Artificial Intelligence",
+        "country": "Saudi Arabia",
+        "registrationNumber": "1010987654",
+        "companySize": "1-10",
+        "intendedUse": "Strategic Decision Intelligence",
+        "additionalNotes": "",
+        "submittedAt": "2026-09-27T19:20:30.497Z"
+      },
+      "canonicalVerificationStatus": "pending",
+      "kycStatus": "UNDER_REVIEW",
+      "verificationRequestStatus": "UNDER_REVIEW",
+      "rejectionReason": null,
+      "previousRejectionReason": null,
+      "historicalRejectionReason": null,
+      "verifiedAt": null,
+      "adminVerificationOverride": false,
+      "verificationInfo.status": "under_review",
+      "verificationInfo.submittedAt": "2026-09-27T19:20:30.497Z",
+      "verificationInfo.adminNote": null,
+      "verificationInfo.previousAdminNote": null,
+      "verificationInfo.verifiedAt": null,
+      "verificationSubmittedAt": "2026-09-27T19:20:30.497Z"
+    },
+    {
+      "id": "RfHYzDvhuUTnlerKE6f7dDtifyW2",
+      "email": "kyc.tester.1790536860254@zakir.ai",
+      "passwordHash": "ZakirRealTestPass_1790536860254!",
+      "companyName": "Zakir Enterprise Intelligence Inc.",
+      "ownerName": "Zakir Real KYC Tester",
+      "role": "CEO",
+      "powers": {
+        "fileVault": true,
+        "memoryVault": true,
+        "riskRadar": true,
+        "marketIntel": true,
+        "settings": true
+      },
+      "workspaceId": "ws_RfHYzDvh_muk7f0gf",
+      "workspace": {
+        "id": "ws_RfHYzDvh_muk7f0gf",
+        "name": "Zakir Enterprise Intelligence Inc. Workspace",
+        "ownerId": "RfHYzDvhuUTnlerKE6f7dDtifyW2",
+        "createdAt": "2026-09-27T19:21:01.455Z",
+        "memberCount": 1
+      },
+      "teamMembersList": [
+        {
+          "id": "tm-owner",
+          "uid": "RfHYzDvhuUTnlerKE6f7dDtifyW2",
+          "name": "Zakir Real KYC Tester",
+          "email": "kyc.tester.1790536860254@zakir.ai",
+          "role": "CEO / Owner",
+          "powers": {
+            "fileVault": true,
+            "memoryVault": true,
+            "riskRadar": true,
+            "marketIntel": true,
+            "settings": true
+          },
+          "addedAt": "2026-09-27"
+        }
+      ],
+      "subscriptionStatus": "Pending Selection",
+      "accountStatus": "PENDING_ADMIN_REVIEW",
+      "requiresDocumentVerification": true,
+      "verificationFlowVersion": 2,
+      "documentVerificationStatus": "UNDER_REVIEW",
+      "verificationDocuments": [
+        {
+          "documentId": "doc_1790536862081_079b9c91",
+          "fileName": "national_id_card_1790536860254.png",
+          "mimeType": "image/png",
+          "size": 67,
+          "fileHash": "ebf4f635a17d10d6eb46ba680b70142419aa3220f228001a036d311a22ee9d2a",
+          "fileBase64": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAACklEQVR4nGMAAQAABQABDQottAAAAABJRU5ErkJggg==",
+          "category": "personal",
+          "docType": "national_id",
+          "storageReference": "secure_uploads/doc_1790536862081_079b9c91",
+          "uploadedAt": "2026-09-27T19:21:02.087Z",
+          "userId": "RfHYzDvhuUTnlerKE6f7dDtifyW2",
+          "status": "UNDER_REVIEW",
+          "verificationStatus": "UNDER_REVIEW"
+        },
+        {
+          "documentId": "doc_1790536861870_82361be5",
+          "fileName": "official_cr_license_1790536860254.pdf",
+          "mimeType": "application/pdf",
+          "size": 517,
+          "fileHash": "533566b9810552149001d55ab481426fa6a0538fe7e1672d6534ee90bc3b49ec",
+          "fileBase64": "JVBERi0xLjQKMSAwIG9iago8PCAvVHlwZSAvQ2F0YWxvZyAvUGFnZXMgMiAwIFIgPj4KZW5kb2JqCjIgMCBvYmoKPDwgL1R5cGUgL1BhZ2VzIC9LaWRzIFszIDAgUl0gL0NvdW50IDEgPj4KZW5kb2JqCjMgMCBvYmoKPDwgL1R5cGUgL1BhZ2UgL1BhcmVudCAyIDAgUiAvTWVkaWFCb3ggWzAgMCA2MTIgNzkyXSAvQ29udGVudHMgNCAwIFIgL1Jlc291cmNlcyA8PCA+PiA+PgplbmRvYmoKNCAwIG9iago8PCAvTGVuZ3RoIDkwID4+CnN0cmVhbQpCVAovRjEgMTIgVGYKNzIgNzEyIFRkCihPZmZpY2lhbCBDUiBEb2N1bWVudCBmb3IgWmFraXIgVGVzdCBBdWRpdCAxNzkwNTM2ODYwMjU0KSBUagpFVAplbmRzdHJlYW0KZW5kb2JqCnhyZWYKMCA1CjAwMDAwMDAwMDAgNjU1MzUgZiAKMDAwMDAwMDAwOSAwMDAwMCBuIAowMDAwMDAwMDU4IDAwMDAwIG4gCjAwMDAwMDAxMTUgMDAwMDAgbiAKMDAwMDAwMDIxNiAwMDAwMCBuIAp0cmFpbGVyCjw8IC9TaXplIDUgL1Jvb3QgMSAwIFIgPj4Kc3RhcnR4cmVmCjMxMAolJUVPRg==",
+          "category": "company",
+          "docType": "commercial_register",
+          "storageReference": "secure_uploads/doc_1790536861870_82361be5",
+          "uploadedAt": "2026-09-27T19:21:01.875Z",
+          "userId": "RfHYzDvhuUTnlerKE6f7dDtifyW2",
+          "status": "UNDER_REVIEW",
+          "verificationStatus": "UNDER_REVIEW"
+        }
+      ],
+      "createdAt": "2026-09-27T19:21:01.668Z",
+      "trialExpiresAt": "2026-09-28T19:21:01.455Z",
+      "lastActiveAt": "2026-09-27T19:21:02.286Z",
+      "lastLoginAt": "2026-09-27T19:21:01.455Z",
+      "isVerified": false,
+      "isEmailVerified": true,
+      "email_verified": true,
+      "emailVerified": true,
+      "verification_required": true,
+      "verification_status": "under_review",
+      "verificationInfo": {
+        "status": "unverified"
+      },
+      "uid": "RfHYzDvhuUTnlerKE6f7dDtifyW2",
+      "fullName": "Zakir Real KYC Tester",
+      "documents": [
+        {
+          "documentId": "doc_1790536862081_079b9c91",
+          "fileName": "national_id_card_1790536860254.png",
+          "mimeType": "image/png",
+          "size": 67,
+          "fileHash": "ebf4f635a17d10d6eb46ba680b70142419aa3220f228001a036d311a22ee9d2a",
+          "fileBase64": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAACklEQVR4nGMAAQAABQABDQottAAAAABJRU5ErkJggg==",
+          "category": "personal",
+          "docType": "national_id",
+          "storageReference": "secure_uploads/doc_1790536862081_079b9c91",
+          "uploadedAt": "2026-09-27T19:21:02.087Z",
+          "userId": "RfHYzDvhuUTnlerKE6f7dDtifyW2",
+          "status": "UNDER_REVIEW",
+          "verificationStatus": "UNDER_REVIEW"
+        },
+        {
+          "documentId": "doc_1790536861870_82361be5",
+          "fileName": "official_cr_license_1790536860254.pdf",
+          "mimeType": "application/pdf",
+          "size": 517,
+          "fileHash": "533566b9810552149001d55ab481426fa6a0538fe7e1672d6534ee90bc3b49ec",
+          "fileBase64": "JVBERi0xLjQKMSAwIG9iago8PCAvVHlwZSAvQ2F0YWxvZyAvUGFnZXMgMiAwIFIgPj4KZW5kb2JqCjIgMCBvYmoKPDwgL1R5cGUgL1BhZ2VzIC9LaWRzIFszIDAgUl0gL0NvdW50IDEgPj4KZW5kb2JqCjMgMCBvYmoKPDwgL1R5cGUgL1BhZ2UgL1BhcmVudCAyIDAgUiAvTWVkaWFCb3ggWzAgMCA2MTIgNzkyXSAvQ29udGVudHMgNCAwIFIgL1Jlc291cmNlcyA8PCA+PiA+PgplbmRvYmoKNCAwIG9iago8PCAvTGVuZ3RoIDkwID4+CnN0cmVhbQpCVAovRjEgMTIgVGYKNzIgNzEyIFRkCihPZmZpY2lhbCBDUiBEb2N1bWVudCBmb3IgWmFraXIgVGVzdCBBdWRpdCAxNzkwNTM2ODYwMjU0KSBUagpFVAplbmRzdHJlYW0KZW5kb2JqCnhyZWYKMCA1CjAwMDAwMDAwMDAgNjU1MzUgZiAKMDAwMDAwMDAwOSAwMDAwMCBuIAowMDAwMDAwMDU4IDAwMDAwIG4gCjAwMDAwMDAxMTUgMDAwMDAgbiAKMDAwMDAwMDIxNiAwMDAwMCBuIAp0cmFpbGVyCjw8IC9TaXplIDUgL1Jvb3QgMSAwIFIgPj4Kc3RhcnR4cmVmCjMxMAolJUVPRg==",
+          "category": "company",
+          "docType": "commercial_register",
+          "storageReference": "secure_uploads/doc_1790536861870_82361be5",
+          "uploadedAt": "2026-09-27T19:21:01.875Z",
+          "userId": "RfHYzDvhuUTnlerKE6f7dDtifyW2",
+          "status": "UNDER_REVIEW",
+          "verificationStatus": "UNDER_REVIEW"
+        }
+      ],
+      "documentCount": 2,
+      "emailVerifiedAt": "2026-09-27T19:21:01.882Z",
+      "verificationInfo.emailVerifiedAt": "2026-09-27T19:21:02.094Z",
+      "phone": "+966 55 987 6543",
+      "jobTitle": "Chief Executive Officer",
+      "organizationName": "Zakir Enterprise Intelligence Inc.",
+      "sector": "Artificial Intelligence",
+      "country": "Saudi Arabia",
+      "hasCompany": true,
+      "institutionalProfile": {
+        "fullName": "Zakir Real KYC Tester",
+        "phone": "+966 55 987 6543",
+        "jobTitle": "Chief Executive Officer",
+        "hasCompany": true,
+        "companyName": "Zakir Enterprise Intelligence Inc.",
+        "sector": "Artificial Intelligence",
+        "country": "Saudi Arabia",
+        "registrationNumber": "1010987654",
+        "companySize": "1-10",
+        "intendedUse": "Strategic Decision Intelligence",
+        "additionalNotes": "",
+        "submittedAt": "2026-09-27T19:21:02.286Z"
+      },
+      "canonicalVerificationStatus": "pending",
+      "kycStatus": "UNDER_REVIEW",
+      "verificationRequestStatus": "UNDER_REVIEW",
+      "rejectionReason": null,
+      "previousRejectionReason": null,
+      "historicalRejectionReason": null,
+      "verifiedAt": null,
+      "adminVerificationOverride": false,
+      "verificationInfo.status": "under_review",
+      "verificationInfo.submittedAt": "2026-09-27T19:21:02.286Z",
+      "verificationInfo.adminNote": null,
+      "verificationInfo.previousAdminNote": null,
+      "verificationInfo.verifiedAt": null,
+      "verificationSubmittedAt": "2026-09-27T19:21:02.286Z"
     }
   ],
   "verification_codes": [
@@ -1638,6 +2223,51 @@
       "sendCount": 0,
       "initialOtpSent": true,
       "lastSentAt": "2026-09-27T18:05:34.801Z"
+    },
+    {
+      "id": "WDsZNEaEmePalBVt0oE0GWaPvv62",
+      "userId": "WDsZNEaEmePalBVt0oE0GWaPvv62",
+      "email": "new.user.1790536463461@zakir-test.com",
+      "phone": "",
+      "codeHash": "ac3cb2f6ef84e27c081c7fd7303fcc05a94f94d3dc9dcc1d59b58c1642fb021b",
+      "type": "account_registration",
+      "createdAt": "2026-09-27T19:14:27.090Z",
+      "expiresAt": "2026-09-27T19:24:27.090Z",
+      "attempts": 0,
+      "used": false,
+      "sendCount": 0,
+      "initialOtpSent": true,
+      "lastSentAt": "2026-09-27T19:14:27.090Z"
+    },
+    {
+      "id": "c7b9ajACKmWpHjqZd1Pdy0hrCj23",
+      "userId": "c7b9ajACKmWpHjqZd1Pdy0hrCj23",
+      "email": "kyc.tester.1790536828004@zakir.ai",
+      "phone": "",
+      "codeHash": "ef7cc4ae856a05a03660fff9e3306ff69dafa0944fc05e947f7c1e5a79458de4",
+      "type": "account_registration",
+      "createdAt": "2026-09-27T19:20:29.213Z",
+      "expiresAt": "2026-09-27T19:30:29.213Z",
+      "attempts": 0,
+      "used": false,
+      "sendCount": 0,
+      "initialOtpSent": true,
+      "lastSentAt": "2026-09-27T19:20:29.213Z"
+    },
+    {
+      "id": "RfHYzDvhuUTnlerKE6f7dDtifyW2",
+      "userId": "RfHYzDvhuUTnlerKE6f7dDtifyW2",
+      "email": "kyc.tester.1790536860254@zakir.ai",
+      "phone": "",
+      "codeHash": "3c66bdb95680ad502682f85728df244902fccceb1ad854abf625b09d2fd12e78",
+      "type": "account_registration",
+      "createdAt": "2026-09-27T19:21:01.467Z",
+      "expiresAt": "2026-09-27T19:31:01.467Z",
+      "attempts": 0,
+      "used": false,
+      "sendCount": 0,
+      "initialOtpSent": true,
+      "lastSentAt": "2026-09-27T19:21:01.467Z"
     }
   ],
   "support_tickets": [
@@ -1981,6 +2611,58 @@
       "mimeType": "image/png",
       "fileBase64": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
       "status": "APPROVED"
+    },
+    "doc_1790536829900_05f3dc52": {
+      "documentId": "doc_1790536829900_05f3dc52",
+      "fileName": "official_cr_license_1790536828004.pdf",
+      "mimeType": "application/pdf",
+      "size": 517,
+      "fileHash": "68b1566375cc52253ad48f574fa11ccd1b923be5ef07ecfd1eb5d2755baf4b47",
+      "fileBase64": "JVBERi0xLjQKMSAwIG9iago8PCAvVHlwZSAvQ2F0YWxvZyAvUGFnZXMgMiAwIFIgPj4KZW5kb2JqCjIgMCBvYmoKPDwgL1R5cGUgL1BhZ2VzIC9LaWRzIFszIDAgUl0gL0NvdW50IDEgPj4KZW5kb2JqCjMgMCBvYmoKPDwgL1R5cGUgL1BhZ2UgL1BhcmVudCAyIDAgUiAvTWVkaWFCb3ggWzAgMCA2MTIgNzkyXSAvQ29udGVudHMgNCAwIFIgL1Jlc291cmNlcyA8PCA+PiA+PgplbmRvYmoKNCAwIG9iago8PCAvTGVuZ3RoIDkwID4+CnN0cmVhbQpCVAovRjEgMTIgVGYKNzIgNzEyIFRkCihPZmZpY2lhbCBDUiBEb2N1bWVudCBmb3IgWmFraXIgVGVzdCBBdWRpdCAxNzkwNTM2ODI4MDA0KSBUagpFVAplbmRzdHJlYW0KZW5kb2JqCnhyZWYKMCA1CjAwMDAwMDAwMDAgNjU1MzUgZiAKMDAwMDAwMDAwOSAwMDAwMCBuIAowMDAwMDAwMDU4IDAwMDAwIG4gCjAwMDAwMDAxMTUgMDAwMDAgbiAKMDAwMDAwMDIxNiAwMDAwMCBuIAp0cmFpbGVyCjw8IC9TaXplIDUgL1Jvb3QgMSAwIFIgPj4Kc3RhcnR4cmVmCjMxMAolJUVPRg==",
+      "category": "company",
+      "docType": "commercial_register",
+      "storageReference": "secure_uploads/doc_1790536829900_05f3dc52",
+      "uploadedAt": "2026-09-27T19:20:30.052Z",
+      "userId": "c7b9ajACKmWpHjqZd1Pdy0hrCj23"
+    },
+    "doc_1790536830296_b17f6558": {
+      "documentId": "doc_1790536830296_b17f6558",
+      "fileName": "national_id_card_1790536828004.png",
+      "mimeType": "image/png",
+      "size": 67,
+      "fileHash": "ebf4f635a17d10d6eb46ba680b70142419aa3220f228001a036d311a22ee9d2a",
+      "fileBase64": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAACklEQVR4nGMAAQAABQABDQottAAAAABJRU5ErkJggg==",
+      "category": "personal",
+      "docType": "national_id",
+      "storageReference": "secure_uploads/doc_1790536830296_b17f6558",
+      "uploadedAt": "2026-09-27T19:20:30.301Z",
+      "userId": "c7b9ajACKmWpHjqZd1Pdy0hrCj23"
+    },
+    "doc_1790536861870_82361be5": {
+      "documentId": "doc_1790536861870_82361be5",
+      "fileName": "official_cr_license_1790536860254.pdf",
+      "mimeType": "application/pdf",
+      "size": 517,
+      "fileHash": "533566b9810552149001d55ab481426fa6a0538fe7e1672d6534ee90bc3b49ec",
+      "fileBase64": "JVBERi0xLjQKMSAwIG9iago8PCAvVHlwZSAvQ2F0YWxvZyAvUGFnZXMgMiAwIFIgPj4KZW5kb2JqCjIgMCBvYmoKPDwgL1R5cGUgL1BhZ2VzIC9LaWRzIFszIDAgUl0gL0NvdW50IDEgPj4KZW5kb2JqCjMgMCBvYmoKPDwgL1R5cGUgL1BhZ2UgL1BhcmVudCAyIDAgUiAvTWVkaWFCb3ggWzAgMCA2MTIgNzkyXSAvQ29udGVudHMgNCAwIFIgL1Jlc291cmNlcyA8PCA+PiA+PgplbmRvYmoKNCAwIG9iago8PCAvTGVuZ3RoIDkwID4+CnN0cmVhbQpCVAovRjEgMTIgVGYKNzIgNzEyIFRkCihPZmZpY2lhbCBDUiBEb2N1bWVudCBmb3IgWmFraXIgVGVzdCBBdWRpdCAxNzkwNTM2ODYwMjU0KSBUagpFVAplbmRzdHJlYW0KZW5kb2JqCnhyZWYKMCA1CjAwMDAwMDAwMDAgNjU1MzUgZiAKMDAwMDAwMDAwOSAwMDAwMCBuIAowMDAwMDAwMDU4IDAwMDAwIG4gCjAwMDAwMDAxMTUgMDAwMDAgbiAKMDAwMDAwMDIxNiAwMDAwMCBuIAp0cmFpbGVyCjw8IC9TaXplIDUgL1Jvb3QgMSAwIFIgPj4Kc3RhcnR4cmVmCjMxMAolJUVPRg==",
+      "category": "company",
+      "docType": "commercial_register",
+      "storageReference": "secure_uploads/doc_1790536861870_82361be5",
+      "uploadedAt": "2026-09-27T19:21:01.875Z",
+      "userId": "RfHYzDvhuUTnlerKE6f7dDtifyW2"
+    },
+    "doc_1790536862081_079b9c91": {
+      "documentId": "doc_1790536862081_079b9c91",
+      "fileName": "national_id_card_1790536860254.png",
+      "mimeType": "image/png",
+      "size": 67,
+      "fileHash": "ebf4f635a17d10d6eb46ba680b70142419aa3220f228001a036d311a22ee9d2a",
+      "fileBase64": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAACklEQVR4nGMAAQAABQABDQottAAAAABJRU5ErkJggg==",
+      "category": "personal",
+      "docType": "national_id",
+      "storageReference": "secure_uploads/doc_1790536862081_079b9c91",
+      "uploadedAt": "2026-09-27T19:21:02.087Z",
+      "userId": "RfHYzDvhuUTnlerKE6f7dDtifyW2"
     }
   },
   "recovery_documents_store": {
@@ -2003,6 +2685,90 @@
       "fileSize": 70,
       "storagePath": "/app/applet/secure_uploads/real_prod_recovery_doc_1790455398120.png",
       "status": "pending"
+    },
+    "doc_1790536829900_05f3dc52": {
+      "documentId": "doc_1790536829900_05f3dc52",
+      "fileName": "official_cr_license_1790536828004.pdf",
+      "mimeType": "application/pdf",
+      "size": 517,
+      "fileHash": "68b1566375cc52253ad48f574fa11ccd1b923be5ef07ecfd1eb5d2755baf4b47",
+      "sha256": "68b1566375cc52253ad48f574fa11ccd1b923be5ef07ecfd1eb5d2755baf4b47",
+      "storageProvider": "local-secure-disk",
+      "storagePath": "secure_uploads/doc_1790536829900_05f3dc52",
+      "storageReference": "secure_uploads/doc_1790536829900_05f3dc52",
+      "storageStatus": "persisted",
+      "ownerUid": null,
+      "workspaceId": "default",
+      "createdAt": "2026-09-27T19:20:29.901Z",
+      "updatedAt": "2026-09-27T19:20:29.901Z",
+      "expiresAt": "2026-10-11T19:20:29.901Z",
+      "permissions": {
+        "isPublic": false,
+        "ownerOnly": true
+      }
+    },
+    "doc_1790536830296_b17f6558": {
+      "documentId": "doc_1790536830296_b17f6558",
+      "fileName": "national_id_card_1790536828004.png",
+      "mimeType": "image/png",
+      "size": 67,
+      "fileHash": "ebf4f635a17d10d6eb46ba680b70142419aa3220f228001a036d311a22ee9d2a",
+      "sha256": "ebf4f635a17d10d6eb46ba680b70142419aa3220f228001a036d311a22ee9d2a",
+      "storageProvider": "local-secure-disk",
+      "storagePath": "secure_uploads/doc_1790536830296_b17f6558",
+      "storageReference": "secure_uploads/doc_1790536830296_b17f6558",
+      "storageStatus": "persisted",
+      "ownerUid": null,
+      "workspaceId": "default",
+      "createdAt": "2026-09-27T19:20:30.297Z",
+      "updatedAt": "2026-09-27T19:20:30.297Z",
+      "expiresAt": "2026-10-11T19:20:30.297Z",
+      "permissions": {
+        "isPublic": false,
+        "ownerOnly": true
+      }
+    },
+    "doc_1790536861870_82361be5": {
+      "documentId": "doc_1790536861870_82361be5",
+      "fileName": "official_cr_license_1790536860254.pdf",
+      "mimeType": "application/pdf",
+      "size": 517,
+      "fileHash": "533566b9810552149001d55ab481426fa6a0538fe7e1672d6534ee90bc3b49ec",
+      "sha256": "533566b9810552149001d55ab481426fa6a0538fe7e1672d6534ee90bc3b49ec",
+      "storageProvider": "local-secure-disk",
+      "storagePath": "secure_uploads/doc_1790536861870_82361be5",
+      "storageReference": "secure_uploads/doc_1790536861870_82361be5",
+      "storageStatus": "persisted",
+      "ownerUid": null,
+      "workspaceId": "default",
+      "createdAt": "2026-09-27T19:21:01.871Z",
+      "updatedAt": "2026-09-27T19:21:01.871Z",
+      "expiresAt": "2026-10-11T19:21:01.871Z",
+      "permissions": {
+        "isPublic": false,
+        "ownerOnly": true
+      }
+    },
+    "doc_1790536862081_079b9c91": {
+      "documentId": "doc_1790536862081_079b9c91",
+      "fileName": "national_id_card_1790536860254.png",
+      "mimeType": "image/png",
+      "size": 67,
+      "fileHash": "ebf4f635a17d10d6eb46ba680b70142419aa3220f228001a036d311a22ee9d2a",
+      "sha256": "ebf4f635a17d10d6eb46ba680b70142419aa3220f228001a036d311a22ee9d2a",
+      "storageProvider": "local-secure-disk",
+      "storagePath": "secure_uploads/doc_1790536862081_079b9c91",
+      "storageReference": "secure_uploads/doc_1790536862081_079b9c91",
+      "storageStatus": "persisted",
+      "ownerUid": null,
+      "workspaceId": "default",
+      "createdAt": "2026-09-27T19:21:02.081Z",
+      "updatedAt": "2026-09-27T19:21:02.081Z",
+      "expiresAt": "2026-10-11T19:21:02.081Z",
+      "permissions": {
+        "isPublic": false,
+        "ownerOnly": true
+      }
     }
   },
   "collections_data": {
@@ -2921,10 +3687,185 @@
         "updatedAt": "2026-09-27T17:49:27.961Z",
         "id": "ceo.existing@zakir-test.com"
       }
+    ],
+    "recoveryDocuments": [
+      {
+        "documentId": "doc_1790536829900_05f3dc52",
+        "fileName": "official_cr_license_1790536828004.pdf",
+        "mimeType": "application/pdf",
+        "size": 517,
+        "fileHash": "68b1566375cc52253ad48f574fa11ccd1b923be5ef07ecfd1eb5d2755baf4b47",
+        "sha256": "68b1566375cc52253ad48f574fa11ccd1b923be5ef07ecfd1eb5d2755baf4b47",
+        "storageProvider": "local-secure-disk",
+        "storagePath": "secure_uploads/doc_1790536829900_05f3dc52",
+        "storageReference": "secure_uploads/doc_1790536829900_05f3dc52",
+        "storageStatus": "persisted",
+        "ownerUid": null,
+        "workspaceId": "default",
+        "createdAt": "2026-09-27T19:20:29.901Z",
+        "updatedAt": "2026-09-27T19:20:29.901Z",
+        "expiresAt": "2026-10-11T19:20:29.901Z",
+        "permissions": {
+          "isPublic": false,
+          "ownerOnly": true
+        },
+        "id": "doc_1790536829900_05f3dc52"
+      },
+      {
+        "documentId": "doc_1790536830296_b17f6558",
+        "fileName": "national_id_card_1790536828004.png",
+        "mimeType": "image/png",
+        "size": 67,
+        "fileHash": "ebf4f635a17d10d6eb46ba680b70142419aa3220f228001a036d311a22ee9d2a",
+        "sha256": "ebf4f635a17d10d6eb46ba680b70142419aa3220f228001a036d311a22ee9d2a",
+        "storageProvider": "local-secure-disk",
+        "storagePath": "secure_uploads/doc_1790536830296_b17f6558",
+        "storageReference": "secure_uploads/doc_1790536830296_b17f6558",
+        "storageStatus": "persisted",
+        "ownerUid": null,
+        "workspaceId": "default",
+        "createdAt": "2026-09-27T19:20:30.297Z",
+        "updatedAt": "2026-09-27T19:20:30.297Z",
+        "expiresAt": "2026-10-11T19:20:30.297Z",
+        "permissions": {
+          "isPublic": false,
+          "ownerOnly": true
+        },
+        "id": "doc_1790536830296_b17f6558"
+      },
+      {
+        "documentId": "doc_1790536861870_82361be5",
+        "fileName": "official_cr_license_1790536860254.pdf",
+        "mimeType": "application/pdf",
+        "size": 517,
+        "fileHash": "533566b9810552149001d55ab481426fa6a0538fe7e1672d6534ee90bc3b49ec",
+        "sha256": "533566b9810552149001d55ab481426fa6a0538fe7e1672d6534ee90bc3b49ec",
+        "storageProvider": "local-secure-disk",
+        "storagePath": "secure_uploads/doc_1790536861870_82361be5",
+        "storageReference": "secure_uploads/doc_1790536861870_82361be5",
+        "storageStatus": "persisted",
+        "ownerUid": null,
+        "workspaceId": "default",
+        "createdAt": "2026-09-27T19:21:01.871Z",
+        "updatedAt": "2026-09-27T19:21:01.871Z",
+        "expiresAt": "2026-10-11T19:21:01.871Z",
+        "permissions": {
+          "isPublic": false,
+          "ownerOnly": true
+        },
+        "id": "doc_1790536861870_82361be5"
+      },
+      {
+        "documentId": "doc_1790536862081_079b9c91",
+        "fileName": "national_id_card_1790536860254.png",
+        "mimeType": "image/png",
+        "size": 67,
+        "fileHash": "ebf4f635a17d10d6eb46ba680b70142419aa3220f228001a036d311a22ee9d2a",
+        "sha256": "ebf4f635a17d10d6eb46ba680b70142419aa3220f228001a036d311a22ee9d2a",
+        "storageProvider": "local-secure-disk",
+        "storagePath": "secure_uploads/doc_1790536862081_079b9c91",
+        "storageReference": "secure_uploads/doc_1790536862081_079b9c91",
+        "storageStatus": "persisted",
+        "ownerUid": null,
+        "workspaceId": "default",
+        "createdAt": "2026-09-27T19:21:02.081Z",
+        "updatedAt": "2026-09-27T19:21:02.081Z",
+        "expiresAt": "2026-10-11T19:21:02.081Z",
+        "permissions": {
+          "isPublic": false,
+          "ownerOnly": true
+        },
+        "id": "doc_1790536862081_079b9c91"
+      }
+    ],
+    "verification_documents": [
+      {
+        "documentId": "doc_1790536829900_05f3dc52",
+        "fileName": "official_cr_license_1790536828004.pdf",
+        "mimeType": "application/pdf",
+        "size": 517,
+        "fileHash": "68b1566375cc52253ad48f574fa11ccd1b923be5ef07ecfd1eb5d2755baf4b47",
+        "fileBase64": "JVBERi0xLjQKMSAwIG9iago8PCAvVHlwZSAvQ2F0YWxvZyAvUGFnZXMgMiAwIFIgPj4KZW5kb2JqCjIgMCBvYmoKPDwgL1R5cGUgL1BhZ2VzIC9LaWRzIFszIDAgUl0gL0NvdW50IDEgPj4KZW5kb2JqCjMgMCBvYmoKPDwgL1R5cGUgL1BhZ2UgL1BhcmVudCAyIDAgUiAvTWVkaWFCb3ggWzAgMCA2MTIgNzkyXSAvQ29udGVudHMgNCAwIFIgL1Jlc291cmNlcyA8PCA+PiA+PgplbmRvYmoKNCAwIG9iago8PCAvTGVuZ3RoIDkwID4+CnN0cmVhbQpCVAovRjEgMTIgVGYKNzIgNzEyIFRkCihPZmZpY2lhbCBDUiBEb2N1bWVudCBmb3IgWmFraXIgVGVzdCBBdWRpdCAxNzkwNTM2ODI4MDA0KSBUagpFVAplbmRzdHJlYW0KZW5kb2JqCnhyZWYKMCA1CjAwMDAwMDAwMDAgNjU1MzUgZiAKMDAwMDAwMDAwOSAwMDAwMCBuIAowMDAwMDAwMDU4IDAwMDAwIG4gCjAwMDAwMDAxMTUgMDAwMDAgbiAKMDAwMDAwMDIxNiAwMDAwMCBuIAp0cmFpbGVyCjw8IC9TaXplIDUgL1Jvb3QgMSAwIFIgPj4Kc3RhcnR4cmVmCjMxMAolJUVPRg==",
+        "category": "company",
+        "docType": "commercial_register",
+        "storageReference": "secure_uploads/doc_1790536829900_05f3dc52",
+        "uploadedAt": "2026-09-27T19:20:30.052Z",
+        "userId": "c7b9ajACKmWpHjqZd1Pdy0hrCj23",
+        "id": "doc_1790536829900_05f3dc52"
+      },
+      {
+        "documentId": "doc_1790536830296_b17f6558",
+        "fileName": "national_id_card_1790536828004.png",
+        "mimeType": "image/png",
+        "size": 67,
+        "fileHash": "ebf4f635a17d10d6eb46ba680b70142419aa3220f228001a036d311a22ee9d2a",
+        "fileBase64": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAACklEQVR4nGMAAQAABQABDQottAAAAABJRU5ErkJggg==",
+        "category": "personal",
+        "docType": "national_id",
+        "storageReference": "secure_uploads/doc_1790536830296_b17f6558",
+        "uploadedAt": "2026-09-27T19:20:30.301Z",
+        "userId": "c7b9ajACKmWpHjqZd1Pdy0hrCj23",
+        "id": "doc_1790536830296_b17f6558"
+      },
+      {
+        "documentId": "doc_1790536861870_82361be5",
+        "fileName": "official_cr_license_1790536860254.pdf",
+        "mimeType": "application/pdf",
+        "size": 517,
+        "fileHash": "533566b9810552149001d55ab481426fa6a0538fe7e1672d6534ee90bc3b49ec",
+        "fileBase64": "JVBERi0xLjQKMSAwIG9iago8PCAvVHlwZSAvQ2F0YWxvZyAvUGFnZXMgMiAwIFIgPj4KZW5kb2JqCjIgMCBvYmoKPDwgL1R5cGUgL1BhZ2VzIC9LaWRzIFszIDAgUl0gL0NvdW50IDEgPj4KZW5kb2JqCjMgMCBvYmoKPDwgL1R5cGUgL1BhZ2UgL1BhcmVudCAyIDAgUiAvTWVkaWFCb3ggWzAgMCA2MTIgNzkyXSAvQ29udGVudHMgNCAwIFIgL1Jlc291cmNlcyA8PCA+PiA+PgplbmRvYmoKNCAwIG9iago8PCAvTGVuZ3RoIDkwID4+CnN0cmVhbQpCVAovRjEgMTIgVGYKNzIgNzEyIFRkCihPZmZpY2lhbCBDUiBEb2N1bWVudCBmb3IgWmFraXIgVGVzdCBBdWRpdCAxNzkwNTM2ODYwMjU0KSBUagpFVAplbmRzdHJlYW0KZW5kb2JqCnhyZWYKMCA1CjAwMDAwMDAwMDAgNjU1MzUgZiAKMDAwMDAwMDAwOSAwMDAwMCBuIAowMDAwMDAwMDU4IDAwMDAwIG4gCjAwMDAwMDAxMTUgMDAwMDAgbiAKMDAwMDAwMDIxNiAwMDAwMCBuIAp0cmFpbGVyCjw8IC9TaXplIDUgL1Jvb3QgMSAwIFIgPj4Kc3RhcnR4cmVmCjMxMAolJUVPRg==",
+        "category": "company",
+        "docType": "commercial_register",
+        "storageReference": "secure_uploads/doc_1790536861870_82361be5",
+        "uploadedAt": "2026-09-27T19:21:01.875Z",
+        "userId": "RfHYzDvhuUTnlerKE6f7dDtifyW2",
+        "id": "doc_1790536861870_82361be5"
+      },
+      {
+        "documentId": "doc_1790536862081_079b9c91",
+        "fileName": "national_id_card_1790536860254.png",
+        "mimeType": "image/png",
+        "size": 67,
+        "fileHash": "ebf4f635a17d10d6eb46ba680b70142419aa3220f228001a036d311a22ee9d2a",
+        "fileBase64": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAACklEQVR4nGMAAQAABQABDQottAAAAABJRU5ErkJggg==",
+        "category": "personal",
+        "docType": "national_id",
+        "storageReference": "secure_uploads/doc_1790536862081_079b9c91",
+        "uploadedAt": "2026-09-27T19:21:02.087Z",
+        "userId": "RfHYzDvhuUTnlerKE6f7dDtifyW2",
+        "id": "doc_1790536862081_079b9c91"
+      }
     ]
   },
   "pending_recovery_uploads": [],
   "email_delivery_logs": [
+    {
+      "id": "01a0e450-4777-7050-a70a-917f7a7c8186",
+      "recipient": "kyc.tester.1790536860254@zakir.ai",
+      "type": "notification",
+      "subject": "رمز التحقق لتفعيل حسابك في Zakir - Verify your Zakir account",
+      "timestamp": "2026-09-27T19:21:01.650Z",
+      "status": "DELIVERED",
+      "error": null
+    },
+    {
+      "id": "01a0e44f-ca99-7816-a872-aded179c35c5",
+      "recipient": "kyc.tester.1790536828004@zakir.ai",
+      "type": "notification",
+      "subject": "رمز التحقق لتفعيل حسابك في Zakir - Verify your Zakir account",
+      "timestamp": "2026-09-27T19:20:29.684Z",
+      "status": "DELIVERED",
+      "error": null
+    },
+    {
+      "id": "01a0e44a-43d7-74e0-9f2e-4609e75ae06c",
+      "recipient": "new.user.1790536463461@zakir-test.com",
+      "type": "notification",
+      "subject": "رمز التحقق لتفعيل حسابك في Zakir - Verify your Zakir account",
+      "timestamp": "2026-09-27T19:14:27.514Z",
+      "status": "DELIVERED",
+      "error": null
+    },
     {
       "id": "01a0e40b-360a-73cc-b7dc-81ba35ad503f",
       "recipient": "new.user.1790532331145@zakir-test.com",
@@ -2967,7 +3908,7 @@
       "adminApprovalRequired": false,
       "canRestore": false,
       "daysRemaining": 0,
-      "updatedAt": "2026-09-27T18:06:09.440Z",
+      "updatedAt": "2026-09-27T19:15:25.482Z",
       "id": "new.user.1790531406349@zakir-test.com"
     },
     {
@@ -2983,7 +3924,7 @@
       "adminApprovalRequired": false,
       "canRestore": false,
       "daysRemaining": 0,
-      "updatedAt": "2026-09-27T18:06:09.304Z",
+      "updatedAt": "2026-09-27T19:15:25.324Z",
       "id": "applicant_a_1790453386749@getzakir.com"
     },
     {
@@ -2999,7 +3940,7 @@
       "adminApprovalRequired": false,
       "canRestore": false,
       "daysRemaining": 0,
-      "updatedAt": "2026-09-27T18:06:09.179Z",
+      "updatedAt": "2026-09-27T19:15:25.180Z",
       "id": "unverified_1790451505091@getzakir.com"
     },
     {
@@ -3015,7 +3956,7 @@
       "adminApprovalRequired": false,
       "canRestore": false,
       "daysRemaining": 0,
-      "updatedAt": "2026-09-27T18:06:09.263Z",
+      "updatedAt": "2026-09-27T19:15:25.281Z",
       "id": "prod_kyc_1790451856003@getzakir.com"
     },
     {
@@ -3031,7 +3972,7 @@
       "adminApprovalRequired": false,
       "canRestore": false,
       "daysRemaining": 0,
-      "updatedAt": "2026-09-27T18:06:09.084Z",
+      "updatedAt": "2026-09-27T19:15:25.059Z",
       "id": "applicant_b_1790453386749@getzakir.com"
     },
     {
@@ -3047,7 +3988,7 @@
       "adminApprovalRequired": false,
       "canRestore": false,
       "daysRemaining": 0,
-      "updatedAt": "2026-09-27T18:06:09.322Z",
+      "updatedAt": "2026-09-27T19:15:25.350Z",
       "id": "applicant_1790416466539@getzakir.com"
     },
     {
@@ -3063,7 +4004,7 @@
       "adminApprovalRequired": false,
       "canRestore": false,
       "daysRemaining": 0,
-      "updatedAt": "2026-09-27T18:06:09.018Z",
+      "updatedAt": "2026-09-27T19:15:24.976Z",
       "id": "admin_created_1790426956963@zakir.ai"
     },
     {
@@ -3079,7 +4020,7 @@
       "adminApprovalRequired": false,
       "canRestore": false,
       "daysRemaining": 0,
-      "updatedAt": "2026-09-27T18:06:09.342Z",
+      "updatedAt": "2026-09-27T19:15:25.373Z",
       "id": "applicant_1790416732542@getzakir.com"
     },
     {
@@ -3095,7 +4036,7 @@
       "adminApprovalRequired": false,
       "canRestore": false,
       "daysRemaining": 0,
-      "updatedAt": "2026-09-27T18:06:09.209Z",
+      "updatedAt": "2026-09-27T19:15:25.216Z",
       "id": "unverified_1790421200459@test.com"
     },
     {
@@ -3111,7 +4052,7 @@
       "adminApprovalRequired": false,
       "canRestore": false,
       "daysRemaining": 0,
-      "updatedAt": "2026-09-27T18:06:09.363Z",
+      "updatedAt": "2026-09-27T19:15:25.395Z",
       "id": "unverified_1790451426692@getzakir.com"
     },
     {
@@ -3127,7 +4068,7 @@
       "adminApprovalRequired": false,
       "canRestore": false,
       "daysRemaining": 0,
-      "updatedAt": "2026-09-27T18:06:08.958Z",
+      "updatedAt": "2026-09-27T19:15:24.907Z",
       "id": "no_doc_1790421883559@getzakir.com"
     },
     {
@@ -3143,7 +4084,7 @@
       "adminApprovalRequired": false,
       "canRestore": false,
       "daysRemaining": 0,
-      "updatedAt": "2026-09-27T18:06:08.999Z",
+      "updatedAt": "2026-09-27T19:15:24.951Z",
       "id": "medvadhil7@gmail.com"
     },
     {
@@ -3159,7 +4100,7 @@
       "adminApprovalRequired": false,
       "canRestore": false,
       "daysRemaining": 0,
-      "updatedAt": "2026-09-27T18:06:09.102Z",
+      "updatedAt": "2026-09-27T19:15:25.081Z",
       "id": "mohamedvadhil01@hotmail.com"
     },
     {
@@ -3175,7 +4116,7 @@
       "adminApprovalRequired": false,
       "canRestore": false,
       "daysRemaining": 0,
-      "updatedAt": "2026-09-27T18:06:09.218Z",
+      "updatedAt": "2026-09-27T19:15:25.227Z",
       "id": "mohamedvadel60@entreprise6.com"
     },
     {
@@ -3191,7 +4132,7 @@
       "adminApprovalRequired": false,
       "canRestore": false,
       "daysRemaining": 0,
-      "updatedAt": "2026-09-27T18:06:09.188Z",
+      "updatedAt": "2026-09-27T19:15:25.192Z",
       "id": "test_user_a_1790426956963@zakir.ai"
     },
     {
@@ -3222,7 +4163,7 @@
       "adminApprovalRequired": false,
       "canRestore": false,
       "daysRemaining": 0,
-      "updatedAt": "2026-09-27T18:06:09.133Z",
+      "updatedAt": "2026-09-27T19:15:25.117Z",
       "id": "applicant_1790416498452@getzakir.com"
     },
     {
@@ -3238,7 +4179,7 @@
       "adminApprovalRequired": false,
       "canRestore": false,
       "daysRemaining": 0,
-      "updatedAt": "2026-09-27T18:06:09.409Z",
+      "updatedAt": "2026-09-27T19:15:25.450Z",
       "id": "pending_only_1790451508853@getzakir.com"
     },
     {
@@ -3254,7 +4195,7 @@
       "adminApprovalRequired": false,
       "canRestore": false,
       "daysRemaining": 0,
-      "updatedAt": "2026-09-27T18:06:08.967Z",
+      "updatedAt": "2026-09-27T19:15:24.917Z",
       "id": "mohamedvadhil0@entreprise8.com"
     },
     {
@@ -3285,7 +4226,7 @@
       "adminApprovalRequired": false,
       "canRestore": false,
       "daysRemaining": 0,
-      "updatedAt": "2026-09-27T18:06:09.254Z",
+      "updatedAt": "2026-09-27T19:15:25.271Z",
       "id": "medvadhil7777@gmail.com"
     },
     {
@@ -3301,7 +4242,7 @@
       "adminApprovalRequired": false,
       "canRestore": false,
       "daysRemaining": 0,
-      "updatedAt": "2026-09-27T18:06:09.121Z",
+      "updatedAt": "2026-09-27T19:15:25.103Z",
       "id": "test_user_b_1790426921729@zakir.ai"
     },
     {
@@ -3317,7 +4258,7 @@
       "adminApprovalRequired": false,
       "canRestore": false,
       "daysRemaining": 0,
-      "updatedAt": "2026-09-27T18:06:08.948Z",
+      "updatedAt": "2026-09-27T19:15:24.896Z",
       "id": "applicant_1790416647879@getzakir.com"
     },
     {
@@ -3333,7 +4274,7 @@
       "adminApprovalRequired": false,
       "canRestore": false,
       "daysRemaining": 0,
-      "updatedAt": "2026-09-27T18:06:09.236Z",
+      "updatedAt": "2026-09-27T19:15:25.248Z",
       "id": "no_doc_1790421822689@getzakir.com"
     },
     {
@@ -3349,7 +4290,7 @@
       "adminApprovalRequired": false,
       "canRestore": false,
       "daysRemaining": 0,
-      "updatedAt": "2026-09-27T18:06:09.112Z",
+      "updatedAt": "2026-09-27T19:15:25.093Z",
       "id": "mohamedvadhil0@gmail.com"
     },
     {
@@ -3365,7 +4306,7 @@
       "adminApprovalRequired": false,
       "canRestore": false,
       "daysRemaining": 0,
-      "updatedAt": "2026-09-27T18:06:09.027Z",
+      "updatedAt": "2026-09-27T19:15:24.987Z",
       "id": "mohamedmed11332@gmail.com"
     },
     {
@@ -3381,7 +4322,7 @@
       "adminApprovalRequired": false,
       "canRestore": false,
       "daysRemaining": 0,
-      "updatedAt": "2026-09-27T18:06:09.391Z",
+      "updatedAt": "2026-09-27T19:15:25.430Z",
       "id": "ui_workspace_test_1790427988253@zakir.ai"
     },
     {
@@ -3397,7 +4338,7 @@
       "adminApprovalRequired": false,
       "canRestore": false,
       "daysRemaining": 0,
-      "updatedAt": "2026-09-27T18:06:09.382Z",
+      "updatedAt": "2026-09-27T19:15:25.419Z",
       "id": "pending_only_1790451430173@getzakir.com"
     },
     {
@@ -3413,7 +4354,7 @@
       "adminApprovalRequired": false,
       "canRestore": false,
       "daysRemaining": 0,
-      "updatedAt": "2026-09-27T18:06:09.151Z",
+      "updatedAt": "2026-09-27T19:15:25.141Z",
       "id": "test_user_b_1790426956963@zakir.ai"
     },
     {
@@ -3429,7 +4370,7 @@
       "adminApprovalRequired": false,
       "canRestore": false,
       "daysRemaining": 0,
-      "updatedAt": "2026-09-27T18:06:09.197Z",
+      "updatedAt": "2026-09-27T19:15:25.205Z",
       "id": "applicant_c_1790453392321@getzakir.com"
     },
     {
@@ -3445,7 +4386,7 @@
       "adminApprovalRequired": false,
       "canRestore": false,
       "daysRemaining": 0,
-      "updatedAt": "2026-09-27T18:06:09.245Z",
+      "updatedAt": "2026-09-27T19:15:25.259Z",
       "id": "kyc_user_1790451394915@getzakir.com"
     },
     {
@@ -3461,7 +4402,7 @@
       "adminApprovalRequired": false,
       "canRestore": false,
       "daysRemaining": 0,
-      "updatedAt": "2026-09-27T18:06:09.421Z",
+      "updatedAt": "2026-09-27T19:15:25.461Z",
       "id": "applicant_b_1790453392321@getzakir.com"
     },
     {
@@ -3477,7 +4418,7 @@
       "adminApprovalRequired": false,
       "canRestore": false,
       "daysRemaining": 0,
-      "updatedAt": "2026-09-27T18:06:09.354Z",
+      "updatedAt": "2026-09-27T19:15:25.384Z",
       "id": "rejected_test_1790421871641@getzakir.com"
     },
     {
@@ -3493,7 +4434,7 @@
       "adminApprovalRequired": false,
       "canRestore": false,
       "daysRemaining": 0,
-      "updatedAt": "2026-09-27T18:06:09.284Z",
+      "updatedAt": "2026-09-27T19:15:25.303Z",
       "id": "test_user_a_1790426921729@zakir.ai"
     },
     {
@@ -3509,7 +4450,7 @@
       "adminApprovalRequired": false,
       "canRestore": false,
       "daysRemaining": 0,
-      "updatedAt": "2026-09-27T18:06:09.227Z",
+      "updatedAt": "2026-09-27T19:15:25.237Z",
       "id": "applicant_1790421163066@getzakir.com"
     },
     {
@@ -3525,7 +4466,7 @@
       "adminApprovalRequired": false,
       "canRestore": false,
       "daysRemaining": 0,
-      "updatedAt": "2026-09-27T18:06:09.074Z",
+      "updatedAt": "2026-09-27T19:15:25.048Z",
       "id": "applicant_c_1790453386749@getzakir.com"
     },
     {
@@ -3541,7 +4482,7 @@
       "adminApprovalRequired": false,
       "canRestore": false,
       "daysRemaining": 0,
-      "updatedAt": "2026-09-27T18:06:08.990Z",
+      "updatedAt": "2026-09-27T19:15:24.940Z",
       "id": "mohamedhaiballa64@gmail.com"
     },
     {
@@ -3572,7 +4513,7 @@
       "adminApprovalRequired": false,
       "canRestore": false,
       "daysRemaining": 0,
-      "updatedAt": "2026-09-27T18:06:08.939Z",
+      "updatedAt": "2026-09-27T19:15:24.882Z",
       "id": "rejected_test_1790421814575@getzakir.com"
     },
     {
@@ -3588,7 +4529,7 @@
       "adminApprovalRequired": false,
       "canRestore": false,
       "daysRemaining": 0,
-      "updatedAt": "2026-09-27T18:06:09.275Z",
+      "updatedAt": "2026-09-27T19:15:25.292Z",
       "id": "test_ws_creation_1790426782370@zakir.ai"
     },
     {
@@ -3604,7 +4545,7 @@
       "adminApprovalRequired": false,
       "canRestore": false,
       "daysRemaining": 0,
-      "updatedAt": "2026-09-27T18:06:09.169Z",
+      "updatedAt": "2026-09-27T19:15:25.166Z",
       "id": "mohamedvadel60@gmail.com"
     },
     {
@@ -3620,7 +4561,7 @@
       "adminApprovalRequired": false,
       "canRestore": false,
       "daysRemaining": 0,
-      "updatedAt": "2026-09-27T18:06:09.065Z",
+      "updatedAt": "2026-09-27T19:15:25.033Z",
       "id": "applicant_1790416570908@getzakir.com"
     },
     {
@@ -3636,7 +4577,7 @@
       "adminApprovalRequired": false,
       "canRestore": false,
       "daysRemaining": 0,
-      "updatedAt": "2026-09-27T18:06:09.160Z",
+      "updatedAt": "2026-09-27T19:15:25.154Z",
       "id": "kyc_user_1790451421865@getzakir.com"
     },
     {
@@ -3652,7 +4593,7 @@
       "adminApprovalRequired": false,
       "canRestore": false,
       "daysRemaining": 0,
-      "updatedAt": "2026-09-27T18:06:09.372Z",
+      "updatedAt": "2026-09-27T19:15:25.406Z",
       "id": "mohamevadhil01@hotmail.com"
     },
     {
@@ -3668,7 +4609,7 @@
       "adminApprovalRequired": false,
       "canRestore": false,
       "daysRemaining": 0,
-      "updatedAt": "2026-09-27T18:06:09.054Z",
+      "updatedAt": "2026-09-27T19:15:25.020Z",
       "id": "sarasara222341@gmail.com"
     },
     {
@@ -3684,7 +4625,7 @@
       "adminApprovalRequired": false,
       "canRestore": false,
       "daysRemaining": 0,
-      "updatedAt": "2026-09-27T18:06:09.035Z",
+      "updatedAt": "2026-09-27T19:15:24.998Z",
       "id": "pending_check_1790451856003@getzakir.com"
     },
     {
@@ -3700,7 +4641,7 @@
       "adminApprovalRequired": false,
       "canRestore": false,
       "daysRemaining": 0,
-      "updatedAt": "2026-09-27T18:06:09.044Z",
+      "updatedAt": "2026-09-27T19:15:25.009Z",
       "id": "kyc_user_1790451491613@getzakir.com"
     },
     {
@@ -3716,7 +4657,7 @@
       "adminApprovalRequired": false,
       "canRestore": false,
       "daysRemaining": 0,
-      "updatedAt": "2026-09-27T18:06:08.976Z",
+      "updatedAt": "2026-09-27T19:15:24.929Z",
       "id": "no_doc_1790451369740@getzakir.com"
     },
     {
@@ -3732,7 +4673,7 @@
       "adminApprovalRequired": false,
       "canRestore": false,
       "daysRemaining": 0,
-      "updatedAt": "2026-09-27T18:06:09.008Z",
+      "updatedAt": "2026-09-27T19:15:24.962Z",
       "id": "mohamedvadel60@hotmail.com"
     },
     {
@@ -3748,7 +4689,7 @@
       "adminApprovalRequired": false,
       "canRestore": false,
       "daysRemaining": 0,
-      "updatedAt": "2026-09-27T18:06:09.093Z",
+      "updatedAt": "2026-09-27T19:15:25.070Z",
       "id": "applicant_a_1790453392321@getzakir.com"
     },
     {
@@ -3764,7 +4705,7 @@
       "adminApprovalRequired": false,
       "canRestore": false,
       "daysRemaining": 0,
-      "updatedAt": "2026-09-27T18:06:09.313Z",
+      "updatedAt": "2026-09-27T19:15:25.336Z",
       "id": "rejected_test_1790451362619@getzakir.com"
     },
     {
@@ -3780,7 +4721,7 @@
       "adminApprovalRequired": false,
       "canRestore": false,
       "daysRemaining": 0,
-      "updatedAt": "2026-09-27T18:06:08.884Z",
+      "updatedAt": "2026-09-27T19:15:24.821Z",
       "id": "ceo@zakir.ai"
     },
     {
@@ -3796,7 +4737,7 @@
       "adminApprovalRequired": false,
       "canRestore": false,
       "daysRemaining": 0,
-      "updatedAt": "2026-09-27T18:06:08.893Z",
+      "updatedAt": "2026-09-27T19:15:24.834Z",
       "id": "analyst@zakir.ai"
     },
     {
@@ -3812,7 +4753,7 @@
       "adminApprovalRequired": false,
       "canRestore": false,
       "daysRemaining": 0,
-      "updatedAt": "2026-09-27T18:06:08.910Z",
+      "updatedAt": "2026-09-27T19:15:24.845Z",
       "id": "compliance@zakir.ai"
     },
     {
@@ -3828,7 +4769,7 @@
       "adminApprovalRequired": false,
       "canRestore": false,
       "daysRemaining": 0,
-      "updatedAt": "2026-09-27T18:06:08.920Z",
+      "updatedAt": "2026-09-27T19:15:24.857Z",
       "id": "user_a@zakir.ai"
     },
     {
@@ -3844,7 +4785,7 @@
       "adminApprovalRequired": false,
       "canRestore": false,
       "daysRemaining": 0,
-      "updatedAt": "2026-09-27T18:06:08.929Z",
+      "updatedAt": "2026-09-27T19:15:24.870Z",
       "id": "user_b@zakir.ai"
     },
     {
@@ -3860,7 +4801,7 @@
       "adminApprovalRequired": false,
       "canRestore": false,
       "daysRemaining": 0,
-      "updatedAt": "2026-09-27T18:06:09.142Z",
+      "updatedAt": "2026-09-27T19:15:25.129Z",
       "id": "kyc_user_1790528583884@getzakir.com"
     },
     {
@@ -3876,7 +4817,7 @@
       "adminApprovalRequired": false,
       "canRestore": false,
       "daysRemaining": 0,
-      "updatedAt": "2026-09-27T18:06:09.294Z",
+      "updatedAt": "2026-09-27T19:15:25.313Z",
       "id": "unverified_1790528587242@getzakir.com"
     },
     {
@@ -3892,7 +4833,7 @@
       "adminApprovalRequired": false,
       "canRestore": false,
       "daysRemaining": 0,
-      "updatedAt": "2026-09-27T18:06:09.332Z",
+      "updatedAt": "2026-09-27T19:15:25.361Z",
       "id": "pending_only_1790528589919@getzakir.com"
     },
     {
@@ -3908,7 +4849,7 @@
       "adminApprovalRequired": false,
       "canRestore": false,
       "daysRemaining": 0,
-      "updatedAt": "2026-09-27T18:06:09.400Z",
+      "updatedAt": "2026-09-27T19:15:25.440Z",
       "id": "anas1220045@gmail.com"
     },
     {
@@ -3924,7 +4865,7 @@
       "adminApprovalRequired": false,
       "canRestore": false,
       "daysRemaining": 0,
-      "updatedAt": "2026-09-27T18:06:09.430Z",
+      "updatedAt": "2026-09-27T19:15:25.471Z",
       "id": "ceo.existing@zakir-test.com"
     },
     {
@@ -3940,11 +4881,156 @@
       "adminApprovalRequired": false,
       "canRestore": false,
       "daysRemaining": 0,
-      "updatedAt": "2026-09-27T18:06:09.449Z",
+      "updatedAt": "2026-09-27T19:15:25.495Z",
       "id": "new.user.1790532331145@zakir-test.com"
+    },
+    {
+      "accountId": "verification.test.1790532862056@zakir-test.com",
+      "emailNormalized": "verification.test.1790532862056@zakir-test.com",
+      "status": "ACTIVE",
+      "deletionType": null,
+      "deletedAt": null,
+      "deletedBy": null,
+      "restoreUntil": null,
+      "originalUserId": "test_verification_user_1790532862056",
+      "retainedDataDocPath": null,
+      "adminApprovalRequired": false,
+      "canRestore": false,
+      "daysRemaining": 0,
+      "updatedAt": "2026-09-27T19:15:25.506Z",
+      "id": "verification.test.1790532862056@zakir-test.com"
+    },
+    {
+      "accountId": "verification.test.1790532875694@zakir-test.com",
+      "emailNormalized": "verification.test.1790532875694@zakir-test.com",
+      "status": "ACTIVE",
+      "deletionType": null,
+      "deletedAt": null,
+      "deletedBy": null,
+      "restoreUntil": null,
+      "originalUserId": "test_verification_user_1790532875694",
+      "retainedDataDocPath": null,
+      "adminApprovalRequired": false,
+      "canRestore": false,
+      "daysRemaining": 0,
+      "updatedAt": "2026-09-27T19:15:25.516Z",
+      "id": "verification.test.1790532875694@zakir-test.com"
+    },
+    {
+      "accountId": "new.user.1790536463461@zakir-test.com",
+      "emailNormalized": "new.user.1790536463461@zakir-test.com",
+      "status": "ACTIVE",
+      "deletionType": null,
+      "deletedAt": null,
+      "deletedBy": null,
+      "restoreUntil": null,
+      "originalUserId": "WDsZNEaEmePalBVt0oE0GWaPvv62",
+      "retainedDataDocPath": null,
+      "adminApprovalRequired": false,
+      "canRestore": false,
+      "daysRemaining": 0,
+      "updatedAt": "2026-09-27T19:15:25.537Z",
+      "id": "new.user.1790536463461@zakir-test.com"
+    },
+    {
+      "accountId": "verification.test.1790536446360@zakir-test.com",
+      "emailNormalized": "verification.test.1790536446360@zakir-test.com",
+      "status": "ACTIVE",
+      "deletionType": null,
+      "deletedAt": null,
+      "deletedBy": null,
+      "restoreUntil": null,
+      "originalUserId": "test_verification_user_1790536446360",
+      "retainedDataDocPath": null,
+      "adminApprovalRequired": false,
+      "canRestore": false,
+      "daysRemaining": 0,
+      "updatedAt": "2026-09-27T19:15:25.527Z",
+      "id": "verification.test.1790536446360@zakir-test.com"
     }
   ],
   "platform_events": [
+    {
+      "id": "evt_1790536862294_vupsli2",
+      "eventType": "INSTITUTIONAL_VERIFICATION_SUBMITTED",
+      "severity": "NOTICE",
+      "category": "AUTH",
+      "timestamp": "2026-09-27T19:21:02.294Z",
+      "userId": "RfHYzDvhuUTnlerKE6f7dDtifyW2",
+      "userEmail": "kyc.tester.1790536860254@zakir.ai",
+      "sanitizedMessage": "User verification documents submitted by [kyc.tester.1790536860254@zakir.ai] (Zakir Enterprise Intelligence Inc.) - Pending admin review.",
+      "status": "ACTIVE",
+      "metadata": {
+        "fullName": "Zakir Real KYC Tester",
+        "phone": "+966 55 987 6543",
+        "jobTitle": "Chief Executive Officer",
+        "hasCompany": true,
+        "companyName": "Zakir Enterprise Intelligence Inc.",
+        "sector": "Artificial Intelligence",
+        "country": "Saudi Arabia",
+        "registrationNumber": "1010987654",
+        "companySize": "1-10",
+        "intendedUse": "Strategic Decision Intelligence",
+        "additionalNotes": "",
+        "submittedAt": "2026-09-27T19:21:02.286Z",
+        "documentsCount": 2
+      },
+      "source": "server"
+    },
+    {
+      "id": "evt_1790536830505_62p07gs",
+      "eventType": "INSTITUTIONAL_VERIFICATION_SUBMITTED",
+      "severity": "NOTICE",
+      "category": "AUTH",
+      "timestamp": "2026-09-27T19:20:30.505Z",
+      "userId": "c7b9ajACKmWpHjqZd1Pdy0hrCj23",
+      "userEmail": "kyc.tester.1790536828004@zakir.ai",
+      "sanitizedMessage": "User verification documents submitted by [kyc.tester.1790536828004@zakir.ai] (Zakir Enterprise Intelligence Inc.) - Pending admin review.",
+      "status": "ACTIVE",
+      "metadata": {
+        "fullName": "Zakir Real KYC Tester",
+        "phone": "+966 55 987 6543",
+        "jobTitle": "Chief Executive Officer",
+        "hasCompany": true,
+        "companyName": "Zakir Enterprise Intelligence Inc.",
+        "sector": "Artificial Intelligence",
+        "country": "Saudi Arabia",
+        "registrationNumber": "1010987654",
+        "companySize": "1-10",
+        "intendedUse": "Strategic Decision Intelligence",
+        "additionalNotes": "",
+        "submittedAt": "2026-09-27T19:20:30.497Z",
+        "documentsCount": 2
+      },
+      "source": "server"
+    },
+    {
+      "id": "evt_1790536447637_3y3w78v",
+      "eventType": "INSTITUTIONAL_VERIFICATION_SUBMITTED",
+      "severity": "NOTICE",
+      "category": "AUTH",
+      "timestamp": "2026-09-27T19:14:07.637Z",
+      "userId": "test_verification_user_1790536446360",
+      "userEmail": "verification.test.1790536446360@zakir-test.com",
+      "sanitizedMessage": "User verification documents submitted by [verification.test.1790536446360@zakir-test.com] (Test Org Enterprise) - Pending admin review.",
+      "status": "ACTIVE",
+      "metadata": {
+        "fullName": "Verification Tester",
+        "phone": "+966 50 123 4567",
+        "jobTitle": "CEO",
+        "hasCompany": true,
+        "companyName": "Test Org Enterprise",
+        "sector": "Technology",
+        "country": "Saudi Arabia",
+        "registrationNumber": "1234567890",
+        "companySize": "1-10",
+        "intendedUse": "Strategic Decision Intelligence",
+        "additionalNotes": "",
+        "submittedAt": "2026-09-27T19:14:06.368Z",
+        "documentsCount": 2
+      },
+      "source": "server"
+    },
     {
       "id": "evt_1790532876992_mjs2c4x",
       "eventType": "INSTITUTIONAL_VERIFICATION_SUBMITTED",
@@ -3968,6 +5054,60 @@
         "intendedUse": "Strategic Decision Intelligence",
         "additionalNotes": "",
         "submittedAt": "2026-09-27T18:14:35.703Z",
+        "documentsCount": 2
+      },
+      "source": "server"
+    },
+    {
+      "id": "evt_1790536830505_62p07gs",
+      "eventType": "INSTITUTIONAL_VERIFICATION_SUBMITTED",
+      "severity": "NOTICE",
+      "category": "AUTH",
+      "timestamp": "2026-09-27T19:20:30.505Z",
+      "userId": "c7b9ajACKmWpHjqZd1Pdy0hrCj23",
+      "userEmail": "kyc.tester.1790536828004@zakir.ai",
+      "sanitizedMessage": "User verification documents submitted by [kyc.tester.1790536828004@zakir.ai] (Zakir Enterprise Intelligence Inc.) - Pending admin review.",
+      "status": "ACTIVE",
+      "metadata": {
+        "fullName": "Zakir Real KYC Tester",
+        "phone": "+966 55 987 6543",
+        "jobTitle": "Chief Executive Officer",
+        "hasCompany": true,
+        "companyName": "Zakir Enterprise Intelligence Inc.",
+        "sector": "Artificial Intelligence",
+        "country": "Saudi Arabia",
+        "registrationNumber": "1010987654",
+        "companySize": "1-10",
+        "intendedUse": "Strategic Decision Intelligence",
+        "additionalNotes": "",
+        "submittedAt": "2026-09-27T19:20:30.497Z",
+        "documentsCount": 2
+      },
+      "source": "server"
+    },
+    {
+      "id": "evt_1790536862294_vupsli2",
+      "eventType": "INSTITUTIONAL_VERIFICATION_SUBMITTED",
+      "severity": "NOTICE",
+      "category": "AUTH",
+      "timestamp": "2026-09-27T19:21:02.294Z",
+      "userId": "RfHYzDvhuUTnlerKE6f7dDtifyW2",
+      "userEmail": "kyc.tester.1790536860254@zakir.ai",
+      "sanitizedMessage": "User verification documents submitted by [kyc.tester.1790536860254@zakir.ai] (Zakir Enterprise Intelligence Inc.) - Pending admin review.",
+      "status": "ACTIVE",
+      "metadata": {
+        "fullName": "Zakir Real KYC Tester",
+        "phone": "+966 55 987 6543",
+        "jobTitle": "Chief Executive Officer",
+        "hasCompany": true,
+        "companyName": "Zakir Enterprise Intelligence Inc.",
+        "sector": "Artificial Intelligence",
+        "country": "Saudi Arabia",
+        "registrationNumber": "1010987654",
+        "companySize": "1-10",
+        "intendedUse": "Strategic Decision Intelligence",
+        "additionalNotes": "",
+        "submittedAt": "2026-09-27T19:21:02.286Z",
         "documentsCount": 2
       },
       "source": "server"

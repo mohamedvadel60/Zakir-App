@@ -10299,6 +10299,16 @@ app.patch(["/api/admin/users/:uid", "/admin/users/:uid"], requireAuth, requireAd
       if (updates.accountStatus === "APPROVED") {
         updates.isVerified = true;
         updates.verification_status = "verified";
+        updates.canonicalVerificationStatus = "approved";
+        updates.documentVerificationStatus = "APPROVED";
+        updates.kycStatus = "VERIFIED";
+        updates.powers = {
+          fileVault: true,
+          memoryVault: true,
+          riskRadar: true,
+          marketIntel: true,
+          settings: true,
+        };
       } else if (updates.accountStatus === "SUSPENDED" || updates.accountStatus === "REJECTED") {
         updates.isVerified = false;
         updates.verification_status = "rejected";
@@ -11374,6 +11384,15 @@ app.post("/api/admin/approve-account", requireAuth, requireAdmin, async (req: Au
       trialDurationHours: trialHours,
       subscriptionPlan: assignPlan,
       subscriptionStatus: "Active",
+      powers: (targetUser.powers && (targetUser.powers.fileVault || targetUser.powers.memoryVault))
+        ? targetUser.powers
+        : {
+            fileVault: true,
+            memoryVault: true,
+            riskRadar: true,
+            marketIntel: true,
+            settings: true,
+          },
       isVerified: true,
       isEmailVerified: true,
       email_verified: true,
@@ -21945,6 +21964,14 @@ app.post("/api/auth/register", loginRegisterLimiter, async (req, res) => {
 
     const isInvitedUser = !!invitation;
 
+    const defaultOwnerPowers = {
+      fileVault: true,
+      memoryVault: true,
+      riskRadar: true,
+      marketIntel: true,
+      settings: true,
+    };
+
     const newUser = {
       id: userId,
       email: normalizedEmail,
@@ -21952,6 +21979,7 @@ app.post("/api/auth/register", loginRegisterLimiter, async (req, res) => {
       companyName: effectiveCompanyName,
       ownerName: resolvedOwnerName,
       role: effectiveRole,
+      powers: isInvitedUser ? (invitation?.powers || defaultOwnerPowers) : defaultOwnerPowers,
       workspaceId: workspaceId,
       workspace: {
         id: workspaceId,

@@ -692,6 +692,7 @@ export const DocumentVerificationView: React.FC<DocumentVerificationViewProps> =
               <AnimatePresence>
                 {hasCompany && (
                   <motion.div
+                    key="company-fields"
                     initial={{ opacity: 0, height: 0 }}
                     animate={{ opacity: 1, height: "auto" }}
                     exit={{ opacity: 0, height: 0 }}

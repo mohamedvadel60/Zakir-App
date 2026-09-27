@@ -1437,6 +1437,7 @@ export const MarketIntelligenceView: React.FC<MarketIntelligenceViewProps> = ({
         {showHistoryModal && (
           <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
             <motion.div
+              key="history-modal"
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}

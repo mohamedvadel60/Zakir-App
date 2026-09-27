@@ -64,6 +64,56 @@
       "companyName": "Existing Company",
       "role": "CEO",
       "createdAt": "2026-09-27T17:49:12.618Z"
+    },
+    {
+      "id": "test_verification_user_1790532822877",
+      "email": "verification.test.1790532822877@zakir-test.com",
+      "ownerName": "Verification Tester",
+      "companyName": "Test Org",
+      "role": "CEO",
+      "accountStatus": "VERIFICATION_REQUIRED",
+      "documentVerificationStatus": "NOT_SUBMITTED",
+      "createdAt": "2026-09-27T18:13:42.878Z"
+    },
+    {
+      "id": "test_verification_user_1790532833887",
+      "email": "verification.test.1790532833887@zakir-test.com",
+      "ownerName": "Verification Tester",
+      "companyName": "Test Org",
+      "role": "CEO",
+      "accountStatus": "VERIFICATION_REQUIRED",
+      "documentVerificationStatus": "NOT_SUBMITTED",
+      "createdAt": "2026-09-27T18:13:53.887Z"
+    },
+    {
+      "id": "test_verification_user_1790532862056",
+      "email": "verification.test.1790532862056@zakir-test.com",
+      "ownerName": "Verification Tester",
+      "companyName": "Test Org",
+      "role": "CEO",
+      "accountStatus": "VERIFICATION_REQUIRED",
+      "documentVerificationStatus": "NOT_SUBMITTED",
+      "createdAt": "2026-09-27T18:14:22.056Z"
+    },
+    {
+      "id": "test_verification_user_1790532875694",
+      "email": "verification.test.1790532875694@zakir-test.com",
+      "ownerName": "Verification Tester",
+      "companyName": "Test Org",
+      "role": "CEO",
+      "accountStatus": "VERIFICATION_REQUIRED",
+      "documentVerificationStatus": "NOT_SUBMITTED",
+      "createdAt": "2026-09-27T18:14:35.694Z"
+    },
+    {
+      "id": "test_verification_user_1790536446360",
+      "email": "verification.test.1790536446360@zakir-test.com",
+      "ownerName": "Verification Tester",
+      "companyName": "Test Org",
+      "role": "CEO",
+      "accountStatus": "VERIFICATION_REQUIRED",
+      "documentVerificationStatus": "NOT_SUBMITTED",
+      "createdAt": "2026-09-27T19:14:06.360Z"
     }
   ],
   "verification_documents_store": {
@@ -74,6 +124,14 @@
       "size": 512000,
       "category": "personal",
       "uploadedAt": "2026-09-27T18:05:17.184Z"
+    },
+    "doc_test_resiliency_1790536432342": {
+      "documentId": "doc_test_resiliency_1790536432342",
+      "fileName": "ChatGPT Image 23 sept. 2026, 18_53_39.png",
+      "mimeType": "image/png",
+      "size": 512000,
+      "category": "personal",
+      "uploadedAt": "2026-09-27T19:13:52.343Z"
     }
   }
 }

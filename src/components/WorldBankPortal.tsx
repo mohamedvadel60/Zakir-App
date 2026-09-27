@@ -1339,6 +1339,7 @@ export const WorldBankPortal: React.FC<WorldBankPortalProps> = ({
         <AnimatePresence>
           {wbImportErrorMsg && (
             <motion.div
+              key="wb-error-toast"
               initial={{ opacity: 0, scale: 0.95, y: -10 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: -10 }}
@@ -1365,6 +1366,7 @@ export const WorldBankPortal: React.FC<WorldBankPortalProps> = ({
         <AnimatePresence>
           {wbImportSuccessMsg && (
             <motion.div
+              key="wb-success-toast"
               initial={{ opacity: 0, scale: 0.95, y: -10 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: -10 }}
@@ -1448,6 +1450,7 @@ export const WorldBankPortal: React.FC<WorldBankPortalProps> = ({
         {showDetailModal && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
             <motion.div
+              key="wb-detail-modal"
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}

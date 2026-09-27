@@ -135,6 +135,7 @@ async function runTests() {
   console.log("TEST 5 PASS: New user registration functions as expected.");
 
   console.log("\n=== ALL REGISTRATION SECURITY TESTS PASSED SUCCESSFULLY ===");
+  process.exit(0);
 }
 
 runTests().catch(err => {
