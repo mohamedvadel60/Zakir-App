@@ -2440,6 +2440,25 @@ This hosting domain (**${currentDomain}**) has not been authorized in your Fireb
               updated.emailVerified = true;
               updated.email_verified = true;
             }
+
+            // Protect pending verification status if prevUser was in UNDER_REVIEW
+            if (
+              prevUser &&
+              (prevUser.accountStatus === "PENDING_ADMIN_REVIEW" || prevUser.documentVerificationStatus === "UNDER_REVIEW") &&
+              updated.documentVerificationStatus !== "UNDER_REVIEW" &&
+              updated.documentVerificationStatus !== "APPROVED"
+            ) {
+              updated = {
+                ...updated,
+                accountStatus: "PENDING_ADMIN_REVIEW",
+                documentVerificationStatus: "UNDER_REVIEW",
+                canonicalVerificationStatus: "pending",
+                verificationDocuments: prevUser.verificationDocuments || updated.verificationDocuments,
+                documents: (prevUser as any)?.documents || (updated as any)?.documents,
+                institutionalProfile: prevUser.institutionalProfile || updated.institutionalProfile,
+              };
+            }
+
             updated = normalizeStrictUserVerification(updated);
             return updated;
           });

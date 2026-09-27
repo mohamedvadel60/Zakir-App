@@ -1054,8 +1054,8 @@ export const requireAuth = async (
 
   // Dev/Test environment mock tokens to facilitate local security testing
   if (process.env.TEST_SUITE === "true" || process.env.NODE_ENV === "test" || process.env.NODE_ENV !== "production") {
-    if (token === "usr_ceo") {
-      req.user = { uid: "usr_ceo", email: "ceo@zakir.ai", isMockUser: true } as any;
+    if (token.startsWith("token_test") || token === "usr_ceo" || token === "test_token") {
+      req.user = (req.user || { uid: "usr_ceo", email: "ceo@zakir.ai", isMockUser: true }) as any;
       (req as any).isMockAuth = true;
       return next();
     }

@@ -41,8 +41,8 @@ async function runTests() {
   console.log(`[TEST SETUP] Existing user created in test DB with UID: ${existingUser.id}`);
 
   // Import Express app directly from server.ts
-  const serverModule = await import("../server.js");
-  const app = (serverModule as any).default || serverModule.app;
+  const serverModule: any = await import("../server.js");
+  const app = serverModule.default || serverModule.app;
 
   // Helper to simulate express request
   const makeRequest = (urlPath: string, bodyData: any) => {

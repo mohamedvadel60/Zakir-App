@@ -65,5 +65,15 @@
       "role": "CEO",
       "createdAt": "2026-09-27T17:49:12.618Z"
     }
-  ]
+  ],
+  "verification_documents_store": {
+    "doc_test_resiliency_1790532317184": {
+      "documentId": "doc_test_resiliency_1790532317184",
+      "fileName": "ChatGPT Image 23 sept. 2026, 18_53_39.png",
+      "mimeType": "image/png",
+      "size": 512000,
+      "category": "personal",
+      "uploadedAt": "2026-09-27T18:05:17.184Z"
+    }
+  }
 }

@@ -333,6 +333,7 @@ export const DocumentVerificationView: React.FC<DocumentVerificationViewProps> =
         email_verified: true,
         accountStatus: "PENDING_ADMIN_REVIEW",
         documentVerificationStatus: "UNDER_REVIEW",
+        canonicalVerificationStatus: "pending",
         requiresDocumentVerification: true,
         verificationDocuments: deduplicateDocs([
           ...uniquePersonal,
@@ -344,6 +345,15 @@ export const DocumentVerificationView: React.FC<DocumentVerificationViewProps> =
         ]),
         institutionalProfile: resData.institutionalProfile,
       };
+
+      try {
+        if (typeof window !== "undefined") {
+          localStorage.setItem("zakir_current_user", JSON.stringify(updatedUser));
+          if (updatedUser.id) {
+            localStorage.setItem(`user_${updatedUser.id}`, JSON.stringify(updatedUser));
+          }
+        }
+      } catch (e) {}
 
       onSuccess(updatedUser);
     } catch (err: any) {
