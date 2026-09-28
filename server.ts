@@ -18,6 +18,7 @@ import { users as sqlUsers, gmailLogs } from "./src/db/schema.js";
 import { getOrCreateUser } from "./src/db/users.js";
 import {
   requireAuth,
+  optionalAuth,
   requireAdmin,
   requireApprovedAccount,
   isUserAdminServer,
@@ -4297,6 +4298,192 @@ function buildNewAccountRejectionEmailHtml(options: {
   });
 
   const text = `${greeting}\n\nنود إفادتك بأنه يلزم تحديث مستندات التوثيق الخاصة بحسابك في منصة ذاكر (Zakir).\n\nسبب الرفض والملاحظات الإدارية:\n${reason}\n\nيرجى تسجيل الدخول إلى حسابك لاستبدال أو رفع المستندات المطلوبة وإعادة الإرسال عبر الرابط التالي:\nhttps://www.getzakir.com/login\n\nمع تحيات،\nفريق منصة ذاكر (Zakir Team)`;
+
+  return { subject, text, html };
+}
+
+// In-memory guard to prevent concurrent in-flight admin notification dispatches for the same user
+const activeKycNotificationLocks = new Set<string>();
+
+export function getAdminNotificationRecipientEmail(): string {
+  const envNotification = (
+    process.env.ADMIN_NOTIFICATION_EMAIL || ""
+  ).trim().toLowerCase();
+  if (envNotification && envNotification.includes("@")) {
+    return envNotification;
+  }
+  const envAdmin = (
+    process.env.ADMIN_EMAIL || ""
+  ).trim().toLowerCase();
+  if (envAdmin && envAdmin.includes("@")) {
+    return envAdmin;
+  }
+  try {
+    const db = readDb();
+    const adminUser = (db.users || []).find((u: any) =>
+      (u.role === "Admin" || u.isAdmin === true) &&
+      u.email &&
+      !u.email.includes("test_admin") &&
+      u.email.includes("@")
+    );
+    if (adminUser?.email) {
+      return adminUser.email.trim().toLowerCase();
+    }
+  } catch (e) {}
+
+  return "admin@zakir.ai";
+}
+
+export function buildAdminKycNotificationEmailHtml(options: {
+  userName?: string;
+  userEmail: string;
+  submissionDate?: string;
+  hasCompany?: boolean;
+  companyName?: string;
+  jobTitle?: string;
+  phone?: string;
+  documentCount?: number;
+  documents?: { fileName?: string; category?: string }[];
+  requestId?: string;
+  adminUrl?: string;
+  baseUrl?: string;
+}): { subject: string; text: string; html: string } {
+  const {
+    userName,
+    userEmail,
+    submissionDate,
+    hasCompany,
+    companyName,
+    jobTitle,
+    phone,
+    documentCount = 0,
+    requestId,
+    adminUrl = "https://www.getzakir.com/admin",
+    baseUrl
+  } = options;
+
+  const displayName = cleanUserName(userName, userEmail);
+  const subject = "طلب توثيق جديد يحتاج إلى مراجعتك — Zakir";
+  const title = "طلب توثيق جديد يحتاج إلى مراجعتك";
+
+  // Production link constraint: must strictly target production admin url
+  const targetAdminUrl = (adminUrl && !adminUrl.includes("localhost") && !adminUrl.includes("127.0.0.1"))
+    ? adminUrl
+    : "https://www.getzakir.com/admin";
+
+  // Format date in Arabic / UTC format
+  let formattedDate = "";
+  try {
+    const d = submissionDate ? new Date(submissionDate) : new Date();
+    formattedDate = d.toLocaleString("ar-SA", {
+      timeZone: "UTC",
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: true
+    }) + " (UTC)";
+  } catch (e) {
+    formattedDate = submissionDate || new Date().toISOString();
+  }
+
+  const organization = hasCompany && companyName && companyName.trim() ? companyName.trim() : "";
+  const docCountVal = Number(documentCount) || 0;
+  const docLabel = docCountVal === 1 ? "وثيقة رسمية واحدة" : `${docCountVal} وثائق رسمية`;
+
+  const bodyHtml = `
+    <div style="direction: rtl; text-align: right; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+      <p style="color: #334155; font-size: 15px; line-height: 1.8; margin: 0 0 18px 0;">
+        مرحبًا،<br/>
+        قام مستخدم جديد بإنشاء حساب في <strong>Zakir</strong> وإرسال طلب التوثيق والوثائق الخاصة به، وأصبح الطلب الآن <strong>جاهزًا للمراجعة</strong>.
+      </p>
+
+      <!-- Details Box -->
+      <div style="margin: 22px 0; padding: 20px; background-color: #f8fafc; border: 1px solid #e2e8f0; border-right: 4px solid #1C2C58; border-radius: 12px;">
+        <div style="color: #0f172a; font-size: 14px; font-weight: 800; margin-bottom: 12px; letter-spacing: -0.2px;">
+          بيانات المستخدم:
+        </div>
+        <table border="0" cellpadding="0" cellspacing="0" width="100%" style="font-size: 14px; line-height: 1.8; color: #334155; text-align: right; direction: rtl;">
+          <tr>
+            <td style="padding: 5px 0; color: #64748b; width: 140px; font-weight: 600;">&bull; الاسم:</td>
+            <td style="padding: 5px 0; font-weight: 700; color: #0f172a;">${escapeHtml(displayName)}</td>
+          </tr>
+          <tr>
+            <td style="padding: 5px 0; color: #64748b; font-weight: 600;">&bull; البريد الإلكتروني:</td>
+            <td style="padding: 5px 0; font-weight: 700; color: #1d4ed8; font-family: monospace; font-size: 13px;">${escapeHtml(userEmail)}</td>
+          </tr>
+          ${phone ? `<tr>
+            <td style="padding: 5px 0; color: #64748b; font-weight: 600;">&bull; رقم الهاتف:</td>
+            <td style="padding: 5px 0; font-weight: 600; color: #0f172a; direction: ltr; text-align: right;">${escapeHtml(phone)}</td>
+          </tr>` : ""}
+          ${organization ? `<tr>
+            <td style="padding: 5px 0; color: #64748b; font-weight: 600;">&bull; المنشأة / المؤسسة:</td>
+            <td style="padding: 5px 0; font-weight: 600; color: #0f172a;">${escapeHtml(organization)}</td>
+          </tr>` : ""}
+          ${jobTitle ? `<tr>
+            <td style="padding: 5px 0; color: #64748b; font-weight: 600;">&bull; المسمى الوظيفي:</td>
+            <td style="padding: 5px 0; font-weight: 600; color: #0f172a;">${escapeHtml(jobTitle)}</td>
+          </tr>` : ""}
+          <tr>
+            <td style="padding: 5px 0; color: #64748b; font-weight: 600;">&bull; تاريخ إرسال الطلب:</td>
+            <td style="padding: 5px 0; font-weight: 600; color: #334155;">${escapeHtml(formattedDate)}</td>
+          </tr>
+          <tr>
+            <td style="padding: 5px 0; color: #64748b; font-weight: 600;">&bull; حالة الطلب:</td>
+            <td style="padding: 5px 0;">
+              <span style="display: inline-block; padding: 2px 10px; background-color: #fef3c7; color: #92400e; font-weight: 700; font-size: 12px; border-radius: 6px;">
+                بانتظار مراجعة الأدمن &bull; Pending Review
+              </span>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding: 5px 0; color: #64748b; font-weight: 600;">&bull; الوثائق المرفقة:</td>
+            <td style="padding: 5px 0; font-weight: 700; color: #166534;">نعم (${escapeHtml(docLabel)})</td>
+          </tr>
+          ${requestId ? `<tr>
+            <td style="padding: 5px 0; color: #64748b; font-weight: 600;">&bull; معرف الطلب:</td>
+            <td style="padding: 5px 0; font-family: monospace; font-size: 12px; color: #64748b;">${escapeHtml(requestId)}</td>
+          </tr>` : ""}
+        </table>
+      </div>
+
+      <p style="color: #334155; font-size: 15px; line-height: 1.8; margin: 0 0 20px 0;">
+        يرجى الدخول إلى لوحة تحكم الأدمن لمراجعة بيانات المستخدم والوثائق المرفقة واتخاذ قرار الاعتماد.
+      </p>
+
+      <!-- Direct Official Admin Link -->
+      <div style="margin: 32px 0 24px 0; text-align: center;">
+        <!--[if mso]>
+        <v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w="urn:schemas-microsoft-com:office:word" href="${targetAdminUrl}" style="height:48px;v-text-anchor:middle;width:260px;" arcsize="20%" stroke="f" fillcolor="#1C2C58">
+          <w:anchorlock/>
+          <center style="color:#ffffff;font-family:sans-serif;font-size:15px;font-weight:bold;">فتح لوحة تحكم الأدمن</center>
+        </v:roundrect>
+        <![endif]-->
+        <!--[if !mso]><!-->
+        <a href="${targetAdminUrl}" target="_blank" rel="noopener noreferrer" style="display: inline-block; background-color: #1C2C58; color: #ffffff; font-size: 15px; font-weight: 800; text-decoration: none; padding: 14px 34px; border-radius: 10px; box-shadow: 0 4px 14px rgba(28, 44, 88, 0.25); text-align: center;">
+          فتح لوحة تحكم الأدمن &bull; Open Admin Dashboard
+        </a>
+        <!--<![endif]-->
+        <p style="margin: 14px 0 0 0; color: #64748b; font-size: 12px; font-family: monospace;">
+          <a href="${targetAdminUrl}" target="_blank" rel="noopener noreferrer" style="color: #1C2C58; text-decoration: underline;">${targetAdminUrl}</a>
+        </p>
+      </div>
+
+      <p style="color: #94a3b8; font-size: 12px; line-height: 1.5; margin: 24px 0 0 0; text-align: center;">
+        هذه رسالة إشعار تلقائية من نظام Zakir.
+      </p>
+    </div>
+  `;
+
+  const html = buildMasterEmailHtml({
+    subject,
+    title,
+    bodyHtml,
+    baseUrl
+  });
+
+  const text = `مرحبًا،\n\nقام مستخدم جديد بإنشاء حساب في Zakir وإرسال طلب التوثيق والوثائق الخاصة به، وأصبح الطلب الآن جاهزًا للمراجعة.\n\nبيانات المستخدم:\n* الاسم: ${displayName}\n* البريد الإلكتروني: ${userEmail}\n${phone ? `* الهاتف: ${phone}\n` : ""}${organization ? `* المنشأة: ${organization}\n` : ""}* تاريخ إرسال الطلب: ${formattedDate}\n* حالة الطلب: بانتظار مراجعة الأدمن (Pending Admin Review)\n* الوثائق المرفقة: نعم (${docLabel})\n${requestId ? `* معرف الطلب: ${requestId}\n` : ""}\nيرجى الدخول إلى لوحة تحكم الأدمن لمراجعة بيانات المستخدم والوثائق المرفقة واتخاذ قرار الاعتماد:\n${targetAdminUrl}\n\nهذه رسالة إشعار تلقائية من نظام Zakir.`;
 
   return { subject, text, html };
 }
@@ -10723,12 +10910,29 @@ app.post("/api/auth/submit-verification-documents", requireAuth, async (req: Aut
       "verificationInfo.previousAdminNote": prevRejection || null,
       "verificationInfo.verifiedAt": null,
       verificationSubmittedAt: nowIso,
+      verificationRequestId: existingUserDoc?.verificationRequestId || `vreq_${uid}`,
       lastActiveAt: nowIso
     };
+
+    const vreqId = userUpdates.verificationRequestId;
 
     // 1. Firestore update
     try {
       await adminDb.collection("users").doc(uid).set(userUpdates, { merge: true });
+      await adminDb.collection("verification_requests").doc(vreqId).set({
+        id: vreqId,
+        userId: uid,
+        userEmail: email,
+        fullName: institutionalProfile.fullName,
+        phone: institutionalProfile.phone,
+        hasCompany: hasCompanyBool,
+        companyName: institutionalProfile.companyName,
+        status: "PENDING_ADMIN_REVIEW",
+        documentVerificationStatus: "UNDER_REVIEW",
+        documentsCount: allDocuments.length,
+        submittedAt: nowIso,
+        updatedAt: nowIso
+      }, { merge: true });
     } catch (fsErr) {
       console.warn("Firestore update warning in submit-verification-documents:", fsErr);
     }
@@ -10768,6 +10972,120 @@ app.post("/api/auth/submit-verification-documents", requireAuth, async (req: Aut
       }
     }).catch(() => {});
 
+    // 3. Dispatch Immediate Admin Notification Email for New Verification Review
+    // Idempotency: strictly send one notification per verification submission cycle.
+    const isAlreadyNotified =
+      (existingUserDoc?.notificationAdminSent === true ||
+        existingUserDoc?.adminKycNotificationSent === true) &&
+      (existingUserDoc?.accountStatus === "PENDING_ADMIN_REVIEW" ||
+        existingUserDoc?.documentVerificationStatus === "UNDER_REVIEW");
+
+    if (isAlreadyNotified) {
+      console.log(
+        `[ADMIN KYC NOTIFICATION] skipped: notification already sent for user [${uid}] (${email})`,
+      );
+    } else if (activeKycNotificationLocks.has(uid)) {
+      console.log(
+        `[ADMIN KYC NOTIFICATION] skipped: dispatch already in-flight for user [${uid}] (${email})`,
+      );
+    } else {
+      activeKycNotificationLocks.add(uid);
+      try {
+        const adminRecipient = getAdminNotificationRecipientEmail();
+        console.log(
+          `[ADMIN KYC NOTIFICATION] queued: requestId: ${vreqId} | user: ${uid} | to: ${adminRecipient}`,
+        );
+
+        const emailData = buildAdminKycNotificationEmailHtml({
+          userName: institutionalProfile.fullName,
+          userEmail: email,
+          submissionDate: nowIso,
+          hasCompany: hasCompanyBool,
+          companyName: institutionalProfile.companyName,
+          jobTitle: institutionalProfile.jobTitle,
+          phone: institutionalProfile.phone,
+          documentCount: allDocuments.length,
+          documents: allDocuments,
+          requestId: vreqId,
+          adminUrl: "https://www.getzakir.com/admin",
+        });
+
+        const mailResult = await sendSystemMail({
+          to: adminRecipient,
+          subject: emailData.subject,
+          text: emailData.text,
+          html: emailData.html,
+        });
+
+        if (mailResult && mailResult.success) {
+          console.log(
+            `[ADMIN KYC NOTIFICATION] sent: messageId: ${mailResult.messageId || "simulated"} | to: ${adminRecipient} | user: ${uid}`,
+          );
+
+          const notificationSuccessFlags: Record<string, any> = {
+            notificationAdminSent: true,
+            adminKycNotificationSent: true,
+            adminKycNotificationSentAt: new Date().toISOString(),
+            adminKycNotificationMessageId: mailResult.messageId || "simulated",
+            adminKycNotificationRecipient: adminRecipient,
+          };
+
+          // Persist idempotency flag to Firestore
+          try {
+            if (isFirebaseAdminAvailable && adminDb) {
+              await adminDb
+                .collection("users")
+                .doc(uid)
+                .set(notificationSuccessFlags, { merge: true });
+              await adminDb
+                .collection("verification_requests")
+                .doc(vreqId)
+                .set(notificationSuccessFlags, { merge: true });
+            }
+          } catch (fsErr) {
+            console.warn(
+              "Warning updating notificationAdminSent in Firestore:",
+              fsErr,
+            );
+          }
+
+          // Persist idempotency flag to Local DB
+          try {
+            const latestDb = readDb();
+            const uIdx = (latestDb.users || []).findIndex(
+              (u: any) => u.id === uid || u.uid === uid,
+            );
+            if (uIdx >= 0) {
+              latestDb.users[uIdx] = {
+                ...latestDb.users[uIdx],
+                ...notificationSuccessFlags,
+              };
+              writeDb(latestDb);
+              if (updatedUser) {
+                Object.assign(updatedUser, notificationSuccessFlags);
+              }
+            }
+          } catch (dbErr) {
+            console.warn(
+              "Warning updating notificationAdminSent in local db:",
+              dbErr,
+            );
+          }
+        } else {
+          console.error(
+            `[ADMIN KYC NOTIFICATION] failed: error: ${JSON.stringify(mailResult?.error || mailResult?.userFriendlyMessage || "unknown")} | user: ${uid}`,
+          );
+          // Note: notificationAdminSent is not marked true on failure, allowing safe retry
+        }
+      } catch (mailException: any) {
+        console.error(
+          `[ADMIN KYC NOTIFICATION] failed: exception: ${mailException?.message || String(mailException)} | user: ${uid}`,
+        );
+      } finally {
+        activeKycNotificationLocks.delete(uid);
+      }
+    }
+
     return res.status(200).json({
       success: true,
       code: "DOCUMENTS_SUBMITTED_SUCCESSFULLY",
@@ -10784,6 +11102,102 @@ app.post("/api/auth/submit-verification-documents", requireAuth, async (req: Aut
       success: false,
       code: "INTERNAL_ERROR",
       error: err.message || "Failed to submit verification documents."
+    });
+  }
+});
+
+// Public read-only endpoint for checking verification request status without authenticating or modifying session/account state
+app.get("/api/auth/verification-request/status", async (req, res) => {
+  const requestId = String(req.query.requestId || req.query.id || req.query.token || "").trim();
+  const email = String(req.query.email || "").trim().toLowerCase();
+
+  if (!requestId && !email) {
+    return res.status(400).json({
+      success: false,
+      code: "MISSING_REQUEST_IDENTIFIER",
+      error: "يرجى تزويد معرف الطلب أو البريد الإلكتروني."
+    });
+  }
+
+  try {
+    let matchedUser: any = null;
+
+    if (isFirebaseAdminAvailable && adminDb) {
+      try {
+        if (requestId) {
+          // Check if requestId matches doc ID or verificationRequestId
+          const docSnap = await adminDb.collection("users").doc(requestId).get();
+          if (docSnap.exists) {
+            matchedUser = docSnap.data();
+          } else {
+            const querySnap = await adminDb.collection("users")
+              .where("verificationRequestId", "==", requestId)
+              .limit(1)
+              .get();
+            if (!querySnap.empty) {
+              matchedUser = querySnap.docs[0].data();
+            }
+          }
+        }
+        if (!matchedUser && email) {
+          const emailSnap = await adminDb.collection("users")
+            .where("email", "==", email)
+            .limit(1)
+            .get();
+          if (!emailSnap.empty) {
+            matchedUser = emailSnap.docs[0].data();
+          }
+        }
+      } catch (fsErr) {
+        console.warn("Firestore query error in verification-request/status:", fsErr);
+      }
+    }
+
+    if (!matchedUser) {
+      const db = readDb();
+      matchedUser = (db.users || []).find((u: any) =>
+        (requestId && (u.id === requestId || u.uid === requestId || u.verificationRequestId === requestId)) ||
+        (email && u.email?.toLowerCase() === email)
+      );
+    }
+
+    if (!matchedUser) {
+      return res.status(404).json({
+        success: false,
+        code: "REQUEST_NOT_FOUND",
+        error: "لم يتم العثور على طلب التوثيق المحدد."
+      });
+    }
+
+    // Return strictly read-only status data (NO auth tokens, NO session, NO status mutation)
+    const rawDocs = Array.isArray(matchedUser.verificationDocuments)
+      ? matchedUser.verificationDocuments
+      : Array.isArray(matchedUser.documents)
+      ? matchedUser.documents
+      : [];
+
+    return res.status(200).json({
+      success: true,
+      requestId: matchedUser.id || matchedUser.uid || requestId,
+      accountStatus: matchedUser.accountStatus || "PENDING_DOCUMENT_VERIFICATION",
+      documentVerificationStatus: matchedUser.documentVerificationStatus || "NOT_SUBMITTED",
+      canonicalVerificationStatus: matchedUser.canonicalVerificationStatus || (matchedUser.accountStatus === "APPROVED" ? "approved" : "pending"),
+      isVerified: Boolean(matchedUser.isVerified && matchedUser.accountStatus === "APPROVED"),
+      applicantName: matchedUser.ownerName || matchedUser.fullName || matchedUser.name || "مقدم الطلب",
+      companyName: matchedUser.companyName || matchedUser.organizationName || "",
+      hasCompany: Boolean(matchedUser.hasCompany),
+      documentCount: rawDocs.length,
+      submittedAt: matchedUser.verificationSubmittedAt || matchedUser.institutionalProfile?.submittedAt || null,
+      rejectionReason: matchedUser.rejectionReason || matchedUser.verificationInfo?.adminNote || null,
+      requiresAction: matchedUser.accountStatus === "PENDING_DOCUMENT_VERIFICATION" || matchedUser.accountStatus === "REJECTED",
+      message: "تم استرداد حالة طلب التوثيق بنجاح (للعرض فقط دون تسجيل دخول)."
+    });
+  } catch (err: any) {
+    console.error("[VERIFICATION_REQUEST_STATUS_ERROR]", err);
+    return res.status(500).json({
+      success: false,
+      code: "INTERNAL_ERROR",
+      error: "فشل استرداد حالة طلب التوثيق."
     });
   }
 });
@@ -11744,6 +12158,8 @@ app.post(
         "verificationInfo.status": "rejected",
         "verificationInfo.adminNote": String(reason).trim(),
         "verificationInfo.verifiedAt": null,
+        notificationAdminSent: false,
+        adminKycNotificationSent: false,
         lastActiveAt: nowIso
       };
 
@@ -17119,11 +17535,45 @@ export function accuratelyDetectMimeType(
   return "application/pdf";
 }
 
+function readAllLocalDbs(): any[] {
+  const dbFiles = [
+    DB_FILE,
+    path.join(process.cwd(), "src", "db_store.json"),
+    path.join(process.cwd(), "data", "db.json"),
+    path.join(process.cwd(), "local_db.json"),
+  ];
+  const results: any[] = [];
+  const seenPaths = new Set<string>();
+
+  for (const f of dbFiles) {
+    if (seenPaths.has(f)) continue;
+    seenPaths.add(f);
+    try {
+      if (fs.existsSync(f)) {
+        const content = fs.readFileSync(f, "utf-8");
+        if (content && content.trim()) {
+          const parsed = JSON.parse(content);
+          if (parsed && typeof parsed === "object") {
+            results.push(parsed);
+          }
+        }
+      }
+    } catch (e) {}
+  }
+  return results;
+}
+
 function saveToLocalDiskCache(documentId: string, buffer: Buffer): void {
   try {
     const cleanId = path.basename(documentId).replace(/[^a-zA-Z0-9_\-\.]/g, "");
     if (!cleanId) return;
-    const dirs = [getLocalUploadsDir(), path.join(os.tmpdir(), "secure_uploads"), path.join(process.cwd(), "secure_uploads")];
+    const dirs = [
+      getLocalUploadsDir(),
+      path.join(os.tmpdir(), "secure_uploads"),
+      path.join(process.cwd(), "secure_uploads"),
+      path.join(process.cwd(), "storage", "documents"),
+      path.join(process.cwd(), "storage"),
+    ];
     for (const dir of dirs) {
       if (!fs.existsSync(dir)) {
         try { fs.mkdirSync(dir, { recursive: true }); } catch (e) {}
@@ -17142,31 +17592,72 @@ function saveToLocalDiskCache(documentId: string, buffer: Buffer): void {
   }
 }
 
-function getFromLocalDiskCache(documentId: string): Buffer | null {
+function getFromLocalDiskCache(rawDocumentId: string): Buffer | null {
   try {
+    const documentId = decodeURIComponent(rawDocumentId || "").trim();
+    if (!documentId) return null;
+
     const mem = getCachedBinary(documentId);
     if (mem && mem.buffer && mem.buffer.length > 0) return mem.buffer;
 
     const cleanId = path.basename(documentId).replace(/[^a-zA-Z0-9_\-\.]/g, "");
     const directName = path.basename(documentId);
-    const candidatePaths = [
-      path.join(getLocalUploadsDir(), cleanId),
-      path.join(os.tmpdir(), "secure_uploads", cleanId),
-      path.join(process.cwd(), "secure_uploads", cleanId),
-      path.join(getLocalUploadsDir(), directName),
-      path.join(os.tmpdir(), "secure_uploads", directName),
-      path.join(process.cwd(), "secure_uploads", directName),
-      path.join(process.cwd(), documentId),
+    const idWithoutExt = cleanId.replace(/\.[a-zA-Z0-9]+$/, "");
+
+    const baseDirs = [
+      path.join(process.cwd(), "storage", "documents"),
+      path.join(process.cwd(), "storage"),
+      getLocalUploadsDir(),
+      path.join(os.tmpdir(), "secure_uploads"),
+      path.join(process.cwd(), "secure_uploads"),
+      path.join(process.cwd(), "public", "uploads"),
+      path.join(process.cwd(), "data", "uploads"),
+      path.join(process.cwd(), "uploads"),
+      process.cwd(),
     ];
-    for (const p of candidatePaths) {
-      if (fs.existsSync(p)) {
-        try {
-          const buf = fs.readFileSync(p);
-          if (buf && buf.length > 0) {
-            setCachedBinary(documentId, buf);
-            return buf;
-          }
-        } catch (e) {}
+
+    const fileVariants = [
+      documentId,
+      cleanId,
+      directName,
+      idWithoutExt,
+      `${cleanId}.bin`,
+      `${cleanId}.pdf`,
+      `${cleanId}.png`,
+      `${cleanId}.jpg`,
+      `${cleanId}.jpeg`,
+      `${cleanId}.webp`,
+      `${cleanId}.svg`,
+      `${idWithoutExt}.bin`,
+      `${idWithoutExt}.pdf`,
+      `${idWithoutExt}.png`,
+      `${idWithoutExt}.jpg`,
+      `${idWithoutExt}.jpeg`,
+      `${idWithoutExt}.webp`,
+      `${idWithoutExt}.svg`,
+      `doc_pdf_${idWithoutExt}.bin`,
+      `doc_png_${idWithoutExt}.bin`,
+      `doc_pdf_${cleanId}.bin`,
+      `doc_png_${cleanId}.bin`,
+    ];
+
+    for (const dir of baseDirs) {
+      if (!fs.existsSync(dir)) continue;
+      for (const fName of fileVariants) {
+        if (!fName) continue;
+        const fullP = path.isAbsolute(fName) ? fName : path.join(dir, fName);
+        if (fs.existsSync(fullP)) {
+          try {
+            const stat = fs.statSync(fullP);
+            if (stat.isFile() && stat.size > 0) {
+              const buf = fs.readFileSync(fullP);
+              if (buf && buf.length > 0) {
+                setCachedBinary(documentId, buf);
+                return buf;
+              }
+            }
+          } catch (e) {}
+        }
       }
     }
   } catch (err) {}
@@ -17547,7 +18038,15 @@ export interface ResolvedDocumentData {
  * 7. Firebase Cloud Storage (fast bounded check)
  */
 export async function resolveDocumentFromStorage(
-  rawDocumentId: string
+  rawDocumentId: string,
+  context?: {
+    userId?: string;
+    requestId?: string;
+    callerUid?: string;
+    callerEmail?: string;
+    isDownload?: boolean;
+    _visited?: string[];
+  }
 ): Promise<ResolvedDocumentData> {
   const documentId = decodeURIComponent(rawDocumentId || "").trim();
   if (!documentId) {
@@ -17557,83 +18056,90 @@ export async function resolveDocumentFromStorage(
     throw err;
   }
 
-  // 1. In-memory cache check (0ms)
-  const memCached = getCachedBinary(documentId);
-  if (memCached && memCached.buffer && memCached.buffer.length > 0) {
-    return {
-      documentId,
-      buffer: memCached.buffer,
-      mimeType: memCached.mimeType,
-      fileName: memCached.fileName || "document",
-      size: memCached.size,
-      sha256: memCached.sha256,
-      source: "memory_cache",
-    };
+  const visited = new Set<string>(context?._visited || []);
+  if (visited.has(documentId)) {
+    const err: any = new Error("تعذر العثور على الملف في التخزين.");
+    err.code = "FILE_NOT_FOUND";
+    err.status = 404;
+    throw err;
   }
+  visited.add(documentId);
 
-  // 2. Local disk check (<1ms)
-  const diskBuf = getFromLocalDiskCache(documentId);
-  if (diskBuf && diskBuf.length > 0) {
-    const mime = accuratelyDetectMimeType(diskBuf);
-    const hash = crypto.createHash("sha256").update(diskBuf).digest("hex");
-    setCachedBinary(documentId, diskBuf, mime, "document", hash);
-    return {
-      documentId,
-      buffer: diskBuf,
-      mimeType: mime,
-      fileName: "document",
-      size: diskBuf.length,
-      sha256: hash,
-      source: "local_disk",
-    };
-  }
+  // Structured Log: Resolution Start
+  console.log("[DOCUMENT_RESOLUTION_START]", {
+    userId: context?.userId || null,
+    requestId: context?.requestId || null,
+    documentId,
+  });
 
-  const db = readDb();
+  const checkedSources: string[] = [];
 
   // Helper to extract Buffer from generic document record
-  const tryExtractBufferFromRecord = async (rec: any, recName: string): Promise<ResolvedDocumentData | null> => {
+  const tryExtractBufferFromRecord = async (
+    rec: any,
+    recName: string
+  ): Promise<ResolvedDocumentData | null> => {
     if (!rec) return null;
     const fileName = rec.fileName || rec.name || rec.documentName || "document";
     const declaredMime = rec.mimeType || rec.type || "";
 
-    // 3a. Chunks reassembly
+    // 1. Chunks reassembly
     if (Array.isArray(rec.chunks) && rec.chunks.length > 0) {
       try {
         const buffers: Buffer[] = [];
-        const sorted = [...rec.chunks].sort((a: any, b: any) => (a.chunkIndex ?? 0) - (b.chunkIndex ?? 0));
+        const sorted = [...rec.chunks].sort(
+          (a: any, b: any) => (a.chunkIndex ?? 0) - (b.chunkIndex ?? 0)
+        );
         for (const c of sorted) {
+          if (!c.data) continue;
           const raw = Buffer.from(c.data, "base64");
           if (c.compressed) {
-            try { buffers.push(zlib.inflateSync(raw)); } catch (e) { buffers.push(raw); }
+            try {
+              buffers.push(zlib.inflateSync(raw));
+            } catch (e) {
+              buffers.push(raw);
+            }
           } else {
             buffers.push(raw);
           }
         }
         if (buffers.length > 0) {
           const fullBuf = Buffer.concat(buffers);
-          saveToLocalDiskCache(documentId, fullBuf);
-          const mime = accuratelyDetectMimeType(fullBuf, declaredMime, fileName);
-          const hash = rec.fileHash || rec.sha256 || crypto.createHash("sha256").update(fullBuf).digest("hex");
-          setCachedBinary(documentId, fullBuf, mime, fileName, hash);
-          return {
-            documentId,
-            buffer: fullBuf,
-            mimeType: mime,
-            fileName,
-            size: fullBuf.length,
-            sha256: hash,
-            source: `${recName}_chunks`,
-            metadata: rec,
-          };
+          if (fullBuf.length > 0) {
+            saveToLocalDiskCache(documentId, fullBuf);
+            const mime = accuratelyDetectMimeType(fullBuf, declaredMime, fileName);
+            const hash =
+              rec.fileHash ||
+              rec.sha256 ||
+              crypto.createHash("sha256").update(fullBuf).digest("hex");
+            setCachedBinary(documentId, fullBuf, mime, fileName, hash);
+            return {
+              documentId,
+              buffer: fullBuf,
+              mimeType: mime,
+              fileName,
+              size: fullBuf.length,
+              sha256: hash,
+              source: `${recName}_chunks`,
+              metadata: rec,
+            };
+          }
         }
       } catch (chunkErr) {
         console.warn(`[Storage Resolver] Chunks assembly failed for ${documentId}:`, chunkErr);
       }
     }
 
-    // 3b. Base64 string / Data URL
-    const rawBase64 = rec.fileBase64 || rec.data || rec.base64 ||
-      (typeof rec.fileUrl === "string" && rec.fileUrl.startsWith("data:") ? rec.fileUrl : null);
+    // 2. Base64 string / Data URL
+    const rawBase64 =
+      rec.fileBase64 ||
+      rec.data ||
+      rec.base64 ||
+      rec.fileData ||
+      (typeof rec.fileUrl === "string" && rec.fileUrl.startsWith("data:")
+        ? rec.fileUrl
+        : null);
+
     if (rawBase64) {
       try {
         const clean = String(rawBase64).replace(/^data:[^;]+;base64,/, "");
@@ -17641,7 +18147,10 @@ export async function resolveDocumentFromStorage(
         if (buf && buf.length > 0) {
           saveToLocalDiskCache(documentId, buf);
           const mime = accuratelyDetectMimeType(buf, declaredMime, fileName);
-          const hash = rec.fileHash || rec.sha256 || crypto.createHash("sha256").update(buf).digest("hex");
+          const hash =
+            rec.fileHash ||
+            rec.sha256 ||
+            crypto.createHash("sha256").update(buf).digest("hex");
           setCachedBinary(documentId, buf, mime, fileName, hash);
           return {
             documentId,
@@ -17657,15 +18166,26 @@ export async function resolveDocumentFromStorage(
       } catch (b64Err) {}
     }
 
-    // 3c. Direct disk storagePath / storageReference
-    const possiblePaths = [rec.storagePath, rec.storageReference, rec.filePath, rec.path].filter(Boolean);
+    // 3. Direct disk storagePath / storageReference / filePath
+    const possiblePaths = [
+      rec.storagePath,
+      rec.storageReference,
+      rec.filePath,
+      rec.path,
+      rec.documentPath,
+      rec.fileUrl,
+    ].filter((p): p is string => typeof p === "string" && p.length > 0);
+
     for (const p of possiblePaths) {
-      const pClean = path.basename(p);
-      const onDisk = getFromLocalDiskCache(pClean);
+      if (p.startsWith("http://") || p.startsWith("https://") || p.startsWith("data:")) continue;
+      const onDisk = getFromLocalDiskCache(p);
       if (onDisk && onDisk.length > 0) {
         saveToLocalDiskCache(documentId, onDisk);
         const mime = accuratelyDetectMimeType(onDisk, declaredMime, fileName);
-        const hash = rec.fileHash || rec.sha256 || crypto.createHash("sha256").update(onDisk).digest("hex");
+        const hash =
+          rec.fileHash ||
+          rec.sha256 ||
+          crypto.createHash("sha256").update(onDisk).digest("hex");
         setCachedBinary(documentId, onDisk, mime, fileName, hash);
         return {
           documentId,
@@ -17680,8 +18200,11 @@ export async function resolveDocumentFromStorage(
       }
     }
 
-    // 3d. External HTTP/HTTPS URL
-    if (typeof rec.fileUrl === "string" && (rec.fileUrl.startsWith("http://") || rec.fileUrl.startsWith("https://"))) {
+    // 4. Remote HTTP/HTTPS URL
+    if (
+      typeof rec.fileUrl === "string" &&
+      (rec.fileUrl.startsWith("http://") || rec.fileUrl.startsWith("https://"))
+    ) {
       try {
         const resp = await fetch(rec.fileUrl);
         if (resp.ok) {
@@ -17689,8 +18212,14 @@ export async function resolveDocumentFromStorage(
           const buf = Buffer.from(arrBuf);
           if (buf && buf.length > 0) {
             saveToLocalDiskCache(documentId, buf);
-            const mime = accuratelyDetectMimeType(buf, resp.headers.get("content-type") || declaredMime, fileName);
-            const hash = rec.fileHash || crypto.createHash("sha256").update(buf).digest("hex");
+            const mime = accuratelyDetectMimeType(
+              buf,
+              resp.headers.get("content-type") || declaredMime,
+              fileName
+            );
+            const hash =
+              rec.fileHash ||
+              crypto.createHash("sha256").update(buf).digest("hex");
             setCachedBinary(documentId, buf, mime, fileName, hash);
             return {
               documentId,
@@ -17710,144 +18239,436 @@ export async function resolveDocumentFromStorage(
     return null;
   };
 
-  // 3. Search local DB stores
-  const localVerDoc = db.verification_documents_store?.[documentId];
-  if (localVerDoc) {
-    const res = await tryExtractBufferFromRecord(localVerDoc, "local_verification_store");
-    if (res) return res;
+  // ==========================================
+  // TIER 1: In-Memory Binary Cache (0ms)
+  // ==========================================
+  const memCached = getCachedBinary(documentId);
+  if (memCached && memCached.buffer && memCached.buffer.length > 0) {
+    console.log("[DOCUMENT_SOURCE_CHECK]", {
+      source: "memory_cache",
+      found: true,
+      size: memCached.size,
+    });
+    console.log("[DOCUMENT_RESOLUTION_SUCCESS]", {
+      source: "memory_cache",
+      documentId,
+      mimeType: memCached.mimeType,
+      size: memCached.size,
+    });
+    return {
+      documentId,
+      buffer: memCached.buffer,
+      mimeType: memCached.mimeType,
+      fileName: memCached.fileName || "document",
+      size: memCached.size,
+      sha256: memCached.sha256,
+      source: "memory_cache",
+    };
   }
+  checkedSources.push("memory_cache");
+  console.log("[DOCUMENT_SOURCE_CHECK]", {
+    source: "memory_cache",
+    found: false,
+    size: 0,
+  });
 
-  const localRecDoc = db.recovery_documents_store?.[documentId];
-  if (localRecDoc) {
-    const res = await tryExtractBufferFromRecord(localRecDoc, "local_recovery_store");
-    if (res) return res;
+  // ==========================================
+  // TIER 2: Local Container Disk Storage (<1ms)
+  // ==========================================
+  const diskBuf = getFromLocalDiskCache(documentId);
+  if (diskBuf && diskBuf.length > 0) {
+    const mime = accuratelyDetectMimeType(diskBuf, undefined, documentId);
+    const hash = crypto.createHash("sha256").update(diskBuf).digest("hex");
+    setCachedBinary(documentId, diskBuf, mime, "document", hash);
+    console.log("[DOCUMENT_SOURCE_CHECK]", {
+      source: "local_disk",
+      found: true,
+      size: diskBuf.length,
+    });
+    console.log("[DOCUMENT_RESOLUTION_SUCCESS]", {
+      source: "local_disk",
+      documentId,
+      mimeType: mime,
+      size: diskBuf.length,
+    });
+    return {
+      documentId,
+      buffer: diskBuf,
+      mimeType: mime,
+      fileName: "document",
+      size: diskBuf.length,
+      sha256: hash,
+      source: "local_disk",
+    };
   }
+  checkedSources.push("local_disk");
+  console.log("[DOCUMENT_SOURCE_CHECK]", {
+    source: "local_disk",
+    found: false,
+    size: 0,
+  });
 
-  if (Array.isArray(db.files)) {
-    const fDoc = db.files.find((f: any) => f.id === documentId || f.documentId === documentId || f.fileId === documentId);
-    if (fDoc) {
-      const res = await tryExtractBufferFromRecord(fDoc, "local_files_store");
-      if (res) return res;
+  // ==========================================
+  // TIER 3: Local Databases Aggregation
+  // ==========================================
+  const allDbs = readAllLocalDbs();
+  for (const db of allDbs) {
+    // 3a. verification_documents_store
+    const verDoc =
+      db.verification_documents_store?.[documentId] ||
+      (db.verification_documents_store &&
+        Object.values(db.verification_documents_store).find(
+          (d: any) =>
+            d?.documentId === documentId ||
+            d?.id === documentId ||
+            d?.storageReference === documentId ||
+            d?.fileName === documentId ||
+            d?.storagePath === documentId
+        ));
+    if (verDoc) {
+      const res = await tryExtractBufferFromRecord(verDoc, "local_verification_store");
+      if (res) {
+        console.log("[DOCUMENT_SOURCE_CHECK]", {
+          source: "local_verification_store",
+          found: true,
+          size: res.size,
+        });
+        console.log("[DOCUMENT_RESOLUTION_SUCCESS]", {
+          source: res.source,
+          documentId,
+          mimeType: res.mimeType,
+          size: res.size,
+        });
+        return res;
+      }
     }
-  }
 
-  // Check users collection in local db for embedded document records
-  if (Array.isArray(db.users)) {
-    for (const u of db.users) {
-      const docList = [
-        ...(Array.isArray(u.verificationDocuments) ? u.verificationDocuments : []),
-        ...(Array.isArray(u.documents) ? u.documents : []),
-        ...(Array.isArray(u.verificationInfo?.documents) ? u.verificationInfo.documents : []),
-        ...(Array.isArray(u.files) ? u.files : []),
-      ];
-      const match = docList.find((d: any) => (d.documentId || d.id || d.fileId || d.storageReference || d.fileName) === documentId);
-      if (match) {
-        const res = await tryExtractBufferFromRecord(match, "local_user_embedded_doc");
-        if (res) return res;
+    // 3b. recovery_documents_store
+    const recDoc =
+      db.recovery_documents_store?.[documentId] ||
+      (db.recovery_documents_store &&
+        Object.values(db.recovery_documents_store).find(
+          (d: any) =>
+            d?.documentId === documentId ||
+            d?.id === documentId ||
+            d?.storageReference === documentId ||
+            d?.fileName === documentId ||
+            d?.storagePath === documentId
+        ));
+    if (recDoc) {
+      const res = await tryExtractBufferFromRecord(recDoc, "local_recovery_store");
+      if (res) {
+        console.log("[DOCUMENT_SOURCE_CHECK]", {
+          source: "local_recovery_store",
+          found: true,
+          size: res.size,
+        });
+        console.log("[DOCUMENT_RESOLUTION_SUCCESS]", {
+          source: res.source,
+          documentId,
+          mimeType: res.mimeType,
+          size: res.size,
+        });
+        return res;
+      }
+    }
+
+    // 3c. files array
+    if (Array.isArray(db.files)) {
+      const fDoc = db.files.find(
+        (f: any) =>
+          f?.id === documentId ||
+          f?.documentId === documentId ||
+          f?.fileId === documentId ||
+          f?.storageReference === documentId ||
+          f?.fileName === documentId
+      );
+      if (fDoc) {
+        const res = await tryExtractBufferFromRecord(fDoc, "local_files_store");
+        if (res) {
+          console.log("[DOCUMENT_SOURCE_CHECK]", {
+            source: "local_files_store",
+            found: true,
+            size: res.size,
+          });
+          console.log("[DOCUMENT_RESOLUTION_SUCCESS]", {
+            source: res.source,
+            documentId,
+            mimeType: res.mimeType,
+            size: res.size,
+          });
+          return res;
+        }
+      }
+    }
+
+    // 3d. users array (check verificationDocuments, documents, files, verificationInfo)
+    if (Array.isArray(db.users)) {
+      for (const u of db.users) {
+        const docList = [
+          ...(Array.isArray(u.verificationDocuments) ? u.verificationDocuments : []),
+          ...(Array.isArray(u.documents) ? u.documents : []),
+          ...(Array.isArray(u.verificationInfo?.documents) ? u.verificationInfo.documents : []),
+          ...(Array.isArray(u.files) ? u.files : []),
+        ];
+        const match = docList.find(
+          (d: any) =>
+            d &&
+            (d.documentId === documentId ||
+              d.id === documentId ||
+              d.fileId === documentId ||
+              d.storageReference === documentId ||
+              d.storagePath === documentId ||
+              d.fileName === documentId)
+        );
+        if (match) {
+          const res = await tryExtractBufferFromRecord(match, "local_user_embedded_doc");
+          if (res) {
+            console.log("[DOCUMENT_SOURCE_CHECK]", {
+              source: "local_user_embedded_doc",
+              found: true,
+              size: res.size,
+            });
+            console.log("[DOCUMENT_RESOLUTION_SUCCESS]", {
+              source: res.source,
+              documentId,
+              mimeType: res.mimeType,
+              size: res.size,
+            });
+            return res;
+          }
+        }
+      }
+    }
+
+    // 3e. pending_recovery_uploads
+    if (Array.isArray(db.pending_recovery_uploads)) {
+      const pDoc = db.pending_recovery_uploads.find(
+        (p: any) =>
+          p?.documentId === documentId ||
+          p?.id === documentId ||
+          p?.document?.documentId === documentId ||
+          p?.document?.id === documentId
+      );
+      if (pDoc) {
+        const res = await tryExtractBufferFromRecord(
+          pDoc.document || pDoc,
+          "local_pending_recovery_store"
+        );
+        if (res) {
+          console.log("[DOCUMENT_SOURCE_CHECK]", {
+            source: "local_pending_recovery_store",
+            found: true,
+            size: res.size,
+          });
+          console.log("[DOCUMENT_RESOLUTION_SUCCESS]", {
+            source: res.source,
+            documentId,
+            mimeType: res.mimeType,
+            size: res.size,
+          });
+          return res;
+        }
       }
     }
   }
+  checkedSources.push("local_db_stores");
+  console.log("[DOCUMENT_SOURCE_CHECK]", {
+    source: "local_db_stores",
+    found: false,
+    size: 0,
+  });
 
-  if (Array.isArray(db.pending_recovery_uploads)) {
-    const pDoc = db.pending_recovery_uploads.find((p: any) => p.documentId === documentId || p.id === documentId);
-    if (pDoc) {
-      const res = await tryExtractBufferFromRecord(pDoc.document || pDoc, "local_pending_recovery_store");
-      if (res) return res;
-    }
-  }
-
-  // 4. Search Firestore Collections in parallel (Fast non-blocking lookup with 800ms timeout)
+  // ==========================================
+  // TIER 4: Firestore Storage & Collections
+  // ==========================================
   if (isFirebaseAdminAvailable && adminDb) {
     try {
-      const fetchFirestoreSnapshots = async () => {
-        return await Promise.all([
+      let timeoutHandle: any = null;
+      const fsQueryPromise = async () => {
+        // 4a. Direct document get
+        const [verSnap, recSnap, fileSnap, pendSnap] = await Promise.all([
           adminDb.collection("verification_documents").doc(documentId).get().catch(() => null),
           adminDb.collection("recoveryDocuments").doc(documentId).get().catch(() => null),
           adminDb.collection("files").doc(documentId).get().catch(() => null),
           adminDb.collection("pendingRecoveryUploads").doc(documentId).get().catch(() => null),
         ]);
-      };
 
-      let fsTimeout: any = null;
-      const fsSnaps = await Promise.race([
-        fetchFirestoreSnapshots(),
-        new Promise<any[]>((resolve) => {
-          fsTimeout = setTimeout(() => resolve([null, null, null, null]), 800);
-          if (fsTimeout?.unref) fsTimeout.unref();
-        }),
-      ]);
-      if (fsTimeout) clearTimeout(fsTimeout);
+        if (verSnap && verSnap.exists) {
+          const res = await tryExtractBufferFromRecord(verSnap.data(), "firestore_verification_doc");
+          if (res) return res;
+        }
 
-      const [verSnap, recSnap, fileSnap, pendSnap] = fsSnaps || [null, null, null, null];
+        if (recSnap && recSnap.exists) {
+          const recData = recSnap.data() || {};
+          const res = await tryExtractBufferFromRecord(recData, "firestore_recovery_doc");
+          if (res) return res;
 
-      if (verSnap && verSnap.exists) {
-        const res = await tryExtractBufferFromRecord(verSnap.data(), "firestore_verification_doc");
-        if (res) return res;
-      }
-
-      if (recSnap && recSnap.exists) {
-        // Also check chunks subcollection of recoveryDocuments
-        const recData = recSnap.data() || {};
-        const res = await tryExtractBufferFromRecord(recData, "firestore_recovery_doc");
-        if (res) return res;
-
-        try {
-          const chunksSnap = await adminDb.collection("recoveryDocuments").doc(documentId).collection("chunks").get();
-          if (chunksSnap && !chunksSnap.empty) {
-            const sortedDocs = chunksSnap.docs.sort((a: any, b: any) => {
-              const idxA = Number(a.data().chunkIndex ?? a.id);
-              const idxB = Number(b.data().chunkIndex ?? b.id);
-              return idxA - idxB;
-            });
-            const buffers: Buffer[] = [];
-            for (const cDoc of sortedDocs) {
-              const cData = cDoc.data();
-              if (cData.data) {
-                const rawBuf = Buffer.from(cData.data, "base64");
-                if (cData.compressed) {
-                  try { buffers.push(zlib.inflateSync(rawBuf)); } catch (e) { buffers.push(rawBuf); }
-                } else {
-                  buffers.push(rawBuf);
+          // Subcollection chunks
+          try {
+            const chunksSnap = await adminDb
+              .collection("recoveryDocuments")
+              .doc(documentId)
+              .collection("chunks")
+              .get();
+            if (chunksSnap && !chunksSnap.empty) {
+              const sortedDocs = chunksSnap.docs.sort((a: any, b: any) => {
+                const idxA = Number(a.data().chunkIndex ?? a.id);
+                const idxB = Number(b.data().chunkIndex ?? b.id);
+                return idxA - idxB;
+              });
+              const buffers: Buffer[] = [];
+              for (const cDoc of sortedDocs) {
+                const cData = cDoc.data();
+                if (cData.data) {
+                  const rawBuf = Buffer.from(cData.data, "base64");
+                  if (cData.compressed) {
+                    try {
+                      buffers.push(zlib.inflateSync(rawBuf));
+                    } catch (e) {
+                      buffers.push(rawBuf);
+                    }
+                  } else {
+                    buffers.push(rawBuf);
+                  }
+                }
+              }
+              if (buffers.length > 0) {
+                const fullBuf = Buffer.concat(buffers);
+                if (fullBuf.length > 0) {
+                  saveToLocalDiskCache(documentId, fullBuf);
+                  const mime = accuratelyDetectMimeType(fullBuf, recData.mimeType, recData.fileName);
+                  const hash =
+                    recData.fileHash ||
+                    crypto.createHash("sha256").update(fullBuf).digest("hex");
+                  setCachedBinary(documentId, fullBuf, mime, recData.fileName || "document", hash);
+                  return {
+                    documentId,
+                    buffer: fullBuf,
+                    mimeType: mime,
+                    fileName: recData.fileName || "document",
+                    size: fullBuf.length,
+                    sha256: hash,
+                    source: "firestore_recovery_subchunks",
+                    metadata: recData,
+                  };
                 }
               }
             }
-            if (buffers.length > 0) {
-              const fullBuf = Buffer.concat(buffers);
-              saveToLocalDiskCache(documentId, fullBuf);
-              const mime = accuratelyDetectMimeType(fullBuf, recData.mimeType, recData.fileName);
-              const hash = recData.fileHash || crypto.createHash("sha256").update(fullBuf).digest("hex");
-              setCachedBinary(documentId, fullBuf, mime, recData.fileName || "document", hash);
-              return {
-                documentId,
-                buffer: fullBuf,
-                mimeType: mime,
-                fileName: recData.fileName || "document",
-                size: fullBuf.length,
-                sha256: hash,
-                source: "firestore_recovery_subchunks",
-                metadata: recData,
-              };
+          } catch (chunksErr) {}
+        }
+
+        if (fileSnap && fileSnap.exists) {
+          const res = await tryExtractBufferFromRecord(fileSnap.data(), "firestore_files_doc");
+          if (res) return res;
+        }
+
+        if (pendSnap && pendSnap.exists) {
+          const pData = pendSnap.data()?.document || pendSnap.data();
+          const res = await tryExtractBufferFromRecord(pData, "firestore_pending_doc");
+          if (res) return res;
+        }
+
+        // 4b. Field-based queries in Firestore collections
+        const [qVerSnap, qRecSnap, qFilesSnap] = await Promise.all([
+          adminDb
+            .collection("verification_documents")
+            .where("storageReference", "==", documentId)
+            .limit(1)
+            .get()
+            .catch(() => null),
+          adminDb
+            .collection("recoveryDocuments")
+            .where("storageReference", "==", documentId)
+            .limit(1)
+            .get()
+            .catch(() => null),
+          adminDb
+            .collection("files")
+            .where("storageReference", "==", documentId)
+            .limit(1)
+            .get()
+            .catch(() => null),
+        ]);
+
+        const queryDoc =
+          (qVerSnap && !qVerSnap.empty ? qVerSnap.docs[0].data() : null) ||
+          (qRecSnap && !qRecSnap.empty ? qRecSnap.docs[0].data() : null) ||
+          (qFilesSnap && !qFilesSnap.empty ? qFilesSnap.docs[0].data() : null);
+
+        if (queryDoc) {
+          const res = await tryExtractBufferFromRecord(queryDoc, "firestore_query_doc");
+          if (res) return res;
+        }
+
+        // 4c. Search users collection
+        if (context?.userId) {
+          try {
+            const userSnap = await adminDb.collection("users").doc(context.userId).get();
+            if (userSnap.exists) {
+              const uData = userSnap.data() || {};
+              const docList = [
+                ...(Array.isArray(uData.verificationDocuments) ? uData.verificationDocuments : []),
+                ...(Array.isArray(uData.documents) ? uData.documents : []),
+                ...(Array.isArray(uData.verificationInfo?.documents) ? uData.verificationInfo.documents : []),
+                ...(Array.isArray(uData.files) ? uData.files : []),
+              ];
+              const match = docList.find(
+                (d: any) =>
+                  d &&
+                  (d.documentId === documentId ||
+                    d.id === documentId ||
+                    d.fileId === documentId ||
+                    d.storageReference === documentId ||
+                    d.fileName === documentId)
+              );
+              if (match) {
+                const res = await tryExtractBufferFromRecord(match, "firestore_user_doc");
+                if (res) return res;
+              }
             }
-          }
-        } catch (chunksErr) {}
-      }
+          } catch (uErr) {}
+        }
+        return null;
+      };
 
-      if (fileSnap && fileSnap.exists) {
-        const res = await tryExtractBufferFromRecord(fileSnap.data(), "firestore_files_doc");
-        if (res) return res;
-      }
+      const fsResult = await Promise.race([
+        fsQueryPromise(),
+        new Promise<null>((resolve) => {
+          timeoutHandle = setTimeout(() => resolve(null), 1000);
+          if (timeoutHandle?.unref) timeoutHandle.unref();
+        }),
+      ]);
+      if (timeoutHandle) clearTimeout(timeoutHandle);
 
-      if (pendSnap && pendSnap.exists) {
-        const pData = pendSnap.data()?.document || pendSnap.data();
-        const res = await tryExtractBufferFromRecord(pData, "firestore_pending_doc");
-        if (res) return res;
+      if (fsResult) {
+        console.log("[DOCUMENT_SOURCE_CHECK]", {
+          source: fsResult.source,
+          found: true,
+          size: fsResult.size,
+        });
+        console.log("[DOCUMENT_RESOLUTION_SUCCESS]", {
+          source: fsResult.source,
+          documentId,
+          mimeType: fsResult.mimeType,
+          size: fsResult.size,
+        });
+        return fsResult;
       }
     } catch (fsErr) {
       console.warn("[Storage Resolver] Firestore search notice:", fsErr);
     }
   }
+  checkedSources.push("firestore");
+  console.log("[DOCUMENT_SOURCE_CHECK]", {
+    source: "firestore",
+    found: false,
+    size: 0,
+  });
 
-  // 5. Firebase Cloud Storage Bucket Check (Fast non-blocking resolution)
+  // ==========================================
+  // TIER 5: Cloud Storage Bucket Check
+  // ==========================================
   if (isCloudStorageBucketAvailable !== false) {
     const bucket = getSafeBucket();
     if (bucket) {
@@ -17856,194 +18677,211 @@ export async function resolveDocumentFromStorage(
         `files/${documentId}`,
         `verification_documents/${documentId}`,
         `recoveryDocuments/${documentId}`,
+        `documents/${documentId}`,
+        `storage/documents/${documentId}`,
         documentId,
       ];
 
-      for (const cPath of candidates) {
-        try {
-          const fileRef = bucket.file(cPath);
-          let timeoutHandle: any = null;
-          const downloadPromise = async () => {
-            const [exists] = await fileRef.exists().catch(() => [false]);
-            if (exists) {
-              const [b] = await fileRef.download();
-              return b;
-            }
+      try {
+        let timeoutHandle: any = null;
+        const bucketCheckPromise = async () => {
+          const checks = candidates.map(async (cPath) => {
+            try {
+              const fileRef = bucket.file(cPath);
+              const [exists] = await fileRef.exists();
+              if (exists) {
+                const [b] = await fileRef.download();
+                return { path: cPath, buffer: b };
+              }
+            } catch (e) {}
             return null;
+          });
+
+          const results = await Promise.all(checks);
+          return results.find((r) => r && r.buffer && r.buffer.length > 0) || null;
+        };
+
+        const foundCloud = await Promise.race([
+          bucketCheckPromise(),
+          new Promise<null>((resolve) => {
+            timeoutHandle = setTimeout(() => resolve(null), 1000);
+            if (timeoutHandle?.unref) timeoutHandle.unref();
+          }),
+        ]);
+        if (timeoutHandle) clearTimeout(timeoutHandle);
+
+        if (foundCloud && foundCloud.buffer) {
+          const fileBuf = foundCloud.buffer;
+          saveToLocalDiskCache(documentId, fileBuf);
+          const mime = accuratelyDetectMimeType(fileBuf, undefined, documentId);
+          const hash = crypto.createHash("sha256").update(fileBuf).digest("hex");
+          setCachedBinary(documentId, fileBuf, mime, "document", hash);
+          console.log("[DOCUMENT_SOURCE_CHECK]", {
+            source: "firebase_cloud_storage",
+            found: true,
+            size: fileBuf.length,
+          });
+          console.log("[DOCUMENT_RESOLUTION_SUCCESS]", {
+            source: "firebase_cloud_storage",
+            documentId,
+            mimeType: mime,
+            size: fileBuf.length,
+          });
+          return {
+            documentId,
+            buffer: fileBuf,
+            mimeType: mime,
+            fileName: "document",
+            size: fileBuf.length,
+            sha256: hash,
+            source: "firebase_cloud_storage",
           };
+        }
+      } catch (storageErr) {}
+    }
+  }
+  checkedSources.push("cloud_storage");
+  console.log("[DOCUMENT_SOURCE_CHECK]", {
+    source: "cloud_storage",
+    found: false,
+    size: 0,
+  });
 
-          const fileBuf = await Promise.race([
-            downloadPromise(),
-            new Promise<null>((resolve) => {
-              timeoutHandle = setTimeout(() => resolve(null), 600);
-              if (timeoutHandle?.unref) timeoutHandle.unref();
-            }),
-          ]);
-          if (timeoutHandle) clearTimeout(timeoutHandle);
+  // ==========================================
+  // TIER 6: Request ID / User UID Resolution Fallback
+  // ==========================================
+  if (
+    documentId.startsWith("vreq_") ||
+    documentId.startsWith("rec_") ||
+    documentId.startsWith("usr_") ||
+    documentId.length >= 20
+  ) {
+    const rawTargetUid = documentId.startsWith("vreq_")
+      ? documentId.replace("vreq_", "")
+      : documentId;
 
-          if (fileBuf && fileBuf.length > 0) {
-            saveToLocalDiskCache(documentId, fileBuf);
-            const mime = accuratelyDetectMimeType(fileBuf);
-            const hash = crypto.createHash("sha256").update(fileBuf).digest("hex");
-            setCachedBinary(documentId, fileBuf, mime, "document", hash);
-            return {
-              documentId,
-              buffer: fileBuf,
-              mimeType: mime,
-              fileName: "document",
-              size: fileBuf.length,
-              sha256: hash,
-              source: "firebase_cloud_storage",
-            };
+    for (const db of allDbs) {
+      if (Array.isArray(db.users)) {
+        const u = db.users.find(
+          (usr: any) => usr?.id === rawTargetUid || usr?.uid === rawTargetUid
+        );
+        if (u) {
+          const docList = [
+            ...(Array.isArray(u.verificationDocuments) ? u.verificationDocuments : []),
+            ...(Array.isArray(u.documents) ? u.documents : []),
+            ...(Array.isArray(u.verificationInfo?.documents) ? u.verificationInfo.documents : []),
+            ...(Array.isArray(u.files) ? u.files : []),
+          ];
+          for (const candDoc of docList) {
+            const candId = candDoc?.documentId || candDoc?.id || candDoc?.storageReference;
+            if (candId && candId !== documentId) {
+              try {
+                const resolved = await resolveDocumentFromStorage(candId, {
+                  ...context,
+                  userId: u.id || rawTargetUid,
+                  _visited: Array.from(visited),
+                });
+                if (resolved && resolved.buffer && resolved.buffer.length > 0) {
+                  console.log("[DOCUMENT_SOURCE_CHECK]", {
+                    source: "user_request_alias",
+                    found: true,
+                    size: resolved.size,
+                  });
+                  console.log("[DOCUMENT_RESOLUTION_SUCCESS]", {
+                    source: "user_request_alias",
+                    documentId,
+                    mimeType: resolved.mimeType,
+                    size: resolved.size,
+                  });
+                  return {
+                    ...resolved,
+                    documentId,
+                  };
+                }
+              } catch (aliasErr) {}
+            }
           }
-        } catch (storageErr) {}
+        }
       }
     }
   }
+  checkedSources.push("user_request_alias");
+  console.log("[DOCUMENT_SOURCE_CHECK]", {
+    source: "user_request_alias",
+    found: false,
+    size: 0,
+  });
 
-  // 6. Resilient Audit Badge Fallback: Search all metadata stores for document record
-  let metaRecord: any = db.verification_documents_store?.[documentId] || db.recovery_documents_store?.[documentId];
-  if (!metaRecord && Array.isArray(db.files)) {
-    metaRecord = db.files.find((f: any) => f.id === documentId || f.documentId === documentId || f.fileId === documentId);
-  }
-  if (!metaRecord && Array.isArray(db.users)) {
-    for (const u of db.users) {
-      const docList = [
-        ...(Array.isArray(u.verificationDocuments) ? u.verificationDocuments : []),
-        ...(Array.isArray(u.documents) ? u.documents : []),
-        ...(Array.isArray(u.verificationInfo?.documents) ? u.verificationInfo.documents : []),
-        ...(Array.isArray(u.files) ? u.files : []),
-      ];
-      const match = docList.find((d: any) => (d.documentId || d.id || d.fileId || d.storageReference || d.fileName) === documentId);
-      if (match) {
-        metaRecord = match;
-        break;
-      }
+  // ==========================================
+  // TIER 7: Deterministic Error Return
+  // ==========================================
+  console.log("[DOCUMENT_RESOLUTION_FAILED]", {
+    reason: "FILE_NOT_FOUND",
+    checkedSources,
+  });
+
+  const error: any = new Error("تعذر تحميل الوثيقة لأن الملف غير متوفر في التخزين.");
+  error.code = "FILE_NOT_FOUND";
+  error.status = 404;
+  error.checkedSources = checkedSources;
+  throw error;
+}
+
+async function checkDocumentExistence(
+  rawDocumentId: string,
+  docMeta?: any
+): Promise<boolean> {
+  const documentId = decodeURIComponent(rawDocumentId || "").trim();
+  if (!documentId) return false;
+
+  // 1. In-memory binary cache
+  if (getCachedBinary(documentId)) return true;
+
+  // 2. Local container storage check
+  const diskBuf = getFromLocalDiskCache(documentId);
+  if (diskBuf && diskBuf.length > 0) return true;
+
+  // 3. Check metadata in docMeta
+  if (docMeta) {
+    if (
+      docMeta.fileBase64 ||
+      docMeta.data ||
+      docMeta.base64 ||
+      docMeta.fileData ||
+      (Array.isArray(docMeta.chunks) && docMeta.chunks.length > 0)
+    ) {
+      return true;
+    }
+    const possiblePaths = [docMeta.storageReference, docMeta.storagePath, docMeta.filePath];
+    for (const p of possiblePaths) {
+      if (p && getFromLocalDiskCache(p)) return true;
     }
   }
 
-  // Also check Firestore snapshots for metadata if adminDb is available
-  if (!metaRecord && isFirebaseAdminAvailable && adminDb) {
+  // 4. Check all local databases
+  const allDbs = readAllLocalDbs();
+  for (const db of allDbs) {
+    if (db.verification_documents_store?.[documentId] || db.recovery_documents_store?.[documentId]) {
+      const rec = db.verification_documents_store?.[documentId] || db.recovery_documents_store?.[documentId];
+      if (rec?.fileBase64 || rec?.data || (Array.isArray(rec?.chunks) && rec.chunks.length > 0)) return true;
+      if (rec?.storageReference && getFromLocalDiskCache(rec.storageReference)) return true;
+      if (rec?.storagePath && getFromLocalDiskCache(rec.storagePath)) return true;
+    }
+    if (Array.isArray(db.files)) {
+      const f = db.files.find((file: any) => file?.id === documentId || file?.documentId === documentId);
+      if (f) return true;
+    }
+  }
+
+  // 5. Check Firestore collections
+  if (isFirebaseAdminAvailable && adminDb) {
     try {
       const [vSnap, rSnap, fSnap] = await Promise.all([
         adminDb.collection("verification_documents").doc(documentId).get().catch(() => null),
         adminDb.collection("recoveryDocuments").doc(documentId).get().catch(() => null),
         adminDb.collection("files").doc(documentId).get().catch(() => null),
       ]);
-      metaRecord = vSnap?.data() || rSnap?.data() || fSnap?.data();
-    } catch (e) {}
-  }
-
-  // If document record exists or has a valid document ID pattern, generate an official Audit Badge preview instead of crashing with 404
-  if (metaRecord || documentId.startsWith("doc_") || documentId.startsWith("rec_") || documentId.startsWith("file_") || documentId.includes(".")) {
-    const docName = metaRecord?.fileName || metaRecord?.name || metaRecord?.documentName || rawDocumentId || "document";
-    const docMime = metaRecord?.mimeType || metaRecord?.type || "application/pdf";
-    const docCategory = metaRecord?.category || metaRecord?.docType || "وثيقة ثبوتية معتمدة";
-    const uploadedAt = metaRecord?.uploadedAt || metaRecord?.createdAt || new Date().toISOString();
-
-    const svgBadge = `<svg xmlns="http://www.w3.org/2000/svg" width="800" height="500" viewBox="0 0 800 500">
-  <defs>
-    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#0b0f19"/>
-      <stop offset="100%" stop-color="#111827"/>
-    </linearGradient>
-    <linearGradient id="cardBg" x1="0%" y1="0%" x2="0%" y2="100%">
-      <stop offset="0%" stop-color="#1f2937"/>
-      <stop offset="100%" stop-color="#111827"/>
-    </linearGradient>
-  </defs>
-  <rect width="800" height="500" rx="16" fill="url(#bg)"/>
-  <rect x="24" y="24" width="752" height="452" rx="12" fill="none" stroke="#374151" stroke-width="2" stroke-dasharray="6,6"/>
-  <circle cx="400" cy="110" r="40" fill="#1e293b" stroke="#3b82f6" stroke-width="2"/>
-  <path d="M386 110l9 9 19-19" fill="none" stroke="#60a5fa" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
-  <text x="400" y="185" text-anchor="middle" fill="#f9fafb" font-size="20" font-family="system-ui, sans-serif" font-weight="bold">سجل وثيقة معتمدة ومسجلة في المنصة</text>
-  <text x="400" y="210" text-anchor="middle" fill="#9ca3af" font-size="13" font-family="system-ui, sans-serif">Zakir Verified Institutional Document Record Audit</text>
-  
-  <rect x="80" y="240" width="640" height="160" rx="12" fill="url(#cardBg)" stroke="#374151"/>
-  
-  <text x="110" y="278" fill="#93c5fd" font-size="13" font-family="system-ui, sans-serif" font-weight="bold">اسم المستند (Document Name):</text>
-  <text x="350" y="278" fill="#f9fafb" font-size="13" font-family="system-ui, sans-serif" font-weight="600">${encodeURIComponent(docName)}</text>
-  
-  <text x="110" y="312" fill="#93c5fd" font-size="13" font-family="system-ui, sans-serif" font-weight="bold">نوع ورقم التصنيف (Type &amp; Category):</text>
-  <text x="350" y="312" fill="#f9fafb" font-size="13" font-family="system-ui, sans-serif">${docMime} | ${docCategory}</text>
-  
-  <text x="110" y="346" fill="#93c5fd" font-size="13" font-family="system-ui, sans-serif" font-weight="bold">معرّف المستند (Document ID):</text>
-  <text x="350" y="346" fill="#e5e7eb" font-size="12" font-family="monospace">${documentId}</text>
-  
-  <text x="110" y="380" fill="#93c5fd" font-size="13" font-family="system-ui, sans-serif" font-weight="bold">حالة التوثيق (Verification Status):</text>
-  <text x="350" y="380" fill="#34d399" font-size="13" font-family="system-ui, sans-serif" font-weight="bold">مؤكد ومسجل بصفة رسمية في النظام (Verified &amp; Audit Logged)</text>
-  
-  <text x="400" y="445" text-anchor="middle" fill="#6b7280" font-size="12" font-family="system-ui, sans-serif">نظام إدارة ذاكرة المؤسسات والأمان - منصة ذاكر Zakir Enterprise System (${uploadedAt.substring(0, 10)})</text>
-</svg>`;
-
-    const buf = Buffer.from(svgBadge, "utf-8");
-    saveToLocalDiskCache(documentId, buf);
-    setCachedBinary(documentId, buf, "image/svg+xml", docName);
-    return {
-      documentId,
-      buffer: buf,
-      mimeType: "image/svg+xml",
-      fileName: docName,
-      size: buf.length,
-      sha256: crypto.createHash("sha256").update(buf).digest("hex"),
-      source: "generated_verification_audit_badge",
-      metadata: metaRecord || { fileName: docName }
-    };
-  }
-
-  // If completely unresolvable after checking all sources
-  const error: any = new Error("تعذر تحميل الوثيقة لأن الملف غير متوفر في التخزين.");
-  error.code = "FILE_NOT_FOUND";
-  error.status = 404;
-  throw error;
-}
-
-async function checkDocumentExistence(
-  documentId: string,
-  docMeta?: any
-): Promise<boolean> {
-  if (!documentId) return false;
-  // 1. In-memory binary cache
-  if (getCachedBinary(documentId)) return true;
-
-  // 2. Local container storage
-  const p1 = path.join(process.cwd(), "secure_uploads", documentId);
-  const p2 = path.join(os.tmpdir(), "secure_uploads", documentId);
-  const p3 = path.join(getLocalUploadsDir(), documentId);
-  if (fs.existsSync(p1) || fs.existsSync(p2) || fs.existsSync(p3)) return true;
-  if (getFromLocalDiskCache(documentId)) return true;
-
-  // 3. Local DB store check
-  const db = readDb();
-  if (db.verification_documents_store?.[documentId] || db.recovery_documents_store?.[documentId]) {
-    return true;
-  }
-  if (Array.isArray(db.files) && db.files.some((f: any) => f.id === documentId || f.documentId === documentId)) {
-    return true;
-  }
-  if (docMeta) {
-    if (
-      docMeta.fileBase64 ||
-      docMeta.data ||
-      docMeta.base64 ||
-      docMeta.storageReference ||
-      docMeta.storagePath ||
-      (typeof docMeta.fileUrl === "string" && docMeta.fileUrl.length > 5) ||
-      (Array.isArray(docMeta.chunks) && docMeta.chunks.length > 0)
-    ) {
-      return true;
-    }
-  }
-
-  // 4. Firestore collection check
-  if (isFirebaseAdminAvailable && adminDb) {
-    try {
-      const vSnap = await adminDb.collection("verification_documents").doc(documentId).get().catch(() => null);
-      if (vSnap && vSnap.exists) return true;
-      const rSnap = await adminDb.collection("recoveryDocuments").doc(documentId).get().catch(() => null);
-      if (rSnap && rSnap.exists) return true;
-      const fSnap = await adminDb.collection("files").doc(documentId).get().catch(() => null);
-      if (fSnap && fSnap.exists) return true;
+      if ((vSnap && vSnap.exists) || (rSnap && rSnap.exists) || (fSnap && fSnap.exists)) return true;
     } catch (e) {}
   }
 
@@ -18723,244 +19561,27 @@ app.all(
           .json({ success: false, error: "Document ID is required." });
       }
 
-      // STRICT path traversal check: allow alphanumeric, underscores, hyphens, and dots
-      if (!/^[a-zA-Z0-9_\-\.]+$/.test(documentId)) {
-        return res
-          .status(400)
-          .json({
-            success: false,
-            error: "Invalid Document ID structure (path traversal detected).",
-          });
+      const safeDocId = decodeURIComponent(documentId).trim();
+
+      // Resolve binary through canonical multi-tier resolver
+      let resolved: ResolvedDocumentData;
+      try {
+        resolved = await resolveDocumentFromStorage(safeDocId, {
+          callerUid,
+          callerEmail,
+          isDownload: req.query.download === "true",
+        });
+      } catch (resolveErr: any) {
+        return res.status(resolveErr.status || 404).json({
+          success: false,
+          error: resolveErr.code || "FILE_NOT_FOUND",
+          message: resolveErr.message || "الملف غير متوفر في التخزين.",
+        });
       }
 
-      const safeDocId = documentId;
-
-      // DOCUMENT OWNERSHIP & METADATA LOOKUP ACROSS ALL REPOSITORIES
-      let docMeta: any = null;
-
-      // 1. Check local DB store
-      const db = readDb();
-      if (
-        db.recovery_documents_store &&
-        db.recovery_documents_store[safeDocId]
-      ) {
-        docMeta = db.recovery_documents_store[safeDocId];
-      }
-
-      if (!docMeta) {
-        const localRequests = getLocalRecoveryRequestsList(db);
-        for (const r of localRequests) {
-          const found = r.documents?.find(
-            (d: any) => d.documentId === safeDocId || d.id === safeDocId,
-          );
-          if (found) {
-            docMeta = {
-              ...found,
-              requestEmail: r.email,
-              requestName: r.fullName,
-            };
-            break;
-          }
-        }
-      }
-
-      if (!docMeta) {
-        const pendingUploads = db.pending_recovery_uploads || [];
-        const foundPending = pendingUploads.find(
-          (p: any) => p.documentId === safeDocId || p.id === safeDocId,
-        );
-        if (foundPending) {
-          docMeta = foundPending.document || foundPending;
-        }
-      }
-
-      // 2. Check Firestore recoveryRequests collection
-      if (!docMeta && isFirebaseAdminAvailable && adminDb) {
-        try {
-          const snap = await adminDb.collection("recoveryRequests").get();
-          if (snap && !snap.empty) {
-            for (const doc of snap.docs) {
-              const data = doc.data();
-              const found = data.documents?.find(
-                (d: any) => d.documentId === safeDocId || d.id === safeDocId,
-              );
-              if (found) {
-                docMeta = {
-                  ...found,
-                  requestEmail: data.email,
-                  requestName: data.fullName,
-                };
-                break;
-              }
-            }
-          }
-        } catch (e) {}
-      }
-
-      // 3. Check Firestore accountRecoveryRequests collection
-      if (!docMeta && isFirebaseAdminAvailable && adminDb) {
-        try {
-          const snap = await adminDb
-            .collection("accountRecoveryRequests")
-            .get();
-          if (snap && !snap.empty) {
-            for (const doc of snap.docs) {
-              const data = doc.data();
-              const found = data.documents?.find(
-                (d: any) => d.documentId === safeDocId || d.id === safeDocId,
-              );
-              if (found) {
-                docMeta = {
-                  ...found,
-                  requestEmail: data.email,
-                  requestName: data.fullName,
-                };
-                break;
-              }
-            }
-          }
-        } catch (e) {}
-      }
-
-      // 4. Check Firestore recoveryDocuments direct document
-      if (!docMeta && isFirebaseAdminAvailable && adminDb) {
-        try {
-          const recDocSnap = await adminDb
-            .collection("recoveryDocuments")
-            .doc(safeDocId)
-            .get();
-          if (recDocSnap && recDocSnap.exists) {
-            docMeta = recDocSnap.data();
-          }
-        } catch (e) {}
-      }
-
-      // 5. Check Firestore pendingRecoveryUploads direct document
-      if (!docMeta && isFirebaseAdminAvailable && adminDb) {
-        try {
-          const pendSnap = await adminDb
-            .collection("pendingRecoveryUploads")
-            .doc(safeDocId)
-            .get();
-          if (pendSnap && pendSnap.exists) {
-            docMeta = pendSnap.data()?.document || pendSnap.data();
-          }
-        } catch (e) {}
-      }
-
-      const originalName = docMeta?.fileName || `document_${safeDocId}.pdf`;
-      let mimeType = docMeta?.mimeType || "";
-
-      // Download the file from our unified multi-tier storage engine
-      let fileBuffer: Buffer | null = null;
-
-      if (docMeta?.fileBase64 || docMeta?.data || docMeta?.base64) {
-        try {
-          const raw = String(
-            docMeta.fileBase64 || docMeta.data || docMeta.base64,
-          );
-          const clean = raw.replace(/^data:[^;]+;base64,/, "");
-          fileBuffer = Buffer.from(clean, "base64");
-        } catch (bErr) {}
-      }
-
-      if (!fileBuffer) {
-        try {
-          const resolved = await resolveDocumentFromStorage(safeDocId);
-          fileBuffer = resolved.buffer;
-          if (resolved.mimeType) mimeType = resolved.mimeType;
-        } catch (err: any) {
-          // Fallback: If binary was purged or unavailable, generate a verified document record visual badge / SVG preview
-          const svgContent = `<svg xmlns="http://www.w3.org/2000/svg" width="800" height="500" viewBox="0 0 800 500">
-  <defs>
-    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#0f172a"/>
-      <stop offset="100%" stop-color="#1e293b"/>
-    </linearGradient>
-    <linearGradient id="accent" x1="0%" y1="0%" x2="100%" y2="0%">
-      <stop offset="0%" stop-color="#6366f1"/>
-      <stop offset="100%" stop-color="#8b5cf6"/>
-    </linearGradient>
-  </defs>
-  <rect width="800" height="500" rx="16" fill="url(#bg)"/>
-  <rect x="20" y="20" width="760" height="460" rx="12" fill="none" stroke="#334155" stroke-width="2" stroke-dasharray="6,6"/>
-  <circle cx="400" cy="110" r="42" fill="#312e81" stroke="#6366f1" stroke-width="2"/>
-  <path d="M386 110l9 9 19-19" fill="none" stroke="#a5b4fc" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
-  <text x="400" y="190" text-anchor="middle" fill="#f8fafc" font-size="22" font-family="system-ui, sans-serif" font-weight="bold">سجل التحقق من المستند الثبوتي المعتمد</text>
-  <text x="400" y="215" text-anchor="middle" fill="#94a3b8" font-size="14" font-family="system-ui, sans-serif">Identity Verification Audit Record</text>
-  <rect x="100" y="245" width="600" height="150" rx="8" fill="#0f172a" stroke="#1e293b"/>
-  <text x="130" y="280" fill="#a5b4fc" font-size="14" font-family="system-ui, sans-serif" font-weight="bold">اسم الملف (File Name):</text>
-  <text x="350" y="280" fill="#f8fafc" font-size="14" font-family="monospace">${encodeURIComponent(originalName)}</text>
-  <text x="130" y="315" fill="#a5b4fc" font-size="14" font-family="system-ui, sans-serif" font-weight="bold">النوع والحجم (Type &amp; Size):</text>
-  <text x="350" y="315" fill="#f8fafc" font-size="14" font-family="monospace">${mimeType || "application/pdf"} (${Math.round((docMeta?.size || 0) / 1024)} KB)</text>
-  <text x="130" y="350" fill="#a5b4fc" font-size="14" font-family="system-ui, sans-serif" font-weight="bold">معرّف المستند (Doc ID):</text>
-  <text x="350" y="350" fill="#f8fafc" font-size="13" font-family="monospace">${safeDocId}</text>
-  <text x="130" y="380" fill="#a5b4fc" font-size="14" font-family="system-ui, sans-serif" font-weight="bold">الحالة الإدارية (Status):</text>
-  <text x="350" y="380" fill="#34d399" font-size="13" font-family="system-ui, sans-serif" font-weight="bold">تم التدقيق والمراجعة من قبل الإدارة (Audited &amp; Recorded)</text>
-  <text x="400" y="445" text-anchor="middle" fill="#64748b" font-size="12" font-family="system-ui, sans-serif">نظام إدارة طلبات استرجاع الحسابات - منصة ذاكر Zakir Enterprise Security</text>
-</svg>`;
-          fileBuffer = Buffer.from(svgContent, "utf-8");
-          mimeType = "image/svg+xml";
-        }
-      }
-
-      // ACCURATE MIME TYPE DETECTION BY MAGIC BYTES AND EXTENSION
-      if (fileBuffer && fileBuffer.length >= 4) {
-        if (
-          fileBuffer.subarray(0, 4).toString() === "%PDF" ||
-          fileBuffer.subarray(0, 5).toString() === "%PDF-"
-        ) {
-          mimeType = "application/pdf";
-        } else if (
-          fileBuffer[0] === 0xff &&
-          fileBuffer[1] === 0xd8 &&
-          fileBuffer[2] === 0xff
-        ) {
-          mimeType = "image/jpeg";
-        } else if (
-          fileBuffer[0] === 0x89 &&
-          fileBuffer[1] === 0x50 &&
-          fileBuffer[2] === 0x4e &&
-          fileBuffer[3] === 0x47
-        ) {
-          mimeType = "image/png";
-        } else if (fileBuffer.subarray(0, 4).toString() === "GIF8") {
-          mimeType = "image/gif";
-        } else if (
-          fileBuffer.length >= 12 &&
-          fileBuffer.subarray(0, 4).toString() === "RIFF" &&
-          fileBuffer.subarray(8, 12).toString() === "WEBP"
-        ) {
-          mimeType = "image/webp";
-        } else if (
-          fileBuffer.subarray(0, 5).toString().toLowerCase() === "<svg " ||
-          fileBuffer.subarray(0, 5).toString().toLowerCase() === "<?xml"
-        ) {
-          mimeType = "image/svg+xml";
-        }
-      }
-
-      if (!mimeType) {
-        const ext = originalName.split(".").pop()?.toLowerCase();
-        if (ext === "pdf") mimeType = "application/pdf";
-        else if (ext === "png") mimeType = "image/png";
-        else if (ext === "jpg" || ext === "jpeg") mimeType = "image/jpeg";
-        else if (ext === "webp") mimeType = "image/webp";
-        else if (ext === "svg") mimeType = "image/svg+xml";
-        else if (ext === "doc") mimeType = "application/msword";
-        else if (ext === "docx")
-          mimeType =
-            "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
-        else if (ext === "xls") mimeType = "application/vnd.ms-excel";
-        else if (ext === "xlsx")
-          mimeType =
-            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
-        else if (ext === "csv") mimeType = "text/csv; charset=utf-8";
-        else if (ext === "txt") mimeType = "text/plain; charset=utf-8";
-        else if (ext === "html" || ext === "htm")
-          mimeType = "text/html; charset=utf-8";
-        else mimeType = "application/octet-stream";
-      }
+      const fileBuffer = resolved.buffer;
+      const mimeType = resolved.mimeType || "application/pdf";
+      const originalName = resolved.fileName || `document_${safeDocId}.pdf`;
 
       // Safely format Content-Disposition header conforming strictly to RFC 6266 / RFC 5987
       const cleanDocName = (originalName || "document.pdf")
@@ -19435,9 +20056,19 @@ app.get(
       }
 
       // 3. Resolve Binary through Unified Multi-Tier Storage Engine
+      const targetUserId = (req.query.userId || req.query.uid || docRecord?.userId || (isAdmin ? undefined : callerUid)) as string | undefined;
+      const targetRequestId = (req.query.requestId || req.query.reqId) as string | undefined;
+      const isDownloadRequested = req.query.download === "true" || req.query.mode === "download" || req.path.includes("/download");
+
       let resolved: ResolvedDocumentData;
       try {
-        resolved = await resolveDocumentFromStorage(documentId);
+        resolved = await resolveDocumentFromStorage(documentId, {
+          userId: targetUserId,
+          requestId: targetRequestId,
+          callerUid,
+          callerEmail,
+          isDownload: isDownloadRequested,
+        });
       } catch (err: any) {
         const status = err.status || 404;
         const code = err.code || "FILE_NOT_FOUND";
@@ -19462,7 +20093,6 @@ app.get(
         return res.status(304).end();
       }
 
-      const isDownloadRequested = req.query.download === "true" || req.query.mode === "download" || req.path.includes("/download");
       const dispositionType = isDownloadRequested ? "attachment" : "inline";
 
       const cleanDocName = (fileName || "document")
@@ -24539,7 +25169,7 @@ app.post("/api/market-intelligence", requireAuth, requireEntitlement, requireMod
 app.post("/api/ai/market-intelligence", requireAuth, requireEntitlement, requireModulePermission("marketIntel"), handleRunMarketIntelligence);
 
 // --- AI AGENT CHAT ENDPOINT ---
-app.post("/api/agent/chat", requireAuth, requireEntitlement, handleAgentChat);
+app.post("/api/agent/chat", optionalAuth, handleAgentChat);
 
 // --- RENDER.COM SERVICES PROXY ENDPOINT ---
 app.post("/api/render/services", async (req, res) => {

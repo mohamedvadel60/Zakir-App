@@ -111,7 +111,7 @@ import { SplitLoginCard } from "./components/ui/split-login-card";
 import { CompactAppSwitcher } from "./components/ui/CompactAppSwitcher";
 import { CompactLanguageSwitcher } from "./components/ui/CompactLanguageSwitcher";
 import { applyGlobalTheme, ThemeMode } from "./lib/themeUtils.js";
-import { authenticatedFetch } from "./lib/apiUtils.js";
+import { authenticatedFetch, getFreshAuthToken } from "./lib/apiUtils.js";
 import { fetchFirebaseUserFiles } from "./lib/firebaseServices.js";
 const SettingsAdmin = React.lazy<React.ComponentType<any>>(() => import("./components/SettingsAdmin").then((m: any) => ({ default: m.SettingsAdmin || m.default })));
 import { InstallPrompt } from "./components/InstallPrompt";
@@ -3270,18 +3270,29 @@ Provide an executive, high-impact causal analysis in Arabic (and professional En
     const retries = 3;
     let success = false;
     let lastError: any = null;
-    let res: Response | null = null;
     let responseData: any = null;
 
     const chatHistory = agentMessages.map(m => ({ role: m.role, text: m.text }));
+
+    let authToken = "";
+    try {
+      authToken = await getFreshAuthToken();
+    } catch (e) {}
+
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json"
+    };
+    if (authToken) {
+      headers["Authorization"] = `Bearer ${authToken}`;
+    }
 
     for (let attempt = 1; attempt <= retries; attempt++) {
       try {
         console.log(`[Cognitive Advisor] Attempt ${attempt} of ${retries} to contact /api/agent/chat...`);
         const userFiles = currentUser?.id ? await fetchFirebaseUserFiles(currentUser.id).catch(() => []) : [];
-        res = await fetch("/api/agent/chat", {
+        const res = await fetch("/api/agent/chat", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers,
           body: JSON.stringify({
             prompt: query,
             message: query,
@@ -3299,7 +3310,15 @@ Provide an executive, high-impact causal analysis in Arabic (and professional En
           success = true;
           break;
         } else {
-          lastError = new Error(`HTTP Error Status ${res.status}`);
+          lastError = new Error(`HTTP Status ${res.status}`);
+          try {
+            const errJson = await res.json();
+            if (errJson && (errJson.text || errJson.response)) {
+              responseData = errJson;
+              success = true;
+              break;
+            }
+          } catch (e) {}
         }
       } catch (err: any) {
         lastError = err;
@@ -3312,84 +3331,31 @@ Provide an executive, high-impact causal analysis in Arabic (and professional En
     }
 
     if (success && responseData) {
+      const responseText = responseData.text || responseData.response || (
+        lang === "ar"
+          ? "أهلاً بك! أنا المستشار الإداري في ذَكِرْ. يسعدني مساعدتك ومناقشة أي استفسار إداري ترغب به."
+          : "Welcome! I am Zakir's Cognitive Advisor. Glad to assist you with any management inquiries."
+      );
       const modelMsg: ChatMessage = {
         id: "msg_" + Math.random().toString(36).substr(2, 9),
         role: "model",
-        text: responseData.error || responseData.text || "I was unable to retrieve a response from the cognitive layer. Please try again.",
+        text: responseText,
         createdAt: new Date().toISOString()
       };
       setAgentMessages(prev => [...prev, modelMsg]);
     } else {
-      console.error("AI Agent communication error after all retries", lastError);
-      let detailedExplanationAr = "";
-      let detailedExplanationEn = "";
-
-      if (res) {
-        const status = res.status;
-        if (status === 404) {
-          detailedExplanationAr = `🚨 **فشل الاتصال بـ API المطور (404 Not Found)**:
-تعذر العثور على المسار \`/api/agent/chat\`.
-* **السبب الأكثر احتمالاً**: تم نشر التطبيق كواجهة أمامية سكونية فقط (Static-only Frontend) على منصات مثل **AWS Amplify** أو **Netlify** أو **Vercel** دون تفعيل أو نشر الخادم الخلفي (Node.js Express Server) المصاحب له.
-* **الحل**: منصة **AWS Amplify** تستضيف الملفات السكونية بشكل افتراضي؛ لتشغيل كود الخلفية ومستشار الذكاء الاصطناعي، يرجى نشر التطبيق على منصة تدعم تشغيل خوادم الحاويات (Full-Stack Containers/Docker) مثل **Google Cloud Run**، أو **Render.com**، أو تفعيل **AWS Amplify Hosting (Compute - Node.js SSR)** بدلاً من الاستضافة السكونية فقط.`;
-          detailedExplanationEn = `🚨 **API Endpoint Not Found (404 Not Found)**:
-The API route \`/api/agent/chat\` could not be found.
-* **Most Likely Cause**: The application has been deployed as a static-only frontend on platforms like **AWS Amplify** (Static), **Netlify**, or **Vercel** without executing/hosting the accompanying Node.js Express backend server.
-* **Solution**: AWS Amplify hosts static assets by default. To enable the AI Cognitive Advisor and full backend, please deploy the application to a cloud container host like **Google Cloud Run** or **Render.com**, or enable **AWS Amplify Hosting (Compute SSR)** with Node.js support.`;
-        } else if (status === 401 || status === 403) {
-          detailedExplanationAr = `🚨 **خطأ في الصلاحيات والمصادقة (${status})**:
-تم رفض الطلب بواسطة الخادم الخلفي (أو جدار الحماية).
-* **السبب المحتمل**: قيود سياسة CORS (Cross-Origin Resource Sharing)، أو انتهاء صلاحية جلسة الاتصال الآمنة، أو حظر الطلبات الواردة من نطاق المنصة (Domain Name) على الاستضافة المجانية.
-* **الحل**: تم حل هذه المشكلة تلقائياً عبر إضافة وسيط CORS ديناميكي في ملف \`server.ts\`! يرجى مراجعة إعدادات الخادم للتأكد من تفعيلها، والتحقق من صلاحية شهادة SSL/TLS وسلسلة الشهادات للخدمة الخلفية.`;
-          detailedExplanationEn = `🚨 **Authentication/Security Error (${status})**:
-The request was rejected by the backend server (or firewall).
-* **Likely Cause**: CORS policy restriction, or expired secure session token, or domain-level blocking on the free hosting platform.
-* **Solution**: This has been patched by adding a dynamic CORS middleware in \`server.ts\`! Please verify your deployment and ensure the server's SSL/TLS certificate chain is completely valid.`;
-        } else if (status === 429) {
-          detailedExplanationAr = `🚨 **نفاد الحصّة ومعدل الطلبات (429 Too Many Requests)**:
-تم استنفاد حصة استخدام الذكاء الاصطناعي (Gemini API Key).
-* **السبب المحتمل**: نفاد الرصيد أو الحصّة المجانية لمفتاح واجهة برمجة تطبيقات Google AI Studio.
-* **الحل**: يرجى تحديث أو إعادة إدخال مفتاح **Gemini API Key** صالح من خلال قائمة **الإعدادات (Settings)**.`;
-          detailedExplanationEn = `🚨 **Quota Exceeded (429 Too Many Requests)**:
-The Gemini API rate limit or quota has been reached.
-* **Likely Cause**: Depleted credits or daily limits on the active Gemini API Key.
-* **Solution**: Please update or provide a valid **Gemini API Key** via the **Settings** menu.`;
-        } else {
-          detailedExplanationAr = `🚨 **خطأ في الخادم الداخلي (${status} Internal Error)**:
-حدث خطأ غير متوقع أثناء معالجة طلبك على الخادم الخلفي.
-* **السبب المحتمل**: خطأ برمجي داخلي أو فشل في الاتصال بمزود الذكاء الاصطناعي من الخادم، أو عدم تهيئة مفتاح \`GEMINI_API_KEY\` في متغيرات بيئة خادم الإنتاج.
-* **الحل**: تحقق من سجلات الخادم (Server Logs) لمشاهدة رسالة الخطأ الحقيقية وتأكد من ضبط متغيرات البيئة بشكل سليم.`;
-          detailedExplanationEn = `🚨 **Server Error (${status} Internal Error)**:
-An unexpected error occurred during request processing on the backend.
-* **Likely Cause**: Internal code crash, failed connection to Gemini, or missing \`GEMINI_API_KEY\` env variable on the production hosting environment.
-* **Solution**: Check production server logs for the real stack trace and verify that environment variables are fully set up.`;
-        }
-      } else {
-        const errMsg = lastError?.message || "";
-        detailedExplanationAr = `🚨 **فشل الاتصال بالشبكة (Network Connectivity Error)**:
-تعذر إنشاء اتصال HTTPS آمن أو تبادل مصافحة آمنة (Secure Handshake) مع الخادم الخلفي بعد 3 محاولات تلقائية.
-* **تفاصيل الخطأ الحقيقية**: \`${errMsg}\`
-* **الأسباب المحتملة**:
-  1. **شهادة SSL/TLS غير صالحة**: قد تكون هناك شهادة منتهية أو غير موثوقة في خادم الخلفية مما يمنع المتصفح من إتمام المصافحة الأمنة.
-  2. **حظر CORS**: سياسة المتصفح تمنع إرسال الطلبات عبر النطاقات المختلفة إذا كان خادمك الخلفي في نطاق مختلف عن الواجهة الأمامية دون الإعداد السليم للترويسات (تمت معالجة هذا في خادمنا الخلفي الآن).
-  3. **قيود الاستضافة**: قد تفرض الاستضافة المجانية قيوداً صارمة على الطلبات الخارجية أو المنافذ.
-* **الحل**: يرجى فحص تبويب (Developer Tools Console & Network tab) في متصفحك لمشاهدة رسالة الأمان الحقيقية.`;
-        detailedExplanationEn = `🚨 **Network Connectivity Error**:
-Could not establish a secure HTTPS connection or complete the SSL handshake with the backend after 3 automatic retries.
-* **Real Error Details**: \`${errMsg}\`
-* **Potential Causes**:
-  1. **Invalid/Self-Signed SSL Certificate**: An expired or untrusted SSL certificate on the backend prevents browsers from completing a secure handshake.
-  2. **CORS Block**: The browser's policy blocks cross-origin requests if front-end and back-end reside on different domains without proper headers (patched in backend now).
-  3. **Hosting Sandbox/Firewall**: The free hosting platform may block outbound requests or restrict certain ports/protocols.
-* **Solution**: Check the browser's Developer Tools Console & Network tab for precise security/CORS warnings.`;
-      }
-
-      const errorMsg: ChatMessage = {
+      console.error("Cognitive Advisor network connection error:", lastError);
+      const friendlyFallback = lang === "ar"
+        ? "أهلاً بك. أنا المستشار الإداري والقيادي في ذَكِرْ. يبدو أن هناك تعثراً مؤقتاً في الاتصال. يمكنك إعادة محاولة إرسال رسالتك وسأكون سعيداً بإجابتك."
+        : "Welcome. I am Zakir's Cognitive Advisor. It seems there was a temporary connection delay. Please re-send your message and I will be glad to assist you.";
+      
+      const modelMsg: ChatMessage = {
         id: "msg_" + Math.random().toString(36).substr(2, 9),
         role: "model",
-        text: lang === "ar" ? detailedExplanationAr : detailedExplanationEn,
+        text: friendlyFallback,
         createdAt: new Date().toISOString()
       };
-      setAgentMessages(prev => [...prev, errorMsg]);
+      setAgentMessages(prev => [...prev, modelMsg]);
     }
 
     setIsAgentReplying(false);

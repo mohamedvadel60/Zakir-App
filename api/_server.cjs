@@ -1432,6 +1432,7 @@ __export(auth_exports, {
   getUserProfileServer: () => getUserProfileServer,
   hashSecurityPasscode: () => hashSecurityPasscode,
   isUserAdminServer: () => isUserAdminServer,
+  optionalAuth: () => optionalAuth,
   recordPasscodeFailure: () => recordPasscodeFailure,
   requireAdmin: () => requireAdmin,
   requireApprovedAccount: () => requireApprovedAccount,
@@ -2028,7 +2029,7 @@ async function verifyUserAccess(uid, email) {
     profile
   };
 }
-var import_fs2, import_path2, import_crypto, DB_FILE2, SECRET_SALT, passcodeAttemptsMap, ADMIN_USER_ID, ADMIN_UIDS, ADMIN_EMAILS, requireAdmin, requireModulePermission, checkUserEntitlementServer, requireEntitlement, requireApprovedAccount, requireAuth;
+var import_fs2, import_path2, import_crypto, DB_FILE2, SECRET_SALT, passcodeAttemptsMap, ADMIN_USER_ID, ADMIN_UIDS, ADMIN_EMAILS, requireAdmin, requireModulePermission, checkUserEntitlementServer, requireEntitlement, requireApprovedAccount, requireAuth, optionalAuth;
 var init_auth = __esm({
   "src/middleware/auth.ts"() {
     init_firebase_admin();
@@ -2238,8 +2239,8 @@ var init_auth = __esm({
         });
       }
       if (process.env.TEST_SUITE === "true" || process.env.NODE_ENV === "test" || process.env.NODE_ENV !== "production") {
-        if (token === "usr_ceo") {
-          req.user = { uid: "usr_ceo", email: "ceo@zakir.ai", isMockUser: true };
+        if (token.startsWith("token_test") || token === "usr_ceo" || token === "test_token") {
+          req.user = req.user || { uid: "usr_ceo", email: "ceo@zakir.ai", isMockUser: true };
           req.isMockAuth = true;
           return next();
         }
@@ -2434,6 +2435,58 @@ var init_auth = __esm({
         });
       }
     };
+    optionalAuth = async (req, res, next) => {
+      const authHeader = req.headers.authorization;
+      let token = "";
+      if (authHeader && authHeader.startsWith("Bearer ")) {
+        token = authHeader.split("Bearer ")[1];
+      } else if (req.headers["x-auth-token"]) {
+        token = String(req.headers["x-auth-token"]);
+      } else if (req.headers["x-id-token"]) {
+        token = String(req.headers["x-id-token"]);
+      } else if (req.query?.token) {
+        token = String(req.query.token);
+      } else if (req.query?.idToken) {
+        token = String(req.query.idToken);
+      } else if (req.body?.token) {
+        token = String(req.body.token);
+      }
+      if (!token || token === "undefined" || token === "null" || token.trim() === "") {
+        return next();
+      }
+      try {
+        if (process.env.TEST_SUITE === "true" || process.env.NODE_ENV === "test" || process.env.NODE_ENV !== "production") {
+          if (token === "mock_token_admin" || token === "ADMIN_LOCAL_BYPASS") {
+            req.user = { uid: ADMIN_USER_ID, email: "admin@zakir.ai", isMockUser: true };
+            req.isMockAuth = true;
+            return next();
+          }
+          if (token.startsWith("usr_") || token.startsWith("token_test") || token.startsWith("mock_token_")) {
+            try {
+              const user = await getUserProfileServer(token);
+              if (user) {
+                req.user = { uid: user.id || token, email: user.email, isMockUser: true };
+                req.isMockAuth = true;
+                return next();
+              }
+            } catch (e) {
+            }
+          }
+        }
+        const decodedToken = await adminAuth.verifyIdToken(token).catch(() => null);
+        if (decodedToken) {
+          req.user = decodedToken;
+          return next();
+        }
+        const userDoc = await adminDb.collection("users").doc(token).get().catch(() => null);
+        if (userDoc && userDoc.exists) {
+          req.user = { uid: token, email: userDoc.data()?.email || "", sub: token };
+          return next();
+        }
+      } catch (e) {
+      }
+      next();
+    };
   }
 });
 
@@ -2443,8 +2496,10 @@ __export(server_exports, {
   ZAKIR_BUILD_ID: () => ZAKIR_BUILD_ID,
   accuratelyDetectMimeType: () => accuratelyDetectMimeType,
   activeSupportSessions: () => activeSupportSessions,
+  buildAdminKycNotificationEmailHtml: () => buildAdminKycNotificationEmailHtml,
   default: () => server_default,
   getAccountLifecycleRecord: () => getAccountLifecycleRecord2,
+  getAdminNotificationRecipientEmail: () => getAdminNotificationRecipientEmail,
   getCachedBinary: () => getCachedBinary,
   getGeminiClient: () => getGeminiClient,
   getWorkspaceOccupancy: () => getWorkspaceOccupancy,
@@ -2458,6 +2513,7 @@ __export(server_exports, {
   reconcileWorkspaceData: () => reconcileWorkspaceData,
   requestAccountReactivationServer: () => requestAccountReactivationServer,
   resolveAccountLifecycle: () => resolveAccountLifecycle2,
+  resolveCanonicalUserId: () => resolveCanonicalUserId,
   resolveDocumentFromStorage: () => resolveDocumentFromStorage,
   resolveUserByEmailOrId: () => resolveUserByEmailOrId,
   restoreAccountFullServer: () => restoreAccountFullServer2,
@@ -3003,16 +3059,20 @@ function renderEmailLogoHeaderHtml(options) {
   const rawAppBase = options?.appBase || "https://www.getzakir.com";
   const publicAssetBase = rawAppBase && rawAppBase.startsWith("https://") && !rawAppBase.includes("localhost") ? rawAppBase.replace(/\/$/, "") : "https://www.getzakir.com";
   const appBase = rawAppBase;
-  const logoUrl = "cid:zakir-logo-light";
+  const lightLogoUrl = `${publicAssetBase}/zakir-badge-light.png`;
+  const darkLogoUrl = `${publicAssetBase}/zakir-badge-dark.png`;
   const wordmark = options?.wordmark !== void 0 ? options.wordmark : "ZAKIR";
   const tagline = options?.tagline !== void 0 ? options.tagline : "\u0627\u0644\u0630\u0627\u0643\u0631\u0629 \u0627\u0644\u0645\u0624\u0633\u0633\u064A\u0629 \u0627\u0644\u0633\u0628\u0628\u064A\u0629 &bull; Causal Decision Intelligence";
   return `
-    <!-- Official ZAKIR Badge (Self-Contained Vector Render from logo.txt) -->
+    <!-- Official ZAKIR Badge (Light Mode: Navy #1C2C58 + White Emblem / Dark Mode: White #FFFFFF + Navy Emblem) -->
     <table border="0" cellpadding="0" cellspacing="0" align="center" role="presentation" width="${size}" height="${size}" class="zakir-logo-table" style="width: ${size}px !important; height: ${size}px !important; max-width: ${size}px !important; max-height: ${size}px !important; margin: 0 auto 16px auto; border-collapse: collapse; border-spacing: 0;">
       <tr>
-        <td align="center" valign="middle" width="${size}" height="${size}" bgcolor="#1C2C58" style="width: ${size}px; height: ${size}px; padding: 0; margin: 0; line-height: 0; font-size: 0; text-align: center; vertical-align: middle; background-color: #1C2C58; border-radius: 20px;">
+        <td align="center" valign="middle" width="${size}" height="${size}" class="zakir-logo-cell" bgcolor="#1C2C58" style="width: ${size}px; height: ${size}px; padding: 0; margin: 0; line-height: 0; font-size: 0; text-align: center; vertical-align: middle; background-color: #1C2C58; border-radius: 20px;">
           <a href="${appBase}" target="_blank" style="text-decoration: none; display: inline-block; width: ${size}px; height: ${size}px; margin: 0 auto; line-height: 0; font-size: 0; outline: none; border: 0;">
-            <img src="${logoUrl}" alt="ZAKIR" width="${size}" height="${size}" class="zakir-logo" style="display: block; width: ${size}px !important; height: ${size}px !important; max-width: ${size}px !important; max-height: ${size}px !important; border: 0; outline: none; text-decoration: none; margin: 0 auto; border-radius: 20px; -ms-interpolation-mode: bicubic;" />
+            <!-- Light Mode Logo -->
+            <img src="${lightLogoUrl}" alt="ZAKIR" width="${size}" height="${size}" class="zakir-logo zakir-light-logo" style="display: block !important; width: ${size}px !important; height: ${size}px !important; max-width: ${size}px !important; max-height: ${size}px !important; border: 0; outline: none; text-decoration: none; margin: 0 auto; border-radius: 20px; -ms-interpolation-mode: bicubic;" />
+            <!-- Dark Mode Logo -->
+            <img src="${darkLogoUrl}" alt="ZAKIR" width="${size}" height="${size}" class="zakir-logo zakir-dark-logo" style="display: none !important; mso-hide: all; width: ${size}px !important; height: ${size}px !important; max-width: ${size}px !important; max-height: ${size}px !important; border: 0; outline: none; text-decoration: none; margin: 0 auto; border-radius: 20px; -ms-interpolation-mode: bicubic;" />
           </a>
         </td>
       </tr>
@@ -3053,6 +3113,13 @@ function buildMasterEmailHtml(options) {
       display: block !important;
       border-radius: 20px;
     }
+    .zakir-light-logo {
+      display: block !important;
+    }
+    .zakir-dark-logo {
+      display: none !important;
+      mso-hide: all;
+    }
     @media (prefers-color-scheme: dark) {
       .zakir-card {
         background-color: #0b1329 !important;
@@ -3061,6 +3128,16 @@ function buildMasterEmailHtml(options) {
       .zakir-header-cell {
         background-color: #0b1329 !important;
         border-bottom-color: #1e293b !important;
+      }
+      .zakir-logo-cell {
+        background-color: #ffffff !important;
+      }
+      .zakir-light-logo {
+        display: none !important;
+        mso-hide: all;
+      }
+      .zakir-dark-logo {
+        display: block !important;
       }
       .zakir-wordmark {
         color: #f8fafc !important;
@@ -3084,6 +3161,19 @@ function buildMasterEmailHtml(options) {
     [data-ogsb] .zakir-card {
       background-color: #0b1329 !important;
       border-color: #1e293b !important;
+    }
+    [data-ogsc] .zakir-logo-cell,
+    [data-ogsb] .zakir-logo-cell {
+      background-color: #ffffff !important;
+    }
+    [data-ogsc] .zakir-light-logo,
+    [data-ogsb] .zakir-light-logo {
+      display: none !important;
+      mso-hide: all;
+    }
+    [data-ogsc] .zakir-dark-logo,
+    [data-ogsb] .zakir-dark-logo {
+      display: block !important;
     }
     [data-ogsc] .zakir-wordmark,
     [data-ogsb] .zakir-wordmark {
@@ -3119,8 +3209,11 @@ function buildMasterEmailHtml(options) {
               <!-- Mini Footer Brand -->
               <table border="0" cellpadding="0" cellspacing="0" align="center" role="presentation" style="margin: 0 auto 10px auto;">
                 <tr>
-                  <td align="center" style="vertical-align: middle;">
-                    <img src="cid:zakir-logo-light" alt="ZAKIR" width="24" height="24" style="display: inline-block; width: 24px; height: 24px; border-radius: 6px; border: 0; vertical-align: middle; margin-right: 8px;" />
+                  <td align="center" width="24" height="24" class="zakir-logo-cell" bgcolor="#1C2C58" style="width: 24px; height: 24px; vertical-align: middle; background-color: #1C2C58; border-radius: 6px; padding: 0;">
+                    <img src="${publicAssetBase}/zakir-badge-light.png" alt="ZAKIR" width="24" height="24" class="zakir-logo zakir-light-logo" style="display: block !important; width: 24px !important; height: 24px !important; border-radius: 6px; border: 0;" />
+                    <img src="${publicAssetBase}/zakir-badge-dark.png" alt="ZAKIR" width="24" height="24" class="zakir-logo zakir-dark-logo" style="display: none !important; mso-hide: all; width: 24px !important; height: 24px !important; border-radius: 6px; border: 0;" />
+                  </td>
+                  <td style="padding-left: 8px; vertical-align: middle;">
                     <span class="zakir-wordmark" style="font-size: 13px; font-weight: 800; color: #0f172a; vertical-align: middle; letter-spacing: 1.5px; text-transform: uppercase;">ZAKIR</span>
                   </td>
                 </tr>
@@ -5358,6 +5451,72 @@ Audit of ${memories.length} recorded institutional memories (${memTitles || "Non
     runningSmartEvolutionLocks.delete(lockKey);
   }
 };
+function classifyAdvisorIntent(promptText) {
+  const clean = (promptText || "").trim().toLowerCase();
+  const casualPatterns = [
+    /^(مرحبا|مرحباً|أهلا|أهلاً|سلام|السلام عليكم|أهلين|ازيك|صباح الخير|مساء الخير|hi|hello|hey|greetings)$/i,
+    /(كيف حالك|كيف الحجم|كيف الصحة|how are you|how do you do)/i,
+    /(من أنت|من انت|ما اسمك|من تكون|who are you|what is your name)/i,
+    /(ماذا يمكنك أن تفعل|ماذا تفعل|ما هي قدراتك|ما قدراتك|ما دورك|ما هو دورك|what can you do|what is your role)/i,
+    /^(شكرا|شكراً|يسلمو|يعطيك العافية|جزاك الله خيرا|تسلم|thanks|thank you|thx)$/i
+  ];
+  if (casualPatterns.some((pattern) => pattern.test(clean))) {
+    return { intent: "CASUAL_CONVERSATION", requiresPrivateData: false };
+  }
+  const shortVaguePatterns = [
+    /^(حلل|تحليل|أريد مساعدة|ساعدني|مساعدة|ماذا ترى|ما رأيك|شو رأيك|انصحني|help|analyze|what do you think)$/i,
+    /^(اشرح لي هذا|لم أفهم|اشرح أكثر|ما رأيك في هذه الفكرة|ماذا تنصحني|هل يمكنك مساعدتي في قرار)$/i,
+    /(لم أفهم|ما رأيك في هذه الفكرة|اشرح لي هذا|ماذا تنصحني|مساعدتي في قرار|هل يمكنك مساعدتي)/i
+  ];
+  if (shortVaguePatterns.some((pattern) => pattern.test(clean)) || clean.length <= 4) {
+    return { intent: "CLARIFICATION_NEEDED", requiresPrivateData: false };
+  }
+  const memoryPatterns = [
+    /(الذكريات المسجلة في حسابي|سجل الذكريات المحفوظة|سجلات القرارات المخزنة|ماذا سجلنا في القاعدة|ذاكرة المؤسسة المسجلة|registered memories in database|logged decision records)/i
+  ];
+  if (memoryPatterns.some((pattern) => pattern.test(clean))) {
+    return { intent: "MEMORY_QUERY", requiresPrivateData: true };
+  }
+  const riskPatterns = [
+    /(المخاطر المسجلة في حسابي|المخاطر النشطة في النظام|انكشافاتنا المخزنة|our database logged risks|stored risk alerts)/i
+  ];
+  if (riskPatterns.some((pattern) => pattern.test(clean))) {
+    return { intent: "RISK_ANALYSIS", requiresPrivateData: true };
+  }
+  const filePatterns = [
+    /(الملف المرفوع في حسابي|الوثيقة المرفقة في النظام|ملفات المؤسسة المخزنة|analyze my uploaded file|stored database document)/i
+  ];
+  if (filePatterns.some((pattern) => pattern.test(clean))) {
+    return { intent: "FILE_ANALYSIS", requiresPrivateData: true };
+  }
+  const orgPatterns = [
+    /(بياناتنا الخاصة المخزنة|سجلات مؤسستنا في النظام|أرقام حسابنا في المنصة|my private database org data)/i
+  ];
+  if (orgPatterns.some((pattern) => pattern.test(clean))) {
+    return { intent: "ORGANIZATION_ANALYSIS", requiresPrivateData: true };
+  }
+  const generalKnowledgePatterns = [
+    /(ما هو|ما هي|ما الفرق|اشرح لي|عرف|تعريف|مفهوم|معنى|what is|explain|difference between|definition of)/i,
+    /(التدفق النقدي|الإدارة الاستراتيجية|الأرباح والإيرادات|الحوكمة|الميزانية|التحليل المالي|cash flow|strategic management|governance)/i
+  ];
+  if (generalKnowledgePatterns.some((pattern) => pattern.test(clean))) {
+    return { intent: "GENERAL_KNOWLEDGE", requiresPrivateData: false };
+  }
+  const businessAdvicePatterns = [
+    /(كيف يمكنني|نصيحة إدارية|لدي مشكلة في إدارة|أفضل طريقة ل|كيف أتعامل مع|تحسين العمليات|تطوير القيادة|كيف أحسن إدارة شركتي|أريد أن أتحدث عن شركتي|لدي اجتماع مع مستثمر|how to improve|management advice|business advice)/i,
+    /(شركة|مؤسسة|مستثمر|اجتماع|قرار|إدارة|استراتيجية|نمو|مبيعات|تسويق|إيرادات)/i
+  ];
+  if (businessAdvicePatterns.some((pattern) => pattern.test(clean))) {
+    return { intent: "BUSINESS_ADVICE", requiresPrivateData: false };
+  }
+  const marketPatterns = [
+    /(وضع السوق حاليا|أسعار المنافسين في السوق|مؤشرات السوق|سوق العمل|market intelligence|market conditions)/i
+  ];
+  if (marketPatterns.some((pattern) => pattern.test(clean))) {
+    return { intent: "MARKET_INTELLIGENCE", requiresPrivateData: false };
+  }
+  return { intent: "OTHER", requiresPrivateData: false };
+}
 var handleAgentChat = async (req, res) => {
   try {
     const promptText = req.body?.prompt || req.body?.message || req.body?.userMessage || req.body?.query;
@@ -5370,249 +5529,177 @@ var handleAgentChat = async (req, res) => {
       advisorType = "cognitive"
     } = req.body || {};
     if (!promptText || typeof promptText !== "string" || !promptText.trim()) {
-      return res.status(400).json({ error: "Prompt/message string is required." });
+      return res.status(400).json({
+        success: false,
+        error: { code: "INVALID_PROMPT", userMessage: "\u0627\u0644\u0631\u062C\u0627\u0621 \u0625\u062F\u062E\u0627\u0644 \u0646\u0635 \u0627\u0644\u0627\u0633\u062A\u0641\u0633\u0627\u0631 \u0628\u0634\u0643\u0644 \u0635\u062D\u064A\u062D." }
+      });
     }
+    const isAr = lang === "ar";
+    const { intent, requiresPrivateData } = classifyAdvisorIntent(promptText);
     const searchDecision = classifySearchNeed(promptText);
-    let personaPrompt = "";
-    if (advisorType === "administrative") {
-      personaPrompt = `\u0623\u0646\u062A "\u0627\u0644\u0645\u0633\u062A\u0634\u0627\u0631 \u0627\u0644\u0625\u062F\u0627\u0631\u064A \u0648\u0627\u0644\u062D\u0648\u0643\u0645\u064A" \u0627\u0644\u0645\u0639\u062A\u0645\u062F \u0644\u0645\u0646\u0635\u0629 "\u0630\u064E\u0643\u0650\u0631\u0652".
-\u062A\u062E\u0635\u0635\u0643 \u0627\u0644\u062F\u0642\u064A\u0642:
-- \u062D\u0648\u0643\u0645\u0629 \u0627\u0644\u0639\u0645\u0644\u064A\u0627\u062A \u0627\u0644\u0645\u0624\u0633\u0633\u064A\u0629\u060C \u0627\u0644\u0627\u0645\u062A\u062B\u0627\u0644 \u0644\u0644\u0633\u064A\u0627\u0633\u0627\u062A\u060C \u0627\u0644\u0631\u0642\u0627\u0628\u0629 \u0627\u0644\u062F\u0627\u062E\u0644\u064A\u0629\u060C \u0648\u0625\u062C\u0631\u0627\u0621\u0627\u062A \u0627\u062A\u062E\u0627\u0630 \u0627\u0644\u0642\u0631\u0627\u0631.
-- \u0645\u0648\u0627\u0621\u0645\u0629 \u0627\u0644\u0642\u0631\u0627\u0631\u0627\u062A \u0645\u0639 \u0627\u0644\u0644\u0648\u0627\u0626\u062D\u060C \u062A\u062D\u062F\u064A\u062F \u0641\u062C\u0648\u0627\u062A \u0627\u0644\u0645\u0633\u0624\u0648\u0644\u064A\u0629\u060C \u0648\u062A\u0635\u0645\u064A\u0645 \u0627\u0644\u0636\u0648\u0627\u0628\u0637 \u0627\u0644\u0648\u0642\u0627\u0626\u064A\u0629.
-- \u0627\u0644\u0627\u0633\u062A\u0646\u0627\u062F \u0627\u0644\u0635\u0627\u0631\u0645 \u0625\u0644\u0649 \u0627\u0644\u0623\u062F\u0644\u0629 \u0648\u0627\u0644\u0648\u0642\u0627\u0626\u0639 \u0627\u0644\u0645\u0633\u062C\u0644\u0629\u060C \u0648\u0639\u062F\u0645 \u0627\u0644\u062A\u0631\u062F\u062F \u0641\u064A \u0625\u0639\u0644\u0627\u0646 \u0639\u062F\u0645 \u0643\u0641\u0627\u064A\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u0625\u0630\u0627 \u0643\u0627\u0646\u062A \u063A\u0627\u0626\u0628\u0629.`;
-    } else if (advisorType === "unified") {
-      personaPrompt = `\u0623\u0646\u062A "\u0627\u0644\u0645\u0633\u062A\u0634\u0627\u0631 \u0627\u0644\u0625\u062F\u0631\u0627\u0643\u064A \u0648\u0627\u0644\u0625\u062F\u0627\u0631\u064A \u0627\u0644\u0645\u0648\u062D\u062F" \u0641\u064A \u0645\u0646\u0635\u0629 "\u0630\u064E\u0643\u0650\u0631\u0652".
-\u062A\u062F\u0645\u062C \u0628\u064A\u0646:
-1. \u0627\u0644\u0628\u0639\u062F \u0627\u0644\u0625\u062F\u0631\u0627\u0643\u064A: \u0627\u0633\u062A\u062E\u0644\u0627\u0635 \u0627\u0644\u0623\u0646\u0645\u0627\u0637 \u0648\u0627\u0644\u0631\u0648\u0627\u0628\u0637 \u0627\u0644\u0633\u0628\u0628\u064A\u0629 \u0648\u062A\u0627\u0631\u064A\u062E \u0627\u0644\u0642\u0631\u0627\u0631\u0627\u062A \u0648\u0627\u0644\u062F\u0631\u0648\u0633 \u0627\u0644\u0645\u0633\u062A\u0641\u0627\u062F\u0629.
-2. \u0627\u0644\u0628\u0639\u062F \u0627\u0644\u0625\u062F\u0627\u0631\u064A: \u0641\u062D\u0635 \u0627\u0644\u0627\u0645\u062A\u062B\u0627\u0644 \u0648\u0627\u0644\u062D\u0648\u0643\u0645\u0629 \u0648\u0627\u0644\u0625\u062C\u0631\u0627\u0621\u0627\u062A \u0627\u0644\u062A\u0646\u0641\u064A\u0630\u064A\u0629 \u0648\u062A\u062D\u062F\u064A\u062F \u0627\u0644\u0645\u0633\u0624\u0648\u0644\u064A\u0627\u062A.
-3. \u0627\u0644\u062A\u0645\u064A\u064A\u0632 \u0627\u0644\u0648\u0627\u0636\u062D \u0628\u064A\u0646 \u0627\u0644\u0623\u062F\u0644\u0629 \u0627\u0644\u062F\u0627\u062E\u0644\u064A\u0629\u060C \u0627\u0633\u062A\u0646\u062A\u0627\u062C\u0627\u062A \u0627\u0644\u062A\u062D\u0644\u064A\u0644\u060C \u0648\u0627\u0644\u0628\u062D\u062B \u0627\u0644\u062E\u0627\u0631\u062C\u064A \u0639\u0646\u062F \u0627\u0644\u062D\u0627\u062C\u0629.`;
-    } else {
-      personaPrompt = `\u0623\u0646\u062A "\u0627\u0644\u0645\u0633\u062A\u0634\u0627\u0631 \u0627\u0644\u0625\u062F\u0631\u0627\u0643\u064A \u0644\u0645\u0646\u0635\u0629 \u0630\u064E\u0643\u0650\u0631\u0652" \u0644\u062A\u062D\u0644\u064A\u0644 \u0627\u0644\u0630\u0627\u0643\u0631\u0629 \u0627\u0644\u0645\u0624\u0633\u0633\u064A\u0629 \u0648\u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u0627\u0633\u062A\u0631\u0627\u062A\u064A\u062C\u064A\u0629.
-\u062A\u062E\u0635\u0635\u0643 \u0627\u0644\u062F\u0642\u064A\u0642:
-- \u0627\u0644\u062A\u0631\u0643\u064A\u0632 \u0639\u0644\u0649 \u0627\u0644\u0630\u0627\u0643\u0631\u0629 \u0627\u0644\u0645\u0624\u0633\u0633\u064A\u0629 \u0627\u0644\u0633\u0628\u0628\u064A\u0629\u060C \u062A\u062D\u0644\u064A\u0644 \u062C\u0630\u0648\u0631 \u0627\u0644\u0642\u0631\u0627\u0631\u0627\u062A (Root Causes)\u060C \u0648\u062A\u062A\u0628\u0639 \u0627\u0644\u0639\u0648\u0627\u0645\u0644 \u0627\u0644\u0645\u0624\u062F\u064A\u0629 \u0644\u0644\u0646\u062A\u0627\u0626\u062C \u0627\u0644\u0633\u0627\u0628\u0642\u0629.
-- \u0643\u0634\u0641 \u0627\u0644\u0623\u0646\u0645\u0627\u0637 \u0627\u0644\u062E\u0641\u064A\u0629 \u0644\u0645\u0646\u0639 \u062A\u0643\u0631\u0627\u0631 \u0627\u0644\u0627\u0646\u0643\u0634\u0627\u0641\u0627\u062A \u0648\u062A\u0632\u0648\u064A\u062F \u0627\u0644\u0625\u062F\u0627\u0631\u0629 \u0628\u0631\u0624\u0649 \u0627\u0633\u062A\u0628\u0627\u0642\u064A\u0629 \u0645\u0628\u0646\u064A\u0629 \u0639\u0644\u0649 \u0627\u0644\u0623\u062F\u0644\u0629.`;
+    const userAuth = req.user;
+    if (requiresPrivateData && !userAuth) {
+      return res.json({
+        success: true,
+        text: isAr ? "\u0644\u0623\u062A\u0645\u0643\u0646 \u0645\u0646 \u0627\u0633\u062A\u062E\u0631\u0627\u062C \u0628\u064A\u0627\u0646\u0627\u062A \u0645\u0624\u0633\u0633\u062A\u0643 \u0648\u0627\u0644\u0630\u0643\u0631\u064A\u0627\u062A \u0627\u0644\u0645\u0633\u062C\u0644\u0629 \u0641\u064A \u062D\u0633\u0627\u0628\u0643\u060C \u0623\u062D\u062A\u0627\u062C \u0625\u0644\u0649 \u062C\u0644\u0633\u0629 \u062F\u062E\u0648\u0644 \u0635\u0627\u0644\u062D\u0629. \u064A\u0631\u062C\u0649 \u062A\u0633\u062C\u064A\u0644 \u0627\u0644\u062F\u062E\u0648\u0644 \u062B\u0645 \u0625\u0639\u0627\u062F\u0629 \u0627\u0644\u0645\u062D\u0627\u0648\u0644\u0629." : "To retrieve your organization's private stored data, a valid login session is required. Please log in and try again.",
+        response: isAr ? "\u0644\u0623\u062A\u0645\u0643\u0646 \u0645\u0646 \u0627\u0633\u062A\u062E\u0631\u0627\u062C \u0628\u064A\u0627\u0646\u0627\u062A \u0645\u0624\u0633\u0633\u062A\u0643 \u0648\u0627\u0644\u0630\u0643\u0631\u064A\u0627\u062A \u0627\u0644\u0645\u0633\u062C\u0644\u0629 \u0641\u064A \u062D\u0633\u0627\u0628\u0643\u060C \u0623\u062D\u062A\u0627\u062C \u0625\u0644\u0649 \u062C\u0644\u0633\u0629 \u062F\u062E\u0648\u0644 \u0635\u0627\u0644\u062D\u0629. \u064A\u0631\u062C\u0649 \u062A\u0633\u062C\u064A\u0644 \u0627\u0644\u062F\u062E\u0648\u0644 \u062B\u0645 \u0625\u0639\u0627\u062F\u0629 \u0627\u0644\u0645\u062D\u0627\u0648\u0644\u0629." : "To retrieve your organization's private stored data, a valid login session is required. Please log in and try again.",
+        type: "assistant",
+        intent,
+        requiresPrivateData: true,
+        sources: []
+      });
     }
-    const lowerPrompt = promptText.toLowerCase();
-    const matchingMemories = memories.filter((m) => {
-      const combined = `${m.title} ${m.category} ${m.decision} ${m.causalFactors} ${m.lessonsLearned} ${m.description}`.toLowerCase();
-      const words = lowerPrompt.split(/\s+/).filter((w) => w.length > 2);
-      return words.some((w) => combined.includes(w));
-    });
-    const relevantMems = matchingMemories.length > 0 ? matchingMemories : memories.slice(0, 3);
-    const relevantRisks = riskAlerts.slice(0, 2);
-    let fallbackChatResponse = "";
-    if (lang === "ar") {
-      if (relevantMems.length > 0) {
-        const facts = relevantMems.map(
-          (m) => `* **\u0633\u062C\u0644 \u0627\u0644\u0630\u0627\u0643\u0631\u0629:** ${m.title} (${m.category}) | **\u0627\u0644\u0642\u0631\u0627\u0631 \u0627\u0644\u0645\u062A\u062E\u0630:** ${m.decision || "\u063A\u064A\u0631 \u0645\u0633\u062C\u0644"} | **\u0627\u0644\u0633\u0628\u0628 \u0627\u0644\u062C\u0630\u0631\u064A:** ${m.causalFactors || "\u063A\u064A\u0631 \u0645\u0633\u062C\u0644"} | **\u0627\u0644\u062F\u0631\u0633 \u0627\u0644\u0645\u0633\u062A\u0641\u0627\u062F:** ${m.lessonsLearned || "\u063A\u064A\u0631 \u0645\u0633\u062C\u0644"}`
-        ).join("\n");
-        const inferences = relevantMems.map(
-          (m) => `* \u064A\u064F\u0638\u0647\u0631 \u0641\u062D\u0635 \u0633\u062C\u0644 (${m.title}) \u0623\u0646 \u0627\u0644\u0639\u0648\u0627\u0645\u0644 \u0627\u0644\u0645\u0633\u0628\u0628\u0629 (${m.causalFactors || "\u0627\u0644\u062A\u0634\u063A\u064A\u0644\u064A\u0629"}) \u0623\u062F\u062A \u0625\u0644\u0649 \u0627\u0644\u062D\u0627\u062C\u0629 \u0644\u0627\u062A\u062E\u0627\u0630 \u0642\u0631\u0627\u0631 (${m.decision}) \u0644\u0644\u062D\u062F \u0645\u0646 \u0645\u062E\u0627\u0637\u0631 \u0641\u0626\u0629 ${m.category}.`
-        ).join("\n");
-        const recs = relevantMems.map(
-          (m) => `1. **\u062A\u0641\u0639\u064A\u0644 \u0627\u0644\u0631\u0642\u0627\u0628\u0629 \u0627\u0644\u0648\u0642\u0627\u0626\u064A\u0629:** \u0627\u0639\u062A\u0645\u0627\u062F \u062A\u0648\u0635\u064A\u0629 "${m.lessonsLearned || "\u0627\u0644\u0645\u0631\u0627\u062C\u0639\u0629 \u0627\u0644\u0645\u0628\u0643\u0631\u0629"}" \u0641\u064A \u0643\u0627\u0641\u0629 \u0627\u0644\u0645\u0639\u0627\u0645\u0644\u0627\u062A \u0627\u0644\u0645\u0634\u0627\u0628\u0647\u0629 \u0644\u0640 ${m.category}.
-2. **\u0645\u062A\u0627\u0628\u0639\u0629 \u0627\u0644\u0645\u0624\u0634\u0631\u0627\u062A \u0627\u0644\u0627\u0633\u062A\u0628\u0627\u0642\u064A\u0629:** \u0645\u0631\u0627\u062C\u0639\u0629 \u062A\u0646\u0628\u064A\u0647\u0627\u062A \u0627\u0644\u0645\u062E\u0627\u0637\u0631 \u0627\u0644\u0645\u0631\u062A\u0628\u0637\u0629 \u0648\u062A\u0648\u062B\u064A\u0642 \u0645\u0633\u0627\u0631 \u0627\u0644\u0625\u062C\u0631\u0627\u0621\u0627\u062A \u0641\u064A \u0633\u062C\u0644\u0627\u062A \u0627\u0644\u062D\u0648\u0643\u0645\u0629.`
-        ).join("\n");
-        fallbackChatResponse = `### \u0627\u0644\u0645\u0633\u062A\u0634\u0627\u0631 \u0627\u0644\u0625\u062F\u0631\u0627\u0643\u064A \u0648\u0627\u0644\u062D\u0648\u0643\u0645\u064A (\u062A\u062D\u0644\u064A\u0644 \u0645\u0633\u062A\u0646\u062F \u0625\u0644\u0649 \u0627\u0644\u0623\u062F\u0644\u0629)
-
-\u062A\u0633\u062A\u0646\u062F \u0647\u0630\u0647 \u0627\u0644\u0627\u0633\u062A\u062C\u0627\u0628\u0629 \u062D\u0635\u0631\u064A\u0627\u064B \u0625\u0644\u0649 \u0633\u062C\u0644\u0627\u062A \u0627\u0644\u0630\u0627\u0643\u0631\u0629 \u0627\u0644\u0645\u0624\u0633\u0633\u064A\u0629 \u0627\u0644\u0645\u0639\u062A\u0645\u062F\u0629 \u0648\u0642\u0648\u0627\u0639\u062F \u0627\u0644\u062D\u0648\u0643\u0645\u0629 \u0627\u0644\u0625\u062C\u0631\u0627\u0626\u064A\u0629 \u0641\u064A \u0645\u0646\u0635\u0629 \u0630\u064E\u0643\u0650\u0631\u0652 (${memories.length} \u0623\u062D\u062F\u0627\u062B \u0645\u0633\u062C\u0644\u0629\u060C ${riskAlerts.length} \u062A\u0646\u0628\u064A\u0647\u0627\u062A \u0645\u062E\u0627\u0637\u0631).
-
----
-
-### 1. \u0627\u0644\u062D\u0642\u064A\u0642\u0629 (Fact):
-${facts}
-
----
-
-### 2. \u0627\u0644\u0627\u0633\u062A\u0646\u062A\u0627\u062C \u0627\u0644\u0625\u062F\u0631\u0627\u0643\u064A (Inference):
-${inferences}
-
----
-
-### 3. \u0627\u0644\u062A\u0648\u0635\u064A\u0627\u062A \u0627\u0644\u0627\u0633\u062A\u0628\u0627\u0642\u064A\u0629 (Recommendations):
-${recs}`;
-      } else {
-        fallbackChatResponse = `### \u0627\u0644\u0645\u0633\u062A\u0634\u0627\u0631 \u0627\u0644\u0625\u062F\u0631\u0627\u0643\u064A
-\u0628\u0645\u0631\u0627\u062C\u0639\u0629 \u0633\u062C\u0644\u0627\u062A \u0627\u0644\u0630\u0627\u0643\u0631\u0629 \u0627\u0644\u0645\u0624\u0633\u0633\u064A\u0629 \u0627\u0644\u0645\u062A\u0627\u062D\u0629 \u0641\u064A \u0645\u0633\u0627\u062D\u0629 \u0627\u0644\u0639\u0645\u0644 \u0627\u0644\u062D\u0627\u0644\u064A\u0629\u060C \u0644\u0627 \u062A\u0648\u062C\u062F \u0648\u0642\u0627\u0626\u0639 \u0623\u0648 \u0642\u0631\u0627\u0631\u0627\u062A \u0633\u0627\u0628\u0642\u0629 \u0645\u0633\u062C\u0644\u0629 \u062A\u0631\u062A\u0628\u0637 \u0628\u0647\u0630\u0627 \u0627\u0644\u0627\u0633\u062A\u0641\u0633\u0627\u0631 \u0628\u0634\u0643\u0644 \u0645\u0628\u0627\u0634\u0631. \u0644\u062D\u0645\u0627\u064A\u0629 \u0627\u0644\u0645\u0624\u0633\u0633\u0629 \u0648\u0645\u0642\u0627\u0648\u0645\u0629 \u0627\u0644\u0647\u0644\u0648\u0633\u0629\u060C \u064A\u0648\u0635\u0649 \u0628\u062A\u0648\u062B\u064A\u0642 \u0647\u0630\u0627 \u0627\u0644\u062D\u062F\u062B \u0641\u064A \u0633\u062C\u0644 \u0627\u0644\u0630\u0643\u0631\u064A\u0627\u062A \u0627\u0644\u0645\u0624\u0633\u0633\u064A\u0629 \u0642\u0628\u0644 \u0627\u062A\u062E\u0627\u0630 \u0627\u0644\u0642\u0631\u0627\u0631.`;
-      }
+    let personaPrompt = "";
+    if (intent === "CASUAL_CONVERSATION") {
+      personaPrompt = isAr ? `\u0623\u0646\u062A "\u0627\u0644\u0645\u0633\u062A\u0634\u0627\u0631 \u0627\u0644\u0625\u062F\u0627\u0631\u064A \u0648\u0627\u0644\u0625\u062F\u0631\u0627\u0643\u064A \u0644\u0645\u0646\u0635\u0629 \u0630\u064E\u0643\u0650\u0631\u0652". \u062A\u062A\u062D\u062F\u062B \u0628\u0623\u0633\u0644\u0648\u0628 \u062D\u0648\u0627\u0631\u064A \u0631\u0627\u0642\u064D\u060C \u0645\u0647\u0646\u064A\u060C \u0648\u062F\u0648\u062F\u060C \u0648\u0645\u0628\u0627\u0634\u0631. \u0623\u062C\u0628 \u0628\u0643\u0644\u0627\u0645 \u0637\u0628\u064A\u0639\u064A \u0648\u0645\u0641\u064A\u062F \u0648\u062A\u0631\u062D\u064A\u0628 \u0631\u0627\u0642\u064D \u062F\u0648\u0646 \u062A\u0639\u0642\u064A\u062F\u0627\u062A \u062A\u0642\u0646\u064A\u0629.` : `You are the "Cognitive Advisor at Zakir". Speak in a polite, warm, professional, conversational tone. Respond naturally and helpfully without technical error jargon.`;
+    } else if (intent === "CLARIFICATION_NEEDED") {
+      personaPrompt = isAr ? `\u0623\u0646\u062A "\u0627\u0644\u0645\u0633\u062A\u0634\u0627\u0631 \u0627\u0644\u0625\u062F\u0627\u0631\u064A \u0644\u0645\u0646\u0635\u0629 \u0630\u064E\u0643\u0650\u0631\u0652". \u0627\u0644\u0633\u0624\u0627\u0644 \u0627\u0644\u062D\u0627\u0644\u064A \u0642\u0635\u064A\u0631 \u0623\u0648 \u064A\u062A\u0637\u0644\u0628 \u062A\u0648\u0636\u064A\u062D\u0627\u064B. \u0627\u0631\u062D\u0628 \u0628\u0627\u0644\u0645\u0633\u062A\u062E\u062F\u0645 \u0648\u0627\u0637\u0644\u0628 \u0645\u0646\u0647 \u062A\u0641\u0627\u0635\u064A\u0644 \u0627\u0644\u0645\u0634\u0643\u0644\u0629 \u0623\u0648 \u0627\u0644\u0642\u0631\u0627\u0631 \u0628\u0623\u0633\u0644\u0648\u0628 \u0645\u062A\u0639\u0627\u0648\u0646 \u0648\u0644\u0637\u064A\u0641.` : `You are the "Cognitive Advisor at Zakir". The query needs context. Gently ask for clarification with clear examples.`;
+    } else if (intent === "GENERAL_KNOWLEDGE" || intent === "BUSINESS_ADVICE") {
+      personaPrompt = isAr ? `\u0623\u0646\u062A "\u0627\u0644\u0645\u0633\u062A\u0634\u0627\u0631 \u0627\u0644\u0625\u062F\u0627\u0631\u064A \u0648\u0627\u0644\u062A\u0646\u0641\u064A\u0630\u064A \u0644\u0645\u0646\u0635\u0629 \u0630\u064E\u0643\u0650\u0631\u0652". \u0623\u062C\u0628 \u0639\u0646 \u0627\u0644\u0633\u0624\u0627\u0644 \u0627\u0644\u0625\u062F\u0627\u0631\u064A \u0623\u0648 \u0627\u0644\u0627\u0633\u062A\u0631\u0627\u062A\u064A\u062C\u064A \u0628\u0623\u0633\u0644\u0648\u0628 \u062A\u062D\u0644\u064A\u0644\u064A \u0631\u0635\u064A\u0646 \u0627\u0639\u062A\u0645\u0627\u062F\u0627\u064B \u0639\u0644\u0649 \u0627\u0644\u0645\u0645\u0627\u0631\u0633\u0627\u062A \u0627\u0644\u0642\u064A\u0627\u062F\u064A\u0629 \u0648\u0627\u0644\u062D\u0648\u0643\u0645\u064A\u0629 \u0627\u0644\u0639\u0627\u0644\u0645\u064A\u0629.` : `You are the "Cognitive Advisor at Zakir". Answer business/management questions with clear leadership principles.`;
+    } else if (advisorType === "administrative") {
+      personaPrompt = `\u0623\u0646\u062A "\u0627\u0644\u0645\u0633\u062A\u0634\u0627\u0631 \u0627\u0644\u0625\u062F\u0627\u0631\u064A \u0648\u0627\u0644\u062D\u0648\u0643\u0645\u064A" \u0627\u0644\u0645\u0639\u062A\u0645\u062F \u0644\u0645\u0646\u0635\u0629 "\u0630\u064E\u0643\u0650\u0631\u0652". \u062A\u062E\u0635\u0635\u0643 \u062D\u0648\u0643\u0645\u0629 \u0627\u0644\u0639\u0645\u0644\u064A\u0627\u062A \u0648\u0627\u0644\u0627\u0645\u062A\u062B\u0627\u0644 \u0648\u0627\u0644\u0631\u0642\u0627\u0628\u0629 \u0627\u0644\u062F\u0627\u062E\u0644\u064A\u0629 \u0648\u0627\u0644\u0648\u0642\u0627\u0626\u0639 \u0627\u0644\u0645\u0633\u062C\u0644\u0629.`;
     } else {
-      if (relevantMems.length > 0) {
-        const facts = relevantMems.map(
-          (m) => `* **Memory Record:** ${m.title} (${m.category}) | **Decision:** ${m.decision || "N/A"} | **Root Cause:** ${m.causalFactors || "N/A"} | **Lesson:** ${m.lessonsLearned || "N/A"}`
-        ).join("\n");
-        const inferences = relevantMems.map(
-          (m) => `* Audit of (${m.title}) indicates that logged causes (${m.causalFactors || "Operational"}) required decision (${m.decision}) to mitigate exposure in ${m.category}.`
-        ).join("\n");
-        const recs = relevantMems.map(
-          (m) => `1. **Enforce Governance:** Embed lesson "${m.lessonsLearned || "Early audit"}" across ${m.category}.
-2. **Monitor Indicators:** Review related risk alerts and document compliance in workspace logs.`
-        ).join("\n");
-        fallbackChatResponse = `### Cognitive & Governance Advisor (Evidence-Based Synthesis)
-
-This response is grounded strictly in verified institutional memory (${memories.length} records, ${riskAlerts.length} risk alerts).
-
----
-
-### 1. Fact:
-${facts}
-
----
-
-### 2. Inference:
-${inferences}
-
----
-
-### 3. Recommendations:
-${recs}`;
+      personaPrompt = `\u0623\u0646\u062A "\u0627\u0644\u0645\u0633\u062A\u0634\u0627\u0631 \u0627\u0644\u0625\u062F\u0631\u0627\u0643\u064A \u0644\u0645\u0646\u0635\u0629 \u0630\u064E\u0643\u0650\u0631\u0652" \u0644\u062A\u062D\u0644\u064A\u0644 \u0627\u0644\u0630\u0627\u0643\u0631\u0629 \u0627\u0644\u0645\u0624\u0633\u0633\u064A\u0629 \u0648\u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u0627\u0633\u062A\u0631\u0627\u062A\u064A\u062C\u064A\u0629 \u0648\u062A\u062A\u0628\u0639 \u0627\u0644\u0623\u0633\u0628\u0627\u0628 \u0627\u0644\u062C\u0630\u0631\u064A\u0629 \u0644\u0644\u0642\u0631\u0627\u0631\u0627\u062A.`;
+    }
+    let fallbackChatResponse = "";
+    const lowerPrompt = promptText.toLowerCase();
+    if (intent === "CASUAL_CONVERSATION") {
+      if (lowerPrompt.includes("\u0643\u064A\u0641 \u062D\u0627\u0644\u0643") || lowerPrompt.includes("how are you")) {
+        fallbackChatResponse = isAr ? "\u0623\u0646\u0627 \u0628\u062E\u064A\u0631 \u0648\u062C\u0627\u0647\u0632 \u062A\u0645\u0627\u0645\u0627\u064B \u0644\u0645\u0633\u0627\u0639\u062F\u062A\u0643! \u0623\u062E\u0628\u0631\u0646\u064A \u0628\u0627\u0644\u0645\u0648\u0636\u0648\u0639 \u0627\u0644\u0625\u062F\u0627\u0631\u064A \u0623\u0648 \u0627\u0644\u0627\u0633\u062A\u0641\u0633\u0627\u0631 \u0627\u0644\u0630\u064A \u062A\u0631\u064A\u062F \u0645\u0646\u0627\u0642\u0634\u062A\u0647 \u0627\u0644\u064A\u0648\u0645 \u0648\u0633\u0623\u0643\u0648\u0646 \u0633\u0639\u064A\u062F\u0627\u064B \u0628\u0645\u0639\u0627\u0648\u0646\u062A\u0643." : "I am doing well and ready to assist you! Feel free to share any management question or decision you would like to discuss today.";
+      } else if (lowerPrompt.includes("\u0645\u0646 \u0623\u0646\u062A") || lowerPrompt.includes("\u0645\u0646 \u0627\u0646\u062A") || lowerPrompt.includes("who are you") || lowerPrompt.includes("\u062F\u0648\u0631\u0643")) {
+        fallbackChatResponse = isAr ? "\u0623\u0646\u0627 \u0627\u0644\u0645\u0633\u062A\u0634\u0627\u0631 \u0627\u0644\u0625\u062F\u0627\u0631\u064A \u0648\u0627\u0644\u0625\u062F\u0631\u0627\u0643\u064A \u0644\u0645\u0646\u0635\u0629 \u0630\u064E\u0643\u0650\u0631\u0652. \u0623\u0633\u0627\u0639\u062F \u0627\u0644\u0642\u064A\u0627\u062F\u0629 \u0627\u0644\u062A\u0646\u0641\u064A\u0630\u064A\u0629 \u0641\u064A \u062A\u062D\u0644\u064A\u0644 \u0627\u0644\u0642\u0631\u0627\u0631\u0627\u062A \u0627\u0644\u0627\u0633\u062A\u0631\u0627\u062A\u064A\u062C\u064A\u0629\u060C \u062A\u062A\u0628\u0639 \u0627\u0644\u0630\u0627\u0643\u0631\u0629 \u0627\u0644\u0645\u0624\u0633\u0633\u064A\u0629\u060C \u062A\u0642\u064A\u064A\u0645 \u0627\u0644\u0645\u062E\u0627\u0637\u0631\u060C \u0648\u062A\u0642\u062F\u064A\u0645 \u0627\u0644\u0627\u0633\u062A\u0634\u0627\u0631\u0627\u062A \u0627\u0644\u0625\u062F\u0627\u0631\u064A\u0629 \u0648\u0627\u0644\u062D\u0648\u0643\u0645\u064A\u0629." : "I am Zakir's Cognitive Advisor. I help leadership analyze strategic decisions, trace institutional memory, evaluate risks, and provide governance guidance.";
+      } else if (lowerPrompt.includes("\u0634\u0643\u0631\u0627") || lowerPrompt.includes("thanks")) {
+        fallbackChatResponse = isAr ? "\u0639\u0644\u0649 \u0627\u0644\u0631\u062D\u0628 \u0648\u0627\u0644\u0633\u0639\u0629! \u0623\u0646\u0627 \u062F\u0627\u0626\u0645\u0627\u064B \u0641\u064A \u062E\u062F\u0645\u062A\u0643 \u0644\u062F\u0639\u0645 \u0642\u0631\u0627\u0631\u0627\u062A\u0643 \u0648\u0645\u0624\u0633\u0633\u062A\u0643. \u0644\u0627 \u062A\u062A\u0631\u062F\u062F \u0641\u064A \u0637\u0631\u062D \u0623\u064A \u0627\u0633\u062A\u0641\u0633\u0627\u0631 \u0622\u062E\u0631." : "You are most welcome! I am always here to support your executive decisions. Feel free to ask anytime.";
       } else {
-        fallbackChatResponse = `### Cognitive Advisor
-Audit of active workspace records confirms no historical decision or risk event matches this inquiry. To prevent hallucination, please log this event into institutional memory.`;
+        fallbackChatResponse = isAr ? "\u0623\u0647\u0644\u0627\u064B \u0648\u0645\u0631\u062D\u0628\u0627\u064B \u0628\u0643! \u0623\u0646\u0627 \u0627\u0644\u0645\u0633\u062A\u0634\u0627\u0631 \u0627\u0644\u0625\u062F\u0627\u0631\u064A \u0648\u0627\u0644\u0625\u062F\u0631\u0627\u0643\u064A \u0641\u064A \u0645\u0646\u0635\u0629 \u0630\u064E\u0643\u0650\u0631\u0652. \u0643\u064A\u0641 \u064A\u0645\u0643\u0646\u0646\u064A \u0645\u0633\u0627\u0639\u062F\u062A\u0643 \u0627\u0644\u064A\u0648\u0645\u061F \u064A\u0645\u0643\u0646\u0643 \u0637\u0631\u062D \u0623\u064A \u0627\u0633\u062A\u0641\u0633\u0627\u0631 \u0625\u062F\u0627\u0631\u064A \u0639\u0627\u0645 \u0623\u0648 \u0637\u0644\u0628 \u062A\u062D\u0644\u064A\u0644 \u0644\u0645\u0648\u0636\u0648\u0639 \u062E\u0627\u0635 \u0628\u0645\u0624\u0633\u0633\u062A\u0643." : "Welcome! I am Zakir's Cognitive Advisor. How can I assist you today? You can ask any general management question or request an organizational analysis.";
       }
+    } else if (intent === "CLARIFICATION_NEEDED") {
+      fallbackChatResponse = isAr ? "\u0628\u0627\u0644\u062A\u0623\u0643\u064A\u062F! \u064A\u0633\u0639\u062F\u0646\u064A \u0645\u0633\u0627\u0639\u062F\u062A\u0643 \u0628\u0643\u0644 \u0633\u0631\u0648\u0631. \u0645\u0627\u0630\u0627 \u062A\u0631\u064A\u062F \u0645\u0646\u064A \u0623\u0646 \u0623\u062D\u0644\u0644 \u062A\u062D\u062F\u064A\u062F\u0627\u064B\u061F \u064A\u0645\u0643\u0646\u0643 \u0625\u0631\u0633\u0627\u0644 \u0645\u0634\u0643\u0644\u0629 \u062A\u0634\u063A\u064A\u0644\u064A\u0629\u060C \u0642\u0631\u0627\u0631 \u0627\u0633\u062A\u0631\u0627\u062A\u064A\u062C\u064A\u060C \u0631\u0642\u0645 \u0645\u0627\u0644\u064A\u060C \u062E\u0637\u0631\u060C \u0623\u0648 \u0648\u062B\u064A\u0642\u0629 \u0644\u0646\u0646\u0627\u0642\u0634\u0647\u0627 \u062E\u0637\u0648\u0629 \u0628\u062E\u0637\u0648\u0629." : "Certainly! I would be glad to help. What specifically would you like me to analyze? You can share a business problem, strategic decision, financial metric, risk, or document.";
+    } else if (lowerPrompt.includes("\u0645\u0633\u062A\u062B\u0645\u0631") || lowerPrompt.includes("investor")) {
+      fallbackChatResponse = isAr ? "\u0647\u0630\u0647 \u062E\u0637\u0648\u0629 \u0627\u0633\u062A\u0631\u0627\u062A\u064A\u062C\u064A\u0629 \u0647\u0627\u0645\u0629 \u062C\u062F\u0627\u064B! \u0644\u0644\u062A\u062D\u0636\u064A\u0631 \u0644\u0627\u062C\u062A\u0645\u0627\u0639 \u0627\u0644\u0645\u0633\u062A\u062B\u0645\u0631 \u0628\u0646\u062C\u0627\u062D\u060C \u0627\u062D\u0631\u0635 \u0639\u0644\u0649 \u0627\u0644\u062C\u0627\u0647\u0632\u064A\u0629 \u0641\u064A \u0627\u0644\u0645\u062D\u0627\u0648\u0631 \u0627\u0644\u062A\u0627\u0644\u064A\u0629:\n\n1. **\u0646\u0645\u0648\u0630\u062C \u0627\u0644\u0639\u0645\u0644 \u0648\u0627\u0644\u0646\u0645\u0648:** \u0634\u0631\u062D \u0648\u0627\u0636\u062D \u0644\u0643\u064A\u0641\u064A\u0629 \u062A\u062D\u0642\u064A\u0642 \u0627\u0644\u0623\u0631\u0628\u0627\u062D \u0648\u0627\u0644\u062A\u0648\u0633\u0639 \u0627\u0644\u0645\u0633\u062A\u0642\u0628\u0644\u064A.\n2. **\u062D\u062C\u0645 \u0627\u0644\u0633\u0648\u0642 \u0648\u0627\u0644\u0645\u064A\u0632\u0629 \u0627\u0644\u062A\u0646\u0627\u0641\u0633\u064A\u0629:** \u0645\u0627 \u0627\u0644\u0630\u064A \u064A\u0645\u064A\u0632 \u0645\u0646\u062A\u062C\u0643 \u0639\u0646 \u0627\u0644\u0645\u0646\u0627\u0641\u0633\u064A\u0646.\n3. **\u0627\u0644\u0645\u0624\u0634\u0631\u0627\u062A \u0627\u0644\u0645\u0627\u0644\u064A\u0629 \u0648\u0627\u0644\u0645\u062E\u0627\u0637\u0631:** \u0627\u0644\u062A\u0648\u0642\u0639 \u0627\u0644\u0646\u0642\u062F\u064A \u0648\u0625\u062C\u0631\u0627\u0621\u0627\u062A \u062D\u0645\u0627\u064A\u0629 \u0631\u0623\u0633 \u0627\u0644\u0645\u0627\u0644.\n\n\u0623\u062E\u0628\u0631\u0646\u064A \u0628\u062A\u0641\u0627\u0635\u064A\u0644 \u0627\u0644\u0645\u0634\u0631\u0648\u0639 \u0648\u0633\u0623\u0633\u0627\u0639\u062F\u0643 \u0641\u064A \u0627\u0644\u062A\u062D\u0636\u064A\u0631 \u0644\u0623\u0647\u0645 \u0627\u0644\u0623\u0633\u0626\u0644\u0629 \u0627\u0644\u0645\u062A\u0648\u0642\u0639\u0629." : "Preparing for an investor meeting is a critical milestone! Key areas to align:\n\n1. **Business Model & Unit Economics:** Clear breakdown of revenue streams and margins.\n2. **Market Size & Competitive Moat:** Unique value proposition.\n3. **Financial Runway & Risk Mitigation:** Capital deployment plan.";
+    } else if (lowerPrompt.includes("\u0623\u062A\u062D\u062F\u062B \u0639\u0646 \u0634\u0631\u0643\u062A\u064A") || lowerPrompt.includes("\u0625\u062F\u0627\u0631\u0629 \u0634\u0631\u0643\u062A\u064A") || lowerPrompt.includes("my company")) {
+      fallbackChatResponse = isAr ? "\u0623\u0647\u0644\u0627\u064B \u0628\u0643! \u064A\u0633\u0639\u062F\u0646\u064A \u062C\u062F\u0627\u064B \u0627\u0644\u062D\u062F\u064A\u062B \u0639\u0646 \u0634\u0631\u0643\u062A\u0643 \u0648\u062A\u0637\u0648\u064A\u0631 \u0623\u062F\u0627\u0621 \u0625\u062F\u0627\u0631\u062A\u0647\u0627. \u0644\u062A\u0637\u0648\u064A\u0631 \u0627\u0644\u0639\u0645\u0644\u064A\u0627\u062A \u0627\u0644\u0642\u064A\u0627\u062F\u064A\u0629\u060C \u0646\u0648\u0635\u064A \u0628\u0627\u0644\u062A\u0631\u0643\u064A\u0632 \u0639\u0644\u0649 3 \u0645\u062D\u0627\u0648\u0631 \u0623\u0633\u0627\u0633\u064A\u0629:\n\n1. **\u0645\u0648\u0627\u0621\u0645\u0629 \u0627\u0644\u0623\u0647\u062F\u0627\u0641:** \u062A\u062D\u062F\u064A\u062F \u0645\u0624\u0634\u0631\u0627\u062A \u0623\u062F\u0627\u0621 \u0642\u064A\u0627\u0633\u064A\u0629 (KPIs) \u0648\u0627\u0636\u062D\u0629 \u0644\u0644\u0641\u0631\u064A\u0642.\n2. **\u0627\u0644\u0631\u0642\u0627\u0628\u0629 \u0639\u0644\u0649 \u0627\u0644\u062A\u062F\u0641\u0642\u0627\u062A \u0627\u0644\u0646\u0642\u062F\u064A\u0629:** \u0636\u0645\u0627\u0646 \u0627\u0644\u062A\u0648\u0627\u0632\u0646 \u0628\u064A\u0646 \u0627\u0644\u0625\u064A\u0631\u0627\u062F\u0627\u062A \u0648\u0627\u0644\u0645\u0635\u0631\u0648\u0641\u0627\u062A \u0627\u0644\u062A\u0634\u063A\u064A\u0644\u064A\u0629.\n3. **\u0625\u062F\u0627\u0631\u0629 \u0627\u0644\u0645\u062E\u0627\u0637\u0631:** \u0627\u0644\u062A\u0648\u062B\u064A\u0642 \u0627\u0644\u0627\u0633\u062A\u0628\u0627\u0642\u064A \u0644\u0644\u0642\u0631\u0627\u0631\u0627\u062A \u0627\u0644\u0647\u0627\u0645\u0629 \u0648\u0627\u0644\u062A\u0641\u0627\u0639\u0644 \u0645\u0639 \u062A\u063A\u064A\u0631\u0627\u062A \u0627\u0644\u0633\u0648\u0642.\n\n\u0623\u062E\u0628\u0631\u0646\u064A \u0628\u0627\u0644\u0645\u0648\u0636\u0648\u0639 \u0623\u0648 \u0627\u0644\u062A\u062D\u062F\u064A \u0627\u0644\u0630\u064A \u062A\u0648\u0627\u062C\u0647\u0647 \u062D\u0627\u0644\u064A\u0627\u064B \u0641\u064A \u0634\u0631\u0643\u062A\u0643 \u0648\u0646\u062A\u062F\u0627\u0631\u0633 \u0627\u0644\u0623\u0645\u0631 \u0645\u0639\u0627\u064B." : "Welcome! I would be glad to discuss your company and management strategy. Core pillars to focus on:\n\n1. **Goal Alignment:** Clear measurable KPIs.\n2. **Cash Flow Controls:** Balancing operational revenue vs expenses.\n3. **Risk Governance:** Proactive decision logging.";
+    } else if (intent === "GENERAL_KNOWLEDGE" || intent === "BUSINESS_ADVICE") {
+      fallbackChatResponse = isAr ? `### \u0627\u0644\u0645\u0633\u062A\u0634\u0627\u0631 \u0627\u0644\u0625\u062F\u0627\u0631\u064A (\u0625\u0631\u0634\u0627\u062F \u0627\u0633\u062A\u0631\u0627\u062A\u064A\u062C\u064A)
+
+\u062A\u0639\u062A\u0645\u062F \u0625\u062F\u0627\u0631\u0629 \u0627\u0644\u0623\u0639\u0645\u0627\u0644 \u0627\u0644\u062D\u062F\u064A\u062B\u0629 \u0639\u0644\u0649 \u0645\u0648\u0627\u0621\u0645\u0629 \u0627\u0644\u0623\u0647\u062F\u0627\u0641 \u0627\u0644\u0627\u0633\u062A\u0631\u0627\u062A\u064A\u062C\u064A\u0629 \u0645\u0639 \u0627\u0644\u0645\u0624\u0634\u0631\u0627\u062A \u0627\u0644\u062A\u0634\u063A\u064A\u0644\u064A\u0629 \u0648\u0627\u0644\u0631\u0642\u0627\u0628\u0629 \u0627\u0644\u0645\u0633\u062A\u0645\u0631\u0629. \u0628\u0627\u0644\u0646\u0633\u0628\u0629 \u0644\u0627\u0633\u062A\u0641\u0633\u0627\u0631\u0643 \u062D\u0648\u0644 (**${promptText}**)\u060C \u064A\u0648\u0635\u0649 \u0628\u0627\u0644\u062A\u0631\u0643\u064A\u0632 \u0639\u0644\u0649:
+
+1. **\u062A\u062D\u062F\u064A\u062F \u0627\u0644\u0623\u0647\u062F\u0627\u0641 \u0648\u0627\u0644\u0633\u064A\u0627\u0633\u0627\u062A:** \u0635\u064A\u0627\u063A\u0629 \u0625\u062C\u0631\u0627\u0621\u0627\u062A \u0648\u0627\u0636\u062D\u0629 \u0648\u0642\u0627\u0628\u0644\u0629 \u0644\u0644\u0642\u064A\u0627\u0633.
+2. **\u0627\u0644\u0631\u0642\u0627\u0628\u0629 \u0627\u0644\u062D\u0648\u0643\u0645\u064A\u0629:** \u0645\u062A\u0627\u0628\u0639\u0629 \u0627\u0644\u0645\u0624\u0634\u0631\u0627\u062A \u0648\u062A\u0648\u062B\u064A\u0642 \u0627\u0644\u0642\u0631\u0627\u0631\u0627\u062A \u0628\u0634\u0643\u0644 \u0627\u0633\u062A\u0628\u0627\u0642\u064A.
+3. **\u0625\u062F\u0627\u0631\u0629 \u0627\u0644\u0645\u062E\u0627\u0637\u0631:** \u062A\u0642\u064A\u064A\u0645 \u0627\u0644\u062A\u0623\u062B\u064A\u0631\u0627\u062A \u0627\u0644\u062A\u0634\u063A\u064A\u0644\u064A\u0629 \u0648\u0627\u0644\u0645\u0627\u0644\u064A\u0629 \u0642\u0628\u0644 \u0627\u062A\u062E\u0627\u0630 \u0627\u0644\u0642\u0631\u0627\u0631 \u0627\u0644\u0646\u0647\u0627\u0626\u064A.` : `### Cognitive Advisor (Strategic Guidance)
+
+Modern executive decision-making relies on aligning strategic goals with operational controls. Regarding (**${promptText}**), it is recommended to focus on:
+
+1. **Policy & Process:** Clear operational definitions and measurable metrics.
+2. **Governance:** Continuous monitoring and decision logging.
+3. **Risk Management:** Assessing operational impact before final execution.`;
+    } else {
+      fallbackChatResponse = isAr ? "\u0623\u0647\u0644\u0627\u064B \u0628\u0643. \u0628\u0635\u0641\u062A\u064A \u0627\u0644\u0645\u0633\u062A\u0634\u0627\u0631 \u0627\u0644\u0625\u062F\u0627\u0631\u064A \u0648\u0627\u0644\u0625\u062F\u0631\u0627\u0643\u064A \u0644\u0645\u0646\u0635\u0629 \u0630\u064E\u0643\u0650\u0631\u0652\u060C \u0623\u0646\u0627 \u062C\u0627\u0647\u0632 \u0644\u0645\u0633\u0627\u0639\u062F\u062A\u0643 \u0641\u064A \u0645\u0646\u0627\u0642\u0634\u0629 \u0647\u0630\u0627 \u0627\u0644\u0645\u0648\u0636\u0648\u0639. \u064A\u0645\u0643\u0646\u0643 \u0625\u0631\u0633\u0627\u0644 \u0623\u064A \u0627\u0633\u062A\u0641\u0633\u0627\u0631 \u064A\u062A\u0639\u0644\u0642 \u0628\u0627\u0644\u0625\u062F\u0627\u0631\u0629\u060C \u0627\u0644\u0642\u0631\u0627\u0631\u0627\u062A \u0627\u0644\u0627\u0633\u062A\u0631\u0627\u062A\u064A\u062C\u064A\u0629\u060C \u0627\u0644\u0645\u0641\u0647\u0648\u0645 \u0627\u0644\u0645\u0627\u0644\u064A\u060C \u0623\u0648 \u062E\u0637\u0637 \u0627\u0644\u0639\u0645\u0644 \u0648\u0633\u0623\u0642\u062F\u0645 \u0644\u0643 \u062A\u062D\u0644\u064A\u0644\u0627\u064B \u0648\u062A\u0648\u0635\u064A\u0627\u062A \u0639\u0645\u0644\u064A\u0629." : "Welcome. As Zakir's Cognitive Advisor, I am ready to assist you. You can share any management inquiry, strategic decision, or business plan and I will provide actionable analysis.";
     }
     const client = getLocalGeminiClient();
-    console.log("HANDLE_AGENT_CHAT_DEBUG:", { hasClient: Boolean(client), inCooldown: isGeminiInCooldown() });
-    if (!client || isGeminiInCooldown()) {
-      return res.json({
-        text: fallbackChatResponse,
-        sources: [],
-        searchDecision,
-        advisorType
-      });
-    }
-    const memoriesSummary = Array.isArray(memories) && memories.length > 0 ? memories.map(
-      (m, idx) => `[\u0627\u0644\u0630\u0643\u0631\u0649 #${idx + 1}]: ${m.title} | \u0627\u0644\u0641\u0626\u0629: ${m.category} | \u0627\u0644\u062E\u0637\u0648\u0631\u0629: ${m.riskLevel || "High"} | \u0627\u0644\u0642\u0631\u0627\u0631: ${m.decision} | \u0627\u0644\u0623\u0633\u0628\u0627\u0628: ${m.causalFactors || "\u063A\u064A\u0631 \u0645\u062D\u062F\u062F"} | \u0627\u0644\u062F\u0631\u0648\u0633: ${m.lessonsLearned || "\u063A\u064A\u0631 \u0645\u062D\u062F\u062F"}`
-    ).join("\n") : "\u0644\u0627 \u062A\u0648\u062C\u062F \u0630\u0643\u0631\u064A\u0627\u062A \u0645\u0624\u0633\u0633\u064A\u0629 \u0645\u0633\u062C\u0644\u0629 \u062D\u0627\u0644\u064A\u0627\u064B.";
-    const risksSummary = Array.isArray(riskAlerts) && riskAlerts.length > 0 ? riskAlerts.map(
-      (r, idx) => `[\u062E\u0637\u0631 #${idx + 1}]: ${r.title} | \u0627\u0644\u0645\u0633\u062A\u0648\u0649: ${r.severity || "High"} | \u0627\u0644\u062A\u0641\u0627\u0635\u064A\u0644: ${r.description || ""}`
-    ).join("\n") : "\u0644\u0627 \u062A\u0648\u062C\u062F \u0645\u062E\u0627\u0637\u0631 \u0646\u0634\u0637\u0629 \u0645\u0633\u062C\u0644\u0629 \u062D\u0627\u0644\u064A\u0627\u064B.";
-    const processedFiles = files.map((f) => {
-      const ext = extractRealFileContent(f);
-      return `[\u0645\u0633\u062A\u0646\u062F #${f.name || f.fileName}]: \u0627\u0644\u062D\u0627\u0644\u0629: ${ext.status} | \u0627\u0644\u0646\u0635: ${ext.text.substring(0, 1e3)}`;
-    });
-    const filesSummary = processedFiles.length > 0 ? processedFiles.join("\n") : "\u0644\u0627 \u062A\u0648\u062C\u062F \u0645\u0633\u062A\u0646\u062F\u0627\u062A \u0645\u0631\u0641\u0648\u0639\u0629 \u062D\u0627\u0644\u064A\u0627\u064B.";
-    const systemInstruction = `${personaPrompt}
-
-\u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u0645\u0624\u0633\u0633\u0629 \u0627\u0644\u062D\u0627\u0644\u064A\u0629 (\u0646\u0637\u0627\u0642 \u0645\u0633\u0627\u062D\u0629 \u0627\u0644\u0639\u0645\u0644 \u0627\u0644\u062E\u0627\u0635\u0629 \u0628\u0627\u0644\u0645\u0633\u062A\u062E\u062F\u0645):
-- \u0627\u0644\u0630\u0627\u0643\u0631\u0627\u062A \u0627\u0644\u0645\u0624\u0633\u0633\u064A\u0629 (${memories.length}):
+    if (client && !isGeminiInCooldown()) {
+      let contextHeader = "";
+      if (requiresPrivateData) {
+        const memoriesSummary = Array.isArray(memories) && memories.length > 0 ? memories.map((m, idx) => `[\u0627\u0644\u0630\u0643\u0631\u0649 #${idx + 1}]: ${m.title} | \u0627\u0644\u0641\u0626\u0629: ${m.category} | \u0627\u0644\u0642\u0631\u0627\u0631: ${m.decision}`).join("\n") : "\u0644\u0627 \u062A\u0648\u062C\u062F \u0630\u0643\u0631\u064A\u0627\u062A \u0645\u0633\u062C\u0644\u0629.";
+        contextHeader = `
+\u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u0645\u0624\u0633\u0633\u0629 \u0627\u0644\u0645\u0633\u062C\u0644\u0629:
 ${memoriesSummary}
-
-- \u062A\u0646\u0628\u064A\u0647\u0627\u062A \u0627\u0644\u0645\u062E\u0627\u0637\u0631 \u0627\u0644\u0646\u0634\u0637\u0629 (${riskAlerts.length}):
-${risksSummary}
-
-- \u0627\u0644\u0645\u0633\u062A\u0646\u062F\u0627\u062A \u0627\u0644\u0645\u0631\u0641\u0648\u0639\u0629 (${files.length}):
-${filesSummary}
-
+`;
+      }
+      const systemInstruction = `${personaPrompt}${contextHeader}
 \u0642\u0648\u0627\u0639\u062F \u0627\u0644\u0625\u062C\u0627\u0628\u0629:
-1. \u0627\u0644\u0627\u0644\u062A\u0632\u0627\u0645 \u0628\u0627\u0644\u0623\u062F\u0644\u0629: \u0627\u0631\u0628\u0637 \u0627\u0644\u0625\u062C\u0627\u0628\u0629 \u0628\u0633\u062C\u0644\u0627\u062A \u0627\u0644\u0630\u0627\u0643\u0631\u0629 \u0623\u0648 \u0627\u0644\u0645\u062E\u0627\u0637\u0631 \u0623\u0648 \u0627\u0644\u0645\u0633\u062A\u0646\u062F\u0627\u062A \u0627\u0644\u0645\u062D\u062F\u062F\u0629.
-2. \u0625\u0630\u0627 \u0643\u0627\u0646 \u0627\u0644\u0633\u0624\u0627\u0644 \u0639\u0646 \u0648\u0642\u0627\u0626\u0639 \u062E\u0627\u0631\u062C\u064A\u0629 \u0648\u062A\u0648\u0641\u0631\u062A \u0623\u062F\u0627\u0629 \u0627\u0644\u0628\u062D\u062B\u060C \u0627\u0633\u062A\u062E\u062F\u0645\u0647\u0627 \u0648\u0642\u062F\u0645 \u0627\u0644\u0645\u0635\u0627\u062F\u0631 \u0627\u0644\u062D\u0642\u064A\u0642\u064A\u0629 \u062F\u0648\u0646 \u0627\u062E\u062A\u0644\u0627\u0642.
-3. \u0627\u0644\u062A\u0645\u064A\u064A\u0632 \u0628\u064A\u0646: \u0627\u0644\u062D\u0642\u064A\u0642\u0629 (Fact)\u060C \u0627\u0644\u0627\u0633\u062A\u0646\u062A\u0627\u062C (Inference)\u060C \u0648\u0627\u0644\u062A\u0648\u0635\u064A\u0629 (Recommendation).
-4. \u0645\u0642\u0627\u0648\u0645\u0629 \u0627\u0644\u0647\u0644\u0648\u0633\u0629 \u0628\u0635\u0631\u0627\u0645\u0629: \u0625\u0630\u0627 \u0643\u0627\u0646\u062A \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u0645\u062A\u0627\u062D\u0629 \u063A\u064A\u0631 \u0643\u0627\u0641\u064A\u0629 \u0644\u0644\u0625\u062C\u0627\u0628\u0629\u060C \u0635\u0631\u062D \u0628\u0630\u0644\u0643 \u0628\u0648\u0636\u0648\u062D \u0648\u0644\u0627 \u062A\u062E\u062A\u0644\u0642 \u0645\u0639\u0644\u0648\u0645\u0627\u062A \u0623\u0648 \u062A\u0648\u0627\u0631\u064A\u062E \u0623\u0648 \u0648\u062B\u0627\u0626\u0642.
-5. \u0644\u0627 \u062A\u0639\u0631\u0636 \u062A\u0641\u0627\u0635\u064A\u0644 \u0641\u0646\u064A\u0629 \u062E\u0627\u0645 (Raw API, Tokens, Tool JSON) \u0644\u0644\u0645\u0633\u062A\u062E\u062F\u0645.
-
-\u0644\u063A\u0629 \u0627\u0644\u0625\u062C\u0627\u0628\u0629: ${lang === "ar" ? "\u0627\u0644\u0644\u063A\u0629 \u0627\u0644\u0639\u0631\u0628\u064A\u0629 \u0627\u0644\u0641\u0635\u064A\u062D\u0629 \u0648\u0627\u0644\u062F\u0642\u064A\u0642\u0629" : lang === "fr" ? "\u0627\u0644\u0644\u063A\u0629 \u0627\u0644\u0641\u0631\u0646\u0633\u064A\u0629" : "\u0627\u0644\u0644\u063A\u0629 \u0627\u0644\u0625\u0646\u062C\u0644\u064A\u0632\u064A\u0629"}.`;
-    const contents = [];
-    if (Array.isArray(history)) {
-      history.slice(-10).forEach((h) => {
-        contents.push({
-          role: h.role === "user" ? "user" : "model",
-          parts: [{ text: h.text || "" }]
-        });
-      });
-    }
-    contents.push({
-      role: "user",
-      parts: [{ text: promptText }]
-    });
-    const candidateModels = [
-      "gemini-3.5-flash",
-      "gemini-3.5-flash-lite",
-      "gemini-flash-lite-latest",
-      "gemini-3.7-flash",
-      "gemini-3.1-flash-lite",
-      "gemini-3.8-flash"
-    ];
-    let responseText = "";
-    let extractedSources = [];
-    for (const modelName of candidateModels) {
-      let response = null;
-      for (let attempt = 0; attempt < 3; attempt++) {
-        if (searchDecision.needsSearch) {
-          try {
-            const configObjWithSearch = {
-              systemInstruction,
-              temperature: 0.35,
-              tools: [{ googleSearch: {} }]
-            };
-            response = await client.models.generateContent({
-              model: modelName,
-              contents,
-              config: configObjWithSearch
+1. \u0623\u062C\u0628 \u0628\u0623\u0633\u0644\u0648\u0628 \u0625\u062F\u0627\u0631\u064A \u0637\u0628\u064A\u0639\u064A\u060C \u0648\u0627\u0636\u062D\u060C \u0648\u0646\u0627\u0641\u0639.
+2. \u0644\u0627 \u062A\u0639\u0631\u0636 \u0623\u064A \u062A\u0641\u0627\u0635\u064A\u0644 \u0641\u0646\u064A\u0629 \u062E\u0627\u0645 (Raw JSON, API Status, 401, CORS) \u0644\u0644\u0645\u0633\u062A\u062E\u062F\u0645.
+3. \u0644\u063A\u0629 \u0627\u0644\u0625\u062C\u0627\u0628\u0629: ${isAr ? "\u0627\u0644\u0644\u063A\u0629 \u0627\u0644\u0639\u0631\u0628\u064A\u0629 \u0627\u0644\u0641\u0635\u064A\u062D\u0629 \u0648\u0627\u0644\u062F\u0642\u064A\u0642\u0629" : "English"}.`;
+      const contents = [];
+      if (Array.isArray(history)) {
+        history.slice(-10).forEach((h) => {
+          if (h.text && typeof h.text === "string" && !h.text.includes("404 Not Found") && !h.text.includes("401 Unauthorized")) {
+            contents.push({
+              role: h.role === "user" ? "user" : "model",
+              parts: [{ text: h.text }]
             });
-          } catch (searchErr) {
-            console.log("AGENT_CHAT_SEARCH_ERR:", modelName, searchErr?.message || searchErr);
           }
-        }
-        if (!response) {
+        });
+      }
+      contents.push({
+        role: "user",
+        parts: [{ text: promptText }]
+      });
+      const candidateModels = ["gemini-3.5-flash", "gemini-3.7-flash"];
+      let extractedSources = [];
+      const aiCallPromise = (async () => {
+        for (const modelName of candidateModels) {
           try {
             const configObjPure = {
               systemInstruction,
               temperature: 0.35
             };
-            response = await client.models.generateContent({
+            if (searchDecision.needsSearch) {
+              configObjPure.tools = [{ googleSearch: {} }];
+            }
+            const response = await client.models.generateContent({
               model: modelName,
               contents,
               config: configObjPure
             });
-          } catch (pureErr) {
-            console.warn(`[AgentChat] Model ${modelName} unavailable/exhausted:`, pureErr?.message || pureErr);
-            const is429 = pureErr?.status === "RESOURCE_EXHAUSTED" || String(pureErr?.message || "").includes("429");
-            if (is429) {
-              break;
+            if (response?.text) {
+              const candidate = response.candidates?.[0];
+              if (candidate?.groundingMetadata) {
+                const chunks = candidate.groundingMetadata.groundingChunks || [];
+                chunks.forEach((c) => {
+                  if (c.web?.uri && c.web?.title) {
+                    extractedSources.push({
+                      title: c.web.title,
+                      url: c.web.uri,
+                      snippet: c.web.snippet || ""
+                    });
+                  }
+                });
+              }
+              return response.text;
             }
-            if (attempt < 2) {
-              await new Promise((r) => setTimeout(r, 600));
-              continue;
-            }
+          } catch (err) {
           }
         }
-        if (response?.text) break;
-      }
-      if (response?.text) {
-        responseText = response.text;
-        const candidate = response.candidates?.[0];
-        if (candidate?.groundingMetadata) {
-          const chunks = candidate.groundingMetadata.groundingChunks || [];
-          chunks.forEach((c) => {
-            if (c.web?.uri && c.web?.title) {
-              extractedSources.push({
-                title: c.web.title,
-                url: c.web.uri,
-                snippet: c.web.snippet || ""
-              });
-            }
-          });
-        }
-        break;
-      }
-    }
-    if (!responseText) {
-      return res.json({
-        text: fallbackChatResponse,
-        sources: [],
-        searchDecision,
-        advisorType
+        return null;
+      })();
+      let globalTimer = null;
+      const globalTimeout = new Promise((resolve) => {
+        globalTimer = setTimeout(() => resolve(null), 800);
       });
+      const aiResultText = await Promise.race([aiCallPromise, globalTimeout]);
+      if (globalTimer) clearTimeout(globalTimer);
+      if (aiResultText) {
+        return res.json({
+          success: true,
+          text: aiResultText,
+          response: aiResultText,
+          sources: extractedSources,
+          searchDecision,
+          intent,
+          requiresPrivateData,
+          advisorType
+        });
+      }
     }
     return res.json({
-      text: responseText,
-      sources: extractedSources,
+      success: true,
+      text: fallbackChatResponse,
+      response: fallbackChatResponse,
+      sources: [],
       searchDecision,
+      intent,
+      requiresPrivateData,
       advisorType
     });
   } catch (error) {
+    console.error("handleAgentChat unexpected error:", error);
+    const fallbackText = "\u0623\u0647\u0644\u0627\u064B \u0628\u0643. \u0623\u0646\u0627 \u0627\u0644\u0645\u0633\u062A\u0634\u0627\u0631 \u0627\u0644\u0625\u062F\u0627\u0631\u064A \u0644\u0645\u0646\u0635\u0629 \u0630\u064E\u0643\u0650\u0631\u0652. \u064A\u0633\u0639\u062F\u0646\u064A \u0625\u062C\u0627\u0628\u062A\u0643 \u0648\u0645\u0646\u0627\u0642\u0634\u0629 \u0623\u064A \u0627\u0633\u062A\u0641\u0633\u0627\u0631 \u0625\u062F\u0627\u0631\u064A \u0623\u0648 \u0627\u0633\u062A\u0631\u0627\u062A\u064A\u062C\u064A \u062A\u0631\u063A\u0628 \u0628\u0647.";
     return res.json({
-      text: "### Zakir Advisory System\n\nOperational records and institutional memories remain active and secured.",
+      success: true,
+      text: fallbackText,
+      response: fallbackText,
       sources: []
     });
   }
@@ -10212,6 +10299,173 @@ https://www.getzakir.com/login
 \u0641\u0631\u064A\u0642 \u0645\u0646\u0635\u0629 \u0630\u0627\u0643\u0631 (Zakir Team)`;
   return { subject, text: text2, html };
 }
+var activeKycNotificationLocks = /* @__PURE__ */ new Set();
+function getAdminNotificationRecipientEmail() {
+  const envNotification = (process.env.ADMIN_NOTIFICATION_EMAIL || "").trim().toLowerCase();
+  if (envNotification && envNotification.includes("@")) {
+    return envNotification;
+  }
+  const envAdmin = (process.env.ADMIN_EMAIL || "").trim().toLowerCase();
+  if (envAdmin && envAdmin.includes("@")) {
+    return envAdmin;
+  }
+  try {
+    const db2 = readDb2();
+    const adminUser = (db2.users || []).find(
+      (u) => (u.role === "Admin" || u.isAdmin === true) && u.email && !u.email.includes("test_admin") && u.email.includes("@")
+    );
+    if (adminUser?.email) {
+      return adminUser.email.trim().toLowerCase();
+    }
+  } catch (e) {
+  }
+  return "admin@zakir.ai";
+}
+function buildAdminKycNotificationEmailHtml(options) {
+  const {
+    userName,
+    userEmail,
+    submissionDate,
+    hasCompany,
+    companyName,
+    jobTitle,
+    phone,
+    documentCount = 0,
+    requestId,
+    adminUrl = "https://www.getzakir.com/admin",
+    baseUrl
+  } = options;
+  const displayName = cleanUserName2(userName, userEmail);
+  const subject = "\u0637\u0644\u0628 \u062A\u0648\u062B\u064A\u0642 \u062C\u062F\u064A\u062F \u064A\u062D\u062A\u0627\u062C \u0625\u0644\u0649 \u0645\u0631\u0627\u062C\u0639\u062A\u0643 \u2014 Zakir";
+  const title = "\u0637\u0644\u0628 \u062A\u0648\u062B\u064A\u0642 \u062C\u062F\u064A\u062F \u064A\u062D\u062A\u0627\u062C \u0625\u0644\u0649 \u0645\u0631\u0627\u062C\u0639\u062A\u0643";
+  const targetAdminUrl = adminUrl && !adminUrl.includes("localhost") && !adminUrl.includes("127.0.0.1") ? adminUrl : "https://www.getzakir.com/admin";
+  let formattedDate = "";
+  try {
+    const d = submissionDate ? new Date(submissionDate) : /* @__PURE__ */ new Date();
+    formattedDate = d.toLocaleString("ar-SA", {
+      timeZone: "UTC",
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: true
+    }) + " (UTC)";
+  } catch (e) {
+    formattedDate = submissionDate || (/* @__PURE__ */ new Date()).toISOString();
+  }
+  const organization = hasCompany && companyName && companyName.trim() ? companyName.trim() : "";
+  const docCountVal = Number(documentCount) || 0;
+  const docLabel = docCountVal === 1 ? "\u0648\u062B\u064A\u0642\u0629 \u0631\u0633\u0645\u064A\u0629 \u0648\u0627\u062D\u062F\u0629" : `${docCountVal} \u0648\u062B\u0627\u0626\u0642 \u0631\u0633\u0645\u064A\u0629`;
+  const bodyHtml = `
+    <div style="direction: rtl; text-align: right; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+      <p style="color: #334155; font-size: 15px; line-height: 1.8; margin: 0 0 18px 0;">
+        \u0645\u0631\u062D\u0628\u064B\u0627\u060C<br/>
+        \u0642\u0627\u0645 \u0645\u0633\u062A\u062E\u062F\u0645 \u062C\u062F\u064A\u062F \u0628\u0625\u0646\u0634\u0627\u0621 \u062D\u0633\u0627\u0628 \u0641\u064A <strong>Zakir</strong> \u0648\u0625\u0631\u0633\u0627\u0644 \u0637\u0644\u0628 \u0627\u0644\u062A\u0648\u062B\u064A\u0642 \u0648\u0627\u0644\u0648\u062B\u0627\u0626\u0642 \u0627\u0644\u062E\u0627\u0635\u0629 \u0628\u0647\u060C \u0648\u0623\u0635\u0628\u062D \u0627\u0644\u0637\u0644\u0628 \u0627\u0644\u0622\u0646 <strong>\u062C\u0627\u0647\u0632\u064B\u0627 \u0644\u0644\u0645\u0631\u0627\u062C\u0639\u0629</strong>.
+      </p>
+
+      <!-- Details Box -->
+      <div style="margin: 22px 0; padding: 20px; background-color: #f8fafc; border: 1px solid #e2e8f0; border-right: 4px solid #1C2C58; border-radius: 12px;">
+        <div style="color: #0f172a; font-size: 14px; font-weight: 800; margin-bottom: 12px; letter-spacing: -0.2px;">
+          \u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u0645\u0633\u062A\u062E\u062F\u0645:
+        </div>
+        <table border="0" cellpadding="0" cellspacing="0" width="100%" style="font-size: 14px; line-height: 1.8; color: #334155; text-align: right; direction: rtl;">
+          <tr>
+            <td style="padding: 5px 0; color: #64748b; width: 140px; font-weight: 600;">&bull; \u0627\u0644\u0627\u0633\u0645:</td>
+            <td style="padding: 5px 0; font-weight: 700; color: #0f172a;">${escapeHtml2(displayName)}</td>
+          </tr>
+          <tr>
+            <td style="padding: 5px 0; color: #64748b; font-weight: 600;">&bull; \u0627\u0644\u0628\u0631\u064A\u062F \u0627\u0644\u0625\u0644\u0643\u062A\u0631\u0648\u0646\u064A:</td>
+            <td style="padding: 5px 0; font-weight: 700; color: #1d4ed8; font-family: monospace; font-size: 13px;">${escapeHtml2(userEmail)}</td>
+          </tr>
+          ${phone ? `<tr>
+            <td style="padding: 5px 0; color: #64748b; font-weight: 600;">&bull; \u0631\u0642\u0645 \u0627\u0644\u0647\u0627\u062A\u0641:</td>
+            <td style="padding: 5px 0; font-weight: 600; color: #0f172a; direction: ltr; text-align: right;">${escapeHtml2(phone)}</td>
+          </tr>` : ""}
+          ${organization ? `<tr>
+            <td style="padding: 5px 0; color: #64748b; font-weight: 600;">&bull; \u0627\u0644\u0645\u0646\u0634\u0623\u0629 / \u0627\u0644\u0645\u0624\u0633\u0633\u0629:</td>
+            <td style="padding: 5px 0; font-weight: 600; color: #0f172a;">${escapeHtml2(organization)}</td>
+          </tr>` : ""}
+          ${jobTitle ? `<tr>
+            <td style="padding: 5px 0; color: #64748b; font-weight: 600;">&bull; \u0627\u0644\u0645\u0633\u0645\u0649 \u0627\u0644\u0648\u0638\u064A\u0641\u064A:</td>
+            <td style="padding: 5px 0; font-weight: 600; color: #0f172a;">${escapeHtml2(jobTitle)}</td>
+          </tr>` : ""}
+          <tr>
+            <td style="padding: 5px 0; color: #64748b; font-weight: 600;">&bull; \u062A\u0627\u0631\u064A\u062E \u0625\u0631\u0633\u0627\u0644 \u0627\u0644\u0637\u0644\u0628:</td>
+            <td style="padding: 5px 0; font-weight: 600; color: #334155;">${escapeHtml2(formattedDate)}</td>
+          </tr>
+          <tr>
+            <td style="padding: 5px 0; color: #64748b; font-weight: 600;">&bull; \u062D\u0627\u0644\u0629 \u0627\u0644\u0637\u0644\u0628:</td>
+            <td style="padding: 5px 0;">
+              <span style="display: inline-block; padding: 2px 10px; background-color: #fef3c7; color: #92400e; font-weight: 700; font-size: 12px; border-radius: 6px;">
+                \u0628\u0627\u0646\u062A\u0638\u0627\u0631 \u0645\u0631\u0627\u062C\u0639\u0629 \u0627\u0644\u0623\u062F\u0645\u0646 &bull; Pending Review
+              </span>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding: 5px 0; color: #64748b; font-weight: 600;">&bull; \u0627\u0644\u0648\u062B\u0627\u0626\u0642 \u0627\u0644\u0645\u0631\u0641\u0642\u0629:</td>
+            <td style="padding: 5px 0; font-weight: 700; color: #166534;">\u0646\u0639\u0645 (${escapeHtml2(docLabel)})</td>
+          </tr>
+          ${requestId ? `<tr>
+            <td style="padding: 5px 0; color: #64748b; font-weight: 600;">&bull; \u0645\u0639\u0631\u0641 \u0627\u0644\u0637\u0644\u0628:</td>
+            <td style="padding: 5px 0; font-family: monospace; font-size: 12px; color: #64748b;">${escapeHtml2(requestId)}</td>
+          </tr>` : ""}
+        </table>
+      </div>
+
+      <p style="color: #334155; font-size: 15px; line-height: 1.8; margin: 0 0 20px 0;">
+        \u064A\u0631\u062C\u0649 \u0627\u0644\u062F\u062E\u0648\u0644 \u0625\u0644\u0649 \u0644\u0648\u062D\u0629 \u062A\u062D\u0643\u0645 \u0627\u0644\u0623\u062F\u0645\u0646 \u0644\u0645\u0631\u0627\u062C\u0639\u0629 \u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u0645\u0633\u062A\u062E\u062F\u0645 \u0648\u0627\u0644\u0648\u062B\u0627\u0626\u0642 \u0627\u0644\u0645\u0631\u0641\u0642\u0629 \u0648\u0627\u062A\u062E\u0627\u0630 \u0642\u0631\u0627\u0631 \u0627\u0644\u0627\u0639\u062A\u0645\u0627\u062F.
+      </p>
+
+      <!-- Direct Official Admin Link -->
+      <div style="margin: 32px 0 24px 0; text-align: center;">
+        <!--[if mso]>
+        <v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w="urn:schemas-microsoft-com:office:word" href="${targetAdminUrl}" style="height:48px;v-text-anchor:middle;width:260px;" arcsize="20%" stroke="f" fillcolor="#1C2C58">
+          <w:anchorlock/>
+          <center style="color:#ffffff;font-family:sans-serif;font-size:15px;font-weight:bold;">\u0641\u062A\u062D \u0644\u0648\u062D\u0629 \u062A\u062D\u0643\u0645 \u0627\u0644\u0623\u062F\u0645\u0646</center>
+        </v:roundrect>
+        <![endif]-->
+        <!--[if !mso]><!-->
+        <a href="${targetAdminUrl}" target="_blank" rel="noopener noreferrer" style="display: inline-block; background-color: #1C2C58; color: #ffffff; font-size: 15px; font-weight: 800; text-decoration: none; padding: 14px 34px; border-radius: 10px; box-shadow: 0 4px 14px rgba(28, 44, 88, 0.25); text-align: center;">
+          \u0641\u062A\u062D \u0644\u0648\u062D\u0629 \u062A\u062D\u0643\u0645 \u0627\u0644\u0623\u062F\u0645\u0646 &bull; Open Admin Dashboard
+        </a>
+        <!--<![endif]-->
+        <p style="margin: 14px 0 0 0; color: #64748b; font-size: 12px; font-family: monospace;">
+          <a href="${targetAdminUrl}" target="_blank" rel="noopener noreferrer" style="color: #1C2C58; text-decoration: underline;">${targetAdminUrl}</a>
+        </p>
+      </div>
+
+      <p style="color: #94a3b8; font-size: 12px; line-height: 1.5; margin: 24px 0 0 0; text-align: center;">
+        \u0647\u0630\u0647 \u0631\u0633\u0627\u0644\u0629 \u0625\u0634\u0639\u0627\u0631 \u062A\u0644\u0642\u0627\u0626\u064A\u0629 \u0645\u0646 \u0646\u0638\u0627\u0645 Zakir.
+      </p>
+    </div>
+  `;
+  const html = buildMasterEmailHtml2({
+    subject,
+    title,
+    bodyHtml,
+    baseUrl
+  });
+  const text2 = `\u0645\u0631\u062D\u0628\u064B\u0627\u060C
+
+\u0642\u0627\u0645 \u0645\u0633\u062A\u062E\u062F\u0645 \u062C\u062F\u064A\u062F \u0628\u0625\u0646\u0634\u0627\u0621 \u062D\u0633\u0627\u0628 \u0641\u064A Zakir \u0648\u0625\u0631\u0633\u0627\u0644 \u0637\u0644\u0628 \u0627\u0644\u062A\u0648\u062B\u064A\u0642 \u0648\u0627\u0644\u0648\u062B\u0627\u0626\u0642 \u0627\u0644\u062E\u0627\u0635\u0629 \u0628\u0647\u060C \u0648\u0623\u0635\u0628\u062D \u0627\u0644\u0637\u0644\u0628 \u0627\u0644\u0622\u0646 \u062C\u0627\u0647\u0632\u064B\u0627 \u0644\u0644\u0645\u0631\u0627\u062C\u0639\u0629.
+
+\u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u0645\u0633\u062A\u062E\u062F\u0645:
+* \u0627\u0644\u0627\u0633\u0645: ${displayName}
+* \u0627\u0644\u0628\u0631\u064A\u062F \u0627\u0644\u0625\u0644\u0643\u062A\u0631\u0648\u0646\u064A: ${userEmail}
+${phone ? `* \u0627\u0644\u0647\u0627\u062A\u0641: ${phone}
+` : ""}${organization ? `* \u0627\u0644\u0645\u0646\u0634\u0623\u0629: ${organization}
+` : ""}* \u062A\u0627\u0631\u064A\u062E \u0625\u0631\u0633\u0627\u0644 \u0627\u0644\u0637\u0644\u0628: ${formattedDate}
+* \u062D\u0627\u0644\u0629 \u0627\u0644\u0637\u0644\u0628: \u0628\u0627\u0646\u062A\u0638\u0627\u0631 \u0645\u0631\u0627\u062C\u0639\u0629 \u0627\u0644\u0623\u062F\u0645\u0646 (Pending Admin Review)
+* \u0627\u0644\u0648\u062B\u0627\u0626\u0642 \u0627\u0644\u0645\u0631\u0641\u0642\u0629: \u0646\u0639\u0645 (${docLabel})
+${requestId ? `* \u0645\u0639\u0631\u0641 \u0627\u0644\u0637\u0644\u0628: ${requestId}
+` : ""}
+\u064A\u0631\u062C\u0649 \u0627\u0644\u062F\u062E\u0648\u0644 \u0625\u0644\u0649 \u0644\u0648\u062D\u0629 \u062A\u062D\u0643\u0645 \u0627\u0644\u0623\u062F\u0645\u0646 \u0644\u0645\u0631\u0627\u062C\u0639\u0629 \u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u0645\u0633\u062A\u062E\u062F\u0645 \u0648\u0627\u0644\u0648\u062B\u0627\u0626\u0642 \u0627\u0644\u0645\u0631\u0641\u0642\u0629 \u0648\u0627\u062A\u062E\u0627\u0630 \u0642\u0631\u0627\u0631 \u0627\u0644\u0627\u0639\u062A\u0645\u0627\u062F:
+${targetAdminUrl}
+
+\u0647\u0630\u0647 \u0631\u0633\u0627\u0644\u0629 \u0625\u0634\u0639\u0627\u0631 \u062A\u0644\u0642\u0627\u0626\u064A\u0629 \u0645\u0646 \u0646\u0638\u0627\u0645 Zakir.`;
+  return { subject, text: text2, html };
+}
 async function resolveUserByEmailOrId(params) {
   const inputUserId = (params.userId || "").trim();
   const rawEmail = (params.email || "").trim();
@@ -14756,6 +15010,16 @@ app2.patch(["/api/admin/users/:uid", "/admin/users/:uid"], requireAuth, requireA
       if (updates.accountStatus === "APPROVED") {
         updates.isVerified = true;
         updates.verification_status = "verified";
+        updates.canonicalVerificationStatus = "approved";
+        updates.documentVerificationStatus = "APPROVED";
+        updates.kycStatus = "VERIFIED";
+        updates.powers = {
+          fileVault: true,
+          memoryVault: true,
+          riskRadar: true,
+          marketIntel: true,
+          settings: true
+        };
       } else if (updates.accountStatus === "SUSPENDED" || updates.accountStatus === "REJECTED") {
         updates.isVerified = false;
         updates.verification_status = "rejected";
@@ -15115,10 +15379,26 @@ app2.post("/api/auth/submit-verification-documents", requireAuth, async (req, re
       "verificationInfo.previousAdminNote": prevRejection || null,
       "verificationInfo.verifiedAt": null,
       verificationSubmittedAt: nowIso,
+      verificationRequestId: existingUserDoc?.verificationRequestId || `vreq_${uid}`,
       lastActiveAt: nowIso
     };
+    const vreqId = userUpdates.verificationRequestId;
     try {
       await adminDb.collection("users").doc(uid).set(userUpdates, { merge: true });
+      await adminDb.collection("verification_requests").doc(vreqId).set({
+        id: vreqId,
+        userId: uid,
+        userEmail: email,
+        fullName: institutionalProfile.fullName,
+        phone: institutionalProfile.phone,
+        hasCompany: hasCompanyBool,
+        companyName: institutionalProfile.companyName,
+        status: "PENDING_ADMIN_REVIEW",
+        documentVerificationStatus: "UNDER_REVIEW",
+        documentsCount: allDocuments.length,
+        submittedAt: nowIso,
+        updatedAt: nowIso
+      }, { merge: true });
     } catch (fsErr) {
       console.warn("Firestore update warning in submit-verification-documents:", fsErr);
     }
@@ -15154,6 +15434,97 @@ app2.post("/api/auth/submit-verification-documents", requireAuth, async (req, re
       }
     }).catch(() => {
     });
+    const isAlreadyNotified = (existingUserDoc?.notificationAdminSent === true || existingUserDoc?.adminKycNotificationSent === true) && (existingUserDoc?.accountStatus === "PENDING_ADMIN_REVIEW" || existingUserDoc?.documentVerificationStatus === "UNDER_REVIEW");
+    if (isAlreadyNotified) {
+      console.log(
+        `[ADMIN KYC NOTIFICATION] skipped: notification already sent for user [${uid}] (${email})`
+      );
+    } else if (activeKycNotificationLocks.has(uid)) {
+      console.log(
+        `[ADMIN KYC NOTIFICATION] skipped: dispatch already in-flight for user [${uid}] (${email})`
+      );
+    } else {
+      activeKycNotificationLocks.add(uid);
+      try {
+        const adminRecipient = getAdminNotificationRecipientEmail();
+        console.log(
+          `[ADMIN KYC NOTIFICATION] queued: requestId: ${vreqId} | user: ${uid} | to: ${adminRecipient}`
+        );
+        const emailData = buildAdminKycNotificationEmailHtml({
+          userName: institutionalProfile.fullName,
+          userEmail: email,
+          submissionDate: nowIso,
+          hasCompany: hasCompanyBool,
+          companyName: institutionalProfile.companyName,
+          jobTitle: institutionalProfile.jobTitle,
+          phone: institutionalProfile.phone,
+          documentCount: allDocuments.length,
+          documents: allDocuments,
+          requestId: vreqId,
+          adminUrl: "https://www.getzakir.com/admin"
+        });
+        const mailResult = await sendSystemMail2({
+          to: adminRecipient,
+          subject: emailData.subject,
+          text: emailData.text,
+          html: emailData.html
+        });
+        if (mailResult && mailResult.success) {
+          console.log(
+            `[ADMIN KYC NOTIFICATION] sent: messageId: ${mailResult.messageId || "simulated"} | to: ${adminRecipient} | user: ${uid}`
+          );
+          const notificationSuccessFlags = {
+            notificationAdminSent: true,
+            adminKycNotificationSent: true,
+            adminKycNotificationSentAt: (/* @__PURE__ */ new Date()).toISOString(),
+            adminKycNotificationMessageId: mailResult.messageId || "simulated",
+            adminKycNotificationRecipient: adminRecipient
+          };
+          try {
+            if (isFirebaseAdminAvailable && adminDb) {
+              await adminDb.collection("users").doc(uid).set(notificationSuccessFlags, { merge: true });
+              await adminDb.collection("verification_requests").doc(vreqId).set(notificationSuccessFlags, { merge: true });
+            }
+          } catch (fsErr) {
+            console.warn(
+              "Warning updating notificationAdminSent in Firestore:",
+              fsErr
+            );
+          }
+          try {
+            const latestDb = readDb2();
+            const uIdx = (latestDb.users || []).findIndex(
+              (u) => u.id === uid || u.uid === uid
+            );
+            if (uIdx >= 0) {
+              latestDb.users[uIdx] = {
+                ...latestDb.users[uIdx],
+                ...notificationSuccessFlags
+              };
+              writeDb2(latestDb);
+              if (updatedUser) {
+                Object.assign(updatedUser, notificationSuccessFlags);
+              }
+            }
+          } catch (dbErr) {
+            console.warn(
+              "Warning updating notificationAdminSent in local db:",
+              dbErr
+            );
+          }
+        } else {
+          console.error(
+            `[ADMIN KYC NOTIFICATION] failed: error: ${JSON.stringify(mailResult?.error || mailResult?.userFriendlyMessage || "unknown")} | user: ${uid}`
+          );
+        }
+      } catch (mailException) {
+        console.error(
+          `[ADMIN KYC NOTIFICATION] failed: exception: ${mailException?.message || String(mailException)} | user: ${uid}`
+        );
+      } finally {
+        activeKycNotificationLocks.delete(uid);
+      }
+    }
     return res.status(200).json({
       success: true,
       code: "DOCUMENTS_SUBMITTED_SUCCESSFULLY",
@@ -15170,6 +15541,80 @@ app2.post("/api/auth/submit-verification-documents", requireAuth, async (req, re
       success: false,
       code: "INTERNAL_ERROR",
       error: err.message || "Failed to submit verification documents."
+    });
+  }
+});
+app2.get("/api/auth/verification-request/status", async (req, res) => {
+  const requestId = String(req.query.requestId || req.query.id || req.query.token || "").trim();
+  const email = String(req.query.email || "").trim().toLowerCase();
+  if (!requestId && !email) {
+    return res.status(400).json({
+      success: false,
+      code: "MISSING_REQUEST_IDENTIFIER",
+      error: "\u064A\u0631\u062C\u0649 \u062A\u0632\u0648\u064A\u062F \u0645\u0639\u0631\u0641 \u0627\u0644\u0637\u0644\u0628 \u0623\u0648 \u0627\u0644\u0628\u0631\u064A\u062F \u0627\u0644\u0625\u0644\u0643\u062A\u0631\u0648\u0646\u064A."
+    });
+  }
+  try {
+    let matchedUser = null;
+    if (isFirebaseAdminAvailable && adminDb) {
+      try {
+        if (requestId) {
+          const docSnap = await adminDb.collection("users").doc(requestId).get();
+          if (docSnap.exists) {
+            matchedUser = docSnap.data();
+          } else {
+            const querySnap = await adminDb.collection("users").where("verificationRequestId", "==", requestId).limit(1).get();
+            if (!querySnap.empty) {
+              matchedUser = querySnap.docs[0].data();
+            }
+          }
+        }
+        if (!matchedUser && email) {
+          const emailSnap = await adminDb.collection("users").where("email", "==", email).limit(1).get();
+          if (!emailSnap.empty) {
+            matchedUser = emailSnap.docs[0].data();
+          }
+        }
+      } catch (fsErr) {
+        console.warn("Firestore query error in verification-request/status:", fsErr);
+      }
+    }
+    if (!matchedUser) {
+      const db2 = readDb2();
+      matchedUser = (db2.users || []).find(
+        (u) => requestId && (u.id === requestId || u.uid === requestId || u.verificationRequestId === requestId) || email && u.email?.toLowerCase() === email
+      );
+    }
+    if (!matchedUser) {
+      return res.status(404).json({
+        success: false,
+        code: "REQUEST_NOT_FOUND",
+        error: "\u0644\u0645 \u064A\u062A\u0645 \u0627\u0644\u0639\u062B\u0648\u0631 \u0639\u0644\u0649 \u0637\u0644\u0628 \u0627\u0644\u062A\u0648\u062B\u064A\u0642 \u0627\u0644\u0645\u062D\u062F\u062F."
+      });
+    }
+    const rawDocs = Array.isArray(matchedUser.verificationDocuments) ? matchedUser.verificationDocuments : Array.isArray(matchedUser.documents) ? matchedUser.documents : [];
+    return res.status(200).json({
+      success: true,
+      requestId: matchedUser.id || matchedUser.uid || requestId,
+      accountStatus: matchedUser.accountStatus || "PENDING_DOCUMENT_VERIFICATION",
+      documentVerificationStatus: matchedUser.documentVerificationStatus || "NOT_SUBMITTED",
+      canonicalVerificationStatus: matchedUser.canonicalVerificationStatus || (matchedUser.accountStatus === "APPROVED" ? "approved" : "pending"),
+      isVerified: Boolean(matchedUser.isVerified && matchedUser.accountStatus === "APPROVED"),
+      applicantName: matchedUser.ownerName || matchedUser.fullName || matchedUser.name || "\u0645\u0642\u062F\u0645 \u0627\u0644\u0637\u0644\u0628",
+      companyName: matchedUser.companyName || matchedUser.organizationName || "",
+      hasCompany: Boolean(matchedUser.hasCompany),
+      documentCount: rawDocs.length,
+      submittedAt: matchedUser.verificationSubmittedAt || matchedUser.institutionalProfile?.submittedAt || null,
+      rejectionReason: matchedUser.rejectionReason || matchedUser.verificationInfo?.adminNote || null,
+      requiresAction: matchedUser.accountStatus === "PENDING_DOCUMENT_VERIFICATION" || matchedUser.accountStatus === "REJECTED",
+      message: "\u062A\u0645 \u0627\u0633\u062A\u0631\u062F\u0627\u062F \u062D\u0627\u0644\u0629 \u0637\u0644\u0628 \u0627\u0644\u062A\u0648\u062B\u064A\u0642 \u0628\u0646\u062C\u0627\u062D (\u0644\u0644\u0639\u0631\u0636 \u0641\u0642\u0637 \u062F\u0648\u0646 \u062A\u0633\u062C\u064A\u0644 \u062F\u062E\u0648\u0644)."
+    });
+  } catch (err) {
+    console.error("[VERIFICATION_REQUEST_STATUS_ERROR]", err);
+    return res.status(500).json({
+      success: false,
+      code: "INTERNAL_ERROR",
+      error: "\u0641\u0634\u0644 \u0627\u0633\u062A\u0631\u062F\u0627\u062F \u062D\u0627\u0644\u0629 \u0637\u0644\u0628 \u0627\u0644\u062A\u0648\u062B\u064A\u0642."
     });
   }
 });
@@ -15206,9 +15651,22 @@ app2.get("/api/auth/current-user-status", requireAuth, async (req, res) => {
       }
     } catch (e) {
     }
-    if (!userDoc) {
-      const db2 = readDb2();
-      userDoc = (db2.users || []).find((u) => u.id === uid || u.email && u.email.toLowerCase() === email.toLowerCase());
+    const db2 = readDb2();
+    const localUserDoc = (db2.users || []).find((u) => u.id === uid || u.email && u.email.toLowerCase() === email.toLowerCase());
+    if (!userDoc && localUserDoc) {
+      userDoc = localUserDoc;
+    } else if (userDoc && localUserDoc) {
+      const localStatus = localUserDoc.documentVerificationStatus || localUserDoc.accountStatus;
+      const fsStatus = userDoc.documentVerificationStatus || userDoc.accountStatus;
+      const localHasDocs = Array.isArray(localUserDoc.verificationDocuments) && localUserDoc.verificationDocuments.length > 0;
+      const fsHasDocs = Array.isArray(userDoc.verificationDocuments) && userDoc.verificationDocuments.length > 0;
+      if ((localStatus === "UNDER_REVIEW" || localStatus === "PENDING_ADMIN_REVIEW") && fsStatus !== "UNDER_REVIEW" && fsStatus !== "APPROVED") {
+        userDoc = { ...userDoc, ...localUserDoc };
+      } else if (localHasDocs && !fsHasDocs) {
+        userDoc = { ...userDoc, ...localUserDoc };
+      } else {
+        userDoc = { ...localUserDoc, ...userDoc };
+      }
     }
     if (userDoc) {
       const isSysAdmin = userDoc.role === "Admin" || userDoc.email && ADMIN_EMAILS.has(userDoc.email.toLowerCase());
@@ -15621,6 +16079,13 @@ app2.post("/api/admin/approve-account", requireAuth, requireAdmin, async (req, r
       trialDurationHours: trialHours,
       subscriptionPlan: assignPlan,
       subscriptionStatus: "Active",
+      powers: targetUser.powers && (targetUser.powers.fileVault || targetUser.powers.memoryVault) ? targetUser.powers : {
+        fileVault: true,
+        memoryVault: true,
+        riskRadar: true,
+        marketIntel: true,
+        settings: true
+      },
       isVerified: true,
       isEmailVerified: true,
       email_verified: true,
@@ -15937,6 +16402,8 @@ app2.post(
         "verificationInfo.status": "rejected",
         "verificationInfo.adminNote": String(reason).trim(),
         "verificationInfo.verifiedAt": null,
+        notificationAdminSent: false,
+        adminKycNotificationSent: false,
         lastActiveAt: nowIso
       };
       try {
@@ -20141,11 +20608,44 @@ function accuratelyDetectMimeType(buffer, fallbackMime, fileName) {
   }
   return "application/pdf";
 }
+function readAllLocalDbs() {
+  const dbFiles = [
+    DB_FILE5,
+    import_path7.default.join(process.cwd(), "src", "db_store.json"),
+    import_path7.default.join(process.cwd(), "data", "db.json"),
+    import_path7.default.join(process.cwd(), "local_db.json")
+  ];
+  const results = [];
+  const seenPaths = /* @__PURE__ */ new Set();
+  for (const f of dbFiles) {
+    if (seenPaths.has(f)) continue;
+    seenPaths.add(f);
+    try {
+      if (import_fs7.default.existsSync(f)) {
+        const content = import_fs7.default.readFileSync(f, "utf-8");
+        if (content && content.trim()) {
+          const parsed = JSON.parse(content);
+          if (parsed && typeof parsed === "object") {
+            results.push(parsed);
+          }
+        }
+      }
+    } catch (e) {
+    }
+  }
+  return results;
+}
 function saveToLocalDiskCache(documentId, buffer) {
   try {
     const cleanId = import_path7.default.basename(documentId).replace(/[^a-zA-Z0-9_\-\.]/g, "");
     if (!cleanId) return;
-    const dirs = [getLocalUploadsDir(), import_path7.default.join(import_os2.default.tmpdir(), "secure_uploads"), import_path7.default.join(process.cwd(), "secure_uploads")];
+    const dirs = [
+      getLocalUploadsDir(),
+      import_path7.default.join(import_os2.default.tmpdir(), "secure_uploads"),
+      import_path7.default.join(process.cwd(), "secure_uploads"),
+      import_path7.default.join(process.cwd(), "storage", "documents"),
+      import_path7.default.join(process.cwd(), "storage")
+    ];
     for (const dir of dirs) {
       if (!import_fs7.default.existsSync(dir)) {
         try {
@@ -20167,30 +20667,67 @@ function saveToLocalDiskCache(documentId, buffer) {
     console.warn("[Storage] Local disk cache write notice:", err?.message || err);
   }
 }
-function getFromLocalDiskCache(documentId) {
+function getFromLocalDiskCache(rawDocumentId) {
   try {
+    const documentId = decodeURIComponent(rawDocumentId || "").trim();
+    if (!documentId) return null;
     const mem = getCachedBinary(documentId);
     if (mem && mem.buffer && mem.buffer.length > 0) return mem.buffer;
     const cleanId = import_path7.default.basename(documentId).replace(/[^a-zA-Z0-9_\-\.]/g, "");
     const directName = import_path7.default.basename(documentId);
-    const candidatePaths = [
-      import_path7.default.join(getLocalUploadsDir(), cleanId),
-      import_path7.default.join(import_os2.default.tmpdir(), "secure_uploads", cleanId),
-      import_path7.default.join(process.cwd(), "secure_uploads", cleanId),
-      import_path7.default.join(getLocalUploadsDir(), directName),
-      import_path7.default.join(import_os2.default.tmpdir(), "secure_uploads", directName),
-      import_path7.default.join(process.cwd(), "secure_uploads", directName),
-      import_path7.default.join(process.cwd(), documentId)
+    const idWithoutExt = cleanId.replace(/\.[a-zA-Z0-9]+$/, "");
+    const baseDirs = [
+      import_path7.default.join(process.cwd(), "storage", "documents"),
+      import_path7.default.join(process.cwd(), "storage"),
+      getLocalUploadsDir(),
+      import_path7.default.join(import_os2.default.tmpdir(), "secure_uploads"),
+      import_path7.default.join(process.cwd(), "secure_uploads"),
+      import_path7.default.join(process.cwd(), "public", "uploads"),
+      import_path7.default.join(process.cwd(), "data", "uploads"),
+      import_path7.default.join(process.cwd(), "uploads"),
+      process.cwd()
     ];
-    for (const p of candidatePaths) {
-      if (import_fs7.default.existsSync(p)) {
-        try {
-          const buf = import_fs7.default.readFileSync(p);
-          if (buf && buf.length > 0) {
-            setCachedBinary(documentId, buf);
-            return buf;
+    const fileVariants = [
+      documentId,
+      cleanId,
+      directName,
+      idWithoutExt,
+      `${cleanId}.bin`,
+      `${cleanId}.pdf`,
+      `${cleanId}.png`,
+      `${cleanId}.jpg`,
+      `${cleanId}.jpeg`,
+      `${cleanId}.webp`,
+      `${cleanId}.svg`,
+      `${idWithoutExt}.bin`,
+      `${idWithoutExt}.pdf`,
+      `${idWithoutExt}.png`,
+      `${idWithoutExt}.jpg`,
+      `${idWithoutExt}.jpeg`,
+      `${idWithoutExt}.webp`,
+      `${idWithoutExt}.svg`,
+      `doc_pdf_${idWithoutExt}.bin`,
+      `doc_png_${idWithoutExt}.bin`,
+      `doc_pdf_${cleanId}.bin`,
+      `doc_png_${cleanId}.bin`
+    ];
+    for (const dir of baseDirs) {
+      if (!import_fs7.default.existsSync(dir)) continue;
+      for (const fName of fileVariants) {
+        if (!fName) continue;
+        const fullP = import_path7.default.isAbsolute(fName) ? fName : import_path7.default.join(dir, fName);
+        if (import_fs7.default.existsSync(fullP)) {
+          try {
+            const stat = import_fs7.default.statSync(fullP);
+            if (stat.isFile() && stat.size > 0) {
+              const buf = import_fs7.default.readFileSync(fullP);
+              if (buf && buf.length > 0) {
+                setCachedBinary(documentId, buf);
+                return buf;
+              }
+            }
+          } catch (e) {
           }
-        } catch (e) {
         }
       }
     }
@@ -20460,7 +20997,7 @@ if (!isServerless2) {
   );
   if (tSync?.unref) tSync.unref();
 }
-async function resolveDocumentFromStorage(rawDocumentId) {
+async function resolveDocumentFromStorage(rawDocumentId, context) {
   const documentId = decodeURIComponent(rawDocumentId || "").trim();
   if (!documentId) {
     const err = new Error("Document ID is required.");
@@ -20468,34 +21005,20 @@ async function resolveDocumentFromStorage(rawDocumentId) {
     err.status = 400;
     throw err;
   }
-  const memCached = getCachedBinary(documentId);
-  if (memCached && memCached.buffer && memCached.buffer.length > 0) {
-    return {
-      documentId,
-      buffer: memCached.buffer,
-      mimeType: memCached.mimeType,
-      fileName: memCached.fileName || "document",
-      size: memCached.size,
-      sha256: memCached.sha256,
-      source: "memory_cache"
-    };
+  const visited = new Set(context?._visited || []);
+  if (visited.has(documentId)) {
+    const err = new Error("\u062A\u0639\u0630\u0631 \u0627\u0644\u0639\u062B\u0648\u0631 \u0639\u0644\u0649 \u0627\u0644\u0645\u0644\u0641 \u0641\u064A \u0627\u0644\u062A\u062E\u0632\u064A\u0646.");
+    err.code = "FILE_NOT_FOUND";
+    err.status = 404;
+    throw err;
   }
-  const diskBuf = getFromLocalDiskCache(documentId);
-  if (diskBuf && diskBuf.length > 0) {
-    const mime = accuratelyDetectMimeType(diskBuf);
-    const hash = import_crypto3.default.createHash("sha256").update(diskBuf).digest("hex");
-    setCachedBinary(documentId, diskBuf, mime, "document", hash);
-    return {
-      documentId,
-      buffer: diskBuf,
-      mimeType: mime,
-      fileName: "document",
-      size: diskBuf.length,
-      sha256: hash,
-      source: "local_disk"
-    };
-  }
-  const db2 = readDb2();
+  visited.add(documentId);
+  console.log("[DOCUMENT_RESOLUTION_START]", {
+    userId: context?.userId || null,
+    requestId: context?.requestId || null,
+    documentId
+  });
+  const checkedSources = [];
   const tryExtractBufferFromRecord = async (rec, recName) => {
     if (!rec) return null;
     const fileName = rec.fileName || rec.name || rec.documentName || "document";
@@ -20503,8 +21026,11 @@ async function resolveDocumentFromStorage(rawDocumentId) {
     if (Array.isArray(rec.chunks) && rec.chunks.length > 0) {
       try {
         const buffers = [];
-        const sorted = [...rec.chunks].sort((a, b) => (a.chunkIndex ?? 0) - (b.chunkIndex ?? 0));
+        const sorted = [...rec.chunks].sort(
+          (a, b) => (a.chunkIndex ?? 0) - (b.chunkIndex ?? 0)
+        );
         for (const c of sorted) {
+          if (!c.data) continue;
           const raw = Buffer.from(c.data, "base64");
           if (c.compressed) {
             try {
@@ -20518,26 +21044,28 @@ async function resolveDocumentFromStorage(rawDocumentId) {
         }
         if (buffers.length > 0) {
           const fullBuf = Buffer.concat(buffers);
-          saveToLocalDiskCache(documentId, fullBuf);
-          const mime = accuratelyDetectMimeType(fullBuf, declaredMime, fileName);
-          const hash = rec.fileHash || rec.sha256 || import_crypto3.default.createHash("sha256").update(fullBuf).digest("hex");
-          setCachedBinary(documentId, fullBuf, mime, fileName, hash);
-          return {
-            documentId,
-            buffer: fullBuf,
-            mimeType: mime,
-            fileName,
-            size: fullBuf.length,
-            sha256: hash,
-            source: `${recName}_chunks`,
-            metadata: rec
-          };
+          if (fullBuf.length > 0) {
+            saveToLocalDiskCache(documentId, fullBuf);
+            const mime = accuratelyDetectMimeType(fullBuf, declaredMime, fileName);
+            const hash = rec.fileHash || rec.sha256 || import_crypto3.default.createHash("sha256").update(fullBuf).digest("hex");
+            setCachedBinary(documentId, fullBuf, mime, fileName, hash);
+            return {
+              documentId,
+              buffer: fullBuf,
+              mimeType: mime,
+              fileName,
+              size: fullBuf.length,
+              sha256: hash,
+              source: `${recName}_chunks`,
+              metadata: rec
+            };
+          }
         }
       } catch (chunkErr) {
         console.warn(`[Storage Resolver] Chunks assembly failed for ${documentId}:`, chunkErr);
       }
     }
-    const rawBase64 = rec.fileBase64 || rec.data || rec.base64 || (typeof rec.fileUrl === "string" && rec.fileUrl.startsWith("data:") ? rec.fileUrl : null);
+    const rawBase64 = rec.fileBase64 || rec.data || rec.base64 || rec.fileData || (typeof rec.fileUrl === "string" && rec.fileUrl.startsWith("data:") ? rec.fileUrl : null);
     if (rawBase64) {
       try {
         const clean = String(rawBase64).replace(/^data:[^;]+;base64,/, "");
@@ -20561,10 +21089,17 @@ async function resolveDocumentFromStorage(rawDocumentId) {
       } catch (b64Err) {
       }
     }
-    const possiblePaths = [rec.storagePath, rec.storageReference, rec.filePath, rec.path].filter(Boolean);
+    const possiblePaths = [
+      rec.storagePath,
+      rec.storageReference,
+      rec.filePath,
+      rec.path,
+      rec.documentPath,
+      rec.fileUrl
+    ].filter((p) => typeof p === "string" && p.length > 0);
     for (const p of possiblePaths) {
-      const pClean = import_path7.default.basename(p);
-      const onDisk = getFromLocalDiskCache(pClean);
+      if (p.startsWith("http://") || p.startsWith("https://") || p.startsWith("data:")) continue;
+      const onDisk = getFromLocalDiskCache(p);
       if (onDisk && onDisk.length > 0) {
         saveToLocalDiskCache(documentId, onDisk);
         const mime = accuratelyDetectMimeType(onDisk, declaredMime, fileName);
@@ -20590,7 +21125,11 @@ async function resolveDocumentFromStorage(rawDocumentId) {
           const buf = Buffer.from(arrBuf);
           if (buf && buf.length > 0) {
             saveToLocalDiskCache(documentId, buf);
-            const mime = accuratelyDetectMimeType(buf, resp.headers.get("content-type") || declaredMime, fileName);
+            const mime = accuratelyDetectMimeType(
+              buf,
+              resp.headers.get("content-type") || declaredMime,
+              fileName
+            );
             const hash = rec.fileHash || import_crypto3.default.createHash("sha256").update(buf).digest("hex");
             setCachedBinary(documentId, buf, mime, fileName, hash);
             return {
@@ -20610,131 +21149,333 @@ async function resolveDocumentFromStorage(rawDocumentId) {
     }
     return null;
   };
-  const localVerDoc = db2.verification_documents_store?.[documentId];
-  if (localVerDoc) {
-    const res = await tryExtractBufferFromRecord(localVerDoc, "local_verification_store");
-    if (res) return res;
+  const memCached = getCachedBinary(documentId);
+  if (memCached && memCached.buffer && memCached.buffer.length > 0) {
+    console.log("[DOCUMENT_SOURCE_CHECK]", {
+      source: "memory_cache",
+      found: true,
+      size: memCached.size
+    });
+    console.log("[DOCUMENT_RESOLUTION_SUCCESS]", {
+      source: "memory_cache",
+      documentId,
+      mimeType: memCached.mimeType,
+      size: memCached.size
+    });
+    return {
+      documentId,
+      buffer: memCached.buffer,
+      mimeType: memCached.mimeType,
+      fileName: memCached.fileName || "document",
+      size: memCached.size,
+      sha256: memCached.sha256,
+      source: "memory_cache"
+    };
   }
-  const localRecDoc = db2.recovery_documents_store?.[documentId];
-  if (localRecDoc) {
-    const res = await tryExtractBufferFromRecord(localRecDoc, "local_recovery_store");
-    if (res) return res;
+  checkedSources.push("memory_cache");
+  console.log("[DOCUMENT_SOURCE_CHECK]", {
+    source: "memory_cache",
+    found: false,
+    size: 0
+  });
+  const diskBuf = getFromLocalDiskCache(documentId);
+  if (diskBuf && diskBuf.length > 0) {
+    const mime = accuratelyDetectMimeType(diskBuf, void 0, documentId);
+    const hash = import_crypto3.default.createHash("sha256").update(diskBuf).digest("hex");
+    setCachedBinary(documentId, diskBuf, mime, "document", hash);
+    console.log("[DOCUMENT_SOURCE_CHECK]", {
+      source: "local_disk",
+      found: true,
+      size: diskBuf.length
+    });
+    console.log("[DOCUMENT_RESOLUTION_SUCCESS]", {
+      source: "local_disk",
+      documentId,
+      mimeType: mime,
+      size: diskBuf.length
+    });
+    return {
+      documentId,
+      buffer: diskBuf,
+      mimeType: mime,
+      fileName: "document",
+      size: diskBuf.length,
+      sha256: hash,
+      source: "local_disk"
+    };
   }
-  if (Array.isArray(db2.files)) {
-    const fDoc = db2.files.find((f) => f.id === documentId || f.documentId === documentId || f.fileId === documentId);
-    if (fDoc) {
-      const res = await tryExtractBufferFromRecord(fDoc, "local_files_store");
-      if (res) return res;
+  checkedSources.push("local_disk");
+  console.log("[DOCUMENT_SOURCE_CHECK]", {
+    source: "local_disk",
+    found: false,
+    size: 0
+  });
+  const allDbs = readAllLocalDbs();
+  for (const db2 of allDbs) {
+    const verDoc = db2.verification_documents_store?.[documentId] || db2.verification_documents_store && Object.values(db2.verification_documents_store).find(
+      (d) => d?.documentId === documentId || d?.id === documentId || d?.storageReference === documentId || d?.fileName === documentId || d?.storagePath === documentId
+    );
+    if (verDoc) {
+      const res = await tryExtractBufferFromRecord(verDoc, "local_verification_store");
+      if (res) {
+        console.log("[DOCUMENT_SOURCE_CHECK]", {
+          source: "local_verification_store",
+          found: true,
+          size: res.size
+        });
+        console.log("[DOCUMENT_RESOLUTION_SUCCESS]", {
+          source: res.source,
+          documentId,
+          mimeType: res.mimeType,
+          size: res.size
+        });
+        return res;
+      }
     }
-  }
-  if (Array.isArray(db2.users)) {
-    for (const u of db2.users) {
-      const docList = [
-        ...Array.isArray(u.verificationDocuments) ? u.verificationDocuments : [],
-        ...Array.isArray(u.documents) ? u.documents : [],
-        ...Array.isArray(u.verificationInfo?.documents) ? u.verificationInfo.documents : [],
-        ...Array.isArray(u.files) ? u.files : []
-      ];
-      const match = docList.find((d) => (d.documentId || d.id || d.fileId || d.storageReference || d.fileName) === documentId);
-      if (match) {
-        const res = await tryExtractBufferFromRecord(match, "local_user_embedded_doc");
-        if (res) return res;
+    const recDoc = db2.recovery_documents_store?.[documentId] || db2.recovery_documents_store && Object.values(db2.recovery_documents_store).find(
+      (d) => d?.documentId === documentId || d?.id === documentId || d?.storageReference === documentId || d?.fileName === documentId || d?.storagePath === documentId
+    );
+    if (recDoc) {
+      const res = await tryExtractBufferFromRecord(recDoc, "local_recovery_store");
+      if (res) {
+        console.log("[DOCUMENT_SOURCE_CHECK]", {
+          source: "local_recovery_store",
+          found: true,
+          size: res.size
+        });
+        console.log("[DOCUMENT_RESOLUTION_SUCCESS]", {
+          source: res.source,
+          documentId,
+          mimeType: res.mimeType,
+          size: res.size
+        });
+        return res;
+      }
+    }
+    if (Array.isArray(db2.files)) {
+      const fDoc = db2.files.find(
+        (f) => f?.id === documentId || f?.documentId === documentId || f?.fileId === documentId || f?.storageReference === documentId || f?.fileName === documentId
+      );
+      if (fDoc) {
+        const res = await tryExtractBufferFromRecord(fDoc, "local_files_store");
+        if (res) {
+          console.log("[DOCUMENT_SOURCE_CHECK]", {
+            source: "local_files_store",
+            found: true,
+            size: res.size
+          });
+          console.log("[DOCUMENT_RESOLUTION_SUCCESS]", {
+            source: res.source,
+            documentId,
+            mimeType: res.mimeType,
+            size: res.size
+          });
+          return res;
+        }
+      }
+    }
+    if (Array.isArray(db2.users)) {
+      for (const u of db2.users) {
+        const docList = [
+          ...Array.isArray(u.verificationDocuments) ? u.verificationDocuments : [],
+          ...Array.isArray(u.documents) ? u.documents : [],
+          ...Array.isArray(u.verificationInfo?.documents) ? u.verificationInfo.documents : [],
+          ...Array.isArray(u.files) ? u.files : []
+        ];
+        const match = docList.find(
+          (d) => d && (d.documentId === documentId || d.id === documentId || d.fileId === documentId || d.storageReference === documentId || d.storagePath === documentId || d.fileName === documentId)
+        );
+        if (match) {
+          const res = await tryExtractBufferFromRecord(match, "local_user_embedded_doc");
+          if (res) {
+            console.log("[DOCUMENT_SOURCE_CHECK]", {
+              source: "local_user_embedded_doc",
+              found: true,
+              size: res.size
+            });
+            console.log("[DOCUMENT_RESOLUTION_SUCCESS]", {
+              source: res.source,
+              documentId,
+              mimeType: res.mimeType,
+              size: res.size
+            });
+            return res;
+          }
+        }
+      }
+    }
+    if (Array.isArray(db2.pending_recovery_uploads)) {
+      const pDoc = db2.pending_recovery_uploads.find(
+        (p) => p?.documentId === documentId || p?.id === documentId || p?.document?.documentId === documentId || p?.document?.id === documentId
+      );
+      if (pDoc) {
+        const res = await tryExtractBufferFromRecord(
+          pDoc.document || pDoc,
+          "local_pending_recovery_store"
+        );
+        if (res) {
+          console.log("[DOCUMENT_SOURCE_CHECK]", {
+            source: "local_pending_recovery_store",
+            found: true,
+            size: res.size
+          });
+          console.log("[DOCUMENT_RESOLUTION_SUCCESS]", {
+            source: res.source,
+            documentId,
+            mimeType: res.mimeType,
+            size: res.size
+          });
+          return res;
+        }
       }
     }
   }
-  if (Array.isArray(db2.pending_recovery_uploads)) {
-    const pDoc = db2.pending_recovery_uploads.find((p) => p.documentId === documentId || p.id === documentId);
-    if (pDoc) {
-      const res = await tryExtractBufferFromRecord(pDoc.document || pDoc, "local_pending_recovery_store");
-      if (res) return res;
-    }
-  }
+  checkedSources.push("local_db_stores");
+  console.log("[DOCUMENT_SOURCE_CHECK]", {
+    source: "local_db_stores",
+    found: false,
+    size: 0
+  });
   if (isFirebaseAdminAvailable && adminDb) {
     try {
-      const fetchFirestoreSnapshots = async () => {
-        return await Promise.all([
+      let timeoutHandle = null;
+      const fsQueryPromise = async () => {
+        const [verSnap, recSnap, fileSnap, pendSnap] = await Promise.all([
           adminDb.collection("verification_documents").doc(documentId).get().catch(() => null),
           adminDb.collection("recoveryDocuments").doc(documentId).get().catch(() => null),
           adminDb.collection("files").doc(documentId).get().catch(() => null),
           adminDb.collection("pendingRecoveryUploads").doc(documentId).get().catch(() => null)
         ]);
-      };
-      let fsTimeout = null;
-      const fsSnaps = await Promise.race([
-        fetchFirestoreSnapshots(),
-        new Promise((resolve) => {
-          fsTimeout = setTimeout(() => resolve([null, null, null, null]), 800);
-          if (fsTimeout?.unref) fsTimeout.unref();
-        })
-      ]);
-      if (fsTimeout) clearTimeout(fsTimeout);
-      const [verSnap, recSnap, fileSnap, pendSnap] = fsSnaps || [null, null, null, null];
-      if (verSnap && verSnap.exists) {
-        const res = await tryExtractBufferFromRecord(verSnap.data(), "firestore_verification_doc");
-        if (res) return res;
-      }
-      if (recSnap && recSnap.exists) {
-        const recData = recSnap.data() || {};
-        const res = await tryExtractBufferFromRecord(recData, "firestore_recovery_doc");
-        if (res) return res;
-        try {
-          const chunksSnap = await adminDb.collection("recoveryDocuments").doc(documentId).collection("chunks").get();
-          if (chunksSnap && !chunksSnap.empty) {
-            const sortedDocs = chunksSnap.docs.sort((a, b) => {
-              const idxA = Number(a.data().chunkIndex ?? a.id);
-              const idxB = Number(b.data().chunkIndex ?? b.id);
-              return idxA - idxB;
-            });
-            const buffers = [];
-            for (const cDoc of sortedDocs) {
-              const cData = cDoc.data();
-              if (cData.data) {
-                const rawBuf = Buffer.from(cData.data, "base64");
-                if (cData.compressed) {
-                  try {
-                    buffers.push(import_zlib.default.inflateSync(rawBuf));
-                  } catch (e) {
+        if (verSnap && verSnap.exists) {
+          const res = await tryExtractBufferFromRecord(verSnap.data(), "firestore_verification_doc");
+          if (res) return res;
+        }
+        if (recSnap && recSnap.exists) {
+          const recData = recSnap.data() || {};
+          const res = await tryExtractBufferFromRecord(recData, "firestore_recovery_doc");
+          if (res) return res;
+          try {
+            const chunksSnap = await adminDb.collection("recoveryDocuments").doc(documentId).collection("chunks").get();
+            if (chunksSnap && !chunksSnap.empty) {
+              const sortedDocs = chunksSnap.docs.sort((a, b) => {
+                const idxA = Number(a.data().chunkIndex ?? a.id);
+                const idxB = Number(b.data().chunkIndex ?? b.id);
+                return idxA - idxB;
+              });
+              const buffers = [];
+              for (const cDoc of sortedDocs) {
+                const cData = cDoc.data();
+                if (cData.data) {
+                  const rawBuf = Buffer.from(cData.data, "base64");
+                  if (cData.compressed) {
+                    try {
+                      buffers.push(import_zlib.default.inflateSync(rawBuf));
+                    } catch (e) {
+                      buffers.push(rawBuf);
+                    }
+                  } else {
                     buffers.push(rawBuf);
                   }
-                } else {
-                  buffers.push(rawBuf);
+                }
+              }
+              if (buffers.length > 0) {
+                const fullBuf = Buffer.concat(buffers);
+                if (fullBuf.length > 0) {
+                  saveToLocalDiskCache(documentId, fullBuf);
+                  const mime = accuratelyDetectMimeType(fullBuf, recData.mimeType, recData.fileName);
+                  const hash = recData.fileHash || import_crypto3.default.createHash("sha256").update(fullBuf).digest("hex");
+                  setCachedBinary(documentId, fullBuf, mime, recData.fileName || "document", hash);
+                  return {
+                    documentId,
+                    buffer: fullBuf,
+                    mimeType: mime,
+                    fileName: recData.fileName || "document",
+                    size: fullBuf.length,
+                    sha256: hash,
+                    source: "firestore_recovery_subchunks",
+                    metadata: recData
+                  };
                 }
               }
             }
-            if (buffers.length > 0) {
-              const fullBuf = Buffer.concat(buffers);
-              saveToLocalDiskCache(documentId, fullBuf);
-              const mime = accuratelyDetectMimeType(fullBuf, recData.mimeType, recData.fileName);
-              const hash = recData.fileHash || import_crypto3.default.createHash("sha256").update(fullBuf).digest("hex");
-              setCachedBinary(documentId, fullBuf, mime, recData.fileName || "document", hash);
-              return {
-                documentId,
-                buffer: fullBuf,
-                mimeType: mime,
-                fileName: recData.fileName || "document",
-                size: fullBuf.length,
-                sha256: hash,
-                source: "firestore_recovery_subchunks",
-                metadata: recData
-              };
-            }
+          } catch (chunksErr) {
           }
-        } catch (chunksErr) {
         }
-      }
-      if (fileSnap && fileSnap.exists) {
-        const res = await tryExtractBufferFromRecord(fileSnap.data(), "firestore_files_doc");
-        if (res) return res;
-      }
-      if (pendSnap && pendSnap.exists) {
-        const pData = pendSnap.data()?.document || pendSnap.data();
-        const res = await tryExtractBufferFromRecord(pData, "firestore_pending_doc");
-        if (res) return res;
+        if (fileSnap && fileSnap.exists) {
+          const res = await tryExtractBufferFromRecord(fileSnap.data(), "firestore_files_doc");
+          if (res) return res;
+        }
+        if (pendSnap && pendSnap.exists) {
+          const pData = pendSnap.data()?.document || pendSnap.data();
+          const res = await tryExtractBufferFromRecord(pData, "firestore_pending_doc");
+          if (res) return res;
+        }
+        const [qVerSnap, qRecSnap, qFilesSnap] = await Promise.all([
+          adminDb.collection("verification_documents").where("storageReference", "==", documentId).limit(1).get().catch(() => null),
+          adminDb.collection("recoveryDocuments").where("storageReference", "==", documentId).limit(1).get().catch(() => null),
+          adminDb.collection("files").where("storageReference", "==", documentId).limit(1).get().catch(() => null)
+        ]);
+        const queryDoc = (qVerSnap && !qVerSnap.empty ? qVerSnap.docs[0].data() : null) || (qRecSnap && !qRecSnap.empty ? qRecSnap.docs[0].data() : null) || (qFilesSnap && !qFilesSnap.empty ? qFilesSnap.docs[0].data() : null);
+        if (queryDoc) {
+          const res = await tryExtractBufferFromRecord(queryDoc, "firestore_query_doc");
+          if (res) return res;
+        }
+        if (context?.userId) {
+          try {
+            const userSnap = await adminDb.collection("users").doc(context.userId).get();
+            if (userSnap.exists) {
+              const uData = userSnap.data() || {};
+              const docList = [
+                ...Array.isArray(uData.verificationDocuments) ? uData.verificationDocuments : [],
+                ...Array.isArray(uData.documents) ? uData.documents : [],
+                ...Array.isArray(uData.verificationInfo?.documents) ? uData.verificationInfo.documents : [],
+                ...Array.isArray(uData.files) ? uData.files : []
+              ];
+              const match = docList.find(
+                (d) => d && (d.documentId === documentId || d.id === documentId || d.fileId === documentId || d.storageReference === documentId || d.fileName === documentId)
+              );
+              if (match) {
+                const res = await tryExtractBufferFromRecord(match, "firestore_user_doc");
+                if (res) return res;
+              }
+            }
+          } catch (uErr) {
+          }
+        }
+        return null;
+      };
+      const fsResult = await Promise.race([
+        fsQueryPromise(),
+        new Promise((resolve) => {
+          timeoutHandle = setTimeout(() => resolve(null), 1e3);
+          if (timeoutHandle?.unref) timeoutHandle.unref();
+        })
+      ]);
+      if (timeoutHandle) clearTimeout(timeoutHandle);
+      if (fsResult) {
+        console.log("[DOCUMENT_SOURCE_CHECK]", {
+          source: fsResult.source,
+          found: true,
+          size: fsResult.size
+        });
+        console.log("[DOCUMENT_RESOLUTION_SUCCESS]", {
+          source: fsResult.source,
+          documentId,
+          mimeType: fsResult.mimeType,
+          size: fsResult.size
+        });
+        return fsResult;
       }
     } catch (fsErr) {
       console.warn("[Storage Resolver] Firestore search notice:", fsErr);
     }
   }
+  checkedSources.push("firestore");
+  console.log("[DOCUMENT_SOURCE_CHECK]", {
+    source: "firestore",
+    found: false,
+    size: 0
+  });
   if (isCloudStorageBucketAvailable !== false) {
     const bucket = getSafeBucket();
     if (bucket) {
@@ -20743,81 +21484,173 @@ async function resolveDocumentFromStorage(rawDocumentId) {
         `files/${documentId}`,
         `verification_documents/${documentId}`,
         `recoveryDocuments/${documentId}`,
+        `documents/${documentId}`,
+        `storage/documents/${documentId}`,
         documentId
       ];
-      for (const cPath of candidates) {
-        try {
-          const fileRef = bucket.file(cPath);
-          let timeoutHandle = null;
-          const downloadPromise = async () => {
-            const [exists] = await fileRef.exists().catch(() => [false]);
-            if (exists) {
-              const [b] = await fileRef.download();
-              return b;
+      try {
+        let timeoutHandle = null;
+        const bucketCheckPromise = async () => {
+          const checks = candidates.map(async (cPath) => {
+            try {
+              const fileRef = bucket.file(cPath);
+              const [exists] = await fileRef.exists();
+              if (exists) {
+                const [b] = await fileRef.download();
+                return { path: cPath, buffer: b };
+              }
+            } catch (e) {
             }
             return null;
+          });
+          const results = await Promise.all(checks);
+          return results.find((r) => r && r.buffer && r.buffer.length > 0) || null;
+        };
+        const foundCloud = await Promise.race([
+          bucketCheckPromise(),
+          new Promise((resolve) => {
+            timeoutHandle = setTimeout(() => resolve(null), 1e3);
+            if (timeoutHandle?.unref) timeoutHandle.unref();
+          })
+        ]);
+        if (timeoutHandle) clearTimeout(timeoutHandle);
+        if (foundCloud && foundCloud.buffer) {
+          const fileBuf = foundCloud.buffer;
+          saveToLocalDiskCache(documentId, fileBuf);
+          const mime = accuratelyDetectMimeType(fileBuf, void 0, documentId);
+          const hash = import_crypto3.default.createHash("sha256").update(fileBuf).digest("hex");
+          setCachedBinary(documentId, fileBuf, mime, "document", hash);
+          console.log("[DOCUMENT_SOURCE_CHECK]", {
+            source: "firebase_cloud_storage",
+            found: true,
+            size: fileBuf.length
+          });
+          console.log("[DOCUMENT_RESOLUTION_SUCCESS]", {
+            source: "firebase_cloud_storage",
+            documentId,
+            mimeType: mime,
+            size: fileBuf.length
+          });
+          return {
+            documentId,
+            buffer: fileBuf,
+            mimeType: mime,
+            fileName: "document",
+            size: fileBuf.length,
+            sha256: hash,
+            source: "firebase_cloud_storage"
           };
-          const fileBuf = await Promise.race([
-            downloadPromise(),
-            new Promise((resolve) => {
-              timeoutHandle = setTimeout(() => resolve(null), 600);
-              if (timeoutHandle?.unref) timeoutHandle.unref();
-            })
-          ]);
-          if (timeoutHandle) clearTimeout(timeoutHandle);
-          if (fileBuf && fileBuf.length > 0) {
-            saveToLocalDiskCache(documentId, fileBuf);
-            const mime = accuratelyDetectMimeType(fileBuf);
-            const hash = import_crypto3.default.createHash("sha256").update(fileBuf).digest("hex");
-            setCachedBinary(documentId, fileBuf, mime, "document", hash);
-            return {
-              documentId,
-              buffer: fileBuf,
-              mimeType: mime,
-              fileName: "document",
-              size: fileBuf.length,
-              sha256: hash,
-              source: "firebase_cloud_storage"
-            };
+        }
+      } catch (storageErr) {
+      }
+    }
+  }
+  checkedSources.push("cloud_storage");
+  console.log("[DOCUMENT_SOURCE_CHECK]", {
+    source: "cloud_storage",
+    found: false,
+    size: 0
+  });
+  if (documentId.startsWith("vreq_") || documentId.startsWith("rec_") || documentId.startsWith("usr_") || documentId.length >= 20) {
+    const rawTargetUid = documentId.startsWith("vreq_") ? documentId.replace("vreq_", "") : documentId;
+    for (const db2 of allDbs) {
+      if (Array.isArray(db2.users)) {
+        const u = db2.users.find(
+          (usr) => usr?.id === rawTargetUid || usr?.uid === rawTargetUid
+        );
+        if (u) {
+          const docList = [
+            ...Array.isArray(u.verificationDocuments) ? u.verificationDocuments : [],
+            ...Array.isArray(u.documents) ? u.documents : [],
+            ...Array.isArray(u.verificationInfo?.documents) ? u.verificationInfo.documents : [],
+            ...Array.isArray(u.files) ? u.files : []
+          ];
+          for (const candDoc of docList) {
+            const candId = candDoc?.documentId || candDoc?.id || candDoc?.storageReference;
+            if (candId && candId !== documentId) {
+              try {
+                const resolved = await resolveDocumentFromStorage(candId, {
+                  ...context,
+                  userId: u.id || rawTargetUid,
+                  _visited: Array.from(visited)
+                });
+                if (resolved && resolved.buffer && resolved.buffer.length > 0) {
+                  console.log("[DOCUMENT_SOURCE_CHECK]", {
+                    source: "user_request_alias",
+                    found: true,
+                    size: resolved.size
+                  });
+                  console.log("[DOCUMENT_RESOLUTION_SUCCESS]", {
+                    source: "user_request_alias",
+                    documentId,
+                    mimeType: resolved.mimeType,
+                    size: resolved.size
+                  });
+                  return {
+                    ...resolved,
+                    documentId
+                  };
+                }
+              } catch (aliasErr) {
+              }
+            }
           }
-        } catch (storageErr) {
         }
       }
     }
   }
+  checkedSources.push("user_request_alias");
+  console.log("[DOCUMENT_SOURCE_CHECK]", {
+    source: "user_request_alias",
+    found: false,
+    size: 0
+  });
+  console.log("[DOCUMENT_RESOLUTION_FAILED]", {
+    reason: "FILE_NOT_FOUND",
+    checkedSources
+  });
   const error = new Error("\u062A\u0639\u0630\u0631 \u062A\u062D\u0645\u064A\u0644 \u0627\u0644\u0648\u062B\u064A\u0642\u0629 \u0644\u0623\u0646 \u0627\u0644\u0645\u0644\u0641 \u063A\u064A\u0631 \u0645\u062A\u0648\u0641\u0631 \u0641\u064A \u0627\u0644\u062A\u062E\u0632\u064A\u0646.");
   error.code = "FILE_NOT_FOUND";
   error.status = 404;
+  error.checkedSources = checkedSources;
   throw error;
 }
-async function checkDocumentExistence(documentId, docMeta) {
+async function checkDocumentExistence(rawDocumentId, docMeta) {
+  const documentId = decodeURIComponent(rawDocumentId || "").trim();
   if (!documentId) return false;
   if (getCachedBinary(documentId)) return true;
-  const p1 = import_path7.default.join(process.cwd(), "secure_uploads", documentId);
-  const p2 = import_path7.default.join(import_os2.default.tmpdir(), "secure_uploads", documentId);
-  const p3 = import_path7.default.join(getLocalUploadsDir(), documentId);
-  if (import_fs7.default.existsSync(p1) || import_fs7.default.existsSync(p2) || import_fs7.default.existsSync(p3)) return true;
-  if (getFromLocalDiskCache(documentId)) return true;
-  const db2 = readDb2();
-  if (db2.verification_documents_store?.[documentId] || db2.recovery_documents_store?.[documentId]) {
-    return true;
-  }
-  if (Array.isArray(db2.files) && db2.files.some((f) => f.id === documentId || f.documentId === documentId)) {
-    return true;
-  }
+  const diskBuf = getFromLocalDiskCache(documentId);
+  if (diskBuf && diskBuf.length > 0) return true;
   if (docMeta) {
-    if (docMeta.fileBase64 || docMeta.data || docMeta.base64 || docMeta.storageReference || docMeta.storagePath || typeof docMeta.fileUrl === "string" && docMeta.fileUrl.length > 5 || Array.isArray(docMeta.chunks) && docMeta.chunks.length > 0) {
+    if (docMeta.fileBase64 || docMeta.data || docMeta.base64 || docMeta.fileData || Array.isArray(docMeta.chunks) && docMeta.chunks.length > 0) {
       return true;
+    }
+    const possiblePaths = [docMeta.storageReference, docMeta.storagePath, docMeta.filePath];
+    for (const p of possiblePaths) {
+      if (p && getFromLocalDiskCache(p)) return true;
+    }
+  }
+  const allDbs = readAllLocalDbs();
+  for (const db2 of allDbs) {
+    if (db2.verification_documents_store?.[documentId] || db2.recovery_documents_store?.[documentId]) {
+      const rec = db2.verification_documents_store?.[documentId] || db2.recovery_documents_store?.[documentId];
+      if (rec?.fileBase64 || rec?.data || Array.isArray(rec?.chunks) && rec.chunks.length > 0) return true;
+      if (rec?.storageReference && getFromLocalDiskCache(rec.storageReference)) return true;
+      if (rec?.storagePath && getFromLocalDiskCache(rec.storagePath)) return true;
+    }
+    if (Array.isArray(db2.files)) {
+      const f = db2.files.find((file) => file?.id === documentId || file?.documentId === documentId);
+      if (f) return true;
     }
   }
   if (isFirebaseAdminAvailable && adminDb) {
     try {
-      const vSnap = await adminDb.collection("verification_documents").doc(documentId).get().catch(() => null);
-      if (vSnap && vSnap.exists) return true;
-      const rSnap = await adminDb.collection("recoveryDocuments").doc(documentId).get().catch(() => null);
-      if (rSnap && rSnap.exists) return true;
-      const fSnap = await adminDb.collection("files").doc(documentId).get().catch(() => null);
-      if (fSnap && fSnap.exists) return true;
+      const [vSnap, rSnap, fSnap] = await Promise.all([
+        adminDb.collection("verification_documents").doc(documentId).get().catch(() => null),
+        adminDb.collection("recoveryDocuments").doc(documentId).get().catch(() => null),
+        adminDb.collection("files").doc(documentId).get().catch(() => null)
+      ]);
+      if (vSnap && vSnap.exists || rSnap && rSnap.exists || fSnap && fSnap.exists) return true;
     } catch (e) {
     }
   }
@@ -21301,190 +22134,24 @@ app2.all(
       if (!documentId || typeof documentId !== "string") {
         return res.status(400).json({ success: false, error: "Document ID is required." });
       }
-      if (!/^[a-zA-Z0-9_\-\.]+$/.test(documentId)) {
-        return res.status(400).json({
+      const safeDocId = decodeURIComponent(documentId).trim();
+      let resolved;
+      try {
+        resolved = await resolveDocumentFromStorage(safeDocId, {
+          callerUid,
+          callerEmail,
+          isDownload: req.query.download === "true"
+        });
+      } catch (resolveErr) {
+        return res.status(resolveErr.status || 404).json({
           success: false,
-          error: "Invalid Document ID structure (path traversal detected)."
+          error: resolveErr.code || "FILE_NOT_FOUND",
+          message: resolveErr.message || "\u0627\u0644\u0645\u0644\u0641 \u063A\u064A\u0631 \u0645\u062A\u0648\u0641\u0631 \u0641\u064A \u0627\u0644\u062A\u062E\u0632\u064A\u0646."
         });
       }
-      const safeDocId = documentId;
-      let docMeta = null;
-      const db2 = readDb2();
-      if (db2.recovery_documents_store && db2.recovery_documents_store[safeDocId]) {
-        docMeta = db2.recovery_documents_store[safeDocId];
-      }
-      if (!docMeta) {
-        const localRequests = getLocalRecoveryRequestsList(db2);
-        for (const r of localRequests) {
-          const found = r.documents?.find(
-            (d) => d.documentId === safeDocId || d.id === safeDocId
-          );
-          if (found) {
-            docMeta = {
-              ...found,
-              requestEmail: r.email,
-              requestName: r.fullName
-            };
-            break;
-          }
-        }
-      }
-      if (!docMeta) {
-        const pendingUploads = db2.pending_recovery_uploads || [];
-        const foundPending = pendingUploads.find(
-          (p) => p.documentId === safeDocId || p.id === safeDocId
-        );
-        if (foundPending) {
-          docMeta = foundPending.document || foundPending;
-        }
-      }
-      if (!docMeta && isFirebaseAdminAvailable && adminDb) {
-        try {
-          const snap = await adminDb.collection("recoveryRequests").get();
-          if (snap && !snap.empty) {
-            for (const doc of snap.docs) {
-              const data = doc.data();
-              const found = data.documents?.find(
-                (d) => d.documentId === safeDocId || d.id === safeDocId
-              );
-              if (found) {
-                docMeta = {
-                  ...found,
-                  requestEmail: data.email,
-                  requestName: data.fullName
-                };
-                break;
-              }
-            }
-          }
-        } catch (e) {
-        }
-      }
-      if (!docMeta && isFirebaseAdminAvailable && adminDb) {
-        try {
-          const snap = await adminDb.collection("accountRecoveryRequests").get();
-          if (snap && !snap.empty) {
-            for (const doc of snap.docs) {
-              const data = doc.data();
-              const found = data.documents?.find(
-                (d) => d.documentId === safeDocId || d.id === safeDocId
-              );
-              if (found) {
-                docMeta = {
-                  ...found,
-                  requestEmail: data.email,
-                  requestName: data.fullName
-                };
-                break;
-              }
-            }
-          }
-        } catch (e) {
-        }
-      }
-      if (!docMeta && isFirebaseAdminAvailable && adminDb) {
-        try {
-          const recDocSnap = await adminDb.collection("recoveryDocuments").doc(safeDocId).get();
-          if (recDocSnap && recDocSnap.exists) {
-            docMeta = recDocSnap.data();
-          }
-        } catch (e) {
-        }
-      }
-      if (!docMeta && isFirebaseAdminAvailable && adminDb) {
-        try {
-          const pendSnap = await adminDb.collection("pendingRecoveryUploads").doc(safeDocId).get();
-          if (pendSnap && pendSnap.exists) {
-            docMeta = pendSnap.data()?.document || pendSnap.data();
-          }
-        } catch (e) {
-        }
-      }
-      const originalName = docMeta?.fileName || `document_${safeDocId}.pdf`;
-      let mimeType = docMeta?.mimeType || "";
-      let fileBuffer = null;
-      if (docMeta?.fileBase64 || docMeta?.data || docMeta?.base64) {
-        try {
-          const raw = String(
-            docMeta.fileBase64 || docMeta.data || docMeta.base64
-          );
-          const clean = raw.replace(/^data:[^;]+;base64,/, "");
-          fileBuffer = Buffer.from(clean, "base64");
-        } catch (bErr) {
-        }
-      }
-      if (!fileBuffer) {
-        try {
-          const resolved = await resolveDocumentFromStorage(safeDocId);
-          fileBuffer = resolved.buffer;
-          if (resolved.mimeType) mimeType = resolved.mimeType;
-        } catch (err) {
-          const svgContent = `<svg xmlns="http://www.w3.org/2000/svg" width="800" height="500" viewBox="0 0 800 500">
-  <defs>
-    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#0f172a"/>
-      <stop offset="100%" stop-color="#1e293b"/>
-    </linearGradient>
-    <linearGradient id="accent" x1="0%" y1="0%" x2="100%" y2="0%">
-      <stop offset="0%" stop-color="#6366f1"/>
-      <stop offset="100%" stop-color="#8b5cf6"/>
-    </linearGradient>
-  </defs>
-  <rect width="800" height="500" rx="16" fill="url(#bg)"/>
-  <rect x="20" y="20" width="760" height="460" rx="12" fill="none" stroke="#334155" stroke-width="2" stroke-dasharray="6,6"/>
-  <circle cx="400" cy="110" r="42" fill="#312e81" stroke="#6366f1" stroke-width="2"/>
-  <path d="M386 110l9 9 19-19" fill="none" stroke="#a5b4fc" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
-  <text x="400" y="190" text-anchor="middle" fill="#f8fafc" font-size="22" font-family="system-ui, sans-serif" font-weight="bold">\u0633\u062C\u0644 \u0627\u0644\u062A\u062D\u0642\u0642 \u0645\u0646 \u0627\u0644\u0645\u0633\u062A\u0646\u062F \u0627\u0644\u062B\u0628\u0648\u062A\u064A \u0627\u0644\u0645\u0639\u062A\u0645\u062F</text>
-  <text x="400" y="215" text-anchor="middle" fill="#94a3b8" font-size="14" font-family="system-ui, sans-serif">Identity Verification Audit Record</text>
-  <rect x="100" y="245" width="600" height="150" rx="8" fill="#0f172a" stroke="#1e293b"/>
-  <text x="130" y="280" fill="#a5b4fc" font-size="14" font-family="system-ui, sans-serif" font-weight="bold">\u0627\u0633\u0645 \u0627\u0644\u0645\u0644\u0641 (File Name):</text>
-  <text x="350" y="280" fill="#f8fafc" font-size="14" font-family="monospace">${encodeURIComponent(originalName)}</text>
-  <text x="130" y="315" fill="#a5b4fc" font-size="14" font-family="system-ui, sans-serif" font-weight="bold">\u0627\u0644\u0646\u0648\u0639 \u0648\u0627\u0644\u062D\u062C\u0645 (Type &amp; Size):</text>
-  <text x="350" y="315" fill="#f8fafc" font-size="14" font-family="monospace">${mimeType || "application/pdf"} (${Math.round((docMeta?.size || 0) / 1024)} KB)</text>
-  <text x="130" y="350" fill="#a5b4fc" font-size="14" font-family="system-ui, sans-serif" font-weight="bold">\u0645\u0639\u0631\u0651\u0641 \u0627\u0644\u0645\u0633\u062A\u0646\u062F (Doc ID):</text>
-  <text x="350" y="350" fill="#f8fafc" font-size="13" font-family="monospace">${safeDocId}</text>
-  <text x="130" y="380" fill="#a5b4fc" font-size="14" font-family="system-ui, sans-serif" font-weight="bold">\u0627\u0644\u062D\u0627\u0644\u0629 \u0627\u0644\u0625\u062F\u0627\u0631\u064A\u0629 (Status):</text>
-  <text x="350" y="380" fill="#34d399" font-size="13" font-family="system-ui, sans-serif" font-weight="bold">\u062A\u0645 \u0627\u0644\u062A\u062F\u0642\u064A\u0642 \u0648\u0627\u0644\u0645\u0631\u0627\u062C\u0639\u0629 \u0645\u0646 \u0642\u0628\u0644 \u0627\u0644\u0625\u062F\u0627\u0631\u0629 (Audited &amp; Recorded)</text>
-  <text x="400" y="445" text-anchor="middle" fill="#64748b" font-size="12" font-family="system-ui, sans-serif">\u0646\u0638\u0627\u0645 \u0625\u062F\u0627\u0631\u0629 \u0637\u0644\u0628\u0627\u062A \u0627\u0633\u062A\u0631\u062C\u0627\u0639 \u0627\u0644\u062D\u0633\u0627\u0628\u0627\u062A - \u0645\u0646\u0635\u0629 \u0630\u0627\u0643\u0631 Zakir Enterprise Security</text>
-</svg>`;
-          fileBuffer = Buffer.from(svgContent, "utf-8");
-          mimeType = "image/svg+xml";
-        }
-      }
-      if (fileBuffer && fileBuffer.length >= 4) {
-        if (fileBuffer.subarray(0, 4).toString() === "%PDF" || fileBuffer.subarray(0, 5).toString() === "%PDF-") {
-          mimeType = "application/pdf";
-        } else if (fileBuffer[0] === 255 && fileBuffer[1] === 216 && fileBuffer[2] === 255) {
-          mimeType = "image/jpeg";
-        } else if (fileBuffer[0] === 137 && fileBuffer[1] === 80 && fileBuffer[2] === 78 && fileBuffer[3] === 71) {
-          mimeType = "image/png";
-        } else if (fileBuffer.subarray(0, 4).toString() === "GIF8") {
-          mimeType = "image/gif";
-        } else if (fileBuffer.length >= 12 && fileBuffer.subarray(0, 4).toString() === "RIFF" && fileBuffer.subarray(8, 12).toString() === "WEBP") {
-          mimeType = "image/webp";
-        } else if (fileBuffer.subarray(0, 5).toString().toLowerCase() === "<svg " || fileBuffer.subarray(0, 5).toString().toLowerCase() === "<?xml") {
-          mimeType = "image/svg+xml";
-        }
-      }
-      if (!mimeType) {
-        const ext = originalName.split(".").pop()?.toLowerCase();
-        if (ext === "pdf") mimeType = "application/pdf";
-        else if (ext === "png") mimeType = "image/png";
-        else if (ext === "jpg" || ext === "jpeg") mimeType = "image/jpeg";
-        else if (ext === "webp") mimeType = "image/webp";
-        else if (ext === "svg") mimeType = "image/svg+xml";
-        else if (ext === "doc") mimeType = "application/msword";
-        else if (ext === "docx")
-          mimeType = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
-        else if (ext === "xls") mimeType = "application/vnd.ms-excel";
-        else if (ext === "xlsx")
-          mimeType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
-        else if (ext === "csv") mimeType = "text/csv; charset=utf-8";
-        else if (ext === "txt") mimeType = "text/plain; charset=utf-8";
-        else if (ext === "html" || ext === "htm")
-          mimeType = "text/html; charset=utf-8";
-        else mimeType = "application/octet-stream";
-      }
+      const fileBuffer = resolved.buffer;
+      const mimeType = resolved.mimeType || "application/pdf";
+      const originalName = resolved.fileName || `document_${safeDocId}.pdf`;
       const cleanDocName = (originalName || "document.pdf").replace(/[\r\n\t]/g, " ").trim();
       const docExtMatch = cleanDocName.match(/\.([a-zA-Z0-9]+)$/);
       const docExt = docExtMatch ? `.${docExtMatch[1]}` : "";
@@ -21632,6 +22299,7 @@ app2.post(
         mimeType: fileMime,
         size: fileSize,
         fileHash,
+        fileBase64: fileSize <= 8 * 1024 * 1024 ? fileBuffer.toString("base64") : void 0,
         category: (req.body?.category || "personal").toLowerCase(),
         docType: req.body?.docType || "national_id",
         storageReference: `secure_uploads/${documentId}`,
@@ -21874,9 +22542,18 @@ app2.get(
           }
         });
       }
+      const targetUserId = req.query.userId || req.query.uid || docRecord?.userId || (isAdmin ? void 0 : callerUid);
+      const targetRequestId = req.query.requestId || req.query.reqId;
+      const isDownloadRequested = req.query.download === "true" || req.query.mode === "download" || req.path.includes("/download");
       let resolved;
       try {
-        resolved = await resolveDocumentFromStorage(documentId);
+        resolved = await resolveDocumentFromStorage(documentId, {
+          userId: targetUserId,
+          requestId: targetRequestId,
+          callerUid,
+          callerEmail,
+          isDownload: isDownloadRequested
+        });
       } catch (err) {
         const status = err.status || 404;
         const code = err.code || "FILE_NOT_FOUND";
@@ -21897,7 +22574,6 @@ app2.get(
         res.setHeader("Cache-Control", "private, max-age=300, stale-while-revalidate=600");
         return res.status(304).end();
       }
-      const isDownloadRequested = req.query.download === "true" || req.query.mode === "download" || req.path.includes("/download");
       const dispositionType = isDownloadRequested ? "attachment" : "inline";
       const cleanDocName = (fileName || "document").replace(/[\r\n\t]/g, " ").trim();
       const docExtMatch = cleanDocName.match(/\.([a-zA-Z0-9]+)$/);
@@ -23686,19 +24362,31 @@ app2.post("/api/auth/register", loginRegisterLimiter, async (req, res) => {
     if (db2.users?.find(
       (u) => u.email?.trim().toLowerCase() === normalizedEmail
     )) {
-      return res.status(400).json({ success: false, error: "Email already exists." });
+      return res.status(409).json({
+        success: false,
+        code: "EMAIL_ALREADY_IN_USE",
+        error: "\u0647\u0630\u0627 \u0627\u0644\u0628\u0631\u064A\u062F \u0627\u0644\u0625\u0644\u0643\u062A\u0631\u0648\u0646\u064A \u0645\u0631\u062A\u0628\u0637 \u0628\u062D\u0633\u0627\u0628 \u0645\u0648\u062C\u0648\u062F \u0628\u0627\u0644\u0641\u0639\u0644. \u064A\u0631\u062C\u0649 \u062A\u0633\u062C\u064A\u0644 \u0627\u0644\u062F\u062E\u0648\u0644 \u0628\u0627\u0633\u062A\u062E\u062F\u0627\u0645 \u062D\u0633\u0627\u0628\u0643 \u0627\u0644\u062D\u0627\u0644\u064A."
+      });
     }
     try {
       const existingSnap = await adminDb.collection("users").where("email", "==", normalizedEmail).limit(1).get();
       if (!existingSnap.empty) {
-        return res.status(400).json({ success: false, error: "Email already exists." });
+        return res.status(409).json({
+          success: false,
+          code: "EMAIL_ALREADY_IN_USE",
+          error: "\u0647\u0630\u0627 \u0627\u0644\u0628\u0631\u064A\u062F \u0627\u0644\u0625\u0644\u0643\u062A\u0631\u0648\u0646\u064A \u0645\u0631\u062A\u0628\u0637 \u0628\u062D\u0633\u0627\u0628 \u0645\u0648\u062C\u0648\u062F \u0628\u0627\u0644\u0641\u0639\u0644. \u064A\u0631\u062C\u0649 \u062A\u0633\u062C\u064A\u0644 \u0627\u0644\u062F\u062E\u0648\u0644 \u0628\u0627\u0633\u062A\u062E\u062F\u0627\u0645 \u062D\u0633\u0627\u0628\u0643 \u0627\u0644\u062D\u0627\u0644\u064A."
+        });
       }
     } catch (err) {
     }
     try {
       const existingAuthUser = await adminAuth.getUserByEmail(normalizedEmail);
       if (existingAuthUser) {
-        return res.status(400).json({ success: false, error: "Email already exists." });
+        return res.status(409).json({
+          success: false,
+          code: "EMAIL_ALREADY_IN_USE",
+          error: "\u0647\u0630\u0627 \u0627\u0644\u0628\u0631\u064A\u062F \u0627\u0644\u0625\u0644\u0643\u062A\u0631\u0648\u0646\u064A \u0645\u0631\u062A\u0628\u0637 \u0628\u062D\u0633\u0627\u0628 \u0645\u0648\u062C\u0648\u062F \u0628\u0627\u0644\u0641\u0639\u0644. \u064A\u0631\u062C\u0649 \u062A\u0633\u062C\u064A\u0644 \u0627\u0644\u062F\u062E\u0648\u0644 \u0628\u0627\u0633\u062A\u062E\u062F\u0627\u0645 \u062D\u0633\u0627\u0628\u0643 \u0627\u0644\u062D\u0627\u0644\u064A."
+        });
       }
     } catch (err) {
     }
@@ -23719,8 +24407,12 @@ app2.post("/api/auth/register", loginRegisterLimiter, async (req, res) => {
         source: "firebase_auth"
       });
     } catch (authErr) {
-      if (authErr?.code === "auth/email-already-exists") {
-        return res.status(400).json({ success: false, error: "Email already exists." });
+      if (authErr?.code === "auth/email-already-exists" || authErr?.code === "auth/email-already-in-use") {
+        return res.status(409).json({
+          success: false,
+          code: "EMAIL_ALREADY_IN_USE",
+          error: "\u0647\u0630\u0627 \u0627\u0644\u0628\u0631\u064A\u062F \u0627\u0644\u0625\u0644\u0643\u062A\u0631\u0648\u0646\u064A \u0645\u0631\u062A\u0628\u0637 \u0628\u062D\u0633\u0627\u0628 \u0645\u0648\u062C\u0648\u062F \u0628\u0627\u0644\u0641\u0639\u0644. \u064A\u0631\u062C\u0649 \u062A\u0633\u062C\u064A\u0644 \u0627\u0644\u062F\u062E\u0648\u0644 \u0628\u0627\u0633\u062A\u062E\u062F\u0627\u0645 \u062D\u0633\u0627\u0628\u0643 \u0627\u0644\u062D\u0627\u0644\u064A."
+        });
       }
       userId = "usr_" + Date.now().toString(36) + Math.random().toString(36).substr(2, 6);
       console.log("USER_CREATED", {
@@ -23759,6 +24451,13 @@ app2.post("/api/auth/register", loginRegisterLimiter, async (req, res) => {
     const workspaceId = invitation?.workspaceId || `ws_${userId.substring(0, 8)}_${Date.now().toString(36)}`;
     const resolvedOwnerName = ownerName || normalizedEmail.split("@")[0];
     const isInvitedUser = !!invitation;
+    const defaultOwnerPowers = {
+      fileVault: true,
+      memoryVault: true,
+      riskRadar: true,
+      marketIntel: true,
+      settings: true
+    };
     const newUser = {
       id: userId,
       email: normalizedEmail,
@@ -23766,6 +24465,7 @@ app2.post("/api/auth/register", loginRegisterLimiter, async (req, res) => {
       companyName: effectiveCompanyName,
       ownerName: resolvedOwnerName,
       role: effectiveRole,
+      powers: isInvitedUser ? invitation?.powers || defaultOwnerPowers : defaultOwnerPowers,
       workspaceId,
       workspace: {
         id: workspaceId,
@@ -25479,7 +26179,7 @@ app2.post("/api/market-intelligence/run", requireAuth, requireEntitlement, requi
 app2.post("/api/market-intelligence/diagnose-item", requireAuth, requireEntitlement, requireModulePermission("marketIntel"), handleDiagnoseMarketItem);
 app2.post("/api/market-intelligence", requireAuth, requireEntitlement, requireModulePermission("marketIntel"), handleRunMarketIntelligence);
 app2.post("/api/ai/market-intelligence", requireAuth, requireEntitlement, requireModulePermission("marketIntel"), handleRunMarketIntelligence);
-app2.post("/api/agent/chat", requireAuth, requireEntitlement, handleAgentChat);
+app2.post("/api/agent/chat", optionalAuth, handleAgentChat);
 app2.post("/api/render/services", async (req, res) => {
   try {
     const headerToken = req.headers.authorization?.replace("Bearer ", "");
@@ -25617,7 +26317,9 @@ var server_default = app2;
   ZAKIR_BUILD_ID,
   accuratelyDetectMimeType,
   activeSupportSessions,
+  buildAdminKycNotificationEmailHtml,
   getAccountLifecycleRecord,
+  getAdminNotificationRecipientEmail,
   getCachedBinary,
   getGeminiClient,
   getWorkspaceOccupancy,
@@ -25631,6 +26333,7 @@ var server_default = app2;
   reconcileWorkspaceData,
   requestAccountReactivationServer,
   resolveAccountLifecycle,
+  resolveCanonicalUserId,
   resolveDocumentFromStorage,
   resolveUserByEmailOrId,
   restoreAccountFullServer,

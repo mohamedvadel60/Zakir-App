@@ -888,6 +888,195 @@ export function buildNewAccountRejectionEmailHtml(options: {
   return { subject, text, html };
 }
 
+export function getAdminNotificationRecipientEmail(): string {
+  const envNotification = (
+    process.env.ADMIN_NOTIFICATION_EMAIL || ""
+  ).trim().toLowerCase();
+  if (envNotification && envNotification.includes("@")) {
+    return envNotification;
+  }
+  const envAdmin = (
+    process.env.ADMIN_EMAIL || ""
+  ).trim().toLowerCase();
+  if (envAdmin && envAdmin.includes("@")) {
+    return envAdmin;
+  }
+  try {
+    const dbPath = path.join(process.cwd(), "src", "db_store.json");
+    if (fs.existsSync(dbPath)) {
+      const content = fs.readFileSync(dbPath, "utf-8");
+      if (content) {
+        const db = JSON.parse(content);
+        const adminUser = (db.users || []).find((u: any) =>
+          (u.role === "Admin" || u.isAdmin === true) &&
+          u.email &&
+          !u.email.includes("test_admin") &&
+          u.email.includes("@")
+        );
+        if (adminUser?.email) {
+          return adminUser.email.trim().toLowerCase();
+        }
+      }
+    }
+  } catch (e) {}
+
+  return "admin@zakir.ai";
+}
+
+export function buildAdminKycNotificationEmailHtml(options: {
+  userName?: string;
+  userEmail: string;
+  submissionDate?: string;
+  hasCompany?: boolean;
+  companyName?: string;
+  jobTitle?: string;
+  phone?: string;
+  documentCount?: number;
+  documents?: { fileName?: string; category?: string }[];
+  requestId?: string;
+  adminUrl?: string;
+  baseUrl?: string;
+}): { subject: string; text: string; html: string } {
+  const {
+    userName,
+    userEmail,
+    submissionDate,
+    hasCompany,
+    companyName,
+    jobTitle,
+    phone,
+    documentCount = 0,
+    requestId,
+    adminUrl = "https://www.getzakir.com/admin",
+    baseUrl
+  } = options;
+
+  const displayName = cleanUserName(userName, userEmail);
+  const subject = "طلب توثيق جديد يحتاج إلى مراجعتك — Zakir";
+  const title = "طلب توثيق جديد يحتاج إلى مراجعتك";
+
+  // Production link constraint: must strictly target production admin url
+  const targetAdminUrl = (adminUrl && !adminUrl.includes("localhost") && !adminUrl.includes("127.0.0.1"))
+    ? adminUrl
+    : "https://www.getzakir.com/admin";
+
+  // Format date in Arabic / UTC format
+  let formattedDate = "";
+  try {
+    const d = submissionDate ? new Date(submissionDate) : new Date();
+    formattedDate = d.toLocaleString("ar-SA", {
+      timeZone: "UTC",
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: true
+    }) + " (UTC)";
+  } catch (e) {
+    formattedDate = submissionDate || new Date().toISOString();
+  }
+
+  const organization = hasCompany && companyName && companyName.trim() ? companyName.trim() : "";
+  const docCountVal = Number(documentCount) || 0;
+  const docLabel = docCountVal === 1 ? "وثيقة رسمية واحدة" : `${docCountVal} وثائق رسمية`;
+
+  const bodyHtml = `
+    <div style="direction: rtl; text-align: right; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+      <p style="color: #334155; font-size: 15px; line-height: 1.8; margin: 0 0 18px 0;">
+        مرحبًا،<br/>
+        قام مستخدم جديد بإنشاء حساب في <strong>Zakir</strong> وإرسال طلب التوثيق والوثائق الخاصة به، وأصبح الطلب الآن <strong>جاهزًا للمراجعة</strong>.
+      </p>
+
+      <!-- Details Box -->
+      <div style="margin: 22px 0; padding: 20px; background-color: #f8fafc; border: 1px solid #e2e8f0; border-right: 4px solid #1C2C58; border-radius: 12px;">
+        <div style="color: #0f172a; font-size: 14px; font-weight: 800; margin-bottom: 12px; letter-spacing: -0.2px;">
+          بيانات المستخدم:
+        </div>
+        <table border="0" cellpadding="0" cellspacing="0" width="100%" style="font-size: 14px; line-height: 1.8; color: #334155; text-align: right; direction: rtl;">
+          <tr>
+            <td style="padding: 5px 0; color: #64748b; width: 140px; font-weight: 600;">&bull; الاسم:</td>
+            <td style="padding: 5px 0; font-weight: 700; color: #0f172a;">${escapeHtml(displayName)}</td>
+          </tr>
+          <tr>
+            <td style="padding: 5px 0; color: #64748b; font-weight: 600;">&bull; البريد الإلكتروني:</td>
+            <td style="padding: 5px 0; font-weight: 700; color: #1d4ed8; font-family: monospace; font-size: 13px;">${escapeHtml(userEmail)}</td>
+          </tr>
+          ${phone ? `<tr>
+            <td style="padding: 5px 0; color: #64748b; font-weight: 600;">&bull; رقم الهاتف:</td>
+            <td style="padding: 5px 0; font-weight: 600; color: #0f172a; direction: ltr; text-align: right;">${escapeHtml(phone)}</td>
+          </tr>` : ""}
+          ${organization ? `<tr>
+            <td style="padding: 5px 0; color: #64748b; font-weight: 600;">&bull; المنشأة / المؤسسة:</td>
+            <td style="padding: 5px 0; font-weight: 600; color: #0f172a;">${escapeHtml(organization)}</td>
+          </tr>` : ""}
+          ${jobTitle ? `<tr>
+            <td style="padding: 5px 0; color: #64748b; font-weight: 600;">&bull; المسمى الوظيفي:</td>
+            <td style="padding: 5px 0; font-weight: 600; color: #0f172a;">${escapeHtml(jobTitle)}</td>
+          </tr>` : ""}
+          <tr>
+            <td style="padding: 5px 0; color: #64748b; font-weight: 600;">&bull; تاريخ إرسال الطلب:</td>
+            <td style="padding: 5px 0; font-weight: 600; color: #334155;">${escapeHtml(formattedDate)}</td>
+          </tr>
+          <tr>
+            <td style="padding: 5px 0; color: #64748b; font-weight: 600;">&bull; حالة الطلب:</td>
+            <td style="padding: 5px 0;">
+              <span style="display: inline-block; padding: 2px 10px; background-color: #fef3c7; color: #92400e; font-weight: 700; font-size: 12px; border-radius: 6px;">
+                بانتظار مراجعة الأدمن &bull; Pending Review
+              </span>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding: 5px 0; color: #64748b; font-weight: 600;">&bull; الوثائق المرفقة:</td>
+            <td style="padding: 5px 0; font-weight: 700; color: #166534;">نعم (${escapeHtml(docLabel)})</td>
+          </tr>
+          ${requestId ? `<tr>
+            <td style="padding: 5px 0; color: #64748b; font-weight: 600;">&bull; معرف الطلب:</td>
+            <td style="padding: 5px 0; font-family: monospace; font-size: 12px; color: #64748b;">${escapeHtml(requestId)}</td>
+          </tr>` : ""}
+        </table>
+      </div>
+
+      <p style="color: #334155; font-size: 15px; line-height: 1.8; margin: 0 0 20px 0;">
+        يرجى الدخول إلى لوحة تحكم الأدمن لمراجعة بيانات المستخدم والوثائق المرفقة واتخاذ قرار الاعتماد.
+      </p>
+
+      <!-- Direct Official Admin Link -->
+      <div style="margin: 32px 0 24px 0; text-align: center;">
+        <!--[if mso]>
+        <v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w="urn:schemas-microsoft-com:office:word" href="${targetAdminUrl}" style="height:48px;v-text-anchor:middle;width:260px;" arcsize="20%" stroke="f" fillcolor="#1C2C58">
+          <w:anchorlock/>
+          <center style="color:#ffffff;font-family:sans-serif;font-size:15px;font-weight:bold;">فتح لوحة تحكم الأدمن</center>
+        </v:roundrect>
+        <![endif]-->
+        <!--[if !mso]><!-->
+        <a href="${targetAdminUrl}" target="_blank" rel="noopener noreferrer" style="display: inline-block; background-color: #1C2C58; color: #ffffff; font-size: 15px; font-weight: 800; text-decoration: none; padding: 14px 34px; border-radius: 10px; box-shadow: 0 4px 14px rgba(28, 44, 88, 0.25); text-align: center;">
+          فتح لوحة تحكم الأدمن &bull; Open Admin Dashboard
+        </a>
+        <!--<![endif]-->
+        <p style="margin: 14px 0 0 0; color: #64748b; font-size: 12px; font-family: monospace;">
+          <a href="${targetAdminUrl}" target="_blank" rel="noopener noreferrer" style="color: #1C2C58; text-decoration: underline;">${targetAdminUrl}</a>
+        </p>
+      </div>
+
+      <p style="color: #94a3b8; font-size: 12px; line-height: 1.5; margin: 24px 0 0 0; text-align: center;">
+        هذه رسالة إشعار تلقائية من نظام Zakir.
+      </p>
+    </div>
+  `;
+
+  const html = buildMasterEmailHtml({
+    subject,
+    title,
+    bodyHtml,
+    baseUrl
+  });
+
+  const text = `مرحبًا،\n\nقام مستخدم جديد بإنشاء حساب في Zakir وإرسال طلب التوثيق والوثائق الخاصة به، وأصبح الطلب الآن جاهزًا للمراجعة.\n\nبيانات المستخدم:\n* الاسم: ${displayName}\n* البريد الإلكتروني: ${userEmail}\n${phone ? `* الهاتف: ${phone}\n` : ""}${organization ? `* المنشأة: ${organization}\n` : ""}* تاريخ إرسال الطلب: ${formattedDate}\n* حالة الطلب: بانتظار مراجعة الأدمن (Pending Admin Review)\n* الوثائق المرفقة: نعم (${docLabel})\n${requestId ? `* معرف الطلب: ${requestId}\n` : ""}\nيرجى الدخول إلى لوحة تحكم الأدمن لمراجعة بيانات المستخدم والوثائق المرفقة واتخاذ قرار الاعتماد:\n${targetAdminUrl}\n\nهذه رسالة إشعار تلقائية من نظام Zakir.`;
+
+  return { subject, text, html };
+}
+
 export async function sendSystemMail(
   toOrOptions:
     | string
