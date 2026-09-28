@@ -27,6 +27,9 @@ export interface StructuredAIReport {
   title?: string;
   advisorType?: "cognitive" | "administrative" | "unified" | "market" | "evolution";
   executiveSummary?: string;
+  diagnosis?: string;
+  interpretation?: string;
+  nextStep?: string;
   facts?: Array<{ title?: string; detail: string; category?: string }>;
   inferences?: Array<{ title?: string; detail: string }>;
   recommendations?: Array<{
@@ -37,7 +40,7 @@ export interface StructuredAIReport {
   }>;
   risks?: Array<{ title: string; severity?: string; detail?: string }>;
   patterns?: string[];
-  evidence?: Array<{ title: string; source?: string; detail?: string }>;
+  evidence?: Array<{ title?: string; source?: string; detail: string }>;
   sources?: Array<{ title: string; url: string; snippet?: string }>;
   rawSections?: Array<{ title: string; items: string[]; iconType?: string }>;
 }
@@ -181,20 +184,24 @@ export function parseAIOutputToStructured(
     }
   } catch {}
 
-  // Case 3: Parse structured text sections (Facts, Inferences, Recommendations, etc.)
+  // Case 3: Parse structured text sections (Summary, Diagnosis, Evidence, Interpretation, Recommendations, Next Step, etc.)
   const report: StructuredAIReport = {
     facts: [],
     inferences: [],
     recommendations: [],
     patterns: [],
+    evidence: [],
     sources: [],
     rawSections: [],
   };
 
   const lines = text.split("\n");
-  let currentSection = "summary";
+  let currentSection: "summary" | "diagnosis" | "evidence" | "interpretation" | "recommendations" | "nextStep" | "facts" | "inferences" | "patterns" | "custom" = "summary";
   let currentTitle = "";
   let summaryParagraphs: string[] = [];
+  let diagnosisParagraphs: string[] = [];
+  let interpretationParagraphs: string[] = [];
+  let nextStepParagraphs: string[] = [];
   let currentSectionItems: string[] = [];
 
   for (let i = 0; i < lines.length; i++) {
@@ -205,12 +212,18 @@ export function parseAIOutputToStructured(
     const isHeading =
       rawLine.startsWith("#") ||
       rawLine.startsWith("###") ||
+      rawLine.includes("الخلاصة") ||
+      rawLine.includes("التشخيص") ||
+      rawLine.includes("الأدلة") ||
+      rawLine.includes("التفسير") ||
+      rawLine.includes("الخطوة التالية") ||
       rawLine.includes("الحقيقة") ||
       rawLine.includes("الحقائق") ||
       rawLine.includes("Fact") ||
       rawLine.includes("الاستنتاج") ||
       rawLine.includes("Inference") ||
       rawLine.includes("التوصيات") ||
+      rawLine.includes("التوصية") ||
       rawLine.includes("Recommendation") ||
       rawLine.includes("المخاطر") ||
       rawLine.includes("الأنماط") ||
@@ -229,7 +242,15 @@ export function parseAIOutputToStructured(
         currentSectionItems = [];
       }
 
-      if (lower.includes("حقيقة") || lower.includes("حقائق") || lower.includes("fact")) {
+      if (lower.includes("تشخيص") || lower.includes("diagnosis")) {
+        currentSection = "diagnosis";
+      } else if (lower.includes("أدلة") || lower.includes("الأدلة") || lower.includes("evidence")) {
+        currentSection = "evidence";
+      } else if (lower.includes("تفسير") || lower.includes("التفسير") || lower.includes("interpretation")) {
+        currentSection = "interpretation";
+      } else if (lower.includes("خطوة تالية") || lower.includes("الخطوة التالية") || lower.includes("next step")) {
+        currentSection = "nextStep";
+      } else if (lower.includes("حقيقة") || lower.includes("حقائق") || lower.includes("fact")) {
         currentSection = "facts";
       } else if (
         lower.includes("استنتاج") ||
@@ -247,6 +268,8 @@ export function parseAIOutputToStructured(
       } else if (lower.includes("نمط") || lower.includes("أنماط") || lower.includes("pattern")) {
         currentSection = "patterns";
       } else if (
+        lower.includes("خلاصة") ||
+        lower.includes("الخلاصة") ||
         lower.includes("مستشار") ||
         lower.includes("ملخص") ||
         lower.includes("تقرير") ||
@@ -266,6 +289,17 @@ export function parseAIOutputToStructured(
     // Process Content by Current Section
     if (currentSection === "summary") {
       summaryParagraphs.push(rawLine);
+    } else if (currentSection === "diagnosis") {
+      diagnosisParagraphs.push(rawLine);
+    } else if (currentSection === "interpretation") {
+      interpretationParagraphs.push(rawLine);
+    } else if (currentSection === "nextStep") {
+      nextStepParagraphs.push(rawLine);
+    } else if (currentSection === "evidence") {
+      const cleanItem = rawLine.replace(/^[\*\-\d\.\)]+\s*/, "").trim();
+      if (cleanItem) {
+        report.evidence?.push({ detail: cleanItem });
+      }
     } else if (currentSection === "facts") {
       const cleanItem = rawLine.replace(/^[\*\-\d\.\)]+\s*/, "").trim();
       if (cleanItem) {
@@ -321,6 +355,10 @@ export function parseAIOutputToStructured(
   }
 
   report.executiveSummary = summaryParagraphs.join("\n\n");
+  if (diagnosisParagraphs.length > 0) report.diagnosis = diagnosisParagraphs.join("\n\n");
+  if (interpretationParagraphs.length > 0) report.interpretation = interpretationParagraphs.join("\n\n");
+  if (nextStepParagraphs.length > 0) report.nextStep = nextStepParagraphs.join("\n\n");
+
   return report;
 }
 
@@ -342,6 +380,10 @@ export const ExecutiveAIReportFormatter: React.FC<ExecutiveReportFormatterProps>
 
   const structured = useMemo(() => parseAIOutputToStructured(content), [content]);
 
+  const hasDiagnosis = Boolean(structured.diagnosis && structured.diagnosis.trim().length > 0);
+  const hasInterpretation = Boolean(structured.interpretation && structured.interpretation.trim().length > 0);
+  const hasNextStep = Boolean(structured.nextStep && structured.nextStep.trim().length > 0);
+  const hasEvidence = structured.evidence && structured.evidence.length > 0;
   const hasFacts = structured.facts && structured.facts.length > 0;
   const hasInferences = structured.inferences && structured.inferences.length > 0;
   const hasRecs = structured.recommendations && structured.recommendations.length > 0;
@@ -349,7 +391,19 @@ export const ExecutiveAIReportFormatter: React.FC<ExecutiveReportFormatterProps>
   const hasCustomSections = structured.rawSections && structured.rawSections.length > 0;
   const hasSummary = Boolean(structured.executiveSummary && structured.executiveSummary.trim().length > 0);
 
-  if (!hasSummary && !hasFacts && !hasInferences && !hasRecs && !hasCustomSections) {
+  const isMultiSectionReport = Boolean(
+    hasDiagnosis ||
+    hasInterpretation ||
+    hasNextStep ||
+    hasEvidence ||
+    hasFacts ||
+    hasInferences ||
+    hasRecs ||
+    hasPatterns ||
+    hasCustomSections
+  );
+
+  if (!hasSummary && !isMultiSectionReport) {
     return null;
   }
 
@@ -363,6 +417,19 @@ export const ExecutiveAIReportFormatter: React.FC<ExecutiveReportFormatterProps>
       <span className={className}>
         <FormattedBidiSpan text={rawText} isAr={isAr} />
       </span>
+    );
+  }
+
+  // Chat variant with simple conversational text (no report sections)
+  if (variant === "chat" && !isMultiSectionReport && hasSummary) {
+    return (
+      <div dir={isAr ? "rtl" : "ltr"} className={`space-y-2.5 ${isAr ? "text-right" : "text-left"} ${className}`}>
+        {structured.executiveSummary?.split("\n\n").map((para, pIdx) => (
+          <p key={pIdx} className="m-0 leading-relaxed text-xs">
+            <FormattedBidiSpan text={cleanRawTextLine(para)} isAr={isAr} />
+          </p>
+        ))}
+      </div>
     );
   }
 
@@ -405,7 +472,7 @@ export const ExecutiveAIReportFormatter: React.FC<ExecutiveReportFormatterProps>
         </div>
       )}
 
-      {/* 1. Executive Summary Block */}
+      {/* 1. Executive Summary / الخلاصة */}
       {hasSummary && (
         <div
           className={`p-4 rounded-xl border transition-all ${
@@ -417,7 +484,7 @@ export const ExecutiveAIReportFormatter: React.FC<ExecutiveReportFormatterProps>
           <div className="flex items-center gap-2 mb-2">
             <FileText className="w-4 h-4 text-[#0075DE]" />
             <h4 className="text-xs font-bold uppercase tracking-wider text-slate-900 dark:text-white">
-              {isAr ? "الملخص التنفيذي" : "Executive Summary"}
+              {isAr ? "الخلاصة" : "Executive Summary"}
             </h4>
           </div>
           <div className="text-xs leading-relaxed space-y-2 text-slate-700 dark:text-slate-300">
@@ -430,7 +497,152 @@ export const ExecutiveAIReportFormatter: React.FC<ExecutiveReportFormatterProps>
         </div>
       )}
 
-      {/* 2. Structured Facts Section (الحقائق المثبتة) */}
+      {/* 2. Diagnosis / التشخيص */}
+      {hasDiagnosis && (
+        <div className={`p-4 rounded-xl border transition-all ${
+          isDark
+            ? "bg-amber-950/20 border-amber-800/40 text-slate-200"
+            : "bg-amber-50/50 border-amber-200 text-slate-800 shadow-xs"
+        } ${isAr ? "border-r-4 border-r-amber-500" : "border-l-4 border-l-amber-500"}`}>
+          <div className="flex items-center gap-2 mb-2">
+            <AlertCircle className="w-4 h-4 text-amber-500" />
+            <h4 className="text-xs font-bold uppercase tracking-wider text-amber-500">
+              {isAr ? "التشخيص" : "Diagnosis"}
+            </h4>
+          </div>
+          <div className="text-xs leading-relaxed space-y-2 text-slate-700 dark:text-slate-300">
+            {structured.diagnosis?.split("\n\n").map((para, pIdx) => (
+              <p key={pIdx} className="m-0">
+                <FormattedBidiSpan text={cleanRawTextLine(para)} isAr={isAr} />
+              </p>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* 3. Evidence / الأدلة */}
+      {hasEvidence && (
+        <div className="space-y-2">
+          <div className="flex items-center gap-2">
+            <div className="p-1 rounded-md bg-emerald-500/10 text-emerald-500">
+              <Database className="w-3.5 h-3.5" />
+            </div>
+            <h4 className="text-xs font-bold uppercase tracking-wider text-emerald-500">
+              {isAr ? "الأدلة" : "Evidence"}
+            </h4>
+          </div>
+          <div className="grid grid-cols-1 gap-2">
+            {structured.evidence?.map((ev, eIdx) => (
+              <div
+                key={eIdx}
+                className={`p-3 rounded-xl border transition-all flex items-start gap-3 ${
+                  isDark
+                    ? "bg-slate-900/40 border-slate-800/80 hover:border-emerald-500/30"
+                    : "bg-emerald-50/30 border-emerald-100/80 text-slate-800 shadow-xs"
+                }`}
+              >
+                <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 mt-2 flex-shrink-0" />
+                <div className="flex-1 min-w-0 text-xs leading-relaxed text-slate-700 dark:text-slate-300">
+                  <FormattedBidiSpan text={cleanRawTextLine(ev.detail)} isAr={isAr} />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* 4. Interpretation / التفسير */}
+      {hasInterpretation && (
+        <div className={`p-4 rounded-xl border transition-all ${
+          isDark
+            ? "bg-blue-950/20 border-blue-800/40 text-slate-200"
+            : "bg-blue-50/50 border-blue-200 text-slate-800 shadow-xs"
+        } ${isAr ? "border-r-4 border-r-blue-500" : "border-l-4 border-l-blue-500"}`}>
+          <div className="flex items-center gap-2 mb-2">
+            <Info className="w-4 h-4 text-blue-500" />
+            <h4 className="text-xs font-bold uppercase tracking-wider text-blue-500">
+              {isAr ? "التفسير" : "Interpretation"}
+            </h4>
+          </div>
+          <div className="text-xs leading-relaxed space-y-2 text-slate-700 dark:text-slate-300">
+            {structured.interpretation?.split("\n\n").map((para, pIdx) => (
+              <p key={pIdx} className="m-0">
+                <FormattedBidiSpan text={cleanRawTextLine(para)} isAr={isAr} />
+              </p>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* 5. Recommendations / التوصية */}
+      {hasRecs && (
+        <div className="space-y-2">
+          <div className="flex items-center gap-2">
+            <div className="p-1 rounded-md bg-[#0075DE]/10 text-[#0075DE]">
+              <CheckCircle className="w-3.5 h-3.5" />
+            </div>
+            <h4 className="text-xs font-bold uppercase tracking-wider text-[#0075DE]">
+              {isAr ? "التوصية" : "Recommendation"}
+            </h4>
+          </div>
+          <div className="grid grid-cols-1 gap-2">
+            {structured.recommendations?.map((r, rIdx) => (
+              <div
+                key={rIdx}
+                className={`p-3.5 rounded-xl border transition-all flex items-start gap-3 ${
+                  isDark
+                    ? "bg-slate-900/40 border-slate-800/80 hover:border-[#0075DE]/40"
+                    : "bg-white border-slate-200 text-slate-800 shadow-xs hover:border-[#0075DE]/30"
+                }`}
+              >
+                <div className="p-1 rounded-lg bg-[#0075DE]/10 text-[#0075DE] flex-shrink-0 mt-0.5">
+                  <span className="text-[10px] font-bold px-1">{rIdx + 1}</span>
+                </div>
+                <div className="flex-1 min-w-0 space-y-0.5">
+                  {r.title && (
+                    <div className="text-xs font-bold text-slate-900 dark:text-white">
+                      <FormattedBidiSpan text={cleanRawTextLine(r.title)} isAr={isAr} />
+                    </div>
+                  )}
+                  <div className="text-xs leading-relaxed text-slate-700 dark:text-slate-300">
+                    <FormattedBidiSpan text={cleanRawTextLine(r.detail)} isAr={isAr} />
+                  </div>
+                  {r.timeframe && (
+                    <div className="text-[10px] text-slate-400 mt-1">
+                      {isAr ? `الإطار الزمني: ${r.timeframe}` : `Timeframe: ${r.timeframe}`}
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* 6. Next Step / الخطوة التالية */}
+      {hasNextStep && (
+        <div className={`p-4 rounded-xl border transition-all ${
+          isDark
+            ? "bg-emerald-950/20 border-emerald-800/40 text-slate-200"
+            : "bg-emerald-50/50 border-emerald-200 text-slate-800 shadow-xs"
+        } ${isAr ? "border-r-4 border-r-emerald-500" : "border-l-4 border-l-emerald-500"}`}>
+          <div className="flex items-center gap-2 mb-2">
+            <Compass className="w-4 h-4 text-emerald-500" />
+            <h4 className="text-xs font-bold uppercase tracking-wider text-emerald-500">
+              {isAr ? "الخطوة التالية" : "Next Step"}
+            </h4>
+          </div>
+          <div className="text-xs leading-relaxed space-y-2 text-slate-700 dark:text-slate-300">
+            {structured.nextStep?.split("\n\n").map((para, pIdx) => (
+              <p key={pIdx} className="m-0">
+                <FormattedBidiSpan text={cleanRawTextLine(para)} isAr={isAr} />
+              </p>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* 7. Structured Facts Section (الحقائق المثبتة) */}
       {hasFacts && (
         <div className="space-y-2">
           <div className="flex items-center gap-2">
@@ -438,7 +650,7 @@ export const ExecutiveAIReportFormatter: React.FC<ExecutiveReportFormatterProps>
               <Database className="w-3.5 h-3.5" />
             </div>
             <h4 className="text-xs font-bold uppercase tracking-wider text-emerald-500">
-              {isAr ? "1. الحقائق والوقائع المسجلة" : "1. Verified Facts"}
+              {isAr ? "الحقائق والوقائع المسجلة" : "Verified Facts"}
             </h4>
           </div>
           <div className="grid grid-cols-1 gap-2">
@@ -468,7 +680,7 @@ export const ExecutiveAIReportFormatter: React.FC<ExecutiveReportFormatterProps>
         </div>
       )}
 
-      {/* 3. Cognitive Inferences Section (الاستنتاجات الإدراكية) */}
+      {/* 8. Cognitive Inferences Section (الاستنتاجات الإدراكية) */}
       {hasInferences && (
         <div className="space-y-2">
           <div className="flex items-center gap-2">
@@ -476,7 +688,7 @@ export const ExecutiveAIReportFormatter: React.FC<ExecutiveReportFormatterProps>
               <TrendingUp className="w-3.5 h-3.5" />
             </div>
             <h4 className="text-xs font-bold uppercase tracking-wider text-blue-500">
-              {isAr ? "2. الاستنتاجات الإدراكية والأثر" : "2. Cognitive Inferences"}
+              {isAr ? "الاستنتاجات الإدراكية والأثر" : "Cognitive Inferences"}
             </h4>
           </div>
           <div className="grid grid-cols-1 gap-2">

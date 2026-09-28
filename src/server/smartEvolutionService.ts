@@ -899,104 +899,24 @@ export const handleRunSmartEvolution = async (req: Request, res: Response) => {
   }
 };
 
+import {
+  executeCognitiveAdvisorChat,
+  classifyCognitiveIntent,
+  type AdvisorIntent as EngineAdvisorIntent,
+} from "./cognitiveAdvisorEngine.js";
+
 // --- COGNITIVE & ADMINISTRATIVE ADVISOR INTENT CLASSIFICATION ---
-export type AdvisorIntent =
-  | "CASUAL_CONVERSATION"
-  | "GENERAL_KNOWLEDGE"
-  | "BUSINESS_ADVICE"
-  | "CLARIFICATION_NEEDED"
-  | "ORGANIZATION_ANALYSIS"
-  | "MEMORY_QUERY"
-  | "RISK_ANALYSIS"
-  | "FILE_ANALYSIS"
-  | "MARKET_INTELLIGENCE"
-  | "OTHER";
+export type AdvisorIntent = EngineAdvisorIntent;
 
-export function classifyAdvisorIntent(promptText: string): { intent: AdvisorIntent; requiresPrivateData: boolean } {
-  const clean = (promptText || "").trim().toLowerCase();
-
-  // 1. Casual / Greetings / Identity / Gratitude
-  const casualPatterns = [
-    /^(مرحبا|مرحباً|أهلا|أهلاً|سلام|السلام عليكم|أهلين|ازيك|صباح الخير|مساء الخير|hi|hello|hey|greetings)$/i,
-    /(كيف حالك|كيف الحجم|كيف الصحة|how are you|how do you do)/i,
-    /(من أنت|من انت|ما اسمك|من تكون|who are you|what is your name)/i,
-    /(ماذا يمكنك أن تفعل|ماذا تفعل|ما هي قدراتك|ما قدراتك|ما دورك|ما هو دورك|what can you do|what is your role)/i,
-    /^(شكرا|شكراً|يسلمو|يعطيك العافية|جزاك الله خيرا|تسلم|thanks|thank you|thx)$/i,
-  ];
-  if (casualPatterns.some((pattern) => pattern.test(clean))) {
-    return { intent: "CASUAL_CONVERSATION", requiresPrivateData: false };
-  }
-
-  // 2. Ambiguous / Short Vague / Follow-up Requests -> Clarification Needed
-  const shortVaguePatterns = [
-    /^(حلل|تحليل|أريد مساعدة|ساعدني|مساعدة|ماذا ترى|ما رأيك|شو رأيك|انصحني|help|analyze|what do you think)$/i,
-    /^(اشرح لي هذا|لم أفهم|اشرح أكثر|ما رأيك في هذه الفكرة|ماذا تنصحني|هل يمكنك مساعدتي في قرار)$/i,
-    /(لم أفهم|ما رأيك في هذه الفكرة|اشرح لي هذا|ماذا تنصحني|مساعدتي في قرار|هل يمكنك مساعدتي)/i,
-  ];
-  if (shortVaguePatterns.some((pattern) => pattern.test(clean)) || clean.length <= 4) {
-    return { intent: "CLARIFICATION_NEEDED", requiresPrivateData: false };
-  }
-
-  // 3. Explicit Database Memory Retrieval Queries (Strictly Private)
-  const memoryPatterns = [
-    /(الذكريات المسجلة في حسابي|سجل الذكريات المحفوظة|سجلات القرارات المخزنة|ماذا سجلنا في القاعدة|ذاكرة المؤسسة المسجلة|registered memories in database|logged decision records)/i,
-  ];
-  if (memoryPatterns.some((pattern) => pattern.test(clean))) {
-    return { intent: "MEMORY_QUERY", requiresPrivateData: true };
-  }
-
-  // 4. Explicit Database Risk Record Queries (Strictly Private)
-  const riskPatterns = [
-    /(المخاطر المسجلة في حسابي|المخاطر النشطة في النظام|انكشافاتنا المخزنة|our database logged risks|stored risk alerts)/i,
-  ];
-  if (riskPatterns.some((pattern) => pattern.test(clean))) {
-    return { intent: "RISK_ANALYSIS", requiresPrivateData: true };
-  }
-
-  // 5. Explicit Database File Analysis Queries (Strictly Private)
-  const filePatterns = [
-    /(الملف المرفوع في حسابي|الوثيقة المرفقة في النظام|ملفات المؤسسة المخزنة|analyze my uploaded file|stored database document)/i,
-  ];
-  if (filePatterns.some((pattern) => pattern.test(clean))) {
-    return { intent: "FILE_ANALYSIS", requiresPrivateData: true };
-  }
-
-  // 6. Explicit Private Database Org Data Queries (Strictly Private)
-  const orgPatterns = [
-    /(بياناتنا الخاصة المخزنة|سجلات مؤسستنا في النظام|أرقام حسابنا في المنصة|my private database org data)/i,
-  ];
-  if (orgPatterns.some((pattern) => pattern.test(clean))) {
-    return { intent: "ORGANIZATION_ANALYSIS", requiresPrivateData: true };
-  }
-
-  // 7. General Knowledge
-  const generalKnowledgePatterns = [
-    /(ما هو|ما هي|ما الفرق|اشرح لي|عرف|تعريف|مفهوم|معنى|what is|explain|difference between|definition of)/i,
-    /(التدفق النقدي|الإدارة الاستراتيجية|الأرباح والإيرادات|الحوكمة|الميزانية|التحليل المالي|cash flow|strategic management|governance)/i,
-  ];
-  if (generalKnowledgePatterns.some((pattern) => pattern.test(clean))) {
-    return { intent: "GENERAL_KNOWLEDGE", requiresPrivateData: false };
-  }
-
-  // 8. Business Advice & Leadership Problem Solving
-  const businessAdvicePatterns = [
-    /(كيف يمكنني|نصيحة إدارية|لدي مشكلة في إدارة|أفضل طريقة ل|كيف أتعامل مع|تحسين العمليات|تطوير القيادة|كيف أحسن إدارة شركتي|أريد أن أتحدث عن شركتي|لدي اجتماع مع مستثمر|how to improve|management advice|business advice)/i,
-    /(شركة|مؤسسة|مستثمر|اجتماع|قرار|إدارة|استراتيجية|نمو|مبيعات|تسويق|إيرادات)/i,
-  ];
-  if (businessAdvicePatterns.some((pattern) => pattern.test(clean))) {
-    return { intent: "BUSINESS_ADVICE", requiresPrivateData: false };
-  }
-
-  // 9. Market Intelligence
-  const marketPatterns = [
-    /(وضع السوق حاليا|أسعار المنافسين في السوق|مؤشرات السوق|سوق العمل|market intelligence|market conditions)/i,
-  ];
-  if (marketPatterns.some((pattern) => pattern.test(clean))) {
-    return { intent: "MARKET_INTELLIGENCE", requiresPrivateData: false };
-  }
-
-  // Default: Conversational & Managerial Advice (Safe for public & private)
-  return { intent: "OTHER", requiresPrivateData: false };
+export function classifyAdvisorIntent(
+  promptText: string,
+  history?: Array<{ role: string; text: string }>
+): { intent: AdvisorIntent; requiresPrivateData: boolean } {
+  const result = classifyCognitiveIntent(promptText, history);
+  return {
+    intent: result.intent,
+    requiresPrivateData: result.requiresPrivateData,
+  };
 }
 
 // --- COGNITIVE & ADMINISTRATIVE ADVISOR CHAT HANDLER ---
@@ -1023,202 +943,38 @@ export const handleAgentChat = async (req: Request, res: Response) => {
       });
     }
 
-    const isAr = lang === "ar";
-    const { intent, requiresPrivateData } = classifyAdvisorIntent(promptText);
-    const searchDecision = classifySearchNeed(promptText);
     const userAuth = (req as any).user;
 
-    // Gate private organizational database data access if requested without authentication
-    if (requiresPrivateData && !userAuth) {
-      return res.json({
-        success: true,
-        text: isAr
-          ? "لأتمكن من استخراج بيانات مؤسستك والذكريات المسجلة في حسابك، أحتاج إلى جلسة دخول صالحة. يرجى تسجيل الدخول ثم إعادة المحاولة."
-          : "To retrieve your organization's private stored data, a valid login session is required. Please log in and try again.",
-        response: isAr
-          ? "لأتمكن من استخراج بيانات مؤسستك والذكريات المسجلة في حسابك، أحتاج إلى جلسة دخول صالحة. يرجى تسجيل الدخول ثم إعادة المحاولة."
-          : "To retrieve your organization's private stored data, a valid login session is required. Please log in and try again.",
-        type: "assistant",
-        intent,
-        requiresPrivateData: true,
-        sources: [],
-      });
-    }
+    const result = await executeCognitiveAdvisorChat({
+      promptText,
+      history,
+      lang,
+      memories,
+      riskAlerts,
+      files,
+      advisorType,
+      user: userAuth,
+    });
 
-    // Persona construction based on advisorType & classified intent
-    let personaPrompt = "";
-    if (intent === "CASUAL_CONVERSATION") {
-      personaPrompt = isAr
-        ? `أنت "المستشار الإداري والإدراكي لمنصة ذَكِرْ". تتحدث بأسلوب حواري راقٍ، مهني، ودود، ومباشر. أجب بكلام طبيعي ومفيد وترحيب راقٍ دون تعقيدات تقنية.`
-        : `You are the "Cognitive Advisor at Zakir". Speak in a polite, warm, professional, conversational tone. Respond naturally and helpfully without technical error jargon.`;
-    } else if (intent === "CLARIFICATION_NEEDED") {
-      personaPrompt = isAr
-        ? `أنت "المستشار الإداري لمنصة ذَكِرْ". السؤال الحالي قصير أو يتطلب توضيحاً. ارحب بالمستخدم واطلب منه تفاصيل المشكلة أو القرار بأسلوب متعاون ولطيف.`
-        : `You are the "Cognitive Advisor at Zakir". The query needs context. Gently ask for clarification with clear examples.`;
-    } else if (intent === "GENERAL_KNOWLEDGE" || intent === "BUSINESS_ADVICE") {
-      personaPrompt = isAr
-        ? `أنت "المستشار الإداري والتنفيذي لمنصة ذَكِرْ". أجب عن السؤال الإداري أو الاستراتيجي بأسلوب تحليلي رصين اعتماداً على الممارسات القيادية والحوكمية العالمية.`
-        : `You are the "Cognitive Advisor at Zakir". Answer business/management questions with clear leadership principles.`;
-    } else if (advisorType === "administrative") {
-      personaPrompt = `أنت "المستشار الإداري والحوكمي" المعتمد لمنصة "ذَكِرْ". تخصصك حوكمة العمليات والامتثال والرقابة الداخلية والوقائع المسجلة.`;
-    } else {
-      personaPrompt = `أنت "المستشار الإدراكي لمنصة ذَكِرْ" لتحليل الذاكرة المؤسسية والبيانات الاستراتيجية وتتبع الأسباب الجذرية للقرارات.`;
-    }
-
-    // Smart intent-aware fallback generator (guarantees a rich natural answer even if AI is offline)
-    let fallbackChatResponse = "";
-    const lowerPrompt = promptText.toLowerCase();
-
-    if (intent === "CASUAL_CONVERSATION") {
-      if (lowerPrompt.includes("كيف حالك") || lowerPrompt.includes("how are you")) {
-        fallbackChatResponse = isAr
-          ? "أنا بخير وجاهز تماماً لمساعدتك! أخبرني بالموضوع الإداري أو الاستفسار الذي تريد مناقشته اليوم وسأكون سعيداً بمعاونتك."
-          : "I am doing well and ready to assist you! Feel free to share any management question or decision you would like to discuss today.";
-      } else if (lowerPrompt.includes("من أنت") || lowerPrompt.includes("من انت") || lowerPrompt.includes("who are you") || lowerPrompt.includes("دورك")) {
-        fallbackChatResponse = isAr
-          ? "أنا المستشار الإداري والإدراكي لمنصة ذَكِرْ. أساعد القيادة التنفيذية في تحليل القرارات الاستراتيجية، تتبع الذاكرة المؤسسية، تقييم المخاطر، وتقديم الاستشارات الإدارية والحوكمية."
-          : "I am Zakir's Cognitive Advisor. I help leadership analyze strategic decisions, trace institutional memory, evaluate risks, and provide governance guidance.";
-      } else if (lowerPrompt.includes("شكرا") || lowerPrompt.includes("thanks")) {
-        fallbackChatResponse = isAr
-          ? "على الرحب والسعة! أنا دائماً في خدمتك لدعم قراراتك ومؤسستك. لا تتردد في طرح أي استفسار آخر."
-          : "You are most welcome! I am always here to support your executive decisions. Feel free to ask anytime.";
-      } else {
-        fallbackChatResponse = isAr
-          ? "أهلاً ومرحباً بك! أنا المستشار الإداري والإدراكي في منصة ذَكِرْ. كيف يمكنني مساعدتك اليوم؟ يمكنك طرح أي استفسار إداري عام أو طلب تحليل لموضوع خاص بمؤسستك."
-          : "Welcome! I am Zakir's Cognitive Advisor. How can I assist you today? You can ask any general management question or request an organizational analysis.";
-      }
-    } else if (intent === "CLARIFICATION_NEEDED") {
-      fallbackChatResponse = isAr
-        ? "بالتأكيد! يسعدني مساعدتك بكل سرور. ماذا تريد مني أن أحلل تحديداً؟ يمكنك إرسال مشكلة تشغيلية، قرار استراتيجي، رقم مالي، خطر، أو وثيقة لنناقشها خطوة بخطوة."
-        : "Certainly! I would be glad to help. What specifically would you like me to analyze? You can share a business problem, strategic decision, financial metric, risk, or document.";
-    } else if (lowerPrompt.includes("مستثمر") || lowerPrompt.includes("investor")) {
-      fallbackChatResponse = isAr
-        ? "هذه خطوة استراتيجية هامة جداً! للتحضير لاجتماع المستثمر بنجاح، احرص على الجاهزية في المحاور التالية:\n\n1. **نموذج العمل والنمو:** شرح واضح لكيفية تحقيق الأرباح والتوسع المستقبلي.\n2. **حجم السوق والميزة التنافسية:** ما الذي يميز منتجك عن المنافسين.\n3. **المؤشرات المالية والمخاطر:** التوقع النقدي وإجراءات حماية رأس المال.\n\nأخبرني بتفاصيل المشروع وسأساعدك في التحضير لأهم الأسئلة المتوقعة."
-        : "Preparing for an investor meeting is a critical milestone! Key areas to align:\n\n1. **Business Model & Unit Economics:** Clear breakdown of revenue streams and margins.\n2. **Market Size & Competitive Moat:** Unique value proposition.\n3. **Financial Runway & Risk Mitigation:** Capital deployment plan.";
-    } else if (lowerPrompt.includes("أتحدث عن شركتي") || lowerPrompt.includes("إدارة شركتي") || lowerPrompt.includes("my company")) {
-      fallbackChatResponse = isAr
-        ? "أهلاً بك! يسعدني جداً الحديث عن شركتك وتطوير أداء إدارتها. لتطوير العمليات القيادية، نوصي بالتركيز على 3 محاور أساسية:\n\n1. **مواءمة الأهداف:** تحديد مؤشرات أداء قياسية (KPIs) واضحة للفريق.\n2. **الرقابة على التدفقات النقدية:** ضمان التوازن بين الإيرادات والمصروفات التشغيلية.\n3. **إدارة المخاطر:** التوثيق الاستباقي للقرارات الهامة والتفاعل مع تغيرات السوق.\n\nأخبرني بالموضوع أو التحدي الذي تواجهه حالياً في شركتك ونتدارس الأمر معاً."
-        : "Welcome! I would be glad to discuss your company and management strategy. Core pillars to focus on:\n\n1. **Goal Alignment:** Clear measurable KPIs.\n2. **Cash Flow Controls:** Balancing operational revenue vs expenses.\n3. **Risk Governance:** Proactive decision logging.";
-    } else if (intent === "GENERAL_KNOWLEDGE" || intent === "BUSINESS_ADVICE") {
-      fallbackChatResponse = isAr
-        ? `### المستشار الإداري (إرشاد استراتيجي)\n\nتعتمد إدارة الأعمال الحديثة على مواءمة الأهداف الاستراتيجية مع المؤشرات التشغيلية والرقابة المستمرة. بالنسبة لاستفسارك حول (**${promptText}**)، يوصى بالتركيز على:\n\n1. **تحديد الأهداف والسياسات:** صياغة إجراءات واضحة وقابلة للقياس.\n2. **الرقابة الحوكمية:** متابعة المؤشرات وتوثيق القرارات بشكل استباقي.\n3. **إدارة المخاطر:** تقييم التأثيرات التشغيلية والمالية قبل اتخاذ القرار النهائي.`
-        : `### Cognitive Advisor (Strategic Guidance)\n\nModern executive decision-making relies on aligning strategic goals with operational controls. Regarding (**${promptText}**), it is recommended to focus on:\n\n1. **Policy & Process:** Clear operational definitions and measurable metrics.\n2. **Governance:** Continuous monitoring and decision logging.\n3. **Risk Management:** Assessing operational impact before final execution.`;
-    } else {
-      fallbackChatResponse = isAr
-        ? "أهلاً بك. بصفتي المستشار الإداري والإدراكي لمنصة ذَكِرْ، أنا جاهز لمساعدتك في مناقشة هذا الموضوع. يمكنك إرسال أي استفسار يتعلق بالإدارة، القرارات الاستراتيجية، المفهوم المالي، أو خطط العمل وسأقدم لك تحليلاً وتوصيات عملية."
-        : "Welcome. As Zakir's Cognitive Advisor, I am ready to assist you. You can share any management inquiry, strategic decision, or business plan and I will provide actionable analysis.";
-    }
-
-    // Try calling Gemini AI client if available with non-blocking 800ms race timeout
-    const client = getLocalGeminiClient();
-    if (client && !isGeminiInCooldown()) {
-      let contextHeader = "";
-      if (requiresPrivateData) {
-        const memoriesSummary = Array.isArray(memories) && memories.length > 0
-          ? memories.map((m: any, idx: number) => `[الذكرى #${idx + 1}]: ${m.title} | الفئة: ${m.category} | القرار: ${m.decision}`).join("\n")
-          : "لا توجد ذكريات مسجلة.";
-        contextHeader = `\nبيانات المؤسسة المسجلة:\n${memoriesSummary}\n`;
-      }
-
-      const systemInstruction = `${personaPrompt}${contextHeader}\nقواعد الإجابة:\n1. أجب بأسلوب إداري طبيعي، واضح، ونافع.\n2. لا تعرض أي تفاصيل فنية خام (Raw JSON, API Status, 401, CORS) للمستخدم.\n3. لغة الإجابة: ${isAr ? "اللغة العربية الفصيحة والدقيقة" : "English"}.`;
-
-      const contents: any[] = [];
-      if (Array.isArray(history)) {
-        history.slice(-10).forEach((h: any) => {
-          if (h.text && typeof h.text === "string" && !h.text.includes("404 Not Found") && !h.text.includes("401 Unauthorized")) {
-            contents.push({
-              role: h.role === "user" ? "user" : "model",
-              parts: [{ text: h.text }],
-            });
-          }
-        });
-      }
-      contents.push({
-        role: "user",
-        parts: [{ text: promptText }],
-      });
-
-      const candidateModels = ["gemini-3.5-flash", "gemini-3.7-flash"];
-      let extractedSources: Array<{ title: string; url: string; snippet?: string }> = [];
-
-      const aiCallPromise = (async () => {
-        for (const modelName of candidateModels) {
-          try {
-            const configObjPure: any = {
-              systemInstruction,
-              temperature: 0.35,
-            };
-            if (searchDecision.needsSearch) {
-              configObjPure.tools = [{ googleSearch: {} }];
-            }
-
-            const response = await client.models.generateContent({
-              model: modelName,
-              contents,
-              config: configObjPure,
-            });
-
-            if (response?.text) {
-              const candidate = response.candidates?.[0] as any;
-              if (candidate?.groundingMetadata) {
-                const chunks = candidate.groundingMetadata.groundingChunks || [];
-                chunks.forEach((c: any) => {
-                  if (c.web?.uri && c.web?.title) {
-                    extractedSources.push({
-                      title: c.web.title,
-                      url: c.web.uri,
-                      snippet: c.web.snippet || "",
-                    });
-                  }
-                });
-              }
-              return response.text;
-            }
-          } catch (err: any) {}
-        }
-        return null;
-      })();
-
-      let globalTimer: any = null;
-      const globalTimeout = new Promise<null>((resolve) => {
-        globalTimer = setTimeout(() => resolve(null), 800);
-      });
-
-      const aiResultText = await Promise.race([aiCallPromise, globalTimeout]);
-      if (globalTimer) clearTimeout(globalTimer);
-
-      if (aiResultText) {
-        return res.json({
-          success: true,
-          text: aiResultText,
-          response: aiResultText,
-          sources: extractedSources,
-          searchDecision,
-          intent,
-          requiresPrivateData,
-          advisorType,
-        });
-      }
-    }
-
-    // Always return HTTP 200 with natural, helpful advisor content
     return res.json({
       success: true,
-      text: fallbackChatResponse,
-      response: fallbackChatResponse,
-      sources: [],
-      searchDecision,
-      intent,
-      requiresPrivateData,
-      advisorType,
+      text: result.text,
+      response: result.response,
+      type: "assistant",
+      intent: result.intent,
+      requiresPrivateData: result.requiresPrivateData,
+      isReportOrDiagnostic: result.isReportOrDiagnostic,
+      sources: result.sources,
+      advisorType: result.advisorType,
     });
   } catch (error: any) {
     console.error("handleAgentChat unexpected error:", error);
-    const fallbackText = "أهلاً بك. أنا المستشار الإداري لمنصة ذَكِرْ. يسعدني إجابتك ومناقشة أي استفسار إداري أو استراتيجي ترغب به.";
+    const fallbackText = "أهلاً بك. أنا المستشار الإداري والإدراكي لمنصة ذَكِرْ. يسعدني إجابتك ومناقشة أي استفسار إداري أو استراتيجي ترغب به.";
     return res.json({
       success: true,
       text: fallbackText,
       response: fallbackText,
+      type: "assistant",
       sources: [],
     });
   }

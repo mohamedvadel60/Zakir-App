@@ -592,7 +592,7 @@ export function writeDb(data: any) {
 let geminiCooldownUntil = 0;
 
 export function isGeminiInCooldown(): boolean {
-  return false;
+  return Date.now() < geminiCooldownUntil;
 }
 
 export function setGeminiCooldown(durationMs: number = 35000) {

@@ -2734,6 +2734,108 @@
       "adminKycNotificationSentAt": "2026-09-28T20:05:44.593Z",
       "adminKycNotificationMessageId": "01a0e99f-91fd-744a-a763-c1991f71a027",
       "adminKycNotificationRecipient": "admin@zakir.ai"
+    },
+    {
+      "id": "test_verification_user_1790625981544",
+      "email": "verification.test.1790625981544@zakir-test.com",
+      "fullName": "Verification Tester",
+      "ownerName": "Verification Tester",
+      "phone": "+966 50 123 4567",
+      "jobTitle": "CEO",
+      "companyName": "Test Org Enterprise",
+      "organizationName": "Test Org Enterprise",
+      "sector": "Technology",
+      "country": "Saudi Arabia",
+      "hasCompany": true,
+      "institutionalProfile": {
+        "fullName": "Verification Tester",
+        "phone": "+966 50 123 4567",
+        "jobTitle": "CEO",
+        "hasCompany": true,
+        "companyName": "Test Org Enterprise",
+        "sector": "Technology",
+        "country": "Saudi Arabia",
+        "registrationNumber": "1234567890",
+        "companySize": "1-10",
+        "intendedUse": "Strategic Decision Intelligence",
+        "additionalNotes": "",
+        "submittedAt": "2026-09-28T20:06:21.553Z"
+      },
+      "verificationDocuments": [
+        {
+          "documentId": "doc_p_1790625981545",
+          "fileName": "national_id.png",
+          "mimeType": "image/png",
+          "size": 102400,
+          "category": "personal",
+          "uploadedAt": "2026-09-28T20:06:21.553Z",
+          "status": "UNDER_REVIEW",
+          "verificationStatus": "UNDER_REVIEW"
+        },
+        {
+          "documentId": "doc_c_1790625981545",
+          "fileName": "cr_license.pdf",
+          "mimeType": "application/pdf",
+          "size": 204800,
+          "category": "company",
+          "uploadedAt": "2026-09-28T20:06:21.553Z",
+          "status": "UNDER_REVIEW",
+          "verificationStatus": "UNDER_REVIEW"
+        }
+      ],
+      "documents": [
+        {
+          "documentId": "doc_p_1790625981545",
+          "fileName": "national_id.png",
+          "mimeType": "image/png",
+          "size": 102400,
+          "category": "personal",
+          "uploadedAt": "2026-09-28T20:06:21.553Z",
+          "status": "UNDER_REVIEW",
+          "verificationStatus": "UNDER_REVIEW"
+        },
+        {
+          "documentId": "doc_c_1790625981545",
+          "fileName": "cr_license.pdf",
+          "mimeType": "application/pdf",
+          "size": 204800,
+          "category": "company",
+          "uploadedAt": "2026-09-28T20:06:21.553Z",
+          "status": "UNDER_REVIEW",
+          "verificationStatus": "UNDER_REVIEW"
+        }
+      ],
+      "documentCount": 2,
+      "isEmailVerified": true,
+      "email_verified": true,
+      "emailVerified": true,
+      "canonicalVerificationStatus": "pending",
+      "accountStatus": "PENDING_ADMIN_REVIEW",
+      "documentVerificationStatus": "UNDER_REVIEW",
+      "kycStatus": "UNDER_REVIEW",
+      "verificationRequestStatus": "UNDER_REVIEW",
+      "requiresDocumentVerification": true,
+      "rejectionReason": null,
+      "previousRejectionReason": null,
+      "historicalRejectionReason": null,
+      "isVerified": false,
+      "verifiedAt": null,
+      "adminVerificationOverride": false,
+      "verification_required": true,
+      "verification_status": "under_review",
+      "verificationInfo.status": "under_review",
+      "verificationInfo.submittedAt": "2026-09-28T20:06:21.553Z",
+      "verificationInfo.adminNote": null,
+      "verificationInfo.previousAdminNote": null,
+      "verificationInfo.verifiedAt": null,
+      "verificationSubmittedAt": "2026-09-28T20:06:21.553Z",
+      "verificationRequestId": "vreq_test_verification_user_1790625981544",
+      "lastActiveAt": "2026-09-28T20:06:21.553Z",
+      "notificationAdminSent": true,
+      "adminKycNotificationSent": true,
+      "adminKycNotificationSentAt": "2026-09-28T20:06:25.498Z",
+      "adminKycNotificationMessageId": "01a0e9a0-3189-7c03-9b56-4569dee9a36c",
+      "adminKycNotificationRecipient": "admin@zakir.ai"
     }
   ],
   "verification_codes": [
@@ -3086,7 +3188,7 @@
         "adminApprovalRequired": false,
         "canRestore": false,
         "daysRemaining": 0,
-        "updatedAt": "2026-09-28T20:00:03.800Z",
+        "updatedAt": "2026-09-28T20:44:37.878Z",
         "id": "ceo@zakir.ai"
       },
       {
@@ -3102,7 +3204,7 @@
         "adminApprovalRequired": false,
         "canRestore": false,
         "daysRemaining": 0,
-        "updatedAt": "2026-09-28T20:00:05.457Z",
+        "updatedAt": "2026-09-28T20:44:39.377Z",
         "id": "analyst@zakir.ai"
       },
       {
@@ -3118,7 +3220,7 @@
         "adminApprovalRequired": false,
         "canRestore": false,
         "daysRemaining": 0,
-        "updatedAt": "2026-09-28T20:00:06.982Z",
+        "updatedAt": "2026-09-28T20:44:40.821Z",
         "id": "compliance@zakir.ai"
       },
       {
@@ -3134,7 +3236,7 @@
         "adminApprovalRequired": false,
         "canRestore": false,
         "daysRemaining": 0,
-        "updatedAt": "2026-09-28T20:00:08.528Z",
+        "updatedAt": "2026-09-28T20:44:42.286Z",
         "id": "owner@zakir.ai"
       },
       {
@@ -3150,7 +3252,7 @@
         "adminApprovalRequired": false,
         "canRestore": false,
         "daysRemaining": 0,
-        "updatedAt": "2026-09-28T20:00:09.969Z",
+        "updatedAt": "2026-09-28T20:44:43.787Z",
         "id": "intruder@zakir.ai"
       },
       {
@@ -3166,7 +3268,7 @@
         "adminApprovalRequired": false,
         "canRestore": false,
         "daysRemaining": 0,
-        "updatedAt": "2026-09-28T20:00:12.885Z",
+        "updatedAt": "2026-09-28T20:44:46.824Z",
         "id": "admin@zakir.ai"
       },
       {
@@ -3182,7 +3284,7 @@
         "adminApprovalRequired": false,
         "canRestore": false,
         "daysRemaining": 0,
-        "updatedAt": "2026-09-28T20:00:14.378Z",
+        "updatedAt": "2026-09-28T20:44:48.384Z",
         "id": "rejected_test_1790421814575@getzakir.com"
       },
       {
@@ -3198,7 +3300,7 @@
         "adminApprovalRequired": false,
         "canRestore": false,
         "daysRemaining": 0,
-        "updatedAt": "2026-09-28T20:00:15.920Z",
+        "updatedAt": "2026-09-28T20:44:49.849Z",
         "id": "applicant_1790416647879@getzakir.com"
       },
       {
@@ -3214,7 +3316,7 @@
         "adminApprovalRequired": false,
         "canRestore": false,
         "daysRemaining": 0,
-        "updatedAt": "2026-09-28T20:00:17.673Z",
+        "updatedAt": "2026-09-28T20:44:51.357Z",
         "id": "no_doc_1790421883559@getzakir.com"
       },
       {
@@ -3230,7 +3332,7 @@
         "adminApprovalRequired": false,
         "canRestore": false,
         "daysRemaining": 0,
-        "updatedAt": "2026-09-28T20:00:19.203Z",
+        "updatedAt": "2026-09-28T20:44:52.810Z",
         "id": "mohamedvadhil0@entreprise8.com"
       },
       {
@@ -3246,7 +3348,7 @@
         "adminApprovalRequired": false,
         "canRestore": false,
         "daysRemaining": 0,
-        "updatedAt": "2026-09-28T20:00:20.735Z",
+        "updatedAt": "2026-09-28T20:44:54.258Z",
         "id": "no_doc_1790451369740@getzakir.com"
       },
       {
@@ -3262,7 +3364,7 @@
         "adminApprovalRequired": false,
         "canRestore": false,
         "daysRemaining": 0,
-        "updatedAt": "2026-09-28T20:00:22.242Z",
+        "updatedAt": "2026-09-28T20:44:55.734Z",
         "id": "mohamedhaiballa64@gmail.com"
       },
       {
@@ -3278,7 +3380,7 @@
         "adminApprovalRequired": false,
         "canRestore": false,
         "daysRemaining": 0,
-        "updatedAt": "2026-09-28T20:00:23.786Z",
+        "updatedAt": "2026-09-28T20:44:57.206Z",
         "id": "medvadhil7@gmail.com"
       },
       {
@@ -3294,7 +3396,7 @@
         "adminApprovalRequired": false,
         "canRestore": false,
         "daysRemaining": 0,
-        "updatedAt": "2026-09-28T20:00:25.287Z",
+        "updatedAt": "2026-09-28T20:44:58.684Z",
         "id": "mohamedvadel60@hotmail.com"
       },
       {
@@ -3310,7 +3412,7 @@
         "adminApprovalRequired": false,
         "canRestore": false,
         "daysRemaining": 0,
-        "updatedAt": "2026-09-28T20:00:26.788Z",
+        "updatedAt": "2026-09-28T20:45:00.217Z",
         "id": "admin_created_1790426956963@zakir.ai"
       },
       {
@@ -3326,7 +3428,7 @@
         "adminApprovalRequired": false,
         "canRestore": false,
         "daysRemaining": 0,
-        "updatedAt": "2026-09-28T20:00:28.315Z",
+        "updatedAt": "2026-09-28T20:45:01.729Z",
         "id": "new.user.1790532331145@zakir-test.com"
       },
       {
@@ -3342,7 +3444,7 @@
         "adminApprovalRequired": false,
         "canRestore": false,
         "daysRemaining": 0,
-        "updatedAt": "2026-09-28T20:00:29.830Z",
+        "updatedAt": "2026-09-28T20:45:03.241Z",
         "id": "mohamedmed11332@gmail.com"
       },
       {
@@ -3358,7 +3460,7 @@
         "adminApprovalRequired": false,
         "canRestore": false,
         "daysRemaining": 0,
-        "updatedAt": "2026-09-28T20:00:31.379Z",
+        "updatedAt": "2026-09-28T20:45:04.731Z",
         "id": "pending_check_1790451856003@getzakir.com"
       },
       {
@@ -3374,7 +3476,7 @@
         "adminApprovalRequired": false,
         "canRestore": false,
         "daysRemaining": 0,
-        "updatedAt": "2026-09-28T20:00:32.899Z",
+        "updatedAt": "2026-09-28T20:45:06.218Z",
         "id": "kyc_user_1790451491613@getzakir.com"
       },
       {
@@ -3390,7 +3492,7 @@
         "adminApprovalRequired": false,
         "canRestore": false,
         "daysRemaining": 0,
-        "updatedAt": "2026-09-28T20:00:34.366Z",
+        "updatedAt": "2026-09-28T20:45:07.764Z",
         "id": "sarasara222341@gmail.com"
       },
       {
@@ -3406,7 +3508,7 @@
         "adminApprovalRequired": false,
         "canRestore": false,
         "daysRemaining": 0,
-        "updatedAt": "2026-09-28T20:00:35.908Z",
+        "updatedAt": "2026-09-28T20:45:09.279Z",
         "id": "applicant_1790416570908@getzakir.com"
       },
       {
@@ -3422,7 +3524,7 @@
         "adminApprovalRequired": false,
         "canRestore": false,
         "daysRemaining": 0,
-        "updatedAt": "2026-09-28T20:00:37.411Z",
+        "updatedAt": "2026-09-28T20:45:10.798Z",
         "id": "applicant_c_1790453386749@getzakir.com"
       },
       {
@@ -3438,7 +3540,7 @@
         "adminApprovalRequired": false,
         "canRestore": false,
         "daysRemaining": 0,
-        "updatedAt": "2026-09-28T20:00:38.923Z",
+        "updatedAt": "2026-09-28T20:45:12.355Z",
         "id": "applicant_b_1790453386749@getzakir.com"
       },
       {
@@ -3454,7 +3556,7 @@
         "adminApprovalRequired": false,
         "canRestore": false,
         "daysRemaining": 0,
-        "updatedAt": "2026-09-28T20:00:40.493Z",
+        "updatedAt": "2026-09-28T20:45:14.016Z",
         "id": "applicant_a_1790453392321@getzakir.com"
       },
       {
@@ -3470,7 +3572,7 @@
         "adminApprovalRequired": false,
         "canRestore": false,
         "daysRemaining": 0,
-        "updatedAt": "2026-09-28T20:00:41.980Z",
+        "updatedAt": "2026-09-28T20:45:15.690Z",
         "id": "mohamedvadhil01@hotmail.com"
       },
       {
@@ -3486,7 +3588,7 @@
         "adminApprovalRequired": false,
         "canRestore": false,
         "daysRemaining": 0,
-        "updatedAt": "2026-09-28T20:00:43.564Z",
+        "updatedAt": "2026-09-28T20:45:17.318Z",
         "id": "mohamedvadhil0@gmail.com"
       },
       {
@@ -3502,7 +3604,7 @@
         "adminApprovalRequired": false,
         "canRestore": false,
         "daysRemaining": 0,
-        "updatedAt": "2026-09-28T20:00:45.066Z",
+        "updatedAt": "2026-09-28T20:45:18.845Z",
         "id": "test_user_b_1790426921729@zakir.ai"
       },
       {
@@ -3518,7 +3620,7 @@
         "adminApprovalRequired": false,
         "canRestore": false,
         "daysRemaining": 0,
-        "updatedAt": "2026-09-28T20:00:46.618Z",
+        "updatedAt": "2026-09-28T20:45:20.477Z",
         "id": "applicant_1790416498452@getzakir.com"
       },
       {
@@ -3534,7 +3636,7 @@
         "adminApprovalRequired": false,
         "canRestore": false,
         "daysRemaining": 0,
-        "updatedAt": "2026-09-28T20:00:48.169Z",
+        "updatedAt": "2026-09-28T20:45:21.985Z",
         "id": "kyc_user_1790528583884@getzakir.com"
       },
       {
@@ -3550,7 +3652,7 @@
         "adminApprovalRequired": false,
         "canRestore": false,
         "daysRemaining": 0,
-        "updatedAt": "2026-09-28T20:00:49.657Z",
+        "updatedAt": "2026-09-28T20:45:23.489Z",
         "id": "kyc.tester.1790536860254@zakir.ai"
       },
       {
@@ -3566,7 +3668,7 @@
         "adminApprovalRequired": false,
         "canRestore": false,
         "daysRemaining": 0,
-        "updatedAt": "2026-09-28T20:00:51.135Z",
+        "updatedAt": "2026-09-28T20:45:25.020Z",
         "id": "test_user_b_1790426956963@zakir.ai"
       },
       {
@@ -3582,7 +3684,7 @@
         "adminApprovalRequired": false,
         "canRestore": false,
         "daysRemaining": 0,
-        "updatedAt": "2026-09-28T20:00:52.665Z",
+        "updatedAt": "2026-09-28T20:45:26.471Z",
         "id": "kyc_user_1790451421865@getzakir.com"
       },
       {
@@ -3598,7 +3700,7 @@
         "adminApprovalRequired": false,
         "canRestore": false,
         "daysRemaining": 0,
-        "updatedAt": "2026-09-28T20:00:54.142Z",
+        "updatedAt": "2026-09-28T20:45:27.947Z",
         "id": "unverified_1790451505091@getzakir.com"
       },
       {
@@ -3614,7 +3716,7 @@
         "adminApprovalRequired": false,
         "canRestore": false,
         "daysRemaining": 0,
-        "updatedAt": "2026-09-28T20:00:55.639Z",
+        "updatedAt": "2026-09-28T20:45:29.554Z",
         "id": "test_user_a_1790426956963@zakir.ai"
       },
       {
@@ -3630,7 +3732,7 @@
         "adminApprovalRequired": false,
         "canRestore": false,
         "daysRemaining": 0,
-        "updatedAt": "2026-09-28T20:00:57.206Z",
+        "updatedAt": "2026-09-28T20:45:31.087Z",
         "id": "applicant_c_1790453392321@getzakir.com"
       },
       {
@@ -3646,7 +3748,7 @@
         "adminApprovalRequired": false,
         "canRestore": false,
         "daysRemaining": 0,
-        "updatedAt": "2026-09-28T20:00:58.769Z",
+        "updatedAt": "2026-09-28T20:45:32.581Z",
         "id": "new.user.1790536463461@zakir-test.com"
       },
       {
@@ -3662,7 +3764,7 @@
         "adminApprovalRequired": false,
         "canRestore": false,
         "daysRemaining": 0,
-        "updatedAt": "2026-09-28T20:01:00.249Z",
+        "updatedAt": "2026-09-28T20:45:34.131Z",
         "id": "new.user.1790531406349@zakir-test.com"
       },
       {
@@ -3678,7 +3780,7 @@
         "adminApprovalRequired": false,
         "canRestore": false,
         "daysRemaining": 0,
-        "updatedAt": "2026-09-28T20:01:01.793Z",
+        "updatedAt": "2026-09-28T20:45:35.687Z",
         "id": "unverified_1790421200459@test.com"
       },
       {
@@ -3694,7 +3796,7 @@
         "adminApprovalRequired": false,
         "canRestore": false,
         "daysRemaining": 0,
-        "updatedAt": "2026-09-28T20:01:03.314Z",
+        "updatedAt": "2026-09-28T20:45:37.163Z",
         "id": "mohamedvadel60@entreprise6.com"
       },
       {
@@ -3710,7 +3812,7 @@
         "adminApprovalRequired": false,
         "canRestore": false,
         "daysRemaining": 0,
-        "updatedAt": "2026-09-28T20:01:04.819Z",
+        "updatedAt": "2026-09-28T20:45:38.681Z",
         "id": "applicant_1790421163066@getzakir.com"
       },
       {
@@ -3726,7 +3828,7 @@
         "adminApprovalRequired": false,
         "canRestore": false,
         "daysRemaining": 0,
-        "updatedAt": "2026-09-28T20:01:06.345Z",
+        "updatedAt": "2026-09-28T20:45:40.160Z",
         "id": "no_doc_1790421822689@getzakir.com"
       },
       {
@@ -3742,7 +3844,7 @@
         "adminApprovalRequired": false,
         "canRestore": false,
         "daysRemaining": 0,
-        "updatedAt": "2026-09-28T20:01:07.904Z",
+        "updatedAt": "2026-09-28T20:45:41.683Z",
         "id": "kyc.tester.1790536828004@zakir.ai"
       },
       {
@@ -3758,7 +3860,7 @@
         "adminApprovalRequired": false,
         "canRestore": false,
         "daysRemaining": 0,
-        "updatedAt": "2026-09-28T20:01:09.418Z",
+        "updatedAt": "2026-09-28T20:45:43.204Z",
         "id": "kyc_user_1790451394915@getzakir.com"
       },
       {
@@ -3774,7 +3876,7 @@
         "adminApprovalRequired": false,
         "canRestore": false,
         "daysRemaining": 0,
-        "updatedAt": "2026-09-28T20:01:10.935Z",
+        "updatedAt": "2026-09-28T20:45:44.753Z",
         "id": "medvadhil7777@gmail.com"
       },
       {
@@ -3790,7 +3892,7 @@
         "adminApprovalRequired": false,
         "canRestore": false,
         "daysRemaining": 0,
-        "updatedAt": "2026-09-28T20:01:12.389Z",
+        "updatedAt": "2026-09-28T20:45:46.237Z",
         "id": "prod_kyc_1790451856003@getzakir.com"
       },
       {
@@ -3806,7 +3908,7 @@
         "adminApprovalRequired": false,
         "canRestore": false,
         "daysRemaining": 0,
-        "updatedAt": "2026-09-28T20:01:13.918Z",
+        "updatedAt": "2026-09-28T20:45:47.676Z",
         "id": "test_ws_creation_1790426782370@zakir.ai"
       },
       {
@@ -3822,7 +3924,7 @@
         "adminApprovalRequired": false,
         "canRestore": false,
         "daysRemaining": 0,
-        "updatedAt": "2026-09-28T20:01:15.430Z",
+        "updatedAt": "2026-09-28T20:45:49.306Z",
         "id": "test_user_a_1790426921729@zakir.ai"
       },
       {
@@ -3838,7 +3940,7 @@
         "adminApprovalRequired": false,
         "canRestore": false,
         "daysRemaining": 0,
-        "updatedAt": "2026-09-28T20:01:16.934Z",
+        "updatedAt": "2026-09-28T20:45:50.845Z",
         "id": "unverified_1790528587242@getzakir.com"
       },
       {
@@ -3854,7 +3956,7 @@
         "adminApprovalRequired": false,
         "canRestore": false,
         "daysRemaining": 0,
-        "updatedAt": "2026-09-28T20:01:18.475Z",
+        "updatedAt": "2026-09-28T20:45:52.333Z",
         "id": "applicant_a_1790453386749@getzakir.com"
       },
       {
@@ -3870,7 +3972,7 @@
         "adminApprovalRequired": false,
         "canRestore": false,
         "daysRemaining": 0,
-        "updatedAt": "2026-09-28T20:01:20.167Z",
+        "updatedAt": "2026-09-28T20:45:53.883Z",
         "id": "rejected_test_1790451362619@getzakir.com"
       },
       {
@@ -3886,7 +3988,7 @@
         "adminApprovalRequired": false,
         "canRestore": false,
         "daysRemaining": 0,
-        "updatedAt": "2026-09-28T20:01:21.902Z",
+        "updatedAt": "2026-09-28T20:45:55.435Z",
         "id": "applicant_1790416466539@getzakir.com"
       },
       {
@@ -3902,7 +4004,7 @@
         "adminApprovalRequired": false,
         "canRestore": false,
         "daysRemaining": 0,
-        "updatedAt": "2026-09-28T20:01:23.565Z",
+        "updatedAt": "2026-09-28T20:45:56.935Z",
         "id": "pending_only_1790528589919@getzakir.com"
       },
       {
@@ -3918,7 +4020,7 @@
         "adminApprovalRequired": false,
         "canRestore": false,
         "daysRemaining": 0,
-        "updatedAt": "2026-09-28T20:01:25.093Z",
+        "updatedAt": "2026-09-28T20:45:58.520Z",
         "id": "applicant_1790416732542@getzakir.com"
       },
       {
@@ -3934,7 +4036,7 @@
         "adminApprovalRequired": false,
         "canRestore": false,
         "daysRemaining": 0,
-        "updatedAt": "2026-09-28T20:01:26.604Z",
+        "updatedAt": "2026-09-28T20:46:00.008Z",
         "id": "ceo.existing@zakir-test.com"
       },
       {
@@ -3950,7 +4052,7 @@
         "adminApprovalRequired": false,
         "canRestore": false,
         "daysRemaining": 0,
-        "updatedAt": "2026-09-28T20:01:28.110Z",
+        "updatedAt": "2026-09-28T20:46:01.531Z",
         "id": "rejected_test_1790421871641@getzakir.com"
       },
       {
@@ -3966,7 +4068,7 @@
         "adminApprovalRequired": false,
         "canRestore": false,
         "daysRemaining": 0,
-        "updatedAt": "2026-09-28T20:01:29.611Z",
+        "updatedAt": "2026-09-28T20:46:03.106Z",
         "id": "unverified_1790451426692@getzakir.com"
       },
       {
@@ -3982,7 +4084,7 @@
         "adminApprovalRequired": false,
         "canRestore": false,
         "daysRemaining": 0,
-        "updatedAt": "2026-09-28T20:01:31.164Z",
+        "updatedAt": "2026-09-28T20:46:04.656Z",
         "id": "mohamevadhil01@hotmail.com"
       },
       {
@@ -3998,7 +4100,7 @@
         "adminApprovalRequired": false,
         "canRestore": false,
         "daysRemaining": 0,
-        "updatedAt": "2026-09-28T20:01:32.763Z",
+        "updatedAt": "2026-09-28T20:46:06.248Z",
         "id": "pending_only_1790451430173@getzakir.com"
       },
       {
@@ -4014,7 +4116,7 @@
         "adminApprovalRequired": false,
         "canRestore": false,
         "daysRemaining": 0,
-        "updatedAt": "2026-09-28T20:01:34.317Z",
+        "updatedAt": "2026-09-28T20:46:07.798Z",
         "id": "ui_workspace_test_1790427988253@zakir.ai"
       },
       {
@@ -4030,7 +4132,7 @@
         "adminApprovalRequired": false,
         "canRestore": false,
         "daysRemaining": 0,
-        "updatedAt": "2026-09-28T20:01:35.857Z",
+        "updatedAt": "2026-09-28T20:46:09.409Z",
         "id": "anas1220045@gmail.com"
       },
       {
@@ -4046,7 +4148,7 @@
         "adminApprovalRequired": false,
         "canRestore": false,
         "daysRemaining": 0,
-        "updatedAt": "2026-09-28T20:01:37.382Z",
+        "updatedAt": "2026-09-28T20:46:10.942Z",
         "id": "pending_only_1790451508853@getzakir.com"
       },
       {
@@ -4062,7 +4164,7 @@
         "adminApprovalRequired": false,
         "canRestore": false,
         "daysRemaining": 0,
-        "updatedAt": "2026-09-28T20:01:38.870Z",
+        "updatedAt": "2026-09-28T20:46:12.459Z",
         "id": "applicant_b_1790453392321@getzakir.com"
       },
       {
@@ -4078,7 +4180,7 @@
         "adminApprovalRequired": false,
         "canRestore": false,
         "daysRemaining": 0,
-        "updatedAt": "2026-09-28T20:03:24.028Z",
+        "updatedAt": "2026-09-28T20:46:17.113Z",
         "id": "kyc_user1_1790625780605@getzakir.com"
       },
       {
@@ -4094,8 +4196,120 @@
         "adminApprovalRequired": false,
         "canRestore": false,
         "daysRemaining": 0,
-        "updatedAt": "2026-09-28T20:05:54.514Z",
+        "updatedAt": "2026-09-28T20:46:23.635Z",
         "id": "kyc_user1_1790625883306@getzakir.com"
+      },
+      {
+        "accountId": "kyc_user1_1790625617422@getzakir.com",
+        "emailNormalized": "kyc_user1_1790625617422@getzakir.com",
+        "status": "ACTIVE",
+        "deletionType": null,
+        "deletedAt": null,
+        "deletedBy": null,
+        "restoreUntil": null,
+        "originalUserId": "7vZu5mQzlYbMnYpYtYnVOq9jSJG3",
+        "retainedDataDocPath": null,
+        "adminApprovalRequired": false,
+        "canRestore": false,
+        "daysRemaining": 0,
+        "updatedAt": "2026-09-28T20:46:14.032Z",
+        "id": "kyc_user1_1790625617422@getzakir.com"
+      },
+      {
+        "accountId": "kyc_user1_1790625736287@getzakir.com",
+        "emailNormalized": "kyc_user1_1790625736287@getzakir.com",
+        "status": "ACTIVE",
+        "deletionType": null,
+        "deletedAt": null,
+        "deletedBy": null,
+        "restoreUntil": null,
+        "originalUserId": "l2OutoxOePQRk3ENk35o4cpCuSw2",
+        "retainedDataDocPath": null,
+        "adminApprovalRequired": false,
+        "canRestore": false,
+        "daysRemaining": 0,
+        "updatedAt": "2026-09-28T20:46:15.600Z",
+        "id": "kyc_user1_1790625736287@getzakir.com"
+      },
+      {
+        "accountId": "kyc_user2_1790625780605@getzakir.com",
+        "emailNormalized": "kyc_user2_1790625780605@getzakir.com",
+        "status": "ACTIVE",
+        "deletionType": null,
+        "deletedAt": null,
+        "deletedBy": null,
+        "restoreUntil": null,
+        "originalUserId": "UJAIYfSXuxOf5FyBTsP6lRGlePn2",
+        "retainedDataDocPath": null,
+        "adminApprovalRequired": false,
+        "canRestore": false,
+        "daysRemaining": 0,
+        "updatedAt": "2026-09-28T20:46:18.776Z",
+        "id": "kyc_user2_1790625780605@getzakir.com"
+      },
+      {
+        "accountId": "kyc_user3_1790625780605@getzakir.com",
+        "emailNormalized": "kyc_user3_1790625780605@getzakir.com",
+        "status": "ACTIVE",
+        "deletionType": null,
+        "deletedAt": null,
+        "deletedBy": null,
+        "restoreUntil": null,
+        "originalUserId": "ck8nnzb5xIQEAan5zNN5RXBsH702",
+        "retainedDataDocPath": null,
+        "adminApprovalRequired": false,
+        "canRestore": false,
+        "daysRemaining": 0,
+        "updatedAt": "2026-09-28T20:46:21.215Z",
+        "id": "kyc_user3_1790625780605@getzakir.com"
+      },
+      {
+        "accountId": "kyc_user2_1790625883306@getzakir.com",
+        "emailNormalized": "kyc_user2_1790625883306@getzakir.com",
+        "status": "ACTIVE",
+        "deletionType": null,
+        "deletedAt": null,
+        "deletedBy": null,
+        "restoreUntil": null,
+        "originalUserId": "wXDTOod6faaqYCyNA0XlUGDAvzx1",
+        "retainedDataDocPath": null,
+        "adminApprovalRequired": false,
+        "canRestore": false,
+        "daysRemaining": 0,
+        "updatedAt": "2026-09-28T20:46:25.836Z",
+        "id": "kyc_user2_1790625883306@getzakir.com"
+      },
+      {
+        "accountId": "kyc_user3_1790625883306@getzakir.com",
+        "emailNormalized": "kyc_user3_1790625883306@getzakir.com",
+        "status": "ACTIVE",
+        "deletionType": null,
+        "deletedAt": null,
+        "deletedBy": null,
+        "restoreUntil": null,
+        "originalUserId": "4M72NrUfUQSik0xLCODwo1HvvrG3",
+        "retainedDataDocPath": null,
+        "adminApprovalRequired": false,
+        "canRestore": false,
+        "daysRemaining": 0,
+        "updatedAt": "2026-09-28T20:46:28.441Z",
+        "id": "kyc_user3_1790625883306@getzakir.com"
+      },
+      {
+        "accountId": "verification.test.1790625981544@zakir-test.com",
+        "emailNormalized": "verification.test.1790625981544@zakir-test.com",
+        "status": "ACTIVE",
+        "deletionType": null,
+        "deletedAt": null,
+        "deletedBy": null,
+        "restoreUntil": null,
+        "originalUserId": "test_verification_user_1790625981544",
+        "retainedDataDocPath": null,
+        "adminApprovalRequired": false,
+        "canRestore": false,
+        "daysRemaining": 0,
+        "updatedAt": "2026-09-28T20:46:30.712Z",
+        "id": "verification.test.1790625981544@zakir-test.com"
       }
     ],
     "platform_events": [
@@ -4966,6 +5180,15 @@
   "pending_recovery_uploads": [],
   "email_delivery_logs": [
     {
+      "id": "01a0e9a0-3189-7c03-9b56-4569dee9a36c",
+      "recipient": "admin@zakir.ai",
+      "type": "notification",
+      "subject": "طلب توثيق جديد يحتاج إلى مراجعتك — Zakir",
+      "timestamp": "2026-09-28T20:06:25.188Z",
+      "status": "DELIVERED",
+      "error": null
+    },
+    {
       "id": "01a0e99f-afe9-71f0-8f00-bbc26f219eae",
       "recipient": "kyc_user1_1790625883306@getzakir.com",
       "type": "notification",
@@ -5120,6 +5343,49 @@
     }
   ],
   "platform_events": [
+    {
+      "id": "evt_1790625984096_q4d9r40",
+      "eventType": "INSTITUTIONAL_VERIFICATION_SUBMITTED",
+      "severity": "NOTICE",
+      "category": "AUTH",
+      "timestamp": "2026-09-28T20:06:24.096Z",
+      "userId": "test_verification_user_1790625981544",
+      "userEmail": "verification.test.1790625981544@zakir-test.com",
+      "sanitizedMessage": "User verification documents submitted by [verification.test.1790625981544@zakir-test.com] (Test Org Enterprise) - Pending admin review.",
+      "status": "ACTIVE",
+      "metadata": {
+        "fullName": "Verification Tester",
+        "phone": "+966 50 123 4567",
+        "jobTitle": "CEO",
+        "hasCompany": true,
+        "companyName": "Test Org Enterprise",
+        "sector": "Technology",
+        "country": "Saudi Arabia",
+        "registrationNumber": "1234567890",
+        "companySize": "1-10",
+        "intendedUse": "Strategic Decision Intelligence",
+        "additionalNotes": "",
+        "submittedAt": "2026-09-28T20:06:21.553Z",
+        "documentsCount": 2
+      },
+      "source": "server"
+    },
+    {
+      "id": "evt_1790625956834_1p66rd8",
+      "eventType": "USER_LOGGED_IN",
+      "severity": "INFO",
+      "category": "AUTH",
+      "timestamp": "2026-09-28T20:05:56.834Z",
+      "userId": "q4rdqiF5nVZfnUaevLihGlNUYD13",
+      "userEmail": "kyc_user1_1790625883306@getzakir.com",
+      "requestId": "req_1790625953234_53f9e96c",
+      "sanitizedMessage": "User logged in: kyc_user1_1790625883306@getzakir.com (role: CEO)",
+      "status": "ACTIVE",
+      "metadata": {
+        "role": "CEO"
+      },
+      "source": "server"
+    },
     {
       "id": "evt_1790625949495_1rhcd1e",
       "eventType": "ADMIN_AUDIT_ACTION",
