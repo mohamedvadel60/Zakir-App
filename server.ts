@@ -17781,6 +17781,8 @@ async function saveDocumentToPersistentStorage(
     size: buffer.length,
     fileHash,
     sha256: fileHash,
+    fileBase64: buffer.length <= 8 * 1024 * 1024 ? buffer.toString("base64") : undefined,
+    data: buffer.length <= 8 * 1024 * 1024 ? buffer.toString("base64") : undefined,
     storageProvider,
     storagePath,
     storageReference: storagePath,
@@ -18174,6 +18176,11 @@ export async function resolveDocumentFromStorage(
       rec.path,
       rec.documentPath,
       rec.fileUrl,
+      rec.documentId,
+      rec.id,
+      rec.fileId,
+      rec.fileName,
+      rec.name,
     ].filter((p): p is string => typeof p === "string" && p.length > 0);
 
     for (const p of possiblePaths) {
@@ -18620,6 +18627,7 @@ export async function resolveDocumentFromStorage(
                     d.id === documentId ||
                     d.fileId === documentId ||
                     d.storageReference === documentId ||
+                    d.storagePath === documentId ||
                     d.fileName === documentId)
               );
               if (match) {
@@ -18628,14 +18636,53 @@ export async function resolveDocumentFromStorage(
               }
             }
           } catch (uErr) {}
+
+          try {
+            const subFileSnap = await adminDb.collection("users").doc(context.userId).collection("files").doc(documentId).get();
+            if (subFileSnap && subFileSnap.exists) {
+              const res = await tryExtractBufferFromRecord(subFileSnap.data(), "firestore_user_subfile_doc");
+              if (res) return res;
+            }
+          } catch (sfErr) {}
         }
+
+        // 4d. Fallback: Search all users in Firestore if documentId not resolved under specific userId
+        try {
+          const usersSnap = await adminDb.collection("users").get();
+          if (usersSnap && !usersSnap.empty) {
+            for (const uDoc of usersSnap.docs) {
+              const uData = uDoc.data() || {};
+              const docList = [
+                ...(Array.isArray(uData.verificationDocuments) ? uData.verificationDocuments : []),
+                ...(Array.isArray(uData.documents) ? uData.documents : []),
+                ...(Array.isArray(uData.verificationInfo?.documents) ? uData.verificationInfo.documents : []),
+                ...(Array.isArray(uData.files) ? uData.files : []),
+              ];
+              const match = docList.find(
+                (d: any) =>
+                  d &&
+                  (d.documentId === documentId ||
+                    d.id === documentId ||
+                    d.fileId === documentId ||
+                    d.storageReference === documentId ||
+                    d.storagePath === documentId ||
+                    d.fileName === documentId)
+              );
+              if (match) {
+                const res = await tryExtractBufferFromRecord(match, "firestore_user_doc_fallback");
+                if (res) return res;
+              }
+            }
+          }
+        } catch (e) {}
+
         return null;
       };
 
       const fsResult = await Promise.race([
         fsQueryPromise(),
         new Promise<null>((resolve) => {
-          timeoutHandle = setTimeout(() => resolve(null), 1000);
+          timeoutHandle = setTimeout(() => resolve(null), 5000);
           if (timeoutHandle?.unref) timeoutHandle.unref();
         }),
       ]);

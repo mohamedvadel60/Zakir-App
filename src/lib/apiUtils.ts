@@ -127,8 +127,16 @@ function resolveEndpointUrl(url: string): string {
         return formattedEndpoint;
       }
     }
+
+    if (window.location && window.location.origin && window.location.origin.startsWith("http")) {
+      return `${window.location.origin.replace(/\/$/, '')}${formattedEndpoint}`;
+    }
+    return `http://localhost:3000${formattedEndpoint}`;
   }
-  return formattedEndpoint;
+
+  // When typeof window === "undefined" (Node.js / SSR / Tests)
+  const serverBase = (typeof process !== "undefined" && (process.env.APP_URL || process.env.VITE_API_BASE_URL)) || "http://localhost:3000";
+  return `${serverBase.replace(/\/+$/, '')}${formattedEndpoint}`;
 }
 
 /**
