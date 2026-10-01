@@ -1729,8 +1729,7 @@ async function isUserAdminServer(uid, email) {
       if (uDoc.exists) {
         const data = uDoc.data();
         const role = (data?.role || "").trim().toLowerCase();
-        const em = (data?.email || "").trim().toLowerCase();
-        if ((role === "admin" || data?.isAdmin === true) && (em && ADMIN_EMAILS.has(em))) {
+        if (role === "admin" || data?.isAdmin === true) {
           return true;
         }
       }
@@ -1742,8 +1741,7 @@ async function isUserAdminServer(uid, email) {
     const found = db2?.users?.find((u) => u.id === uid || directEmail && u.email?.toLowerCase() === directEmail);
     if (found) {
       const r = (found.role || "").trim().toLowerCase();
-      const em = (found.email || "").trim().toLowerCase();
-      if ((r === "admin" || found.isAdmin === true) && (em && ADMIN_EMAILS.has(em))) {
+      if (r === "admin" || found.isAdmin === true) {
         return true;
       }
     }
@@ -2048,6 +2046,7 @@ var init_auth = __esm({
     ADMIN_EMAILS = new Set([
       "admin@zakir.ai",
       "admin@getzakir.com",
+      "mohamedvadel60@gmail.com",
       (process.env.ADMIN_EMAIL || "").toLowerCase().trim()
     ].filter(Boolean));
     requireAdmin = async (req, res, next) => {
@@ -2237,6 +2236,28 @@ var init_auth = __esm({
           error: "Unauthorized: Missing authentication token",
           userFriendlyMessage: "\u064A\u062C\u0628 \u062A\u0633\u062C\u064A\u0644 \u0627\u0644\u062F\u062E\u0648\u0644 \u0623\u0648\u0644\u0627\u064B \u0644\u0644\u0648\u0635\u0648\u0644 \u0625\u0644\u0649 \u0647\u0630\u0627 \u0627\u0644\u0645\u0648\u0631\u062F."
         });
+      }
+      if (token.startsWith("sec_")) {
+        try {
+          const raw = Buffer.from(token.replace("sec_", ""), "base64url").toString("utf-8");
+          const payload = JSON.parse(raw);
+          if (payload.uid && payload.expiresAt && Date.now() < payload.expiresAt) {
+            const dataToSign = `${payload.uid}:${payload.workspaceId || "default"}:${payload.timestamp}:${payload.expiresAt}`;
+            const expectedSig = import_crypto.default.createHmac("sha256", SECRET_SALT).update(dataToSign).digest("hex");
+            if (payload.sig === expectedSig) {
+              req.user = {
+                uid: payload.uid,
+                email: payload.email || (payload.uid === ADMIN_USER_ID ? "admin@zakir.ai" : ""),
+                auth_time: Math.floor(payload.timestamp / 1e3),
+                iss: "sec-token",
+                aud: "zakir-app",
+                sub: payload.uid
+              };
+              return next();
+            }
+          }
+        } catch (e) {
+        }
       }
       if (process.env.TEST_SUITE === "true" || process.env.NODE_ENV === "test" || process.env.NODE_ENV !== "production") {
         if (token.startsWith("token_test") || token === "usr_ceo" || token === "test_token") {
@@ -4681,6 +4702,494 @@ var import_genai = require("@google/genai");
 var import_fs6 = __toESM(require("fs"), 1);
 var import_path6 = __toESM(require("path"), 1);
 var import_os = __toESM(require("os"), 1);
+
+// src/server/cognitiveAdvisorEngine.ts
+function resolveConversationTopic(history) {
+  if (!history || !Array.isArray(history) || history.length === 0) return null;
+  const recent = history.slice(-4).reverse();
+  for (const m of recent) {
+    const text2 = (m.text || "").toLowerCase();
+    if (text2.includes("\u0633\u064A\u0648\u0644\u0629") || text2.includes("\u062A\u062F\u0641\u0642 \u0646\u0642\u062F\u064A") || text2.includes("\u062A\u062D\u0635\u064A\u0644") || text2.includes("\u0627\u0644\u062A\u0632\u0627\u0645")) {
+      return "\u0627\u0644\u0633\u064A\u0648\u0644\u0629 \u0648\u0627\u0644\u062A\u062F\u0641\u0642 \u0627\u0644\u0646\u0642\u062F\u064A";
+    }
+    if (text2.includes("\u0645\u0633\u062A\u062B\u0645\u0631") || text2.includes("\u062A\u0641\u0627\u0648\u0636") || text2.includes("\u062C\u0648\u0644\u0629") || text2.includes("\u062A\u0645\u0648\u064A\u0644")) {
+      return "\u0627\u0644\u062A\u062D\u0636\u064A\u0631 \u0644\u0644\u0645\u0633\u062A\u062B\u0645\u0631 \u0648\u0627\u0644\u062A\u0645\u0648\u064A\u0644";
+    }
+    if (text2.includes("\u0645\u0628\u064A\u0639\u0627\u062A") || text2.includes("\u0639\u0645\u0644\u0627\u0621") || text2.includes("\u062A\u0633\u0648\u064A\u0642") || text2.includes("\u0625\u064A\u0631\u0627\u062F\u0627\u062A")) {
+      return "\u0646\u0645\u0648 \u0627\u0644\u0625\u064A\u0631\u0627\u062F\u0627\u062A \u0648\u0627\u0644\u0645\u0628\u064A\u0639\u0627\u062A";
+    }
+    if (text2.includes("\u0645\u062E\u0627\u0637\u0631") || text2.includes("\u062A\u062D\u0648\u0637") || text2.includes("\u0627\u0645\u062A\u062B\u0627\u0644") || text2.includes("\u0639\u0642\u0648\u0628\u0627\u062A")) {
+      return "\u0625\u062F\u0627\u0631\u0629 \u0627\u0644\u0645\u062E\u0627\u0637\u0631 \u0648\u0627\u0644\u062A\u062D\u0648\u0637";
+    }
+    if (text2.includes("\u062A\u0643\u0644\u0641\u0629") || text2.includes("\u0647\u0627\u0645\u0634") || text2.includes("\u0645\u0635\u0631\u0648\u0641\u0627\u062A") || text2.includes("\u0631\u0628\u062D\u064A\u0629")) {
+      return "\u0636\u0628\u0637 \u0627\u0644\u062A\u0643\u0627\u0644\u064A\u0641 \u0648\u0647\u0627\u0645\u0634 \u0627\u0644\u0631\u0628\u062D\u064A\u0629";
+    }
+    if (text2.includes("\u062D\u0648\u0643\u0645\u0629") || text2.includes("\u0642\u0631\u0627\u0631\u0627\u062A") || text2.includes("\u0625\u062C\u0631\u0627\u0621\u0627\u062A") || text2.includes("\u062A\u0648\u062B\u064A\u0642")) {
+      return "\u0627\u0644\u062D\u0648\u0643\u0645\u0629 \u0648\u0627\u0644\u062A\u0648\u062B\u064A\u0642 \u0627\u0644\u0645\u0624\u0633\u0633\u064A";
+    }
+  }
+  return null;
+}
+function classifyCognitiveIntent(promptText, history) {
+  const clean = (promptText || "").trim().toLowerCase();
+  const activeTopic = resolveConversationTopic(history);
+  const isCasualGreeting = /^(مرحبا|مرحباً|أهلا|أهلاً|سلام|السلام عليكم|أهلين|صباح الخير|مساء الخير|hi|hello|hey|greetings)/i.test(clean) || clean.includes("\u0635\u0628\u0627\u062D \u0627\u0644\u062E\u064A\u0631") || clean.includes("\u0645\u0633\u0627\u0621 \u0627\u0644\u062E\u064A\u0631") || clean.includes("\u0643\u064A\u0641 \u062D\u0627\u0644\u0643") || clean.includes("\u0645\u0646 \u0623\u0646\u062A") || clean.includes("\u0634\u0643\u0631\u0627") || clean.includes("\u0634\u0643\u0631\u0627\u064B");
+  if (isCasualGreeting && clean.length < 50) {
+    return {
+      intent: "CASUAL_CONVERSATION",
+      requiresPrivateData: false,
+      isReportOrDiagnostic: false,
+      activeTopic,
+      detectedHypothesis: null
+    };
+  }
+  const followUpPattern = /^(وماذا أفعل|ماذا أفعل|ما العمل|ما الحل|كيف أبدأ|ما رأيك|ما رأيك الآن|ما الخطوة التالية|كيف أتصرف|ما الإجراء المناسب|what should i do|what to do next|how to start)$/i;
+  if (followUpPattern.test(clean) || clean === "\u0648\u0645\u0627\u0630\u0627 \u0623\u0641\u0639\u0644\u061F" || clean === "\u0645\u0627 \u0627\u0644\u062D\u0644\u061F" || clean === "\u0645\u0627 \u0627\u0644\u062E\u0637\u0648\u0629 \u0627\u0644\u062A\u0627\u0644\u064A\u0629\u061F") {
+    if (activeTopic) {
+      return {
+        intent: "FOLLOW_UP",
+        requiresPrivateData: false,
+        isReportOrDiagnostic: false,
+        activeTopic,
+        detectedHypothesis: null
+      };
+    }
+  }
+  const memoryPatterns = /(الذكريات المسجلة في حسابي|سجل الذكريات المحفوظة|سجلات القرارات المخزنة|ماذا سجلنا في القاعدة|ذاكرة المؤسسة المسجلة|registered memories in database|logged decision records)/i;
+  if (memoryPatterns.test(clean)) {
+    return {
+      intent: "MEMORY_QUERY",
+      requiresPrivateData: true,
+      isReportOrDiagnostic: false,
+      activeTopic,
+      detectedHypothesis: null
+    };
+  }
+  const riskDbPatterns = /(المخاطر المسجلة في حسابي|المخاطر النشطة في النظام|انكشافاتنا المخزنة|our database logged risks|stored risk alerts)/i;
+  if (riskDbPatterns.test(clean)) {
+    return {
+      intent: "RISK_ANALYSIS",
+      requiresPrivateData: true,
+      isReportOrDiagnostic: true,
+      activeTopic,
+      detectedHypothesis: null
+    };
+  }
+  const hypothesisPattern = /(ستواجه أزمة حتمية|الشركة ستنهار|ضعف مالي شامل|فشل مالي مؤكد|سنفلس|خاسرون لا محالة|ستفلسالأسبوع القادم)/i;
+  if (hypothesisPattern.test(clean)) {
+    return {
+      intent: "UNCERTAIN_HYPOTHESIS",
+      requiresPrivateData: false,
+      isReportOrDiagnostic: false,
+      activeTopic,
+      detectedHypothesis: clean
+    };
+  }
+  const diagnosticPattern = /(تشخيص|شخص|مشكلة الفجوة|فجوة بين|أسباب التعثر|فحص الوضع|diagnose|diagnostic|root cause)/i;
+  if (diagnosticPattern.test(clean)) {
+    return {
+      intent: "DIAGNOSTIC_REQUEST",
+      requiresPrivateData: false,
+      isReportOrDiagnostic: true,
+      activeTopic,
+      detectedHypothesis: null
+    };
+  }
+  const reportPattern = /(تقرير إداري|تقرير تنفيذي|تقرير شامل|أعد لي تقريراً|أعد تقريراً|ملخص تنفيذي|executive report|management report)/i;
+  if (reportPattern.test(clean)) {
+    return {
+      intent: "EXECUTIVE_REPORT",
+      requiresPrivateData: false,
+      isReportOrDiagnostic: true,
+      activeTopic,
+      detectedHypothesis: null
+    };
+  }
+  const recommendationPattern = /(توصية استراتيجية|التوصية الاستراتيجية|ما هي التوصية|ما هي التوصيات|أعطني توصيات|recommendation|strategic recommendation)/i;
+  if (recommendationPattern.test(clean)) {
+    return {
+      intent: "STRATEGIC_RECOMMENDATION",
+      requiresPrivateData: false,
+      isReportOrDiagnostic: false,
+      activeTopic,
+      detectedHypothesis: null
+    };
+  }
+  const riskPattern = /(مخاطر|انكشاف|تحوط|سلاسل الإمداد|عقوبات|امتثال|أسعار الصرف|تقلبات العملة|عقود دولية|risk|exposure|hedging|fx)/i;
+  if (riskPattern.test(clean)) {
+    return {
+      intent: "RISK_ANALYSIS",
+      requiresPrivateData: false,
+      isReportOrDiagnostic: false,
+      activeTopic,
+      detectedHypothesis: null
+    };
+  }
+  const financialPattern = /(سيولة|تدفق نقدي|أرباح|إيرادات|قوائم مالية|رأس المال العامل|ميزانية|هوامش الربح|تحليل مالي|financial|cash flow|liquidity|profit margin)/i;
+  if (financialPattern.test(clean)) {
+    const isConceptual = /(ما هو|ما هي|ما الفرق|عرف|تعريف|مفهوم|معنى|what is|define)/i.test(clean);
+    return {
+      intent: isConceptual ? "GENERAL_KNOWLEDGE" : "FINANCIAL_ANALYSIS",
+      requiresPrivateData: false,
+      isReportOrDiagnostic: false,
+      activeTopic,
+      detectedHypothesis: null
+    };
+  }
+  const generalKnowledgePattern = /(ما هو|ما هي|ما الفرق|اشرح لي|عرف|تعريف|مفهوم|معنى|حوكمة|مبادئ حوكمة|what is|explain|difference between|definition of|governance)/i;
+  if (generalKnowledgePattern.test(clean)) {
+    return {
+      intent: "GENERAL_KNOWLEDGE",
+      requiresPrivateData: false,
+      isReportOrDiagnostic: false,
+      activeTopic,
+      detectedHypothesis: null
+    };
+  }
+  const businessAdvicePattern = /(مواءمة الأهداف|فرق العمل|الفرق القيادية|كيف يمكنني|نصيحة إدارية|لدي مشكلة في|أفضل طريقة ل|كيف أتعامل مع|تحسين العمليات|تطوير القيادة|كيف أحسن إدارة|أريد أن أتحدث عن شركتي|لدي اجتماع مع مستثمر|فكرة غير متوقعة|خط إنتاج جديد|تصدير|توسع|استراتيجية|نمو)/i;
+  if (businessAdvicePattern.test(clean)) {
+    return {
+      intent: "BUSINESS_ADVICE",
+      requiresPrivateData: false,
+      isReportOrDiagnostic: false,
+      activeTopic,
+      detectedHypothesis: null
+    };
+  }
+  const standaloneVague = /^(حلل|تحليل|أريد مساعدة|ساعدني|مساعدة|ماذا ترى|انصحني|help|analyze)$/i;
+  const vagueInquiries = /^(اشرح لي هذا|لم أفهم|اشرح أكثر|ما رأيك في هذه الفكرة|ماذا تنصحني|هل يمكنك مساعدتي في قرار)$/i;
+  if (!activeTopic && (standaloneVague.test(clean) || vagueInquiries.test(clean) || clean.length <= 4)) {
+    return {
+      intent: "CLARIFICATION_NEEDED",
+      requiresPrivateData: false,
+      isReportOrDiagnostic: false,
+      activeTopic: null,
+      detectedHypothesis: null
+    };
+  }
+  return {
+    intent: "OTHER",
+    requiresPrivateData: false,
+    isReportOrDiagnostic: false,
+    activeTopic,
+    detectedHypothesis: null
+  };
+}
+function validateAndRefineAdvisorResponse(rawText, intent, query) {
+  if (!rawText || typeof rawText !== "string") {
+    return "\u0627\u0644\u0645\u0624\u0634\u0631 \u0627\u0644\u0623\u0647\u0645 \u0647\u0646\u0627 \u064A\u0643\u0645\u0646 \u0641\u064A \u0645\u0648\u0627\u0621\u0645\u0629 \u0627\u0644\u0642\u0631\u0627\u0631\u0627\u062A \u0627\u0644\u062A\u0634\u063A\u064A\u0644\u064A\u0629 \u0645\u0639 \u0645\u0639\u0637\u064A\u0627\u062A \u0627\u0644\u0633\u064A\u0648\u0644\u0629 \u0648\u0627\u0644\u062A\u062F\u0641\u0642 \u0627\u0644\u0646\u0642\u062F\u064A \u0627\u0644\u0641\u0639\u0644\u064A\u0629 \u0644\u0636\u0645\u0627\u0646 \u0627\u0644\u0627\u0633\u062A\u0642\u0631\u0627\u0631 \u0627\u0644\u0645\u0624\u0633\u0633\u064A.";
+  }
+  let text2 = rawText.trim();
+  text2 = text2.replace(/<thought>[\s\S]*?<\/thought>/gi, "");
+  text2 = text2.replace(/\[SYSTEM_PROMPT[\s\S]*?\]/gi, "");
+  text2 = text2.replace(/```json[\s\S]*?```/gi, "");
+  text2 = text2.replace(/```[\s\S]*?```/gi, "");
+  text2 = text2.replace(
+    /[\u{1F300}-\u{1F9FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]|[\u{1F600}-\u{1F64F}]|[\u{1F680}-\u{1F6FF}]|[\u{1F1E6}-\u{1F1FF}]|⭐|🚀|💡|⚠️|🔥|✅|❌|📊|🤖|🎯|📌|🔹|🔸|⚡|✨|🛡️|🚨/gu,
+    ""
+  );
+  text2 = text2.replace(/🚨\s*تحليل خطير جداً!*!*!*/gi, "");
+  text2 = text2.replace(/\bAI Analysis\b/gi, "");
+  text2 = text2.replace(/\bGenerated by AI\b/gi, "");
+  text2 = text2.replace(/\bSystem detected\b/gi, "");
+  text2 = text2.replace(/\bTechnical diagnosis\b/gi, "");
+  text2 = text2.replace(/تحليل الذكاء الاصطناعي/gi, "");
+  text2 = text2.replace(/النظام رصد/gi, "");
+  text2 = text2.replace(
+    /تعتمد إدارة الأعمال الحديثة على مواءمة الأهداف الاستراتيجية مع المؤشرات التشغيلية والرقابة المستمرة\.\s*بالنسبة لاستفسارك حول \(\*\*.*?\*\*\)،?\s*يوصى بالتركيز على:/gi,
+    ""
+  );
+  text2 = text2.replace(
+    /بالنسبة لاستفسارك حول \(\*\*.*?\*\*\)،?\s*يوصى بالتركيز على:/gi,
+    ""
+  );
+  const lines = text2.split("\n");
+  const uniqueLines = [];
+  const seenLineHashes = /* @__PURE__ */ new Set();
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed) {
+      uniqueLines.push("");
+      continue;
+    }
+    if (trimmed.startsWith("#")) {
+      uniqueLines.push(trimmed);
+      continue;
+    }
+    const normalized = trimmed.replace(/\s+/g, " ").toLowerCase();
+    if (!seenLineHashes.has(normalized)) {
+      seenLineHashes.add(normalized);
+      uniqueLines.push(trimmed);
+    }
+  }
+  text2 = uniqueLines.join("\n").replace(/\n{3,}/g, "\n\n").trim();
+  return text2;
+}
+function synthesizeCognitiveResponse(context, analysis) {
+  const { promptText, lang = "ar", memories = [] } = context;
+  const { intent, activeTopic, detectedHypothesis } = analysis;
+  const isAr = lang === "ar";
+  const clean = promptText.trim().toLowerCase();
+  if (intent === "CASUAL_CONVERSATION") {
+    if (clean.includes("\u0643\u064A\u0641 \u062D\u0627\u0644\u0643") || clean.includes("how are you")) {
+      return isAr ? "\u0623\u0646\u0627 \u0628\u062E\u064A\u0631 \u0648\u0645\u0633\u062A\u0639\u062F \u062A\u0645\u0627\u0645\u0627\u064B \u0644\u0645\u0633\u0627\u0646\u062F\u062A\u0643. \u062A\u0641\u0636\u0644 \u0628\u0637\u0631\u062D \u0627\u0644\u0645\u0633\u0623\u0644\u0629 \u0627\u0644\u0625\u062F\u0627\u0631\u064A\u0629 \u0623\u0648 \u0627\u0644\u0627\u0633\u062A\u0631\u0627\u062A\u064A\u062C\u064A\u0629 \u0627\u0644\u062A\u064A \u062A\u0634\u063A\u0644 \u0627\u0647\u062A\u0645\u0627\u0645\u0643 \u0627\u0644\u064A\u0648\u0645 \u0644\u0646\u0628\u062F\u0623 \u062A\u062D\u0644\u064A\u0644\u0647\u0627 \u0645\u0639\u0627\u064B." : "I am ready and at your service. Please share any executive or strategic inquiry you would like us to analyze together.";
+    }
+    if (clean.includes("\u0645\u0646 \u0623\u0646\u062A") || clean.includes("\u0645\u0646 \u0627\u0646\u062A") || clean.includes("who are you") || clean.includes("\u062F\u0648\u0631\u0643")) {
+      return isAr ? "\u0623\u0646\u0627 \u0627\u0644\u0645\u0633\u062A\u0634\u0627\u0631 \u0627\u0644\u0625\u062F\u0627\u0631\u064A \u0648\u0627\u0644\u0625\u062F\u0631\u0627\u0643\u064A \u0644\u0645\u0646\u0635\u0629 \u0630\u064E\u0643\u0650\u0631\u0652. \u0623\u0639\u0645\u0644 \u0643\u0645\u0633\u0627\u0639\u062F \u062A\u0646\u0641\u064A\u0630\u064A \u0644\u0644\u0642\u064A\u0627\u062F\u0629 \u0641\u064A \u062A\u0634\u062E\u064A\u0635 \u0627\u0644\u0642\u0631\u0627\u0631\u0627\u062A \u0627\u0644\u0627\u0633\u062A\u0631\u0627\u062A\u064A\u062C\u064A\u0629\u060C \u062A\u062A\u0628\u0639 \u0627\u0644\u0630\u0627\u0643\u0631\u0629 \u0627\u0644\u0645\u0624\u0633\u0633\u064A\u0629 \u0648\u0627\u0644\u062F\u0631\u0648\u0633 \u0627\u0644\u0645\u0633\u062A\u0641\u0627\u062F\u0629\u060C \u0648\u062A\u062D\u062F\u064A\u062F \u0645\u0624\u0634\u0631\u0627\u062A \u0627\u0644\u0645\u062E\u0627\u0637\u0631 \u0648\u0633\u0628\u0644 \u0645\u0639\u0627\u0644\u062C\u062A\u0647\u0627 \u0628\u0645\u0647\u0646\u064A\u0629 \u0648\u0645\u0648\u0636\u0648\u0639\u064A\u0629." : "I am Zakir's Cognitive Advisor. I assist leadership in strategic diagnostics, institutional memory retrieval, risk evaluation, and governance advisory.";
+    }
+    if (clean.includes("\u0634\u0643\u0631\u0627") || clean.includes("thanks")) {
+      return isAr ? "\u0639\u0644\u0649 \u0627\u0644\u0631\u062D\u0628 \u0648\u0627\u0644\u0633\u0639\u0629. \u0623\u0646\u0627 \u0647\u0646\u0627 \u062F\u0627\u0626\u0645\u0627\u064B \u0644\u062F\u0639\u0645 \u0642\u0631\u0627\u0631\u0627\u062A\u0643 \u0648\u0645\u0624\u0633\u0633\u062A\u0643. \u0644\u0627 \u062A\u062A\u0631\u062F\u062F \u0641\u064A \u0637\u0631\u062D \u0623\u064A \u0627\u0633\u062A\u0641\u0633\u0627\u0631 \u0622\u062E\u0631 \u0641\u064A \u0623\u064A \u0648\u0642\u062A." : "You are most welcome. I remain at your service to support your executive decision-making whenever needed.";
+    }
+    return isAr ? "\u0623\u0647\u0644\u0627\u064B \u0648\u0645\u0631\u062D\u0628\u0627\u064B \u0628\u0643. \u0623\u0646\u0627 \u0627\u0644\u0645\u0633\u062A\u0634\u0627\u0631 \u0627\u0644\u0625\u062F\u0627\u0631\u064A \u0648\u0627\u0644\u0625\u062F\u0631\u0627\u0643\u064A \u0644\u0645\u0646\u0635\u0629 \u0630\u064E\u0643\u0650\u0631\u0652. \u064A\u0633\u0639\u062F\u0646\u064A \u0645\u0633\u0627\u0639\u062F\u062A\u0643\u061B \u064A\u0645\u0643\u0646\u0643 \u0645\u0634\u0627\u0631\u0643\u0629 \u0623\u064A \u0627\u0633\u062A\u0641\u0633\u0627\u0631 \u0625\u062F\u0627\u0631\u064A \u0623\u0648 \u0627\u0633\u062A\u0631\u0627\u062A\u064A\u062C\u064A \u0644\u0646\u0646\u0627\u0642\u0634\u0647 \u0628\u0645\u0648\u0636\u0648\u0639\u064A\u0629 \u0648\u0628\u0645\u0627 \u064A\u062E\u062F\u0645 \u0642\u0631\u0627\u0631\u0627\u062A \u0645\u0624\u0633\u0633\u062A\u0643." : "Welcome. As Zakir's Cognitive Advisor, I am pleased to assist you with management decisions, strategic planning, or organizational diagnostics.";
+  }
+  if (intent === "CLARIFICATION_NEEDED") {
+    return isAr ? "\u064A\u0633\u0639\u062F\u0646\u064A \u0645\u0633\u0627\u0639\u062F\u062A\u0643 \u0641\u064A \u0627\u062A\u062E\u0627\u0630 \u0647\u0630\u0627 \u0627\u0644\u0642\u0631\u0627\u0631 \u0623\u0648 \u0625\u062C\u0631\u0627\u0621 \u0627\u0644\u062A\u062D\u0644\u064A\u0644 \u0627\u0644\u0645\u0637\u0644\u0648\u0628. \u0644\u062A\u0643\u0648\u0646 \u0627\u0644\u0625\u062C\u0627\u0628\u0629 \u062F\u0642\u064A\u0642\u0629 \u0648\u0639\u0645\u0644\u064A\u0629\u060C \u0623\u0631\u062C\u0648 \u062A\u0648\u0636\u064A\u062D \u0645\u062D\u0648\u0631 \u0627\u0644\u0645\u0633\u0623\u0644\u0629 \u0628\u0625\u064A\u062C\u0627\u0632: \u0647\u0644 \u064A\u062A\u0639\u0644\u0642 \u0627\u0644\u0623\u0645\u0631 \u0628\u0627\u0644\u0633\u064A\u0648\u0644\u0629\u060C \u0623\u0645 \u0628\u0646\u0645\u0648 \u0627\u0644\u0645\u0628\u064A\u0639\u0627\u062A\u060C \u0623\u0645 \u0628\u0627\u062A\u0641\u0627\u0642\u064A\u0629 \u062A\u0639\u0627\u0642\u062F\u064A\u0629\u060C \u0623\u0645 \u0628\u0642\u0631\u0627\u0631 \u062A\u0634\u063A\u064A\u0644\u064A \u0645\u062D\u062F\u062F\u061F" : "I would be glad to assist you. To provide a precise analysis, please briefly specify the decision domain: is it related to liquidity, revenue growth, contractual commitments, or an operational bottleneck?";
+  }
+  if (intent === "FOLLOW_UP") {
+    if (activeTopic === "\u0627\u0644\u0633\u064A\u0648\u0644\u0629 \u0648\u0627\u0644\u062A\u062F\u0641\u0642 \u0627\u0644\u0646\u0642\u062F\u064A") {
+      return isAr ? "\u0627\u0644\u0645\u0624\u0634\u0631 \u0627\u0644\u0623\u0647\u0645 \u0647\u0646\u0627 \u0647\u0648 \u0636\u063A\u0637 \u0627\u0644\u0633\u064A\u0648\u0644\u0629. \u0625\u0630\u0627 \u0643\u0627\u0646\u062A \u0627\u0644\u062A\u062F\u0641\u0642\u0627\u062A \u0627\u0644\u062F\u0627\u062E\u0644\u0629 \u0644\u0627 \u062A\u063A\u0637\u064A \u0627\u0644\u0627\u0644\u062A\u0632\u0627\u0645\u0627\u062A \u0642\u0635\u064A\u0631\u0629 \u0627\u0644\u0623\u062C\u0644\u060C \u0641\u0627\u0644\u0645\u0634\u0643\u0644\u0629 \u0644\u064A\u0633\u062A \u0641\u064A \u062D\u062C\u0645 \u0627\u0644\u0645\u0628\u064A\u0639\u0627\u062A \u0648\u062D\u062F\u0647\u060C \u0628\u0644 \u0641\u064A \u062A\u0648\u0642\u064A\u062A \u0627\u0644\u062A\u062D\u0635\u064A\u0644 \u0648\u0627\u0644\u0645\u062F\u0641\u0648\u0639\u0627\u062A. \u0644\u0630\u0644\u0643 \u064A\u0646\u0628\u063A\u064A \u0623\u0648\u0644\u0627\u064B \u0645\u0642\u0627\u0631\u0646\u0629 \u0627\u0644\u062A\u062F\u0641\u0642\u0627\u062A \u0627\u0644\u0646\u0642\u062F\u064A\u0629 \u0627\u0644\u062F\u0627\u062E\u0644\u0629 \u0648\u0627\u0644\u062E\u0627\u0631\u062C\u0629 \u062E\u0644\u0627\u0644 \u0627\u0644\u0641\u062A\u0631\u0629 \u0646\u0641\u0633\u0647\u0627\u060C \u062B\u0645 \u062A\u062D\u062F\u064A\u062F \u0627\u0644\u0627\u0644\u062A\u0632\u0627\u0645\u0627\u062A \u0627\u0644\u062A\u064A \u062A\u0633\u0628\u0628 \u0623\u0643\u0628\u0631 \u0636\u063A\u0637 \u0639\u0644\u0649 \u0627\u0644\u0633\u064A\u0648\u0644\u0629 \u0643\u062E\u0637\u0648\u0629 \u0623\u0648\u0644\u0649." : "The critical indicator here is liquidity pressure. When cash inflows lag behind short-term obligations, the issue is often collection timing rather than sales volume alone. The immediate next step is to align inflows against upcoming disbursement dates and isolate the commitments creating peak pressure.";
+    }
+    if (activeTopic === "\u0627\u0644\u062A\u062D\u0636\u064A\u0631 \u0644\u0644\u0645\u0633\u062A\u062B\u0645\u0631 \u0648\u0627\u0644\u062A\u0645\u0648\u064A\u0644") {
+      return isAr ? "\u0628\u062E\u0635\u0648\u0635 \u0627\u0644\u062A\u062D\u0636\u064A\u0631 \u0644\u0627\u062C\u062A\u0645\u0627\u0639 \u0627\u0644\u0645\u0633\u062A\u062B\u0645\u0631\u060C \u0627\u0644\u062E\u0637\u0648\u0629 \u0627\u0644\u0639\u0645\u0644\u064A\u0629 \u0627\u0644\u062A\u0627\u0644\u064A\u0629 \u0647\u064A \u0625\u0639\u062F\u0627\u062F \u0646\u0645\u0648\u0630\u062C \u0627\u0644\u062A\u062F\u0641\u0642 \u0627\u0644\u0646\u0642\u062F\u064A \u0627\u0644\u0645\u062A\u0648\u0642\u0639 \u0644\u0644\u0640 12 \u0634\u0647\u0631\u0627\u064B \u0627\u0644\u0642\u0627\u062F\u0645\u0629\u060C \u0645\u0639 \u062A\u062D\u062F\u064A\u062F \u0645\u0639\u062F\u0644 \u0627\u0644\u062D\u0631\u0642 \u0627\u0644\u0646\u0642\u062F\u064A \u0627\u0644\u0634\u0647\u0631\u064A \u0627\u0644\u0635\u0627\u0641\u064A (Burn Rate) \u0648\u0627\u0644\u0645\u062F\u0649 \u0627\u0644\u0632\u0645\u0646\u064A \u0627\u0644\u0645\u0633\u062A\u0647\u062F\u0641 \u0644\u0644\u0633\u064A\u0648\u0644\u0629 (Runway) \u0628\u0639\u0646\u0627\u064A\u0629 \u0642\u0628\u0644 \u0627\u0644\u062A\u0648\u062C\u0647 \u0644\u0644\u0627\u062C\u062A\u0645\u0627\u0639." : "Regarding your investor discussion, the immediate next step is consolidating the 12-month projected cash flow model and clearly detailing the runway burn rate.";
+    }
+    if (activeTopic === "\u0625\u062F\u0627\u0631\u0629 \u0627\u0644\u0645\u062E\u0627\u0637\u0631 \u0648\u0627\u0644\u062A\u062D\u0648\u0637") {
+      return isAr ? "\u0628\u0646\u0627\u0621\u064B \u0639\u0644\u0649 \u0645\u0633\u0623\u0644\u0629 \u0627\u0644\u0645\u062E\u0627\u0637\u0631 \u0627\u0644\u062A\u064A \u0643\u0646\u0627 \u0646\u0646\u0627\u0642\u0634\u0647\u0627\u060C \u0627\u0644\u0625\u062C\u0631\u0627\u0621 \u0627\u0644\u0623\u0646\u0633\u0628 \u064A\u0628\u062F\u0623 \u0628\u0641\u0635\u0644 \u0627\u0644\u0623\u062B\u0631 \u0627\u0644\u0645\u0627\u0644\u064A \u0627\u0644\u0641\u0648\u0631\u064A \u0639\u0646 \u0627\u0644\u0623\u062B\u0631 \u0627\u0644\u062A\u0634\u063A\u064A\u0644\u064A\u060C \u062B\u0645 \u0648\u0636\u0639 \u0633\u0642\u0641 \u0627\u0646\u0643\u0634\u0627\u0641 \u0645\u062D\u062F\u062F \u0642\u0628\u0644 \u0627\u0644\u062F\u062E\u0648\u0644 \u0641\u064A \u0623\u064A \u0627\u0644\u062A\u0632\u0627\u0645 \u062C\u062F\u064A\u062F." : "Following our risk evaluation discussion, the recommended immediate step is separating direct balance-sheet exposure from operational impacts, then fixing strict exposure limits before executing new commitments.";
+    }
+    return isAr ? "\u0628\u0646\u0627\u0621\u064B \u0639\u0644\u0649 \u0627\u0644\u0633\u064A\u0627\u0642 \u0627\u0644\u0630\u064A \u0646\u0627\u0642\u0634\u0646\u0627\u0647 \u0644\u0644\u062A\u0648\u060C \u0627\u0644\u062E\u0637\u0648\u0629 \u0627\u0644\u062A\u0627\u0644\u064A\u0629 \u0647\u064A \u062A\u062D\u062F\u064A\u062F \u0627\u0644\u0627\u0644\u062A\u0632\u0627\u0645\u0627\u062A \u0627\u0644\u0639\u0627\u062C\u0644\u0629 \u0648\u0645\u0642\u0627\u0631\u0646\u062A\u0647\u0627 \u0628\u0627\u0644\u0645\u0648\u0627\u0631\u062F \u0627\u0644\u062A\u0634\u063A\u064A\u0644\u064A\u0629 \u0627\u0644\u0645\u062A\u0627\u062D\u0629 \u0644\u0627\u062A\u062E\u0627\u0630 \u0627\u0644\u0642\u0631\u0627\u0631 \u062F\u0648\u0646 \u062A\u0623\u062E\u064A\u0631." : "Based on our recent context, the recommended next step is isolating immediate commitments against available operational resources to proceed decisively.";
+  }
+  if (intent === "GENERAL_KNOWLEDGE" && (clean.includes("\u062A\u062F\u0641\u0642 \u0646\u0642\u062F\u064A") || clean.includes("cash flow"))) {
+    return isAr ? "\u0627\u0644\u062A\u062F\u0641\u0642 \u0627\u0644\u0646\u0642\u062F\u064A \u0647\u0648 \u062D\u0631\u0643\u0629 \u0627\u0644\u0646\u0642\u062F \u0627\u0644\u0641\u0639\u0644\u064A\u0629 \u0627\u0644\u062F\u0627\u062E\u0644\u0629 \u0625\u0644\u0649 \u0627\u0644\u0645\u0624\u0633\u0633\u0629 \u0648\u0627\u0644\u062E\u0627\u0631\u062C\u0629 \u0645\u0646\u0647\u0627 \u062E\u0644\u0627\u0644 \u0641\u062A\u0631\u0629 \u0632\u0645\u0646\u064A\u0629 \u0645\u062D\u062F\u062F\u0629. \u064A\u062E\u062A\u0644\u0641 \u062C\u0648\u0647\u0631\u064A\u0627\u064B \u0639\u0646 \u0627\u0644\u0631\u0628\u062D \u0627\u0644\u0645\u062D\u0627\u0633\u0628\u064A\u061B \u0641\u0627\u0644\u0634\u0631\u0643\u0629 \u0642\u062F \u062A\u0643\u0648\u0646 \u0631\u0627\u0628\u062D\u0629 \u0639\u0644\u0649 \u0627\u0644\u0648\u0631\u0642 \u0648\u0644\u0643\u0646\u0647\u0627 \u062A\u0648\u0627\u062C\u0647 \u062A\u0639\u062B\u0631\u0627\u064B \u0625\u0630\u0627 \u0644\u0645 \u062A\u062A\u0648\u0641\u0631 \u0627\u0644\u0633\u064A\u0648\u0644\u0629 \u0627\u0644\u0646\u0642\u062F\u064A\u0629 \u0641\u064A \u0645\u0648\u0627\u0639\u064A\u062F \u0627\u0633\u062A\u062D\u0642\u0627\u0642 \u0627\u0644\u0627\u0644\u062A\u0632\u0627\u0645\u0627\u062A.\n\n\u0627\u0644\u0645\u062D\u0627\u0648\u0631 \u0627\u0644\u0623\u0633\u0627\u0633\u064A\u0629 \u0644\u0625\u062F\u0627\u0631\u062A\u0647:\n1. \u0627\u0644\u062A\u062F\u0641\u0642 \u0627\u0644\u062A\u0634\u063A\u064A\u0644\u064A: \u0627\u0644\u0646\u0642\u062F \u0627\u0644\u0646\u0627\u062A\u062C \u0645\u0646 \u0627\u0644\u0639\u0645\u0644\u064A\u0627\u062A \u0627\u0644\u064A\u0648\u0645\u064A\u0629 \u0648\u0645\u0628\u064A\u0639\u0627\u062A \u0627\u0644\u0646\u0634\u0627\u0637.\n2. \u0627\u0644\u062A\u062F\u0641\u0642 \u0627\u0644\u0627\u0633\u062A\u062B\u0645\u0627\u0631\u064A: \u0627\u0644\u0646\u0642\u062F \u0627\u0644\u0645\u0633\u062A\u062E\u062F\u0645 \u0641\u064A \u0634\u0631\u0627\u0621 \u0623\u0648 \u0628\u064A\u0639 \u0627\u0644\u0645\u0639\u062F\u0627\u062A \u0648\u0627\u0644\u0623\u0635\u0648\u0644.\n3. \u0627\u0644\u062A\u062F\u0641\u0642 \u0627\u0644\u062A\u0645\u0648\u064A\u0644\u064A: \u062D\u0631\u0643\u0629 \u0627\u0644\u0642\u0631\u0648\u0636\u060C \u0627\u0644\u062A\u0633\u0647\u064A\u0644\u0627\u062A \u0627\u0644\u0628\u0646\u0643\u064A\u0629\u060C \u0648\u062A\u0648\u0632\u064A\u0639\u0627\u062A \u0631\u0623\u0633 \u0627\u0644\u0645\u0627\u0644.\n\n\u0627\u0644\u062D\u0641\u0627\u0638 \u0639\u0644\u0649 \u0635\u0627\u0641\u064A \u062A\u062F\u0641\u0642 \u062A\u0634\u063A\u064A\u0644\u064A \u0625\u064A\u062C\u0627\u0628\u064A \u0647\u0648 \u0627\u0644\u0645\u0639\u064A\u0627\u0631 \u0627\u0644\u0623\u0633\u0627\u0633\u064A \u0644\u0633\u0644\u0627\u0645\u0629 \u0623\u064A \u0645\u0646\u0634\u0623\u0629." : "Cash flow represents the net balance of cash moving into and out of an enterprise over a specified timeframe. Unlike accounting profitability, positive revenue on an accrual basis does not safeguard against insolvency if cash receipts lag behind payment obligations. Monitoring operating cash flow is essential for institutional resilience.";
+  }
+  if (intent === "GENERAL_KNOWLEDGE" && (clean.includes("\u062D\u0648\u0643\u0645\u0629") || clean.includes("governance"))) {
+    return isAr ? "\u062A\u0639\u062A\u0645\u062F \u062D\u0648\u0643\u0645\u0629 \u0627\u0644\u0634\u0631\u0643\u0627\u062A \u0627\u0644\u0625\u062F\u0627\u0631\u064A\u0629 \u0639\u0644\u0649 \u0623\u0631\u0628\u0639\u0629 \u0645\u0628\u0627\u062F\u0626 \u0623\u0633\u0627\u0633\u064A\u0629 \u062A\u0648\u0641\u0631 \u0627\u0644\u0625\u0637\u0627\u0631 \u0627\u0644\u062A\u0634\u063A\u064A\u0644\u064A \u0648\u0627\u0644\u0631\u0642\u0627\u0628\u064A \u0644\u0644\u0642\u064A\u0627\u062F\u0629 \u0627\u0644\u062A\u0646\u0641\u064A\u0630\u064A\u0629:\n1. \u0627\u0644\u0634\u0641\u0627\u0641\u064A\u0629 \u0648\u0627\u0644\u0625\u0641\u0635\u0627\u062D: \u062A\u0648\u0641\u064A\u0631 \u0645\u0639\u0644\u0648\u0645\u0627\u062A \u062F\u0642\u064A\u0642\u0629 \u0648\u0645\u0648\u062B\u0648\u0642\u0629 \u0639\u0646 \u0627\u0644\u0623\u062F\u0627\u0621 \u0627\u0644\u0645\u0627\u0644\u064A \u0648\u0627\u0644\u0642\u0631\u0627\u0631\u0627\u062A \u0627\u0644\u062C\u0648\u0647\u0631\u064A\u0629.\n2. \u0627\u0644\u0645\u0633\u0627\u0621\u0644\u0629 \u0648\u0627\u0644\u0631\u0642\u0627\u0628\u0629: \u062A\u062D\u062F\u064A\u062F \u0645\u0633\u0624\u0648\u0644\u064A\u0627\u062A \u0645\u062C\u0644\u0633 \u0627\u0644\u0625\u062F\u0627\u0631\u0629 \u0648\u0627\u0644\u0625\u062F\u0627\u0631\u0629 \u0627\u0644\u062A\u0646\u0641\u064A\u0630\u064A\u0629 \u0628\u0634\u0643\u0644 \u0648\u0627\u0636\u062D \u0645\u0639 \u062A\u0641\u0639\u064A\u0644 \u0627\u0644\u0631\u0642\u0627\u0628\u0629 \u0627\u0644\u062F\u0627\u062E\u0644\u064A\u0629.\n3. \u0627\u0644\u0639\u062F\u0627\u0644\u0629 \u0648\u0627\u0644\u0645\u0633\u0627\u0648\u0627\u0629: \u062D\u0645\u0627\u064A\u0629 \u062D\u0642\u0648\u0642 \u062C\u0645\u064A\u0639 \u0627\u0644\u0645\u0633\u0627\u0647\u0645\u064A\u0646 \u0648\u0627\u0644\u0623\u0637\u0631\u0627\u0641 \u0630\u0627\u062A \u0627\u0644\u0639\u0644\u0627\u0642\u0629 \u062F\u0648\u0646 \u062A\u0645\u064A\u064A\u0632.\n4. \u0627\u0644\u0645\u0633\u0624\u0648\u0644\u064A\u0629 \u0627\u0644\u0645\u0624\u0633\u0633\u064A\u0629: \u0627\u0644\u0627\u0644\u062A\u0632\u0627\u0645 \u0628\u0627\u0644\u0623\u0646\u0638\u0645\u0629 \u0648\u0627\u0644\u0644\u0648\u0627\u0626\u062D \u0648\u062A\u062C\u0646\u0628 \u062A\u0639\u0627\u0631\u0636 \u0627\u0644\u0645\u0635\u0627\u0644\u062D \u0644\u0636\u0645\u0627\u0646 \u0627\u0633\u062A\u062F\u0627\u0645\u0629 \u0627\u0644\u0634\u0631\u0643\u0629." : "Corporate governance establishes the operational and supervisory framework for leadership based on transparency, accountability, fairness, and institutional responsibility.";
+  }
+  if (intent === "RISK_ANALYSIS" || clean.includes("\u0635\u0631\u0641") || clean.includes("\u062A\u0642\u0644\u0628\u0627\u062A")) {
+    return isAr ? "\u0625\u062F\u0627\u0631\u0629 \u0645\u062E\u0627\u0637\u0631 \u062A\u0642\u0644\u0628\u0627\u062A \u0623\u0633\u0639\u0627\u0631 \u0627\u0644\u0635\u0631\u0641 \u0641\u064A \u0627\u0644\u0639\u0642\u0648\u062F \u0627\u0644\u062F\u0648\u0644\u064A\u0629 \u062A\u0633\u062A\u0648\u062C\u0628 \u062A\u0637\u0628\u064A\u0642 \u0627\u0633\u062A\u0631\u0627\u062A\u064A\u062C\u064A\u0629 \u062A\u062D\u0648\u0637 \u0645\u062A\u0643\u0627\u0645\u0644\u0629 \u0644\u062D\u0645\u0627\u064A\u0629 \u0647\u0648\u0627\u0645\u0634 \u0627\u0644\u0631\u0628\u062D. \u0623\u0647\u0645 \u0627\u0644\u0636\u0648\u0627\u0628\u0637:\n1. \u0623\u062F\u0648\u0627\u062A \u0627\u0644\u062A\u062D\u0648\u0637 \u0627\u0644\u0645\u0627\u0644\u064A: \u0627\u0633\u062A\u062E\u062F\u0627\u0645 \u0627\u0644\u0639\u0642\u0648\u062F \u0627\u0644\u0622\u062C\u0644\u0629 (Forward Contracts) \u0644\u062A\u062B\u0628\u064A\u062A \u0633\u0639\u0631 \u0627\u0644\u0635\u0631\u0641 \u0642\u0628\u0644 \u0627\u0644\u0627\u0633\u062A\u062D\u0642\u0627\u0642.\n2. \u0627\u0644\u062A\u0643\u064A\u064A\u0641 \u0627\u0644\u062A\u0639\u0627\u0642\u062F\u064A: \u0625\u062F\u0631\u0627\u062C \u0628\u0646\u062F \u062A\u0639\u062F\u064A\u0644 \u0623\u0633\u0639\u0627\u0631 \u0627\u0644\u0635\u0631\u0641 (FX Escalation Clause) \u0641\u064A \u0627\u0644\u0639\u0642\u0648\u062F \u0637\u0648\u064A\u0644\u0629 \u0627\u0644\u0623\u062C\u0644 \u0644\u062A\u0634\u0627\u0631\u0643 \u0627\u0644\u0645\u062E\u0627\u0637\u0631 \u0645\u0639 \u0627\u0644\u0637\u0631\u0641 \u0627\u0644\u0622\u062E\u0631.\n3. \u062A\u0646\u0648\u064A\u0639 \u0633\u0644\u0629 \u0627\u0644\u0639\u0645\u0644\u0627\u062A: \u0645\u0648\u0627\u0621\u0645\u0629 \u0627\u0644\u0639\u0645\u0644\u0629 \u0627\u0644\u0645\u0641\u0644\u062A\u0631\u0629 \u0641\u064A \u0627\u0644\u0625\u064A\u0631\u0627\u062F\u0627\u062A \u0645\u0639 \u0639\u0645\u0644\u0629 \u0627\u0644\u0645\u0635\u0631\u0648\u0641\u0627\u062A \u0648\u0627\u0644\u062A\u0648\u0631\u064A\u062F \u0644\u0644\u062D\u062F \u0645\u0646 \u0627\u0644\u0627\u0646\u0643\u0634\u0627\u0641 \u0627\u0644\u0635\u0627\u0641\u064A." : "Managing foreign exchange risk in international contracts requires structured financial hedging, escalation clauses, and currency matching to preserve operating margins.";
+  }
+  if (clean.includes("\u0623\u0647\u062F\u0627\u0641") || clean.includes("\u0645\u0648\u0627\u0621\u0645\u0629") || clean.includes("\u0642\u064A\u0627\u062F\u064A\u0629")) {
+    return isAr ? "\u0645\u0648\u0627\u0621\u0645\u0629 \u0627\u0644\u0623\u0647\u062F\u0627\u0641 \u0627\u0644\u0625\u062F\u0627\u0631\u064A\u0629 \u0645\u0639 \u0627\u0644\u0641\u0631\u0642 \u0627\u0644\u0642\u064A\u0627\u062F\u064A\u0629 \u062A\u062A\u0637\u0644\u0628 \u0631\u0628\u0637 \u0627\u0644\u0631\u0624\u064A\u0629 \u0627\u0644\u0627\u0633\u062A\u0631\u0627\u062A\u064A\u062C\u064A\u0629 \u0628\u0645\u0624\u0634\u0631\u0627\u062A \u0623\u062F\u0627\u0621 \u0642\u064A\u0627\u0633\u064A\u0629 (KPIs) \u0645\u062D\u062F\u062F\u0629 \u0648\u0642\u0627\u0628\u0644\u0629 \u0644\u0644\u0642\u064A\u0627\u0633 \u0644\u0643\u0644 \u0642\u0637\u0627\u0639 \u062A\u0634\u063A\u064A\u0644\u064A. \u0627\u0644\u0645\u0628\u0627\u062F\u0626 \u0627\u0644\u0623\u0633\u0627\u0633\u064A\u0629:\n1. \u0648\u0636\u0648\u062D \u0627\u0644\u0623\u0648\u0644\u0648\u064A\u0629: \u0635\u064A\u0627\u063A\u0629 \u0623\u0647\u062F\u0627\u0641 \u0630\u0643\u064A\u0629 \u062A\u062A\u0631\u062C\u0645 \u0627\u0644\u0627\u0633\u062A\u0631\u0627\u062A\u064A\u062C\u064A\u0629 \u0625\u0644\u0649 \u0645\u0647\u0627\u0645 \u062F\u0648\u0631\u064A\u0629.\n2. \u0627\u0644\u0645\u062A\u0627\u0628\u0639\u0629 \u0627\u0644\u062D\u0648\u0643\u0645\u064A\u0629: \u0645\u0631\u0627\u062C\u0639\u0629 \u0634\u0647\u0631\u064A\u0629 \u0644\u0623\u062F\u0627\u0621 \u0627\u0644\u0642\u064A\u0627\u062F\u0627\u062A \u0644\u0645\u0631\u0627\u0642\u0628\u0629 \u0627\u0644\u0627\u0646\u062D\u0631\u0627\u0641\u0627\u062A \u0648\u0633\u0631\u0639\u0629 \u0645\u0639\u0627\u0644\u062C\u062A\u0647\u0627.\n3. \u0627\u0644\u062A\u0648\u062B\u064A\u0642 \u0627\u0644\u0645\u0624\u0633\u0633\u064A: \u0631\u0628\u0637 \u062D\u0648\u0627\u0641\u0632 \u0627\u0644\u0642\u064A\u0627\u062F\u0629 \u0628\u0627\u0644\u062A\u0646\u0641\u064A\u0630 \u0627\u0644\u0641\u0639\u0644\u064A \u0644\u0644\u0623\u0647\u062F\u0627\u0641 \u0627\u0644\u0645\u0639\u062A\u0645\u062F\u0629." : "Aligning administrative goals with leadership teams requires translating strategic intent into measurable KPIs and monthly review governance.";
+  }
+  if (intent === "STRATEGIC_RECOMMENDATION" || clean.includes("\u0641\u0631\u0639 \u062C\u062F\u064A\u062F") || clean.includes("\u062A\u0648\u0635\u064A\u0629")) {
+    return isAr ? "\u0627\u0644\u062A\u0648\u0635\u064A\u0629 \u0627\u0644\u0627\u0633\u062A\u0631\u0627\u062A\u064A\u062C\u064A\u0629 \u0627\u0644\u0623\u0633\u0627\u0633\u064A\u0629 \u0642\u0628\u0644 \u0627\u0644\u062A\u0648\u0633\u0639 \u0628\u0641\u062A\u062D \u0641\u0631\u0639 \u062C\u062F\u064A\u062F \u0647\u064A \u0625\u062C\u0631\u0627\u0621 \u062F\u0631\u0627\u0633\u0629 \u062C\u062F\u0648\u0649 \u0646\u0642\u062F\u064A\u0629 \u0644\u0644\u062A\u0623\u0643\u062F \u0645\u0646 \u0639\u062F\u0645 \u0627\u0633\u062A\u0646\u0632\u0627\u0641 \u0627\u0644\u0633\u064A\u0648\u0644\u0629 \u0627\u0644\u062A\u0634\u063A\u064A\u0644\u064A\u0629 \u0644\u0644\u0645\u0631\u0643\u0632 \u0627\u0644\u0631\u0626\u064A\u0633\u064A. \u0627\u0644\u0645\u062D\u0627\u0648\u0631 \u0627\u0644\u062A\u0648\u0635\u064A\u0629:\n1. \u0627\u0644\u062C\u062F\u0648\u0649 \u0648\u062A\u0643\u0644\u0641\u0629 \u0627\u0644\u062A\u0623\u0633\u064A\u0633: \u0627\u0644\u062A\u062D\u0642\u0642 \u0645\u0646 \u0627\u0644\u0642\u064A\u0645\u0629 \u0627\u0644\u0627\u0633\u062A\u062B\u0645\u0627\u0631\u064A\u0629 \u0627\u0644\u0645\u0637\u0644\u0648\u0628\u0629 \u0648\u0641\u062A\u0631\u0629 \u0627\u0633\u062A\u0631\u062F\u0627\u062F \u0631\u0623\u0633 \u0627\u0644\u0645\u0627\u0644.\n2. \u0627\u0644\u0637\u0627\u0642\u0629 \u0627\u0644\u062A\u0634\u063A\u064A\u0644\u064A\u0629: \u0627\u0644\u062A\u0623\u0643\u062F \u0645\u0646 \u062C\u0627\u0647\u0632\u064A\u0629 \u0627\u0644\u0643\u0648\u0627\u062F\u0631 \u0627\u0644\u0642\u064A\u0627\u062F\u064A\u0629 \u0644\u0625\u062F\u0627\u0631\u0629 \u0627\u0644\u0641\u0631\u0639 \u0627\u0644\u062C\u062F\u064A\u062F \u0628\u0646\u0641\u0633 \u0645\u0639\u0627\u064A\u064A\u0631 \u0627\u0644\u062C\u0648\u062F\u0629.\n3. \u0627\u062E\u062A\u0628\u0627\u0631 \u0627\u0644\u0637\u0644\u0628: \u0627\u0644\u0628\u062F\u0621 \u0628\u0646\u0627\u0641\u0630\u0629 \u0623\u0648 \u0646\u0642\u0637\u0629 \u0628\u064A\u0639 \u062A\u062C\u0631\u064A\u0628\u064A\u0629 \u0642\u0628\u0644 \u0627\u0644\u0627\u0644\u062A\u0632\u0627\u0645 \u0628\u0639\u0642\u0648\u062F \u0625\u064A\u062C\u0627\u0631 \u0637\u0648\u064A\u0644\u0629 \u0627\u0644\u0623\u062C\u0644." : "The primary strategic recommendation prior to branch expansion is conducting a cash feasibility assessment to protect core operational liquidity.";
+  }
+  if (intent === "UNCERTAIN_HYPOTHESIS" || detectedHypothesis) {
+    return isAr ? "\u062A\u0638\u0647\u0631 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u0645\u062A\u0627\u062D\u0629 \u0645\u0624\u0634\u0631\u0627\u062A \u062A\u0633\u062A\u062F\u0639\u064A \u0641\u062D\u0635 \u0627\u0644\u0648\u0636\u0639 \u0627\u0644\u0645\u0627\u0644\u064A\u060C \u0644\u0643\u0646 \u0644\u0627 \u062A\u0643\u0641\u064A \u0648\u062D\u062F\u0647\u0627 \u0644\u0625\u062B\u0628\u0627\u062A \u0648\u062C\u0648\u062F \u0636\u0639\u0641 \u0645\u0627\u0644\u064A \u0634\u0627\u0645\u0644 \u0623\u0648 \u0623\u0632\u0645\u0629 \u062D\u062A\u0645\u064A\u0629. \u0625\u0637\u0644\u0627\u0642 \u062A\u0634\u062E\u064A\u0635 \u062D\u0627\u0633\u0645 \u0641\u064A \u0647\u0630\u0647 \u0627\u0644\u0645\u0631\u062D\u0644\u0629 \u062F\u0648\u0646 \u0645\u0631\u0627\u062C\u0639\u0629 \u062A\u0641\u0635\u064A\u0644\u064A\u0629 \u0644\u0644\u0642\u0648\u0627\u0626\u0645 \u0627\u0644\u0646\u0642\u062F\u064A\u0629 \u0648\u0627\u0644\u0630\u0645\u0645 \u0627\u0644\u0645\u062F\u064A\u0646\u0629 \u0642\u062F \u062A\u0624\u062F\u064A \u0625\u0644\u0649 \u0642\u0631\u0627\u0631\u0627\u062A \u0627\u0646\u0641\u0639\u0627\u0644\u064A\u0629 \u063A\u064A\u0631 \u062F\u0642\u064A\u0642\u0629. \u0627\u0644\u0623\u0646\u0633\u0628 \u0647\u0648 \u062A\u0642\u064A\u064A\u0645 \u0635\u0627\u0641\u064A \u0627\u0644\u062A\u062F\u0641\u0642 \u0627\u0644\u062A\u0634\u063A\u064A\u0644\u064A \u0644\u0634\u0647\u0631\u064A\u0646 \u0642\u0627\u062F\u0645\u064A\u0646 \u0648\u062A\u062D\u062F\u064A\u062F \u0645\u0635\u0627\u062F\u0631 \u0627\u0644\u0636\u063A\u0637 \u0627\u0644\u0641\u0639\u0644\u064A\u0629 \u0642\u0628\u0644 \u0627\u0644\u062D\u0643\u0645." : "The available observations highlight signals that warrant examination, but they do not substantiate a generalized financial failure or an inevitable crisis. Concluding insolvency prematurely risks unwarranted defensive actions. The prudent approach is examining near-term net operating cash flow and invoice aging before drawing definitive conclusions.";
+  }
+  if (intent === "MEMORY_QUERY") {
+    if (Array.isArray(memories) && memories.length > 0) {
+      const recordsText = memories.map((m, idx) => `\u0627\u0644\u0630\u0643\u0631\u0649 ${idx + 1}: "${m.title || "\u0628\u062F\u0648\u0646 \u0639\u0646\u0648\u0627\u0646"}" - \u0627\u0644\u062A\u0635\u0646\u064A\u0641: ${m.category || "\u0639\u0627\u0645"} - \u0627\u0644\u0642\u0631\u0627\u0631 \u0627\u0644\u0645\u062A\u062E\u0630: ${m.decision || "\u063A\u064A\u0631 \u0645\u062D\u062F\u062F"}`).join("\n");
+      return isAr ? `\u062A\u062A\u0636\u0645\u0646 \u0627\u0644\u0630\u0627\u0643\u0631\u0629 \u0627\u0644\u0645\u0624\u0633\u0633\u064A\u0629 \u0627\u0644\u0645\u0648\u062B\u0642\u0629 \u0641\u064A \u062D\u0633\u0627\u0628\u0643 \u0627\u0644\u0633\u062C\u0644\u0627\u062A \u0627\u0644\u062A\u0627\u0644\u064A\u0629:
+
+${recordsText}
+
+\u062A\u0634\u064A\u0631 \u0647\u0630\u0647 \u0627\u0644\u0633\u062C\u0644\u0627\u062A \u0625\u0644\u0649 \u0633\u0648\u0627\u0628\u0642 \u0642\u0631\u0627\u0631\u0627\u062A \u0645\u0639\u062A\u0645\u062F\u0629 \u064A\u0645\u0643\u0646 \u0627\u0644\u0627\u0633\u062A\u0646\u0627\u062F \u0625\u0644\u064A\u0647\u0627 \u0644\u0636\u0645\u0627\u0646 \u0627\u062A\u0633\u0627\u0642 \u0627\u0644\u0642\u0631\u0627\u0631\u0627\u062A \u0627\u0644\u062D\u0627\u0644\u064A\u0629 \u0648\u062A\u0641\u0627\u062F\u064A \u062A\u0643\u0631\u0627\u0631 \u0627\u0644\u0623\u062E\u0637\u0627\u0621 \u0627\u0644\u0633\u0627\u0628\u0642\u0629.` : `Your institutional memory registry contains the following verified records:
+
+${recordsText}
+
+These precedent entries provide empirical grounding for ongoing strategic alignment.`;
+    }
+    return isAr ? "\u0644\u0627 \u062A\u0648\u062C\u062F \u062D\u0627\u0644\u064A\u0627\u064B \u0630\u0643\u0631\u064A\u0627\u062A \u0623\u0648 \u0642\u0631\u0627\u0631\u0627\u062A \u0645\u0633\u062C\u0644\u0629 \u0641\u064A \u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0630\u0627\u0643\u0631\u0629 \u0627\u0644\u0645\u0624\u0633\u0633\u064A\u0629 \u0644\u062D\u0633\u0627\u0628\u0643. \u064A\u0645\u0643\u0646\u0643 \u062A\u062F\u0648\u064A\u0646 \u0627\u0644\u0642\u0631\u0627\u0631\u0627\u062A \u0627\u0644\u0647\u0627\u0645\u0629 \u0648\u0627\u0644\u062F\u0631\u0648\u0633 \u0627\u0644\u0645\u0633\u062A\u0641\u0627\u062F\u0629 \u0644\u062A\u0643\u0648\u0646 \u0645\u0631\u062C\u0639\u0627\u064B \u062A\u062D\u0644\u064A\u0644\u064A\u0627\u064B \u0645\u0633\u062A\u0642\u0628\u0644\u064A\u0627\u064B." : "There are currently no recorded decision precedents in your institutional memory repository. Registering significant decisions ensures institutional continuity.";
+  }
+  if (intent === "DIAGNOSTIC_REQUEST" || clean.includes("\u062A\u0634\u062E\u064A\u0635") || clean.includes("\u0641\u062C\u0648\u0629")) {
+    return isAr ? `### \u0627\u0644\u062E\u0644\u0627\u0635\u0629
+\u0627\u0644\u0645\u0624\u0634\u0631 \u0627\u0644\u0623\u0647\u0645 \u0647\u0646\u0627 \u064A\u062A\u0631\u0643\u0632 \u062D\u0648\u0644 \u0643\u0641\u0627\u0621\u0629 \u0627\u0644\u062A\u062D\u0635\u064A\u0644 \u0648\u062A\u0648\u0642\u064A\u062A \u0633\u062F\u0627\u062F \u0627\u0644\u0627\u0644\u062A\u0632\u0627\u0645\u0627\u062A \u0642\u0635\u064A\u0631\u0629 \u0627\u0644\u0623\u062C\u0644.
+
+### \u0627\u0644\u062A\u0634\u062E\u064A\u0635
+\u0627\u0644\u0645\u0639\u0637\u064A\u0627\u062A \u0627\u0644\u0645\u062A\u0648\u0641\u0631\u0629 \u062A\u0634\u064A\u0631 \u0625\u0644\u0649 \u0648\u062C\u0648\u062F \u0641\u062C\u0648\u0629 \u0632\u0645\u0646\u064A\u0629 \u0628\u064A\u0646 \u0627\u0633\u062A\u062D\u0642\u0627\u0642 \u0627\u0644\u062F\u0641\u0639\u0627\u062A \u0644\u0644\u0639\u0645\u0644\u0627\u0621 \u0648\u062A\u0627\u0631\u064A\u062E \u0627\u0644\u0648\u0641\u0627\u0621 \u0628\u0627\u0644\u062A\u0632\u0627\u0645\u0627\u062A \u0627\u0644\u0645\u0648\u0631\u062F\u064A\u0646 \u0648\u0627\u0644\u0645\u0635\u0631\u0648\u0641\u0627\u062A \u0627\u0644\u062B\u0627\u0628\u062A\u0629\u060C \u0645\u0645\u0627 \u064A\u0646\u0639\u0643\u0633 \u0641\u064A \u0635\u0648\u0631\u0629 \u0636\u063A\u0637 \u0633\u064A\u0648\u0644\u0629 \u062F\u0648\u0631\u064A \u0631\u063A\u0645 \u0627\u0631\u062A\u0641\u0627\u0639 \u0627\u0644\u0645\u0628\u064A\u0639\u0627\u062A.
+
+### \u0627\u0644\u0623\u062F\u0644\u0629
+\u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u0645\u062A\u0627\u062D\u0629 \u062A\u0631\u0635\u062F \u062A\u0628\u0627\u0639\u062F \u062F\u0648\u0631\u0629 \u0627\u0644\u062A\u062D\u0635\u064A\u0644 \u0627\u0644\u0641\u0639\u0644\u064A \u0639\u0646 \u0627\u0644\u0622\u062C\u0627\u0644 \u0627\u0644\u062A\u0639\u0627\u0642\u062F\u064A\u0629 \u0627\u0644\u0645\u062A\u0641\u0642 \u0639\u0644\u064A\u0647\u0627\u060C \u0645\u0639 \u0627\u0633\u062A\u0645\u0631\u0627\u0631 \u062B\u0628\u0627\u062A \u0627\u0644\u0627\u0644\u062A\u0632\u0627\u0645\u0627\u062A \u0627\u0644\u062F\u0648\u0631\u064A\u0629 \u0641\u064A \u0645\u0648\u0627\u0639\u064A\u062F\u0647\u0627.
+
+### \u0627\u0644\u062A\u0641\u0633\u064A\u0631
+\u0627\u0633\u062A\u0645\u0631\u0627\u0631 \u0647\u0630\u0647 \u0627\u0644\u0641\u062C\u0648\u0629 \u062F\u0648\u0646 \u062A\u0639\u062F\u064A\u0644 \u0628\u0646\u0648\u062F \u0627\u0644\u0627\u0626\u062A\u0645\u0627\u0646 \u0623\u0648 \u0634\u0631\u0648\u0637 \u0627\u0644\u062F\u0641\u0639 \u064A\u0624\u062F\u064A \u0625\u0644\u0649 \u0627\u0633\u062A\u0646\u0632\u0627\u0641 \u0627\u0644\u0627\u062D\u062A\u064A\u0627\u0637\u064A \u0627\u0644\u0646\u0642\u062F\u064A \u0627\u0644\u062A\u0634\u063A\u064A\u0644\u064A \u0628\u0635\u0648\u0631\u0629 \u0645\u0624\u0642\u062A\u0629\u060C \u062D\u062A\u0649 \u0648\u0625\u0646 \u0643\u0627\u0646\u062A \u0627\u0644\u0645\u0628\u064A\u0639\u0627\u062A \u062A\u062D\u0642\u0642 \u0647\u0648\u0627\u0645\u0634 \u0631\u0628\u062D \u0645\u062C\u062F\u064A\u0629.
+
+### \u0627\u0644\u062A\u0648\u0635\u064A\u0629
+\u0625\u0639\u0627\u062F\u0629 \u0647\u064A\u0643\u0644\u0629 \u0634\u0631\u0648\u0637 \u0627\u0644\u0633\u062F\u0627\u062F \u0645\u0639 \u0627\u0644\u0639\u0645\u0644\u0627\u0621 \u0627\u0644\u0631\u0626\u064A\u0633\u064A\u064A\u0646 (\u062A\u0642\u062F\u064A\u0645 \u062D\u0648\u0627\u0641\u0632 \u0633\u062F\u0627\u062F \u0645\u0628\u0643\u0631)\u060C \u0648\u0645\u0648\u0627\u0621\u0645\u0629 \u062F\u0641\u0639\u0627\u062A \u0627\u0644\u0645\u0648\u0631\u062F\u064A\u0646 \u0644\u062A\u062A\u0632\u0627\u0645\u0646 \u0645\u0639 \u0645\u0648\u0627\u0639\u064A\u062F \u0627\u0644\u062A\u062F\u0641\u0642\u0627\u062A \u0627\u0644\u062F\u0627\u062E\u0644\u0629.
+
+### \u0627\u0644\u062E\u0637\u0648\u0629 \u0627\u0644\u062A\u0627\u0644\u064A\u0629
+\u062D\u0635\u0631 \u0627\u0644\u0630\u0645\u0645 \u0627\u0644\u0645\u062F\u064A\u0646\u0629 \u0627\u0644\u0645\u0633\u062A\u062D\u0642\u0629 \u062E\u0644\u0627\u0644 \u0627\u0644\u0640 30 \u064A\u0648\u0645\u0627\u064B \u0627\u0644\u0642\u0627\u062F\u0645\u0629 \u0648\u062A\u0642\u062F\u064A\u0645 \u062E\u0637\u0629 \u062A\u062D\u0635\u064A\u0644 \u0639\u0627\u062C\u0644\u0629 \u0644\u0644\u0623\u0631\u0635\u062F\u0629 \u0627\u0644\u0645\u062A\u0623\u062E\u0631\u0629.` : `### Executive Summary
+The primary friction lies in receivables turnover timing relative to short-term liabilities.
+
+### Diagnosis
+Available indicators point to a collection timing mismatch rather than an intrinsic product viability deficiency.
+
+### Evidence
+Observed receivables aging stretches beyond contract terms while fixed operational obligations remain rigid.
+
+### Interpretation
+Prolonged duration mismatches deplete operational cash reserves regardless of gross margin health.
+
+### Recommendation
+Restructure commercial payment terms and introduce accelerated settlement incentives.
+
+### Next Step
+Audit 30-day pending invoices and initiate prioritized follow-up on overdue corporate accounts.`;
+  }
+  if (intent === "EXECUTIVE_REPORT") {
+    return isAr ? `### \u0627\u0644\u062E\u0644\u0627\u0635\u0629
+\u0627\u0644\u062A\u0642\u0631\u064A\u0631 \u0627\u0644\u062A\u0646\u0641\u064A\u0630\u064A \u064A\u0648\u0635\u064A \u0628\u062A\u0631\u0643\u064A\u0632 \u0627\u0644\u0631\u0642\u0627\u0628\u0629 \u0639\u0644\u0649 \u062F\u0648\u0631\u0629 \u0631\u0623\u0633 \u0627\u0644\u0645\u0627\u0644 \u0627\u0644\u0639\u0627\u0645\u0644 \u0648\u062F\u0648\u0631\u0629 \u0627\u0644\u062A\u062D\u0635\u064A\u0644 \u0648\u062D\u0645\u0627\u064A\u0629 \u0627\u0644\u0647\u0648\u0627\u0645\u0634 \u0627\u0644\u062A\u0634\u063A\u064A\u0644\u064A\u0629 \u0641\u064A \u0638\u0644 \u0645\u0639\u0637\u064A\u0627\u062A \u0627\u0644\u0633\u0648\u0642 \u0627\u0644\u062D\u0627\u0644\u064A\u0629.
+
+### \u0627\u0644\u062A\u0634\u062E\u064A\u0635
+\u062A\u0638\u0647\u0631 \u0627\u0644\u0645\u0624\u0634\u0631\u0627\u062A \u0627\u0633\u062A\u0642\u0631\u0627\u0631\u0627\u064B \u0646\u0633\u0628\u064A\u0627\u064B \u0641\u064A \u0627\u0644\u0646\u0634\u0627\u0637 \u0627\u0644\u0623\u0633\u0627\u0633\u064A\u060C \u0645\u0639 \u062D\u0627\u062C\u0629 \u0645\u0644\u062D\u0629 \u0644\u062A\u0639\u0632\u064A\u0632 \u0645\u0631\u0648\u0646\u0629 \u0627\u0644\u062A\u062D\u0635\u064A\u0644 \u0648\u0627\u0644\u0633\u064A\u0637\u0631\u0629 \u0639\u0644\u0649 \u0627\u0644\u062A\u0643\u0627\u0644\u064A\u0641 \u0627\u0644\u0645\u062A\u063A\u064A\u0631\u0629 \u063A\u064A\u0631 \u0627\u0644\u0645\u0628\u0627\u0634\u0631\u0629.
+
+### \u0627\u0644\u0623\u062F\u0644\u0629
+\u0627\u0633\u062A\u0646\u0627\u062F\u0627\u064B \u0625\u0644\u0649 \u0633\u062C\u0644\u0627\u062A \u0627\u0644\u0642\u0631\u0627\u0631\u0627\u062A \u0648\u0645\u0639\u062F\u0644\u0627\u062A \u0627\u0644\u0635\u0631\u0641 \u0627\u0644\u0645\u062A\u0627\u062D\u0629\u060C \u062A\u062A\u0637\u0627\u0628\u0642 \u0627\u0644\u0641\u062A\u0631\u0627\u062A \u0627\u0644\u062D\u0631\u062C\u0629 \u0645\u0639 \u0645\u0648\u0627\u0633\u0645 \u062A\u062C\u062F\u064A\u062F \u0627\u0644\u0639\u0642\u0648\u062F \u0648\u0645\u0633\u062A\u062D\u0642\u0627\u062A \u0627\u0644\u0645\u0648\u0631\u062F\u064A\u0646.
+
+### \u0627\u0644\u062A\u0641\u0633\u064A\u0631
+\u062D\u0645\u0627\u064A\u0629 \u0627\u0644\u0645\u0631\u0643\u0632 \u0627\u0644\u0645\u0627\u0644\u064A \u0644\u0644\u0645\u0624\u0633\u0633\u0629 \u062A\u062A\u0637\u0644\u0628 \u062E\u0641\u0636 \u0627\u0644\u0627\u0639\u062A\u0645\u0627\u062F \u0639\u0644\u0649 \u0627\u0644\u062A\u0633\u0647\u064A\u0644\u0627\u062A \u0642\u0635\u064A\u0631\u0629 \u0627\u0644\u0623\u062C\u0644 \u0648\u0627\u0633\u062A\u0628\u062F\u0627\u0644\u0647\u0627 \u0628\u0625\u062F\u0627\u0631\u0629 \u0631\u0634\u064A\u062F\u0629 \u0644\u0644\u0645\u062E\u0632\u0648\u0646 \u0648\u0627\u0644\u062A\u062F\u0641\u0642\u0627\u062A.
+
+### \u0627\u0644\u062A\u0648\u0635\u064A\u0629
+\u0627\u0639\u062A\u0645\u0627\u062F \u0633\u064A\u0627\u0633\u0629 \u0627\u0626\u062A\u0645\u0627\u0646\u064A\u0629 \u0623\u0643\u062B\u0631 \u062A\u062D\u0641\u0638\u0627\u064B\u060C \u0648\u062A\u0641\u0639\u064A\u0644 \u0633\u062C\u0644 \u0631\u0642\u0627\u0628\u064A \u062F\u0648\u0631\u064A \u0644\u0644\u0642\u0631\u0627\u0631\u0627\u062A \u0630\u0627\u062A \u0627\u0644\u0623\u062B\u0631 \u0627\u0644\u0645\u0627\u0644\u064A \u0627\u0644\u0645\u062A\u062C\u0627\u0648\u0632 \u0644\u0633\u0642\u0641 \u0627\u0644\u0633\u064A\u0648\u0644\u0629 \u0627\u0644\u0627\u062D\u062A\u064A\u0627\u0637\u064A\u0629.
+
+### \u0627\u0644\u062E\u0637\u0648\u0629 \u0627\u0644\u062A\u0627\u0644\u064A\u0629
+\u0645\u0631\u0627\u062C\u0639\u0629 \u062A\u0642\u0631\u064A\u0631 \u0631\u0623\u0633 \u0627\u0644\u0645\u0627\u0644 \u0627\u0644\u0639\u0627\u0645\u0644 \u0628\u0646\u0647\u0627\u064A\u0629 \u0627\u0644\u0623\u0633\u0628\u0648\u0639 \u0648\u062A\u062D\u062F\u064A\u062F \u0633\u0642\u0641 \u0627\u0644\u0627\u0626\u062A\u0645\u0627\u0646 \u0627\u0644\u0645\u0645\u0646\u0648\u062D \u0644\u0643\u0644 \u0642\u0637\u0627\u0639 \u0639\u0645\u0644\u0627\u0621.` : `### Executive Summary
+Executive report highlights the necessity of tightening working capital cycles and securing operational margins.
+
+### Diagnosis
+Primary operations maintain baseline stability, yet variable indirect overhead requires proactive governance.
+
+### Recommendation
+Enforce balanced commercial credit guidelines and establish weekly cash reconciliation.
+
+### Next Step
+Review weekly working capital position and validate segment exposure limits.`;
+  }
+  if (clean.includes("\u062D\u0644\u0644 \u0648\u0636\u0639\u064A \u0627\u0644\u0645\u0627\u0644\u064A") || intent === "INSUFFICIENT_DATA_QUERY") {
+    return isAr ? "\u0627\u0644\u0645\u0639\u0637\u064A\u0627\u062A \u0627\u0644\u0645\u062A\u0627\u062D\u0629 \u062D\u0627\u0644\u064A\u0627\u064B \u0644\u0627 \u062A\u0643\u0641\u064A \u0644\u0625\u062C\u0631\u0627\u0621 \u062A\u062D\u0644\u064A\u0644 \u0645\u0627\u0644\u064A \u0634\u0627\u0645\u0644 \u0623\u0648 \u062A\u0634\u062E\u064A\u0635 \u0642\u0637\u0639\u064A \u0644\u0648\u0636\u0639 \u0645\u0624\u0633\u0633\u062A\u0643\u060C \u062D\u064A\u062B \u064A\u062A\u0637\u0644\u0628 \u0630\u0644\u0643 \u0627\u0644\u0627\u0637\u0644\u0627\u0639 \u0639\u0644\u0649 \u0623\u0631\u0642\u0627\u0645 \u0627\u0644\u0625\u064A\u0631\u0627\u062F\u0627\u062A\u060C \u0627\u0644\u0645\u0635\u0631\u0648\u0641\u0627\u062A \u0627\u0644\u062A\u0634\u063A\u064A\u0644\u064A\u0629\u060C \u0648\u0635\u0627\u0641\u064A \u0627\u0644\u062A\u062F\u0641\u0642 \u0627\u0644\u0646\u0642\u062F\u064A. \u0645\u0639 \u0630\u0644\u0643\u060C \u064A\u0645\u0643\u0646\u0646\u064A \u062A\u0632\u0648\u064A\u062F\u0643 \u0628\u0625\u0637\u0627\u0631 \u0627\u0644\u0639\u0645\u0644 \u0627\u0644\u0642\u064A\u0627\u0633\u064A \u0644\u0627\u062A\u062E\u0627\u0630 \u0627\u0644\u0642\u0631\u0627\u0631: \u0627\u0628\u062F\u0623 \u0628\u062D\u0633\u0627\u0628 \u0635\u0627\u0641\u064A \u0627\u0644\u062A\u062F\u0641\u0642 \u0627\u0644\u062A\u0634\u063A\u064A\u0644\u064A \u0644\u0622\u062E\u0631 3 \u0623\u0634\u0647\u0631\u060C \u0648\u0642\u0627\u0631\u0646 \u0645\u062A\u0648\u0633\u0637 \u0641\u062A\u0631\u0629 \u0627\u0644\u062A\u062D\u0635\u064A\u0644 \u0628\u0645\u062A\u0648\u0633\u0637 \u0641\u062A\u0631\u0629 \u0627\u0644\u0633\u062F\u0627\u062F\u061B \u0641\u0625\u0630\u0627 \u0643\u0627\u0646\u062A \u062F\u0648\u0631\u0629 \u0627\u0644\u062A\u062D\u0635\u064A\u0644 \u0623\u0637\u0648\u0644 \u0645\u0646 \u062F\u0648\u0631\u0629 \u0627\u0644\u0633\u062F\u0627\u062F\u060C \u0641\u0647\u0646\u0627\u0643 \u062D\u0627\u062C\u0629 \u0645\u0644\u062D\u0629 \u0644\u0636\u0628\u0637 \u0627\u0644\u0627\u0626\u062A\u0645\u0627\u0646." : "The currently available data points do not suffice to formulate a comprehensive financial diagnostic, which requires verified operating income, expenses, and cash statement metrics. However, an executive framework can be applied immediately: compare your average collection period against payable cycles to identify capital lockup.";
+  }
+  if (clean.includes("\u0645\u0633\u062A\u062B\u0645\u0631") || clean.includes("investor")) {
+    return isAr ? "\u0627\u0644\u062A\u062D\u0636\u064A\u0631 \u0644\u0627\u062C\u062A\u0645\u0627\u0639 \u0627\u0644\u0645\u0633\u062A\u062B\u0645\u0631 \u064A\u0633\u062A\u0648\u062C\u0628 \u0627\u0644\u0648\u0636\u0648\u062D \u0627\u0644\u062A\u0627\u0645 \u0641\u064A \u0645\u0624\u0634\u0631\u0627\u062A \u0627\u0644\u0623\u062F\u0627\u0621 \u0627\u0644\u062D\u0642\u064A\u0642\u064A\u0629. \u0631\u0643\u0651\u0632 \u0646\u0642\u0627\u0634\u0643 \u0639\u0644\u0649 \u0627\u0644\u0646\u0642\u0627\u0637 \u0627\u0644\u062A\u0627\u0644\u064A\u0629:\n1. \u0627\u0642\u062A\u0635\u0627\u062F\u064A\u0627\u062A \u0627\u0644\u0648\u062D\u062F\u0629 (Unit Economics): \u0647\u0627\u0645\u0634 \u0627\u0644\u0645\u0633\u0627\u0647\u0645\u0629 \u0648\u062A\u0643\u0644\u0641\u0629 \u0627\u0643\u062A\u0633\u0627\u0628 \u0627\u0644\u0639\u0645\u064A\u0644 \u0645\u0642\u0627\u0631\u0646\u0629 \u0628\u0627\u0644\u0642\u064A\u0645\u0629 \u0627\u0644\u062F\u0627\u0626\u0645\u0629 \u0644\u0647.\n2. \u0627\u0644\u0645\u062F\u0631\u062C \u0627\u0644\u0646\u0642\u062F\u064A (Runway): \u0627\u0644\u0645\u062F\u0629 \u0627\u0644\u0632\u0645\u0646\u064A\u0629 \u0627\u0644\u062A\u064A \u062A\u063A\u0637\u064A\u0647\u0627 \u0627\u0644\u0633\u064A\u0648\u0644\u0629 \u0627\u0644\u062D\u0627\u0644\u064A\u0629\u060C \u0648\u0645\u0639\u062F\u0644 \u0627\u0644\u062D\u0631\u0642 \u0627\u0644\u0634\u0647\u0631\u064A \u0627\u0644\u0635\u0627\u0641\u064A.\n3. \u0627\u0644\u0645\u064A\u0632\u0629 \u0627\u0644\u062A\u0646\u0627\u0641\u0633\u064A\u0629 \u0648\u0627\u0644\u062D\u0648\u0643\u0645\u0629: \u0648\u0636\u0648\u062D \u0633\u062C\u0644 \u0627\u0644\u0642\u0631\u0627\u0631\u0627\u062A \u0627\u0644\u0645\u0624\u0633\u0633\u064A\u0629 \u0648\u0633\u0631\u0639\u0629 \u0627\u0644\u062A\u0641\u0627\u0639\u0644 \u0645\u0639 \u0627\u0644\u0633\u0648\u0642.\n\n\u062A\u062C\u0646\u0628 \u0627\u0644\u0648\u0639\u0648\u062F \u063A\u064A\u0631 \u0627\u0644\u0645\u062F\u0639\u0648\u0645\u0629 \u0628\u0623\u0631\u0642\u0627\u0645 \u0641\u0639\u0644\u064A\u0629\u061B \u0627\u0644\u0645\u0633\u062A\u062B\u0645\u0631 \u064A\u062B\u0642 \u0628\u0627\u0644\u0645\u062F\u064A\u0631 \u0627\u0644\u0630\u064A \u064A\u062F\u0631\u0643 \u0645\u062E\u0627\u0637\u0631\u0647 \u0648\u064A\u0645\u0644\u0643 \u062E\u0637\u0629 \u0648\u0627\u0636\u062D\u0629 \u0644\u0627\u062D\u062A\u0648\u0627\u0626\u0647\u0627." : "Preparing for an investor conference necessitates uncompromising clarity on unit economics. Focus on contribution margins, customer acquisition cost vs lifetime value, and validated cash runway. Demonstrating a disciplined grasp of operational risks inspires far greater investor conviction than ungrounded projections.";
+  }
+  return isAr ? "\u0627\u0644\u0646\u0647\u062C \u0627\u0644\u0625\u062F\u0627\u0631\u064A \u0627\u0644\u0631\u0635\u064A\u0646 \u0647\u0646\u0627 \u064A\u0628\u062F\u0623 \u0628\u0639\u0632\u0644 \u0627\u0644\u0645\u0634\u0643\u0644\u0629 \u0627\u0644\u062A\u0634\u063A\u064A\u0644\u064A\u0629 \u0639\u0646 \u0627\u0644\u0623\u0639\u0631\u0627\u0636 \u0627\u0644\u062C\u0627\u0646\u0628\u064A\u0629. \u0625\u0630\u0627 \u0643\u0627\u0646\u062A \u0627\u0644\u0645\u0633\u0623\u0644\u0629 \u062A\u062A\u0639\u0644\u0642 \u0628\u0627\u062A\u062E\u0627\u0630 \u0642\u0631\u0627\u0631\u060C \u0641\u0627\u062D\u0631\u0635 \u0639\u0644\u0649 \u062A\u0642\u064A\u064A\u0645 \u0627\u0644\u0628\u062F\u0627\u0626\u0644 \u0628\u0627\u0644\u0646\u0638\u0631 \u0625\u0644\u0649 \u0623\u062B\u0631\u0647\u0627 \u0639\u0644\u0649 \u0627\u0644\u0633\u064A\u0648\u0644\u0629 \u0627\u0644\u0646\u0642\u062F\u064A\u0629 \u0648\u0627\u0644\u0627\u0644\u062A\u0632\u0627\u0645\u0627\u062A \u0627\u0644\u0642\u0627\u0626\u0645\u0629\u060C \u062B\u0645 \u062D\u062F\u062F \u0627\u0644\u0625\u062C\u0631\u0627\u0621 \u0627\u0644\u0623\u0642\u0644 \u062A\u0643\u0644\u0641\u0629 \u0648\u0627\u0644\u0623\u0633\u0631\u0639 \u062A\u0646\u0641\u064A\u0630\u0627\u064B \u0643\u062E\u0637\u0648\u0629 \u0623\u0648\u0644\u0649." : "Prudent executive governance begins by isolating root operational drivers from superficial symptoms. When weighing strategic alternatives, evaluate capital impact and disbursement timing first, prioritizing measures that preserve liquidity headroom.";
+}
+async function executeCognitiveAdvisorChat(context) {
+  const {
+    promptText,
+    history = [],
+    lang = "ar",
+    memories = [],
+    riskAlerts = [],
+    advisorType = "cognitive",
+    user
+  } = context;
+  const isAr = lang === "ar";
+  const analysis = classifyCognitiveIntent(promptText, history);
+  const { intent, requiresPrivateData, isReportOrDiagnostic, activeTopic } = analysis;
+  if (requiresPrivateData && !user) {
+    const unauthMessage = isAr ? "\u0644\u0623\u062A\u0645\u0643\u0646 \u0645\u0646 \u0627\u0633\u062A\u062E\u0631\u0627\u062C \u0628\u064A\u0627\u0646\u0627\u062A \u0645\u0624\u0633\u0633\u062A\u0643 \u0648\u0627\u0644\u0630\u0643\u0631\u064A\u0627\u062A \u0627\u0644\u0645\u0633\u062C\u0644\u0629 \u0641\u064A \u062D\u0633\u0627\u0628\u0643\u060C \u0623\u062D\u062A\u0627\u062C \u0625\u0644\u0649 \u062C\u0644\u0633\u0629 \u062F\u062E\u0648\u0644 \u0635\u0627\u0644\u062D\u0629. \u064A\u0631\u062C\u0649 \u062A\u0633\u062C\u064A\u0644 \u0627\u0644\u062F\u062E\u0648\u0644 \u062B\u0645 \u0625\u0639\u0627\u062F\u0629 \u0627\u0644\u0645\u062D\u0627\u0648\u0644\u0629." : "To retrieve your organization's private stored data, a valid login session is required. Please log in and try again.";
+    return {
+      text: unauthMessage,
+      response: unauthMessage,
+      intent,
+      requiresPrivateData: true,
+      isReportOrDiagnostic: false,
+      sources: [],
+      advisorType
+    };
+  }
+  const baselineResponse = synthesizeCognitiveResponse(context, analysis);
+  const ai = getGeminiClient();
+  let liveAiResponse = null;
+  let extractedSources = [];
+  if (ai && !isGeminiInCooldown()) {
+    try {
+      const searchDecision = classifySearchNeed(promptText);
+      let factsBlock = "";
+      if (Array.isArray(memories) && memories.length > 0) {
+        factsBlock += "\n[\u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u0648\u0627\u0644\u0630\u0643\u0631\u064A\u0627\u062A \u0627\u0644\u0645\u0624\u0633\u0633\u064A\u0629 \u0627\u0644\u0645\u0624\u0643\u062F\u0629 \u0641\u064A \u0627\u0644\u0646\u0638\u0627\u0645]:\n" + memories.map((m, i) => `\u0627\u0644\u0630\u0643\u0631\u0649 #${i + 1}: ${m.title || ""} | \u0627\u0644\u062A\u0635\u0646\u064A\u0641: ${m.category || ""} | \u0627\u0644\u0642\u0631\u0627\u0631: ${m.decision || ""}`).join("\n");
+      }
+      const activeTopicContext = activeTopic ? `
+[\u0645\u0644\u0627\u062D\u0638\u0629 \u0627\u0644\u0633\u064A\u0627\u0642 \u0627\u0644\u0633\u0627\u0628\u0642]: \u0627\u0644\u0645\u062D\u0627\u062F\u062B\u0629 \u0627\u0644\u0633\u0627\u0628\u0642\u0629 \u062A\u0631\u0643\u0632\u062A \u062D\u0648\u0644 \u0645\u0648\u0636\u0648\u0639: "${activeTopic}". \u0625\u0630\u0627 \u0643\u0627\u0646 \u0633\u0624\u0627\u0644 \u0627\u0644\u0645\u0633\u062A\u062E\u062F\u0645 \u0645\u062A\u0627\u0628\u0639\u0629 (\u0645\u062B\u0644 "\u0648\u0645\u0627\u0630\u0627 \u0623\u0641\u0639\u0644\u061F" \u0623\u0648 "\u0645\u0627 \u0627\u0644\u062E\u0637\u0648\u0629 \u0627\u0644\u062A\u0627\u0644\u064A\u0629\u061F") \u0641\u0627\u0631\u0628\u0637 \u0625\u062C\u0627\u0628\u062A\u0643 \u0645\u0628\u0627\u0634\u0631\u0629 \u0628\u0647\u0630\u0627 \u0627\u0644\u0645\u0648\u0636\u0648\u0639.` : "";
+      const systemInstruction = `\u0623\u0646\u062A "\u0627\u0644\u0645\u0633\u062A\u0634\u0627\u0631 \u0627\u0644\u0625\u062F\u0627\u0631\u064A \u0648\u0627\u0644\u0625\u062F\u0631\u0627\u0643\u064A \u0644\u0645\u0646\u0635\u0629 \u0630\u064E\u0643\u0650\u0631\u0652" (Zakir Cognitive Advisor).
+\u0623\u0646\u062A \u0645\u0633\u062A\u0634\u0627\u0631 \u0625\u062F\u0627\u0631\u064A \u0648\u062A\u0646\u0641\u064A\u0630\u064A \u0645\u062D\u062A\u0631\u0641 \u0631\u0641\u064A\u0639 \u0627\u0644\u0645\u0633\u062A\u0648\u0649 \u064A\u062A\u062D\u062F\u062B \u0645\u0639 \u0645\u062F\u064A\u0631 \u062A\u0646\u0641\u064A\u0630\u064A \u0623\u0648 \u0642\u0627\u0626\u062F \u0645\u0624\u0633\u0633\u0629.
+
+\u0642\u0648\u0627\u0639\u062F \u0627\u0644\u062A\u0641\u0643\u064A\u0631 \u0627\u0644\u0623\u0633\u0627\u0633\u064A\u0629 \u0627\u0644\u0645\u0644\u0632\u0645\u0629:
+1. \u0641\u0647\u0645 \u0627\u0644\u0645\u0642\u0635\u0648\u062F \u0628\u062F\u0642\u0629 \u0648\u062A\u062D\u062F\u064A\u062F \u0645\u0627 \u0625\u0630\u0627 \u0643\u0627\u0646 \u0627\u0644\u0633\u0624\u0627\u0644 \u064A\u062D\u062A\u0627\u062C \u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u0645\u0624\u0633\u0633\u0629 \u0623\u0648 \u0625\u062C\u0627\u0628\u0629 \u0645\u0641\u0627\u0647\u064A\u0645\u064A\u0629 \u0623\u0648 \u0627\u0633\u062A\u0634\u0627\u0631\u064A\u0629.
+2. \u0627\u0644\u062A\u0645\u064A\u064A\u0632 \u0627\u0644\u0635\u0627\u0631\u0645 \u0628\u064A\u0646 FACTS \u0648 INFERENCES \u0648 RECOMMENDATIONS.
+3. \u0639\u062F\u0645 \u0627\u062E\u062A\u0644\u0627\u0642 \u0623\u064A \u0623\u0631\u0642\u0627\u0645 \u0623\u0648 \u0623\u062D\u062F\u0627\u062B \u0623\u0648 \u0645\u062E\u0627\u0637\u0631 \u0644\u0645 \u062A\u0631\u062F \u0641\u0639\u0644\u064A\u0627\u064B \u0641\u064A \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A.
+4. \u062A\u0642\u062F\u064A\u0645 \u0625\u062C\u0627\u0628\u0629 \u0648\u0627\u062D\u062F\u0629 \u0645\u062A\u0645\u0627\u0633\u0643\u0629\u060C \u0628\u0645\u0646\u0637\u0642 \u0648\u0627\u062D\u062F\u060C \u062F\u0648\u0646 \u062A\u0634\u062A\u062A \u0648\u062F\u0648\u0646 \u062A\u0643\u0631\u0627\u0631.
+5. \u0627\u0644\u0623\u0633\u0644\u0648\u0628 \u0648\u0627\u0644\u0644\u063A\u0629: \u0644\u063A\u0629 \u0639\u0631\u0628\u064A\u0629 \u0631\u0635\u064A\u0646\u0629\u060C \u0648\u0627\u0636\u062D\u0629\u060C \u0645\u0647\u0646\u064A\u0629\u060C \u0645\u0628\u0627\u0634\u0631\u0629\u060C \u062A\u0646\u0627\u0633\u0628 CEO.
+6. \u0645\u0645\u0646\u0648\u0639 \u0645\u0646\u0639\u0627\u064B \u0628\u0627\u062A\u0627\u064B: \u0627\u0633\u062A\u062E\u062F\u0627\u0645 \u0627\u0644\u0631\u0645\u0648\u0632 \u0627\u0644\u062A\u0639\u0628\u064A\u0631\u064A\u0629 (Emojis)\u060C \u0648\u0627\u0644\u0639\u0628\u0627\u0631\u0627\u062A \u0627\u0644\u0631\u0648\u0628\u0648\u062A\u064A\u0629 \u0645\u062B\u0644 "\u{1F6A8} \u062A\u062D\u0644\u064A\u0644 \u062E\u0637\u064A\u0631"\u060C "AI Analysis".
+${factsBlock}${activeTopicContext}`;
+      const contents = [];
+      if (Array.isArray(history)) {
+        history.slice(-6).forEach((h) => {
+          if (h.text && typeof h.text === "string" && !h.text.includes("401 Unauthorized") && !h.text.includes("404 Not Found")) {
+            contents.push({
+              role: h.role === "user" ? "user" : "model",
+              parts: [{ text: h.text }]
+            });
+          }
+        });
+      }
+      contents.push({
+        role: "user",
+        parts: [{ text: promptText }]
+      });
+      const configObj = {
+        systemInstruction,
+        temperature: 0.2
+      };
+      if (searchDecision.needsSearch) {
+        configObj.tools = [{ googleSearch: {} }];
+      }
+      const candidateModels = ["gemini-3.8-flash", "gemini-flash-latest"];
+      const callPromise = (async () => {
+        for (const modelName of candidateModels) {
+          try {
+            const resp = await ai.models.generateContent({
+              model: modelName,
+              contents,
+              config: configObj
+            });
+            if (resp?.text && resp.text.trim().length > 15) {
+              const cand = resp.candidates?.[0];
+              if (cand?.groundingMetadata?.groundingChunks) {
+                cand.groundingMetadata.groundingChunks.forEach((c) => {
+                  if (c.web?.uri && c.web?.title) {
+                    extractedSources.push({
+                      title: c.web.title,
+                      url: c.web.uri,
+                      snippet: c.web.snippet || ""
+                    });
+                  }
+                });
+              }
+              return resp.text.trim();
+            }
+          } catch (modelErr) {
+            const errStatus = handleGeminiError(modelErr);
+            if (errStatus?.isQuota || errStatus?.isUnavailable) {
+              break;
+            }
+          }
+        }
+        return null;
+      })();
+      let timer = null;
+      const timeoutPromise = new Promise((resolve) => {
+        timer = setTimeout(() => resolve(null), 1200);
+      });
+      liveAiResponse = await Promise.race([callPromise, timeoutPromise]);
+      if (timer) clearTimeout(timer);
+    } catch (err) {
+      console.warn("[CognitiveAdvisor] Live Gemini execution skipped or failed:", err?.message);
+    }
+  }
+  const chosenRaw = liveAiResponse && liveAiResponse.length > 20 ? liveAiResponse : baselineResponse;
+  const refinedText = validateAndRefineAdvisorResponse(chosenRaw, intent, promptText);
+  return {
+    text: refinedText,
+    response: refinedText,
+    intent,
+    requiresPrivateData,
+    isReportOrDiagnostic,
+    sources: extractedSources,
+    advisorType
+  };
+}
+
+// src/server/smartEvolutionService.ts
 function getLocalGeminiClient() {
   const apiKey = process.env.GOOGLE_AI_API_KEY || process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
   if (!apiKey || !apiKey.trim()) return null;
@@ -5451,72 +5960,6 @@ Audit of ${memories.length} recorded institutional memories (${memTitles || "Non
     runningSmartEvolutionLocks.delete(lockKey);
   }
 };
-function classifyAdvisorIntent(promptText) {
-  const clean = (promptText || "").trim().toLowerCase();
-  const casualPatterns = [
-    /^(مرحبا|مرحباً|أهلا|أهلاً|سلام|السلام عليكم|أهلين|ازيك|صباح الخير|مساء الخير|hi|hello|hey|greetings)$/i,
-    /(كيف حالك|كيف الحجم|كيف الصحة|how are you|how do you do)/i,
-    /(من أنت|من انت|ما اسمك|من تكون|who are you|what is your name)/i,
-    /(ماذا يمكنك أن تفعل|ماذا تفعل|ما هي قدراتك|ما قدراتك|ما دورك|ما هو دورك|what can you do|what is your role)/i,
-    /^(شكرا|شكراً|يسلمو|يعطيك العافية|جزاك الله خيرا|تسلم|thanks|thank you|thx)$/i
-  ];
-  if (casualPatterns.some((pattern) => pattern.test(clean))) {
-    return { intent: "CASUAL_CONVERSATION", requiresPrivateData: false };
-  }
-  const shortVaguePatterns = [
-    /^(حلل|تحليل|أريد مساعدة|ساعدني|مساعدة|ماذا ترى|ما رأيك|شو رأيك|انصحني|help|analyze|what do you think)$/i,
-    /^(اشرح لي هذا|لم أفهم|اشرح أكثر|ما رأيك في هذه الفكرة|ماذا تنصحني|هل يمكنك مساعدتي في قرار)$/i,
-    /(لم أفهم|ما رأيك في هذه الفكرة|اشرح لي هذا|ماذا تنصحني|مساعدتي في قرار|هل يمكنك مساعدتي)/i
-  ];
-  if (shortVaguePatterns.some((pattern) => pattern.test(clean)) || clean.length <= 4) {
-    return { intent: "CLARIFICATION_NEEDED", requiresPrivateData: false };
-  }
-  const memoryPatterns = [
-    /(الذكريات المسجلة في حسابي|سجل الذكريات المحفوظة|سجلات القرارات المخزنة|ماذا سجلنا في القاعدة|ذاكرة المؤسسة المسجلة|registered memories in database|logged decision records)/i
-  ];
-  if (memoryPatterns.some((pattern) => pattern.test(clean))) {
-    return { intent: "MEMORY_QUERY", requiresPrivateData: true };
-  }
-  const riskPatterns = [
-    /(المخاطر المسجلة في حسابي|المخاطر النشطة في النظام|انكشافاتنا المخزنة|our database logged risks|stored risk alerts)/i
-  ];
-  if (riskPatterns.some((pattern) => pattern.test(clean))) {
-    return { intent: "RISK_ANALYSIS", requiresPrivateData: true };
-  }
-  const filePatterns = [
-    /(الملف المرفوع في حسابي|الوثيقة المرفقة في النظام|ملفات المؤسسة المخزنة|analyze my uploaded file|stored database document)/i
-  ];
-  if (filePatterns.some((pattern) => pattern.test(clean))) {
-    return { intent: "FILE_ANALYSIS", requiresPrivateData: true };
-  }
-  const orgPatterns = [
-    /(بياناتنا الخاصة المخزنة|سجلات مؤسستنا في النظام|أرقام حسابنا في المنصة|my private database org data)/i
-  ];
-  if (orgPatterns.some((pattern) => pattern.test(clean))) {
-    return { intent: "ORGANIZATION_ANALYSIS", requiresPrivateData: true };
-  }
-  const generalKnowledgePatterns = [
-    /(ما هو|ما هي|ما الفرق|اشرح لي|عرف|تعريف|مفهوم|معنى|what is|explain|difference between|definition of)/i,
-    /(التدفق النقدي|الإدارة الاستراتيجية|الأرباح والإيرادات|الحوكمة|الميزانية|التحليل المالي|cash flow|strategic management|governance)/i
-  ];
-  if (generalKnowledgePatterns.some((pattern) => pattern.test(clean))) {
-    return { intent: "GENERAL_KNOWLEDGE", requiresPrivateData: false };
-  }
-  const businessAdvicePatterns = [
-    /(كيف يمكنني|نصيحة إدارية|لدي مشكلة في إدارة|أفضل طريقة ل|كيف أتعامل مع|تحسين العمليات|تطوير القيادة|كيف أحسن إدارة شركتي|أريد أن أتحدث عن شركتي|لدي اجتماع مع مستثمر|how to improve|management advice|business advice)/i,
-    /(شركة|مؤسسة|مستثمر|اجتماع|قرار|إدارة|استراتيجية|نمو|مبيعات|تسويق|إيرادات)/i
-  ];
-  if (businessAdvicePatterns.some((pattern) => pattern.test(clean))) {
-    return { intent: "BUSINESS_ADVICE", requiresPrivateData: false };
-  }
-  const marketPatterns = [
-    /(وضع السوق حاليا|أسعار المنافسين في السوق|مؤشرات السوق|سوق العمل|market intelligence|market conditions)/i
-  ];
-  if (marketPatterns.some((pattern) => pattern.test(clean))) {
-    return { intent: "MARKET_INTELLIGENCE", requiresPrivateData: false };
-  }
-  return { intent: "OTHER", requiresPrivateData: false };
-}
 var handleAgentChat = async (req, res) => {
   try {
     const promptText = req.body?.prompt || req.body?.message || req.body?.userMessage || req.body?.query;
@@ -5534,172 +5977,36 @@ var handleAgentChat = async (req, res) => {
         error: { code: "INVALID_PROMPT", userMessage: "\u0627\u0644\u0631\u062C\u0627\u0621 \u0625\u062F\u062E\u0627\u0644 \u0646\u0635 \u0627\u0644\u0627\u0633\u062A\u0641\u0633\u0627\u0631 \u0628\u0634\u0643\u0644 \u0635\u062D\u064A\u062D." }
       });
     }
-    const isAr = lang === "ar";
-    const { intent, requiresPrivateData } = classifyAdvisorIntent(promptText);
-    const searchDecision = classifySearchNeed(promptText);
     const userAuth = req.user;
-    if (requiresPrivateData && !userAuth) {
-      return res.json({
-        success: true,
-        text: isAr ? "\u0644\u0623\u062A\u0645\u0643\u0646 \u0645\u0646 \u0627\u0633\u062A\u062E\u0631\u0627\u062C \u0628\u064A\u0627\u0646\u0627\u062A \u0645\u0624\u0633\u0633\u062A\u0643 \u0648\u0627\u0644\u0630\u0643\u0631\u064A\u0627\u062A \u0627\u0644\u0645\u0633\u062C\u0644\u0629 \u0641\u064A \u062D\u0633\u0627\u0628\u0643\u060C \u0623\u062D\u062A\u0627\u062C \u0625\u0644\u0649 \u062C\u0644\u0633\u0629 \u062F\u062E\u0648\u0644 \u0635\u0627\u0644\u062D\u0629. \u064A\u0631\u062C\u0649 \u062A\u0633\u062C\u064A\u0644 \u0627\u0644\u062F\u062E\u0648\u0644 \u062B\u0645 \u0625\u0639\u0627\u062F\u0629 \u0627\u0644\u0645\u062D\u0627\u0648\u0644\u0629." : "To retrieve your organization's private stored data, a valid login session is required. Please log in and try again.",
-        response: isAr ? "\u0644\u0623\u062A\u0645\u0643\u0646 \u0645\u0646 \u0627\u0633\u062A\u062E\u0631\u0627\u062C \u0628\u064A\u0627\u0646\u0627\u062A \u0645\u0624\u0633\u0633\u062A\u0643 \u0648\u0627\u0644\u0630\u0643\u0631\u064A\u0627\u062A \u0627\u0644\u0645\u0633\u062C\u0644\u0629 \u0641\u064A \u062D\u0633\u0627\u0628\u0643\u060C \u0623\u062D\u062A\u0627\u062C \u0625\u0644\u0649 \u062C\u0644\u0633\u0629 \u062F\u062E\u0648\u0644 \u0635\u0627\u0644\u062D\u0629. \u064A\u0631\u062C\u0649 \u062A\u0633\u062C\u064A\u0644 \u0627\u0644\u062F\u062E\u0648\u0644 \u062B\u0645 \u0625\u0639\u0627\u062F\u0629 \u0627\u0644\u0645\u062D\u0627\u0648\u0644\u0629." : "To retrieve your organization's private stored data, a valid login session is required. Please log in and try again.",
-        type: "assistant",
-        intent,
-        requiresPrivateData: true,
-        sources: []
-      });
-    }
-    let personaPrompt = "";
-    if (intent === "CASUAL_CONVERSATION") {
-      personaPrompt = isAr ? `\u0623\u0646\u062A "\u0627\u0644\u0645\u0633\u062A\u0634\u0627\u0631 \u0627\u0644\u0625\u062F\u0627\u0631\u064A \u0648\u0627\u0644\u0625\u062F\u0631\u0627\u0643\u064A \u0644\u0645\u0646\u0635\u0629 \u0630\u064E\u0643\u0650\u0631\u0652". \u062A\u062A\u062D\u062F\u062B \u0628\u0623\u0633\u0644\u0648\u0628 \u062D\u0648\u0627\u0631\u064A \u0631\u0627\u0642\u064D\u060C \u0645\u0647\u0646\u064A\u060C \u0648\u062F\u0648\u062F\u060C \u0648\u0645\u0628\u0627\u0634\u0631. \u0623\u062C\u0628 \u0628\u0643\u0644\u0627\u0645 \u0637\u0628\u064A\u0639\u064A \u0648\u0645\u0641\u064A\u062F \u0648\u062A\u0631\u062D\u064A\u0628 \u0631\u0627\u0642\u064D \u062F\u0648\u0646 \u062A\u0639\u0642\u064A\u062F\u0627\u062A \u062A\u0642\u0646\u064A\u0629.` : `You are the "Cognitive Advisor at Zakir". Speak in a polite, warm, professional, conversational tone. Respond naturally and helpfully without technical error jargon.`;
-    } else if (intent === "CLARIFICATION_NEEDED") {
-      personaPrompt = isAr ? `\u0623\u0646\u062A "\u0627\u0644\u0645\u0633\u062A\u0634\u0627\u0631 \u0627\u0644\u0625\u062F\u0627\u0631\u064A \u0644\u0645\u0646\u0635\u0629 \u0630\u064E\u0643\u0650\u0631\u0652". \u0627\u0644\u0633\u0624\u0627\u0644 \u0627\u0644\u062D\u0627\u0644\u064A \u0642\u0635\u064A\u0631 \u0623\u0648 \u064A\u062A\u0637\u0644\u0628 \u062A\u0648\u0636\u064A\u062D\u0627\u064B. \u0627\u0631\u062D\u0628 \u0628\u0627\u0644\u0645\u0633\u062A\u062E\u062F\u0645 \u0648\u0627\u0637\u0644\u0628 \u0645\u0646\u0647 \u062A\u0641\u0627\u0635\u064A\u0644 \u0627\u0644\u0645\u0634\u0643\u0644\u0629 \u0623\u0648 \u0627\u0644\u0642\u0631\u0627\u0631 \u0628\u0623\u0633\u0644\u0648\u0628 \u0645\u062A\u0639\u0627\u0648\u0646 \u0648\u0644\u0637\u064A\u0641.` : `You are the "Cognitive Advisor at Zakir". The query needs context. Gently ask for clarification with clear examples.`;
-    } else if (intent === "GENERAL_KNOWLEDGE" || intent === "BUSINESS_ADVICE") {
-      personaPrompt = isAr ? `\u0623\u0646\u062A "\u0627\u0644\u0645\u0633\u062A\u0634\u0627\u0631 \u0627\u0644\u0625\u062F\u0627\u0631\u064A \u0648\u0627\u0644\u062A\u0646\u0641\u064A\u0630\u064A \u0644\u0645\u0646\u0635\u0629 \u0630\u064E\u0643\u0650\u0631\u0652". \u0623\u062C\u0628 \u0639\u0646 \u0627\u0644\u0633\u0624\u0627\u0644 \u0627\u0644\u0625\u062F\u0627\u0631\u064A \u0623\u0648 \u0627\u0644\u0627\u0633\u062A\u0631\u0627\u062A\u064A\u062C\u064A \u0628\u0623\u0633\u0644\u0648\u0628 \u062A\u062D\u0644\u064A\u0644\u064A \u0631\u0635\u064A\u0646 \u0627\u0639\u062A\u0645\u0627\u062F\u0627\u064B \u0639\u0644\u0649 \u0627\u0644\u0645\u0645\u0627\u0631\u0633\u0627\u062A \u0627\u0644\u0642\u064A\u0627\u062F\u064A\u0629 \u0648\u0627\u0644\u062D\u0648\u0643\u0645\u064A\u0629 \u0627\u0644\u0639\u0627\u0644\u0645\u064A\u0629.` : `You are the "Cognitive Advisor at Zakir". Answer business/management questions with clear leadership principles.`;
-    } else if (advisorType === "administrative") {
-      personaPrompt = `\u0623\u0646\u062A "\u0627\u0644\u0645\u0633\u062A\u0634\u0627\u0631 \u0627\u0644\u0625\u062F\u0627\u0631\u064A \u0648\u0627\u0644\u062D\u0648\u0643\u0645\u064A" \u0627\u0644\u0645\u0639\u062A\u0645\u062F \u0644\u0645\u0646\u0635\u0629 "\u0630\u064E\u0643\u0650\u0631\u0652". \u062A\u062E\u0635\u0635\u0643 \u062D\u0648\u0643\u0645\u0629 \u0627\u0644\u0639\u0645\u0644\u064A\u0627\u062A \u0648\u0627\u0644\u0627\u0645\u062A\u062B\u0627\u0644 \u0648\u0627\u0644\u0631\u0642\u0627\u0628\u0629 \u0627\u0644\u062F\u0627\u062E\u0644\u064A\u0629 \u0648\u0627\u0644\u0648\u0642\u0627\u0626\u0639 \u0627\u0644\u0645\u0633\u062C\u0644\u0629.`;
-    } else {
-      personaPrompt = `\u0623\u0646\u062A "\u0627\u0644\u0645\u0633\u062A\u0634\u0627\u0631 \u0627\u0644\u0625\u062F\u0631\u0627\u0643\u064A \u0644\u0645\u0646\u0635\u0629 \u0630\u064E\u0643\u0650\u0631\u0652" \u0644\u062A\u062D\u0644\u064A\u0644 \u0627\u0644\u0630\u0627\u0643\u0631\u0629 \u0627\u0644\u0645\u0624\u0633\u0633\u064A\u0629 \u0648\u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u0627\u0633\u062A\u0631\u0627\u062A\u064A\u062C\u064A\u0629 \u0648\u062A\u062A\u0628\u0639 \u0627\u0644\u0623\u0633\u0628\u0627\u0628 \u0627\u0644\u062C\u0630\u0631\u064A\u0629 \u0644\u0644\u0642\u0631\u0627\u0631\u0627\u062A.`;
-    }
-    let fallbackChatResponse = "";
-    const lowerPrompt = promptText.toLowerCase();
-    if (intent === "CASUAL_CONVERSATION") {
-      if (lowerPrompt.includes("\u0643\u064A\u0641 \u062D\u0627\u0644\u0643") || lowerPrompt.includes("how are you")) {
-        fallbackChatResponse = isAr ? "\u0623\u0646\u0627 \u0628\u062E\u064A\u0631 \u0648\u062C\u0627\u0647\u0632 \u062A\u0645\u0627\u0645\u0627\u064B \u0644\u0645\u0633\u0627\u0639\u062F\u062A\u0643! \u0623\u062E\u0628\u0631\u0646\u064A \u0628\u0627\u0644\u0645\u0648\u0636\u0648\u0639 \u0627\u0644\u0625\u062F\u0627\u0631\u064A \u0623\u0648 \u0627\u0644\u0627\u0633\u062A\u0641\u0633\u0627\u0631 \u0627\u0644\u0630\u064A \u062A\u0631\u064A\u062F \u0645\u0646\u0627\u0642\u0634\u062A\u0647 \u0627\u0644\u064A\u0648\u0645 \u0648\u0633\u0623\u0643\u0648\u0646 \u0633\u0639\u064A\u062F\u0627\u064B \u0628\u0645\u0639\u0627\u0648\u0646\u062A\u0643." : "I am doing well and ready to assist you! Feel free to share any management question or decision you would like to discuss today.";
-      } else if (lowerPrompt.includes("\u0645\u0646 \u0623\u0646\u062A") || lowerPrompt.includes("\u0645\u0646 \u0627\u0646\u062A") || lowerPrompt.includes("who are you") || lowerPrompt.includes("\u062F\u0648\u0631\u0643")) {
-        fallbackChatResponse = isAr ? "\u0623\u0646\u0627 \u0627\u0644\u0645\u0633\u062A\u0634\u0627\u0631 \u0627\u0644\u0625\u062F\u0627\u0631\u064A \u0648\u0627\u0644\u0625\u062F\u0631\u0627\u0643\u064A \u0644\u0645\u0646\u0635\u0629 \u0630\u064E\u0643\u0650\u0631\u0652. \u0623\u0633\u0627\u0639\u062F \u0627\u0644\u0642\u064A\u0627\u062F\u0629 \u0627\u0644\u062A\u0646\u0641\u064A\u0630\u064A\u0629 \u0641\u064A \u062A\u062D\u0644\u064A\u0644 \u0627\u0644\u0642\u0631\u0627\u0631\u0627\u062A \u0627\u0644\u0627\u0633\u062A\u0631\u0627\u062A\u064A\u062C\u064A\u0629\u060C \u062A\u062A\u0628\u0639 \u0627\u0644\u0630\u0627\u0643\u0631\u0629 \u0627\u0644\u0645\u0624\u0633\u0633\u064A\u0629\u060C \u062A\u0642\u064A\u064A\u0645 \u0627\u0644\u0645\u062E\u0627\u0637\u0631\u060C \u0648\u062A\u0642\u062F\u064A\u0645 \u0627\u0644\u0627\u0633\u062A\u0634\u0627\u0631\u0627\u062A \u0627\u0644\u0625\u062F\u0627\u0631\u064A\u0629 \u0648\u0627\u0644\u062D\u0648\u0643\u0645\u064A\u0629." : "I am Zakir's Cognitive Advisor. I help leadership analyze strategic decisions, trace institutional memory, evaluate risks, and provide governance guidance.";
-      } else if (lowerPrompt.includes("\u0634\u0643\u0631\u0627") || lowerPrompt.includes("thanks")) {
-        fallbackChatResponse = isAr ? "\u0639\u0644\u0649 \u0627\u0644\u0631\u062D\u0628 \u0648\u0627\u0644\u0633\u0639\u0629! \u0623\u0646\u0627 \u062F\u0627\u0626\u0645\u0627\u064B \u0641\u064A \u062E\u062F\u0645\u062A\u0643 \u0644\u062F\u0639\u0645 \u0642\u0631\u0627\u0631\u0627\u062A\u0643 \u0648\u0645\u0624\u0633\u0633\u062A\u0643. \u0644\u0627 \u062A\u062A\u0631\u062F\u062F \u0641\u064A \u0637\u0631\u062D \u0623\u064A \u0627\u0633\u062A\u0641\u0633\u0627\u0631 \u0622\u062E\u0631." : "You are most welcome! I am always here to support your executive decisions. Feel free to ask anytime.";
-      } else {
-        fallbackChatResponse = isAr ? "\u0623\u0647\u0644\u0627\u064B \u0648\u0645\u0631\u062D\u0628\u0627\u064B \u0628\u0643! \u0623\u0646\u0627 \u0627\u0644\u0645\u0633\u062A\u0634\u0627\u0631 \u0627\u0644\u0625\u062F\u0627\u0631\u064A \u0648\u0627\u0644\u0625\u062F\u0631\u0627\u0643\u064A \u0641\u064A \u0645\u0646\u0635\u0629 \u0630\u064E\u0643\u0650\u0631\u0652. \u0643\u064A\u0641 \u064A\u0645\u0643\u0646\u0646\u064A \u0645\u0633\u0627\u0639\u062F\u062A\u0643 \u0627\u0644\u064A\u0648\u0645\u061F \u064A\u0645\u0643\u0646\u0643 \u0637\u0631\u062D \u0623\u064A \u0627\u0633\u062A\u0641\u0633\u0627\u0631 \u0625\u062F\u0627\u0631\u064A \u0639\u0627\u0645 \u0623\u0648 \u0637\u0644\u0628 \u062A\u062D\u0644\u064A\u0644 \u0644\u0645\u0648\u0636\u0648\u0639 \u062E\u0627\u0635 \u0628\u0645\u0624\u0633\u0633\u062A\u0643." : "Welcome! I am Zakir's Cognitive Advisor. How can I assist you today? You can ask any general management question or request an organizational analysis.";
-      }
-    } else if (intent === "CLARIFICATION_NEEDED") {
-      fallbackChatResponse = isAr ? "\u0628\u0627\u0644\u062A\u0623\u0643\u064A\u062F! \u064A\u0633\u0639\u062F\u0646\u064A \u0645\u0633\u0627\u0639\u062F\u062A\u0643 \u0628\u0643\u0644 \u0633\u0631\u0648\u0631. \u0645\u0627\u0630\u0627 \u062A\u0631\u064A\u062F \u0645\u0646\u064A \u0623\u0646 \u0623\u062D\u0644\u0644 \u062A\u062D\u062F\u064A\u062F\u0627\u064B\u061F \u064A\u0645\u0643\u0646\u0643 \u0625\u0631\u0633\u0627\u0644 \u0645\u0634\u0643\u0644\u0629 \u062A\u0634\u063A\u064A\u0644\u064A\u0629\u060C \u0642\u0631\u0627\u0631 \u0627\u0633\u062A\u0631\u0627\u062A\u064A\u062C\u064A\u060C \u0631\u0642\u0645 \u0645\u0627\u0644\u064A\u060C \u062E\u0637\u0631\u060C \u0623\u0648 \u0648\u062B\u064A\u0642\u0629 \u0644\u0646\u0646\u0627\u0642\u0634\u0647\u0627 \u062E\u0637\u0648\u0629 \u0628\u062E\u0637\u0648\u0629." : "Certainly! I would be glad to help. What specifically would you like me to analyze? You can share a business problem, strategic decision, financial metric, risk, or document.";
-    } else if (lowerPrompt.includes("\u0645\u0633\u062A\u062B\u0645\u0631") || lowerPrompt.includes("investor")) {
-      fallbackChatResponse = isAr ? "\u0647\u0630\u0647 \u062E\u0637\u0648\u0629 \u0627\u0633\u062A\u0631\u0627\u062A\u064A\u062C\u064A\u0629 \u0647\u0627\u0645\u0629 \u062C\u062F\u0627\u064B! \u0644\u0644\u062A\u062D\u0636\u064A\u0631 \u0644\u0627\u062C\u062A\u0645\u0627\u0639 \u0627\u0644\u0645\u0633\u062A\u062B\u0645\u0631 \u0628\u0646\u062C\u0627\u062D\u060C \u0627\u062D\u0631\u0635 \u0639\u0644\u0649 \u0627\u0644\u062C\u0627\u0647\u0632\u064A\u0629 \u0641\u064A \u0627\u0644\u0645\u062D\u0627\u0648\u0631 \u0627\u0644\u062A\u0627\u0644\u064A\u0629:\n\n1. **\u0646\u0645\u0648\u0630\u062C \u0627\u0644\u0639\u0645\u0644 \u0648\u0627\u0644\u0646\u0645\u0648:** \u0634\u0631\u062D \u0648\u0627\u0636\u062D \u0644\u0643\u064A\u0641\u064A\u0629 \u062A\u062D\u0642\u064A\u0642 \u0627\u0644\u0623\u0631\u0628\u0627\u062D \u0648\u0627\u0644\u062A\u0648\u0633\u0639 \u0627\u0644\u0645\u0633\u062A\u0642\u0628\u0644\u064A.\n2. **\u062D\u062C\u0645 \u0627\u0644\u0633\u0648\u0642 \u0648\u0627\u0644\u0645\u064A\u0632\u0629 \u0627\u0644\u062A\u0646\u0627\u0641\u0633\u064A\u0629:** \u0645\u0627 \u0627\u0644\u0630\u064A \u064A\u0645\u064A\u0632 \u0645\u0646\u062A\u062C\u0643 \u0639\u0646 \u0627\u0644\u0645\u0646\u0627\u0641\u0633\u064A\u0646.\n3. **\u0627\u0644\u0645\u0624\u0634\u0631\u0627\u062A \u0627\u0644\u0645\u0627\u0644\u064A\u0629 \u0648\u0627\u0644\u0645\u062E\u0627\u0637\u0631:** \u0627\u0644\u062A\u0648\u0642\u0639 \u0627\u0644\u0646\u0642\u062F\u064A \u0648\u0625\u062C\u0631\u0627\u0621\u0627\u062A \u062D\u0645\u0627\u064A\u0629 \u0631\u0623\u0633 \u0627\u0644\u0645\u0627\u0644.\n\n\u0623\u062E\u0628\u0631\u0646\u064A \u0628\u062A\u0641\u0627\u0635\u064A\u0644 \u0627\u0644\u0645\u0634\u0631\u0648\u0639 \u0648\u0633\u0623\u0633\u0627\u0639\u062F\u0643 \u0641\u064A \u0627\u0644\u062A\u062D\u0636\u064A\u0631 \u0644\u0623\u0647\u0645 \u0627\u0644\u0623\u0633\u0626\u0644\u0629 \u0627\u0644\u0645\u062A\u0648\u0642\u0639\u0629." : "Preparing for an investor meeting is a critical milestone! Key areas to align:\n\n1. **Business Model & Unit Economics:** Clear breakdown of revenue streams and margins.\n2. **Market Size & Competitive Moat:** Unique value proposition.\n3. **Financial Runway & Risk Mitigation:** Capital deployment plan.";
-    } else if (lowerPrompt.includes("\u0623\u062A\u062D\u062F\u062B \u0639\u0646 \u0634\u0631\u0643\u062A\u064A") || lowerPrompt.includes("\u0625\u062F\u0627\u0631\u0629 \u0634\u0631\u0643\u062A\u064A") || lowerPrompt.includes("my company")) {
-      fallbackChatResponse = isAr ? "\u0623\u0647\u0644\u0627\u064B \u0628\u0643! \u064A\u0633\u0639\u062F\u0646\u064A \u062C\u062F\u0627\u064B \u0627\u0644\u062D\u062F\u064A\u062B \u0639\u0646 \u0634\u0631\u0643\u062A\u0643 \u0648\u062A\u0637\u0648\u064A\u0631 \u0623\u062F\u0627\u0621 \u0625\u062F\u0627\u0631\u062A\u0647\u0627. \u0644\u062A\u0637\u0648\u064A\u0631 \u0627\u0644\u0639\u0645\u0644\u064A\u0627\u062A \u0627\u0644\u0642\u064A\u0627\u062F\u064A\u0629\u060C \u0646\u0648\u0635\u064A \u0628\u0627\u0644\u062A\u0631\u0643\u064A\u0632 \u0639\u0644\u0649 3 \u0645\u062D\u0627\u0648\u0631 \u0623\u0633\u0627\u0633\u064A\u0629:\n\n1. **\u0645\u0648\u0627\u0621\u0645\u0629 \u0627\u0644\u0623\u0647\u062F\u0627\u0641:** \u062A\u062D\u062F\u064A\u062F \u0645\u0624\u0634\u0631\u0627\u062A \u0623\u062F\u0627\u0621 \u0642\u064A\u0627\u0633\u064A\u0629 (KPIs) \u0648\u0627\u0636\u062D\u0629 \u0644\u0644\u0641\u0631\u064A\u0642.\n2. **\u0627\u0644\u0631\u0642\u0627\u0628\u0629 \u0639\u0644\u0649 \u0627\u0644\u062A\u062F\u0641\u0642\u0627\u062A \u0627\u0644\u0646\u0642\u062F\u064A\u0629:** \u0636\u0645\u0627\u0646 \u0627\u0644\u062A\u0648\u0627\u0632\u0646 \u0628\u064A\u0646 \u0627\u0644\u0625\u064A\u0631\u0627\u062F\u0627\u062A \u0648\u0627\u0644\u0645\u0635\u0631\u0648\u0641\u0627\u062A \u0627\u0644\u062A\u0634\u063A\u064A\u0644\u064A\u0629.\n3. **\u0625\u062F\u0627\u0631\u0629 \u0627\u0644\u0645\u062E\u0627\u0637\u0631:** \u0627\u0644\u062A\u0648\u062B\u064A\u0642 \u0627\u0644\u0627\u0633\u062A\u0628\u0627\u0642\u064A \u0644\u0644\u0642\u0631\u0627\u0631\u0627\u062A \u0627\u0644\u0647\u0627\u0645\u0629 \u0648\u0627\u0644\u062A\u0641\u0627\u0639\u0644 \u0645\u0639 \u062A\u063A\u064A\u0631\u0627\u062A \u0627\u0644\u0633\u0648\u0642.\n\n\u0623\u062E\u0628\u0631\u0646\u064A \u0628\u0627\u0644\u0645\u0648\u0636\u0648\u0639 \u0623\u0648 \u0627\u0644\u062A\u062D\u062F\u064A \u0627\u0644\u0630\u064A \u062A\u0648\u0627\u062C\u0647\u0647 \u062D\u0627\u0644\u064A\u0627\u064B \u0641\u064A \u0634\u0631\u0643\u062A\u0643 \u0648\u0646\u062A\u062F\u0627\u0631\u0633 \u0627\u0644\u0623\u0645\u0631 \u0645\u0639\u0627\u064B." : "Welcome! I would be glad to discuss your company and management strategy. Core pillars to focus on:\n\n1. **Goal Alignment:** Clear measurable KPIs.\n2. **Cash Flow Controls:** Balancing operational revenue vs expenses.\n3. **Risk Governance:** Proactive decision logging.";
-    } else if (intent === "GENERAL_KNOWLEDGE" || intent === "BUSINESS_ADVICE") {
-      fallbackChatResponse = isAr ? `### \u0627\u0644\u0645\u0633\u062A\u0634\u0627\u0631 \u0627\u0644\u0625\u062F\u0627\u0631\u064A (\u0625\u0631\u0634\u0627\u062F \u0627\u0633\u062A\u0631\u0627\u062A\u064A\u062C\u064A)
-
-\u062A\u0639\u062A\u0645\u062F \u0625\u062F\u0627\u0631\u0629 \u0627\u0644\u0623\u0639\u0645\u0627\u0644 \u0627\u0644\u062D\u062F\u064A\u062B\u0629 \u0639\u0644\u0649 \u0645\u0648\u0627\u0621\u0645\u0629 \u0627\u0644\u0623\u0647\u062F\u0627\u0641 \u0627\u0644\u0627\u0633\u062A\u0631\u0627\u062A\u064A\u062C\u064A\u0629 \u0645\u0639 \u0627\u0644\u0645\u0624\u0634\u0631\u0627\u062A \u0627\u0644\u062A\u0634\u063A\u064A\u0644\u064A\u0629 \u0648\u0627\u0644\u0631\u0642\u0627\u0628\u0629 \u0627\u0644\u0645\u0633\u062A\u0645\u0631\u0629. \u0628\u0627\u0644\u0646\u0633\u0628\u0629 \u0644\u0627\u0633\u062A\u0641\u0633\u0627\u0631\u0643 \u062D\u0648\u0644 (**${promptText}**)\u060C \u064A\u0648\u0635\u0649 \u0628\u0627\u0644\u062A\u0631\u0643\u064A\u0632 \u0639\u0644\u0649:
-
-1. **\u062A\u062D\u062F\u064A\u062F \u0627\u0644\u0623\u0647\u062F\u0627\u0641 \u0648\u0627\u0644\u0633\u064A\u0627\u0633\u0627\u062A:** \u0635\u064A\u0627\u063A\u0629 \u0625\u062C\u0631\u0627\u0621\u0627\u062A \u0648\u0627\u0636\u062D\u0629 \u0648\u0642\u0627\u0628\u0644\u0629 \u0644\u0644\u0642\u064A\u0627\u0633.
-2. **\u0627\u0644\u0631\u0642\u0627\u0628\u0629 \u0627\u0644\u062D\u0648\u0643\u0645\u064A\u0629:** \u0645\u062A\u0627\u0628\u0639\u0629 \u0627\u0644\u0645\u0624\u0634\u0631\u0627\u062A \u0648\u062A\u0648\u062B\u064A\u0642 \u0627\u0644\u0642\u0631\u0627\u0631\u0627\u062A \u0628\u0634\u0643\u0644 \u0627\u0633\u062A\u0628\u0627\u0642\u064A.
-3. **\u0625\u062F\u0627\u0631\u0629 \u0627\u0644\u0645\u062E\u0627\u0637\u0631:** \u062A\u0642\u064A\u064A\u0645 \u0627\u0644\u062A\u0623\u062B\u064A\u0631\u0627\u062A \u0627\u0644\u062A\u0634\u063A\u064A\u0644\u064A\u0629 \u0648\u0627\u0644\u0645\u0627\u0644\u064A\u0629 \u0642\u0628\u0644 \u0627\u062A\u062E\u0627\u0630 \u0627\u0644\u0642\u0631\u0627\u0631 \u0627\u0644\u0646\u0647\u0627\u0626\u064A.` : `### Cognitive Advisor (Strategic Guidance)
-
-Modern executive decision-making relies on aligning strategic goals with operational controls. Regarding (**${promptText}**), it is recommended to focus on:
-
-1. **Policy & Process:** Clear operational definitions and measurable metrics.
-2. **Governance:** Continuous monitoring and decision logging.
-3. **Risk Management:** Assessing operational impact before final execution.`;
-    } else {
-      fallbackChatResponse = isAr ? "\u0623\u0647\u0644\u0627\u064B \u0628\u0643. \u0628\u0635\u0641\u062A\u064A \u0627\u0644\u0645\u0633\u062A\u0634\u0627\u0631 \u0627\u0644\u0625\u062F\u0627\u0631\u064A \u0648\u0627\u0644\u0625\u062F\u0631\u0627\u0643\u064A \u0644\u0645\u0646\u0635\u0629 \u0630\u064E\u0643\u0650\u0631\u0652\u060C \u0623\u0646\u0627 \u062C\u0627\u0647\u0632 \u0644\u0645\u0633\u0627\u0639\u062F\u062A\u0643 \u0641\u064A \u0645\u0646\u0627\u0642\u0634\u0629 \u0647\u0630\u0627 \u0627\u0644\u0645\u0648\u0636\u0648\u0639. \u064A\u0645\u0643\u0646\u0643 \u0625\u0631\u0633\u0627\u0644 \u0623\u064A \u0627\u0633\u062A\u0641\u0633\u0627\u0631 \u064A\u062A\u0639\u0644\u0642 \u0628\u0627\u0644\u0625\u062F\u0627\u0631\u0629\u060C \u0627\u0644\u0642\u0631\u0627\u0631\u0627\u062A \u0627\u0644\u0627\u0633\u062A\u0631\u0627\u062A\u064A\u062C\u064A\u0629\u060C \u0627\u0644\u0645\u0641\u0647\u0648\u0645 \u0627\u0644\u0645\u0627\u0644\u064A\u060C \u0623\u0648 \u062E\u0637\u0637 \u0627\u0644\u0639\u0645\u0644 \u0648\u0633\u0623\u0642\u062F\u0645 \u0644\u0643 \u062A\u062D\u0644\u064A\u0644\u0627\u064B \u0648\u062A\u0648\u0635\u064A\u0627\u062A \u0639\u0645\u0644\u064A\u0629." : "Welcome. As Zakir's Cognitive Advisor, I am ready to assist you. You can share any management inquiry, strategic decision, or business plan and I will provide actionable analysis.";
-    }
-    const client = getLocalGeminiClient();
-    if (client && !isGeminiInCooldown()) {
-      let contextHeader = "";
-      if (requiresPrivateData) {
-        const memoriesSummary = Array.isArray(memories) && memories.length > 0 ? memories.map((m, idx) => `[\u0627\u0644\u0630\u0643\u0631\u0649 #${idx + 1}]: ${m.title} | \u0627\u0644\u0641\u0626\u0629: ${m.category} | \u0627\u0644\u0642\u0631\u0627\u0631: ${m.decision}`).join("\n") : "\u0644\u0627 \u062A\u0648\u062C\u062F \u0630\u0643\u0631\u064A\u0627\u062A \u0645\u0633\u062C\u0644\u0629.";
-        contextHeader = `
-\u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u0645\u0624\u0633\u0633\u0629 \u0627\u0644\u0645\u0633\u062C\u0644\u0629:
-${memoriesSummary}
-`;
-      }
-      const systemInstruction = `${personaPrompt}${contextHeader}
-\u0642\u0648\u0627\u0639\u062F \u0627\u0644\u0625\u062C\u0627\u0628\u0629:
-1. \u0623\u062C\u0628 \u0628\u0623\u0633\u0644\u0648\u0628 \u0625\u062F\u0627\u0631\u064A \u0637\u0628\u064A\u0639\u064A\u060C \u0648\u0627\u0636\u062D\u060C \u0648\u0646\u0627\u0641\u0639.
-2. \u0644\u0627 \u062A\u0639\u0631\u0636 \u0623\u064A \u062A\u0641\u0627\u0635\u064A\u0644 \u0641\u0646\u064A\u0629 \u062E\u0627\u0645 (Raw JSON, API Status, 401, CORS) \u0644\u0644\u0645\u0633\u062A\u062E\u062F\u0645.
-3. \u0644\u063A\u0629 \u0627\u0644\u0625\u062C\u0627\u0628\u0629: ${isAr ? "\u0627\u0644\u0644\u063A\u0629 \u0627\u0644\u0639\u0631\u0628\u064A\u0629 \u0627\u0644\u0641\u0635\u064A\u062D\u0629 \u0648\u0627\u0644\u062F\u0642\u064A\u0642\u0629" : "English"}.`;
-      const contents = [];
-      if (Array.isArray(history)) {
-        history.slice(-10).forEach((h) => {
-          if (h.text && typeof h.text === "string" && !h.text.includes("404 Not Found") && !h.text.includes("401 Unauthorized")) {
-            contents.push({
-              role: h.role === "user" ? "user" : "model",
-              parts: [{ text: h.text }]
-            });
-          }
-        });
-      }
-      contents.push({
-        role: "user",
-        parts: [{ text: promptText }]
-      });
-      const candidateModels = ["gemini-3.5-flash", "gemini-3.7-flash"];
-      let extractedSources = [];
-      const aiCallPromise = (async () => {
-        for (const modelName of candidateModels) {
-          try {
-            const configObjPure = {
-              systemInstruction,
-              temperature: 0.35
-            };
-            if (searchDecision.needsSearch) {
-              configObjPure.tools = [{ googleSearch: {} }];
-            }
-            const response = await client.models.generateContent({
-              model: modelName,
-              contents,
-              config: configObjPure
-            });
-            if (response?.text) {
-              const candidate = response.candidates?.[0];
-              if (candidate?.groundingMetadata) {
-                const chunks = candidate.groundingMetadata.groundingChunks || [];
-                chunks.forEach((c) => {
-                  if (c.web?.uri && c.web?.title) {
-                    extractedSources.push({
-                      title: c.web.title,
-                      url: c.web.uri,
-                      snippet: c.web.snippet || ""
-                    });
-                  }
-                });
-              }
-              return response.text;
-            }
-          } catch (err) {
-          }
-        }
-        return null;
-      })();
-      let globalTimer = null;
-      const globalTimeout = new Promise((resolve) => {
-        globalTimer = setTimeout(() => resolve(null), 800);
-      });
-      const aiResultText = await Promise.race([aiCallPromise, globalTimeout]);
-      if (globalTimer) clearTimeout(globalTimer);
-      if (aiResultText) {
-        return res.json({
-          success: true,
-          text: aiResultText,
-          response: aiResultText,
-          sources: extractedSources,
-          searchDecision,
-          intent,
-          requiresPrivateData,
-          advisorType
-        });
-      }
-    }
+    const result = await executeCognitiveAdvisorChat({
+      promptText,
+      history,
+      lang,
+      memories,
+      riskAlerts,
+      files,
+      advisorType,
+      user: userAuth
+    });
     return res.json({
       success: true,
-      text: fallbackChatResponse,
-      response: fallbackChatResponse,
-      sources: [],
-      searchDecision,
-      intent,
-      requiresPrivateData,
-      advisorType
+      text: result.text,
+      response: result.response,
+      type: "assistant",
+      intent: result.intent,
+      requiresPrivateData: result.requiresPrivateData,
+      isReportOrDiagnostic: result.isReportOrDiagnostic,
+      sources: result.sources,
+      advisorType: result.advisorType
     });
   } catch (error) {
     console.error("handleAgentChat unexpected error:", error);
-    const fallbackText = "\u0623\u0647\u0644\u0627\u064B \u0628\u0643. \u0623\u0646\u0627 \u0627\u0644\u0645\u0633\u062A\u0634\u0627\u0631 \u0627\u0644\u0625\u062F\u0627\u0631\u064A \u0644\u0645\u0646\u0635\u0629 \u0630\u064E\u0643\u0650\u0631\u0652. \u064A\u0633\u0639\u062F\u0646\u064A \u0625\u062C\u0627\u0628\u062A\u0643 \u0648\u0645\u0646\u0627\u0642\u0634\u0629 \u0623\u064A \u0627\u0633\u062A\u0641\u0633\u0627\u0631 \u0625\u062F\u0627\u0631\u064A \u0623\u0648 \u0627\u0633\u062A\u0631\u0627\u062A\u064A\u062C\u064A \u062A\u0631\u063A\u0628 \u0628\u0647.";
+    const fallbackText = "\u0623\u0647\u0644\u0627\u064B \u0628\u0643. \u0623\u0646\u0627 \u0627\u0644\u0645\u0633\u062A\u0634\u0627\u0631 \u0627\u0644\u0625\u062F\u0627\u0631\u064A \u0648\u0627\u0644\u0625\u062F\u0631\u0627\u0643\u064A \u0644\u0645\u0646\u0635\u0629 \u0630\u064E\u0643\u0650\u0631\u0652. \u064A\u0633\u0639\u062F\u0646\u064A \u0625\u062C\u0627\u0628\u062A\u0643 \u0648\u0645\u0646\u0627\u0642\u0634\u0629 \u0623\u064A \u0627\u0633\u062A\u0641\u0633\u0627\u0631 \u0625\u062F\u0627\u0631\u064A \u0623\u0648 \u0627\u0633\u062A\u0631\u0627\u062A\u064A\u062C\u064A \u062A\u0631\u063A\u0628 \u0628\u0647.";
     return res.json({
       success: true,
       text: fallbackText,
       response: fallbackText,
+      type: "assistant",
       sources: []
     });
   }
@@ -7412,7 +7719,7 @@ function writeDb2(data) {
 }
 var geminiCooldownUntil = 0;
 function isGeminiInCooldown() {
-  return false;
+  return Date.now() < geminiCooldownUntil;
 }
 function setGeminiCooldown(durationMs = 35e3) {
   geminiCooldownUntil = Math.max(geminiCooldownUntil, Date.now() + durationMs);
@@ -20804,6 +21111,8 @@ async function saveDocumentToPersistentStorage(documentId, buffer, mimeType, met
     size: buffer.length,
     fileHash,
     sha256: fileHash,
+    fileBase64: buffer.length <= 8 * 1024 * 1024 ? buffer.toString("base64") : void 0,
+    data: buffer.length <= 8 * 1024 * 1024 ? buffer.toString("base64") : void 0,
     storageProvider,
     storagePath,
     storageReference: storagePath,
@@ -21095,7 +21404,12 @@ async function resolveDocumentFromStorage(rawDocumentId, context) {
       rec.filePath,
       rec.path,
       rec.documentPath,
-      rec.fileUrl
+      rec.fileUrl,
+      rec.documentId,
+      rec.id,
+      rec.fileId,
+      rec.fileName,
+      rec.name
     ].filter((p) => typeof p === "string" && p.length > 0);
     for (const p of possiblePaths) {
       if (p.startsWith("http://") || p.startsWith("https://") || p.startsWith("data:")) continue;
@@ -21432,7 +21746,7 @@ async function resolveDocumentFromStorage(rawDocumentId, context) {
                 ...Array.isArray(uData.files) ? uData.files : []
               ];
               const match = docList.find(
-                (d) => d && (d.documentId === documentId || d.id === documentId || d.fileId === documentId || d.storageReference === documentId || d.fileName === documentId)
+                (d) => d && (d.documentId === documentId || d.id === documentId || d.fileId === documentId || d.storageReference === documentId || d.storagePath === documentId || d.fileName === documentId)
               );
               if (match) {
                 const res = await tryExtractBufferFromRecord(match, "firestore_user_doc");
@@ -21441,13 +21755,43 @@ async function resolveDocumentFromStorage(rawDocumentId, context) {
             }
           } catch (uErr) {
           }
+          try {
+            const subFileSnap = await adminDb.collection("users").doc(context.userId).collection("files").doc(documentId).get();
+            if (subFileSnap && subFileSnap.exists) {
+              const res = await tryExtractBufferFromRecord(subFileSnap.data(), "firestore_user_subfile_doc");
+              if (res) return res;
+            }
+          } catch (sfErr) {
+          }
+        }
+        try {
+          const usersSnap = await adminDb.collection("users").get();
+          if (usersSnap && !usersSnap.empty) {
+            for (const uDoc of usersSnap.docs) {
+              const uData = uDoc.data() || {};
+              const docList = [
+                ...Array.isArray(uData.verificationDocuments) ? uData.verificationDocuments : [],
+                ...Array.isArray(uData.documents) ? uData.documents : [],
+                ...Array.isArray(uData.verificationInfo?.documents) ? uData.verificationInfo.documents : [],
+                ...Array.isArray(uData.files) ? uData.files : []
+              ];
+              const match = docList.find(
+                (d) => d && (d.documentId === documentId || d.id === documentId || d.fileId === documentId || d.storageReference === documentId || d.storagePath === documentId || d.fileName === documentId)
+              );
+              if (match) {
+                const res = await tryExtractBufferFromRecord(match, "firestore_user_doc_fallback");
+                if (res) return res;
+              }
+            }
+          }
+        } catch (e) {
         }
         return null;
       };
       const fsResult = await Promise.race([
         fsQueryPromise(),
         new Promise((resolve) => {
-          timeoutHandle = setTimeout(() => resolve(null), 1e3);
+          timeoutHandle = setTimeout(() => resolve(null), 5e3);
           if (timeoutHandle?.unref) timeoutHandle.unref();
         })
       ]);

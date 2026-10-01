@@ -41,7 +41,7 @@
     "lucide-react": "^0.546.0",
     "motion": "^12.23.24",
     "multer": "^2.3.0",
-    "nodemailer": "^9.0.4",
+    "nodemailer": "10.0.10",
     "pdf-parse": "^2.4.5",
     "pg": "^8.22.0",
     "react": "^19.0.1",
@@ -81,6 +81,8 @@
     "electron-builder": "26.15.3"
   },
   "overrides": {
-    "jose": "^4.15.5"
+    "jose": "^4.15.5",
+    "@grpc/grpc-js": "^1.13.6",
+    "uuid": "^11.1.1"
   }
 }

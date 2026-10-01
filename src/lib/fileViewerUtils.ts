@@ -169,9 +169,15 @@ export async function fetchFileAsBlob(file: {
   }
 
   // 4. Authenticated API Endpoint
-  const apiRoute = rawUrl.startsWith("/")
+  let apiRoute = rawUrl.startsWith("/")
     ? rawUrl
     : `/api/files/${encodeURIComponent(fileId || "")}/preview`;
+
+  const targetUserId = file?.userId || file?.userUid || file?.ownerUid;
+  if (targetUserId && !apiRoute.includes("userId=")) {
+    const separator = apiRoute.includes("?") ? "&" : "?";
+    apiRoute = `${apiRoute}${separator}userId=${encodeURIComponent(targetUserId)}`;
+  }
 
   const token = await getFreshAuthToken();
   const headers: Record<string, string> = {

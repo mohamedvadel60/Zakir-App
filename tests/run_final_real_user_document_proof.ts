@@ -553,7 +553,7 @@ async function main() {
   console.log("-------------------------------------------------------------------------------");
   console.log("TEST 9: PRODUCTION REACHABILITY (https://www.getzakir.com)");
   try {
-    const prodRes = await fetch("https://www.getzakir.com", { method: "HEAD" });
+    const prodRes = await fetch("https://www.getzakir.com", { method: "HEAD", signal: AbortSignal.timeout(2000) });
     console.log(`Production HTTPS Status: ${prodRes.status}`);
   } catch (e: any) {
     console.log("Production check notice:", e.message);
