@@ -1423,6 +1423,7 @@ __export(auth_exports, {
   ADMIN_EMAILS: () => ADMIN_EMAILS,
   ADMIN_UIDS: () => ADMIN_UIDS,
   ADMIN_USER_ID: () => ADMIN_USER_ID,
+  AUTHORIZED_ADMIN_EMAIL: () => AUTHORIZED_ADMIN_EMAIL,
   SECRET_SALT: () => SECRET_SALT,
   checkPasscodeRateLimit: () => checkPasscodeRateLimit,
   checkUserEntitlementServer: () => checkUserEntitlementServer,
@@ -1718,34 +1719,60 @@ async function getUserProfileServer(uid, email) {
 async function isUserAdminServer(uid, email) {
   if (!uid && !email) return false;
   const directEmail = (email || "").trim().toLowerCase();
-  const isUidAdmin = uid === ADMIN_USER_ID || ADMIN_UIDS.has(uid);
-  const isEmailAdmin = Boolean(directEmail && ADMIN_EMAILS.size > 0 && ADMIN_EMAILS.has(directEmail));
-  if (isUidAdmin || isEmailAdmin) {
+  if (directEmail && directEmail !== AUTHORIZED_ADMIN_EMAIL) {
+    return false;
+  }
+  if (directEmail === AUTHORIZED_ADMIN_EMAIL) {
+    if (uid) {
+      if (uid === ADMIN_USER_ID || ADMIN_UIDS.has(uid)) {
+        return true;
+      }
+      try {
+        const uDoc = await adminDb.collection("users").doc(uid).get();
+        if (uDoc && uDoc.exists) {
+          const docEmail = (uDoc.data()?.email || "").trim().toLowerCase();
+          if (docEmail === AUTHORIZED_ADMIN_EMAIL) {
+            ADMIN_UIDS.add(uid);
+            return true;
+          }
+        }
+      } catch (e) {
+      }
+      try {
+        const authRecord = await adminAuth.getUser(uid);
+        if (authRecord && (authRecord.email || "").trim().toLowerCase() === AUTHORIZED_ADMIN_EMAIL) {
+          ADMIN_UIDS.add(uid);
+          return true;
+        }
+      } catch (e) {
+      }
+      return false;
+    }
     return true;
   }
-  try {
-    if (uid) {
+  if (uid) {
+    if (uid === ADMIN_USER_ID || ADMIN_UIDS.has(uid)) {
+      return true;
+    }
+    try {
       const uDoc = await adminDb.collection("users").doc(uid).get();
-      if (uDoc.exists) {
-        const data = uDoc.data();
-        const role = (data?.role || "").trim().toLowerCase();
-        if (role === "admin" || data?.isAdmin === true) {
+      if (uDoc && uDoc.exists) {
+        const docEmail = (uDoc.data()?.email || "").trim().toLowerCase();
+        if (docEmail === AUTHORIZED_ADMIN_EMAIL) {
+          ADMIN_UIDS.add(uid);
           return true;
         }
       }
+    } catch (e) {
     }
-  } catch (e) {
-  }
-  try {
-    const db2 = readDbForAuth();
-    const found = db2?.users?.find((u) => u.id === uid || directEmail && u.email?.toLowerCase() === directEmail);
-    if (found) {
-      const r = (found.role || "").trim().toLowerCase();
-      if (r === "admin" || found.isAdmin === true) {
+    try {
+      const authRecord = await adminAuth.getUser(uid);
+      if (authRecord && (authRecord.email || "").trim().toLowerCase() === AUTHORIZED_ADMIN_EMAIL) {
+        ADMIN_UIDS.add(uid);
         return true;
       }
+    } catch (e) {
     }
-  } catch (e) {
   }
   return false;
 }
@@ -2027,7 +2054,7 @@ async function verifyUserAccess(uid, email) {
     profile
   };
 }
-var import_fs2, import_path2, import_crypto, DB_FILE2, SECRET_SALT, passcodeAttemptsMap, ADMIN_USER_ID, ADMIN_UIDS, ADMIN_EMAILS, requireAdmin, requireModulePermission, checkUserEntitlementServer, requireEntitlement, requireApprovedAccount, requireAuth, optionalAuth;
+var import_fs2, import_path2, import_crypto, DB_FILE2, SECRET_SALT, passcodeAttemptsMap, AUTHORIZED_ADMIN_EMAIL, ADMIN_USER_ID, ADMIN_UIDS, ADMIN_EMAILS, requireAdmin, requireModulePermission, checkUserEntitlementServer, requireEntitlement, requireApprovedAccount, requireAuth, optionalAuth;
 var init_auth = __esm({
   "src/middleware/auth.ts"() {
     init_firebase_admin();
@@ -2038,17 +2065,15 @@ var init_auth = __esm({
     DB_FILE2 = import_path2.default.join(process.cwd(), "src", "db_store.json");
     SECRET_SALT = process.env.SECURITY_SECRET_SALT || "ZakirSecSalt_2026_EnterpriseSecure";
     passcodeAttemptsMap = /* @__PURE__ */ new Map();
+    AUTHORIZED_ADMIN_EMAIL = "mohamedvadel60@gmail.com";
     ADMIN_USER_ID = "SYhfciebGFUj29gqGaa0pqNunrk2";
     ADMIN_UIDS = /* @__PURE__ */ new Set([
       "SYhfciebGFUj29gqGaa0pqNunrk2",
       "SYhfciebGFUj29qGgAa0pqNunrk2"
     ]);
-    ADMIN_EMAILS = new Set([
-      "admin@zakir.ai",
-      "admin@getzakir.com",
-      "mohamedvadel60@gmail.com",
-      (process.env.ADMIN_EMAIL || "").toLowerCase().trim()
-    ].filter(Boolean));
+    ADMIN_EMAILS = /* @__PURE__ */ new Set([
+      AUTHORIZED_ADMIN_EMAIL
+    ]);
     requireAdmin = async (req, res, next) => {
       const uid = req.user?.uid;
       const email = req.user?.email;
@@ -3508,6 +3533,57 @@ async function sendSystemMail(toOrOptions, subjectArg, textArg, htmlArg) {
 
 // src/lib/recoveryService.ts
 init_env();
+
+// src/lib/dateUtils.ts
+function normalizeTimestampToIso(val) {
+  if (val === null || val === void 0 || val === "" || val === 0 || val === "0") {
+    return null;
+  }
+  try {
+    if (val instanceof Date) {
+      const ms = val.getTime();
+      return !isNaN(ms) && ms > 0 ? val.toISOString() : null;
+    }
+    if (typeof val?.toDate === "function") {
+      const d = val.toDate();
+      const ms = d?.getTime?.();
+      return ms && !isNaN(ms) && ms > 0 ? d.toISOString() : null;
+    }
+    if (typeof val === "object") {
+      const secs = val.seconds ?? val._seconds ?? val.seconds_ ?? val._seconds_;
+      const nanos = val.nanoseconds ?? val._nanoseconds ?? 0;
+      if (typeof secs === "number" && !isNaN(secs) && secs > 0) {
+        const ms = secs * 1e3 + Math.floor(nanos / 1e6);
+        return new Date(ms).toISOString();
+      }
+    }
+    if (typeof val === "number") {
+      if (isNaN(val) || val <= 0) return null;
+      const ms = val > 1e11 ? val : val * 1e3;
+      return new Date(ms).toISOString();
+    }
+    if (typeof val === "string") {
+      const trimmed = val.trim();
+      if (!trimmed || trimmed === "0" || trimmed === "null" || trimmed === "undefined" || trimmed.toLowerCase() === "invalid date") {
+        return null;
+      }
+      if (/^\d+$/.test(trimmed)) {
+        const num = Number(trimmed);
+        if (isNaN(num) || num <= 0) return null;
+        const ms2 = num > 1e11 ? num : num * 1e3;
+        return new Date(ms2).toISOString();
+      }
+      const d = new Date(trimmed);
+      const ms = d.getTime();
+      return !isNaN(ms) && ms > 0 ? d.toISOString() : null;
+    }
+  } catch {
+    return null;
+  }
+  return null;
+}
+
+// src/lib/recoveryService.ts
 var isServerless = Boolean(
   process.env.VERCEL || process.env.VERCEL_ENV || process.env.NOW_REGION || process.env.AWS_LAMBDA_FUNCTION_NAME || process.env.LAMBDA_TASK_ROOT
 );
@@ -3700,6 +3776,11 @@ async function resolveAccountLifecycle(identifier, optUid) {
       restoreUntil: null,
       deletedAt: null,
       originalUserId: activeUserId || null,
+      hasRecoveryRequest: false,
+      recoveryRequestId: null,
+      recoveryStatus: "none",
+      initialTab: "request",
+      isExpired: false,
       user: activeUser,
       userFriendlyMessage: "\u0627\u0644\u0628\u0631\u064A\u062F \u0627\u0644\u0625\u0644\u0643\u062A\u0631\u0648\u0646\u064A \u0645\u0633\u062C\u0644 \u0628\u0627\u0644\u0641\u0639\u0644. \u064A\u0631\u062C\u0649 \u062A\u0633\u062C\u064A\u0644 \u0627\u0644\u062F\u062E\u0648\u0644 \u0625\u0644\u0649 \u062D\u0633\u0627\u0628\u0643."
     };
@@ -3785,14 +3866,75 @@ async function resolveAccountLifecycle(identifier, optUid) {
     record && (record.status === "SELF_DELETED" || record.status === "ADMIN_DELETED" || record.status === "SELF_RESTORE_AVAILABLE" || record.status === "ADMIN_APPROVAL_REQUIRED" || record.status === "ADMIN_APPROVAL_PENDING" || record.status === "ADMIN_APPROVED" || record.status === "PURGED" || record.deletionType === "self" || record.deletionType === "admin")
   );
   if (isDeleted) {
-    const deletedAt = record.deletedAt || record.archivedAt || record.createdAt || (/* @__PURE__ */ new Date()).toISOString();
+    const rawDelAt = record.deletedAt || record.archivedAt || record.createdAt;
+    const deletedAt = normalizeTimestampToIso(rawDelAt) || (/* @__PURE__ */ new Date()).toISOString();
     const delTime = new Date(deletedAt).getTime();
     const restoreUntilMs = delTime + 31 * 24 * 60 * 60 * 1e3;
-    const restoreUntilIso = record.restoreUntil || new Date(restoreUntilMs).toISOString();
-    const daysRemaining = Math.max(0, Math.ceil((new Date(restoreUntilIso).getTime() - Date.now()) / (24 * 3600 * 1e3)));
+    const restoreUntilIso = normalizeTimestampToIso(record.restoreUntil) || new Date(restoreUntilMs).toISOString();
+    const remainingMs = new Date(restoreUntilIso).getTime() - Date.now();
+    const daysRemaining = Math.max(0, Math.ceil(remainingMs / (24 * 3600 * 1e3)));
+    const isExpired = record.status === "PURGED" || daysRemaining <= 0 && record.status !== "ADMIN_DELETED" && record.status !== "ADMIN_APPROVED";
+    let activeRecoveryDoc = null;
+    if (normalizedEmail) {
+      if (isFirebaseAdminAvailable && adminDb) {
+        try {
+          const emailSnap = await adminDb.collection("recoveryRequests_by_email").doc(normalizedEmail).get();
+          if (emailSnap.exists) {
+            activeRecoveryDoc = emailSnap.data();
+          }
+        } catch (e) {
+        }
+        if (!activeRecoveryDoc) {
+          try {
+            const qSnap = await adminDb.collection("recoveryRequests").where("email", "==", normalizedEmail).limit(1).get();
+            if (!qSnap.empty) {
+              activeRecoveryDoc = qSnap.docs[0].data();
+            }
+          } catch (e) {
+          }
+        }
+        if (!activeRecoveryDoc) {
+          try {
+            const legSnap = await adminDb.collection("accountRecoveryRequests_by_email").doc(normalizedEmail).get();
+            if (legSnap.exists) {
+              activeRecoveryDoc = legSnap.data();
+            }
+          } catch (e) {
+          }
+        }
+      }
+      if (!activeRecoveryDoc) {
+        const db2 = readDb();
+        const reqs = Array.isArray(db2.account_recovery_requests) ? db2.account_recovery_requests : [];
+        const found = reqs.find((r) => (r?.email || "").trim().toLowerCase() === normalizedEmail);
+        if (found) activeRecoveryDoc = found;
+      }
+    }
+    const hasRecoveryRequest = Boolean(
+      activeRecoveryDoc && (activeRecoveryDoc.id || activeRecoveryDoc.requestId) && ["pending", "under_review", "submitted", "approved", "rejected", "restored"].includes((activeRecoveryDoc.status || "").toLowerCase())
+    );
+    const rawStatus = (activeRecoveryDoc?.status || "").toLowerCase();
+    const recoveryStatus = hasRecoveryRequest ? rawStatus === "approved" ? "approved" : rawStatus === "rejected" ? "rejected" : "pending" : "none";
+    const recoveryRequestId = hasRecoveryRequest ? activeRecoveryDoc.requestId || activeRecoveryDoc.id : null;
+    let accountState = "DELETED_ACCOUNT_NO_RECOVERY_REQUEST";
+    if (hasRecoveryRequest) {
+      if (recoveryStatus === "approved") accountState = "DELETED_ACCOUNT_RECOVERY_APPROVED";
+      else if (recoveryStatus === "rejected") accountState = "DELETED_ACCOUNT_RECOVERY_REJECTED";
+      else accountState = "DELETED_ACCOUNT_RECOVERY_PENDING";
+    }
+    let userFriendlyMessage = `\u062A\u0645 \u0627\u0644\u0639\u062B\u0648\u0631 \u0639\u0644\u0649 \u062D\u0633\u0627\u0628 \u0633\u0627\u0628\u0642 \u062A\u0645 \u062D\u0630\u0641\u0647 (${daysRemaining > 0 ? `\u0645\u062A\u0628\u0642\u064A ${daysRemaining} \u064A\u0648\u0645\u0627\u064B \u0644\u0644\u0627\u0633\u062A\u0639\u0627\u062F\u0629` : "\u0627\u0646\u062A\u0647\u062A \u0641\u062A\u0631\u0629 \u0627\u0644\u0627\u0633\u062A\u0639\u0627\u062F\u0629 \u0627\u0644\u0645\u0628\u0627\u0634\u0631\u0629"}).`;
+    if (accountState === "DELETED_ACCOUNT_RECOVERY_APPROVED") {
+      userFriendlyMessage = "\u062A\u0645\u062A \u0627\u0644\u0645\u0648\u0627\u0641\u0642\u0629 \u0639\u0644\u0649 \u0637\u0644\u0628 \u0627\u0633\u062A\u0639\u0627\u062F\u0629 \u062D\u0633\u0627\u0628\u0643 \u0645\u0646 \u0642\u0628\u0644 \u0625\u062F\u0627\u0631\u0629 \u0627\u0644\u0645\u0646\u0635\u0629! \u064A\u0645\u0643\u0646\u0643 \u0627\u0644\u0622\u0646 \u0625\u0643\u0645\u0627\u0644 \u0627\u0633\u062A\u0639\u0627\u062F\u0629 \u0627\u0644\u062D\u0633\u0627\u0628.";
+    } else if (accountState === "DELETED_ACCOUNT_RECOVERY_PENDING") {
+      userFriendlyMessage = "\u0637\u0644\u0628 \u0627\u0633\u062A\u0639\u0627\u062F\u0629 \u062D\u0633\u0627\u0628\u0643 \u0642\u064A\u062F \u0627\u0644\u0645\u0631\u0627\u062C\u0639\u0629 \u062D\u0627\u0644\u064A\u0627\u064B \u0645\u0646 \u0642\u0628\u0644 \u0625\u062F\u0627\u0631\u0629 \u0627\u0644\u0645\u0646\u0635\u0629. \u064A\u0631\u062C\u0649 \u0645\u062A\u0627\u0628\u0639\u0629 \u062D\u0627\u0644\u0629 \u0627\u0644\u0637\u0644\u0628.";
+    } else if (accountState === "DELETED_ACCOUNT_RECOVERY_REJECTED") {
+      userFriendlyMessage = "\u062A\u0645\u062A \u0645\u0631\u0627\u062C\u0639\u0629 \u0637\u0644\u0628 \u0627\u0633\u062A\u0639\u0627\u062F\u0629 \u0627\u0644\u062D\u0633\u0627\u0628 \u0648\u0631\u0641\u0636\u0647 \u0645\u0646 \u0642\u0628\u0644 \u0625\u062F\u0627\u0631\u0629 \u0627\u0644\u0645\u0646\u0635\u0629.";
+    } else if (isExpired) {
+      userFriendlyMessage = "\u0627\u0646\u062A\u0647\u062A \u0641\u062A\u0631\u0629 \u0633\u0645\u0627\u062D \u0627\u0633\u062A\u0639\u0627\u062F\u0629 \u0647\u0630\u0627 \u0627\u0644\u062D\u0633\u0627\u0628 (31 \u064A\u0648\u0645\u0627\u064B). \u062A\u0645 \u062D\u0630\u0641 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u0628\u0634\u0643\u0644 \u0646\u0647\u0627\u0626\u064A \u0648\u0641\u0642 \u0633\u064A\u0627\u0633\u0629 \u0627\u0644\u0646\u0638\u0627\u0645.";
+    }
     return {
       status: record.status || "SELF_DELETED",
-      accountState: "DELETED_ACCOUNT_NO_RECOVERY_REQUEST",
+      accountState,
       email: normalizedEmail,
       isDeleted: true,
       canRestore: daysRemaining > 0 || record.status === "ADMIN_DELETED" || record.status === "ADMIN_APPROVED",
@@ -3801,7 +3943,22 @@ async function resolveAccountLifecycle(identifier, optUid) {
       restoreUntil: restoreUntilIso,
       deletedAt,
       originalUserId: record.originalUserId || null,
-      userFriendlyMessage: "\u062A\u0645 \u0627\u0644\u0639\u062B\u0648\u0631 \u0639\u0644\u0649 \u062D\u0633\u0627\u0628 \u0633\u0627\u0628\u0642 \u062A\u0645 \u062D\u0630\u0641\u0647."
+      hasRecoveryRequest,
+      recoveryRequestId,
+      recoveryStatus,
+      initialTab: hasRecoveryRequest ? "status" : "request",
+      isExpired,
+      recoveryRequest: hasRecoveryRequest ? {
+        ...activeRecoveryDoc,
+        id: activeRecoveryDoc.id || activeRecoveryDoc.requestId,
+        requestId: activeRecoveryDoc.requestId || activeRecoveryDoc.id,
+        status: recoveryStatus,
+        createdAt: normalizeTimestampToIso(activeRecoveryDoc.createdAt) || normalizeTimestampToIso(activeRecoveryDoc.submittedAt),
+        submittedAt: normalizeTimestampToIso(activeRecoveryDoc.submittedAt) || normalizeTimestampToIso(activeRecoveryDoc.createdAt),
+        updatedAt: normalizeTimestampToIso(activeRecoveryDoc.updatedAt),
+        termsAcceptedAt: normalizeTimestampToIso(activeRecoveryDoc.termsAcceptedAt)
+      } : null,
+      userFriendlyMessage
     };
   }
   return {
@@ -3815,6 +3972,11 @@ async function resolveAccountLifecycle(identifier, optUid) {
     restoreUntil: null,
     deletedAt: null,
     originalUserId: null,
+    hasRecoveryRequest: false,
+    recoveryRequestId: null,
+    recoveryStatus: "none",
+    initialTab: "request",
+    isExpired: false,
     userFriendlyMessage: "\u0644\u0627 \u064A\u0648\u062C\u062F \u062D\u0633\u0627\u0628 \u0645\u0633\u062C\u0644 \u0628\u0647\u0630\u0627 \u0627\u0644\u0628\u0631\u064A\u062F \u0627\u0644\u0625\u0644\u0643\u062A\u0631\u0648\u0646\u064A."
   };
 }
@@ -8360,6 +8522,7 @@ app2.use((req, res, next) => {
 });
 app2.use(import_express.default.json({ limit: "30mb" }));
 app2.use(import_express.default.urlencoded({ extended: true, limit: "30mb" }));
+app2.use("/api/admin", requireAuth, requireAdmin);
 app2.use(import_express.default.static(import_path7.default.join(process.cwd(), "public")));
 app2.get(
   [
@@ -11665,7 +11828,7 @@ app2.post("/api/auth/verify-code", otpLimiter, async (req, res) => {
       const userRef = adminDb.collection("users").doc(foundUid);
       const userSnap = await userRef.get();
       firestoreUser = userSnap.exists ? userSnap.data() : user || {};
-      const isAdminUser = foundUid === ADMIN_USER_ID || firestoreUser.role === "Admin" || ADMIN_EMAILS.has((targetIdentifier || "").toLowerCase());
+      const isAdminUser = Boolean(targetIdentifier && (targetIdentifier || "").toLowerCase().trim() === "mohamedvadel60@gmail.com" || foundUid && await isUserAdminServer(foundUid, targetIdentifier));
       const isApprovedAlready = firestoreUser.accountStatus === "APPROVED" || isAdminUser;
       if (isAdminUser) {
         nextAccountStatus = "APPROVED";
@@ -14658,7 +14821,7 @@ app2.get("/api/email/preview-branding", (req, res) => {
   res.setHeader("Content-Type", "text/html; charset=utf-8");
   res.send(browserRenderHtml);
 });
-app2.get("/api/admin/users", requireAuth, async (req, res) => {
+app2.get("/api/admin/users", requireAuth, requireAdmin, async (req, res) => {
   const callerUid = req.user?.uid;
   const callerEmail = req.user?.email || "";
   console.log("ADMIN_USERS_FETCH_START", {
@@ -14944,7 +15107,7 @@ app2.get("/api/admin/users", requireAuth, async (req, res) => {
       );
       u.emailVerified = isEmailVer;
       u.isEmailVerified = isEmailVer;
-      const isSystemAdmin = u.role === "Admin" || uEmail && ADMIN_EMAILS.has(uEmail);
+      const isSystemAdmin = Boolean(uEmail && uEmail.toLowerCase().trim() === "mohamedvadel60@gmail.com");
       const isExplicitAdminApproved = Boolean(
         u.approvedBy && u.approvedAt && (String(u.accountStatus || "").toUpperCase() === "APPROVED" || String(u.documentVerificationStatus || "").toUpperCase() === "APPROVED") || u.adminVerificationOverride === true
       );
@@ -15537,7 +15700,7 @@ app2.post("/api/auth/submit-institutional-data", requireAuth, async (req, res) =
   }
 });
 app2.post("/api/auth/submit-verification-documents", requireAuth, async (req, res) => {
-  const isAdmin = req.user?.role === "Admin" || req.user?.email && ADMIN_EMAILS.has(req.user.email.toLowerCase());
+  const isAdmin = Boolean(req.user?.email && req.user.email.toLowerCase().trim() === "mohamedvadel60@gmail.com");
   const uid = isAdmin && req.body?.userId ? req.body.userId : req.user?.uid;
   const email = isAdmin && req.body?.userEmail ? req.body.userEmail : req.user?.email || "";
   if (!uid) {
@@ -15976,7 +16139,7 @@ app2.get("/api/auth/current-user-status", requireAuth, async (req, res) => {
       }
     }
     if (userDoc) {
-      const isSysAdmin = userDoc.role === "Admin" || userDoc.email && ADMIN_EMAILS.has(userDoc.email.toLowerCase());
+      const isSysAdmin = Boolean(userDoc.email && userDoc.email.toLowerCase().trim() === "mohamedvadel60@gmail.com");
       const canonical = computeCanonicalVerification(userDoc, isSysAdmin);
       const wasEmailVerified = Boolean(
         userDoc.isEmailVerified === true || userDoc.emailVerified === true || userDoc.email_verified === true || Boolean(userDoc.emailVerifiedAt) || Boolean(userDoc.verificationInfo?.emailVerifiedAt) || canonical.isEmailVerified
@@ -16072,7 +16235,7 @@ app2.get("/api/admin/pending-approvals", requireAuth, requireAdmin, async (req, 
       u.documentCount = reconciledDocs.length;
       return u;
     }).filter((u) => {
-      if (u.id === ADMIN_USER_ID || u.role === "Admin" || u.role && u.role.toLowerCase() === "admin" || ADMIN_EMAILS.has((u.email || "").toLowerCase())) {
+      if (u.id === ADMIN_USER_ID || u.email && u.email.toLowerCase().trim() === "mohamedvadel60@gmail.com") {
         return false;
       }
       if (u.accountLifecycleStatus === "PURGED" || u.isPurged === true) {
@@ -17103,7 +17266,7 @@ app2.get("/api/admin/subscription-overview", requireAuth, requireAdmin, async (r
     }
     const nowMs = Date.now();
     const overviewList = usersList.filter((u) => u.accountLifecycleStatus !== "PURGED" && u.isPurged !== true).map((u) => {
-      const isAdmin = u.id === ADMIN_USER_ID || u.role === "Admin" || ADMIN_EMAILS.has((u.email || "").toLowerCase());
+      const isAdmin = u.id === ADMIN_USER_ID || u.email && u.email.toLowerCase().trim() === "mohamedvadel60@gmail.com";
       const trialEndIso = u.trialEndsAt || u.trialExpiresAt || null;
       const trialEndMs = trialEndIso ? new Date(trialEndIso).getTime() : 0;
       const trialRemainingSec = Math.max(0, Math.floor((trialEndMs - nowMs) / 1e3));
@@ -18978,7 +19141,7 @@ app2.post(
               verificationDocuments: rawDocs,
               documents: rawDocs
             };
-            const isTargetSysAdmin = targetUser.role === "Admin" || targetUser.email && ADMIN_EMAILS.has(targetUser.email.toLowerCase());
+            const isTargetSysAdmin = Boolean(targetUser.email && targetUser.email.toLowerCase().trim() === "mohamedvadel60@gmail.com");
             if (remainingDocsCount === 0 && !isTargetSysAdmin) {
               userCleanUpdate.documentVerificationStatus = "NOT_SUBMITTED";
               userCleanUpdate.kycStatus = "NOT_VERIFIED";
@@ -20894,7 +21057,12 @@ function accuratelyDetectMimeType(buffer, fallbackMime, fileName) {
     }
   }
   if (fallbackMime && fallbackMime !== "application/octet-stream" && fallbackMime !== "") {
-    return fallbackMime.toLowerCase();
+    const cleanFallback = fallbackMime.toLowerCase().trim();
+    if (cleanFallback.includes("webp")) return "image/webp";
+    if (cleanFallback.includes("pdf")) return "application/pdf";
+    if (cleanFallback.includes("png")) return "image/png";
+    if (cleanFallback.includes("jpeg") || cleanFallback.includes("jpg")) return "image/jpeg";
+    return cleanFallback;
   }
   if (fileName) {
     const ext = fileName.split(".").pop()?.toLowerCase();
@@ -20983,6 +21151,7 @@ function getFromLocalDiskCache(rawDocumentId) {
     const cleanId = import_path7.default.basename(documentId).replace(/[^a-zA-Z0-9_\-\.]/g, "");
     const directName = import_path7.default.basename(documentId);
     const idWithoutExt = cleanId.replace(/\.[a-zA-Z0-9]+$/, "");
+    const idWithoutPrefix = cleanId.replace(/^doc_(pdf_|png_|jpg_|jpeg_|webp_|bin_|test_bin_|b64_|nested_)?/, "");
     const baseDirs = [
       import_path7.default.join(process.cwd(), "storage", "documents"),
       import_path7.default.join(process.cwd(), "storage"),
@@ -20994,7 +21163,31 @@ function getFromLocalDiskCache(rawDocumentId) {
       import_path7.default.join(process.cwd(), "uploads"),
       process.cwd()
     ];
-    const fileVariants = [
+    const directCandidatePaths = [
+      documentId,
+      import_path7.default.resolve(process.cwd(), documentId),
+      import_path7.default.resolve(process.cwd(), "storage", documentId),
+      import_path7.default.resolve(process.cwd(), "storage", "documents", documentId),
+      import_path7.default.resolve(process.cwd(), "secure_uploads", documentId),
+      import_path7.default.resolve(import_os2.default.tmpdir(), "secure_uploads", documentId),
+      import_path7.default.resolve(import_os2.default.tmpdir(), documentId)
+    ];
+    for (const dp of directCandidatePaths) {
+      if (import_fs7.default.existsSync(dp)) {
+        try {
+          const stat = import_fs7.default.statSync(dp);
+          if (stat.isFile() && stat.size > 0) {
+            const buf = import_fs7.default.readFileSync(dp);
+            if (buf && buf.length > 0) {
+              setCachedBinary(documentId, buf);
+              return buf;
+            }
+          }
+        } catch (e) {
+        }
+      }
+    }
+    const fileVariants = /* @__PURE__ */ new Set([
       documentId,
       cleanId,
       directName,
@@ -21013,11 +21206,22 @@ function getFromLocalDiskCache(rawDocumentId) {
       `${idWithoutExt}.jpeg`,
       `${idWithoutExt}.webp`,
       `${idWithoutExt}.svg`,
-      `doc_pdf_${idWithoutExt}.bin`,
-      `doc_png_${idWithoutExt}.bin`,
+      `doc_${idWithoutPrefix}`,
+      `doc_${idWithoutPrefix}.bin`,
+      `doc_${idWithoutPrefix}.pdf`,
+      `doc_${idWithoutPrefix}.png`,
+      `doc_${idWithoutPrefix}.webp`,
+      `doc_${idWithoutPrefix}.jpg`,
+      `doc_${idWithoutPrefix}.jpeg`,
+      `doc_pdf_${idWithoutPrefix}.bin`,
+      `doc_png_${idWithoutPrefix}.bin`,
+      `doc_webp_${idWithoutPrefix}.bin`,
+      `doc_jpg_${idWithoutPrefix}.bin`,
+      `doc_test_bin_${idWithoutPrefix}.bin`,
       `doc_pdf_${cleanId}.bin`,
-      `doc_png_${cleanId}.bin`
-    ];
+      `doc_png_${cleanId}.bin`,
+      `doc_webp_${cleanId}.bin`
+    ]);
     for (const dir of baseDirs) {
       if (!import_fs7.default.existsSync(dir)) continue;
       for (const fName of fileVariants) {
@@ -21431,6 +21635,38 @@ async function resolveDocumentFromStorage(rawDocumentId, context) {
         };
       }
     }
+    if (isCloudStorageBucketAvailable !== false) {
+      const bucket = getSafeBucket();
+      if (bucket) {
+        for (const p of possiblePaths) {
+          if (p.startsWith("http://") || p.startsWith("https://") || p.startsWith("data:")) continue;
+          try {
+            const fileRef = bucket.file(p);
+            const [exists] = await fileRef.exists().catch(() => [false]);
+            if (exists) {
+              const [b] = await fileRef.download();
+              if (b && b.length > 0) {
+                saveToLocalDiskCache(documentId, b);
+                const mime = accuratelyDetectMimeType(b, declaredMime, fileName);
+                const hash = rec.fileHash || rec.sha256 || import_crypto3.default.createHash("sha256").update(b).digest("hex");
+                setCachedBinary(documentId, b, mime, fileName, hash);
+                return {
+                  documentId,
+                  buffer: b,
+                  mimeType: mime,
+                  fileName,
+                  size: b.length,
+                  sha256: hash,
+                  source: `${recName}_cloud_bucket_ref`,
+                  metadata: rec
+                };
+              }
+            }
+          } catch (e) {
+          }
+        }
+      }
+    }
     if (typeof rec.fileUrl === "string" && (rec.fileUrl.startsWith("http://") || rec.fileUrl.startsWith("https://"))) {
       try {
         const resp = await fetch(rec.fileUrl);
@@ -21654,9 +21890,11 @@ async function resolveDocumentFromStorage(rawDocumentId, context) {
     try {
       let timeoutHandle = null;
       const fsQueryPromise = async () => {
-        const [verSnap, recSnap, fileSnap, pendSnap] = await Promise.all([
+        const [verSnap, verAltSnap, recSnap, recAltSnap, fileSnap, pendSnap] = await Promise.all([
           adminDb.collection("verification_documents").doc(documentId).get().catch(() => null),
+          adminDb.collection("verificationDocuments").doc(documentId).get().catch(() => null),
           adminDb.collection("recoveryDocuments").doc(documentId).get().catch(() => null),
+          adminDb.collection("recovery_documents").doc(documentId).get().catch(() => null),
           adminDb.collection("files").doc(documentId).get().catch(() => null),
           adminDb.collection("pendingRecoveryUploads").doc(documentId).get().catch(() => null)
         ]);
@@ -21664,12 +21902,17 @@ async function resolveDocumentFromStorage(rawDocumentId, context) {
           const res = await tryExtractBufferFromRecord(verSnap.data(), "firestore_verification_doc");
           if (res) return res;
         }
-        if (recSnap && recSnap.exists) {
-          const recData = recSnap.data() || {};
+        if (verAltSnap && verAltSnap.exists) {
+          const res = await tryExtractBufferFromRecord(verAltSnap.data(), "firestore_verification_doc_alt");
+          if (res) return res;
+        }
+        const activeRecSnap = recSnap && recSnap.exists ? recSnap : recAltSnap && recAltSnap.exists ? recAltSnap : null;
+        if (activeRecSnap && activeRecSnap.exists) {
+          const recData = activeRecSnap.data() || {};
           const res = await tryExtractBufferFromRecord(recData, "firestore_recovery_doc");
           if (res) return res;
           try {
-            const chunksSnap = await adminDb.collection("recoveryDocuments").doc(documentId).collection("chunks").get();
+            const chunksSnap = await activeRecSnap.ref.collection("chunks").get();
             if (chunksSnap && !chunksSnap.empty) {
               const sortedDocs = chunksSnap.docs.sort((a, b) => {
                 const idxA = Number(a.data().chunkIndex ?? a.id);
@@ -21724,19 +21967,25 @@ async function resolveDocumentFromStorage(rawDocumentId, context) {
           const res = await tryExtractBufferFromRecord(pData, "firestore_pending_doc");
           if (res) return res;
         }
-        const [qVerSnap, qRecSnap, qFilesSnap] = await Promise.all([
+        const [qVerSnap, qVerAltSnap, qRecSnap, qRecAltSnap, qFilesSnap] = await Promise.all([
           adminDb.collection("verification_documents").where("storageReference", "==", documentId).limit(1).get().catch(() => null),
+          adminDb.collection("verificationDocuments").where("storageReference", "==", documentId).limit(1).get().catch(() => null),
           adminDb.collection("recoveryDocuments").where("storageReference", "==", documentId).limit(1).get().catch(() => null),
+          adminDb.collection("recovery_documents").where("storageReference", "==", documentId).limit(1).get().catch(() => null),
           adminDb.collection("files").where("storageReference", "==", documentId).limit(1).get().catch(() => null)
         ]);
-        const queryDoc = (qVerSnap && !qVerSnap.empty ? qVerSnap.docs[0].data() : null) || (qRecSnap && !qRecSnap.empty ? qRecSnap.docs[0].data() : null) || (qFilesSnap && !qFilesSnap.empty ? qFilesSnap.docs[0].data() : null);
+        const queryDoc = (qVerSnap && !qVerSnap.empty ? qVerSnap.docs[0].data() : null) || (qVerAltSnap && !qVerAltSnap.empty ? qVerAltSnap.docs[0].data() : null) || (qRecSnap && !qRecSnap.empty ? qRecSnap.docs[0].data() : null) || (qRecAltSnap && !qRecAltSnap.empty ? qRecAltSnap.docs[0].data() : null) || (qFilesSnap && !qFilesSnap.empty ? qFilesSnap.docs[0].data() : null);
         if (queryDoc) {
           const res = await tryExtractBufferFromRecord(queryDoc, "firestore_query_doc");
           if (res) return res;
         }
-        if (context?.userId) {
+        let effectiveUserId = context?.userId;
+        if (!effectiveUserId && queryDoc?.userId) {
+          effectiveUserId = queryDoc.userId;
+        }
+        if (effectiveUserId) {
           try {
-            const userSnap = await adminDb.collection("users").doc(context.userId).get();
+            const userSnap = await adminDb.collection("users").doc(effectiveUserId).get();
             if (userSnap.exists) {
               const uData = userSnap.data() || {};
               const docList = [
@@ -21756,7 +22005,7 @@ async function resolveDocumentFromStorage(rawDocumentId, context) {
           } catch (uErr) {
           }
           try {
-            const subFileSnap = await adminDb.collection("users").doc(context.userId).collection("files").doc(documentId).get();
+            const subFileSnap = await adminDb.collection("users").doc(effectiveUserId).collection("files").doc(documentId).get();
             if (subFileSnap && subFileSnap.exists) {
               const res = await tryExtractBufferFromRecord(subFileSnap.data(), "firestore_user_subfile_doc");
               if (res) return res;
@@ -21823,15 +22072,48 @@ async function resolveDocumentFromStorage(rawDocumentId, context) {
   if (isCloudStorageBucketAvailable !== false) {
     const bucket = getSafeBucket();
     if (bucket) {
-      const candidates = [
+      const cleanDocId = import_path7.default.basename(documentId).replace(/[^a-zA-Z0-9_\-\.]/g, "");
+      const idNoExt = cleanDocId.replace(/\.[a-zA-Z0-9]+$/, "");
+      const idNoPrefix = cleanDocId.replace(/^doc_(pdf_|png_|jpg_|jpeg_|webp_|bin_|test_bin_|b64_|nested_)?/, "");
+      const candidates = Array.from(/* @__PURE__ */ new Set([
         `secure_uploads/${documentId}`,
+        `secure_uploads/${cleanDocId}`,
+        `secure_uploads/${cleanDocId}.bin`,
+        `secure_uploads/${cleanDocId}.pdf`,
+        `secure_uploads/${cleanDocId}.webp`,
+        `secure_uploads/${cleanDocId}.png`,
+        `secure_uploads/${cleanDocId}.jpg`,
+        `secure_uploads/${cleanDocId}.jpeg`,
+        `secure_uploads/${idNoExt}`,
+        `secure_uploads/${idNoExt}.bin`,
+        `secure_uploads/${idNoExt}.pdf`,
+        `secure_uploads/${idNoExt}.webp`,
+        `secure_uploads/${idNoExt}.png`,
         `files/${documentId}`,
+        `files/${cleanDocId}`,
         `verification_documents/${documentId}`,
+        `verification_documents/${cleanDocId}`,
+        `verificationDocuments/${documentId}`,
         `recoveryDocuments/${documentId}`,
+        `recovery_documents/${documentId}`,
         `documents/${documentId}`,
+        `documents/${cleanDocId}`,
         `storage/documents/${documentId}`,
-        documentId
-      ];
+        `storage/documents/${cleanDocId}`,
+        `storage/documents/${cleanDocId}.bin`,
+        `storage/documents/${cleanDocId}.pdf`,
+        `storage/documents/${cleanDocId}.webp`,
+        `storage/documents/${cleanDocId}.png`,
+        `storage/documents/doc_pdf_${idNoPrefix}.bin`,
+        `storage/documents/doc_png_${idNoPrefix}.bin`,
+        `storage/documents/doc_webp_${idNoPrefix}.bin`,
+        `storage/${documentId}`,
+        `storage/${cleanDocId}`,
+        `uploads/${documentId}`,
+        `uploads/${cleanDocId}`,
+        documentId,
+        cleanDocId
+      ]));
       try {
         let timeoutHandle = null;
         const bucketCheckPromise = async () => {
@@ -21940,6 +22222,30 @@ async function resolveDocumentFromStorage(rawDocumentId, context) {
             }
           }
         }
+      }
+    }
+    if (isFirebaseAdminAvailable && adminDb) {
+      try {
+        const [recReqSnap, recReqAltSnap] = await Promise.all([
+          adminDb.collection("recoveryRequests").doc(documentId).get().catch(() => null),
+          adminDb.collection("accountRecoveryRequests").doc(documentId).get().catch(() => null)
+        ]);
+        const reqDoc = (recReqSnap && recReqSnap.exists ? recReqSnap.data() : null) || (recReqAltSnap && recReqAltSnap.exists ? recReqAltSnap.data() : null);
+        if (reqDoc) {
+          const candId = reqDoc.documentId || reqDoc.identityDocument?.id || reqDoc.identityDocument?.documentId || reqDoc.storageReference;
+          if (candId && candId !== documentId) {
+            const resolved = await resolveDocumentFromStorage(candId, {
+              ...context,
+              userId: reqDoc.userId || reqDoc.uid,
+              requestId: documentId,
+              _visited: Array.from(visited)
+            });
+            if (resolved && resolved.buffer && resolved.buffer.length > 0) {
+              return { ...resolved, documentId };
+            }
+          }
+        }
+      } catch (e) {
       }
     }
   }
@@ -22834,10 +23140,40 @@ app2.get(
         });
       }
       let isOwner = false;
-      const db2 = readDb2();
-      let docRecord = db2.verification_documents_store?.[documentId] || db2.recovery_documents_store?.[documentId];
-      if (!docRecord && Array.isArray(db2.files)) {
-        docRecord = db2.files.find((f) => f.id === documentId || f.documentId === documentId || f.fileId === documentId);
+      let docRecord = null;
+      const allDbs = readAllLocalDbs();
+      for (const localDb of allDbs) {
+        if (localDb.verification_documents_store?.[documentId]) {
+          docRecord = localDb.verification_documents_store[documentId];
+          break;
+        }
+        if (localDb.recovery_documents_store?.[documentId]) {
+          docRecord = localDb.recovery_documents_store[documentId];
+          break;
+        }
+        if (Array.isArray(localDb.files)) {
+          const f = localDb.files.find((file) => file?.id === documentId || file?.documentId === documentId || file?.fileId === documentId || file?.storageReference === documentId);
+          if (f) {
+            docRecord = f;
+            break;
+          }
+        }
+        if (Array.isArray(localDb.users)) {
+          for (const u of localDb.users) {
+            const uDocs = [
+              ...Array.isArray(u.verificationDocuments) ? u.verificationDocuments : [],
+              ...Array.isArray(u.documents) ? u.documents : [],
+              ...Array.isArray(u.verificationInfo?.documents) ? u.verificationInfo.documents : [],
+              ...Array.isArray(u.files) ? u.files : []
+            ];
+            const match = uDocs.find((d) => d && (d.documentId === documentId || d.id === documentId || d.fileId === documentId || d.storageReference === documentId));
+            if (match) {
+              docRecord = { ...match, userId: match.userId || u.id || u.uid };
+              break;
+            }
+          }
+          if (docRecord) break;
+        }
       }
       if (callerUid && docRecord && (docRecord.userId === callerUid || docRecord.userUid === callerUid || docRecord.ownerUid === callerUid)) {
         isOwner = true;
@@ -22848,17 +23184,21 @@ app2.get(
           isOwner = true;
         }
       }
-      if (!isAdmin && !isOwner && isFirebaseAdminAvailable && adminDb && callerUid) {
+      if (isFirebaseAdminAvailable && adminDb) {
         try {
-          const [vSnap, rSnap, fSnap] = await Promise.all([
+          const [vSnap, vAltSnap, rSnap, rAltSnap, fSnap] = await Promise.all([
             adminDb.collection("verification_documents").doc(documentId).get().catch(() => null),
+            adminDb.collection("verificationDocuments").doc(documentId).get().catch(() => null),
             adminDb.collection("recoveryDocuments").doc(documentId).get().catch(() => null),
+            adminDb.collection("recovery_documents").doc(documentId).get().catch(() => null),
             adminDb.collection("files").doc(documentId).get().catch(() => null)
           ]);
-          const docData = vSnap?.data() || rSnap?.data() || fSnap?.data();
-          if (docData && (docData.userId === callerUid || docData.ownerUid === callerUid || docData.userUid === callerUid)) {
-            isOwner = true;
+          const docData = vSnap?.data() || vAltSnap?.data() || rSnap?.data() || rAltSnap?.data() || fSnap?.data();
+          if (docData) {
             if (!docRecord) docRecord = docData;
+            if (callerUid && (docData.userId === callerUid || docData.ownerUid === callerUid || docData.userUid === callerUid)) {
+              isOwner = true;
+            }
           }
         } catch (e) {
         }
@@ -22962,6 +23302,292 @@ app2.get(
     }
   }
 );
+async function findFileRecord(fileId, callerUid) {
+  let docData = null;
+  let docRef = null;
+  let ownerUid = null;
+  if (isFirebaseAdminAvailable && adminDb) {
+    try {
+      const topSnap = await adminDb.collection("files").doc(fileId).get();
+      if (topSnap && topSnap.exists) {
+        docData = topSnap.data();
+        docRef = topSnap.ref;
+        ownerUid = docData.userId || docData.ownerUid || docData.uid;
+      }
+    } catch (e) {
+    }
+    if (!docData && callerUid) {
+      try {
+        const subSnap = await adminDb.collection("users").doc(callerUid).collection("files").doc(fileId).get();
+        if (subSnap && subSnap.exists) {
+          docData = subSnap.data();
+          docRef = subSnap.ref;
+          ownerUid = callerUid;
+        }
+      } catch (e) {
+      }
+    }
+    if (!docData) {
+      try {
+        const groupSnap = await adminDb.collectionGroup("files").where("id", "==", fileId).limit(1).get();
+        if (!groupSnap.empty) {
+          docData = groupSnap.docs[0].data();
+          docRef = groupSnap.docs[0].ref;
+          ownerUid = docData.userId || docData.ownerUid || groupSnap.docs[0].ref.parent.parent?.id || null;
+        }
+      } catch (e) {
+      }
+    }
+  }
+  if (!docData) {
+    try {
+      const allDbs = readAllLocalDbs();
+      for (const lDb of allDbs) {
+        if (lDb.users) {
+          for (const u of lDb.users) {
+            if (u.files && Array.isArray(u.files)) {
+              const matched = u.files.find((f) => f.id === fileId);
+              if (matched) {
+                docData = matched;
+                ownerUid = u.id || u.uid || matched.userId;
+                break;
+              }
+            }
+          }
+        }
+        if (docData) break;
+      }
+    } catch (e) {
+    }
+  }
+  return { docData, docRef, ownerUid };
+}
+app2.post("/api/files/:fileId/access-code", requireAuth, async (req, res) => {
+  try {
+    const callerUid = req.user?.uid;
+    const callerEmail = req.user?.email || "";
+    const fileId = (req.params.fileId || "").trim();
+    if (!fileId) {
+      return res.status(400).json({ success: false, error: "INVALID_FILE_ID", message: "File ID is required." });
+    }
+    if (!callerUid) {
+      return res.status(401).json({ success: false, error: "UNAUTHORIZED", message: "Authentication required." });
+    }
+    const { docData, docRef, ownerUid } = await findFileRecord(fileId, callerUid);
+    const resolvedOwnerUid = ownerUid || docData?.userId || callerUid;
+    const isOwner = resolvedOwnerUid === callerUid;
+    const isAdmin = await isUserAdminServer(callerUid, callerEmail);
+    if (!isOwner && !isAdmin) {
+      return res.status(403).json({
+        success: false,
+        error: "FORBIDDEN",
+        message: "Forbidden: You do not have permission to modify this file's access code."
+      });
+    }
+    const { code, enabled, action } = req.body || {};
+    const isDisableAction = action === "disable" || enabled === false;
+    const nowIso = (/* @__PURE__ */ new Date()).toISOString();
+    if (isDisableAction) {
+      const updatePayload2 = {
+        codeEnabled: false,
+        codeHash: null,
+        hasAccessCode: false,
+        isEncrypted: false,
+        codeUpdatedAt: nowIso
+      };
+      if (docRef) {
+        await docRef.set(updatePayload2, { merge: true }).catch(() => {
+        });
+      }
+      if (isFirebaseAdminAvailable && adminDb) {
+        try {
+          await adminDb.collection("files").doc(fileId).set(updatePayload2, { merge: true }).catch(() => {
+          });
+          await adminDb.collection("users").doc(resolvedOwnerUid).collection("files").doc(fileId).set(updatePayload2, { merge: true }).catch(() => {
+          });
+        } catch (e) {
+        }
+      }
+      try {
+        const db2 = readDb2();
+        if (db2.users) {
+          const uIdx = db2.users.findIndex((u) => u.id === resolvedOwnerUid || u.uid === resolvedOwnerUid);
+          if (uIdx !== -1 && db2.users[uIdx].files) {
+            const fIdx = db2.users[uIdx].files.findIndex((f) => f.id === fileId);
+            if (fIdx !== -1) {
+              Object.assign(db2.users[uIdx].files[fIdx], updatePayload2);
+              writeDb2(db2);
+            }
+          }
+        }
+      } catch (e) {
+      }
+      return res.json({
+        success: true,
+        message: "File access code disabled successfully.",
+        fileId,
+        hasAccessCode: false,
+        codeEnabled: false
+      });
+    }
+    const normalizedCode = (code || "").toString().trim();
+    if (!normalizedCode || normalizedCode.length < 2) {
+      return res.status(400).json({
+        success: false,
+        error: "INVALID_CODE",
+        message: "File access code must be at least 2 characters long."
+      });
+    }
+    const codeHash = hashSecurityPasscode(normalizedCode);
+    const updatePayload = {
+      codeEnabled: true,
+      codeHash,
+      hasAccessCode: true,
+      isEncrypted: true,
+      codeCreatedAt: docData?.codeCreatedAt || nowIso,
+      codeUpdatedAt: nowIso
+    };
+    if (docRef) {
+      await docRef.set(updatePayload, { merge: true }).catch(() => {
+      });
+    }
+    if (isFirebaseAdminAvailable && adminDb) {
+      try {
+        await adminDb.collection("files").doc(fileId).set(updatePayload, { merge: true }).catch(() => {
+        });
+        await adminDb.collection("users").doc(resolvedOwnerUid).collection("files").doc(fileId).set(updatePayload, { merge: true }).catch(() => {
+        });
+      } catch (e) {
+      }
+    }
+    try {
+      const db2 = readDb2();
+      if (db2.users) {
+        const uIdx = db2.users.findIndex((u) => u.id === resolvedOwnerUid || u.uid === resolvedOwnerUid);
+        if (uIdx !== -1) {
+          if (!db2.users[uIdx].files) db2.users[uIdx].files = [];
+          const fIdx = db2.users[uIdx].files.findIndex((f) => f.id === fileId);
+          if (fIdx !== -1) {
+            Object.assign(db2.users[uIdx].files[fIdx], updatePayload);
+          } else {
+            db2.users[uIdx].files.push({ id: fileId, userId: resolvedOwnerUid, ...updatePayload });
+          }
+          writeDb2(db2);
+        }
+      }
+    } catch (e) {
+    }
+    return res.json({
+      success: true,
+      message: "File access code configured successfully.",
+      fileId,
+      hasAccessCode: true,
+      codeEnabled: true,
+      codeCreatedAt: updatePayload.codeCreatedAt,
+      codeUpdatedAt: updatePayload.codeUpdatedAt
+    });
+  } catch (err) {
+    console.error("[FILE_ACCESS_CODE_SET_ERROR]", err);
+    return res.status(500).json({
+      success: false,
+      error: "SERVER_ERROR",
+      message: err.message || "Failed to configure file access code."
+    });
+  }
+});
+app2.post("/api/files/:fileId/verify-access-code", requireAuth, async (req, res) => {
+  try {
+    const callerUid = req.user?.uid;
+    const callerEmail = req.user?.email || "";
+    const fileId = (req.params.fileId || "").trim();
+    if (!fileId) {
+      return res.status(400).json({ success: false, verified: false, error: "INVALID_FILE_ID", message: "File ID is required." });
+    }
+    if (!callerUid) {
+      return res.status(401).json({ success: false, verified: false, error: "UNAUTHORIZED", message: "Authentication required." });
+    }
+    const { docData, ownerUid } = await findFileRecord(fileId, callerUid);
+    const resolvedOwnerUid = ownerUid || docData?.userId || callerUid;
+    const isOwner = resolvedOwnerUid === callerUid;
+    const isAdmin = await isUserAdminServer(callerUid, callerEmail);
+    if (!isOwner && !isAdmin && docData && docData.userId && docData.userId !== callerUid) {
+      return res.status(403).json({
+        success: false,
+        verified: false,
+        error: "FORBIDDEN",
+        message: "Forbidden: You do not have permission to verify code for this file."
+      });
+    }
+    if (!docData || docData.codeEnabled === false || !docData.codeHash && !docData.hasAccessCode) {
+      return res.json({
+        success: true,
+        verified: true,
+        message: "No access code required for this file."
+      });
+    }
+    const { code } = req.body || {};
+    const normalizedEnteredCode = (code || "").toString().trim();
+    if (!normalizedEnteredCode) {
+      return res.status(400).json({
+        success: false,
+        verified: false,
+        error: "EMPTY_CODE",
+        message: "Access code is required."
+      });
+    }
+    const storedHash = docData.codeHash;
+    if (!storedHash) {
+      return res.json({
+        success: true,
+        verified: true,
+        message: "No access code required for this file."
+      });
+    }
+    const isMatch = verifySecurityPasscode(normalizedEnteredCode, storedHash);
+    if (isMatch) {
+      return res.json({
+        success: true,
+        verified: true,
+        message: "File access code verified successfully."
+      });
+    } else {
+      return res.status(403).json({
+        success: false,
+        verified: false,
+        error: "INCORRECT_CODE",
+        message: "Incorrect file access code. Access denied."
+      });
+    }
+  } catch (err) {
+    console.error("[FILE_ACCESS_CODE_VERIFY_ERROR]", err);
+    return res.status(500).json({
+      success: false,
+      verified: false,
+      error: "SERVER_ERROR",
+      message: err.message || "Failed to verify file access code."
+    });
+  }
+});
+app2.get("/api/files/:fileId/access-code-status", requireAuth, async (req, res) => {
+  try {
+    const callerUid = req.user?.uid;
+    const fileId = (req.params.fileId || "").trim();
+    if (!fileId) {
+      return res.status(400).json({ success: false, error: "INVALID_FILE_ID", message: "File ID is required." });
+    }
+    const { docData } = await findFileRecord(fileId, callerUid);
+    return res.json({
+      success: true,
+      fileId,
+      hasAccessCode: Boolean(docData?.hasAccessCode || docData?.codeEnabled || docData?.codeHash),
+      codeEnabled: Boolean(docData?.codeEnabled !== false && (docData?.hasAccessCode || docData?.codeHash)),
+      codeCreatedAt: docData?.codeCreatedAt || null,
+      codeUpdatedAt: docData?.codeUpdatedAt || null
+    });
+  } catch (err) {
+    return res.status(500).json({ success: false, error: "SERVER_ERROR", message: err.message });
+  }
+});
 app2.get("/api/admin/users/:userId/documents", requireAuth, requireAdmin, async (req, res) => {
   try {
     const { userId } = req.params;

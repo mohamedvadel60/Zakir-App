@@ -357,19 +357,44 @@ export function computeCanonicalVerification(
     };
   }
 
-  const rawAccStatus = String(full.accountStatus || userData.accountStatus || "").toUpperCase();
-  const rawDocStatus = String(full.documentVerificationStatus || userData.documentVerificationStatus || full.verificationInfo?.status || "").toUpperCase();
-  const rawReqStatus = String(full.verificationRequestStatus || full.verificationRequest || userData.verificationRequestStatus || userData.verificationRequest || "").toUpperCase();
-  const rawCanonical = String(full.canonicalVerificationStatus || userData.canonicalVerificationStatus || "").toLowerCase();
-  const rawKycStatus = String(full.kycStatus || userData.kycStatus || "").toUpperCase();
+  const rawAccStatus = String(
+    full.accountStatus || userData.accountStatus ||
+    full.account_status || userData.account_status ||
+    full.status || userData.status || ""
+  ).toUpperCase();
+  const rawDocStatus = String(
+    full.documentVerificationStatus || userData.documentVerificationStatus ||
+    full.verificationInfo?.status || full.docStatus || userData.docStatus || ""
+  ).toUpperCase();
+  const rawReqStatus = String(
+    full.verificationRequestStatus || full.verificationRequest ||
+    userData.verificationRequestStatus || userData.verificationRequest || ""
+  ).toUpperCase();
+  const rawCanonical = String(
+    full.canonicalVerificationStatus || userData.canonicalVerificationStatus || ""
+  ).toLowerCase();
+  const rawKycStatus = String(
+    full.kycStatus || userData.kycStatus ||
+    full.kyc_status || userData.kyc_status ||
+    full.verificationStatus || userData.verificationStatus || ""
+  ).toUpperCase();
   const rejectionReason = full.rejectionReason || userData.rejectionReason || full.verificationInfo?.adminNote || undefined;
+
+  const isExplicitlyFlaggedApproved = Boolean(
+    full.isApproved === true || userData.isApproved === true ||
+    full.isVerified === true || userData.isVerified === true ||
+    full.verified === true || userData.verified === true ||
+    full.adminApproved === true || userData.adminApproved === true
+  );
 
   const hasRejectedDoc = documents.some((d) => d.status === "REJECTED");
   const isExplicitlyAdminApproved = Boolean(
     rawCanonical === "approved" ||
     rawAccStatus === "APPROVED" ||
     rawAccStatus === "ACTIVE" ||
-    (rawKycStatus === "VERIFIED" && rawDocStatus === "APPROVED") ||
+    rawKycStatus === "VERIFIED" ||
+    rawKycStatus === "APPROVED" ||
+    isExplicitlyFlaggedApproved ||
     Boolean(full.approvedAt || userData.approvedAt || full.approvedBy || userData.approvedBy)
   );
 
@@ -390,15 +415,15 @@ export function computeCanonicalVerification(
   ) {
     canonicalStatus = "approved";
     accountStatus = "APPROVED";
+    isFullyApproved = true;
 
     const hasPendingDoc = documents.some((d) => d.status === "PENDING" || d.status === "UNDER_REVIEW");
     const allApprovedDocs = documentCount > 0 && documents.every((d) => d.status === "APPROVED" || d.verificationStatus === "APPROVED");
 
-    if (hasExplicitOverride || (documentCount > 0 && (allApprovedDocs || rawDocStatus === "APPROVED" || rawKycStatus === "VERIFIED" || rawCanonical === "approved"))) {
+    if (hasExplicitOverride || documentCount === 0 || allApprovedDocs || rawDocStatus === "APPROVED" || rawKycStatus === "VERIFIED" || rawKycStatus === "APPROVED" || rawCanonical === "approved") {
       documentVerificationStatus = "APPROVED";
       kycStatus = "VERIFIED";
       uiState = "VERIFIED";
-      isFullyApproved = true;
       userFriendlyMessage = "تم اعتماد وتوثيق الحساب رسمياً.";
 
       // Mark documents as approved in the returned list
@@ -412,13 +437,11 @@ export function computeCanonicalVerification(
       documentVerificationStatus = "UNDER_REVIEW";
       kycStatus = "UNDER_REVIEW";
       uiState = "PENDING_REVIEW";
-      isFullyApproved = false;
       userFriendlyMessage = "الحساب معتمد، ووثائق التوثيق المؤسسي قيد المراجعة.";
     } else {
-      documentVerificationStatus = "NOT_SUBMITTED";
-      kycStatus = "NOT_VERIFIED";
-      uiState = "NO_REQUEST";
-      isFullyApproved = false;
+      documentVerificationStatus = "APPROVED";
+      kycStatus = "VERIFIED";
+      uiState = "VERIFIED";
       userFriendlyMessage = "الحساب معتمد ومفعل بالكامل.";
     }
   }

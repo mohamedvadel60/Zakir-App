@@ -292,7 +292,7 @@ export const MarketIntelligenceView: React.FC<MarketIntelligenceViewProps> = ({
 
       if (!res.ok) {
         const errData = await res.json().catch(() => ({}));
-        throw new Error(errData.error || `HTTP error ${res.status}`);
+        throw new Error(errData.userFriendlyMessage || errData.error || `HTTP error ${res.status}`);
       }
 
       const data: MarketIntelligenceData = await res.json();

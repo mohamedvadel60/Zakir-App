@@ -416,6 +416,8 @@ export function hashVerificationCode(code: string): string {
   return crypto.createHash("sha256").update(String(code).trim()).digest("hex");
 }
 
+import { normalizeTimestampToIso } from "./dateUtils.js";
+
 export async function resolveAccountLifecycle(
   identifier: string,
   optUid?: string | null
@@ -430,6 +432,13 @@ export async function resolveAccountLifecycle(
   restoreUntil: string | null;
   deletedAt: string | null;
   originalUserId: string | null;
+  hasRecoveryRequest?: boolean;
+  recoveryRequestId?: string | null;
+  recoveryStatus?: "none" | "pending" | "approved" | "rejected";
+  initialTab?: "request" | "status";
+  nextAction?: string;
+  isExpired?: boolean;
+  recoveryRequest?: any;
   user?: any;
   userFriendlyMessage: string;
 }> {
@@ -601,6 +610,11 @@ export async function resolveAccountLifecycle(
       restoreUntil: null,
       deletedAt: null,
       originalUserId: activeUserId || null,
+      hasRecoveryRequest: false,
+      recoveryRequestId: null,
+      recoveryStatus: "none",
+      initialTab: "request",
+      isExpired: false,
       user: activeUser,
       userFriendlyMessage: "البريد الإلكتروني مسجل بالفعل. يرجى تسجيل الدخول إلى حسابك.",
     };
@@ -699,15 +713,88 @@ export async function resolveAccountLifecycle(
   );
 
   if (isDeleted) {
-    const deletedAt = record.deletedAt || record.archivedAt || record.createdAt || new Date().toISOString();
+    const rawDelAt = record.deletedAt || record.archivedAt || record.createdAt;
+    const deletedAt = normalizeTimestampToIso(rawDelAt) || new Date().toISOString();
     const delTime = new Date(deletedAt).getTime();
     const restoreUntilMs = delTime + 31 * 24 * 60 * 60 * 1000;
-    const restoreUntilIso = record.restoreUntil || new Date(restoreUntilMs).toISOString();
-    const daysRemaining = Math.max(0, Math.ceil((new Date(restoreUntilIso).getTime() - Date.now()) / (24 * 3600 * 1000)));
+    const restoreUntilIso = normalizeTimestampToIso(record.restoreUntil) || new Date(restoreUntilMs).toISOString();
+    const remainingMs = new Date(restoreUntilIso).getTime() - Date.now();
+    const daysRemaining = Math.max(0, Math.ceil(remainingMs / (24 * 3600 * 1000)));
+    const isExpired = record.status === "PURGED" || (daysRemaining <= 0 && record.status !== "ADMIN_DELETED" && record.status !== "ADMIN_APPROVED");
+
+    // Query active persistent recovery requests across Firestore and local DB
+    let activeRecoveryDoc: any = null;
+    if (normalizedEmail) {
+      if (isFirebaseAdminAvailable && adminDb) {
+        try {
+          const emailSnap = await adminDb.collection("recoveryRequests_by_email").doc(normalizedEmail).get();
+          if (emailSnap.exists) {
+            activeRecoveryDoc = emailSnap.data();
+          }
+        } catch (e) {}
+
+        if (!activeRecoveryDoc) {
+          try {
+            const qSnap = await adminDb.collection("recoveryRequests").where("email", "==", normalizedEmail).limit(1).get();
+            if (!qSnap.empty) {
+              activeRecoveryDoc = qSnap.docs[0].data();
+            }
+          } catch (e) {}
+        }
+
+        if (!activeRecoveryDoc) {
+          try {
+            const legSnap = await adminDb.collection("accountRecoveryRequests_by_email").doc(normalizedEmail).get();
+            if (legSnap.exists) {
+              activeRecoveryDoc = legSnap.data();
+            }
+          } catch (e) {}
+        }
+      }
+
+      if (!activeRecoveryDoc) {
+        const db = readDb();
+        const reqs = Array.isArray(db.account_recovery_requests) ? db.account_recovery_requests : [];
+        const found = reqs.find((r: any) => (r?.email || "").trim().toLowerCase() === normalizedEmail);
+        if (found) activeRecoveryDoc = found;
+      }
+    }
+
+    const hasRecoveryRequest = Boolean(
+      activeRecoveryDoc &&
+      (activeRecoveryDoc.id || activeRecoveryDoc.requestId) &&
+      ["pending", "under_review", "submitted", "approved", "rejected", "restored"].includes((activeRecoveryDoc.status || "").toLowerCase())
+    );
+
+    const rawStatus = (activeRecoveryDoc?.status || "").toLowerCase();
+    const recoveryStatus: "none" | "pending" | "approved" | "rejected" =
+      hasRecoveryRequest
+        ? (rawStatus === "approved" ? "approved" : rawStatus === "rejected" ? "rejected" : "pending")
+        : "none";
+
+    const recoveryRequestId = hasRecoveryRequest ? (activeRecoveryDoc.requestId || activeRecoveryDoc.id) : null;
+
+    let accountState = "DELETED_ACCOUNT_NO_RECOVERY_REQUEST";
+    if (hasRecoveryRequest) {
+      if (recoveryStatus === "approved") accountState = "DELETED_ACCOUNT_RECOVERY_APPROVED";
+      else if (recoveryStatus === "rejected") accountState = "DELETED_ACCOUNT_RECOVERY_REJECTED";
+      else accountState = "DELETED_ACCOUNT_RECOVERY_PENDING";
+    }
+
+    let userFriendlyMessage = `تم العثور على حساب سابق تم حذفه (${daysRemaining > 0 ? `متبقي ${daysRemaining} يوماً للاستعادة` : "انتهت فترة الاستعادة المباشرة"}).`;
+    if (accountState === "DELETED_ACCOUNT_RECOVERY_APPROVED") {
+      userFriendlyMessage = "تمت الموافقة على طلب استعادة حسابك من قبل إدارة المنصة! يمكنك الآن إكمال استعادة الحساب.";
+    } else if (accountState === "DELETED_ACCOUNT_RECOVERY_PENDING") {
+      userFriendlyMessage = "طلب استعادة حسابك قيد المراجعة حالياً من قبل إدارة المنصة. يرجى متابعة حالة الطلب.";
+    } else if (accountState === "DELETED_ACCOUNT_RECOVERY_REJECTED") {
+      userFriendlyMessage = "تمت مراجعة طلب استعادة الحساب ورفضه من قبل إدارة المنصة.";
+    } else if (isExpired) {
+      userFriendlyMessage = "انتهت فترة سماح استعادة هذا الحساب (31 يوماً). تم حذف البيانات بشكل نهائي وفق سياسة النظام.";
+    }
 
     return {
       status: record.status || "SELF_DELETED",
-      accountState: "DELETED_ACCOUNT_NO_RECOVERY_REQUEST",
+      accountState,
       email: normalizedEmail,
       isDeleted: true,
       canRestore: daysRemaining > 0 || record.status === "ADMIN_DELETED" || record.status === "ADMIN_APPROVED",
@@ -716,7 +803,22 @@ export async function resolveAccountLifecycle(
       restoreUntil: restoreUntilIso,
       deletedAt,
       originalUserId: record.originalUserId || null,
-      userFriendlyMessage: "تم العثور على حساب سابق تم حذفه.",
+      hasRecoveryRequest,
+      recoveryRequestId,
+      recoveryStatus,
+      initialTab: hasRecoveryRequest ? "status" : "request",
+      isExpired,
+      recoveryRequest: hasRecoveryRequest ? {
+        ...activeRecoveryDoc,
+        id: activeRecoveryDoc.id || activeRecoveryDoc.requestId,
+        requestId: activeRecoveryDoc.requestId || activeRecoveryDoc.id,
+        status: recoveryStatus,
+        createdAt: normalizeTimestampToIso(activeRecoveryDoc.createdAt) || normalizeTimestampToIso(activeRecoveryDoc.submittedAt),
+        submittedAt: normalizeTimestampToIso(activeRecoveryDoc.submittedAt) || normalizeTimestampToIso(activeRecoveryDoc.createdAt),
+        updatedAt: normalizeTimestampToIso(activeRecoveryDoc.updatedAt),
+        termsAcceptedAt: normalizeTimestampToIso(activeRecoveryDoc.termsAcceptedAt),
+      } : null,
+      userFriendlyMessage,
     };
   }
 
@@ -731,6 +833,11 @@ export async function resolveAccountLifecycle(
     restoreUntil: null,
     deletedAt: null,
     originalUserId: null,
+    hasRecoveryRequest: false,
+    recoveryRequestId: null,
+    recoveryStatus: "none",
+    initialTab: "request",
+    isExpired: false,
     userFriendlyMessage: "لا يوجد حساب مسجل بهذا البريد الإلكتروني.",
   };
 }
@@ -849,18 +956,45 @@ export async function getRecoveryStatus(email: string): Promise<{
 
   if (requestData) {
     const responseStatus = requestData.status || "pending";
+    const rawCreatedAt = requestData.createdAt || requestData.submittedAt;
+    const rawSubmittedAt = requestData.submittedAt || requestData.createdAt;
+    const normalizedCreatedAt = normalizeTimestampToIso(rawCreatedAt);
+    const normalizedSubmittedAt = normalizeTimestampToIso(rawSubmittedAt);
+    const normalizedUpdatedAt = normalizeTimestampToIso(requestData.updatedAt);
+    const normalizedTermsAt = normalizeTimestampToIso(requestData.termsAcceptedAt);
+
     return {
       success: true,
       recoverable: true,
       status: responseStatus,
-      remainingDays: 30,
+      remainingDays: 31,
       recoveryRequest: {
+        ...requestData,
         id: requestData.id || requestData.requestId,
         requestId: requestData.requestId || requestData.id,
         status: responseStatus,
         fullName: requestData.fullName,
-        submittedAt: requestData.submittedAt,
-        rejectionReason: responseStatus === "rejected" ? (requestData.rejectionReason || requestData.notes || "Request was declined by an administrator.") : null
+        email: requestData.email || normalizedEmail,
+        phone: requestData.phone,
+        organization: requestData.organization,
+        reason: requestData.reason,
+        termsAccepted: requestData.termsAccepted ?? true,
+        termsAcceptedAt: normalizedTermsAt || normalizedSubmittedAt,
+        createdAt: normalizedCreatedAt || normalizedSubmittedAt,
+        submittedAt: normalizedSubmittedAt || normalizedCreatedAt,
+        updatedAt: normalizedUpdatedAt,
+        documents: Array.isArray(requestData.documents)
+          ? requestData.documents.map((d: any) => ({
+              documentId: d.documentId || d.id,
+              fileName: d.fileName || d.name || "document",
+              mimeType: d.mimeType || d.type || "application/octet-stream",
+              size: d.size || 0,
+              storageReference: d.storageReference || `secure_uploads/${d.documentId || d.id}`,
+              uploadedAt: normalizeTimestampToIso(d.uploadedAt) || normalizedSubmittedAt,
+            }))
+          : [],
+        documentIds: requestData.documentIds || (Array.isArray(requestData.documents) ? requestData.documents.map((d: any) => d.documentId || d.id) : []),
+        rejectionReason: responseStatus === "rejected" ? (requestData.rejectionReason || requestData.notes || "تم رفض طلب استعادة الحساب من قبل إدارة المنصة.") : null
       }
     };
   }

@@ -1044,13 +1044,15 @@ export async function executeMarketResearchWithGemini(params: {
 [الشواهد والذاكرة الداخلية المتاحة من مساحة العمل]:
 ${internalEvidenceSummary || "لا توجد سجلات داخلية مسجلة مسبقاً لهذا الاستفسار."}
 
-[القواعد الحازمة]:
+[القواعد الحازمة - معايير الموثوقية والدقة]:
 1. ممنوع إخراج تشخيصات وقوالب ثابتة أو معلبة. يجب أن تعكس النتيجة الخصائص الحقيقية لدولة "${countryStr}" وقطاع "${industry}".
 2. إذا طلب المستخدم مقارنة بين دول (مثل موريتانيا والجزائر والمغرب)، يجب إنشاء مقارنة حقيقية مبنية على المتغيرات ذات الصلة (حجم السوق، النمو، الأنظمة، اللوجستيات، المزايا النسبية) لكل دولة.
-3. ممنوع اختلاق منافسين وهميين. إذا لم توجد أسماء مؤكدة، اذكر ذلك صراحة.
-4. أنتج عدداً متغيراً وديناميكياً من المخاطر والفرص والاتجاهات (ليس 3 أو 4 بالضرورة؛ بل حسب كفاية الأدلة).
+3. ممنوع اختلاق منافسين أو أرقام وهمية إطلاقاً. إذا لم تتوفر أسماء منافسين أو أرقام حقيقية مؤكدة، اذكر صراحة أن البيانات المتاحة غير كافية لتقديم تفاصيل محددة.
+4. أنتج عدداً متغيراً وديناميكياً من المخاطر والفرص والاتجاهات (حسب كفاية الأدلة، وليس عدداً ثابتاً).
 5. افصل بدقة بين الأدلة الداخلية للمؤسسة والأدلة الخارجية.
-8. أنشئ عدداً متغيراً وديناميكياً من المحاور والمخططات والسيناريوهات القابلة للتشخيص التفصيلي (diagnosableItems). يجب ألا يقتصر العدد أبداً على 4 عناصر (يمكن أن يكون 2 أو 3 أو 5 أو 8 أو 12 حسب ثراء الموضوع والأدلة).
+6. افصل بوضوح تام بين الحقائق القابلة للتحقق (Facts)، والاستنتاجات المنطقية المبنية عليها (Inferences)، والتوصيات والإجراءات التنفيذية (Recommendations). لا تقدم أي استنتاج كأنه حقيقة مطلقة إذا لم تتوفر له أدلة كافية.
+7. في حال غياب بيانات كافية حول موضوع محدد أو شريحة معينة، صرّح بوضوح بأن البيانات غير كافية، وحدد الشواهد والمؤشرات المطلوبة لإكمال التقييم دون اختراع أو توهم أرقام.
+8. أنشئ عدداً متغيراً وديناميكياً من المحاور والمخططات والسيناريوهات القابلة للتشخيص التفصيلي (diagnosableItems) يعكس ثراء الموضوع والأدلة.
 9. يجب أن تكون المخرجات كائن JSON صالح فقط بالشكل التالي دون أي كود Markdown خارجي:
 {
   "summary": "ملخص تنفيذي عميق واستراتيجي يوضح وضع السوق والاتجاهات والدوافع والقرارات المطلوبة",
@@ -1107,12 +1109,9 @@ ${internalEvidenceSummary || "لا توجد سجلات داخلية مسجلة �
   `;
 
   const candidateModels = [
-    "gemini-3.5-flash",
-    "gemini-3.5-flash-lite",
-    "gemini-flash-lite-latest",
-    "gemini-3.7-flash",
-    "gemini-3.1-flash-lite",
     "gemini-3.8-flash",
+    "gemini-3.1-flash-lite",
+    "gemini-flash-latest",
   ];
   let searchToolFailed = false;
 
@@ -1325,8 +1324,15 @@ export const handleRunMarketIntelligence = async (req: Request, res: Response) =
 
   try {
     const db = readDb();
-    let memories = req.body.memories || db.memories || [];
-    let riskAlerts = req.body.riskAlerts || db.risk_alerts || [];
+    const filteredDbMemories = Array.isArray(db.memories)
+      ? db.memories.filter((m: any) => (m.workspaceId === workspaceId || !m.workspaceId) && (m.userId === userId || m.userUid === userId || !m.userId))
+      : [];
+    const filteredDbRisks = Array.isArray(db.risk_alerts)
+      ? db.risk_alerts.filter((r: any) => (r.workspaceId === workspaceId || !r.workspaceId) && (r.userId === userId || r.userUid === userId || !r.userId))
+      : [];
+
+    let memories = Array.isArray(req.body.memories) && req.body.memories.length > 0 ? req.body.memories : filteredDbMemories;
+    let riskAlerts = Array.isArray(req.body.riskAlerts) && req.body.riskAlerts.length > 0 ? req.body.riskAlerts : filteredDbRisks;
     let files = req.body.files || [];
 
     // Parse countries from string or array
@@ -1526,12 +1532,9 @@ ${internalSummary || "لا توجد سجلات داخلية مسجلة مسبق�
 
     // Attempt generation with retry loop for transient 503 high demand spikes
     const diagModels = [
-      "gemini-3.5-flash",
-      "gemini-3.5-flash-lite",
-      "gemini-flash-lite-latest",
-      "gemini-3.7-flash",
-      "gemini-3.1-flash-lite",
       "gemini-3.8-flash",
+      "gemini-3.1-flash-lite",
+      "gemini-flash-latest",
     ];
     for (const modelName of diagModels) {
       try {

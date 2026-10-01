@@ -25,7 +25,13 @@ import {
   ChevronRight,
   ChevronLeft,
   Info,
-  Mail
+  Mail,
+  Eye,
+  Download,
+  Building,
+  Phone,
+  Calendar,
+  Hash
 } from "lucide-react";
 import {
   uploadRecoveryDocumentApi,
@@ -36,6 +42,16 @@ import {
   checkAccountLifecycleApi,
   loginWithCustomToken
 } from "../lib/firebaseServices";
+import {
+  formatRecoveryDateTime,
+  normalizeTimestampToIso,
+  safeFormatDateTime,
+  safeFormatDate
+} from "../lib/dateUtils";
+import {
+  openUserFileInNewTab,
+  downloadUserFile
+} from "../lib/fileViewerUtils";
 import { User } from "../types";
 
 export interface DeletedAccountRecoveryProps {
@@ -943,246 +959,356 @@ export const DeletedAccountRecovery: React.FC<DeletedAccountRecoveryProps> = ({
         /* MODE 1: REAL RECOVERY REQUEST EXISTS -> STATUS ONLY  */
         /* ---------------------------------------------------- */
         <div className="space-y-5 text-start">
-          {submittedRequestId ? (
-            <motion.div
-              initial={{ opacity: 0, scale: 0.98 }}
-              animate={{ opacity: 1, scale: 1 }}
-              className="space-y-6 text-center py-4"
-            >
-              <div className="w-16 h-16 rounded-2xl bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-200 dark:border-emerald-800/80 text-emerald-600 dark:text-emerald-400 flex items-center justify-center mx-auto shadow-sm">
-                <CheckCircle2 className="w-8 h-8" />
-              </div>
+          {(() => {
+            const reqData = statusResult?.recoveryRequest || submissionSuccessData || {};
+            const effectiveRequestId = submittedRequestId || reqData?.requestId || reqData?.id || "—";
+            const rawDate = reqData?.submittedAt || reqData?.createdAt;
+            const formattedDate = formatRecoveryDateTime(rawDate, lang);
+            const currentReqStatus = statusResult?.status || reqData?.status || "pending";
+            const applicantName = reqData?.fullName || fullName;
+            const applicantPhone = reqData?.phone || phone;
+            const applicantEmail = reqData?.email || email;
+            const applicantOrg = reqData?.organization || organization;
+            const applicantReason = reqData?.reason || recoveryReason;
+            const attachedDocs: any[] = Array.isArray(reqData?.documents) && reqData.documents.length > 0
+              ? reqData.documents
+              : documents.filter(d => d.status === "uploaded");
 
-              <div className="space-y-2 max-w-lg mx-auto">
-                <h2 className="text-xl font-black text-slate-900 dark:text-white">
-                  {t.successTitle}
-                </h2>
-                <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
-                  {t.successMsg}
-                </p>
-              </div>
+            return (
+              <div className="p-4 sm:p-6 bg-slate-50 dark:bg-[#131926] border border-slate-200 dark:border-slate-800 rounded-2xl space-y-5">
+                {/* STATUS BADGE & HEADER */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3.5 border-b border-slate-200 dark:border-slate-800">
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-bold text-slate-500 dark:text-slate-400">
+                        {t.requestIdLabel}
+                      </span>
+                      <span className="font-mono font-bold text-xs text-[#0075DE] dark:text-blue-400">
+                        {effectiveRequestId}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          navigator.clipboard.writeText(effectiveRequestId);
+                          setCopiedRequestId(true);
+                          setTimeout(() => setCopiedRequestId(false), 3000);
+                        }}
+                        className="p-1 rounded-md hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-500 transition-colors cursor-pointer"
+                        title={t.copyId}
+                      >
+                        {copiedRequestId ? (
+                          <Check className="w-3.5 h-3.5 text-emerald-500" />
+                        ) : (
+                          <Copy className="w-3.5 h-3.5" />
+                        )}
+                      </button>
+                    </div>
+                  </div>
 
-              {/* REQUEST SUMMARY CARD */}
-              <div className="max-w-md mx-auto p-4 bg-slate-50 dark:bg-[#131926] border border-slate-200 dark:border-slate-800 rounded-xl text-start space-y-3">
-                <div className="flex items-center justify-between gap-2 pb-2 border-b border-slate-200/80 dark:border-slate-700/60">
-                  <span className="text-xs font-bold text-slate-500 dark:text-slate-400">
-                    {t.requestIdLabel}
-                  </span>
-                  <div className="flex items-center gap-1.5">
-                    <span className="font-mono font-bold text-xs text-[#0075DE] dark:text-blue-400">
-                      {submittedRequestId}
+                  <div>
+                    {currentReqStatus === "approved" || currentReqStatus === "already_active" ? (
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800">
+                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                        <span>{lang === "ar" ? "تمت الموافقة على الطلب" : "Request Approved"}</span>
+                      </span>
+                    ) : currentReqStatus === "rejected" ? (
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-rose-100 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 border border-rose-300 dark:border-rose-800">
+                        <AlertCircle className="w-3.5 h-3.5 text-rose-600 dark:text-rose-400" />
+                        <span>{lang === "ar" ? "تم رفض الطلب" : "Request Declined"}</span>
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border border-amber-300 dark:border-amber-800">
+                        <Clock className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+                        <span>{t.statusPendingReview}</span>
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {/* SUBMISSION DATE AND TIME */}
+                <div className="p-3 bg-white dark:bg-[#192233] border border-slate-200/90 dark:border-slate-750 rounded-xl space-y-1 text-xs">
+                  <div className="flex items-center justify-between gap-2 flex-wrap">
+                    <span className="text-slate-500 dark:text-slate-400 font-semibold flex items-center gap-1.5">
+                      <Calendar className="w-3.5 h-3.5 text-[#0075DE] dark:text-blue-400" />
+                      <span>{lang === "ar" ? "تاريخ ووقت إرسال الطلب:" : "Submission Date & Time:"}</span>
                     </span>
+                    <span className="font-bold text-slate-800 dark:text-slate-200">
+                      {formattedDate}
+                    </span>
+                  </div>
+                </div>
+
+                {/* APPLICANT & REQUEST DETAILS */}
+                <div className="p-3.5 bg-white dark:bg-[#192233] border border-slate-200/90 dark:border-slate-750 rounded-xl space-y-2.5 text-xs">
+                  <h4 className="font-bold text-slate-800 dark:text-slate-200 pb-1 border-b border-slate-100 dark:border-slate-800">
+                    {lang === "ar" ? "بيانات مقدم الطلب:" : "Applicant Details:"}
+                  </h4>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-slate-600 dark:text-slate-300">
+                    {applicantName && (
+                      <div className="flex justify-between">
+                        <span className="text-slate-400">{lang === "ar" ? "الاسم:" : "Name:"}</span>
+                        <span className="font-semibold text-slate-800 dark:text-slate-200">{applicantName}</span>
+                      </div>
+                    )}
+                    <div className="flex justify-between">
+                      <span className="text-slate-400">{lang === "ar" ? "البريد:" : "Email:"}</span>
+                      <span className="font-semibold text-slate-800 dark:text-slate-200">{applicantEmail || "-"}</span>
+                    </div>
+                    {applicantPhone && (
+                      <div className="flex justify-between">
+                        <span className="text-slate-400">{lang === "ar" ? "الهاتف:" : "Phone:"}</span>
+                        <span className="font-semibold text-slate-800 dark:text-slate-200">{applicantPhone}</span>
+                      </div>
+                    )}
+                    {applicantOrg && (
+                      <div className="flex justify-between">
+                        <span className="text-slate-400">{lang === "ar" ? "المنشأة:" : "Org:"}</span>
+                        <span className="font-semibold text-slate-800 dark:text-slate-200">{applicantOrg}</span>
+                      </div>
+                    )}
+                  </div>
+                  {applicantReason && (
+                    <div className="pt-2 border-t border-slate-100 dark:border-slate-800 text-start">
+                      <span className="text-slate-400 block mb-0.5">{lang === "ar" ? "سبب الاستعادة:" : "Reason:"}</span>
+                      <p className="text-slate-700 dark:text-slate-300 bg-slate-50 dark:bg-slate-900/60 p-2 rounded-lg leading-relaxed">
+                        {applicantReason}
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                {/* ATTACHED VERIFICATION DOCUMENTS & PREVIEW/DOWNLOAD */}
+                {attachedDocs.length > 0 && (
+                  <div className="p-3.5 bg-white dark:bg-[#192233] border border-slate-200/90 dark:border-slate-750 rounded-xl space-y-3 text-xs">
+                    <h4 className="font-bold text-slate-800 dark:text-slate-200 pb-1 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
+                      <span>{t.uploadedDocsTitle} ({attachedDocs.length})</span>
+                      <span className="text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+                        <CheckCircle2 className="w-3.5 h-3.5" />
+                        <span>{lang === "ar" ? "مستندات محفوظة بأمان" : "Securely Persisted"}</span>
+                      </span>
+                    </h4>
+
+                    <div className="space-y-2">
+                      {attachedDocs.map((dItem: any, idx: number) => {
+                        const docId = dItem.documentId || dItem.id;
+                        const docName = dItem.fileName || dItem.name || `Document_${idx + 1}`;
+                        const isPdf = (dItem.mimeType || "").includes("pdf") || docName.toLowerCase().endsWith(".pdf");
+                        return (
+                          <div
+                            key={docId || idx}
+                            className="p-2.5 bg-slate-50 dark:bg-slate-900/70 border border-slate-200 dark:border-slate-800 rounded-xl flex items-center justify-between gap-3"
+                          >
+                            <div className="flex items-center gap-2 min-w-0 flex-1">
+                              <div className="w-8 h-8 rounded-lg bg-blue-50 dark:bg-blue-950/60 text-[#0075DE] dark:text-blue-400 flex items-center justify-center shrink-0">
+                                {isPdf ? <FileText className="w-4 h-4" /> : <ImageIcon className="w-4 h-4" />}
+                              </div>
+                              <div className="min-w-0 flex-1 text-start">
+                                <p className="text-xs font-bold text-slate-800 dark:text-slate-200 truncate" title={docName}>
+                                  {docName}
+                                </p>
+                                <span className="text-[10px] text-slate-500">
+                                  {dItem.size ? formatFileSize(dItem.size) : (dItem.mimeType || "document")}
+                                </span>
+                              </div>
+                            </div>
+
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              <button
+                                type="button"
+                                onClick={() => openUserFileInNewTab({
+                                  fileName: docName,
+                                  documentId: docId,
+                                  id: docId,
+                                  fileUrl: `/api/files/${encodeURIComponent(docId || "")}/preview`,
+                                  mimeType: dItem.mimeType
+                                })}
+                                className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-blue-50 dark:bg-blue-950/60 hover:bg-blue-100 dark:hover:bg-blue-900/60 text-[#0075DE] dark:text-blue-400 text-[11px] font-bold transition-all cursor-pointer"
+                                title={lang === "ar" ? "معاينة المستند" : "Preview"}
+                              >
+                                <Eye className="w-3.5 h-3.5" />
+                                <span>{lang === "ar" ? "معاينة" : "Preview"}</span>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => downloadUserFile({
+                                  fileName: docName,
+                                  documentId: docId,
+                                  id: docId,
+                                  fileUrl: `/api/files/${encodeURIComponent(docId || "")}/download`,
+                                  mimeType: dItem.mimeType
+                                })}
+                                className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-[11px] font-bold transition-all cursor-pointer"
+                                title={lang === "ar" ? "تحميل المستند" : "Download"}
+                              >
+                                <Download className="w-3.5 h-3.5" />
+                                <span>{lang === "ar" ? "تحميل" : "Download"}</span>
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* STATUS SPECIFIC WORKFLOW (APPROVED / REJECTED / PENDING) */}
+                {currentReqStatus === "already_active" ? (
+                  <div className="space-y-3 pt-2">
+                    <div className="p-3 bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800/60 rounded-xl text-blue-800 dark:text-blue-200 flex items-start gap-3">
+                      <CheckCircle2 className="w-5 h-5 text-blue-600 dark:text-blue-400 shrink-0 mt-0.5" />
+                      <div className="space-y-1">
+                        <h4 className="text-xs font-bold">{lang === "ar" ? "حسابك نشط بالفعل" : "Account Already Active"}</h4>
+                        <p className="text-[11px] leading-relaxed text-blue-700 dark:text-blue-300">
+                          {lang === "ar" ? "هذا الحساب تم استعادته مسبقاً وهو نشط حالياً. يمكنك تسجيل الدخول إلى حسابك مباشرة." : "This account is active. You can log in directly."}
+                        </p>
+                      </div>
+                    </div>
                     <button
                       type="button"
-                      onClick={handleCopyRequestId}
-                      className="p-1 rounded-md hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-500 transition-colors cursor-pointer"
-                      title={t.copyId}
+                      onClick={onCancel}
+                      className="w-full h-11 rounded-xl bg-[#0075DE] hover:bg-[#0060B6] text-white font-bold text-xs transition-all flex items-center justify-center shadow-sm cursor-pointer"
                     >
-                      {copiedRequestId ? (
-                        <Check className="w-3.5 h-3.5 text-emerald-500" />
-                      ) : (
-                        <Copy className="w-3.5 h-3.5" />
-                      )}
+                      {lang === "ar" ? "الانتقال لتسجيل الدخول" : "Go to Login"}
                     </button>
                   </div>
-                </div>
-
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-xs font-bold text-slate-500 dark:text-slate-400">
-                    {t.statusLabel}
-                  </span>
-                  <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800/50">
-                    <Clock className="w-3 h-3" />
-                    <span>{t.statusPendingReview}</span>
-                  </span>
-                </div>
-
-                <div className="flex items-center justify-between gap-2 text-xs text-slate-600 dark:text-slate-400">
-                  <span>البريد الإلكتروني:</span>
-                  <span className="font-medium text-slate-800 dark:text-slate-200">{email}</span>
-                </div>
-              </div>
-
-              {/* ACTION BUTTONS */}
-              <div className="flex flex-col sm:flex-row gap-3 max-w-md mx-auto pt-2">
-                <button
-                  id="btn-success-back-to-login"
-                  type="button"
-                  onClick={onCancel}
-                  className="flex-1 h-11 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-bold text-xs transition-all flex items-center justify-center gap-2 cursor-pointer"
-                >
-                  <ArrowBackIcon className="w-3.5 h-3.5" />
-                  <span>{t.btnBackToLogin}</span>
-                </button>
-                <button
-                  id="btn-success-view-status"
-                  type="button"
-                  onClick={() => {
-                    setSubmittedRequestId(null);
-                    handleCheckStatus(email);
-                  }}
-                  className="flex-1 h-11 rounded-xl bg-[#0075DE] hover:bg-[#0060B6] text-white font-bold text-xs transition-all flex items-center justify-center gap-2 shadow-md shadow-blue-500/20 cursor-pointer"
-                >
-                  <Clock className="w-3.5 h-3.5" />
-                  <span>{t.btnViewStatus}</span>
-                </button>
-              </div>
-            </motion.div>
-          ) : (
-            /* EXISTING REQUEST STATUS CARD */
-            <div className="p-4 sm:p-5 bg-slate-50 dark:bg-[#131926] border border-slate-200 dark:border-slate-800 rounded-xl space-y-4">
-              {statusResult?.status === "already_active" ? (
-                /* ALREADY ACTIVE STATE */
-                <div className="space-y-4">
-                  <div className="p-3 bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800/60 rounded-xl text-blue-800 dark:text-blue-200 flex items-start gap-3">
-                    <CheckCircle2 className="w-5 h-5 text-blue-600 dark:text-blue-400 shrink-0 mt-0.5" />
-                    <div className="space-y-1">
-                      <h4 className="text-xs font-bold">{lang === "ar" ? "حسابك نشط بالفعل" : "Account Already Active"}</h4>
-                      <p className="text-[11px] leading-relaxed text-blue-700 dark:text-blue-300">
-                        {lang === "ar" ? "هذا الحساب تم استعادته مسبقاً أو أنه لم يكن محذوفاً. يمكنك تسجيل الدخول إلى حسابك مباشرة الآن ولست بحاجة لإجراء عملية استعادة." : "This account has already been restored or was never deleted. You can log in directly."}
-                      </p>
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={onCancel}
-                    className="w-full h-11 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs transition-all flex items-center justify-center shadow-sm cursor-pointer"
-                  >
-                    {lang === "ar" ? "الانتقال لتسجيل الدخول" : "Go to Login"}
-                  </button>
-                </div>
-              ) : statusResult?.status === "approved" ? (
-                /* APPROVED STATE -> OTP RESTORE FLOW */
-                <div className="space-y-4">
-                  <div className="p-3 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60 rounded-xl text-emerald-800 dark:text-emerald-200 flex items-start gap-3">
-                    <CheckCircle2 className="w-5 h-5 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
-                    <div className="space-y-1">
-                      <h4 className="text-xs font-bold">{t.reqApprovedTitle}</h4>
-                      <p className="text-[11px] leading-relaxed text-emerald-700 dark:text-emerald-300">
-                        {t.reqApprovedSubtitle}
-                      </p>
-                    </div>
-                  </div>
-
-                  {!otpSent ? (
-                    <div className="space-y-3 pt-2">
-                      <button
-                        type="button"
-                        onClick={handleSendApprovalOtp}
-                        disabled={isSendingOtp}
-                        className="w-full h-11 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs transition-all flex items-center justify-center gap-2 shadow-md shadow-emerald-600/20 disabled:opacity-50 cursor-pointer"
-                      >
-                        {isSendingOtp ? (
-                          <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                        ) : (
-                          <Send className="w-3.5 h-3.5" />
-                        )}
-                        <span>{t.btnSendRestoreOtp}</span>
-                      </button>
-                      {otpError && (
-                        <p className="text-xs text-rose-600 font-semibold">{otpError}</p>
-                      )}
-                    </div>
-                  ) : (
-                    <div className="space-y-3 pt-2">
-                      <div className="p-2.5 bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800/60 rounded-xl text-blue-800 dark:text-blue-200 text-xs flex items-center gap-2">
-                        <CheckCircle2 className="w-4 h-4 text-blue-600 dark:text-blue-400 shrink-0" />
-                        <span className="truncate">{lang === "ar" ? `تم إرسال رمز التحقق إلى ${statusEmail || email}` : `Verification code sent to ${statusEmail || email}`}</span>
+                ) : currentReqStatus === "approved" ? (
+                  <div className="space-y-4 pt-2">
+                    <div className="p-3 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60 rounded-xl text-emerald-800 dark:text-emerald-200 flex items-start gap-3">
+                      <CheckCircle2 className="w-5 h-5 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
+                      <div className="space-y-1">
+                        <h4 className="text-xs font-bold">{t.reqApprovedTitle}</h4>
+                        <p className="text-[11px] leading-relaxed text-emerald-700 dark:text-emerald-300">
+                          {t.reqApprovedSubtitle}
+                        </p>
                       </div>
-                      {otpError && (
-                        <p className="text-xs text-rose-600 font-semibold">{otpError}</p>
-                      )}
-                      <div>
-                        <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                          {t.otpCodeLabel}
-                        </label>
-                        <input
-                          type="text"
-                          maxLength={6}
-                          value={otpCode}
-                          onChange={e => setOtpCode(e.target.value.replace(/[^0-9]/g, ""))}
-                          placeholder="123456"
-                          className="w-full h-11 text-center font-mono tracking-widest text-lg font-black rounded-xl bg-white dark:bg-[#0C101A] border border-slate-300 dark:border-slate-700 focus:ring-2 focus:ring-emerald-500/40"
-                        />
-                      </div>
-                      <button
-                        type="button"
-                        onClick={handleVerifyOtpAndRestore}
-                        disabled={isVerifyingOtp || otpCode.length < 6}
-                        className="w-full h-11 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs transition-all flex items-center justify-center gap-2 shadow-md shadow-emerald-600/20 disabled:opacity-50 cursor-pointer"
-                      >
-                        {isVerifyingOtp ? (
-                          <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                        ) : (
-                          <UserCheck className="w-3.5 h-3.5" />
-                        )}
-                        <span>{t.btnRestoreAccountNow}</span>
-                      </button>
-                      <div className="text-center pt-1">
+                    </div>
+
+                    {!otpSent ? (
+                      <div className="space-y-3">
                         <button
                           type="button"
                           onClick={handleSendApprovalOtp}
                           disabled={isSendingOtp}
-                          className="text-[11px] font-bold text-[#0075DE] hover:underline disabled:opacity-50 cursor-pointer"
+                          className="w-full h-11 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs transition-all flex items-center justify-center gap-2 shadow-md shadow-emerald-600/20 disabled:opacity-50 cursor-pointer"
                         >
-                          {isSendingOtp ? (lang === "ar" ? "جاري إعادة الإرسال..." : "Resending...") : (lang === "ar" ? "إعادة إرسال رمز التحقق" : "Resend verification code")}
+                          {isSendingOtp ? (
+                            <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                          ) : (
+                            <Send className="w-3.5 h-3.5" />
+                          )}
+                          <span>{t.btnSendRestoreOtp}</span>
                         </button>
+                        {otpError && (
+                          <p className="text-xs text-rose-600 font-semibold">{otpError}</p>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        <div className="p-2.5 bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800/60 rounded-xl text-blue-800 dark:text-blue-200 text-xs flex items-center gap-2">
+                          <CheckCircle2 className="w-4 h-4 text-blue-600 dark:text-blue-400 shrink-0" />
+                          <span className="truncate">{lang === "ar" ? `تم إرسال رمز التحقق إلى ${statusEmail || email}` : `Verification code sent to ${statusEmail || email}`}</span>
+                        </div>
+                        {otpError && (
+                          <p className="text-xs text-rose-600 font-semibold">{otpError}</p>
+                        )}
+                        <div>
+                          <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                            {t.otpCodeLabel}
+                          </label>
+                          <input
+                            type="text"
+                            maxLength={6}
+                            value={otpCode}
+                            onChange={e => setOtpCode(e.target.value.replace(/[^0-9]/g, ""))}
+                            placeholder="123456"
+                            className="w-full h-11 text-center font-mono tracking-widest text-lg font-black rounded-xl bg-white dark:bg-[#0C101A] border border-slate-300 dark:border-slate-700 focus:ring-2 focus:ring-emerald-500/40"
+                          />
+                        </div>
+                        <button
+                          type="button"
+                          onClick={handleVerifyOtpAndRestore}
+                          disabled={isVerifyingOtp || otpCode.length < 6}
+                          className="w-full h-11 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs transition-all flex items-center justify-center gap-2 shadow-md shadow-emerald-600/20 disabled:opacity-50 cursor-pointer"
+                        >
+                          {isVerifyingOtp ? (
+                            <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                          ) : (
+                            <UserCheck className="w-3.5 h-3.5" />
+                          )}
+                          <span>{t.btnRestoreAccountNow}</span>
+                        </button>
+                        <div className="text-center pt-1">
+                          <button
+                            type="button"
+                            onClick={handleSendApprovalOtp}
+                            disabled={isSendingOtp}
+                            className="text-[11px] font-bold text-[#0075DE] hover:underline disabled:opacity-50 cursor-pointer"
+                          >
+                            {isSendingOtp ? (lang === "ar" ? "جاري إعادة الإرسال..." : "Resending...") : (lang === "ar" ? "إعادة إرسال رمز التحقق" : "Resend verification code")}
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ) : currentReqStatus === "rejected" ? (
+                  <div className="space-y-3 pt-2">
+                    <div className="p-3 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800/60 rounded-xl text-rose-800 dark:text-rose-200 flex items-start gap-3">
+                      <AlertCircle className="w-5 h-5 text-rose-600 dark:text-rose-400 shrink-0 mt-0.5" />
+                      <div className="space-y-1">
+                        <h4 className="text-xs font-bold">{t.reqRejectedTitle}</h4>
+                        {reqData?.rejectionReason && (
+                          <p className="text-[11px] leading-relaxed text-rose-700 dark:text-rose-300">
+                            <strong>{t.rejectionReasonLabel}</strong>{" "}
+                            {reqData.rejectionReason}
+                          </p>
+                        )}
                       </div>
                     </div>
-                  )}
-                </div>
-              ) : statusResult?.status === "rejected" ? (
-                /* REJECTED STATE */
-                <div className="space-y-3">
-                  <div className="p-3 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800/60 rounded-xl text-rose-800 dark:text-rose-200 flex items-start gap-3">
-                    <AlertCircle className="w-5 h-5 text-rose-600 dark:text-rose-400 shrink-0 mt-0.5" />
-                    <div className="space-y-1">
-                      <h4 className="text-xs font-bold">{t.reqRejectedTitle}</h4>
-                      {statusResult.recoveryRequest?.rejectionReason && (
-                        <p className="text-[11px] leading-relaxed text-rose-700 dark:text-rose-300">
-                          <strong>{t.rejectionReasonLabel}</strong>{" "}
-                          {statusResult.recoveryRequest.rejectionReason}
-                        </p>
-                      )}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setRecoveryState("no_request");
+                        setStatusResult(null);
+                        setSubmittedRequestId(null);
+                        setSubmissionSuccessData(null);
+                      }}
+                      className="w-full h-10 rounded-xl bg-[#0075DE] hover:bg-[#0060B6] text-white font-bold text-xs transition-all flex items-center justify-center gap-2 cursor-pointer"
+                    >
+                      <span>{t.btnSubmitNewWithDocs}</span>
+                    </button>
+                  </div>
+                ) : (
+                  /* PENDING REVIEW WORKFLOW */
+                  <div className="space-y-3 pt-2">
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed bg-white dark:bg-[#192233] p-3 rounded-xl border border-slate-200/80 dark:border-slate-800">
+                      {lang === "ar"
+                        ? "طلب استعادة حسابك قيد المراجعة والتدقيق الإداري من قبل فريق المنصة. سيتم إشعارك عبر البريد الإلكتروني فور اتخاذ القرار."
+                        : "Your recovery request is currently undergoing administrative review. You will be notified once a decision is made."}
+                    </p>
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => handleCheckStatus(email)}
+                        disabled={isCheckingStatus}
+                        className="flex-1 h-10 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold text-xs transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                      >
+                        <RefreshCw className={`w-3.5 h-3.5 ${isCheckingStatus ? "animate-spin" : ""}`} />
+                        <span>{lang === "ar" ? "تحديث حالة الطلب" : "Refresh Status"}</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={onCancel}
+                        className="h-10 px-4 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold text-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                      >
+                        <ArrowBackIcon className="w-3.5 h-3.5" />
+                        <span>{t.btnBackToLogin}</span>
+                      </button>
                     </div>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setRecoveryState("no_request");
-                      setStatusResult(null);
-                      setSubmittedRequestId(null);
-                    }}
-                    className="w-full h-10 rounded-xl bg-[#0075DE] hover:bg-[#0060B6] text-white font-bold text-xs transition-all flex items-center justify-center gap-2 cursor-pointer"
-                  >
-                    <span>{t.btnSubmitNewWithDocs}</span>
-                  </button>
-                </div>
-              ) : (
-                /* PENDING / UNDER REVIEW STATE */
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between gap-2 pb-2 border-b border-slate-200 dark:border-slate-800">
-                    <span className="text-xs font-bold text-slate-500">
-                      {t.requestIdLabel}
-                    </span>
-                    <span className="font-mono text-xs font-bold text-[#0075DE]">
-                      {statusResult?.recoveryRequest?.requestId || statusResult?.recoveryRequest?.id || "—"}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="text-xs font-bold text-slate-500">{t.statusLabel}</span>
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border border-amber-200">
-                      <Clock className="w-3 h-3" />
-                      <span>{t.statusPendingReview}</span>
-                    </span>
-                  </div>
-                  <p className="text-[11px] text-slate-500 leading-relaxed pt-1">
-                    طلبك قيد الدراسة والمطابقة مع الوثائق المرفوعة. سيتم إشعارك فور اتخاذ القرار.
-                  </p>
-                </div>
-              )}
-            </div>
-          )}
+                )}
+              </div>
+            );
+          })()}
         </div>
       ) : (
         /* ---------------------------------------------------- */

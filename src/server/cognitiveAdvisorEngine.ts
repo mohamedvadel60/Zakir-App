@@ -597,20 +597,24 @@ export async function executeCognitiveAdvisorChat(
         : "";
 
       const systemInstruction = `أنت "المستشار الإداري والإدراكي لمنصة ذَكِرْ" (Zakir Cognitive Advisor).
-أنت مستشار إداري وتنفيذي محترف رفيع المستوى يتحدث مع مدير تنفيذي أو قائد مؤسسة.
+أنت مستشار إداري وتنفيذي إدراكي رفيع المستوى، يجيب بلباقة وذكاء مهني متقدم على أي رسالة يقدمها المستخدم (سواء كانت تحية، أو حديث عام، أو سؤالاً عن قدراتك، أو استفساراً إدارياً، مالياً، تسويقياً، تشغيلياً، أو استراتيجياً، أو طلب متابعة لحديث سابق).
 
-قواعد التفكير الأساسية الملزمة:
-1. فهم المقصود بدقة وتحديد ما إذا كان السؤال يحتاج بيانات المؤسسة أو إجابة مفاهيمية أو استشارية.
-2. التمييز الصارم بين FACTS و INFERENCES و RECOMMENDATIONS.
-3. عدم اختلاق أي أرقام أو أحداث أو مخاطر لم ترد فعلياً في البيانات.
-4. تقديم إجابة واحدة متماسكة، بمنطق واحد، دون تشتت ودون تكرار.
-5. الأسلوب واللغة: لغة عربية رصينة، واضحة، مهنية، مباشرة، تناسب CEO.
-6. ممنوع منعاً باتاً: استخدام الرموز التعبيرية (Emojis)، والعبارات الروبوتية مثل "🚨 تحليل خطير"، "AI Analysis".
+قواعد التفكير والتحاور الملزمة:
+1. الإجابة الدائمة والمباشرة: يجب أن تجيب على كُل رسالة بدون استثناء، بنفس لغة المستخدم (العربية إذا أرسل بالعربية، الإنجليزية بالإنجليزية، والفرنسية بالفرنسية).
+2. عند التحية (مثل: مرحبا، أهلا، السلام عليكم، كيف حالك): رحب بالمستخدم بأسلوب مهني دافئ، وعرّف بنفسك كمستشار إداري وإدراكي لقيادة المؤسسة، واسأله كيف يمكنك مساندته اليوم.
+3. عند السؤال عن قدراتك (مثل: ماذا تستطيع أن تفعل؟): اشرح باختصار وبأسلوب تنفيذي قدرتك على تشخيص القرارات الاستراتيجية، مراجعة الذاكرة المؤسسية والدروس المستفادة، تقييم المخاطر المالية والتشغيلية، وتحليل أداء السوق.
+4. الربط بسياق المحادثة (Follow-up): إذا كانت الرسالة متابعة لحوار سابق (مثل: "كيف أعالجها؟" أو "ما الخطوة التالية؟")، فاربط إجابتك مباشرة بالموضوع الذي كان يجري مناقشته في سجل المحادثة.
+5. التمييز الصارم بين الحقائق (FACTS) والاستنتاجات (INFERENCES) والتوصيات (RECOMMENDATIONS):
+   - لا تخترع أي أرقام أو أرباح أو أسماء عملاء أو مشاكل غير موجودة في البيانات.
+   - إذا سأل المستخدم عن مؤشر خاص بمؤسسته ولا توجد بيانات كافية، وضح بوضوح أن البيانات المتاحة غير كافية لتقديم رقم قطعي، وقدم إرشاداً منهجياً حول المعايير المطلوبة.
+6. التجاوب الديناميكي مع المدخلات المتناقضة: تعامل بحرص مع فرضيات المستخدم المتناقضة (مثل ارتفاع المبيعات مقابل انخفاض المبيعات) وقدم استراتيجية مخصصة تناسب كل حالة منطقياً.
+7. الأسلوب واللغة: لغة رصينة، واضحة، مهنية، مباشرة، تناسب رئيس تنفيذي (CEO).
+8. ممنوع استخدام الرموز التعبيرية (Emojis)، والعبارات الروبوتية الجاهزة مثل "🚨 تحليل خطير"، "AI Analysis".
 ${factsBlock}${activeTopicContext}`;
 
       const contents: any[] = [];
       if (Array.isArray(history)) {
-        history.slice(-6).forEach((h) => {
+        history.slice(-10).forEach((h) => {
           if (h.text && typeof h.text === "string" && !h.text.includes("401 Unauthorized") && !h.text.includes("404 Not Found")) {
             contents.push({
               role: h.role === "user" ? "user" : "model",
@@ -626,14 +630,14 @@ ${factsBlock}${activeTopicContext}`;
 
       const configObj: any = {
         systemInstruction,
-        temperature: 0.2,
+        temperature: 0.3,
       };
 
       if (searchDecision.needsSearch) {
         configObj.tools = [{ googleSearch: {} }];
       }
 
-      const candidateModels = ["gemini-3.8-flash", "gemini-flash-latest"];
+      const candidateModels = ["gemini-3.8-flash", "gemini-3.1-flash-lite", "gemini-flash-latest"];
 
       const callPromise = (async () => {
         for (const modelName of candidateModels) {
@@ -643,7 +647,7 @@ ${factsBlock}${activeTopicContext}`;
               contents,
               config: configObj,
             });
-            if (resp?.text && resp.text.trim().length > 15) {
+            if (resp?.text && resp.text.trim().length > 10) {
               const cand = resp.candidates?.[0] as any;
               if (cand?.groundingMetadata?.groundingChunks) {
                 cand.groundingMetadata.groundingChunks.forEach((c: any) => {
@@ -670,7 +674,7 @@ ${factsBlock}${activeTopicContext}`;
 
       let timer: any = null;
       const timeoutPromise = new Promise<null>((resolve) => {
-        timer = setTimeout(() => resolve(null), 1200);
+        timer = setTimeout(() => resolve(null), 12000); // 12 second timeout for real Gemini network call
       });
 
       liveAiResponse = await Promise.race([callPromise, timeoutPromise]);

@@ -362,8 +362,13 @@ export function clearUserLocalCache(userId?: string): void {
             key.startsWith("zakir_current_user") ||
             key.startsWith("zakir_auth_token") ||
             key.startsWith("zakir_user_") ||
+            key.startsWith("zakir_admin_") ||
+            key.startsWith("admin_") ||
             key === "user" ||
-            key === "currentUser"
+            key === "currentUser" ||
+            key === "isAdmin" ||
+            key === "admin" ||
+            key === "adminWorkspaceMode"
           )) {
             keysToRemove.push(key);
           }
@@ -378,7 +383,11 @@ export function clearUserLocalCache(userId?: string): void {
           const key = sessionStorage.key(i);
           if (key && (
             key.startsWith("auto_sent_otp_") ||
-            key.startsWith("zakir_")
+            key.startsWith("zakir_") ||
+            key.startsWith("admin_") ||
+            key === "isAdmin" ||
+            key === "admin" ||
+            key === "adminWorkspaceMode"
           )) {
             sessionKeysToRemove.push(key);
           }
@@ -744,13 +753,14 @@ export async function loginFirebaseUser(email: string, pass: string, attemptId?:
         setDoc(doc(db, "users", uid), { ...userData, id: uid, uid }, { merge: true }).catch(() => {});
       } catch (e) {}
 
-      // Preserve role with safe normalization
+      // Preserve role with safe normalization - STRICT ADMIN BOUNDARY
       const rawRole = (userData.role || "CEO").toString().trim();
       const upperRole = rawRole.toUpperCase();
       let canonicalRole: UserRole = "CEO";
-      if (upperRole === "ADMIN" || upperRole === "SYSTEM_ADMIN" || isUserAdmin(userData) || (auth.currentUser?.email && ADMIN_EMAILS.includes(auth.currentUser.email.toLowerCase().trim()))) {
+      const isActualAdmin = isUserAdmin(userData) || Boolean(auth.currentUser?.email && (auth.currentUser.email || "").toLowerCase().trim() === AUTHORIZED_ADMIN_EMAIL);
+      if (isActualAdmin) {
         canonicalRole = "Admin";
-      } else if (upperRole === "CEO" || upperRole === "OWNER" || upperRole === "FOUNDER") {
+      } else if (upperRole === "CEO" || upperRole === "OWNER" || upperRole === "FOUNDER" || upperRole === "ADMIN" || upperRole === "SYSTEM_ADMIN") {
         canonicalRole = "CEO";
       } else if (upperRole === "CONTRIBUTOR" || upperRole === "MEMBER") {
         canonicalRole = "Contributor";
@@ -2099,6 +2109,79 @@ export async function updateFirebaseUserFile(userId: string, fileId: string, upd
   }
 }
 
+/* ================= CANONICAL FILE ACCESS CODE SERVICES ================= */
+
+export async function setFileAccessCode(
+  userId: string,
+  fileId: string,
+  code: string,
+  enabled: boolean = true
+): Promise<{ success: boolean; message?: string; error?: string }> {
+  const cleanCode = (code || "").toString().trim();
+  try {
+    const res = await authenticatedFetch(`/api/files/${encodeURIComponent(fileId)}/access-code`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        code: cleanCode,
+        enabled,
+        action: enabled ? "set" : "disable"
+      })
+    });
+    const data = await res.json().catch(() => ({}));
+    if (res.ok && data.success) {
+      const currentFiles = getLocalItem(`files_${userId}`, []);
+      const updatedFiles = currentFiles.map((f: UserFile) =>
+        f.id === fileId
+          ? {
+              ...f,
+              hasAccessCode: enabled,
+              codeEnabled: enabled,
+              isEncrypted: enabled,
+              codeCreatedAt: data.codeCreatedAt || f.codeCreatedAt || new Date().toISOString(),
+              codeUpdatedAt: data.codeUpdatedAt || new Date().toISOString()
+            }
+          : f
+      );
+      setLocalItem(`files_${userId}`, updatedFiles);
+      return { success: true, message: data.message };
+    }
+    return { success: false, error: data.message || data.error || "Failed to set access code." };
+  } catch (err: any) {
+    console.error("setFileAccessCode error:", err);
+    return { success: false, error: err.message || "Failed to connect to server." };
+  }
+}
+
+export async function verifyFileAccessCode(
+  fileId: string,
+  code: string
+): Promise<{ verified: boolean; message?: string; error?: string }> {
+  const cleanCode = (code || "").toString().trim();
+  try {
+    const res = await authenticatedFetch(`/api/files/${encodeURIComponent(fileId)}/verify-access-code`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ code: cleanCode })
+    });
+    const data = await res.json().catch(() => ({}));
+    if (res.ok && (data.verified || data.success)) {
+      return { verified: true, message: data.message };
+    }
+    return { verified: false, error: data.message || data.error || "Incorrect file access code." };
+  } catch (err: any) {
+    console.error("verifyFileAccessCode error:", err);
+    return { verified: false, error: err.message || "Failed to verify access code." };
+  }
+}
+
+export async function disableFileAccessCode(
+  userId: string,
+  fileId: string
+): Promise<{ success: boolean; message?: string; error?: string }> {
+  return setFileAccessCode(userId, fileId, "", false);
+}
+
 /* ================= USER RISK ALERTS (FIRESTORE) ================= */
 
 export async function fetchFirebaseUserRiskAlerts(userId: string): Promise<RiskAlert[]> {
@@ -2528,16 +2611,15 @@ export async function fetchWorkspaceInvitations(workspaceId: string): Promise<Wo
 
 /* ================= ADMIN DASHBOARD SERVICES ================= */
 
+export const AUTHORIZED_ADMIN_EMAIL = "mohamedvadel60@gmail.com";
 export const ADMIN_USER_ID = "SYhfciebGFUj29gqGaa0pqNunrk2";
 export const ADMIN_UIDS = new Set([
   "SYhfciebGFUj29gqGaa0pqNunrk2",
   "SYhfciebGFUj29qGgAa0pqNunrk2"
 ]);
 export const ADMIN_EMAILS: string[] = [
-  "admin@zakir.ai",
-  "admin@getzakir.com",
-  (((import.meta as any).env?.VITE_ADMIN_EMAIL) || (typeof process !== "undefined" ? process.env?.ADMIN_EMAIL : "") || "").toLowerCase().trim()
-].filter(Boolean);
+  AUTHORIZED_ADMIN_EMAIL
+];
 
 export function getAuthenticatedFirebaseUid(): string | null {
   return auth.currentUser?.uid || null;
@@ -2545,15 +2627,19 @@ export function getAuthenticatedFirebaseUid(): string | null {
 
 export function isUserAdmin(user?: { id?: string | null; uid?: string | null; email?: string | null; role?: string | null } | null): boolean {
   if (!user) return false;
-  const uid = user.id || user.uid || "";
   const email = (user.email || "").trim().toLowerCase();
-  const role = (user.role || "").trim().toLowerCase();
+  const uid = user.id || user.uid || "";
 
-  const isUidAdmin = uid === ADMIN_USER_ID || ADMIN_UIDS.has(uid);
-  const isEmailAdmin = Boolean(email && ADMIN_EMAILS.length > 0 && ADMIN_EMAILS.includes(email));
-  const isRoleAdmin = role === "admin" || (user as any).isAdmin === true;
+  // The ONLY authorized admin is mohamedvadel60@gmail.com
+  if (email === AUTHORIZED_ADMIN_EMAIL) {
+    return true;
+  }
+  if (uid && ADMIN_UIDS.has(uid) && (!email || email === AUTHORIZED_ADMIN_EMAIL)) {
+    return true;
+  }
 
-  return isUidAdmin || isEmailAdmin || isRoleAdmin;
+  // Strictly refuse admin access for any other account or arbitrary role
+  return false;
 }
 
 export interface AdminUserRecord {

@@ -181,17 +181,15 @@ function readDbForAuth() {
   return { users: [] };
 }
 
+export const AUTHORIZED_ADMIN_EMAIL = "mohamedvadel60@gmail.com";
 export const ADMIN_USER_ID = "SYhfciebGFUj29gqGaa0pqNunrk2";
 export const ADMIN_UIDS = new Set([
   "SYhfciebGFUj29gqGaa0pqNunrk2",
   "SYhfciebGFUj29qGgAa0pqNunrk2"
 ]);
 export const ADMIN_EMAILS = new Set([
-  "admin@zakir.ai",
-  "admin@getzakir.com",
-  "mohamedvadel60@gmail.com",
-  (process.env.ADMIN_EMAIL || "").toLowerCase().trim()
-].filter(Boolean));
+  AUTHORIZED_ADMIN_EMAIL
+]);
 
 /**
  * Authoritatively retrieves user profile from Firestore or local DB.
@@ -381,39 +379,67 @@ export async function isUserAdminServer(uid: string, email?: string): Promise<bo
   if (!uid && !email) return false;
 
   const directEmail = (email || "").trim().toLowerCase();
-  const isUidAdmin = uid === ADMIN_USER_ID || ADMIN_UIDS.has(uid);
-  const isEmailAdmin = Boolean(directEmail && ADMIN_EMAILS.size > 0 && ADMIN_EMAILS.has(directEmail));
 
-  if (isUidAdmin || isEmailAdmin) {
+  // Primary Rule: If email is provided and it is NOT the canonical admin email, strictly DENY.
+  if (directEmail && directEmail !== AUTHORIZED_ADMIN_EMAIL) {
+    return false;
+  }
+
+  // If email IS provided and equals AUTHORIZED_ADMIN_EMAIL:
+  if (directEmail === AUTHORIZED_ADMIN_EMAIL) {
+    // If UID is also supplied, verify that it does not belong to a mismatched account
+    if (uid) {
+      if (uid === ADMIN_USER_ID || ADMIN_UIDS.has(uid)) {
+        return true;
+      }
+      try {
+        const uDoc = await adminDb.collection("users").doc(uid).get();
+        if (uDoc && uDoc.exists) {
+          const docEmail = (uDoc.data()?.email || "").trim().toLowerCase();
+          if (docEmail === AUTHORIZED_ADMIN_EMAIL) {
+            ADMIN_UIDS.add(uid);
+            return true;
+          }
+        }
+      } catch (e) {}
+      try {
+        const authRecord = await adminAuth.getUser(uid);
+        if (authRecord && (authRecord.email || "").trim().toLowerCase() === AUTHORIZED_ADMIN_EMAIL) {
+          ADMIN_UIDS.add(uid);
+          return true;
+        }
+      } catch (e) {}
+      // UID provided does not belong to authorized admin email
+      return false;
+    }
     return true;
   }
 
-  // Check Firestore user doc for Admin role
-  try {
-    if (uid) {
+  // Secondary Check: If only UID is provided (no email), verify that UID belongs to AUTHORIZED_ADMIN_EMAIL
+  if (uid) {
+    if (uid === ADMIN_USER_ID || ADMIN_UIDS.has(uid)) {
+      return true;
+    }
+    try {
       const uDoc = await adminDb.collection("users").doc(uid).get();
-      if (uDoc.exists) {
-        const data = uDoc.data();
-        const role = (data?.role || "").trim().toLowerCase();
-        if (role === "admin" || data?.isAdmin === true) {
+      if (uDoc && uDoc.exists) {
+        const docEmail = (uDoc.data()?.email || "").trim().toLowerCase();
+        if (docEmail === AUTHORIZED_ADMIN_EMAIL) {
+          ADMIN_UIDS.add(uid);
           return true;
         }
       }
-    }
-  } catch (e) {}
-
-  // Check local db for Admin role
-  try {
-    const db = readDbForAuth();
-    const found = db?.users?.find((u: any) => u.id === uid || (directEmail && u.email?.toLowerCase() === directEmail));
-    if (found) {
-      const r = (found.role || "").trim().toLowerCase();
-      if (r === "admin" || found.isAdmin === true) {
+    } catch (e) {}
+    try {
+      const authRecord = await adminAuth.getUser(uid);
+      if (authRecord && (authRecord.email || "").trim().toLowerCase() === AUTHORIZED_ADMIN_EMAIL) {
+        ADMIN_UIDS.add(uid);
         return true;
       }
-    }
-  } catch (e) {}
+    } catch (e) {}
+  }
 
+  // Strictly refuse admin access for any other account, role, or claim
   return false;
 }
 

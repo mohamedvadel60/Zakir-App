@@ -1414,6 +1414,9 @@ app.use((req, res, next) => {
 app.use(express.json({ limit: "30mb" }));
 app.use(express.urlencoded({ extended: true, limit: "30mb" }));
 
+// STRICT SECURITY ENFORCEMENT: All /api/admin/* endpoints strictly require valid authentication and canonical Admin identity
+app.use("/api/admin", requireAuth, requireAdmin);
+
 // Public static assets (badges, logos, icons) served publicly for email clients & CDN
 app.use(express.static(path.join(process.cwd(), "public")));
 
@@ -5685,7 +5688,7 @@ app.post("/api/auth/verify-code", otpLimiter, async (req, res) => {
       const userRef = adminDb.collection("users").doc(foundUid);
       const userSnap = await userRef.get();
       firestoreUser = userSnap.exists ? userSnap.data() : (user || {});
-      const isAdminUser = foundUid === ADMIN_USER_ID || firestoreUser.role === "Admin" || ADMIN_EMAILS.has((targetIdentifier || "").toLowerCase());
+      const isAdminUser = Boolean((targetIdentifier && (targetIdentifier || "").toLowerCase().trim() === "mohamedvadel60@gmail.com") || (foundUid && await isUserAdminServer(foundUid, targetIdentifier)));
       const isApprovedAlready = firestoreUser.accountStatus === "APPROVED" || isAdminUser;
       if (isAdminUser) {
         nextAccountStatus = "APPROVED";
@@ -9685,7 +9688,7 @@ app.get("/api/email/preview-branding", (req, res) => {
 });
 
 // --- ADMIN USERS ENDPOINT (FIRESTORE AUTHORITATIVE) ---
-app.get("/api/admin/users", requireAuth, async (req: AuthRequest, res) => {
+app.get("/api/admin/users", requireAuth, requireAdmin, async (req: AuthRequest, res) => {
   const callerUid = req.user?.uid;
   const callerEmail = req.user?.email || "";
   console.log("ADMIN_USERS_FETCH_START", {
@@ -10060,7 +10063,7 @@ app.get("/api/admin/users", requireAuth, async (req: AuthRequest, res) => {
         u.emailVerified = isEmailVer;
         u.isEmailVerified = isEmailVer;
 
-        const isSystemAdmin = u.role === "Admin" || (uEmail && ADMIN_EMAILS.has(uEmail));
+        const isSystemAdmin = Boolean(uEmail && uEmail.toLowerCase().trim() === "mohamedvadel60@gmail.com");
         const isExplicitAdminApproved = Boolean(
           (u.approvedBy && u.approvedAt && (String(u.accountStatus || "").toUpperCase() === "APPROVED" || String(u.documentVerificationStatus || "").toUpperCase() === "APPROVED")) ||
           u.adminVerificationOverride === true
@@ -10744,7 +10747,7 @@ app.post("/api/auth/submit-institutional-data", requireAuth, async (req: AuthReq
 
 // Comprehensive verification documents submission endpoint (personal documents + optional company)
 app.post("/api/auth/submit-verification-documents", requireAuth, async (req: AuthRequest, res) => {
-  const isAdmin = req.user?.role === "Admin" || (req.user?.email && ADMIN_EMAILS.has(req.user.email.toLowerCase()));
+  const isAdmin = Boolean(req.user?.email && req.user.email.toLowerCase().trim() === "mohamedvadel60@gmail.com");
   const uid = (isAdmin && req.body?.userId) ? req.body.userId : req.user?.uid;
   const email = (isAdmin && req.body?.userEmail) ? req.body.userEmail : (req.user?.email || "");
 
@@ -11263,7 +11266,7 @@ app.get("/api/auth/current-user-status", requireAuth, async (req: AuthRequest, r
     }
 
     if (userDoc) {
-      const isSysAdmin = userDoc.role === "Admin" || (userDoc.email && ADMIN_EMAILS.has(userDoc.email.toLowerCase()));
+      const isSysAdmin = Boolean(userDoc.email && userDoc.email.toLowerCase().trim() === "mohamedvadel60@gmail.com");
       const canonical = computeCanonicalVerification(userDoc, isSysAdmin);
       
       const wasEmailVerified = Boolean(
@@ -11391,7 +11394,7 @@ app.get("/api/admin/pending-approvals", requireAuth, requireAdmin, async (req: A
       })
       .filter((u: any) => {
         // Exclude platform admins and purged accounts
-        if (u.id === ADMIN_USER_ID || u.role === "Admin" || (u.role && u.role.toLowerCase() === "admin") || ADMIN_EMAILS.has((u.email || "").toLowerCase())) {
+        if (u.id === ADMIN_USER_ID || (u.email && u.email.toLowerCase().trim() === "mohamedvadel60@gmail.com")) {
           return false;
         }
         if (u.accountLifecycleStatus === "PURGED" || u.isPurged === true) {
@@ -12603,7 +12606,7 @@ app.get("/api/admin/subscription-overview", requireAuth, requireAdmin, async (re
     const overviewList = usersList
       .filter((u: any) => u.accountLifecycleStatus !== "PURGED" && u.isPurged !== true)
       .map((u: any) => {
-        const isAdmin = u.id === ADMIN_USER_ID || u.role === "Admin" || ADMIN_EMAILS.has((u.email || "").toLowerCase());
+        const isAdmin = u.id === ADMIN_USER_ID || (u.email && u.email.toLowerCase().trim() === "mohamedvadel60@gmail.com");
         const trialEndIso = u.trialEndsAt || u.trialExpiresAt || null;
         const trialEndMs = trialEndIso ? new Date(trialEndIso).getTime() : 0;
         const trialRemainingSec = Math.max(0, Math.floor((trialEndMs - nowMs) / 1000));
@@ -14870,7 +14873,7 @@ app.post(
               documents: rawDocs,
             };
 
-            const isTargetSysAdmin = targetUser.role === "Admin" || (targetUser.email && ADMIN_EMAILS.has(targetUser.email.toLowerCase()));
+            const isTargetSysAdmin = Boolean(targetUser.email && targetUser.email.toLowerCase().trim() === "mohamedvadel60@gmail.com");
 
             // AUTOMATIC REVOCATION IF REMAINING DOCS IS 0:
             // "يمكن أن يبقى الحساب في حالة Verified/Approved بعد أن يقوم المستخدم برفع وثائق ثم حذفها، وهذا غير مقبول."
@@ -20367,6 +20370,344 @@ app.get(
     }
   }
 );
+
+// ============================================================================
+// REBUILT CANONICAL FILE ACCESS CODE SYSTEM ENDPOINTS
+// ============================================================================
+
+/**
+ * Helper: Finds a user file record in Firestore or local DB
+ */
+async function findFileRecord(fileId: string, callerUid?: string) {
+  let docData: any = null;
+  let docRef: any = null;
+  let ownerUid: string | null = null;
+
+  if (isFirebaseAdminAvailable && adminDb) {
+    try {
+      const topSnap = await adminDb.collection("files").doc(fileId).get();
+      if (topSnap && topSnap.exists) {
+        docData = topSnap.data();
+        docRef = topSnap.ref;
+        ownerUid = docData.userId || docData.ownerUid || docData.uid;
+      }
+    } catch (e) {}
+
+    if (!docData && callerUid) {
+      try {
+        const subSnap = await adminDb.collection("users").doc(callerUid).collection("files").doc(fileId).get();
+        if (subSnap && subSnap.exists) {
+          docData = subSnap.data();
+          docRef = subSnap.ref;
+          ownerUid = callerUid;
+        }
+      } catch (e) {}
+    }
+
+    if (!docData) {
+      try {
+        const groupSnap = await adminDb.collectionGroup("files").where("id", "==", fileId).limit(1).get();
+        if (!groupSnap.empty) {
+          docData = groupSnap.docs[0].data();
+          docRef = groupSnap.docs[0].ref;
+          ownerUid = docData.userId || docData.ownerUid || groupSnap.docs[0].ref.parent.parent?.id || null;
+        }
+      } catch (e) {}
+    }
+  }
+
+  if (!docData) {
+    try {
+      const allDbs = readAllLocalDbs();
+      for (const lDb of allDbs) {
+        if (lDb.users) {
+          for (const u of lDb.users) {
+            if (u.files && Array.isArray(u.files)) {
+              const matched = u.files.find((f: any) => f.id === fileId);
+              if (matched) {
+                docData = matched;
+                ownerUid = u.id || u.uid || matched.userId;
+                break;
+              }
+            }
+          }
+        }
+        if (docData) break;
+      }
+    } catch (e) {}
+  }
+
+  return { docData, docRef, ownerUid };
+}
+
+/**
+ * Endpoint 1: Set / Update / Disable File Access Code
+ * POST /api/files/:fileId/access-code
+ */
+app.post("/api/files/:fileId/access-code", requireAuth, async (req: AuthRequest, res) => {
+  try {
+    const callerUid = req.user?.uid;
+    const callerEmail = req.user?.email || "";
+    const fileId = (req.params.fileId || "").trim();
+
+    if (!fileId) {
+      return res.status(400).json({ success: false, error: "INVALID_FILE_ID", message: "File ID is required." });
+    }
+
+    if (!callerUid) {
+      return res.status(401).json({ success: false, error: "UNAUTHORIZED", message: "Authentication required." });
+    }
+
+    const { docData, docRef, ownerUid } = await findFileRecord(fileId, callerUid);
+    const resolvedOwnerUid = ownerUid || docData?.userId || callerUid;
+
+    const isOwner = resolvedOwnerUid === callerUid;
+    const isAdmin = await isUserAdminServer(callerUid, callerEmail);
+
+    if (!isOwner && !isAdmin) {
+      return res.status(403).json({
+        success: false,
+        error: "FORBIDDEN",
+        message: "Forbidden: You do not have permission to modify this file's access code."
+      });
+    }
+
+    const { code, enabled, action } = req.body || {};
+    const isDisableAction = action === "disable" || enabled === false;
+
+    const nowIso = new Date().toISOString();
+
+    if (isDisableAction) {
+      // DISABLE CODE FOR FILE
+      const updatePayload = {
+        codeEnabled: false,
+        codeHash: null,
+        hasAccessCode: false,
+        isEncrypted: false,
+        codeUpdatedAt: nowIso
+      };
+
+      if (docRef) {
+        await docRef.set(updatePayload, { merge: true }).catch(() => {});
+      }
+
+      if (isFirebaseAdminAvailable && adminDb) {
+        try {
+          await adminDb.collection("files").doc(fileId).set(updatePayload, { merge: true }).catch(() => {});
+          await adminDb.collection("users").doc(resolvedOwnerUid).collection("files").doc(fileId).set(updatePayload, { merge: true }).catch(() => {});
+        } catch (e) {}
+      }
+
+      // Update local DB store
+      try {
+        const db = readDb();
+        if (db.users) {
+          const uIdx = db.users.findIndex((u: any) => u.id === resolvedOwnerUid || u.uid === resolvedOwnerUid);
+          if (uIdx !== -1 && db.users[uIdx].files) {
+            const fIdx = db.users[uIdx].files.findIndex((f: any) => f.id === fileId);
+            if (fIdx !== -1) {
+              Object.assign(db.users[uIdx].files[fIdx], updatePayload);
+              writeDb(db);
+            }
+          }
+        }
+      } catch (e) {}
+
+      return res.json({
+        success: true,
+        message: "File access code disabled successfully.",
+        fileId,
+        hasAccessCode: false,
+        codeEnabled: false
+      });
+    }
+
+    // SET OR REPLACE FILE ACCESS CODE
+    const normalizedCode = (code || "").toString().trim();
+    if (!normalizedCode || normalizedCode.length < 2) {
+      return res.status(400).json({
+        success: false,
+        error: "INVALID_CODE",
+        message: "File access code must be at least 2 characters long."
+      });
+    }
+
+    const codeHash = hashSecurityPasscode(normalizedCode);
+    const updatePayload = {
+      codeEnabled: true,
+      codeHash: codeHash,
+      hasAccessCode: true,
+      isEncrypted: true,
+      codeCreatedAt: docData?.codeCreatedAt || nowIso,
+      codeUpdatedAt: nowIso
+    };
+
+    if (docRef) {
+      await docRef.set(updatePayload, { merge: true }).catch(() => {});
+    }
+
+    if (isFirebaseAdminAvailable && adminDb) {
+      try {
+        await adminDb.collection("files").doc(fileId).set(updatePayload, { merge: true }).catch(() => {});
+        await adminDb.collection("users").doc(resolvedOwnerUid).collection("files").doc(fileId).set(updatePayload, { merge: true }).catch(() => {});
+      } catch (e) {}
+    }
+
+    // Update local DB store
+    try {
+      const db = readDb();
+      if (db.users) {
+        const uIdx = db.users.findIndex((u: any) => u.id === resolvedOwnerUid || u.uid === resolvedOwnerUid);
+        if (uIdx !== -1) {
+          if (!db.users[uIdx].files) db.users[uIdx].files = [];
+          const fIdx = db.users[uIdx].files.findIndex((f: any) => f.id === fileId);
+          if (fIdx !== -1) {
+            Object.assign(db.users[uIdx].files[fIdx], updatePayload);
+          } else {
+            db.users[uIdx].files.push({ id: fileId, userId: resolvedOwnerUid, ...updatePayload });
+          }
+          writeDb(db);
+        }
+      }
+    } catch (e) {}
+
+    return res.json({
+      success: true,
+      message: "File access code configured successfully.",
+      fileId,
+      hasAccessCode: true,
+      codeEnabled: true,
+      codeCreatedAt: updatePayload.codeCreatedAt,
+      codeUpdatedAt: updatePayload.codeUpdatedAt
+    });
+
+  } catch (err: any) {
+    console.error("[FILE_ACCESS_CODE_SET_ERROR]", err);
+    return res.status(500).json({
+      success: false,
+      error: "SERVER_ERROR",
+      message: err.message || "Failed to configure file access code."
+    });
+  }
+});
+
+/**
+ * Endpoint 2: Verify File Access Code
+ * POST /api/files/:fileId/verify-access-code
+ */
+app.post("/api/files/:fileId/verify-access-code", requireAuth, async (req: AuthRequest, res) => {
+  try {
+    const callerUid = req.user?.uid;
+    const callerEmail = req.user?.email || "";
+    const fileId = (req.params.fileId || "").trim();
+
+    if (!fileId) {
+      return res.status(400).json({ success: false, verified: false, error: "INVALID_FILE_ID", message: "File ID is required." });
+    }
+
+    if (!callerUid) {
+      return res.status(401).json({ success: false, verified: false, error: "UNAUTHORIZED", message: "Authentication required." });
+    }
+
+    const { docData, ownerUid } = await findFileRecord(fileId, callerUid);
+    const resolvedOwnerUid = ownerUid || docData?.userId || callerUid;
+
+    const isOwner = resolvedOwnerUid === callerUid;
+    const isAdmin = await isUserAdminServer(callerUid, callerEmail);
+
+    if (!isOwner && !isAdmin && docData && docData.userId && docData.userId !== callerUid) {
+      return res.status(403).json({
+        success: false,
+        verified: false,
+        error: "FORBIDDEN",
+        message: "Forbidden: You do not have permission to verify code for this file."
+      });
+    }
+
+    if (!docData || docData.codeEnabled === false || (!docData.codeHash && !docData.hasAccessCode)) {
+      return res.json({
+        success: true,
+        verified: true,
+        message: "No access code required for this file."
+      });
+    }
+
+    const { code } = req.body || {};
+    const normalizedEnteredCode = (code || "").toString().trim();
+
+    if (!normalizedEnteredCode) {
+      return res.status(400).json({
+        success: false,
+        verified: false,
+        error: "EMPTY_CODE",
+        message: "Access code is required."
+      });
+    }
+
+    const storedHash = docData.codeHash;
+    if (!storedHash) {
+      return res.json({
+        success: true,
+        verified: true,
+        message: "No access code required for this file."
+      });
+    }
+
+    const isMatch = verifySecurityPasscode(normalizedEnteredCode, storedHash);
+
+    if (isMatch) {
+      return res.json({
+        success: true,
+        verified: true,
+        message: "File access code verified successfully."
+      });
+    } else {
+      return res.status(403).json({
+        success: false,
+        verified: false,
+        error: "INCORRECT_CODE",
+        message: "Incorrect file access code. Access denied."
+      });
+    }
+
+  } catch (err: any) {
+    console.error("[FILE_ACCESS_CODE_VERIFY_ERROR]", err);
+    return res.status(500).json({
+      success: false,
+      verified: false,
+      error: "SERVER_ERROR",
+      message: err.message || "Failed to verify file access code."
+    });
+  }
+});
+
+/**
+ * Endpoint 3: Check File Access Code Status
+ * GET /api/files/:fileId/access-code-status
+ */
+app.get("/api/files/:fileId/access-code-status", requireAuth, async (req: AuthRequest, res) => {
+  try {
+    const callerUid = req.user?.uid;
+    const fileId = (req.params.fileId || "").trim();
+
+    if (!fileId) {
+      return res.status(400).json({ success: false, error: "INVALID_FILE_ID", message: "File ID is required." });
+    }
+
+    const { docData } = await findFileRecord(fileId, callerUid);
+
+    return res.json({
+      success: true,
+      fileId,
+      hasAccessCode: Boolean(docData?.hasAccessCode || docData?.codeEnabled || docData?.codeHash),
+      codeEnabled: Boolean(docData?.codeEnabled !== false && (docData?.hasAccessCode || docData?.codeHash)),
+      codeCreatedAt: docData?.codeCreatedAt || null,
+      codeUpdatedAt: docData?.codeUpdatedAt || null
+    });
+  } catch (err: any) {
+    return res.status(500).json({ success: false, error: "SERVER_ERROR", message: err.message });
+  }
+});
 
 // Admin Endpoint: Get Consolidated User Documents & Files with Real Verification
 app.get("/api/admin/users/:userId/documents", requireAuth, requireAdmin, async (req: AuthRequest, res) => {

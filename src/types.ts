@@ -567,6 +567,13 @@ export interface UserFile {
   description: string;
   storagePath?: string;
   isEncrypted?: boolean;
+  
+  // File Access Code canonical model
+  hasAccessCode?: boolean;
+  codeEnabled?: boolean;
+  codeHash?: string;
+  codeCreatedAt?: string;
+  codeUpdatedAt?: string;
 }
 
 export type RecoveryRequestStatus = "pending" | "under_review" | "approved" | "rejected" | "restored";

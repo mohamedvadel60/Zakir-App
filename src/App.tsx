@@ -2403,6 +2403,7 @@ This hosting domain (**${currentDomain}**) has not been authorized in your Fireb
       await logoutFirebaseUser();
     } catch (e) {}
     setCurrentUser(null);
+    setAdminWorkspaceMode(false);
     setSmartData(null);
     setMemories([]);
     setRiskAlerts([]);

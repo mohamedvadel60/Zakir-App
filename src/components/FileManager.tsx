@@ -28,6 +28,9 @@ import {
   fetchFirebaseUserFiles, 
   deleteFirebaseUserFile, 
   updateFirebaseUserFile,
+  setFileAccessCode,
+  verifyFileAccessCode,
+  disableFileAccessCode,
   formatBytes 
 } from "../lib/firebaseServices.js";
 import { openOrDownloadUserFile, downloadUserFile as downloadUserFileUtil, openUserFileInNewTab as openUserFileInNewTabUtil } from "../lib/fileViewerUtils.js";
@@ -91,7 +94,26 @@ export const FileManager: React.FC<FileManagerProps> = ({
   // In-app Document Preview Modal State
   const [previewModalDoc, setPreviewModalDoc] = useState<UserFile | null>(null);
 
-  // Decryption & Passcode Modal State
+  // Manage Access Code Modal State (Assign / Update / Disable Code)
+  const [manageCodeModal, setManageCodeModal] = useState<{
+    isOpen: boolean;
+    file: UserFile | null;
+    newCode: string;
+    confirmCode: string;
+    error: string;
+    success: string;
+    loading: boolean;
+  }>({
+    isOpen: false,
+    file: null,
+    newCode: "",
+    confirmCode: "",
+    error: "",
+    success: "",
+    loading: false
+  });
+
+  // Decryption & Passcode Verification Modal State
   const [passcodeModal, setPasscodeModal] = useState<{
     isOpen: boolean;
     file: UserFile | null;
@@ -208,11 +230,17 @@ export const FileManager: React.FC<FileManagerProps> = ({
     deleteFirebaseUserFile(userId, file.id, file.storagePath).catch(e => console.warn("Background delete error:", e));
   };
 
+  // Helper to determine if a file is protected by code and currently locked in session
+  const checkIsFileLocked = (file: UserFile): boolean => {
+    const codeActive = Boolean(file.hasAccessCode || file.codeEnabled || file.isEncrypted);
+    if (!codeActive) return false;
+    return !unlockedFileIds.has(file.id);
+  };
+
   // Preview File Handler - Opens in interactive preview modal
   const handlePreviewFile = (file: UserFile, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
-    const isLocked = file.isEncrypted && !unlockedFileIds.has(file.id);
-    if (isLocked) {
+    if (checkIsFileLocked(file)) {
       setEnteredPasscode("");
       setPasscodeModal({
         isOpen: true,
@@ -228,8 +256,7 @@ export const FileManager: React.FC<FileManagerProps> = ({
   // Download File Handler
   const handleDownloadFile = (file: UserFile, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
-    const isLocked = file.isEncrypted && !unlockedFileIds.has(file.id);
-    if (isLocked) {
+    if (checkIsFileLocked(file)) {
       setEnteredPasscode("");
       setPasscodeModal({
         isOpen: true,
@@ -254,23 +281,123 @@ export const FileManager: React.FC<FileManagerProps> = ({
     });
   };
 
-  // Toggle Encryption Button Handler (Encrypts unencrypted file or prompts for decryption of encrypted file)
-  const handleToggleEncryption = (file: UserFile, e?: React.MouseEvent) => {
+  // Manage Access Code Handler (Opens Set/Update Access Code Modal)
+  const handleOpenManageCodeModal = (file: UserFile, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
-    if (file.isEncrypted) {
-      // Attempting to decrypt requires passcode entry modal
-      setEnteredPasscode("");
-      setPasscodeModal({
-        isOpen: true,
-        file: file,
-        action: "decryptToggle",
-        error: ""
-      });
-    } else {
-      // Encrypting the file
-      const nextState = true;
-      setFiles(prev => prev.map(f => f.id === file.id ? { ...f, isEncrypted: nextState } : f));
-      updateFirebaseUserFile(userId, file.id, { isEncrypted: nextState }).catch(e => console.warn("Toggle encryption error:", e));
+    setManageCodeModal({
+      isOpen: true,
+      file: file,
+      newCode: "",
+      confirmCode: "",
+      error: "",
+      success: "",
+      loading: false
+    });
+  };
+
+  // Set / Update File Access Code Submission
+  const handleSetFileAccessCodeSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const file = manageCodeModal.file;
+    if (!file) return;
+
+    const code = manageCodeModal.newCode.trim();
+    const confirm = manageCodeModal.confirmCode.trim();
+
+    if (!code || code.length < 2) {
+      setManageCodeModal(prev => ({
+        ...prev,
+        error: lang === "ar" ? "رمز الوصول يجب أن يتكون من حرفين/رقمين على الأقل." : "Access code must be at least 2 characters."
+      }));
+      return;
+    }
+
+    if (code !== confirm) {
+      setManageCodeModal(prev => ({
+        ...prev,
+        error: lang === "ar" ? "رمز الوصول غير متطابق! يرجى إعادة التأكد من الرمزين." : "Access codes do not match! Please verify."
+      }));
+      return;
+    }
+
+    setManageCodeModal(prev => ({ ...prev, loading: true, error: "", success: "" }));
+
+    try {
+      const res = await setFileAccessCode(userId, file.id, code, true);
+      if (res.success) {
+        setFiles(prev =>
+          prev.map(f =>
+            f.id === file.id
+              ? { ...f, hasAccessCode: true, codeEnabled: true, isEncrypted: true }
+              : f
+          )
+        );
+        setUnlockedFileIds(prev => new Set(prev).add(file.id));
+
+        setManageCodeModal(prev => ({
+          ...prev,
+          loading: false,
+          success: lang === "ar" ? "تم تعيين وتطبيق رمز الوصول للملف بنجاح!" : "File access code saved and active!",
+          newCode: "",
+          confirmCode: ""
+        }));
+
+        setTimeout(() => {
+          setManageCodeModal(prev => ({ ...prev, isOpen: false, success: "" }));
+        }, 1500);
+      } else {
+        setManageCodeModal(prev => ({
+          ...prev,
+          loading: false,
+          error: res.error || (lang === "ar" ? "فشل تعيين رمز الوصول للملف." : "Failed to set file access code.")
+        }));
+      }
+    } catch (err: any) {
+      setManageCodeModal(prev => ({
+        ...prev,
+        loading: false,
+        error: err.message || "Error setting file access code."
+      }));
+    }
+  };
+
+  // Disable File Access Code Handler
+  const handleDisableFileAccessCode = async (file: UserFile) => {
+    setManageCodeModal(prev => ({ ...prev, loading: true, error: "", success: "" }));
+    try {
+      const res = await disableFileAccessCode(userId, file.id);
+      if (res.success) {
+        setFiles(prev =>
+          prev.map(f =>
+            f.id === file.id
+              ? { ...f, hasAccessCode: false, codeEnabled: false, isEncrypted: false }
+              : f
+          )
+        );
+        setUnlockedFileIds(prev => {
+          const next = new Set(prev);
+          next.delete(file.id);
+          return next;
+        });
+
+        setManageCodeModal(prev => ({
+          ...prev,
+          loading: false,
+          success: lang === "ar" ? "تم إلغاء تفعيل رمز الوصول للملف بنجاح." : "File access code disabled.",
+        }));
+
+        setTimeout(() => {
+          setManageCodeModal(prev => ({ ...prev, isOpen: false, success: "" }));
+        }, 1500);
+      } else {
+        setManageCodeModal(prev => ({
+          ...prev,
+          loading: false,
+          error: res.error || "Failed to disable file access code."
+        }));
+      }
+    } catch (err: any) {
+      setManageCodeModal(prev => ({ ...prev, loading: false, error: err.message }));
     }
   };
 
@@ -280,50 +407,45 @@ export const FileManager: React.FC<FileManagerProps> = ({
     const file = passcodeModal.file;
     if (!file) return;
 
+    const entered = enteredPasscode.trim();
+    if (!entered) {
+      setPasscodeModal(prev => ({
+        ...prev,
+        error: lang === "ar" ? "يرجى إدخال رمز الوصول." : "Please enter access code."
+      }));
+      return;
+    }
+
     try {
-      // Call authoritative server-side endpoint with cryptographic hash validation
-      const res = await authenticatedFetch("/api/security/verify-code", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          code: enteredPasscode.trim(),
-          module: "fileVault"
-        })
-      });
+      const res = await verifyFileAccessCode(file.id, entered);
 
-      const data = await res.json().catch(() => ({}));
-
-      if (res.ok && (data.verified || data.success)) {
-        // Session unlock
+      if (res.verified) {
         setUnlockedFileIds(prev => new Set(prev).add(file.id));
 
-        if (passcodeModal.action === "decryptToggle") {
-          // Permanently un-encrypt file in DB and state
-          setFiles(prev => prev.map(f => f.id === file.id ? { ...f, isEncrypted: false } : f));
-          updateFirebaseUserFile(userId, file.id, { isEncrypted: false }).catch(e => console.warn("Toggle encryption error:", e));
+        if (passcodeModal.action === "preview") {
+          setPreviewModalDoc(file);
+          setPasscodeModal({ isOpen: false, file: null, action: "unlock", isVerified: false, error: "" });
+        } else if (passcodeModal.action === "download") {
+          downloadUserFile(file);
+          setPasscodeModal({ isOpen: false, file: null, action: "unlock", isVerified: false, error: "" });
+        } else {
+          setPasscodeModal(prev => ({
+            ...prev,
+            isVerified: true,
+            error: ""
+          }));
         }
-
-        // Transition modal state to options choice (isVerified: true)
-        setPasscodeModal(prev => ({
-          ...prev,
-          isVerified: true,
-          error: ""
-        }));
         setEnteredPasscode("");
       } else {
         setPasscodeModal(prev => ({
           ...prev,
-          error: data?.error || (lang === "ar"
-            ? "رمز/كلمة السر لفك التشفير غير صحيحة! تعذر فك تشفير الملف."
-            : "Incorrect passcode! Decryption verification failed.")
+          error: res.error || (lang === "ar" ? "رمز الوصول غير صحيح! تعذر فتح الملف." : "Incorrect access code! Access denied.")
         }));
       }
     } catch (err: any) {
       setPasscodeModal(prev => ({
         ...prev,
-        error: lang === "ar"
-          ? "تعذر التحقق من الرمز السري. يرجى المحاولة مرة أخرى."
-          : "Failed to verify security passcode. Please try again."
+        error: err.message || (lang === "ar" ? "فشل التحقق من الرمز." : "Failed to verify access code.")
       }));
     }
   };
@@ -724,18 +846,18 @@ export const FileManager: React.FC<FileManagerProps> = ({
 
                         {/* Badges and tags segment */}
                         <div className="flex items-center gap-1.5 shrink-0 self-end sm:self-auto">
-                          {file.isEncrypted ? (
+                          {(file.hasAccessCode || file.codeEnabled || file.isEncrypted) ? (
                             <span className={`px-2.5 py-0.5 text-[9px] font-black rounded-full border flex items-center gap-1 ${
                               theme === "dark" ? "bg-amber-500/20 border-amber-500/30 text-amber-400" : "bg-amber-100 border-amber-200 text-amber-700"
                             }`}>
                               <Lock className="w-2.5 h-2.5" />
-                              <span>{lang === "ar" ? "مشفر" : "Encrypted"}</span>
+                              <span>{lang === "ar" ? "رمز الوصول مفعل" : "Access Code Active"}</span>
                             </span>
                           ) : (
                             <span className={`px-2.5 py-0.5 text-[9px] font-black rounded-full border uppercase tracking-wide ${
                               theme === "dark" ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400" : "bg-emerald-50 border-emerald-200 text-emerald-700"
                             }`}>
-                              {lang === "ar" ? "مكشوف" : "Standard"}
+                              {lang === "ar" ? "بدون رمز" : "Public / Unlocked"}
                             </span>
                           )}
                           <span className={`px-2 py-0.5 text-[9px] font-black rounded-full border uppercase tracking-wide font-mono ${
@@ -760,13 +882,13 @@ export const FileManager: React.FC<FileManagerProps> = ({
                       <div className={`mt-4 pt-3 border-t flex flex-wrap items-center justify-between gap-2 ${
                         theme === "dark" ? "border-slate-800/40" : "border-slate-200"
                       }`}>
-                        {isLockedFile ? (
+                        {checkIsFileLocked(file) ? (
                           <button
                             onClick={(e) => handleUnlockFile(file, e)}
                             className="px-3.5 h-8 rounded-lg text-[11px] font-black bg-amber-500/10 hover:bg-amber-500/20 text-amber-600 dark:text-amber-300 border border-amber-500/30 transition-all flex items-center gap-1.5 cursor-pointer"
                           >
                             <Lock className="w-3.5 h-3.5 text-amber-500 dark:text-amber-400" />
-                            <span>{lang === "ar" ? "إدخال الرمز لفك التشفير" : "Decrypt Secure File"}</span>
+                            <span>{lang === "ar" ? "إدخال الرمز لفتح الملف" : "Enter Code to Unlock"}</span>
                           </button>
                         ) : (
                           <div className="flex items-center gap-2">
@@ -793,18 +915,19 @@ export const FileManager: React.FC<FileManagerProps> = ({
                         )}
 
                         <div className="flex items-center gap-1.5">
-                          {/* Crypt toggle code */}
+                          {/* Manage File Access Code button */}
                           <button
                             type="button"
-                            onClick={(e) => handleToggleEncryption(file, e)}
-                            className={`p-2 rounded-lg transition-all cursor-pointer border ${
-                              file.isEncrypted
+                            onClick={(e) => handleOpenManageCodeModal(file, e)}
+                            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer border ${
+                              (file.hasAccessCode || file.codeEnabled || file.isEncrypted)
                                 ? (theme === "dark" ? "bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border-amber-500/30" : "bg-amber-50 hover:bg-amber-100 text-amber-700 border-amber-200")
-                                : (theme === "dark" ? "bg-slate-800 hover:bg-slate-750 text-slate-400 border-slate-700" : "bg-white hover:bg-slate-100 text-slate-600 border-slate-200 shadow-xs")
+                                : (theme === "dark" ? "bg-slate-800 hover:bg-slate-750 text-slate-300 border-slate-700" : "bg-white hover:bg-slate-100 text-slate-700 border-slate-200 shadow-xs")
                             }`}
-                            title={file.isEncrypted ? "Decrypt Document" : "Secure Document"}
+                            title={lang === "ar" ? "إدارة رمز الوصول للملف" : "Manage Access Code"}
                           >
-                            {file.isEncrypted ? <Unlock className="w-3.5 h-3.5" /> : <Lock className="w-3.5 h-3.5" />}
+                            <Lock className="w-3.5 h-3.5" />
+                            <span>{(file.hasAccessCode || file.codeEnabled || file.isEncrypted) ? (lang === "ar" ? "تعديل الرمز" : "Edit Code") : (lang === "ar" ? "تعيين رمز" : "Set Code")}</span>
                           </button>
 
                           {/* Delete button */}
@@ -868,6 +991,130 @@ export const FileManager: React.FC<FileManagerProps> = ({
         </div>
 
       </div>
+
+      {/* MANAGE FILE ACCESS CODE MODAL (SET / UPDATE / DISABLE CODE) */}
+      {manageCodeModal.isOpen && manageCodeModal.file && (
+        <div className="fixed inset-0 z-50 bg-slate-950/60 dark:bg-slate-950/80 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className={`w-full max-w-md rounded-2xl border p-6 shadow-2xl space-y-5 animate-in fade-in zoom-in-95 ${
+            theme === "dark" ? "bg-slate-900 border-slate-800 text-white" : "bg-white border-slate-200 text-slate-900"
+          }`}>
+            <div className={`flex items-center justify-between pb-3 border-b ${
+              theme === "dark" ? "border-slate-800" : "border-slate-200"
+            }`}>
+              <div className="flex items-center gap-2.5">
+                <div className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-400">
+                  <Lock className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold">
+                    {lang === "ar" ? "تعيين/تعديل رمز الوصول للملف" : "Manage File Access Code"}
+                  </h3>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate max-w-[220px]" title={manageCodeModal.file.fileName}>
+                    {manageCodeModal.file.fileName}
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setManageCodeModal(prev => ({ ...prev, isOpen: false, error: "", success: "" }))}
+                className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
+                  theme === "dark" ? "text-slate-400 hover:text-white hover:bg-slate-800" : "text-slate-500 hover:text-slate-900 hover:bg-slate-100"
+                }`}
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {manageCodeModal.success && (
+              <div className="p-3 bg-emerald-500/10 border border-emerald-500/30 rounded-xl text-emerald-400 text-xs flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 shrink-0" />
+                <span>{manageCodeModal.success}</span>
+              </div>
+            )}
+
+            {manageCodeModal.error && (
+              <div className="p-3 bg-rose-500/10 border border-rose-500/30 rounded-xl text-rose-500 text-xs flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 shrink-0" />
+                <span>{manageCodeModal.error}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleSetFileAccessCodeSubmit} className="space-y-4">
+              <div>
+                <label className={`block text-xs font-bold mb-1.5 ${theme === "dark" ? "text-slate-400" : "text-slate-700"}`}>
+                  {lang === "ar" ? "رمز الوصول الجديد للملف:" : "New File Access Code:"}
+                </label>
+                <input
+                  type="password"
+                  autoFocus
+                  value={manageCodeModal.newCode}
+                  onChange={(e) => setManageCodeModal(prev => ({ ...prev, newCode: e.target.value, error: "" }))}
+                  placeholder={lang === "ar" ? "أدخل الرمز هنا (أرقام أو حروف)..." : "Enter access code..."}
+                  className={`w-full h-11 px-3 text-sm rounded-xl border outline-none font-mono ${
+                    theme === "dark" 
+                      ? "bg-slate-950 border-slate-800 text-white focus:border-amber-500" 
+                      : "bg-slate-50 border-slate-200 text-slate-900 focus:border-amber-500"
+                  }`}
+                />
+              </div>
+
+              <div>
+                <label className={`block text-xs font-bold mb-1.5 ${theme === "dark" ? "text-slate-400" : "text-slate-700"}`}>
+                  {lang === "ar" ? "تأكيد رمز الوصول:" : "Confirm File Access Code:"}
+                </label>
+                <input
+                  type="password"
+                  value={manageCodeModal.confirmCode}
+                  onChange={(e) => setManageCodeModal(prev => ({ ...prev, confirmCode: e.target.value, error: "" }))}
+                  placeholder={lang === "ar" ? "أعد إدخال الرمز لتأكيده..." : "Confirm access code..."}
+                  className={`w-full h-11 px-3 text-sm rounded-xl border outline-none font-mono ${
+                    theme === "dark" 
+                      ? "bg-slate-950 border-slate-800 text-white focus:border-amber-500" 
+                      : "bg-slate-50 border-slate-200 text-slate-900 focus:border-amber-500"
+                  }`}
+                />
+              </div>
+
+              <div className="flex items-center justify-between pt-2">
+                {(manageCodeModal.file.hasAccessCode || manageCodeModal.file.codeEnabled || manageCodeModal.file.isEncrypted) ? (
+                  <button
+                    type="button"
+                    onClick={() => handleDisableFileAccessCode(manageCodeModal.file!)}
+                    disabled={manageCodeModal.loading}
+                    className="px-3.5 h-10 rounded-xl text-xs font-bold bg-rose-500/10 hover:bg-rose-500/20 text-rose-500 border border-rose-500/30 transition-all cursor-pointer"
+                  >
+                    {lang === "ar" ? "إلغاء تفعيل الرمز" : "Disable Code"}
+                  </button>
+                ) : <div />}
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setManageCodeModal(prev => ({ ...prev, isOpen: false, error: "", success: "" }))}
+                    className={`px-4 h-10 rounded-xl text-xs font-bold transition-colors cursor-pointer border ${
+                      theme === "dark" 
+                        ? "bg-slate-800 hover:bg-slate-700 text-slate-300 border-slate-700" 
+                        : "bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-200"
+                    }`}
+                  >
+                    {lang === "ar" ? "إلغاء" : "Cancel"}
+                  </button>
+
+                  <button
+                    type="submit"
+                    disabled={manageCodeModal.loading}
+                    className="px-5 h-10 rounded-xl text-xs font-bold bg-amber-500 hover:bg-amber-400 text-slate-950 shadow-lg shadow-amber-500/20 flex items-center gap-2 transition-all cursor-pointer"
+                  >
+                    <Lock className="w-4 h-4" />
+                    <span>{manageCodeModal.loading ? (lang === "ar" ? "جاري الحفظ..." : "Saving...") : (lang === "ar" ? "حفظ وتفعيل الرمز" : "Save Access Code")}</span>
+                  </button>
+                </div>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* DECRYPTION / UNLOCK PASSCODE MODAL */}
       {passcodeModal.isOpen && passcodeModal.file && (
