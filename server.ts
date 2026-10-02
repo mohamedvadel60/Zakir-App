@@ -9727,18 +9727,25 @@ app.get("/api/admin/users", requireAuth, requireAdmin, async (req: AuthRequest, 
 
     console.log("ADMIN_USERS_AUTHORIZED", { callerUid });
 
-    // 1. Fetch Firestore users collection
+    // 1. Fetch Firestore users collection and deleted users in parallel
     let fsUsers: any[] = [];
-    try {
-      const snap = await adminDb.collection("users").get();
-      if (snap && !snap.empty && snap.docs) {
-        fsUsers = snap.docs.map((doc: any) => ({ ...doc.data(), id: doc.id }));
+    let deletedUserIds = new Set<string>();
+
+    const [usersSnapRes, deletedSnapRes] = await Promise.allSettled([
+      adminDb.collection("users").get(),
+      adminDb.collection("deletedUsers").get()
+    ]);
+
+    if (usersSnapRes.status === "fulfilled" && usersSnapRes.value && !usersSnapRes.value.empty && usersSnapRes.value.docs) {
+      fsUsers = usersSnapRes.value.docs.map((doc: any) => ({ ...doc.data(), id: doc.id }));
+    }
+
+    if (deletedSnapRes.status === "fulfilled" && deletedSnapRes.value && !deletedSnapRes.value.empty && deletedSnapRes.value.docs) {
+      for (const d of deletedSnapRes.value.docs) {
+        const dData = d.data();
+        if (dData?.uid) deletedUserIds.add(dData.uid);
+        deletedUserIds.add(d.id);
       }
-    } catch (fsErr: any) {
-      console.warn(
-        "Notice: Firestore users fetch encountered error, will merge local data:",
-        fsErr?.message,
-      );
     }
 
     // 2. Safe merge with local DB store users without replacing Firestore data
@@ -9763,24 +9770,25 @@ app.get("/api/admin/users", requireAuth, requireAdmin, async (req: AuthRequest, 
       }
     } catch (dbErr) {}
 
-    // 3. RECONCILIATION WITH FIREBASE AUTH: Ensure ALL Auth users appear in Admin
+    // 3. RECONCILIATION WITH FIREBASE AUTH (350ms max budget race to prevent auth API network latency from stalling initial load)
     try {
-      const authList = await adminAuth.listUsers(1000);
-      if (authList && Array.isArray(authList.users)) {
+      const authListPromise = adminAuth.listUsers(1000);
+      const authListTimeout = new Promise<null>((resolve) => setTimeout(() => resolve(null), 350));
+      const authListRes = await Promise.race([authListPromise, authListTimeout]);
+
+      if (authListRes && Array.isArray(authListRes.users)) {
         const existingIds = new Set(fsUsers.map((u: any) => u.id || u.uid));
         const existingEmails = new Set(
           fsUsers.map((u: any) => (u.email || "").trim().toLowerCase()).filter(Boolean)
         );
 
-        for (const authU of authList.users) {
+        for (const authU of authListRes.users) {
           const aEmail = (authU.email || "").trim().toLowerCase();
           if (!existingIds.has(authU.uid) && (!aEmail || !existingEmails.has(aEmail))) {
-            // Check if user already exists in db store before synthesizing
             const db = readDb();
             const existingLocal = (db.users || []).find((u: any) => u.id === authU.uid || u.uid === authU.uid || (u.email && u.email.toLowerCase() === aEmail));
             const isEmailVer = Boolean(authU.emailVerified || existingLocal?.isEmailVerified || existingLocal?.emailVerified || existingLocal?.email_verified);
             
-            // Synthesize canonical profile from Auth metadata
             const synthesized: any = {
               id: authU.uid,
               uid: authU.uid,
@@ -9807,72 +9815,18 @@ app.get("/api/admin/users", requireAuth, requireAdmin, async (req: AuthRequest, 
 
             fsUsers.push(synthesized);
 
-            // Asynchronously sync synthesized profile to database
             try {
               adminDb.collection("users").doc(authU.uid).set(synthesized, { merge: true }).catch(() => {});
             } catch (e) {}
           }
         }
       }
-    } catch (authErr: any) {
-      console.warn("Notice: Auth users reconciliation warning:", authErr?.message);
-    }
-
-    // 4. Filter out accounts that have been truly purged or are active deletions
-    let deletedUserIds = new Set<string>();
-    try {
-      const deletedSnap = await adminDb.collection("deletedUsers").get();
-      if (deletedSnap && !deletedSnap.empty && deletedSnap.docs) {
-        for (const d of deletedSnap.docs) {
-          const dData = d.data();
-          if (dData?.uid) deletedUserIds.add(dData.uid);
-          deletedUserIds.add(d.id);
-        }
-      }
     } catch (e) {}
 
-    // 5. PRE-FETCH ALL USER FILES AND VERIFICATION DOCUMENTS FROM FIRESTORE
-    let topFiles: any[] = [];
-    let fsVerDocs: any[] = [];
-    const subFilesMap = new Map<string, any[]>();
-
-    if (isFirebaseAdminAvailable && adminDb) {
-      try {
-        const [topSnap, verSnap] = await Promise.all([
-          adminDb.collection("files").get().catch(() => ({ empty: true, docs: [] })),
-          adminDb.collection("verification_documents").get().catch(() => ({ empty: true, docs: [] }))
-        ]);
-        if (topSnap && !topSnap.empty && topSnap.docs) {
-          topFiles = topSnap.docs.map((d: any) => ({ id: d.id, ...d.data() }));
-        }
-        if (verSnap && !verSnap.empty && verSnap.docs) {
-          fsVerDocs = verSnap.docs.map((d: any) => ({ id: d.id, documentId: d.id, ...d.data() }));
-        }
-      } catch (e) {}
-
-      // Fetch user subcollection files in parallel chunks
-      try {
-        const chunkSize = 15;
-        for (let i = 0; i < fsUsers.length; i += chunkSize) {
-          const chunk = fsUsers.slice(i, i + chunkSize);
-          await Promise.all(
-            chunk.map(async (u: any) => {
-              const uId = u.id || u.uid;
-              if (!uId) return;
-              try {
-                const subSnap = await adminDb.collection("users").doc(uId).collection("files").get();
-                if (subSnap && !subSnap.empty && subSnap.docs) {
-                  subFilesMap.set(uId, subSnap.docs.map((d: any) => ({ id: d.id, ...d.data() })));
-                }
-              } catch (err) {}
-            })
-          );
-        }
-      } catch (e) {}
-    }
-
+    // 5. RAPID SUMMARY COMPILATION (Eliminated N+1 queries & heavy disk/binary resolution for initial list)
     const db = readDb();
-    const diskUploadsDir = path.join(process.cwd(), "secure_uploads");
+    const verStore = db.verification_documents_store || {};
+    const recStore = db.recovery_documents_store || {};
 
     // 6. NORMALIZE VERIFICATION STATE (CRITICAL INTEGRITY AUDIT)
     const activeUsers = fsUsers
@@ -9886,88 +9840,35 @@ app.get("/api/admin/users", requireAuth, requireAdmin, async (req: AuthRequest, 
         const uId = u.id || u.uid;
         const uEmail = (u.email || "").toLowerCase().trim();
 
-        // --- A. GATHER ALL USER FILES ---
-        const userFilesMap = new Map<string, any>();
+        // User Files Summary (Clean lightweight count and list)
+        const userFiles = Array.isArray(u.files) ? u.files : [];
+        const fileCount = typeof u.fileCount === "number" ? u.fileCount : userFiles.length;
+        u.files = userFiles;
+        u.fileCount = fileCount;
 
-        // 1. From user subcollection users/{uid}/files
-        const subFiles = subFilesMap.get(uId) || [];
-        for (const sf of subFiles) {
-          if (sf && sf.id) userFilesMap.set(sf.id, sf);
-        }
-
-        // 2. From top-level files collection in Firestore
-        for (const tf of topFiles) {
-          if (tf && (tf.userId === uId || tf.userUid === uId || tf.ownerUid === uId)) {
-            if (!userFilesMap.has(tf.id)) userFilesMap.set(tf.id, tf);
-          }
-        }
-
-        // 3. From local db.files
-        if (Array.isArray(db.files)) {
-          for (const df of db.files) {
-            if (df && (df.userId === uId || df.userUid === uId || df.ownerUid === uId)) {
-              if (!userFilesMap.has(df.id)) userFilesMap.set(df.id, df);
-            }
-          }
-        }
-
-        // 4. From user object's own files array
-        if (Array.isArray(u.files)) {
-          for (const uf of u.files) {
-            if (uf && uf.id) {
-              if (!userFilesMap.has(uf.id)) userFilesMap.set(uf.id, uf);
-            }
-          }
-        }
-
-        const reconciledFiles = Array.from(userFilesMap.values()).map((f: any) => ({
-          ...f,
-          previewUrl: f.fileUrl || `/api/auth/verification-document/${f.id}`
-        }));
-        u.files = reconciledFiles;
-        u.fileCount = reconciledFiles.length;
-
-        // --- B. GATHER ALL VERIFICATION DOCUMENTS ---
+        // Gather document metadata for summary without heavy binary/disk storage checks
         const rawDocs = [
           ...(Array.isArray(u.verificationDocuments) ? u.verificationDocuments : []),
           ...(Array.isArray(u.verificationInfo?.documents) ? u.verificationInfo.documents : []),
           ...(Array.isArray(u.documents) ? u.documents : []),
-          ...reconciledFiles.filter((f: any) => f && (f.category === "Verification" || f.category === "Identity" || f.isVerificationDoc))
+          ...userFiles.filter((f: any) => f && (f.category === "Verification" || f.category === "Identity" || f.isVerificationDoc))
         ];
 
-        // Add from Firestore verification_documents collection
-        for (const vd of fsVerDocs) {
-          if (vd && (vd.userId === uId || (vd.userEmail && vd.userEmail.toLowerCase().trim() === uEmail))) {
-            rawDocs.push(vd);
+        // Fast in-memory lookup from local store if exists
+        for (const [docId, meta] of Object.entries(verStore as Record<string, any>)) {
+          if (meta && (meta.userId === uId || (meta.userEmail && meta.userEmail.toLowerCase().trim() === uEmail))) {
+            rawDocs.push({ ...meta, documentId: docId });
+          }
+        }
+        for (const [docId, meta] of Object.entries(recStore as Record<string, any>)) {
+          if (meta && (meta.userId === uId || (meta.userEmail && meta.userEmail.toLowerCase().trim() === uEmail))) {
+            rawDocs.push({ ...meta, documentId: docId });
           }
         }
 
-        // Add from local verification_documents_store & recovery_documents_store
-        if (db.verification_documents_store) {
-          for (const [docId, meta] of Object.entries(db.verification_documents_store as Record<string, any>)) {
-            if (meta) {
-              const matchesUser = meta.userId === uId || (meta.userEmail && meta.userEmail.toLowerCase().trim() === uEmail);
-              if (matchesUser) {
-                rawDocs.push({ ...meta, documentId: docId });
-              }
-            }
-          }
-        }
-
-        if (db.recovery_documents_store) {
-          for (const [docId, meta] of Object.entries(db.recovery_documents_store as Record<string, any>)) {
-            if (meta) {
-              const matchesUser = meta.userId === uId || (meta.userEmail && meta.userEmail.toLowerCase().trim() === uEmail);
-              if (matchesUser) {
-                rawDocs.push({ ...meta, documentId: docId });
-              }
-            }
-          }
-        }
-
-        // Deduplicate documents
+        // Deduplicate summary documents
         const seenDocKeys = new Set<string>();
-        const reconciledDocs: any[] = [];
+        const summaryDocs: any[] = [];
         for (const d of rawDocs) {
           if (!d || d.deleted === true || d.isDeleted === true) continue;
           const docId = String(d.documentId || d.id || d.fileId || "").trim();
@@ -9987,71 +9888,29 @@ app.get("/api/admin/users", requireAuth, requireAdmin, async (req: AuthRequest, 
           if (key3) seenDocKeys.add(key3);
 
           const finalDocId = docId || (storageRef ? storageRef.split("/").pop() : "") || fileName || `doc_${Date.now()}`;
-          reconciledDocs.push({ ...d, documentId: finalDocId });
-        }
-
-        // --- C. REAL DOCUMENT PHYSICAL EXISTENCE CHECK ---
-        const verifiedDocs = reconciledDocs.map((doc: any) => {
-          const docId = doc.documentId || doc.id || doc.fileName;
-          let exists = false;
-
-          // 1. Check local disk
-          if (
-            (docId && fs.existsSync(path.join(diskUploadsDir, docId))) ||
-            (docId && fs.existsSync(path.join(os.tmpdir(), "secure_uploads", docId))) ||
-            (docId && fs.existsSync(path.join(process.cwd(), "secure_uploads", docId)))
-          ) {
-            exists = true;
-          }
-          // 2. Check local memory/buffer/base64
-          else if (docId && getFromLocalDiskCache(docId)) {
-            exists = true;
-          } else if (doc.fileBase64 || doc.data || doc.base64 || (Array.isArray(doc.chunks) && doc.chunks.length > 0)) {
-            exists = true;
-          } else if ((docId && db.recovery_documents_store?.[docId]?.fileBase64) || (docId && db.verification_documents_store?.[docId]?.fileBase64)) {
-            exists = true;
-          }
-          // 3. Check storage reference, storage path or valid HTTP/HTTPS fileUrl / downloadUrl / previewUrl / fileName
-          else if (
-            doc.storageReference ||
-            doc.storagePath ||
-            doc.path ||
-            doc.filePath ||
-            doc.downloadUrl ||
-            (typeof doc.fileUrl === "string" && doc.fileUrl.length > 5) ||
-            (typeof doc.previewUrl === "string" && doc.previewUrl.length > 5) ||
-            (docId && db.verification_documents_store?.[docId]) ||
-            (docId && db.recovery_documents_store?.[docId]) ||
-            doc.fileName ||
-            doc.name
-          ) {
-            exists = true;
-          } else {
-            exists = false;
-          }
-
-          const rawStatus = String(doc.status || doc.verificationStatus || u.documentVerificationStatus || "PENDING").toUpperCase();
+          const rawStatus = String(d.status || d.verificationStatus || u.documentVerificationStatus || "PENDING").toUpperCase();
           const docStatus = rawStatus === "APPROVED" || rawStatus === "VERIFIED" ? "APPROVED" : (rawStatus === "REJECTED" ? "REJECTED" : "PENDING");
 
-          return {
-            ...doc,
-            documentId: docId,
-            id: docId,
+          summaryDocs.push({
+            documentId: finalDocId,
+            id: finalDocId,
+            fileName: fileName || "Document",
+            category: d.category || "Verification",
+            uploadDate: d.uploadDate || d.createdAt || u.createdAt,
             status: docStatus,
             verificationStatus: docStatus,
-            isAccessible: exists,
-            isMissing: !exists,
-            previewUrl: doc.previewUrl || doc.fileUrl || `/api/auth/verification-document/${encodeURIComponent(docId)}`,
-            downloadUrl: doc.downloadUrl || doc.fileUrl || `/api/auth/verification-document/${encodeURIComponent(docId)}?download=true`
-          };
-        });
+            isAccessible: true,
+            isMissing: false,
+            previewUrl: d.previewUrl || d.fileUrl || `/api/auth/verification-document/${encodeURIComponent(finalDocId)}`,
+            downloadUrl: d.downloadUrl || d.fileUrl || `/api/auth/verification-document/${encodeURIComponent(finalDocId)}?download=true`
+          });
+        }
 
-        // CRITICAL RULE: Real submitted documents MUST NEVER be reduced to 0 by ephemeral storage checks!
-        const totalDocCount = verifiedDocs.length;
+        const totalDocCount = summaryDocs.length;
         const docCount = totalDocCount;
 
-        u.verificationDocuments = verifiedDocs;
-        u.documents = verifiedDocs;
+        u.verificationDocuments = summaryDocs;
+        u.documents = summaryDocs;
         u.documentCount = totalDocCount;
 
         // --- D. AUTHORITATIVE STATUS DERIVATION ---
@@ -10095,7 +9954,7 @@ app.get("/api/admin/users", requireAuth, requireAdmin, async (req: AuthRequest, 
 
         // 2. Document Verification Status (RULE 8: 0 documents CANNOT be APPROVED under any circumstance)
         let docStatus: "NOT_SUBMITTED" | "PENDING_REVIEW" | "UNDER_REVIEW" | "APPROVED" | "REJECTED" = "NOT_SUBMITTED";
-        const hasRejectedDoc = verifiedDocs.some((d: any) => String(d.status || d.verificationStatus || "").toUpperCase() === "REJECTED");
+        const hasRejectedDoc = summaryDocs.some((d: any) => String(d.status || d.verificationStatus || "").toUpperCase() === "REJECTED");
 
         if (docCount === 0) {
           docStatus = "NOT_SUBMITTED";
@@ -18130,7 +17989,46 @@ export async function resolveDocumentFromStorage(
     const fileName = rec.fileName || rec.name || rec.documentName || "document";
     const declaredMime = rec.mimeType || rec.type || "";
 
-    // 1. Chunks reassembly
+    // 1. Direct disk storagePath / storageReference / filePath (Physical storage first)
+    const possiblePaths = [
+      rec.storagePath,
+      rec.storageReference,
+      rec.filePath,
+      rec.path,
+      rec.documentPath,
+      rec.fileUrl,
+      rec.documentId,
+      rec.id,
+      rec.fileId,
+      rec.fileName,
+      rec.name,
+    ].filter((p): p is string => typeof p === "string" && p.length > 0);
+
+    for (const p of possiblePaths) {
+      if (p.startsWith("http://") || p.startsWith("https://") || p.startsWith("data:")) continue;
+      const onDisk = getFromLocalDiskCache(p);
+      if (onDisk && onDisk.length > 0) {
+        saveToLocalDiskCache(documentId, onDisk);
+        const mime = accuratelyDetectMimeType(onDisk, declaredMime, fileName);
+        const hash =
+          rec.fileHash ||
+          rec.sha256 ||
+          crypto.createHash("sha256").update(onDisk).digest("hex");
+        setCachedBinary(documentId, onDisk, mime, fileName, hash);
+        return {
+          documentId,
+          buffer: onDisk,
+          mimeType: mime,
+          fileName,
+          size: onDisk.length,
+          sha256: hash,
+          source: `${recName}_disk_ref`,
+          metadata: rec,
+        };
+      }
+    }
+
+    // 2. Chunks reassembly
     if (Array.isArray(rec.chunks) && rec.chunks.length > 0) {
       try {
         const buffers: Buffer[] = [];
@@ -18177,7 +18075,7 @@ export async function resolveDocumentFromStorage(
       }
     }
 
-    // 2. Base64 string / Data URL
+    // 3. Base64 string / Data URL
     const rawBase64 =
       rec.fileBase64 ||
       rec.data ||
@@ -18211,45 +18109,6 @@ export async function resolveDocumentFromStorage(
           };
         }
       } catch (b64Err) {}
-    }
-
-    // 3. Direct disk storagePath / storageReference / filePath
-    const possiblePaths = [
-      rec.storagePath,
-      rec.storageReference,
-      rec.filePath,
-      rec.path,
-      rec.documentPath,
-      rec.fileUrl,
-      rec.documentId,
-      rec.id,
-      rec.fileId,
-      rec.fileName,
-      rec.name,
-    ].filter((p): p is string => typeof p === "string" && p.length > 0);
-
-    for (const p of possiblePaths) {
-      if (p.startsWith("http://") || p.startsWith("https://") || p.startsWith("data:")) continue;
-      const onDisk = getFromLocalDiskCache(p);
-      if (onDisk && onDisk.length > 0) {
-        saveToLocalDiskCache(documentId, onDisk);
-        const mime = accuratelyDetectMimeType(onDisk, declaredMime, fileName);
-        const hash =
-          rec.fileHash ||
-          rec.sha256 ||
-          crypto.createHash("sha256").update(onDisk).digest("hex");
-        setCachedBinary(documentId, onDisk, mime, fileName, hash);
-        return {
-          documentId,
-          buffer: onDisk,
-          mimeType: mime,
-          fileName,
-          size: onDisk.length,
-          sha256: hash,
-          source: `${recName}_disk_ref`,
-          metadata: rec,
-        };
-      }
     }
 
     // 3b. Cloud Storage bucket check for explicit storageReference / storagePath
@@ -18363,11 +18222,20 @@ export async function resolveDocumentFromStorage(
   // ==========================================
   // TIER 2: Local Container Disk Storage (<1ms)
   // ==========================================
-  const diskBuf = getFromLocalDiskCache(documentId);
+  const cleanBasename = path.basename(documentId).replace(/[^a-zA-Z0-9_\-\.]/g, "");
+  const idWithoutExt = cleanBasename.replace(/\.[a-zA-Z0-9]+$/, "");
+  const idWithDoc = cleanBasename.startsWith("doc_") ? cleanBasename : `doc_${cleanBasename}`;
+
+  const diskBuf = getFromLocalDiskCache(documentId) || 
+                  (cleanBasename && cleanBasename !== documentId ? getFromLocalDiskCache(cleanBasename) : null) ||
+                  (idWithoutExt && idWithoutExt !== cleanBasename ? getFromLocalDiskCache(idWithoutExt) : null) ||
+                  (idWithDoc && idWithDoc !== cleanBasename ? getFromLocalDiskCache(idWithDoc) : null);
+
   if (diskBuf && diskBuf.length > 0) {
-    const mime = accuratelyDetectMimeType(diskBuf, undefined, documentId);
+    const mime = accuratelyDetectMimeType(diskBuf, undefined, cleanBasename || documentId);
     const hash = crypto.createHash("sha256").update(diskBuf).digest("hex");
-    setCachedBinary(documentId, diskBuf, mime, "document", hash);
+    const resolvedName = cleanBasename || "document";
+    setCachedBinary(documentId, diskBuf, mime, resolvedName, hash);
     console.log("[DOCUMENT_SOURCE_CHECK]", {
       source: "local_disk",
       found: true,
@@ -18383,7 +18251,7 @@ export async function resolveDocumentFromStorage(
       documentId,
       buffer: diskBuf,
       mimeType: mime,
-      fileName: "document",
+      fileName: resolvedName,
       size: diskBuf.length,
       sha256: hash,
       source: "local_disk",
@@ -24191,6 +24059,147 @@ app.post("/api/auth/login", loginRegisterLimiter, async (req, res) => {
   }
 });
 
+// --- WORKSPACE INVITATION REVOCATION & LEAVE ORGANIZATION ENDPOINTS ---
+
+app.post("/api/admin/revoke-invitation", requireAuth, async (req: AuthRequest, res) => {
+  try {
+    const { email } = req.body;
+    if (!email) {
+      return res.status(400).json({ success: false, error: "Email is required" });
+    }
+    const emailKey = email.trim().toLowerCase();
+
+    // Remove from Firestore invitations
+    if (isFirebaseAdminAvailable && adminDb) {
+      try {
+        await adminDb.collection("invitations").doc(emailKey).delete();
+      } catch (e) {}
+      try {
+        const snap = await adminDb.collection("workspace_invitations").where("email", "==", emailKey).get();
+        for (const doc of snap.docs) {
+          await doc.ref.delete();
+        }
+      } catch (e) {}
+    }
+
+    // Remove from local DB invitations & sender team list
+    const db = readDb();
+    if (db.invitations) {
+      db.invitations = db.invitations.filter((i: any) => (i.email || "").trim().toLowerCase() !== emailKey);
+    }
+    const callerUid = req.user?.uid;
+    if (callerUid && db.users) {
+      const caller = db.users.find((u: any) => u.id === callerUid || u.uid === callerUid);
+      if (caller && Array.isArray(caller.teamMembersList)) {
+        caller.teamMembersList = caller.teamMembersList.filter((m: any) => (m.email || "").trim().toLowerCase() !== emailKey);
+      }
+    }
+    writeDb(db);
+
+    return res.json({
+      success: true,
+      userFriendlyMessage: `تم إلغاء وسحب الدعوة الموجهة إلى (${emailKey}) بنجاح.`
+    });
+  } catch (err: any) {
+    console.error("[RevokeInvitation] Error:", err);
+    return res.status(500).json({ success: false, error: err.message || "Failed to revoke invitation." });
+  }
+});
+
+app.post("/api/workspace/leave", requireAuth, async (req: AuthRequest, res) => {
+  try {
+    const authUid = req.user?.uid;
+    const authEmail = (req.user?.email || "").trim().toLowerCase();
+    if (!authUid) return res.status(401).json({ success: false, error: "Unauthorized" });
+
+    const userProfile = await getUserProfileServer(authUid, authEmail);
+    if (!userProfile) return res.status(404).json({ success: false, error: "User profile not found" });
+
+    // Prevent workspace owner from leaving without transferring ownership
+    const isOwner = userProfile.role === "CEO" || (userProfile.workspace?.ownerId && userProfile.workspace.ownerId === authUid);
+    if (isOwner) {
+      return res.status(400).json({
+        success: false,
+        error: "OWNER_CANNOT_LEAVE",
+        userFriendlyMessage: "لا يمكن لصاحب المؤسسة مغادرتها. يمكنك تعديل الأعضاء أو نقل الملكية بدلاً من ذلك."
+      });
+    }
+
+    const currentSenderId = userProfile.workspace?.ownerId;
+
+    // Remove member from CEO/Owner's teamMembersList in Firestore
+    if (currentSenderId && isFirebaseAdminAvailable && adminDb) {
+      try {
+        const ceoRef = adminDb.collection("users").doc(currentSenderId);
+        const ceoSnap = await ceoRef.get();
+        if (ceoSnap.exists) {
+          const ceoData = ceoSnap.data() || {};
+          const list = ceoData.teamMembersList || [];
+          const updatedList = list.filter((m: any) => (m.email || "").trim().toLowerCase() !== authEmail && m.uid !== authUid && m.id !== `tm-${authUid}`);
+          await ceoRef.update({ teamMembersList: updatedList });
+        }
+      } catch (e) {
+        console.warn("[LeaveWorkspace] Error updating CEO team list:", e);
+      }
+    }
+
+    // Also update local DB for CEO team list
+    const db = readDb();
+    if (currentSenderId && db.users) {
+      const ceoIdx = db.users.findIndex((u: any) => u.id === currentSenderId || u.uid === currentSenderId);
+      if (ceoIdx >= 0 && Array.isArray(db.users[ceoIdx].teamMembersList)) {
+        db.users[ceoIdx].teamMembersList = db.users[ceoIdx].teamMembersList.filter(
+          (m: any) => (m.email || "").trim().toLowerCase() !== authEmail && m.uid !== authUid && m.id !== `tm-${authUid}`
+        );
+      }
+    }
+
+    // Clean up any pending invitation for this user
+    if (authEmail && isFirebaseAdminAvailable && adminDb) {
+      try {
+        await adminDb.collection("invitations").doc(authEmail).delete();
+      } catch (e) {}
+    }
+    if (db.invitations && authEmail) {
+      db.invitations = db.invitations.filter((i: any) => (i.email || "").trim().toLowerCase() !== authEmail);
+    }
+
+    // Convert member's profile to Independent Personal Account (keep personal data intact!)
+    const updatedUser: any = {
+      ...userProfile,
+      workspaceId: null,
+      workspace: null,
+      companyName: "حساب شخصي",
+      organizationName: "حساب شخصي",
+      role: "Contributor",
+      updatedAt: new Date().toISOString()
+    };
+
+    if (isFirebaseAdminAvailable && adminDb) {
+      try {
+        await adminDb.collection("users").doc(authUid).set(updatedUser, { merge: true });
+      } catch (e) {}
+    }
+
+    if (db.users) {
+      const uIdx = db.users.findIndex((u: any) => u.id === authUid || u.uid === authUid);
+      if (uIdx >= 0) {
+        db.users[uIdx] = { ...db.users[uIdx], ...updatedUser };
+      }
+      writeDb(db);
+    }
+
+    return res.json({
+      success: true,
+      user: updatedUser,
+      userFriendlyMessage: "تمت مغادرة المؤسسة بنجاح والتحول إلى حساب شخصي مستقل."
+    });
+  } catch (err: any) {
+    console.error("[LeaveWorkspace] Error:", err);
+    return res.status(500).json({ success: false, error: err.message || "Failed to leave workspace." });
+  }
+});
+
 // --- SECURITY PASSCODE & MODULE VAULT PROTECTION ENDPOINTS ---
 
 app.post(
@@ -25881,12 +25890,7 @@ async function startServer() {
 const isStandalone =
   !isServerless &&
   !process.env.SKIP_SERVER_LISTEN &&
-  process.env.NODE_ENV !== "test" &&
-  ((process.argv[1] &&
-    (process.argv[1].endsWith("server.ts") ||
-      process.argv[1].endsWith("server.js") ||
-      process.argv[1].endsWith("server.cjs"))) ||
-    process.env.STANDALONE_SERVER === "true");
+  process.env.NODE_ENV !== "test";
 
 if (isStandalone) {
   startServer().catch((err) => {

@@ -111,7 +111,7 @@ import { SplitLoginCard } from "./components/ui/split-login-card";
 import { CompactAppSwitcher } from "./components/ui/CompactAppSwitcher";
 import { CompactLanguageSwitcher } from "./components/ui/CompactLanguageSwitcher";
 import { applyGlobalTheme, ThemeMode } from "./lib/themeUtils.js";
-import { authenticatedFetch, getFreshAuthToken } from "./lib/apiUtils.js";
+import { authenticatedFetch, getFreshAuthToken, isAbortError } from "./lib/apiUtils.js";
 import { fetchFirebaseUserFiles } from "./lib/firebaseServices.js";
 const SettingsAdmin = React.lazy<React.ComponentType<any>>(() => import("./components/SettingsAdmin").then((m: any) => ({ default: m.SettingsAdmin || m.default })));
 import { InstallPrompt } from "./components/InstallPrompt";
@@ -1426,6 +1426,20 @@ This hosting domain (**${currentDomain}**) has not been authorized in your Fireb
   const [refreshKey, setRefreshKey] = useState(0);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [showRefreshToast, setShowRefreshToast] = useState(false);
+  const refreshToastTimerRef = useRef<any>(null);
+  const dataLoadGenRef = useRef(0);
+  const agentMessageGenRef = useRef(0);
+  const isAppMountedRef = useRef(true);
+
+  useEffect(() => {
+    isAppMountedRef.current = true;
+    return () => {
+      isAppMountedRef.current = false;
+      if (refreshToastTimerRef.current) {
+        clearTimeout(refreshToastTimerRef.current);
+      }
+    };
+  }, []);
   const [incomingInvitation, setIncomingInvitation] = useState<WorkspaceInvitation | null>(null);
   const [urlInvitation, setUrlInvitation] = useState<WorkspaceInvitation | null>(null);
   const [invitationMismatch, setInvitationMismatch] = useState<{ invitedEmail: string; loggedInEmail: string } | null>(null);
@@ -1492,9 +1506,17 @@ This hosting domain (**${currentDomain}**) has not been authorized in your Fireb
     setRefreshKey(prev => prev + 1);
     setLastUpdatedTimestamp(Date.now());
     setTimeout(() => {
+      if (!isAppMountedRef.current) return;
       setIsRefreshing(false);
+      if (refreshToastTimerRef.current) {
+        clearTimeout(refreshToastTimerRef.current);
+      }
       setShowRefreshToast(true);
-      setTimeout(() => setShowRefreshToast(false), 3000);
+      refreshToastTimerRef.current = setTimeout(() => {
+        if (isAppMountedRef.current) {
+          setShowRefreshToast(false);
+        }
+      }, 3000);
     }, 800);
   };
   
@@ -1782,7 +1804,7 @@ This hosting domain (**${currentDomain}**) has not been authorized in your Fireb
 
       if (fbUser?.id) {
         unsubsProfile = subscribeToFirebaseUserProfile(fbUser.id, (liveProfile) => {
-          if (liveProfile) {
+          if (liveProfile && (liveProfile.id === fbUser.id || (liveProfile as any).uid === fbUser.id)) {
             setCurrentUser(liveProfile);
           }
         });
@@ -1798,12 +1820,16 @@ This hosting domain (**${currentDomain}**) has not been authorized in your Fireb
 
   // Fetch initial data (Firestore user-specific + server fallback)
   useEffect(() => {
+    const currentGen = ++dataLoadGenRef.current;
     let safetyDataTimer = setTimeout(() => {
-      setIsInitialDataLoaded(true);
+      if (dataLoadGenRef.current === currentGen) {
+        setIsInitialDataLoaded(true);
+      }
     }, 2800);
 
     async function loadData() {
       setIsLoading(true);
+      if (dataLoadGenRef.current !== currentGen) return;
       setSmartData(null); // Clear previous user's analysis on user/workspace switch
 
       try {
@@ -1819,6 +1845,8 @@ This hosting domain (**${currentDomain}**) has not been authorized in your Fireb
             fetchFirebaseUserRiskAlerts(dataOwnerId),
             authenticatedFetch("/api/database/schema", { method: "POST" })
           ]);
+
+          if (dataLoadGenRef.current !== currentGen) return;
 
           // Extract workspace invitation
           if (results[0].status === "fulfilled") {
@@ -1854,15 +1882,23 @@ This hosting domain (**${currentDomain}**) has not been authorized in your Fireb
             const schemaRes = results[3].value;
             if (schemaRes.ok) {
               const schemaData = await schemaRes.json().catch(() => ({ ddl: FALLBACK_SCHEMA }));
-              setSqlSchema(schemaData.ddl || FALLBACK_SCHEMA);
+              if (dataLoadGenRef.current === currentGen) {
+                setSqlSchema(schemaData.ddl || FALLBACK_SCHEMA);
+              }
             } else {
-              setSqlSchema(FALLBACK_SCHEMA);
+              if (dataLoadGenRef.current === currentGen) {
+                setSqlSchema(FALLBACK_SCHEMA);
+              }
             }
           } else {
-            setSqlSchema(FALLBACK_SCHEMA);
+            if (dataLoadGenRef.current === currentGen) {
+              setSqlSchema(FALLBACK_SCHEMA);
+            }
           }
 
-          setMetrics([]);
+          if (dataLoadGenRef.current === currentGen) {
+            setMetrics([]);
+          }
 
           // Load previous saved smart evolution analysis (pure cache read - NO AI analysis)
           try {
@@ -1871,25 +1907,33 @@ This hosting domain (**${currentDomain}**) has not been authorized in your Fireb
             authenticatedFetch(`/api/smart-evolution/latest?workspaceId=${encodeURIComponent(wsId)}&userId=${encodeURIComponent(uId)}`)
               .then(res => res.json())
               .then(savedRes => {
-                if (savedRes?.hasPreviousAnalysis && savedRes?.result) {
-                  setSmartData(savedRes.result);
-                } else {
-                  setSmartData(null);
+                if (dataLoadGenRef.current === currentGen) {
+                  if (savedRes?.hasPreviousAnalysis && savedRes?.result) {
+                    setSmartData(savedRes.result);
+                  } else {
+                    setSmartData(null);
+                  }
                 }
               })
-              .catch(() => setSmartData(null));
+              .catch(() => {
+                if (dataLoadGenRef.current === currentGen) setSmartData(null);
+              });
           } catch {
-            setSmartData(null);
+            if (dataLoadGenRef.current === currentGen) setSmartData(null);
           }
         } else {
           // Unauthenticated Guest Preview Mode (when not logged in) - load public endpoints in parallel
-          setMemories(FALLBACK_MEMORIES);
-          setSqlSchema(FALLBACK_SCHEMA);
-          setRiskAlerts(FALLBACK_ALERTS);
+          if (dataLoadGenRef.current === currentGen) {
+            setMemories(FALLBACK_MEMORIES);
+            setSqlSchema(FALLBACK_SCHEMA);
+            setRiskAlerts(FALLBACK_ALERTS);
+          }
 
           const results = await Promise.allSettled([
             fetch("/api/metrics")
           ]);
+
+          if (dataLoadGenRef.current !== currentGen) return;
 
           // Extract metrics
           if (results[0].status === "fulfilled" && results[0].value.ok) {
@@ -1900,15 +1944,21 @@ This hosting domain (**${currentDomain}**) has not been authorized in your Fireb
           }
         }
       } catch (e) {
-        console.warn("Operational data load fallback:", e);
-        setMemories(FALLBACK_MEMORIES);
-        setRiskAlerts(FALLBACK_ALERTS);
-        setMetrics(FALLBACK_METRICS);
-        setSqlSchema(FALLBACK_SCHEMA);
+        if (!isAbortError(e)) {
+          console.warn("Operational data load fallback:", e);
+        }
+        if (dataLoadGenRef.current === currentGen) {
+          setMemories(FALLBACK_MEMORIES);
+          setRiskAlerts(FALLBACK_ALERTS);
+          setMetrics(FALLBACK_METRICS);
+          setSqlSchema(FALLBACK_SCHEMA);
+        }
       } finally {
         clearTimeout(safetyDataTimer);
-        setIsLoading(false);
-        setIsInitialDataLoaded(true);
+        if (dataLoadGenRef.current === currentGen) {
+          setIsLoading(false);
+          setIsInitialDataLoaded(true);
+        }
       }
     }
     loadData();
@@ -3257,6 +3307,8 @@ Provide an executive, high-impact causal analysis in Arabic (and professional En
     const query = customMsg || agentInput;
     if (!query.trim() || isAgentReplying) return;
 
+    const currentMsgGen = ++agentMessageGenRef.current;
+
     const userMsg: ChatMessage = {
       id: "msg_" + Math.random().toString(36).substr(2, 9),
       role: "user",
@@ -3288,6 +3340,7 @@ Provide an executive, high-impact causal analysis in Arabic (and professional En
     }
 
     for (let attempt = 1; attempt <= retries; attempt++) {
+      if (agentMessageGenRef.current !== currentMsgGen) return;
       try {
         console.log(`[Cognitive Advisor] Attempt ${attempt} of ${retries} to contact /api/agent/chat...`);
         const userFiles = currentUser?.id ? await fetchFirebaseUserFiles(currentUser.id).catch(() => []) : [];
@@ -3325,11 +3378,15 @@ Provide an executive, high-impact causal analysis in Arabic (and professional En
         lastError = err;
       }
 
+      if (agentMessageGenRef.current !== currentMsgGen) return;
+
       if (attempt < retries) {
         console.warn(`[Cognitive Advisor] Attempt ${attempt} failed. Retrying in 1.5s...`, lastError);
         await new Promise(resolve => setTimeout(resolve, 1500));
       }
     }
+
+    if (agentMessageGenRef.current !== currentMsgGen) return;
 
     if (success && responseData) {
       const responseText = responseData.text || responseData.response || (
@@ -3343,7 +3400,9 @@ Provide an executive, high-impact causal analysis in Arabic (and professional En
         text: responseText,
         createdAt: new Date().toISOString()
       };
-      setAgentMessages(prev => [...prev, modelMsg]);
+      if (agentMessageGenRef.current === currentMsgGen) {
+        setAgentMessages(prev => [...prev, modelMsg]);
+      }
     } else {
       console.error("Cognitive Advisor network connection error:", lastError);
       const friendlyFallback = lang === "ar"
@@ -3356,10 +3415,14 @@ Provide an executive, high-impact causal analysis in Arabic (and professional En
         text: friendlyFallback,
         createdAt: new Date().toISOString()
       };
-      setAgentMessages(prev => [...prev, modelMsg]);
+      if (agentMessageGenRef.current === currentMsgGen) {
+        setAgentMessages(prev => [...prev, modelMsg]);
+      }
     }
 
-    setIsAgentReplying(false);
+    if (agentMessageGenRef.current === currentMsgGen) {
+      setIsAgentReplying(false);
+    }
   };
 
   const suggestedAgentQueries = useMemo(() => {

@@ -226,14 +226,14 @@ export async function getUserProfileServer(uid?: string, email?: string): Promis
     if (!profileData && normalizedEmail) {
       try {
         const snap = await adminDb.collection("users").where("email", "==", normalizedEmail).limit(1).get();
-        if (!snap.empty) {
+        if (!snap.empty && snap.docs[0].id === uid) {
           profileData = snap.docs[0].data();
         }
       } catch (e) {}
       if (!profileData) {
         try {
           const db = readDbForAuth();
-          const localUser = db.users?.find((u: any) => (u.email || "").trim().toLowerCase() === normalizedEmail);
+          const localUser = db.users?.find((u: any) => (u.id === uid || u.uid === uid) && (u.email || "").trim().toLowerCase() === normalizedEmail);
           if (localUser) {
             profileData = localUser;
           }
@@ -635,11 +635,7 @@ export function deriveAccountAndVerificationState(profile: any, isAdmin: boolean
   }
 
   const pEmail = (profile.email || "").toLowerCase().trim();
-  const isSysAdmin = isAdmin || 
-    profile.role === "ADMIN" || 
-    profile.role === "Admin" || 
-    profile.isAdmin === true || 
-    (pEmail && ADMIN_EMAILS.has(pEmail));
+  const isSysAdmin = isAdmin || (pEmail === AUTHORIZED_ADMIN_EMAIL);
 
   const canonical = computeCanonicalVerification(profile, isSysAdmin);
   const docsResult = normalizeUserDocuments(profile);

@@ -34,7 +34,7 @@ import {
   formatBytes 
 } from "../lib/firebaseServices.js";
 import { openOrDownloadUserFile, downloadUserFile as downloadUserFileUtil, openUserFileInNewTab as openUserFileInNewTabUtil } from "../lib/fileViewerUtils.js";
-import { authenticatedFetch } from "../lib/apiUtils.js";
+import { authenticatedFetch, isAbortError } from "../lib/apiUtils.js";
 import { DocumentPreviewModal } from "./DocumentPreviewModal.js";
 
 interface FileManagerProps {
@@ -128,20 +128,35 @@ export const FileManager: React.FC<FileManagerProps> = ({
     error: ""
   });
   const [enteredPasscode, setEnteredPasscode] = useState<string>("");
+  const isFileManagerMountedRef = React.useRef(true);
+  const fileLoadGenRef = React.useRef(0);
+
+  useEffect(() => {
+    isFileManagerMountedRef.current = true;
+    return () => {
+      isFileManagerMountedRef.current = false;
+    };
+  }, []);
 
   useEffect(() => {
     loadFiles();
   }, [userId]);
 
   const loadFiles = async () => {
+    const currentGen = ++fileLoadGenRef.current;
     setLoading(true);
     try {
       const data = await fetchFirebaseUserFiles(userId);
+      if (!isFileManagerMountedRef.current || fileLoadGenRef.current !== currentGen) return;
       setFiles(data);
     } catch (e) {
-      console.error("Error loading user files:", e);
+      if (!isAbortError(e)) {
+        console.error("Error loading user files:", e);
+      }
     } finally {
-      setLoading(false);
+      if (isFileManagerMountedRef.current && fileLoadGenRef.current === currentGen) {
+        setLoading(false);
+      }
     }
   };
 

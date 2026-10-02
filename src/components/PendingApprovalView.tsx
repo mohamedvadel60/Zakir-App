@@ -39,7 +39,7 @@ export const PendingApprovalView: React.FC<PendingApprovalViewProps> = ({
   const isAr = lang === "ar";
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [refreshMessage, setRefreshMessage] = useState<string | null>(null);
-  const [previewDoc, setPreviewDoc] = useState<{ id: string; name: string; category?: string } | null>(null);
+  const [previewDoc, setPreviewDoc] = useState<{ id: string; name: string; category?: string; fileUrl?: string } | null>(null);
 
   const profile = currentUser.institutionalProfile;
   const rawDocs = currentUser.verificationDocuments || [];
@@ -312,8 +312,15 @@ export const PendingApprovalView: React.FC<PendingApprovalViewProps> = ({
 
                       <button
                         type="button"
-                        onClick={() => setPreviewDoc({ id: doc.documentId, name: doc.fileName, category: doc.category })}
-                        className="flex items-center gap-1 text-[#0075DE] hover:underline text-xs shrink-0 font-medium"
+                        onClick={() =>
+                          setPreviewDoc({
+                            id: doc.documentId || doc.id || doc.fileId || doc.storageReference || doc.storagePath || doc.fileName,
+                            name: doc.fileName || doc.name,
+                            category: doc.category,
+                            fileUrl: doc.fileUrl || doc.url || doc.previewUrl,
+                          })
+                        }
+                        className="flex items-center gap-1 text-[#0075DE] hover:underline text-xs shrink-0 font-medium cursor-pointer"
                       >
                         <Eye className="w-3.5 h-3.5" />
                         <span>{isAr ? "معاينة" : "Preview"}</span>
@@ -354,6 +361,7 @@ export const PendingApprovalView: React.FC<PendingApprovalViewProps> = ({
         documentId={previewDoc?.id || null}
         fileName={previewDoc?.name}
         category={previewDoc?.category}
+        fileUrl={previewDoc?.fileUrl}
         isOpen={Boolean(previewDoc)}
         onClose={() => setPreviewDoc(null)}
         lang={lang === "fr" ? "en" : lang}

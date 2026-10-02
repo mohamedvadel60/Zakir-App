@@ -663,7 +663,7 @@ export async function loginFirebaseUser(email: string, pass: string, attemptId?:
           limit(1)
         );
         const emailSnap = await getDocs(emailQuery);
-        if (!emailSnap.empty) {
+        if (!emailSnap.empty && emailSnap.docs[0].id === uid) {
           userSnap = emailSnap.docs[0];
         }
       } catch (e) {
@@ -1108,7 +1108,7 @@ export async function loginWithGoogle(): Promise<User> {
       if (email) {
         const emailQuery = query(collection(db, "users"), where("email", "==", email.trim().toLowerCase()), limit(1));
         const emailSnap = await getDocs(emailQuery);
-        if (!emailSnap.empty) {
+        if (!emailSnap.empty && emailSnap.docs[0].id === uid) {
           const foundData = emailSnap.docs[0].data() as User;
           if (
             (foundData as any).deleted === true ||
@@ -1531,7 +1531,7 @@ export function subscribeToFirebaseAuthState(rawCallback: (user: User | null) =>
             limit(1)
           );
           const emailSnap = await getDocs(emailQuery);
-          if (!emailSnap.empty) {
+          if (!emailSnap.empty && emailSnap.docs[0].id === fbUser.uid) {
             userObj = emailSnap.docs[0].data() as User;
           }
         } catch (e) {
@@ -1622,18 +1622,23 @@ export function subscribeToFirebaseAuthState(rawCallback: (user: User | null) =>
           memberCount: 1
         };
 
-        let resolvedName = invitation?.name || "User";
-        if (resolvedName === "User" && typeof localStorage !== "undefined") {
+        const isSysAdmin = isUserAdmin({ id: fbUser.uid, email: fbUser.email });
+        let resolvedName = invitation?.name || "";
+        if (!resolvedName && fbUser.displayName) {
+          resolvedName = fbUser.displayName;
+        }
+        if (!resolvedName && fbUser.email) {
+          resolvedName = fbUser.email.split("@")[0];
+        }
+        if (!resolvedName && !isSysAdmin && typeof localStorage !== "undefined") {
           const pending = localStorage.getItem("pending_owner_name");
           if (pending && pending.trim()) {
             resolvedName = pending.trim();
+            localStorage.removeItem("pending_owner_name");
           }
         }
-        if (resolvedName === "User" && fbUser.displayName) {
-          resolvedName = fbUser.displayName;
-        }
-        if (resolvedName === "User" && fbUser.email) {
-          resolvedName = fbUser.email.split("@")[0];
+        if (!resolvedName) {
+          resolvedName = isSysAdmin ? "Admin" : "User";
         }
 
         // Firestore is online and user profile does not exist: create default profile for this UID
@@ -1678,21 +1683,28 @@ export function subscribeToFirebaseAuthState(rawCallback: (user: User | null) =>
         }
       } catch (e) {}
 
-      if (resolvedFallbackName === "User" && typeof localStorage !== "undefined") {
+      if (resolvedFallbackName === "User") {
+        resolvedFallbackName = "";
+      }
+      if (!resolvedFallbackName && fbUser.displayName) {
+        resolvedFallbackName = fbUser.displayName;
+      }
+      if (!resolvedFallbackName && fbUser.email) {
+        resolvedFallbackName = fbUser.email.split("@")[0];
+      }
+      const isFallbackAdmin = fbUser.uid === ADMIN_USER_ID || (fbUser.email && ADMIN_EMAILS.includes(fbUser.email.toLowerCase().trim()));
+      if (!resolvedFallbackName && !isFallbackAdmin && typeof localStorage !== "undefined") {
         const pending = localStorage.getItem("pending_owner_name");
         if (pending && pending.trim()) {
           resolvedFallbackName = pending.trim();
+          localStorage.removeItem("pending_owner_name");
         }
       }
-      if (resolvedFallbackName === "User" && fbUser.displayName) {
-        resolvedFallbackName = fbUser.displayName;
-      }
-      if (resolvedFallbackName === "User" && fbUser.email) {
-        resolvedFallbackName = fbUser.email.split("@")[0];
+      if (!resolvedFallbackName) {
+        resolvedFallbackName = isFallbackAdmin ? "Admin" : "User";
       }
 
       const fallbackRole: UserRole = "CEO";
-      const isFallbackAdmin = fbUser.uid === ADMIN_USER_ID || (fbUser.email && ADMIN_EMAILS.includes(fbUser.email.toLowerCase().trim()));
       callback({
         id: fbUser.uid,
         email: fbUser.email || "",
@@ -2532,6 +2544,18 @@ export async function deleteWorkspaceInvitation(email: string): Promise<void> {
       // ignore
     }
   }
+}
+
+export async function leaveWorkspaceApi(): Promise<{ success: boolean; user?: any; userFriendlyMessage?: string }> {
+  const res = await authenticatedFetch("/api/workspace/leave", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" }
+  });
+  const data = await safeJsonResponse(res, "فشل طلب مغادرة المؤسسة.");
+  if (!res.ok || !data.success) {
+    throw new Error(data.userFriendlyMessage || data.error || "فشل مغادرة المؤسسة.");
+  }
+  return data;
 }
 
 export async function checkWorkspaceInvitation(email: string): Promise<WorkspaceInvitation | null> {

@@ -3,7 +3,7 @@ import { safeFormatDateTime } from "../lib/dateUtils";
 import { loadStripe, Stripe as StripeType } from "@stripe/stripe-js";
 import { StripeEmbeddedCheckout } from "./StripeEmbeddedCheckout.js";
 import { auth } from "../firebase.js";
-import { authenticatedFetch, getAuthenticatedFirebaseUser, getFreshAuthToken, safeJsonResponse } from "../lib/apiUtils.js";
+import { authenticatedFetch, getAuthenticatedFirebaseUser, getFreshAuthToken, safeJsonResponse, isAbortError } from "../lib/apiUtils.js";
 import { 
   User as UserIcon, 
   Building, 
@@ -55,7 +55,7 @@ import {
 } from "lucide-react";
 import { CustomerSupport } from "./CustomerSupport.js";
 import { User, UserRole, TeamMember, ModulePermissions, EncryptedModuleSettings, AccountVerificationDoc, VerificationInfo, VerificationStatus, WorkspaceInfo } from "../types.js";
-import { saveWorkspaceInvitation, deleteWorkspaceInvitation, fetchWorkspaceInvitations, fetchWorkspaceTeamApi, WorkspaceInvitation, sendWorkspaceInvitationApi, resendWorkspaceInvitationApi, saveFirebaseUserProfile, uploadFirebaseUserFile, deleteFirebaseUserFile, isUserAdmin } from "../lib/firebaseServices.js";
+import { saveWorkspaceInvitation, deleteWorkspaceInvitation, leaveWorkspaceApi, fetchWorkspaceInvitations, fetchWorkspaceTeamApi, WorkspaceInvitation, sendWorkspaceInvitationApi, resendWorkspaceInvitationApi, saveFirebaseUserProfile, uploadFirebaseUserFile, deleteFirebaseUserFile, isUserAdmin } from "../lib/firebaseServices.js";
 import { openOrDownloadUserFile, openUserFileInNewTab, downloadUserFile } from "../lib/fileViewerUtils.js";
 import { translations } from "../translations.js";
 import { PLAN_PRICES, getPlanCostUSD, formatPlanPriceUSD, PLAN_LIMITS, normalizeSubscriptionPlan, getPlanLimits, canPlanInviteMembers, getPlanMaxTeamMembers } from "../lib/pricingConfig.js";
@@ -252,6 +252,9 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
   const [pendingTabToSwitch, setPendingTabToSwitch] = useState<"account" | "subscription" | "team" | "security" | "support" | null>(null);
   const [editingMemberModal, setEditingMemberModal] = useState<TeamMember | null>(null);
   const [powerSaveNotify, setPowerSaveNotify] = useState(false);
+  const [isLeavingWorkspace, setIsLeavingWorkspace] = useState(false);
+  const [leaveWorkspaceError, setLeaveWorkspaceError] = useState<string | null>(null);
+  const [showLeaveModal, setShowLeaveModal] = useState(false);
 
   // Helper to read effective powers (draft powers override saved powers for UI rendering)
   const getMemberEffectivePowers = (member: TeamMember): ModulePermissions => {
@@ -318,6 +321,26 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
 
   const [saveSuccess, setSaveSuccess] = useState(false);
   
+  const isSettingsMountedRef = useRef(true);
+  const settingsTimersRef = useRef<any[]>([]);
+
+  const safeSetTimeout = (cb: () => void, delay: number) => {
+    const id = setTimeout(() => {
+      if (isSettingsMountedRef.current) cb();
+    }, delay);
+    settingsTimersRef.current.push(id);
+    return id;
+  };
+
+  useEffect(() => {
+    isSettingsMountedRef.current = true;
+    return () => {
+      isSettingsMountedRef.current = false;
+      settingsTimersRef.current.forEach(t => clearTimeout(t));
+      settingsTimersRef.current = [];
+    };
+  }, []);
+
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const companyLogoInputRef = useRef<HTMLInputElement | null>(null);
   const signatureInputRef = useRef<HTMLInputElement | null>(null);
@@ -1406,6 +1429,32 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
       ...currentUser,
       teamMembersList: updated
     });
+  };
+
+  const handleConfirmLeaveWorkspace = async () => {
+    setIsLeavingWorkspace(true);
+    setLeaveWorkspaceError(null);
+    try {
+      const res = await leaveWorkspaceApi();
+      if (res.user) {
+        onUpdateUser(res.user);
+      } else {
+        onUpdateUser({
+          ...currentUser,
+          workspaceId: undefined,
+          workspace: undefined as any,
+          companyName: "حساب شخصي",
+          role: "Contributor"
+        });
+      }
+      setShowLeaveModal(false);
+      setProfileSuccessMsg(lang === "ar" ? "تمت مغادرة المؤسسة وتحويل الحساب إلى حساب شخصي بنجاح." : "Successfully left organization and converted to personal account.");
+      setTimeout(() => setProfileSuccessMsg(null), 5000);
+    } catch (err: any) {
+      setLeaveWorkspaceError(err.message || (lang === "ar" ? "تعذر مغادرة المؤسسة." : "Failed to leave workspace."));
+    } finally {
+      setIsLeavingWorkspace(false);
+    }
   };
 
   // Double-Check Passcode Confirmation & Auto-Lock File Vault, Memory & Risks
@@ -2675,6 +2724,36 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
                       </div>
                     );
                   })}
+                </div>
+              </div>
+            )}
+
+            {/* ORGANIZATION MEMBERSHIP & LEAVE WORKSPACE SECTION FOR NON-OWNER MEMBERS */}
+            {currentUser.workspaceId && currentUser.role !== "CEO" && currentUser.workspace?.ownerId !== currentUser.id && (
+              <div className={`mt-8 p-5 rounded-2xl border ${theme === "dark" ? "bg-slate-950/60 border-slate-800" : "bg-slate-50 border-slate-200"} space-y-3`}>
+                <div className="flex items-center justify-between flex-wrap gap-3">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <Building className="w-5 h-5 text-[#0075DE]" />
+                      <h3 className={`text-sm font-bold ${theme === "dark" ? "text-white" : "text-slate-900"}`}>
+                        {lang === "ar" ? "الانتماء للمؤسسة / مغادرة الفريق" : "Organization Membership"}
+                      </h3>
+                    </div>
+                    <p className="text-xs text-slate-400 mt-1">
+                      {lang === "ar"
+                        ? `أنت حالياً عضو في مؤسسة (${currentUser.companyName || currentUser.workspace?.name || "المؤسسة"}). يمكنك مغادرة المؤسسة والتحول لحساب شخصي مستقل دون فقدان ملفاتك أو قراراتك الشخصية.`
+                        : `You are currently a member of ${currentUser.companyName || currentUser.workspace?.name || "Organization"}. You can leave the workspace to convert to a personal account.`}
+                    </p>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => setShowLeaveModal(true)}
+                    className="px-4 py-2.5 bg-rose-500/15 hover:bg-rose-500/25 border border-rose-500/30 text-rose-500 font-bold text-xs rounded-xl flex items-center gap-2 cursor-pointer transition-all shrink-0"
+                  >
+                    <LogOut className="w-4 h-4" />
+                    <span>{lang === "ar" ? "مغادرة المؤسسة" : "Leave Organization"}</span>
+                  </button>
                 </div>
               </div>
             )}
@@ -4570,12 +4649,11 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
                               type="button"
                               disabled={isLoadingThis}
                               onClick={() => handleRevokeInvitation(inv.email)}
-                              className={`p-1.5 rounded-lg cursor-pointer transition-colors disabled:opacity-50 ${
-                                theme === "dark" ? "text-slate-500 hover:text-red-400 hover:bg-slate-900" : "text-slate-400 hover:text-red-600 hover:bg-slate-100"
-                              }`}
+                              className="px-3 py-1.5 bg-rose-500/15 hover:bg-rose-500/25 disabled:opacity-50 text-rose-500 border border-rose-500/30 text-xs font-bold rounded-lg flex items-center gap-1.5 cursor-pointer transition-all"
                               title={lang === "ar" ? "سحب وإلغاء الدعوة" : "Revoke Invitation"}
                             >
-                              <Trash2 className="w-4 h-4" />
+                              <X className="w-3.5 h-3.5" />
+                              <span>{lang === "ar" ? "إلغاء الدعوة" : "Cancel Invitation"}</span>
                             </button>
                           </div>
                         )}
@@ -5643,6 +5721,74 @@ export const SettingsAdmin: React.FC<SettingsAdminProps> = ({
               >
                 {isSavingPermissions ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
                 <span>{lang === "ar" ? "حفظ ومتابعة" : "Save & Continue"}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* CONFIRM LEAVE ORGANIZATION MODAL */}
+      {showLeaveModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-fade-in">
+          <div className={`w-full max-w-md p-6 rounded-2xl border space-y-5 shadow-2xl ${
+            theme === "dark" ? "bg-slate-900 border-slate-800 text-white" : "bg-white border-slate-200 text-slate-900"
+          }`}>
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-rose-500/20 text-rose-500 font-bold flex items-center justify-center shrink-0">
+                <LogOut className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold">
+                  {lang === "ar" ? "تأكيد مغادرة المؤسسة" : "Confirm Leaving Organization"}
+                </h3>
+                <p className="text-xs text-slate-400">
+                  {currentUser.companyName || currentUser.workspace?.name || "المؤسسة"}
+                </p>
+              </div>
+            </div>
+
+            <p className="text-xs text-slate-300 leading-relaxed">
+              {lang === "ar"
+                ? "عند مغادرة المؤسسة، ستتحول هويتك وحسابك إلى حساب شخصي مستقل. لن تفقد مستنداتك ولا حسابك الشخصي، وستفقد فقط إمكانية الوصول إلى موارد المؤسسة المشتركة."
+                : "By leaving the organization, your account will switch to an independent personal account. You will not lose your personal profile or files."}
+            </p>
+
+            {leaveWorkspaceError && (
+              <div className="p-3 rounded-xl bg-rose-500/15 border border-rose-500/30 text-rose-400 text-xs font-bold flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 shrink-0" />
+                <span>{leaveWorkspaceError}</span>
+              </div>
+            )}
+
+            <div className="flex items-center gap-3 justify-end pt-2">
+              <button
+                type="button"
+                disabled={isLeavingWorkspace}
+                onClick={() => setShowLeaveModal(false)}
+                className={`px-4 py-2.5 text-xs font-bold rounded-xl border cursor-pointer ${
+                  theme === "dark" ? "bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700" : "bg-slate-100 border-slate-300 text-slate-700 hover:bg-slate-200"
+                }`}
+              >
+                {lang === "ar" ? "إلغاء" : "Cancel"}
+              </button>
+
+              <button
+                type="button"
+                disabled={isLeavingWorkspace}
+                onClick={handleConfirmLeaveWorkspace}
+                className="px-5 py-2.5 bg-rose-600 hover:bg-rose-700 disabled:opacity-50 text-white font-bold text-xs rounded-xl flex items-center gap-2 cursor-pointer shadow-lg shadow-rose-600/20"
+              >
+                {isLeavingWorkspace ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 animate-spin" />
+                    <span>{lang === "ar" ? "جارٍ المغادرة..." : "Leaving..."}</span>
+                  </>
+                ) : (
+                  <>
+                    <LogOut className="w-4 h-4" />
+                    <span>{lang === "ar" ? "تأكيد المغادرة" : "Confirm Leave"}</span>
+                  </>
+                )}
               </button>
             </div>
           </div>

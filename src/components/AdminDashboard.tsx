@@ -49,7 +49,8 @@ import {
 import { 
   authenticatedFetch, 
   safeJsonResponse, 
-  getFreshAuthToken 
+  getFreshAuthToken,
+  isAbortError 
 } from "../lib/apiUtils.js";
 import { SupportTicket, SupportStatus, SupportPriority } from "../types.js";
 import { CheckCircle2, AlertCircle, RefreshCw } from "lucide-react";
@@ -77,8 +78,19 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [activeTab, setActiveTab] = useState<AdminTab>("overview");
   const [userTabFilter, setUserTabFilter] = useState<string>("all");
 
-  // Core Data States
-  const [users, setUsers] = useState<AdminUserRecord[]>([]);
+  // Core Data States (Initialized cache-first for immediate instantaneous paint)
+  const [users, setUsers] = useState<AdminUserRecord[]>(() => {
+    try {
+      if (typeof window !== "undefined") {
+        const cached = localStorage.getItem("zakir_admin_cached_users");
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        }
+      }
+    } catch {}
+    return [];
+  });
   const [pendingApprovals, setPendingApprovals] = useState<PendingApprovalRecord[]>([]);
   const [recoveryRequests, setRecoveryRequests] = useState<RecoveryRequestRecord[]>([]);
   const [supportTickets, setSupportTickets] = useState<SupportTicket[]>([]);
@@ -89,118 +101,170 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [isUserModalOpen, setIsUserModalOpen] = useState(false);
 
   // Status & Telemetry
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [isRealtimeConnected, setIsRealtimeConnected] = useState(true);
   const [toastMessage, setToastMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
-  const showToast = (type: "success" | "error", text: string) => {
-    setToastMessage({ type, text });
-    setTimeout(() => {
-      setToastMessage(null);
-    }, 4500);
-  };
+  const toastTimeoutRef = React.useRef<any>(null);
+  const isMountedRef = React.useRef(true);
+  const loadGenerationRef = React.useRef(0);
 
-  // Main Data Loader
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+      if (toastTimeoutRef.current) {
+        clearTimeout(toastTimeoutRef.current);
+        toastTimeoutRef.current = null;
+      }
+    };
+  }, []);
+
+  const showToast = useCallback((type: "success" | "error", text: string) => {
+    if (!isMountedRef.current) return;
+    if (toastTimeoutRef.current) {
+      clearTimeout(toastTimeoutRef.current);
+      toastTimeoutRef.current = null;
+    }
+    setToastMessage({ type, text });
+    toastTimeoutRef.current = setTimeout(() => {
+      if (isMountedRef.current) {
+        setToastMessage(null);
+      }
+    }, 4500);
+  }, []);
+
+  // Main Data Loader: Phased Architecture (Phase A: User Summary -> Immediate Render; Phase B: Parallel Secondary Data)
   const loadAllAdminData = useCallback(async (isRefresh = false) => {
-    if (isRefresh) setRefreshing(true);
-    else setLoading(true);
+    const currentGen = ++loadGenerationRef.current;
+    if (isRefresh) {
+      setRefreshing(true);
+    } else if (users.length === 0) {
+      setLoading(true);
+    }
 
     try {
       const token = await getFreshAuthToken();
-      const headers = token ? { Authorization: `Bearer ${token}` } : {};
+      if (!isMountedRef.current || loadGenerationRef.current !== currentGen) return;
 
-      // 1. Fetch Users
-      const usersData = await fetchAllUsersForAdmin();
-      setUsers(usersData || []);
-
-      // 2. Fetch Pending Approvals from /api/admin/pending-approvals
-      try {
-        const res = await authenticatedFetch("/api/admin/pending-approvals");
-        const json = await safeJsonResponse(res, "Failed to load approvals");
-        if (json?.success && Array.isArray(json.pendingUsers)) {
-          setPendingApprovals(json.pendingUsers);
-        } else if (Array.isArray(json?.users)) {
-          setPendingApprovals(json.users);
-        } else {
-          // Derive fallback pending from usersData (strictly only users with real pending verification requests or documents)
-          const derived = usersData
-            .filter((u) => {
-              const breakdown = computeUserVerificationBreakdown(u);
-              return (
-                (breakdown.uiState === "PENDING_REVIEW" && breakdown.documentCount > 0) ||
-                (breakdown.uiState === "AWAITING_DOCS")
-              );
-            })
-            .map((u) => {
-              const breakdown = computeUserVerificationBreakdown(u);
-              return {
-                id: (u as any).verificationRequestId || `vreq_${u.id}`,
-                requestId: (u as any).verificationRequestId || `vreq_${u.id}`,
-                userId: u.id,
-                email: u.email,
-                name: u.ownerName || u.email?.split("@")[0] || "User",
-                userName: u.ownerName || u.email?.split("@")[0] || "User",
-                companyName: u.companyName || "Organization",
-                role: u.role || "Contributor",
-                accountStatus: breakdown.accountApprovalStatus,
-                requestStatus: breakdown.uiState === "PENDING_REVIEW" ? "UNDER_REVIEW" : "AWAITING_DOCUMENTS",
-                documentCount: breakdown.documentCount,
-                documents: breakdown.documents,
-                createdAt: u.createdAt
-              };
-            });
-          setPendingApprovals(derived);
+      // ==========================================
+      // PHASE A: PRIMARY USER LIST (Immediate Unblock)
+      // ==========================================
+      const usersTask = (async () => {
+        try {
+          const usersData = await fetchAllUsersForAdmin();
+          if (isMountedRef.current && loadGenerationRef.current === currentGen && Array.isArray(usersData)) {
+            setUsers(usersData);
+          }
+          return usersData;
+        } catch (uErr) {
+          console.warn("Notice: Primary users fetch notice:", uErr);
+          return [];
+        } finally {
+          // Immediately unblock global loading state as soon as Phase A completes
+          if (isMountedRef.current && loadGenerationRef.current === currentGen) {
+            setLoading(false);
+          }
         }
-      } catch (e) {
-        console.warn("Notice: /api/admin/pending-approvals fallback notice:", e);
-      }
+      })();
 
-      // 3. Fetch Recovery Requests
-      try {
-        const recResult = await fetchAdminRecoveryRequestsApi(token || "");
-        if (recResult?.success && Array.isArray(recResult.requests)) {
-          setRecoveryRequests(recResult.requests);
-        } else if (Array.isArray(recResult?.recoveryRequests)) {
-          setRecoveryRequests(recResult.recoveryRequests);
+      // ==========================================
+      // PHASE B: PARALLEL SECONDARY DATA (Non-blocking)
+      // ==========================================
+      const pendingApprovalsTask = (async () => {
+        try {
+          const res = await authenticatedFetch("/api/admin/pending-approvals");
+          if (res.ok) {
+            const json = await safeJsonResponse(res, "Failed to load approvals");
+            if (!isMountedRef.current || loadGenerationRef.current !== currentGen) return;
+            if (json?.success && Array.isArray(json.pendingUsers)) {
+              setPendingApprovals(json.pendingUsers);
+            } else if (Array.isArray(json?.users)) {
+              setPendingApprovals(json.users);
+            }
+          }
+        } catch (e) {
+          if (!isAbortError(e)) {
+            console.warn("Notice: /api/admin/pending-approvals secondary fetch notice:", e);
+          }
         }
-      } catch (e) {
-        console.warn("Notice: recovery requests notice:", e);
-      }
+      })();
 
-      // 4. Fetch Support Tickets
-      try {
-        const ticketsResult = await fetchSupportTicketsApi(undefined, undefined, true);
-        if (Array.isArray(ticketsResult)) {
-          setSupportTickets(ticketsResult);
-        } else if (ticketsResult && Array.isArray((ticketsResult as any).tickets)) {
-          setSupportTickets((ticketsResult as any).tickets);
+      const recoveryRequestsTask = (async () => {
+        try {
+          const recResult = await fetchAdminRecoveryRequestsApi(token || "");
+          if (!isMountedRef.current || loadGenerationRef.current !== currentGen) return;
+          if (recResult?.success && Array.isArray(recResult.requests)) {
+            setRecoveryRequests(recResult.requests);
+          } else if (Array.isArray(recResult?.recoveryRequests)) {
+            setRecoveryRequests(recResult.recoveryRequests);
+          }
+        } catch (e) {
+          if (!isAbortError(e)) {
+            console.warn("Notice: recovery requests secondary fetch notice:", e);
+          }
         }
-      } catch (e) {
-        console.warn("Notice: support tickets notice:", e);
-      }
+      })();
 
-      // 5. Fetch Subscription Corrections
-      try {
-        const corrRes = await authenticatedFetch("/api/admin/subscription-correction-requests");
-        const corrJson = await safeJsonResponse(corrRes, "Corrections");
-        if (corrJson?.success && Array.isArray(corrJson.requests)) {
-          setSubscriptionCorrections(corrJson.requests);
+      const supportTicketsTask = (async () => {
+        try {
+          const ticketsResult = await fetchSupportTicketsApi(undefined, undefined, true);
+          if (!isMountedRef.current || loadGenerationRef.current !== currentGen) return;
+          if (Array.isArray(ticketsResult)) {
+            setSupportTickets(ticketsResult);
+          } else if (ticketsResult && Array.isArray((ticketsResult as any).tickets)) {
+            setSupportTickets((ticketsResult as any).tickets);
+          }
+        } catch (e) {
+          if (!isAbortError(e)) {
+            console.warn("Notice: support tickets secondary fetch notice:", e);
+          }
         }
-      } catch (e) {
-        console.warn("Notice: corrections notice:", e);
-      }
+      })();
 
-      setIsRealtimeConnected(true);
+      const subscriptionCorrectionsTask = (async () => {
+        try {
+          const corrRes = await authenticatedFetch("/api/admin/subscription-correction-requests");
+          if (corrRes.ok) {
+            const corrJson = await safeJsonResponse(corrRes, "Corrections");
+            if (!isMountedRef.current || loadGenerationRef.current !== currentGen) return;
+            if (corrJson?.success && Array.isArray(corrJson.requests)) {
+              setSubscriptionCorrections(corrJson.requests);
+            }
+          }
+        } catch (e) {
+          if (!isAbortError(e)) {
+            console.warn("Notice: corrections secondary fetch notice:", e);
+          }
+        }
+      })();
+
+      // Execute all independent tasks concurrently via Promise.allSettled
+      await Promise.allSettled([
+        usersTask,
+        pendingApprovalsTask,
+        recoveryRequestsTask,
+        supportTicketsTask,
+        subscriptionCorrectionsTask
+      ]);
+
+      if (isMountedRef.current && loadGenerationRef.current === currentGen) {
+        setIsRealtimeConnected(true);
+      }
     } catch (err: any) {
-      console.error("Admin data loading notice:", err);
-      showToast("error", err?.message || "تعذر مزامنة بعض بيانات الإدارة");
-      setIsRealtimeConnected(false);
+      if (isAbortError(err)) return;
+      console.warn("Admin background sync notice:", err);
+      if (isMountedRef.current && loadGenerationRef.current === currentGen) {
+        setIsRealtimeConnected(false);
+      }
     } finally {
-      setLoading(false);
-      setRefreshing(false);
+      if (isMountedRef.current && loadGenerationRef.current === currentGen) {
+        setLoading(false);
+        setRefreshing(false);
+      }
     }
-  }, []);
+  }, [users.length]);
 
   // Initial Load & Realtime Subscription Setup
   useEffect(() => {

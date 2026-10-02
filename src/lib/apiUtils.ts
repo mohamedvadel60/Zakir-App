@@ -48,13 +48,6 @@ export async function getFreshAuthToken(forceRefresh = false): Promise<string | 
     if (localToken && localToken.trim().length > 0) {
       return localToken.trim();
     }
-    try {
-      const cached = localStorage.getItem("zakir_current_user");
-      if (cached) {
-        const parsed = JSON.parse(cached);
-        if (parsed.id) return parsed.id;
-      }
-    } catch (e) {}
   }
 
   return null;
@@ -140,6 +133,23 @@ function resolveEndpointUrl(url: string): string {
 }
 
 /**
+ * Helper to identify whether an error is caused by an aborted/cancelled request or transition.
+ */
+export function isAbortError(err: any): boolean {
+  if (!err) return false;
+  return (
+    err.name === "AbortError" ||
+    err.code === "ABORT_ERR" ||
+    err.code === 20 ||
+    (typeof err.message === "string" && (
+      err.message.includes("aborted") ||
+      err.message.includes("The user aborted a request") ||
+      err.message.includes("signal is aborted")
+    ))
+  );
+}
+
+/**
  * Standardized authenticated fetch helper that automatically retrieves
  * the current Firebase ID Token or local session token, attaches it in the Authorization header,
  * and seamlessly performs token refresh & retry on 401 errors.
@@ -165,15 +175,6 @@ export async function authenticatedFetch(
     if (localToken && localToken.trim().length > 0) {
       token = localToken.trim();
     }
-    if (!token) {
-      try {
-        const cached = localStorage.getItem("zakir_current_user");
-        if (cached) {
-          const parsed = JSON.parse(cached);
-          if (parsed.id) token = parsed.id;
-        }
-      } catch (e) {}
-    }
   }
 
   if (token && !headers.has("Authorization")) {
@@ -185,12 +186,14 @@ export async function authenticatedFetch(
   const executeFetch = async (retryCount = 0): Promise<Response> => {
     let controller: AbortController | null = null;
     let timeoutId: any = null;
+    let didTimeout = false;
     let effectiveSignal = options.signal;
 
     if (!effectiveSignal && typeof AbortController !== "undefined") {
       controller = new AbortController();
       effectiveSignal = controller.signal;
       timeoutId = setTimeout(() => {
+        didTimeout = true;
         if (controller) {
           controller.abort(new Error("Request timed out after 15 seconds"));
         }
@@ -217,7 +220,8 @@ export async function authenticatedFetch(
             return await fetch(targetUrl, {
               credentials: "include",
               ...options,
-              headers
+              headers,
+              signal: effectiveSignal
             });
           }
         } catch (retryErr) {
@@ -229,7 +233,13 @@ export async function authenticatedFetch(
     } catch (netErr: any) {
       if (timeoutId) clearTimeout(timeoutId);
 
-      const isTimeout = netErr?.name === "AbortError" || (netErr?.message && netErr.message.includes("timed out"));
+      // If this was an external/user cancellation or abort (not our own 15s internal timeout), rethrow AbortError
+      const isExternalAbort = (options.signal && options.signal.aborted) || (isAbortError(netErr) && !didTimeout);
+      if (isExternalAbort) {
+        throw netErr;
+      }
+
+      const isTimeout = didTimeout || (netErr?.name === "AbortError" && netErr?.message?.includes("timed out"));
 
       // Retry once on transient network error (e.g. initial server boot/reconnect) - do not retry if explicitly timed out
       if (!isTimeout && retryCount < 1) {

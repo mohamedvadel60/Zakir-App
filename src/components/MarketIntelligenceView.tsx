@@ -47,6 +47,7 @@ import type {
   MarketStrategicAction,
   MarketDiagnosableItem,
 } from "../types.js";
+import { isAbortError } from "../lib/apiUtils.js";
 
 interface MarketIntelligenceViewProps {
   theme: "dark" | "light";
@@ -218,7 +219,9 @@ export const MarketIntelligenceView: React.FC<MarketIntelligenceViewProps> = ({
           }
         }
       } catch (err) {
-        console.warn("Could not fetch latest market intelligence:", err);
+        if (!isAbortError(err)) {
+          console.warn("Could not fetch latest market intelligence:", err);
+        }
       }
     };
 
@@ -234,7 +237,9 @@ export const MarketIntelligenceView: React.FC<MarketIntelligenceViewProps> = ({
           }
         }
       } catch (err) {
-        console.warn("Could not fetch market intelligence history:", err);
+        if (!isAbortError(err)) {
+          console.warn("Could not fetch market intelligence history:", err);
+        }
       }
     };
 

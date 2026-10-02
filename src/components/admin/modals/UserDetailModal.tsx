@@ -36,6 +36,7 @@ import { safeFormatDateTime, safeFormatDate } from "../../../lib/dateUtils.js";
 import { UserFile } from "../../../types.js";
 import { downloadUserFile, openUserFileInNewTab } from "../../../lib/fileViewerUtils.js";
 import { DocumentPreviewModal } from "../../DocumentPreviewModal.js";
+import { authenticatedFetch, safeJsonResponse } from "../../../lib/apiUtils.js";
 
 interface UserDetailModalProps {
   user: AdminUserRecord | null;
@@ -95,6 +96,43 @@ export const UserDetailModal: React.FC<UserDetailModalProps> = ({
   const [editRole, setEditRole] = useState(user.role || "Contributor");
   const [editAccountStatus, setEditAccountStatus] = useState(full.accountStatus || "VERIFICATION_REQUIRED");
   const [savingProfile, setSavingProfile] = useState(false);
+
+  // On-demand heavy document & file resolution (lazy-loaded only when modal opens)
+  const [onDemandDocs, setOnDemandDocs] = useState<any[] | null>(null);
+  const [onDemandFiles, setOnDemandFiles] = useState<UserFile[] | null>(null);
+  const [loadingOnDemand, setLoadingOnDemand] = useState(false);
+
+  useEffect(() => {
+    if (!isOpen || !user?.id) {
+      setOnDemandDocs(null);
+      setOnDemandFiles(null);
+      return;
+    }
+
+    let isSubscribed = true;
+    (async () => {
+      try {
+        setLoadingOnDemand(true);
+        const res = await authenticatedFetch(`/api/admin/users/${user.id}/documents`);
+        if (res.ok && isSubscribed) {
+          const json = await safeJsonResponse(res);
+          if (json?.success) {
+            if (Array.isArray(json.documents)) setOnDemandDocs(json.documents);
+            if (Array.isArray(json.files)) setOnDemandFiles(json.files);
+          }
+        }
+      } catch (e) {
+        // Silent catch: modal smoothly uses breakdown.documents from user summary
+      } finally {
+        if (isSubscribed) setLoadingOnDemand(false);
+      }
+    })();
+
+    return () => { isSubscribed = false; };
+  }, [isOpen, user?.id]);
+
+  const effectiveDocuments = onDemandDocs || breakdown.documents || [];
+  const effectiveFiles = onDemandFiles || user.files || [];
 
   // Sync state when user changes
   useEffect(() => {
@@ -531,8 +569,8 @@ export const UserDetailModal: React.FC<UserDetailModalProps> = ({
 
               {/* List of Attached Documents */}
               <div className="space-y-2">
-                {breakdown.documents.length > 0 ? (
-                  breakdown.documents.map((doc: any, idx: number) => {
+                {effectiveDocuments.length > 0 ? (
+                  effectiveDocuments.map((doc: any, idx: number) => {
                     const docName = doc.fileName || doc.name || `Document #${idx + 1}`;
                     const docStatus = String(doc.status || doc.verificationStatus || "PENDING").toUpperCase();
 
@@ -995,7 +1033,7 @@ export const UserDetailModal: React.FC<UserDetailModalProps> = ({
           {/* TAB 4: FILES */}
           {modalTab === "files" && (
             <div className="space-y-2.5">
-              {(user.files || []).map((file, idx) => (
+              {effectiveFiles.map((file, idx) => (
                 <div
                   key={file.id || idx}
                   className="p-3 rounded-xl border border-slate-200 dark:border-slate-800 flex items-center justify-between hover:bg-slate-50 dark:hover:bg-slate-900/50 transition-colors text-xs"

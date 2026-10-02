@@ -100,7 +100,7 @@ export const DocumentVerificationView: React.FC<DocumentVerificationViewProps> =
   const [uploadError, setUploadError] = useState<string>("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string>("");
-  const [previewDoc, setPreviewDoc] = useState<{ id: string; name: string; category?: string } | null>(null);
+  const [previewDoc, setPreviewDoc] = useState<{ id: string; name: string; category?: string; fileUrl?: string } | null>(null);
 
   // Hidden File Inputs
   const personalFileInputRef = useRef<HTMLInputElement>(null);
@@ -630,12 +630,13 @@ export const DocumentVerificationView: React.FC<DocumentVerificationViewProps> =
                             type="button"
                             onClick={() =>
                               setPreviewDoc({
-                                id: doc.documentId || docKey,
+                                id: doc.documentId || (doc as any).id || doc.storageReference || (doc as any).storagePath || doc.fileName || docKey,
                                 name: doc.fileName,
                                 category: doc.category,
+                                fileUrl: (doc as any).fileUrl || (doc as any).url || (doc as any).previewUrl,
                               })
                             }
-                            className="p-1.5 text-slate-500 hover:text-[#0075DE] transition-colors"
+                            className="p-1.5 text-slate-500 hover:text-[#0075DE] transition-colors cursor-pointer"
                             title={isAr ? "معاينة الوثيقة" : "Preview"}
                           >
                             <Eye className="w-4 h-4" />
@@ -859,12 +860,13 @@ export const DocumentVerificationView: React.FC<DocumentVerificationViewProps> =
                                     type="button"
                                     onClick={() =>
                                       setPreviewDoc({
-                                        id: doc.documentId || docKey,
+                                        id: doc.documentId || (doc as any).id || doc.storageReference || (doc as any).storagePath || doc.fileName || docKey,
                                         name: doc.fileName,
                                         category: doc.category,
+                                        fileUrl: (doc as any).fileUrl || (doc as any).url || (doc as any).previewUrl,
                                       })
                                     }
-                                    className="p-1.5 text-slate-500 hover:text-[#0075DE] transition-colors"
+                                    className="p-1.5 text-slate-500 hover:text-[#0075DE] transition-colors cursor-pointer"
                                     title={isAr ? "معاينة الوثيقة" : "Preview"}
                                   >
                                     <Eye className="w-4 h-4" />
@@ -940,6 +942,7 @@ export const DocumentVerificationView: React.FC<DocumentVerificationViewProps> =
         documentId={previewDoc?.id || null}
         fileName={previewDoc?.name}
         category={previewDoc?.category}
+        fileUrl={previewDoc?.fileUrl}
         isOpen={Boolean(previewDoc)}
         onClose={() => setPreviewDoc(null)}
         lang={lang}

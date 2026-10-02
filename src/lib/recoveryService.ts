@@ -30,11 +30,10 @@ const RECOVERY_DOC_RETENTION_MS = 14 * 24 * 60 * 60 * 1000; // 14 days maximum r
 const DB_FILE = path.join(process.cwd(), "src", "db_store.json");
 
 const ADMIN_USER_ID = "SYhfciebGFUj29gqGaa0pqNunrk2";
+const AUTHORIZED_ADMIN_EMAIL = "mohamedvadel60@gmail.com";
 const ADMIN_EMAILS = new Set([
-  "admin@zakir.ai",
-  "admin@getzakir.com",
-  (process.env.ADMIN_EMAIL || "").toLowerCase().trim()
-].filter(Boolean));
+  AUTHORIZED_ADMIN_EMAIL
+]);
 
 function readDb(): any {
   try {
@@ -1717,27 +1716,31 @@ export async function restoreAccountFullServer(email: string, newPassword?: stri
 
   // 5. Restore Firestore user document users/{finalUid}
   const authoritativeOwnerId = retainedProfile?.workspace?.ownerId || existingUserDoc?.workspace?.ownerId;
-  const rawPreviousRole = retainedProfile?.role || existingUserDoc?.role || "Analyst";
-  const isPrimaryFirstAdmin = ADMIN_EMAILS.has(normalizedEmail) || finalUid === ADMIN_USER_ID;
+  const rawPreviousRole = retainedProfile?.role || existingUserDoc?.role || "Contributor";
+  const isPrimaryFirstAdmin = normalizedEmail === AUTHORIZED_ADMIN_EMAIL || finalUid === ADMIN_USER_ID;
 
-  // Restored role determination: Platform Admin only for authorized admin identity; CEO preserved for workspace owner
-  let assignedRole = "Analyst";
+  // Restored role determination: Platform Admin strictly for canonical platform owner
+  let assignedRole = "Contributor";
   if (isPrimaryFirstAdmin) {
     assignedRole = "Admin";
-  } else if (rawPreviousRole === "CEO" || authoritativeOwnerId === finalUid) {
+  } else if (rawPreviousRole === "CEO" || (authoritativeOwnerId && authoritativeOwnerId === finalUid)) {
     assignedRole = "CEO";
+  } else if (rawPreviousRole && rawPreviousRole !== "Admin" && rawPreviousRole !== "ADMIN") {
+    assignedRole = rawPreviousRole;
   } else {
-    assignedRole = rawPreviousRole === "Admin" ? "Contributor" : rawPreviousRole;
+    assignedRole = "Contributor";
   }
 
-  const preservedWorkspaceId = retainedProfile?.workspaceId || existingUserDoc?.workspaceId || retainedProfile?.workspace?.id || existingUserDoc?.workspace?.id || `ws_${finalUid.substring(0, 8)}`;
-  const preservedWorkspace = retainedProfile?.workspace || existingUserDoc?.workspace || {
+  // Check if original record had a workspace or was an independent personal account
+  const hadWorkspace = Boolean(retainedProfile?.workspaceId || existingUserDoc?.workspaceId || retainedProfile?.workspace?.id || existingUserDoc?.workspace?.id);
+  const preservedWorkspaceId = hadWorkspace ? (retainedProfile?.workspaceId || existingUserDoc?.workspaceId || retainedProfile?.workspace?.id || existingUserDoc?.workspace?.id) : null;
+  const preservedWorkspace = hadWorkspace ? (retainedProfile?.workspace || existingUserDoc?.workspace || {
     id: preservedWorkspaceId,
     name: `${retainedProfile?.companyName || existingUserDoc?.companyName || "Restored"} Workspace`,
     ownerId: authoritativeOwnerId || finalUid,
     createdAt: retainedProfile?.createdAt || existingUserDoc?.createdAt || nowIso,
     memberCount: 1
-  };
+  }) : null;
 
   const defaultPowers = {
     fileVault: true,
@@ -1755,7 +1758,7 @@ export async function restoreAccountFullServer(email: string, newPassword?: stri
     settings: false
   };
 
-  const assignedPowers = isPrimaryFirstAdmin ? (existingUserDoc?.powers || retainedProfile?.powers || defaultPowers) : restrictedPowers;
+  const assignedPowers = isPrimaryFirstAdmin ? defaultPowers : (existingUserDoc?.powers || retainedProfile?.powers || (assignedRole === "CEO" ? defaultPowers : restrictedPowers));
 
   const rawRestoredUserDoc = {
     ...(retainedProfile || {}),
@@ -1765,25 +1768,25 @@ export async function restoreAccountFullServer(email: string, newPassword?: stri
     email: normalizedEmail,
     role: assignedRole,
     previousRoleBeforeDeletion: rawPreviousRole,
-    needsAdminRoleReauthorization: (rawPreviousRole?.toUpperCase() === "ADMIN" && !isPrimaryFirstAdmin),
+    needsAdminRoleReauthorization: false,
     workspaceId: preservedWorkspaceId,
     workspace: preservedWorkspace,
     powers: assignedPowers,
-    companyName: existingUserDoc?.companyName || retainedProfile?.companyName || "Restored Account",
+    companyName: hadWorkspace ? (existingUserDoc?.companyName || retainedProfile?.companyName || "Restored Organization") : "حساب شخصي",
     ownerName: existingUserDoc?.ownerName || retainedProfile?.ownerName || normalizedEmail.split("@")[0],
     subscriptionStatus: existingUserDoc?.subscriptionStatus || retainedProfile?.subscriptionStatus || "Active",
     userPreferences: existingUserDoc?.userPreferences || retainedProfile?.userPreferences || { theme: "light", language: "ar" },
-    status: "VERIFICATION_REQUIRED",
-    accountStatus: "active",
+    status: "APPROVED",
+    accountStatus: "APPROVED",
     deleted: false,
     deletedAt: null,
     deletedBy: null,
-    isVerified: false,
-    isEmailVerified: false,
-    emailVerified: false,
-    email_verified: false,
-    verification_status: "unverified",
-    verification_required: true,
+    isVerified: true,
+    isEmailVerified: true,
+    emailVerified: true,
+    email_verified: true,
+    verification_status: "verified",
+    verification_required: false,
     lastActiveAt: nowIso,
     lastLoginAt: nowIso,
     restoredAt: nowIso

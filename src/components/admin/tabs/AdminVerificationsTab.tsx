@@ -82,7 +82,7 @@ export const AdminVerificationsTab: React.FC<AdminVerificationsTabProps> = ({
   };
 
   const handleOpenDocPreview = (doc: any) => {
-    const docId = doc.documentId || doc.id || doc.storageReference || doc.fileName;
+    const docId = doc.documentId || doc.id || doc.fileId || doc.storageReference || doc.storagePath || doc.fileName;
     setSelectedDocId(docId);
     setSelectedDocName(doc.fileName || doc.name || "Verification Document");
     setSelectedDocUrl(doc.fileUrl || doc.url || doc.previewUrl || undefined);
