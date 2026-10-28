@@ -25615,18 +25615,14 @@ const handleSmartEvolution = async (
 
     let response: any = null;
     const fallbackModels = [
-      "gemini-3.5-flash",
-      "gemini-3.5-flash-lite",
-      "gemini-flash-lite-latest",
-      "gemini-3.7-flash",
-      "gemini-3.1-flash-lite",
       "gemini-3.8-flash",
+      "gemini-3.1-flash-lite",
     ];
     let searchToolFailed = false;
 
     for (let i = 0; i < fallbackModels.length; i++) {
 
-      // Try with Google Search tool first
+      // Try with Google Search tool first (without invalid responseMimeType when tool is enabled)
       if (!searchToolFailed) {
         try {
           response = await ai.models.generateContent({
@@ -25643,7 +25639,6 @@ const handleSmartEvolution = async (
             ],
             config: {
               systemInstruction: systemInstruction,
-              responseMimeType: "application/json",
               temperature: 0.35,
               tools: [{ googleSearch: {} }],
             },

@@ -507,15 +507,12 @@ export const handleRunSmartEvolution = async (req: Request, res: Response) => {
 }`;
 
         const candidateModels = [
-          "gemini-2.5-flash",
-          "gemini-2.0-flash",
-          "gemini-1.5-flash",
+          "gemini-3.8-flash",
+          "gemini-3.1-flash-lite",
         ];
 
-        for (const mName of candidateModels) {
-          let response: any = null;
-
-          for (let attempt = 0; attempt < 3; attempt++) {
+        const callPromise = (async () => {
+          for (const mName of candidateModels) {
             try {
               const genConfigPure: any = {
                 systemInstruction: systemInstruction,
@@ -523,7 +520,7 @@ export const handleRunSmartEvolution = async (req: Request, res: Response) => {
                 temperature: 0.3,
               };
 
-              response = await ai.models.generateContent({
+              const resp = await ai.models.generateContent({
                 model: mName,
                 contents: [
                   {
@@ -537,21 +534,24 @@ export const handleRunSmartEvolution = async (req: Request, res: Response) => {
                 ],
                 config: genConfigPure,
               });
-            } catch (pureErr: any) {
-              console.warn(`[SmartEvolution] Model ${mName} unavailable/exhausted:`, pureErr?.message || pureErr);
-              handleGeminiError(pureErr);
-              const is429 = pureErr?.status === "RESOURCE_EXHAUSTED" || String(pureErr?.message || "").includes("429");
-              if (is429) {
-                break;
-              }
-              if (attempt < 2) {
-                await new Promise((r) => setTimeout(r, 600 * (attempt + 1)));
-                continue;
-              }
-            }
 
-            if (response?.text) break;
+              if (resp?.text) return resp;
+            } catch (pureErr: any) {
+              console.warn(`[SmartEvolution] Model ${mName} call failed:`, pureErr?.message || pureErr);
+              handleGeminiError(pureErr);
+              break;
+            }
           }
+          return null;
+        })();
+
+        let timer: any = null;
+        const timeoutPromise = new Promise<null>((resolve) => {
+          timer = setTimeout(() => resolve(null), 4000);
+        });
+
+        const response: any = await Promise.race([callPromise, timeoutPromise]);
+        if (timer) clearTimeout(timer);
 
           if (response?.text) {
             geminiResult = safeJsonParse(response.text, {
@@ -583,9 +583,7 @@ export const handleRunSmartEvolution = async (req: Request, res: Response) => {
             }
 
             geminiSucceeded = true;
-            break;
           }
-        }
       } catch (err: any) {
         console.warn("Smart evolution AI call exception:", err?.message || err);
       }

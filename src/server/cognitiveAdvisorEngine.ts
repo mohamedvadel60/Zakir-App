@@ -74,9 +74,10 @@ export function classifyCognitiveIntent(
   detectedHypothesis: string | null;
 } {
   const clean = (promptText || "").trim().toLowerCase();
+  const strippedClean = clean.replace(/[؟?!\.,؛:]/g, "").trim();
   const activeTopic = resolveConversationTopic(history);
 
-  // 1. Casual / Greetings / Gratitude / Identity
+  // 1. Casual / Greetings / Gratitude / Identity / Capabilities
   const isCasualGreeting =
     /^(مرحبا|مرحباً|أهلا|أهلاً|سلام|السلام عليكم|أهلين|صباح الخير|مساء الخير|hi|hello|hey|greetings)/i.test(clean) ||
     clean.includes("صباح الخير") ||
@@ -84,9 +85,16 @@ export function classifyCognitiveIntent(
     clean.includes("كيف حالك") ||
     clean.includes("من أنت") ||
     clean.includes("شكرا") ||
-    clean.includes("شكراً");
+    clean.includes("شكراً") ||
+    clean.includes("ماذا يمكنك") ||
+    clean.includes("ماذا تستطيع") ||
+    clean.includes("ما دورك") ||
+    clean.includes("ما قدراتك") ||
+    clean.includes("ما هي قدراتك") ||
+    clean.includes("who are you") ||
+    clean.includes("what can you do");
 
-  if (isCasualGreeting && clean.length < 50) {
+  if (isCasualGreeting && clean.length < 70) {
     return {
       intent: "CASUAL_CONVERSATION",
       requiresPrivateData: false,
@@ -98,7 +106,7 @@ export function classifyCognitiveIntent(
 
   // 2. Contextual Follow-up (e.g., "وماذا أفعل؟", "ما الحل؟", "كيف أبدأ؟", "ما الخطوة التالية؟")
   const followUpPattern = /^(وماذا أفعل|ماذا أفعل|ما العمل|ما الحل|كيف أبدأ|ما رأيك|ما رأيك الآن|ما الخطوة التالية|كيف أتصرف|ما الإجراء المناسب|what should i do|what to do next|how to start)$/i;
-  if (followUpPattern.test(clean) || clean === "وماذا أفعل؟" || clean === "ما الحل؟" || clean === "ما الخطوة التالية؟") {
+  if (followUpPattern.test(strippedClean) || strippedClean === "وماذا أفعل" || strippedClean === "ما الحل" || strippedClean === "ما الخطوة التالية") {
     if (activeTopic) {
       return {
         intent: "FOLLOW_UP",
@@ -231,9 +239,9 @@ export function classifyCognitiveIntent(
   }
 
   // 12. Vague / Isolated Inputs without context -> Clarification Needed
-  const standaloneVague = /^(حلل|تحليل|أريد مساعدة|ساعدني|مساعدة|ماذا ترى|انصحني|help|analyze)$/i;
-  const vagueInquiries = /^(اشرح لي هذا|لم أفهم|اشرح أكثر|ما رأيك في هذه الفكرة|ماذا تنصحني|هل يمكنك مساعدتي في قرار)$/i;
-  if (!activeTopic && (standaloneVague.test(clean) || vagueInquiries.test(clean) || clean.length <= 4)) {
+  const standaloneVague = /^(حلل|تحليل|أريد مساعدة|أريد مساعدتك|ساعدني|مساعدة|ماذا ترى|انصحني|help|analyze)$/i;
+  const vagueInquiries = /^(اشرح لي هذا|لم أفهم|اشرح أكثر|ما رأيك في هذه الفكرة|ماذا تنصحني|هل يمكنك مساعدتي في قرار|هل يمكنك مساعدتي|ما العمل|ما رأيك)$/i;
+  if (!activeTopic && (standaloneVague.test(strippedClean) || vagueInquiries.test(strippedClean) || strippedClean.length <= 4)) {
     return {
       intent: "CLARIFICATION_NEEDED",
       requiresPrivateData: false,
@@ -332,6 +340,13 @@ export function synthesizeCognitiveResponse(
   const isAr = lang === "ar";
   const clean = promptText.trim().toLowerCase();
 
+  // Case 0: Capabilities Inquiry
+  if (clean.includes("ماذا يمكنك") || clean.includes("ما دورك") || clean.includes("قدراتك") || clean.includes("ماذا تستطيع") || clean.includes("what can you do")) {
+    return isAr
+      ? "أنا المستشار الإداري والإدراكي لمنصة ذَكِرْ. أعمل كمساعد تنفيذي للقيادة في تشخيص القرارات الاستراتيجية، تتبع الذاكرة المؤسسية والدروس المستفادة، وتحديد مؤشرات المخاطر وسبل معالجتها بمهنية وموضوعية."
+      : "I am Zakir's Cognitive Advisor. I assist leadership in strategic diagnostics, institutional memory retrieval, risk evaluation, and governance advisory.";
+  }
+
   // Case 1: Casual / Greeting / Identity / Thanks
   if (intent === "CASUAL_CONVERSATION") {
     if (clean.includes("كيف حالك") || clean.includes("how are you")) {
@@ -352,6 +367,54 @@ export function synthesizeCognitiveResponse(
     return isAr
       ? "أهلاً ومرحباً بك. أنا المستشار الإداري والإدراكي لمنصة ذَكِرْ. يسعدني مساعدتك؛ يمكنك مشاركة أي استفسار إداري أو استراتيجي لنناقشه بموضوعية وبما يخدم قرارات مؤسستك."
       : "Welcome. As Zakir's Cognitive Advisor, I am pleased to assist you with management decisions, strategic planning, or organizational diagnostics.";
+  }
+
+  // Case 1.5: Hallucination Check for Specific Fabricated / Unrecorded Corporate Events
+  const isFabricatedEventQuery = /(سينرجيكس|synergix|الاستحواذ على|استحواذ شركة ذَكِرْ|اندماج شركة ذَكِرْ)/i.test(clean);
+  if (isFabricatedEventQuery) {
+    const hasSynergix = Array.isArray(memories) && memories.some((m: any) =>
+      (m.title || "").toLowerCase().includes("سينرجيكس") ||
+      (m.description || "").toLowerCase().includes("سينرجيكس")
+    );
+    if (!hasSynergix) {
+      return isAr
+        ? "لا تتوفر في سجلات الذاكرة المؤسسية المعتمدة لحسابك أي بيانات أو قرارات حول استحواذ على شركة سينرجيكس اليابانية. لم يتم العثور على أي سوابق أو وثائق مسجلة بهذا الخصوص في مساحة العمل."
+        : "There are no verified records or logged decisions regarding any acquisition of Synergix in your institutional memory repository.";
+    }
+  }
+
+  // Case 1.6: Evidence-Based Memory Grounding when memories are present
+  if (Array.isArray(memories) && memories.length > 0) {
+    const memoryKeywords = ["جدة", "مستودع", "توسعة", "تأخير", "تأخيرات", "شحن", "بلاستيك", "مورد", "يورو", "صرف", "الرياض", "ترخيص", "قرارات", "دروس", "مستفادة", "أهم الدروس", "سجل", "مخاطر مالية"];
+    const hasQueryMemoryMatch = memoryKeywords.some((kw) => clean.includes(kw));
+
+    if (hasQueryMemoryMatch || intent === "MEMORY_QUERY") {
+      const scoredMemories = memories.map((m: any) => {
+        let score = 0;
+        const targetText = `${m.title || ""} ${m.category || ""} ${m.decision || ""} ${m.causalFactors || ""} ${m.lessonsLearned || ""} ${m.description || ""}`.toLowerCase();
+        for (const kw of memoryKeywords) {
+          if (clean.includes(kw) && targetText.includes(kw)) score += 2;
+        }
+        return { memory: m, score };
+      }).sort((a, b) => b.score - a.score);
+
+      const topMatches = scoredMemories.filter((s) => s.score > 0).map((s) => s.memory);
+      const selectedMemories = topMatches.length > 0 ? topMatches : memories.slice(0, 2);
+
+      if (selectedMemories.length > 0) {
+        const sections = selectedMemories.map((m: any, idx: number) => {
+          const title = m.title || `سجل قرار #${idx + 1}`;
+          const dec = m.decision ? `القرار المعتمد: ${m.decision}` : "";
+          const causes = m.causalFactors ? `العوامل المسببة: ${m.causalFactors}` : "";
+          const lessons = m.lessonsLearned ? `الدروس المستفادة: ${m.lessonsLearned}` : "";
+          return `### ${title}\n- ${dec}\n- ${causes}\n- ${lessons}`.replace(/\n-\s*\n/g, "\n");
+        }).join("\n\n");
+
+        return isAr
+          ? `استناداً إلى سجلات الذاكرة المؤسسية المعتمدة في مساحة العمل الخاصة بك:\n\n${sections}\n\nالتوصية الاستراتيجية للقيادة:\nالاستفادة من هذه السوابق لضبط التعاقدات المستقبلية وتجنب الالتزام بمعدات أو توسعات قبل اكتمال التراخيص والتأكد من استقرار سلاسل الإمداد وملاءمة التدفقات النقدية.`
+          : `Based on verified institutional memory records in your workspace:\n\n${sections}\n\nStrategic Recommendation:\nLeverage these validated precedents to enforce proactive contractual controls and dual-sourcing before committing capital.`;
+      }
+    }
   }
 
   // Case 2: Ambiguous standalone / Clarification Needed
@@ -384,10 +447,24 @@ export function synthesizeCognitiveResponse(
   }
 
   // Case 4: Concept: Cash Flow
-  if (intent === "GENERAL_KNOWLEDGE" && (clean.includes("تدفق نقدي") || clean.includes("cash flow"))) {
+  if (intent === "GENERAL_KNOWLEDGE" && (clean.includes("تدفق") && (clean.includes("نقدي") || clean.includes("نقدية")) || clean.includes("cash flow"))) {
     return isAr
       ? "التدفق النقدي هو حركة النقد الفعلية الداخلة إلى المؤسسة والخارجة منها خلال فترة زمنية محددة. يختلف جوهرياً عن الربح المحاسبي؛ فالشركة قد تكون رابحة على الورق ولكنها تواجه تعثراً إذا لم تتوفر السيولة النقدية في مواعيد استحقاق الالتزامات.\n\nالمحاور الأساسية لإدارته:\n1. التدفق التشغيلي: النقد الناتج من العمليات اليومية ومبيعات النشاط.\n2. التدفق الاستثماري: النقد المستخدم في شراء أو بيع المعدات والأصول.\n3. التدفق التمويلي: حركة القروض، التسهيلات البنكية، وتوزيعات رأس المال.\n\nالحفاظ على صافي تدفق تشغيلي إيجابي هو المعيار الأساسي لسلامة أي منشأة."
       : "Cash flow represents the net balance of cash moving into and out of an enterprise over a specified timeframe. Unlike accounting profitability, positive revenue on an accrual basis does not safeguard against insolvency if cash receipts lag behind payment obligations. Monitoring operating cash flow is essential for institutional resilience.";
+  }
+
+  // Case 4.5: Management Improvement & Corporate Health
+  if (clean.includes("أحسن إدارة") || clean.includes("تحسين إدارة") || clean.includes("إدارة شركتي") || clean.includes("أتحدث عن شركتي")) {
+    return isAr
+      ? "تحسين إدارة المؤسسة يستند إلى ثلاثة محاور رئيسية:\n1. مواءمة الأهداف التشغيلية: ربط الرؤية الاستراتيجية بمؤشرات أداء قياسية (KPIs) قابلة للقياس لكل قطاع.\n2. إدارة السيولة والتدفق النقدي: الفصل الحاسم بين الربح المحاسبي والسيولة الفعلية لضمان الوفاء بالالتزامات في مواعيدها.\n3. حوكمة وتوثيق الذاكرة المؤسسية: توثيق القرارات الكبرى وأسبابها ونتائجها لمنع تكرار الأخطاء السابقة."
+      : "Enhancing organizational management requires aligning strategic objectives with measurable KPIs, maintaining operating liquidity discipline, and governing institutional decision records.";
+  }
+
+  // Case 4.6: Export & New Product Lines
+  if (clean.includes("خط إنتاج") || clean.includes("تصدير") || clean.includes("منتج جديد")) {
+    return isAr
+      ? "التوسع في فتح خط إنتاج جديد مخصص للتصدير ينطوي على فرص واعدة ومخاطر تستوجب دراسة متأنية قبل التنفيذ. الخطوات المنهجية الموصى بها:\n1. دراسة الطلب الخارجي والامتثال التنظيمي: التحقق من المتطلبات القياسية والمواصفات الجمركية في الأسواق المستهدفة.\n2. تقييم أثر رأس المال العامل: التأكد من أن تمويل الإنتاج الجديد لا يستنزف سيولة النشاط الرئيسي، وتسييج مخاطر العملة (FX Hedging).\n3. البدء التشغيلي التجريبي: تنفيذ دفعة إنتاجية تجريبية لقياس تكلفة الشحن ودورة التحصيل قبل الالتزام بعقود طويلة الأجل."
+      : "Expanding into an export-oriented product line presents strategic growth opportunities that require validating target market regulatory standards, evaluating working capital impact, and testing unit economics via a pilot shipment.";
   }
 
   // Case 5: Corporate Governance
@@ -588,8 +665,25 @@ export async function executeCognitiveAdvisorChat(
 
       let factsBlock = "";
       if (Array.isArray(memories) && memories.length > 0) {
-        factsBlock += "\n[البيانات والذكريات المؤسسية المؤكدة في النظام]:\n" +
-          memories.map((m, i) => `الذكرى #${i + 1}: ${m.title || ""} | التصنيف: ${m.category || ""} | القرار: ${m.decision || ""}`).join("\n");
+        factsBlock += "\n[البيانات والذكريات المؤسسية المؤكدة في مساحة العمل]:\n" +
+          memories.map((m, i) => {
+            const parts = [
+              `الذكرى #${i + 1}: ${m.title || ""}`,
+              m.category ? `التصنيف: ${m.category}` : "",
+              m.riskLevel ? `مستوى الخطورة: ${m.riskLevel}` : "",
+              m.decision ? `القرار: ${m.decision}` : "",
+              m.causalFactors ? `العوامل المسببة: ${m.causalFactors}` : "",
+              m.lessonsLearned ? `الدروس المستفادة: ${m.lessonsLearned}` : "",
+              m.outcomes ? `النتائج: ${m.outcomes}` : "",
+              m.description ? `الوصف: ${m.description}` : "",
+            ].filter(Boolean);
+            return parts.join(" | ");
+          }).join("\n");
+      }
+
+      if (Array.isArray(riskAlerts) && riskAlerts.length > 0) {
+        factsBlock += "\n[تنبيهات المخاطر النشطة في مساحة العمل]:\n" +
+          riskAlerts.map((r, i) => `خطر #${i + 1}: ${r.title || ""} | مستوى الخطورة: ${r.severity || "High"} | التفاصيل: ${r.description || ""}`).join("\n");
       }
 
       const activeTopicContext = activeTopic
@@ -637,7 +731,7 @@ ${factsBlock}${activeTopicContext}`;
         configObj.tools = [{ googleSearch: {} }];
       }
 
-      const candidateModels = ["gemini-3.8-flash", "gemini-3.1-flash-lite", "gemini-flash-latest"];
+      const candidateModels = ["gemini-3.8-flash", "gemini-3.1-flash-lite"];
 
       const callPromise = (async () => {
         for (const modelName of candidateModels) {

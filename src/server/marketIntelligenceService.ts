@@ -1111,52 +1111,64 @@ ${internalEvidenceSummary || "لا توجد سجلات داخلية مسجلة �
   const candidateModels = [
     "gemini-3.8-flash",
     "gemini-3.1-flash-lite",
-    "gemini-flash-latest",
   ];
   let searchToolFailed = false;
 
-  for (const modelName of candidateModels) {
-    let response: any = null;
+  const callPromise = (async () => {
+    for (const modelName of candidateModels) {
+      let resp: any = null;
 
-    // Real Search Grounding attempt
-    if (classification.needsExternalSearch && !searchToolFailed) {
-      try {
-        const configObjWithSearch: any = {
-          temperature: 0.3,
-          responseMimeType: "application/json",
-          tools: [{ googleSearch: {} }],
-        };
+      // Real Search Grounding attempt (without illegal responseMimeType when tool is enabled)
+      if (classification.needsExternalSearch && !searchToolFailed) {
+        try {
+          const configObjWithSearch: any = {
+            temperature: 0.3,
+            tools: [{ googleSearch: {} }],
+          };
 
-        response = await client.models.generateContent({
-          model: modelName,
-          contents: [{ role: "user", parts: [{ text: prompt }] }],
-          config: configObjWithSearch,
-        });
-      } catch (searchErr: any) {
-        console.warn(`[MarketIntelligence] Search tool failed for model ${modelName}:`, searchErr?.message || searchErr);
-        searchToolFailed = true;
+          resp = await client.models.generateContent({
+            model: modelName,
+            contents: [{ role: "user", parts: [{ text: prompt }] }],
+            config: configObjWithSearch,
+          });
+        } catch (searchErr: any) {
+          console.warn(`[MarketIntelligence] Search tool failed for model ${modelName}:`, searchErr?.message || searchErr);
+          searchToolFailed = true;
+        }
       }
-    }
 
-    // Pure Gemini attempt if search was not requested or search tool failed
-    if (!response) {
-      try {
-        const configObjPure: any = {
-          temperature: 0.3,
-          responseMimeType: "application/json",
-        };
+      // Pure Gemini attempt if search was not requested or search tool failed
+      if (!resp) {
+        try {
+          const configObjPure: any = {
+            temperature: 0.3,
+            responseMimeType: "application/json",
+          };
 
-        response = await client.models.generateContent({
-          model: modelName,
-          contents: [{ role: "user", parts: [{ text: prompt }] }],
-          config: configObjPure,
-        });
-      } catch (pureErr: any) {
-        console.warn(`[MarketIntelligence] Pure Gemini call failed for model ${modelName}:`, pureErr?.message || pureErr);
-        handleGeminiError(pureErr);
-        continue;
+          resp = await client.models.generateContent({
+            model: modelName,
+            contents: [{ role: "user", parts: [{ text: prompt }] }],
+            config: configObjPure,
+          });
+        } catch (pureErr: any) {
+          console.warn(`[MarketIntelligence] Pure Gemini call failed for model ${modelName}:`, pureErr?.message || pureErr);
+          handleGeminiError(pureErr);
+          break;
+        }
       }
+
+      if (resp?.text) return resp;
     }
+    return null;
+  })();
+
+  let timer: any = null;
+  const timeoutPromise = new Promise<null>((resolve) => {
+    timer = setTimeout(() => resolve(null), 4000);
+  });
+
+  const response: any = await Promise.race([callPromise, timeoutPromise]);
+  if (timer) clearTimeout(timer);
 
     if (response && response.text) {
         const cleanText = response.text
@@ -1250,7 +1262,6 @@ ${internalEvidenceSummary || "لا توجد سجلات داخلية مسجلة �
           };
         }
       }
-  }
 
   return null;
 }

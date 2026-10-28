@@ -379,14 +379,15 @@ export async function isUserAdminServer(uid: string, email?: string): Promise<bo
   if (!uid && !email) return false;
 
   const directEmail = (email || "").trim().toLowerCase();
+  const isAdminEmail = directEmail === AUTHORIZED_ADMIN_EMAIL || (uid === ADMIN_USER_ID && directEmail === "admin@zakir.ai");
 
-  // Primary Rule: If email is provided and it is NOT the canonical admin email, strictly DENY.
-  if (directEmail && directEmail !== AUTHORIZED_ADMIN_EMAIL) {
+  // Primary Rule: If email is provided and it is NOT an authorized admin email, strictly DENY.
+  if (directEmail && !isAdminEmail) {
     return false;
   }
 
-  // If email IS provided and equals AUTHORIZED_ADMIN_EMAIL:
-  if (directEmail === AUTHORIZED_ADMIN_EMAIL) {
+  // If email IS provided and equals an authorized admin email:
+  if (isAdminEmail) {
     // If UID is also supplied, verify that it does not belong to a mismatched account
     if (uid) {
       if (uid === ADMIN_USER_ID || ADMIN_UIDS.has(uid)) {
